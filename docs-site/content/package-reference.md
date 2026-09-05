@@ -64,7 +64,8 @@ Provider-neutral AI tool documents, bounded chat orchestration, shared tool invo
 - **Engines:**
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
-- **Facade exposure:** None.
+- **Facade exposure:**
+  - `zmdb/llm`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/ai-anthropic`
@@ -167,6 +168,7 @@ Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/ran
   - `validate`
   - `validateShallow`
   - `zmdb/unplugin`
+  - `zmdb/validator`
 - **External proof:** fixtures/consumer-metro
 
 ### `@zmdb/app`
@@ -347,6 +349,7 @@ SQL-first, dialect-aware query compiler with catalog introspection, declaration 
   - `sanitizeKeys`
   - `serializeComment`
   - `withComments`
+  - `zmdb/query`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/react`
@@ -412,6 +415,11 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `markTransactionClosed`
   - `zmdb/drivers/mssql`
   - `zmdb/drivers/pg`
+  - `zmdb/entity-modeling`
+  - `zmdb/integrations`
+  - `zmdb/replicas`
+  - `zmdb/seeding`
+  - `zmdb/transactions`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/schema-core`
@@ -456,9 +464,11 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `defineStateTransitions`
   - `schemaOf`
   - `toJsonSchema`
+  - `zmdb/custom-types`
   - `zmdb/derive`
   - `zmdb/dto`
   - `zmdb/ir`
+  - `zmdb/openapi`
   - `zmdb/relations`
   - `zmdb/tags`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
@@ -610,15 +620,25 @@ at compile time.
   - `.` → `./src/index.ts`
   - `./cli` → `./src/cli/index.ts`
   - `./config` → `./src/config/index.ts`
+  - `./custom-types` → `./src/custom-types.ts`
   - `./derive` → `./src/derive.ts`
   - `./drivers/mssql` → `./src/drivers-mssql.ts`
   - `./drivers/pg` → `./src/drivers-pg.ts`
   - `./drivers/sqlite` → `./src/drivers-sqlite.ts`
   - `./dto` → `./src/dto.ts`
+  - `./entity-modeling` → `./src/entity-modeling.ts`
+  - `./integrations` → `./src/integrations.ts`
   - `./ir` → `./src/ir.ts`
+  - `./llm` → `./src/llm.ts`
+  - `./openapi` → `./src/openapi.ts`
+  - `./query` → `./src/query.ts`
   - `./relations` → `./src/relations.ts`
+  - `./replicas` → `./src/replicas.ts`
+  - `./seeding` → `./src/seeding.ts`
   - `./tags` → `./src/tags.ts`
+  - `./transactions` → `./src/transactions.ts`
   - `./unplugin` → `./src/unplugin.ts`
+  - `./validator` → `./src/validator.ts`
   - `./web` → `./src/web.ts`
   - `./web/contract` → `./src/web-contract.ts`
   - `./web/contract/compiler` → `./src/web-contract-compiler.ts`
