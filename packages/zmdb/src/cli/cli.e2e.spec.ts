@@ -117,7 +117,7 @@ function copyProject(): Project {
 }
 
 function run(project: Project, ...argv: readonly string[]): Run {
-  const result = spawnSync(process.execPath, ['--import', project.hook, BIN, ...argv], {
+  const result = spawnSync(process.execPath, ['--no-warnings', '--import', project.hook, BIN, ...argv], {
     cwd: project.root,
     encoding: 'utf8',
     env: { ...process.env, ZMDB_TEST_DATABASE: project.database },

@@ -115,6 +115,11 @@ export { validateWith } from './data/index.js';
 // Guards, pipes, interceptors & exception filters. See ./middleware.
 export {
   runChain,
+  compileRouteChain,
+  UseGuards,
+  UsePipes,
+  UseInterceptors,
+  UseFilters,
   ChainError,
   type AnyCtx,
   type Guard,
@@ -124,6 +129,10 @@ export {
   type ExceptionFilter,
   type Chain,
   type ChainHandler,
+  type GuardInput,
+  type PipeInput,
+  type InterceptorInput,
+  type FilterInput,
 } from './middleware/index.js';
 
 // Transport-neutral message dispatch and typed clients. See ./microservices.
