@@ -148,6 +148,11 @@ const POSTGRES_TYPES = Object.freeze({
   timestamp: 'TIMESTAMPTZ',
   json: 'JSONB',
   jsonEnum: 'TEXT',
+  uuid: 'uuid',
+  date: 'date',
+  time: 'time',
+  decimal: 'decimal',
+  blob: 'bytea',
 } satisfies DialectTypeMap);
 
 const MYSQL_TYPES = Object.freeze({
@@ -161,6 +166,11 @@ const MYSQL_TYPES = Object.freeze({
   timestamp: 'DATETIME(3)',
   json: 'JSON',
   jsonEnum: 'TEXT',
+  uuid: 'char(36)',
+  date: 'date',
+  time: 'time',
+  decimal: 'decimal',
+  blob: 'blob',
 } satisfies DialectTypeMap);
 
 const SQLITE_TYPES = Object.freeze({
@@ -174,6 +184,11 @@ const SQLITE_TYPES = Object.freeze({
   timestamp: 'TEXT',
   json: 'TEXT',
   jsonEnum: 'TEXT',
+  uuid: 'text',
+  date: 'date',
+  time: 'time',
+  decimal: 'decimal',
+  blob: 'blob',
 } satisfies DialectTypeMap);
 
 function returningCapability(style: ReturningStyle): ReturningCapability {
@@ -368,6 +383,11 @@ function resolveTypes(
     timestamp: own?.timestamp ?? parent?.timestamp ?? missingSqlType(dialect, 'timestamp'),
     json: own?.json ?? parent?.json ?? missingSqlType(dialect, 'json'),
     jsonEnum: own?.jsonEnum ?? parent?.jsonEnum ?? missingSqlType(dialect, 'jsonEnum'),
+    uuid: own?.uuid ?? parent?.uuid ?? missingSqlType(dialect, 'uuid'),
+    date: own?.date ?? parent?.date ?? missingSqlType(dialect, 'date'),
+    time: own?.time ?? parent?.time ?? missingSqlType(dialect, 'time'),
+    decimal: own?.decimal ?? parent?.decimal ?? missingSqlType(dialect, 'decimal'),
+    blob: own?.blob ?? parent?.blob ?? missingSqlType(dialect, 'blob'),
   });
 }
 

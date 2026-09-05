@@ -2567,6 +2567,25 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const { shape, type } = this.payloadShape(variant);
     const issues = [...issuesFor(obj, type), ...this.excessIssues(obj, variant)];
 
+    const PRIMITIVE_TYPES = new Set(['uuid', 'date', 'time', 'decimal', 'blob']);
+    for (const { column } of shape) {
+      if (column.name in obj) {
+        const val = obj[column.name];
+        if (
+          typeof column.sql === 'string' &&
+          PRIMITIVE_TYPES.has(column.sql) &&
+          !this.valueMatchesPrimitiveType(val, column)
+        ) {
+          issues.push({
+            path: `input.${column.name}`,
+            message: `value does not match column type ${column.sql}`,
+            expected: column.sql,
+            value: val,
+          });
+        }
+      }
+    }
+
     if (issues.length > 0) {
       throw new ValidationError(`validation failed: ${issues.map(i => i.path).join(', ')}`, issues);
     }
@@ -2611,6 +2630,25 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
     }
 
+    const PRIMITIVE_TYPES = new Set(['uuid', 'date', 'time', 'decimal', 'blob']);
+    for (const { column } of shape) {
+      if (column.name in obj) {
+        const val = obj[column.name];
+        if (
+          typeof column.sql === 'string' &&
+          PRIMITIVE_TYPES.has(column.sql) &&
+          !this.valueMatchesPrimitiveType(val, column)
+        ) {
+          expressionIssues.push({
+            path: `input.${column.name}`,
+            message: `value does not match column type ${column.sql}`,
+            expected: column.sql,
+            value: val,
+          });
+        }
+      }
+    }
+
     const issues = [...issuesFor(values, type), ...expressionIssues, ...this.excessIssues(obj, 'update')];
     if (issues.length > 0) {
       throw new ValidationError(`validation failed: ${issues.map(issue => issue.path).join(', ')}`, issues);
@@ -2625,6 +2663,48 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   private hasColumnExpression(patch: Record<string, unknown>): boolean {
     return Object.values(patch).some(isColumnExpression);
+  }
+
+  private valueMatchesPrimitiveType(value: unknown, col: ColumnIR): boolean {
+    if (value === null) return col.nullable;
+    switch (col.sql) {
+      case 'serial':
+      case 'integer':
+      case 'bigint':
+      case 'numeric':
+        return typeof value === 'number' || typeof value === 'bigint';
+      case 'decimal':
+        return (
+          typeof value === 'number' ||
+          typeof value === 'bigint' ||
+          (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '')
+        );
+      case 'uuid':
+        return (
+          typeof value === 'string' &&
+          /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value)
+        );
+      case 'date':
+        if (value instanceof Date) return !isNaN(value.getTime());
+        return typeof value === 'string' && !isNaN(Date.parse(value));
+      case 'time':
+        return typeof value === 'string' && /^\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(value);
+      case 'blob':
+        return value instanceof Uint8Array;
+      case 'text':
+      case 'varchar':
+        return typeof value === 'string';
+      case 'boolean':
+        return typeof value === 'boolean';
+      case 'timestamp':
+        return value instanceof Date || typeof value === 'string';
+      case 'jsonEnum':
+        return typeof value === 'string' && (col.enum?.includes(value) ?? false);
+      case 'json':
+        return typeof value === 'object';
+      default:
+        return true;
+    }
   }
 }
 

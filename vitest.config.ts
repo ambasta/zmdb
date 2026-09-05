@@ -54,5 +54,6 @@ export default defineConfig({
     ],
     // Type-level tests are run with `tsc`, not vitest.
     passWithNoTests: false,
+    setupFiles: ['./scripts/vitest-setup.ts'],
   },
 });

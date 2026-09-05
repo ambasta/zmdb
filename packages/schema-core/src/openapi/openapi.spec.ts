@@ -39,12 +39,21 @@ export interface FileRow extends Table<'files'> {
   path: string & Sql<'text'> & Pattern<'^/usr/local/"bin"/.*$'> & PrimaryKey;
 }
 
+export interface PrimitiveRow extends Table<'primitives'> {
+  guid: string & Sql<'uuid'> & PrimaryKey;
+  birthDate: (Date | string) & Sql<'date'>;
+  alarmTime: string & Sql<'time'>;
+  price: (string | number) & Sql<'decimal'>;
+  data: Uint8Array & Sql<'blob'>;
+}
+
 const {
   User: UserSchema,
   Membership: MembershipSchema,
   Secretive: SchemaWithSecret,
   FileRow: FileSchema,
-} = schemasFrom(import.meta.url, ['User', 'Membership', 'Secretive', 'FileRow']);
+  PrimitiveRow: PrimitivesSchema,
+} = schemasFrom(import.meta.url, ['User', 'Membership', 'Secretive', 'FileRow', 'PrimitiveRow']);
 
 describe('toJsonSchema (entity)', () => {
   it('matches the frozen golden fixture', () => {
@@ -59,6 +68,20 @@ describe('toJsonSchema (entity)', () => {
         role: { type: 'string', enum: ['admin', 'guest', 'user'] },
       },
       required: ['createdAt', 'email', 'id', 'role'],
+    });
+  });
+
+  it('maps new native primitives correctly to JSON Schema types and formats', () => {
+    expect(toJsonSchema(PrimitivesSchema, 'entity')).toEqual({
+      type: 'object',
+      properties: {
+        alarmTime: { type: 'string', format: 'time' },
+        birthDate: { type: 'string', format: 'date' },
+        data: { type: 'string', format: 'binary' },
+        guid: { type: 'string', format: 'uuid' },
+        price: { type: 'string', format: 'decimal' },
+      },
+      required: ['alarmTime', 'birthDate', 'data', 'guid', 'price'],
     });
   });
 
