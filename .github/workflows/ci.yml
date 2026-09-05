@@ -103,6 +103,12 @@ jobs:
       - name: Verify there is one walker over column metadata
         run: yarn verify:one-walker
 
+      # The builder intentionally admits database-specific comparison operators, so a closed
+      # operator allowlist would break real SQL. This keeps the one open-string boundary in
+      # clauses.ts, where sqlOperator constrains it to one token before it reaches SQL text.
+      - name: Verify there is one comparison-operator SQL boundary
+        run: yarn verify:operator-boundary
+
       # And the audit of the requirement table itself: every REQ-TF acceptance criterion
       # has to name a test or a gate that exists, whose cited test names still exist, and
       # whose gates this file actually runs. A row nobody can execute is a claim.

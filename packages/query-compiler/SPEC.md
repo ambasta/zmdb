@@ -101,11 +101,16 @@ pgvector's three distance operators are added to `OP_MAP` under **names**, not u
 
 Two reasons, and the second is the decisive one.
 
-`sqlOperator` maps a known operator and **falls through with an unmapped one written as given** — pinned by `allows unmapped raw Postgres/SQL operators to fall through as-written`. That is defensible
-where it lives: a builder call is code an author wrote, `@>` is a real operator, and enumerating every operator of four root SQL grammars is a losing game. It is not defensible one layer up, where
-`compileWhere` in `schema-core/src/dto` turns a request body into predicates, and #364 is that gap seen from the security side. So a `<->` typed into `where()` would already "work" today, by
-fall-through, on the one surface that must not be reachable from user JSON. A **mapped name** works on both surfaces, and it is testable that it is mapped rather than passed through, which the
-punctuation spelling is not.
+`sqlOperator` maps a known operator and admits an unmapped one only when it is **one bounded SQL token** — pinned by
+`allows bounded dialect-specific operator tokens and keeps every value parameterized`. This is deliberately a lexical grammar rather than a dialect/operator allowlist: one to four ASCII letters or
+characters from `@<>=!~*&|?-`, with `--` forbidden, plus the exact PostgreSQL-family hash shapes `#>` and `#>>`. The positional-placeholder dialects refuse `?` inside an operator token, and SQL Server
+refuses its `@` marker there. It admits PostgreSQL `@>`, `@@`, `<@`, `~*`, `?|` and `#>>`, SQLite `GLOB`, MySQL `<=>` and SQL Server `!<`, while refusing quotes, whitespace, semicolons, comment
+openers and placeholder-shaped operators.
+
+That is defensible where it lives: a builder call is code an author wrote, extension operators are real, and enumerating every operator of four root SQL grammars is a losing game. The token grammar
+prevents the string from becoming a second SQL expression, but it does not decide which valid operators an HTTP endpoint should expose. One layer up, `compileWhere` in `schema-core/src/dto` turns a
+request body into predicates and therefore keeps its own closed set. A `<->` typed into `where()` still works through the bounded token path; a **mapped name** works on both surfaces, and it is
+testable that it is mapped rather than passed through, which the punctuation spelling is not.
 
 And `<=>` is not free to take. In MySQL it is the NULL-safe equality operator, so one string would mean two unrelated things depending on the dialect, and the compiler would be unable to refuse it on
 the dialect where it is valid but wrong.

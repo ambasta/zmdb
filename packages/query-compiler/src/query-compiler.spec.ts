@@ -474,7 +474,7 @@ describe('array parameter IN expansion', () => {
   });
 });
 
-describe('Operator normalization & raw operator fall-through', () => {
+describe('Operator normalization & bounded dialect operators', () => {
   it('validates normalized canonical operators and produces expected SQL', () => {
     const qb = createQueryCompiler('postgres');
     const ops: [string, string][] = [
@@ -507,22 +507,162 @@ describe('Operator normalization & raw operator fall-through', () => {
     }
   });
 
-  it('allows unmapped raw Postgres/SQL operators to fall through as-written', () => {
-    const qb = createQueryCompiler('postgres');
-    const q1 = qb.selectFrom('users').where('tags', '@>', ['a', 'b']).compile();
-    expect(q1.text).toBe('SELECT * FROM "users" WHERE "tags" @> $1');
-    expect(q1.parameters).toEqual([['a', 'b']]);
+  it('allows bounded dialect-specific operator tokens and keeps every value parameterized', () => {
+    const cases = [
+      {
+        dialect: 'postgres',
+        table: 'users',
+        column: 'tags',
+        operator: '@>',
+        value: ['a', 'b'],
+        text: 'SELECT * FROM "users" WHERE "tags" @> $1',
+      },
+      {
+        dialect: 'postgres',
+        table: 'docs',
+        column: 'search',
+        operator: '@@',
+        value: 'typescript & database',
+        text: 'SELECT * FROM "docs" WHERE "search" @@ $1',
+      },
+      {
+        dialect: 'postgres',
+        table: 'events',
+        column: 'during',
+        operator: '<@',
+        value: '[2026-09-01,2026-10-01)',
+        text: 'SELECT * FROM "events" WHERE "during" <@ $1',
+      },
+      {
+        dialect: 'postgres',
+        table: 'users',
+        column: 'email',
+        operator: '~*',
+        value: '@example\\.com$',
+        text: 'SELECT * FROM "users" WHERE "email" ~* $1',
+      },
+      {
+        dialect: 'postgres',
+        table: 'docs',
+        column: 'payload',
+        operator: '?|',
+        value: ['status', 'kind'],
+        text: 'SELECT * FROM "docs" WHERE "payload" ?| $1',
+      },
+      {
+        dialect: 'postgres',
+        table: 'docs',
+        column: 'payload',
+        operator: '#>>',
+        value: ['customer', 'email'],
+        text: 'SELECT * FROM "docs" WHERE "payload" #>> $1',
+      },
+      {
+        dialect: 'postgres',
+        table: 'events',
+        column: 'duration',
+        operator: '&&',
+        value: '[2026-09-01,2026-10-01)',
+        text: 'SELECT * FROM "events" WHERE "duration" && $1',
+      },
+      {
+        dialect: 'cockroach',
+        table: 'events',
+        column: 'tags',
+        operator: '@>',
+        value: ['audit'],
+        text: 'SELECT * FROM "events" WHERE "tags" @> $1',
+      },
+      {
+        dialect: 'mysql',
+        table: 'users',
+        column: 'deletedAt',
+        operator: '<=>',
+        value: null,
+        text: 'SELECT * FROM `users` WHERE `deletedAt` <=> ?',
+      },
+      {
+        dialect: 'singlestore',
+        table: 'users',
+        column: 'deletedAt',
+        operator: '<=>',
+        value: null,
+        text: 'SELECT * FROM `users` WHERE `deletedAt` <=> ?',
+      },
+      {
+        dialect: 'sqlite',
+        table: 'files',
+        column: 'path',
+        operator: 'GLOB',
+        value: '*.json',
+        text: 'SELECT * FROM "files" WHERE "path" GLOB ?',
+      },
+      {
+        dialect: 'mssql',
+        table: 'metrics',
+        column: 'score',
+        operator: '!<',
+        value: 10,
+        text: 'SELECT * FROM [metrics] WHERE [score] !< @p1',
+      },
+    ] as const;
 
-    const q2 = qb.selectFrom('events').where('duration', '&&', '[2020-01-01,2020-01-02]').compile();
-    expect(q2.text).toBe('SELECT * FROM "events" WHERE "duration" && $1');
-    expect(q2.parameters).toEqual(['[2020-01-01,2020-01-02]']);
+    for (const testCase of cases) {
+      const query = createQueryCompiler(testCase.dialect)
+        .selectFrom(testCase.table)
+        .where(testCase.column, testCase.operator, testCase.value)
+        .compile();
+      expect(query.text, `${testCase.dialect} ${testCase.operator}`).toBe(testCase.text);
+      expect(query.parameters, `${testCase.dialect} ${testCase.operator}`).toEqual([testCase.value]);
+    }
   });
 
-  it('is safe against prototype property lookups', () => {
-    const qb = createQueryCompiler('postgres');
-    const q = qb.selectFrom('users').where('col', 'toString', 'val').compile();
-    expect(q.text).toBe('SELECT * FROM "users" WHERE "col" toString $1');
-    expect(q.parameters).toEqual(['val']);
+  it('refuses the measured request-derived operator injection before returning SQL', () => {
+    const compile = () =>
+      createQueryCompiler('postgres').selectFrom('users').where('role', "= 'x' OR 1=1 --", 1).compile();
+
+    expect(compile).toThrow(
+      'invalid unmapped SQL operator "= \'x\' OR 1=1 --" for dialect "postgres"; expected one non-comment ' +
+        'operator token that does not conflict with the dialect placeholder syntax',
+    );
+  });
+
+  it('refuses token-breaking punctuation, whitespace and SQL comment shapes', () => {
+    const invalid = ["'", ';', ' @>', '@> ', 'OR 1', '--', '@>--', '/*', '*/', '#'];
+
+    for (const operator of invalid) {
+      const compile = () => createQueryCompiler('postgres').selectFrom('users').where('role', operator, 1).compile();
+      expect(compile, JSON.stringify(operator)).toThrow(/invalid unmapped SQL operator/);
+    }
+  });
+
+  it('refuses comment and placeholder tokens on dialects where they change SQL parsing', () => {
+    const collisions = [
+      { dialect: 'mysql', operator: '#>>' },
+      { dialect: 'mysql', operator: '?|' },
+      { dialect: 'singlestore', operator: '?' },
+      { dialect: 'sqlite', operator: '?&' },
+      { dialect: 'mssql', operator: '@@' },
+    ] as const;
+
+    for (const { dialect, operator } of collisions) {
+      const compile = () => createQueryCompiler(dialect).selectFrom('users').where('payload', operator, 1).compile();
+      expect(compile, `${dialect} ${operator}`).toThrow(/invalid unmapped SQL operator/);
+    }
+  });
+
+  it('keeps OP_MAP prototype-free and refuses inherited prototype-key strings', () => {
+    expect(OP_MAP.constructor).toBeUndefined();
+    const prototypeKeys = ['constructor', 'toString', '__proto__'];
+
+    for (const operator of prototypeKeys) {
+      const input = Object.create({ operator });
+      const inherited: unknown = Reflect.get(input, 'operator');
+      if (typeof inherited !== 'string') throw new TypeError('test input carried no inherited operator string');
+      const compile = () =>
+        createQueryCompiler('postgres').selectFrom('users').where('col', inherited, 'val').compile();
+      expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
+    }
   });
 });
 

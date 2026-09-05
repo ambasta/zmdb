@@ -12,6 +12,10 @@
 // arguments at all — and to the scanner-level contracts that always mattered: an
 // identifier is not a substring, and code inside a comment or a string is not code.
 
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { zmdbAot, transformTypeChecks } from './plugin/index.js';
@@ -99,6 +103,30 @@ describe('the scanner', () => {
   it('does not throw on constructs it has no opinion about', () => {
     const source = 'const result = unknownFunction<number>(x); const custom = customValidate(tags.Min(1), y);';
     expect(transformCode(source)).toBe(source);
+  });
+
+  it('returns the query compiler clauses unchanged without stalling on operator tokens', () => {
+    const plugin = new URL('./plugin/index.ts', import.meta.url);
+    const clauses = new URL('../../query-compiler/src/clauses.ts', import.meta.url);
+    const hook = fileURLToPath(new URL('../../../scripts/ts-specifier-hook.mjs', import.meta.url));
+    const source = readFileSync(clauses, 'utf8');
+    const probe = `
+      import { readFileSync } from 'node:fs';
+      import { transformTypeChecks } from ${JSON.stringify(plugin.href)};
+
+      const source = readFileSync(${JSON.stringify(fileURLToPath(clauses))}, 'utf8');
+      process.stdout.write(transformTypeChecks(source));
+    `;
+
+    const result = spawnSync(process.execPath, [`--import=${hook}`, '--input-type=module', '--eval', probe], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe(source);
   });
 
   it('scans faster than a megabyte a second', () => {

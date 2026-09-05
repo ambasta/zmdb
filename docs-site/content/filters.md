@@ -9,15 +9,19 @@
 
 Supported operators include `=`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not in`, `like`, `is null`, `is not null`. Values are always parameterized.
 
-> [!WARNING] Values are parameterized, but operators are inserted into the SQL text. This allows dialect-specific operators such as `@>`, even when the builder does not know about them. It also means
-> an operator from an HTTP request must not be passed directly to `.where()`:
+Known operators are trimmed and canonicalized. An operator the compiler does not know by name is accepted only when it is one bounded SQL token: one to four ASCII letters or characters from
+`@<>=!~*&|?-`, with `--` forbidden; PostgreSQL-family hash operators are restricted to `#>` and `#>>`. A token containing `?` is refused on MySQL, SingleStore and SQLite, where `?` is a parameter
+placeholder, and one containing `@` is refused on SQL Server for the same reason. This admits extension operators such as PostgreSQL `@>`, `@@`, `<@`, `~*`, `?|` and `#>>`, SQLite `GLOB`, MySQL `<=>`
+and SQL Server `!<`, while refusing quotes, whitespace, semicolons, SQL comment openers and placeholder-shaped operators.
+
+> [!WARNING] This token check prevents an operator from breaking out into more SQL; it is not an application-level operator allowlist. A request can still choose a syntactically safe operator with
+> semantics or cost the endpoint did not intend. For request input, prefer the typed `WhereDTO` below or validate against the endpoint's own allowed operators. The reported injection shape is refused
+> before a query is returned:
 >
 > ```ts
-> // measured: SELECT * FROM "users" WHERE "role" = 'x' OR 1=1 -- $1
+> // throws TypeError: invalid unmapped SQL operator …
 > qb.selectFrom('users').where('role', "= 'x' OR 1=1 --", 1).compile();
 > ```
->
-> For user input, use the typed `WhereDTO` below or validate the operator against an allowlist before calling `.where()`.
 
 ## Typed filters — WhereDTO
 

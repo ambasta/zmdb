@@ -96,6 +96,30 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
 );
 
 /**
+ * The lexical shape of an operator the compiler does not know by name.
+ *
+ * This is deliberately not a dialect/operator allowlist: PostgreSQL extensions,
+ * SQLite GLOB, MySQL's null-safe equality and SQL Server's !< all remain usable.
+ * It is only the boundary between one SQL token and caller-controlled SQL text.
+ *
+ * `--` is excluded even though `-` is needed by real operators such as `->>`.
+ * `#` is restricted to PostgreSQL's `#>` / `#>>`; a bare hash starts a MySQL
+ * line comment. Placeholder markers are excluded on the dialects where they
+ * would be parsed as parameters. Slash is absent, so block-comment openers
+ * cannot be formed.
+ */
+const UNMAPPED_OPERATOR_TOKEN = /^(?!.*--)[A-Za-z@<>=!~*&|?-]{1,4}$/;
+
+function isUnmappedOperatorToken(op: string, dialect: Dialect): boolean {
+  const traits = TRAITS[dialect];
+  if (op === '#>' || op === '#>>') return traits.family === 'postgres';
+  if (!UNMAPPED_OPERATOR_TOKEN.test(op)) return false;
+  if (traits.placeholder === 'positional' && op.includes('?')) return false;
+  if (traits.placeholder === 'named' && op.includes('@')) return false;
+  return true;
+}
+
+/**
  * Anything with a `compile()` — a builder from this package, or a caller's own.
  *
  * boundary: the cast is inside the guard that the rest of the package relies on, and it
@@ -113,7 +137,8 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
 }
 
 /**
- * Normalizes known operators to canonical SQL keywords while preserving unmapped raw operators.
+ * Normalizes known operators to canonical SQL keywords and admits an unmapped
+ * operator only when it is one bounded SQL token.
  */
 export function sqlOperator(op: string, dialect: Dialect = 'postgres'): string {
   const normalized = op.toLowerCase().trim();
@@ -124,7 +149,15 @@ export function sqlOperator(op: string, dialect: Dialect = 'postgres'): string {
   // `OP_MAP['constructor']` is already `undefined` rather than a function off
   // `Object.prototype`. That is what makes `??` safe here, and it is why the map is built
   // the way it is.
-  return OP_MAP[normalized] ?? op;
+  const mapped = OP_MAP[normalized];
+  if (mapped !== undefined) return mapped;
+  if (!isUnmappedOperatorToken(op, dialect)) {
+    throw new TypeError(
+      `invalid unmapped SQL operator ${JSON.stringify(op)} for dialect ${JSON.stringify(dialect)}; expected ` +
+        'one non-comment operator token that does not conflict with the dialect placeholder syntax',
+    );
+  }
+  return op;
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
