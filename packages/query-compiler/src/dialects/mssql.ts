@@ -12,6 +12,11 @@ export const MSSQL_TYPES = Object.freeze({
   timestamp: 'DATETIMEOFFSET(3)',
   json: 'NVARCHAR(MAX)',
   jsonEnum: 'NVARCHAR(MAX)',
+  uuid: 'UNIQUEIDENTIFIER',
+  date: 'DATE',
+  time: 'TIME',
+  decimal: 'DECIMAL',
+  blob: 'VARBINARY(MAX)',
 } satisfies DialectTypeMap);
 
 export function mssqlPaginate({ limit, offset, ordered }: PaginationTail): string {
