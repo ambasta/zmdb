@@ -63,7 +63,7 @@ jobs:
 
       # `yarn build` is `workspaces foreach -A -t`, i.e. topological, which the build
       # requires: a package resolves its `@zmdb/*` imports to the sibling's `dist/*.d.ts`
-      # (see tsconfig.build.json). The loop this replaces named every workspace as
+      # (see tsconfig.build.base.json). The loop this replaces named every workspace as
       # `@zmdb/$pkg`, and the umbrella package is called `zmdb` — so the last iteration
       # had never built anything.
       - name: Build dist for every package (topological)
@@ -97,7 +97,7 @@ jobs:
           # it under --tag latest (the only way to move `latest` under OIDC, since
           # `npm dist-tag` is not OIDC-authorized). Otherwise we publish under its
           # channel tag (alpha/beta/rc).
-          for pkg in client react query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel mcp protobuf aot-validator repository sqlite app jobs otel transport-grpc transport-nats transport-rabbitmq transport-redis web zmdb; do
+          for pkg in client react query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel mcp protobuf aot-validator repository sqlite app jobs otel transport-grpc transport-nats transport-rabbitmq transport-redis web cli zmdb; do
             echo "=== packages/$pkg ==="
             eval "$(node .github/scripts/decide-dist-tag.mjs "@zmdb/$pkg" "$VER")"
             if [ "$LATEST" = "yes" ]; then TAG=latest; else TAG="$CHANNEL"; fi

@@ -77,6 +77,9 @@ export function isDestructive(operation: ChangeOp): boolean {
     case 'alter_primary_key':
     case 'add_foreign_key':
     case 'drop_foreign_key':
+    case 'alter_column_default':
+    case 'alter_column_unique':
+    case 'alter_column_references':
       return false;
     case 'drop_table':
     case 'drop_column':

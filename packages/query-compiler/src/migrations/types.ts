@@ -19,7 +19,9 @@ export interface ColumnSnapshot {
   /** `varchar(255)` → `255`. MySQL rejects a `VARCHAR` with no length. */
   readonly length?: number | undefined;
   /** Carried so dialect-specific DDL can validate or emit the declaration. */
-  readonly unique?: boolean;
+  readonly unique?: boolean | undefined;
+  readonly default?: unknown;
+  readonly references?: { readonly target: string } | undefined;
 }
 
 export interface TableOptions {
@@ -69,9 +71,9 @@ export type ChangeOp =
       readonly foreignKeys: readonly ForeignKeySnapshot[];
       readonly tableOptions?: TableOptions;
     }
-  | { readonly kind: 'drop_table'; readonly table: string }
+  | { readonly kind: 'drop_table'; readonly table: string; readonly columns?: readonly ColumnSnapshot[] }
   | { readonly kind: 'add_column'; readonly table: string; readonly column: ColumnSnapshot }
-  | { readonly kind: 'drop_column'; readonly table: string; readonly column: string }
+  | { readonly kind: 'drop_column'; readonly table: string; readonly column: string | ColumnSnapshot }
   | {
       readonly kind: 'alter_column_type';
       readonly table: string;
@@ -82,6 +84,27 @@ export type ChangeOp =
       readonly fromNullable?: boolean;
       /** Required by dialects whose ALTER COLUMN restates nullability. */
       readonly toNullable?: boolean;
+    }
+  | {
+      readonly kind: 'alter_column_default';
+      readonly table: string;
+      readonly column: string;
+      readonly from?: unknown;
+      readonly to?: unknown;
+    }
+  | {
+      readonly kind: 'alter_column_unique';
+      readonly table: string;
+      readonly column: string;
+      readonly from?: boolean | undefined;
+      readonly to?: boolean | undefined;
+    }
+  | {
+      readonly kind: 'alter_column_references';
+      readonly table: string;
+      readonly column: string;
+      readonly from?: { readonly target: string } | undefined;
+      readonly to?: { readonly target: string } | undefined;
     }
   | {
       readonly kind: 'alter_primary_key';

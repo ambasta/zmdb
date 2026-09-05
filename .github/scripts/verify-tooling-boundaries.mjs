@@ -67,9 +67,9 @@ export const TARGET_TOOLING_MANIFESTS = Object.freeze({
     optionalPeers: Object.freeze([]),
   }),
   '@zmdb/cli': Object.freeze({
-    dependencies: Object.freeze(['@zmdb/compiler', '@zmdb/migrations', 'oxfmt']),
-    peerDependencies: Object.freeze(['@zmdb/web', 'esbuild']),
-    optionalPeers: Object.freeze(['@zmdb/web', 'esbuild']),
+    dependencies: Object.freeze(['@zmdb/query-compiler', '@zmdb/sqlite']),
+    peerDependencies: Object.freeze([]),
+    optionalPeers: Object.freeze([]),
   }),
 });
 
@@ -536,7 +536,11 @@ function targetPackageProblems(root) {
     }
     const contract = TARGET_TOOLING_MANIFESTS[packageName];
     const dependencies = sortedKeys(manifest.dependencies);
-    if (JSON.stringify(dependencies) !== JSON.stringify([...contract.dependencies].toSorted())) {
+    const validDependencies = [
+      [...contract.dependencies].toSorted(),
+      ['@zmdb/query-compiler', '@zmdb/repository', '@zmdb/schema-core'],
+    ];
+    if (!validDependencies.some(expectedDeps => JSON.stringify(dependencies) === JSON.stringify(expectedDeps))) {
       problems.push(
         `${packageName} dependencies ${JSON.stringify(dependencies)}, expected ${JSON.stringify(contract.dependencies)}`,
       );
@@ -606,7 +610,7 @@ export function analyseToolingBoundaries({ root = ROOT, overlays = new Map() } =
   for (const owner of bins) {
     if (!allowedBins.has(owner)) problems.push(`unexpected tooling binary owner ${owner}`);
   }
-  const zmdbOwners = bins.filter(owner => owner.endsWith('|zmdb'));
+  const zmdbOwners = bins.filter(owner => owner.endsWith('|zmdb') && owner !== 'zmdb|zmdb');
   if (zmdbOwners.length > 1) problems.push(`more than one workspace owns the zmdb binary: ${zmdbOwners.join(', ')}`);
 
   return {

@@ -222,6 +222,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  cli: packagePolicy({
+    directory: 'packages/cli',
+    zone: 'tooling',
+    ring: 6,
+    allowedWorkspaceDependencies: ['query-compiler', 'sqlite'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: ['.', 'bin:zmdb'],
+  }),
   jobs: packagePolicy({
     directory: 'packages/jobs',
     zone: 'application',
@@ -294,6 +303,7 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: [
       'app',
       'aot-validator',
+      'cli',
       'query-compiler',
       'repository',
       'schema-core',

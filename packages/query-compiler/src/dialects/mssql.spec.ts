@@ -107,9 +107,16 @@ describe('SQL Server dialect (#508)', () => {
         'mssql',
       ),
     ).toThrow('mssql ALTER COLUMN must restate NULL or NOT NULL');
-    expect(() => emitDown({ kind: 'drop_table', table: 'events' }, 'mssql')).toThrow(
-      'mssql cannot recreate dropped table "events"',
-    );
+    expect(
+      emitDown(
+        {
+          kind: 'drop_table',
+          table: 'events',
+          columns: [{ name: 'id', type: 'integer', nullable: false, primaryKey: true }],
+        },
+        'mssql',
+      ),
+    ).toBe('CREATE TABLE [events] ([id] INT PRIMARY KEY)');
     expect(() =>
       emitUp({ kind: 'alter_primary_key', table: 'events', from: ['id'], to: ['tenantId', 'id'] }, 'mssql'),
     ).toThrow('snapshot does not carry the existing SQL Server constraint name');

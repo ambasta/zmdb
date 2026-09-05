@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "problems": [
     "@zmdb/ai reaches non-foundation workspace package @zmdb/query-compiler",
     "@zmdb/ai reaches non-foundation workspace package @zmdb/query-compiler",
@@ -62,8 +61,8 @@
     "old import @zmdb/query-compiler/introspect remains in [packages/zmdb/src/cli/commands/check.ts, packages/zmdb/src/cli/commands/pull.ts, packages/zmdb/src/cli/commands/push.ts, packages/zmdb/src/cli/database.ts]",
     "old import @zmdb/query-compiler/introspect/runtime remains in [packages/sqlite/src/introspector.ts]",
     "old import @zmdb/query-compiler/joins remains in [packages/repository/src/index.ts]",
-    "old import @zmdb/query-compiler/migrations remains in [packages/sqlite/src/introspector.ts, packages/sqlite/src/migrations.ts, packages/zmdb/src/cli/commands/check.ts, packages/zmdb/src/cli/commands/export.ts, packages/zmdb/src/cli/commands/generate.ts, packages/zmdb/src/cli/commands/push.ts, packages/zmdb/src/cli/commands/upgrade.ts, packages/zmdb/src/index.ts]",
-    "old import @zmdb/query-compiler/migrations/runner remains in [packages/zmdb/src/cli/commands/migrate.ts, packages/zmdb/src/cli/commands/push.ts, packages/zmdb/src/cli/migration-files.ts]",
+    "old import @zmdb/query-compiler/migrations remains in [packages/cli/src/cli.ts, packages/cli/src/generator.ts, packages/cli/src/index.ts, packages/sqlite/src/introspector.ts, packages/sqlite/src/migrations.ts, packages/zmdb/src/cli/commands/check.ts, packages/zmdb/src/cli/commands/export.ts, packages/zmdb/src/cli/commands/generate.ts, packages/zmdb/src/cli/commands/push.ts, packages/zmdb/src/cli/commands/upgrade.ts, packages/zmdb/src/index.ts]",
+    "old import @zmdb/query-compiler/migrations/runner remains in [packages/cli/src/cli.ts, packages/cli/src/generator.ts, packages/cli/src/index.ts, packages/zmdb/src/cli/commands/migrate.ts, packages/zmdb/src/cli/commands/push.ts, packages/zmdb/src/cli/migration-files.ts]",
     "old import @zmdb/query-compiler/naming remains in [packages/schema-core/src/openapi/index.ts]",
     "old import @zmdb/query-compiler/outbox remains in [packages/repository/src/outbox/index.ts]",
     "old import @zmdb/query-compiler/schema-objects remains in [packages/repository/src/index.ts, packages/repository/src/jobs/index.ts, packages/sqlite/src/migrations.ts]",

@@ -291,7 +291,11 @@ describe('diffing a key change (frozen: migrations/SPEC.md 1.3)', () => {
         column: { name: 'new_id', type: 'integer', nullable: false, primaryKey: true },
       },
       { kind: 'alter_primary_key', table: 'memberships', from: ['old_id'], to: ['new_id'] },
-      { kind: 'drop_column', table: 'memberships', column: 'old_id' },
+      {
+        kind: 'drop_column',
+        table: 'memberships',
+        column: { name: 'old_id', type: 'integer', nullable: false, primaryKey: true },
+      },
     ]);
   });
 

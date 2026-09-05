@@ -3,6 +3,16 @@
 // The executable is a build-time boundary: config loading, TypeScript
 // reflection, esbuild and node:repl must not enter an application bundle.
 
+export { loadMigrations, up, down, status, driverMigrationConnection } from '@zmdb/cli';
+export type {
+  GenerateMigrationOptions,
+  MigrationResult,
+  Migration,
+  MigrationConnection,
+  MigrationDriver,
+  MigrationStatus,
+} from '@zmdb/cli';
+
 import { existsSync, readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import { homedir } from 'node:os';
@@ -622,7 +632,7 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
   }
 
   try {
-    await using session = await createReplSession(root, {
+    const session = await createReplSession(root, {
       configPath: parsed.config,
       moduleSpec: options.moduleSpec,
       cwd: io.cwd,
@@ -632,8 +642,12 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
       historyPath: options.history ? replHistoryPath(io.environment, io.homeDirectory) : null,
       terminal: io.stdinIsTTY && streamIsTTY(io.output),
     });
-    await session.closed;
-    return 0;
+    try {
+      await session.closed;
+      return 0;
+    } finally {
+      await session[Symbol.asyncDispose]();
+    }
   } catch (error) {
     return output.failure(errorMessage(error), 1);
   }

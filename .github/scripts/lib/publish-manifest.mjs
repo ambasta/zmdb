@@ -35,6 +35,7 @@ export const PACKAGES = [
   'transport-rabbitmq',
   'transport-redis',
   'web',
+  'cli',
   'zmdb',
 ];
 

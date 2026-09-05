@@ -114,6 +114,89 @@ describe('diff engine', () => {
       column: { name: 'age', type: 'integer', nullable: false, primaryKey: false },
     });
   });
+
+  it('detects dropped column with full column snapshot preserved', () => {
+    const ops = diff(usersV2, usersV1);
+    expect(ops).toContainEqual({
+      kind: 'drop_column',
+      table: 'users',
+      column: { name: 'age', type: 'integer', nullable: false, primaryKey: false },
+    });
+  });
+
+  it('detects dropped table with full columns snapshot preserved', () => {
+    const emptySnap = snap([]);
+    const ops = diff(usersV1, emptySnap);
+    expect(ops).toEqual([
+      {
+        kind: 'drop_table',
+        table: 'users',
+        columns: [
+          { name: 'id', type: 'serial', nullable: false, primaryKey: true },
+          { name: 'email', type: 'text', nullable: false, primaryKey: false },
+        ],
+      },
+    ]);
+  });
+
+  it('detects added, dropped, or altered default values, unique constraints, and foreign key references', () => {
+    const prev = snap([
+      {
+        name: 'orders',
+        primaryKey: ['id'],
+        foreignKeys: [],
+        columns: [
+          { name: 'id', type: 'serial', nullable: false, primaryKey: true },
+          { name: 'status', type: 'text', nullable: false, primaryKey: false, default: 'pending' },
+          { name: 'code', type: 'text', nullable: false, primaryKey: false },
+          { name: 'userId', type: 'integer', nullable: false, primaryKey: false, references: { target: 'users.id' } },
+        ],
+      },
+    ]);
+
+    const next = snap([
+      {
+        name: 'orders',
+        primaryKey: ['id'],
+        foreignKeys: [],
+        columns: [
+          { name: 'id', type: 'serial', nullable: false, primaryKey: true },
+          { name: 'status', type: 'text', nullable: false, primaryKey: false, default: 'active' },
+          { name: 'code', type: 'text', nullable: false, primaryKey: false, unique: true },
+          {
+            name: 'userId',
+            type: 'integer',
+            nullable: false,
+            primaryKey: false,
+            references: { target: 'customers.id' },
+          },
+        ],
+      },
+    ]);
+
+    const ops = diff(prev, next);
+    expect(ops).toContainEqual({
+      kind: 'alter_column_default',
+      table: 'orders',
+      column: 'status',
+      from: 'pending',
+      to: 'active',
+    });
+    expect(ops).toContainEqual({
+      kind: 'alter_column_unique',
+      table: 'orders',
+      column: 'code',
+      from: undefined,
+      to: true,
+    });
+    expect(ops).toContainEqual({
+      kind: 'alter_column_references',
+      table: 'orders',
+      column: 'userId',
+      from: { target: 'users.id' },
+      to: { target: 'customers.id' },
+    });
+  });
 });
 
 describe('DDL emitter (postgres)', () => {
@@ -129,6 +212,33 @@ describe('DDL emitter (postgres)', () => {
 
   it('down reverses up for add_column', () => {
     expect(emitDown(addAge, 'postgres')).toBe('ALTER TABLE "users" DROP COLUMN "age"');
+  });
+
+  it('down for drop_column produces valid column definition with data type and flags', () => {
+    const dropCol = {
+      kind: 'drop_column' as const,
+      table: 'users',
+      column: { name: 'status', type: 'text', nullable: false, primaryKey: false, default: 'active' },
+    };
+    expect(emitUp(dropCol, 'postgres')).toBe('ALTER TABLE "users" DROP COLUMN "status"');
+    expect(emitDown(dropCol, 'postgres')).toBe(
+      'ALTER TABLE "users" ADD COLUMN "status" TEXT NOT NULL DEFAULT \'active\'',
+    );
+  });
+
+  it('down for drop_table produces valid table creation statement with complete column list', () => {
+    const dropTbl = {
+      kind: 'drop_table' as const,
+      table: 'orders',
+      columns: [
+        { name: 'id', type: 'serial', nullable: false, primaryKey: true },
+        { name: 'userId', type: 'integer', nullable: false, primaryKey: false, references: { target: 'users.id' } },
+      ],
+    };
+    expect(emitUp(dropTbl, 'postgres')).toBe('DROP TABLE "orders"');
+    expect(emitDown(dropTbl, 'postgres')).toBe(
+      'CREATE TABLE "orders" ("id" SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL REFERENCES "users"("id"))',
+    );
   });
 });
 
@@ -1011,7 +1121,9 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
       { kind: 'create_extension', name: 'vector' },
       { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'], foreignKeys: [] },
     ]);
-    expect(extensionDiff(vectorItems, noExtensions)).toEqual([{ kind: 'drop_table', table: 'items' }]);
+    expect(extensionDiff(vectorItems, noExtensions)).toEqual([
+      { kind: 'drop_table', table: 'items', columns: itemColumns },
+    ]);
   });
 
   it('compares extension type arguments structurally and emits a dimension change as an alter', () => {

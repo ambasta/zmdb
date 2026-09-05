@@ -40,7 +40,7 @@
     "official-name|packages/query-compiler/src/introspect/postgres.ts|postgres|35",
     "official-name|packages/query-compiler/src/joins/index.ts|postgres|1",
     "official-name|packages/query-compiler/src/migrations/index.ts|cockroach|2",
-    "official-name|packages/query-compiler/src/migrations/index.ts|mssql|16",
+    "official-name|packages/query-compiler/src/migrations/index.ts|mssql|15",
     "official-name|packages/query-compiler/src/migrations/index.ts|mysql|8",
     "official-name|packages/query-compiler/src/migrations/index.ts|postgres|6",
     "official-name|packages/query-compiler/src/migrations/index.ts|singlestore|14",
