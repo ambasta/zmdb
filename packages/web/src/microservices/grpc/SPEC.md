@@ -5,6 +5,10 @@ Part of `@zmdb/web`, a new `./microservices/grpc` subpath. `../SPEC.md` owns bro
 `@grpc/grpc-js` is an **optional peer dependency**, per `#556`'s constraint that installing `@zmdb/web` must not pull in five brokers. The adapter neither imports nor directly declares
 `@grpc/proto-loader`; grpc-js carries it transitively for its own optional facilities, and §3 explains why this surface never invokes it.
 
+> **Ownership target frozen by #654:** the full adapter contract below moves to `@zmdb/transport-grpc`, where grpc-js is the package's one required peer and `grpcExtension(GrpcServerOptions)` supplies
+> the `@zmdb/app` lifecycle. Generated service calls and `GrpcLoaded*`/`Grpc*Def` types move to `@zmdb/protobuf` and are not re-exported by the transport. `@zmdb/web/microservices/grpc` is removed
+> with no forwarding subpath. Until #657 lands, the paragraphs below continue to describe shipped behavior at the old location.
+
 ## 1. gRPC is not a broker, so almost nothing in `../SPEC.md` applies
 
 Everything the sibling file decides is about a message whose sender has already gone away: who acknowledges, what a retry delay is, where a poisoned message goes. gRPC has none of those problems,
@@ -315,7 +319,7 @@ application rules are part of the service contract.
 
 ## 11. The boundary with the protobuf epic, stated as a dependency
 
-`#557` step 9 asks for this boundary. It runs exactly here:
+`#557` step 9 asked for this boundary. The shipped split is:
 
 | Build-time type/codec layer (`@zmdb/aot-validator`, `@zmdb/schema-core`) | Runtime web layer (`@zmdb/web/microservices/grpc`)   |
 | ------------------------------------------------------------------------ | ---------------------------------------------------- |
@@ -324,11 +328,19 @@ application rules are part of the service contract.
 | `grpcDescriptor`, `loadGrpcService`                                      | server/client adapters and application lifecycle     |
 | field-number, wire-type and method-shape diagnostics                     | deadlines, cancellation, metadata and status mapping |
 
-There is **one** `TypeIR` walker and it is not in `@zmdb/web`. The gRPC-owned `grpcDescriptor` implementation is on the emitter side despite being a gRPC concept, because putting it here would mean a
-second walker over the same IR, and two walkers that disagree about a field number is a wire break neither codebase's tests can see.
+The #654 target separates public runtime ownership from compiler ownership:
 
-The complete path now ships: one reflection walk emits the descriptor, validators and codecs, and the web adapter turns that artifact into grpc-js service definitions and typed client calls without
-parsing the descriptor.
+| Compiler (`@zmdb/aot-validator`, `@zmdb/schema-core`)  | Artifact runtime (`@zmdb/protobuf`)              | Adapter (`@zmdb/transport-grpc`)                     |
+| ------------------------------------------------------ | ------------------------------------------------ | ---------------------------------------------------- |
+| one reflection session and protobuf/service-IR walk    | `ProtoField`-derived calls and `Grpc*Def` types  | `bindGrpcService`, `GrpcHandlers`, `grpcExtension`   |
+| descriptor, validator and straight-line codec emission | generated service artifacts and wire primitives  | deadlines, cancellation, metadata and status mapping |
+| build diagnostics and generated-import selection       | no checker, emitter or runtime descriptor parser | grpc-js server/client lifecycle                      |
+
+There is **one** `TypeIR` walker and it remains in `@zmdb/aot-validator`. `grpcDescriptor` is publicly owned by `@zmdb/protobuf` but compiled by that existing emitter; moving the walk into either
+runtime package would create the second interpretation this boundary forbids.
+
+The complete path currently ships from the old packages. The target preserves it: one reflection walk emits the descriptor, validators and codecs, `@zmdb/protobuf` supplies the generated ABI, and
+`@zmdb/transport-grpc` turns the artifact into grpc-js service definitions and typed client calls without parsing the descriptor.
 
 Everything else in this epic — `TransportStrategy`, the dispatcher, the broker strategies, the hybrid lifecycle — is genuinely independent, so the epic's claim holds for six of its seven sub-issues.
 

@@ -4,6 +4,10 @@ This is the transport-neutral broker layer of epic #556, implemented by #559. Re
 under `./grpc/SPEC.md`; it is not a `TransportStrategy`. The layer here owns validation, exact-pattern dispatch, typed request clients, correlation, deadlines and application lifecycle. A strategy
 owns broker framing, subscriptions, replies and applying settlements.
 
+> **Ownership target frozen by #654:** #648 moves this transport-neutral contract to `@zmdb/app`. The three concrete strategies then live only in `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq` and
+> `@zmdb/transport-redis`. Their old web subpaths are removed rather than forwarded; each package imports only the public app SPI and declares only its own required peer. This notice changes
+> ownership, not the settlement, framing, correlation or drain semantics below.
+
 ## 1. A message is not an HTTP request
 
 `MessageContext<T>` is a sibling of `Ctx`, not a subtype. A broker delivery has no HTTP method or path, and inventing those values would make HTTP-only guards compile against messages and silently
@@ -272,13 +276,16 @@ strategies can omit them.
 
 ## 9. Broker strategies
 
-The three clients are optional peers and live behind separate subpaths:
+The current implementation keeps the three clients as optional peers behind separate web subpaths:
 
 - `@zmdb/web/microservices/redis` uses Redis Pub/Sub;
 - `@zmdb/web/microservices/nats` uses core NATS;
 - `@zmdb/web/microservices/rabbitmq` uses a RabbitMQ topic exchange.
 
 Importing `@zmdb/web` or `@zmdb/web/microservices` reaches none of those clients. A plain production install therefore contains no broker client.
+
+The #654 target removes those three subpaths and all three peers from web. The corresponding dedicated package roots preserve the behavior below; selecting one package makes its one broker peer
+required there. There is no forwarding layer.
 
 All three adapters use the same versioned JSON envelope. Payloads must be JSON-serializable and cannot be `undefined`. The envelope carries W3C trace propagation; correlation and reply destinations
 use either envelope fields or the broker's native metadata. Parsing remains the strategy's responsibility: malformed JSON becomes `RawMessage.parseError` with the original text retained in `payload`.
@@ -338,4 +345,4 @@ The implementation tests prove:
 - no module-scope connection or registry;
 - no GraphQL integration;
 - no broker client reachable from the package root or transport-neutral microservices entry point;
-- no grpc-js import from the package root or transport-neutral microservices entry point; the optional peer is reached only through `./microservices/grpc` or an application configured with gRPC.
+- no grpc-js import from the core app root or transport-neutral messaging entry point; the target reaches its required peer only through the selected `@zmdb/transport-grpc` package.

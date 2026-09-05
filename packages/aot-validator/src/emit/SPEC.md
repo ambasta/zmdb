@@ -335,6 +335,18 @@ only until the value touched anything, which is a worse guarantee than not makin
 - The descriptor emitter walks a `TypeIR` outside `schema-core/src/ir/`, so it needs a `MAY_NAME` exemption in `.github/scripts/verify-one-walker.mjs` with a reason. That gate fails on stale
   exemptions too, so the entry is a commitment in both directions.
 
+### Package ownership after #654
+
+All wire and descriptor semantics above remain unchanged, but their public runtime owner becomes `@zmdb/protobuf`:
+
+- application source imports `protoEncode`, `protoDecode`, `protoDescriptor`, `grpcDescriptor` and `loadGrpcService` from `@zmdb/protobuf`;
+- emitted JavaScript imports `ProtoReader` and `ProtoWriter` from `@zmdb/protobuf/wire`;
+- witness and declaration artifacts import gRPC service-artifact calls/types from `@zmdb/protobuf`; and
+- `@zmdb/aot-validator` keeps this emitter, the reflector and diagnostics but stops exporting the moved calls and `./protobuf/wire`.
+
+Recognition is by resolved binding, not bare identifier text. The plugin and codegen routes must agree on direct imports, aliases, namespace properties, local shadows and same-named foreign functions.
+Generated output containing `@zmdb/aot-validator/protobuf/wire` or importing a public protobuf artifact type from `@zmdb/aot-validator` is stale and fails the package-isolation evidence.
+
 ## 8. Refusals
 
 An `unsupported` node is a build error, never a guess (plan D4). The walk records an `EmitDiagnostic` — `path` plus prose — and returns `undefined`; the transformer then leaves that call site alone,

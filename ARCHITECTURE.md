@@ -317,6 +317,64 @@ The exact 32-file ownership map, public exports, peer matrix, publish order and 
 [`packages/ai-anthropic/SPEC.md`](./packages/ai-anthropic/SPEC.md), [`packages/ai-langchain/SPEC.md`](./packages/ai-langchain/SPEC.md), [`packages/ai-vercel/SPEC.md`](./packages/ai-vercel/SPEC.md) and
 [`packages/mcp/SPEC.md`](./packages/mcp/SPEC.md).
 
+### 3.8 Frozen optional server-integration target (#654)
+
+This section is the target frozen for epic #653, not a claim about the current tree. The measured starting point has protobuf calls, service artifacts and wire primitives in `@zmdb/aot-validator`; six
+external peers on `@zmdb/web`; and six integration subpaths under web.
+
+The final manifest graph is:
+
+| Package                    | Direct internal dependencies  | Sole external peer               |
+| -------------------------- | ----------------------------- | -------------------------------- |
+| `@zmdb/protobuf`           | none                          | none                             |
+| `@zmdb/transport-grpc`     | `@zmdb/app`, `@zmdb/protobuf` | `@grpc/grpc-js@^1.14.0`          |
+| `@zmdb/transport-nats`     | `@zmdb/app`                   | `@nats-io/transport-node@^3.4.0` |
+| `@zmdb/transport-rabbitmq` | `@zmdb/app`                   | `amqplib@^2.0.1`                 |
+| `@zmdb/transport-redis`    | `@zmdb/app`                   | `redis@^6.2.1`                   |
+| `@zmdb/jobs-postgres`      | `@zmdb/jobs`                  | `pg@^8.23.0`                     |
+| `@zmdb/otel`               | `@zmdb/app`                   | `@opentelemetry/api@^1.9.0`      |
+
+The peers are required by the package that selects them, not optional peers of a core package. `@zmdb/app`, `@zmdb/web`, `@zmdb/jobs`, `zmdb`, `@zmdb/protobuf` and `@zmdb/aot-validator` declare none
+of them. The default product therefore remains cohesive without installing every broker, database client or telemetry API.
+
+`@zmdb/aot-validator` keeps the only reflection session, protobuf/service-IR walk and emitter. `@zmdb/protobuf` owns the five source calls, service-artifact types and generated wire runtime, but no
+checker, emitter or descriptor parser. The compiler recognises bindings from the canonical `@zmdb/protobuf` root and emits `ProtoReader`/`ProtoWriter` imports from `@zmdb/protobuf/wire`; this is a
+build-time protocol, not a reverse runtime package edge.
+
+Ownership moves once, with no compatibility forwarding:
+
+| Removed surface                                         | New owner                  |
+| ------------------------------------------------------- | -------------------------- |
+| protobuf/gRPC artifact exports at `@zmdb/aot-validator` | `@zmdb/protobuf`           |
+| `@zmdb/aot-validator/protobuf/wire`                     | `@zmdb/protobuf/wire`      |
+| `@zmdb/web/microservices/grpc`                          | `@zmdb/transport-grpc`     |
+| `@zmdb/web/microservices/nats`                          | `@zmdb/transport-nats`     |
+| `@zmdb/web/microservices/rabbitmq`                      | `@zmdb/transport-rabbitmq` |
+| `@zmdb/web/microservices/redis`                         | `@zmdb/transport-redis`    |
+| `@zmdb/web/queues/backends/pg`                          | `@zmdb/jobs-postgres`      |
+| `@zmdb/web/otel`                                        | `@zmdb/otel`               |
+
+Generic messaging and observability ports belong to `@zmdb/app`; queue and worker ports belong to `@zmdb/jobs`. Concrete integrations import those public contracts and never private web/jobs source.
+Core packages never import an optional integration, and `zmdb` does not re-export them.
+
+Resource ownership is explicit:
+
+- transport and gRPC extension instances are application-owned; they open resources during start and close them through the bounded extension shutdown contract;
+- typed gRPC clients are caller-owned and expose `close()`/`Symbol.dispose`;
+- the PostgreSQL jobs adapter borrows a caller-owned pool/client and never closes or releases it;
+- the OpenTelemetry adapter borrows caller-owned tracer/meter objects and never registers or shuts down a provider; and
+- protobuf imports allocate no long-lived resource and perform no I/O.
+
+Release publication follows the manifest DAG: publish `@zmdb/protobuf`, `@zmdb/app` and `@zmdb/jobs` before their dependants, publish the compiler version that recognises the new protobuf owner only
+after `@zmdb/protobuf` exists, then publish each integration independently. A release is qualified only when every package packs, installs, imports and typechecks outside the workspace; real gRPC,
+NATS, RabbitMQ, Redis and PostgreSQL evidence runs against the named peer, and a missing required service fails rather than silently skipping. `@zmdb/otel` is proven with real API/SDK objects but owns
+no collector or exporter.
+
+The exact public exports, lifecycle, install commands and evidence are frozen in [`packages/protobuf/SPEC.md`](./packages/protobuf/SPEC.md),
+[`packages/transport-grpc/SPEC.md`](./packages/transport-grpc/SPEC.md), [`packages/transport-nats/SPEC.md`](./packages/transport-nats/SPEC.md),
+[`packages/transport-rabbitmq/SPEC.md`](./packages/transport-rabbitmq/SPEC.md), [`packages/transport-redis/SPEC.md`](./packages/transport-redis/SPEC.md),
+[`packages/jobs-postgres/SPEC.md`](./packages/jobs-postgres/SPEC.md) and [`packages/otel/SPEC.md`](./packages/otel/SPEC.md).
+
 ---
 
 ## 4. Implementation-language policy

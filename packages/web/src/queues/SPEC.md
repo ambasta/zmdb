@@ -7,6 +7,9 @@
 `@Cron` and `@Interval`, the lease that keeps a scheduled task from running once per replica, and the cron dialect are `../schedule/SPEC.md`. The SQL that claims a row under a lease is already frozen
 in `../../../query-compiler/src/outbox/SPEC.md` and is not restated. This file is the worker: the handler contract, what happens on each of the five ways a job can end, and who owns idempotency.
 
+> **Ownership target frozen by #654:** #650 moves this queue/worker contract and the SQLite memory backend to `@zmdb/jobs`. The node-postgres adapter moves to `@zmdb/jobs-postgres`, whose only
+> required peer is `pg@^8.23.0`; it borrows a caller-owned pool/client and never closes it. `@zmdb/web/queues/backends/pg` is removed with no forwarding subpath.
+
 ## 1. Three of the four hard decisions are already frozen, and this file inherits them
 
 The epic's framing is that "every hard part of this epic is a distributed-systems decision that cannot be retrofitted". Two of those parts were decided by earlier freezes in other files, and
@@ -218,12 +221,14 @@ The port is not decoration. `@zmdb/web`'s required dependencies are `@zmdb/aot-v
 re-exported from `@zmdb/repository`'s index, so naming that type here would mean adding a dependency merely to spell an argument. The structural form lets an existing repository `Driver` or
 transaction pass straight through.
 
-The original freeze then made a wrong inference: it treated that port as satisfying the epic's optional-backend constraint by itself. The live #588 issue is more specific and is the contract to land:
-`packages/web/src/queues/backends/` must contain a supported in-memory backend and one real adapter, and DoD 4 requires the real adapter's package to be an optional peer.
+The original freeze then made a wrong inference: it treated that port as satisfying the epic's optional-backend constraint by itself. #588 corrected the shipped web package: its
+`packages/web/src/queues/backends/` had to contain a supported in-memory backend and one real adapter, with the adapter's client as an optional peer. #654 supersedes only that package placement: core
+jobs keeps memory storage and `@zmdb/jobs-postgres` makes `pg` required once that adapter is selected.
 
-The smallest adapter consistent with the SQL-shaped `JobStore` is node-postgres, not Redis. `createPgJobStore(poolOrClient)` delegates to the repository's measured `pgDriver`, so every query remains
-the same query and `dialect` is `postgres`. `pg` is an optional peer and a type-only import in shipped code: the caller constructs and owns the `Pool`/`Client`, and importing `@zmdb/web/queues`
-neither loads `pg` nor opens a connection.
+The smallest adapter consistent with the SQL-shaped `JobStore` is node-postgres, not Redis. The shipped `createPgJobStore(poolOrClient)` delegates to the repository's measured `pgDriver`, so every
+query remains the same query and `dialect` is `postgres`. `pg` is currently an optional web peer and a type-only import in shipped code: the caller constructs and owns the `Pool`/`Client`, and
+importing `@zmdb/web/queues` neither loads `pg` nor opens a connection. The #654 target moves that behavior to `@zmdb/jobs-postgres`, removes the repository/web ownership edge and makes `pg` the
+selected adapter package's required peer.
 
 `createMemoryJobStore()` is the other supported backend. It owns one isolated `node:sqlite` `:memory:` database, installs `zmdb_job`, `zmdb_job_done`, the unique enqueue-dedupe constraint and
 `zmdb_job_pending`, and exposes the database for deterministic test setup and assertions. It is explicitly ephemeral; a durable deployment still creates the declared repository rows through its
@@ -231,12 +236,12 @@ migration path.
 
 The split:
 
-| Piece                                                     | Lands in                                          |
+| Piece                                                     | Final owner                                       |
 | --------------------------------------------------------- | ------------------------------------------------- |
-| `JobHandler`, `JobContext`, `createQueue`, `createWorker` | `@zmdb/web/queues`                                |
-| supported ephemeral SQLite storage                        | `@zmdb/web/queues/backends/memory`                |
-| optional node-postgres adapter                            | `@zmdb/web/queues/backends/pg`, optional peer     |
-| durable `zmdb_job` rows and pending index declaration     | `@zmdb/repository/jobs`                           |
+| `JobHandler`, `JobContext`, `createQueue`, `createWorker` | `@zmdb/jobs`                                      |
+| supported ephemeral SQLite storage                        | `@zmdb/jobs`                                      |
+| node-postgres adapter                                     | `@zmdb/jobs-postgres`, required peer              |
+| durable `zmdb_job` rows and pending index declaration     | jobs migration contract                           |
 | the three claim statements                                | worker SQL, following the protocol in outbox §4.2 |
 
 **`zmdb_job` is a second table with the outbox's shape, not the outbox table reused.** The temptation is strong and `web-queues.md` predicts it.
@@ -518,7 +523,8 @@ scheduler registry and worker pool belong to the app. Two apps in one process mu
 15. `timeoutMs: 0`, `timeoutMs: Infinity`, a lease no longer than the effective timeout, and a handler `concurrency` above the worker's are construction errors.
 16. The supported memory backend installs both queue tables, the unique enqueue-dedupe constraint and the pending-claim index, and the runtime suite uses that backend rather than duplicating its own
     schema.
-17. The `pg` adapter accepts node-postgres `Pool`, `PoolClient` and `Client`, preserves the `postgres` dialect and query result, and `packages/web/package.json` declares `pg` as an optional peer.
+17. The `pg` adapter accepts node-postgres `Pool`, `PoolClient` and `Client`, preserves the `postgres` dialect and query result, and does not close the supplied object. Today the isolation assertion
+    names web's optional peer; #654 relocates it to a required peer declared only by `@zmdb/jobs-postgres`.
 
 ## 12. Follow-ups this issue does not have to make
 

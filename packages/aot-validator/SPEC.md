@@ -92,6 +92,18 @@ A session cannot cross that boundary, so under Metro the number is **one per tra
 process; the alternative under Metro would be one session per file, which is the cost this requirement exists to prevent. See `src/plugin/SPEC.md` §6.2, including the two documented escapes for a
 machine that cannot hold N loaded projects.
 
+## 6.1 Protobuf ownership after #654
+
+The optional-package target moves protobuf's source calls, gRPC service-artifact types and byte runtime to `@zmdb/protobuf`; it does not move compilation here or create another compiler there.
+`@zmdb/aot-validator` remains the sole owner of the TypeScript session, reflection, protobuf/service IR and emission.
+
+Call recognition must stop relying on identifier text for the five moved names. A direct, aliased or namespace binding is transformed only when the checker resolves it to the canonical
+`@zmdb/protobuf` root export. A local shadow, a same-named function from another module and an old `@zmdb/aot-validator` import are left untouched. Other AOT calls retain their declared owners under
+the same binding-based registry rather than maintaining a second protobuf-only scanner.
+
+The compiler has no runtime dependency on `@zmdb/protobuf`: source imports provide the call declarations and emitted JavaScript imports its wire ABI directly. The exact handshake and migration are
+frozen in [`../protobuf/SPEC.md`](../protobuf/SPEC.md) and `src/emit/SPEC.md` §7b.
+
 ## 7. Verified
 
 - [x] `parseType` and every other text-based reading of a type argument is gone; eight type-argument forms are asserted to pass through `transformCode` byte-identical.
