@@ -3,6 +3,11 @@
 > Status: **FROZEN** for TDD. Implementation (#64–#67) must satisfy this spec. Part of `@zmdb/schema-core` (module `src/openapi/`). Build-time only, no runtime reflection. Targets: Node 26+, ESM,
 > TS 7. JSON Schema draft 2020-12 / OpenAPI 3.1.
 
+## Issue #635 package boundary
+
+This complete public surface moves to `@zmdb/schema/openapi`. The `singularPascalCase` helper it currently imports from query-compiler naming moves into `@zmdb/schema/naming`; OpenAPI must not import
+`@zmdb/sql` or migrations to name a component.
+
 ## 1. toJsonSchema(schema, variant?)
 
 ```ts

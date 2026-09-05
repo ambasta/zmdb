@@ -480,6 +480,30 @@ The package contracts are [`packages/compiler/SPEC.md`](./packages/compiler/SPEC
 [`packages/cli/SPEC.md`](./packages/cli/SPEC.md). Until their manifests exist they remain roadmap-only directories under §3.10. Their manifests, product-catalog rows and architecture-policy rows must
 be admitted atomically; release membership and deterministic publish order then come only from the catalog and policy DAG, never from a second tooling-package list.
 
+### 3.12 Target runtime foundation — issue #635
+
+Sections 3.2–3.3 describe the packages that ship at the issue #635 baseline, while §§3.4–3.11 freeze intermediate ownership extractions. After those exits, the hard-cutover target is four
+runtime-foundation packages:
+
+```text
+@zmdb/schema ───────> @zmdb/validator
+      │                         │
+      └──────────┐              │
+                 v              v
+              @zmdb/orm <── @zmdb/sql
+```
+
+Arrows point from a dependency to its consumer.
+
+- `@zmdb/schema` and `@zmdb/sql` are independent roots.
+- `@zmdb/validator` depends only on `@zmdb/schema`.
+- `@zmdb/orm` depends exactly on schema, SQL, and validator. It is the only foundation layer that composes all three.
+- Foundation manifests have no external production, optional, or peer dependency. Their `node:*` allowlist is empty; concrete SQLite is an optional package, not an ORM built-in.
+- Compiler, migrations, CLI, AI/MCP, web/jobs, and concrete database packages point inward. A foundation export cannot reach them directly or transitively.
+
+The cutover deletes `@zmdb/schema-core`, `@zmdb/query-compiler`, `@zmdb/aot-validator`, and `@zmdb/repository` and all of their old subpaths. They do not survive as forwarding packages. The measured
+136-file, 54-subpath, and 24-manifest-entry move map is normative in [`.github/scripts/verify-runtime-foundation.SPEC.md`](./.github/scripts/verify-runtime-foundation.SPEC.md).
+
 ---
 
 ## 4. Implementation-language policy

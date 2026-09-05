@@ -2,6 +2,10 @@
 
 > Status: **FROZEN** for TDD. Implementation (#52–#55) must satisfy this spec. Part of `@zmdb/aot-validator`. Targets: Node 26+, ESM, TS 7.
 
+## Issue #635 target package
+
+This runtime concern moves intact to `@zmdb/validator/serialization`. It shares the validator error and runtime walk and cannot reach compiler emission, reflection, plugins, or TypeScript.
+
 ## 1. stringify<T>
 
 `stringify(value)` produces a JSON string. For known shapes the transformer emits straight-line string concatenation; the runtime fallback here must be byte-identical to `JSON.stringify` for all

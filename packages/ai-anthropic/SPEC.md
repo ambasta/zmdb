@@ -72,3 +72,7 @@ The package README states `yarn add @zmdb/ai @zmdb/ai-anthropic @anthropic-ai/sd
 are read automatically.
 
 This package does not expose a generic provider abstraction, HTTP retry policy, streaming driver, model registry, cost table or environment helper.
+
+## Runtime-foundation cutover (#635)
+
+This optional package remains the sole owner of the current Anthropic chat driver and the `@anthropic-ai/sdk` peer. It depends inward on `@zmdb/ai`; no foundation package imports it.

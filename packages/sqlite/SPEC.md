@@ -88,3 +88,8 @@ Golden and type-level tests cover every abstract SQL type, statement form, schem
 - Shipping a SQLite engine or browser storage binding.
 - Treating Expo, OPFS, `sql.js` or another binding as a separate database package.
 - Adding a global SQLite registration or making SQLite the implicit compiler default.
+
+## Runtime-foundation cutover (#635)
+
+The vertical contract above is implemented first against the current generic seams. When #634 performs its hard package cutover, those inward dependencies become `@zmdb/sql` and `@zmdb/orm`.
+`node:sqlite` remains the package's only built-in integration and stays outside the browser-safe root; no foundation package imports this optional package.

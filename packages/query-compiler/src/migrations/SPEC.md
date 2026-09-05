@@ -2,6 +2,11 @@
 
 > Status: **FROZEN** for TDD. Implementation (#41–#44) must satisfy this spec. Lives in `@zmdb/query-compiler` (reuses dialects). Targets: Node 26+, ESM, TS 7.
 
+## Issue #635 ownership exit
+
+The three current build-included files in this directory move to `@zmdb/migrations`, with stable `./embedded` and `./runner` subpaths. Snapshot/diff/DDL planning and execution are schema lifecycle,
+not hot-path SQL. `@zmdb/sql` exposes only the injected SQL/dialect contracts migrations consumes and does not import back.
+
 ## 1. Snapshot format (deterministic)
 
 `snapshot(schemas): SchemaSnapshot` — a plain JSON object with **stable key ordering**. Serializing the same schema set twice yields identical bytes.

@@ -3,6 +3,11 @@
 > Part of `@zmdb/query-compiler` (module `src/introspect/`). Epic "Introspection — the DDL-to-declaration direction". Frozen for TDD. The catalog readers, declaration emitter and two-direction drift
 > report are implemented; the adoption CLI and guide remain separate slices.
 
+## Issue #635 ownership exit
+
+All eight current build-included files in this directory move to `@zmdb/migrations/introspect`. The formatter dependency and generated declaration import move with them. Generated declarations import
+`@zmdb/schema/tags`, not an old package name, and `@zmdb/sql` cannot reach introspection or `oxfmt`.
+
 ## 1. Why the reverse direction is not the forward one inverted
 
 Forward, the type map is a total function out of a closed vocabulary: `Sql<'text'>` is `TEXT`, always, and each root `DialectTypeMap` has one row per abstract type. Backward it is a partial function

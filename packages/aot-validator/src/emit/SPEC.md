@@ -3,6 +3,11 @@
 > Part of `@zmdb/aot-validator` (module `src/emit/`). `index.ts` is build-time only; `shape.ts` is imported by the runtime walker too and must stay compiler-free. Design: `DESIGN-type-first.md` §6,
 > `PLAN-type-first.md` Phase 5.
 
+## Issue #635 compiler/runtime boundary
+
+This emitter moves to `@zmdb/compiler/emit`; emitted validation code imports `@zmdb/validator/errors`, while emitted protobuf code imports `@zmdb/validator/protobuf/wire`. Neither generated path may
+import `@zmdb/compiler`, and no validator export may reach this module.
+
 ## 1. Why it exists
 
 `src/reflect/` turns a type into a `TypeIR`. This turns a `TypeIR` into JavaScript, so that

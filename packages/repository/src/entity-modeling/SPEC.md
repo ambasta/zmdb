@@ -2,6 +2,11 @@
 
 Explicit lifecycle events, embeddables, and inheritance mapping. No change-tracking-driven implicit events (that is an anti-pattern here). Epic #141.
 
+## Issue #635 extraction seam
+
+Lifecycle events, subscribers, and `EventBus` are ORM hooks and move to `@zmdb/orm/entity-modeling`. `flattenEmbeddable`, `liftEmbeddable`, `SingleTableInheritance`, `discriminatorFor`, and
+`rowToSubtype` are pure schema transformations and move to `@zmdb/schema/entity-modeling`. The old repository subpath is deleted; neither target forwards it.
+
 ## 1. Lifecycle events & subscribers (#142/#143/#144) — `@zmdb/repository`
 
 ```ts

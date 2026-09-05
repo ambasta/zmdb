@@ -3,6 +3,14 @@
 > Targets: Node 26+, ESM-only, `typescript@7` (the Go compiler behind its JS client). Module specs: `src/reflect/SPEC.md`, `src/emit/SPEC.md`, `src/utilities/SPEC.md`, `src/plugin/SPEC.md`,
 > `src/cli/SPEC.md`, `src/serialization/SPEC.md`, `src/advanced/SPEC.md`.
 
+## Issue #635 target ownership
+
+The current package has 56 build-included TypeScript files and 15 export-map entries. Their final owners are 47 files in `@zmdb/compiler`, 8 in `@zmdb/validator`, and the obsolete standalone
+executable entry in `@zmdb/cli`.
+
+`@zmdb/validator` contains only emitted-code runtime helpers and depends only on `@zmdb/schema`. It has no TypeScript, compiler, emitter, plugin, lint, CLI, Metro, filesystem, provider, or formatter
+reachability. The old package and every `@zmdb/aot-validator/*` subpath are deleted rather than forwarded.
+
 ## 1. What the package is
 
 `is<T>(x)` should cost a few `typeof`s, and the type should be the only place the schema is written. That takes four stages, one module each:

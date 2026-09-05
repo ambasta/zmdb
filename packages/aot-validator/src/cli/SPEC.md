@@ -3,6 +3,11 @@
 > Part of `@zmdb/aot-validator` (module `src/cli/`). Build-time; one of the two binaries the current tree publishes (`bin: { "zmdb-codegen": "./src/cli/bin.ts" }`). Package spec: `../../SPEC.md`. The
 > #626 amendment below replaces it with the single target binary. Design: `PLAN-type-first.md` Phase 5.
 
+## Issue #635 ownership split
+
+The callable scanner, witness generator, rewrite/check/watch library, and their fixtures move to `@zmdb/compiler/codegen`. The current `bin.ts` argument/exit-code adapter becomes the `zmdb codegen`
+command in `@zmdb/cli`; the `zmdb-codegen` executable is deleted. Runtime validator packages expose no command, filesystem, watch, or compiler code.
+
 ## 1. Why a CLI exists at all
 
 The unplugin gets its type information for free: a bundler hands it a module, it asks the compiler about the type arguments in it, and it hands back rewritten source that only the bundler ever sees. A

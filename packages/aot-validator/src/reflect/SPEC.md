@@ -2,6 +2,11 @@
 
 > Part of `@zmdb/aot-validator` (module `src/reflect/`). Build-time only; never bundled. Design: `DESIGN-type-first.md` §5, `PLAN-type-first.md` Phase 4.
 
+## Issue #635 target package
+
+Reflection, sessions, call-site discovery, and every reflection fixture move to `@zmdb/compiler/reflect`. TypeScript is a compiler peer and cannot be reached from `@zmdb/validator`, its declarations,
+or generated runtime code.
+
 ## 1. Why it exists
 
 `@zmdb/schema-core/ir` gave the repo one vocabulary and one set of back-ends. This is the front-end that lets a **type** reach it, so that

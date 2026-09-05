@@ -2,6 +2,14 @@
 
 > Status: **FROZEN** for TDD. Implementation (#26–#29) must satisfy this spec. Targets: Node 26+, ESM, TS 7. Depends on schema-core, query-compiler, aot-validator.
 
+## Issue #635 target ownership
+
+The current package has 22 build-included TypeScript files and 11 export-map entries. Sixteen current files move to `@zmdb/orm`; PostgreSQL owns two, SQLite and SQL Server own one each, web owns the
+endpoint integration, and jobs owns the job-storage module. The compiler outbox file adds the seventeenth ORM-owned file in the complete 136-file map.
+
+`@zmdb/orm` depends exactly on `@zmdb/schema`, `@zmdb/sql`, and `@zmdb/validator`. Concrete database clients, built-ins, web/jobs, compiler, migrations, and AI are not reachable. The old package and
+every `@zmdb/repository/*` import are deleted rather than forwarded.
+
 ## 1. Driver interface (injected)
 
 ```ts

@@ -65,3 +65,7 @@ Qualification must prove:
 The README states `yarn add @zmdb/ai @zmdb/mcp`, shows transport injection, and makes authentication the application's responsibility.
 
 No stdio process loop, HTTP controller, socket, session registry, resource/prompt implementation, remote-schema compiler, provider integration or `@modelcontextprotocol/*` dependency belongs here.
+
+## Runtime-foundation cutover (#635)
+
+This optional package retains the three current MCP client/server implementation files. It depends inward on `@zmdb/ai` and platform APIs; no foundation package imports it.

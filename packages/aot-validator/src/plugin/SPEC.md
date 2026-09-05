@@ -3,6 +3,11 @@
 > Status: **FROZEN** for TDD. Implementation (#80–#83) must satisfy this spec. Part of `@zmdb/aot-validator`. Targets: Node 26+, ESM, TS 7. Motivation: the shipped runtime validator loses to zod v4;
 > the AOT path (proven in benchmarks/RESULTS.md as a hand-inlined preview) must be produced by a REAL build plugin. This freezes that plugin's contract.
 
+## Issue #635 target package
+
+The unplugin, Metro adapter, transform orchestration, and benchmark support move to `@zmdb/compiler`. `typescript`, Metro, and bundler-facing dependencies are tooling-only and cannot be reached from
+`@zmdb/validator`.
+
 ## 1. Plugin surface
 
 The transformer is packaged for both `ts-patch`/`ttypescript` and `unplugin`:

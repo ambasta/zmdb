@@ -2,6 +2,10 @@
 
 > Part of `@zmdb/aot-validator`, exported as `./lint` (§7). Loaded by a linter, never by an application, which is why it belongs in the build-time half of this package's export map.
 
+## Issue #635 target package
+
+The complete lint plugin, host types, rules, and fixtures move to `@zmdb/compiler/lint`. `oxlint` is a compiler peer and is absent from the validator manifest and every validator runtime graph.
+
 ## 1. The host, decided by one sentence in oxlint's own type definitions
 
 `yarn lint` runs oxlint 1.81.0, and it does support plugins: `jsPlugins` takes a path to a plugin module, and the plugin API is ESLint's — `create(context)`, `context.report`, `fix`, `suggest`,

@@ -2,6 +2,11 @@
 
 > Part of `@zmdb/aot-validator` (module `src/utilities/`). Runtime; bundled into an application. Must never reach the compiler — `.github/scripts/verify-exports.mjs` enforces it transitively.
 
+## Issue #635 target package
+
+This runtime surface becomes the `@zmdb/validator` root. Its only package dependency is `@zmdb/schema`; generated code uses the root for assertion/validation helpers and `@zmdb/validator/errors` for
+the shared error class. The old `./utilities` ownership is not forwarded from `@zmdb/aot-validator`.
+
 ## 1. Entry points
 
 ```ts

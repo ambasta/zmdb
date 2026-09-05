@@ -2,6 +2,13 @@
 
 Originally frozen for TDD as issue #30, and rewritten when the relation DSL went away. No identity map, no proxies, no lazy loading — those are still non-goals and always were.
 
+## Issue #635 extraction seam
+
+`ResolvedRelation` and `resolveRelation` are pure metadata resolution and move to `@zmdb/schema/relations`. `PopulateDialect`, `PopulateQuery`, `compilePopulate`, `attachPopulated`, `JoinRow`, and
+`aliasRow` move to `@zmdb/orm/relations` as populate execution. This removes the SQL import from schema while retaining one relation resolver.
+
+The `zmdb/relations` facade explicitly re-exports from both new owners. Neither old `@zmdb/schema-core/relations` nor a compatibility forwarding module remains.
+
 ## 1. Where a relation is written
 
 On the type it belongs to, once, with a tag from `@zmdb/schema-core/tags`:

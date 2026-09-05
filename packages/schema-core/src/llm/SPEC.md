@@ -2,6 +2,17 @@
 
 Part of `@zmdb/schema-core`. Turn a schema into an LLM tool/parameter schema and leniently parse+validate model output. Reuses the OpenAPI generator + validators. Epic #157.
 
+## Issue #635 ownership exit
+
+All 16 build-included files under the current `src/llm/` tree leave the runtime foundation:
+
+- 10 provider-neutral files move to `@zmdb/ai`;
+- the Anthropic, LangChain, and Vercel adapters move to one package each;
+- 3 MCP files move to `@zmdb/mcp`.
+
+The exact paths are frozen in `.github/scripts/verify-runtime-foundation.SPEC.md` §2. Schema retains only the IR and JSON Schema framing those packages consume. No AI symbol, peer, export, generated
+import, or compatibility subpath remains in `@zmdb/schema`.
+
 ## API
 
 ```ts

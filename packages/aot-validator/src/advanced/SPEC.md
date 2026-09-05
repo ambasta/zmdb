@@ -2,6 +2,10 @@
 
 > Status: **FROZEN** for TDD. Implementation (#46–#50) must satisfy this spec. Part of `@zmdb/aot-validator`. Targets: Node 26+, ESM, TS 7, synchronous & inline.
 
+## Issue #635 target package
+
+This runtime concern moves intact to `@zmdb/validator/advanced`. It may depend only on the validator root and `@zmdb/schema` types; no compiler or tooling import is permitted.
+
 ## 1. Refinements
 
 ```ts

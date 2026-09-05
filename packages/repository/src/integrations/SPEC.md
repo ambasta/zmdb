@@ -1,5 +1,9 @@
 # SPEC — Framework integrations (frozen)
 
+## Issue #635 ownership exit
+
+This endpoint adapter moves to `@zmdb/web/integrations`. It is not an ORM responsibility and no framework-facing response contract remains reachable from `@zmdb/orm`.
+
 Part of `@zmdb/repository`. A thin, optional adapter contract that wires boundary validation + AOT serialization into any HTTP framework. No framework is a hard dependency. Epic #152.
 
 ## Contract

@@ -1,5 +1,10 @@
 # SPEC — the outbox: table, claiming, and delivery semantics (frozen)
 
+## Issue #635 ownership consolidation
+
+The current compiler-side SQL helpers and repository-side declaration/dispatcher become one `@zmdb/orm/outbox` concern. ORM is already the sole layer allowed to combine schema, SQL, validation,
+driver, transaction, and lifecycle behavior. No `@zmdb/sql/outbox` compatibility subpath remains.
+
 Part of `@zmdb/query-compiler`. This file owns the **SQL** an outbox needs — the table, the index, and the three statements that make a claim safe. The declaration and the dispatcher loop land in
 `@zmdb/repository` (§1), which is what `docs-site/content/transactional-outbox.md` already says the shape should be.
 

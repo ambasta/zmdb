@@ -72,3 +72,7 @@ The README states `yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.83`, shows `jsonSch
 fixture passes.
 
 No `LanguageModel` wrapper, provider package, streaming UI state, persistence adapter, `useChat` store or runtime schema library belongs here.
+
+## Runtime-foundation cutover (#635)
+
+This optional package remains the sole owner of the current Vercel AI SDK adapter and the `ai` peer. It depends inward on `@zmdb/ai`; no foundation package imports it.

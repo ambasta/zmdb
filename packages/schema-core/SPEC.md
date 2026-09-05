@@ -155,3 +155,12 @@ exports, all three provider peers and the whole `src/llm/` directory in the same
 
 The complete file map, public entry points, peer ranges and migration order are frozen in [`../ai/SPEC.md`](../ai/SPEC.md). The final boundary is mechanically true only when packed-package tests show
 that every remaining `@zmdb/schema-core` export imports without an AI/provider dependency and a repository search finds no `@zmdb/schema-core/llm` consumer.
+
+## 7. Issue #635 hard-cutover ownership
+
+The AI extraction above is an intermediate boundary; this package is still a current-state container rather than the final foundation package. At the measured #635 baseline, its 30 build-included
+TypeScript files divide into 14 schema-owned files and 16 AI/provider/MCP files, and its 15 export-map entries divide according to `.github/scripts/verify-runtime-foundation.SPEC.md` §4.
+
+After the AI exit, `@zmdb/schema` keeps declarations, IR, derivation, pure DTO/result shapes, naming, relation metadata, custom types, and OpenAPI/JSON Schema framing. SQL folding and populate
+execution move to `@zmdb/orm`; public validation errors move to `@zmdb/validator`; state-transition/state-machine symbols move to `@zmdb/app`. The old package and every `@zmdb/schema-core/*` import
+are deleted at the foundation cutover rather than forwarded.

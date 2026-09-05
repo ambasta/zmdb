@@ -69,3 +69,7 @@ The README states `yarn add @zmdb/ai @zmdb/ai-langchain @langchain/core@^1.2.9`,
 Zod.
 
 No retriever, vector store, memory backend, model wrapper, provider client or `json-schema-to-zod` dependency belongs here.
+
+## Runtime-foundation cutover (#635)
+
+This optional package remains the sole owner of the current LangChain adapter and the `@langchain/core` peer. It depends inward on `@zmdb/ai`; no foundation package imports it.

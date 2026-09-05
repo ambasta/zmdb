@@ -81,3 +81,8 @@ The current optional `ZMDB_MSSQL_URL` suite is useful local evidence. Release qu
 - Constructing or configuring application connection pools.
 - Claiming unmodeled SQL Server features merely because hand-written SQL can reach them.
 - Adding SQL Server branches back to generic compiler, migration, introspection or repository files.
+
+## Runtime-foundation cutover (#635)
+
+The vertical contract above is implemented first against the current generic seams. When #634 performs its hard package cutover, those inward dependencies become `@zmdb/sql` and `@zmdb/orm`; the
+package remains the sole owner of the SQL Server driver, the `mssql` peer, and the `@types/mssql` development dependency. No foundation package imports it.

@@ -2,6 +2,14 @@
 
 > Status: **FROZEN** for TDD. Implementation (#17–#20) must satisfy this spec. Targets: Node 26+, ESM-only, TS 7 semantics.
 
+## Issue #635 target ownership
+
+The current package has 28 build-included TypeScript files and 13 export-map entries. The final owners are 15 files in `@zmdb/sql`, 11 in `@zmdb/migrations`, one naming helper in `@zmdb/schema`, and
+one outbox module in `@zmdb/orm`.
+
+`@zmdb/sql` has no dependencies, formatter, schema import, migration import, ORM import, external peer, or `node:*` import. The old package and every `@zmdb/query-compiler/*` path are deleted rather
+than forwarded. The exact file and export maps are frozen in `.github/scripts/verify-runtime-foundation.SPEC.md`.
+
 ## 1. CompiledQuery contract
 
 ```ts

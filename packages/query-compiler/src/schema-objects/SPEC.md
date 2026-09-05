@@ -2,6 +2,11 @@
 
 Part of `@zmdb/query-compiler`. Declarative schema objects that emit dialect-correct DDL (feeding migrations). Pure string emitters, no runtime mutation. Epic #98.
 
+## Issue #635 SQL/migrations seam
+
+Runtime statement rendering remains `@zmdb/sql/schema-objects`. Snapshot/diff ordering and schema lifecycle remain `@zmdb/migrations`. The current `ddlType` import from migrations is inverted:
+migrations supplies or calls the SQL-owned type renderer, so `@zmdb/sql` never imports `@zmdb/migrations`.
+
 ## 1. Indexes & constraints (#99/#100/#101)
 
 ```ts

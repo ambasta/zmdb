@@ -264,3 +264,11 @@ Before any package is published, qualification must prove:
 - No compatibility export left in `@zmdb/schema-core`.
 - No root star export that makes importing `@zmdb/ai` load chat, HTTP, MCP or a provider integration.
 - No runtime implementation or package-manifest change in issue #703 itself.
+
+## Runtime-foundation cutover (#635)
+
+The #703 graph is the extraction path through the current package names. At the later foundation cutover, the ten build-included provider-neutral source files assigned by
+`.github/scripts/verify-runtime-foundation.SPEC.md` remain owned by `@zmdb/ai`, while its inward contracts move from `@zmdb/schema-core` to `@zmdb/schema` and `@zmdb/validator`.
+
+No foundation package imports AI. Provider SDKs, LangChain, Vercel AI, and MCP remain separate packages. Generated OpenAPI tool modules then import `@zmdb/schema/tags`, `@zmdb/validator`, and
+`@zmdb/ai/http`, never an old package name.

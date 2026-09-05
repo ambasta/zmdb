@@ -77,3 +77,8 @@ An absent server is a release-lane failure. Recorder tests and the current optio
 - Owning Cockroach-specific types, refusals, retries or catalog normalization.
 - Bundling a PostgreSQL server or constructing application connection pools.
 - Creating separate packages for hosted services that only supply PostgreSQL connection details.
+
+## Runtime-foundation cutover (#635)
+
+The vertical contract above is implemented first against the current generic seams. When #634 performs its hard package cutover, those inward dependencies become `@zmdb/sql` and `@zmdb/orm`; the
+package remains the sole owner of the PostgreSQL driver, its acceptance fixture, the `pg` peer, and the `@types/pg` development dependency. No foundation package imports it.

@@ -1,5 +1,10 @@
 # SPEC — First-party driver adapters (frozen)
 
+## Issue #635 ownership exit
+
+`Driver`, `ExecuteOptions`, and `TransactionalDriver` remain structural contracts in `@zmdb/orm`. Concrete adapters move to `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql`. Their client peers and
+acceptance fixtures move with them. ORM does not import, probe, register, or re-export a concrete adapter.
+
 Epic #209. Ships official `Driver` implementations so users don't hand-write one. The `Driver` interface itself is `../../SPEC.md` §1 — one required method, `execute`, plus an optional `dialect` and
 an optional `stream` (§1a there). Adapters are thin, dependency-injected wrappers — the repository still never opens connections itself.
 

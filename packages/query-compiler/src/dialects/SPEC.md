@@ -3,6 +3,11 @@
 > `Dialect` grows from three members to six over the epic. The #507 mechanism lives in `index.ts`, and SQL Server landed in #508 while #509 ships CockroachDB and SingleStore as parented variants. The
 > mechanism decision and what it costs are in `../../SPEC.md` §5e.
 
+## Issue #635 foundation seam
+
+`@zmdb/sql` owns the injected dialect protocol, generic resolution algorithm, placeholders, quoting, and capability checks. The foundation has no database-client dependency or concrete driver.
+Official vendor records may later move to their database packages, but no protocol or implementation is copied and no foundation package imports those packages.
+
 ## 1. The inventory, and the number it produced
 
 This is the pre-mechanism inventory measured by the spec freeze. At that point the count of every `switch (dialect)` in the compiler was **zero**: each listed decision was an inline comparison against
