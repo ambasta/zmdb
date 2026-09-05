@@ -1,12 +1,14 @@
-MySQL is fully supported by the compiler. The differences from Postgres are in quoting, placeholders, and three type mappings — plus two behaviours that will surprise you if Postgres is your reference
-point.
+The query compiler and DDL emitter support MySQL. The repository has no bundled MySQL driver or live-server gate, and its row-returning write methods are deliberately narrower: `create`, ordinary
+`update`, and ordinary `upsert` refuse because MySQL cannot satisfy their returned-entity contract in one statement.
 
 ## Selecting it
 
 ```ts
 const compiler = createQueryCompiler('mysql');
-const userRepo = defineRepository(users, mysqlDriver(pool), { dialect: 'mysql' });
+const userRepo = defineRepository(users, driver, { dialect: 'mysql' });
 ```
+
+`driver` is your `Driver` adapter around `mysql2`, PlanetScale, TiDB, or another MySQL-protocol client; none is bundled.
 
 ## What it emits
 
@@ -31,7 +33,16 @@ compiler.selectFrom('users').where('email', '=', 'a@b.c').compile();
 
 ## No `RETURNING`
 
-This is the difference that changes application code. `repo.create()` cannot get the inserted row back in one statement, so on MySQL you need the generated id from the driver's result metadata:
+The compiler refuses every MySQL `returning()` request before producing a `CompiledQuery`:
+
+```text
+returning is not supported for INSERT on dialect "mysql"; omit returning() and perform an explicit read
+```
+
+The capability is declared separately for INSERT, upsert, UPDATE, and DELETE. That distinction can represent an INSERT-only MariaDB dialect later without making MySQL emit syntax it does not support.
+
+`BaseRepository.create`, an ordinary value-bearing `update`, and an ordinary `upsert` propagate that refusal before driver execution because their public return types promise a row. They neither emit
+invalid SQL nor silently resolve to `undefined`. Use a lower-level statement without `returning()` and then read by a known primary or unique key:
 
 ```ts
 const driver: Driver = {
@@ -42,20 +53,16 @@ const driver: Driver = {
     return [{ insertId: result.insertId, affectedRows: result.affectedRows }];
   },
 };
+
+await driver.execute(compiler.insertInto('users').values(dto).compile());
+const row = await userRepo.findOne({ email: { eq: dto.email } });
 ```
 
-Then read it back if you need the row:
-
-```ts
-await repo.create(dto);
-const row = await repo.findOne({ email: { eq: dto.email } });
-```
-
-Two round trips. Selecting on a unique column rather than `LAST_INSERT_ID()` is safer across a pool, where the second statement may land on a different connection.
+That is two round trips and bypasses repository write validation, so validate the payload before compiling. Selecting on a supplied unique value is safe across a pool; `LAST_INSERT_ID()` is
+connection-local and needs both statements pinned to the same connection.
 
 Expression-valued repository writes have a narrower explicit contract: `update(id, { count: inc(1) })`, `increment`, every `updateMany`, and an expression-valued `upsert` update object omit
-unsupported `RETURNING`, execute one statement, and resolve to `undefined`. They do not issue a hidden follow-up `SELECT`. This does not retrofit the other pre-existing repository write paths; the
-create example above still applies to them.
+unsupported `RETURNING`, execute one statement, and resolve to `undefined`. They do not issue a hidden follow-up `SELECT`.
 
 ## `boolean` is `TINYINT(1)`
 

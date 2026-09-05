@@ -124,8 +124,8 @@ contract.
 The MySQL branch writes `` `col` = VALUES(`col`) ``, which MySQL 8.0.20 and later deprecate in favour of a row alias (`… AS new ON DUPLICATE KEY UPDATE col = new.col`). It is kept because servers
 older than 8.0.20 do not understand the alias form. On a modern MySQL this produces a deprecation warning in the server log and nothing else — it is expected, not a bug.
 
-MySQL also has no `RETURNING`. For an expression-valued repository `updateFields` object, zmdb emits one `INSERT … ON DUPLICATE KEY UPDATE` statement without `RETURNING` and resolves to `undefined`;
-it does not perform a follow-up read. That branch is deliberately scoped to expression upserts and does not claim that every pre-existing MySQL repository write-returning path is resolved.
+MySQL also has no `RETURNING`. An ordinary repository upsert refuses before driver execution because its `Entity<T> | undefined` result depends on a returned row. For an expression-valued
+`updateFields` object, zmdb instead uses the explicit one-statement branch: it emits `INSERT … ON DUPLICATE KEY UPDATE` without `RETURNING`, resolves to `undefined`, and performs no follow-up read.
 
 ## What `upsert` does not reach
 

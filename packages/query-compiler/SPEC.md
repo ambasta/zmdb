@@ -33,6 +33,10 @@ qb.deleteFrom(table).where(...).returning(cols?).compile()
 
 Builders are immutable: each method returns a new builder.
 
+`returning()` is dispatched through one total statement capability with separate `insert`, `upsert`, `update`, and `delete` entries. The Postgres family and SQLite emit a suffix, SQL Server emits
+`OUTPUT` in the statement-specific position, and the MySQL family refuses before returning a `CompiledQuery`. A child dialect can override one statement without claiming the others; in particular, the
+shape can represent MariaDB-style INSERT-only support without adding MariaDB to `Dialect`.
+
 ## 3. Placeholder policy (per dialect)
 
 | Dialect            | Placeholder   | Identifier quote |
@@ -369,6 +373,9 @@ the traits table.
 The cost is not hidden: `quoting.ts` is built around a quote-character pair, `renumberPlaceholders` takes a dialect so named placeholders can be continued across a `UNION`, and `tailClause` delegates
 to the resolved pagination trait. Cockroach and SingleStore now use that seam through their Postgres and MySQL parents, while SQL Server owns the named-part assembly for `OUTPUT` and `MERGE`; #507
 supplied the shared dispatch seam.
+
+The `returning` trait is a per-statement record rather than one boolean or one placement string. One renderer consults it for INSERT, upsert, UPDATE, and DELETE, which keeps MySQL refusals,
+Postgres/SQLite suffixes, and SQL Server `OUTPUT` placement on the same declared axis.
 
 Three things this mechanism does **not** change:
 

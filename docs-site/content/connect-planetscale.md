@@ -73,7 +73,8 @@ PlanetScale branches are a good fit for zmdb's offline generation: the migration
 
 ## The MySQL differences still apply
 
-- **No `RETURNING`.** `repo.create()` cannot return the row; read it back. See [Dialect: MySQL](./dialect-mysql.html).
+- **No `RETURNING`.** Row-returning repository `create`/ordinary `update`/ordinary `upsert` refuse before driver execution. Use a lower-level write without `returning()` and an explicit read. See
+  [Dialect: MySQL](./dialect-mysql.html).
 - **`boolean` is `TINYINT(1)`** and comes back as `0`/`1`. Convert in the driver — `0` is truthy in JavaScript, and that bug reads as correct code.
 - **`LIKE` is case-insensitive** by default collation, so `like` and `ilike` behave the same.
 

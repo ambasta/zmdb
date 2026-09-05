@@ -322,8 +322,11 @@ physical column is aliased to its declared property key. `updateMany` returns th
 present).
 
 The MySQL family has no `UPDATE … RETURNING`. The repository therefore emits no `RETURNING` for an expression-bearing keyed update or upsert update branch, and for every `updateMany`; those calls
-execute one atomic statement and resolve to `undefined`. There is no hidden follow-up `SELECT`. This is deliberately narrow: ordinary keyed updates and other pre-existing MySQL-family write-returning
-paths are outside this expression-write contract.
+execute one atomic statement and resolve to `undefined`. There is no hidden follow-up `SELECT`.
+
+The methods whose public contract requires a returned entity take the other honest branch. MySQL-family `create`, an ordinary value-bearing keyed `update`, and an ordinary `upsert` refuse before
+driver execution with `UnsupportedFeatureError('returning', dialect)`. The message names INSERT, UPDATE, or UPSERT and says to omit `returning()` and perform an explicit read. They do not drop the
+clause and return `undefined`, because that would violate their declared return contract, and they do not invent a follow-up lookup whose key or connection affinity may be ambiguous.
 
 ## 3c. Entity filters and soft delete (implemented)
 

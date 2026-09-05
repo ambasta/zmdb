@@ -6,6 +6,9 @@ export type Dialect = (typeof DIALECT_NAMES)[number];
 export type DialectFamily = Exclude<Dialect, 'cockroach' | 'singlestore'>;
 
 export type PlaceholderStyle = 'numbered' | 'positional' | 'named';
+export type ReturningStatement = 'insert' | 'upsert' | 'update' | 'delete';
+export type ReturningStyle = 'suffix' | 'output' | 'none';
+export type ReturningCapability = Readonly<Record<ReturningStatement, ReturningStyle>>;
 
 export type DialectFeature =
   | 'materializedView'
@@ -42,7 +45,7 @@ interface RequiredDialectTraits {
   readonly placeholder: PlaceholderStyle;
   readonly quote: readonly [open: string, close: string];
   readonly paginate: (tail: PaginationTail) => string;
-  readonly returning: 'suffix' | 'output' | 'none';
+  readonly returning: ReturningCapability;
   readonly upsert: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
   readonly fts: 'tsvector' | 'match' | 'companionTable' | 'none';
   readonly concat: 'operator' | 'function';
@@ -57,7 +60,7 @@ interface DialectTraitOverrides {
   readonly placeholder?: PlaceholderStyle;
   readonly quote?: readonly [open: string, close: string];
   readonly paginate?: (tail: PaginationTail) => string;
-  readonly returning?: 'suffix' | 'output' | 'none';
+  readonly returning?: Readonly<Partial<ReturningCapability>>;
   readonly upsert?: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
   readonly fts?: 'tsvector' | 'match' | 'companionTable' | 'none';
   readonly concat?: 'operator' | 'function';
@@ -151,12 +154,25 @@ const SQLITE_TYPES = Object.freeze({
   jsonEnum: 'TEXT',
 } satisfies DialectTypeMap);
 
+function returningCapability(style: ReturningStyle): ReturningCapability {
+  return Object.freeze({
+    insert: style,
+    upsert: style,
+    update: style,
+    delete: style,
+  });
+}
+
+const SUFFIX_RETURNING = returningCapability('suffix');
+const OUTPUT_RETURNING = returningCapability('output');
+const NO_RETURNING = returningCapability('none');
+
 export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze({
   postgres: Object.freeze({
     placeholder: 'numbered',
     quote: quotePair('"', '"'),
     paginate: standardPaginate,
-    returning: 'suffix',
+    returning: SUFFIX_RETURNING,
     upsert: 'onConflict',
     fts: 'tsvector',
     concat: 'operator',
@@ -179,7 +195,7 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     placeholder: 'positional',
     quote: quotePair('`', '`'),
     paginate: mysqlPaginate,
-    returning: 'none',
+    returning: NO_RETURNING,
     upsert: 'onDuplicateKey',
     fts: 'match',
     concat: 'function',
@@ -202,7 +218,7 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     placeholder: 'positional',
     quote: quotePair('"', '"'),
     paginate: sqlitePaginate,
-    returning: 'suffix',
+    returning: SUFFIX_RETURNING,
     upsert: 'onConflict',
     fts: 'companionTable',
     concat: 'operator',
@@ -225,7 +241,7 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     placeholder: 'named',
     quote: quotePair('[', ']'),
     paginate: mssqlPaginate,
-    returning: 'output',
+    returning: OUTPUT_RETURNING,
     upsert: 'merge',
     fts: 'none',
     concat: 'function',
@@ -275,6 +291,10 @@ function missingSqlType(dialect: Dialect, type: DialectSqlType): never {
   throw new Error(`Dialect "${dialect}" does not resolve SQL type "${type}"`);
 }
 
+function missingReturning(dialect: Dialect, statement: ReturningStatement): never {
+  throw new Error(`Dialect "${dialect}" does not resolve RETURNING support for "${statement}"`);
+}
+
 function inherited<T>(
   dialect: Dialect,
   trait: keyof RequiredDialectTraits,
@@ -300,6 +320,19 @@ function resolveTypes(
     timestamp: own?.timestamp ?? parent?.timestamp ?? missingSqlType(dialect, 'timestamp'),
     json: own?.json ?? parent?.json ?? missingSqlType(dialect, 'json'),
     jsonEnum: own?.jsonEnum ?? parent?.jsonEnum ?? missingSqlType(dialect, 'jsonEnum'),
+  });
+}
+
+function resolveReturning(
+  dialect: Dialect,
+  own: Readonly<Partial<ReturningCapability>> | undefined,
+  parent: ReturningCapability | undefined,
+): ReturningCapability {
+  return Object.freeze({
+    insert: own?.insert ?? parent?.insert ?? missingReturning(dialect, 'insert'),
+    upsert: own?.upsert ?? parent?.upsert ?? missingReturning(dialect, 'upsert'),
+    update: own?.update ?? parent?.update ?? missingReturning(dialect, 'update'),
+    delete: own?.delete ?? parent?.delete ?? missingReturning(dialect, 'delete'),
   });
 }
 
@@ -342,7 +375,7 @@ function resolveOne(
     placeholder: inherited(dialect, 'placeholder', definition.placeholder, parent?.placeholder),
     quote: quotePair(inheritedQuote[0], inheritedQuote[1]),
     paginate: inherited(dialect, 'paginate', definition.paginate, parent?.paginate),
-    returning: inherited(dialect, 'returning', definition.returning, parent?.returning),
+    returning: resolveReturning(dialect, definition.returning, parent?.returning),
     upsert: inherited(dialect, 'upsert', definition.upsert, parent?.upsert),
     fts: inherited(dialect, 'fts', definition.fts, parent?.fts),
     concat: inherited(dialect, 'concat', definition.concat, parent?.concat),

@@ -27,19 +27,22 @@ describe('dialect traits', () => {
     expect(dialectTraitResolutionCount()).toBe(resolutions);
     expect(TRAITS.postgres).toBe(postgres);
     expect(Object.isFrozen(TRAITS.postgres)).toBe(true);
+    expect(Object.isFrozen(TRAITS.postgres.returning)).toBe(true);
     expect(Object.isFrozen(TRAITS.postgres.types)).toBe(true);
     expect(Object.isFrozen(TRAITS.postgres.features)).toBe(true);
     expect(TRAITS.cockroach.family).toBe('postgres');
     expect(TRAITS.singlestore.family).toBe('mysql');
   });
 
-  it('merges inherited scalar, feature and type traits', () => {
+  it('merges inherited scalar, feature, type and statement-specific returning traits', () => {
     const definitions: Readonly<Record<(typeof DIALECT_NAMES)[number], DialectTraits>> = {
       postgres: DIALECTS.postgres,
       mysql: {
         parent: 'postgres',
         placeholder: 'positional',
-        returning: 'none',
+        // MariaDB is not a public dialect, but the capability can represent an
+        // INSERT-only child without pretending UPDATE, DELETE or every upsert form follows.
+        returning: { upsert: 'none', update: 'none', delete: 'none' },
         types: { timestamp: 'DATETIME(3)' },
         features: { rowLevelSecurity: false },
       },
@@ -53,7 +56,12 @@ describe('dialect traits', () => {
 
     expect(resolved.mysql.quote).toEqual(resolved.postgres.quote);
     expect(resolved.mysql.placeholder).toBe('positional');
-    expect(resolved.mysql.returning).toBe('none');
+    expect(resolved.mysql.returning).toEqual({
+      insert: 'suffix',
+      upsert: 'none',
+      update: 'none',
+      delete: 'none',
+    });
     expect(resolved.mysql.types.text).toBe('TEXT');
     expect(resolved.mysql.types.timestamp).toBe('DATETIME(3)');
     expect(resolved.mysql.features.materializedView).toBe(true);

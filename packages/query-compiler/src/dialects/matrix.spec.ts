@@ -68,11 +68,13 @@ interface FrozenInsertBuilder {
 interface FrozenUpdateBuilder {
   set(row: Record<string, unknown>): FrozenUpdateBuilder;
   where(column: string, operator: string, value: unknown): FrozenUpdateBuilder;
+  returning(columns?: readonly string[]): FrozenUpdateBuilder;
   compile(): CompiledQuery;
 }
 
 interface FrozenDeleteBuilder {
   where(column: string, operator: string, value: unknown): FrozenDeleteBuilder;
+  returning(columns?: readonly string[]): FrozenDeleteBuilder;
   compile(): CompiledQuery;
 }
 
@@ -364,6 +366,31 @@ const MATRIX: readonly MatrixCase[] = [
     },
   },
   {
+    name: 'update: returning',
+    build: dialect =>
+      compiler(dialect).updateTable('users').set({ role: 'admin' }).where('id', '=', 1).returning(['id']).compile(),
+    expected: {
+      postgres: query('UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING "id"', ['admin', 1]),
+      mysql: refused('returning', 'mysql'),
+      sqlite: query('UPDATE "users" SET "role" = ? WHERE "id" = ? RETURNING "id"', ['admin', 1]),
+      mssql: query('UPDATE [users] SET [role] = @p1 OUTPUT INSERTED.[id] WHERE [id] = @p2', ['admin', 1]),
+      cockroach: query('UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING "id"', ['admin', 1]),
+      singlestore: refused('returning', 'singlestore'),
+    },
+  },
+  {
+    name: 'delete: returning',
+    build: dialect => compiler(dialect).deleteFrom('users').where('id', '=', 1).returning(['id']).compile(),
+    expected: {
+      postgres: query('DELETE FROM "users" WHERE "id" = $1 RETURNING "id"', [1]),
+      mysql: refused('returning', 'mysql'),
+      sqlite: query('DELETE FROM "users" WHERE "id" = ? RETURNING "id"', [1]),
+      mssql: query('DELETE FROM [users] OUTPUT DELETED.[id] WHERE [id] = @p1', [1]),
+      cockroach: query('DELETE FROM "users" WHERE "id" = $1 RETURNING "id"', [1]),
+      singlestore: refused('returning', 'singlestore'),
+    },
+  },
+  {
     name: 'update: set + where',
     build: dialect => compiler(dialect).updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile(),
     expected: {
@@ -445,6 +472,37 @@ const MATRIX: readonly MatrixCase[] = [
         'INSERT INTO `users` (`email`, `role`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `role` = VALUES(`role`)',
         ['a@b.com', 'user'],
       ),
+    },
+  },
+  {
+    name: 'upsert: returning',
+    build: dialect =>
+      compiler(dialect)
+        .insertInto('users')
+        .values({ email: 'a@b.com', role: 'user' })
+        .onConflict('email')
+        .doUpdate(['role'])
+        .returning(['id'])
+        .compile(),
+    expected: {
+      postgres: query(
+        'INSERT INTO "users" ("email", "role") VALUES ($1, $2) ON CONFLICT ("email") DO UPDATE SET "role" = EXCLUDED."role" RETURNING "id"',
+        ['a@b.com', 'user'],
+      ),
+      mysql: refused('returning', 'mysql'),
+      sqlite: query(
+        'INSERT INTO "users" ("email", "role") VALUES (?, ?) ON CONFLICT ("email") DO UPDATE SET "role" = EXCLUDED."role" RETURNING "id"',
+        ['a@b.com', 'user'],
+      ),
+      mssql: query(
+        'MERGE [users] WITH (HOLDLOCK) AS tgt USING (VALUES (@p1, @p2)) AS src ([email], [role]) ON tgt.[email] = src.[email] WHEN MATCHED THEN UPDATE SET [role] = src.[role] WHEN NOT MATCHED THEN INSERT ([email], [role]) VALUES (src.[email], src.[role]) OUTPUT INSERTED.[id];',
+        ['a@b.com', 'user'],
+      ),
+      cockroach: query(
+        'INSERT INTO "users" ("email", "role") VALUES ($1, $2) ON CONFLICT ("email") DO UPDATE SET "role" = EXCLUDED."role" RETURNING "id"',
+        ['a@b.com', 'user'],
+      ),
+      singlestore: refused('returning', 'singlestore'),
     },
   },
   {
@@ -918,11 +976,14 @@ const EXPECTED_CONSTRUCTS: readonly [
   'select: where + order + limit',
   'select: chained predicates',
   'insert: returning',
+  'update: returning',
+  'delete: returning',
   'update: set + where',
   'delete: where',
   'pagination: offset only',
   'pagination: unordered limit',
   'upsert: update',
+  'upsert: returning',
   'set operation: placeholder continuation',
   'vector operator: l2',
   'vector operator: cosine',
@@ -960,11 +1021,14 @@ const EXPECTED_CONSTRUCTS: readonly [
   'select: where + order + limit',
   'select: chained predicates',
   'insert: returning',
+  'update: returning',
+  'delete: returning',
   'update: set + where',
   'delete: where',
   'pagination: offset only',
   'pagination: unordered limit',
   'upsert: update',
+  'upsert: returning',
   'set operation: placeholder continuation',
   'vector operator: l2',
   'vector operator: cosine',

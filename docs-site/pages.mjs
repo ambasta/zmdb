@@ -2,7 +2,8 @@
 // so a ~400-page manual stays reviewable: this file is the table of contents,
 // content/ is the prose. manifest.mjs joins the two.
 //
-//   status:'supported' -> the API is real; the page documents it
+//   status:'supported' -> the API is real; the page documents it. `note` may
+//                         narrow platform coverage without calling the whole API TODO.
 //   status:'todo'      -> a legitimate capability we have not built yet (roadmap,
 //                         NOT an anti-pattern). `note` says what is missing.
 //   status:'wontfix'   -> a capability we had a frozen design for and then declined
@@ -872,6 +873,7 @@ export const PAGE_META = {
     title: 'MySQL',
     group: 'Dialects',
     status: 'supported',
+    note: 'compiler and DDL supported; no bundled driver or live-server gate, and row-returning repository create/update/upsert methods refuse',
   },
   'dialect-sqlite': {
     title: 'SQLite',

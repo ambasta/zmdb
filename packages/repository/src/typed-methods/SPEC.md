@@ -52,12 +52,14 @@ Frozen behaviour:
 - `increment` derives its column parameter from updatable numeric SQL columns, so text/boolean columns and number/bigint operand mismatches fail at the call site.
 - `delete` unchanged (`boolean`).
 - Expression validation does not widen `UpdateDTO` or its validator.
+- On the MySQL family, `create`, ordinary `update`, and ordinary `upsert` refuse before driver execution because their return contracts require a row and the dialect has no row-returning clause.
+  Expression-bearing keyed updates/upserts and `updateMany` retain their explicit one-statement contract and resolve to `undefined`; no hidden read follows.
 
 ## Acceptance
 
 - Type-level (`expectTypeOf`) assertions: `findById`→`Entity<T>|undefined`, `find`/`findOne` accept `WhereDTO<T>` and return `Entity<T>`, `list`→ `ListResult<Entity<T>>`, `create` accepts
   `CreateDTO<T>`→`Entity<T>`, `update`/`updateMany` accept `UpdatePatch<T>`, and `increment` accepts only `NumericColumnOf<T>`.
 - Runtime golden tests (via a fake recording driver) for `find`/`list` SQL + `hasMore` trimming, create/update validation-before-SQL, strict expression operands, atomic SQLite increments, hook input,
-  and MySQL SQL without unsupported `RETURNING`.
+  MySQL-family row-returning refusals before driver execution, and the valid one-statement branches without unsupported `RETURNING`.
 
 <!-- §2 create/update frozen: create(CreateDTO<T>)→Entity<T>, update(id,UpdatePatch<T>)→Entity<T>|undefined; plain DTO values and branded operands validate separately before SQL. -->

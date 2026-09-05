@@ -62,6 +62,9 @@ do the refactor at all.
 export type Dialect = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore';
 
 export type PlaceholderStyle = 'numbered' | 'positional' | 'named';
+export type ReturningStatement = 'insert' | 'upsert' | 'update' | 'delete';
+export type ReturningStyle = 'suffix' | 'output' | 'none';
+export type ReturningCapability = Readonly<Record<ReturningStatement, ReturningStyle>>;
 
 export type DialectFeature = 'materializedView' | 'rowLevelSecurity' | 'sequences' | 'schemas' | 'partialIndex' | 'generatedColumns' | 'transactionalDdl' | 'foreignKeys';
 
@@ -78,7 +81,7 @@ export interface DialectTraits {
   /** The open/close pair. The closing character escapes by doubling, on every dialect (§2.1). */
   readonly quote?: readonly [open: string, close: string];
   readonly paginate?: (tail: PaginationTail) => string;
-  readonly returning?: 'suffix' | 'output' | 'none';
+  readonly returning?: Readonly<Partial<ReturningCapability>>;
   readonly upsert?: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
   readonly fts?: 'tsvector' | 'match' | 'companionTable' | 'none';
   readonly concat?: 'operator' | 'function';
@@ -104,6 +107,9 @@ export const TRAITS: Readonly<Record<Dialect, ResolvedTraits>>;
 
 The implementation strengthens the sketch at the type boundary: an entry with no `parent` must provide every scalar trait, every feature and a complete `DialectTypeMap`; only an entry with an explicit
 parent may provide partial overrides. That is what makes a missing root type mapping a compile error while still allowing CockroachDB and SingleStore to inherit most of their maps.
+
+`returning` is the one scalar-looking trait that is deliberately a statement map. Root dialects provide all four entries; a child may override only the statements that differ. That can represent a
+MariaDB-like INSERT-only child of MySQL as `{ insert: 'suffix' }` while inherited `upsert`, `update`, and `delete` remain `'none'`, without adding MariaDB to the public `Dialect` union.
 
 `family` records the resolved root once. Non-trait grammar that genuinely follows the wire family — telemetry names, introspection dispatch and existing MySQL/Postgres migration forms — reads it
 instead of repeating literal comparisons that would send a variant down the wrong fallback branch.
@@ -178,7 +184,7 @@ No parent. SQL Server shares no ancestor with the other five, and giving it one 
 mssql: {
   placeholder: 'named',
   quote: ['[', ']'],
-  returning: 'output',
+  returning: { insert: 'output', upsert: 'output', update: 'output', delete: 'output' },
   upsert: 'merge',
   fts: 'none',
   concat: 'function',
@@ -275,7 +281,7 @@ That is a change in emitted SQL for two existing dialects, so it belongs to this
 
 ### 3.4 `OUTPUT` is not a suffix, which is why the builders have to be taken apart
 
-`returningClause` is appended: `text += returningClause(d, ret)` at `../index.ts:299`. `OUTPUT` sits in the middle of the statement, and in a different middle for each verb:
+`RETURNING` is a suffix while `OUTPUT` sits in the middle of the statement, and in a different middle for each verb:
 
 ```
 INSERT INTO [users] ([email], [role]) OUTPUT INSERTED.[id] VALUES (@p1, @p2)
@@ -292,8 +298,11 @@ DELETE FROM [users] OUTPUT DELETED.[id] WHERE [id] = @p1
 `RETURNING *` becomes `OUTPUT INSERTED.*`, and `DELETED.*` for a delete — the mapping is per verb, not per column, and `UPDATE` returning the _old_ row is not expressible through `returning()` and is
 not being added (§10).
 
-So `makeInsert`, `makeUpdate` and `makeDelete` build their SQL from named parts and a `returning` trait decides where the clause lands, with `'none'` for a dialect that has neither. `mysql` gets
-`'none'` and therefore acquires its first refusal for `returning()`, which today it accepts and emits invalid SQL for.
+One `returningSql` boundary reads the resolved statement entry and returns the two named parts builders need: `output` and `suffix`. `makeInsert`, `makeUpdate`, `makeDelete`, and the upsert path place
+those parts in their grammar without re-deriving support. The Postgres family and SQLite use `'suffix'` for all four entries, SQL Server uses `'output'`, and the MySQL family uses `'none'`.
+
+A MySQL-family `returning()` call therefore refuses with `UnsupportedFeatureError` before a `CompiledQuery` exists. The diagnostic names the logical statement and the alternative: omit `returning()`
+and perform an explicit read. The four whole-builder matrix rows assert the exact full statement or exact refusal for INSERT, upsert, UPDATE, and DELETE across all six dialects.
 
 One limitation is the server's and is documented rather than worked around: **`OUTPUT` without `INTO` is rejected on a table with an enabled trigger.** The compiler cannot know about triggers, so this
 is a genuine "fails at the server" case in a spec that otherwise forbids them.

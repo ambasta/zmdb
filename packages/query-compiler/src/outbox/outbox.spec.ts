@@ -418,7 +418,9 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
         .where('id', '=', 'r1')
         .returning(['id'])
         .compile(),
-    ).toThrow('returning is not supported on dialect "mysql"');
+    ).toThrow(
+      'returning is not supported for UPDATE on dialect "mysql"; omit returning() and perform an explicit read',
+    );
   });
 
   it('Driver.execute has no affected-row count to report, so the claim cannot use one', () => {

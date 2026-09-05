@@ -1,5 +1,5 @@
 // @zmdb/query-compiler — implementation.
-import { TRAITS, type Dialect } from './dialects/index.js';
+import { TRAITS, type Dialect, type ReturningStatement } from './dialects/index.js';
 import { UnsupportedFeatureError } from './errors.js';
 
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
@@ -14,6 +14,9 @@ export type {
   PaginationTail,
   PlaceholderStyle,
   ResolvedTraits,
+  ReturningCapability,
+  ReturningStatement,
+  ReturningStyle,
 } from './dialects/index.js';
 
 // #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
@@ -367,30 +370,49 @@ function returningColumn(d: Dialect, column: ReturningColumn): string {
   return `${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`;
 }
 
-function returningClause(d: Dialect, cols?: readonly ReturningColumn[]): string {
-  if (!cols || cols.length === 0) return '';
-  const returning = TRAITS[d].returning;
-  if (returning === 'none') throw new UnsupportedFeatureError('returning', d);
-  if (returning === 'output') return '';
-  return ` RETURNING ${cols.map(column => returningColumn(d, column)).join(', ')}`;
-}
-
 function outputColumn(d: Dialect, pseudoTable: 'INSERTED' | 'DELETED', column: ReturningColumn): string {
   if (typeof column === 'string')
     return column === '*' ? `${pseudoTable}.*` : `${pseudoTable}.${quoteColumn(d, column)}`;
   return `${pseudoTable}.${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`;
 }
 
-function outputClause(d: Dialect, pseudoTable: 'INSERTED' | 'DELETED', cols?: readonly ReturningColumn[]): string {
-  if (!cols || cols.length === 0) return '';
-  const returning = TRAITS[d].returning;
-  if (returning === 'none') throw new UnsupportedFeatureError('returning', d);
-  if (returning !== 'output') return '';
+interface ReturningSql {
+  readonly output: string;
+  readonly suffix: string;
+}
+
+const NO_RETURNING_SQL: ReturningSql = Object.freeze({ output: '', suffix: '' });
+
+function returningSql(
+  d: Dialect,
+  statement: ReturningStatement,
+  pseudoTable: 'INSERTED' | 'DELETED',
+  cols?: readonly ReturningColumn[],
+): ReturningSql {
+  if (!cols || cols.length === 0) return NO_RETURNING_SQL;
+  const style = TRAITS[d].returning[statement];
+  if (style === 'none') {
+    throw new UnsupportedFeatureError(
+      'returning',
+      d,
+      `returning is not supported for ${statement.toUpperCase()} on dialect "${d}"; ` +
+        'omit returning() and perform an explicit read',
+    );
+  }
+  if (style === 'suffix') {
+    return Object.freeze({
+      output: '',
+      suffix: ` RETURNING ${cols.map(column => returningColumn(d, column)).join(', ')}`,
+    });
+  }
 
   // SQL Server rejects OUTPUT without INTO when the target has an enabled trigger
   // for the statement's DML action. The compiler cannot inspect triggers, and
   // OUTPUT INTO would require a table variable plus a second statement.
-  return ` OUTPUT ${cols.map(column => outputColumn(d, pseudoTable, column)).join(', ')}`;
+  return Object.freeze({
+    output: ` OUTPUT ${cols.map(column => outputColumn(d, pseudoTable, column)).join(', ')}`,
+    suffix: '',
+  });
 }
 
 interface ConflictState {
@@ -464,7 +486,7 @@ function mssqlMergeSql(
   placeholders: string,
   params: unknown[],
   conflict: ConflictState,
-  ret?: readonly ReturningColumn[],
+  returning: ReturningSql,
 ): string {
   const target = conflict.target;
   if (!target || target.length === 0) {
@@ -531,7 +553,7 @@ function mssqlMergeSql(
     `USING (VALUES (${placeholders})) AS src (${sourceColumns}) ON ${predicate}` +
     matched +
     ` WHEN NOT MATCHED THEN INSERT (${sourceColumns}) VALUES (${keys.map(source).join(', ')})` +
-    `${outputClause(d, 'INSERTED', ret)};`
+    `${returning.output};`
   );
 }
 
@@ -567,9 +589,8 @@ function makeInsert(
       const params = keys.map(k => row[k]);
       const cols = keys.map(k => quoteIdentifier(d, k)).join(', ');
       const placeholders = keys.map((_, i) => formatPlaceholder(d, i + 1)).join(', ');
-      const insert =
-        `INSERT INTO ${quoteTable(d, table)} (${cols})` +
-        `${outputClause(d, 'INSERTED', ret)} VALUES (${placeholders})`;
+      const returning = returningSql(d, conflict === undefined ? 'insert' : 'upsert', 'INSERTED', ret);
+      const insert = `INSERT INTO ${quoteTable(d, table)} (${cols})${returning.output} VALUES (${placeholders})`;
       let text: string;
 
       if (!conflict) {
@@ -578,7 +599,7 @@ function makeInsert(
         const upsert = TRAITS[d].upsert;
         if (upsert === 'none') throw new UnsupportedFeatureError('upsert', d);
         if (upsert === 'merge') {
-          text = mssqlMergeSql(d, table, keys, placeholders, params, conflict, ret);
+          text = mssqlMergeSql(d, table, keys, placeholders, params, conflict, returning);
         } else if (conflict.action === 'ignore') {
           text =
             upsert === 'onDuplicateKey'
@@ -609,7 +630,7 @@ function makeInsert(
         }
       }
 
-      text += returningClause(d, ret);
+      text += returning.suffix;
       return frozenQuery(text, params, queryTelemetry(d, 'INSERT', table, telemetry));
     },
   };
@@ -642,11 +663,12 @@ function makeUpdate(
       const sets = Object.keys(row)
         .map(k => `${quoteIdentifier(d, k)} = ${setValueSql(d, table, k, row[k], params, 'update')}`)
         .join(', ');
+      const returning = returningSql(d, 'update', 'INSERTED', ret);
       const text =
         `UPDATE ${quoteTable(d, table)} SET ${sets}` +
-        outputClause(d, 'INSERTED', ret) +
+        returning.output +
         whereClause(d, wheres, params) +
-        returningClause(d, ret);
+        returning.suffix;
       return frozenQuery(text, params, queryTelemetry(d, 'UPDATE', table, telemetry));
     },
   };
@@ -671,11 +693,9 @@ function makeDelete(
     returning: cols => makeDelete(d, table, wheres, cols ?? [], telemetry),
     compile: () => {
       const params: unknown[] = [];
+      const returning = returningSql(d, 'delete', 'DELETED', ret);
       const text =
-        `DELETE FROM ${quoteTable(d, table)}` +
-        outputClause(d, 'DELETED', ret) +
-        whereClause(d, wheres, params) +
-        returningClause(d, ret);
+        `DELETE FROM ${quoteTable(d, table)}` + returning.output + whereClause(d, wheres, params) + returning.suffix;
       return frozenQuery(text, params, queryTelemetry(d, 'DELETE', table, telemetry));
     },
   };

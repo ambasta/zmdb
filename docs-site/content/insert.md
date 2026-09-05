@@ -29,6 +29,9 @@ INSERT INTO [users] ([email]) OUTPUT INSERTED.[id], INSERTED.[createdAt] VALUES 
 
 MySQL refuses `returning()` rather than emitting unsupported SQL.
 
+That also means `BaseRepository.create()` refuses before driver execution on the MySQL family: its `Promise<Entity<T>>` contract cannot honestly be satisfied by dropping the clause. Use a lower-level
+INSERT without `returning()`, validate the payload explicitly, and perform the read you need.
+
 ## Through the repository (validated)
 
 ```ts

@@ -65,7 +65,8 @@ Do this on a dedicated read driver rather than your main one — see [Read Repli
 
 ## The MySQL caveats still apply
 
-No `RETURNING`, `boolean` as `TINYINT(1)`, case-insensitive `LIKE` by default, non-transactional DDL. See [Dialect: MySQL](./dialect-mysql.html).
+No `RETURNING`: row-returning repository `create`/ordinary `update`/ordinary `upsert` refuse, while the documented one-statement expression branches resolve to `undefined`. Also account for `boolean`
+as `TINYINT(1)`, case-insensitive `LIKE` by default, and non-transactional DDL. See [Dialect: MySQL](./dialect-mysql.html).
 
 ---
 

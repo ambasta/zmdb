@@ -153,8 +153,9 @@ to one relay.
 The obvious replacement is a conditional `UPDATE` whose affected-row count says whether this dispatcher took the row. **Neither channel for that answer exists:**
 
 - `Driver.execute` (`../../../repository/src/index.ts:51-54`) returns `Promise<readonly Record<string, unknown>[]>`. Rows, and no affected-row count. There is nowhere for a count to arrive.
-- `returning()` dispatches by dialect: MySQL-family dialects refuse it, Postgres-family dialects and SQLite use `RETURNING`, and SQL Server places `OUTPUT` in the verb-specific middle of the
-  statement. The outbox still does not build on it because the driver contract has no affected-row count and the claim algorithm does not need returned rows.
+- `returning()` dispatches through one statement-specific dialect capability: MySQL-family entries refuse INSERT/upsert/UPDATE/DELETE row returns, Postgres-family entries and SQLite use `RETURNING`,
+  and SQL Server places `OUTPUT` in the verb-specific position. The outbox still does not build on it because the driver contract has no affected-row count and the claim algorithm does not need
+  returned rows.
 
 ### 4.2 So the claim is three statements, and the predicate is the lock
 

@@ -1,5 +1,5 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
-import type { CompiledQuery } from '@zmdb/query-compiler';
+import { inc, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/query-compiler';
 import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
@@ -203,4 +203,99 @@ describe('typed single-record upsert', () => {
     const query = execute.mock.calls[0]![0];
     expect(query.text).toContain('ON CONFLICT ("email") DO UPDATE SET "age" = EXCLUDED."age"');
   });
+});
+
+describe('MySQL-family row-returning repository writes (#606)', () => {
+  const operations = [
+    {
+      name: 'create',
+      statement: 'INSERT',
+      run: (repo: Users) => repo.create({ email: 'a@b.com', age: 30 }),
+    },
+    {
+      name: 'update',
+      statement: 'UPDATE',
+      run: (repo: Users) => repo.update(1, { age: 31 }),
+    },
+    {
+      name: 'upsert',
+      statement: 'UPSERT',
+      run: (repo: Users) => repo.upsert({ email: 'a@b.com', age: 30 }, { target: 'email', updateFields: ['age'] }),
+    },
+  ] as const;
+
+  for (const dialect of ['mysql', 'singlestore'] as const) {
+    for (const operation of operations) {
+      it(`${dialect} ${operation.name} refuses before driver execution when its return contract needs a row`, async () => {
+        const calls: CompiledQuery[] = [];
+        const repo = new Users(
+          {
+            dialect,
+            execute(query) {
+              calls.push(query);
+              return Promise.resolve([]);
+            },
+          },
+          dialect,
+        );
+
+        const failure = await operation.run(repo).then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+        expect(failure).toBeInstanceOf(UnsupportedFeatureError);
+        if (!(failure instanceof UnsupportedFeatureError)) throw new Error('expected UnsupportedFeatureError');
+        expect(failure).toMatchObject({
+          feature: 'returning',
+          dialect,
+          message:
+            `returning is not supported for ${operation.statement} on dialect "${dialect}"; ` +
+            'omit returning() and perform an explicit read',
+        });
+        expect(calls).toEqual([]);
+      });
+    }
+
+    it(`${dialect} keeps the explicit one-statement undefined-returning repository branches`, async () => {
+      const calls: CompiledQuery[] = [];
+      const repo = new Users(
+        {
+          dialect,
+          execute(query) {
+            calls.push(query);
+            return Promise.resolve([]);
+          },
+        },
+        dialect,
+      );
+
+      await expect(repo.update(1, { age: inc(1) })).resolves.toBeUndefined();
+      await expect(repo.updateMany({ role: 'user' }, { age: inc(2) })).resolves.toBeUndefined();
+      await expect(
+        repo.upsert(
+          { email: 'a@b.com', age: 30 },
+          {
+            target: 'email',
+            updateFields: { age: inc(3) },
+          },
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(calls).toEqual([
+        {
+          text: 'UPDATE `users` SET `age` = `age` + ? WHERE `id` = ?',
+          parameters: [1, 1],
+        },
+        {
+          text: 'UPDATE `users` SET `age` = `age` + ? WHERE `role` = ?',
+          parameters: [2, 'user'],
+        },
+        {
+          text: 'INSERT INTO `users` (`email`, `age`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `age` = `age` + ?',
+          parameters: ['a@b.com', 30, 3],
+        },
+      ]);
+      for (const query of calls) expect(query.text.toUpperCase()).not.toContain('RETURNING');
+    });
+  }
 });
