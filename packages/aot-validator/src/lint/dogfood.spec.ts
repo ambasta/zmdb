@@ -80,6 +80,7 @@ it("reports nothing on this repository's own source", () => {
       join(ROOT, 'node_modules/.bin/oxlint'),
       [
         '--disable-nested-config',
+        '--silent',
         '--config',
         configPath,
         '--threads=1',
