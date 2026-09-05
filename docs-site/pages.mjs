@@ -907,13 +907,13 @@ export const PAGE_META = {
     title: 'Gel (EdgeDB)',
     group: 'Dialects',
     status: 'todo',
-    note: 'no Gel support: EdgeQL is not SQL, so it needs a second compiler target',
+    note: 'refused: Gel owns its schema, so zmdb would be a client rather than the source; the SQL endpoint is the supported path',
   },
   'dialect-mongodb': {
     title: 'MongoDB',
     group: 'Dialects',
     status: 'todo',
-    note: 'the compiler emits SQL text; a document store needs a separate compiler target',
+    note: 'refused: a Serial key has no MongoDB equivalent, aggregate hands SQL to application code, and savepoint has none',
   },
   'custom-driver': {
     title: 'Writing a Driver',

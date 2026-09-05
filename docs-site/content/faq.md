@@ -12,7 +12,7 @@ Because it is not built yet. The engine is: `snapshot()`, `diff()`, `emitUp()` a
 
 ## Does zmdb support MongoDB?
 
-No. The compiler emits SQL text, so a document store needs a second compiler target. See [MongoDB](./dialect-mongodb.html).
+No. The compiler seam can already drive a non-SQL builder; the refused parts are the data model and public repository contract — `Serial` keys, SQL-specific aggregation callbacks and savepoints. See [MongoDB](./dialect-mongodb.html).
 
 ## Which dialects work?
 
