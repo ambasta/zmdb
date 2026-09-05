@@ -158,7 +158,11 @@ production data, so `diff` does not guess. It is told:
 ```ts
 type RenameOp = { kind: 'rename_table'; from: string; to: string } | { kind: 'rename_column'; table: string; from: string; to: string };
 
-function diff(prev: SchemaSnapshot, next: SchemaSnapshot, opts?: { readonly renames?: readonly RenameOp[]; readonly dialect?: Dialect }): readonly ChangeOp[];
+export interface DiffOptions {
+  readonly dialect?: Dialect;
+}
+
+export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options?: DiffOptions): readonly ChangeOp[];
 ```
 
 The renames a caller passes in are the same values that come back out in the plan, so there is one vocabulary for "this column became that one" rather than an input shape and an output shape that have
