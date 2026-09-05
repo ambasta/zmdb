@@ -99,10 +99,6 @@ it("reports nothing on this repository's own source", () => {
         env: { ...process.env, NODE_OPTIONS: nodeOptions },
       },
     );
-    const cleanStdout = result.stdout
-      .replace(/Found 0 warnings and 0 errors\.\r?\n?/g, '')
-      .replace(/Finished in .*\r?\n?/g, '')
-      .trim();
     expect(result.error).toBeUndefined();
     const output = `${result.stdout}${result.stderr}`;
     expect(result.status, output).toBe(0);
