@@ -15,7 +15,7 @@ release has no official framework adapter; use the generated HTTP client through
 | Solid        | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
 | Svelte       | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
 | SvelteKit    | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
-| Vue          | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
+| Vue          | optional    | @zmdb/vue           | vue                   | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`             |
 
 <!-- /generated: integrations framework-integrations -->
 
@@ -66,5 +66,50 @@ const rename = apiReact.useZmdbMutation((client, input: { id: string; name: stri
 Queries begin after effect activation, abort on dependency changes and unmount, and suppress stale completion even when a transport ignores cancellation. Mutations remain independent and abort on
 unmount. The package adds no shared cache, implicit retry, polling, focus refetch, or server-render request; those policies stay explicit in the application.
 
-The Vue, Svelte, Solid, Nuxt, and SvelteKit packages remain pending. React Native and Next.js stay documented because their current recipes use shipped package boundaries without claiming those future
-adapters.
+Svelte, Solid, Nuxt, and SvelteKit remain pending. React Native and Next.js stay documented because their current recipes use shipped package boundaries without claiming those future adapters.
+
+## Vue
+
+Install the official Vue 3 integration beside its required framework peer:
+
+```bash
+npm add @zmdb/vue@alpha vue@^3.5
+```
+
+Create a binding namespace for the generated client type, then install one client on each application:
+
+```ts
+import { createZmdbVue } from '@zmdb/vue';
+import { createApp } from 'vue';
+
+import App from './App.js';
+import { createApiClient } from './generated/api.generated.js';
+import type { ApiClient } from './generated/api.generated.js';
+
+export const zmdb = createZmdbVue<ApiClient>();
+
+const client = createApiClient({ baseUrl: '/api' });
+createApp(App).use(zmdb.createZmdbPlugin(client)).mount('#app');
+```
+
+Inside component setup, pass a ref, computed ref, or getter to `useZmdbQuery`:
+
+```ts
+import { ref } from 'vue';
+
+import { zmdb } from './zmdb.js';
+
+const widgetId = ref('one');
+const widget = zmdb.useZmdbQuery(
+  () => ({ id: widgetId.value }),
+  (client, input, signal) => client.getWidget(input, { signal }),
+);
+
+const rename = zmdb.useZmdbMutation((client, input: { id: string; name: string }, signal) => client.renameWidget(input, { signal }));
+```
+
+The query exposes read-only `data`, `error`, and `loading` refs plus `refresh()`. The mutation exposes read-only `error` and `pending` refs plus `mutate(input)`. Watcher changes abort the old query
+and generation guards suppress stale completion. Vue `onScopeDispose` aborts active queries and mutations. Generated-client errors are published without wrapping or changing object identity.
+
+Creating bindings or installing the plugin performs no request. For SSR, create one generated client and one `createSSRApp` per request and install that request's client on its application. The
+binding namespace retains only an injection key, so concurrent applications do not share clients, credentials, query state, or mutation state.

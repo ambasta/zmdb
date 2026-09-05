@@ -186,6 +186,7 @@ export function probeAdapterImports(
   const requiredPeers = Object.keys(expectation.peerDependencies)
     .filter(name => !expectation.optionalPeers.includes(name))
     .toSorted();
+  const allowedGlobals = expectation.allowedImportGlobals ?? [];
   const source = `
 for (const specifier of ${JSON.stringify(requiredPeers)}) {
   try {
@@ -196,6 +197,7 @@ for (const specifier of ${JSON.stringify(requiredPeers)}) {
   }
 }
 const before = new Set(Reflect.ownKeys(globalThis));
+const allowed = new Set(${JSON.stringify(allowedGlobals)});
 let requests = 0;
 Object.defineProperty(globalThis, 'fetch', {
   configurable: true,
@@ -207,7 +209,9 @@ Object.defineProperty(globalThis, 'fetch', {
 for (const specifier of ${JSON.stringify(adapterExportSpecifiers(expectation))}) {
   await import(specifier);
 }
-const added = Reflect.ownKeys(globalThis).filter(key => !before.has(key) && key !== 'fetch').map(String);
+const added = Reflect.ownKeys(globalThis)
+  .filter(key => !before.has(key) && key !== 'fetch' && !allowed.has(String(key)))
+  .map(String);
 if (requests !== 0) throw new Error('adapter import executed network I/O');
 if (added.length !== 0) throw new Error('adapter import registered globals: ' + added.join(', '));
 `;

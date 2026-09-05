@@ -300,6 +300,16 @@ describe('architecture and release governance fixtures', () => {
       target: './src/index.ts',
     });
 
+    const vue = lookupPackage(live, 'vue');
+    if (vue === undefined) throw new Error('canonical catalog omitted the vue package id');
+    expect(vue.npmName).toBe('@zmdb/vue');
+    expect(lookupExport(live, 'vue')).toBeUndefined();
+    expect(lookupExport(live, '@zmdb/vue')).toMatchObject({
+      package: { id: 'vue', npmName: '@zmdb/vue' },
+      selector: '.',
+      target: './src/index.ts',
+    });
+
     expect(architecture.packages.map(packageRecord => packageRecord.id)).toEqual(['core', 'app']);
     expect(createDependencyGraph(architecture)).toEqual({
       core: [],
@@ -342,7 +352,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 24 catalog packages, 41 workspace edges, and canonical rings verified.',
+      'architecture zones: 25 catalog packages, 42 workspace edges, and canonical rings verified.',
     );
   });
 

@@ -1,5 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
@@ -52,8 +62,50 @@ interface PackageManifest {
   readonly dependencies?: Readonly<Record<string, string>>;
 }
 
+const PACKED_BUILD_WAIT = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+const PACKED_BUILD_LOCK_TIMEOUT_MS = 300_000;
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function errorCode(error: unknown): string | undefined {
+  if (!isRecord(error)) return undefined;
+  return typeof error['code'] === 'string' ? error['code'] : undefined;
+}
+
+export function withPackedBuildLock<Value>(root: string, runLocked: () => Value): Value {
+  const identity = encodeURIComponent(realpathSync(root));
+  const lock = join(tmpdir(), `zmdb-adapter-packed-build-${identity}.lock`);
+  const started = Date.now();
+
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch (error) {
+      if (errorCode(error) !== 'EEXIST') throw error;
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > PACKED_BUILD_LOCK_TIMEOUT_MS) {
+          rmSync(lock, { recursive: true, force: true });
+          continue;
+        }
+      } catch (inspectionError) {
+        if (errorCode(inspectionError) === 'ENOENT') continue;
+        throw inspectionError;
+      }
+      if (Date.now() - started > PACKED_BUILD_LOCK_TIMEOUT_MS) {
+        throw new Error(`timed out waiting for packed adapter builds in ${root}`, { cause: error });
+      }
+      Atomics.wait(PACKED_BUILD_WAIT, 0, 0, 50);
+    }
+  }
+
+  try {
+    return runLocked();
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
+  }
 }
 
 function packFilename(output: string): string {

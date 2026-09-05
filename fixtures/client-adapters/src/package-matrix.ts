@@ -17,6 +17,7 @@ export interface AdapterPackageExpectation {
   readonly peerDependencies: Readonly<Record<string, string>>;
   readonly optionalPeers: readonly string[];
   readonly exports: readonly string[];
+  readonly allowedImportGlobals?: readonly string[];
   readonly qualifyingBehaviour: string;
 }
 
@@ -52,6 +53,7 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     peerDependencies: { vue: '>=3.5.0 <4.0.0' },
     optionalPeers: [],
     exports: ['.'],
+    allowedImportGlobals: ['__VUE_HMR_RUNTIME__', '__VUE_INSTANCE_SETTERS__', '__VUE_SSR_SETTERS__'],
     qualifyingBehaviour: 'Vue provide/inject, watcher scopes and per-createSSRApp isolation',
   },
   {

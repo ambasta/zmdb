@@ -2382,6 +2382,7 @@ __metadata:
     "@zmdb/angular": "workspace:^"
     "@zmdb/client": "workspace:^"
     "@zmdb/react": "workspace:^"
+    "@zmdb/vue": "workspace:^"
     react: "npm:19.2.8"
     react-dom: "npm:19.2.8"
     react-test-renderer: "npm:19.2.8"
@@ -2721,6 +2722,18 @@ __metadata:
     typescript: "npm:7.0.2"
   peerDependencies:
     redis: ^6.2.1
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/vue@workspace:^, @zmdb/vue@workspace:packages/vue":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/vue@workspace:packages/vue"
+  dependencies:
+    "@zmdb/client": "workspace:^"
+    typescript: "npm:7.0.2"
+    vue: "npm:3.5.42"
+  peerDependencies:
+    vue: ">=3.5.0 <4.0.0"
   languageName: unknown
   linkType: soft
 

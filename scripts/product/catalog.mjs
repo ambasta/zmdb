@@ -332,6 +332,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-server-integrations' },
   }),
   productPackage({
+    id: 'vue',
+    directory: 'packages/vue',
+    npmName: '@zmdb/vue',
+    role: 'vue',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'Vue 3' },
+    docsOwner: 'framework-integrations',
+    consumer: { fixture: 'fixtures/client-adapters/vue' },
+  }),
+  productPackage({
     id: 'web',
     directory: 'packages/web',
     npmName: '@zmdb/web',

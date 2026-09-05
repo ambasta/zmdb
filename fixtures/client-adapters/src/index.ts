@@ -73,3 +73,4 @@ export {
 } from './packed-project.js';
 export { createReactConformanceBinding } from './react-binding.js';
 export { assertSsrCredentialIsolation } from './ssr.js';
+export { createVueConformanceBinding } from './vue-binding.js';

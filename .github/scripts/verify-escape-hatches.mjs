@@ -106,6 +106,7 @@ const PACKAGES = [
   'client',
   'react',
   'angular',
+  'vue',
   'schema-core',
   'ai',
   'ai-anthropic',

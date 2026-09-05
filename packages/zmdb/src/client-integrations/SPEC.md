@@ -12,9 +12,9 @@ Issue #688, parent #687. This is the architecture contract for the optional UI a
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-This file originally froze all nine packages before implementation. Issue #691 now ships `@zmdb/react`; the other eight remain implementation targets. Each implementation issue creates its own
-package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire format, response validation and client error classes belong to #679 and its implementation
-children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issues #691 and #693 now ship `@zmdb/react` and `@zmdb/vue`; the other seven remain implementation targets. Each implementation
+issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire format, response validation and client error classes belong to #679
+and its implementation children; this specification does not add another client API.
 
 ## 0. Measured starting point
 
@@ -31,6 +31,18 @@ Measured on 2026-09-05 at `cd75aed4`:
   assertions in #689 and packed-package enforcement in #700.
 
 The framework release lines in §4 were measured with `yarn npm info`, not inferred from old documentation.
+
+### 0.1 Current Vue implementation amendment
+
+Issue #693 adds the independently installable `@zmdb/vue` base adapter:
+
+- one ESM root over `@zmdb/client`, with Vue `>=3.5.0 <4.0.0` as a required peer;
+- generated-client inference through the plugin, query composable, and mutation composable;
+- real `createSSRApp`, `effectScope`, ref, watcher, and `onScopeDispose` conformance;
+- normal execution of the shared runtime/package cases instead of the Vue missing-package `it.fails`; and
+- a packed fixture that installs tarballs, typechecks, bundles a browser entry, proves per-application SSR isolation, and runs the portable conformance cases.
+
+This changes the Vue row's implementation status only. The common ownership, lifecycle, peer, and rejection rules below remain normative.
 
 ## 1. Ownership boundary
 
@@ -137,8 +149,8 @@ Recipes are still supported documentation. They simply do not create another pac
 | `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
 | `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
-This table is a design qualification, not a blanket support claim. `@zmdb/react` has earned its row through the native and packed qualification fixtures in #691; each remaining row stays conditional
-on its implementation and packed qualification evidence.
+This table is a design qualification, not a blanket support claim. `@zmdb/react` and `@zmdb/vue` have earned their rows through native and packed qualification fixtures in #691 and #693; each
+remaining row stays conditional on its implementation and packed qualification evidence.
 
 ## 3. Common query and mutation semantics
 
@@ -348,7 +360,7 @@ and bind controllers to `DestroyRef`. The RxJS bridge aborts on final unsubscrib
 ### 6.3 Vue
 
 The binding factory owns an `InjectionKey<Client>` and plugin. Queries use refs/watchers and `onScopeDispose`. Each `createSSRApp` installation owns separate client and state. Installing the plugin
-does not activate a query.
+does not activate a query. Issue #693 implements this contract in `@zmdb/vue`.
 
 ### 6.4 Svelte
 
@@ -399,7 +411,7 @@ The tests freeze in #689 must name and execute at least:
 - `every proposed package names framework behaviour unavailable from @zmdb/client alone`;
 - `the dependency graph from meta-framework to base adapter is acyclic`.
 
-#700 must additionally prove from packed applications:
+#700 must additionally prove the complete retained adapter matrix from packed applications; individual package issues may establish their own row earlier:
 
 - each retained package exercises the qualifying native behaviour in §2.3;
 - every public export imports in its intended environment;

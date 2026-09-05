@@ -45,6 +45,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/transport-nats     | 1.0.0-alpha.4 | transport-nats  | integration: core NATS messaging               | `npm add @zmdb/transport-nats@1.0.0-alpha.4`     | Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.                                                                                                                    | web-microservices-transports |
 | @zmdb/transport-rabbitmq | 1.0.0-alpha.4 | rabbitmq        | integration: RabbitMQ                          | `npm add @zmdb/transport-rabbitmq@1.0.0-alpha.4` | RabbitMQ transport strategy for the zmdb application messaging contract, with confirmed retries and owned dead-letter topology.                                                                                         | web-microservices-transports |
 | @zmdb/transport-redis    | 1.0.0-alpha.4 | transport-redis | integration: Redis Pub/Sub                     | `npm add @zmdb/transport-redis@1.0.0-alpha.4`    | Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.                                                                                                                          | web-microservices-transports |
+| @zmdb/vue                | 1.0.0-alpha.4 | vue             | integration: Vue 3                             | `npm add @zmdb/vue@1.0.0-alpha.4`                | Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb clients.                                                                                                                                 | framework-integrations       |
 | @zmdb/web                | 1.0.0-alpha.4 | web             | required                                       | `npm add zmdb@1.0.0-alpha.4`                     | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                                                               | web-overview                 |
 | zmdb                     | 1.0.0-alpha.4 | product         | required                                       | `npm add zmdb@1.0.0-alpha.4`                     | The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time. | package-reference            |
 
@@ -595,6 +596,24 @@ Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messa
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
+
+### `@zmdb/vue`
+
+Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb clients.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/client` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `vue` → `>=3.5.0 <4.0.0`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/client-adapters/vue
 
 ### `@zmdb/web`
 

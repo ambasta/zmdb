@@ -10,7 +10,7 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 
 ## Frozen lockstep governance target (#722)
 
-This section is the normative target for epic #721. The current workflow still repeats twenty-four package names in release scripts and has no root `CHANGELOG.md` or release-plan module; #728
+This section is the normative target for epic #721. The current workflow still repeats twenty-five package names in release scripts and has no root `CHANGELOG.md` or release-plan module; #728
 implements this contract and removes those repetitions.
 
 ### Authorities and release plan
@@ -135,7 +135,7 @@ Release verification reports every problem in deterministic package/path order a
    > node .github/scripts/repoint-dist.mjs
    >
    > packages=(
-   >   client react angular query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel
+   >   client react angular vue query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel
    >   mcp protobuf aot-validator repository sqlite app jobs jobs-postgres otel transport-grpc transport-nats transport-rabbitmq transport-redis web zmdb
    > )
    > for p in "${packages[@]}"; do
@@ -213,7 +213,7 @@ npm view @zmdb/repository dependencies
 
 Future releases are fully automated via CI OIDC — no token, no manual build:
 
-1. Bump the version in all twenty-four published `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
+1. Bump the version in all twenty-five published `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
 2. Tag and push:
    ```bash
    git tag v1.0.0-alpha.N && git push origin v1.0.0-alpha.N

@@ -26,6 +26,7 @@ const BOUNDARY = 'packages/query-compiler/src/clauses.ts';
 const PACKAGES = [
   'client',
   'react',
+  'vue',
   'schema-core',
   'ai',
   'ai-anthropic',

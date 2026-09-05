@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { ROOT, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
-import { runPackedProject, type PackedProjectResult } from '../../../fixtures/client-adapters/src/packed-project.js';
+import {
+  runPackedProject,
+  withPackedBuildLock,
+  type PackedProjectResult,
+} from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const FIXTURE_SOURCES = [
   'conformance-cases.ts',
@@ -46,36 +50,37 @@ describe('@zmdb/react packed consumer', () => {
   });
 
   it('installs published tarballs and runs the common conformance suite without workspace paths', () => {
-    build('@zmdb/client');
-    build('@zmdb/react');
+    result = withPackedBuildLock(ROOT, () => {
+      build('@zmdb/client');
+      build('@zmdb/react');
 
-    result = runPackedProject({
-      name: '@zmdb-fixture/packed-react',
-      packages: [
-        {
-          directory: join(ROOT, 'packages', 'client'),
-          manifest: publishManifest(readManifest('client')),
+      return runPackedProject({
+        name: '@zmdb-fixture/packed-react',
+        packages: [
+          {
+            directory: join(ROOT, 'packages', 'client'),
+            manifest: publishManifest(readManifest('client')),
+          },
+          {
+            directory: join(ROOT, 'packages', 'react'),
+            manifest: publishManifest(readManifest('react')),
+          },
+        ],
+        dependencies: {
+          react: '19.2.8',
+          'react-dom': '19.2.8',
+          'react-test-renderer': '19.2.8',
         },
-        {
-          directory: join(ROOT, 'packages', 'react'),
-          manifest: publishManifest(readManifest('react')),
+        devDependencies: {
+          '@types/node': '26.4.1',
+          '@types/react': '19.2.18',
+          '@types/react-dom': '19.2.7',
+          '@types/react-test-renderer': '19.1.0',
+          typescript: '7.0.2',
         },
-      ],
-      dependencies: {
-        react: '19.2.8',
-        'react-dom': '19.2.8',
-        'react-test-renderer': '19.2.8',
-      },
-      devDependencies: {
-        '@types/node': '26.4.1',
-        '@types/react': '19.2.18',
-        '@types/react-dom': '19.2.7',
-        '@types/react-test-renderer': '19.1.0',
-        typescript: '7.0.2',
-      },
-      files: {
-        ...fixtureFiles(),
-        'src/lifecycles.ts': `import type { AdapterLifecycle } from './package-matrix.js';
+        files: {
+          ...fixtureFiles(),
+          'src/lifecycles.ts': `import type { AdapterLifecycle } from './package-matrix.js';
 
 export type RegisterCleanup = (cleanup: () => void) => void;
 
@@ -91,41 +96,42 @@ export interface LifecycleHarness {
   ): Promise<ActivatedLifecycle<Value>>;
 }
 `,
-        'tsconfig.json': `${JSON.stringify(
-          {
-            compilerOptions: {
-              exactOptionalPropertyTypes: true,
-              lib: ['ESNext', 'DOM', 'DOM.Iterable'],
-              module: 'NodeNext',
-              moduleResolution: 'NodeNext',
-              noEmitOnError: true,
-              noUncheckedIndexedAccess: true,
-              outDir: 'dist',
-              rootDir: 'src',
-              skipLibCheck: false,
-              strict: true,
-              target: 'ESNext',
-              types: ['node'],
-              verbatimModuleSyntax: true,
+          'tsconfig.json': `${JSON.stringify(
+            {
+              compilerOptions: {
+                exactOptionalPropertyTypes: true,
+                lib: ['ESNext', 'DOM', 'DOM.Iterable'],
+                module: 'NodeNext',
+                moduleResolution: 'NodeNext',
+                noEmitOnError: true,
+                noUncheckedIndexedAccess: true,
+                outDir: 'dist',
+                rootDir: 'src',
+                skipLibCheck: false,
+                strict: true,
+                target: 'ESNext',
+                types: ['node'],
+                verbatimModuleSyntax: true,
+              },
+              include: ['src/**/*.ts'],
             },
-            include: ['src/**/*.ts'],
+            null,
+            2,
+          )}\n`,
+        },
+        commands: [
+          {
+            label: 'packed React typecheck',
+            command: process.execPath,
+            arguments: ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.json'],
           },
-          null,
-          2,
-        )}\n`,
-      },
-      commands: [
-        {
-          label: 'packed React typecheck',
-          command: process.execPath,
-          arguments: ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.json'],
-        },
-        {
-          label: 'packed React conformance',
-          command: process.execPath,
-          arguments: ['dist/packed-react.js'],
-        },
-      ],
+          {
+            label: 'packed React conformance',
+            command: process.execPath,
+            arguments: ['dist/packed-react.js'],
+          },
+        ],
+      });
     });
 
     expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/react']);

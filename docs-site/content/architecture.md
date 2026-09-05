@@ -1,11 +1,12 @@
-zmdb currently publishes thirteen focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side roots,
-while `@zmdb/ai`, the opt-in Anthropic, LangChain, and Vercel integrations, and `@zmdb/mcp` are independently installable and are not re-exported by the umbrella.
+zmdb currently publishes twenty-three focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side
+roots, `@zmdb/react` and `@zmdb/vue` are independently installable leaves over the generated-client runtime, and `@zmdb/ai`, the opt-in Anthropic, LangChain, and Vercel integrations, and `@zmdb/mcp`
+are independently installable and are not re-exported by the umbrella.
 
 The dependency spine is:
 
 ```
-@zmdb/client        @zmdb/protobuf
-      (independent dependency-free roots)
+@zmdb/client ──> @zmdb/react, @zmdb/vue        @zmdb/protobuf
+       (generated-client adapters)             (dependency-free root)
 
 @zmdb/query-compiler
           |
@@ -24,13 +25,20 @@ The dependency spine is:
                 zmdb
 ```
 
-`@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` depend inward only on `@zmdb/ai`. `@zmdb/client` and `@zmdb/protobuf` are independent roots. Higher packages also keep the direct
-lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
+`@zmdb/react` and `@zmdb/vue` depend only on `@zmdb/client` and declare their framework runtimes as required peers. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` depend inward only
+on `@zmdb/ai`. `@zmdb/client` and `@zmdb/protobuf` are independent roots. Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic
+order rather than every shortcut edge.
 
 ## What each package owns
 
 **`@zmdb/client`** — dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors. Generated clients target
 this runtime without importing web, schema, AOT, or Node-specific APIs.
+
+**`@zmdb/react`** — React context, query, and mutation hooks over an application-generated client. Effect cleanup aborts active work, dependency changes suppress stale results, and React remains a
+required peer.
+
+**`@zmdb/vue`** — a Vue 3 application plugin plus typed query and mutation composables over an application-generated client. Watcher changes and effect-scope disposal abort active requests, stale
+completions cannot overwrite newer state, and each SSR application owns its client and state. Vue is a required peer rather than a bundled dependency.
 
 **`@zmdb/schema-core`** — the tag vocabulary, the IR, the schema object and everything derived from it by types alone. The tags (`Table`, `Sql`, `PrimaryKey`, `Serial`, …, types only, zero runtime
 exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission, and

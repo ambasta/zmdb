@@ -77,9 +77,10 @@ export const INTEGRATIONS = Object.freeze([
   }),
   integration({
     capability: 'Vue',
-    package: null,
-    status: 'not-planned',
+    package: '@zmdb/vue',
+    status: 'optional',
+    peers: ['vue'],
     docs: 'framework-integrations',
-    evidence: ['packages/zmdb/src/client-integrations/SPEC.md'],
+    evidence: ['packages/vue/src/index.spec.ts', 'packages/vue/src/index.type-test.ts', 'fixtures/client-adapters/vue'],
   }),
 ]);

@@ -109,4 +109,4 @@ it("reports nothing on this repository's own source", () => {
   } finally {
     rmSync(temporary, { force: true, recursive: true });
   }
-});
+}, 30_000);

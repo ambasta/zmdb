@@ -29,6 +29,7 @@ import {
   createApiClient,
   createControllableAdapterTransport,
   createReactConformanceBinding,
+  createVueConformanceBinding,
   privateHarnessProductionLeaks,
   readAdapterPackageManifest,
   runPackedProject,
@@ -94,7 +95,8 @@ function registerExecutableAdapterContract(
 }
 
 const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(
-  expectation => expectation.name !== '@zmdb/react' && expectation.name !== '@zmdb/angular',
+  expectation =>
+    expectation.name !== '@zmdb/react' && expectation.name !== '@zmdb/angular' && expectation.name !== '@zmdb/vue',
 );
 
 describe('the shared generated adapter fixture (#689, #690)', () => {
@@ -314,6 +316,10 @@ describe('@zmdb/react executable adapter contract', () => {
 
 describe('@zmdb/angular executable adapter contract', () => {
   registerExecutableAdapterContract(it, createAngularConformanceBinding<ApiClient>(expectationFor('@zmdb/angular')));
+});
+
+describe('@zmdb/vue executable adapter contract', () => {
+  registerExecutableAdapterContract(it, createVueConformanceBinding<ApiClient>());
 });
 
 describe.each(UNAVAILABLE_ADAPTER_PACKAGES)('$name executable adapter contract', expectation => {

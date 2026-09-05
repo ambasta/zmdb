@@ -4,7 +4,8 @@
   "type": "module",
   "dependencies": {
     "@zmdb/client": "workspace:^",
-    "@zmdb/react": "workspace:^"
+    "@zmdb/react": "workspace:^",
+    "@zmdb/vue": "workspace:^"
   },
   "devDependencies": {
     "@angular/core": "22.1.5",

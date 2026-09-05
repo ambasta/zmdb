@@ -1,7 +1,7 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-four packages are published today: twenty-three focused packages plus the `zmdb` facade. The
-recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in
-provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently
-installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-five packages are published today: twenty-four focused packages plus the `zmdb` facade. The
+recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/protobuf`,
+provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
+`@zmdb/jobs-postgres` remain independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -87,6 +87,12 @@ npm install @zmdb/jobs-postgres pg
 
 # Dependency-free generated-client runtime
 npm install @zmdb/client
+
+# React generated-client lifecycle bindings
+npm install @zmdb/react react@19
+
+# Vue plugin and lifecycle composables
+npm install @zmdb/vue vue@^3.5
 
 # Dependency-free protobuf and typed gRPC artifacts
 npm install @zmdb/protobuf
@@ -208,7 +214,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/transport-grpc`     | Typed gRPC servers, clients, streaming, deadlines, metadata, and bounded lifecycle           |
 | `@zmdb/transport-nats`     | Core NATS wildcard, queue-group, event, and request/reply transport strategy                 |
 | `@zmdb/transport-rabbitmq` | RabbitMQ prefetch, confirmed retries, request/reply, and owned dead-letter topology          |
-| `@zmdb/transport-redis`    | Redis Pub/Sub event and request/reply transport strategy                                     |
+| `@zmdb/transport-redis`    | Redis Pub/Sub subscriptions, correlated request/reply, cancellation, and bounded shutdown    |
 | `@zmdb/ai`                 | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools  |
 | `@zmdb/ai-anthropic`       | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                  |
 | `@zmdb/ai-langchain`       | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer             |

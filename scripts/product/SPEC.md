@@ -61,11 +61,11 @@ repository root explicitly.
 
 ## 3. Measured package inventory
 
-At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #692, #657, #658, #659, #660,
-and #661 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`,
-`@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres`. The
-catalog now accounts for all twenty-four manifest-backed packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from
-architecture policy; it is not product membership:
+At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #692, #693, #657, #658, #659,
+#660, and #661 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`,
+`@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
+`@zmdb/jobs-postgres`. The catalog now accounts for all twenty-five manifest-backed packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728
+derives its order from architecture policy; it is not product membership:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                       |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------- |
@@ -74,6 +74,7 @@ architecture policy; it is not product membership:
 | `packages/schema-core`        | `@zmdb/schema-core`        | `schema`            | Root schema names; `tags`, `derive`, `dto`, `relations`, `ir`  |
 | `packages/query-compiler`     | `@zmdb/query-compiler`     | `sql`               | Root SQL names and the root `migrations` namespace             |
 | `packages/react`              | `@zmdb/react`              | `react`             | None; selected React generated-client lifecycle integration    |
+| `packages/vue`                | `@zmdb/vue`                | `vue`               | None; selected Vue generated-client lifecycle integration      |
 | `packages/ai`                 | `@zmdb/ai`                 | `ai`                | None; installed and imported independently                     |
 | `packages/ai-anthropic`       | `@zmdb/ai-anthropic`       | `anthropic`         | None; selected integration with no facade export               |
 | `packages/ai-langchain`       | `@zmdb/ai-langchain`       | `langchain`         | None; selected integration with no facade export               |
@@ -94,7 +95,7 @@ architecture policy; it is not product membership:
 | `packages/web`                | `@zmdb/web`                | `web`               | `zmdb/web`                                                     |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, `config`, `cli`, and the executable          |
 
-This table is review evidence, not the canonical machine source. The twenty-four rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit
+This table is review evidence, not the canonical machine source. The twenty-five rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit
 plus the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers

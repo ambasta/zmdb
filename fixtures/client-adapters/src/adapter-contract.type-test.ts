@@ -1,6 +1,6 @@
 // Compile-only framework inference freeze for #689.
 //
-// React and Angular now use their real public types. The remaining namespace imports are
+// React, Angular, and Vue now use their real public types. The remaining namespace imports are
 // retirement triggers: each implementation issue makes its directive unused,
 // at which point that package's native bridge below must be replaced by the
 // real public types rather than leaving a structural stand-in behind.
@@ -40,13 +40,11 @@ import type * as MissingSvelteKitClientAdapter from '@zmdb/sveltekit/client';
 // @ts-expect-error #699 supplies the SvelteKit server entry
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #699
 import type * as MissingSvelteKitServerAdapter from '@zmdb/sveltekit/server';
-// @ts-expect-error #693 supplies the Vue adapter package
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #693
-import type * as MissingVueAdapter from '@zmdb/vue';
+import { createZmdbVue } from '@zmdb/vue';
+import type { ZmdbVueBindings } from '@zmdb/vue';
 import type { Observable } from 'rxjs';
 import type { Accessor } from 'solid-js';
 import type { Readable } from 'svelte/store';
-import type { Ref } from 'vue';
 
 import type {
   AdapterConformanceBinding,
@@ -65,24 +63,7 @@ type Equal<Left, Right> =
 type Expect<Value extends true> = Value;
 
 type ReactBindings<Client extends object> = ZmdbReactBindings<Client>;
-
-interface VueQuery<Output> {
-  readonly data: Readonly<Ref<Output | undefined>>;
-  readonly error: Readonly<Ref<unknown>>;
-  readonly loading: Readonly<Ref<boolean>>;
-  refresh(): Promise<void>;
-}
-
-interface VueMutation<Input, Output> {
-  readonly error: Readonly<Ref<unknown>>;
-  readonly pending: Readonly<Ref<boolean>>;
-  mutate(input: Input): Promise<Output>;
-}
-
-interface VueBindings<Client> {
-  query<Input, Output>(input: Input, load: QueryLoader<Client, Input, Output>): VueQuery<Output>;
-  mutation<Input, Output>(run: MutationRunner<Client, Input, Output>): VueMutation<Input, Output>;
-}
+type VueBindings<Client extends object> = ZmdbVueBindings<Client>;
 
 interface SvelteQuery<Output> extends Readable<QuerySnapshot<Output>> {
   refresh(): Promise<void>;
@@ -158,12 +139,16 @@ function angularInference(bindings: ZmdbAngularBindings<ApiClient>): void {
 }
 
 function vueInference(bindings: VueBindings<ApiClient>): void {
-  const query = bindings.query({ id: 'one' }, (client, input, signal) => client.getWidget(input, { signal }));
+  const selectedClient = bindings.useZmdbClient();
+  selectedClient.getWidget satisfies ApiClient['getWidget'];
+
+  const query = bindings.useZmdbQuery({ id: 'one' }, (client, input, signal) => client.getWidget(input, { signal }));
   query.data.value satisfies Widget | undefined;
   query.error.value satisfies unknown;
   query.loading.value satisfies boolean;
+  query.refresh satisfies () => Promise<void>;
 
-  const mutation = bindings.mutation((client, input: RenameWidgetInput, signal) =>
+  const mutation = bindings.useZmdbMutation((client, input: RenameWidgetInput, signal) =>
     client.renameWidget(input, { signal }),
   );
   mutation.pending.value satisfies boolean;
@@ -266,10 +251,10 @@ export type _MissingPackageRetirementTriggers = [
   keyof typeof MissingSvelteAdapter,
   keyof typeof MissingSvelteKitClientAdapter,
   keyof typeof MissingSvelteKitServerAdapter,
-  keyof typeof MissingVueAdapter,
 ];
 
 createZmdbReact<ApiClient>() satisfies ReactBindings<ApiClient>;
+createZmdbVue<ApiClient>() satisfies VueBindings<ApiClient>;
 void reactInference;
 void angularInference;
 void createZmdbAngular<ApiClient>;

@@ -3,6 +3,8 @@
 // this record owns only dependency, reachability, and lockstep constraints.
 //
 // There are deliberately no ordinary third-party runtime allowances today.
+// Required peers for technology-selected integration packages are governed by
+// their manifests and packed fixtures rather than this dependency allowance.
 // Build/compiler dependencies remain confined to the tooling selectors whose
 // adjacent comments explain the accepted purpose.
 
@@ -63,6 +65,15 @@ export const PACKAGE_POLICY = Object.freeze({
     zone: 'integration',
     ring: 0,
     allowedWorkspaceDependencies: [],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
+  vue: packagePolicy({
+    directory: 'packages/vue',
+    zone: 'integration',
+    ring: 1,
+    allowedWorkspaceDependencies: ['client'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],

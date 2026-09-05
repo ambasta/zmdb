@@ -20,8 +20,8 @@ dispose. The common cases then run the same generated client through that bindin
 | Nuxt           | Vue client scope or one Nitro request/plugin instance                 | Vue refs or request-local `useAsyncData` input/key change | scope stop or end of the Nitro request            |
 | SvelteKit      | Svelte subscription or one `RequestEvent` load                        | store change or a new navigation/load                     | unsubscribe or navigation/request cancellation    |
 
-The `bindPreparedAdapterSubject` bridge exists only to keep #689's missing-package `it.fails` cases executable. `@zmdb/react` now uses the real provider and hooks through `react-binding.ts`; the
-remaining missing adapters still use the bridge as retirement triggers. No implementation copies the bridge into production.
+The `bindPreparedAdapterSubject` bridge exists only to keep #689's missing-package `it.fails` cases executable. `@zmdb/react` and `@zmdb/vue` now use their real provider/plugin and lifecycle bindings
+through `react-binding.ts` and `vue-binding.ts`; the remaining missing adapters still use the bridge as retirement triggers. No implementation copies the bridge into production.
 
 ## Deterministic fixtures
 
@@ -30,7 +30,8 @@ remaining missing adapters still use the bridge as retirement triggers. No imple
   a leaked request into a deterministic failure.
 - `conformance-cases.ts` contains the shared query, mutation, error, cancellation, stale-result, and no-retry assertions.
 - `ssr.ts` starts two concurrent authenticated requests and compares the credentials and results by request URL.
-- `package-rules.ts` enforces the package matrix, framework peers, import purity, and the absence of server, ORM, database, or competing HTTP dependencies.
+- `package-rules.ts` enforces the package matrix, framework peers, import purity, and the absence of server, ORM, database, or competing HTTP dependencies. Vue's three framework-owned runtime hooks
+  are an explicit package-matrix allowance; adapter-created globals remain failures.
 
 Import purity is measured after loading the adapter's required framework peers. This separates effects owned by a framework runtime—Angular core itself installs `ngDevMode` and devtools globals—from
 network or global registration added by an adapter package.
@@ -41,7 +42,7 @@ network or global registration added by an adapter package.
 not workspace symlinks, and then runs the supplied framework build/runtime commands in order. Callers must provide a publish-ready manifest when a committed manifest still contains `workspace:`
 ranges.
 
-This helper is orchestration, not qualification evidence by itself. Issue #691 combines it with the real `@zmdb/react` package, React lifecycle binding, published manifests, external typecheck, and
-the common runtime cases. Issue #692 adds `angular/verify-packed.mjs`, which packs `@zmdb/client` and `@zmdb/angular`, typechecks the installed declarations, bundles the Angular entry for a browser
-without `HttpClient`, runs the common conformance cases, and executes two concurrent request-local SSR injectors. Issue #700 remains responsible for cross-adapter qualification that neither
+This helper is orchestration, not qualification evidence by itself. Issues #691 and #693 combine it with the real React and Vue packages, native lifecycle bindings, published manifests, external
+typechecks, and common runtime cases. Issue #692 adds `angular/verify-packed.mjs`, which packs `@zmdb/client` and `@zmdb/angular`, typechecks the installed declarations, bundles the Angular entry for
+a browser without `HttpClient`, runs the common conformance cases, and executes two concurrent request-local SSR injectors. Issue #700 remains responsible for cross-adapter qualification that no
 framework-specific slice can earn alone.

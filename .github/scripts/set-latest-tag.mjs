@@ -13,6 +13,7 @@ const PACKAGES = [
   '@zmdb/client',
   '@zmdb/react',
   '@zmdb/angular',
+  '@zmdb/vue',
   '@zmdb/query-compiler',
   '@zmdb/schema-core',
   '@zmdb/ai',

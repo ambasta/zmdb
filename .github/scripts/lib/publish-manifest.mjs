@@ -17,6 +17,7 @@ export const PACKAGES = [
   'client',
   'react',
   'angular',
+  'vue',
   'query-compiler',
   'schema-core',
   'ai',
