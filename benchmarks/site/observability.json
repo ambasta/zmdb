@@ -14,7 +14,7 @@
       },
       {
         "path": "package.json",
-        "sha256": "a891a2c90ab9c9c7ad281871f4911b60bae5e80ae882817a888a12f7315db58a"
+        "sha256": "36513897c3c6c03aff81a6659ca900ac332c7db88d9f93f34f3fa5537b5afc54"
       },
       {
         "path": "yarn.lock",
@@ -78,7 +78,7 @@
       },
       {
         "path": "packages/web/src/polyfill.ts",
-        "sha256": "bd95c1571c88cd8fa43b123b0e8cec579e7e1a861b1763d9e7491d210ff61b62"
+        "sha256": "992fd8d78eb1cecb7eddaed216840127e18f209bd3e5f4d6fb320ae2f21f9b2c"
       },
       {
         "path": "packages/web/src/routing/index.ts",
