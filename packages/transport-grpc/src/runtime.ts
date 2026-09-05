@@ -419,8 +419,9 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     for (;;) {
       if (scope.signal.aborted) throw scope.reason();
       if (error !== undefined) throw error;
-      if (queue.length > 0) {
-        yield requestValue(queue.shift()!);
+      const item = queue.shift();
+      if (item !== undefined) {
+        yield requestValue(item);
         continue;
       }
       if (ended) return;
