@@ -49,11 +49,15 @@ describe('${name.pascal} repository provider', () => {
       @Module({ providers: [${name.camel}RepositoryProvider(sqliteDriver(database))] })
       class ${name.pascal}RepositoryTestModule {}
 
-      await using app = createTestApp(${name.pascal}RepositoryTestModule);
-      const repository = app.get(${name.constant}_REPOSITORY);
-      const created = await repository.create({ name: 'Ada' });
-      expect(created.name).toBe('Ada');
-      expect((await repository.findById(created.id))?.name).toBe('Ada');
+      const app = createTestApp(${name.pascal}RepositoryTestModule);
+      try {
+        const repository = app.get(${name.constant}_REPOSITORY);
+        const created = await repository.create({ name: 'Ada' });
+        expect(created.name).toBe('Ada');
+        expect((await repository.findById(created.id))?.name).toBe('Ada');
+      } finally {
+        await app.close();
+      }
     } finally {
       database.close();
     }
