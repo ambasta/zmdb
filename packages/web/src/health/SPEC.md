@@ -132,11 +132,12 @@ Readiness checks run **concurrently**, so the aggregate deadline is `max(timeout
 
 The endpoint returns within that bound even if every check hangs, and a check that has not answered by its own deadline counts as **failed** with `detail: 'timeout'` — not as unknown, because the orchestrator has two states and inventing a third only moves the decision somewhere that has less information.
 
-**The `AbortSignal` stops the wait, not the database work.**
-`Driver.execute` takes no signal
-(`packages/repository/src/index.ts:53`). When a probe reaches its deadline, the
-framework abandons the promise, but the server query keeps running and holds its
-connection until it finishes or the server terminates it.
+The repository and `Driver.execute` now accept the check's `AbortSignal`. An
+already-aborted read never dispatches, and a cooperating driver can cancel the
+server-side statement. The bundled adapters do not yet implement that
+driver-specific cancellation, so with those adapters the framework still stops
+waiting while the server query keeps its connection until completion or a
+server timeout.
 
 The docs page already says this plainly at `web-health-checks.md`; the freeze names the consequence that follows. A 2-second timeout against a wedged database with a 5-second probe period consumes one connection every 5 seconds and never returns any, so a readiness probe can exhaust the pool it is testing — the probe becomes the outage.
 
@@ -151,11 +152,11 @@ Three facts bound the effect:
    because failures are deliberately not cached; an operation that ignored the aborted
    signal may still be running.
 
-The real fix is not in this epic. `Driver.execute` would need an optional
-`{ signal?: AbortSignal }` so a cancellation reaches the wire, which is
-`docs-site/content/query-cancellation.md`'s subject and a change to a public interface in
-`@zmdb/repository`. Named here so that #581 does not quietly implement a `timeoutMs` that
-reads as if it cancels.
+The repository and `Driver.execute` now accept an optional `AbortSignal`, but
+the bundled adapters do not yet turn it into wire-level cancellation. A custom
+driver can do so; until the bundled adapters follow, #581 must not present
+`timeoutMs` as if it always stops the server-side statement. The remaining
+adapter gap is documented in `docs-site/content/query-cancellation.md`.
 
 ## 5. Caching readiness, asymmetrically
 

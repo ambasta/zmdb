@@ -77,7 +77,10 @@ Point your generate script at `migrations/` with Wrangler's naming convention an
 
 ## Limits
 
-Database size, statement count per batch and query duration are all capped, and the caps change. A `find({})` over a large table will hit one of them. Paginate everything; there is no [streaming](./streaming.html) to fall back on.
+Database size, statement count per batch and query duration are all capped, and
+the caps change. A `find({})` over a large table will hit one of them. D1's
+driver has no cursor, so [`repo.stream()`](./streaming.html) uses the same
+materialising fallback and does not avoid those limits. Paginate everything.
 
 ---
 

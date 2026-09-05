@@ -233,6 +233,10 @@ describe('declared repository filters', () => {
     await repo.list({ page: { limit: 2, offset: 0 } });
     await repo.count();
     await repo.exists();
+    for await (const _row of repo.stream()) {
+      // The recording driver buffers an empty result; the compiled statement is
+      // the assertion this test owns.
+    }
 
     expect(statements(driver.calls)).toEqual([
       {
@@ -261,6 +265,10 @@ describe('declared repository filters', () => {
       },
       {
         text: 'SELECT "id" FROM "users" WHERE "active" = $1 LIMIT 1',
+        parameters: [true],
+      },
+      {
+        text: 'SELECT * FROM "users" WHERE "active" = $1',
         parameters: [true],
       },
     ]);

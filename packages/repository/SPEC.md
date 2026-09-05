@@ -110,8 +110,9 @@ The fallback runs `execute` and yields from the array. It is clear about being a
 that a `console.warn` would not be — a library writing to stderr is unsuppressible and, in production,
 unread:
 
-- The `onQuery` hook (§3c) reports `{ buffered: true }`, so an application that opted into observability
-  sees which streams are not streaming.
+- The `onQuery` hook (§3c) reports `{ buffered: true }` on the first fallback per driver, so an
+  application that opted into observability learns that the capability is absent without receiving the
+  same warning on every call.
 - `requireCursor: true` throws instead, naming the driver's constructor and that it implements no
   `stream`. This exists because the failure mode of silent buffering is not "slower" — on the table
   somebody reached for a stream to read, it is the process dying — and a warning does not prevent that.
@@ -161,10 +162,8 @@ If it does not, the parameters would have to be interpolated into the `DECLARE`,
 `withTransaction(tx)` re-instantiates the repository against a `txDriver`, so a stream on the transaction
 repository runs on the transaction's connection with no extra machinery. Two things it does need:
 
-- The forwarding is `execute: (q, opts) => tx.execute(q, opts)`. As written today it is `q => tx.execute(q)`,
-  which drops the second argument silently — the one line where "cancellation reaches drivers" stops
-  reaching them. `stream` forwards the same way, and is **omitted** when the transaction object has none,
-  by the rule above.
+- The forwarding is `execute: (q, opts) => tx.execute(q, opts)`, and `stream` forwards the same way.
+  `stream` is **omitted** when the transaction object has none, by the rule above.
 - **A stream must not outlive its transaction.** On scope exit, commit or rollback, the transaction closes
   every stream it handed out — `return()` on each, so a leaked cursor is released before the connection
   goes back to the pool rather than after. Any later `next()` rejects, naming the transaction rather than
@@ -640,6 +639,7 @@ export interface CacheOptions {
 export interface ReadOptions {
   readonly cache?: CacheOptions | false;
   readonly filters?: FilterOverrides;
+  readonly signal?: AbortSignal;
 }
 
 export interface CacheInvalidationOptions {
@@ -652,6 +652,8 @@ export interface WriteOptions extends CacheInvalidationOptions {
 
 export interface RepositoryOptions {
   readonly cacheStore?: CacheStore;
+  readonly filters?: readonly FilterDef<unknown>[];
+  readonly onQuery?: (query: CompiledQuery, meta: QueryMeta) => void;
 }
 ```
 

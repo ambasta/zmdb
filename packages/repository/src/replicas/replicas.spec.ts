@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import type { Driver } from '../index.js';
+import type { Driver, ExecuteOptions } from '../index.js';
 import { withReplicas, isWrite } from './index.js';
 
 function tagDriver(tag: string, log: string[]): Driver {
@@ -33,5 +33,56 @@ describe('read replicas (#128)', () => {
     const d = withReplicas({ primary: tagDriver('P', log), replicas: [] });
     await d.execute(q('SELECT z'));
     expect(log).toEqual(['P:SELECT']);
+  });
+
+  it('forwards execute and stream options to the selected driver', async () => {
+    const observed: (ExecuteOptions | undefined)[] = [];
+    const streaming = (tag: string): Driver => ({
+      execute(_query, options) {
+        observed.push(options);
+        return Promise.resolve([]);
+      },
+      stream(_query, options) {
+        observed.push(options);
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield { tag };
+          },
+        };
+      },
+    });
+    const routed = withReplicas({
+      primary: streaming('primary'),
+      replicas: [streaming('replica')],
+    });
+    const signal = new AbortController().signal;
+
+    await routed.execute(q('SELECT one'), { signal });
+    const stream = routed.stream;
+    if (stream === undefined) throw new Error('all selected drivers support stream');
+    for await (const row of stream(q('SELECT two'), { signal, batchSize: 32 })) {
+      expect(row).toEqual({ tag: 'replica' });
+    }
+
+    expect(observed).toEqual([{ signal }, { signal, batchSize: 32 }]);
+  });
+
+  it('advertises streaming only when every routed driver has a callable method', () => {
+    const primary: Driver = {
+      execute: () => Promise.resolve([]),
+      stream: () => ({
+        async *[Symbol.asyncIterator]() {},
+      }),
+    };
+    const malformedReplica: Driver = {
+      execute: () => Promise.resolve([]),
+      // @ts-expect-error — runtime capability checks must reject malformed
+      // JavaScript adapters instead of advertising a method that will crash.
+      stream: null,
+    };
+
+    const routed = withReplicas({ primary, replicas: [malformedReplica] });
+
+    expect(routed.stream).toBeUndefined();
   });
 });

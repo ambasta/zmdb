@@ -94,16 +94,25 @@ import {
   type RelationLoader,
   type RelationValueOf,
 } from './loaders/index.js';
+import { createRepositoryStream } from './streaming/index.js';
+
+export interface ExecuteOptions {
+  readonly signal?: AbortSignal;
+  /** Rows per round trip. A driver may clamp it; zero or negative is refused. */
+  readonly batchSize?: number;
+}
 
 export interface Driver {
   readonly dialect?: Dialect;
   /** Enables compile-time query attributes when an execution wrapper consumes them. */
   readonly queryTelemetry?: true;
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 
 export interface QueryMeta {
   readonly filters: readonly string[];
+  /** The driver had no cursor, so this stream was served by one buffered execute. */
   readonly buffered?: boolean;
 }
 
@@ -116,12 +125,21 @@ export interface RepositoryOptions {
 export interface ReadOptions<Defs extends readonly FilterDef<unknown>[] = readonly FilterDef<unknown>[]> {
   readonly cache?: CacheOptions | false;
   readonly filters?: FilterOverrides<Defs>;
+  readonly signal?: AbortSignal;
 }
 
 export interface WriteOptions<
   Defs extends readonly FilterDef<unknown>[] = readonly FilterDef<unknown>[],
 > extends CacheInvalidationOptions {
   readonly filters?: FilterOverrides<Defs>;
+}
+
+export interface StreamOptions<
+  Defs extends readonly FilterDef<unknown>[] = readonly FilterDef<unknown>[],
+> extends ExecuteOptions {
+  readonly filters?: FilterOverrides<Defs>;
+  /** Refuse rather than buffer when the driver has no cursor. Default false. */
+  readonly requireCursor?: boolean;
 }
 
 type PopulateReadOptions<K extends string> = ReadOptions & {
@@ -131,6 +149,13 @@ type PopulateReadOptions<K extends string> = ReadOptions & {
 type InternalReadOptions = ReadOptions & {
   readonly populate?: readonly string[];
 };
+
+const BUFFERED_STREAM_REPORTED = new WeakSet<Driver>();
+
+function executeOptions(signal?: AbortSignal, batchSize?: number): ExecuteOptions | undefined {
+  if (signal === undefined) return batchSize === undefined ? undefined : { batchSize };
+  return batchSize === undefined ? { signal } : { signal, batchSize };
+}
 
 interface ReadBuilder extends FilterTarget {
   compile(): CompiledQuery;
@@ -145,6 +170,7 @@ interface ReadCompileSettings {
   readonly additionalFilterNames?: readonly string[];
   readonly additionalKnownNames?: readonly string[];
   readonly resolvedFilters?: ResolvedFilters;
+  readonly buffered?: boolean;
 }
 
 interface WriteBuilder extends FilterTarget {
@@ -555,11 +581,17 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // subclass contract, like the static `schema`, and there is no way to state it in the type
   // system from inside the base class. `new (this.constructor as …)` is the only way to
   // re-run field initialisers, which is the point: `Object.create` would share `#shapes`.
-  withTransaction(tx: { execute: Driver['execute'] }): this {
-    const txDriver: Driver =
-      this.driver.queryTelemetry === true
-        ? { queryTelemetry: true, execute: q => tx.execute(q) }
-        : { execute: q => tx.execute(q) };
+  withTransaction(tx: Pick<Driver, 'execute' | 'stream'>): this {
+    const txStream = typeof tx.stream === 'function' ? tx.stream : undefined;
+    const txDriver: Driver = {
+      ...(this.driver.queryTelemetry === true ? { queryTelemetry: true as const } : {}),
+      execute: (query, opts) => tx.execute(query, opts),
+      ...(txStream === undefined
+        ? {}
+        : {
+            stream: (query: CompiledQuery, opts?: ExecuteOptions) => txStream.call(tx, query, opts),
+          }),
+    };
     const ctor = this.constructor as new (driver: Driver, dialect?: Dialect, options?: RepositoryOptions) => this;
     const options: RepositoryOptions = {
       ...(this.#cacheStore === undefined ? {} : { cacheStore: this.#cacheStore }),
@@ -763,6 +795,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     build: (filters: ResolvedFilters) => B,
     settings: ReadCompileSettings = {},
   ): CompiledQuery {
+    options?.signal?.throwIfAborted();
     const table = settings.table ?? this.tableName;
     const schema = settings.schema ?? (table === this.tableName ? this.schema : undefined);
     const resolved =
@@ -781,7 +814,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const query = filtered.compile();
     const names = Object.freeze([...new Set([...resolved.names, ...(settings.additionalFilterNames ?? [])])]);
     this.#queryFilters.set(query, names);
-    this.#onQuery?.(query, { filters: names });
+    this.#onQuery?.(query, settings.buffered === true ? { filters: names, buffered: true } : { filters: names });
     return query;
   }
 
@@ -852,25 +885,44 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    * assertion re-types them for the caller. Every read method funnels through
    * here instead of asserting at its own return statement.
    */
-  private async rows<Row>(query: CompiledQuery, cache?: CacheOptions | false): Promise<readonly Row[]> {
+  private async executeRead(query: CompiledQuery, signal?: AbortSignal): Promise<readonly Record<string, unknown>[]> {
+    signal?.throwIfAborted();
+    const rows = await this.driver.execute(query, executeOptions(signal));
+    signal?.throwIfAborted();
+    return rows;
+  }
+
+  private async rows<Row>(query: CompiledQuery, options?: ReadOptions): Promise<readonly Row[]> {
     let value: unknown;
-    if (cache === undefined || cache === false) {
-      value = this.decodeRows(await this.driver.execute(query));
+    if (options?.cache === undefined || options.cache === false) {
+      value = this.decodeRows(await this.executeRead(query, options?.signal));
     } else {
-      value = await this.cachedRows(query, cache);
+      value = await this.cachedRows(query, options.cache, options.signal);
     }
 
     // boundary: driver rows are proved by the compiled query; cache entries are stored
     // only under the same query plus dialect and schema fingerprint. Both establish
     // `Row` at this one boundary, without re-validating cache hits (§3d).
-    return value as readonly Row[];
+    return this.trusted<readonly Row[]>(value);
   }
 
-  private async cachedRows(query: CompiledQuery, cache: CacheOptions): Promise<unknown> {
+  /**
+   * The repository's one row-shape assertion, shared by buffered and streamed
+   * reads. The compiler that produced the query establishes the public shape;
+   * drivers deliberately return opaque records.
+   */
+  private trusted<Row>(value: unknown): Row {
+    // boundary: a compiled repository query establishes the row shape; Driver
+    // deliberately returns opaque records so third-party adapters stay structural.
+    return value as Row;
+  }
+
+  private async cachedRows(query: CompiledQuery, cache: CacheOptions, signal?: AbortSignal): Promise<unknown> {
     if (!Number.isFinite(cache.ttlMs) || cache.ttlMs <= 0) {
       throw new RangeError('cache ttlMs must be a positive finite number');
     }
 
+    signal?.throwIfAborted();
     const store = (this.#cacheStore ??= memoryStore());
     const filters = this.#queryFilters.get(query);
     const key = resultCacheKey({
@@ -881,20 +933,23 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       query,
     });
 
+    let cached: unknown;
     try {
-      const cached = await store.get(key);
-      if (cached !== undefined) return copyCachedRows(cached);
+      cached = await store.get(key);
     } catch (error) {
       this.reportCacheFailure(error);
-      return this.decodeRows(await this.driver.execute(query));
+      return this.decodeRows(await this.executeRead(query, signal));
     }
+    signal?.throwIfAborted();
+    if (cached !== undefined) return copyCachedRows(cached);
 
-    const rows = this.decodeRows(await this.driver.execute(query));
+    const rows = this.decodeRows(await this.executeRead(query, signal));
     try {
       await store.set(key, copyCachedRows(rows), cache.ttlMs, cacheTags(this.tableName, cache.tags));
     } catch (error) {
       this.reportCacheFailure(error);
     }
+    signal?.throwIfAborted();
     return rows;
   }
 
@@ -930,13 +985,16 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   private decodeRows(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
     const columns = this.decodedColumns;
     if (columns.length === 0 || rows.length === 0) return rows;
-    return rows.map(row => {
-      const out: Record<string, unknown> = { ...row };
-      for (const column of columns) {
-        if (column.name in out) out[column.name] = decodeDbValue(column, out[column.name]);
-      }
-      return out;
-    });
+    return rows.map(row => this.decodeRow(row, columns));
+  }
+
+  private decodeRow(row: Record<string, unknown>, columns: readonly ColumnIR[]): Record<string, unknown> {
+    if (columns.length === 0) return row;
+    const out: Record<string, unknown> = { ...row };
+    for (const column of columns) {
+      if (column.name in out) out[column.name] = decodeDbValue(column, out[column.name]);
+    }
+    return out;
   }
 
   private get decodedColumns(): readonly ColumnIR[] {
@@ -1097,7 +1155,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     options?: InternalReadOptions,
     populateFilters: ReadonlyMap<string, ResolvedFilters> = new Map(),
   ): Promise<Entity<T> | undefined> {
-    const rows = await this.rows<EntityRow<T>>(query, options?.cache);
+    const rows = await this.rows<EntityRow<T>>(query, options);
     const row = rows[0];
     if (!row || !options?.populate?.length) return row;
     const [populated] = await this.attachRelations([row], options.populate, options, populateFilters);
@@ -1115,6 +1173,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     options?: ReadOptions,
     filters?: ResolvedFilters,
   ): Promise<Map<unknown, Record<string, unknown>[]>> {
+    options?.signal?.throwIfAborted();
     const ids = sanitizeKeys(parentIds);
     if (ids.length === 0) return new Map();
     // DIALECT_PARAM_LIMITS provides a conservative list-length heuristic threshold leaving parameter headroom below driver variable limits.
@@ -1132,7 +1191,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           ...(filters === undefined ? {} : { resolvedFilters: filters }),
         },
       );
-      const res = await this.driver.execute(query);
+      const res = await this.executeRead(query, options?.signal);
       children.push(...res);
     }
     const byParent = new Map<unknown, Record<string, unknown>[]>();
@@ -1164,6 +1223,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     options?: ReadOptions,
     populateFilters: ReadonlyMap<string, ResolvedFilters> = this.resolvePopulateFilters(names, options),
   ): Promise<readonly object[]> {
+    options?.signal?.throwIfAborted();
     if (parents.length === 0) return parents;
     let current: object[] = parents.map(parent => ({ ...parent }));
 
@@ -1228,7 +1288,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const query = this.compileRead('find', opts, () => compileWhere(this.qb.selectFrom(this.tableName), where), {
       additionalKnownNames: this.populateFilterNames(opts?.populate),
     });
-    const rows = await this.rows<EntityRow<T>>(query, opts?.cache);
+    const rows = await this.rows<EntityRow<T>>(query, opts);
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate, opts, populateFilters);
   }
@@ -1241,7 +1301,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const query = this.compileRead('findAll', opts, () => this.qb.selectFrom(this.tableName), {
       additionalKnownNames: this.populateFilterNames(opts?.populate),
     });
-    const rows = await this.rows<EntityRow<T>>(query, opts?.cache);
+    const rows = await this.rows<EntityRow<T>>(query, opts);
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate, opts, populateFilters);
   }
@@ -1256,7 +1316,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (where !== undefined) builder = compileWhere(builder, where);
       return builder;
     });
-    const rows = await this.driver.execute(query);
+    const rows = await this.executeRead(query, options?.signal);
     const value = rows[0]?.['count'];
     if (value === undefined) return 0;
     if (typeof value === 'number') return value;
@@ -1275,7 +1335,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (where !== undefined) builder = compileWhere(builder, where);
       return this.limitOne(builder);
     });
-    return (await this.driver.execute(query)).length > 0;
+    return (await this.executeRead(query, options?.signal)).length > 0;
   }
 
   async list<K extends RelationKeys<T> & string>(
@@ -1338,7 +1398,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       },
     );
 
-    const rows = await this.rows<EntityRow<T>>(compiled, opts?.cache);
+    const rows = await this.rows<EntityRow<T>>(compiled, opts);
     const listOpts = {
       ...(limit !== undefined ? { limit } : {}),
       ...(query?.select ? { select: query.select } : {}),
@@ -1350,6 +1410,55 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       return { ...res, items: populatedItems };
     }
     return res;
+  }
+
+  stream(where?: WhereDTO<T>, options?: StreamOptions): AsyncIterable<Entity<T>> & AsyncDisposable {
+    options?.signal?.throwIfAborted();
+    if (options?.batchSize !== undefined && (!Number.isInteger(options.batchSize) || options.batchSize <= 0)) {
+      throw new RangeError('batchSize must be a positive integer');
+    }
+
+    const driverStream = typeof this.driver.stream === 'function' ? this.driver.stream : undefined;
+    const reportBuffered =
+      driverStream === undefined &&
+      options?.requireCursor !== true &&
+      this.#onQuery !== undefined &&
+      !BUFFERED_STREAM_REPORTED.has(this.driver);
+    if (reportBuffered) BUFFERED_STREAM_REPORTED.add(this.driver);
+
+    const query = this.compileRead(
+      'stream',
+      options,
+      () =>
+        where === undefined
+          ? this.qb.selectFrom(this.tableName)
+          : compileWhere(this.qb.selectFrom(this.tableName), where),
+      reportBuffered ? { buffered: true } : {},
+    );
+    // Resolve the schema-derived decoder once before iteration; the mapper then
+    // performs only the per-row conversions that ordinary reads use.
+    const columns = this.decodedColumns;
+    const signal = options?.signal;
+
+    const open =
+      driverStream === undefined
+        ? (): AsyncIterable<Record<string, unknown>> => {
+            if (options?.requireCursor === true) {
+              const ctor = Reflect.get(this.driver, 'constructor');
+              const name = typeof ctor === 'function' && ctor.name.length > 0 ? ctor.name : 'Driver';
+              throw new Error(`${name} does not implement stream; pass requireCursor: false to allow buffering`);
+            }
+            const execute = this.executeRead.bind(this);
+            return {
+              async *[Symbol.asyncIterator](): AsyncGenerator<Record<string, unknown>, void, unknown> {
+                for (const row of await execute(query, signal)) yield row;
+              },
+            };
+          }
+        : (): AsyncIterable<Record<string, unknown>> =>
+            driverStream.call(this.driver, query, executeOptions(signal, options?.batchSize ?? 100));
+
+    return createRepositoryStream(open, row => this.trusted<Entity<T>>(this.decodeRow(row, columns)), signal);
   }
 
   // #96 — full-text search integration. Uses the query-compiler FTS builder.
@@ -1369,7 +1478,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         this.driver.queryTelemetry === true ? { ftsTable, telemetry: true } : { ftsTable },
       ).whereMatch(column, term),
     );
-    return this.driver.execute(query);
+    return this.executeRead(query, options?.signal);
   }
 
   // #87 — JOIN integration. Fetch this table left-joined to a target on an FK,
@@ -1427,7 +1536,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         additionalKnownNames: targetDefinitions.map(filter => filter.name),
       },
     );
-    return this.driver.execute(query);
+    return this.executeRead(query, options?.signal);
   }
 
   /**
@@ -1690,7 +1799,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       throw new Error('aggregate requires a builder callback or AggregateSpec object');
     }
 
-    const rawRows = await this.driver.execute(q);
+    const rawRows = await this.executeRead(q, options?.signal);
 
     const mappedRows = rawRows.map(row => {
       const out: Record<string, unknown> = { ...row };
@@ -1759,7 +1868,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const parentQuery = this.compileRead('findAllWithMany', options, () => this.qb.selectFrom(this.tableName), {
       additionalKnownNames: knownNames,
     });
-    const fetched = await this.rows<EntityRow<T>>(parentQuery, options?.cache);
+    const fetched = await this.rows<EntityRow<T>>(parentQuery, options);
     if (fetched.length === 0) return fetched;
     // Without an explicit child table/FK the relation has to be looked up, which
     // is what attachRelations does; with one, the caller has already told us

@@ -1,7 +1,7 @@
-A `Driver` is the whole database abstraction: one method that runs a compiled
-query and returns rows, plus optional capability metadata. Everything above it —
-repositories, transactions, replicas, logging, caching and observability —
-composes around that execute boundary.
+A `Driver` is the whole database abstraction: one required method that runs a
+compiled query and returns rows, plus optional streaming and capability
+metadata. Everything above it — repositories, transactions, replicas, logging,
+caching and observability — composes around that boundary.
 
 ```ts
 import type { CompiledQuery } from '@zmdb/query-compiler';
@@ -10,7 +10,8 @@ import type { Dialect } from '@zmdb/query-compiler';
 export interface Driver {
   readonly dialect?: Dialect;
   readonly queryTelemetry?: true;
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 ```
 
@@ -110,7 +111,8 @@ Three rules for a correct driver:
 
 ## Composing drivers
 
-Because a driver is one method, a wrapper is a driver:
+Because a driver has one required method, a wrapper is a driver. Wrappers must
+forward the optional execute options so cancellation is not lost:
 
 ```ts
 const driver = loggingDriver(cachingDriver(withReplicas({ primary, replicas }), store, 5_000), sink);

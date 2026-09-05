@@ -70,9 +70,9 @@ export function countingDriver(inner: Driver) {
   return {
     driver: {
       ...inner,
-      execute: q => {
+      execute: (q, options) => {
         queries.push(q);
-        return inner.execute(q);
+        return inner.execute(q, options);
       },
     } satisfies Driver,
     queries,

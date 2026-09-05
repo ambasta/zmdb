@@ -71,10 +71,10 @@ class ResilientDriver implements Driver {
     private retries = 3,
   ) {}
 
-  async execute(query: CompiledQuery) {
+  async execute(query: CompiledQuery, options?: ExecuteOptions) {
     for (let i = 0; i < this.retries; i++) {
       try {
-        return await this.driver.execute(query);
+        return await this.driver.execute(query, options);
       } catch (e) {
         if (i === this.retries - 1) throw e;
         await new Promise(r => setTimeout(r, 100 * (i + 1)));

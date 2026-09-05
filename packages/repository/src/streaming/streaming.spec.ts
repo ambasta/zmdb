@@ -1,4 +1,4 @@
-import type { CompiledQuery } from '@zmdb/query-compiler';
+import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema-core/ir';
 import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
@@ -6,13 +6,11 @@ import { describe, expect, it } from 'vitest';
 import { BaseRepository, defineRepository, type Driver } from '../index.js';
 import { createTransactionalDb, type TxConnection } from '../transactions/index.js';
 
-// Tests freeze for #460, against repository/SPEC.md §1a.
+// Tests freeze for #460, retired by #461 against repository/SPEC.md §1a.
 //
-// `BaseRepository.stream`, ExecuteOptions and the transaction-aware stream surface do
-// not exist yet. The two boundary helpers below call the real repository methods by
-// name and widen only the arguments/results frozen in the spec. They do not supply a
-// stream implementation: every stream assertion fails today with
-// `TypeError: BaseRepository.stream is not a function`.
+// The two boundary helpers remain intentionally literal: they exercise the
+// public method names and the exact frozen options/result shapes without
+// supplying any implementation of their own.
 
 interface FrozenExecuteOptions {
   readonly signal?: AbortSignal;
@@ -216,10 +214,7 @@ function ordinaryRow(index: number): Record<string, unknown> {
 }
 
 describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)', () => {
-  // Actual at c972d74b: BaseRepository has no `stream` method. The recording
-  // driver would expose a fake that calls execute once: the assertions below
-  // require ten cursor fetches and zero execute calls instead.
-  it.fails('streams in batches rather than one round trip', async () => {
+  it('streams in batches rather than one round trip', async () => {
     const driver = new RecordingStreamingDriver({
       length: 1_000,
       row: ordinaryRow,
@@ -233,14 +228,43 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     expect(countEvents(driver, 'execute')).toBe(0);
   });
 
-  // Actual at c972d74b: BaseRepository has no `stream` method.
-  //
+  it('compiles streamed predicates with all six SQL variants', async () => {
+    const expected = {
+      postgres: 'SELECT * FROM "stream_records" WHERE "id" = $1',
+      mysql: 'SELECT * FROM `stream_records` WHERE `id` = ?',
+      sqlite: 'SELECT * FROM "stream_records" WHERE "id" = ?',
+      mssql: 'SELECT * FROM [stream_records] WHERE [id] = @p1',
+      cockroach: 'SELECT * FROM "stream_records" WHERE "id" = $1',
+      singlestore: 'SELECT * FROM `stream_records` WHERE `id` = ?',
+    } satisfies Record<Dialect, string>;
+
+    for (const dialect of Object.keys(expected) as Dialect[]) {
+      let observedQuery: CompiledQuery | undefined;
+      let observedOptions: FrozenExecuteOptions | undefined;
+      const driver: Driver = {
+        execute: () => Promise.resolve([]),
+        stream(query, options) {
+          observedQuery = query;
+          observedOptions = options;
+          return {
+            async *[Symbol.asyncIterator]() {},
+          };
+        },
+      };
+
+      await collect(repositoryStream<StreamRecord>(new StreamRecords(driver, dialect), { id: 7 }, { batchSize: 17 }));
+
+      expect(observedQuery).toEqual({ text: expected[dialect], parameters: [7] });
+      expect(observedOptions).toEqual({ batchSize: 17 });
+    }
+  });
+
   // The threshold is deliberately wide. The source is 4096 × 32 KiB (128 MiB)
   // while one batch is 1 MiB. A cursor may spend several MiB on compilation,
   // decoding and allocator slack; it may not materialise the other 127 batches
   // before delivering row one. The fetch-count assertion is deterministic and
   // the heap assertion catches the same defect in the resource users actually lose.
-  it.fails('holds bounded memory over a result set larger than the batch size', async () => {
+  it('holds bounded memory over a result set larger than the batch size', async () => {
     const decoder = new TextDecoder();
     const driver = new RecordingStreamingDriver({
       length: 4_096,
@@ -269,10 +293,9 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     if (iterator.return) await iterator.return();
   }, 20_000);
 
-  // Actual at c972d74b: BaseRepository has no `stream` method.
   // `for await` invokes the repository iterator's return on break; disposing the
   // already-closed stream must not double-return the driver's cursor.
-  it.fails('closes the cursor when the consumer breaks early', async () => {
+  it('closes the cursor when the consumer breaks early', async () => {
     const driver = new RecordingStreamingDriver({
       length: 10,
       row: ordinaryRow,
@@ -291,15 +314,63 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     expect(countEvents(driver, 'execute')).toBe(0);
   });
 
+  it('disposes an unstarted stream without opening a cursor', async () => {
+    let opens = 0;
+    const driver: Driver = {
+      execute: () => Promise.resolve([]),
+      stream() {
+        opens++;
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield ordinaryRow(0);
+          },
+        };
+      },
+    };
+    const rows = repositoryStream<StreamRecord>(new StreamRecords(driver));
+
+    await rows[Symbol.asyncDispose]();
+
+    expect(opens).toBe(0);
+    expect(() => rows[Symbol.asyncIterator]()).toThrow(/disposed/i);
+  });
+
+  it('cleans up through one path for break, throw and abort', async () => {
+    const breakDriver = new RecordingStreamingDriver({ length: 3, row: ordinaryRow });
+    for await (const _row of repositoryStream<StreamRecord>(new StreamRecords(breakDriver))) break;
+
+    const throwDriver = new RecordingStreamingDriver({ length: 3, row: ordinaryRow });
+    const consumerFailure = new Error('consumer failed');
+    await expect(
+      (async () => {
+        for await (const _row of repositoryStream<StreamRecord>(new StreamRecords(throwDriver))) {
+          throw consumerFailure;
+        }
+      })(),
+    ).rejects.toBe(consumerFailure);
+
+    const abortDriver = new RecordingStreamingDriver({ length: 3, row: ordinaryRow });
+    const controller = new AbortController();
+    const aborted = repositoryStream<StreamRecord>(new StreamRecords(abortDriver), undefined, {
+      signal: controller.signal,
+    })[Symbol.asyncIterator]();
+    await expect(aborted.next()).resolves.toMatchObject({ done: false, value: { id: 1 } });
+    const abortReason = new DOMException('stop iteration', 'AbortError');
+    controller.abort(abortReason);
+    await expect(aborted.next()).rejects.toBe(abortReason);
+
+    for (const driver of [breakDriver, throwDriver, abortDriver]) {
+      expect(countEvents(driver, 'return')).toBe(1);
+    }
+  });
+
   // The live issue calls this "validation", but repository/SPEC.md §1a and the
   // real `find` path are explicit: fetched rows are decoded, not schema-validated.
   // This keeps the load-bearing issue title while asserting the actual shared
   // boundary. Convertible timestamp/bigint values change; malformed values pass
   // through unchanged for a caller-side validator to reject.
   //
-  // Actual at c972d74b: findAll returns the expected decoded rows, then the test
-  // reaches the absent BaseRepository.stream method.
-  it.fails('validates every streamed row with the same validator as find', async () => {
+  it('validates every streamed row with the same validator as find', async () => {
     const rawRows = [
       { id: 1, payload: 'valid', at: ISO, seq: '90071992547409910' },
       { id: 2, payload: 'malformed', at: 'nonsense', seq: '0x10' },
@@ -326,10 +397,34 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     expect(fetchSizes(driver)).toEqual([1, 1]);
   });
 
-  // Actual at c972d74b: findAll ignores the options object and resolves after
-  // the driver finishes. The frozen behaviour passes the same signal through
-  // and rejects with its exact reason after the pending read settles.
-  it.fails('rejects a pending read when its signal aborts', async () => {
+  it('resolves the streamed row decoder once before iterating', async () => {
+    let irReads = 0;
+    const CountingSchema = new Proxy(StreamRecordSchema, {
+      get(target, property, receiver) {
+        if (property === 'ir') irReads++;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    class CountingRecords extends BaseRepository<StreamRecord> {
+      static override readonly schema = CountingSchema;
+    }
+
+    const records = new CountingRecords(
+      new RecordingStreamingDriver({
+        length: 128,
+        row: ordinaryRow,
+      }),
+    );
+    await collect(repositoryStream<StreamRecord>(records, undefined, { batchSize: 8 }));
+
+    // One IR read resolves the inherited repository filters and one resolves
+    // the row decoder. Iteration itself must not revisit either.
+    expect(irReads).toBe(2);
+  });
+
+  // The repository passes the same signal through and rejects with its exact
+  // reason after a driver without active cancellation eventually settles.
+  it('rejects a pending read when its signal aborts', async () => {
     const gate = Promise.withResolvers<void>();
     let observed: FrozenExecuteOptions | undefined;
     const driver: Driver = {
@@ -354,11 +449,9 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     expect(observed?.signal).toBe(controller.signal);
   });
 
-  // Actual at c972d74b: the driver's second argument is undefined, so no abort
-  // listener is installed and the query resolves when the test releases it.
   // A repository-side Promise.race is insufficient: only the driver's listener
   // records `cancel`, which stands for the out-of-band server cancellation.
-  it.fails('asks the driver to cancel the server-side query on abort', async () => {
+  it('asks the driver to cancel the server-side query on abort', async () => {
     const result = Promise.withResolvers<readonly Record<string, unknown>[]>();
     const events: string[] = [];
     let observedSignal: AbortSignal | undefined;
@@ -394,9 +487,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
 
   // The issue's "warning" is the structured warning frozen in §1a:
   // onQuery receives `{ buffered: true }`; the library does not write to stderr.
-  // Actual at c972d74b: defineRepository accepts the options object but ignores
-  // onQuery, and BaseRepository has no stream method.
-  it.fails('buffers with a warning when the driver has no stream method', async () => {
+  it('buffers with a warning when the driver has no stream method', async () => {
     class ExecuteOnlyDriver implements Driver {
       readonly calls: CompiledQuery[] = [];
 
@@ -425,9 +516,11 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     ]) as StreamRecords;
 
     const rows = await collect(repositoryStream<StreamRecord>(records, undefined, { batchSize: 1 }));
+    const repeated = await collect(repositoryStream<StreamRecord>(records, undefined, { batchSize: 1 }));
 
     expect(rows).toEqual([{ id: 1, payload: 'buffered', at: new Date(ISO), seq: 7n }]);
-    expect(driver.calls).toHaveLength(1);
+    expect(repeated).toEqual(rows);
+    expect(driver.calls).toHaveLength(2);
     expect(observations).toEqual([
       {
         query: {
@@ -439,6 +532,15 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
           buffered: true,
         },
       },
+      {
+        query: {
+          text: 'SELECT * FROM "stream_records"',
+          parameters: [],
+        },
+        meta: {
+          filters: [],
+        },
+      },
     ]);
 
     await expect(
@@ -448,16 +550,97 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
         }),
       ),
     ).rejects.toThrow(/ExecuteOnlyDriver.*does not implement.*stream/i);
-    expect(driver.calls).toHaveLength(1);
+    expect(driver.calls).toHaveLength(2);
   });
 
-  // Actual at c972d74b: createTransactionalDb does not expose a connection's
-  // stream method and BaseRepository.withTransaction forwards execute only.
+  it('treats only a callable stream member as cursor capability', async () => {
+    const driver: Driver = {
+      execute: () => Promise.resolve([{ id: 1, payload: 'buffered', at: ISO, seq: '7' }]),
+      // @ts-expect-error — JavaScript adapters can still expose malformed
+      // capability metadata; the runtime check must not call a non-function.
+      stream: null,
+    };
+    const records = new StreamRecords(driver);
+
+    await expect(collect(repositoryStream<StreamRecord>(records))).resolves.toEqual([
+      { id: 1, payload: 'buffered', at: new Date(ISO), seq: 7n },
+    ]);
+  });
+
+  it('threads one AbortSignal through every repository read', async () => {
+    const observed: (FrozenExecuteOptions | undefined)[] = [];
+    const driver: Driver = {
+      execute(_query, options) {
+        observed.push(options);
+        return Promise.resolve([]);
+      },
+      stream(_query, options) {
+        observed.push(options);
+        return {
+          async *[Symbol.asyncIterator]() {},
+        };
+      },
+    };
+    const records = new StreamRecords(driver);
+    const signal = new AbortController().signal;
+
+    await records.findById(1, { signal });
+    await records.findOne({}, { signal });
+    await records.find({ id: 1 }, { signal });
+    await records.findAll({ signal });
+    await records.count(undefined, { signal });
+    await records.exists(undefined, { signal });
+    await records.list(undefined, { signal });
+    await records.findByFullText('payload', 'row', { signal });
+    await records.findJoined({ target: 'other_records', leftCol: 'id', rightCol: 'streamRecordId' }, undefined, {
+      signal,
+    });
+    await records.aggregate(aggregate => aggregate.count('id', 'n'), { signal });
+    await records.findAllWithMany('children', 'child_records', 'streamRecordId', 'id', { signal });
+    await collect(repositoryStream<StreamRecord>(records, undefined, { signal }));
+
+    expect(observed).toHaveLength(12);
+    expect(observed.every(options => options?.signal === signal)).toBe(true);
+  });
+
+  it('rejects an already-aborted read with the platform AbortError before dispatch', async () => {
+    let calls = 0;
+    let compiled = 0;
+    const driver: Driver = {
+      execute() {
+        calls++;
+        return Promise.resolve([]);
+      },
+    };
+    const records = Reflect.apply(defineRepository, undefined, [
+      StreamRecordSchema,
+      driver,
+      {
+        dialect: 'postgres',
+        onQuery() {
+          compiled++;
+        },
+      },
+    ]) as StreamRecords;
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(records.findAll({ signal: controller.signal })).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(() => repositoryStream(records, undefined, { signal: controller.signal })).toThrow(
+      expect.objectContaining({ name: 'AbortError' }),
+    );
+    expect(calls).toBe(0);
+    expect(compiled).toBe(0);
+  });
+
   // The log requires the cursor to close before COMMIT, then requires a later
   // next() to reject as a transaction-scope error rather than look like EOF.
-  it.fails('refuses to stream outside the transaction that owns the connection', async () => {
+  it('refuses to stream outside the transaction that owns the connection', async () => {
     class StreamingConnection implements TxConnection {
       readonly log: string[] = [];
+      observedSignal: AbortSignal | undefined;
 
       raw(sql: string): Promise<void> {
         this.log.push(sql);
@@ -468,8 +651,9 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
         return Promise.resolve([]);
       }
 
-      stream(): AsyncIterable<Record<string, unknown>> {
+      stream(_query: CompiledQuery, options?: FrozenExecuteOptions): AsyncIterable<Record<string, unknown>> {
         this.log.push('STREAM');
+        this.observedSignal = options?.signal;
         let index = 0;
         let closed = false;
         return {
@@ -497,10 +681,11 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
       execute: () => Promise.resolve([]),
     });
     let heldIterator: AsyncIterator<StreamRecord> | undefined;
+    const signal = new AbortController().signal;
 
     await db.transaction(async transaction => {
       const scoped = Reflect.apply(parent.withTransaction, parent, [transaction]) as StreamRecords;
-      const rows = repositoryStream<StreamRecord>(scoped);
+      const rows = repositoryStream<StreamRecord>(scoped, undefined, { signal });
       heldIterator = rows[Symbol.asyncIterator]();
       await expect(heldIterator.next()).resolves.toMatchObject({
         done: false,
@@ -509,8 +694,61 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     });
 
     expect(connection.log).toEqual(['BEGIN', 'STREAM', 'RETURN', 'COMMIT']);
+    expect(connection.observedSignal).toBe(signal);
     if (heldIterator === undefined) throw new Error('transaction did not return a stream iterator');
     await expect(heldIterator.next()).rejects.toThrow(/transaction/i);
     expect(connection.log.filter(entry => entry === 'RETURN')).toHaveLength(1);
+  });
+
+  it('closes every transaction stream before rollback when one cursor close fails', async () => {
+    class FailingCloseConnection implements TxConnection {
+      readonly log: string[] = [];
+      #stream = 0;
+
+      raw(sql: string): Promise<void> {
+        this.log.push(sql);
+        return Promise.resolve();
+      }
+
+      execute(): Promise<readonly Record<string, unknown>[]> {
+        return Promise.resolve([]);
+      }
+
+      stream(): AsyncIterable<Record<string, unknown>> {
+        const id = ++this.#stream;
+        this.log.push(`STREAM ${id}`);
+        let yielded = false;
+        return {
+          [Symbol.asyncIterator]: () => ({
+            next: async (): Promise<IteratorResult<Record<string, unknown>>> => {
+              if (yielded) return { done: true, value: undefined };
+              yielded = true;
+              return { done: false, value: ordinaryRow(id - 1) };
+            },
+            return: async (): Promise<IteratorResult<Record<string, unknown>>> => {
+              this.log.push(`RETURN ${id}`);
+              if (id === 1) throw new Error('first cursor close failed');
+              return { done: true, value: undefined };
+            },
+          }),
+        };
+      }
+    }
+
+    const connection = new FailingCloseConnection();
+    const db = createTransactionalDb(connection);
+
+    await expect(
+      db.transaction(async transaction => {
+        const stream = transaction.stream;
+        if (stream === undefined) throw new Error('connection should expose stream');
+        const first = stream({ text: 'SELECT 1', parameters: [] })[Symbol.asyncIterator]();
+        const second = stream({ text: 'SELECT 2', parameters: [] })[Symbol.asyncIterator]();
+        await first.next();
+        await second.next();
+      }),
+    ).rejects.toThrow('first cursor close failed');
+
+    expect(connection.log).toEqual(['BEGIN', 'STREAM 1', 'STREAM 2', 'RETURN 1', 'RETURN 2', 'ROLLBACK']);
   });
 });

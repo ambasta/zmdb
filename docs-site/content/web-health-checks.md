@@ -115,7 +115,10 @@ At the declared timeout the check's `AbortSignal` is aborted; if the check still
 not settled by the end of the allowance, its result becomes
 `{ ok: false, detail: 'timeout' }`.
 
-Note that [zmdb has no query cancellation](./query-cancellation.html), so the losing query keeps running on the server. The probe returns; the connection is occupied until the query finishes. `Driver.execute` takes no `AbortSignal` — the timeout stops the _waiting_, not the _work_.
+Repository reads now pass an `AbortSignal` to `Driver.execute`. The bundled
+drivers do not yet turn it into server-side cancellation, so with those drivers
+the losing query still occupies its connection until it finishes. A custom
+driver can use the same signal to cancel the statement.
 
 This can turn the health check into the incident. A 2-second timeout on a
 5-second probe period against a hung database consumes one connection every
@@ -183,9 +186,10 @@ Three other decisions:
 - **`timeoutMs` is required, and checks run concurrently** so the endpoint's bound is `max(timeoutMs)` rather than the sum — otherwise the worst case grows with every dependency added. A timed-out check counts as failed, not unknown; the orchestrator has two states.
 - **A success is cached, a failure is not.** Caching a success delays noticing a new failure by the cache window, which `periodSeconds × failureThreshold` already absorbs. Caching a failure delays _recovery_, with nothing absorbing it, during the incident where capacity matters most.
 
-A `Driver.ping()` is not required; `SELECT 1` works on every dialect. What would
-genuinely help is an optional `signal` on `Driver.execute`, so the timeout above
-cancels rather than abandons — see [query cancellation](./query-cancellation.html).
+A `Driver.ping()` is not required; `SELECT 1` works on every dialect. Pass the
+check's signal into the repository read, and use a driver that implements
+server-side cancellation if the timeout must stop the database work — see
+[query cancellation](./query-cancellation.html).
 
 ---
 

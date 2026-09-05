@@ -411,6 +411,34 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     expect(commentsOnly.queryTelemetry).toBeUndefined();
   });
 
+  it('forwards execute options and preserves a wrapped stream capability', async () => {
+    const signal = new AbortController().signal;
+    const options = { signal, batchSize: 17 };
+    let observed: { readonly signal?: AbortSignal; readonly batchSize?: number } | undefined;
+    const stream = () => ({
+      async *[Symbol.asyncIterator]() {
+        yield { id: 1 };
+      },
+    });
+    const driver = tracedDriver(
+      {
+        execute(_query, executeOptions) {
+          observed = executeOptions;
+          return Promise.resolve([]);
+        },
+        stream,
+      },
+      { comments: { keys: ['route'] } },
+      undefined,
+      () => ({ route: '/users' }),
+    );
+
+    await driver.execute({ text: 'SELECT 1', parameters: [] }, options);
+
+    expect(observed).toBe(options);
+    expect(driver.stream).toBe(stream);
+  });
+
   // §9.3 and §9.4. Semconv requires `{method} {http.route}` with a low-cardinality route, so
   // the name is `GET /posts/:id` and never `GET /posts/1`. §4 explains why the router has to
   // be the thing that creates it: `Ctx.path` is the concrete `/posts/1`, and its optional

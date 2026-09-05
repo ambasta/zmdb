@@ -81,12 +81,13 @@ Usually better. A row cache has a natural key and a natural invalidation point:
 ```ts
 export function cachingDriver(inner: Driver, store: KV, ttlMs: number): Driver {
   return {
-    async execute(query) {
-      if (!/^\s*SELECT/i.test(query.text)) return inner.execute(query);
+    ...inner,
+    async execute(query, options) {
+      if (!/^\s*SELECT/i.test(query.text)) return inner.execute(query, options);
       const key = `q:${hash(query.text)}:${hash(JSON.stringify(query.parameters))}`;
       const hit = await store.get(key);
       if (hit !== undefined) return JSON.parse(hit);
-      const rows = await inner.execute(query);
+      const rows = await inner.execute(query, options);
       await store.set(key, JSON.stringify(rows), ttlMs);
       return rows;
     },

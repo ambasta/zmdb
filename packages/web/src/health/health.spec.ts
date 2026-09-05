@@ -509,10 +509,12 @@ describe('health probes (#580 freeze of health SPEC)', () => {
 
   it('ships a database readiness check that executes only SELECT 1', async () => {
     const calls: unknown[] = [];
+    let observedSignal: AbortSignal | undefined;
     const check = databaseReadinessCheck(
       {
-        execute: query => {
+        execute: (query, options) => {
           calls.push(query);
+          observedSignal = options?.signal;
           return Promise.resolve([]);
         },
       },
@@ -522,7 +524,9 @@ describe('health probes (#580 freeze of health SPEC)', () => {
     expect(check.name).toBe('primary-db');
     expect(check.timeoutMs).toBe(250);
     expect(check.cacheMs).toBe(2000);
-    expect(await check.run(new AbortController().signal)).toEqual({ ok: true });
+    const signal = new AbortController().signal;
+    expect(await check.run(signal)).toEqual({ ok: true });
     expect(calls).toEqual([{ text: 'SELECT 1', parameters: [] }]);
+    expect(observedSignal).toBe(signal);
   });
 });

@@ -248,8 +248,8 @@ export function databaseReadinessCheck(
     name: options.name ?? 'database',
     timeoutMs: options.timeoutMs,
     ...(options.cacheMs === undefined ? {} : { cacheMs: options.cacheMs }),
-    async run() {
-      await driver.execute({ text: 'SELECT 1', parameters: [] });
+    async run(signal) {
+      await driver.execute({ text: 'SELECT 1', parameters: [] }, { signal });
       return { ok: true };
     },
   };

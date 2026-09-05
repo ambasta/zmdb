@@ -5,7 +5,13 @@ The performance question with a data layer is almost never "how fast is the libr
 ```ts
 function recording(inner: Driver) {
   const seen: CompiledQuery[] = [];
-  return { driver: { execute: q => (seen.push(q), inner.execute(q)) } satisfies Driver, seen };
+  return {
+    driver: {
+      ...inner,
+      execute: (q, options) => (seen.push(q), inner.execute(q, options)),
+    } satisfies Driver,
+    seen,
+  };
 }
 ```
 

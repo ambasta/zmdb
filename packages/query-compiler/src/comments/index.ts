@@ -9,6 +9,11 @@ export type CommentPairs = Readonly<Partial<Record<CommentKey, string>>>;
 /** A non-empty configured key list: absence, not an empty list, means off. */
 export type CommentKeys = readonly [CommentKey, ...CommentKey[]];
 
+interface ExecuteOptions {
+  readonly signal?: AbortSignal;
+  readonly batchSize?: number;
+}
+
 const encode = (value: string): string => encodeURIComponent(value).replace(/'/g, "\\'");
 
 /** Serialize the inside of a sqlcommenter block in deterministic key order. */
@@ -31,14 +36,14 @@ export function appendComment(text: string, pairs: CommentPairs): string {
  */
 export function withComments<
   D extends {
-    execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+    execute(query: CompiledQuery, options?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   },
 >(driver: D, pairs: () => CommentPairs) {
   return {
     ...driver,
-    execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]> {
+    execute(query: CompiledQuery, options?: ExecuteOptions): Promise<readonly Record<string, unknown>[]> {
       const text = appendComment(query.text, pairs());
-      return driver.execute(text === query.text ? query : { ...query, text });
+      return driver.execute(text === query.text ? query : { ...query, text }, options);
     },
   };
 }

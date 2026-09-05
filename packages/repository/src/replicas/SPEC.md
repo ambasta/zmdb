@@ -24,7 +24,9 @@ function withReplicas(opts: ReplicaOptions): Driver;
 - If `replicas` is empty, reads fall back to `primary`.
 - Deterministic default: round-robin advances one replica per read call.
 - Frozen: the wrapper adds no caching/identity-map; it only chooses a driver and
-  delegates `execute`.
+  delegates `execute`, including its options.
+- The wrapper exposes `stream` only when the primary and every possible replica
+  expose it. Streaming uses the same routing rule and forwards `ExecuteOptions`.
 
 ## The rule is SQL-shaped, and that is a constraint on anything non-SQL
 

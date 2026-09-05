@@ -54,14 +54,15 @@ Which is three queries, explicitly, instead of an unknown number.
 
 ## Counting the queries in a test
 
-Because the driver is one method, asserting on the statement count is trivial and worth doing on any hot path:
+Because the driver has one required method, asserting on the statement count is trivial and worth doing on any hot path:
 
 ```ts
 const seen: string[] = [];
 const spy: Driver = {
-  execute: q => {
+  ...real,
+  execute: (q, options) => {
     seen.push(q.text);
-    return real.execute(q);
+    return real.execute(q, options);
   },
 };
 

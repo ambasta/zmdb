@@ -91,7 +91,7 @@ const driver: Driver = {
 };
 ```
 
-`Driver` is one method, which is why any transport works. See [Custom Driver](./custom-driver.html).
+`Driver` has one required method, which is why any transport works. See [Custom Driver](./custom-driver.html).
 
 ## The transformer must run in your build
 

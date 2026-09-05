@@ -730,13 +730,13 @@ export const PAGE_META = {
     title: 'Streaming Results',
     group: 'Data Access',
     status: 'todo',
-    note: 'Driver.execute resolves to a materialised array; there is no cursor or async-iterable path',
+    note: 'repository streaming ships, but bundled database drivers still have no cursor implementation',
   },
   'query-cancellation': {
     title: 'Query Cancellation',
     group: 'Data Access',
     status: 'todo',
-    note: 'no AbortSignal is threaded through Driver.execute',
+    note: 'AbortSignal plumbing ships, but bundled drivers do not yet cancel running server statements',
   },
   serialization: {
     title: 'Serialization',

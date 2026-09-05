@@ -263,6 +263,33 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
     expect(driver.seen[0]).toContain('/*');
   });
 
+  it('forwards execute options and preserves a wrapped stream capability', async () => {
+    const query = selectUsers();
+    const signal = new AbortController().signal;
+    const options = { signal, batchSize: 17 };
+    let observed: { readonly signal?: AbortSignal; readonly batchSize?: number } | undefined;
+    const stream = () => ({
+      async *[Symbol.asyncIterator]() {
+        yield { id: 1 };
+      },
+    });
+    const tagged = withComments(
+      {
+        execute(_query, executeOptions) {
+          observed = executeOptions;
+          return Promise.resolve([]);
+        },
+        stream,
+      },
+      () => FULL_PAIRS,
+    );
+
+    await tagged.execute(query, options);
+
+    expect(observed).toBe(options);
+    expect(tagged.stream).toBe(stream);
+  });
+
   // §7.8: the property that makes reuse safe. One compiled query, two traceparents, two
   // statement texts — which is also §5's stated trade, because it is exactly why
   // `traceparent` costs the plan cache.

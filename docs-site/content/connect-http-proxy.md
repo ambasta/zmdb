@@ -1,4 +1,4 @@
-Because a `Driver` is one method over `{ text, parameters }`, you can put anything between your application and the database — including your own HTTP endpoint. This is how you reach a database from a runtime with no TCP.
+Because a `Driver` has one required method over `{ text, parameters }`, you can put anything between your application and the database — including your own HTTP endpoint. This is how you reach a database from a runtime with no TCP.
 
 ## The client driver
 

@@ -4,7 +4,7 @@ zmdb is not competing with that. If you are using Effect, use its schema; the va
 
 ## What interop looks like
 
-The useful boundary is the driver, because `Driver` is one method:
+The useful boundary is the driver, because `Driver` has one required method:
 
 ```ts
 import { Effect } from 'effect';

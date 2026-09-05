@@ -1,6 +1,7 @@
-> **ToDo / feature gap.** No zmdb API accepts an `AbortSignal`.
-> `Driver.execute(query)` takes one argument, and repository methods take DTOs.
-> A client that disconnects mid-request does not cancel the query it triggered.
+> **ToDo / adapter gap.** Repository reads and `Driver.execute` now accept an
+> `AbortSignal`. Already-aborted reads do not dispatch, and the same signal
+> reaches the driver. The bundled drivers do not yet cancel a running
+> server-side statement, so active cancellation still depends on a custom driver.
 
 ## Why it matters
 
@@ -25,30 +26,20 @@ Set this. A default statement timeout is one line of config and it prevents a si
 
 ## Cancellation in your driver
 
-The driver is the layer that owns the client, so it is the layer that can cancel. Thread the signal in through a factory rather than an argument:
+The driver is the layer that owns the client, so it is the layer that can
+cancel. The repository passes the signal as the second argument:
 
 ```ts
-function driverFor(signal: AbortSignal): Driver {
-  return {
-    async execute(q) {
-      const client = await pool.connect();
-      const onAbort = () => {
-        void client.query('SELECT pg_cancel_backend(pg_backend_pid())');
-      };
-      signal.addEventListener('abort', onAbort, { once: true });
-      try {
-        const res = await client.query(q.text, [...q.parameters]);
-        return res.rows;
-      } finally {
-        signal.removeEventListener('abort', onAbort);
-        client.release();
-      }
-    },
-  };
-}
+const controller = new AbortController();
+const pending = users.findAll({ signal: controller.signal });
+controller.abort();
+await pending; // rejects with signal.reason, or a DOMException named AbortError
 ```
 
-Then build the repository per request with that driver. This is the same per-request-driver pattern [SQL comments](./sql-comments.html) and [multi-tenancy](./entity-filters.html) use, and it works because a repository is a cheap object over a driver, not a connection pool of its own.
+A custom driver's `execute(query, { signal })` should check
+`signal.throwIfAborted()` before dispatch and connect its abort event to the
+client's real cancellation primitive. A driver that ignores the options remains
+compatible; the repository rejects after that driver's promise settles.
 
 > [!NOTE]
 > `pg_cancel_backend` on the _same_ connection cancels the query you are
@@ -66,11 +57,13 @@ cancellation. If you are behind `node:http`, `req.on('aborted')` is available at
 the adapter; if you are behind `fetch`, `request.signal` is. Either way it has to
 be captured at the adapter and passed down explicitly.
 
-## What it would take
+## What remains
 
-Two additive changes and one decision. The additive part: `execute(query, options?: { signal?: AbortSignal })` on `Driver`, and an optional `signal` on the repository DTOs. The decision: whether `Ctx` grows a `signal`, which means `WebRequest` grows one, which means every adapter has to supply it — reasonable, but it changes a type that every handler in every application touches, so it wants doing once and properly rather than twice.
-
-The [GraphQL subscription](./web-graphql-subscriptions.html) freeze answered half of that decision without forcing the other half, and although that layer is [not being built](./web-graphql.html), the reasoning is what survives it: a long-lived connection's context carries a `signal` because it genuinely has one, and `Ctx` and `WebRequest` are left alone. It also settles the primitive: cancellation is a signal passed _in_, never a teardown function handed back, because a caller cannot forget a parameter — which is the argument for threading it through `Driver.execute` too.
+The additive API is shipped. The remaining database work is per adapter:
+Postgres needs a second connection for server cancellation, while SQLite can
+observe abort only between stepped rows. HTTP request cancellation remains
+explicit application wiring because `Ctx` and `WebRequest` do not carry a
+database signal.
 
 ---
 

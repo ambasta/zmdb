@@ -1,8 +1,9 @@
-A driver is one method. That is the entire integration surface between zmdb and your database:
+A driver has one required method. Streaming is an optional capability:
 
 ```ts
 interface Driver {
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 
 interface CompiledQuery {
@@ -91,10 +92,11 @@ return isSelect ? result.rows : [];
 ```ts
 export function withLogging(inner: Driver, log = console): Driver {
   return {
-    async execute(query) {
+    ...inner,
+    async execute(query, options) {
       const start = performance.now();
       try {
-        return await inner.execute(query);
+        return await inner.execute(query, options);
       } finally {
         const ms = performance.now() - start;
         if (ms > 100) log.warn({ ms, sql: query.text }, 'slow query');
@@ -121,7 +123,13 @@ Or record what was asked, which is how you assert on query counts:
 ```ts
 export function recordingDriver(inner: Driver) {
   const seen: CompiledQuery[] = [];
-  return { driver: { execute: q => (seen.push(q), inner.execute(q)) } satisfies Driver, seen };
+  return {
+    driver: {
+      ...inner,
+      execute: (q, options) => (seen.push(q), inner.execute(q, options)),
+    } satisfies Driver,
+    seen,
+  };
 }
 ```
 

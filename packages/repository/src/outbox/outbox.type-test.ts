@@ -133,17 +133,20 @@ type _ShutdownIsAwaitable = Expect<Equal<ReturnType<OutboxDispatcher['onShutdown
 // §4.1 and §6 — the seams, which are structural
 // ===========================================================================
 
-// §4.1: the dispatcher's only database seam is `Driver`. Its optional dialect and
-// compile-telemetry marker do not make an object literal stop being a driver, which is what
-// makes the fake driver in ./outbox.spec.ts legal without a mocking library.
+// §4.1: the dispatcher's only database seam is `Driver`. Its optional dialect,
+// compile-telemetry marker, and streaming method do not make an object literal
+// stop being a driver, which is what makes the fake driver in ./outbox.spec.ts
+// legal without a mocking library.
 const structuralDriver: Driver = { execute: () => Promise.resolve([]) };
 void structuralDriver;
-type _DriverIsOneMethodPlusOptions = Expect<Mutual<keyof Driver, 'dialect' | 'queryTelemetry' | 'execute'>>;
+type _DriverKeepsExecuteAsItsOnlyRequiredMethod = Expect<
+  Mutual<keyof Driver, 'dialect' | 'queryTelemetry' | 'execute' | 'stream'>
+>;
 
-// §6's closing claim: a repository joins an outbox transaction with no new adapter, because
-// `withTransaction` takes `{ execute: Driver['execute'] }` structurally and a `TransactionContext`
-// already has that method with that signature. Verified 2026-09-04. If `withTransaction` ever
-// narrows to a nominal parameter this assertion is the thing that catches it.
+// §6's closing claim: a repository joins an outbox transaction with no new
+// adapter, because `withTransaction` requires execute structurally and accepts
+// the transaction's optional stream. If it ever narrows to a nominal parameter,
+// this assertion is the thing that catches it.
 type WithTransactionParam = { execute: Driver['execute'] };
 type _TxSatisfiesWithTransaction = Expect<Equal<TransactionContext extends WithTransactionParam ? true : false, true>>;
 

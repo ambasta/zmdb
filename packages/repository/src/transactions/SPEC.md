@@ -17,10 +17,16 @@ db.transaction(async (tx) => { ... }): Promise<Result>
 
 ```ts
 interface TransactionContext {
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
   savepoint<R>(fn: (tx: TransactionContext) => Promise<R>): Promise<R>;
 }
 ```
+
+The options and optional stream are the repository driver contract forwarded
+onto the pinned connection. A transaction scope closes every stream it opened
+before `COMMIT`, `ROLLBACK`, or savepoint release, and a later `next()` rejects
+as a transaction-scope error rather than looking like end-of-stream.
 
 ## 3. Emitted SQL ordering (asserted with a recording fake driver)
 

@@ -1,4 +1,4 @@
-There is no logger in zmdb — no `logger` option, no log levels, no output. What there is instead is a one-method `Driver`, which turns query logging into a wrapper you control.
+There is no logger in zmdb — no `logger` option, no log levels, no output. What there is instead is a `Driver` with one required method, which turns query logging into a wrapper you control.
 
 ## Logging queries
 
@@ -7,10 +7,11 @@ import type { Driver } from '@zmdb/repository';
 
 export function withLogging(inner: Driver, log: (e: object) => void): Driver {
   return {
-    async execute(query) {
+    ...inner,
+    async execute(query, options) {
       const start = performance.now();
       try {
-        const rows = await inner.execute(query);
+        const rows = await inner.execute(query, options);
         log({ sql: query.text, ms: +(performance.now() - start).toFixed(1), rows: rows.length });
         return rows;
       } catch (error) {
@@ -48,10 +49,11 @@ Full query logs are unreadable at any volume. A threshold is more useful:
 ```ts
 export function logSlow(inner: Driver, thresholdMs = 100): Driver {
   return {
-    async execute(query) {
+    ...inner,
+    async execute(query, options) {
       const start = performance.now();
       try {
-        return await inner.execute(query);
+        return await inner.execute(query, options);
       } finally {
         const ms = performance.now() - start;
         if (ms > thresholdMs) console.warn(JSON.stringify({ slow: true, ms: Math.round(ms), sql: query.text }));
@@ -70,7 +72,13 @@ The N+1 detector, and worth having in development:
 ```ts
 export function counting(inner: Driver) {
   let n = 0;
-  return { driver: { execute: q => (n++, inner.execute(q)) } satisfies Driver, count: () => n };
+  return {
+    driver: {
+      ...inner,
+      execute: (q, options) => (n++, inner.execute(q, options)),
+    } satisfies Driver,
+    count: () => n,
+  };
 }
 ```
 

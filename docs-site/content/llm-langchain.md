@@ -88,7 +88,13 @@ export class DocsRetriever extends BaseRetriever {
 }
 ```
 
-`findByFullText(column, term)` takes the column to match against and the term — there is no options object, no limit and no ranking, so slice in your code or drop to the [FTS builder](./full-text-search.html) for `ORDER BY rank`. It returns `readonly Record<string, unknown>[]` rather than typed entities, because a joined FTS row is not the entity shape; hence the `String(...)` at the boundary. The schema needs `ftsTable` declared or the call throws `UnsupportedFeatureError` — never a silently-wrong query.
+`findByFullText(column, term, { signal })` takes the column to match against, the
+term and an optional cancellation signal. It has no limit or ranking option, so
+slice in your code or drop to the [FTS builder](./full-text-search.html) for
+`ORDER BY rank`. It returns `readonly Record<string, unknown>[]` rather than
+typed entities, because a joined FTS row is not the entity shape; hence the
+`String(...)` at the boundary. The schema needs `ftsTable` declared or the call
+throws `UnsupportedFeatureError` — never a silently-wrong query.
 
 For vector similarity, declare a `pgvector` column with
 `Ext<'vector', 'vector', [dimensions]>`; zmdb installs the extension and emits

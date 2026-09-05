@@ -457,17 +457,17 @@ The distinguishable-reason requirement in step 6 is therefore satisfied twice: a
 that no longer validates is `invalid-payload` and a name that no longer exists is
 `unknown-name`, and neither can retry forever.
 
-## 8. Timeouts: the signal aborts the waiting, and the slot stays occupied
+## 8. Timeouts: cancellation is explicit, and the slot stays occupied
 
 `ctx.signal` is aborted when `timeoutMs` elapses and when the drain begins. Step 4 asks for
 the limitation to be stated; the limitation is sharper here than the step implies.
 
-**`AbortSignal` aborts the waiting, not the work**, and in this repository that is not a
-handler-discipline problem but a hard interface fact. `Driver.execute` is
-`execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>`
-(`packages/repository/src/index.ts:53`) and takes no signal, so a job whose work is a query
-cannot be cancelled at all — the finding `../health/SPEC.md` §4 already recorded for
-readiness probes, with the same conclusion and a different consequence.
+`Driver.execute` and repository reads now accept an `AbortSignal`, so a handler
+can pass `ctx.signal` into its query and a cooperating driver can cancel the
+server-side work. Cancellation is still explicit handler discipline: the queue
+cannot infer which repository call belongs to a job, and the bundled database
+adapters do not yet provide driver-specific server cancellation. A handler that
+does not pass the signal still leaves its work running.
 
 **Step 4's own wording is self-contradicting and worth correcting.** "A timed-out handler is
 abandoned rather than left running" describes one thing twice: abandoning a promise _is_

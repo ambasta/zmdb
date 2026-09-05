@@ -108,10 +108,10 @@ import type { Driver } from '@zmdb/repository';
 export function loggingDriver(inner: Driver, sink: Sink): Driver {
   return {
     ...inner,
-    async execute(query) {
+    async execute(query, options) {
       const started = performance.now();
       try {
-        const rows = await inner.execute(query);
+        const rows = await inner.execute(query, options);
         sink({
           level: 'debug',
           sql: query.text,

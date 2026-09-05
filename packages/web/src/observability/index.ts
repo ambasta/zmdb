@@ -5,6 +5,7 @@ import {
   type CompiledQuery,
   type Dialect,
 } from '@zmdb/query-compiler';
+import type { ExecuteOptions } from '@zmdb/repository';
 
 import { createRouter, type Router } from '../pipeline/index.js';
 import { fromTraceContext, toTraceparent } from './propagation.js';
@@ -31,7 +32,8 @@ export type {
 export interface ExecutingDriver {
   readonly dialect?: Dialect;
   readonly queryTelemetry?: true;
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  execute(query: CompiledQuery, options?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, options?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 
 /** Compatibility name retained by the tests freeze; this is the real router. */
@@ -61,7 +63,10 @@ export function tracedDriver(
   }
 
   const duration = meter?.histogram('db.client.operation.duration', 's');
-  const execute = async (query: CompiledQuery): Promise<readonly Record<string, unknown>[]> => {
+  const execute = async (
+    query: CompiledQuery,
+    options?: ExecuteOptions,
+  ): Promise<readonly Record<string, unknown>[]> => {
     const telemetry = query.telemetry;
     const span = startQuerySpan(tracer, telemetry, parent);
     if (span !== undefined) {
@@ -80,7 +85,7 @@ export function tracedDriver(
     try {
       const executed =
         comments === undefined ? query : queryWithComments(query, comments.keys, commentValues?.(), span ?? parent);
-      return await driver.execute(executed);
+      return await driver.execute(executed, options);
     } catch (error) {
       if (span !== undefined) {
         const recorded = errorValue(error);

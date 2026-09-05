@@ -1,4 +1,4 @@
-zmdb is unusually easy to test, for two structural reasons: `compile()` produces SQL without a connection, and `Driver` is one method. Most of what you would need a database for, you do not.
+zmdb is unusually easy to test, for two structural reasons: `compile()` produces SQL without a connection, and `Driver` has one required method. Most of what you would need a database for, you do not.
 
 ## Test the SQL, with no database
 
@@ -34,7 +34,13 @@ This is the test that catches N+1s, and it is worth writing for any hot path:
 ```ts
 function recording(inner: Driver) {
   const seen: CompiledQuery[] = [];
-  return { driver: { execute: q => (seen.push(q), inner.execute(q)) } satisfies Driver, seen };
+  return {
+    driver: {
+      ...inner,
+      execute: (q, options) => (seen.push(q), inner.execute(q, options)),
+    } satisfies Driver,
+    seen,
+  };
 }
 
 it('populate issues two queries, not one per row', async () => {

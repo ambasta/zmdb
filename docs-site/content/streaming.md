@@ -1,13 +1,39 @@
-> **ToDo / feature gap.** Nothing in zmdb streams. `Driver.execute` returns
-> `Promise<readonly Record<string, unknown>[]>` — a fully materialised array —
-> and every repository method resolves to an array or a single row. There is no
-> `AsyncIterable` result and no cursor API.
+> **ToDo / adapter gap.** `Driver.stream?` and `repo.stream()` now provide the
+> async-iterable boundary. A custom driver can supply a real cursor. The bundled
+> Postgres, SQLite and SQL Server drivers do not yet implement it, so they use
+> the documented buffered fallback.
 
 The HTTP half is no longer a blocker:
 [`WebResponse.body` supports streams](./web-streaming-files.html). What remains
-on this page is query execution: drivers and repositories still materialise rows.
+is cursor support in the bundled database adapters.
 
-## What breaks without it
+## The repository surface
+
+```ts
+await using rows = repo.stream(
+  { active: true },
+  {
+    batchSize: 500,
+    signal: request.signal,
+  },
+);
+
+for await (const row of rows) {
+  await exportRow(row);
+}
+```
+
+The stream is single-shot. `for await` closes it on `break` or a thrown error,
+and `await using` also covers a stream that was opened and then abandoned. Rows
+cross the same database-value decoder as `find`; the decoder is resolved once
+before iteration.
+
+If the driver has no `stream` method, the repository calls `execute` once and
+yields the buffered rows. The first fallback per driver is reported through
+`onQuery(query, { filters: [], buffered: true })`. Pass
+`requireCursor: true` to refuse that fallback.
+
+## What breaks without a cursor
 
 Reading a million rows means a million rows in memory:
 
@@ -49,9 +75,10 @@ That gives the _consumer_ an `AsyncIterable`, which is usually what the calling 
 > rows across page boundaries. Add the primary key as a tie-break — see
 > [Cursor-based pagination](./guide-cursor-pagination.html).
 
-## Or stream in the driver, bypassing zmdb
+## Until the bundled cursors land
 
-If you need a genuine server-side cursor, use your client directly for that one query. The driver is yours, so this is a normal thing to do:
+If you need a genuine server-side cursor today, implement the optional driver
+method or use your client directly for that one query:
 
 ```ts
 import { Client } from 'pg';
@@ -65,16 +92,16 @@ for (;;) {
 }
 ```
 
-You lose the typed builder for that query and keep it everywhere else. Compile the SQL with the builder and hand `q.text` / `q.parameters` to the cursor if you want the query itself to stay derived.
+The direct-client form loses the repository decoder for that query. Compile the
+SQL with the builder and hand `q.text` / `q.parameters` to the cursor if you
+want the query itself to stay derived.
 
-## What it would take
+## What remains
 
-The `Driver` interface has to grow a second, optional method —
-`stream?(query): AsyncIterable<Record<string, unknown>>` — because making
-`execute` return an iterable would break every existing driver and every test
-that does `rows.length`. Repositories then need streaming variants
-(`findAllStream`, `listStream`); a handler can convert the iterable with
-`ReadableStream.from(...)` and return `stream(...)`.
+The interface and repository wrapper are in place. The remaining work is
+driver-specific: step SQLite statements with `iterate()`, and hold a Postgres
+connection and cursor for the iterable's lifetime. Until then, the bundled
+drivers deliberately advertise no cursor capability.
 
 ---
 

@@ -87,10 +87,11 @@ Wrap the driver, since that is where the time is:
 ```ts
 function timed(inner: Driver): Driver {
   return {
-    async execute(query) {
+    ...inner,
+    async execute(query, options) {
       const start = performance.now();
       try {
-        return await inner.execute(query);
+        return await inner.execute(query, options);
       } finally {
         const ms = performance.now() - start;
         if (ms > 50) console.warn(JSON.stringify({ ms: Math.round(ms), text: query.text }));

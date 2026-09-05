@@ -214,7 +214,8 @@ The repository never opens connections. You inject a `Driver`:
 
 ```ts
 interface Driver {
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 ```
 

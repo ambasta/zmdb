@@ -21,7 +21,7 @@ export const driver: Driver = {
 };
 ```
 
-If your plan gives you only the Accelerate-style HTTP endpoint, use `@prisma/adapter-*` or their serverless driver and wrap it the same way — a `Driver` is one method over whatever transport you have.
+If your plan gives you only the Accelerate-style HTTP endpoint, use `@prisma/adapter-*` or their serverless driver and wrap it the same way — a `Driver` has one required method over whatever transport you have.
 
 ## Migrating away from Prisma Client
 

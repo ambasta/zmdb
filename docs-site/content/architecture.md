@@ -20,7 +20,7 @@ zmdb is five packages with a strict dependency order. Nothing depends on anythin
 
 **`@zmdb/aot-validator`** — the TypeScript transformer plus the runtime helpers it emits calls to (`is`, `assert`, `validate`, `stringify`, `parse`, `random`). The transformer runs during your build and replaces a generic call with a specialised checker derived from the checker's view of `T`.
 
-**`@zmdb/repository`** — the only package that touches a connection, and it does so through a one-method interface you implement. Holds `BaseRepository`, transactions, replicas, embeddables, inheritance, lifecycle hooks.
+**`@zmdb/repository`** — the only package that touches a connection, and it does so through a driver interface with one required method and optional streaming. Holds `BaseRepository`, transactions, replicas, embeddables, inheritance, lifecycle hooks.
 
 **`@zmdb/web`** — HTTP. Controllers, DI container, modules, the middleware chain, adapters, gateways, OpenAPI assembly, test harness.
 
@@ -47,11 +47,12 @@ That is the whole handoff. The default compiler still returns exactly `text` and
 when a driver wrapper opts the compiler into it. Every query can still be
 asserted without a database, and the compiler still has no I/O to mock.
 
-### 2. The driver is a one-method interface
+### 2. The driver has one required method
 
 ```ts
 export interface Driver {
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 ```
 
