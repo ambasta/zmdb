@@ -12,10 +12,11 @@ interface NamingStrategy {
 }
 
 type NamingStrategyName = 'snake_case' | 'snake_case_plural';
+type NamingStrategyConfig = NamingStrategy | NamingStrategyName | undefined;
 
 const snakeCase: NamingStrategy;
 const snakeCasePlural: NamingStrategy;
-function resolveNaming(config: NamingStrategy | NamingStrategyName | undefined): NamingStrategy;
+function resolveNaming(config: NamingStrategyConfig): NamingStrategy;
 ```
 
 The strategy is a build input, not a query hook. The AOT routes resolve one of these values and hand the resulting object to reflection; the reflector writes the answers into `SchemaIR`, and no SQL or

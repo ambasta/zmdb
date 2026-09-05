@@ -67,9 +67,9 @@ transformer decided not to touch.
 `typescript@7` is a Go binary behind a JS client that spawns a child process. A runtime module that reaches it does not merely bloat a bundle — it fails to build one. So the manifest publishes two
 sets of entry points:
 
-| Runtime (bundled)                                                         | Build-time (compiler)                                                                       |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `.`, `./utilities`, `./errors`, `./emit`, `./serialization`, `./advanced` | `./plugin`, `./reflect`, `./transformer`, `./unplugin`, `./codegen`, `./testing`, `./metro` |
+| Runtime (bundled)                                                         | Build-time (compiler)                                                            |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `.`, `./utilities`, `./errors`, `./emit`, `./serialization`, `./advanced` | `./plugin`, `./reflect`, `./transformer`, `./unplugin`, `./codegen`, `./testing` |
 
 `./testing` is on the build-time side for the same reason the other five are: `schemasFrom<{ User: User }>(import.meta.url, ['User'])` opens the caller's own project and reflects the named interfaces.
 It is a compiler client by definition — that is the service — and it exists because `schemaOf<T>()` has no runtime, so a test with no build step has no other route from a tagged interface to a schema.

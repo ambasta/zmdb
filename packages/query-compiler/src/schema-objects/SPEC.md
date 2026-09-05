@@ -202,16 +202,18 @@ generated operation list intentionally contains no extension-removal entry.
 The dialects diverge further here than anywhere else in this module, so the shape comes first and every statement below is a golden.
 
 ```ts
+export type RoutineSqlType = 'serial' | 'integer' | 'bigint' | 'numeric' | 'text' | 'varchar' | 'boolean' | 'timestamp' | 'json' | 'jsonEnum';
+
 export interface RoutineDef {
   readonly kind: 'function' | 'procedure';
   readonly name: string;
   readonly params: readonly {
     readonly name: string;
-    readonly type: SqlType;
+    readonly type: RoutineSqlType;
     readonly mode?: 'in' | 'out' | 'inout';
   }[];
   /** Functions only. `setof` marks a set-returning function. */
-  readonly returns?: { readonly type: SqlType | 'void'; readonly setof?: boolean };
+  readonly returns?: { readonly type: RoutineSqlType | 'void'; readonly setof?: boolean };
   readonly language?: string; // Postgres family only; default 'plpgsql'
   readonly deterministic?: boolean; // mysql only; default false
   readonly body: string; // opaque; the author owns it
