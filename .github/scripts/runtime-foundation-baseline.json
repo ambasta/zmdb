@@ -45,6 +45,8 @@
     "@zmdb/sqlite reaches non-foundation workspace package @zmdb/schema-core",
     "@zmdb/sqlite reaches non-foundation workspace package @zmdb/schema-core",
     "@zmdb/sqlite reaches non-foundation workspace package @zmdb/schema-core",
+    "@zmdb/sqlite reaches non-foundation workspace package @zmdb/schema-core",
+    "@zmdb/sqlite reaches non-foundation workspace package @zmdb/schema-core",
     "missing target package @zmdb/orm: packages/orm/package.json",
     "missing target package @zmdb/schema: packages/schema/package.json",
     "missing target package @zmdb/sql: packages/sql/package.json",
