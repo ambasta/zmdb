@@ -57,8 +57,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: (...args: any[]) => void): this;
-  removeListener(event: string, listener: (...args: any[]) => void): this;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -85,6 +85,7 @@ interface ClientSurfaceCall {
   on(event: 'metadata', listener: (metadata: Metadata) => void): this;
   on(event: 'status', listener: (status: StatusObject) => void): this;
   on(event: 'end' | 'close', listener: () => void): this;
+  on(event: string, listener: (...args: unknown[]) => void): this;
 }
 
 interface RequestPump {
@@ -376,15 +377,17 @@ async function runBidi<S extends GrpcServiceDef>(
   }
 }
 
-function requestValue(decoded: DecodedRequest): unknown {
-  if (!decoded.ok) {
-    throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
+function requestValue(decoded: unknown): unknown {
+  if (typeof decoded === 'object' && decoded !== null && 'ok' in decoded) {
+    if (decoded.ok === true && 'value' in decoded) {
+      return decoded.value;
+    }
   }
-  return decoded.value;
+  throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const queue: DecodedRequest[] = [];
+  const queue: unknown[] = [];
   let resolveNext: (() => void) | null = null;
   let ended = false;
   let streamError: unknown = null;
@@ -397,7 +400,7 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     }
   };
 
-  const onData = (data: DecodedRequest): void => {
+  const onData = (data: unknown): void => {
     queue.push(data);
     wake();
   };
@@ -420,9 +423,11 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     while (true) {
       if (scope.signal.aborted) throw scope.reason();
       if (queue.length > 0) {
-        const item = queue.shift()!;
-        yield requestValue(item);
-        continue;
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield requestValue(item);
+          continue;
+        }
       }
       if (streamError !== null) throw streamError;
       if (ended) break;
@@ -446,28 +451,6 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     call.removeListener('data', onData);
     call.removeListener('end', onEnd);
     call.removeListener('error', onError);
-  }
-}
-
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
-  try {
-    return await Promise.race([iterator.next(), aborted]);
-  } finally {
-    removeAbort();
   }
 }
 
