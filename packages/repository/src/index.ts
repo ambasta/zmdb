@@ -1194,11 +1194,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   protected decodeRows(
     rows: readonly Record<string, unknown>[],
     schema?: CoreSchema,
+    irColsMap?: Map<string, ColumnIR>,
   ): readonly Record<string, unknown>[] {
     if (rows.length === 0) return rows;
-    const targetSchema = schema ?? this.schema;
-    const colsMap = targetSchema?.columns;
-    const irCols = new Map(targetSchema?.ir?.columns?.map(c => [c.name, c]) ?? []);
+    const targetSchema = schema ?? (irColsMap ? undefined : this.schema);
+    const irCols = irColsMap ?? new Map(targetSchema?.ir?.columns?.map(c => [c.name, c]) ?? []);
     return rows.map(row => {
       const out: Record<string, unknown> = { ...row };
       for (const [key, val] of Object.entries(out)) {
@@ -1746,9 +1746,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           : compileWhere(this.selectEntity(), where, column => this.physicalColumn(column)),
       reportBuffered ? { buffered: true } : {},
     );
-    // Resolve the schema-derived decoder once before iteration; the mapper then
-    // performs only the per-row conversions that ordinary reads use.
-    const columns = this.decodedColumns;
+    const targetSchema = this.schema;
+    const irCols = new Map(targetSchema?.ir?.columns?.map(c => [c.name, c]) ?? []);
     const signal = options?.signal;
 
     const open =
@@ -1769,7 +1768,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         : (): AsyncIterable<Record<string, unknown>> =>
             driverStream.call(this.driver, query, executeOptions(signal, options?.batchSize ?? 100));
 
-    return createRepositoryStream(open, row => this.trusted<Entity<T>>(this.decodeRow(row, columns)), signal);
+    return createRepositoryStream(
+      open,
+      row => this.trusted<Entity<T>>(this.decodeRows([row], targetSchema, irCols)[0] ?? row),
+      signal,
+    );
   }
 
   // #96 — full-text search integration. Uses the query-compiler FTS builder.
