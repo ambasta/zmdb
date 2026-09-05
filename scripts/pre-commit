@@ -3,10 +3,16 @@ set -e
 
 echo "=== Running Pre-Commit Hooks ==="
 
-echo "1/2 Running linter..."
-yarn lint
+echo "1/4 Validating supply chain lockfile integrity..."
+corepack yarn install --immutable
 
-echo "2/2 Checking code formatting..."
-yarn fmt:check
+echo "2/4 Verifying workspace constraints..."
+corepack yarn constraints
+
+echo "3/4 Running linter..."
+corepack yarn lint
+
+echo "4/4 Checking code formatting..."
+corepack yarn fmt:check
 
 echo "=== Pre-Commit Validation Passed ==="
