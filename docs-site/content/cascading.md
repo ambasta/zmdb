@@ -75,11 +75,13 @@ interface Membership extends Table<'memberships'>, ForeignKey<'tenantId,userId',
 
 ## Migration behavior and limits
 
-- PostgreSQL and MySQL create all tables first, then add named constraints.
+- PostgreSQL, MySQL and SQL Server create all tables first, then add named constraints.
 - MySQL receives a deterministic supporting index immediately before each
   constraint. `SET DEFAULT` is refused because InnoDB does not implement it.
 - SQLite emits constraints inline in `CREATE TABLE`. A cycle between newly
   created tables is refused because neither table can be created first.
+- SQL Server emits `NO ACTION` for a declared `RESTRICT`, because T-SQL has no
+  `RESTRICT` keyword.
 - SQLite cannot add, drop or change a constraint on an existing table. The diff
   names the constraint and requires a hand-written table rebuild.
 - Generated constraint names use `<table>_<column>_fkey`; names longer than

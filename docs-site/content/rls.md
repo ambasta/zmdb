@@ -1,7 +1,10 @@
 Row-Level Security (RLS) is a PostgreSQL feature that restricts which rows users can access based on their session characteristics. It's the recommended approach for multi-tenant applications, providing security at the database level without relying solely on application logic.
 
 > [!IMPORTANT]
-> RLS is PostgreSQL-only. MySQL and SQLite do not support row-level security. On non-PostgreSQL dialects, the RLS DDL functions will throw `UnsupportedFeatureError`.
+> zmdb's RLS DDL surface is PostgreSQL-only. MySQL and SQLite do not provide
+> that policy shape; SQL Server has native RLS, but it requires predicate
+> functions and security policies that `RlsPolicy` cannot represent. On every
+> non-PostgreSQL dialect these helpers throw `UnsupportedFeatureError`.
 
 ## Enabling Row-Level Security
 

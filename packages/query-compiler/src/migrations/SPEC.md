@@ -225,9 +225,10 @@ that difference is the drift `check` exists to report.
 diff compares can never produce the field at all.
 
 `ColumnSnapshot.type` widens to `string | ExtensionType` (see `schema-core/src/ir/SPEC.md` §4.3), which
-makes `alter_column_type`'s `from` and `to` the same union and its comparison **structural**. `args` order
-is significant, so `geometry(Point, 4326)` and `geometry(4326, Point)` are different types rather than the
-same set.
+makes `alter_column_type`'s `from` and `to` the same union and its comparison **structural**. The operation
+also records `fromNullable` and `toNullable`: SQL Server's `ALTER COLUMN` must restate nullability, and
+`emitDown` needs the old value. `args` order is significant, so `geometry(Point, 4326)` and
+`geometry(4326, Point)` are different types rather than the same set.
 
 ```ts
 | { kind: 'create_extension'; name: string; schema?: string }
@@ -322,7 +323,7 @@ emit it later:
 ```
 
 Without that field the SQLite statement above is not representable: `emitUp`
-receives one op, not the snapshot it came from. Postgres and MySQL emit separate
+receives one op, not the snapshot it came from. Postgres, MySQL and SQL Server emit separate
 `add_foreign_key` statements so mutually-referencing tables remain possible
 there.
 
@@ -332,7 +333,7 @@ cannot discover that from either table's op in isolation. The caller therefore p
 before it returns either `create_table` op. That is a real limit of the dialect, not of zmdb, and stating it
 here is cheaper than discovering it from `no such table` during a migration.
 
-#### The three dialect exceptions, and what is done about each
+#### Dialect exceptions, and what is done about each
 
 - **InnoDB rejects `SET DEFAULT`.** MySQL parses the clause and then fails the `CREATE`/`ALTER` with
   "Cannot add foreign key constraint", which names nothing useful. So `'set default'` is **refused at emit
@@ -342,9 +343,13 @@ here is cheaper than discovering it from `no such table` during a migration.
   itself, on MySQL only, named `<constraint>_idx`, immediately before the constraint. The reason is drift
   rather than performance: a server-created index is a real index that introspection finds and that `diff`
   then wants to drop, so every `check` on a MySQL database would report an index nobody declared. On
-  Postgres and SQLite no index is emitted, because neither server creates one and the choice is the
+  Postgres, SQLite and SQL Server no index is emitted, because none of those servers creates one and the choice is the
   author's — with the note that without one, `ON DELETE CASCADE` scans the child table once per deleted
   parent row.
+- **SQL Server spells `RESTRICT` as `NO ACTION`.** T-SQL has no `RESTRICT`
+  referential action, and the two are equivalent for its immediate constraint
+  enforcement, so the emitter maps that one spelling rather than sending
+  invalid DDL.
 - **SQLite cannot alter a constraint.** Adding, dropping or changing the action of a foreign key on an
   existing table needs the create/copy/drop/rename rebuild, exactly as `alter_primary_key` does (§1.3).
   The frozen drop/add ops do not each carry both the old and new action, while `diff` has both snapshots, so
@@ -430,7 +435,15 @@ type ChangeOp =
   | { kind: 'drop_table'; table: string }
   | { kind: 'add_column'; table: string; column: ColumnSnapshot }
   | { kind: 'drop_column'; table: string; column: string }
-  | { kind: 'alter_column_type'; table: string; column: string; from: string; to: string }
+  | {
+      kind: 'alter_column_type';
+      table: string;
+      column: string;
+      from: string;
+      to: string;
+      fromNullable?: boolean;
+      toNullable?: boolean;
+    }
   | { kind: 'alter_primary_key'; table: string; from: readonly string[]; to: readonly string[] } // §1.3
   | RenameOp // §1.4
   | { kind: 'create_extension'; name: string; schema?: string } // §1.5
@@ -464,15 +477,19 @@ most is `timestamp` → `TIMESTAMPTZ` on Postgres, because plain `TIMESTAMP` the
 the offset of every `Date` written through it. An abstract type the map does not know is
 passed through unchanged rather than guessed at.
 
-**"Per dialect" has been less true of this emitter than the heading claims**, and the audit that found it is in `../dialects/SPEC.md` §1. Three statements here are emitted in one dialect's grammar for all of them: `add_column` says `ADD COLUMN`, which T-SQL rejects; `alter_column_type` says `ALTER COLUMN c TYPE t`, which is the Postgres spelling and not MySQL's `MODIFY COLUMN`; and `emitDown` of a `drop_table` produces `CREATE TABLE t ()`, an empty column list that only Postgres parses.
+**"Per dialect" used to be less true of this emitter than the heading claimed**, and the audit that found it
+is in `../dialects/SPEC.md` §1. SQL Server now emits `ADD`, not `ADD COLUMN`, and
+`ALTER COLUMN c t NULL|NOT NULL`, with no Postgres `TYPE` keyword. The same dispatch fixes the existing
+MySQL spelling to `MODIFY COLUMN` and makes SQLite refuse an in-place type alteration, because the operation
+lacks the complete table snapshot a rebuild needs.
 
-SQL Server uses `ALTER COLUMN c t` with no `TYPE`; SQLite has no direct alter-type statement at all, and the five-field op does not contain the complete table snapshot a rebuild would need, so SQLite refuses `'alter column type'`. The first two spellings and that refusal are fixed as part of the dialect-traits work, since that is where a per-dialect answer acquires somewhere to live.
+The `down` of a dropped table is not a spelling problem: the removed columns are no longer present in the
+`ChangeOp`. SQL Server therefore refuses that reversal instead of emitting `CREATE TABLE t ()`. The legacy
+Postgres/MySQL/SQLite behavior remains outside #508's SQL Server slice.
 
-The `drop_table` reversal is not a spelling problem — the columns of a dropped table are not recoverable from a `ChangeOp` — so the `down` of a `drop_table` becomes a refusal carrying the `-- zmdb:down` sentinel from §4 rather than SQL that cannot run on three dialects out of six.
-
-The type map itself gains three columns and one correction. `mssql` maps `timestamp` to `DATETIMEOFFSET(3)`
-rather than `DATETIME2`, following the same rule the Postgres row is annotated with: a `timestamp` gets the
-dialect's zone-aware type wherever one with a usable range exists. `cockroach` inherits Postgres and
+The type map now has an `mssql` column. It maps `timestamp` to `DATETIMEOFFSET(3)` rather than `DATETIME2`,
+following the same rule the Postgres row is annotated with: a `timestamp` gets the dialect's zone-aware type
+wherever one with a usable range exists. The later epic slices specify that `cockroach` inherits Postgres and
 overrides two entries — `serial` becomes `INT8 DEFAULT unique_rowid()`, which is what Cockroach's `SERIAL`
 already means, and `integer` becomes `INT4`, because Cockroach's `INTEGER` is 64-bit and `Entity<T>` types
 the column as a `number`. `singlestore` inherits MySQL and widens `serial` to `BIGINT AUTO_INCREMENT`, since

@@ -39,7 +39,7 @@ CREATE TABLE "documents" (
 
 Extension names are sorted for stable snapshots. Removing the declaration does **not** generate `DROP EXTENSION`: a safe removal needs a hand-written migration after checking every dependent object.
 
-MySQL and SQLite refuse extension installation and extension-backed column DDL. There is no `TEXT` fallback, because a value that round-trips as text is still unusable by the extension operators it was declared for.
+MySQL, SQLite and SQL Server refuse PostgreSQL extension installation and extension-backed column DDL. There is no text fallback, because a value that round-trips as text is still unusable by the extension operators it was declared for.
 
 ## Index methods and operator classes
 

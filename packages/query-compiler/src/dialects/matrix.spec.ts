@@ -4,12 +4,12 @@ import { UnsupportedFeatureError, type CompiledQuery } from '../index.js';
 
 // Tests freeze for issue #506 and ./SPEC.md §7.
 //
-// The public Dialect union still has three members at the frozen base. Importing
-// the future members through a typed call would stop this file at compilation,
-// before `it.fails` could record the runtime answer. This is the only widening
+// The public Dialect union now has four members. Importing the two future
+// members through a typed call would stop this file at compilation, before
+// `it.fails` could record the runtime answer. This is the only widening
 // boundary: call the real exported functions through their module namespace,
-// validate every returned builder/query, and keep every expectation keyed by the
-// six-member dialect tuple. No emitter or builder is stubbed here.
+// validate every returned builder/query, and keep every expectation keyed by
+// the six-member dialect tuple. No emitter or builder is stubbed here.
 const queryApi: object = await import('../index.js');
 const migrationApi: object = await import('../migrations/index.js');
 const setOperationApi: object = await import('../set-ops/index.js');
@@ -26,7 +26,7 @@ const DIALECTS: readonly ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', '
 ];
 type FrozenDialect = (typeof DIALECTS)[number];
 
-const SHIPPED_DIALECTS: readonly ['postgres', 'mysql', 'sqlite'] = ['postgres', 'mysql', 'sqlite'];
+const PRE_MSSQL_DIALECTS: readonly ['postgres', 'mysql', 'sqlite'] = ['postgres', 'mysql', 'sqlite'];
 
 const SQL_TYPES: readonly [
   'serial',
@@ -120,6 +120,8 @@ type FrozenChangeOp =
       readonly column: string;
       readonly from: string;
       readonly to: string;
+      readonly fromNullable?: boolean;
+      readonly toNullable?: boolean;
     };
 
 type Outcome =
@@ -886,12 +888,23 @@ const MATRIX: readonly MatrixCase[] = [
   {
     name: 'change op: alter_column_type',
     build: dialect =>
-      emitUp({ kind: 'alter_column_type', table: 'events', column: 'at', from: 'text', to: 'timestamp' }, dialect),
+      emitUp(
+        {
+          kind: 'alter_column_type',
+          table: 'events',
+          column: 'at',
+          from: 'text',
+          to: 'timestamp',
+          fromNullable: false,
+          toNullable: false,
+        },
+        dialect,
+      ),
     expected: {
       postgres: value('ALTER TABLE "events" ALTER COLUMN "at" TYPE TIMESTAMPTZ'),
       mysql: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(3)'),
       sqlite: refused('alter column type', 'sqlite'),
-      mssql: value('ALTER TABLE [events] ALTER COLUMN [at] DATETIMEOFFSET(3)'),
+      mssql: value('ALTER TABLE [events] ALTER COLUMN [at] DATETIMEOFFSET(3) NOT NULL'),
       cockroach: value('ALTER TABLE "events" ALTER COLUMN "at" TYPE TIMESTAMPTZ'),
       singlestore: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(3)'),
     },
@@ -1018,8 +1031,12 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
       'delete: where',
       'cursor-safe select text',
     ]) {
-      for (const dialect of SHIPPED_DIALECTS) expectDialect(name, dialect);
+      for (const dialect of PRE_MSSQL_DIALECTS) expectDialect(name, dialect);
     }
+  });
+
+  it('matches every SQL Server matrix cell', () => {
+    for (const entry of MATRIX) expectDialect(entry.name, 'mssql');
   });
 
   const implementedExtensionConstructs = new Set([
@@ -1045,32 +1062,32 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
   }
 
   // Literal titles from the tracker remain visible to static coverage tooling.
-  it.fails('emits @pN placeholders and bracket-quoted identifiers on mssql', () => {
+  it('emits @pN placeholders and bracket-quoted identifiers on mssql', () => {
     expectDialect('select: where + order + limit', 'mssql');
   });
 
-  it.fails('escapes a closing bracket in an mssql identifier', () => {
+  it('escapes a closing bracket in an mssql identifier', () => {
     expect(quoteIdentifier('mssql', 'weird]name')).toBe('[weird]]name]');
   });
 
-  it.fails('paginates with OFFSET/FETCH on mssql', () => {
+  it('paginates with OFFSET/FETCH on mssql', () => {
     expectDialect('select: where + order + limit', 'mssql');
     expectDialect('pagination: offset only', 'mssql');
   });
 
-  it.fails('refuses or adds an ORDER BY for a paginated query without one', () => {
+  it('refuses or adds an ORDER BY for a paginated query without one', () => {
     expectDialect('pagination: unordered limit', 'mssql');
   });
 
-  it.fails('emits OUTPUT INSERTED for a returning insert on mssql', () => {
+  it('emits OUTPUT INSERTED for a returning insert on mssql', () => {
     expectDialect('insert: returning', 'mssql');
   });
 
-  it.fails('emits MERGE for an upsert on mssql', () => {
+  it('emits MERGE for an upsert on mssql', () => {
     expectDialect('upsert: update', 'mssql');
   });
 
-  it.fails('maps every SqlType to an mssql type', () => {
+  it('maps every SqlType to an mssql type', () => {
     const actual: Record<string, Outcome> = {};
     const expected: Record<string, Outcome> = {};
     for (const type of SQL_TYPES) {
@@ -1081,7 +1098,7 @@ describe('dialect matrix (frozen: dialects/SPEC.md §7)', () => {
     expect(actual).toEqual(expected);
   });
 
-  it.fails('emits IDENTITY(1,1) for a serial column on mssql', () => {
+  it('emits IDENTITY(1,1) for a serial column on mssql', () => {
     expectDialect('type: serial', 'mssql');
   });
 

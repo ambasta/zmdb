@@ -20,37 +20,39 @@ const col = (type: string, extra: Partial<ColumnSnapshot> = {}): ColumnSnapshot 
   ...extra,
 });
 
-/** abstract type → [postgres, mysql, sqlite]. */
-const TYPES: Readonly<Record<string, readonly [string, string, string]>> = {
-  serial: ['SERIAL', 'INT AUTO_INCREMENT UNIQUE', 'INTEGER'],
-  integer: ['INTEGER', 'INT', 'INTEGER'],
-  bigint: ['BIGINT', 'BIGINT', 'INTEGER'],
-  numeric: ['NUMERIC', 'DECIMAL', 'NUMERIC'],
-  text: ['TEXT', 'TEXT', 'TEXT'],
-  boolean: ['BOOLEAN', 'TINYINT(1)', 'INTEGER'],
-  timestamp: ['TIMESTAMPTZ', 'DATETIME(3)', 'TEXT'],
-  json: ['JSONB', 'JSON', 'TEXT'],
-  jsonEnum: ['TEXT', 'TEXT', 'TEXT'],
+/** abstract type → [postgres, mysql, sqlite, mssql]. */
+const TYPES: Readonly<Record<string, readonly [string, string, string, string]>> = {
+  serial: ['SERIAL', 'INT AUTO_INCREMENT UNIQUE', 'INTEGER', 'INT IDENTITY(1,1)'],
+  integer: ['INTEGER', 'INT', 'INTEGER', 'INT'],
+  bigint: ['BIGINT', 'BIGINT', 'INTEGER', 'BIGINT'],
+  numeric: ['NUMERIC', 'DECIMAL', 'NUMERIC', 'DECIMAL'],
+  text: ['TEXT', 'TEXT', 'TEXT', 'NVARCHAR(MAX)'],
+  boolean: ['BOOLEAN', 'TINYINT(1)', 'INTEGER', 'BIT'],
+  timestamp: ['TIMESTAMPTZ', 'DATETIME(3)', 'TEXT', 'DATETIMEOFFSET(3)'],
+  json: ['JSONB', 'JSON', 'TEXT', 'NVARCHAR(MAX)'],
+  jsonEnum: ['TEXT', 'TEXT', 'TEXT', 'NVARCHAR(MAX)'],
 };
 
 describe('ddlType', () => {
   it('keeps DDL_TYPES exhaustive over SqlType', () => {
-    for (const dialect of ['postgres', 'mysql', 'sqlite'] as const) {
+    for (const dialect of ['postgres', 'mysql', 'sqlite', 'mssql'] as const) {
       expect(Object.keys(DDL_TYPES[dialect]).toSorted()).toEqual([...SQL_TYPES].toSorted());
     }
   });
 
-  for (const [type, [postgres, mysql, sqlite]] of Object.entries(TYPES)) {
+  for (const [type, [postgres, mysql, sqlite, mssql]] of Object.entries(TYPES)) {
     it(`renders ${type} per dialect`, () => {
       expect(ddlType('postgres', col(type))).toBe(postgres);
       expect(ddlType('mysql', col(type))).toBe(mysql);
       expect(ddlType('sqlite', col(type))).toBe(sqlite);
+      expect(ddlType('mssql', col(type))).toBe(mssql);
     });
   }
 
   it('puts a varchar length inside the type, where the dialect has one', () => {
     expect(ddlType('postgres', col('varchar', { length: 255 }))).toBe('VARCHAR(255)');
     expect(ddlType('mysql', col('varchar', { length: 255 }))).toBe('VARCHAR(255)');
+    expect(ddlType('mssql', col('varchar', { length: 255 }))).toBe('NVARCHAR(255)');
     // No parameterised string type: SQLite's `TEXT` has no length, and declaring one
     // would be decoration — the affinity ignores it.
     expect(ddlType('sqlite', col('varchar', { length: 255 }))).toBe('TEXT');
@@ -62,6 +64,7 @@ describe('ddlType', () => {
     expect(ddlType('postgres', col('varchar'))).toBe('VARCHAR');
     expect(ddlType('mysql', col('varchar'))).toBe('TEXT');
     expect(ddlType('sqlite', col('varchar'))).toBe('TEXT');
+    expect(ddlType('mssql', col('varchar'))).toBe('NVARCHAR(MAX)');
   });
 
   it('keys a MySQL auto-increment column, one way or the other', () => {
@@ -112,11 +115,27 @@ describe('emitUp uses the map', () => {
     );
   });
 
+  it('mssql', () => {
+    expect(emitUp(create, 'mssql')).toBe(
+      'CREATE TABLE [events] ([id] INT IDENTITY(1,1) PRIMARY KEY, [name] NVARCHAR(60) NOT NULL, ' +
+        '[at] DATETIMEOFFSET(3))',
+    );
+  });
+
   it('maps the target of an alter, in every dialect', () => {
-    const alter: ChangeOp = { kind: 'alter_column_type', table: 'events', column: 'at', from: 'text', to: 'timestamp' };
+    const alter: ChangeOp = {
+      kind: 'alter_column_type',
+      table: 'events',
+      column: 'at',
+      from: 'text',
+      to: 'timestamp',
+      fromNullable: false,
+      toNullable: false,
+    };
     expect(emitUp(alter, 'postgres')).toContain('TYPE TIMESTAMPTZ');
-    expect(emitUp(alter, 'mysql')).toContain('TYPE DATETIME(3)');
-    expect(emitUp(alter, 'sqlite')).toContain('TYPE TEXT');
+    expect(emitUp(alter, 'mysql')).toContain('MODIFY COLUMN `at` DATETIME(3)');
+    expect(() => emitUp(alter, 'sqlite')).toThrow('sqlite cannot alter a column type in place');
+    expect(emitUp(alter, 'mssql')).toContain('ALTER COLUMN [at] DATETIMEOFFSET(3) NOT NULL');
   });
 });
 

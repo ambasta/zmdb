@@ -34,7 +34,7 @@ packages, so nothing is lost:
 - `zmdb/dto` → `@zmdb/schema-core/dto`
 - `zmdb/relations` → `@zmdb/schema-core/relations`
 - `zmdb/openapi`, `zmdb/seeding`, `zmdb/custom-types`, `zmdb/llm`
-- `zmdb/drivers/sqlite`, `zmdb/drivers/pg`
+- `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/drivers/mssql`
 - `zmdb/transactions`, `zmdb/replicas`, `zmdb/integrations`, `zmdb/entity-modeling`
 - `zmdb/query` → `@zmdb/query-compiler` (+ `zmdb/query/joins`, `/aggregations`,
   `/fts`, `/migrations`, `/set-ops`, `/schema-objects`)

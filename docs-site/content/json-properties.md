@@ -34,11 +34,12 @@ be spellable and gave you exactly that.
 
 The DDL per dialect:
 
-| Dialect  | Type    |
-| -------- | ------- |
-| postgres | `JSONB` |
-| mysql    | `JSON`  |
-| sqlite   | `TEXT`  |
+| Dialect  | Type            |
+| -------- | --------------- |
+| postgres | `JSONB`         |
+| mysql    | `JSON`          |
+| sqlite   | `TEXT`          |
+| mssql    | `NVARCHAR(MAX)` |
 
 ## The declaration is a claim, and the validator is what checks it
 

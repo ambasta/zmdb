@@ -1,6 +1,7 @@
 import { UnsupportedFeatureError } from '../errors.js';
+import { MSSQL_TYPES, mssqlPaginate } from './mssql.js';
 
-export const DIALECT_NAMES = ['postgres', 'mysql', 'sqlite'] as const;
+export const DIALECT_NAMES = ['postgres', 'mysql', 'sqlite', 'mssql'] as const;
 export type Dialect = (typeof DIALECT_NAMES)[number];
 
 export type PlaceholderStyle = 'numbered' | 'positional' | 'named';
@@ -83,6 +84,26 @@ function standardPaginate({ limit, offset }: PaginationTail): string {
   return text;
 }
 
+function mysqlPaginate({ limit, offset }: PaginationTail): string {
+  if (limit === undefined && offset !== undefined) {
+    return ` LIMIT 18446744073709551615 OFFSET ${offset}`;
+  }
+  return standardPaginate({
+    ...(limit === undefined ? {} : { limit }),
+    ...(offset === undefined ? {} : { offset }),
+    ordered: false,
+  });
+}
+
+function sqlitePaginate({ limit, offset }: PaginationTail): string {
+  if (limit === undefined && offset !== undefined) return ` LIMIT -1 OFFSET ${offset}`;
+  return standardPaginate({
+    ...(limit === undefined ? {} : { limit }),
+    ...(offset === undefined ? {} : { offset }),
+    ordered: false,
+  });
+}
+
 function quotePair(open: string, close: string): readonly [open: string, close: string] {
   return Object.freeze([open, close]);
 }
@@ -153,8 +174,8 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
   mysql: Object.freeze({
     placeholder: 'positional',
     quote: quotePair('`', '`'),
-    paginate: standardPaginate,
-    returning: 'suffix',
+    paginate: mysqlPaginate,
+    returning: 'none',
     upsert: 'onDuplicateKey',
     fts: 'match',
     concat: 'function',
@@ -176,7 +197,7 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
   sqlite: Object.freeze({
     placeholder: 'positional',
     quote: quotePair('"', '"'),
-    paginate: standardPaginate,
+    paginate: sqlitePaginate,
     returning: 'suffix',
     upsert: 'onConflict',
     fts: 'companionTable',
@@ -195,6 +216,29 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     }),
     paramLimit: 30000,
     retryableCodes: Object.freeze([]),
+  }),
+  mssql: Object.freeze({
+    placeholder: 'named',
+    quote: quotePair('[', ']'),
+    paginate: mssqlPaginate,
+    returning: 'output',
+    upsert: 'merge',
+    fts: 'none',
+    concat: 'function',
+    booleanNot: 'bitwise',
+    types: MSSQL_TYPES,
+    features: Object.freeze({
+      materializedView: false,
+      rowLevelSecurity: false,
+      sequences: true,
+      schemas: true,
+      partialIndex: true,
+      generatedColumns: true,
+      transactionalDdl: true,
+      foreignKeys: true,
+    }),
+    paramLimit: 2000,
+    retryableCodes: Object.freeze(['1205']),
   }),
 });
 
@@ -301,6 +345,7 @@ export function resolveDialectRegistry(
     postgres: resolveOne('postgres', definitions, cache, resolving, onResolve),
     mysql: resolveOne('mysql', definitions, cache, resolving, onResolve),
     sqlite: resolveOne('sqlite', definitions, cache, resolving, onResolve),
+    mssql: resolveOne('mssql', definitions, cache, resolving, onResolve),
   });
 }
 

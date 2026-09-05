@@ -66,11 +66,16 @@ Four choices are load-bearing:
 - `payload` is text, preserving the exact bytes the caller supplied.
 - `id` is application-generated text, so the writer needs no dialect-dependent `RETURNING`.
 
-Postgres uses `TIMESTAMPTZ`, MySQL uses `DATETIME(3)`, and SQLite stores fixed-width ISO timestamps as `TEXT`; the SQLite database-clock default uses `strftime` to keep the same sortable UTC representation as driver-bound `Date` values. The Postgres and SQLite pending indexes are partial.
+Postgres uses `TIMESTAMPTZ`, MySQL uses `DATETIME(3)`, SQLite stores fixed-width ISO timestamps as `TEXT`,
+and SQL Server uses `DATETIMEOFFSET(3)` with `SYSDATETIMEOFFSET()`. The SQLite database-clock default uses
+`strftime` to keep the same sortable UTC representation as driver-bound `Date` values.
+The Postgres, SQLite and SQL Server pending indexes are filtered. MySQL has no partial indexes, so its full
+index starts with `status` and can still seek to pending rows. `outboxMigration` handles that difference; the
+lower-level `createIndexDdl` remains literal and does not silently discard predicates.
 
-MySQL has no partial indexes, so its full index starts with `status` and can still seek to pending rows. `outboxMigration` handles that difference; the lower-level `createIndexDdl` remains literal and does not silently discard predicates.
-
-The MySQL migration uses bounded `VARCHAR` storage for the UUID, lease token and status because MySQL cannot key an unrestricted `TEXT` column; the application types remain strings.
+The MySQL migration uses bounded `VARCHAR` storage for the UUID, lease token and status because MySQL cannot
+key an unrestricted `TEXT` column. SQL Server uses the corresponding bounded `NVARCHAR` columns, and the
+application types remain strings.
 
 ## Write inside the caller's transaction
 
@@ -125,8 +130,8 @@ Each pass uses three ordinary statements:
 
 The conditional `UPDATE` is the concurrency control. Two dispatchers may see the same candidate, but only the
 first can move its lease into the future; the second read-back gets no row. No database transaction or row lock
-is held while the broker runs. The compiler emits the same protocol for SQLite, MySQL and Postgres; the
-contention semantics and index plan are exercised against a real SQLite database.
+is held while the broker runs. The compiler emits the same protocol for SQLite, MySQL, Postgres and SQL
+Server; the contention semantics and index plan are exercised against a real SQLite database.
 
 Rows are published sequentially within a claimed batch and marked independently:
 

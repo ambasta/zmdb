@@ -43,11 +43,20 @@ const users = defineRepository(UserSchema, pgDriver(pool), { dialect: 'postgres'
 const fast = pgDriver(pool, { prepared: true });
 ```
 
-Both accept **structural** types — `SqliteDatabase` is `{ prepare(sql) }` and
-`PgQueryable` is `{ query(…) }` — so a real `DatabaseSync` or `Pool` is
-assignable without an adapter, and neither package is a hard dependency of
-`@zmdb/repository`. `pg` is optional; `node:sqlite` is built in, which is what
-keeps a zero-dependency setup working out of the box.
+```ts
+// node-mssql — pass an already-connected pool
+import sql from 'mssql';
+import { mssqlDriver } from '@zmdb/repository/drivers/mssql';
+
+const pool = await sql.connect(process.env.DATABASE_URL!);
+const users = defineRepository(UserSchema, mssqlDriver(pool), { dialect: 'mssql' });
+```
+
+All three accept **structural** types — `SqliteDatabase` is `{ prepare(sql) }`,
+`PgQueryable` is `{ query(…) }`, and `MssqlPool` is `{ request() }` — so the
+real client objects are assignable without an adapter package becoming a hard
+runtime dependency of `@zmdb/repository`. `node:sqlite` is built in; install
+`pg` or `mssql` in the application that uses that client.
 
 > [!NOTE]
 > `sqliteDriver` sets `dialect: 'sqlite'` on the driver it returns, but
@@ -56,10 +65,14 @@ keeps a zero-dependency setup working out of the box.
 > Postgres SQL against SQLite — `$1` placeholders and all. Pass the dialect
 > explicitly; the mismatch is a runtime syntax error, not a type error.
 
-Both drivers cache prepared statements keyed by SQL text, LRU-evicting at
+The SQLite and Postgres drivers cache prepared statements keyed by SQL text, LRU-evicting at
 `maxCacheSize` (1000 by default). Since the compiler emits one text per query
 shape and parameterises the values, that cache has a bounded number of entries —
 unless you build SQL by string concatenation, which you should not be doing.
+
+The SQL Server adapter creates one request per execution and maps positional
+parameters onto node-mssql names `p1…pn`; the compiler emits the matching
+`@p1…@pn` placeholders. Pool lifecycle and client configuration remain yours.
 
 ## Writing your own
 

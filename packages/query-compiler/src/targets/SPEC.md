@@ -200,7 +200,7 @@ the structural shape they hold, and the wording is load-bearing:
   the one the rationale draws, so it survives — but only for the structural shape. An open
   `Target<Q>` extension point that third parties implement would be a plugin layer by another name,
   and the row would have to come out.
-- **`NO_DIALECT_ONLY_SYNTAX`** — "zmdb only compiles what all three target dialects can run". Already
+- **`NO_DIALECT_ONLY_SYNTAX`** — "zmdb only compiles what all four shipped dialects can run". Already
   narrower than the tree after `../dialects/SPEC.md` froze six; a target is not a dialect, so this
   epic does not touch it. Flagged for whoever reconciles that sentence.
 - **`NO_MIKRO_KYSELY`** — "zmdb ships its own compiler, and its escape hatch is that a driver takes

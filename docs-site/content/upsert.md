@@ -92,18 +92,23 @@ Omitting the target lets the server infer it: `onConflict()` emits a bare `ON CO
 > failed foreign key — so it is broader than "ignore the conflict". If you need the narrow form on
 > MySQL, `doUpdate` the target columns back to themselves instead.
 
-## The conflict target is honoured on Postgres and SQLite, and ignored on MySQL
+## Conflict targets: honoured on Postgres, SQLite and SQL Server; ignored on MySQL
 
 > [!CAUTION]
-> Postgres and SQLite emit the target supplied to
+> Postgres, SQLite and SQL Server emit the target supplied to
 > `upsert(dto, { target: ['email'] })` or `onConflict('email')`. MySQL has no
-> equivalent syntax, so it ignores that target:
+> equivalent syntax, so it silently ignores that target:
 >
 > ```sql
 > -- postgres, sqlite
 > INSERT INTO "users" (…) VALUES (…) ON CONFLICT ("email") DO UPDATE SET "name" = EXCLUDED."name"
 > -- mysql
 > INSERT INTO `users` (…) VALUES (…) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`)
+> -- mssql
+> MERGE [users] WITH (HOLDLOCK) AS tgt
+> USING (VALUES (…)) AS src (…) ON tgt.[email] = src.[email]
+> WHEN MATCHED THEN UPDATE SET [name] = src.[name]
+> WHEN NOT MATCHED THEN INSERT (…) VALUES (…);
 > ```
 >
 > With one unique index, the behavior is equivalent. With several unique
@@ -121,6 +126,23 @@ one environment and fail for another.
 
 Applications that require strict conflict-target semantics should check the
 dialect before issuing the upsert.
+
+## SQL Server uses `MERGE`, and requires a target
+
+SQL Server has no `ON CONFLICT`; zmdb emits one terminated `MERGE` statement.
+`onConflict()` with no columns is refused because `MERGE` needs an `ON`
+predicate. `BaseRepository.upsert` normally supplies the table's primary key,
+and an explicit `target` supplies another unique key.
+
+The target carries `WITH (HOLDLOCK)`. Without the serializable range lock, two
+concurrent upserts can both observe an absent key and race into the insert
+branch. The lock closes that race, but hot keys can block longer or deadlock;
+error `1205` is classified as retryable metadata, while retrying the whole unit
+of work remains the application's responsibility.
+
+`returning()` becomes `OUTPUT INSERTED.…` inside the `MERGE`, so repository
+upserts can return the resulting row. See [SQL Server](./dialect-mssql.html) for
+the trigger limitation and complete contract.
 
 ## MySQL's `VALUES()` is deprecated, on purpose
 

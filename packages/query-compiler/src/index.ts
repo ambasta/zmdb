@@ -1,6 +1,6 @@
 // @zmdb/query-compiler — implementation.
 import { TRAITS, type Dialect } from './dialects/index.js';
-import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
+import { UnsupportedFeatureError } from './errors.js';
 
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export { DIALECTS, TRAITS } from './dialects/index.js';
@@ -78,7 +78,8 @@ export type Direction = 'asc' | 'desc';
 
 /**
  * Heuristic element-count chunk thresholds per SQL dialect for IN-list expansion.
- * These conservative limits (30,000 for SQLite, 60,000 for Postgres/MySQL) serve as
+ * These conservative limits (2,000 for SQL Server, 30,000 for SQLite, and 60,000
+ * for Postgres/MySQL) serve as
  * list-length heuristics, leaving headroom below maximum driver parameter limits
  * (32,766 for SQLite, 65,535 for Postgres/MySQL) for any additional query parameters.
  */
@@ -86,6 +87,7 @@ export const DIALECT_PARAM_LIMITS: Readonly<Record<Dialect, number>> = Object.fr
   postgres: TRAITS.postgres.paramLimit,
   mysql: TRAITS.mysql.paramLimit,
   sqlite: TRAITS.sqlite.paramLimit,
+  mssql: TRAITS.mssql.paramLimit,
 });
 
 /**
@@ -128,7 +130,7 @@ export interface CompiledQuery {
 
 /** Compile-time database attributes consumed by tracing and metrics. */
 export interface QueryTelemetry {
-  readonly system: 'postgresql' | 'mysql' | 'sqlite';
+  readonly system: 'postgresql' | 'mysql' | 'sqlite' | 'mssql';
   readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
   readonly collection: string;
 }
@@ -256,7 +258,11 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState, telemetry: bool
         `SELECT ${cols} FROM ${quoteTable(d, state.table)}` +
         predicates +
         orderBy +
-        tailClause(d, { limitN: state.limitN, offsetN: state.offsetN });
+        tailClause(d, {
+          limitN: state.limitN,
+          offsetN: state.offsetN,
+          ordered: state.orderBys.length > 0,
+        });
       return frozenQuery(text, params, queryTelemetry(d, 'SELECT', state.table, telemetry));
     },
   };
@@ -307,7 +313,7 @@ function routineCall(
   args: readonly unknown[],
   kind: 'function' | 'table-function' | 'procedure',
 ): CompiledQuery {
-  if (dialect === 'sqlite') {
+  if (dialect === 'sqlite' || dialect === 'mssql') {
     throw new UnsupportedFeatureError(`stored routine "${name}"`, dialect);
   }
   if (kind === 'table-function' && dialect !== 'postgres') {
@@ -329,10 +335,22 @@ function returningClause(d: Dialect, cols?: readonly string[]): string {
   if (!cols || cols.length === 0) return '';
   const returning = TRAITS[d].returning;
   if (returning === 'none') throw new UnsupportedFeatureError('returning', d);
-  if (returning === 'output') {
-    throw new QueryCompilerError(`Dialect "${d}" requires OUTPUT placement, which this statement does not implement`);
-  }
+  if (returning === 'output') return '';
   return ` RETURNING ${cols.map(c => (c === '*' ? '*' : quoteColumn(d, c))).join(', ')}`;
+}
+
+function outputClause(d: Dialect, pseudoTable: 'INSERTED' | 'DELETED', cols?: readonly string[]): string {
+  if (!cols || cols.length === 0) return '';
+  const returning = TRAITS[d].returning;
+  if (returning === 'none') throw new UnsupportedFeatureError('returning', d);
+  if (returning !== 'output') return '';
+
+  // SQL Server rejects OUTPUT without INTO when the target has an enabled trigger
+  // for the statement's DML action. The compiler cannot inspect triggers, and
+  // OUTPUT INTO would require a table variable plus a second statement.
+  return ` OUTPUT ${cols
+    .map(column => (column === '*' ? `${pseudoTable}.*` : `${pseudoTable}.${quoteColumn(d, column)}`))
+    .join(', ')}`;
 }
 
 interface ConflictState {
@@ -372,6 +390,10 @@ function setValueSql(
   value: unknown,
   params: unknown[],
   scope: 'update' | 'upsert',
+  references?: {
+    readonly current: string;
+    readonly proposed: string;
+  },
 ): string {
   if (!isColumnExpr(value)) {
     params.push(value);
@@ -384,9 +406,93 @@ function setValueSql(
     column,
     parameterIndex: params.length + 1,
     scope,
+    ...(references === undefined
+      ? {}
+      : {
+          currentReference: references.current,
+          proposedReference: references.proposed,
+        }),
   });
   params.push(...emitted.params);
   return emitted.sql;
+}
+
+function mssqlMergeSql(
+  d: Dialect,
+  table: string,
+  keys: readonly string[],
+  placeholders: string,
+  params: unknown[],
+  conflict: ConflictState,
+  ret?: readonly string[],
+): string {
+  const target = conflict.target;
+  if (!target || target.length === 0) {
+    throw new UnsupportedFeatureError(
+      'upsert without a conflict target',
+      d,
+      'MERGE needs an explicit join predicate; pass the conflicting column(s) to onConflict(...).',
+    );
+  }
+
+  const keySet = new Set(keys);
+  for (const column of target) {
+    if (!keySet.has(column)) {
+      throw new TypeError(`MERGE conflict target ${JSON.stringify(column)} is not present in values()`);
+    }
+  }
+
+  const quoted = (column: string) => quoteIdentifier(d, column);
+  const source = (column: string) => `src.${quoted(column)}`;
+  const current = (column: string) => `tgt.${quoted(column)}`;
+  const sourceColumns = keys.map(quoted).join(', ');
+  const predicate = target.map(column => `${current(column)} = ${source(column)}`).join(' AND ');
+  let matched = '';
+
+  if (conflict.action === 'update') {
+    let setSql: string;
+    if (Array.isArray(conflict.updateFields)) {
+      for (const column of conflict.updateFields) {
+        if (!keySet.has(column)) {
+          throw new TypeError(`MERGE update field ${JSON.stringify(column)} is not present in values()`);
+        }
+      }
+      setSql = conflict.updateFields.map(column => `${quoted(column)} = ${source(column)}`).join(', ');
+    } else if (conflict.updateFields) {
+      const entries = Object.entries(conflict.updateFields);
+      if (entries.length === 0) throw new TypeError('MERGE doUpdate() requires at least one update field');
+      setSql = entries
+        .map(([column, value]) => {
+          if (isColumnExpr(value) && value.op === 'proposed' && !keySet.has(column)) {
+            throw new TypeError(`MERGE proposed field ${JSON.stringify(column)} is not present in values()`);
+          }
+          return (
+            `${quoted(column)} = ` +
+            setValueSql(d, table, column, value, params, 'upsert', {
+              current: current(column),
+              proposed: source(column),
+            })
+          );
+        })
+        .join(', ');
+    } else {
+      const targetSet = new Set(target);
+      const nonTarget = keys.filter(column => !targetSet.has(column));
+      const updateColumns = nonTarget.length > 0 ? nonTarget : keys;
+      setSql = updateColumns.map(column => `${quoted(column)} = ${source(column)}`).join(', ');
+    }
+    matched = ` WHEN MATCHED THEN UPDATE SET ${setSql}`;
+  }
+
+  // HOLDLOCK is deliberate: without a serializable range lock, concurrent
+  // MERGE statements can both observe an absent key and race into INSERT.
+  return (
+    `MERGE ${quoteTable(d, table)} WITH (HOLDLOCK) AS tgt ` +
+    `USING (VALUES (${placeholders})) AS src (${sourceColumns}) ON ${predicate}` +
+    matched +
+    ` WHEN NOT MATCHED THEN INSERT (${sourceColumns}) VALUES (${keys.map(source).join(', ')})` +
+    `${outputClause(d, 'INSERTED', ret)};`
+  );
 }
 
 function makeInsert(
@@ -421,7 +527,9 @@ function makeInsert(
       const params = keys.map(k => row[k]);
       const cols = keys.map(k => quoteIdentifier(d, k)).join(', ');
       const placeholders = keys.map((_, i) => formatPlaceholder(d, i + 1)).join(', ');
-      const insert = `INSERT INTO ${quoteTable(d, table)} (${cols}) VALUES (${placeholders})`;
+      const insert =
+        `INSERT INTO ${quoteTable(d, table)} (${cols})` +
+        `${outputClause(d, 'INSERTED', ret)} VALUES (${placeholders})`;
       let text: string;
 
       if (!conflict) {
@@ -430,10 +538,8 @@ function makeInsert(
         const upsert = TRAITS[d].upsert;
         if (upsert === 'none') throw new UnsupportedFeatureError('upsert', d);
         if (upsert === 'merge') {
-          throw new QueryCompilerError(`Dialect "${d}" requires MERGE upsert assembly, which is not implemented`);
-        }
-
-        if (conflict.action === 'ignore') {
+          text = mssqlMergeSql(d, table, keys, placeholders, params, conflict, ret);
+        } else if (conflict.action === 'ignore') {
           text =
             upsert === 'onDuplicateKey'
               ? `INSERT IGNORE INTO ${quoteTable(d, table)} (${cols}) VALUES (${placeholders})`
@@ -495,7 +601,10 @@ function makeUpdate(
         .map(k => `${quoteIdentifier(d, k)} = ${setValueSql(d, table, k, row[k], params, 'update')}`)
         .join(', ');
       const text =
-        `UPDATE ${quoteTable(d, table)} SET ${sets}` + whereClause(d, wheres, params) + returningClause(d, ret);
+        `UPDATE ${quoteTable(d, table)} SET ${sets}` +
+        outputClause(d, 'INSERTED', ret) +
+        whereClause(d, wheres, params) +
+        returningClause(d, ret);
       return frozenQuery(text, params, queryTelemetry(d, 'UPDATE', table, telemetry));
     },
   };
@@ -518,7 +627,11 @@ function makeDelete(
     returning: cols => makeDelete(d, table, wheres, cols ?? [], telemetry),
     compile: () => {
       const params: unknown[] = [];
-      const text = `DELETE FROM ${quoteTable(d, table)}` + whereClause(d, wheres, params) + returningClause(d, ret);
+      const text =
+        `DELETE FROM ${quoteTable(d, table)}` +
+        outputClause(d, 'DELETED', ret) +
+        whereClause(d, wheres, params) +
+        returningClause(d, ret);
       return frozenQuery(text, params, queryTelemetry(d, 'DELETE', table, telemetry));
     },
   };

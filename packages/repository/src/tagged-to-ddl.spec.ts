@@ -15,7 +15,7 @@
 // not have noticed any of it, because both sides of the comparison were wrong in the same way.
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
-import type { Dialect } from '@zmdb/query-compiler';
+import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
 import { diff, emitUp, snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 import type { CoreSchema, CreateDTO, PrimaryKeyOf, TaggedSchema } from '@zmdb/schema-core';
 import type { ColumnKeys, DeclaredTable } from '@zmdb/schema-core/derive';
@@ -92,7 +92,7 @@ const {
   'VectorItem',
 ]);
 
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite'];
+const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
 const EMPTY: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 
 /**
@@ -151,7 +151,7 @@ function ddl(schema: CoreSchema<string>, dialect: Dialect): readonly string[] {
 
 describe('the DDL a tagged declaration reaches the database as', () => {
   // Written out, one string per dialect, rather than compared against a second producer. The
-  // three lines are the reason the IR carries an abstract `SqlType` instead of rendered SQL:
+  // four lines are the reason the IR carries an abstract `SqlType` instead of rendered SQL:
   // `SERIAL` against `INT AUTO_INCREMENT` against a bare `INTEGER`, a native `JSONB` against
   // `JSON` against `TEXT`, `TIMESTAMPTZ` against `DATETIME(3)` against `TEXT`. A differential
   // could only ever say the two sides agreed, which is why nobody had read these strings.
@@ -180,6 +180,16 @@ describe('the DDL a tagged declaration reaches the database as', () => {
         '"createdAt" TEXT NOT NULL, "email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY, ' +
         '"passwordHash" TEXT NOT NULL, "role" TEXT NOT NULL, "score" NUMERIC, "settings" TEXT NOT NULL, ' +
         '"visits" INTEGER NOT NULL)',
+    ]);
+  });
+
+  it('renders every column type for mssql', () => {
+    expect(ddl(Users, 'mssql')).toEqual([
+      'CREATE TABLE [users] ([active] BIT NOT NULL, [age] INT NOT NULL, [bio] NVARCHAR(MAX), ' +
+        '[createdAt] DATETIMEOFFSET(3) NOT NULL, [email] NVARCHAR(255) NOT NULL, ' +
+        '[id] INT IDENTITY(1,1) PRIMARY KEY, [passwordHash] NVARCHAR(MAX) NOT NULL, ' +
+        '[role] NVARCHAR(MAX) NOT NULL, [score] DECIMAL, [settings] NVARCHAR(MAX) NOT NULL, ' +
+        '[visits] BIGINT NOT NULL)',
     ]);
   });
 
@@ -236,6 +246,10 @@ describe('the DDL a tagged declaration reaches the database as', () => {
         'PRIMARY KEY ("userId", "groupId"), FOREIGN KEY ("userId") REFERENCES "users" ("id") ' +
         'ON DELETE NO ACTION ON UPDATE NO ACTION)',
     );
+    expect(ddl(Memberships, 'mssql')[0]).toBe(
+      'CREATE TABLE [memberships] ([groupId] INT NOT NULL, [note] NVARCHAR(MAX), [userId] INT NOT NULL, ' +
+        'PRIMARY KEY ([userId], [groupId]))',
+    );
   });
 
   it('does not ask the migration for the FTS table the declaration wanted', () => {
@@ -247,6 +261,26 @@ describe('the DDL a tagged declaration reaches the database as', () => {
       expect(ddl(Documents, dialect), dialect).toHaveLength(1);
     }
   });
+});
+
+it('executes a MySQL repository delete without unsupported RETURNING', async () => {
+  const calls: CompiledQuery[] = [];
+  const driver: Driver = {
+    dialect: 'mysql',
+    execute(query) {
+      calls.push(query);
+      return Promise.resolve([{ affectedRows: 1 }]);
+    },
+  };
+  const repo = defineRepository(Users, driver, { dialect: 'mysql' });
+
+  await expect(repo.delete(7)).resolves.toBe(true);
+  expect(calls).toEqual([
+    {
+      text: 'DELETE FROM `users` WHERE `id` = ?',
+      parameters: [7],
+    },
+  ]);
 });
 
 // One call per table rather than one loop over all three, because every DTO in here is

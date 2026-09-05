@@ -9,7 +9,7 @@ automatically.
 ## What each layer takes
 
 ```ts
-createQueryCompiler(dialect)                          // 'postgres' | 'mysql' | 'sqlite'
+createQueryCompiler(dialect)                          // 'postgres' | 'mysql' | 'sqlite' | 'mssql'
 schemaOf<T>()                                         // the declaration; compiled away at build time
 defineRepository(schema, driver, { dialect?, relations? })
 createApp(rootModule)

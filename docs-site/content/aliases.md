@@ -62,7 +62,7 @@ const clean = aliasRow(row, { r_id: 'recipientId', r_name: 'recipientName' });
 ## Dialect quoting
 
 Aliases are quoted with the dialect's identifier quoting — `"…"` on
-PostgreSQL/SQLite, backticks on MySQL.
+PostgreSQL/SQLite, backticks on MySQL and brackets on SQL Server.
 
 ```ts
 joinableSelectFrom('users as u', 'mysql').compile();

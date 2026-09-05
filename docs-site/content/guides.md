@@ -26,14 +26,14 @@ covers one validated patch over all matching rows.
 
 ## Schema
 
-|                                                                               |                                                                  |
-| ----------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [Array and JSON defaults](./guide-array-defaults.html)                        | `defaultTo` with a JSON value, and the shared-reference trap     |
-| [Timestamp defaults](./guide-timestamp-defaults.html)                         | `now()` in the database versus `new Date()` in the process       |
-| [Case-insensitive unique](./guide-case-insensitive-unique.html)               | Expression index on PostgreSQL/SQLite; generated column on MySQL |
-| [Full-text search with generated columns](./guide-fts-generated-columns.html) | `tsvector` via `generatedColumnDdl`                              |
-| [Vector search](./guide-vector-search.html)                                   | **ToDo** — typed distance ships; complete runnable guide remains |
-| [PostGIS](./guide-postgis.html)                                               | **ToDo** — geometry predicates ship; full guide remains          |
+|                                                                               |                                                                             |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [Array and JSON defaults](./guide-array-defaults.html)                        | `defaultTo` with a JSON value, and the shared-reference trap                |
+| [Timestamp defaults](./guide-timestamp-defaults.html)                         | `now()` in the database versus `new Date()` in the process                  |
+| [Case-insensitive unique](./guide-case-insensitive-unique.html)               | Expression index on PostgreSQL/SQLite; generated column on MySQL/SQL Server |
+| [Full-text search with generated columns](./guide-fts-generated-columns.html) | `tsvector` via `generatedColumnDdl`                                         |
+| [Vector search](./guide-vector-search.html)                                   | **ToDo** — typed distance ships; complete runnable guide remains            |
+| [PostGIS](./guide-postgis.html)                                               | **ToDo** — geometry predicates ship; full guide remains                     |
 
 ## Local development
 

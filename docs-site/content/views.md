@@ -55,7 +55,7 @@ CREATE MATERIALIZED VIEW "sales_summary" AS SELECT region, SUM(amount) AS total_
 ```
 
 > [!NOTE]
-> Materialized views require periodic refreshes. Use `REFRESH MATERIALIZED VIEW "view_name"` to update the data. On MySQL or SQLite, this will throw `UnsupportedFeatureError`.
+> Materialized views require periodic refreshes. Use `REFRESH MATERIALIZED VIEW "view_name"` to update the data. On MySQL, SQLite or SQL Server, this will throw `UnsupportedFeatureError`.
 
 ## Dropping Views
 

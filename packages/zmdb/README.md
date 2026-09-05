@@ -20,7 +20,8 @@ npm add zmdb@alpha
 
 - Core APIs: `zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`,
   `zmdb/relations`
-- Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`
+- Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`,
+  `zmdb/drivers/mssql`
 - Application tooling: `zmdb/web`, `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
 
 ## Documentation

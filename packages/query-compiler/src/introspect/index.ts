@@ -1,3 +1,4 @@
+import { UnsupportedFeatureError } from '../errors.js';
 import type { CompiledQuery, Dialect } from '../index.js';
 import type { CatalogSchemaSnapshot } from './common.js';
 import { mysqlIntrospector } from './mysql.js';
@@ -46,5 +47,11 @@ export function createIntrospector(dialect: Dialect): Introspector {
       return mysqlIntrospector;
     case 'sqlite':
       return sqliteIntrospector;
+    case 'mssql':
+      throw new UnsupportedFeatureError(
+        'schema introspection',
+        dialect,
+        'schema introspection is not implemented for dialect "mssql"; use a declared schema or a hand-written catalog query',
+      );
   }
 }

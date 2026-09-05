@@ -50,6 +50,8 @@ export interface Tail<C = string> {
   readonly orderBys?: readonly { readonly col: C; readonly dir: 'asc' | 'desc' }[] | undefined;
   readonly limitN?: number | undefined;
   readonly offsetN?: number | undefined;
+  /** Used by builders that render a richer ORDER BY expression before delegating pagination. */
+  readonly ordered?: boolean | undefined;
 }
 
 const JOIN_KEYWORD: Record<JoinKind, string> = {
@@ -74,6 +76,8 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
     nin: 'NOT IN',
     exists: 'EXISTS',
     'not exists': 'NOT EXISTS',
+    'is null': 'IS NULL',
+    'is not null': 'IS NOT NULL',
     ...DISTANCE_OPERATORS,
   }),
 );
@@ -115,6 +119,10 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
   if (p.kind === 'spatial') return renderSpatialPredicate(dialect, p, params);
   const normalized = p.op.toLowerCase().trim();
   const sqlOp = sqlOperator(p.op, dialect);
+
+  if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
+    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
+  }
 
   if (isDistanceOp(normalized)) {
     params.push(encodePgVector(p.value));
@@ -194,8 +202,9 @@ export function joinClauses(dialect: Dialect, joins: readonly JoinSpec[]): strin
  */
 export function tailClause(dialect: Dialect, tail: Tail): string {
   let text = '';
-  const ordered = tail.orderBys !== undefined && tail.orderBys.length > 0;
-  if (ordered) {
+  const rendersOrderBy = tail.orderBys !== undefined && tail.orderBys.length > 0;
+  const ordered = tail.ordered ?? rendersOrderBy;
+  if (rendersOrderBy) {
     const ob = tail.orderBys.map(o => `${quoteColumn(dialect, o.col)} ${o.dir.toUpperCase()}`).join(', ');
     text += ` ORDER BY ${ob}`;
   }

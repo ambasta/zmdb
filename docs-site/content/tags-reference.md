@@ -62,19 +62,19 @@ amount: number & Sql<'bigint'> & Codec<'Money'> & WireAs<string>;
 
 `Sql<T>` takes one of these. `serial` is not among them — write `Serial` instead, which is the tag that means it.
 
-| `Sql<…>`    | TypeScript | Postgres      | MySQL         | SQLite    |
-| ----------- | ---------- | ------------- | ------------- | --------- |
-| `integer`   | `number`   | `INTEGER`     | `INT`         | `INTEGER` |
-| `bigint`    | `bigint`   | `BIGINT`      | `BIGINT`      | `INTEGER` |
-| `numeric`   | `number`   | `NUMERIC`     | `DECIMAL`     | `NUMERIC` |
-| `text`      | `string`   | `TEXT`        | `TEXT`        | `TEXT`    |
-| `varchar`   | `string`   | `VARCHAR(n)`  | `VARCHAR(n)`  | `TEXT`    |
-| `boolean`   | `boolean`  | `BOOLEAN`     | `TINYINT(1)`  | `INTEGER` |
-| `timestamp` | `Date`     | `TIMESTAMPTZ` | `DATETIME(3)` | `TEXT`    |
-| `json`      | your shape | `JSONB`       | `JSON`        | `TEXT`    |
-| `jsonEnum`  | a union    | `TEXT`        | `TEXT`        | `TEXT`    |
+| `Sql<…>`    | TypeScript | Postgres      | MySQL         | SQLite    | SQL Server          |
+| ----------- | ---------- | ------------- | ------------- | --------- | ------------------- |
+| `integer`   | `number`   | `INTEGER`     | `INT`         | `INTEGER` | `INT`               |
+| `bigint`    | `bigint`   | `BIGINT`      | `BIGINT`      | `INTEGER` | `BIGINT`            |
+| `numeric`   | `number`   | `NUMERIC`     | `DECIMAL`     | `NUMERIC` | `DECIMAL`           |
+| `text`      | `string`   | `TEXT`        | `TEXT`        | `TEXT`    | `NVARCHAR(MAX)`     |
+| `varchar`   | `string`   | `VARCHAR(n)`  | `VARCHAR(n)`  | `TEXT`    | `NVARCHAR(n)`       |
+| `boolean`   | `boolean`  | `BOOLEAN`     | `TINYINT(1)`  | `INTEGER` | `BIT`               |
+| `timestamp` | `Date`     | `TIMESTAMPTZ` | `DATETIME(3)` | `TEXT`    | `DATETIMEOFFSET(3)` |
+| `json`      | your shape | `JSONB`       | `JSON`        | `TEXT`    | `NVARCHAR(MAX)`     |
+| `jsonEnum`  | a union    | `TEXT`        | `TEXT`        | `TEXT`    | `NVARCHAR(MAX)`     |
 
-Plus `Serial`, which is `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER` (SQLite's rowid alias is what makes it auto-increment there).
+Plus `Serial`, which is `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER` / `INT IDENTITY(1,1)` (SQLite's rowid alias is what makes it auto-increment there).
 
 That is the whole core set. Extension-backed types such as `vector`,
 `geometry`, and `citext` use `Ext`; other storage types such as `uuid`, `date`,
@@ -82,7 +82,7 @@ That is the whole core set. Extension-backed types such as `vector`,
 `json` column. [Column Types](./column-types.html) has the reasoning.
 
 > [!NOTE]
-> `timestamp` is `TIMESTAMPTZ` in Postgres, not `TIMESTAMP`. Postgres reads the latter as "without time zone", which stores the wall clock and forgets the offset. MySQL has no zone-aware type with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so it gets `DATETIME(3)`, keeping the milliseconds a `Date` has, with the application owning the zone.
+> `timestamp` is `TIMESTAMPTZ` in Postgres, not `TIMESTAMP`. Postgres reads the latter as "without time zone", which stores the wall clock and forgets the offset. MySQL has no zone-aware type with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so it gets `DATETIME(3)`, keeping the milliseconds a `Date` has, with the application owning the zone. SQL Server uses `DATETIMEOFFSET(3)` to preserve the instant and millisecond precision.
 
 `Sql<…>` is required wherever the app type maps more than one way: `number` could be `integer` or `numeric`, `string` could be `text` or `varchar`. It is optional where the mapping is forced.
 

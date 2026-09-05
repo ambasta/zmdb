@@ -7,7 +7,7 @@ Most application code should call [`list()`](./repository.html) and read `page.i
 | Helper                                               | Does                                                         | Does **not**               |
 | ---------------------------------------------------- | ------------------------------------------------------------ | -------------------------- |
 | `applyOrderBy(qb, order, pkColumn?)`                 | emits `ORDER BY`; appends `pkColumn ASC` if `order` omits it | anything else              |
-| `applyPagination(qb, page)`                          | emits `LIMIT` and, if present, `OFFSET`                      | read `after` / `before`    |
+| `applyPagination(qb, page)`                          | emits the dialect's limit/offset tail                        | read `after` / `before`    |
 | `applyKeysetFilter(qb, cursorValues, order, where?)` | emits the keyset `WHERE` predicate                           | emit `LIMIT` or `ORDER BY` |
 
 The split matters: `applyPagination` takes a `PaginationSpec` whose type _includes_ `after` and `before`, and **silently ignores both**. Offset pagination is `applyPagination` alone; keyset pagination is `applyKeysetFilter` **plus** `applyPagination`.
@@ -34,6 +34,12 @@ const result = buildListResult(rows, {
 ```sql
 SELECT * FROM "users" ORDER BY "createdAt" DESC, "id" ASC LIMIT 21 OFFSET 40
 ```
+
+On SQL Server the same ordered builder emits `OFFSET 40 ROWS FETCH NEXT 21
+ROWS ONLY`. A paginated SQL Server query without `ORDER BY` is refused. The
+repository's first-row reads add primary-key ordering before their implicit
+limit, falling back to the declaration's first column when no key exists. A
+hand-built query must call `.orderBy(...)` itself.
 
 Fetch `limit + 1` and pass the real `limit` to `buildListResult`, which is how `hasMore` is derived without a count.
 

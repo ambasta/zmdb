@@ -77,6 +77,10 @@ export type ChangeOp =
       readonly column: string;
       readonly from: string | ExtensionType;
       readonly to: string | ExtensionType;
+      /** Required by dialects whose ALTER COLUMN restates nullability. */
+      readonly fromNullable?: boolean;
+      /** Required by dialects whose ALTER COLUMN restates nullability. */
+      readonly toNullable?: boolean;
     }
   | {
       readonly kind: 'alter_primary_key';
@@ -412,7 +416,15 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
       if (!bc) {
         ops.push({ kind: 'add_column', table: t.name, column: c });
       } else if (!sameType(bc.type, c.type)) {
-        ops.push({ kind: 'alter_column_type', table: t.name, column: c.name, from: bc.type, to: c.type });
+        ops.push({
+          kind: 'alter_column_type',
+          table: t.name,
+          column: c.name,
+          from: bc.type,
+          to: c.type,
+          fromNullable: bc.nullable,
+          toNullable: c.nullable,
+        });
       }
     }
     if (!sameSequence(before.primaryKey, t.primaryKey)) {
@@ -464,6 +476,7 @@ export const DDL_TYPES: Readonly<Record<Dialect, DialectTypeMap>> = Object.freez
   postgres: TRAITS.postgres.types,
   mysql: TRAITS.mysql.types,
   sqlite: TRAITS.sqlite.types,
+  mssql: TRAITS.mssql.types,
 });
 
 export type DdlSqlType = DialectSqlType;
@@ -534,8 +547,11 @@ export function ddlType(dialect: Dialect, typeOrColumn: string | ColumnSnapshot)
   // legal; a MySQL one is a syntax error, so it degrades to `TEXT` rather than emitting
   // DDL that cannot run.
   if (type === 'varchar') {
-    if (column?.length !== undefined && mapped === 'VARCHAR') return `VARCHAR(${column.length})`;
+    if (column?.length !== undefined && (mapped === 'VARCHAR' || mapped === 'NVARCHAR')) {
+      return `${mapped}(${column.length})`;
+    }
     if (dialect === 'mysql') return 'TEXT';
+    if (dialect === 'mssql') return 'NVARCHAR(MAX)';
     return mapped;
   }
 
@@ -575,12 +591,17 @@ function primaryKeyDdl(dialect: Dialect, columns: readonly string[]): string {
   return `PRIMARY KEY (${columns.map(column => quoteIdentifier(dialect, column)).join(', ')})`;
 }
 
+function referentialActionDdl(dialect: Dialect, action: ReferentialAction): string {
+  return dialect === 'mssql' && action === 'restrict' ? 'NO ACTION' : actionName(action);
+}
+
 function foreignKeyDdl(dialect: Dialect, foreignKey: ForeignKeySnapshot): string {
   const columns = foreignKey.columns.map(column => quoteIdentifier(dialect, column)).join(', ');
   const targetColumns = foreignKey.targetColumns.map(column => quoteIdentifier(dialect, column)).join(', ');
   return (
     `FOREIGN KEY (${columns}) REFERENCES ${quoteIdentifier(dialect, foreignKey.targetTable)} (${targetColumns}) ` +
-    `ON DELETE ${actionName(foreignKey.onDelete)} ON UPDATE ${actionName(foreignKey.onUpdate)}`
+    `ON DELETE ${referentialActionDdl(dialect, foreignKey.onDelete)} ` +
+    `ON UPDATE ${referentialActionDdl(dialect, foreignKey.onUpdate)}`
   );
 }
 
@@ -647,7 +668,7 @@ function dropForeignKeyDdl(table: string, name: string, dialect: Dialect): strin
         'see the migration guide',
     );
   }
-  const keyword = dialect === 'postgres' ? 'DROP CONSTRAINT' : 'DROP FOREIGN KEY';
+  const keyword = dialect === 'mysql' ? 'DROP FOREIGN KEY' : 'DROP CONSTRAINT';
   return `ALTER TABLE ${quoteIdentifier(dialect, table)} ${keyword} ${quoteIdentifier(dialect, name)}`;
 }
 
@@ -665,6 +686,14 @@ function alterPrimaryKeyDdl(table: string, from: readonly string[], to: readonly
         'see the migration guide',
     );
   }
+  if (dialect === 'mssql') {
+    throw new UnsupportedFeatureError(
+      `altering the primary key of "${table}"`,
+      dialect,
+      `mssql cannot safely alter the primary key of "${table}" (${keyList(from)} → ${keyList(to)}) because ` +
+        'the snapshot does not carry the existing SQL Server constraint name; use a hand-written migration',
+    );
+  }
 
   const clauses: string[] = [];
   if (from.length > 0) {
@@ -680,17 +709,34 @@ function alterPrimaryKeyDdl(table: string, from: readonly string[], to: readonly
 /**
  * The dialect's spelling of a type named by an `alter_column_type` op.
  *
- * The op carries the two type names and nothing else, so two facts are unavailable here
- * and are not guessed at: a `varchar`'s length (which `diff` cannot see either — it
- * compares types, so `varchar(60)` → `varchar(120)` produces no op at all), and whether
- * the column is a key, which only matters for MySQL's `AUTO_INCREMENT`. Neither is
- * reachable by an `ALTER`: a change *to* `serial` is not something the diff can express.
+ * The op carries the two type names and nullability in both directions. Two facts remain
+ * unavailable here and are not guessed at: a `varchar`'s length (which `diff` cannot see
+ * either — it compares types, so `varchar(60)` → `varchar(120)` produces no op at all),
+ * and whether the column is a key, which only matters for MySQL's `AUTO_INCREMENT`.
+ * Neither is reachable by an `ALTER`: a change *to* `serial` is not something the diff
+ * can express.
  */
 function alteredType(dialect: Dialect, table: string, column: string, type: string | ExtensionType): string {
   if (typeof type !== 'string' && dialect !== 'postgres') {
     throw unsupportedExtensionType(dialect, type, column, table);
   }
   return ddlType(dialect, { name: column, type, nullable: true, primaryKey: false });
+}
+
+function mssqlAlterNullability(
+  op: Extract<ChangeOp, { readonly kind: 'alter_column_type' }>,
+  direction: 'up' | 'down',
+): string {
+  const nullable = direction === 'up' ? op.toNullable : op.fromNullable;
+  if (nullable === undefined) {
+    throw new UnsupportedFeatureError(
+      `altering the type of "${op.table}"."${op.column}" without nullability metadata`,
+      'mssql',
+      'mssql ALTER COLUMN must restate NULL or NOT NULL; generate this operation from snapshots or provide ' +
+        `${direction === 'up' ? 'toNullable' : 'fromNullable'} explicitly`,
+    );
+  }
+  return nullable ? ' NULL' : ' NOT NULL';
 }
 
 export function emitUp(op: ChangeOp, dialect: Dialect): string {
@@ -702,11 +748,23 @@ export function emitUp(op: ChangeOp, dialect: Dialect): string {
     case 'drop_table':
       return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'add_column':
-      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${columnDdl(dialect, op.column, op.table)}`;
+      return (
+        `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ` +
+        `${dialect === 'mssql' ? 'ADD' : 'ADD COLUMN'} ${columnDdl(dialect, op.column, op.table)}`
+      );
     case 'drop_column':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
-      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.to)}`;
+      if (dialect === 'sqlite') {
+        throw new UnsupportedFeatureError(
+          'alter column type',
+          dialect,
+          'sqlite cannot alter a column type in place; use a hand-written table rebuild',
+        );
+      }
+      return dialect === 'mysql'
+        ? `ALTER TABLE ${quoteIdentifier(dialect, op.table)} MODIFY COLUMN ${quoteIdentifier(dialect, op.column)} ${alteredType(dialect, op.table, op.column, op.to)}`
+        : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)}${dialect === 'mssql' ? '' : ' TYPE'} ${alteredType(dialect, op.table, op.column, op.to)}${dialect === 'mssql' ? mssqlAlterNullability(op, 'up') : ''}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(op.table, op.from, op.to, dialect);
     case 'add_foreign_key':
@@ -725,13 +783,30 @@ export function emitDown(op: ChangeOp, dialect: Dialect): string {
     case 'create_table':
       return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'drop_table':
+      if (dialect === 'mssql') {
+        throw new UnsupportedFeatureError(
+          `recreating dropped table "${op.table}"`,
+          dialect,
+          `mssql cannot recreate dropped table "${op.table}" because the drop operation carries no columns; ` +
+            'write the down migration by hand',
+        );
+      }
       return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} ()`;
     case 'add_column':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column.name)}`;
     case 'drop_column':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
-      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.from)}`;
+      if (dialect === 'sqlite') {
+        throw new UnsupportedFeatureError(
+          'alter column type',
+          dialect,
+          'sqlite cannot alter a column type in place; use a hand-written table rebuild',
+        );
+      }
+      return dialect === 'mysql'
+        ? `ALTER TABLE ${quoteIdentifier(dialect, op.table)} MODIFY COLUMN ${quoteIdentifier(dialect, op.column)} ${alteredType(dialect, op.table, op.column, op.from)}`
+        : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)}${dialect === 'mssql' ? '' : ' TYPE'} ${alteredType(dialect, op.table, op.column, op.from)}${dialect === 'mssql' ? mssqlAlterNullability(op, 'down') : ''}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(op.table, op.to, op.from, dialect);
     case 'add_foreign_key':

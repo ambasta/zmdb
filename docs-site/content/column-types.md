@@ -2,21 +2,21 @@
 
 ## Type mapping
 
-Each dialect renders the type it owns. The declaration stays abstract — it says `timestamp`, never `TIMESTAMPTZ` — and the DDL emitter is where that becomes a real type, because the three databases do not agree and a schema should not have to pick.
+Each dialect renders the type it owns. The declaration stays abstract — it says `timestamp`, never `TIMESTAMPTZ` — and the DDL emitter is where that becomes a real type, because the four databases do not agree and a schema should not have to pick.
 
-| `Sql<…>`    | Postgres      | MySQL         | SQLite    | TS type                    |
-| ----------- | ------------- | ------------- | --------- | -------------------------- |
-| `integer`   | `INTEGER`     | `INT`         | `INTEGER` | `number`                   |
-| `bigint`    | `BIGINT`      | `BIGINT`      | `INTEGER` | `bigint`                   |
-| `numeric`   | `NUMERIC`     | `DECIMAL`     | `NUMERIC` | `number`                   |
-| `text`      | `TEXT`        | `TEXT`        | `TEXT`    | `string`                   |
-| `varchar`   | `VARCHAR(n)`  | `VARCHAR(n)`  | `TEXT`    | `string`                   |
-| `boolean`   | `BOOLEAN`     | `TINYINT(1)`  | `INTEGER` | `boolean`                  |
-| `timestamp` | `TIMESTAMPTZ` | `DATETIME(3)` | `TEXT`    | `Date`                     |
-| `json`      | `JSONB`       | `JSON`        | `TEXT`    | whatever shape you declare |
-| `jsonEnum`  | `TEXT`        | `TEXT`        | `TEXT`    | a literal union            |
+| `Sql<…>`    | Postgres      | MySQL         | SQLite    | SQL Server          | TS type                    |
+| ----------- | ------------- | ------------- | --------- | ------------------- | -------------------------- |
+| `integer`   | `INTEGER`     | `INT`         | `INTEGER` | `INT`               | `number`                   |
+| `bigint`    | `BIGINT`      | `BIGINT`      | `INTEGER` | `BIGINT`            | `bigint`                   |
+| `numeric`   | `NUMERIC`     | `DECIMAL`     | `NUMERIC` | `DECIMAL`           | `number`                   |
+| `text`      | `TEXT`        | `TEXT`        | `TEXT`    | `NVARCHAR(MAX)`     | `string`                   |
+| `varchar`   | `VARCHAR(n)`  | `VARCHAR(n)`  | `TEXT`    | `NVARCHAR(n)`       | `string`                   |
+| `boolean`   | `BOOLEAN`     | `TINYINT(1)`  | `INTEGER` | `BIT`               | `boolean`                  |
+| `timestamp` | `TIMESTAMPTZ` | `DATETIME(3)` | `TEXT`    | `DATETIMEOFFSET(3)` | `Date`                     |
+| `json`      | `JSONB`       | `JSON`        | `TEXT`    | `NVARCHAR(MAX)`     | whatever shape you declare |
+| `jsonEnum`  | `TEXT`        | `TEXT`        | `TEXT`    | `NVARCHAR(MAX)`     | a literal union            |
 
-`serial` is the tenth, and it is the one you spell as a **tag** rather than an `Sql<…>` argument — `Sql<'serial'>` does not typecheck, because `Serial` already means it. It emits `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER`, is `number` in TS, and is omitted from `CreateDTO` entirely.
+`serial` is the tenth, and it is the one you spell as a **tag** rather than an `Sql<…>` argument — `Sql<'serial'>` does not typecheck, because `Serial` already means it. It emits `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER` / `INT IDENTITY(1,1)`, is `number` in TS, and is omitted from `CreateDTO` entirely.
 
 ```ts
 interface Event extends Table<'events'> {
@@ -36,8 +36,8 @@ Note what is _not_ written there. `live: boolean` needs no `Sql<'boolean'>` and 
 
 Four rows are worth a sentence:
 
-- **`timestamp` is `TIMESTAMPTZ` in Postgres**, not `TIMESTAMP`. `TIMESTAMP` there means _without_ time zone: it keeps the wall clock and discards the offset, so a `Date` written from one zone reads back as a different instant in another. MySQL has no zone-aware type with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so `DATETIME(3)` holds UTC with the milliseconds a `Date` has.
-- **`varchar` needs its length**, as `Length<N>`. `Length<255>` becomes `VARCHAR(255)` everywhere it can be; a `varchar` with no `Length` is unlimited in Postgres and a syntax error in MySQL, so it degrades to `TEXT` there rather than emitting DDL that cannot run. `Length<N>` also emits `maxLength: N` into the JSON Schema, which is one fact serving two outputs rather than two facts to keep aligned.
+- **`timestamp` is `TIMESTAMPTZ` in Postgres**, not `TIMESTAMP`. `TIMESTAMP` there means _without_ time zone: it keeps the wall clock and discards the offset, so a `Date` written from one zone reads back as a different instant in another. MySQL has no zone-aware type with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so `DATETIME(3)` holds UTC with the milliseconds a `Date` has. SQL Server uses `DATETIMEOFFSET(3)` for the same instant-preserving contract.
+- **`varchar` needs its length**, as `Length<N>`. `Length<255>` becomes `VARCHAR(255)` or SQL Server's `NVARCHAR(255)` where the dialect has a bounded varchar. A `varchar` with no `Length` degrades to the dialect's widest text spelling rather than emitting invalid or one-character DDL; SQL Server uses `NVARCHAR(MAX)`. `Length<N>` also emits `maxLength: N` into the JSON Schema, which is one fact serving two outputs rather than two facts to keep aligned.
 - **`bigint` is `bigint`, not `number`.** A `BIGINT` past 2^53 is not representable as a double, so the app type is the one that can hold it. See [bigint keys](./bigint-keys.html) for what that costs at the boundary.
 - **SQLite has affinities, not types.** `INTEGER PRIMARY KEY` _is_ the rowid, which is what makes `Serial` auto-increment without an `AUTOINCREMENT` keyword.
 
@@ -49,7 +49,7 @@ Ten abstract types, closed. A type supplied by a database extension uses
 `inet`, `cidr`, and arrays still need a [custom type](./custom-types.html) or a
 `json` column.
 
-The union is small on purpose. Every back-end has to answer for every member: the DDL emitter needs a spelling in three dialects, the validator needs a check, the JSON Schema generator needs a keyword, the seeder needs a generator. Ten members means sixty answers, all of them written down and tested. A `SqlType` with forty members would mean most of those answers were guesses, and the guesses would be in whichever back-end nobody exercised.
+The union is small on purpose. Every back-end has to answer for every member: the DDL emitter needs a spelling in four dialects, the validator needs a check, the JSON Schema generator needs a keyword, the seeder needs a generator. Ten members means seventy answers, all of them written down and tested. A `SqlType` with forty members would mean most of those answers were guesses, and the guesses would be in whichever back-end nobody exercised.
 
 ## Constraining a column
 
@@ -84,6 +84,8 @@ A schema diffs into `CREATE TABLE` DDL through migrations:
 CREATE TABLE "users" ("createdAt" TIMESTAMPTZ NOT NULL, "email" TEXT NOT NULL, "id" SERIAL PRIMARY KEY, "role" TEXT NOT NULL)
 -- mysql
 CREATE TABLE `users` (`createdAt` DATETIME(3) NOT NULL, `email` TEXT NOT NULL, `id` INT AUTO_INCREMENT PRIMARY KEY, `role` TEXT NOT NULL)
+-- mssql
+CREATE TABLE [users] ([createdAt] DATETIMEOFFSET(3) NOT NULL, [email] NVARCHAR(MAX) NOT NULL, [id] INT IDENTITY(1,1) PRIMARY KEY, [role] NVARCHAR(MAX) NOT NULL)
 ```
 
 Columns come out sorted by name, because a snapshot has to be byte-stable to be diffable.

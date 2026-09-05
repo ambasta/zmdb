@@ -1,7 +1,7 @@
 // Read/Query DTO family — see ./SPEC.md.
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
-import type { CompiledQuery, SelectBuilder } from '@zmdb/query-compiler';
+import type { CompiledQuery, Dialect, SelectBuilder } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
 import type { DeclaredTable, RelationKeys } from '../derive/index.js';
@@ -132,7 +132,7 @@ const KNOWN_OPERATORS: readonly string[] = [...Object.keys(OP_SQL), 'isNull', 'n
  * non-zero length, `where` for presence — so the only thing a wrong payload can produce is
  * a narrower subquery, never a call with a value of the wrong kind in it.
  */
-function resolveSubqueryTarget(target: unknown, dialect: 'postgres' | 'mysql' | 'sqlite' = 'postgres'): unknown {
+function resolveSubqueryTarget(target: unknown, dialect: Dialect = 'postgres'): unknown {
   if (
     target !== null &&
     typeof target === 'object' &&
@@ -174,7 +174,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   // `or` — and deliberately does not require a `dialect`, so that a caller's own builder
   // qualifies. Reading one off it is therefore a probe for an optional property rather than
   // a claim about the type, and the `??` is what handles the builder that has none.
-  const dialect = (builder as { dialect?: 'postgres' | 'mysql' | 'sqlite' }).dialect ?? 'postgres';
+  const dialect = (builder as { dialect?: Dialect }).dialect ?? 'postgres';
 
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
     const add = (op: string, rawVal: unknown) => {

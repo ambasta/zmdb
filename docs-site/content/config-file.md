@@ -39,18 +39,18 @@ ambiguous between migration application and snapshot upgrade.
 
 ## Fields
 
-| Field               | Type                                  | Default            | Resolution                            |
-| ------------------- | ------------------------------------- | ------------------ | ------------------------------------- |
-| `schema`            | `string \| readonly string[]`         | required           | globs relative to the config file     |
-| `dialect`           | `'postgres' \| 'mysql' \| 'sqlite'`   | required           | —                                     |
-| `project`           | `string`                              | `./tsconfig.json`  | relative to the config file           |
-| `out`               | `string`                              | `./migrations`     | relative to the config file           |
-| `naming`            | `'snake_case' \| 'snake_case_plural'` | absent             | —                                     |
-| `namingStrategy`    | `NamingStrategy`                      | absent             | callable boundary, checked separately |
-| `driver`            | `() => Driver \| Promise<Driver>`     | absent             | callable boundary, checked separately |
-| `migrations.table`  | `string`                              | `_zmdb_migrations` | —                                     |
-| `migrations.schema` | `string`                              | dialect default    | PostgreSQL only                       |
-| `introspect`        | `{ schemas?, include?, exclude? }`    | command-specific   | names/globs, not filesystem paths     |
+| Field               | Type                                           | Default            | Resolution                            |
+| ------------------- | ---------------------------------------------- | ------------------ | ------------------------------------- |
+| `schema`            | `string \| readonly string[]`                  | required           | globs relative to the config file     |
+| `dialect`           | `'postgres' \| 'mysql' \| 'sqlite' \| 'mssql'` | required           | —                                     |
+| `project`           | `string`                                       | `./tsconfig.json`  | relative to the config file           |
+| `out`               | `string`                                       | `./migrations`     | relative to the config file           |
+| `naming`            | `'snake_case' \| 'snake_case_plural'`          | absent             | —                                     |
+| `namingStrategy`    | `NamingStrategy`                               | absent             | callable boundary, checked separately |
+| `driver`            | `() => Driver \| Promise<Driver>`              | absent             | callable boundary, checked separately |
+| `migrations.table`  | `string`                                       | `_zmdb_migrations` | —                                     |
+| `migrations.schema` | `string`                                       | dialect default    | PostgreSQL only                       |
+| `introspect`        | `{ schemas?, include?, exclude? }`             | command-specific   | names/globs, not filesystem paths     |
 
 Every glob must match at least one file, and every matched file must belong to
 the configured TypeScript project. A match outside the project is an error
@@ -73,7 +73,8 @@ export default defineConfig({
 });
 ```
 
-`migrations.schema` is refused for MySQL and SQLite. It is not ignored.
+`migrations.schema` is PostgreSQL-only and is refused for MySQL, SQLite and SQL
+Server. It is never ignored.
 
 ## Discovery
 

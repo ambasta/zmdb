@@ -39,6 +39,7 @@
     "./relations": "./src/relations.ts",
     "./drivers/sqlite": "./src/drivers-sqlite.ts",
     "./drivers/pg": "./src/drivers-pg.ts",
+    "./drivers/mssql": "./src/drivers-mssql.ts",
     "./web": "./src/web.ts",
     "./unplugin": "./src/unplugin.ts",
     "./cli": "./src/cli/index.ts",

@@ -38,7 +38,8 @@
     "./entity-modeling": "./src/entity-modeling/index.ts",
     "./jobs": "./src/jobs/index.ts",
     "./drivers/sqlite": "./src/drivers/sqlite.ts",
-    "./drivers/pg": "./src/drivers/pg.ts"
+    "./drivers/pg": "./src/drivers/pg.ts",
+    "./drivers/mssql": "./src/drivers/mssql.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -54,7 +55,9 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "@types/mssql": "^12",
     "@types/pg": "^8.23.1",
+    "mssql": "12.7.0",
     "pg": "8.23.0",
     "typescript": "7.0.2"
   },

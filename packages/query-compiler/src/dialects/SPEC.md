@@ -1,8 +1,8 @@
 # Dialects — Spec (epic "The SQL dialect matrix — SQL Server, CockroachDB and SingleStore")
 
-> `Dialect` grows from three members to six over the epic. The #507 mechanism for the three shipped
-> dialects now lives in `index.ts`; SQL Server, CockroachDB and SingleStore remain the later implementation
-> slices. The mechanism decision and what it costs are in `../../SPEC.md` §5e.
+> `Dialect` grows from three members to six over the epic. The #507 mechanism now carries four shipped
+> dialects in `index.ts`; SQL Server landed in #508, while CockroachDB and SingleStore remain later
+> implementation slices. The mechanism decision and what it costs are in `../../SPEC.md` §5e.
 
 ## 1. The inventory, and the number it produced
 
@@ -181,8 +181,8 @@ The later dialect slices supply the new values and the SQL corrections described
 - `../clauses.ts` delegates its tail to `TRAITS[d].paginate`; the shipped entries deliberately reproduce
   the old `LIMIT`/`OFFSET` strings byte for byte. The MySQL/SQLite offset correction is the golden change
   described in §3.3, not part of the mechanism-only slice.
-- `../index.ts` dispatches returning and upsert through traits. SQL Server's later slice owns the named-part
-  assembly required for middle-position `OUTPUT` and `MERGE` (§3.4–§3.5).
+- `../index.ts` dispatches returning and upsert through traits. SQL Server's #508 slice supplies the
+  named-part assembly required for middle-position `OUTPUT` and `MERGE` (§3.4–§3.5).
 - `../migrations/index.ts` reads the resolved type map, and `../schema-objects/index.ts` reads total feature
   flags. The shipped flags preserve current behavior; dialect-specific corrections land with the dialects
   whose matrix rows require them.
@@ -272,16 +272,17 @@ neither                 ''
 `OFFSET 0 ROWS` is emitted for a bare limit rather than special-cased, because one shape with a zero in it
 is easier to read in a golden file than two shapes.
 
-**A paginated query with no ordering is refused, not repaired.** The idiom exists — `ORDER BY (SELECT NULL)` is legal and is what hand-written T-SQL does — and it is rejected here.
-
-A `LIMIT` without an `ORDER BY` is already a latent bug on all three shipped dialects: the server may return any rows it likes, so page two can repeat a row from page one, and nothing tells the author. SQL Server is the only dialect whose grammar notices.
-
-Spending that on a synthesised clause buys a query that runs and keeps the bug; refusing costs one error and names the fix:
+**A paginated query with no ordering is refused, not repaired.** The idiom exists — `ORDER BY (SELECT NULL)`
+is legal and is what hand-written T-SQL does — and it is rejected here. A `LIMIT` without an `ORDER BY` is
+already a latent bug on the original three dialects: the server may return any rows it likes, so page two can
+repeat a row from page one, and nothing tells the author. SQL Server is the only dialect whose grammar
+notices. Spending that on a synthesised clause buys a query that runs and keeps the bug; refusing costs one
+error and names the fix:
 
 ```
 UnsupportedFeatureError(
   'pagination without ORDER BY', 'mssql',
-  'SQL Server spells LIMIT as OFFSET … FETCH NEXT, which the grammar allows only after an ORDER BY. ' +
+  'Dialect "mssql" spells LIMIT as OFFSET … FETCH NEXT, which SQL Server allows only after an ORDER BY. ' +
   'Add .orderBy(...) — an unordered page is not reproducible on any dialect.',
 )
 ```
@@ -423,14 +424,17 @@ create_table        CREATE TABLE [events] ([at] DATETIMEOFFSET(3) NOT NULL, [id]
 drop_table          DROP TABLE [events]
 add_column          ALTER TABLE [events] ADD [note] NVARCHAR(MAX)
 drop_column         ALTER TABLE [events] DROP COLUMN [note]
-alter_column_type   ALTER TABLE [events] ALTER COLUMN [note] NVARCHAR(MAX)
+alter_column_type   ALTER TABLE [events] ALTER COLUMN [note] NVARCHAR(MAX) NOT NULL
 ```
 
 Three divergences in five ops, and the first two are shared with dialects that already ship:
 
 - **`ADD`, not `ADD COLUMN`.** T-SQL rejects the keyword. `../migrations/index.ts:249` emits it
   unconditionally, so this becomes a trait on the op emitter.
-- **`ALTER COLUMN [c] <type>` with no `TYPE` keyword.** `../migrations/index.ts:253` emits the Postgres
+- **`ALTER COLUMN [c] <type> NULL|NOT NULL` with no `TYPE` keyword.** SQL Server requires nullability to
+  be restated: omitting it turns an existing `NOT NULL` column nullable. Generated `alter_column_type`
+  operations therefore carry both the old and new nullability so `up` and `down` preserve the schema; a
+  hand-built SQL Server operation without that metadata is refused. `../migrations/index.ts:253` emits the Postgres
   spelling for all dialects; MySQL wants `MODIFY COLUMN [c] <type>`; T-SQL wants the same words as Postgres
   minus one. This ungated site has been wrong for MySQL all along and is fixed here rather than in a
   separate issue, because the traits table has nowhere to put "wrong for one dialect".
@@ -462,8 +466,8 @@ filtered indexes work unchanged. All three currently emit the Postgres spelling 
 Full-text search is refused rather than opted into. SQLite's precedent is an explicit `ftsTable` option
 through which the caller asserts a companion object exists, and the same trick would work here with a
 `fulltextIndexed` flag. It is not part of this epic: the value of the option is that it makes the assertion
-visible, and adding an assertion vocabulary for a dialect with no driver in the repository would be
-specifying a thing nobody can run. §10.
+visible. The bundled driver makes the dialect runnable, but the schema still cannot assert that the
+required full-text catalog and index exist. §10.
 
 ### 3.9 Write expressions
 
@@ -798,24 +802,27 @@ exists today keeps its title when it is parameterised, and the per-dialect suffi
 
 ## 8. What "supported" means, per dialect
 
-The epic also needs a clear definition of dialect support. Start with a fact about the three dialects that
-already ship: **`packages/repository/src/drivers/` contains `pg.ts` and `sqlite.ts` and nothing else.** MySQL
-is a supported dialect with no driver in this repository. So "supported" has always meant "the compiler emits
-correct SQL for it, and a driver is either provided or written by the user against the `Driver` interface",
-and the new dialects inherit that meaning rather than a stricter one.
+The epic requires this to be stated honestly. Four dialects now ship, and
+`packages/repository/src/drivers/` contains `pg.ts`, `sqlite.ts` and `mssql.ts`; MySQL remains a supported
+dialect with no bundled adapter. "Supported" means the compiler emits correct SQL, with a bundled adapter
+where the table says one exists.
 
-| Dialect       | Driver here                    | Container in CI                                                          | Coverage                                                                 |
-| ------------- | ------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `postgres`    | `drivers/pg.ts`                | yes                                                                      | golden SQL + real E2E                                                    |
-| `sqlite`      | `drivers/sqlite.ts`            | in-process                                                               | golden SQL + real E2E                                                    |
-| `mysql`       | none                           | possible, unused                                                         | golden SQL only, today                                                   |
-| `mssql`       | none — needs `mssql`/`tedious` | yes, `mcr.microsoft.com/mssql/server:2022-latest` with the EULA variable | golden SQL; real E2E once a driver exists                                |
-| `cockroach`   | reuses `drivers/pg.ts`         | yes, `cockroachdb/cockroach` single-node insecure                        | golden SQL + real E2E                                                    |
-| `singlestore` | none — `mysql2` over the wire  | no: the image wants a licence key and several gigabytes                  | **golden SQL only**, plus an opt-in suite behind an environment variable |
+| Dialect       | Driver here            | Always-on CI database                                   | Coverage                                                                 |
+| ------------- | ---------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `postgres`    | `drivers/pg.ts`        | yes                                                     | golden SQL + real E2E                                                    |
+| `sqlite`      | `drivers/sqlite.ts`    | in-process                                              | golden SQL + real E2E                                                    |
+| `mysql`       | none                   | no                                                      | golden SQL only, today                                                   |
+| `mssql`       | `drivers/mssql.ts`     | no; opt-in through `ZMDB_MSSQL_URL`                     | complete golden matrix + loud-gated real E2E when a server is reachable  |
+| `cockroach`   | reuses `drivers/pg.ts` | planned single-node container                           | golden SQL + real E2E when its implementation slice lands                |
+| `singlestore` | none                   | no: the image wants a licence key and several gigabytes | **golden SQL only**, plus an opt-in suite behind an environment variable |
 
-Cockroach is the cheap one and should be taken: it speaks the Postgres wire protocol, so the existing driver
-and the existing E2E suite run against it with a connection string change, which makes it the only new
-dialect where §4's divergences get verified against a server rather than against a golden file.
+SQL Server's opt-in suite executes generated DDL, the adapter's named-parameter binding, bracket escaping,
+`OUTPUT`, ordered pagination, `MERGE`, timestamp round-trips and column migrations against a real server.
+When `ZMDB_MSSQL_URL` is absent or unreachable, it emits a visible `[skip] SQL Server E2E: …` reason and
+retains a passing availability assertion rather than silently disappearing.
+
+Cockroach remains the cheap future server target: it speaks the Postgres wire protocol, so the existing
+driver can run against it with a connection string change once that dialect slice lands.
 
 SingleStore is the expensive one and the freeze does not pretend otherwise. Its divergences — shard keys, per-partition auto-increment, the unique-index rule — are exactly the kind that a golden file cannot verify, because the question is whether the server accepts the DDL.
 
@@ -833,9 +840,8 @@ The tests freeze corrects the design claims that became false as soon as this sp
 - SingleStore's unique-index check is at migration generation rather than type reflection, and there is no
   foreign-key SQL to suppress in the current snapshot/emitter (§5).
 
-#510 still owns the support-state rewrite: the coverage row from §8, replacing the workaround-focused
-bodies once implementations exist, and any `pages.mjs` status changes. Until then every page remains
-`todo` and every sentence saying the new string is not yet a `Dialect` value remains true.
+#508 replaces the SQL Server workaround body with its measured contract. #510 still owns `pages.mjs`
+status changes and the CockroachDB/SingleStore support-state rewrites once those implementations exist.
 
 ## 10. Non-goals (rejected)
 
@@ -854,8 +860,8 @@ bodies once implementations exist, and any `pages.mjs` status changes. Until the
 - **An `IF EXISTS`/`UPDATE`/`INSERT` sequence instead of `MERGE`.** §3.5 — three statements, and still racy.
 - **`UNIQUEIDENTIFIER`, or a `uuid` member on `SqlType`.** §3.6 — a schema-core change that would give one
   dialect a column type the others cannot spell.
-- **Full-text search on `mssql`, including a `fulltextIndexed` opt-in.** §3.8 — the opt-in is an assertion
-  vocabulary, and adding one for a dialect with no driver here specifies something nobody can run.
+- **Full-text search on `mssql`, including a `fulltextIndexed` opt-in.** §3.8 — the bundled adapter can run
+  SQL Server, but the schema cannot assert that the required catalog and index exist.
 - **`serial` mapping to a UUID on `cockroach`.** §4.1 — the dialect table maps spellings, not types.
 - **`AS OF SYSTEM TIME` on the select builder.** §4.3 — a select-clause feature, not a dialect trait.
 - **Retry logic anywhere in `@zmdb/query-compiler`.** §4.4 — the compiler emits text; the retry policy's

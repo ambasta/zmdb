@@ -61,6 +61,7 @@ function assertIndexMethodSupported(method: IndexMethod | undefined, def: IndexD
   }
   if (method === undefined || dialect === 'postgres') return;
   if (dialect === 'mysql' && (method === 'btree' || method === 'hash')) return;
+  if (dialect === 'mssql' && method === 'btree') return;
   throw new UnsupportedFeatureError(
     `index method ${method}`,
     dialect,
@@ -108,12 +109,12 @@ function renderIndexColumn(column: IndexColumn, def: IndexDef, dialect: Dialect)
   if (typeof column === 'string') return quoteId(dialect, column);
 
   const expression = isExpressionColumn(column);
-  if (expression && dialect === 'mysql') {
+  if (expression && (dialect === 'mysql' || dialect === 'mssql')) {
     const expr = column.expr;
     throw new UnsupportedFeatureError(
       `expression index "${def.name}"`,
       dialect,
-      `mysql does not support an expression index ("${def.name}" on "${def.table}" uses ${expr}); ` +
+      `${dialect} does not support an expression index ("${def.name}" on "${def.table}" uses ${expr}); ` +
         'add a generated column and index that instead',
     );
   }
@@ -183,8 +184,10 @@ export interface SequenceDef {
 export function createSequenceDdl(def: SequenceDef, dialect: Dialect): string {
   requireDialectFeature(dialect, 'sequences', 'sequences');
   let ddl = `CREATE SEQUENCE ${quoteId(dialect, def.name)}`;
-  if (def.start !== undefined) ddl += ` START ${def.start}`;
-  if (def.increment !== undefined) ddl += ` INCREMENT ${def.increment}`;
+  if (def.start !== undefined) ddl += dialect === 'mssql' ? ` START WITH ${def.start}` : ` START ${def.start}`;
+  if (def.increment !== undefined) {
+    ddl += dialect === 'mssql' ? ` INCREMENT BY ${def.increment}` : ` INCREMENT ${def.increment}`;
+  }
   return ddl;
 }
 
@@ -197,6 +200,9 @@ export interface GeneratedColumn {
 }
 export function generatedColumnDdl(col: GeneratedColumn, dialect: Dialect): string {
   requireDialectFeature(dialect, 'generatedColumns', 'generated columns');
+  if (dialect === 'mssql') {
+    return `${quoteId(dialect, col.name)} AS (${col.expression})${col.stored ? ' PERSISTED' : ''}`;
+  }
   const stored = col.stored ? ' STORED' : '';
   return `${quoteId(dialect, col.name)} ${col.type} GENERATED ALWAYS AS (${col.expression})${stored}`;
 }
@@ -263,7 +269,14 @@ function unsupportedRoutine(feature: string, dialect: Dialect): UnsupportedFeatu
 }
 
 function assertRoutineSupported(def: RoutineDef, dialect: Dialect): void {
-  if (dialect === 'sqlite') {
+  if (dialect === 'sqlite' || dialect === 'mssql') {
+    if (dialect === 'mssql') {
+      throw unsupportedRoutine(
+        `mssql stored routines are not modeled (${routineLabel(def, dialect)}); SQL Server uses a distinct ` +
+          'CREATE/ALTER and EXEC grammar, so use a hand-written migration and driver call',
+        dialect,
+      );
+    }
     throw unsupportedRoutine(
       `sqlite does not support stored routines (${routineLabel(def, dialect)}); SQLite has no CREATE FUNCTION, ` +
         'so register the function on the connection instead — `node:sqlite` exposes `DatabaseSync#function` — ' +

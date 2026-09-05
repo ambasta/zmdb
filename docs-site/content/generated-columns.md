@@ -134,9 +134,11 @@ SELECT "id", "unit_price", "quantity", "total_price" FROM "orders"
 | PostgreSQL | ✅                | Requires `STORED` keyword                  |
 | SQLite     | ✅                | Virtual (without STORED) or stored         |
 | MySQL      | ✅                | Virtual by default, `STORED` for persisted |
+| SQL Server | ✅                | `AS (expression) PERSISTED` when stored    |
 
 > [!NOTE]
-> MySQL and SQLite may have different syntax. The `generatedColumnDdl` function assumes PostgreSQL-style output. For other dialects, you may need custom DDL or conditional logic.
+> `generatedColumnDdl` emits each shipped dialect's syntax, including SQL
+> Server's computed-column form.
 
 ## Related
 

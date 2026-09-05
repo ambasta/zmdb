@@ -9,7 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, expect, it } from 'vitest';
 
-import { createQueryCompiler } from '../index.js';
+import { createQueryCompiler, quoteIdentifier } from '../index.js';
 import type { CompiledQuery, Dialect } from '../index.js';
 import { createIndexDdl } from '../schema-objects/index.js';
 import {
@@ -29,7 +29,7 @@ import {
 // ---------------------------------------------------------------------------
 // fixtures
 // ---------------------------------------------------------------------------
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite'];
+const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
 
 const EPOCH = new Date(0);
 const NOW = new Date('2026-06-01T00:00:00.000Z');
@@ -158,6 +158,8 @@ describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
     expect(outboxTableDdl('sqlite')).toContain(
       `"created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
     );
+    expect(outboxTableDdl('mssql')).toContain('[id] NVARCHAR(36) PRIMARY KEY');
+    expect(outboxTableDdl('mssql')).toContain('[created_at] DATETIMEOFFSET(3) NOT NULL DEFAULT SYSDATETIMEOFFSET()');
     for (const dialect of DIALECTS) {
       const migration = outboxMigration(42, dialect);
       expect(migration.version).toBe(42);
@@ -201,7 +203,7 @@ describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
 });
 
 // ===========================================================================
-// §9 item 8 — the pending index is partial on postgres and sqlite and full on mysql
+// §9 item 8 — the pending index is filtered on postgres, sqlite and mssql and full on mysql
 // ===========================================================================
 describe('outbox: the pending index (#593, SPEC §3, §9 item 8)', () => {
   it('the pending index is partial on postgres', () => {
@@ -374,7 +376,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     for (const dialect of DIALECTS) {
       const q = outboxCandidatesQuery(dialect, { now: NOW, batch: 100 });
       expect(q.text.toUpperCase()).not.toContain('IS NULL');
-      expect(q.text).toContain('"status"'.replace(/"/g, dialect === 'mysql' ? '`' : '"'));
+      expect(q.text).toContain(quoteIdentifier(dialect, 'status'));
     }
   });
 
@@ -392,8 +394,8 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   });
 
   it('no claim or mark statement emits RETURNING', () => {
-    // SPEC §4.1: `returningClause` (../index.ts:196-199) has no dialect guard, so a RETURNING in
-    // any outbox statement is a syntax error the moment somebody runs it on MySQL.
+    // SPEC §4.1: dialect dispatch now refuses MySQL RETURNING and places SQL Server OUTPUT,
+    // but the outbox claim protocol deliberately requests neither row-returning form.
     const statements = DIALECTS.flatMap(dialect => [
       outboxCandidatesQuery(dialect, { now: NOW, batch: 100 }),
       outboxClaimQuery(dialect, { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['a'] }),
@@ -407,16 +409,15 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     }
   });
 
-  it('returningClause has no dialect guard today, so RETURNING reaches mysql', () => {
-    // The live defect SPEC §4.1 names and refuses to build on. MySQL has no RETURNING.
-    expect(
+  it('refuses RETURNING on mysql instead of emitting SQL the server rejects', () => {
+    expect(() =>
       createQueryCompiler('mysql')
         .updateTable(OUTBOX_TABLE)
         .set({ status: 'delivered' })
         .where('id', '=', 'r1')
         .returning(['id'])
-        .compile().text,
-    ).toBe('UPDATE `zmdb_outbox` SET `status` = ? WHERE `id` = ? RETURNING `id`');
+        .compile(),
+    ).toThrow('returning is not supported on dialect "mysql"');
   });
 
   it('Driver.execute has no affected-row count to report, so the claim cannot use one', () => {

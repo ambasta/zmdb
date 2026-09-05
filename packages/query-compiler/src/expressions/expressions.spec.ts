@@ -13,7 +13,7 @@ import {
 } from '@zmdb/query-compiler';
 import { describe, expect, it } from 'vitest';
 
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite'];
+const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
 
 type Golden = Readonly<Record<Dialect, CompiledQuery>>;
 
@@ -51,6 +51,10 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
           text: 'UPDATE "posts" SET "views" = "views" + ? WHERE "id" = ?',
           parameters: [1, 7],
         },
+        mssql: {
+          text: 'UPDATE [posts] SET [views] = [views] + @p1 WHERE [id] = @p2',
+          parameters: [1, 7],
+        },
       },
     );
   });
@@ -69,6 +73,10 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         },
         sqlite: {
           text: 'UPDATE "posts" SET "stock" = "stock" - ? WHERE "id" = ?',
+          parameters: [1, 7],
+        },
+        mssql: {
+          text: 'UPDATE [posts] SET [stock] = [stock] - @p1 WHERE [id] = @p2',
           parameters: [1, 7],
         },
       },
@@ -96,6 +104,10 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
           text: 'UPDATE "posts" SET "score" = "score" * ? WHERE "id" = ?',
           parameters: [3, 7],
         },
+        mssql: {
+          text: 'UPDATE [posts] SET [score] = [score] * @p1 WHERE [id] = @p2',
+          parameters: [3, 7],
+        },
       },
     );
   });
@@ -115,6 +127,10 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         },
         sqlite: {
           text: 'UPDATE "posts" SET "published" = NOT "published" WHERE "id" = ?',
+          parameters: [7],
+        },
+        mssql: {
+          text: 'UPDATE [posts] SET [published] = ~[published] WHERE [id] = @p1',
           parameters: [7],
         },
       },
@@ -142,6 +158,10 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
           text: 'UPDATE "posts" SET "title" = "title" || ? WHERE "id" = ?',
           parameters: [' (draft)', 7],
         },
+        mssql: {
+          text: 'UPDATE [posts] SET [title] = CONCAT([title], @p1) WHERE [id] = @p2',
+          parameters: [' (draft)', 7],
+        },
       },
     );
   });
@@ -167,6 +187,10 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
           text: 'UPDATE "users" SET "nickname" = COALESCE("nickname", ?) WHERE "id" = ?',
           parameters: ['anonymous', 7],
         },
+        mssql: {
+          text: 'UPDATE [users] SET [nickname] = COALESCE([nickname], @p1) WHERE [id] = @p2',
+          parameters: ['anonymous', 7],
+        },
       },
     );
   });
@@ -190,6 +214,10 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         },
         sqlite: {
           text: 'UPDATE "posts" SET "views" = "views" + ?, "title" = ? WHERE "id" = ?',
+          parameters: [2, 'published', 7],
+        },
+        mssql: {
+          text: 'UPDATE [posts] SET [views] = [views] + @p1, [title] = @p2 WHERE [id] = @p3',
           parameters: [2, 'published', 7],
         },
       },
@@ -224,6 +252,14 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
             'ON CONFLICT ("key") DO UPDATE SET "stock" = EXCLUDED."stock"',
           parameters: ['k', 5],
         },
+        mssql: {
+          text:
+            'MERGE [counters] WITH (HOLDLOCK) AS tgt ' +
+            'USING (VALUES (@p1, @p2)) AS src ([key], [stock]) ON tgt.[key] = src.[key] ' +
+            'WHEN MATCHED THEN UPDATE SET [stock] = src.[stock] ' +
+            'WHEN NOT MATCHED THEN INSERT ([key], [stock]) VALUES (src.[key], src.[stock]);',
+          parameters: ['k', 5],
+        },
       },
     );
   });
@@ -254,6 +290,14 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
           text:
             'INSERT INTO "counters" ("key", "hits") VALUES (?, ?) ' +
             'ON CONFLICT ("key") DO UPDATE SET "hits" = "hits" + ?',
+          parameters: ['k', 1, 1],
+        },
+        mssql: {
+          text:
+            'MERGE [counters] WITH (HOLDLOCK) AS tgt ' +
+            'USING (VALUES (@p1, @p2)) AS src ([key], [hits]) ON tgt.[key] = src.[key] ' +
+            'WHEN MATCHED THEN UPDATE SET [hits] = tgt.[hits] + @p3 ' +
+            'WHEN NOT MATCHED THEN INSERT ([key], [hits]) VALUES (src.[key], src.[hits]);',
           parameters: ['k', 1, 1],
         },
       },
@@ -288,6 +332,10 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         },
         sqlite: {
           text: 'UPDATE "documents" SET "payload" = ? WHERE "id" = ?',
+          parameters: [document, 7],
+        },
+        mssql: {
+          text: 'UPDATE [documents] SET [payload] = @p1 WHERE [id] = @p2',
           parameters: [document, 7],
         },
       },

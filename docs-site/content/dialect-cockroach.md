@@ -1,5 +1,5 @@
 > **ToDo / feature gap.** There is no `'cockroach'` dialect. `Dialect` is
-> `'postgres' | 'mysql' | 'sqlite'`. CockroachDB speaks the Postgres wire
+> `'postgres' | 'mysql' | 'sqlite' | 'mssql'`. CockroachDB speaks the Postgres wire
 > protocol, so it **works today through `'postgres'`** — with the caveats below,
 > which are the reason a dedicated dialect would exist.
 

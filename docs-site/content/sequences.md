@@ -1,4 +1,4 @@
-Sequences are database objects that generate auto-incrementing numeric values. In PostgreSQL, they're the underlying mechanism behind `SERIAL` columns. zmdb provides declarative DDL functions to create and manage sequences independently.
+Sequences are database objects that generate auto-incrementing numeric values. In PostgreSQL, they're the underlying mechanism behind `SERIAL` columns; SQL Server also exposes them as independent schema objects. zmdb provides declarative DDL functions to create and manage sequences independently.
 
 > [!TIP]
 > While a `Serial` column creates a sequence implicitly, you may need explicit sequences for custom auto-increment behavior, multiple tables sharing a sequence, or generating unique IDs for external systems.
@@ -22,6 +22,12 @@ console.log(ddl);
 
 ```sql
 CREATE SEQUENCE "order_number_seq" START 1000 INCREMENT 1
+```
+
+With `'mssql'`, the same definition emits:
+
+```sql
+CREATE SEQUENCE [order_number_seq] START WITH 1000 INCREMENT BY 1
 ```
 
 ## Using a Sequence from a Column
@@ -99,7 +105,7 @@ The `Serial` tag abstracts away the sequence creation. Here's when to use explic
 | UUID generation               | `gen_random_uuid()` in the migration, with `HasDefault` on the column |
 
 > [!WARNING]
-> MySQL and SQLite don't have native sequence objects. On these dialects, `createSequenceDdl` will generate syntactically invalid DDL or throw an error. Use auto-increment columns instead.
+> MySQL and SQLite don't have native sequence objects. On these dialects, `createSequenceDdl` throws `UnsupportedFeatureError`. Use auto-increment columns instead.
 
 ## Related
 

@@ -5,7 +5,10 @@
 
 ## Why this is different from the other gaps
 
-Every other missing dialect — [SQL Server](./dialect-mssql.html), [Cockroach](./dialect-cockroach.html), [SingleStore](./dialect-singlestore.html) — is a matter of quoting, placeholders and type names. Gel is a different data model:
+Missing SQL dialects such as [Cockroach](./dialect-cockroach.html) and
+[SingleStore](./dialect-singlestore.html) are matters of quoting, placeholders
+and type names; [SQL Server](./dialect-mssql.html) now demonstrates that seam.
+Gel is a different data model:
 
 - **Objects and links, not rows and foreign keys.** A link is a first-class typed relationship, not a column holding a key.
 - **Set-based semantics.** EdgeQL expressions return sets; there is no `NULL` in the SQL sense.

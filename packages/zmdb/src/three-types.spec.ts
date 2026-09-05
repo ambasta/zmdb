@@ -75,6 +75,9 @@ describe('a timestamp column, in all three of its types', () => {
     mysql:
       'CREATE TABLE `events` (`at` DATETIME(3) NOT NULL, `id` INT AUTO_INCREMENT PRIMARY KEY, `name` TEXT NOT NULL)',
     sqlite: 'CREATE TABLE "events" ("at" TEXT NOT NULL, "id" INTEGER PRIMARY KEY, "name" TEXT NOT NULL)',
+    mssql:
+      'CREATE TABLE [events] ([at] DATETIMEOFFSET(3) NOT NULL, [id] INT IDENTITY(1,1) PRIMARY KEY, ' +
+      '[name] NVARCHAR(MAX) NOT NULL)',
   };
 
   for (const [dialect, statement] of Object.entries(DB) as [Dialect, string][]) {

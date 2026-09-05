@@ -40,6 +40,7 @@ expression is emitted **verbatim** between the parens and is never quoted:
 postgres  CREATE UNIQUE INDEX "users_email_ci" ON "users" (lower(email))
 sqlite    CREATE UNIQUE INDEX "users_email_ci" ON "users" (lower(email))
 mysql     — refused (see below)
+mssql     — refused (see below)
 ```
 
 Mixed forms are allowed and each element is treated on its own:
@@ -59,15 +60,15 @@ SQL parser and would break the opaque comparison rule below.
 **An expression is opaque to `diff`.** It is compared as a byte string, which makes
 `lower(email)` and `LOWER(email)` two different indexes, and a whitespace edit a drop and a
 recreate. That is deliberate and stated so nobody implements the alternative: normalising SQL
-expressions means parsing three dialects' expression grammars, and a normaliser that is wrong
+expressions means parsing four dialects' expression grammars, and a normaliser that is wrong
 in one direction reports no change for an index that did change.
 
-**MySQL is refused.** MySQL 8 supports functional key parts, but only wrapped in a second set
+**MySQL and SQL Server are refused.** MySQL 8 supports functional key parts, but only wrapped in a second set
 of parens — `((lower(email)))` — and not at all before 8.0.13. Emitting the Postgres spelling
 there produces a syntax error at migration time; emitting the MySQL spelling silently means
 the same declaration is two different indexes per dialect. So `createIndexDdl` throws
-`UnsupportedFeatureError` for an expression column on MySQL, consistent with how this module
-already handles materialized views and RLS:
+`UnsupportedFeatureError` for an expression column on MySQL or SQL Server, consistent with
+how this module already handles materialized views and RLS:
 
 ```
 mysql does not support an expression index ("users_email_ci" on "users" uses lower(email));
@@ -111,9 +112,9 @@ ivfflat does not take the option `m` ("items_embedding_l2"); ivfflat options are
 ```
 
 Omitting `method` emits no `USING` clause, so every existing golden statement is unchanged. `ivfflat` and
-`hnsw` are refused on MySQL and SQLite by the same rule as the expression form, and `gin`, `gist` and
-`brin` are refused there too — they are Postgres access methods, and MySQL's `USING BTREE` / `USING HASH`
-are the only two it has.
+`hnsw` are refused on MySQL, SQLite and SQL Server by the same rule as the expression form, and `gin`,
+`gist` and `brin` are refused there too — they are Postgres access methods. MySQL's `USING BTREE` /
+`USING HASH` and SQL Server's accepted `btree` declaration are the only non-Postgres method cases.
 
 ## 2. Views (#102/#103/#104)
 
@@ -199,8 +200,8 @@ zmdb ever runs, so the statement that assumes it is absent fails on precisely th
 `name` and `schema` are identifiers and go through `quoteIdentifier`; `version` is a string literal and
 is single-quoted, which is the one place in this module where the two differ in the same statement.
 
-MySQL and SQLite refuse — neither has the concept — with the same `UnsupportedFeatureError` as
-materialized views and RLS.
+MySQL, SQLite and SQL Server refuse PostgreSQL extensions with the same
+`UnsupportedFeatureError` as materialized views and RLS.
 
 **Ordering is part of the contract.** `CREATE EXTENSION` runs before anything that could name a type it
 provides, and index creation runs after the tables. A `vector` column in a table created before the
@@ -306,10 +307,10 @@ Three characteristics are emitted and none of them is decoration:
   MySQL defaults a routine to `SQL SECURITY DEFINER` while Postgres defaults to `SECURITY INVOKER`, so one
   `RoutineDef` emitted to both dialects would run under two different privilege models. Definer rights are
   the escalation surface `../../../repository/SPEC.md` §4a is about; making them the silent default on one
-  of three dialects is not a thing to inherit. A definer-rights routine is deliberately not expressible
+  of the two routine-emitting dialects is not a thing to inherit. A definer-rights routine is deliberately not expressible
   here (§8.8).
 
-### 8.3 SQLite refuses
+### 8.3 SQLite and SQL Server refuse
 
 ```
 sqlite does not support stored routines (function "archive_old_orders"); SQLite has no CREATE FUNCTION,
@@ -321,6 +322,10 @@ call it like any other
 routine emulated in JavaScript would run in the application process, so a `CALL` inside a trigger or
 another routine would not reach it, and the emulation would be correct exactly for the calls that did not
 need it.
+
+SQL Server also refuses this surface. Its function/procedure grammar and return
+shapes are distinct from the current Postgres/MySQL `RoutineDef`, so emitting a
+plausible approximation would move the failure from compile time to the server.
 
 ### 8.4 Replace semantics, and why `CREATE OR REPLACE` is not enough
 

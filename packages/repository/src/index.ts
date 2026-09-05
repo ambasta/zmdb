@@ -4,7 +4,7 @@
 // @zmdb/query-compiler and every type from the schema; there is no runtime
 // reflection, no proxies and no identity map.
 import { issuesFor } from '@zmdb/aot-validator/utilities';
-import type { ColumnExpr, CompiledQuery, Dialect, SetValue } from '@zmdb/query-compiler';
+import type { ColumnExpr, CompiledQuery, Dialect, SelectBuilder, SetValue } from '@zmdb/query-compiler';
 import { chunkArray, createQueryCompiler, DIALECT_PARAM_LIMITS, EXPR, inc, sanitizeKeys } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
@@ -714,6 +714,25 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return keyed;
   }
 
+  /**
+   * SQL Server spells LIMIT through OFFSET/FETCH, which requires ORDER BY.
+   * Repository first-row reads own a deterministic order: primary-key order
+   * when present, otherwise the declaration's first column.
+   */
+  private limitOne(builder: SelectBuilder): SelectBuilder {
+    if (this.dialect !== 'mssql') return builder.limit(1);
+
+    const fallback = this.schema.ir.columns[0]?.name;
+    const order = this.keyColumns.length > 0 ? this.keyColumns : fallback === undefined ? [] : [fallback];
+    if (order.length === 0) {
+      throw new Error(`schema ${this.tableName} has no column available to order a SQL Server first-row read`);
+    }
+
+    let ordered = builder;
+    for (const column of order) ordered = ordered.orderBy(column, 'asc');
+    return ordered.limit(1);
+  }
+
   /** Validate a typed key and return its values in schema declaration order. */
   private loaderKeyValues(id: PrimaryKeyOf<T>): readonly unknown[] {
     return this.keyValues(id, 'findById');
@@ -779,7 +798,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   ): Promise<Populated<T, K> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts: ReadOptions): Promise<Entity<T> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts?: InternalReadOptions): Promise<Entity<T> | undefined> {
-    const query = this.keyWhere(this.qb.selectFrom(this.tableName), id, 'findById').limit(1).compile();
+    const query = this.limitOne(this.keyWhere(this.qb.selectFrom(this.tableName), id, 'findById')).compile();
     return this.firstResult(query, opts?.populate, opts?.cache);
   }
 
@@ -789,7 +808,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     populate?: readonly string[],
     cache?: CacheOptions | false,
   ): Promise<Entity<T> | undefined> {
-    const query = compileWhere(this.qb.selectFrom(this.tableName), where).limit(1).compile();
+    const query = this.limitOne(compileWhere(this.qb.selectFrom(this.tableName), where)).compile();
     return this.firstResult(query, populate, cache);
   }
 
@@ -1391,7 +1410,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     // than as the `findById` it would otherwise delegate to (§2.1: "the method in the message
     // is the method the caller actually called").
     if (Object.keys(clean).length === 0) {
-      const query = this.keyWhere(this.qb.selectFrom(this.tableName), id, 'update').limit(1).compile();
+      const query = this.limitOne(this.keyWhere(this.qb.selectFrom(this.tableName), id, 'update')).compile();
       return this.firstResult(query);
     }
     const builder = this.keyWhere(this.qb.updateTable(this.tableName).set(clean), id, 'update');
@@ -1426,13 +1445,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // #28 — delete + lifecycle hooks.
   async delete(id: PrimaryKeyOf<T>, options?: CacheInvalidationOptions): Promise<boolean> {
     this.preDelete(id);
-    const rows = await this.driver.execute(
-      this.assertKeyed(
-        this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete').returning(this.keyColumns).compile(),
-        'delete',
-      ),
-    );
+    const builder = this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete');
+    const query = this.dialect === 'mysql' ? builder.compile() : builder.returning(this.keyColumns).compile();
+    const rows = await this.driver.execute(this.assertKeyed(query, 'delete'));
     await this.invalidateCache(options);
+    if (this.dialect === 'mysql') {
+      const affectedRows = rows[0]?.['affectedRows'];
+      if (typeof affectedRows === 'number') return affectedRows > 0;
+    }
     return rows.length > 0;
   }
 

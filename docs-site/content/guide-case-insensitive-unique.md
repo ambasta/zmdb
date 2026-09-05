@@ -1,6 +1,6 @@
 > **Supported.** `IndexDef.columns` accepts a tagged expression, so PostgreSQL and
-> SQLite can emit a unique index on `lower(email)`. MySQL uses the generated-column
-> form below. The `Unique` tag itself remains case-**sensitive**.
+> SQLite can emit a unique index on `lower(email)`. MySQL and SQL Server use the
+> generated-column form below. The `Unique` tag itself remains case-**sensitive**.
 
 ## The problem
 
@@ -46,12 +46,13 @@ await driver.execute({
 Both sides matter. `WHERE email = $1` will not use `lower(email)`, and `WHERE lower(email) = $1` with an unnormalised parameter misses rows.
 
 The expression is emitted verbatim. Quote identifiers inside it yourself and never interpolate
-request data. MySQL is deliberately refused because its functional-key-part syntax differs;
-use the generated column below. SQLite supports expression indexes since 3.9.
+request data. MySQL and SQL Server are deliberately refused because their
+expression-index shapes differ; use the generated column below. SQLite supports
+expression indexes since 3.9.
 
 ## Generated column
 
-Portable to MySQL, and it makes the normalised value queryable through the typed API:
+Portable to MySQL and SQL Server, and it makes the normalised value queryable through the typed API:
 
 ```ts
 import { generatedColumnDdl, createIndexDdl } from '@zmdb/query-compiler/schema-objects';

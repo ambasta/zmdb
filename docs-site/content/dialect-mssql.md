@@ -1,66 +1,107 @@
-> **ToDo / feature gap.** There is no SQL Server dialect and no workaround. Unlike
-> [Cockroach](./dialect-cockroach.html) or [SingleStore](./dialect-singlestore.html),
-> SQL Server is not wire- or syntax-compatible with any of the three supported
-> dialects, so there is nothing to route it through. `Dialect` is
-> `'postgres' | 'mysql' | 'sqlite'`.
-
-## Why it cannot be approximated
-
-T-SQL differs from Postgres and MySQL in ways that reach the compiler's core, not its edges:
-
-|                         | Supported dialects          | SQL Server                                                             |
-| ----------------------- | --------------------------- | ---------------------------------------------------------------------- |
-| Identifier quoting      | `"x"` / `` `x` ``           | `[x]`                                                                  |
-| Placeholders            | `$1` / `?`                  | `@p1` (named)                                                          |
-| Pagination              | `LIMIT n OFFSET m`          | `OFFSET m ROWS FETCH NEXT n ROWS ONLY`, and it **requires `ORDER BY`** |
-| Auto-increment          | `SERIAL` / `AUTO_INCREMENT` | `IDENTITY(1,1)`                                                        |
-| Returning inserted rows | `RETURNING`                 | `OUTPUT INSERTED.*`, placed before `VALUES`                            |
-| Boolean                 | `BOOLEAN` / `TINYINT(1)`    | `BIT`                                                                  |
-| String concatenation    | `\|\|`                      | `+`                                                                    |
-| Text                    | `TEXT`                      | `NVARCHAR(MAX)`                                                        |
-| Case sensitivity        | per-collation               | per-collation, and the _default_ is insensitive                        |
-
-The pagination row is the one that makes it structural. `LIMIT` is a suffix the
-compiler appends; `OFFSET ... FETCH NEXT` requires an `ORDER BY` to exist, so a
-paginated query with no ordering — which compiles fine everywhere else — is a syntax
-error on SQL Server. A dedicated dialect must refuse that query at `compile()` and
-tell the caller to add `.orderBy(...)`; synthesising `ORDER BY (SELECT NULL)` would
-make the query run without making its pages reproducible.
-
-`OUTPUT INSERTED.*` is the second: it goes in the middle of the statement rather than at the end, so it cannot be appended the way `RETURNING` is.
-
-## What you can use today
-
-Nothing in zmdb. The parts that do transfer are the ones with no SQL in them:
-
-- the declaration and `Entity<T>` / `CreateDTO<T>` / `WhereDTO<T>` — types
-- the AOT validators, `toJsonSchema`, `toOpenApi` — no SQL
-- `@zmdb/web` in full — no SQL
-
-So you can use zmdb for validation and HTTP and write your data layer with `mssql` or Kysely against the same schema-derived types:
+Dialect: `'mssql'`. The compiler emits T-SQL and the repository ships a thin
+adapter for a connected [`mssql`](https://www.npmjs.com/package/mssql) pool.
+The adapter does not open, close or configure the pool.
 
 ```ts
-import type { Entity } from '@zmdb/schema-core';
-import { assert } from '@zmdb/aot-validator/utilities';
+import sql from 'mssql';
+import { createQueryCompiler } from '@zmdb/query-compiler';
+import { mssqlDriver } from '@zmdb/repository/drivers/mssql';
 
-const result = await pool.request().input('id', id).query('SELECT * FROM [users] WHERE [id] = @id');
-const user = assert<Entity<User>>(result.recordset[0]);
+const pool = await sql.connect(process.env.DATABASE_URL!);
+const driver = mssqlDriver(pool);
+const query = createQueryCompiler('mssql').selectFrom('users').where('email', '=', 'a@b.com').compile();
+
+const rows = await driver.execute(query);
 ```
 
-The `assert` is what keeps the hand-written SQL tied to the schema object.
+The compiler keeps `parameters` positional. The adapter maps array element zero
+to `p1`, element one to `p2`, and so on; `mssql` receives those names without
+the leading `@`.
 
-## What it would take
+## SQL contract
 
-A fourth `Dialect` member and a real dialect module: quoting, named placeholders,
-the pagination rewrite with its `ORDER BY` requirement, `OUTPUT INSERTED` placement,
-type mappings for all ten column types, and the `ALTER TABLE` variants for migrations.
-`timestamp` maps to `DATETIMEOFFSET(3)` so a JavaScript `Date` does not lose its
-offset. `UNIQUEIDENTIFIER` is not one of the ten abstract types and cannot be reached
-without a separate schema-core type change. A bundled driver over `mssql` would be
-separate.
+| Construct           | SQL Server spelling                                                 |
+| ------------------- | ------------------------------------------------------------------- |
+| identifiers         | `[name]`; a closing `]` is escaped as `]]`                          |
+| placeholders        | `@p1`, `@p2`, …                                                     |
+| pagination          | `OFFSET … ROWS FETCH NEXT … ROWS ONLY` after an explicit `ORDER BY` |
+| insert/update rows  | `OUTPUT INSERTED.…` in the verb-specific middle of the statement    |
+| deleted rows        | `OUTPUT DELETED.…`                                                  |
+| upsert              | one `MERGE … WITH (HOLDLOCK)` statement with a required final `;`   |
+| auto-increment      | `INT IDENTITY(1,1)`                                                 |
+| booleans            | `BIT`; `not()` emits bitwise `~`                                    |
+| timestamp           | `DATETIMEOFFSET(3)`                                                 |
+| text / JSON storage | `NVARCHAR(MAX)`                                                     |
 
-It is the largest of the dialect gaps and the only one where the existing dialect abstraction would likely need widening — every other target is a mapping table, this one changes statement structure. If you need it, the pagination and `OUTPUT` handling are where to start, because they determine whether the current builder shape can accommodate it at all.
+A paginated SQL Server select without `.orderBy(...)` is refused at
+`compile()`. The compiler does not invent `ORDER BY (SELECT NULL)`, because that
+would make the query legal without making its pages reproducible.
+
+`returning()` maps to the correct `OUTPUT` pseudo-table for insert, update and
+delete. SQL Server rejects `OUTPUT` without `INTO` when an enabled trigger
+exists for that DML action. zmdb cannot inspect target-table triggers, and
+`OUTPUT … INTO` would require a table variable and another statement, so
+triggered tables must use a hand-written path.
+
+## Upsert locking
+
+SQL Server upserts compile to `MERGE` with an explicit conflict target:
+
+```sql
+MERGE [users] WITH (HOLDLOCK) AS tgt
+USING (VALUES (@p1, @p2)) AS src ([email], [role])
+ON tgt.[email] = src.[email]
+WHEN MATCHED THEN UPDATE SET [role] = src.[role]
+WHEN NOT MATCHED THEN INSERT ([email], [role])
+VALUES (src.[email], src.[role]);
+```
+
+`HOLDLOCK` closes the absent-key race between concurrent upserts by taking
+serializable range locks on the target. That correctness has a cost: hot-key
+workloads can block longer or deadlock. SQL Server error `1205` is classified
+as retryable metadata, but zmdb does not retry a unit of work automatically.
+
+## Types and migrations
+
+All ten `SqlType` members have an explicit SQL Server mapping. `varchar` uses
+`NVARCHAR(n)` with `Length<n>` and `NVARCHAR(MAX)` without one. `timestamp`
+uses `DATETIMEOFFSET(3)`, preserving the instant and JavaScript `Date`
+millisecond precision.
+
+There is no `uuid` member in `SqlType`, so the dialect does not invent a
+`UNIQUEIDENTIFIER` mapping. Use `Sql<'varchar'> & Length<36>` for an
+application-generated GUID, or a custom migration when the native type is
+required.
+
+Generated migrations cover table creation and removal, add/drop/alter column,
+named foreign keys, indexes including filtered indexes, sequences and
+persisted computed columns. Type alterations restate `NULL` or `NOT NULL`; a
+hand-built operation without that metadata is refused rather than silently
+making a required column nullable. Altering an existing primary key is refused:
+the snapshot does not carry the SQL Server constraint name needed to drop it.
+Reversing a dropped table is also refused because the change operation no
+longer contains the removed columns.
+
+## Explicitly unsupported
+
+The SQL Server dialect refuses full-text search, materialized views,
+row-level-security policies, schema introspection and stored-routine builders.
+Those SQL Server features require metadata or statement shapes the current
+zmdb contracts do not represent.
+
+Write-expression concatenation uses `CONCAT`. On SQL Server, `CONCAT(NULL,
+'x')` returns `'x'`, unlike the null-propagating behavior of Postgres, MySQL
+and SQLite. Use a different expression when null preservation matters.
+
+## E2E availability
+
+The repository suite runs real SQL Server DDL, named parameters, bracket
+escaping, `OUTPUT`, ordered pagination, `MERGE`, timestamp round-trips and
+column migrations when `ZMDB_MSSQL_URL` points to a reachable server. Without
+that variable it emits a visible `[skip] SQL Server E2E: …` message and keeps
+an availability assertion in the suite; SQL Server coverage is never omitted
+silently.
 
 ---
 
-See also: [Query Compiler](./select.html) · [Dialect: Postgres](./dialect-postgres.html) · [Raw SQL](./raw-sql.html)
+See also: [Query Compiler](./select.html) · [Writing a Driver](./custom-driver.html) · [Raw SQL](./raw-sql.html)

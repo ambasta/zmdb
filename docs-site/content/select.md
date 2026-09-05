@@ -94,16 +94,20 @@ See [Ordering & pagination](./pagination.html) for typed `OrderByDTO` /
 
 The same builder emits dialect-correct SQL. Identifiers and placeholders differ:
 
-| dialect  | quoting         | placeholder |
-| -------- | --------------- | ----------- |
-| postgres | `"col"`         | `$1, $2, …` |
-| mysql    | backtick-quoted | `?`         |
-| sqlite   | `"col"`         | `?`         |
+| dialect  | quoting         | placeholder   |
+| -------- | --------------- | ------------- |
+| postgres | `"col"`         | `$1, $2, …`   |
+| mysql    | backtick-quoted | `?`           |
+| sqlite   | `"col"`         | `?`           |
+| mssql    | `[col]`         | `@p1, @p2, …` |
 
 ```ts
 createQueryCompiler('mysql').selectFrom('users').where('id', '=', 1).compile();
 // text: SELECT * FROM `users` WHERE `id` = ?   parameters: [1]
 ```
+
+SQL Server pagination uses `OFFSET … ROWS FETCH NEXT … ROWS ONLY` and requires
+an explicit `.orderBy(...)`; an unordered paginated query is refused.
 
 ## Next steps
 

@@ -991,6 +991,17 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
     expect(run).toThrow(/vector\(1536\)/i);
   });
 
+  it('refuses an extension type on mssql, naming the dialect and the type', () => {
+    const run = () =>
+      extensionUp(
+        { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'], foreignKeys: [] },
+        'mssql',
+      );
+    expect(run).toThrow(UnsupportedFeatureError);
+    expect(run).toThrow(/mssql/i);
+    expect(run).toThrow(/vector\(1536\)/i);
+  });
+
   it('does not drop an extension on diff', () => {
     expect(extensionDiff(noExtensions, vectorItems)).toEqual([
       { kind: 'create_extension', name: 'vector' },
@@ -1008,6 +1019,8 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
         column: 'embedding',
         from: vector1536,
         to: vector3072,
+        fromNullable: false,
+        toNullable: false,
       },
     ]);
     expect(changes.map(op => extensionUp(op, 'postgres'))).toEqual([

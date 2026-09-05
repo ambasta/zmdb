@@ -9,7 +9,7 @@ interface CompiledQuery {
   readonly text: string;
   readonly parameters: readonly unknown[];
   readonly telemetry?: {
-    readonly system: 'postgresql' | 'mysql' | 'sqlite';
+    readonly system: 'postgresql' | 'mysql' | 'sqlite' | 'mssql';
     readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
     readonly collection: string;
   };

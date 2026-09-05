@@ -23,7 +23,7 @@ npm add @zmdb/repository@alpha
 - Repository APIs: `@zmdb/repository`
 - Application features: `/outbox`, `/jobs`, `/seeding`, `/transactions`,
   `/replicas`, `/integrations`, `/entity-modeling`
-- Bundled drivers: `/drivers/sqlite`, `/drivers/pg`
+- Bundled drivers: `/drivers/sqlite`, `/drivers/pg`, `/drivers/mssql`
 
 ## Documentation
 

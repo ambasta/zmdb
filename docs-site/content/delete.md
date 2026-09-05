@@ -22,6 +22,14 @@ qc.deleteFrom('users').where('role', '=', 'guest').returning(['id']).compile();
 DELETE FROM "users" WHERE "role" = $1 RETURNING "id"
 ```
 
+SQL Server places its equivalent before `WHERE`:
+
+```sql
+DELETE FROM [users] OUTPUT DELETED.[id] WHERE [role] = @p1
+```
+
+MySQL refuses `returning()` rather than emitting unsupported SQL.
+
 > [!WARNING]
 > As with UPDATE, a DELETE without a `where` clause removes **every row**. Prefer
 > the repository's `delete(id)` for single-row deletes, or wrap bulk deletes in a

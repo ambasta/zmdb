@@ -37,13 +37,15 @@ Builders are immutable: each method returns a new builder.
 
 ## 3. Placeholder policy (per dialect)
 
-| Dialect            | Placeholder | Identifier quote |
-| ------------------ | ----------- | ---------------- |
-| postgres (default) | `$1, $2, …` | `"ident"`        |
-| mysql              | `?`         | `` `ident` ``    |
-| sqlite             | `?`         | `"ident"`        |
+| Dialect            | Placeholder   | Identifier quote |
+| ------------------ | ------------- | ---------------- |
+| postgres (default) | `$1, $2, …`   | `"ident"`        |
+| mysql              | `?`           | `` `ident` ``    |
+| sqlite             | `?`           | `"ident"`        |
+| mssql              | `@p1, @p2, …` | `[ident]`        |
 
-`createQueryCompiler(dialect?: 'postgres' | 'mysql' | 'sqlite')` — default `postgres`.
+`createQueryCompiler(dialect?: Dialect)` — default `postgres`; the shipped
+members are `'postgres' | 'mysql' | 'sqlite' | 'mssql'`.
 
 ## 4. Golden SQL fixtures (postgres)
 
@@ -69,12 +71,18 @@ deleteFrom('users').where('id','=',1)
    parameters: [1]
 ```
 
-### mysql / sqlite placeholder variants
+### mysql / sqlite / mssql placeholder variants
 
 Same builder as the first SELECT above but with mysql:
 
 ```
 => text: SELECT * FROM `users` WHERE `email` = ? ORDER BY `createdAt` DESC LIMIT 10
+```
+
+With mssql:
+
+```
+=> text: SELECT * FROM [users] WHERE [email] = @p1 ORDER BY [createdAt] DESC OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY
 ```
 
 ## 5. Set Operations and Empty IN Lists
@@ -94,9 +102,14 @@ pgvector's three distance operators are added to `OP_MAP` under **names**, not u
 
 Two reasons, and the second is the decisive one.
 
-`sqlOperator` maps a known operator and **falls through with an unmapped one written as given** — pinned by `allows unmapped raw Postgres/SQL operators to fall through as-written`. That is defensible where it lives: a builder call is code an author wrote, `@>` is a real operator, and enumerating every operator of three dialects is a losing game.
-
-It is not defensible one layer up, where `compileWhere` in `schema-core/src/dto` turns a request body into predicates, and #364 is that gap seen from the security side. So a `<->` typed into `where()` would already "work" today, by fall-through, on the one surface that must not be reachable from user JSON. A **mapped name** works on both surfaces, and it is testable that it is mapped rather than passed through, which the punctuation spelling is not.
+`sqlOperator` maps a known operator and **falls through with an unmapped one written as given** — pinned
+by `allows unmapped raw Postgres/SQL operators to fall through as-written`. That is defensible where it
+lives: a builder call is code an author wrote, `@>` is a real operator, and enumerating every operator of
+four dialects is a losing game. It is not defensible one layer up, where `compileWhere` in
+`schema-core/src/dto` turns a request body into predicates, and #364 is that gap seen from the security
+side. So a `<->` typed into `where()` would already "work" today, by fall-through, on the one surface that
+must not be reachable from user JSON. A **mapped name** works on both surfaces, and it is testable that it
+is mapped rather than passed through, which the punctuation spelling is not.
 
 And `<=>` is not free to take. In MySQL it is the NULL-safe equality operator, so one string would mean
 two unrelated things depending on the dialect, and the compiler would be unable to refuse it on the
@@ -108,9 +121,12 @@ selectFrom('items').where('embedding', 'cosine', [0.1, 0.2])
    parameters: ['[0.1,0.2]']
 ```
 
-All three are Postgres-only and refused elsewhere at compile time, naming the operator and the dialect. The nearest-neighbour ordering that makes them useful (`ORDER BY embedding <=> $1 LIMIT 10`) is represented by the closed `distance<T>(column, op, query)` expression. The same expression can be projected with `.as(alias)` or passed to `orderBy`.
-
-Every query vector is encoded as pgvector text before it becomes a bound parameter; passing the raw JavaScript array would make node-postgres encode a PostgreSQL array (`{"0.1","0.2"}`), which pgvector does not accept as vector input.
+All three are Postgres-only and refused on every other dialect at compile time, naming the operator and the dialect.
+The nearest-neighbour ordering that makes them useful (`ORDER BY embedding <=> $1 LIMIT 10`) is
+represented by the closed `distance<T>(column, op, query)` expression. The same expression can be
+projected with `.as(alias)` or passed to `orderBy`. Every query vector is encoded as pgvector text
+before it becomes a bound parameter; passing the raw JavaScript array would make node-postgres encode a
+PostgreSQL array (`{"0.1","0.2"}`), which pgvector does not accept as vector input.
 
 **PostGIS predicates are functions, not operators**, so they do not go in `OP_MAP` at all. They are a
 predicate kind of their own with a closed function set:
@@ -145,7 +161,8 @@ A variant is **in** when, on every supported dialect, it compiles to a single ex
 1. references **exactly one column**, the one being assigned,
 2. binds **at most one parameter**, and
 3. consists entirely of tokens the emitter owns — no caller text reaches the SQL, and
-4. means the **same thing** on all three.
+4. means the **same thing** on every supported dialect for non-null operands; any
+   dialect-specific null behavior is explicit in §5b.5.
 
 It is **out** when it needs a second column reference, a subquery, a statement rewrite, or any token the
 caller supplies.
@@ -157,10 +174,10 @@ this rule is "one operator token per dialect", and it is wrong in both direction
   `PIPES_AS_CONCAT` is set — so the operator spelling on MySQL does not fail, it evaluates to `0` or `1`
   and writes that. A function call is still one emitter-owned expression over one column, so `concat` is
   in.
-- It would admit **division**, which is one token everywhere and three different results. Integer `/`
-  truncates on Postgres and SQLite and yields a decimal on MySQL, and division by zero raises on Postgres,
-  yields NULL on SQLite, and does either on MySQL depending on `sql_mode`. One declaration, three answers,
-  so there is no `div` variant and there will not be one.
+- It would admit **division**, which is one token everywhere and multiple results. Integer `/`
+  truncates on Postgres, SQLite and SQL Server and yields a decimal on MySQL, while division-by-zero
+  behavior also differs. One declaration, several answers, so there is no `div` variant and there will
+  not be one.
 
 ### 5b.2 The vocabulary
 
@@ -224,6 +241,7 @@ set({ views: inc(1) }).where('id', '=', 7)
 postgres  UPDATE "posts" SET "views" = "views" + $1 WHERE "id" = $2     parameters: [1, 7]
 mysql     UPDATE `posts` SET `views` = `views` + ? WHERE `id` = ?       parameters: [1, 7]
 sqlite    UPDATE "posts" SET "views" = "views" + ? WHERE "id" = ?       parameters: [1, 7]
+mssql     UPDATE [posts] SET [views] = [views] + @p1 WHERE [id] = @p2   parameters: [1, 7]
 
 set({ stock: dec(2) })
 postgres  UPDATE "posts" SET "stock" = "stock" - $1                     parameters: [2]
@@ -231,11 +249,13 @@ postgres  UPDATE "posts" SET "stock" = "stock" - $1                     paramete
 set({ published: not() })
 postgres  UPDATE "posts" SET "published" = NOT "published"              parameters: []
 mysql     UPDATE `posts` SET `published` = NOT `published`              parameters: []
+mssql     UPDATE [posts] SET [published] = ~[published]                  parameters: []
 
 set({ title: concat(' (draft)') })
 postgres  UPDATE "posts" SET "title" = "title" || $1                    parameters: [' (draft)']
 sqlite    UPDATE "posts" SET "title" = "title" || ?                     parameters: [' (draft)']
 mysql     UPDATE `posts` SET `title` = CONCAT(`title`, ?)               parameters: [' (draft)']
+mssql     UPDATE [posts] SET [title] = CONCAT([title], @p1)              parameters: [' (draft)']
 
 set({ nickname: coalesce('anonymous') })
 postgres  UPDATE "users" SET "nickname" = COALESCE("nickname", $1)      parameters: ['anonymous']
@@ -244,8 +264,9 @@ postgres  UPDATE "users" SET "nickname" = COALESCE("nickname", $1)      paramete
 `dec` emits `-` rather than `+` with a negated parameter, because `by` may be a `bigint` or a decimal
 string and negating it would be a per-type operation in JavaScript that the compiler has no business doing.
 
-`NOT` is the same token on all three; on MySQL it evaluates a `tinyint(1)` to `1` or `0`, which is what the
-column stores. `SET` parameters precede `WHERE` parameters, as they already do.
+Postgres, MySQL and SQLite use `NOT`; on MySQL it evaluates a `tinyint(1)` to `1` or `0`, which is what the
+column stores. SQL Server uses bitwise `~` because a `BIT` column is not a T-SQL boolean expression.
+`SET` parameters precede `WHERE` parameters, as they already do.
 
 ### 5b.4 `proposed`, and the MySQL spelling
 
@@ -266,13 +287,13 @@ mysql     INSERT INTO `counters` (`key`, `hits`) VALUES (?, ?) ON DUPLICATE KEY 
 doUpdate({ hits: proposed() })
 postgres  … ON CONFLICT ("key") DO UPDATE SET "hits" = EXCLUDED."hits"
 mysql     … ON DUPLICATE KEY UPDATE `hits` = VALUES(`hits`)
+mssql     … WHEN MATCHED THEN UPDATE SET [hits] = src.[hits] …
 ```
 
-The unqualified `"hits"` on the right-hand side is the stored row on every dialect, so `inc` inside an
+The current-row reference on the right-hand side is the stored row on every dialect, so `inc` inside an
 upsert increments the row that was already there — the atomic-counter recipe, and the reason `proposed`
-has to be a variant rather than the implicit meaning of a bare column. It also means the upsert path emits
-the same expression string as the plain `UPDATE` path, with `EXCLUDED` being the one thing that needs an
-explicit qualifier.
+has to be a variant rather than the implicit meaning of a bare column. Postgres qualifies the proposed
+row with `EXCLUDED`; SQL Server qualifies both sides as `tgt` and `src` inside `MERGE`.
 
 **MySQL keeps `VALUES(col)`** — which is what the compiler already emits — and no minimum server version enters the contract. `VALUES()` in the `ON DUPLICATE KEY UPDATE` clause is deprecated as of MySQL 8.0.20 in favour of a row alias (`INSERT … AS new … SET c = new.c`), but deprecated is not removed: it still works, and it works on servers older than 8.0.19 and on MariaDB, which never implemented the alias form at all.
 
@@ -280,14 +301,17 @@ Emitting the alias would break two populations to silence a warning in one. If M
 
 ### 5b.5 Nullability, and the one place the vocabulary bites
 
-Every arithmetic and concatenation variant is null-propagating on all three dialects: `NULL + 1` is `NULL`,
-`CONCAT('a', NULL)` is `NULL`, `NOT NULL` is `NULL`. So:
+Arithmetic and `not` are null-propagating on all four dialects: `NULL + 1` and `NOT NULL` produce `NULL`.
+Concatenation is the exception: SQL Server's `CONCAT(NULL, 'x')` produces `'x'`, while Postgres, MySQL and
+SQLite preserve `NULL`. So:
 
 - On a `NOT NULL` column the current value cannot be null, and `add`/`sub`/`mul`/`not` cannot produce one.
 - `coalesce` with a non-null fallback cannot produce null at all, which is the only variant that is safe
   regardless of the column.
-- `concat` with a nullable column produces null, and if that column is `NOT NULL` the contradiction cannot
-  arise. If it is nullable, null is a legal value and the write succeeds.
+- `concat` with a nullable column preserves null on Postgres, MySQL and SQLite but treats it as an empty
+  string on SQL Server. MySQL and SQL Server both use their native `CONCAT` function but assign different
+  meaning to a null operand, so callers that need portable null preservation must handle it outside this
+  closed expression.
 
 **`inc` on a nullable numeric column yields NULL, not `by`.** This is the classic surprise, and zmdb does not wrap it in a `COALESCE` to be helpful: that would make `inc` mean two different things depending on a column's nullability, and the author who wanted the wrapping cannot tell from the call site whether they got it.
 
@@ -354,7 +378,8 @@ same reason — bounding a stream is what `batchSize` is for, and it bounds memo
 
 ## 5e. The dialect mechanism (frozen — epic "The SQL dialect matrix")
 
-`Dialect` grows to six members: `'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore'`.
+`Dialect` currently has four shipped members: `'postgres' | 'mysql' | 'sqlite' | 'mssql'`; the epic grows
+it to six with `'cockroach'` and `'singlestore'`.
 The per-dialect divergences, construct by construct with the SQL written out, are in `src/dialects/SPEC.md`.
 What belongs here is the mechanism, because it changes how every section above is implemented.
 
@@ -364,17 +389,16 @@ Adding three members then stopped exactly three files; the other twenty-one site
 
 The cost is not hidden: `quoting.ts` is built around a quote-character pair,
 `renumberPlaceholders` takes a dialect so named placeholders can be continued across a `UNION`, and
-`tailClause` delegates to the resolved pagination trait. The SQL Server slice still owns the invasive
-named-part assembly for `OUTPUT` and `MERGE`; #507 keeps every shipped SQL string byte-identical while
-putting the dispatch seam in place.
+`tailClause` delegates to the resolved pagination trait. #508 supplies SQL Server's named-part assembly
+for `OUTPUT` and `MERGE`; #507 supplied the dispatch seam it uses.
 
 Three things this mechanism does **not** change:
 
 - **§1's contract.** A compiled query is still `{ text, parameters }`, still frozen, still a pure function of
   builder state. `parameters` stays positional and in placeholder order even where the dialect binds by name
   — the `mssql` driver adapter maps the array onto `@p1…@pn`, which is exactly what that ordering is for.
-- **§3's table**, which describes the three dialects that ship. The three new rows live with the dialects
-  that need them rather than being promised here before an emitter exists.
+- **§3's table**, which now describes the four dialects that ship. The remaining epic rows live with the
+  dialects that need them rather than being promised here before an emitter exists.
 - **Dispatch timing.** `TRAITS` is resolved once when the module is evaluated and indexed thereafter, never
   walked per statement. It is a module-level record rather than per-compiler state because `quoteIdentifier`,
   `ddlType`, `emitUp`, `setOperation` and half a dozen more are exported functions taking a `Dialect` string,
@@ -386,9 +410,9 @@ SQL Server's upsert is a `MERGE`, and `MERGE` requires a terminating semicolon. 
 narrowed rather than broken: it holds for every `SELECT`, which is all a cursor ever wraps. An upsert is not
 a `SELECT`, one statement it remains, and the semicolon is confined to that one construct.
 
-**One sentence in §5b.3 becomes wrong and is corrected there when the dialect lands.** "`NOT` is the same
-token on all three" was true of three dialects. `NOT [published]` is a syntax error in T-SQL, where a `BIT`
-column is not a boolean expression; the spelling is `~[published]`.
+**One sentence in §5b.3 changed with SQL Server.** "`NOT` is the same token on all three" was true of the
+original dialects. `NOT [published]` is a syntax error in T-SQL, where a `BIT` column is not a boolean
+expression; the spelling is `~[published]`.
 
 ## 5f. The target seam (frozen — epic "Non-SQL targets")
 

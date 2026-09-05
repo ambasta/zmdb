@@ -186,7 +186,7 @@ export const attrsArray: Attributes = { 'http.request.header.host': ['a', 'b'] }
 //
 // This is the one rename in the epic that a runtime test cannot catch by inspection,
 // because both strings are plausible: `Dialect` in `@zmdb/query-compiler` is
-// `'postgres' | 'mysql' | 'sqlite'` and semconv's `db.system.name` value is `postgresql`.
+// `'postgres' | 'mysql' | 'sqlite' | 'mssql'` and semconv's `db.system.name` value is `postgresql`.
 // The mapping is one `===` in #582 and the type is what makes forgetting it a build failure.
 export const telemetryPg: QueryTelemetry = { system: 'postgresql', operation: 'SELECT', collection: 'users' };
 // @ts-expect-error — `postgres` is `Dialect`'s spelling; `db.system.name` is `postgresql` (§5, semconv v1.30.0).
@@ -197,7 +197,7 @@ export const telemetryOther: QueryTelemetry = { system: 'sqlite', operation: 'ot
 export const telemetryLowercase: QueryTelemetry = { system: 'sqlite', operation: 'select', collection: 'users' };
 // @ts-expect-error — `collection` is required: a span with no `db.collection.name` is a span nobody can group by (§5).
 export const telemetryNoCollection: QueryTelemetry = { system: 'mysql', operation: 'DELETE' };
-export type _SystemIsSemconv = Expect<Equal<QueryTelemetry['system'], 'postgresql' | 'mysql' | 'sqlite'>>;
+export type _SystemIsSemconv = Expect<Equal<QueryTelemetry['system'], 'postgresql' | 'mysql' | 'sqlite' | 'mssql'>>;
 export type _TelemetryKeys = Expect<Equal<keyof QueryTelemetry, 'system' | 'operation' | 'collection'>>;
 
 // §6 refuses parameter values under any setting, and §5 emits `parameters.length` instead.

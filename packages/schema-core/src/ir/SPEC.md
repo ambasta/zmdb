@@ -262,8 +262,8 @@ keeps its exhaustive shape behind that guard instead of growing a `default`. The
 cheaper to write and both cost more than they save:
 
 - **Widening `SqlType` with `'vector' | 'geometry' | 'citext'`** is a three-line diff, and it puts
-  Postgres extension types in the core vocabulary of a library that also targets MySQL and SQLite —
-  where `DDL_TYPES` would then owe them a row each, and the accurate row is a refusal. It also cannot
+  Postgres extension types in the core vocabulary of a library that also targets MySQL, SQLite and SQL Server —
+  where `DDL_TYPES` would then owe them a row each, and the honest row is a refusal. It also cannot
   carry `1536`, so it needs a second field beside it anyway, which is `length` again for a type that
   is not `varchar`.
 - **`SqlType | string`** deletes the property `vocabulary.type-test.ts` exists to pin. Note that the
@@ -330,7 +330,7 @@ driver has a type parser registered:
 than just the index. Prefer the expression index unless the column's _semantics_ are
 case-insensitive.
 
-**MySQL and SQLite refuse an extension type, and there is no fallback.** The refusal is an
+**MySQL, SQLite and SQL Server refuse an extension type, and there is no fallback.** The refusal is an
 `UnsupportedFeatureError` at DDL time naming the dialect, the column and the extension:
 
 ```

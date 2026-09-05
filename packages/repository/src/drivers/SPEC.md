@@ -22,6 +22,16 @@ interface PgOptions {
   maxCacheSize?: number;
 } // opt-in server-side prepared stmts
 function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
+
+// mssql — pass an already-connected node-mssql pool
+interface MssqlRequest {
+  input(name: string, value: unknown): MssqlRequest;
+  query(text: string): Promise<{ recordset?: readonly Record<string, unknown>[] }>;
+}
+interface MssqlPool {
+  request(): MssqlRequest;
+}
+function mssqlDriver(pool: MssqlPool): Driver;
 ```
 
 ## Frozen behaviour
@@ -40,7 +50,7 @@ function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
   chronological, so `ORDER BY` and `BETWEEN` mean what they say. A `bigint` is bound as
   itself — `node:sqlite` takes one for an `INTEGER` column.
 
-### Both adapters
+### All adapters
 
 - The app→db conversion belongs to the driver, which is the only layer that knows what
   its client binds. `pg` needs none: it binds a `Date` as a timestamp itself and
@@ -55,6 +65,17 @@ function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
 - With `opts.prepared === true`, use a stable statement `name` derived from the SQL text so Postgres caches the plan (server-side prepared statement). Kept opt-in to preserve the zero-state default (see the benchmarks tail trade-off).
 - Internal statement name cache is LRU-bounded (default 1000 entries); evicting a statement issues `DEALLOCATE <name>` to clean up server-side state.
 - Never mutates the pool/client; no connection lifecycle management.
+
+### mssqlDriver (#508)
+
+- `execute(q)`: creates one request, binds the positional parameter array as
+  `p1…pn` through `request.input(name, value)`, then calls
+  `request.query(q.text)`.
+- Returns `result.recordset`, or `[]` when node-mssql reports no recordset.
+- The compiler emits `@p1…@pn`; node-mssql's `input()` receives the same names
+  without the leading `@`.
+- The adapter is structural and imports no node-mssql runtime. The application
+  owns pool construction, connection, configuration and shutdown.
 
 ### Streaming and cancellation, per adapter (frozen — epic "Streaming reads and query cancellation")
 
@@ -102,10 +123,14 @@ half-applying it.
 
 ## Packaging
 
-- Exposed as `@zmdb/repository/drivers/sqlite` and `@zmdb/repository/drivers/pg`.
+- Exposed as `@zmdb/repository/drivers/sqlite`, `@zmdb/repository/drivers/pg`
+  and `@zmdb/repository/drivers/mssql`.
 - `pg` is an **optional peer/dev** dependency of the repo (the sqlite driver has
   zero external deps); importing the pg driver without `pg` installed fails
   clearly, not silently.
+- `mssql` is a development dependency for the real E2E suite, not a published
+  runtime dependency. Consumers install their chosen compatible node-mssql
+  package and pass its connected pool to the structural adapter.
 
 ## Acceptance
 
@@ -114,3 +139,6 @@ half-applying it.
 - pg driver: unit test with a fake `query` recorder asserts it calls
   `query(text, params)` and returns `.rows`; prepared mode passes a stable `name`.
   (Live-PG E2E self-skips when unreachable.)
+- mssql driver: unit test records the `p1…pn` bindings and recordset return. A
+  real suite runs DDL and CRUD through SQL Server when `ZMDB_MSSQL_URL` is
+  reachable, and emits a visible `[skip] SQL Server E2E: …` reason otherwise.

@@ -63,7 +63,7 @@ UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING *
 -- parameters: ['admin', 1]
 ```
 
-Postgres and SQLite expression-bearing keyed updates return the computed row;
+Postgres, SQLite and SQL Server expression-bearing keyed updates return the computed row;
 `updateMany` returns the number of rows returned. MySQL omits unsupported
 `RETURNING` for expression-bearing keyed updates and every `updateMany`, so
 those calls resolve to `undefined` without issuing a follow-up `SELECT`.

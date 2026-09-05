@@ -42,6 +42,7 @@ describe('dialect traits', () => {
         features: { rowLevelSecurity: false },
       },
       sqlite: DIALECTS.sqlite,
+      mssql: DIALECTS.mssql,
     };
 
     const resolved = resolveDialectRegistry(definitions);
@@ -75,6 +76,7 @@ describe('dialect traits', () => {
       postgres: { parent: 'mysql' },
       mysql: { parent: 'postgres' },
       sqlite: DIALECTS.sqlite,
+      mssql: DIALECTS.mssql,
     };
 
     expect(() => resolveDialectRegistry(definitions)).toThrow('Dialect trait parent cycle includes "postgres"');

@@ -40,7 +40,9 @@ await repo.find({ name: { ilike: '%ada%' } });
 // WHERE "name" ILIKE $1
 ```
 
-On MySQL, case-insensitivity comes from the collation instead; on SQLite, `LIKE` is already case-insensitive for ASCII. If a query has to behave the same on all three, that difference is worth a test.
+On MySQL and SQL Server, case-insensitivity normally comes from the collation instead; on SQLite,
+`LIKE` is already case-insensitive for ASCII. If a query has to behave the same on all four,
+that difference is worth a test.
 
 ## Features you reach past the builder for
 

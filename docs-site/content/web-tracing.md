@@ -102,7 +102,7 @@ The database-span table is likewise the complete emitted set:
 
 | attribute                 | when present                               | value                                            |
 | ------------------------- | ------------------------------------------ | ------------------------------------------------ |
-| `db.system.name`          | compile-time query telemetry is available  | `postgresql`, `mysql` or `sqlite`                |
+| `db.system.name`          | compile-time query telemetry is available  | `postgresql`, `mysql`, `sqlite` or `mssql`       |
 | `db.operation.name`       | compile-time query telemetry is available  | `SELECT`, `INSERT`, `UPDATE` or `DELETE`         |
 | `db.collection.name`      | compile-time query telemetry is available  | primary table                                    |
 | `db.query.text`           | every traced execution                     | placeholder-only SQL before any sqlcommenter tag |

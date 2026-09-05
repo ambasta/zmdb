@@ -77,7 +77,7 @@ describe('zero-operand null predicates', () => {
   //   parameters ["ignored", 7]
   // `is not null` has the same defect: it binds its ignored value and shifts the
   // following placeholder.
-  it.fails('compiles zero-operand null predicates without shifting later parameters', () => {
+  it('compiles zero-operand null predicates without shifting later parameters', () => {
     const isNull = createQueryCompiler('postgres')
       .selectFrom('users')
       .where('deletedAt', 'is null', 'ignored')

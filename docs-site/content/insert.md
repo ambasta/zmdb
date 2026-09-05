@@ -23,6 +23,14 @@ qc.insertInto('users').values({ email: 'a@b.com' }).returning(['id', 'createdAt'
 INSERT INTO "users" ("email") VALUES ($1) RETURNING "id", "createdAt"
 ```
 
+SQL Server places its equivalent before `VALUES`:
+
+```sql
+INSERT INTO [users] ([email]) OUTPUT INSERTED.[id], INSERTED.[createdAt] VALUES (@p1)
+```
+
+MySQL refuses `returning()` rather than emitting unsupported SQL.
+
 ## Through the repository (validated)
 
 ```ts

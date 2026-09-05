@@ -1,7 +1,7 @@
 > **ToDo / feature gap.** There is no MongoDB support. The query compiler emits
 > SQL text; `CompiledQuery` always has `text` and `parameters` and may carry
 > optional SQL telemetry. None of those fields can represent a document-store
-> command. `Dialect` is `'postgres' | 'mysql' | 'sqlite'`.
+> command. `Dialect` is `'postgres' | 'mysql' | 'sqlite' | 'mssql'`.
 
 ## Why it is not a dialect
 

@@ -25,6 +25,12 @@ qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).returning(['i
 UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING "id", "role"
 ```
 
+On SQL Server the same builder places the clause before `WHERE`:
+
+```sql
+UPDATE [users] SET [role] = @p1 OUTPUT INSERTED.[id], INSERTED.[role] WHERE [id] = @p2
+```
+
 ## Through the repository (validated)
 
 ```ts
@@ -41,7 +47,7 @@ bigint operands. `preUpdate` receives the validated, `undefined`-stripped patch
 in schema order, including the same branded expression objects supplied by the
 caller.
 
-Postgres and SQLite return the computed row from `update`/`increment`, and
+Postgres, SQLite and SQL Server return the computed row from `update`/`increment`, and
 `updateMany` returns a row count. MySQL expression updates and every
 `updateMany` omit unsupported `RETURNING` and resolve to `undefined`; no hidden
 read follows the write.

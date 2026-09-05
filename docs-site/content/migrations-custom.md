@@ -95,7 +95,7 @@ const dialect = process.env.DB_DIALECT as Dialect;
 export const migrations = dialect === 'postgres' ? pgMigrations : sqliteMigrations;
 ```
 
-Hand-written migrations usually have to fork too — `ALTER COLUMN` alone differs across all three dialects.
+Hand-written migrations usually have to fork too — `ALTER COLUMN` alone differs across all four dialects.
 
 ## Testing them
 

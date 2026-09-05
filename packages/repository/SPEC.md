@@ -382,11 +382,13 @@ a plain object on a numeric column is a validation failure, not an expression.
 The keys an expression may not name are unchanged from §3: a primary key column is still refused in a patch,
 so `{ id: inc(1) }` fails on the key rule before the expression rule is reached.
 
-### Return values and MySQL
+### Return values, SQL Server and MySQL
 
 Postgres and SQLite expression-bearing `update`/`increment` calls return the
-computed row through `RETURNING *`. `updateMany` returns the number of rows the
-database returned from `RETURNING` (primary-key columns when present).
+computed row through `RETURNING *`; SQL Server returns it through
+`OUTPUT INSERTED.*`. `updateMany` returns the number of rows the database
+returned from the dialect's row-returning clause (primary-key columns when
+present).
 
 MySQL has no `UPDATE … RETURNING`. The repository therefore emits no
 `RETURNING` for an expression-bearing keyed update or upsert update branch, and

@@ -22,7 +22,6 @@ export type _DialectIsTheFrozenSix = Expect<Equal<Dialect, FrozenDialect>>;
 // @ts-expect-error frozen (#506): every dialect-keyed table gains all six entries.
 export const frozenParameterLimits: Readonly<Record<FrozenDialect, number>> = DIALECT_PARAM_LIMITS;
 
-// @ts-expect-error frozen (#506): the real public factory accepts SQL Server.
 export const mssqlCompiler = createQueryCompiler('mssql');
 // @ts-expect-error frozen (#506): the real public factory accepts CockroachDB.
 export const cockroachCompiler = createQueryCompiler('cockroach');

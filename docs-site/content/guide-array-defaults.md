@@ -49,7 +49,7 @@ disappears at compile time, so the schema carries no array to alias. Older
 
 ## Reading and writing
 
-The driver returns JSON columns as parsed values in Postgres (`json`/`jsonb`) and as **strings** in MySQL and SQLite. That difference is the driver's, not zmdb's:
+The driver returns JSON columns as parsed values in Postgres (`json`/`jsonb`) and as **strings** in MySQL, SQLite and SQL Server. That difference is the driver's, not zmdb's:
 
 ```ts
 const raw = row.tags;

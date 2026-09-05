@@ -173,9 +173,11 @@ Each migration runs inside its own transaction, in version order, with its ledge
 transaction. One failure stops the run: the migrations already applied stay applied and recorded, the
 failing one is rolled back and not recorded, and the message names the version and the failing statement.
 
-**MySQL has no transactional DDL**, so that guarantee is only available on Postgres and SQLite. On MySQL an interrupted migration leaves the ledger accurate — the row is not written — and the schema half-applied, which is worse than the reverse and cannot be fixed from here.
-
-So on MySQL the failure message additionally lists the statements that already ran, because that list is the only way to hand-finish the migration, and a spec that omitted this would be promising atomicity three times and delivering it twice.
+**MySQL has no transactional DDL**, so that guarantee is available on Postgres, SQLite and SQL Server. On MySQL an
+interrupted migration leaves the ledger honest — the row is not written — and the schema half-applied,
+which is worse than the reverse and cannot be fixed from here. So on MySQL the failure message additionally
+lists the statements that already ran, because that list is the only way to hand-finish the migration, and
+a spec that omitted this would be promising atomicity three times and delivering it twice.
 
 `rollback` reverts exactly one version, the highest applied. `--to <version>` reverts down to and excluding
 that version, one transaction per migration, stopping on the first failure.

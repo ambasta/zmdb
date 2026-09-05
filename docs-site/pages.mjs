@@ -904,7 +904,7 @@ export const PAGE_META = {
     title: 'SQL Server',
     group: 'Dialects',
     status: 'todo',
-    note: 'no mssql dialect: different placeholder syntax, quoting, LIMIT form and type set',
+    note: 'runtime support is implemented; the combined dialect documentation slice remains pending',
   },
   'dialect-singlestore': {
     title: 'SingleStore',

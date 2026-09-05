@@ -42,7 +42,8 @@ Change operations include:
 - `add_column` — new column in existing table
 - `drop_column` — removed column
 - `alter_column_type` — type change
-- `alter_primary_key` — ordered primary-key change; explicitly refused on SQLite
+- `alter_primary_key` — ordered primary-key change; explicitly refused on
+  SQLite and SQL Server (the latter needs the existing constraint name)
 
 ## Generating DDL
 

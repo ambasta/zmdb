@@ -83,8 +83,9 @@ The expression object is the same branded object supplied by the caller.
 
 ## Return values by dialect
 
-Postgres and SQLite use `RETURNING *`, so `update` and `increment` return the
-computed row. `updateMany` returns the number of returned rows.
+Postgres and SQLite use `RETURNING *`, while SQL Server uses `OUTPUT
+INSERTED.*`; all three return the computed row from `update` and `increment`.
+`updateMany` returns the number of returned rows.
 
 MySQL has no `UPDATE … RETURNING`. Expression-bearing `update`/`increment` and
 all `updateMany` calls omit it, execute one atomic statement, and resolve to

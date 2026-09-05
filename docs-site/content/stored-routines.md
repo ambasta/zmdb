@@ -120,18 +120,20 @@ run, and execute the ordered result through a
 
 ## Dialect behavior
 
-| Behavior                  | postgres                                                  | mysql                                                                   | sqlite  |
-| ------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- | ------- |
-| Function DDL              | `CREATE OR REPLACE`; collision-safe tagged dollar quoting | ordered `DROP` + `CREATE`; explicit determinism and invoker security    | refuses |
-| Procedure DDL             | `CREATE OR REPLACE PROCEDURE`                             | ordered `DROP` + one `CREATE` driver statement; never emits `DELIMITER` | refuses |
-| Scalar / procedure call   | typed, validated, and bound                               | typed, validated, and bound                                             | refuses |
-| Scalar `setof` call       | `SELECT * FROM`; typed as a readonly array                | refuses                                                                 | refuses |
-| Routine `language` option | emitted; defaults to `plpgsql`                            | refuses                                                                 | refuses |
+| Behavior                  | postgres                                                  | mysql                                                                   | sqlite  | mssql   |
+| ------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- | ------- | ------- |
+| Function DDL              | `CREATE OR REPLACE`; collision-safe tagged dollar quoting | ordered `DROP` + `CREATE`; explicit determinism and invoker security    | refuses | refuses |
+| Procedure DDL             | `CREATE OR REPLACE PROCEDURE`                             | ordered `DROP` + one `CREATE` driver statement; never emits `DELIMITER` | refuses | refuses |
+| Scalar / procedure call   | typed, validated, and bound                               | typed, validated, and bound                                             | refuses | refuses |
+| Scalar `setof` call       | `SELECT * FROM`; typed as a readonly array                | refuses                                                                 | refuses | refuses |
+| Routine `language` option | emitted; defaults to `plpgsql`                            | refuses                                                                 | refuses | refuses |
 
 Only input parameters are supported: `out` and `inout` are refused. Function
 returns are scalar SQL types or, on Postgres, a `setof` scalar; composite/table
 returns and overload declarations are not represented. SQLite has no stored
 routines, so both DDL and calls fail explicitly rather than being emulated.
+SQL Server also refuses this surface: its routine grammar and return shapes are
+not represented by the current `RoutineDef`.
 
 ## Deliberate boundaries
 

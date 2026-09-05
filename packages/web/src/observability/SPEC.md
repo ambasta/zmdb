@@ -189,14 +189,14 @@ request was rejected.
 
 Database span, one per `Driver.execute`:
 
-| attribute                 | source       | note                                             |
-| ------------------------- | ------------ | ------------------------------------------------ |
-| `db.system.name`          | compile time | from `Dialect` — `postgresql`, `mysql`, `sqlite` |
-| `db.operation.name`       | compile time | `SELECT`, `INSERT`, `UPDATE`, `DELETE`           |
-| `db.collection.name`      | compile time | the primary table                                |
-| `db.query.text`           | compile time | the placeholder-only SQL — §6                    |
-| `db.response.status_code` | runtime      | the dialect's own error code on failure          |
-| `zmdb.db.parameter_count` | runtime      | `parameters.length` — §6                         |
+| attribute                 | source       | note                                                      |
+| ------------------------- | ------------ | --------------------------------------------------------- |
+| `db.system.name`          | compile time | from `Dialect` — `postgresql`, `mysql`, `sqlite`, `mssql` |
+| `db.operation.name`       | compile time | `SELECT`, `INSERT`, `UPDATE`, `DELETE`                    |
+| `db.collection.name`      | compile time | the primary table                                         |
+| `db.query.text`           | compile time | the placeholder-only SQL — §6                             |
+| `db.response.status_code` | runtime      | the dialect's own error code on failure                   |
+| `zmdb.db.parameter_count` | runtime      | `parameters.length` — §6                                  |
 
 **All four of #579's database attribute names are the deprecated spellings** and are
 corrected here, which is the concrete reason step 5 asks for a pinned version:
@@ -216,7 +216,7 @@ v1.23.0 HTTP stabilisation. That page is corrected with this freeze.
 
 ```ts
 export interface QueryTelemetry {
-  readonly system: 'postgresql' | 'mysql' | 'sqlite';
+  readonly system: 'postgresql' | 'mysql' | 'sqlite' | 'mssql';
   readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
   readonly collection: string;
 }

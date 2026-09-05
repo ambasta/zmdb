@@ -77,9 +77,16 @@ on a column that is never null, which is why `status` exists and why `leaseOwner
 nullable is fine for data, fatal for a predicate — is the rule to remember, and it applies well beyond the
 outbox.
 
-`status` is tagged `Sql<'jsonEnum'>` rather than `Sql<'text'>`, because that is this project's spelling for a column whose app type is a literal union — `vocabulary.type-test.ts:66` states it as data (`enum: "Sql<'jsonEnum'> + a literal union"`), and it is asserted for the tagged-DTO path at `../../../schema-core/src/derive/tagged-dto.type-test.ts:77`. The storage is identical: `jsonEnum` is `TEXT` on all three dialects (`../migrations/index.ts:158,173,187`), and nothing JSON-encodes — the name is about the IR, not the wire.
-
-What the tag buys is that the literal union survives into the IR's `enum`, so the app type is the union rather than a bare string (`../../../schema-core/src/ir/index.ts:428-431`) and OpenAPI emits `type: 'string'` with the three values listed (`:553-556`). Spelling it `text` would have discarded all of that for a column whose entire purpose is that it has three legal values.
+`status` is tagged `Sql<'jsonEnum'>` rather than `Sql<'text'>`, because that is this project's spelling for a
+column whose app type is a literal union — `vocabulary.type-test.ts:66` states it as data
+(`enum: "Sql<'jsonEnum'> + a literal union"`), and it is asserted for the tagged-DTO path at
+`../../../schema-core/src/derive/tagged-dto.type-test.ts:77`. The storage is identical to each dialect's
+widest text type: `TEXT` on Postgres, MySQL and SQLite, and `NVARCHAR(MAX)` on SQL Server.
+Nothing JSON-encodes — the name is about the IR, not the wire. What the tag buys is that the literal union
+survives into the IR's `enum`, so the app type is the union rather than a bare string
+(`../../../schema-core/src/ir/index.ts:428-431`) and OpenAPI emits
+`type: 'string'` with the three values listed (`:553-556`). Spelling it `text` would have discarded all of that
+for a column whose entire purpose is that it has three legal values.
 
 ### 2.2 `status`, again, because "dead" has to have a name
 
@@ -135,15 +142,21 @@ createIndexDdl(
 predicate is expressible even though the query builder's `WHERE` is not — which is worth noticing, because it
 is why §2.1's restriction lands on the dispatcher's queries and not on its schema.
 
-**Partial indexes are Postgres and SQLite only. MySQL has none.** `outboxPendingIndexDdl` drops the `where` on MySQL before calling `createIndexDdl`; the generic emitter itself remains deliberately literal and would emit invalid MySQL SQL if handed a predicate.
+**Postgres, SQLite and SQL Server use the filtered predicate; MySQL has no partial index.**
+`outboxPendingIndexDdl` drops the `where` on MySQL before calling `createIndexDdl`. The outbox's MySQL index
+is therefore created in full, and that is why `status` is the **leading column**: a full composite index on
+`(status, lease_until, created_at)` still seeks straight to the pending rows, so the query plan degrades from
+"index over a small set" to "index prefix over a small set" rather than to a table scan. An index ordered
+`(created_at, status)` would degrade to a scan of every row ever written.
 
-The outbox's MySQL index is therefore created in full, and that is why `status` is the **leading column**: a full composite index on `(status, lease_until, created_at)` still seeks straight to the pending rows, so the query plan degrades from "index over a small set" to "index prefix over a small set" rather than to a table scan.
-
-An index ordered `(created_at, status)` would degrade to a scan of every row ever written.
-
-`#593` asserts the emitted index DDL per dialect, including that the MySQL form has no `WHERE`; `#594` also executes the complete table-plus-index migration against SQLite and checks the timestamp spelling in all three dialects. SQLite's database-clock default emits the same fixed-width ISO UTC text as a `Date` bound through the SQLite driver, so defaulted and application-supplied values retain one lexicographic ordering.
-
-MySQL's migration uses `VARCHAR(36)` for the UUID text and lease token and `VARCHAR(16)` for status: MySQL rejects a `TEXT` primary key and a `TEXT` column in this index without a prefix length. The Node surface remains `string`; the bounded spelling is a storage requirement, not a narrower application type.
+`#593` asserts the emitted index DDL per dialect, including that the MySQL form has no `WHERE`; `#594` also
+executes the complete table-plus-index migration against SQLite and checks the timestamp spelling in all four
+dialects. SQLite's database-clock default emits the same fixed-width ISO UTC text as a `Date` bound through the
+SQLite driver, so defaulted and application-supplied values retain one lexicographic ordering. MySQL's
+migration uses `VARCHAR(36)` for the UUID text and lease token and `VARCHAR(16)` for status:
+MySQL rejects a `TEXT` primary key and a `TEXT` column in this index without a prefix length. The Node surface
+remains `string`; the bounded spelling is a storage requirement, not a narrower application type. SQL Server
+uses the corresponding bounded `NVARCHAR` spellings and `DATETIMEOFFSET(3)` with `SYSDATETIMEOFFSET()`.
 
 ## 4. Claiming a row with what exists
 
@@ -165,10 +178,9 @@ the row. **Neither channel for that answer exists:**
 - `Driver.execute` (`../../../repository/src/index.ts:51-54`) returns
   `Promise<readonly Record<string, unknown>[]>`. Rows, and no affected-row count. There is nowhere for a count
   to arrive.
-- `RETURNING` is emitted **unconditionally for every dialect**: `returningClause` (`../index.ts:196-199`) has
-  no dialect guard. MySQL has no `RETURNING`, so `updateTable(…).returning([…])` compiled for MySQL is a
-  syntax error today. That is a live defect in shipped code, it is not the outbox's to fix, and the outbox
-  must not be built on the feature.
+- `returning()` now dispatches by dialect: MySQL refuses it, Postgres/SQLite use `RETURNING`, and SQL Server
+  places `OUTPUT` in the verb-specific middle of the statement. The outbox still does not build on it,
+  because the driver contract has no affected-row count and the claim algorithm does not need returned rows.
 
 ### 4.2 So the claim is three statements, and the predicate is the lock
 
@@ -186,7 +198,8 @@ the row. **Neither channel for that answer exists:**
 ```
 
 Every clause is on the existing builders: `SelectBuilder.where/orderBy/limit`, `UpdateBuilder.set/where/whereIn`
-(`../index.ts:171-179`). No lock clause, no `RETURNING`, no row count, and the same SQL on all three dialects.
+(`../index.ts:171-179`). No lock clause, no `RETURNING`, no row count, and dialect-correct SQL on all four
+shipped dialects.
 
 **Two dispatchers cannot claim the same row, and no explicit locking is what makes that true.** Statement 2 is
 a single `UPDATE`, so each row's predicate is evaluated while that row is write-locked by the statement
@@ -360,7 +373,7 @@ margin.
    `lastError` set, `status` unchanged.
 7. `a row at maxAttempts goes dead and leaves the candidate set` — and `onDead` fires once, and a subsequent
    `runOnce` does not see it. This is the poison-row assertion.
-8. `the pending index is partial on postgres and sqlite and full on mysql` — §3, golden DDL per dialect.
+8. `the pending index is filtered on postgres, sqlite and mssql and full on mysql` — §3, golden DDL per dialect.
 9. `the candidate query never emits IS NULL` — golden SQL, because §2.1 is a rule that a later change would
    quietly break.
 10. `no claim statement emits RETURNING` — §4.1, so the MySQL defect cannot reach the outbox.
@@ -380,8 +393,8 @@ margin.
   inside a database transaction. §4.2 is not a workaround for it; it is better.
 - **No affected-row count on `Driver`.** §4.1 — adding one would change an interface every driver implements,
   for a design that no longer needs it.
-- **No `RETURNING` in any outbox statement**, and no fix to `returningClause`'s missing dialect guard here.
-  It is a real defect and it belongs to whoever owns `../index.ts:196-199`.
+- **No `RETURNING` or `OUTPUT` in any outbox statement.** Dialect dispatch now handles those constructs,
+  but the outbox claim protocol deliberately uses its authoritative read-back instead.
 - **No `IS NULL` operator.** §2.1 — a real gap, worth closing, and not by a subsystem that can express itself
   without it. Adding an operator that changes how `null` binds in every existing query is not an outbox change.
 - **No `attempts = attempts + 1`.** §4.3 — the lease makes the read-modify-write safe, so the compiler's

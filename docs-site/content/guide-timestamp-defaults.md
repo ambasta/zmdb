@@ -25,13 +25,14 @@ One clock for every writer, and it works for inserts from a migration or a `psql
 
 The function name is dialect-specific:
 
-| Dialect  | Use                                         |
-| -------- | ------------------------------------------- |
-| Postgres | `now()` — or `clock_timestamp()`, see below |
-| MySQL    | `CURRENT_TIMESTAMP`                         |
-| SQLite   | `CURRENT_TIMESTAMP`                         |
+| Dialect    | Use                                         |
+| ---------- | ------------------------------------------- |
+| Postgres   | `now()` — or `clock_timestamp()`, see below |
+| MySQL      | `CURRENT_TIMESTAMP`                         |
+| SQLite     | `CURRENT_TIMESTAMP`                         |
+| SQL Server | `SYSDATETIMEOFFSET()`                       |
 
-The declaration is portable across all three; the default expression is not, which is one
+The declaration is portable across all four; the default expression is not, which is one
 argument for keeping it in the migration where it is visible rather than in a schema that
 claims to be dialect-neutral.
 
@@ -99,9 +100,15 @@ The one that causes data loss. Postgres has two types:
 - `timestamp` — no time zone. Stores wall-clock digits with no offset, so `12:00` is meaningless without knowing where.
 - `timestamptz` — stores an instant, converting on the way in and out.
 
-**Anything that happened wants `timestamptz`,** and that is what you get: `Sql<'timestamp'>` emits `TIMESTAMPTZ` on Postgres and `DATETIME(3)` on MySQL. The app type is `Date` on all three dialects, so the instant is what crosses the boundary rather than a set of digits.
+**Anything that happened wants `timestamptz`,** and that is what you get: `Sql<'timestamp'>`
+emits `TIMESTAMPTZ` on Postgres and `DATETIME(3)` on MySQL. The app type is `Date` on all
+four dialects; SQL Server stores it as `DATETIMEOFFSET(3)`, so the instant is what crosses
+the boundary rather than a set of digits.
 
-The old builder emitted a bare `TIMESTAMP` and left `timestamptz` to a hand-written migration; that is no longer a thing you have to remember, because a table of zone-less timestamps written from servers in different regions cannot be repaired — the information needed to interpret them was never stored.
+The old builder emitted a bare `TIMESTAMP` and left `timestamptz` to a hand-written migration;
+that is no longer a thing you have to remember, because a table of zone-less timestamps
+written from servers in different regions cannot be repaired — the information needed to
+interpret them was never stored.
 
 SQLite has no date type at all — it stores `TEXT`, and comparisons are lexicographic, so
 store ISO-8601 UTC (`2026-08-31T12:00:00Z`) which sorts correctly as text.

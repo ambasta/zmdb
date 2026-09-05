@@ -176,8 +176,8 @@ CREATE INDEX "idx_users_email_lower" ON "users" (lower("email"))
 ```
 
 Expression text is emitted verbatim, so quote identifiers inside it and never interpolate user
-input. PostgreSQL and SQLite accept this form. MySQL is refused with an
-`UnsupportedFeatureError`; use a generated column there.
+input. PostgreSQL and SQLite accept this form. MySQL and SQL Server are refused
+with an `UnsupportedFeatureError`; use a generated column there.
 
 ## Dropping Indexes and Constraints
 

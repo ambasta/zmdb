@@ -1,7 +1,9 @@
 Database schemas provide a namespace for organizing database objects. In PostgreSQL, schemas allow you to group tables, views, and other objects into logical units, enabling multiple teams or applications to use the same database without naming collisions.
 
 > [!IMPORTANT]
-> zmdb supports schema creation through pure DDL functions. Schemas are PostgreSQL-native concepts; MySQL and SQLite don't have namespace support (they use databases and database files respectively).
+> zmdb supports schema creation through pure DDL functions on PostgreSQL and
+> SQL Server. MySQL and SQLite do not expose this namespace shape through the
+> dialect (they use databases and database files respectively).
 
 ## Creating a Schema
 

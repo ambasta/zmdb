@@ -34,14 +34,15 @@ CREATE TABLE "memberships" (
 )
 ```
 
-Postgres, MySQL and SQLite use that same table-level shape with their own identifier quoting and
+Postgres, MySQL, SQLite and SQL Server use that same table-level shape with their own identifier quoting and
 integer spelling. A one-column key keeps the existing inline form, including SQLite's
 `INTEGER PRIMARY KEY` rowid alias.
 
 Changing the key produces one reversible `alter_primary_key` operation. Postgres and MySQL emit
 one `ALTER TABLE` statement that drops the old key and adds the new one. SQLite has no key-alter
 form, so generation throws an `UnsupportedFeatureError` naming the table and requiring a
-hand-written table rebuild; it never silently omits the change.
+hand-written table rebuild. SQL Server also refuses the generated operation because the snapshot
+does not carry the existing primary-key constraint name needed for `DROP CONSTRAINT`.
 
 > [!NOTE]
 > The two `References<…>` tags above emit two independent single-column foreign

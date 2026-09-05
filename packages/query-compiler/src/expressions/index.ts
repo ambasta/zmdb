@@ -77,13 +77,15 @@ interface EmitColumnExprOptions {
   readonly column: string;
   readonly parameterIndex: number;
   readonly scope: 'update' | 'upsert';
+  readonly currentReference?: string;
+  readonly proposedReference?: string;
 }
 
 /** Emit one expression and only the parameters contributed by that expression. */
 export function emitColumnExpr(expression: ColumnExpr<unknown>, options: EmitColumnExprOptions): EmittedExpr {
   const { dialect, table, column, parameterIndex, scope } = options;
   const traits = TRAITS[dialect];
-  const quotedColumn = quoteIdentifier(dialect, column);
+  const quotedColumn = options.currentReference ?? quoteIdentifier(dialect, column);
   const placeholder = formatPlaceholder(dialect, parameterIndex);
 
   switch (expression.op) {
@@ -116,7 +118,9 @@ export function emitColumnExpr(expression: ColumnExpr<unknown>, options: EmitCol
         );
       }
       return {
-        sql: traits.upsert === 'onDuplicateKey' ? `VALUES(${quotedColumn})` : `EXCLUDED.${quotedColumn}`,
+        sql:
+          options.proposedReference ??
+          (traits.upsert === 'onDuplicateKey' ? `VALUES(${quotedColumn})` : `EXCLUDED.${quotedColumn}`),
         params: [],
       };
   }

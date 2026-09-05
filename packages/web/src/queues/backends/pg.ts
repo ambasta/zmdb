@@ -18,5 +18,9 @@ export type PgJobStoreOptions = PgOptions;
  * this adapter neither creates nor closes the caller's pool/client.
  */
 export function createPgJobStore(client: PgJobClient, options?: PgJobStoreOptions): JobStore {
-  return pgDriver(client, options);
+  const driver = pgDriver(client, options);
+  return {
+    dialect: 'postgres',
+    execute: query => driver.execute(query),
+  };
 }

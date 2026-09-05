@@ -25,7 +25,11 @@ await driver.execute({ text: ddl, parameters: [] });
 CREATE MATERIALIZED VIEW "author_stats" AS SELECT ...
 ```
 
-On `mysql` or `sqlite` this throws `UnsupportedFeatureError('materialized views', dialect)` at compile time rather than emitting SQL the database will reject. See [Views](./views.html) for the plain-view path, which works everywhere.
+On `mysql`, `sqlite` or `mssql` this throws
+`UnsupportedFeatureError('materialized views', dialect)` at compile time rather
+than emitting SQL the database will reject. SQL Server indexed views require a
+different declaration shape. See [Views](./views.html) for the plain-view path,
+which works everywhere.
 
 ## Reading from it
 

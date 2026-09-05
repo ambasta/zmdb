@@ -13,7 +13,7 @@ import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, t
 // the ordered snapshot field, table-level DDL, reversible key-change operation and SQLite's
 // explicit refusal.
 
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite'];
+const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
 
 // ---------------------------------------------------------------------------
 // §1.2 Key DDL, per dialect
@@ -50,6 +50,9 @@ describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
       sqlite:
         'CREATE TABLE "memberships" ("org_id" INTEGER NOT NULL, "role" TEXT NOT NULL, ' +
         '"user_id" INTEGER NOT NULL, PRIMARY KEY ("user_id", "org_id"))',
+      mssql:
+        'CREATE TABLE [memberships] ([org_id] INT NOT NULL, [role] NVARCHAR(MAX) NOT NULL, ' +
+        '[user_id] INT NOT NULL, PRIMARY KEY ([user_id], [org_id]))',
     };
     // A key column emits `NOT NULL` explicitly in this form, which the inline form suppresses
     // as redundant. It is not redundant here: SQLite permits a NULL in a `PRIMARY KEY` column
@@ -89,6 +92,7 @@ describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
       postgres: 'CREATE TABLE "users" ("id" SERIAL PRIMARY KEY, "email" VARCHAR(255) NOT NULL)',
       mysql: 'CREATE TABLE `users` (`id` INT AUTO_INCREMENT PRIMARY KEY, `email` VARCHAR(255) NOT NULL)',
       sqlite: 'CREATE TABLE "users" ("id" INTEGER PRIMARY KEY, "email" TEXT NOT NULL)',
+      mssql: 'CREATE TABLE [users] ([id] INT IDENTITY(1,1) PRIMARY KEY, [email] NVARCHAR(255) NOT NULL)',
     };
     for (const dialect of DIALECTS) expect(emitUp(createUsers, dialect), dialect).toBe(golden[dialect]);
   });

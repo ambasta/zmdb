@@ -61,9 +61,10 @@ On MySQL, booleans are `tinyint(1)`, so `NOT` stores `0`/`1`. SQLite has the
 same truth table: `NOT 0` is `1`, `NOT 1` is `0`, and both round-trip through a
 `Sql<'boolean'>` column.
 
-Postgres and SQLite return the computed row. MySQL has no `UPDATE …
-RETURNING`, so an expression-bearing repository update omits it and resolves to
-`undefined` without a follow-up read.
+Postgres, SQLite and SQL Server return the computed row; SQL Server spells the
+toggle as bitwise `~` and returns it through `OUTPUT INSERTED.*`. MySQL has no
+`UPDATE … RETURNING`, so an expression-bearing repository update omits it and
+resolves to `undefined` without a follow-up read.
 
 ## Prefer an explicit target state
 
