@@ -1,0 +1,19 @@
+{
+  "name": "@zmdb-fixture/client-adapters",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/client": "workspace:^"
+  },
+  "devDependencies": {
+    "@angular/core": "22.1.5",
+    "@types/react": "19.2.18",
+    "@types/react-test-renderer": "19.1.0",
+    "react": "19.2.8",
+    "react-test-renderer": "19.2.8",
+    "rxjs": "7.8.2",
+    "solid-js": "1.9.15",
+    "svelte": "5.57.0",
+    "vue": "3.5.42"
+  }
+}

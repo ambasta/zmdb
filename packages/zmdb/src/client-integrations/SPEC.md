@@ -17,17 +17,17 @@ generated client, request transport, wire format, response validation and client
 
 ## 0. Measured starting point
 
-Measured on 2026-09-05:
+Measured on 2026-09-05 at `cd75aed4`:
 
-- The tracked baseline at `94164c53` has no `@zmdb/client`. A concurrent #679 spec freeze now adds `packages/client/SPEC.md` and `packages/web/src/contract/SPEC.md`, but still no client package
-  manifest or runtime source. Those two specifications are authoritative for the neutral runtime and HTTP contract; this issue adds no surface to either.
-- The repository has no framework-client adapter workspace.
+- `@zmdb/client` is a published, zero-dependency package with seven public subpaths. The generated-client workflow emits and externally exercises a real client through that runtime. Its package
+  contract and `packages/web/src/contract/SPEC.md` remain authoritative; this tests freeze adds no surface to either.
+- The repository has no published framework-client adapter package. Issue #689 adds only the private `fixtures/client-adapters` conformance workspace.
 - `docs-site/content/framework-integrations.md` documents one- or two-line server framework wrappers over `makeEndpoint`. Those remain recipes, not packages.
 - React Native support currently consists of the `@zmdb/aot-validator/metro` transform and structural SQLite driver examples. There is no client-state adapter.
 - The committed Metro fixture runs Metro 0.87, preserves an existing Babel transformer and proves the AOT transform. `@zmdb/aot-validator` records `>=0.87.0 <0.88.0` as its supported Metro line.
 - The Next.js guide currently calls repositories directly from server components, route handlers and server actions. It documents no generated HTTP client or client-state adapter.
-- A Fallow structure scan found 9 workspaces and 518 entry points, with no configured architecture zones or boundary rules. The dependency rules below therefore need executable enforcement in #689 and
-  #700 rather than relying on an existing generic boundary configuration.
+- The architecture and publication gates know about the existing packages, but no rule can validate packages that do not exist. The dependency rules below therefore need executable missing-package
+  assertions in #689 and packed-package enforcement in #700.
 
 The framework release lines in §4 were measured with `yarn npm info`, not inferred from old documentation.
 
@@ -50,7 +50,7 @@ another request encoder or response decoder.
 The application supplies the generated client type as a generic:
 
 ```ts
-export type QueryLoader<Client, Output> = (client: Client, signal: AbortSignal) => PromiseLike<Output>;
+export type QueryLoader<Client, Input, Output> = (client: Client, input: Input, signal: AbortSignal) => PromiseLike<Output>;
 
 export type MutationRunner<Client, Input, Output> = (client: Client, input: Input, signal: AbortSignal) => PromiseLike<Output>;
 ```

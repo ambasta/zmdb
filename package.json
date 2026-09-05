@@ -4,6 +4,7 @@
   "workspaces": [
     "packages/*",
     "benchmarks",
+    "fixtures/client-adapters",
     "fixtures/consumer-metro",
     "fixtures/llm-adapters"
   ],
