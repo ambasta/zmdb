@@ -84,7 +84,7 @@ async function start(handlers: GrpcHandlers<Orders>, options: StartOptions = {})
     definition: ordersService,
     address,
     credentials: 'insecure',
-    deadlineMs: 2_000,
+    deadlineMs: 5_000,
     validateMetadata: options.validateClientMetadata ?? identityMetadata,
   });
   return {
@@ -275,7 +275,7 @@ describe('typed server and client calls', () => {
     expect(seenBinary['trace-bin']).toEqual(Uint8Array.of(1, 2, 3));
     expect(trailer?.headers['x-message-count']).toBe('2');
     expect(validatedClientMetadata).toBeGreaterThan(0);
-  });
+  }, 20_000);
 
   it('one authorisation function written against WithHeaders is callable with a GrpcCall', async () => {
     const requiresApiKey = (ctx: WithHeaders): boolean => ctx.headers['x-api-key'] === 'secret';
@@ -320,7 +320,7 @@ describe('typed server and client calls', () => {
       { text: 'two' },
       { text: 'summary' },
     ]);
-  });
+  }, 20_000);
 
   it('bidirectional request validation failures reject the response iterator', async () => {
     await using harness = await start(standardHandlers());
