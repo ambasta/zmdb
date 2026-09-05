@@ -193,7 +193,9 @@ export function schemasFromFiles(
       }
     }
     if (schemas.size === 0) {
-      throw new Error(`the configured schema files export no tagged table declarations: ${files.toSorted().join(', ')}`);
+      throw new Error(
+        `the configured schema files export no tagged table declarations: ${files.toSorted().join(', ')}`,
+      );
     }
     return [...schemas.values()].toSorted((left, right) => left.ir.table.localeCompare(right.ir.table));
   } finally {
