@@ -90,6 +90,7 @@ export function compileSchemaValidator(schema: CoreSchema<string>): CompiledVali
       const constraints = col.constraints;
       const patternStr = constraints.pattern;
       const patternRegex = patternStr ? new RegExp(patternStr) : undefined;
+      const minLength = constraints.minLength;
       const maxLength = constraints.maxLength ?? col.length;
       const min = constraints.minimum;
       const max = constraints.maximum;
@@ -134,6 +135,15 @@ export function compileSchemaValidator(schema: CoreSchema<string>): CompiledVali
                 path,
                 message: `expected pattern ${patternStr}`,
                 expected: `pattern ${patternStr}`,
+                value: val,
+              });
+              return;
+            }
+            if (minLength !== undefined && val.length < minLength) {
+              issues.push({
+                path,
+                message: `expected minLength ${minLength}`,
+                expected: `minLength ${minLength}`,
                 value: val,
               });
               return;

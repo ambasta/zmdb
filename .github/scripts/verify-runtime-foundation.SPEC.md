@@ -108,6 +108,7 @@ packages/repository/src/transactions/index.ts
 packages/repository/src/transactions/recording-conn.ts
 packages/repository/src/typed-methods/typed-methods.fixture.ts
 packages/repository/src/typed-populate/fixtures.ts
+packages/repository/src/validator.ts
 ```
 
 The five fixture/support files remain owned by ORM tests and must stop being published.
