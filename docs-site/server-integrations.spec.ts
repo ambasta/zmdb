@@ -170,7 +170,9 @@ describe('optional server integration documentation (#664)', { timeout: TEST_TIM
 
       expect(defaultDependencies, integration.packageName).not.toHaveProperty(integration.packageName);
       expect(readme, integration.packageName).toContain(integration.packageName);
-      for (const statement of integration.ownership) expect(readme, integration.packageName).toContain(statement);
+      for (const statement of integration.ownership) {
+        expect(readme.replace(/\s+/g, ' '), integration.packageName).toContain(statement);
+      }
 
       if (integration.peer === undefined) {
         expect(packageManifest.peerDependencies ?? {}).toEqual({});
