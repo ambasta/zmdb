@@ -29,10 +29,14 @@ class ${name.pascal}ControllerTestModule {}
 
 describe('${name.pascal}Controller', () => {
   it('serves its collection route', async () => {
-    await using app = createTestApp(${name.pascal}ControllerTestModule);
-    const response = await app.request({ method: 'GET', path: '/${name.fileStem}', headers: {} });
-    expect(response.status).toBe(200);
-    expect(JSON.parse(await bodyText(response))).toEqual({ resource: '${name.fileStem}', items: [] });
+    const app = createTestApp(${name.pascal}ControllerTestModule);
+    try {
+      const response = await app.request({ method: 'GET', path: '/${name.fileStem}', headers: {} });
+      expect(response.status).toBe(200);
+      expect(JSON.parse(await bodyText(response))).toEqual({ resource: '${name.fileStem}', items: [] });
+    } finally {
+      await app[Symbol.asyncDispose]();
+    }
   });
 });
 `,
