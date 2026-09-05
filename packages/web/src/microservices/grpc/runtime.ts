@@ -23,6 +23,7 @@ import {
   type UntypedServiceImplementation,
   type sendUnaryData,
 } from '@grpc/grpc-js';
+
 import type { GrpcLoadedMethod, GrpcMethodDef, GrpcServiceDef } from './artifact.js';
 import { GRPC_SERVER_OPENER, type GrpcServerOpener, type OpenedGrpcServer } from './bridge.js';
 import {
