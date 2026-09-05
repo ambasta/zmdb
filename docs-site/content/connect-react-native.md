@@ -55,7 +55,11 @@ Faster, and it supports SQLCipher if you need the database encrypted at rest —
 
 ## The transformer
 
-Metro does not run TypeScript custom transformers, so the [validators silently accept everything](./gotchas.html) in a React Native build. That is the trap on this platform.
+Metro does not run TypeScript custom transformers. An unconfigured
+`schemaOf<T>()` or generic validator call throws its
+[untransformed-build error](./gotchas.html) rather than silently accepting a
+value. The failure is loud, but the build still needs a supported transform
+route before those APIs can be used on device.
 
 Two options:
 

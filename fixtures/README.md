@@ -1,10 +1,10 @@
 # Consumer fixtures
 
-Three projects use zmdb the way somebody who installed it would, kept here so that CI
+Four projects use zmdb the way somebody who installed it would, kept here so that CI
 builds them rather than trusting that they still work.
 
-They contain the **same program**, declared the same way, and reach the compiled validator by
-the two supported routes:
+`consumer-cli/` and `consumer-plugin/` contain the **same program**, declared the same way,
+and reach the compiled validator by the two supported routes:
 
 |                   | `consumer-cli/`                                        | `consumer-plugin/`               |
 | ----------------- | ------------------------------------------------------ | -------------------------------- |
@@ -18,7 +18,13 @@ that is the fastest route when there is a bundler; a library, a `tsc` build or a
 may not be a reward for choosing a particular toolchain. So one fixture proves the plugin
 route and the other proves there is a route without one.
 
-`packages/aot-validator/src/cli/consumer-fixtures.spec.ts` is what holds them together, and
+`consumer-metro/` is the frozen third route. It runs a real Metro 0.87 bundle, preserves a
+pre-existing Babel transformer, and has a separate unconfigured control that reaches the
+current runtime refusal. Its configured assertions are `it.fails` until
+`@zmdb/aot-validator/metro` ships; the fixture does not make Metro a supported route by
+itself.
+
+`packages/aot-validator/src/cli/consumer-fixtures.spec.ts` is what holds that pair together, and
 what stops two directories from quietly becoming two different programs. It builds the plugin
 fixture into a temp directory, runs `--check` over the committed one, and then asserts that the
 non-generated sources are byte-identical, that the committed witness makes the same calls the

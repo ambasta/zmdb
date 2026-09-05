@@ -188,7 +188,7 @@ The Metro wrapper passes no `onDiagnostic`, so the default applies and a refused
 
 The alternative is a bundle that ships a call the transform declined, and on this platform the fallback is not a slower correct answer — `schemaOf<T>()` has no runtime implementation and throws by design, and `is<T>(x)` with no witness throws `runtime type witness required in test/fallback mode`.
 
-Neither silently accepts anything, which is the epic's third architecture constraint holding by construction rather than by a new check. `docs-site/content/connect-react-native.md` line 59 currently claims the opposite ("validators silently accept everything"); it is wrong, and #523 corrects it.
+Neither silently accepts anything, which is the epic's third architecture constraint holding by construction rather than by a new check. `docs-site/content/connect-react-native.md` used to claim the opposite ("validators silently accept everything"); #520 corrects that present-tense statement while leaving the setup rewrite to #523.
 
 ### 6.5 Expo has no config-plugin form of this, and the page must not offer one
 

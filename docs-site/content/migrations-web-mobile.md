@@ -23,13 +23,15 @@ row:
 
 ```ts
 interface MigrationConnection {
-  exec(sql: string): Promise<void>;
-  appliedVersions(): Promise<readonly number[]>;
-  appliedMigrations?(): Promise<readonly { version: number; name: string; checksum: string | null }[]>;
-  recordApplied(version: number, name: string, checksum?: string): Promise<void>;
-  recordReverted(version: number): Promise<void>;
-  ensureVersionTable?(): Promise<void>;
-  checksum?(sql: string): Promise<string>;
+  exec(sql: string): Promise<void> | void;
+  appliedVersions(): Promise<readonly number[]> | readonly number[];
+  appliedMigrations?():
+    | Promise<readonly { version: number; name: string; checksum: string | null }[]>
+    | readonly { version: number; name: string; checksum: string | null }[];
+  recordApplied(version: number, name: string, checksum?: string): Promise<void> | void;
+  recordReverted(version: number): Promise<void> | void;
+  ensureVersionTable?(): Promise<void> | void;
+  checksum?(sql: string): Promise<string> | string;
   transaction?<T>(run: (connection?: MigrationConnection) => Promise<T>): Promise<T>;
 }
 ```

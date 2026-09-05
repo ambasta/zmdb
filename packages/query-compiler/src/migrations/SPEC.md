@@ -712,8 +712,8 @@ means every load is a fresh install. Both are already normal states.
 ### 5.7 What the two pages have to change
 
 `docs-site/content/migrations-web-mobile.md` and `connect-react-native.md` are both `status: 'todo'` and stay
-that way until the epic closes; the corrections below belong to the docs slice, except the four marked
-_done_, which were code a reader would have copied.
+that way until the epic closes; the corrections below belong to the docs slice, except those marked _done_,
+which were present-tense claims or code a reader would have copied.
 
 1. _Done._ The startup example imported `@zmdb/query-compiler/migration-runner`, which is not a subpath this
    package has. It is `@zmdb/query-compiler/migrations/runner`.
@@ -726,7 +726,7 @@ _done_, which were code a reader would have copied.
 4. _Done._ That branch is the same prefix test as `isWrite` in `../../../repository/src/replicas/SPEC.md`,
    and it is the second place a reader could have concluded that reads and writes are distinguishable from
    the text. They are, for routing; they are not, for whether a statement returns rows.
-5. The `MigrationConnection` quoted on the page declares every member as returning `Promise<void>`. The real
+5. _Done._ The `MigrationConnection` quoted on the page declared every member as returning `Promise<void>`. The real
    one accepts a synchronous return as well, which is what makes a `better-sqlite3`-shaped binding usable
    without wrapping every call.
 6. "The device only ever imports the finished array, so no diffing code ships in the bundle" is true of the
@@ -734,8 +734,8 @@ _done_, which were code a reader would have copied.
    engine, the DDL emitter and the whole query compiler (§5.5).
 7. The React Native page's transformer section offers two workarounds — do not use the validators, or build a
    shared package separately — and both are replaced by `withZmdb`
-   (`../../../aot-validator/src/plugin/SPEC.md` §6). Its claim that untransformed validators "silently accept
-   everything" is wrong in the other direction: they throw (§6.4 there).
+   (`../../../aot-validator/src/plugin/SPEC.md` §6). _Done._ Its claim that untransformed validators "silently
+   accept everything" was corrected in #520: they throw (§6.4 there).
 8. Neither page mentions the dev-server staleness window or `--reset-cache`, which is the one thing a reader
    will hit in their first hour (§6.3 there).
 
