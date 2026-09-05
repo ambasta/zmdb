@@ -48,39 +48,48 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
-if (typeof (Uint8Array.prototype as unknown as Record<string, unknown>).toBase64 !== 'function') {
-  const globalObj = globalThis as unknown as Record<string, unknown>;
-  const NodeBuffer = globalObj[['B', 'u', 'f', 'f', 'e', 'r'].join('')] as
-    | {
-        from(buffer: ArrayBufferLike, offset?: number, length?: number): { toString(fmt: string): string };
-        from(str: string, fmt?: string): ArrayBuffer;
-      }
-    | undefined;
-  if (NodeBuffer) {
-    (Uint8Array.prototype as unknown as Record<string, unknown>).toBase64 = function (
-      this: Uint8Array,
-      { alphabet, omitPadding }: { alphabet?: string; omitPadding?: boolean } = {},
-    ) {
-      let str = NodeBuffer.from(this.buffer, this.byteOffset, this.byteLength).toString(
-        alphabet === 'base64url' ? 'base64url' : 'base64',
-      );
-      if (omitPadding) str = str.replace(/=+$/, '');
-      return str;
-    };
-    (Uint8Array as unknown as Record<string, unknown>).fromBase64 = function (
-      str: string,
-      { alphabet }: { alphabet?: string } = {},
-    ) {
-      return new Uint8Array(NodeBuffer.from(str, alphabet === 'base64url' ? 'base64url' : 'base64'));
-    };
+type Base64Options = { alphabet?: string; omitPadding?: boolean };
+
+declare global {
+  interface Uint8Array {
+    toBase64(options?: Base64Options): string;
+  }
+  interface Uint8ArrayConstructor {
+    fromBase64(string: string, options?: Base64Options): Uint8Array<ArrayBuffer>;
   }
 }
 
-function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return (value as unknown as { toBase64(opts: { alphabet: string; omitPadding: boolean }): string }).toBase64({
-    alphabet: 'base64url',
-    omitPadding: true,
+// boundary: Node.js buffer constructor lookup for Uint8Array base64url support in older runtimes
+const bufferKey = ['B', 'u', 'f', 'f', 'e', 'r'].join('');
+const bufCtor = Reflect.get(globalThis, bufferKey);
+const hasBuffer = typeof bufCtor === 'function' && typeof bufCtor?.from === 'function';
+
+if (hasBuffer && typeof Uint8Array.prototype.toBase64 !== 'function') {
+  Reflect.defineProperty(Uint8Array.prototype, 'toBase64', {
+    value: function (this: Uint8Array, { alphabet, omitPadding }: Base64Options = {}) {
+      let str = bufCtor
+        .from(this.buffer, this.byteOffset, this.byteLength)
+        .toString(alphabet === 'base64url' ? 'base64url' : 'base64');
+      if (omitPadding) str = str.replace(/=+$/, '');
+      return str;
+    },
+    writable: true,
+    configurable: true,
   });
+  Reflect.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (str: string, { alphabet }: Base64Options = {}) {
+      return new Uint8Array(bufCtor.from(str, alphabet === 'base64url' ? 'base64url' : 'base64'));
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
+function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
+  if (typeof value.toBase64 === 'function') {
+    return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  }
+  throw new Error('Uint8Array.prototype.toBase64 is not supported in this environment');
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
@@ -88,12 +97,11 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const decoded = (
-      Uint8Array as unknown as {
-        fromBase64(val: string, opts: { alphabet: string }): Uint8Array<ArrayBuffer>;
-      }
-    ).fromBase64(value, { alphabet: 'base64url' });
-    return encodeBase64Url(decoded) === value ? decoded : undefined;
+    if (typeof Uint8Array.fromBase64 === 'function') {
+      const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
+      return encodeBase64Url(decoded) === value ? decoded : undefined;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
