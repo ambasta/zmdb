@@ -56,12 +56,6 @@ import {
   markTransactionClosed as srcMarkTransactionClosed,
 } from '@zmdb/repository';
 import {
-  sqliteDriver as srcSqliteDriver,
-  type SqliteDatabase as SrcSqliteDatabase,
-  type SqliteOptions as SrcSqliteOptions,
-  type SqliteStatement as SrcSqliteStatement,
-} from '@zmdb/sqlite';
-import {
   EventBus as srcEventBus,
   discriminatorFor as srcDiscriminatorFor,
   flattenEmbeddable as srcFlattenEmbeddable,
@@ -95,6 +89,12 @@ import {
   toOpenApiComponents as srcToOpenApiComponents,
   toSearchSchema as srcToSearchSchema,
 } from '@zmdb/schema-core/openapi';
+import {
+  sqliteDriver as srcSqliteDriver,
+  type SqliteDatabase as SrcSqliteDatabase,
+  type SqliteOptions as SrcSqliteOptions,
+  type SqliteStatement as SrcSqliteStatement,
+} from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
 
 import { decodeValue, defineType, encodeValue } from './custom-types.js';
