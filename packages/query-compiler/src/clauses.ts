@@ -116,17 +116,6 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
   }),
 );
 
-const UNMAPPED_OPERATOR_TOKEN = /^(?!.*--)[A-Za-z@<>=!~*&|?-]{1,4}$/;
-
-function isUnmappedOperatorToken(op: string, dialect: DialectTarget): boolean {
-  const traits = dialectTraits(dialect);
-  if (typeof dialect !== 'string') return traits.acceptsOperator(op);
-  if (op === '#>' || op === '#>>') return dialectFamily(dialect) === 'postgres';
-  if (!UNMAPPED_OPERATOR_TOKEN.test(op)) return false;
-  if (traits.placeholder === 'positional' && op.includes('?')) return false;
-  if (traits.placeholder === 'named' && op.includes('@')) return false;
-  return true;
-}
 
 export interface SubqueryTarget {
   compile(): CompiledQuery;
