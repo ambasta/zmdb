@@ -85,7 +85,6 @@
     "old package still exists: @zmdb/aot-validator",
     "old package still exists: @zmdb/query-compiler",
     "old package still exists: @zmdb/repository",
-    "old package still exists: @zmdb/schema-core",
-    "ownership catalog omits [packages/aot-validator/src/serialization/fast-stringifier.ts]"
+    "old package still exists: @zmdb/schema-core"
   ]
 }
