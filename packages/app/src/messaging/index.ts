@@ -114,7 +114,6 @@ export interface MessageDispatcher {
   dispatch(message: RawMessage, transport: string): Promise<DispatchOutcome>;
   readonly patterns: readonly string[];
 }
-
 /** Pattern map for a request/response client. Declare concrete maps as type aliases. */
 export interface ClientPatterns {
   readonly [pattern: string]: { readonly request: unknown; readonly response: unknown };
