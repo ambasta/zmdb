@@ -1,4 +1,4 @@
-import type { ValidationIssue } from '@zmdb/schema-core';
+import { isRecord, type ValidationIssue } from '@zmdb/schema-core';
 
 // Advanced validation — implementation.
 // #46 refinement compilation (refine + refinement-aware validateObject with
@@ -14,11 +14,6 @@ export type { ValidationIssue };
 // but distinct from `Brand<number, 'OrderId'>`.
 declare const __brand: unique symbol;
 export type Brand<Base, Tag extends string> = Base & { readonly [__brand]: Tag };
-
-/** True for a non-null, non-array object — proves a keyed read is safe. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 export type RefinePredicate = (v: unknown) => boolean;
 export type TransformFn = (v: unknown) => unknown;
@@ -157,13 +152,36 @@ function checkRule(rule: Rule, value: unknown): { ok: boolean; expected: string;
   }
 }
 
-export function validateObject(
+export interface ValidateObjectResult<T = unknown> {
+  readonly success: boolean;
+  readonly data?: T;
+  readonly issues: readonly ValidationIssue[];
+  /** @deprecated Use `issues` instead. */
+  readonly errors?: readonly ValidationIssue[];
+}
+
+export function validateObject<T = unknown>(
   value: unknown,
   rules: Record<string, Rule>,
   mode: ObjectMode,
-): { success: boolean; issues: readonly ValidationIssue[] } {
+): ValidateObjectResult<T> {
   const issues: ValidationIssue[] = [];
   const obj = isRecord(value) ? value : {};
+
+  let data: unknown = undefined;
+  if (isRecord(value)) {
+    if (mode === 'strip') {
+      const stripped: Record<string, unknown> = {};
+      for (const key of Object.keys(rules)) {
+        if (key in obj) {
+          stripped[key] = obj[key];
+        }
+      }
+      data = stripped;
+    } else {
+      data = { ...obj };
+    }
+  }
 
   // Excess-key handling for strict mode.
   if (mode === 'strict') {
@@ -186,5 +204,21 @@ export function validateObject(
     }
   }
 
-  return { success: issues.length === 0, issues };
+  // boundary: `data` payload is constructed according to object mode rules and asserted as T.
+  const result: ValidateObjectResult<T> = {
+    success: issues.length === 0,
+    ...(data !== undefined ? { data: data as T } : {}),
+    issues,
+  };
+
+  Object.defineProperty(result, 'errors', {
+    get() {
+      console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
+      return this.issues;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+
+  return result;
 }

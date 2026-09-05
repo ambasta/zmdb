@@ -201,6 +201,12 @@ export class ValidationError extends Error {
     this.name = 'ValidationError';
     this.issues = issues;
   }
+
+  /** @deprecated Use `issues` instead. */
+  get errors(): readonly ValidationIssue[] | undefined {
+    console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
+    return this.issues;
+  }
 }
 
 /**

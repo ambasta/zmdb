@@ -18,6 +18,12 @@ export class AssertError extends Error {
     this.name = 'AssertError';
     this.issues = issues;
   }
+
+  /** @deprecated Use `issues` instead. */
+  get errors(): readonly ValidationIssue[] | undefined {
+    console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
+    return this.issues;
+  }
 }
 
 /** Throw an `AssertError` carrying `issues`; the first issue supplies the message. */
