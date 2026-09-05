@@ -439,9 +439,9 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
       let fromSql = '';
       const hasMatch = state.wheres.some(w => 'isMatch' in w && w.isMatch);
 
-      if (d === 'sqlite' && hasMatch) {
+      if (dialectTraits(d).fts === 'companionTable' && hasMatch) {
         if (!state.ftsTable) {
-          throw new UnsupportedFeatureError('full-text search', 'sqlite');
+          throw new UnsupportedFeatureError('full-text search', dialectName(d));
         }
         const { baseName, alias } = parseTableSpec(state.table);
         const quotedBaseTable = quoteTable(d, state.table);
@@ -467,11 +467,11 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
         const parts = state.wheres.map((p, i) => {
           let cond: string;
           if ('isMatch' in p && p.isMatch) {
-            const ftsTrait = TRAITS[d].fts;
+            const ftsTrait = dialectTraits(d).fts;
             if (ftsTrait === 'none') {
-              throw new UnsupportedFeatureError('full-text search', d);
+              throw new UnsupportedFeatureError('full-text search', dialectName(d));
             }
-            if (ftsTrait === 'companionTable' || d === 'sqlite') {
+            if (ftsTrait === 'companionTable') {
               const { baseName, alias } = parseTableSpec(state.table);
               const ftsTableName = typeof state.ftsTable === 'string' ? state.ftsTable : `${baseName}_fts`;
               const ftsAlias = alias ? `${alias}_fts` : undefined;

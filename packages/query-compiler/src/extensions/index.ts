@@ -184,6 +184,10 @@ export function isDistanceOp(operator: string): operator is DistanceOp {
   return Object.hasOwn(DISTANCE_OPERATORS, operator);
 }
 
+export function requirePostgres(feature: string, dialect: DialectTarget): void {
+  if (dialectName(dialect) !== 'postgres') throw new UnsupportedFeatureError(feature, dialectName(dialect));
+}
+
 function requireExtensionFeature(feature: string, supported: boolean, dialect: DialectTarget): void {
   if (!supported) throw new UnsupportedFeatureError(feature, dialectName(dialect));
 }
