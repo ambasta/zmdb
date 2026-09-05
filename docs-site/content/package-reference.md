@@ -1,15 +1,18 @@
 # Package reference
 
-> [!NOTE] The section below is generated from the read-only product catalog and current package manifests. `build:docs` refreshes it, while `verify:docs-generated` and `verify:product-catalog` compare
-> its bytes without changing this file.
+> [!NOTE] The table below is generated from the read-only product catalog and current package manifests. `verify:product-catalog` compares its bytes without changing this file; #716 owns the
+> documentation generator that will refresh it explicitly.
 
-zmdb is installed as one product; use the manifest-derived command in the generated table below.
+zmdb is installed as one product:
+
+```bash
+npm add zmdb@alpha
+```
 
 The root and `zmdb/*` subpaths are the application-facing contract. Individual `@zmdb/*` packages are advanced dependency firebreaks for consumers that deliberately need one concern without the
 complete product; they are not steps in the beginner setup.
 
-The generated reference contains one row per official product-catalog entry. The catalog supplies product role, optionality, facade exposure, documentation ownership and external proof. Each package
-manifest supplies:
+The generated reference must contain one row per official product-catalog entry, with:
 
 - npm name, description and version;
 - public exports and dependencies;
@@ -367,6 +370,7 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `ActiveTransactionContext`
   - `BaseRepository`
   - `ClosedTransactionContext`
+  - `CreateGraphDTO`
   - `Driver`
   - `IncompleteKeyError`
   - `NumericColumnOf`
@@ -374,6 +378,7 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `TransactionState`
   - `TransactionalDb`
   - `TxConnection`
+  - `UpdateGraphDTO`
   - `UpdatePatch`
   - `UpsertOptions`
   - `ValidationError`
