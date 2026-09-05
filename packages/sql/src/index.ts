@@ -368,7 +368,6 @@ interface RuntimeInsertBuilder {
   onConflict(target?: string | readonly string[]): RuntimeOnConflictBuilder;
   returning(cols?: readonly ReturningColumn[]): RuntimeInsertBuilder;
 }
-
   compile(): CompiledQuery;
 }
 interface RuntimeUpdateBuilder {
