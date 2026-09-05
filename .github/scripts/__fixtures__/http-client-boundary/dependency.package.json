@@ -1,0 +1,11 @@
+{
+  "name": "@zmdb/client",
+  "version": "0.0.0-test",
+  "type": "module",
+  "dependencies": {
+    "@zmdb/web": "workspace:^"
+  },
+  "peerDependencies": {
+    "cross-fetch": "^4.1.0"
+  }
+}
