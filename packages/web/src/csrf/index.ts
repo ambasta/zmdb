@@ -48,29 +48,8 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
-if (typeof (Uint8Array.prototype as { toBase64?: unknown }).toBase64 !== 'function') {
-  const bufKey = ['Buf', 'fer'].join('');
-  const buf = Reflect.get(globalThis, bufKey) as
-    | {
-        from(buf: ArrayBufferLike, offset: number, length: number): { toString(enc: string): string };
-        from(str: string, enc: string): Uint8Array;
-      }
-    | undefined;
-  if (buf) {
-    (Uint8Array.prototype as { toBase64?: unknown }).toBase64 = function (this: Uint8Array) {
-      return buf.from(this.buffer, this.byteOffset, this.byteLength).toString('base64url');
-    };
-    (Uint8Array as unknown as { fromBase64?: unknown }).fromBase64 = function (str: string) {
-      return new Uint8Array(buf.from(str, 'base64url'));
-    };
-  }
-}
-
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return (value as unknown as { toBase64: (opts: unknown) => string }).toBase64({
-    alphabet: 'base64url',
-    omitPadding: true,
-  });
+  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
@@ -78,11 +57,7 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const decoded = (
-      Uint8Array as unknown as { fromBase64: (str: string, opts: unknown) => Uint8Array<ArrayBuffer> }
-    ).fromBase64(value, {
-      alphabet: 'base64url',
-    });
+    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
     return encodeBase64Url(decoded) === value ? decoded : undefined;
   } catch {
     return undefined;
