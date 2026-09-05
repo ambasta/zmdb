@@ -45,6 +45,7 @@ function stage3Decorators(): Plugin {
 export default defineConfig({
   plugins: [stage3Decorators()],
   test: {
+    setupFiles: ['./scripts/ts-specifier-hook.mjs'],
     // All package tests live alongside sources under packages/*/src.
     include: [
       'packages/*/src/**/*.spec.ts',

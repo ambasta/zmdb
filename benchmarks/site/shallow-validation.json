@@ -30,11 +30,11 @@
       },
       {
         "path": "benchmarks/scripts/generate-validation-model.mjs",
-        "sha256": "3e83bd155501f0fa950598c66e8661287b98207e45ecd611f0438b1522196533"
+        "sha256": "97a4ea6d05373a47559ae74ec1e7a9325d7ac0bb15d3adf881275294d674e3ee"
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",
-        "sha256": "cbeeabe5ec40042868bab6f56325529ac85fe664195c30ffb925d112a043e61f"
+        "sha256": "d8cbc7770973f860e6aea7f6e64a6678a7ec96c3c07bccca5e5130fec985a94f"
       }
     ]
   },

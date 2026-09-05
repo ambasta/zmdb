@@ -1,6 +1,8 @@
 import { StringDecoder } from 'node:string_decoder';
 
+import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { ValidationError } from '@zmdb/schema-core';
+import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
 // Tests (#274) for the request pipeline & adapters — RED first (pipeline exports
 // absent). Dispatch, param extraction, validate-before-handler, serialize, 404,
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
@@ -19,6 +21,14 @@ import {
   type Router,
 } from './index.js';
 
+export interface Account extends Table<'accounts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string;
+  secretToken?: string & Sensitive;
+}
+
+const { Account: AccountSchema } = schemasFrom(import.meta.url, ['Account']);
+
 @Controller('/users')
 class UsersController {
   @Get('/:id')
@@ -29,6 +39,11 @@ class UsersController {
   @Post()
   create(ctx: Ctx<Record<never, string>, { name: string }>) {
     return { created: ctx.body.name };
+  }
+
+  @Get('/account/:id')
+  getAccount(ctx: Ctx<{ id: string }>) {
+    return { id: Number(ctx.params.id), email: 'user@example.com', secretToken: 'super-secret' };
   }
 }
 
@@ -43,6 +58,9 @@ function makeRouter() {
         }
         return raw;
       },
+    },
+    getAccount: {
+      schema: AccountSchema,
     },
   });
   return router;
@@ -102,6 +120,22 @@ describe('@zmdb/web pipeline: route table', () => {
     router.register(new ShadowController());
     const del = await router.handle({ method: 'DELETE', path: '/shadow/7', headers: {} });
     expect(del.status).toBe(404);
+  });
+});
+
+describe('@zmdb/web pipeline: schema fast stringification', () => {
+  it('formats schema-backed response and automatically excludes sensitive fields', async () => {
+    const res = await makeRouter().handle({ method: 'GET', path: '/users/account/10', headers: {} });
+    expect(res.status).toBe(200);
+    const body = await bodyText(res);
+    expect(body).toBe('{"id":10,"email":"user@example.com"}');
+    expect(body).not.toContain('secretToken');
+  });
+
+  it('falls back seamlessly to standard JSON serialization for non-schema routes', async () => {
+    const res = await makeRouter().handle({ method: 'GET', path: '/users/42', headers: {} });
+    expect(res.status).toBe(200);
+    expect(await bodyText(res)).toBe('{"id":"42"}');
   });
 });
 

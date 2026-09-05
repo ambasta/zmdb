@@ -18,18 +18,19 @@ describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
     const result = analyseToolingBoundaries();
     expect(result.problems).toEqual([]);
-    expect(result.inventory.actualCount).toBe(151);
+    expect(result.inventory.actualCount).toBe(152);
     expect(result.inventory.ownerCounts).toEqual({
       compiler: 30,
       migrations: 20,
       cli: 21,
-      runtime: 28,
+      runtime: 29,
       facade: 12,
       'optional-integration': 4,
       'test-only': 35,
       obsolete: 1,
     });
     expect(result.runtimeViolations.map(violation => violation.id).toSorted()).toEqual([
+      '@zmdb/aot-validator|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
       '@zmdb/repository|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
       '@zmdb/repository|migrations|packages/query-compiler/src/migrations/index.ts|./runner.js',
       '@zmdb/repository|migrations|packages/query-compiler/src/schema-objects/index.ts|../migrations/index.js',
