@@ -188,3 +188,10 @@ The implementation test also executes the shipped database example and asserts t
   itself.
 - **`SIGTERM` handling inside this module.** Failing readiness on shutdown is the right pattern and it needs a bounded grace period in `runShutdown`, which is `../../lifecycle.ts`'s business and
   another epic's.
+
+## Package ownership amendment (#645)
+
+Protocol-neutral checks move to `@zmdb/app/health`: `LivenessCheck`, `CheckResult`, `ReadinessCheck`, `HealthChecks`, `DetailedCheck`, `DatabaseReadinessOptions` and `databaseReadinessCheck`.
+
+HTTP response contracts remain in `@zmdb/web/health`: `HealthProbes`, `DetailedBody`, `healthRoutes` and `detailedReadyRoute`. Web consumes app check values but app never imports `WebResponse`. The
+current file is split along that edge; no compatibility re-export remains.

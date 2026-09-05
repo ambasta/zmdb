@@ -246,3 +246,11 @@ names the real file.
 - **A `--json` envelope imposed on a command's stdout.** §5 — the command owns its output.
 - **Constructing unresolved providers to look for hooks.** §6 — provider lifecycle records only values and factory results that already exist; shutdown must not create a dependency just to stop it.
 - **Listing a command in `controllers` to get it built.** §6 — it would register it as a route source.
+
+## Package ownership amendment (#645)
+
+Command applications are protocol-neutral and move to `@zmdb/app/commands`. `Command`, `CommandDef`, `CommandClass`, `CommandApp` and `createCommandApp` keep this contract but compile through
+`createApplication`, not an HTTP `createApp`.
+
+The move does not create the standalone project CLI package and does not add filesystem discovery. `@zmdb/web/cli` is deleted with no forwarder. Runtime error prefixes become `@zmdb/app` because that
+is the sole declaration owner.

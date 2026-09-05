@@ -561,3 +561,13 @@ horizon; #594 owns lifecycle discovery for plain providers because its live disp
   machine rather than adapt this one.
 - **A logger, or a `log` on `JobContext`.** `onHandlerError` is the sink, for the reason `../events/SPEC.md` §3 requires `onError`; `web-logging` argues the rest.
 - **Metrics emitted from this module.** `RunReport` is the numbers; a `Meter` is `../observability/SPEC.md`'s and wiring one here would be a second telemetry pipeline.
+
+## Package ownership amendment (#645)
+
+The queue, worker, dead-letter and retry surface moves intact to `@zmdb/jobs`. `createMemoryJobStore` and `MemoryJobStore` move to `@zmdb/jobs/memory`; the process-local implementation remains SQLite
+`:memory:` via `node:sqlite`.
+
+`createPgJobStore`, `PgJobClient` and `PgJobStoreOptions` move to `@zmdb/jobs-postgres`, the sole owner of the `pg` peer. Core jobs has no third-party peer.
+
+`@zmdb/web/queues`, `@zmdb/web/queues/backends/memory` and `@zmdb/web/queues/backends/pg` are removed with no forwarding modules. The complete package and lifecycle contract is
+`packages/jobs/SPEC.md`.

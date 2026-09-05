@@ -332,3 +332,12 @@ duration is the queue's latency and whose waterfall is unreadable. Semconv says 
 - **Wrapping `fetch`** (§8).
 - **A per-request logger, or logs correlated by an injected trace id.** `web-logging` argues against a logger and nothing here changes that argument; a caller with `ctx.span` can put the trace id in
   its own log line.
+
+## Package ownership amendment (#645)
+
+The narrow ports, W3C propagation, message spans and driver instrumentation move to `@zmdb/app/observability`. That owner includes `Attributes`, `SpanKind`, `SpanContext`, `TraceCarrier`, `Span`,
+`SpanOptions`, `Tracer`, `Meter`, `Observability`, `CommentKey`, `CommentKeys`, `CommentPairs`, `QueryTelemetry`, `ExecutingDriver`, `tracedDriver`, `consumerSpan`, `fromTraceContext`,
+`fromTraceparent`, `toTraceHeaders` and `toTraceparent`.
+
+`createTracedRouter` remains HTTP-owned in `@zmdb/web`. `fromOpenTelemetry` and `OpenTelemetryOptions` move to `@zmdb/otel`, the sole owner of the OpenTelemetry peer. The old broad
+`@zmdb/web/observability` and `@zmdb/web/otel` entries are deleted; web imports app's public port and never the optional adapter.

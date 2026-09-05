@@ -473,16 +473,67 @@ This extraction does not create three products. `zmdb/compiler`, `zmdb/migration
 not duplicated implementations. The root does not eagerly import them. The old `zmdb/unplugin` spelling is governed as a compatibility alias by #721/#728 rather than by this ownership move.
 
 Runtime package roots never reach the tooling packages. Generated application code may call the runtime validator ABI, but it never imports `@zmdb/compiler`. The measured move policy is
-[`verify-tooling-ownership.SPEC.md`](./.github/scripts/verify-tooling-ownership.SPEC.md): 135 current shipped/build-input paths, 41 current export keys, two current binaries, 16 current manifest edges
+[`verify-tooling-ownership.SPEC.md`](./.github/scripts/verify-tooling-ownership.SPEC.md): 138 current shipped/build-input paths, 41 current export keys, two current binaries, 16 current manifest edges
 and 12 checked-in generated artifacts are each assigned exactly once.
 
 The package contracts are [`packages/compiler/SPEC.md`](./packages/compiler/SPEC.md), [`packages/migrations/SPEC.md`](./packages/migrations/SPEC.md) and
 [`packages/cli/SPEC.md`](./packages/cli/SPEC.md). Until their manifests exist they remain roadmap-only directories under §3.10. Their manifests, product-catalog rows and architecture-policy rows must
 be admitted atomically; release membership and deterministic publish order then come only from the catalog and policy DAG, never from a second tooling-package list.
 
-### 3.12 Target runtime foundation — issue #635
+### 3.12 Target server package DAG and facade (#645)
 
-Sections 3.2–3.3 describe the packages that ship at the issue #635 baseline, while §§3.4–3.11 freeze intermediate ownership extractions. After those exits, the hard-cutover target is four
+The current `@zmdb/web` package has outgrown the sub-module default: its measured public surface is 36 manifest entries, 318 distinct symbols and 58 shipped non-test/non-generated source files. Those
+symbols span three independently usable responsibilities and six third-party peers. The target is one server product with package boundaries as dependency firebreaks:
+
+```text
+@zmdb/query-compiler
+        |
+@zmdb/schema-core
+        |
+@zmdb/aot-validator
+        |
+@zmdb/repository
+        |
+@zmdb/app ----------------------.
+  |                              |
+  +--> @zmdb/web                 +--> @zmdb/jobs
+  |      (HTTP only)                   (queues/scheduling)
+  |
+  +--> optional transports / OpenTelemetry
+
+@zmdb/jobs --> @zmdb/jobs-postgres
+zmdb --> @zmdb/app, @zmdb/web and @zmdb/jobs by explicit re-export only
+```
+
+The exact direct edges are:
+
+| Package      | Allowed direct workspace runtime dependencies                              | Third-party runtime peers |
+| ------------ | -------------------------------------------------------------------------- | ------------------------- |
+| `@zmdb/app`  | aot-validator, query-compiler, repository, schema-core                     | none                      |
+| `@zmdb/web`  | app, aot-validator, repository, schema-core                                | none                      |
+| `@zmdb/jobs` | app, query-compiler, repository                                            | none                      |
+| `zmdb`       | app, web, jobs plus the existing product packages it explicitly re-exports | none                      |
+
+`app -> web`, `app -> jobs`, `web -> jobs`, `jobs -> web`, any core-to-optional edge, and any server package importing another package's private source are forbidden. Optional integrations depend
+inward on the one core SPI they adapt; the core never imports back out.
+
+Ownership is semantic, not directory-based:
+
+- **app** owns metadata, DI, modules, lifecycle, command applications, events, CQRS, state machines, observability ports, health checks and transport-neutral messaging;
+- **web** owns only HTTP request/response concerns, including HTTP-aware testing and devtools;
+- **jobs** owns queueing, workers, dead letters, leases, scheduling and the built-in SQLite memory backend;
+- **optional packages** own protobuf/gRPC, NATS, RabbitMQ, Redis, PostgreSQL jobs and OpenTelemetry;
+- benchmark helpers remain repository-private.
+
+`createApplication` is the single protocol-neutral lifecycle engine. Extensions start in declaration order after application bootstrap, roll back and stop in reverse order, receive one remaining
+application-wide grace budget, and cannot add work to a request hot path. `createApp` composes one router over that same application; it does not create another container or lifecycle.
+
+Moved implementations are deleted from their old locations. Old package subpaths do not forward, warn or survive as deprecated aliases. The `zmdb`, `zmdb/app`, `zmdb/web` and `zmdb/jobs` surfaces use
+explicit re-exports, so direct-package and facade runtime values are identical (`===`) and type declarations have one canonical owner.
+
+### 3.13 Target runtime foundation — issue #635
+
+Sections 3.2–3.3 describe the packages that ship at the issue #635 baseline, while §§3.4–3.12 freeze intermediate ownership extractions. After those exits, the hard-cutover target is four
 runtime-foundation packages:
 
 ```text

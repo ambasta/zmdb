@@ -346,3 +346,22 @@ The implementation tests prove:
 - no GraphQL integration;
 - no broker client reachable from the package root or transport-neutral microservices entry point;
 - no grpc-js import from the core app root or transport-neutral messaging entry point; the target reaches its required peer only through the selected `@zmdb/transport-grpc` package.
+
+## Package ownership amendment (#645)
+
+The transport-neutral dispatcher, decorators, client/publisher builders, errors, settlement model and `TransportStrategy` SPI move to `@zmdb/app/messaging`. The contract remains broker-neutral and the
+app package declares no broker peer.
+
+`AppOptions` is removed. Application lifecycle accepts `ApplicationExtension[]`; transport packages adapt their strategy/server to that lifecycle without adding technology fields to core options.
+
+The concrete destinations are:
+
+| Current entry                      | Target package                            |
+| ---------------------------------- | ----------------------------------------- |
+| `@zmdb/web/microservices`          | `@zmdb/app/messaging`                     |
+| `@zmdb/web/microservices/grpc`     | `@zmdb/protobuf` + `@zmdb/transport-grpc` |
+| `@zmdb/web/microservices/nats`     | `@zmdb/transport-nats`                    |
+| `@zmdb/web/microservices/rabbitmq` | `@zmdb/transport-rabbitmq`                |
+| `@zmdb/web/microservices/redis`    | `@zmdb/transport-redis`                   |
+
+All old entries are deleted without forwarders. The optional-package peer and generated-code details remain frozen by #654; the app-owned SPI here is the only inward dependency they share.

@@ -39,3 +39,11 @@ per-request reflection".
 ## Out of scope
 
 Cross-framework comparison numbers (documented as methodology; not fabricated in tests).
+
+## Package ownership amendment (#645)
+
+The 11 benchmark/helper exports frozen in `packages/web/SPEC.md` become repository-private. `@zmdb/web/bench` is removed from the published manifest, while the existing unit probes and benchmark
+runners remain available inside the repository.
+
+For the package migration, `benchmarkAppStartup` is run before/after against `createApplication` and `createApp`, and the real framework harness is rerun on the same machine. Raw interleaved samples
+and medians are retained; CI continues to assert structure and positive timings rather than a shared-runner wall-clock threshold.

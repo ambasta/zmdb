@@ -787,3 +787,19 @@ union/discriminated-union emit matrix (Phase 4). D2's answer took the dual dispa
 11. Validation and ORM benchmarks re-measured, committed, and published; the type-first path is no slower than today's hand-written descriptor path.
 12. **`defineSchema` is gone** (D2), the codemod converts a `defineSchema` project in one command, and `verify:no-defineschema` keeps it gone. There is exactly one way to declare a table — which is
     what P2 asked for, and what RISK-8 says the repo does not have today.
+
+## 8. Server-package boundary imposed by #645
+
+The app/web/jobs split is an ownership move around the type-first spine, not another front-end or back-end.
+
+- `@zmdb/aot-validator` remains the only package that opens the TypeScript checker or reflects a declared type into `TypeIR`.
+- `@zmdb/app` may consume generated validators and schema artifacts, but cannot reflect source, instantiate a checker or walk TypeIR to invent another interpretation.
+- `@zmdb/web` retains the single wire↔app crossing from D3. HTTP decodes generated wire shapes before app validation and encodes app values on response; app and jobs do not introduce another codec
+  path.
+- `@zmdb/jobs` validates payloads through caller-supplied generated validators and stores their serialized form. It does not derive a schema from handler types at runtime.
+- `createApplication` owns lifecycle only. `createApp` supplies the HTTP adapter over the same graph, and optional transports supply `ApplicationExtension` values; none may create a second reflection
+  session or module graph.
+- Moving files must preserve generated import targets and the one-walker gates. No old-path forwarder is allowed because a forwarder would leave two public owners for the same generated surface.
+
+The implementation sequence therefore moves declarations and tests without changing emitted artifacts first, then updates generated imports and packed consumers, and runs `verify:one-walker`,
+`verify:tf-coverage`, `verify:exports`, `verify:publish` and the complete typecheck before any old path is deleted.

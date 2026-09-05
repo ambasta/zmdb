@@ -222,3 +222,11 @@ process") and gives the two candidate answers; neither ships here, and the relia
 - **No once-only handlers and no handler removal by identity.** The disposer returned from `on` and `bind` is the whole removal mechanism, and it cannot be called for the wrong handler.
 - **No cross-instance transport.** §8 — `LISTEN/NOTIFY` and Redis are both documented in `web-events.md` as lossy, and the non-lossy answer is the outbox.
 - **No filesystem or metadata discovery.** §6 — `web-discovery.md`, unchanged.
+
+## Package ownership amendment (#645)
+
+The entire in-process event contract moves to `@zmdb/app/events`: `createEvents`, `OnEvent`, `getEventHandlers`, `EventMap`, `EventFailure`, `EmitReport`, `EventsOptions`, `Events` and
+`ResolvedEventHandler`.
+
+Its repository/outbox crossing remains an inward workspace dependency, not an HTTP dependency. The old `@zmdb/web/events` path and implementation are deleted; no facade may wrap the registry or change
+handler identity.

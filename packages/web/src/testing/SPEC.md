@@ -39,3 +39,10 @@ Assertion library / matchers (use the project's vitest).
 - **Assertions read the body through `bodyText`** (`../pipeline/SPEC.md` §A6), which is async and consumes a stream body.
 - **No `json()` reader on `TestApp`.** `JSON.parse(await bodyText(res))` in a test is one line and says exactly what it does; a harness method that parses would also have to decide what an unparseable
   body means, and in a test the answer is "the assertion should show me the bytes".
+
+## Package ownership amendment (#645)
+
+`createTestApp`, `TestApp` and `TestAppOptions` remain at `@zmdb/web/testing` because the harness drives HTTP requests and returns `WebResponse`. Internally it compiles through app's public module and
+lifecycle APIs; it does not retain a second copy of DI, module or hook code.
+
+Provider overrides retain app token identity. A token imported from `@zmdb/app`, `zmdb/app` or the curated root resolves the same override in the HTTP test app.

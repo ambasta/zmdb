@@ -41,3 +41,10 @@ because there is no function for it.
 ## Out of scope
 
 Wiring state machines into controllers/pipeline (epics #272/#287); persistence.
+
+## Package ownership amendment (#645)
+
+`defineState`, `transition`, `Brand` and `State` move to `@zmdb/app/state`. Their compile-time and runtime identity rules are unchanged. HTTP and jobs may consume the app-owned types; app never
+imports either sibling.
+
+The old `@zmdb/web/state` entry is removed rather than re-exported.

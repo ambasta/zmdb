@@ -44,3 +44,11 @@
 ## Out of scope
 
 Provider scopes / modules (epic #282), per-request scopes (#282).
+
+## Package ownership amendment (#645)
+
+This complete contract moves to `@zmdb/app/di`. `Container`, `createToken`, `Inject`, `injectionsOf`, `UnresolvedTokenError`, `Token`, `Constructor` and `Scope` have one implementation and one
+declaration owner there.
+
+`@zmdb/web` consumes the public app entry; it does not retain `./di` or a forwarding file. `zmdb/app/di` is a direct explicit re-export, so tokens, containers and error constructors preserve runtime
+identity across direct and facade imports.

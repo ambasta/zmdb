@@ -366,3 +366,10 @@ serves a document naming every token, every route pattern and every module. That
 - **A web UI, or any HTTP surface for the description** (§9) — the epic's own non-goal, and §9's route-table-oracle argument is why it is not a small one.
 - **Serving the description from the application at all**, behind a flag, a guard or a development-only check (§9). The gate is what makes the absence checkable.
 - **Hot module replacement** — the epic's non-goal, and nothing here moves toward it.
+
+## Package ownership amendment (#645)
+
+The graph inspector remains `@zmdb/web/devtools`: `RouteNode`, route shadowing and controller route projections make this an HTTP-aware tool. It consumes `moduleDefOf`, `injectionsOf` and the module
+types from public `@zmdb/app` entries, so the permitted dependency remains `web -> app`.
+
+App retains no inspector state, and app does not import this entry. The production-root reachability barrier and on-demand reconstruction invariant remain unchanged.

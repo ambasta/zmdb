@@ -56,3 +56,17 @@ milliseconds.
 ## Out of scope
 
 The host HTTP listening socket, process signal handling and unrelated protocol adapters remain outside this lifecycle contract.
+
+## Package ownership amendment (#645)
+
+The lifecycle above splits without changing its observable ordering:
+
+- graph compilation, constructed-instance hooks, extension startup/rollback/shutdown and the total grace budget move to `@zmdb/app/lifecycle`;
+- `createApplication` returns the protocol-neutral `Application`;
+- HTTP route registration, `handle`, `fetch` and the name `createApp` remain in `@zmdb/web/app`;
+- broker and gRPC startup are supplied as `ApplicationExtension` values by app/optional packages rather than fields on `AppOptions`.
+
+`App` becomes `WebApplication`; `AppOptions` is deleted in favour of `ApplicationOptions` and `WebApplicationOptions`. No aliases remain.
+
+`createApp` composes one router over one `Application`. Its `container`, `lazy`, `init` and async-dispose members are the same members by identity, and it cannot run a second hook/extension ledger.
+The complete lifecycle state machine, rollback and error precedence are frozen in `packages/app/SPEC.md`.

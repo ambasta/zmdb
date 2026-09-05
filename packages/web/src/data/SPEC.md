@@ -49,3 +49,12 @@ repository all hold the second. Two functions convert, at the boundary and nowhe
 ## Out of scope
 
 Validation/serialization _pipes_ as first-class middleware (epic #297), OpenAPI (#302).
+
+## Package ownership amendment (#645)
+
+This currently mixed concern splits at the protocol boundary:
+
+- `repositoryToken` moves to `@zmdb/app/data`, because repository injection is application DI rather than HTTP;
+- `validateWith`, `wireDecoder` and `wireEncoder` remain at `@zmdb/web/data`, because they adapt HTTP/raw wire values to the app types handlers receive.
+
+Neither implementation is copied. The app package never imports the web codec, and the web package consumes the app token through its public entry.

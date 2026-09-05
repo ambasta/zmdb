@@ -167,3 +167,9 @@ API, and the mapped type is per-application by construction.
 - **No sagas.** §6 — deferred until durable step state exists, not refused.
 - **No automatic transaction.** §5 — the bus never opens one the application did not supply.
 - **No command retry.** A retried command needs idempotency, which is the command's own business; retrying an unknown write at the bus is how a charge happens twice.
+
+## Package ownership amendment (#645)
+
+The CQRS contract moves unchanged to `@zmdb/app/cqrs`: `createCommandBus`, `CommandMap`, `CommandBus`, `CommandHandlers`, `CommandRun`, `CommandOutcome` and `CommandBusOptions`.
+
+It remains independent of HTTP middleware and jobs. `@zmdb/web/cqrs` is deleted with no compatibility export, and `zmdb/app/cqrs` aliases the direct package declarations exactly.

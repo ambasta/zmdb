@@ -162,3 +162,142 @@ product documentation teaches the stable `zmdb/*` vocabulary.
 
 `zmdb/unplugin` is not a second compiler owner. Its compatibility lifetime, and the removal timing of old AOT/query-compiler tooling subpaths and `zmdb-codegen`, are release-governance decisions under
 #721/#728. The target contains no permanent implementation forwarders; stable product facade modules are part of the product contract rather than compatibility shims.
+
+## 8. Server facade target (#645)
+
+This section freezes the app/web/jobs facade before implementation. It composes with the one-product facade contract; it does not add runtime logic to `packages/zmdb`.
+
+### Product subpaths
+
+The facade mirrors every stable core-server entry with an explicit re-export:
+
+```text
+zmdb/app
+zmdb/app/commands
+zmdb/app/cqrs
+zmdb/app/data
+zmdb/app/di
+zmdb/app/events
+zmdb/app/health
+zmdb/app/lifecycle
+zmdb/app/messaging
+zmdb/app/modules
+zmdb/app/observability
+zmdb/app/state
+
+zmdb/web
+zmdb/web/app
+zmdb/web/compression
+zmdb/web/context
+zmdb/web/csrf
+zmdb/web/data
+zmdb/web/devtools
+zmdb/web/dto-pipes
+zmdb/web/gateways
+zmdb/web/health
+zmdb/web/middleware
+zmdb/web/openapi
+zmdb/web/pipeline
+zmdb/web/routing
+zmdb/web/static
+zmdb/web/testing
+zmdb/web/upload
+zmdb/web/versioning
+
+zmdb/jobs
+zmdb/jobs/memory
+zmdb/jobs/schedule
+```
+
+Optional integrations are not pulled into `zmdb` or these subpaths. A consumer chooses and installs `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`,
+`@zmdb/jobs-postgres` or `@zmdb/otel` explicitly.
+
+### Curated root additions
+
+The app/web/jobs target adds or reassigns exactly these application-default server values at `zmdb`:
+
+```text
+Command
+Container
+Controller
+Cron
+Delete
+EventPattern
+Gateway
+Get
+Inject
+Interval
+MessagePattern
+Module
+OnEvent
+Patch
+Post
+Public
+Put
+Subscribe
+Version
+VersionNeutral
+createApp
+createApplication
+createCommandApp
+createEvents
+createMemoryJobStore
+createQueue
+createScheduler
+createToken
+createWorker
+repositoryToken
+```
+
+It adds or reassigns exactly these application-default server types at the root:
+
+```text
+Application
+ApplicationExtension
+ApplicationExtensionContext
+ApplicationOptions
+CommandApp
+Ctx
+MemoryJobStore
+ModuleClass
+Observability
+Queue
+Scheduler
+Token
+TransportStrategy
+WebApplication
+WebApplicationOptions
+WebRequest
+WebResponse
+Worker
+```
+
+Names already frozen in §2 remain part of the root contract even when they are not repeated here; in particular this target does not remove `Body` or `App`. All other app/web/jobs names remain
+available through the concern subpaths above. Optional integration names never appear at the root.
+
+### Collision and identity rules
+
+- Root and each facade file enumerate exports; `export *` remains forbidden.
+- A public name has one canonical declaration owner. If two package surfaces propose the same name, the root either selects one canonical symbol explicitly or exposes both only through their concern
+  subpaths. It does not rename, wrap or let source order choose a winner.
+- Every runtime value imported from `zmdb/app`, `zmdb/web`, `zmdb/jobs` or the curated root is `===` the direct package value.
+- Every class and error preserves `instanceof` across direct and facade imports because the facade never subclasses or reconstructs it.
+- Type exports are direct aliases to the canonical declaration, not copied interfaces.
+- The root cannot eagerly reach CLI/compiler code, TypeScript, benchmark/devtools modules, jobs unless a root jobs symbol is imported by the bundler, or any optional integration. Import-graph tests
+  enforce this.
+
+### Old paths and migration
+
+`zmdb/web` becomes HTTP-only. Moved names are reached through `zmdb/app` or `zmdb/jobs`; old nested `zmdb/web/*` app/jobs paths are deleted with their direct-package counterparts. There are no
+compatibility files, aliases, deprecation warnings or fallback resolution.
+
+### Packed-consumer evidence
+
+A consumer fixture must install packed tarballs outside the workspace and:
+
+1. build one SQLite HTTP application using only `zmdb`, including module/DI, a controller, validation, a repository and `createApp`;
+2. build one app extension and one memory-backed worker using `zmdb/app` and `zmdb/jobs`;
+3. import every facade subpath above;
+4. assert runtime identity between direct package, concern facade and curated-root values;
+5. assert old moved paths and optional integration names do not resolve;
+6. inspect the installed dependency tree and prove app/web/jobs introduce no third-party runtime peer.

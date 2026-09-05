@@ -418,3 +418,10 @@ freeze corrected that rather than presenting a lint violation as the pattern to 
 - **`Ctx`, a container, or any per-run scope on the task** — there is no argument at all (§2.1). `../queues/SPEC.md` §10 carries the `NO_REQUEST_SCOPE` argument this honours.
 - **Exposing the resolved next instant on a public API.** `tick(now)` plus `onSkipped` is what tests and operators need; a `nextRun` getter is a value that is stale the moment it is read and invites
   polling.
+
+## Package ownership amendment (#645)
+
+The complete cron/interval/lease contract moves to `@zmdb/jobs/schedule`. Its shared `Clock` remains the one declared by the jobs root. Scheduler shutdown continues to participate structurally in the
+app lifecycle without creating an `app -> jobs` edge.
+
+The old `@zmdb/web/schedule` entry and source are deleted rather than forwarded.

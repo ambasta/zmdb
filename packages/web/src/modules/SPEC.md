@@ -394,3 +394,11 @@ is what makes a lazy module testable.
 - **Unloading a module, or any `dispose()` on a handle** (§L9). Nothing tracks which held references would dangle, and the container cannot evict an instance somebody holds.
 - **Reporting or enforcing `exports`** (§L10) — declared, unimplemented, and recorded as such rather than laundered.
 - **A `lazy` flag on `@Module` itself.** Laziness is a property of an edge in the importer, not of a module: the same module can be reached eagerly, and §L3's rule needs the edge to decide.
+
+## Package ownership amendment (#645)
+
+The module graph, providers, lazy handles, construction ledger and public module readers move together to `@zmdb/app/modules`. The full set is `Module`, `compileModule`, `lazy`, `moduleDefOf`,
+`ModuleDef`, `ModuleClass`, `ProviderDef`, `CompiledModule`, `LazyImport`, `LazyModuleHandle` and `LazyStatus`.
+
+HTTP remains an adapter over the graph's controller declarations; jobs and command applications consume the same app graph. Neither may copy the walker or retain a web-owned graph. The old
+`@zmdb/web/modules` path is deleted, not forwarded.
