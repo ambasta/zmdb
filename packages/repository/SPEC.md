@@ -15,7 +15,7 @@ every `@zmdb/repository/*` import are deleted rather than forwarded.
 
 ```ts
 interface Driver<Name extends string = string> {
-  readonly dialect?: SqlDialect<Name> | Dialect;
+  readonly dialect?: DialectTarget<Name>;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }

@@ -6,6 +6,15 @@
 
 import { ChainError, type AnyCtx, type Guard } from '../middleware/index.js';
 
+declare global {
+  interface Uint8Array {
+    toBase64(options?: { alphabet?: 'base64' | 'base64url'; omitPadding?: boolean }): string;
+  }
+  interface Uint8ArrayConstructor {
+    fromBase64(string: string, options?: { alphabet?: 'base64' | 'base64url' }): Uint8Array<ArrayBuffer>;
+  }
+}
+
 export interface CsrfOptions {
   readonly secret: Uint8Array<ArrayBuffer>;
   readonly sessionOf: (ctx: AnyCtx) => string | undefined;
