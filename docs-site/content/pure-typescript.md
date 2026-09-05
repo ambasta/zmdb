@@ -14,6 +14,9 @@ is<User>(payload); // needs the transformer
 built from the reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — the validation utilities ask for a runtime witness, while the schema, protobuf and
 gRPC artifact calls name the build transform that should have replaced them.
 
+`toolFor<T>()` is imported from the independently installed `@zmdb/ai` package. That provider-neutral package adds no provider SDK peer; the other transformed calls retain the package imports shown
+throughout this guide.
+
 The five protobuf and gRPC artifact calls are imported from `@zmdb/protobuf`; reflection and emission still run once through `@zmdb/aot-validator`.
 
 > [!IMPORTANT] There is no fallback that inspects `T` at runtime, because there is nothing to inspect. An earlier version of this page described the untransformed path as "slower but working"; it

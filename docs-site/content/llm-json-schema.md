@@ -1,3 +1,6 @@
+> **Install:** `npm add @zmdb/schema-core@alpha` for runtime schema-to-JSON-Schema conversion; run `npm add @zmdb/ai@alpha` for provider tool documents. JSON Schema ownership stays in schema-core,
+> while provider dialects live in the provider-neutral AI package.
+
 `toJsonSchema` turns a schema object — the value `schemaOf<T>()` produces — into a JSON Schema document. That is the currency every LLM API and every other validation library speaks, so it is the
 bridge out of zmdb's type system.
 

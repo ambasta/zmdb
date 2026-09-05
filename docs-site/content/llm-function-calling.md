@@ -1,3 +1,5 @@
+> **Install:** `npm add @zmdb/ai@alpha @zmdb/schema-core@alpha @zmdb/aot-validator@alpha`. Provider document dialects live in `@zmdb/ai`; that package has no provider SDK or framework peer.
+
 zmdb derives a tool's input document from the table's `create` shape. Use `toolFor` when you know the target provider; it applies that provider's framing and schema rules before the document is
 inlined.
 

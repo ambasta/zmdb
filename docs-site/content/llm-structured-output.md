@@ -1,3 +1,6 @@
+> **Install:** `npm add @zmdb/ai@alpha @zmdb/schema-core@alpha @zmdb/aot-validator@alpha`. `@zmdb/ai` owns provider documents; `@zmdb/aot-validator` owns the boundary check. No provider client is
+> installed unless the application chooses one.
+
 Getting a model to return data your database accepts is two problems: constraining what it produces, and checking what it actually produced. zmdb's schema object covers both, from one declaration.
 
 ## Constrain: a tool from a schema

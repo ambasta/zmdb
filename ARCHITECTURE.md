@@ -327,8 +327,8 @@ published `@zmdb/ai-langchain` and moved its real-package contract tests and pee
 client/server, protocol tests, and public root into `@zmdb/mcp`; and issue #710 moved the remaining provider-neutral and LangChain implementations, removed the temporary forwarders, and deleted every
 schema-core LLM export and source file.
 
-Provider-neutral schema-derived tool documents, parsing, bounded chat orchestration, shared invocation and OpenAPI-derived tools move to `@zmdb/ai`. Anthropic SDK translation, LangChain framing and
-Vercel AI SDK framing each move to one opt-in integration package. The pure MCP client/server now ships from `@zmdb/mcp`.
+Provider-neutral schema-derived tool documents, parsing, bounded chat orchestration, shared invocation and OpenAPI-derived tools now live in `@zmdb/ai`. Anthropic SDK translation, LangChain framing
+and Vercel AI SDK framing each live in one opt-in integration package. The pure MCP client/server ships from `@zmdb/mcp`.
 
 ```text
 @zmdb/ai-anthropic ──┐
@@ -349,6 +349,8 @@ OpenAPI-tool modules import `OpenApiGeneratedTool` from `@zmdb/ai/http`.
 
 The migration could not preserve an old path by making schema-core forward to AI or MCP, because AI already depends on schema-core and MCP depends on AI. The completed cutover therefore has no
 compatibility subpath or forwarding module: every AI/MCP export resolves to source physically owned by its package.
+
+The user-facing [LLM package and migration guide](./docs-site/content/llm-strategy.md) gives the install and direct replacement for all six removed schema-core LLM subpaths.
 
 The exact 32-file ownership map, public exports, peer matrix, publish order and final-removal checks are frozen in [`packages/ai/SPEC.md`](./packages/ai/SPEC.md). Package-specific boundaries are in
 [`packages/ai-anthropic/SPEC.md`](./packages/ai-anthropic/SPEC.md), [`packages/ai-langchain/SPEC.md`](./packages/ai-langchain/SPEC.md), [`packages/ai-vercel/SPEC.md`](./packages/ai-vercel/SPEC.md) and

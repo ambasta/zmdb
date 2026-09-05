@@ -1,3 +1,6 @@
+> **Install:** `npm add @zmdb/ai@alpha @zmdb/schema-core@alpha @zmdb/aot-validator@alpha @zmdb/web@alpha`. OpenAPI-derived tools and callers live in `@zmdb/ai/http`; no model SDK is installed by this
+> package.
+
 `@zmdb/ai/http` turns an OpenAPI document into checked-in tool specifications, TypeScript argument types, AOT-compiled validators, and request plans. Generation is build-time; the runtime imports the
 generated module and binds it to a caller-owned HTTP policy.
 

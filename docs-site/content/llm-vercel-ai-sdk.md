@@ -1,5 +1,5 @@
-> **Tool integration only.** Install `@zmdb/ai`, `@zmdb/ai-vercel` and `ai@^7.0.83` in the application. The adapter's packed consumer runs against `7.0.83` and `7.0.92`; `ai` is an optional peer of
-> the integration package. A `LanguageModel` wrapper and persistence adapter for `useChat` remain application code.
+> **Install:** `npm add @zmdb/ai@alpha @zmdb/ai-vercel@alpha ai@^7.0.83`. The adapter's packed consumer runs against `7.0.83` and `7.0.92`; `ai` is its sole optional peer. Applications that do not
+> install `@zmdb/ai-vercel` do not receive the AI SDK. A `LanguageModel` wrapper and persistence adapter for `useChat` remain application code.
 
 ## Know the boundary
 

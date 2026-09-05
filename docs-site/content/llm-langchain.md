@@ -1,5 +1,5 @@
-> **Tool integration only.** Install `@zmdb/ai`, `@zmdb/ai-langchain` and `@langchain/core@^1.2.9` in the application. The integration package is tested against `1.2.9` and declares the optional peer
-> range `^1.2.9`. Retrievers, vector stores and chat-memory backends remain application code.
+> **Install:** `npm add @zmdb/ai@alpha @zmdb/ai-langchain@alpha @langchain/core@^1.2.9`. The integration package is tested against `1.2.9` and declares that range as its sole optional peer.
+> Applications that do not install `@zmdb/ai-langchain` do not receive LangChain. Retrievers, vector stores and chat-memory backends remain application code.
 
 ## Know the boundary
 

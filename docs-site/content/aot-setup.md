@@ -83,7 +83,8 @@ precise from syntax alone.
 
 The transformer recognizes these seventeen generic entry points:
 
-The five protobuf/gRPC entries are imported from `@zmdb/protobuf`; `@zmdb/aot-validator` remains their compiler and does not re-export them.
+`toolFor<T>()` is imported from `@zmdb/ai`; install it with `npm add @zmdb/ai@alpha`. The five protobuf/gRPC entries are imported from `@zmdb/protobuf`; `@zmdb/aot-validator` remains their compiler
+and does not re-export either package.
 
 | Function                            | Emits                                       |
 | ----------------------------------- | ------------------------------------------- |

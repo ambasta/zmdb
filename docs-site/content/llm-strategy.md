@@ -1,6 +1,36 @@
 > **Provider documents, not provider clients.** `toolFor` emits the shape a target API expects. It does not make the request, choose a model or hide provider-specific response handling. The optional
 > framework adapters build tool objects; they do not turn LangChain or the AI SDK into a common client.
 
+## Package and installation matrix
+
+Provider schema dialects live in `@zmdb/ai`. Provider clients and framework adapters live only in the selected integration package:
+
+| Capability                                            | Install                                                      | Public import                                                                              | External peer cost                   |
+| ----------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Provider-neutral tools, chat, HTTP, shared invocation | `npm add @zmdb/ai@alpha`                                     | `@zmdb/ai`, `@zmdb/ai/chat`, `@zmdb/ai/http`, `@zmdb/ai/compiler`, `@zmdb/ai/tool-runtime` | none                                 |
+| Anthropic Messages API chat driver                    | `npm add @zmdb/ai-anthropic@alpha @anthropic-ai/sdk@0.123.0` | `@zmdb/ai-anthropic`                                                                       | optional `@anthropic-ai/sdk@0.123.0` |
+| LangChain structured-tool adapter                     | `npm add @zmdb/ai-langchain@alpha @langchain/core@^1.2.9`    | `@zmdb/ai-langchain`                                                                       | optional `@langchain/core@^1.2.9`    |
+| Vercel AI SDK tool adapter                            | `npm add @zmdb/ai-vercel@alpha ai@^7.0.83`                   | `@zmdb/ai-vercel`                                                                          | optional `ai@^7.0.83`                |
+| Transport-neutral MCP client/server cores             | `npm add @zmdb/ai@alpha @zmdb/mcp@alpha`                     | `@zmdb/mcp`                                                                                | none; no MCP SDK                     |
+
+`@zmdb/ai` itself depends only on `@zmdb/schema-core` and has no external peer. Each integration depends inward on `@zmdb/ai`; installing the provider-neutral package or MCP does not install
+Anthropic, LangChain, Vercel AI, or an MCP SDK.
+
+## Migrating from schema-core
+
+The old `@zmdb/schema-core` exports are removed, not deprecated aliases. Replace all six former subpaths directly:
+
+| Removed schema-core subpath | Final import                                                                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/llm`                      | `@zmdb/ai` for tool APIs; `@zmdb/schema-core/openapi` for `toJsonSchema`; use the explicit chat, HTTP, and MCP entries below for former star exports |
+| `/llm/chat`                 | `@zmdb/ai/chat`; move `anthropicDriver` and its types to `@zmdb/ai-anthropic`                                                                        |
+| `/llm/http`                 | `@zmdb/ai/http`                                                                                                                                      |
+| `/llm/langchain`            | `@zmdb/ai-langchain`                                                                                                                                 |
+| `/llm/ai-sdk`               | `@zmdb/ai-vercel`                                                                                                                                    |
+| `/llm/mcp`                  | `@zmdb/mcp`                                                                                                                                          |
+
+There is deliberately no schema-core forwarder: `@zmdb/ai` already depends on schema-core, so forwarding in the opposite direction would create a package cycle.
+
 ## Limits first
 
 A schema-derived tool is the `create` shape of one table: one object level with scalar leaves. A literal union becomes `enum`; recursive types and discriminated object unions do not enter this API.
