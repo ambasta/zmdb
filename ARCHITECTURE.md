@@ -243,8 +243,8 @@ package or capability is experimental and documentation must say which evidence 
 
 ### 3.5 Frozen shared HTTP-contract and generated-client target
 
-Issue #681 now ships the inert contract declarations, deterministic compiler and contract-aware router registration shown below. OpenAPI still uses its migration-only decorator/path-keyed input, the
-adapters do not populate query parameters or cancellation, and no `@zmdb/client` package exists.
+Issue #681 now ships the inert contract declarations, deterministic compiler and contract-aware router registration shown below. Issue #682 ships the dependency-free `@zmdb/client` execution runtime,
+while OpenAPI and generated operation modules remain on their later migration steps.
 
 ```text
 @zmdb/schema-core/ir

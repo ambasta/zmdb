@@ -8,6 +8,10 @@ const REPO = 'https://github.com/ambasta/zmdb';
 const VERSION = '1.0.0-alpha.4';
 
 const META = {
+  client: {
+    description: 'Dependency-free HTTP client runtime for generated and manually declared zmdb operations.',
+    keywords: ['typescript', 'http', 'fetch', 'client', 'zmdb'],
+  },
   'schema-core': {
     description:
       'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, custom types, and an LLM tool harness — the single source of truth for a zmdb data layer.',

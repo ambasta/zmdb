@@ -76,10 +76,7 @@ describe('the HTTP client dependency and generated-source verifier', () => {
     expect(result.stderr).toContain('not byte-identical');
   });
 
-  // Current measured state: packages/client contains only SPEC.md. This exact
-  // issue title remains red until the real package manifest exists and the same
-  // verifier can be pointed at generated output from two runs.
-  it.fails('@zmdb/client has zero dependencies', () => {
+  it('@zmdb/client has zero dependencies', () => {
     const result = verify(
       `${ROOT}/packages/client/package.json`,
       fixture('valid.generated.ts'),

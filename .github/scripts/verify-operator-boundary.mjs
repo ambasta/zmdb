@@ -23,7 +23,7 @@ import { API } from 'typescript/unstable/sync';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BOUNDARY = 'packages/query-compiler/src/clauses.ts';
-const PACKAGES = ['schema-core', 'aot-validator', 'protobuf', 'repository', 'query-compiler', 'web', 'zmdb'];
+const PACKAGES = ['client', 'schema-core', 'aot-validator', 'protobuf', 'repository', 'query-compiler', 'web', 'zmdb'];
 const OPERATOR_NAMES = new Set(['op', 'operator']);
 
 const FUNCTION_LIKE = new Set([

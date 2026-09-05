@@ -132,7 +132,7 @@ Release verification reports every problem in deterministic package/path order a
    > yarn verify:publish
    > node .github/scripts/repoint-dist.mjs
    >
-   > for p in query-compiler schema-core protobuf aot-validator repository web zmdb; do
+   > for p in client query-compiler schema-core protobuf aot-validator repository web zmdb; do
    >   ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha )
    > done
    > ```

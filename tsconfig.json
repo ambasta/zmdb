@@ -29,6 +29,8 @@
     // against a stale artifact locally. Wildcards mirror each package's
     // `exports` map (subpath -> `src/<subpath>/index.ts`).
     "paths": {
+      "@zmdb/client": ["./packages/client/src/index.ts"],
+      "@zmdb/client/*": ["./packages/client/src/*/index.ts"],
       "@zmdb/schema-core": ["./packages/schema-core/src/index.ts"],
       "@zmdb/schema-core/*": ["./packages/schema-core/src/*/index.ts"],
       "@zmdb/query-compiler": ["./packages/query-compiler/src/index.ts"],

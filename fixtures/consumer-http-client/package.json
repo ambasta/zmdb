@@ -1,0 +1,8 @@
+{
+  "name": "zmdb-consumer-http-client",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/client": "1.0.0-alpha.4"
+  }
+}

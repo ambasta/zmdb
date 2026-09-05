@@ -101,7 +101,7 @@ const BUDGET = {
 const BOUNDARIES_AT_AUDIT = 37;
 
 /** The packages whose shipped source this covers, in §9.4's order. */
-const PACKAGES = ['schema-core', 'aot-validator', 'protobuf', 'repository', 'query-compiler', 'web', 'zmdb'];
+const PACKAGES = ['client', 'schema-core', 'aot-validator', 'protobuf', 'repository', 'query-compiler', 'web', 'zmdb'];
 
 // ---------------------------------------------------------------------------
 // Kinds

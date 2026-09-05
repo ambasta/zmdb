@@ -12,7 +12,16 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 
 // Dependency order, so `npm publish` of a dependent finds its dependencies already on
 // the registry. `publish.yml`'s loop uses the same order.
-export const PACKAGES = ['query-compiler', 'schema-core', 'protobuf', 'aot-validator', 'repository', 'web', 'zmdb'];
+export const PACKAGES = [
+  'client',
+  'query-compiler',
+  'schema-core',
+  'protobuf',
+  'aot-validator',
+  'repository',
+  'web',
+  'zmdb',
+];
 
 /**
  * `./src/ir/index.ts` → `./dist/ir/index.js`.

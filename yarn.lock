@@ -2243,6 +2243,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/client@workspace:packages/client":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/client@workspace:packages/client"
+  dependencies:
+    typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/protobuf@workspace:^, @zmdb/protobuf@workspace:packages/protobuf":
   version: 0.0.0-use.local
   resolution: "@zmdb/protobuf@workspace:packages/protobuf"

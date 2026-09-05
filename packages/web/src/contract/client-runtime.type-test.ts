@@ -1,9 +1,8 @@
+import type { ClientResponseError } from '@zmdb/client';
 import type { Equal, Expect, Extends } from '@zmdb/schema-core';
 
-// Compile-only freeze for #680. These structural types are transcribed from
-// packages/client/SPEC.md §10 because @zmdb/client has not been created. #682
-// must replace them with imports from the real generated module; every rejection
-// below then applies unchanged to that public surface.
+// Compile-only freeze for #680. #682 now supplies the real typed error surface;
+// the generated operation method remains transcribed until #684 emits it.
 
 interface UpdateAccountInput {
   readonly path: { readonly accountId: string };
@@ -42,11 +41,6 @@ type UpdateAccountResult =
 interface UpdateAccountNotFound {
   readonly code: string;
   readonly message: string;
-}
-
-interface ClientResponseError<Status extends number, Body> extends Error {
-  readonly status: Status;
-  readonly body: Body;
 }
 
 interface ApiClient {

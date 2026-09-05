@@ -1,0 +1,53 @@
+{
+  "name": "@zmdb/client",
+  "version": "1.0.0-alpha.4",
+  "description": "Dependency-free HTTP client runtime for generated and manually declared zmdb operations.",
+  "keywords": [
+    "client",
+    "fetch",
+    "http",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/client"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./body": "./src/body/index.ts",
+    "./errors": "./src/errors/index.ts",
+    "./headers": "./src/headers/index.ts",
+    "./testing": "./src/testing/index.ts",
+    "./transport": "./src/transport/index.ts",
+    "./url": "./src/url/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

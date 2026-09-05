@@ -23,6 +23,8 @@
     // case that needs help instead — see `scripts/ts-specifier-hook.mjs`.
     "sourceMap": true,
     "paths": {
+      "@zmdb/client": ["./packages/client/dist/index.d.ts"],
+      "@zmdb/client/*": ["./packages/client/dist/*/index.d.ts"],
       "@zmdb/schema-core": ["./packages/schema-core/dist/index.d.ts"],
       "@zmdb/schema-core/*": ["./packages/schema-core/dist/*/index.d.ts"],
       "@zmdb/query-compiler": ["./packages/query-compiler/dist/index.d.ts"],

@@ -1,118 +1,24 @@
+import {
+  createClientRuntime,
+  type AuthenticationProvider,
+  type ClientBody,
+  type ClientHeaders,
+  type ClientOperationResponse,
+  type ClientRequest,
+  type ClientResponseBody,
+  type ClientTransport,
+  type GeneratedOperation,
+} from '@zmdb/client';
+import { prepareClientBody } from '@zmdb/client/body';
 import { describe, expect, it } from 'vitest';
 
 import { HTTP_CONVERGENCE_FIXTURE, type FrozenHttpOperation } from './__fixtures__/http-convergence.js';
 
 // FROZEN SURFACE — packages/client/SPEC.md §§2-9.
 //
-// @zmdb/client and the generated operation module do not exist yet. The consts
-// below transcribe only the public ABI needed by #680. Every missing production
-// call throws, so these are executable expected failures rather than a passing
-// local client implementation.
-
-type ClientHeaders = Readonly<Record<string, string>>;
-type ClientBody = string | Uint8Array | ReadableStream<Uint8Array>;
-
-interface ClientRequest {
-  readonly method: string;
-  readonly url: string;
-  readonly headers: ClientHeaders;
-  readonly body?: ClientBody;
-  readonly signal?: AbortSignal;
-}
-
-interface ClientResponse {
-  readonly status: number;
-  readonly headers: ClientHeaders;
-  readonly body: ReadableStream<Uint8Array> | null;
-}
-
-type ClientTransport = (request: ClientRequest) => Promise<ClientResponse>;
-
-interface ClientOptions {
-  readonly baseUrl: string | URL;
-  readonly transport?: ClientTransport;
-  readonly authentication?: AuthenticationProvider;
-  readonly headers?: ClientHeaders;
-  readonly maxResponseBytes?: number;
-  readonly maxErrorBodyBytes?: number;
-}
-
-interface CallOptions {
-  readonly signal?: AbortSignal;
-  readonly timeoutMs?: number;
-  readonly authentication?: AuthenticationProvider;
-  readonly version?: string;
-}
-
-interface AuthenticationContext {
-  readonly operationId: string;
-  readonly requirements: readonly Readonly<Record<string, readonly string[]>>[];
-  readonly version?: string;
-  readonly signal?: AbortSignal;
-}
-
-interface AuthenticationPatch {
-  readonly requirement: number;
-  readonly headers?: ClientHeaders;
-  readonly query?: Readonly<Record<string, string | readonly string[]>>;
-  readonly cookies?: Readonly<Record<string, string>>;
-}
-
-type AuthenticationProvider = (context: AuthenticationContext) => AuthenticationPatch | Promise<AuthenticationPatch>;
-
-interface PreparedClientRequest {
-  readonly path: string;
-  readonly query: readonly { readonly name: string; readonly value: string }[];
-  readonly headers: ClientHeaders;
-  readonly cookies: readonly { readonly name: string; readonly value: string }[];
-  readonly body?: ClientBody;
-}
-
-type DecodeResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly issues: readonly { readonly path: string; readonly message: string }[] };
-
-interface ClientResponseBody {
-  empty(): Promise<void>;
-  json<T>(mediaType: string, decode: (wire: unknown) => DecodeResult<T>): Promise<T>;
-  text(mediaType: string): Promise<string>;
-  bytes(mediaType: string): Promise<Uint8Array>;
-  stream(mediaType: string): ReadableStream<Uint8Array>;
-}
-
-interface ClientOperationResponse {
-  readonly status: number;
-  readonly headers: ClientHeaders;
-  readonly body: ClientResponseBody;
-  unexpectedStatus(): Promise<never>;
-}
-
-interface GeneratedOperation<Input, Result> {
-  readonly abi: 1;
-  readonly operationId: string;
-  readonly method: string;
-  readonly security: readonly Readonly<Record<string, readonly string[]>>[];
-  readonly schemes: Readonly<
-    Record<
-      string,
-      | { readonly type: 'http'; readonly scheme: 'bearer' | 'basic' }
-      | { readonly type: 'apiKey'; readonly in: 'header' | 'query' | 'cookie'; readonly name: string }
-    >
-  >;
-  readonly version:
-    | { readonly kind: 'none' }
-    | { readonly kind: 'header' | 'media-type'; readonly values: readonly string[]; readonly default: string };
-  prepare(input: Input, version: string | undefined): PreparedClientRequest;
-  read(response: ClientOperationResponse, version: string | undefined): Promise<Result>;
-}
-
-interface ClientRuntime {
-  call<Input, Result>(
-    operation: GeneratedOperation<Input, Result>,
-    input: Input,
-    options?: CallOptions,
-  ): Promise<Result>;
-}
+// #682 supplies the real transport runtime and body helper. Operation-specific
+// request/response code remains the #684 boundary, so only those generated calls
+// stay as executable expected failures.
 
 interface UpdateAccountInput {
   readonly path: { readonly accountId: string };
@@ -146,13 +52,10 @@ function unimplemented(what: string): never {
   throw new Error(`${what} has no production implementation`);
 }
 
-const createClientRuntime: (options: ClientOptions) => ClientRuntime = _options =>
-  unimplemented('@zmdb/client createClientRuntime');
-
 const prepareBody: (kind: 'json' | 'text' | 'bytes' | 'stream' | 'empty', value: unknown) => ClientBody | undefined = (
-  _kind,
-  _value,
-) => unimplemented('generated body preparation');
+  kind,
+  value,
+) => prepareClientBody(kind, value);
 
 const operation: GeneratedOperation<UpdateAccountInput, UpdateAccountResult> = {
   abi: 1,
@@ -163,6 +66,29 @@ const operation: GeneratedOperation<UpdateAccountInput, UpdateAccountResult> = {
   version: { kind: 'header', values: ['1', '2'], default: '1' },
   prepare: (_input, _version) => unimplemented('generated operation.prepare'),
   read: (_response, _version) => unimplemented('generated operation.read'),
+};
+
+const runtimeOperation: GeneratedOperation<UpdateAccountInput, UpdateAccountResult> = {
+  ...operation,
+  security: [],
+  schemes: {},
+  prepare: (_input, version) => ({
+    path: HTTP_CONVERGENCE_FIXTURE.expectedRequest.path,
+    query: HTTP_CONVERGENCE_FIXTURE.expectedRequest.query,
+    headers: { 'accept-version': version ?? '1' },
+    cookies: [],
+  }),
+  read: async runtimeResponse => {
+    if (runtimeResponse.status !== 204) return runtimeResponse.unexpectedStatus();
+    await runtimeResponse.body.empty();
+    return { status: 204, body: undefined, headers: {} };
+  },
+};
+
+const protectedRuntimeOperation: GeneratedOperation<UpdateAccountInput, UpdateAccountResult> = {
+  ...runtimeOperation,
+  security: operation.security,
+  schemes: operation.schemes,
 };
 
 function input(): UpdateAccountInput {
@@ -229,7 +155,7 @@ describe('@zmdb/client frozen request planning', () => {
     expect(operation.prepare(input(), '2').body).toContain('"metadata":null');
   });
 
-  it.fails('prepares JSON, text, bytes, stream, and empty bodies without changing ownership', () => {
+  it('prepares JSON, text, bytes, stream, and empty bodies without changing ownership', () => {
     const stream = new ReadableStream<Uint8Array>();
     const bytes = Uint8Array.of(1, 2, 3);
     expect([
@@ -280,7 +206,7 @@ describe('@zmdb/client frozen response dispatch', () => {
 });
 
 describe('@zmdb/client frozen transport, cancellation, and authentication', () => {
-  it.fails('aborts the underlying transport', async () => {
+  it('aborts the underlying transport', async () => {
     const controller = new AbortController();
     const reason = new Error('caller stopped request');
     let transportSignal: AbortSignal | undefined;
@@ -291,23 +217,23 @@ describe('@zmdb/client frozen transport, cancellation, and authentication', () =
       });
     };
     const runtime = createClientRuntime({ baseUrl: '/api', transport });
-    const pending = runtime.call(operation, input(), { signal: controller.signal, version: '2' });
+    const pending = runtime.call(runtimeOperation, input(), { signal: controller.signal, version: '2' });
     controller.abort(reason);
     await expect(pending).rejects.toBe(reason);
     expect(transportSignal?.aborted).toBe(true);
   });
 
-  it.fails('keeps caller abort, timeout, transport failure, and stream cancellation distinct', async () => {
+  it('keeps caller abort, timeout, transport failure, and stream cancellation distinct', async () => {
     const runtime = createClientRuntime({
       baseUrl: 'https://api.example.test/v1',
       transport: () => Promise.reject(new Error('network down')),
     });
-    await expect(runtime.call(operation, input(), { timeoutMs: 25, version: '2' })).rejects.toMatchObject({
+    await expect(runtime.call(runtimeOperation, input(), { timeoutMs: 25, version: '2' })).rejects.toMatchObject({
       name: 'TransportError',
     });
   });
 
-  it.fails('injects one declared security alternative without retaining credentials', async () => {
+  it('injects one declared security alternative without retaining credentials', async () => {
     const secret = 'token-visible-only-to-the-provider';
     const requests: ClientRequest[] = [];
     const transport: ClientTransport = async request => {
@@ -319,7 +245,7 @@ describe('@zmdb/client frozen transport, cancellation, and authentication', () =
       return { requirement: 0, headers: { authorization: `Bearer ${secret}` } };
     };
     const runtime = createClientRuntime({ baseUrl: '/api', transport, authentication });
-    await runtime.call(operation, input(), { version: '2' });
+    await runtime.call(protectedRuntimeOperation, input(), { version: '2' });
     expect(requests).toHaveLength(1);
     expect(requests[0]?.headers.authorization).toBe(`Bearer ${secret}`);
     expect(JSON.stringify(operation)).not.toContain(secret);
