@@ -1,7 +1,7 @@
 # Package architecture and release governance — specification
 
-> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, and the #710 AI ownership cutover. Issue #724
-> implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and
+> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, #662, and the #710 AI ownership cutover. Issue
+> #724 implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and
 > lockstep-manifest enforcement. #726 implements policy-driven runtime, tooling and optional-peer reachability; only the release verifier remains a later slice. The original measured baseline is
 > commit `5adba11e` on 2026-09-05.
 
@@ -24,9 +24,9 @@ At the measured baseline:
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
-Issues #656, #682, #705, #647, #706, #707, #708, and #709 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, and `@zmdb/mcp`.
-Issue #710 removed the temporary LangChain-to-schema-core edge. The current fourteen manifests keep `1.0.0-alpha.4`, declare 26 direct non-dev workspace edges, and retain 14 optional peers, each on
-its owning integration package.
+Issues #656, #682, #705, #647, #706, #707, #708, #709, and #662 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`,
+`@zmdb/mcp`, and `@zmdb/otel`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current fifteen manifests keep `1.0.0-alpha.4`, declare 27 direct non-dev workspace edges, and retain
+13 optional peers, each on its owning integration entry. OpenTelemetry is a required peer only of its selected package.
 
 ## 2. Canonical policy API
 
@@ -121,7 +121,7 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current fourteen catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
+The following object is normative. It constrains the current fifteen catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
 renaming a catalog member requires the catalog and policy key sets to change atomically.
 
 ```ts
@@ -257,6 +257,16 @@ export const PACKAGE_POLICY = {
     toolingEntries: [],
     release: 'lockstep',
   },
+  otel: {
+    directory: 'packages/otel',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+    release: 'lockstep',
+  },
   web: {
     directory: 'packages/web',
     zone: 'application',
@@ -266,7 +276,6 @@ export const PACKAGE_POLICY = {
     optionalPeerEntries: {
       '@grpc/grpc-js': ['./microservices/grpc'],
       '@nats-io/transport-node': ['./microservices/nats'],
-      '@opentelemetry/api': ['./otel'],
       amqplib: ['./microservices/rabbitmq'],
       pg: ['./queues/backends/pg'],
       redis: ['./microservices/redis'],

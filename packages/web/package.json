@@ -47,7 +47,6 @@
     "./openapi": "./src/openapi/index.ts",
     "./versioning": "./src/versioning/index.ts",
     "./health": "./src/health/index.ts",
-    "./otel": "./src/observability/otel.ts",
     "./gateways": "./src/gateways/index.ts",
     "./microservices": "./src/microservices/index.ts",
     "./microservices/grpc": "./src/microservices/grpc/index.ts",
@@ -80,8 +79,6 @@
   "devDependencies": {
     "@grpc/grpc-js": "1.14.4",
     "@nats-io/transport-node": "3.4.0",
-    "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/sdk-trace-base": "2.11.0",
     "@types/pg": "^8.23.1",
     "@zmdb/ai": "workspace:^",
     "@zmdb/protobuf": "workspace:^",
@@ -93,7 +90,6 @@
   "peerDependencies": {
     "@grpc/grpc-js": "^1.14.0",
     "@nats-io/transport-node": "^3.4.0",
-    "@opentelemetry/api": "^1.9.0",
     "amqplib": "^2.0.1",
     "pg": "^8.23.0",
     "redis": "^6.2.1",
@@ -104,9 +100,6 @@
       "optional": true
     },
     "@nats-io/transport-node": {
-      "optional": true
-    },
-    "@opentelemetry/api": {
       "optional": true
     },
     "amqplib": {

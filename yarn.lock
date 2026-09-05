@@ -1315,7 +1315,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@opentelemetry/api@npm:1.9.1, @opentelemetry/api@npm:^1.9.1":
+"@opentelemetry/api@npm:1.9.1":
   version: 1.9.1
   resolution: "@opentelemetry/api@npm:1.9.1"
   checksum: 10c0/c608485fc8b5a91e1f7e05e843b45b509307456b31cd2ad365933d90813e40ebfedf179f1451c762037e82d7c76aa8500e95d2da3609f640a1206cde5322cd14
@@ -2545,6 +2545,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/otel@workspace:packages/otel":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/otel@workspace:packages/otel"
+  dependencies:
+    "@opentelemetry/api": "npm:1.9.1"
+    "@opentelemetry/sdk-trace-base": "npm:2.11.0"
+    "@zmdb/app": "workspace:^"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    "@opentelemetry/api": ^1.9.0
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/protobuf@workspace:^, @zmdb/protobuf@workspace:packages/protobuf":
   version: 0.0.0-use.local
   resolution: "@zmdb/protobuf@workspace:packages/protobuf"
@@ -2594,8 +2607,6 @@ __metadata:
   dependencies:
     "@grpc/grpc-js": "npm:1.14.4"
     "@nats-io/transport-node": "npm:3.4.0"
-    "@opentelemetry/api": "npm:^1.9.1"
-    "@opentelemetry/sdk-trace-base": "npm:2.11.0"
     "@types/pg": "npm:^8.23.1"
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
@@ -2611,7 +2622,6 @@ __metadata:
   peerDependencies:
     "@grpc/grpc-js": ^1.14.0
     "@nats-io/transport-node": ^3.4.0
-    "@opentelemetry/api": ^1.9.0
     amqplib: ^2.0.1
     pg: ^8.23.0
     redis: ^6.2.1
@@ -2620,8 +2630,6 @@ __metadata:
     "@grpc/grpc-js":
       optional: true
     "@nats-io/transport-node":
-      optional: true
-    "@opentelemetry/api":
       optional: true
     amqplib:
       optional: true

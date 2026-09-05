@@ -1,6 +1,7 @@
 # `@zmdb/otel` — OpenTelemetry API adapter
 
-> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #662 extracts the shipped `@zmdb/web/otel` adapter.
+> Frozen by #654 for epic #653 and amended by #662 after `@zmdb/app` became the owner of the narrow observability ports. The adapter, its executable evidence and the sole public root entry belong to
+> this package.
 
 ## 1. Boundary and exports
 

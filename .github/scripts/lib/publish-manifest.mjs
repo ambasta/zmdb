@@ -26,6 +26,7 @@ export const PACKAGES = [
   'aot-validator',
   'repository',
   'app',
+  'otel',
   'web',
   'zmdb',
 ];

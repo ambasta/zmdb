@@ -19,15 +19,15 @@ import {
 } from '@zmdb/app/observability';
 import { describe, expect, it } from 'vitest';
 
-import { fromOpenTelemetry } from './otel.js';
+import { fromOpenTelemetry } from './index.js';
 
 const TRACEPARENT = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
 const TRACESTATE = 'rojo=00f067aa0ba902b7,congo=t61rcWkgMzE';
 
-describe('@zmdb/web/otel', () => {
+describe('@zmdb/otel', () => {
   it('adapts a meter without constructing or requiring a tracer', () => {
     const observability = fromOpenTelemetry({
-      meter: metrics.getMeter('@zmdb/web/meter-only-test'),
+      meter: metrics.getMeter('@zmdb/otel/meter-only-test'),
     });
 
     expect(observability.tracer).toBeUndefined();
@@ -41,7 +41,7 @@ describe('@zmdb/web/otel', () => {
       spanProcessors: [new SimpleSpanProcessor(exporter)],
     });
     try {
-      const sdkTracer = provider.getTracer('@zmdb/web/otel-test');
+      const sdkTracer = provider.getTracer('@zmdb/otel/adapter-test');
       const receivedContexts: Context[] = [];
       const startSpan = sdkTracer.startSpan.bind(sdkTracer);
       const source = new Proxy(sdkTracer, {
@@ -111,7 +111,7 @@ describe('@zmdb/web/otel', () => {
       spanProcessors: [new SimpleSpanProcessor(exporter)],
     });
     try {
-      const observability = fromOpenTelemetry({ tracer: provider.getTracer('@zmdb/web/framework-test') });
+      const observability = fromOpenTelemetry({ tracer: provider.getTracer('@zmdb/otel/framework-test') });
       const driver = tracedDriver({ execute: () => Promise.resolve([]) }, observability);
       await driver.execute({
         text: 'SELECT "id" FROM "orders"',

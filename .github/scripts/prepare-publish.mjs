@@ -64,6 +64,11 @@ const META = {
       'Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.',
     keywords: ['typescript', 'application-framework', 'decorators', 'stage-3', 'dependency-injection', 'cqrs', 'zmdb'],
   },
+  otel: {
+    description: 'OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.',
+    install: 'npm add @zmdb/otel@alpha @opentelemetry/api',
+    keywords: ['adapter', 'observability', 'opentelemetry', 'telemetry', 'typescript', 'zmdb'],
+  },
   web: {
     description:
       'HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.',
@@ -129,7 +134,7 @@ and CRUD all derive at compile time.
 ## Install
 
 \`\`\`bash
-npm add ${pkg.name}@alpha
+${m.install ?? `npm add ${pkg.name}@alpha`}
 \`\`\`
 
 > **Prerelease** (\`${VERSION}\`, published under the \`alpha\` dist-tag). Requires

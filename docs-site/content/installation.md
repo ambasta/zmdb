@@ -1,6 +1,6 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Fourteen packages are published today: thirteen focused packages plus the `zmdb` umbrella. The easiest way
-to install the cohesive data, application, and HTTP stack is the umbrella; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, and `@zmdb/mcp` remain
-independently installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Fifteen packages are published today: fourteen focused packages plus the `zmdb` umbrella. The easiest way to
+install the cohesive data, application, and HTTP stack is the umbrella; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, and `@zmdb/otel`
+remain independently installable.
 
 ## Recommended: one install
 
@@ -92,6 +92,9 @@ npm install @zmdb/ai @zmdb/ai-vercel ai@^7.0.83
 
 # Transport-neutral MCP client/server core
 npm install @zmdb/ai @zmdb/mcp
+
+# OpenTelemetry API adapter
+npm install @zmdb/otel @opentelemetry/api
 ```
 
 > [!NOTE] Workspace packages declare their direct `@zmdb/*` runtime dependencies. Provider and framework SDKs remain opt-in at their integration boundaries.
@@ -178,6 +181,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/ai-langchain`   | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer             |
 | `@zmdb/ai-vercel`      | Optional Vercel AI SDK tool adapter with caller-owned schema branding                        |
 | `@zmdb/mcp`            | Pure MCP client/server protocol core, authenticated identity, validation, and call budgets   |
+| `@zmdb/otel`           | OpenTelemetry API adaptation for caller-owned tracers and meters                             |
 
 ## Next Steps
 

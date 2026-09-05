@@ -115,6 +115,7 @@ const PACKAGES = [
   'repository',
   'query-compiler',
   'app',
+  'otel',
   'web',
   'zmdb',
 ];

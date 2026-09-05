@@ -124,6 +124,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  otel: packagePolicy({
+    directory: 'packages/otel',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   protobuf: packagePolicy({
     directory: 'packages/protobuf',
     zone: 'foundation',
@@ -204,7 +213,6 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {
       '@grpc/grpc-js': ['./microservices/grpc'],
       '@nats-io/transport-node': ['./microservices/nats'],
-      '@opentelemetry/api': ['./otel'],
       amqplib: ['./microservices/rabbitmq'],
       pg: ['./queues/backends/pg'],
       redis: ['./microservices/redis'],

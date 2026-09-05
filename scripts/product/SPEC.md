@@ -60,28 +60,30 @@ repository root explicitly.
 
 ## 3. Measured package inventory
 
-At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #706, #707, #708, and #709 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`,
-`@zmdb/app`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` integrations, and `@zmdb/mcp`. The catalog now accounts for all fourteen manifest-backed
-packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
+At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #706, #707, #708, #709, and #662 add `@zmdb/protobuf`, `@zmdb/client`,
+`@zmdb/ai`, `@zmdb/app`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` integrations, `@zmdb/mcp`, and `@zmdb/otel`. The catalog now accounts for all
+fifteen manifest-backed packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product
+membership:
 
-| Directory                 | npm name               | Frozen product role | Current facade ownership                                      |
-| ------------------------- | ---------------------- | ------------------- | ------------------------------------------------------------- |
-| `packages/client`         | `@zmdb/client`         | `client`            | None; generated clients import it directly                    |
-| `packages/schema-core`    | `@zmdb/schema-core`    | `schema`            | Root schema names; `tags`, `derive`, `dto`, `relations`, `ir` |
-| `packages/query-compiler` | `@zmdb/query-compiler` | `sql`               | Root SQL names and the root `migrations` namespace            |
-| `packages/ai`             | `@zmdb/ai`             | `ai`                | None; installed and imported independently                    |
-| `packages/ai-anthropic`   | `@zmdb/ai-anthropic`   | `anthropic`         | None; selected integration with no facade export              |
-| `packages/ai-langchain`   | `@zmdb/ai-langchain`   | `langchain`         | None; selected integration with no facade export              |
-| `packages/ai-vercel`      | `@zmdb/ai-vercel`      | `vercel-ai`         | None; selected integration with no facade export              |
-| `packages/mcp`            | `@zmdb/mcp`            | `mcp`               | None; selected protocol integration with no facade export     |
-| `packages/protobuf`       | `@zmdb/protobuf`       | `protobuf`          | None; installed and imported independently                    |
-| `packages/aot-validator`  | `@zmdb/aot-validator`  | `validator`         | Root validator names and `unplugin`                           |
-| `packages/repository`     | `@zmdb/repository`     | `orm`               | Root ORM names and database-driver subpaths                   |
-| `packages/app`            | `@zmdb/app`            | `app`               | None; the current `zmdb/web` aggregate is owned by web        |
-| `packages/web`            | `@zmdb/web`            | `web`               | `zmdb/web`                                                    |
-| `packages/zmdb`           | `zmdb`                 | `product`           | Root composition, `config`, `cli`, and the executable         |
+| Directory                 | npm name               | Frozen product role | Current facade ownership                                       |
+| ------------------------- | ---------------------- | ------------------- | -------------------------------------------------------------- |
+| `packages/client`         | `@zmdb/client`         | `client`            | None; generated clients import it directly                     |
+| `packages/schema-core`    | `@zmdb/schema-core`    | `schema`            | Root schema names; `tags`, `derive`, `dto`, `relations`, `ir`  |
+| `packages/query-compiler` | `@zmdb/query-compiler` | `sql`               | Root SQL names and the root `migrations` namespace             |
+| `packages/ai`             | `@zmdb/ai`             | `ai`                | None; installed and imported independently                     |
+| `packages/ai-anthropic`   | `@zmdb/ai-anthropic`   | `anthropic`         | None; selected integration with no facade export               |
+| `packages/ai-langchain`   | `@zmdb/ai-langchain`   | `langchain`         | None; selected integration with no facade export               |
+| `packages/ai-vercel`      | `@zmdb/ai-vercel`      | `vercel-ai`         | None; selected integration with no facade export               |
+| `packages/mcp`            | `@zmdb/mcp`            | `mcp`               | None; selected protocol integration with no facade export      |
+| `packages/protobuf`       | `@zmdb/protobuf`       | `protobuf`          | None; installed and imported independently                     |
+| `packages/aot-validator`  | `@zmdb/aot-validator`  | `validator`         | Root validator names and `unplugin`                            |
+| `packages/repository`     | `@zmdb/repository`     | `orm`               | Root ORM names and database-driver subpaths                    |
+| `packages/app`            | `@zmdb/app`            | `app`               | None; the current `zmdb/web` aggregate is owned by web         |
+| `packages/otel`           | `@zmdb/otel`           | `otel`              | None; selected OpenTelemetry integration with no facade export |
+| `packages/web`            | `@zmdb/web`            | `web`               | `zmdb/web`                                                     |
+| `packages/zmdb`           | `zmdb`                 | `product`           | Root composition, `config`, `cli`, and the executable          |
 
-This table is review evidence, not the canonical machine source. The fourteen rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
+This table is review evidence, not the canonical machine source. The fifteen rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
 the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers

@@ -31,6 +31,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/app            | 1.0.0-alpha.4 | app       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.                                                     | web-app              |
 | @zmdb/client         | 1.0.0-alpha.4 | client    | integration: generated HTTP clients    | `npm add @zmdb/client@1.0.0-alpha.4`       | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                                                                | web-http-client      |
 | @zmdb/mcp            | 1.0.0-alpha.4 | mcp       | integration: Model Context Protocol    | `npm add @zmdb/mcp@1.0.0-alpha.4`          | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp              |
+| @zmdb/otel           | 1.0.0-alpha.4 | otel      | integration: OpenTelemetry             | `npm add @zmdb/otel@1.0.0-alpha.4`         | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability    |
 | @zmdb/protobuf       | 1.0.0-alpha.4 | protobuf  | integration: Protocol Buffers          | `npm add @zmdb/protobuf@1.0.0-alpha.4`     | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                           | protobuf-message     |
 | @zmdb/query-compiler | 1.0.0-alpha.4 | sql       | required                               | `npm add zmdb@1.0.0-alpha.4`               | SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.                                                                                     | raw-sql              |
 | @zmdb/repository     | 1.0.0-alpha.4 | orm       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.                                              | repository           |
@@ -230,6 +231,24 @@ Transport-neutral MCP client and server cores with validated tool dispatch, auth
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-mcp
 
+### `@zmdb/otel`
+
+OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/app` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `@opentelemetry/api` → `^1.9.0`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/consumer-server-integrations
+
 ### `@zmdb/protobuf`
 
 Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.
@@ -422,7 +441,6 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
   - `./microservices/redis` → `./src/microservices/redis/index.ts`
   - `./middleware` → `./src/middleware/index.ts`
   - `./openapi` → `./src/openapi/index.ts`
-  - `./otel` → `./src/observability/otel.ts`
   - `./pipeline` → `./src/pipeline/index.ts`
   - `./queues` → `./src/queues/index.ts`
   - `./queues/backends/memory` → `./src/queues/backends/memory.ts`
@@ -443,7 +461,6 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
 - **Optional peers:**
   - `@grpc/grpc-js` → `^1.14.0`
   - `@nats-io/transport-node` → `^3.4.0`
-  - `@opentelemetry/api` → `^1.9.0`
   - `amqplib` → `^2.0.1`
   - `pg` → `^8.23.0`
   - `redis` → `^6.2.1`

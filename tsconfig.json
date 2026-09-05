@@ -54,6 +54,7 @@
       "@zmdb/app": ["./packages/app/src/index.ts"],
       "@zmdb/app/lifecycle": ["./packages/app/src/lifecycle.ts"],
       "@zmdb/app/*": ["./packages/app/src/*/index.ts"],
+      "@zmdb/otel": ["./packages/otel/src/index.ts"],
       "@zmdb/web": ["./packages/web/src/index.ts"],
       "@zmdb/web/*": ["./packages/web/src/*/index.ts"]
     }

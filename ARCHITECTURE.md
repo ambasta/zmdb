@@ -150,6 +150,9 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
       │   @zmdb/app    │  (also depends directly on schema-core,
       │ (app kernel)   │   query-compiler, and aot-validator)
       └───────┬────────┘
+              ├──────────────▶┌────────────────┐
+              │               │  @zmdb/otel    │  (required peer: @opentelemetry/api)
+              │               └────────────────┘
               ▼
       ┌────────────────┐
       │   @zmdb/web    │  (also depends directly on schema-core,
@@ -162,7 +165,8 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
 ```
 
 `@zmdb/client` and `@zmdb/protobuf` are independent roots. The opt-in `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` packages depend inward only on `@zmdb/ai`; each integration
-alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. None of these optional packages or the provider-neutral AI package is re-exported by the umbrella.
+alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/otel` depends only on `@zmdb/app` and declares the OpenTelemetry API as its required peer. None of these optional
+packages or the provider-neutral AI package is re-exported by the umbrella.
 
 **Rules enforced by this DAG:**
 
@@ -175,6 +179,7 @@ alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. N
 - **aot-validator depends on schema-core and AI, never the reverse.** Reflection remains above the declaration vocabulary; `toolFor` compilation consumes AI's document boundary.
 - **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and currently owns the driver adapters (built-in `node:sqlite`, structurally injected `pg` and `mssql`).
 - **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, command, event, CQRS, state, health, and observability kernel.
+- **OTel depends only on app.** It adapts caller-owned API objects to the app ports and owns no provider, SDK, exporter, ambient context, or web edge.
 - **web sits above app and repository** — controllers inject repositories, routes validate via the AOT validator, responses serialize via the AOT serializer, and HTTP composition reuses the one
   app-owned construction and lifecycle graph.
 - **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the default install; the sub-packages remain the tree-shakeable/advanced path.
@@ -195,8 +200,9 @@ alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. N
 | `@zmdb/aot-validator`  | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                              | ai, schema-core                                                  |
 | `@zmdb/repository`     | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and current driver adapters                                  | aot-validator, query-compiler, schema-core                       |
 | `@zmdb/app`            | Protocol-neutral metadata, DI, modules, lifecycle/extensions, commands, events, CQRS, state, health contracts, and observability ports                 | aot-validator, query-compiler, repository, schema-core           |
+| `@zmdb/otel`           | OpenTelemetry API adaptation over caller-owned tracers and meters, without provider, SDK, exporter, or ambient-context ownership                       | app; `@opentelemetry/api` (required peer)                        |
 | `@zmdb/web`            | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                            | app, aot-validator, query-compiler, repository, schema-core      |
-| `zmdb`                 | Curated product facade and CLI; no AI or MCP public re-export                                                                                          | app, aot-validator, query-compiler, repository, schema-core, web |
+| `zmdb`                 | Curated product facade and CLI; no AI, MCP, or OTel public re-export                                                                                   | app, aot-validator, query-compiler, repository, schema-core, web |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
 
@@ -361,7 +367,8 @@ The exact 32-file ownership map, public exports, peer matrix, publish order and 
 This section is the target frozen for epic #653, not a claim about the current tree. The measured starting point has protobuf calls, service artifacts and wire primitives in `@zmdb/aot-validator`; six
 external peers on `@zmdb/web`; and six integration subpaths under web.
 
-Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces. The six transport/jobs/telemetry packages remain later slices of the same target.
+Implementation status: #656 has completed the `@zmdb/protobuf` row, and #662 has completed the `@zmdb/otel` row and removed the old web export and peer. Five transport/jobs packages remain later
+slices of the same target.
 
 The final manifest graph is:
 
@@ -687,5 +694,6 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the eleven implementation-package reality (including `@zmdb/client`, `@zmdb/ai`, both opt-in AI integrations, `@zmdb/protobuf`,
-`@zmdb/app`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+the north-star-driven language policy in §4 here, and it records the fifteen-package implementation reality (including `@zmdb/client`, `@zmdb/ai`, its opt-in integrations, `@zmdb/mcp`,
+`@zmdb/protobuf`, `@zmdb/app`, `@zmdb/otel`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the
+docs site.

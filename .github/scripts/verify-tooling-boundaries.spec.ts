@@ -43,7 +43,7 @@ describe('the tooling-boundary verifier', () => {
     ]);
     expect(result.generatedViolations).toHaveLength(3);
     expect(result.embeddedViolations).toEqual([]);
-    expect(result.packageGraph.edges).toHaveLength(26);
+    expect(result.packageGraph.edges).toHaveLength(27);
   });
 
   it('rejects a planted compiler import from a runtime root', () => {

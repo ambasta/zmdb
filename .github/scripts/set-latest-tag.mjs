@@ -22,6 +22,7 @@ const PACKAGES = [
   '@zmdb/aot-validator',
   '@zmdb/repository',
   '@zmdb/app',
+  '@zmdb/otel',
   '@zmdb/web',
   'zmdb',
 ];

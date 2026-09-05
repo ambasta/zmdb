@@ -26,7 +26,7 @@ const SPAN_KINDS: Readonly<Record<FrameworkSpanKind, OpenTelemetrySpanKind>> = {
   [FrameworkSpanKind.CONSUMER]: OpenTelemetrySpanKind.CONSUMER,
 };
 
-/** User-configured OpenTelemetry objects adapted to the framework's narrow ports. */
+/** User-configured OpenTelemetry objects adapted to the application's narrow ports. */
 export interface OpenTelemetryOptions {
   readonly tracer?: OpenTelemetryTracer;
   readonly meter?: OpenTelemetryMeter;
@@ -34,8 +34,8 @@ export interface OpenTelemetryOptions {
 
 /**
  * Adapt OpenTelemetry API objects without making them a dependency of the core
- * @zmdb/app or @zmdb/web entry points. Parent context stays explicit; ambient context is not
- * consulted by the adapter.
+ * @zmdb/app or @zmdb/web packages. Parent context stays explicit; ambient
+ * context is not consulted by the adapter.
  */
 export function fromOpenTelemetry(options: OpenTelemetryOptions): Observability {
   return {

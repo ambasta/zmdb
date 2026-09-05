@@ -121,6 +121,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-mcp' },
   }),
   productPackage({
+    id: 'otel',
+    directory: 'packages/otel',
+    npmName: '@zmdb/otel',
+    role: 'otel',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'OpenTelemetry' },
+    docsOwner: 'web-observability',
+    consumer: { fixture: 'fixtures/consumer-server-integrations' },
+  }),
+  productPackage({
     id: 'protobuf',
     directory: 'packages/protobuf',
     npmName: '@zmdb/protobuf',

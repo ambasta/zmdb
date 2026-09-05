@@ -24,8 +24,8 @@ client modules whose runtime imports are limited to `@zmdb/client`.
 During the server-package migration, transport strategies and clients remain at `/microservices`, dedicated Redis, NATS, RabbitMQ, and gRPC adapters retain their named entry points, and queues and
 scheduling retain `/queues` and `/schedule`. Queue backends are published under `/queues/backends`.
 
-Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. The temporary
-`@zmdb/web/otel` adapter connects those ports to the optional `@opentelemetry/api` peer; it bundles no SDK, exporter, backend, or metrics endpoint.
+Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install `@zmdb/otel`
+separately to adapt caller-owned `@opentelemetry/api` tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
 
 `@zmdb/web/versioning` provides version decorators and the path, header, and media-type strategies used by the router and OpenAPI generator.
 

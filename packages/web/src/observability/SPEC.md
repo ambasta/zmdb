@@ -6,9 +6,9 @@
 Health probes are `../health/SPEC.md`. The SQL comment this file's trace context ends up inside is `../../../query-compiler/src/comments/SPEC.md`. This file is the telemetry the framework emits and
 the shape of the seam it emits through.
 
-> **Ownership target frozen by #654:** generic `Observability`, tracer/meter/span ports and propagation move to `@zmdb/app` under #647. The OpenTelemetry conversion moves to `@zmdb/otel`, whose only
-> required peer is `@opentelemetry/api@^1.9.0`. `@zmdb/web/otel` is removed with no forwarding subpath. The adapter still borrows caller-owned objects, installs no provider or ambient context, and
-> owns no SDK or exporter.
+> **Ownership amended by #654, #647 and #662:** generic `Observability`, tracer/meter/span ports and propagation belong to `@zmdb/app`. The OpenTelemetry conversion belongs to `@zmdb/otel`, whose only
+> required peer is `@opentelemetry/api@^1.9.0`. `@zmdb/web/otel` is removed with no forwarding subpath. The adapter borrows caller-owned objects, installs no provider or ambient context, and owns no
+> SDK or exporter.
 
 ## 1. Span names are a public interface
 
@@ -76,8 +76,8 @@ server-span name is only known after that lookup. The router starts it with the 
 **This spec does not claim structural compatibility with `@opentelemetry/api`.** Its `Tracer.startActiveSpan` has four overloads and its `Span` has around ten methods, and a claim that a locally
 declared interface satisfies them cannot be compiled from the dependency-free core entry points. A claim that cannot be checked is a claim that rots in silence.
 
-So the port above is a port. It currently lives beside the optional `@zmdb/web/otel` adapter, where `@opentelemetry/api` is both an optional peer and a dev dependency and the compatibility claim is
-therefore _typechecked_. Under #654 the adapter moves to `@zmdb/otel`, where that API becomes the selected package's required peer; importing core app or web still does not resolve it.
+So the port above is a port. Its OpenTelemetry compatibility claim is _typechecked_ in `@zmdb/otel`, where `@opentelemetry/api` is the required peer. Importing core app or web does not resolve that
+peer, and web publishes no forwarding adapter subpath.
 
 **`comments` corrects the sketch.** #579 has `comments?: { readonly enabled: boolean; readonly keys: readonly CommentKey[] }`, in which `enabled: false` is a second spelling of the absent `comments`
 and `keys: []` is a third. An option with three ways to mean off has two of them nobody tests. Present means on, and `readonly [CommentKey, ...CommentKey[]]` makes the empty array a compile error.
@@ -340,5 +340,5 @@ The narrow ports, W3C propagation, message spans and driver instrumentation move
 `SpanOptions`, `Tracer`, `Meter`, `Observability`, `CommentKey`, `CommentKeys`, `CommentPairs`, `QueryTelemetry`, `ExecutingDriver`, `tracedDriver`, `consumerSpan`, `fromTraceContext`,
 `fromTraceparent`, `toTraceHeaders` and `toTraceparent`.
 
-`createTracedRouter` remains HTTP-owned in `@zmdb/web`. The broad `@zmdb/web/observability` entry is deleted when its implementation moves to app. In this slice, `@zmdb/web/otel` remains the
-OpenTelemetry compatibility adapter; its later extraction moves `fromOpenTelemetry` and `OpenTelemetryOptions` to `@zmdb/otel`, the sole owner of the OpenTelemetry peer.
+`createTracedRouter` remains HTTP-owned in `@zmdb/web`. The broad `@zmdb/web/observability` entry is deleted with the app move. `fromOpenTelemetry` and `OpenTelemetryOptions` belong to `@zmdb/otel`,
+the sole owner of the OpenTelemetry peer; web publishes no forwarding subpath.

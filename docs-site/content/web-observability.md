@@ -79,13 +79,13 @@ twice.
 
 ## Wiring in the framework metrics
 
-`createRouter` and `createApp` accept the same `Observability` object. The optional OpenTelemetry adapter takes application-owned API objects:
+`createRouter` and `createApp` accept the same `Observability` object. The separately installed OpenTelemetry adapter takes application-owned API objects:
 
 ```ts
 import { metrics, trace } from '@opentelemetry/api';
 import { tracedDriver } from '@zmdb/app/observability';
+import { fromOpenTelemetry } from '@zmdb/otel';
 import { createApp } from '@zmdb/web';
-import { fromOpenTelemetry } from '@zmdb/web/otel';
 
 const observability = fromOpenTelemetry({
   tracer: trace.getTracer('checkout'),
@@ -95,7 +95,7 @@ const observability = fromOpenTelemetry({
 await using app = createApp(AppModule, { observability });
 ```
 
-`@opentelemetry/api` is an optional peer used only by `@zmdb/web/otel`. Neither the app kernel nor the HTTP core chooses an exporter or metrics backend.
+`@opentelemetry/api` is the sole required peer of the separately installed `@zmdb/otel` package. Neither the app kernel nor the HTTP core declares it or chooses an exporter or metrics backend.
 
 Queries use `tracedDriver`. Passing `ctx.span` is what parents a query span to the handler; metrics work without a tracer:
 
@@ -183,7 +183,7 @@ error label; derive database failures from spans or an application-owned counter
 
 ## Framework boundaries
 
-The framework supplies a `Meter` port, an optional `@zmdb/web/otel` adapter and the low-cardinality route information only the router knows.
+The framework supplies a `Meter` port and the low-cardinality route information only the router knows. The separately installed `@zmdb/otel` package adapts caller-owned OpenTelemetry objects.
 
 Exactly two histograms are emitted, and only when a meter exists: `http.server.request.duration` and `db.client.operation.duration`. HTTP error rate is derivable from the first histogram's optional
 `error.type`; database error and pool metrics remain the application or driver's responsibility.
