@@ -58,6 +58,9 @@ jobs:
       - name: Verify official product membership and facade ownership
         run: yarn verify:product-catalog
 
+      - name: Verify architecture zones, rings, and workspace edges
+        run: yarn verify:architecture-zones
+
       # `verify:exports` runs inside the workspace, where `node_modules/@zmdb/*` is a
       # symlink and Node resolves past it — so it can pass for a package that cannot be
       # imported once installed. This builds, packs, installs into a throwaway project,

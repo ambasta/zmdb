@@ -1,10 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { createImportGraph } from '../../../.github/scripts/lib/import-graph.mjs';
 import {
   createDependencyGraph,
   loadArchitecture,
@@ -244,6 +246,22 @@ function diagnosticLines(result: VerifierResult): readonly string[] {
     .filter(line => line.startsWith('['));
 }
 
+function withValidFixtureCopy<T>(mutate: (root: string) => void, inspect: (root: string) => T): T {
+  const temporary = mkdtempSync(join(tmpdir(), 'zmdb-architecture-'));
+  const root = join(temporary, 'fixture');
+  cpSync(fixtureRoot('valid'), root, { recursive: true });
+  try {
+    mutate(root);
+    return inspect(root);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+function writeJson(path: string, value: unknown): void {
+  writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`);
+}
+
 describe('architecture and release governance fixtures', () => {
   it('keeps every fixture self-contained and limited to its named mutation', async () => {
     for (const name of FIXTURE_NAMES) await assertFixtureSkeleton(name);
@@ -285,11 +303,40 @@ describe('architecture and release governance fixtures', () => {
     });
     expect(Object.isFrozen(architecture.packages)).toBe(true);
     expect(Object.isFrozen(architecture.policy)).toBe(true);
+
+    const importGraph = createImportGraph(root, architecture.packages);
+    expect(
+      importGraph
+        .importsOf(
+          join(root, 'packages', 'app', 'src', 'parser-probe.ts'),
+          `
+            // import { fake } from 'comment-only';
+            const text = "export { fake } from 'string-only'";
+            const template = \`import { fake } from 'template-only'\`;
+            const pattern = /import .* from ['"]regex-only['"]/;
+            import type { coreValue } from '@fixture/core';
+            export { cliValue } from '@fixture/app/cli';
+            const runtime = import('fixture-runtime');
+            import 'fixture-tool';
+          `,
+        )
+        .map(reference => reference.specifier),
+    ).toEqual(['@fixture/core', '@fixture/app/cli', 'fixture-runtime', 'fixture-tool']);
+
+    const fixtureResult = runVerifier(VERIFIERS.architecture, root);
+    expect(fixtureResult).toMatchObject({ status: 0, stderr: '' });
+    expect(fixtureResult.stdout.trim()).toBe(
+      'architecture zones: 2 catalog packages, 1 workspace edges, and canonical rings verified.',
+    );
+
+    const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
+    expect(liveResult).toMatchObject({ status: 0, stderr: '' });
+    expect(liveResult.stdout.trim()).toBe(
+      'architecture zones: 14 catalog packages, 26 workspace edges, and canonical rings verified.',
+    );
   });
 
-  // The four verifier CLIs remain absent after #724. These expected failures stay attached to
-  // #725-#728 and retire only when their own production boundaries emit the frozen diagnostics.
-  it.fails('rejects a workspace dependency cycle and prints the complete cycle', () => {
+  it('rejects a workspace dependency cycle and prints the complete cycle', () => {
     const result = runVerifier(VERIFIERS.architecture, fixtureRoot('cycle'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
@@ -297,12 +344,57 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  it.fails('rejects an edge not named by the consumer policy', () => {
+  it('rejects an edge not named by the consumer policy', () => {
     const result = runVerifier(VERIFIERS.architecture, fixtureRoot('upward-edge'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
       '[ARCH_EDGE_FORBIDDEN] core -> app at packages/core/src/index.ts: @fixture/core imports @fixture/app, but app is absent from core.allowedWorkspaceDependencies. Remediation: use an existing inward public contract or review manifest and policy together.',
       '[ARCH_ZONE_DIRECTION] core (foundation) -> app (application): @fixture/core depends on an outward zone. Remediation: move ownership inward or introduce an explicit lower-layer contract.',
+    ]);
+  });
+
+  it('rejects stale policy edges', () => {
+    const stale = withValidFixtureCopy(
+      root => {
+        writeFileSync(
+          join(root, 'packages', 'app', 'src', 'index.ts'),
+          "import { runtimeValue } from 'fixture-runtime';\n\nexport const appValue = runtimeValue;\n",
+        );
+      },
+      root => runVerifier(VERIFIERS.architecture, root),
+    );
+    expect(stale.status).toBe(1);
+    expect(diagnosticLines(stale)).toEqual([
+      '[ARCH_EDGE_STALE] app -> core: packages/app/package.json and app.allowedWorkspaceDependencies name @fixture/core, but no production export or executable imports it. Remediation: remove the stale edge from both authorities.',
+    ]);
+
+    const invalidRing = withValidFixtureCopy(
+      root => {
+        const path = join(root, 'scripts', 'architecture', 'policy.mjs');
+        const source = readFileSync(path, 'utf8');
+        const row = "directory: 'packages/app',\n    zone: 'application',\n    ring: 1,";
+        expect(source).toContain(row);
+        writeFileSync(path, source.replace(row, row.replace('ring: 1', 'ring: 2')));
+      },
+      root => runVerifier(VERIFIERS.architecture, root),
+    );
+    expect(invalidRing.status).toBe(1);
+    expect(diagnosticLines(invalidRing)).toEqual([
+      '[ARCH_RING_INVALID] app: declared ring 2 disagrees with canonical ring 1 from dependencies [core]. Remediation: set the canonical ring after fixing all edges.',
+    ]);
+
+    const privateImport = withValidFixtureCopy(
+      root => {
+        writeFileSync(
+          join(root, 'packages', 'app', 'src', 'index.ts'),
+          "import { runtimeValue } from 'fixture-runtime';\nimport { coreValue } from '../../core/src/index.js';\n\nexport const appValue = `${coreValue}:${runtimeValue}`;\n",
+        );
+      },
+      root => runVerifier(VERIFIERS.architecture, root),
+    );
+    expect(privateImport.status).toBe(1);
+    expect(diagnosticLines(privateImport)).toEqual([
+      "[ARCH_PRIVATE_IMPORT] app -> core at packages/app/src/index.ts: @fixture/app imports private cross-package path ../../core/src/index.js. Remediation: publish/use the owning package's public export.",
     ]);
   });
 
@@ -323,6 +415,8 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
+  // #725 retires only the cycle, forbidden-edge and missing-manifest expected failures.
+  // The six remaining `it.fails` cases belong to #726-#728.
   it.fails('rejects a runtime export reaching a tooling module', () => {
     const result = runVerifier(VERIFIERS.runtime, fixtureRoot('tooling-leak'));
     expect(result.status).toBe(1);
@@ -339,11 +433,19 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  it.fails('rejects a dependency absent from the manifest', () => {
-    const result = runVerifier(VERIFIERS.runtime, fixtureRoot('metadata-drift'));
+  it('rejects a dependency absent from the manifest', () => {
+    const result = withValidFixtureCopy(
+      root => {
+        const path = join(root, 'packages', 'app', 'package.json');
+        const manifest = readJson<{ dependencies: Record<string, string> }>(path);
+        delete manifest.dependencies['@fixture/core'];
+        writeJson(path, manifest);
+      },
+      root => runVerifier(VERIFIERS.architecture, root),
+    );
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
-      '[ARCH_DEPENDENCY_UNDECLARED] fixture-runtime from @fixture/app#. via packages/app/src/index.ts -> fixture-runtime: production import is absent from packages/app/package.json dependencies. Remediation: declare it at the correct manifest boundary or remove the import.',
+      '[ARCH_EDGE_UNDECLARED] app -> core at packages/app/src/index.ts: @fixture/app imports @fixture/core, but packages/app/package.json has no non-dev dependency on @fixture/core. Remediation: add the intended direct dependency and policy id, or remove the import.',
     ]);
   });
 

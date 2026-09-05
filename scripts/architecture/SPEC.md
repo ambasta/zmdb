@@ -1,8 +1,8 @@
 # Package architecture and release governance — specification
 
 > **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, and the #710 AI ownership cutover. Issue #724
-> implements the canonical policy plus read-only discovery and graph APIs. The four verifier CLIs and release commands remain future slices. The original measured baseline is commit `5adba11e` on
-> 2026-09-05.
+> implements the canonical policy plus read-only discovery and graph APIs; issue #725 implements the catalog-backed architecture-zone, ring and workspace-edge verifier. Runtime reachability,
+> package-metadata and release-governance CLIs remain future slices. The original measured baseline is commit `5adba11e` on 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -403,6 +403,10 @@ Violations: missing/stale rows, directory mismatch, forbidden/stale/undeclared e
 Remediation: remove or redirect the source import, declare the existing intended edge in both manifest and policy, or change catalog/policy ownership explicitly. The verifier never recommends merely
 raising a ring to hide a cycle.
 
+[`verify-architecture-zones.mjs`](../../.github/scripts/verify-architecture-zones.mjs) implements this boundary. It receives package resolution records from `loadArchitecture(root)`, starts at every
+manifest export and executable, counts type-only imports, ignores import-shaped text inside comments and string/template literals, and follows relative modules only while they remain inside the
+consumer package. `yarn verify:architecture-zones` runs the live repository root and CI invokes that package script directly.
+
 ### 7.2 `verify-runtime-reachability`
 
 Inputs: policy entry selectors, export/bin targets, runtime-mode imports, emitted declaration references, manifests and peer metadata.
@@ -492,7 +496,8 @@ The frozen test titles are:
 - `rejects a tag that disagrees with package versions`; and
 - `derives topological publish order from the package graph`.
 
-Later implementation tests also freeze stale policy edges/exemptions, optional-peer metadata, deterministic release plans and the four CI commands named by #725–#728.
+#725 retires the three expected failures for cycles, forbidden policy edges and workspace imports absent from the manifest, and adds executable stale-edge, non-canonical-ring and private-import
+coverage. Later implementation tests still freeze stale runtime exemptions, optional-peer metadata, deterministic release plans and the three remaining CI commands named by #726–#728.
 
 ## 10. Explicit refusals
 

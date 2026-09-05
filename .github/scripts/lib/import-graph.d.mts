@@ -6,7 +6,15 @@ export interface ImportGraphReference {
 
 export interface WorkspacePackage {
   readonly dir: string;
-  readonly exports: Readonly<Record<string, unknown>>;
+  readonly exports: string | Readonly<Record<string, unknown>>;
+}
+
+export interface WorkspacePackageInput {
+  readonly npmName: string;
+  readonly directoryPath: string;
+  readonly manifest: {
+    readonly exports?: string | Readonly<Record<string, unknown>>;
+  };
 }
 
 export interface ImportGraph {
@@ -21,4 +29,4 @@ export interface ImportGraph {
   reachCount(entry: string): number;
 }
 
-export function createImportGraph(root: string): ImportGraph;
+export function createImportGraph(root: string, packages?: readonly WorkspacePackageInput[]): ImportGraph;
