@@ -3,6 +3,23 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./commands": "./src/index.ts",
+    "./cqrs": "./src/index.ts",
+    "./data": "./src/index.ts",
+    "./di": "./src/index.ts",
+    "./events": "./src/index.ts",
+    "./health": "./src/index.ts",
+    "./lifecycle": "./src/index.ts",
+    "./messaging": "./src/index.ts",
+    "./modules": "./src/index.ts",
+    "./observability": "./src/index.ts",
+    "./state": "./src/index.ts"
+  },
+  "dependencies": {
+    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/repository": "workspace:^",
+    "@zmdb/schema-core": "workspace:^"
   }
 }

@@ -3,9 +3,31 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./app": "./src/index.ts",
+    "./compression": "./src/index.ts",
+    "./context": "./src/index.ts",
+    "./contract": "./src/index.ts",
+    "./contract/compiler": "./src/index.ts",
+    "./csrf": "./src/index.ts",
+    "./data": "./src/index.ts",
+    "./devtools": "./src/index.ts",
+    "./dto-pipes": "./src/index.ts",
+    "./gateways": "./src/index.ts",
+    "./health": "./src/index.ts",
+    "./middleware": "./src/index.ts",
+    "./openapi": "./src/index.ts",
+    "./pipeline": "./src/index.ts",
+    "./routing": "./src/index.ts",
+    "./static": "./src/index.ts",
+    "./testing": "./src/index.ts",
+    "./upload": "./src/index.ts",
+    "./versioning": "./src/index.ts"
   },
   "dependencies": {
-    "@zmdb/app": "workspace:^"
+    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/app": "workspace:^",
+    "@zmdb/repository": "workspace:^",
+    "@zmdb/schema-core": "workspace:^"
   }
 }

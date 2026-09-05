@@ -3,9 +3,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./memory": "./src/index.ts",
+    "./schedule": "./src/index.ts"
   },
   "dependencies": {
-    "@zmdb/app": "workspace:^"
+    "@zmdb/app": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/repository": "workspace:^"
   }
 }
