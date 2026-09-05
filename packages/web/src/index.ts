@@ -61,10 +61,48 @@ export {
   Public,
   getRoutes,
   isPublic,
-  type HttpMethod,
   type RouteDefinition,
   type ResolvedRoute,
 } from './routing/index.js';
+
+// Inert HTTP declarations and serialisable operation IR. The compiler-backed
+// collector is intentionally available only from `@zmdb/web/contract/compiler`.
+export {
+  defineHttpContract,
+  httpOperation,
+  type AuthorizationCodeFlow,
+  type ClientCredentialsFlow,
+  type CompiledHttpContract,
+  type CompiledHttpOperation,
+  type HttpBodyDeclaration,
+  type HttpBodyIR,
+  type HttpBodyKind,
+  type HttpContractDeclaration,
+  type HttpContractIR,
+  type HttpController,
+  type HttpMethod,
+  type HttpOperationDeclaration,
+  type HttpOperationIR,
+  type HttpOperationTypes,
+  type HttpParameterDeclaration,
+  type HttpParameterIR,
+  type HttpRequestBodyDeclaration,
+  type HttpRequestBodyIR,
+  type HttpResponseDeclaration,
+  type HttpResponseHeaderDeclaration,
+  type HttpResponseHeaderIR,
+  type HttpResponseIR,
+  type HttpTypeIR,
+  type HttpVersionDeclaration,
+  type HttpVersionIR,
+  type ImplicitFlow,
+  type JsonValue,
+  type OAuthFlow,
+  type OAuthFlows,
+  type PasswordFlow,
+  type SecurityRequirement,
+  type SecurityScheme,
+} from './contract/index.js';
 
 // API version declarations and strategy types. See ./versioning.
 export { Version, VersionNeutral, versionsOf, type VersionStrategy } from './versioning/index.js';
@@ -244,9 +282,6 @@ export {
   type RouteSchemas,
   type VersionSchemas,
   type JsonSchema,
-  type OAuthFlows,
-  type SecurityRequirement,
-  type SecurityScheme,
 } from './openapi/index.js';
 
 // WebSocket & SSE gateways. See ./gateways.

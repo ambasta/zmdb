@@ -643,13 +643,16 @@ export interface JsonSchemaObject {
   readonly required: readonly string[];
 }
 
+/** A JSON-serialisable value, used by build artifacts that carry schema projections. */
+export type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+
 /**
  * A single column's JSON Schema. Emitted from the **wire** type, which is why a
  * `timestamp` becomes `{type:'string',format:'date-time'}` here and a `Date` in
  * `Entity<T>` — one column, two correct answers, each in its own layer.
  */
 export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
-  const base: Record<string, unknown> = {};
+  const base: Record<string, JsonValue> = {};
 
   const declared = declaredWireKeywords(col);
   if (declared) return nullableType(declared, col.nullable);
@@ -700,7 +703,7 @@ export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
   return nullableType(base, col.nullable);
 }
 
-function extensionJsonSchema(col: ColumnIR, type: ExtensionType): Record<string, unknown> {
+function extensionJsonSchema(col: ColumnIR, type: ExtensionType): Record<string, JsonValue> {
   if (type.name === 'vector') {
     const dimension = extensionDimension(type);
     return {
@@ -709,11 +712,18 @@ function extensionJsonSchema(col: ColumnIR, type: ExtensionType): Record<string,
       ...(dimension === undefined ? {} : { minItems: dimension, maxItems: dimension }),
     };
   }
-  if (type.name === 'citext') return jsonSchemaForType(constrained('string', col));
-  return col.payload === undefined ? {} : jsonSchemaForType(col.payload);
+  if (type.name === 'citext') return jsonSchemaFromTypeIR(constrained('string', col));
+  return col.payload === undefined ? {} : jsonSchemaFromTypeIR(col.payload);
 }
 
-function jsonSchemaForType(type: TypeIR): Record<string, unknown> {
+/**
+ * The JSON Schema projection of one structural type.
+ *
+ * HTTP contracts, validators and other build-time consumers call this after the
+ * existing reflector has produced TypeIR. Keeping the projection here prevents a
+ * second consumer from interpreting TypeScript types or re-walking schema metadata.
+ */
+export function jsonSchemaFromTypeIR(type: TypeIR): Record<string, JsonValue> {
   switch (type.kind) {
     case 'scalar': {
       const scalar = JSON_SCALAR_TYPES[type.scalar];
@@ -735,28 +745,28 @@ function jsonSchemaForType(type: TypeIR): Record<string, unknown> {
     case 'array':
       return {
         type: 'array',
-        items: jsonSchemaForType(type.element),
+        items: jsonSchemaFromTypeIR(type.element),
         ...(type.constraints?.minLength === undefined ? {} : { minItems: type.constraints.minLength }),
         ...(type.constraints?.maxLength === undefined ? {} : { maxItems: type.constraints.maxLength }),
       };
     case 'tuple':
       return {
         type: 'array',
-        prefixItems: type.elements.map(jsonSchemaForType),
+        prefixItems: type.elements.map(jsonSchemaFromTypeIR),
         minItems: type.elements.length,
         maxItems: type.elements.length,
       };
     case 'object': {
-      const properties: Record<string, unknown> = {};
+      const properties: Record<string, JsonValue> = {};
       const required: string[] = [];
       for (const property of type.properties) {
-        properties[property.name] = jsonSchemaForType(property.type);
+        properties[property.name] = jsonSchemaFromTypeIR(property.type);
         if (!property.optional) required.push(property.name);
       }
       return { type: 'object', properties, required };
     }
     case 'union':
-      return { anyOf: type.members.map(jsonSchemaForType) };
+      return { anyOf: type.members.map(jsonSchemaFromTypeIR) };
     case 'undefined':
     case 'unknown':
     case 'ref':
@@ -765,7 +775,7 @@ function jsonSchemaForType(type: TypeIR): Record<string, unknown> {
   }
 }
 
-function nullableType(schema: Record<string, unknown>, nullable: boolean): Record<string, unknown> {
+function nullableType(schema: Record<string, JsonValue>, nullable: boolean): Record<string, JsonValue> {
   if (nullable && typeof schema.type === 'string') return { ...schema, type: [schema.type, 'null'] };
   return schema;
 }
@@ -779,7 +789,7 @@ function nullableType(schema: Record<string, unknown>, nullable: boolean): Recor
  * the same "widest true statement" a `json` column has always produced, for the same
  * reason. It is a smaller document, not a false one.
  */
-function declaredWireKeywords(col: ColumnIR): Record<string, unknown> | undefined {
+function declaredWireKeywords(col: ColumnIR): Record<string, JsonValue> | undefined {
   if (col.wire === undefined) return undefined;
   const node = col.wire;
   if (node.kind === 'scalar') {

@@ -62,7 +62,8 @@ import type { Checker, IntersectionType, Symbol as TsSymbol, Type, TypeReference
 
 import type { GrpcMethodIR, GrpcServiceIR } from '../protobuf/grpc-ir.js';
 
-export { projectSourceFileNames } from './session.js';
+export { apiInstanceCount, projectSourceFileNames, ReflectSession, withSession } from './session.js';
+export type { SessionOptions, SessionUpdate, SourceFileHandle } from './session.js';
 export type { GrpcMethodIR, GrpcServiceIR } from '../protobuf/grpc-ir.js';
 
 // ---------------------------------------------------------------------------

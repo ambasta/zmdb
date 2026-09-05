@@ -97,6 +97,8 @@ export const httpContract = defineHttpContract({
         404: { description: 'Not found', body: { kind: 'json', mediaType: 'application/json' } },
       },
       security: [{ bearerAuth: [] }],
+      version: { kind: 'none' },
+      deprecated: false,
     }),
   },
 });
@@ -111,7 +113,8 @@ The exact utility types may be factored for readability, but the observable cont
 5. The declaration is inert. Constructing it performs no I/O, route registration, network request, or global registration.
 6. A build refuses a dynamic operation ID, method, path, handler name, status, media type, or version declaration. Generated artifact identity cannot depend on executing application code.
 
-The final runtime route table consumes this contract. The verb and controller decorators remain only as migration inputs until #681 moves each route; they are not a second final source.
+The runtime route table consumes compiled contracts through `registerContract`. Verb and controller decorators remain migration inputs checked for exact agreement; they are not a second final source,
+and #683 removes the remaining direct OpenAPI collection.
 
 ## 4. The serialisable IR
 

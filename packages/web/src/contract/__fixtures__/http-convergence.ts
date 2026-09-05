@@ -1,5 +1,250 @@
 import type { TypeIR } from '@zmdb/schema-core/ir';
 
+import { Controller, Get, Patch, Post, Public } from '../../routing/index.js';
+import { Version } from '../../versioning/index.js';
+import { defineHttpContract, httpOperation } from '../index.js';
+
+interface UpdateMetadata {
+  readonly source: string;
+}
+
+interface UpdateAccountBody {
+  readonly displayName: string;
+  readonly metadata: UpdateMetadata | null;
+}
+
+interface Account {
+  readonly id: string;
+  readonly displayName: string;
+}
+
+interface AcceptedUpdate {
+  readonly jobId: string;
+}
+
+interface Problem {
+  readonly code: string;
+  readonly message: string;
+}
+
+interface UpdateAccountOperation {
+  readonly path: { readonly accountId: string };
+  readonly query: { readonly include?: readonly string[]; readonly dryRun?: boolean };
+  readonly headers: { readonly requestId?: string };
+  readonly cookies: { readonly session: string };
+  readonly body: UpdateAccountBody;
+  readonly responses: {
+    readonly 200: { readonly body: Account; readonly headers: { readonly etag: string } };
+    readonly 202: { readonly body: AcceptedUpdate };
+    readonly 204: { readonly body: void };
+    readonly 404: { readonly body: Problem };
+  };
+}
+
+@Version('1', '2')
+@Controller('/accounts')
+export class AccountsController {
+  @Patch('/:accountId')
+  update() {
+    return { updated: true };
+  }
+}
+
+export const HTTP_CONTRACT = defineHttpContract({
+  securitySchemes: {
+    bearerAuth: { type: 'http', scheme: 'bearer' },
+    apiKeyAuth: { type: 'apiKey', in: 'header', name: 'x-api-key' },
+  },
+  operations: {
+    patch_accounts_accountId: httpOperation<UpdateAccountOperation>({
+      controller: AccountsController,
+      handler: 'update',
+      method: 'PATCH',
+      path: '/accounts/:accountId',
+      parameters: [
+        { in: 'path', property: 'accountId', name: 'accountId' },
+        { in: 'query', property: 'include', name: 'include' },
+        { in: 'query', property: 'dryRun', name: 'dry-run' },
+        { in: 'header', property: 'requestId', name: 'x-request-id' },
+        { in: 'cookie', property: 'session', name: 'session' },
+      ],
+      requestBody: { kind: 'json', mediaType: 'application/json', required: true },
+      responses: {
+        200: {
+          description: 'Updated',
+          headers: [{ property: 'etag', name: 'etag' }],
+          body: { kind: 'json', mediaType: 'application/json' },
+        },
+        202: {
+          description: 'Accepted',
+          body: { kind: 'json', mediaType: 'application/json' },
+        },
+        204: {
+          description: 'No change',
+          body: { kind: 'empty' },
+        },
+        404: {
+          description: 'Account not found',
+          body: { kind: 'json', mediaType: 'application/problem+json' },
+        },
+      },
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
+      version: {
+        kind: 'header',
+        name: 'accept-version',
+        values: ['1', '2'],
+        default: '1',
+      },
+      deprecated: true,
+    }),
+  },
+});
+
+interface ReadSharedOperation {
+  readonly path: { readonly id: string };
+  readonly responses: { readonly 200: { readonly body: Account } };
+}
+
+interface WriteSharedOperation {
+  readonly path: { readonly id: string };
+  readonly responses: { readonly 202: { readonly body: AcceptedUpdate } };
+}
+
+@Controller('/shared')
+export class SharedPathController {
+  @Public()
+  @Get('/:id')
+  read() {
+    return { id: 'shared', displayName: 'Shared' };
+  }
+
+  @Public()
+  @Post('/:id')
+  write() {
+    return { jobId: 'job-shared' };
+  }
+}
+
+export const SHARED_PATH_CONTRACT = defineHttpContract({
+  securitySchemes: {},
+  operations: {
+    post_shared_id: httpOperation<WriteSharedOperation>({
+      controller: SharedPathController,
+      handler: 'write',
+      method: 'POST',
+      path: '/shared/:id',
+      parameters: [{ in: 'path', property: 'id', name: 'id' }],
+      responses: {
+        202: {
+          description: 'Accepted',
+          body: { kind: 'json', mediaType: 'application/json' },
+        },
+      },
+      security: [],
+      version: { kind: 'none' },
+      deprecated: false,
+    }),
+    get_shared_id: httpOperation<ReadSharedOperation>({
+      controller: SharedPathController,
+      handler: 'read',
+      method: 'GET',
+      path: '/shared/:id',
+      parameters: [{ in: 'path', property: 'id', name: 'id' }],
+      responses: {
+        200: {
+          description: 'OK',
+          body: { kind: 'json', mediaType: 'application/json' },
+        },
+      },
+      security: [],
+      version: { kind: 'none' },
+      deprecated: false,
+    }),
+  },
+});
+
+interface CollisionOperation {
+  readonly path: { readonly id: string };
+  readonly responses: { readonly 200: { readonly body: Account } };
+}
+
+@Controller('/collision')
+export class CollisionController {
+  @Public()
+  @Get('/:id')
+  first() {
+    return { id: 'first', displayName: 'First' };
+  }
+
+  @Public()
+  @Get('/:id')
+  second() {
+    return { id: 'second', displayName: 'Second' };
+  }
+}
+
+export const COLLIDING_ROUTE_CONTRACT = defineHttpContract({
+  securitySchemes: {},
+  operations: {
+    z_collision_first: httpOperation<CollisionOperation>({
+      controller: CollisionController,
+      handler: 'first',
+      method: 'GET',
+      path: '/collision/:id',
+      parameters: [{ in: 'path', property: 'id', name: 'id' }],
+      responses: {
+        200: { description: 'First', body: { kind: 'json', mediaType: 'application/json' } },
+      },
+      security: [],
+      version: { kind: 'none' },
+      deprecated: false,
+    }),
+    a_collision_second: httpOperation<CollisionOperation>({
+      controller: CollisionController,
+      handler: 'second',
+      method: 'GET',
+      path: '/collision/:id',
+      parameters: [{ in: 'path', property: 'id', name: 'id' }],
+      responses: {
+        200: { description: 'Second', body: { kind: 'json', mediaType: 'application/json' } },
+      },
+      security: [],
+      version: { kind: 'none' },
+      deprecated: false,
+    }),
+  },
+});
+
+const DYNAMIC_ROUTE_PATH = '/dynamic/:id';
+
+@Controller('/dynamic')
+export class DynamicController {
+  @Public()
+  @Get('/:id')
+  read() {
+    return { id: 'dynamic', displayName: 'Dynamic' };
+  }
+}
+
+export const DYNAMIC_METADATA_CONTRACT = defineHttpContract({
+  securitySchemes: {},
+  operations: {
+    get_dynamic_id: httpOperation<CollisionOperation>({
+      controller: DynamicController,
+      handler: 'read',
+      method: 'GET',
+      path: DYNAMIC_ROUTE_PATH,
+      parameters: [{ in: 'path', property: 'id', name: 'id' }],
+      responses: {
+        200: { description: 'Dynamic', body: { kind: 'json', mediaType: 'application/json' } },
+      },
+      security: [],
+      version: { kind: 'none' },
+      deprecated: false,
+    }),
+  },
+});
+
 type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
 interface HttpTypeFixture {

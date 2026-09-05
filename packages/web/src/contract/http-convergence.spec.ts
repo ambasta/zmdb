@@ -11,10 +11,11 @@ import {
 } from './__fixtures__/http-convergence.js';
 
 // Tests freeze for #680 against packages/web/src/contract/SPEC.md §14 and
-// packages/client/SPEC.md §§10-12. The production contract compiler, pure IR
-// OpenAPI projection, client generator and client runtime do not exist yet.
-// Missing calls therefore go through one documented frozen boundary and remain
-// `it.fails`; the green controls below exercise today's real OpenAPI emitter.
+// packages/client/SPEC.md §§10-12. #681 supplies the contract compiler and
+// contract-aware router; the pure IR OpenAPI projection, client generator and
+// client runtime remain absent. Those missing calls go through one documented
+// frozen boundary and remain `it.fails`; the green controls exercise the legacy
+// OpenAPI emitter that #683 will replace.
 
 function unimplemented(what: string): never {
   throw new Error(`${what} has no production implementation`);
@@ -124,8 +125,8 @@ describe('the shared HTTP contract convergence fixture', () => {
     expect(operation.deprecated).toBe(true);
   });
 
-  // Current measured state: the legacy projection above consumes controller
-  // metadata plus path-keyed schemas; the two frozen functions below are absent.
+  // Current measured state: the legacy projection above still consumes controller
+  // metadata plus path-keyed schemas; pure IR OpenAPI and client generation are absent.
   it.fails('OpenAPI and client generation read the same operation object', () => {
     expect(operationFrom(legacyOpenApi()).operationId).toBe('patch_accounts_accountId');
     const openApi = projectOpenApi(HTTP_CONVERGENCE_FIXTURE.contract);

@@ -287,7 +287,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
 
     // The optional RouterOptions argument preserves the function's zero required arity.
     expect(createRouter.length).toBe(0);
-    expect(Object.keys(createRouter())).toEqual(['register', 'registerDeferred', 'handle']);
+    expect(Object.keys(createRouter())).toEqual(['register', 'registerContract', 'registerDeferred', 'handle']);
   });
 
   // ./SPEC.md §5's central argument for attaching `telemetry` to the compiled query is

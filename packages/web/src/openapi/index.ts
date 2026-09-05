@@ -1,19 +1,30 @@
-// @zmdb/web — OpenAPI 3.1 generation (epic #302, spec ./SPEC.md). Deterministic,
-// build/boot-time, reflection-free: reads getRoutes + optional per-route schemas.
-// No `as` on the consumer surface.
+// @zmdb/web — migration-only route/path-schema OpenAPI 3.1 collector (spec ./SPEC.md).
+// New contract collection produces HttpContractIR through @zmdb/web/contract/compiler;
+// #683 replaces this deterministic, reflection-free legacy emitter.
 
 import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
 
 import '../polyfill.js';
+import type { SecurityRequirement, SecurityScheme } from '../contract/index.js';
 import type { Guard, SecurityAwareGuard } from '../middleware/index.js';
 import { resolveGuards } from '../pipeline/guards.js';
-import type { GuardRegistry, RouteOptions, SecurityRequirement } from '../pipeline/index.js';
+import type { GuardRegistry, RouteOptions } from '../pipeline/index.js';
 import { getRoutes, isPublic } from '../routing/index.js';
 import { versionsOf, type VersionStrategy } from '../versioning/index.js';
 import { jsonMediaTypeForVersion, pathForVersion } from '../versioning/runtime.js';
 
 export type { SecurityAwareGuard } from '../middleware/index.js';
-export type { GuardRegistry, SecurityRequirement } from '../pipeline/index.js';
+export type {
+  AuthorizationCodeFlow,
+  ClientCredentialsFlow,
+  ImplicitFlow,
+  OAuthFlow,
+  OAuthFlows,
+  PasswordFlow,
+  SecurityRequirement,
+  SecurityScheme,
+} from '../contract/index.js';
+export type { GuardRegistry } from '../pipeline/index.js';
 
 /**
  * A JSON Schema document.
@@ -26,75 +37,22 @@ export type { GuardRegistry, SecurityRequirement } from '../pipeline/index.js';
  */
 export type JsonSchema = JsonSchemaObject | Readonly<Record<string, unknown>>;
 
-/** Per-route request/response schemas, from `toJsonSchema` in either spelling. */
+/** @deprecated Migration-only path-keyed schemas. Use `HttpContractIR` for new collection. */
 export interface RouteSchemas {
   readonly body?: JsonSchema;
   readonly response?: JsonSchema;
 }
 
-/** Per-route, per-version schemas for header and media-type strategies. */
+/** @deprecated Migration-only path-keyed schemas. Use `HttpContractIR` for new collection. */
 export type VersionSchemas = Readonly<Record<string, Readonly<Record<string, RouteSchemas>>>>;
-
-export interface OAuthFlow {
-  readonly refreshUrl?: string;
-  readonly scopes: Readonly<Record<string, string>>;
-}
-
-export interface ImplicitFlow extends OAuthFlow {
-  readonly authorizationUrl: string;
-}
-
-export interface PasswordFlow extends OAuthFlow {
-  readonly tokenUrl: string;
-}
-
-export interface ClientCredentialsFlow extends OAuthFlow {
-  readonly tokenUrl: string;
-}
-
-export interface AuthorizationCodeFlow extends OAuthFlow {
-  readonly authorizationUrl: string;
-  readonly tokenUrl: string;
-}
-
-interface AllFlows {
-  readonly implicit?: ImplicitFlow;
-  readonly password?: PasswordFlow;
-  readonly clientCredentials?: ClientCredentialsFlow;
-  readonly authorizationCode?: AuthorizationCodeFlow;
-}
-
-/** At least one OAuth2 flow, with the fields OpenAPI 3.1 requires for that flow. */
-export type OAuthFlows =
-  | (AllFlows & { readonly implicit: ImplicitFlow })
-  | (AllFlows & { readonly password: PasswordFlow })
-  | (AllFlows & { readonly clientCredentials: ClientCredentialsFlow })
-  | (AllFlows & { readonly authorizationCode: AuthorizationCodeFlow });
-
-/** The five OpenAPI 3.1 security scheme types (HTTP is split by scheme). */
-export type SecurityScheme =
-  | {
-      readonly type: 'http';
-      readonly scheme: 'bearer';
-      readonly bearerFormat?: string;
-      readonly description?: string;
-    }
-  | { readonly type: 'http'; readonly scheme: 'basic'; readonly description?: string }
-  | { readonly type: 'mutualTLS'; readonly description?: string }
-  | {
-      readonly type: 'apiKey';
-      readonly in: 'header' | 'query' | 'cookie';
-      readonly name: string;
-      readonly description?: string;
-    }
-  | { readonly type: 'oauth2'; readonly flows: OAuthFlows; readonly description?: string }
-  | { readonly type: 'openIdConnect'; readonly openIdConnectUrl: string; readonly description?: string };
 
 /** Options for `toOpenApi`. */
 export interface OpenApiOptions {
   readonly info?: { readonly title: string; readonly version: string };
+  /** @deprecated Migration-only path-keyed schemas. #683 replaces this with `HttpContractIR`. */
   readonly schemas?: Readonly<Record<string, RouteSchemas>>;
   readonly versioning?: VersionStrategy;
+  /** @deprecated Migration-only path-keyed schemas. #683 replaces this with `HttpContractIR`. */
   readonly versionSchemas?: VersionSchemas;
   readonly securitySchemes?: Readonly<Record<string, SecurityScheme>>;
   readonly routes?: Readonly<Record<string, Readonly<Record<string, RouteOptions>>>>;

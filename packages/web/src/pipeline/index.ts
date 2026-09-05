@@ -16,9 +16,10 @@ import {
   type Ctx,
   type QueryValues,
 } from '../context/index.js';
+import type { CompiledHttpContract, HttpOperationIR, SecurityRequirement } from '../contract/index.js';
 import type { Constructor } from '../di/index.js';
 import { BoundaryStatusError } from '../middleware/errors.js';
-import type { Guard } from '../middleware/index.js';
+import type { Guard, SecurityAwareGuard } from '../middleware/index.js';
 import { fromTraceContext } from '../observability/propagation.js';
 import type { Observability, Span, Tracer } from '../observability/types.js';
 import { getRoutes, isPublic, type ResolvedRoute } from '../routing/index.js';
@@ -27,6 +28,7 @@ import { jsonMediaTypeForVersion, pathForVersion } from '../versioning/runtime.j
 import { resolveGuards, type GuardRegistry } from './guards.js';
 
 export type { Ctx } from '../context/index.js';
+export type { SecurityRequirement } from '../contract/index.js';
 export type { GuardRegistry } from './guards.js';
 
 /** A minimal, framework-neutral request. */
@@ -56,9 +58,6 @@ export interface WebResponse {
   readonly headers: Readonly<Record<string, string>>;
 }
 
-/** An OpenAPI security requirement maps each required scheme to its scopes. */
-export type SecurityRequirement = Readonly<Record<string, readonly string[]>>;
-
 /** Per-handler pipeline, guard and OpenAPI options. */
 export interface RouteOptions {
   readonly validateBody?: (raw: unknown) => unknown;
@@ -78,6 +77,8 @@ type Handler = (ctx: Ctx<Record<string, string>, unknown, QueryValues>) => unkno
 
 interface BoundRoute {
   readonly route: ResolvedRoute;
+  /** The exact serialisable operation object when this route came from a contract. */
+  readonly operation?: HttpOperationIR;
   readonly pattern: CompiledPattern;
   readonly handler: Handler;
   readonly validateBody?: (raw: unknown) => unknown;
@@ -822,6 +823,11 @@ function fileHandleStream(handle: FileHandle): ReadableStream<Uint8Array<ArrayBu
 
 export interface Router {
   register(controller: object, options?: Readonly<Record<string, RouteOptions>>): void;
+  registerContract(
+    contract: CompiledHttpContract,
+    controllers: readonly object[],
+    options?: Readonly<Record<string, Readonly<Record<string, RouteOptions>>>>,
+  ): void;
   registerDeferred(controller: Constructor<object>, instance: () => Promise<object>): void;
   handle(req: WebRequest): Promise<WebResponse>;
 }
@@ -835,6 +841,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
   const neutralBuckets: MethodBuckets = new Map();
   const supportedBuckets: SupportedBuckets = new Map();
   const versionedRouteKeys = new Set<string>();
+  const registeredOperationIds = new Set<string>();
   const versionHeaderName = versioning?.kind === 'header' ? versioning.name.toLowerCase() : undefined;
   const mediaTypeKey = versioning?.kind === 'media-type' ? versioning.key.toLowerCase() : undefined;
   const mediaVersionLookup = versioning?.kind === 'media-type' ? createVersionLookup(versioning.default) : undefined;
@@ -953,6 +960,96 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     addSupportedRoute(supportedBuckets, route.method, pattern, declaration);
   }
 
+  function addContractRoute(
+    controller: ControllerCtor,
+    operation: HttpOperationIR,
+    handler: Handler,
+    validateBody: ((raw: unknown) => unknown) | undefined,
+    guards: readonly Guard[],
+  ): void {
+    const route = { method: operation.method, path: operation.path, handlerName: operation.handler };
+    const pattern = compilePattern(operation.path);
+    const base = {
+      route,
+      operation,
+      pattern,
+      handler,
+      ...(validateBody === undefined ? {} : { validateBody }),
+      ...(guards.length === 0 ? {} : { guards }),
+    };
+
+    if (operation.version.kind === 'none') {
+      if (versioning !== undefined) {
+        throw new Error(
+          `Contract registration error at ${operation.operationId}: an unversioned operation ` +
+            'cannot be registered on a versioned router',
+        );
+      }
+      bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+      return;
+    }
+
+    if (versioning === undefined) {
+      throw new Error(
+        `Contract registration error at ${operation.operationId}: ${operation.version.kind} versioning ` +
+          'requires createRouter({ versioning: ... })',
+      );
+    }
+
+    if (operation.version.kind === 'neutral') {
+      if (versioning.kind === 'path') {
+        bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+      } else {
+        addNeutralRoute(versionBuckets, neutralBuckets, operation.method, { ...base, neutral: true });
+      }
+      return;
+    }
+
+    if (operation.version.kind === 'path') {
+      if (versioning.kind !== 'path') {
+        throw new Error(
+          `Contract registration error at ${operation.operationId}: contract uses path versioning, ` +
+            `router uses ${versioning.kind}`,
+        );
+      }
+      claimVersionedRoute(controller, route, operation.version.value, operation.path);
+      bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+      return;
+    }
+
+    if (versioning.kind !== operation.version.kind) {
+      throw new Error(
+        `Contract registration error at ${operation.operationId}: contract uses ${operation.version.kind} ` +
+          `versioning, router uses ${versioning.kind}`,
+      );
+    }
+    const contractName =
+      operation.version.kind === 'header' ? operation.version.name.toLowerCase() : operation.version.key.toLowerCase();
+    const routerName = versioning.kind === 'header' ? versioning.name.toLowerCase() : versioning.key.toLowerCase();
+    if (contractName !== routerName || operation.version.default !== versioning.default) {
+      throw new Error(
+        `Contract registration error at ${operation.operationId}: router ${versioning.kind} name/default ` +
+          'does not match the compiled operation',
+      );
+    }
+
+    for (const version of operation.version.values) {
+      claimVersionedRoute(controller, route, version, operation.path);
+      if (mediaVersionLookup !== undefined) addKnownVersion(mediaVersionLookup, version);
+      addSpecificVersionRoute(versionBuckets, neutralBuckets, operation.method, version, {
+        ...base,
+        ...(operation.version.kind === 'media-type'
+          ? {
+              versionJsonHeaders: Object.freeze({
+                'content-type': jsonMediaTypeForVersion(operation.version.key, version),
+              }),
+            }
+          : {}),
+      });
+    }
+    addSupportedRoute(supportedBuckets, operation.method, pattern, operation.version.values);
+  }
+
   async function handleObserved(req: WebRequest): Promise<WebResponse> {
     const started = Date.now();
     const method = req.method.toUpperCase();
@@ -1009,8 +1106,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       }
 
       if (serverSpan !== undefined && matched !== undefined) {
-        serverSpan.updateName(`${method} ${matched.route.path}`);
-        serverSpan.setAttribute('http.route', matched.route.path);
+        const routePath = matched.operation?.path ?? matched.route.path;
+        serverSpan.updateName(`${method} ${routePath}`);
+        serverSpan.setAttribute('http.route', routePath);
       }
 
       let response: WebResponse | undefined;
@@ -1117,7 +1215,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
               'http.response.status_code': response.status,
             };
             if (matched !== undefined) {
-              attributes['http.route'] = matched.route.path;
+              attributes['http.route'] = matched.operation?.path ?? matched.route.path;
             }
             if (errorType !== undefined) {
               attributes['error.type'] = errorType;
@@ -1152,6 +1250,105 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         }
         const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
         addBoundRoute(ctor, route, handler, opts?.validateBody, guards);
+      }
+    },
+
+    registerContract(
+      contract: CompiledHttpContract,
+      controllers: readonly object[],
+      options: Readonly<Record<string, Readonly<Record<string, RouteOptions>>>> = {},
+    ): void {
+      if (contract.ir.format !== 1) {
+        throw new Error(`Contract registration error: unsupported HttpContractIR format ${String(contract.ir.format)}`);
+      }
+
+      const instances = new Map<ControllerCtor, object>();
+      for (const controller of controllers) {
+        const ctor = controllerCtor(controller);
+        if (ctor === undefined) continue;
+        if (instances.has(ctor)) {
+          throw new Error(`Contract registration error: more than one instance of ${ctor.name} was supplied`);
+        }
+        instances.set(ctor, controller);
+      }
+
+      for (const binding of contract.operations) {
+        const operation = binding.operation;
+        if (!contract.ir.operations.includes(operation)) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: runtime binding does not reference an operation in the IR`,
+          );
+        }
+        if (registeredOperationIds.has(operation.operationId)) {
+          throw new Error(`Contract registration error at ${operation.operationId}: operation is already registered`);
+        }
+        const controller = instances.get(binding.controller);
+        if (controller === undefined) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: no ${binding.controller.name} instance was supplied`,
+          );
+        }
+        const handler = readHandler(controller, binding.handler);
+        if (handler === undefined) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: ` +
+              `${binding.controller.name}.${binding.handler} is not callable`,
+          );
+        }
+
+        const decorated = getRoutes(binding.controller).find(
+          route => route.handlerName === binding.handler && route.method === operation.method,
+        );
+        if (decorated === undefined) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: decorator route is missing or uses another method`,
+          );
+        }
+        const expectedPath =
+          operation.version.kind === 'path' && versioning?.kind === 'path'
+            ? pathForVersion(versioning.prefix, operation.version.value, decorated.path)
+            : decorated.path;
+        if (expectedPath !== operation.path) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: compiled path ${operation.path} ` +
+              `does not match decorator path ${expectedPath}`,
+          );
+        }
+
+        const opts = options[operation.controller]?.[operation.handler];
+        if ((opts?.deprecated === true) !== operation.deprecated) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: RouteOptions.deprecated disagrees with the contract`,
+          );
+        }
+
+        const routeGuards = opts?.guards ?? [];
+        const publicRoute = isPublic(binding.controller, binding.handler);
+        if (publicRoute && (routeGuards.length > 0 || (opts?.security !== undefined && opts.security.length > 0))) {
+          throw new Error(
+            `Guard configuration error at ${operation.controller}.${operation.handler}: ` +
+              'an @Public() route cannot declare route guards or a non-empty security requirement',
+          );
+        }
+        const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, operation.controller, routeGuards);
+        const configuredSecurity = publicRoute ? [] : (opts?.security ?? securityFromGuards(guards));
+        if (publicRoute !== (operation.security.length === 0)) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: @Public() and contract security disagree`,
+          );
+        }
+        if (!publicRoute && guards.length === 0) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: a protected operation has no runtime guard`,
+          );
+        }
+        if (configuredSecurity === undefined || !sameSecurity(configuredSecurity, operation.security)) {
+          throw new Error(
+            `Contract registration error at ${operation.operationId}: effective runtime security disagrees with the contract`,
+          );
+        }
+        addContractRoute(binding.controller, operation, handler, opts?.validateBody, guards);
+        registeredOperationIds.add(operation.operationId);
       }
     },
 
@@ -1268,6 +1465,60 @@ function controllerCtor(controller: object): ControllerCtor | undefined {
     return undefined;
   }
   return ctor as ControllerCtor;
+}
+
+function sameSecurity(left: readonly SecurityRequirement[], right: readonly SecurityRequirement[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((requirement, index) => {
+    const expected = right[index];
+    if (expected === undefined) return false;
+    const names = Object.keys(requirement).toSorted();
+    const expectedNames = Object.keys(expected).toSorted();
+    return (
+      names.length === expectedNames.length &&
+      names.every((name, nameIndex) => {
+        const scopes = [...(requirement[name] ?? [])].toSorted();
+        const expectedScopes = [...(expected[name] ?? [])].toSorted();
+        return (
+          name === expectedNames[nameIndex] &&
+          scopes.length === expectedScopes.length &&
+          scopes.every((scope, scopeIndex) => scope === expectedScopes[scopeIndex])
+        );
+      })
+    );
+  });
+}
+
+function isSecurityAwareGuard(guard: Guard): guard is SecurityAwareGuard {
+  if (!('enforces' in guard)) return false;
+  const enforcement = guard.enforces;
+  return (
+    typeof enforcement === 'object' &&
+    enforcement !== null &&
+    'scheme' in enforcement &&
+    typeof enforcement.scheme === 'string' &&
+    'scopes' in enforcement &&
+    Array.isArray(enforcement.scopes) &&
+    enforcement.scopes.every(scope => typeof scope === 'string')
+  );
+}
+
+function securityFromGuards(guards: readonly Guard[]): readonly SecurityRequirement[] | undefined {
+  const schemes = new Map<string, Set<string>>();
+  for (const guard of guards) {
+    if (!isSecurityAwareGuard(guard)) continue;
+    const scopes = schemes.get(guard.enforces.scheme) ?? new Set<string>();
+    for (const scope of guard.enforces.scopes) scopes.add(scope);
+    schemes.set(guard.enforces.scheme, scopes);
+  }
+  if (schemes.size === 0) return undefined;
+  return [
+    Object.fromEntries(
+      [...schemes.entries()]
+        .toSorted(([left], [right]) => left.localeCompare(right))
+        .map(([name, scopes]) => [name, [...scopes].toSorted()]),
+    ),
+  ];
 }
 
 // boundary: a controller's own decorated methods are the handlers; reading a

@@ -405,6 +405,7 @@ describe('@zmdb/web pipeline: node adapter', () => {
     const schemes: (string | undefined)[] = [];
     const router: Router = {
       register: () => undefined,
+      registerContract: () => undefined,
       registerDeferred: () => undefined,
       handle: request => {
         schemes.push(request.scheme);
@@ -481,6 +482,7 @@ describe('@zmdb/web pipeline: node adapter', () => {
   it('answers 500 instead of rejecting when handle throws', async () => {
     const exploding: Router = {
       register: () => undefined,
+      registerContract: () => undefined,
       registerDeferred: () => undefined,
       handle: () => Promise.reject(new Error('boom')),
     };

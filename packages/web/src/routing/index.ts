@@ -6,8 +6,9 @@
 // Ensure Symbol.metadata exists before any decorated class in a consumer module
 // is evaluated (Node 26/V8 lacks it). Side-effect import; safe/no-op if present.
 import '../polyfill.js';
+import type { HttpMethod } from '../contract/index.js';
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type { HttpMethod } from '../contract/index.js';
 
 // Raw per-method record written by a verb decorator.
 export interface RouteDefinition {

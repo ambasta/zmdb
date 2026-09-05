@@ -41,6 +41,8 @@
     "./drivers/pg": "./src/drivers-pg.ts",
     "./drivers/mssql": "./src/drivers-mssql.ts",
     "./web": "./src/web.ts",
+    "./web/contract": "./src/web-contract.ts",
+    "./web/contract/compiler": "./src/web-contract-compiler.ts",
     "./unplugin": "./src/unplugin.ts",
     "./cli": "./src/cli/index.ts",
     "./config": "./src/config/index.ts"

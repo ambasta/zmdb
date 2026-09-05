@@ -172,6 +172,18 @@ describe('zmdb umbrella re-exports (#227)', () => {
     );
   });
 
+  it('re-exports the HTTP contract runtime and compiler from their explicit subpaths', async () => {
+    const [runtime, runtimeSource, compiler, compilerSource] = await Promise.all([
+      import('./web-contract.js'),
+      import('@zmdb/web/contract'),
+      import('./web-contract-compiler.js'),
+      import('@zmdb/web/contract/compiler'),
+    ]);
+    expect(runtime.defineHttpContract).toBe(runtimeSource.defineHttpContract);
+    expect(runtime.httpOperation).toBe(runtimeSource.httpOperation);
+    expect(compiler.compileHttpContracts).toBe(compilerSource.compileHttpContracts);
+  });
+
   it('exposes zmdb/tags and zmdb/derive with no runtime cost', async () => {
     // Both subpaths are type-only. Asserted here as well as in schema-core because
     // the umbrella is where a stray value re-export would actually reach a consumer's

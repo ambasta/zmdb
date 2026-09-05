@@ -1,13 +1,14 @@
 # Tooling ownership policy — verifier contract
 
-> Status: **FROZEN** for GitHub sub-issue #626 and amended by #627 after #667 added database-boundary test support. The inventory below was measured at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`.
+> Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, and remeasured for #681 on a worktree based at
+> `5e3c4c77b7e89da2be14046588b70945835d1395`.
 
 ## 1. Extraction rule and totals
 
 The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
 and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **138 paths**, each exactly once:
+The inventory has **140 paths**, each exactly once:
 
 ```json
 {
@@ -15,7 +16,7 @@ The inventory has **138 paths**, each exactly once:
   "migrations": 20,
   "cli": 20,
   "runtime": 23,
-  "facade": 10,
+  "facade": 12,
   "optional-integration": 6,
   "test-only": 28,
   "obsolete": 1
@@ -131,6 +132,8 @@ facade	packages/zmdb/src/index.ts
 facade	packages/zmdb/src/ir.ts
 facade	packages/zmdb/src/relations.ts
 facade	packages/zmdb/src/tags.ts
+facade	packages/zmdb/src/web-contract-compiler.ts
+facade	packages/zmdb/src/web-contract.ts
 facade	packages/zmdb/src/web.ts
 optional-integration	packages/aot-validator/src/grpc.ts
 optional-integration	packages/aot-validator/src/protobuf/decode.ts
@@ -174,7 +177,7 @@ moving to compiler. `obsolete` means deletion with no replacement file; the beha
 
 ## 3. Public export and executable map
 
-There are **41 current export keys**: 15 AOT validator, 13 query compiler and 13 facade.
+There are **43 current export keys**: 15 AOT validator, 13 query compiler and 15 facade.
 
 ```text
 @zmdb/aot-validator	.	retain	@zmdb/aot-validator
@@ -215,6 +218,8 @@ zmdb	./drivers/sqlite	retain-until-database-epic	zmdb/drivers/sqlite
 zmdb	./drivers/pg	retain-until-database-epic	zmdb/drivers/pg
 zmdb	./drivers/mssql	retain-until-database-epic	zmdb/drivers/mssql
 zmdb	./web	retain	zmdb/web
+zmdb	./web/contract	retain	@zmdb/web/contract
+zmdb	./web/contract/compiler	retain	@zmdb/web/contract/compiler
 zmdb	./unplugin	release-governed-alias	zmdb/compiler
 zmdb	./cli	retain-product-facade	@zmdb/cli
 zmdb	./config	retain-facade	@zmdb/compiler/config

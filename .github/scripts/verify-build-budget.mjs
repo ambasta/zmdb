@@ -55,9 +55,10 @@
 // is linear. A build that reopened the project per file would pay the ~20ms again each time,
 // which is what the two rows above forbid.
 //
-// The measurement runs the real `codegen()`, on a generated project inside the repository so
-// that `zmdb` resolves the way it does for a consumer, and the artifacts it writes are the
-// ones `zmdb-codegen` would write. `.budget/` is gitignored and removed in a `finally`.
+// The measurement runs the real `codegen()` plus one HTTP contract collection on the same
+// session, on a generated project inside the repository so workspace packages resolve the way
+// they do for a consumer. The artifacts are the ones `zmdb-codegen` would write. `.budget/` is
+// gitignored and removed in a `finally`.
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -65,6 +66,9 @@ import { fileURLToPath } from 'node:url';
 
 import { codegen } from '../../packages/aot-validator/src/cli/index.ts';
 import { apiInstanceCount, ReflectSession } from '../../packages/aot-validator/src/reflect/session.ts';
+import { compileHttpContracts } from '../../packages/web/src/contract/compiler/index.ts';
+import { defineHttpContract, httpOperation } from '../../packages/web/src/contract/index.ts';
+import { Controller, Get, Public } from '../../packages/web/src/routing/index.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SCRATCH = resolve(ROOT, '.budget');
@@ -84,6 +88,11 @@ const SMALL = 8;
  */
 const BUDGET = {
   apiInstances: { limit: 1, exact: true, what: 'compiler API instances opened by one build' },
+  httpContractApiInstances: {
+    limit: 0,
+    exact: true,
+    what: 'additional compiler API instances opened by HTTP collection',
+  },
   snapshotUpdates: { limit: 3, exact: false, what: 'snapshot updates for the whole build' },
 };
 
@@ -149,6 +158,81 @@ export function document${index}(): JsonSchemaObject {
 `;
 }
 
+function httpContractModule() {
+  return `import { defineHttpContract, httpOperation } from '@zmdb/web/contract';
+import { Controller, Get, Public } from '@zmdb/web/routing';
+
+interface BudgetHttpOperation {
+  readonly path: { readonly id: string };
+  readonly responses: { readonly 200: { readonly body: { readonly id: string } } };
+}
+
+@Controller('/budget')
+class BudgetHttpController {
+  @Public()
+  @Get('/:id')
+  read() {
+    return { id: 'budget' };
+  }
+}
+
+export const HTTP_BUDGET_CONTRACT = defineHttpContract({
+  securitySchemes: {},
+  operations: {
+    get_budget_id: httpOperation<BudgetHttpOperation>({
+      controller: BudgetHttpController,
+      handler: 'read',
+      method: 'GET',
+      path: '/budget/:id',
+      parameters: [{ in: 'path', property: 'id', name: 'id' }],
+      responses: {
+        200: { description: 'OK', body: { kind: 'json', mediaType: 'application/json' } },
+      },
+      security: [],
+      version: { kind: 'none' },
+      deprecated: false,
+    }),
+  },
+});
+`;
+}
+
+class BudgetHttpController {
+  read() {
+    return { id: 'budget' };
+  }
+}
+
+const budgetHttpMetadata = {};
+const budgetHttpMethodContext = { kind: 'method', name: 'read', metadata: budgetHttpMetadata };
+Get('/:id')(BudgetHttpController.prototype.read, budgetHttpMethodContext);
+Public()(BudgetHttpController.prototype.read, budgetHttpMethodContext);
+Controller('/budget')(BudgetHttpController, {
+  kind: 'class',
+  name: 'BudgetHttpController',
+  metadata: budgetHttpMetadata,
+});
+Object.defineProperty(BudgetHttpController, Symbol.metadata, { value: budgetHttpMetadata });
+
+const HTTP_BUDGET_CONTRACT = defineHttpContract({
+  securitySchemes: {},
+  operations: {
+    get_budget_id: httpOperation({
+      controller: BudgetHttpController,
+      handler: 'read',
+      method: 'GET',
+      path: '/budget/:id',
+      parameters: [{ in: 'path', property: 'id', name: 'id' }],
+      responses: {
+        200: { description: 'OK', body: { kind: 'json', mediaType: 'application/json' } },
+      },
+      security: [],
+      version: { kind: 'none' },
+      deprecated: false,
+    }),
+  },
+});
+
 /** Write a project of `modules` files and hand back its `tsconfig.json`. */
 function project(name, modules) {
   const directory = resolve(SCRATCH, name);
@@ -162,10 +246,11 @@ function project(name, modules) {
   for (let index = 0; index < modules; index++) {
     writeFileSync(resolve(directory, 'src', `row-${index}.ts`), module_(index));
   }
+  writeFileSync(resolve(directory, 'src', 'http-contract.ts'), httpContractModule());
   return resolve(directory, 'tsconfig.json');
 }
 
-/** Open a project, run one `codegen` on the session, and hand back the session's own numbers. */
+/** Open a project, run codegen plus HTTP collection, and hand back the session's own numbers. */
 function pass(tsconfig, options) {
   const before = apiInstanceCount();
   const openedAt = performance.now();
@@ -174,8 +259,21 @@ function pass(tsconfig, options) {
   try {
     const startedAt = performance.now();
     const result = codegen({ ...options, project: tsconfig, session });
+    const beforeHttpContract = apiInstanceCount();
+    const httpContract = compileHttpContracts(
+      [
+        {
+          file: resolve(dirname(tsconfig), 'src', 'http-contract.ts'),
+          exportName: 'HTTP_BUDGET_CONTRACT',
+          contract: HTTP_BUDGET_CONTRACT,
+        },
+      ],
+      { session },
+    );
     return {
       result,
+      httpOperations: httpContract.ir.operations.length,
+      httpContractApiInstances: apiInstanceCount() - beforeHttpContract,
       opened,
       elapsed: performance.now() - startedAt,
       apiInstances: apiInstanceCount() - before,
@@ -225,6 +323,8 @@ function build(name, modules) {
   return {
     modules,
     apiInstances: generate.apiInstances,
+    httpContractApiInstances: generate.httpContractApiInstances,
+    httpOperations: generate.httpOperations,
     updates: generate.updates,
     checkUpdates: check.updates,
     written: generate.result.written.length,
@@ -252,6 +352,7 @@ try {
 
 const values = {
   apiInstances: big.apiInstances,
+  httpContractApiInstances: big.httpContractApiInstances,
   snapshotUpdates: big.updates.length,
 };
 
@@ -277,7 +378,7 @@ const log = updates => {
   return runs.map(({ kind, count }) => (count === 1 ? kind : `${kind} ×${count}`)).join(', ');
 };
 
-console.log(`build budget: \`codegen\` over a generated ${MODULES}-module project\n`);
+console.log(`build budget: \`codegen\` plus one HTTP contract over a generated ${MODULES}-module project\n`);
 console.log('  measurement                                                        value    ceiling');
 for (const [key, { limit, exact, what }] of Object.entries(BUDGET)) {
   const value = values[key];
@@ -295,7 +396,7 @@ console.log(`    ${MODULES} modules, --check on a clean tree: [${log(big.checkUp
 console.log('\n  published build time              modules   open project      generate        check');
 for (const one of [small, big]) {
   console.log(
-    `  ${'codegen'.padEnd(32)} ${pad(one.modules, 7)} ${pad(ms(one.opened), 14)} ${pad(ms(one.generated), 13)} ${pad(ms(one.checked), 12)}`,
+    `  ${'codegen + HTTP contract'.padEnd(32)} ${pad(one.modules, 7)} ${pad(ms(one.opened), 14)} ${pad(ms(one.generated), 13)} ${pad(ms(one.checked), 12)}`,
   );
 }
 const perModule = (big.generated - small.generated) / (MODULES - SMALL);
@@ -304,6 +405,7 @@ console.log(
     `against ${ms(big.opened)} to open the project once`,
 );
 console.log(`  artifacts written: ${big.written} for ${MODULES} modules`);
+console.log(`  HTTP operations collected: ${big.httpOperations} through the caller-owned session`);
 
 // ---------------------------------------------------------------------------
 // The verdict
@@ -315,6 +417,12 @@ if (values.apiInstances !== 1) {
     `a ${MODULES}-module build opened ${values.apiInstances} compiler API instance(s), not 1. ` +
       'Each one spawns a server and loads the project from scratch, which is the cost REQ-TF-11 ' +
       'exists to keep paying once.',
+  );
+}
+if (values.httpContractApiInstances !== 0) {
+  problems.push(
+    `HTTP contract collection opened ${values.httpContractApiInstances} additional compiler API instance(s). ` +
+      'It must borrow the build session rather than loading the TypeScript project again.',
   );
 }
 if (values.snapshotUpdates > BUDGET.snapshotUpdates.limit) {

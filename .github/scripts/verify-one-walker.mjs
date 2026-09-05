@@ -71,6 +71,7 @@ const MEANING = /\.flags\.|\.validation\b|(?:===|!==|case)\s*'(?:serial|varchar|
  * hold all of this, and splitting it across more files there is a refactor, not a regression.
  */
 const WALKER = 'packages/schema-core/src/ir/';
+const HTTP_COMPILER = 'packages/web/src/contract/compiler/index.ts';
 
 /** Check 2's exemptions: every library source outside `ir/` that may name the vocabulary. */
 const MAY_NAME = new Map([
@@ -143,6 +144,11 @@ const MAY_READ = new Map([
     'packages/aot-validator/src/lint/rules/no-interpolated-sql.ts',
     "the matched `=== 'text'` is an ESTree object-property name. The lint rule reads source " +
       'syntax only; it imports no schema metadata and never reads a column or TypeIR.',
+  ],
+  [
+    HTTP_COMPILER,
+    'the matched `.flags` is a TypeScript SymbolFlags.Optional check on one HTTP declaration property. ' +
+      'Leaf types cross Reflector.typeIR(), and the HTTP-specific checks below forbid a second TypeScript schema walk.',
   ],
 ]);
 
@@ -233,9 +239,50 @@ for (const [file, reason] of MAY_READ) {
   }
 }
 
+// HTTP contracts may inspect the declaration envelope (groups, properties and exact
+// statuses), but every leaf TypeScript type must cross the existing Reflector once.
+// No other shipped web module may import the compiler API, and the compiler must not
+// grow its own union/array/object schema traversal beside Reflector.typeIR().
+const webCompilerUsers = repositorySources().filter(file => {
+  if (!isLibrarySource(file) || !file.startsWith('packages/web/src/')) return false;
+  const code = withoutComments(readFileSync(join(ROOT, file), 'utf8'));
+  return /from\s+['"]typescript\/unstable\/(?:ast|sync)/.test(code);
+});
+if (webCompilerUsers.length !== 1 || webCompilerUsers[0] !== HTTP_COMPILER) {
+  problems.push(
+    `the shipped web TypeScript-compiler boundary is [${webCompilerUsers.join(', ')}], expected only ${HTTP_COMPILER}.`,
+  );
+}
+
+const httpCompiler = withoutComments(readFileSync(join(ROOT, HTTP_COMPILER), 'utf8'));
+const count = pattern => [...httpCompiler.matchAll(pattern)].length;
+if (count(/\bReflectSession\.open\s*\(/g) !== 0) {
+  problems.push(`${HTTP_COMPILER} opens its own ReflectSession instead of accepting the caller-owned session.`);
+}
+if (count(/\.typeIR\s*\(/g) !== 1) {
+  problems.push(`${HTTP_COMPILER} must cross the existing Reflector.typeIR() boundary exactly once in source.`);
+}
+if (count(/\bjsonSchemaFromTypeIR\s*\(/g) !== 1) {
+  problems.push(`${HTTP_COMPILER} must project JSON Schema through jsonSchemaFromTypeIR() exactly once in source.`);
+}
+if (count(/\.getPropertiesOfType\s*\(/g) !== 1) {
+  problems.push(`${HTTP_COMPILER} must have one declaration-envelope property reader, not another schema walk.`);
+}
+const forbiddenHttpTypeWalk = [
+  ...httpCompiler.matchAll(
+    /\.(?:getTypes|getTypeArguments|isArrayType|isIntersectionType|isTupleType|isUnionType)\s*\(/g,
+  ),
+].map(match => match[0]);
+if (forbiddenHttpTypeWalk.length > 0) {
+  problems.push(
+    `${HTTP_COMPILER} traverses TypeScript schema shapes directly (${forbiddenHttpTypeWalk.join(', ')}); ` +
+      'delegate those types to Reflector.typeIR().',
+  );
+}
+
 console.log(
   `one-walker: ${scanned} source file(s) scanned; ${naming.length} naming the vocabulary, ` +
-    `${reading.length} reading a column's meaning, all exempted with a reason.`,
+    `${reading.length} reading a column's meaning, one web compiler envelope reader, all exempted with a reason.`,
 );
 if (problems.length > 0) {
   console.error(`\n${problems.length} problem(s):\n`);

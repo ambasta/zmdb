@@ -719,6 +719,7 @@ function bodySpyRouter(): { router: Router; seen: { raw: unknown } } {
     seen,
     router: {
       register: (controller, options) => inner.register(controller, options),
+      registerContract: (contract, controllers, options) => inner.registerContract(contract, controllers, options),
       registerDeferred: (controller, instance) => inner.registerDeferred(controller, instance),
       handle: (request: WebRequest) => {
         seen.raw = request.rawBody;

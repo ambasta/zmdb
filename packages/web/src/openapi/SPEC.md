@@ -460,8 +460,8 @@ Inline schemas remain the final representation for #678. Component-schema naming
 
 ### O4. Migration and acceptance
 
-#681 first produces `HttpContractIR` beside the current metadata and proves equality for dual-declared routes. #683 then changes this function to the signature above and deletes direct collection in
-the same issue. There is no permanent overload accepting both sources: a dual-source emitter would make disagreement representable again.
+#681 now produces `HttpContractIR` beside the current metadata and proves equality for dual-declared routes. #683 then changes this function to the signature above and deletes direct collection in the
+same issue. There is no permanent overload accepting both sources: a dual-source emitter would make disagreement representable again.
 
 Focused tests for #683 must prove every parameter location/style, all five body kinds, every exact status, public/protected security, all three version strategies, explicit operation IDs, and
 byte-identical output from the same IR. They must also plant a `getRoutes`/reflector call that throws and show final `toOpenApi` never reaches it.

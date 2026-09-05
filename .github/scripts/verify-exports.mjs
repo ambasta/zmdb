@@ -158,9 +158,11 @@ const BUILD_TIME_ENTRIES = new Set([
   '@zmdb/aot-validator#./unplugin',
   ...TARGET_TOOLING_EXPORTS['@zmdb/compiler'].map(subpath => `@zmdb/compiler#${subpath}`),
   '@zmdb/cli#.',
+  '@zmdb/web#./contract/compiler',
   'zmdb#./cli',
   ...Object.values(TARGET_PRODUCT_TOOLING_EXPORTS).flatMap(subpaths => subpaths.map(subpath => `zmdb#${subpath}`)),
   'zmdb#./unplugin',
+  'zmdb#./web/contract/compiler',
 ]);
 
 const importGraph = createImportGraph(ROOT);
