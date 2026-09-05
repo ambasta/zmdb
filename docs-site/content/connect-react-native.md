@@ -55,22 +55,52 @@ Faster, and it supports SQLCipher if you need the database encrypted at rest —
 
 ## The transformer
 
-Metro does not run TypeScript custom transformers. An unconfigured
-`schemaOf<T>()` or generic validator call throws its
-[untransformed-build error](./gotchas.html) rather than silently accepting a
-value. The failure is loud, but the build still needs a supported transform
-route before those APIs can be used on device.
+Metro does not run TypeScript custom transformers, so zmdb wraps its Babel-transformer seam instead. The
+supported range is Metro `>=0.87.0 <0.88.0`.
 
-Two options:
+Bare React Native:
 
-1. **Do not use the validators on device.** The types, compiler and repository all work without the transformer. Validate on the server.
-2. **Build the shared code separately.** Compile a `packages/shared` with `tsc` and the transformer, and import the built output from the app. Then add the canary test:
+```js
+// metro.config.js
+const { getDefaultConfig } = require('@react-native/metro-config');
+const { withZmdb } = require('@zmdb/aot-validator/metro');
 
-   ```ts
-   it('validators are transformed', () => {
-     expect(is<{ id: number }>({ id: 'x' })).toBe(false);
-   });
-   ```
+module.exports = withZmdb(getDefaultConfig(__dirname));
+```
+
+Expo uses the same wrapper around Expo's default config:
+
+```js
+// metro.config.js
+const { getDefaultConfig } = require('expo/metro-config');
+const { withZmdb } = require('@zmdb/aot-validator/metro');
+
+module.exports = withZmdb(getDefaultConfig(__dirname));
+```
+
+`withZmdb` preserves the existing `babelTransformerPath`, including Expo's or an app-supplied transformer,
+and delegates to it after applying the same transform as the unplugin and `zmdb-codegen`. There is no Expo
+config plugin; config plugins run at prebuild and cannot configure the later Metro process.
+
+If loading the TypeScript project in every Metro worker uses too much memory, lower the pool explicitly:
+
+```js
+module.exports = withZmdb(getDefaultConfig(__dirname), { workerCount: 2 });
+```
+
+The cache key includes the zmdb version, transformer options, `tsconfig.json`, and the path, size and mtime of
+each project source. A running dev server still cannot know that changing a type in one file invalidates
+generated code cached for another file. After that kind of edit, restart with `--reset-cache`; for Expo use
+`expo start --clear`.
+
+An unconfigured `schemaOf<T>()` or generic validator call still throws its
+[untransformed-build error](./gotchas.html). Keep a canary against the real bundle:
+
+```ts
+it('validators are transformed', () => {
+  expect(is<{ id: number }>({ id: 'x' })).toBe(false);
+});
+```
 
 See [AOT Setup](./aot-setup.html).
 

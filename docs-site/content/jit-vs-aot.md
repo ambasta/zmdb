@@ -75,7 +75,9 @@ it('the transformer is running', () => {
 });
 ```
 
-The environments where this bites are the ones with their own transpilers: [Bun](./connect-bun.html), Metro ([React Native](./connect-react-native.html)), esbuild-only pipelines, and `ts-node` without the plugin. See [AOT Setup](./aot-setup.html).
+The environments where this bites are the ones with their own transpilers: [Bun](./connect-bun.html),
+esbuild-only pipelines, `ts-node` without the plugin, and Metro without the
+[React Native wrapper](./connect-react-native.html). See [AOT Setup](./aot-setup.html).
 
 ## Where the advantage actually is
 

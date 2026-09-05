@@ -73,9 +73,9 @@ code in a file the transformer decided not to touch.
 module that reaches it does not merely bloat a bundle — it fails to build one. So the
 manifest publishes two sets of entry points:
 
-| Runtime (bundled)                                                         | Build-time (compiler)                                                            |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `.`, `./utilities`, `./errors`, `./emit`, `./serialization`, `./advanced` | `./plugin`, `./reflect`, `./transformer`, `./unplugin`, `./codegen`, `./testing` |
+| Runtime (bundled)                                                         | Build-time (compiler)                                                                       |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `.`, `./utilities`, `./errors`, `./emit`, `./serialization`, `./advanced` | `./plugin`, `./reflect`, `./transformer`, `./unplugin`, `./codegen`, `./testing`, `./metro` |
 
 `./testing` is on the build-time side for the same reason the other five are: `schemasFrom<{
 User: User }>(import.meta.url, ['User'])` opens the caller's own project and reflects the
@@ -83,11 +83,9 @@ named interfaces. It is a compiler client by definition — that is the service 
 because `schemaOf<T>()` has no runtime, so a test with no build step has no other route from
 a tagged interface to a schema.
 
-A seventh joins the build-time column when the Metro integration lands: `./metro`, whose
-`withZmdb(config)` wraps a project's existing Babel transformer (`src/plugin/SPEC.md` §6). It is a compiler
-client like the other six, so it goes in `BUILD_TIME_ENTRIES` too — and it is the one entry point that is
-reached by `require` of an ES module rather than by `import`, because `metro.config.js` is CommonJS in every
-React Native template.
+`./metro` is the eighth build-time subpath. Its `withZmdb(config)` wraps a project's existing Babel
+transformer (`src/plugin/SPEC.md` §6), and it is the one entry point reached by `require` of an ES module
+rather than by `import`, because `metro.config.js` is CommonJS in every React Native template.
 
 `typescript` is an **optional peer dependency**: installing this package to call
 `is(value, ir)` at runtime should not pull down a compiler, and a build that uses the
@@ -133,7 +131,7 @@ A session cannot cross that boundary, so under Metro the number is **one per tra
 - [x] Watch mode refreshes rather than reopens: the session's update log contains exactly one `'open'` however many files change.
 - [x] A new module is announced as `created`, not `changed` — a `changed` notification for a file the program has never seen is a measured no-op, so the stale-retry path picks by `sourceFile(id)`.
 - [x] Every declared export resolves, names a source path the build mirrors, imports under plain `node`, and — except for the eight build-time subpaths — cannot reach `typescript` through any chain of imports.
-- [x] All twelve subpaths, and the `zmdb-codegen` binary, still resolve after `npm pack` and install — checked from a project outside this repository, because the workspace's symlinks hide the one failure that matters (`yarn verify:publish`).
+- [x] All fifteen subpaths, and the `zmdb-codegen` binary, still resolve after `npm pack` and install — checked from a project outside this repository, because the workspace's symlinks hide the one failure that matters (`yarn verify:publish`).
 - [x] Removing an entry from `BUILD_TIME_ENTRIES` produces the expected errors, so the guard is not vacuous.
 - [x] The tag-rule form still inlines to the table in §2, and matches the runtime fallback for good and bad input on every rule.
 - [x] The scanner leaves code alone that has no validator call, matches whole identifiers rather than substrings, ignores calls inside comments and string literals, and scans faster than a megabyte a second.

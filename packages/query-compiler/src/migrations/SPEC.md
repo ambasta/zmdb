@@ -744,12 +744,11 @@ which were present-tense claims or code a reader would have copied.
 6. "The device only ever imports the finished array, so no diffing code ships in the bundle" is true of the
    embedded subpath and false of the other two: via `./migrations` the bundle gets the snapshotter, the diff
    engine, the DDL emitter and the whole query compiler (§5.5).
-7. The React Native page's transformer section offers two workarounds — do not use the validators, or build a
-   shared package separately — and both are replaced by `withZmdb`
-   (`../../../aot-validator/src/plugin/SPEC.md` §6). _Done._ Its claim that untransformed validators "silently
-   accept everything" was corrected in #520: they throw (§6.4 there).
-8. Neither page mentions the dev-server staleness window or `--reset-cache`, which is the one thing a reader
-   will hit in their first hour (§6.3 there).
+7. _Done._ The React Native page's two transformer workarounds are replaced by `withZmdb`
+   (`../../../aot-validator/src/plugin/SPEC.md` §6), and its unconfigured path says the generic calls throw
+   rather than silently accepting input (§6.4 there).
+8. _Done._ The React Native page names the dev-server staleness window and the `--reset-cache` /
+   `expo start --clear` remedy (§6.3 there).
 
 ## 6. Non-goals (rejected)
 

@@ -40,6 +40,7 @@
     "./lint": "./src/lint/index.ts",
     "./serialization": "./src/serialization/index.ts",
     "./utilities": "./src/utilities/index.ts",
+    "./metro": "./src/plugin/metro.ts",
     "./plugin": "./src/plugin/index.ts",
     "./protobuf/wire": "./src/protobuf/wire.ts",
     "./reflect": "./src/reflect/index.ts",
@@ -78,5 +79,8 @@
   },
   "engines": {
     "node": ">=26"
+  },
+  "zmdb": {
+    "supportedMetro": ">=0.87.0 <0.88.0"
   }
 }

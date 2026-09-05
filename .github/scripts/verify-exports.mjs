@@ -109,6 +109,7 @@ if (existsSync(UMBRELLA_SRC)) {
 const BUILD_TIME_ENTRIES = new Set([
   '@zmdb/aot-validator#./codegen',
   '@zmdb/aot-validator#./lint',
+  '@zmdb/aot-validator#./metro',
   '@zmdb/aot-validator#./plugin',
   '@zmdb/aot-validator#./reflect',
   // The compiler-backed schema bridge: tests name interfaces with `schemasFrom`, while the

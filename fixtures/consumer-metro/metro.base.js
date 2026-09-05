@@ -1,21 +1,35 @@
-const { resolve } = require('node:path');
+const { dirname, resolve } = require('node:path');
 
 const { getDefaultConfig } = require('metro-config');
 
 async function metroBase() {
   const projectRoot = __dirname;
   const repoRoot = resolve(projectRoot, '../..');
+  const dependencyRoot = dirname(dirname(require.resolve('metro/package.json')));
+  const workspacePackages = {
+    zmdb: resolve(repoRoot, 'packages/zmdb'),
+    '@zmdb/aot-validator': resolve(repoRoot, 'packages/aot-validator'),
+    '@zmdb/query-compiler': resolve(repoRoot, 'packages/query-compiler'),
+    '@zmdb/repository': resolve(repoRoot, 'packages/repository'),
+    '@zmdb/schema-core': resolve(repoRoot, 'packages/schema-core'),
+    '@zmdb/web': resolve(repoRoot, 'packages/web'),
+  };
   const config = await getDefaultConfig(projectRoot);
   return {
     ...config,
+    cacheStores: [],
     maxWorkers: 1,
     projectRoot,
     resetCache: true,
-    watchFolders: [repoRoot],
+    watchFolders: [repoRoot, dependencyRoot],
     reporter: { update() {} },
     resolver: {
       ...config.resolver,
-      nodeModulesPaths: [resolve(repoRoot, 'node_modules')],
+      extraNodeModules: {
+        ...config.resolver.extraNodeModules,
+        ...workspacePackages,
+      },
+      nodeModulesPaths: [resolve(repoRoot, 'node_modules'), dependencyRoot],
       resolveRequest(context, moduleName, platform) {
         try {
           return context.resolveRequest(context, moduleName, platform);

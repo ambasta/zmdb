@@ -82,7 +82,9 @@ api.post('/posts', async c => {
 });
 ```
 
-Catch the throw in `app.onError` and map it to a 400. And as always — [without the transformer](./aot-setup.html) that call validates nothing and returns the body unchanged, so:
+Catch validation failures in `app.onError` and map them to a 400. Without the
+[transformer](./aot-setup.html), the generic call instead throws
+`runtime type witness required in test/fallback mode`, so keep a build-path canary:
 
 ```ts
 it('the transformer is running', () => {
@@ -92,7 +94,10 @@ it('the transformer is running', () => {
 
 ## On the edge
 
-Hono targets Workers, Deno and Bun; so does zmdb's read path, with an [HTTP driver](./perf-serverless.html). Two cautions for Bun and React Native: the AOT transformer does not run under their transpilers, so the canary above is not optional — see [Bun](./connect-bun.html) and [React Native](./connect-react-native.html).
+Hono targets Workers, Deno and Bun; so does zmdb's read path, with an
+[HTTP driver](./perf-serverless.html). Bun still needs a separate build route.
+React Native uses the [`withZmdb` Metro wrapper](./connect-react-native.html).
+Keep the canary against either built artefact.
 
 ---
 

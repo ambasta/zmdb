@@ -18,11 +18,10 @@ that is the fastest route when there is a bundler; a library, a `tsc` build or a
 may not be a reward for choosing a particular toolchain. So one fixture proves the plugin
 route and the other proves there is a route without one.
 
-`consumer-metro/` is the frozen third route. It runs a real Metro 0.87 bundle, preserves a
-pre-existing Babel transformer, and has a separate unconfigured control that reaches the
-current runtime refusal. Its configured assertions are `it.fails` until
-`@zmdb/aot-validator/metro` ships; the fixture does not make Metro a supported route by
-itself.
+`consumer-metro/` is the third supported route. It runs a real Metro 0.87 bundle, preserves
+a pre-existing Babel transformer, checks the package and project-fingerprint cache key, and
+has a separate unconfigured control that reaches the current runtime refusal. The same
+fixture proves bare React Native and Expo use the same `withZmdb` config shape.
 
 `packages/aot-validator/src/cli/consumer-fixtures.spec.ts` is what holds that pair together, and
 what stops two directories from quietly becoming two different programs. It builds the plugin

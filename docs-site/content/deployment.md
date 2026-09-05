@@ -10,7 +10,8 @@ Two things must be true of your build output.
 { "type": "module" }
 ```
 
-**The AOT transformer ran.** If it did not, `is<T>()` and `assert<T>()` [silently accept everything](./gotchas.html) — a validation layer that reports success and checks nothing.
+**The AOT transformer ran.** If it did not, generic `is<T>()` and `assert<T>()` calls
+[throw because the runtime has no type witness](./gotchas.html).
 
 ```json
 {
@@ -30,7 +31,10 @@ it('the transformer is running', () => {
 });
 ```
 
-This is the one deployment check specific to zmdb. Platforms with their own transpiler — [Bun](./connect-bun.html), Metro, esbuild-only pipelines — are where it fails. See [AOT Setup](./aot-setup.html).
+This is the one deployment check specific to zmdb. Platforms with their own transpiler —
+[Bun](./connect-bun.html), esbuild-only pipelines, or Metro without the
+[React Native wrapper](./connect-react-native.html) — are where configuration is easiest to miss. See
+[AOT Setup](./aot-setup.html).
 
 ## Migrations run before the new code
 

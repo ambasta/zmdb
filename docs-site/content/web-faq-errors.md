@@ -1,14 +1,18 @@
 A guide to the errors this framework actually produces, and the ones that produce no error at all — which are the dangerous half.
 
-## `is<T>()` returns `true` for invalid input
+## `is<T>()` throws `runtime type witness required`
 
-**The most important entry on this page.** The AOT transformer did not run, and validation **fails open**.
+**The most important entry on this page.** The AOT transformer did not run, and the erased type argument has
+no runtime witness.
 
 ```ts
-is<{ id: number }>({ id: 'not a number' }); // true — the transformer is absent
+is<{ id: number }>({ id: 'not a number' });
+// throws: runtime type witness required in test/fallback mode
 ```
 
-Causes, in order of frequency: running with `--experimental-strip-types` or `ts-node`; a bundler that does not invoke the transformer (esbuild, SWC, Bun, Metro, Turbopack, Deno); a build that skipped the plugin configuration.
+Causes, in order of frequency: running with `--experimental-strip-types` or `ts-node`; a bundler that does
+not invoke the transformer (esbuild, SWC, Bun, Turbopack, Deno); Metro without
+[`withZmdb`](./connect-react-native.html); or a build that skipped the plugin configuration.
 
 The fix is a test that fails loudly:
 

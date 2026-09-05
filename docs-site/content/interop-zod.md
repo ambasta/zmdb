@@ -24,9 +24,10 @@ const parsed = assert<User>(body);
 | Dynamic (runtime-defined) schemas | yes                  | no                                           |
 | Refinements                       | `.refine()`          | [`refine`](./unions-refinements.html)        |
 | Transforms                        | `.transform()`       | [`transform`](./unions-refinements.html)     |
-| Failure mode if misconfigured     | n/a                  | **silently accepts everything**              |
+| Failure mode if misconfigured     | n/a                  | **throws: no runtime type witness**          |
 
-That last row is the one to internalise. Zod cannot be misconfigured into passing everything; zmdb can, if the transformer is not running. See [Gotchas](./gotchas.html).
+That last row is the one to internalise. A generic zmdb call cannot recover its erased type argument when the
+transformer is absent, so it throws rather than guessing. See [Gotchas](./gotchas.html).
 
 ## Using both in one codebase
 
@@ -98,12 +99,14 @@ it('the transformer is running', () => {
 });
 ```
 
-Without this, step 2 replaces working validation with validation that reports success unconditionally. It is the single most important step in the migration.
+Without this, step 2 replaces working validation with a runtime failure in the first untransformed build
+path. The canary finds that during the build rather than in production.
 
 ## When to stay on Zod
 
 - Schemas defined at runtime.
-- A toolchain you cannot add a TypeScript transformer to — [Bun](./connect-bun.html), Metro, an esbuild-only pipeline.
+- A toolchain with no zmdb build route — [Bun](./connect-bun.html) or an esbuild-only pipeline. Metro uses
+  the [React Native wrapper](./connect-react-native.html).
 - Heavy use of Zod's ecosystem (`zod-to-openapi`, form libraries binding to Zod schemas).
 
 There is no prize for having one validator.

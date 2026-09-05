@@ -4,17 +4,18 @@
 // `metro.config.js`, exactly as a React Native or Expo application reaches it; there is
 // no local transformer stub that could make these tests pass without the public export.
 
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
 
-import { loadConfig, runBuild } from 'metro';
-import { afterAll, describe, expect, it } from 'vitest';
+import { loadConfig, runBuild, type MetroConfig } from 'metro';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { codegen } from '../cli/index.js';
 import { zmdbAot } from './index.js';
+import { withZmdb } from './metro.js';
 
 const ROOT = new URL('../../../../', import.meta.url).pathname;
 const FIXTURE = join(ROOT, 'fixtures', 'consumer-metro');
@@ -38,6 +39,14 @@ interface BundleEvidence {
 
 let configuredPromise: Promise<BundleEvidence> | undefined;
 let plainPromise: Promise<BundleEvidence> | undefined;
+
+beforeAll(async () => {
+  // Metro runs in this process when maxWorkers is one, while apiInstanceCount()
+  // deliberately counts every compiler child ever opened. Measure the no-callee
+  // process before the configured build opens its one lazy session.
+  plainPromise = capturedBundle('src/plain.ts', 'plain');
+  await plainPromise;
+});
 
 afterAll(() => {
   rmSync(SCRATCH, { recursive: true, force: true });
@@ -103,9 +112,7 @@ function run(code: string): Record<string, unknown> {
 }
 
 describe('the Metro build path', () => {
-  // Measured 2026-09-05: loading the real fixture config fails with
-  // ERR_PACKAGE_PATH_NOT_EXPORTED for `@zmdb/aot-validator/metro`.
-  it.fails(
+  it(
     'bundles a fixture app with Metro and inlines the schema',
     async () => {
       const evidence = await configured();
@@ -120,9 +127,7 @@ describe('the Metro build path', () => {
     BUILD_TIMEOUT,
   );
 
-  // Measured 2026-09-05: the package has no `./metro` export, so the wrapper cannot
-  // preserve and invoke the fixture's real `babelTransformerPath`.
-  it.fails(
+  it(
     'delegates to an existing custom transformer',
     async () => {
       const evidence = await configured();
@@ -132,9 +137,7 @@ describe('the Metro build path', () => {
     BUILD_TIMEOUT,
   );
 
-  // Measured 2026-09-05: there is no exported Metro transformer and therefore no
-  // `getCacheKey()` to carry the package version or the project type fingerprint.
-  it.fails(
+  it(
     'invalidates the Metro cache when the transform version changes',
     async () => {
       const loaded = await config('metro.config.js');
@@ -155,9 +158,35 @@ describe('the Metro build path', () => {
       } finally {
         utimesSync(MODEL, original.atime, original.mtime);
       }
+
+      const project = join(FIXTURE, 'tsconfig.json');
+      const tsconfig = readFileSync(project, 'utf8');
+      try {
+        writeFileSync(project, `${tsconfig}\n`);
+        expect(transformer.getCacheKey({ projectRoot: FIXTURE })).not.toBe(first);
+      } finally {
+        writeFileSync(project, tsconfig);
+      }
     },
     BUILD_TIMEOUT,
   );
+
+  it('preserves an Expo-style Metro config while wrapping its Babel transformer', () => {
+    const expo = {
+      projectRoot: FIXTURE,
+      maxWorkers: 8,
+      transformerPath: '/expo/metro-transform-worker.js',
+      transformer: {
+        babelTransformerPath: require.resolve(join(FIXTURE, 'custom-transformer.js')),
+      },
+    } satisfies MetroConfig;
+
+    const wrapped = withZmdb(expo, { workerCount: 2 });
+
+    expect(wrapped.transformerPath).toBe(expo.transformerPath);
+    expect(wrapped.maxWorkers).toBe(2);
+    expect(wrapped.transformer.babelTransformerPath).not.toBe(expo.transformer.babelTransformerPath);
+  });
 
   it(
     'still throws the untransformed-build error in an unconfigured bundle',
@@ -172,9 +201,7 @@ describe('the Metro build path', () => {
     BUILD_TIMEOUT,
   );
 
-  // Measured 2026-09-05: `@zmdb/aot-validator/metro` is not exported, so there is
-  // no third route whose transformed source can be compared with the two real routes.
-  it.fails(
+  it(
     'emits the same code as the plugin and CLI routes for the same input',
     async () => {
       const evidence = await configured();
@@ -207,9 +234,7 @@ describe('the Metro build path', () => {
     BUILD_TIMEOUT,
   );
 
-  // Measured 2026-09-05: without the `./metro` entry there is no worker-side
-  // ReflectSession to count; the fixture stops while loading its config.
-  it.fails(
+  it(
     'opens at most one compiler session per Metro transform process',
     async () => {
       const samples = (await configured()).sessions;
@@ -220,9 +245,7 @@ describe('the Metro build path', () => {
     BUILD_TIMEOUT,
   );
 
-  // Measured 2026-09-05: the missing package entry prevents the no-callee bundle
-  // from reaching the worker, so today's observable answer is no Metro integration.
-  it.fails(
+  it(
     'opens no compiler session for a Metro bundle with no transform callees',
     async () => {
       const evidence = await plain();
@@ -232,6 +255,43 @@ describe('the Metro build path', () => {
     },
     BUILD_TIMEOUT,
   );
+
+  it('reuses the cache-key compiler session when Metro transforms in the config process', () => {
+    const wrappedConfig = withZmdb(
+      {
+        projectRoot: FIXTURE,
+        maxWorkers: 1,
+        transformer: {
+          babelTransformerPath: require.resolve(join(FIXTURE, 'custom-transformer.js')),
+        },
+      },
+      { workerCount: 1 },
+    );
+    const transformer = require(wrappedConfig.transformer.babelTransformerPath);
+    const session = require(join(ROOT, 'packages/aot-validator/src/reflect/session.ts'));
+    const before = session.apiInstanceCount();
+
+    transformer.getCacheKey({ projectRoot: FIXTURE });
+    transformer.transform({
+      filename: 'src/index.ts',
+      src: readFileSync(ENTRY, 'utf8'),
+      options: {
+        dev: false,
+        enableBabelRCLookup: true,
+        enableBabelRuntime: false,
+        experimentalImportSupport: true,
+        hermesParser: false,
+        minify: false,
+        platform: 'ios',
+        projectRoot: FIXTURE,
+        publicPath: '/assets',
+        globalPrefix: '',
+      },
+      plugins: [],
+    });
+
+    expect(session.apiInstanceCount() - before).toBe(1);
+  });
 });
 
 function checkBody(code: string): string {

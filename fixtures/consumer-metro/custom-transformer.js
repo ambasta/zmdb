@@ -8,16 +8,17 @@ const sessionModule = join(resolve(__dirname, '../..'), 'packages/aot-validator/
 
 function transform(args) {
   let source = args.src;
-  if (args.filename.startsWith(fixtureSource)) {
+  const filename = resolve(args.options.projectRoot, args.filename);
+  if (filename.startsWith(fixtureSource)) {
     const capture = process.env.ZMDB_METRO_CAPTURE;
-    if (capture && args.filename.endsWith('/index.ts')) writeFileSync(capture, source);
+    if (capture && filename.endsWith('/index.ts')) writeFileSync(capture, source);
 
     const sessions = process.env.ZMDB_METRO_SESSIONS;
     if (sessions) {
       const { apiInstanceCount } = require(sessionModule);
       appendFileSync(
         sessions,
-        `${JSON.stringify({ file: args.filename, pid: process.pid, sessions: apiInstanceCount() })}\n`,
+        `${JSON.stringify({ file: filename, pid: process.pid, sessions: apiInstanceCount() })}\n`,
       );
     }
 

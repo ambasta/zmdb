@@ -77,9 +77,8 @@ If unmet, #83 documents why and the architecture claim is revised
 
 Metro is the third route into the same transform, after the bundler plugin (§1) and `zmdb-codegen`. It is
 not a fourth implementation: `transformFile` is the transform, `ARCHITECTURE.md` §2.9 allows one front end,
-and `yarn verify:fixtures` already asserts that the two existing routes agree byte for byte. What this
-section freezes is the integration, because Metro's shape differs from unplugin's in three ways that each
-have a wrong answer that looks right.
+and `yarn verify:fixtures` asserts that all three routes agree. What this section freezes is the integration,
+because Metro's shape differs from unplugin's in three ways that each have a wrong answer that looks right.
 
 ### 6.1 Wrapping, because a project has exactly one transformer
 
@@ -116,7 +115,15 @@ Three reasons for that knob rather than the other, and the third is the one that
 
 The delegate cannot be captured in a closure. A transformer is named by a **module path** because Metro loads it in worker processes, so what `withZmdb` does in `metro.config.js` is read the existing `babelTransformerPath`, resolve it to an absolute path there (where `require.resolve` and `__dirname` are meaningful), and record it in a serialisable field on `config.transformer` alongside the absolute `tsconfig.json` path.
 
-The wrapper module in the worker reads those two fields, and requires the delegate by path. `#520` pins the one fact this rests on — that Metro forwards unknown `config.transformer` keys to the transformer — with `process.env.ZMDB_METRO_DELEGATE` as the fallback channel if it does not, and asserts that an app with a second transformer installed still gets that transformer's output.
+Measured against Metro 0.87.0: unknown `config.transformer` fields remain in the worker configuration and
+its cache material, but are **not** copied into the Babel transformer's arguments. `withZmdb` therefore
+records the delegate and project in those serialisable fields for config tooling and passes the same values
+through environment variables inherited by worker processes. The wrapper requires the delegate by that
+absolute path, and the real bundle asserts that an app with a second transformer still gets its output.
+
+The same measurement found that Metro passes `filename` as a project-relative path (`src/index.ts`) to the
+Babel transformer. The wrapper resolves it against `options.projectRoot` before calling `transformFile`,
+while handing the original arguments to the delegate so its Metro contract is unchanged.
 
 The example above is `require`, not `import`, and that is not sloppiness: `metro.config.js` is CommonJS in every React Native and Expo template. This package is ESM-only, so `withZmdb` is reached through Node's `require` of an ES module — which works, and stops working the moment anything in that module's import graph uses a top-level `await`.
 
@@ -133,9 +140,10 @@ path they would take with zmdb uninstalled.
 
 A `ReflectSession` is an `API`, which is a `tsgo` child process reached over a **synchronous** pipe owned by
 the process that opened it. It cannot be shared across a process boundary, and Metro transforms in a pool of
-`jest-worker` children sized by `transformer.workerCount`. So the number REQ-TF-11 asks for — one compiler
-session per build — is unreachable through Metro in the literal sense, and pretending otherwise would mean
-either opening one per file or claiming a number that is not true.
+`jest-worker` children sized by the top-level `maxWorkers` setting. Metro 0.87 runs transforms in the config
+process itself when `maxWorkers` is one. So the number REQ-TF-11 asks for — one compiler session per build —
+is unreachable through a multi-process Metro build in the literal sense, and pretending otherwise would
+mean either opening one per file or claiming a number that is not true.
 
 Frozen: **at most one session per transform process**, opened lazily on the first file that survives the `CALLEES` scan and held for the life of the process. `apiInstanceCount()` is the measurement, and in the Metro tests it is asserted per worker rather than per build, with the reason recorded next to it.
 
@@ -143,7 +151,8 @@ The cost is stated rather than buried: a project loaded N times for N workers, a
 
 Two escapes, both documented rather than automatic:
 
-- `withZmdb(config, { workerCount })` lowers Metro's worker count for a machine that cannot hold N programs.
+- `withZmdb(config, { workerCount })` lowers Metro's top-level `maxWorkers` for a machine that cannot hold N
+  programs.
   It is not defaulted to 1, because a bundle is mostly files with no call site in them and those files want
   the parallelism.
 - A `zmdb-codegen` prebuild is the route for a build that cannot afford N sessions at all: one process, one
@@ -160,6 +169,10 @@ Metro caches a transform result under a key derived from the file's contents plu
 checks — or untransformed output from before zmdb was installed. So the key folds in: the delegate's own
 `getCacheKey()`, this package's version, the resolved options, and the absolute `tsconfig.json` path with its
 text.
+
+When `maxWorkers` is one, the cache key and transforms run in the same process. The compiler session opened
+to enumerate the project for this fingerprint is retained and handed to `zmdbAot`, so cache calculation plus
+transformation still opens one compiler, not two.
 
 **The case the issue does not mention, and the one that can ship wrong data.** This transform's output for `usage.ts` is a function of a type declared in `models.ts`.
 
@@ -200,7 +213,7 @@ There is no Expo config plugin here. Config plugins run at prebuild and edit the
 
 This is written down because "Expo has a plugin system" is the plausible wrong answer, and a page that offers a config plugin would be offering something that cannot work. Expo Router, `expo export` and EAS Build all run the same Metro pipeline and need nothing further.
 
-### 6.6 What #520 has to measure
+### 6.6 What the Metro fixture measures
 
 1. A real Metro bundle of a fixture app contains the inlined schema and no surviving `schemaOf` call.
 2. An app with a pre-existing `babelTransformerPath` still gets that transformer's output — the delegation is
