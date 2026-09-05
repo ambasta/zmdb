@@ -304,7 +304,6 @@ export function windowFunction(fnName: string, args: readonly string[] = []): Wi
 
   return builder;
 }
-}
 
 /**
  * Collection utility that deduplicates keys while preserving insertion order AND
