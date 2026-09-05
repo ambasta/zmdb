@@ -166,10 +166,14 @@ export interface Widget extends Table<'widgets'> {
     )}\n`,
   );
 
-  const child = spawn(process.execPath, [binPath, 'studio', '--config', configPath, '--port', '0'], {
-    cwd: app,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const child = spawn(
+    process.execPath,
+    ['--js-explicit-resource-management', binPath, 'studio', '--config', configPath, '--port', '0'],
+    {
+      cwd: app,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
 
@@ -407,7 +411,7 @@ writeFileSync(
   ].join('\n')}\n`,
 );
 console.log(`Importing ${specifiers.length} subpath(s) from an installed tree...`);
-if (run('node', ['smoke.mjs'], { cwd: app, stdio: 'inherit' }).status !== 0) {
+if (run('node', ['--js-explicit-resource-management', 'smoke.mjs'], { cwd: app, stdio: 'inherit' }).status !== 0) {
   fail('at least one subpath does not import from an installed tree');
 }
 
@@ -416,7 +420,7 @@ if (run('node', ['smoke.mjs'], { cwd: app, stdio: 'inherit' }).status !== 0) {
 // when the lazy Studio module is loaded.
 const studioDirectory = join(app, 'node_modules', 'zmdb', 'dist', 'studio');
 for (const file of javascript(studioDirectory)) {
-  const checked = run('node', ['--check', file]);
+  const checked = run('node', ['--js-explicit-resource-management', '--check', file]);
   if (checked.status !== 0) {
     fail(`plain Node cannot parse ${file.slice(app.length + 1)}: ${checked.stderr?.trim()}`);
   }

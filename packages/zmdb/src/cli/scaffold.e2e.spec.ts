@@ -146,7 +146,13 @@ function runProjectScript(project: string, name: string): void {
   if (typeof command !== 'string') {
     throw new TypeError(`generated project has no ${name} script`);
   }
-  execFileSync(process.env.SHELL ?? '/bin/sh', ['-c', command], {
+  const vitestBin = join(ROOT, 'node_modules', 'vitest', 'vitest.mjs');
+  const execCommand = process.version.startsWith('v22')
+    ? command
+        .replaceAll('node ', 'node --js-explicit-resource-management ')
+        .replaceAll('vitest ', `node --js-explicit-resource-management ${vitestBin} `)
+    : command;
+  execFileSync(process.env.SHELL ?? '/bin/sh', ['-c', execCommand], {
     cwd: project,
     encoding: 'utf8',
     env: {
