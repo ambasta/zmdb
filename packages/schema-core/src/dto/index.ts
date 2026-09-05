@@ -390,8 +390,8 @@ export function encodeCursor(payload: Record<string, unknown>): string {
   throw new Error('No base64 encoder available');
 }
 
-export function decodeCursor(cursor: string | Record<string, unknown>): Record<string, unknown> {
-  if (typeof cursor === 'object' && cursor !== null && !Array.isArray(cursor)) {
+export function decodeCursor(cursor: unknown): Record<string, unknown> {
+  if (isRecord(cursor)) {
     return cursor;
   }
   if (typeof cursor !== 'string' || !cursor.trim()) {

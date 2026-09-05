@@ -59,9 +59,7 @@ describe('Composite Keyset Cursor Utilities', () => {
 
     it('throws on empty or non-string/non-object input', () => {
       expect(() => decodeCursor('')).toThrow(/Invalid cursor/);
-      // @ts-expect-error invalid input type
       expect(() => decodeCursor(123)).toThrow(/Invalid cursor/);
-      // @ts-expect-error invalid input type
       expect(() => decodeCursor(null)).toThrow(/Invalid cursor/);
     });
 
