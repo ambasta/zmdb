@@ -819,7 +819,7 @@ export const PAGE_META = {
     title: 'CLI Overview',
     group: 'CLI',
     status: 'todo',
-    note: 'database commands through upgrade and the installed Studio ship; pull and final transcripts remain',
+    note: 'all database commands and the installed Studio ship; final transcripts remain',
   },
   'config-file': {
     title: 'Config File',
@@ -853,7 +853,7 @@ export const PAGE_META = {
     title: 'pull (introspect)',
     group: 'CLI',
     status: 'todo',
-    note: 'catalog readers and declaration emission ship; no pull command',
+    note: 'pull ships; the final CLI reference and transcript remain for the documentation slice',
   },
   'cli-check': {
     title: 'check',
@@ -1711,7 +1711,7 @@ export const PAGE_META = {
     title: 'CLI & Scaffolding',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'scaffolding, database commands through upgrade and the installed Studio ship; pull and final transcripts remain',
+    note: 'scaffolding, all database commands and the installed Studio ship; final transcripts remain',
   },
   'web-cli-monorepo': {
     title: 'Monorepos & Libraries',

@@ -1,10 +1,11 @@
 > **ToDo / documentation gap.** The published `zmdb` executable exposes
 > `generate`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`,
-> `export`, `modules`, `repl`, `studio`, and `new` scaffolding. `pull` and the
+> `export`, `pull`, `modules`, `repl`, `studio`, and `new` scaffolding. The
 > final command transcripts remain.
 
 The schema commands are thin packaged wrappers over the public reflection,
-snapshot, diff, introspection, DDL, and migration-runner APIs.
+snapshot, diff, introspection, DDL, migration-runner, catalog-reader, and
+declaration-emitter APIs.
 
 ## The pieces
 
@@ -28,12 +29,12 @@ snapshot, diff, introspection, DDL, and migration-runner APIs.
 | `push`                       | live-catalog diff with a destructive SQL guard         | [push](./cli-push.html)                             |
 | `check`                      | snapshot, file-history, and optional live-drift checks | [check](./cli-check.html)                           |
 | `export`                     | `zmdb export`                                          | [export](./cli-export.html)                         |
-| `pull` / `generate-entities` | reader + declaration-emitter APIs; CLI pending         | [pull](./cli-pull.html)                             |
+| `pull` / `generate-entities` | protected `zmdb pull` declaration staging              | [pull](./cli-pull.html)                             |
 | `studio`                     | installed read-only loopback browser                   | [studio](./cli-studio.html)                         |
 
-`pull` has its catalog reader and declaration emitter as library APIs but still
-needs executable dispatch. Studio's installed binary is parsed by plain Node
-and exercised against its loopback index by publish verification.
+The catalog-backed `pull` is packaged with overwrite protection, dry-run, and
+check modes. Studio's installed binary is parsed by plain Node and exercised
+against its loopback index by publish verification.
 
 ## A single entry point
 
@@ -45,6 +46,7 @@ npx zmdb generate --name add_slug
 npx zmdb migrate
 npx zmdb check --json
 npx zmdb export > schema.sql
+npx zmdb pull --dry-run
 npx zmdb new controller posts
 ```
 
@@ -55,7 +57,6 @@ not load database config. Add `--json` when a script needs the stable
 
 ## What remains
 
-- **`pull` dispatch** over the shipped catalogue reader and declaration emitter.
 - **The final documentation transcripts** for the commands that now ship.
 
 ---

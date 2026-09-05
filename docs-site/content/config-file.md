@@ -33,9 +33,8 @@ config.outDir; // absolute migration output directory
 ```
 
 The shipped `generate`, `migrate`, `rollback`, `status`, `push`, `check`,
-`upgrade`, and `export` commands consume this loader. `pull` is recognized but
-remains an implementation gap; `up` is deliberately refused because it is
-ambiguous between migration application and snapshot upgrade.
+`upgrade`, `export`, and `pull` commands consume this loader. `up` is deliberately
+refused because it is ambiguous between migration application and snapshot upgrade.
 
 ## Fields
 

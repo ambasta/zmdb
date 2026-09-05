@@ -112,9 +112,18 @@ const DATABASE_COMMANDS: Readonly<Record<string, CommandDefinition>> = {
     maximumPositionals: 0,
   },
   pull: {
-    usage: 'zmdb pull',
+    usage: 'zmdb pull [--dry-run] [--check]',
     summary: 'Write declarations from a live database catalogue.',
-    options: {},
+    options: {
+      'dry-run': {
+        type: 'boolean',
+        description: 'Print every generated declaration and write nothing.',
+      },
+      check: {
+        type: 'boolean',
+        description: 'Exit non-zero when the generated declarations are not current.',
+      },
+    },
     maximumPositionals: 0,
   },
   up: {

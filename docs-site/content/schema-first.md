@@ -2,8 +2,8 @@ PostgreSQL, MySQL and SQLite catalog readers produce a normalized
 `CatalogSchemaSnapshot`. `emitDeclarations()` turns it into deterministic
 TypeScript, and `detectDrift()` compares that live snapshot with reviewed
 declarations in both directions. Those library APIs are the supported adoption
-path; the future `zmdb pull` and `zmdb check` commands will package the same
-calls behind project configuration.
+path; `zmdb pull` now packages the reader and emitter behind project
+configuration, while the broader `zmdb check` command remains separate work.
 
 ## What "schema first" means here
 
@@ -15,11 +15,11 @@ The catalog reader removes hand-written catalog SQL from the comparison, and
 the declaration emitter can create the initial checked-in interfaces. Later
 changes still need the declaration and SQL reviewed together.
 
-**Generating declarations from an existing database.** The library path now
-exists: read the catalog, call `emitDeclarations()`, review its warnings, and
-write the returned files. What does not exist is the `zmdb pull` command that
-wires configuration, a driver, output policy, and reporting around those calls.
-See [pull](./cli-pull.html).
+**Generating declarations from an existing database.** Run `zmdb pull` to read
+the catalog through the configured driver and write protected staging files
+under `.zmdb/introspected`. The same reader and emitter remain public library
+APIs when a caller needs a different destination. See
+[pull](./cli-pull.html).
 
 ## Adopting zmdb on an existing database
 
@@ -118,8 +118,8 @@ warning in the generated file.
   members cannot become a valid tagged property. The emitter warns instead of
   widening one silently. See [Database Extensions](./db-extensions.html).
 
-The `pull` and `check` executables remain CLI work, not missing library
-semantics. See [pull](./cli-pull.html) for that command boundary.
+The broader `check` executable remains CLI work, not missing library semantics.
+See [pull](./cli-pull.html) for the shipped generation and staging boundary.
 
 ---
 

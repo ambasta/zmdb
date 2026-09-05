@@ -1,7 +1,7 @@
 > **ToDo / documentation gap.** The `zmdb` executable ships `generate`,
 > `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`,
-> `modules`, `repl`, `studio`, and formatter-backed `new` scaffolding. `pull`
-> and the final command transcripts remain.
+> `pull`, `modules`, `repl`, `studio`, and formatter-backed `new` scaffolding.
+> The final command transcripts remain.
 
 ## Scaffolding that ships
 
@@ -114,14 +114,15 @@ boilerplate, or hidden provider metadata.
 
 A schema, similarly, is one `interface`, and the DTOs, JSON Schema, DDL and validators are all [derived from it](./type-derivation.html) rather than generated as files. That is the design decision that removes most of the generator's job — and the reason the one build step that does exist, [`zmdb-codegen`](./cli-codegen.html), writes nothing into your repository.
 
-## What is genuinely missing
+## Database tooling boundaries
 
-**Introspection command wiring.** There is no `db pull` command, but the library
-now reads PostgreSQL, MySQL, and SQLite catalogs and emits reviewed TypeScript
-declarations, and `detectDrift()` compares those snapshots with declarations.
-The remaining gap is executable config/driver/output wiring; see
-[`cli-pull`](./cli-pull.html). Studio deliberately does not depend on that
-introspection path: it browses only the declarations selected by the config.
+**Introspection command wiring.** `zmdb pull` now reads PostgreSQL, MySQL, and
+SQLite catalogs through the configured driver and writes protected staging
+declarations. `--dry-run` previews complete files, `--check` reports byte drift
+without writing, and `detectDrift()` remains the library comparison against
+reviewed declarations. See [`cli-pull`](./cli-pull.html). Studio deliberately
+does not depend on that introspection path: it browses only the declarations
+selected by the config.
 
 **Migration generation from a diff against the live database.** `detectDrift()`
 can compare declarations with an introspected snapshot, but generation still
@@ -161,8 +162,8 @@ The `new` dispatch, templates, workspace targeting, formatter integration, and
 generated-code gates have landed. The migration, push, check, and upgrade
 commands now own their executable config, driver, policy, and output wiring.
 
-The commands worth building are the ones that still own operational policy:
-`db pull` around the shipped reader/emitter and a repeatable seed runner.
+`pull` now owns the reader/emitter staging policy. The commands still worth
+building include a repeatable seed runner.
 
 ---
 

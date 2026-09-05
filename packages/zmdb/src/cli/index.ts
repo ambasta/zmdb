@@ -26,6 +26,7 @@ import {
   type RollbackResult,
   type StatusResult,
 } from './commands/migrate.js';
+import { pullDeclarations, type PullExecution, type PullOptions, type PullResult } from './commands/pull.js';
 import { applyPush, planPush, type PushResult } from './commands/push.js';
 import { upgradeSnapshot, type UpgradeResult } from './commands/upgrade.js';
 import { loadConfig, resolveConfig, type ResolvedConfig, type ZmdbConfig } from './config.js';
@@ -33,7 +34,7 @@ import { CliInvocationError } from './errors.js';
 import { CliOutput, type CliResult } from './output.js';
 import { createReplSession, replHistoryPath } from './repl.js';
 
-export { exportSchema, generateMigration };
+export { exportSchema, generateMigration, pullDeclarations };
 export type {
   CheckResult,
   CliResult,
@@ -41,6 +42,8 @@ export type {
   GenerateOptions,
   GenerateResult,
   MigrateResult,
+  PullOptions,
+  PullResult,
   PushResult,
   RollbackResult,
   StatusResult,
@@ -284,6 +287,19 @@ async function runDatabaseCommand(parsed: ParsedCommand, io: RuntimeEnvironment)
           ? `upgraded snapshot ${String(result.from)} -> ${String(result.to)}; backup ${result.backup ?? ''}\n`
           : `snapshot is already at version ${String(result.to)}\n`,
       );
+    }
+    if (parsed.command === 'pull') {
+      if (config.driver === undefined) {
+        return output.failure('the config must declare a driver thunk before pull can connect', 2);
+      }
+      const execution = await pullDeclarations(config, {
+        ...(parsed.values['dry-run'] === true ? { dryRun: true } : {}),
+        ...(parsed.values.check === true ? { check: true } : {}),
+      });
+      if (parsed.json) {
+        for (const warning of execution.warnings) output.writeStderr(`${formatPullWarning(warning)}\n`);
+      }
+      return output.result(execution.result, renderPull(execution, config.configPath), execution.exitCode);
     }
     return output.failure(`command "${parsed.command}" is not implemented yet`, 2);
   } catch (error) {
@@ -579,4 +595,35 @@ function errorMessage(error: unknown): string {
 
 function isModuleClass(value: unknown): value is ModuleClass {
   return typeof value === 'function';
+}
+
+function renderPull(execution: PullExecution, configPath: string): string {
+  const lines = [configPath];
+  for (const warning of execution.warnings) lines.push(formatPullWarning(warning));
+
+  const skipped = new Map(execution.result.skipped.map(file => [file.path, file.reason]));
+  for (const output of execution.outputs) {
+    const reason = skipped.get(output.path);
+    if (reason !== undefined) {
+      lines.push(`${execution.mode === 'check' ? 'drift' : 'skipped'} ${output.path}: ${reason}`);
+      continue;
+    }
+    if (execution.mode === 'dry-run') {
+      lines.push(`would write ${output.path}`, output.source.trimEnd());
+    } else if (execution.mode === 'check') {
+      lines.push(`current ${output.path}`);
+    } else {
+      lines.push(`wrote ${output.path}`);
+    }
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+function formatPullWarning(warning: {
+  readonly table: string;
+  readonly column?: string;
+  readonly reason: string;
+}): string {
+  const subject = warning.column === undefined ? warning.table : `${warning.table}.${warning.column}`;
+  return `WARNING ${subject}: ${warning.reason}`;
 }

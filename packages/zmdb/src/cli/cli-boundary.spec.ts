@@ -14,7 +14,7 @@ import {
   DuplicateProviderAppModule,
   ShadowedRouteAppModule,
 } from '../../../web/src/modules/__fixtures__/large-graph.js';
-import { exportSchema, generateMigration } from './index.js';
+import { exportSchema, generateMigration, pullDeclarations } from './index.js';
 
 // `zmdb modules`, `zmdb repl`, and the barriers around them. Tests freeze for the epic "The module
 // graph as a first-class object" (#598 / spec freeze #599); the frozen text is `./SPEC.md`'s
@@ -103,9 +103,10 @@ describe('the zmdb CLI boundary', () => {
     expect(record.exports?.['./cli']).toBe('./src/cli/index.ts');
   });
 
-  it('exports the generate and export wrappers from the CLI subpath', () => {
+  it('exports the database command wrappers from the CLI subpath', () => {
     expect(typeof generateMigration).toBe('function');
     expect(typeof exportSchema).toBe('function');
+    expect(typeof pullDeclarations).toBe('function');
   });
 
   // §12 and §R5.2, and this is the barrier rather than a tidiness rule: the entry has to be

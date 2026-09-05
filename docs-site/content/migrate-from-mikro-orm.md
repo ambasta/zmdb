@@ -94,9 +94,10 @@ the request boundary, then use `loaderFor(repo)` for keyed reads or
 - cascades — [Cascading](./cascading.html)
 - `em.upsert` — [Upsert](./upsert.html)
 - `qb.stream()` — [Streaming](./streaming.html)
-- the `mikro-orm generate-entities` command — use the
-  [schema-first library workflow](./schema-first.html); command packaging belongs
-  to [pull](./cli-pull.html)
+
+`mikro-orm generate-entities` becomes `zmdb pull`: generate into the protected
+staging tree, review every warning, then copy accepted declarations into
+application-owned files. See [pull](./cli-pull.html).
 
 ## Config
 

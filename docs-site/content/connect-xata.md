@@ -41,7 +41,12 @@ Two consequences:
 - **Declare every column, including Xata's.** A column absent from the schema object looks like a column to drop when you generate a migration. See [Schema-first](./schema-first.html).
 - **Prefer letting zmdb own the schema.** Creating tables through zmdb migrations rather than the Xata UI means one source of truth. Mixing the two gives you two systems that both believe they define the table.
 
-If you are adopting an existing Xata database, use the PostgreSQL catalog reader and `emitDeclarations()` to generate a reviewed starting point, then add the comparison from [Schema-first](./schema-first.html). Xata-specific columns that the declaration vocabulary cannot represent are omitted with structural warnings and matching `TODO` comments. The [`pull` command](./cli-pull.html) has not landed, so this is still a small library script rather than executable dispatch.
+If you are adopting an existing Xata database, run [`zmdb pull`](./cli-pull.html)
+through the configured PostgreSQL driver, review the protected staging
+declarations, then add the comparison from
+[Schema-first](./schema-first.html). Xata-specific columns that the declaration
+vocabulary cannot represent are omitted with structural warnings and matching
+`TODO` comments.
 
 ## File attachments and search
 

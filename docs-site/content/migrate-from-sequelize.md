@@ -36,8 +36,9 @@ Sequelize adds `id`, `createdAt` and `updatedAt` for you. zmdb adds nothing — 
 > If you are migrating an existing Sequelize database, the catalog reader and
 > `emitDeclarations()` now produce one reviewed interface per table, including timestamp
 > properties and comments for database defaults. Unrepresentable columns are omitted with
-> structural warnings and matching `TODO` comments. The `pull` command has not landed, so
-> invoke the library from a small script; see [pull](./cli-pull.html).
+> structural warnings and matching `TODO` comments. `zmdb pull` packages that
+> reader/emitter path with protected staging files, `--dry-run`, and `--check`;
+> see [pull](./cli-pull.html).
 
 ## Query methods
 

@@ -1,8 +1,21 @@
-> **ToDo / feature gap.** The library reads PostgreSQL, MySQL and SQLite
-> catalogs, emits deterministic formatter-clean TypeScript declarations, and
-> reports declaration drift in both directions. There is still no `pull` or
-> `generate-entities` command. This page remains TODO because executable
-> dispatch has not landed.
+> **ToDo / documentation gap.** `zmdb pull` reads PostgreSQL, MySQL and SQLite
+> catalogs through the configured driver and writes deterministic
+> formatter-clean TypeScript declarations. This page remains TODO until the
+> final CLI reference and measured command transcript land.
+
+## Generate staging declarations
+
+`zmdb pull` writes the emitter's table files and barrel under
+`.zmdb/introspected`, relative to `zmdb.config.ts`. It overwrites a file only
+when the two-line zmdb introspection header is still present. A hand-written
+file is left untouched, listed as skipped, and makes the command exit 1.
+
+Use `zmdb pull --dry-run` to print every path and its complete generated source
+without writing. `zmdb pull --check` also writes nothing and exits 1 when a
+generated file is missing, differs from the live database, or has lost its
+generated header. Both forms use the same catalog read and emitter as a normal
+run. Emitter warnings are printed as `WARNING` lines; with `--json`, the single
+result document stays on stdout and warnings go to stderr.
 
 ## Read the catalog and emit declarations today
 
@@ -89,17 +102,14 @@ custom exclusion globs, and can omit MySQL's generated foreign-key support
 index. Its comparison coverage remains exactly the migration `diff` coverage;
 it does not maintain a second comparator.
 
-## Why the `pull` command is not shipped
+## Command and library boundaries
 
-The catalog-to-declaration library path has landed. The command still needs to
-resolve a configured driver, choose and protect an output directory, report
-warnings in human and JSON modes, define overwrite behavior, and distinguish
-catalog failure from reviewable loss. The library report is ready for that
-command to format and map to stable exit codes.
-
-Until that executable wiring lands, keep the script above in the project so its
-driver construction and output path are reviewable rather than hidden in a
-second ad-hoc generator.
+The command owns config loading, the configured driver, staging-path safety,
+warnings, `--dry-run`, `--check`, JSON output, and exit codes. The library owns
+catalog SQL, row validation, declaration emission, and two-direction drift
+comparison. A caller that needs a different destination or wants the snapshot
+in memory can keep using the library workflow above without reimplementing
+introspection.
 
 ---
 

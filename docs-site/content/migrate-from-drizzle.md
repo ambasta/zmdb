@@ -76,8 +76,10 @@ For an existing Drizzle-managed database, start with
 [schema-first adoption](./schema-first.html) instead of translating the schema
 object blind: introspect into a staging directory, review the generated tags and
 warnings, commit a baseline snapshot, and run `detectDrift()` against a restored
-database in CI. The future [pull command](./cli-pull.html) will package that
-library workflow rather than define a second one.
+database in CI. The [pull command](./cli-pull.html) packages that library
+workflow rather than defining a second one. It writes protected staging
+declarations under `.zmdb/introspected`, with `--dry-run` for review and
+`--check` for CI.
 
 ## Validation
 
@@ -89,7 +91,7 @@ Drop `drizzle-zod`. `assert<CreateDTO<User>>(body)` is generated from the same d
 - arbitrary SQL update expressions — the closed atomic forms (`inc`, `dec`,
   `mul`, `not`, `concat`, `coalesce`, `proposed`) are covered by
   [Incrementing a value](./guide-increment-decrement.html)
-- `drizzle-kit studio` / `pull` — see [CLI](./cli-overview.html)
+- `drizzle-kit studio`'s write controls — zmdb's [Studio](./cli-studio.html) is deliberately read-only
 - the `pg`/`mysql`/`sqlite` type zoo: zmdb has ten column types, not sixty. `Sql<'json'>` and [custom types](./custom-types.html) cover most of the rest.
 
 ## What you gain

@@ -803,7 +803,12 @@ export const mikroOrm = {
   'loadable-mixin': oos(NO_INHERITANCE_MAPPING, 'inheritance'),
   decorators: oos(NO_ENTITY_METADATA, 'pure-typescript'),
   reflection: oos(NO_ENTITY_METADATA, 'pure-typescript'),
-  'entity-generator': oos(NO_ENTITY_METADATA, 'pure-typescript'),
+  'entity-generator': [
+    'writes declarations from a live database and refuses to overwrite a hand-written file',
+    'prints emitter warnings',
+    '--dry-run writes nothing',
+    '--check exits non-zero on drift',
+  ],
   'define-entity-setclass': oos(NO_ENTITY_METADATA, 'pure-typescript'),
   'duplicate-class-names': oos(NO_ENTITY_METADATA, 'pure-typescript'),
   'custom-entity-manager': oos(NO_ENTITY_METADATA, 'pure-typescript'),
