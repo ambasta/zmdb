@@ -15,8 +15,8 @@ describe('resolveRelation', () => {
     expect(resolveRelation(PostSchema.ir, 'author')).toEqual({
       name: 'author',
       targetTable: 'users',
-      parentKey: 'userId',
-      targetKey: 'id',
+      parentKey: ['userId'],
+      targetKey: ['id'],
       toMany: false,
     });
   });
@@ -25,8 +25,8 @@ describe('resolveRelation', () => {
     expect(resolveRelation(UserSchema.ir, 'posts')).toEqual({
       name: 'posts',
       targetTable: 'posts',
-      parentKey: 'id',
-      targetKey: 'userId',
+      parentKey: ['id'],
+      targetKey: ['userId'],
       toMany: true,
     });
   });
@@ -38,8 +38,8 @@ describe('resolveRelation', () => {
     expect(resolveRelation(UserSchema.ir, 'profile')).toEqual({
       name: 'profile',
       targetTable: 'profiles',
-      parentKey: 'id',
-      targetKey: 'userId',
+      parentKey: ['id'],
+      targetKey: ['userId'],
       toMany: false,
     });
   });
@@ -97,23 +97,23 @@ describe('the relation vocabulary', () => {
     expect(resolveRelation(ir, 'account')).toEqual({
       name: 'account',
       targetTable: 'accounts',
-      parentKey: 'accountId',
-      targetKey: 'id',
+      parentKey: ['accountId'],
+      targetKey: ['id'],
       toMany: false,
     });
     // The two inverse sides differ only in whether the match can repeat.
     expect(resolveRelation(ir, 'posts')).toEqual({
       name: 'posts',
       targetTable: 'posts',
-      parentKey: 'id',
-      targetKey: 'userId',
+      parentKey: ['id'],
+      targetKey: ['userId'],
       toMany: true,
     });
     expect(resolveRelation(ir, 'profile')).toEqual({
       name: 'profile',
       targetTable: 'profiles',
-      parentKey: 'id',
-      targetKey: 'userId',
+      parentKey: ['id'],
+      targetKey: ['userId'],
       toMany: false,
     });
     // And the fourth is a refusal by name, which is an answer — two hops is not one `IN`.

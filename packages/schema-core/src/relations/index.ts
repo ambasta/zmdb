@@ -17,9 +17,10 @@
 // What is left is the part that was never a duplicate: `resolveRelation`, which turns one
 // `RelationIR` into the pair of columns a query needs, and the two row helpers.
 import {
-  quoteIdentifier,
   formatPlaceholder,
+  quoteIdentifier,
   renderPredicate,
+  UnsupportedFeatureError,
   type ComparisonPredicate,
   type Dialect,
 } from '@zmdb/query-compiler';
@@ -39,10 +40,10 @@ export interface ResolvedRelation {
   readonly name: string;
   /** Where the related rows live. */
   readonly targetTable: string;
-  /** The column on the declaring table whose value the join matches. */
-  readonly parentKey: string;
-  /** The column on the target table carrying the matching value. */
-  readonly targetKey: string;
+  /** Ordered columns on the declaring table whose values the join matches. */
+  readonly parentKey: readonly string[];
+  /** Ordered columns on the target table, positionally paired with `parentKey`. */
+  readonly targetKey: readonly string[];
   /** `true` for `oneToMany`: the relation attaches an array, empty where nothing matched. */
   readonly toMany: boolean;
 }
@@ -74,36 +75,98 @@ export function resolveRelation(ir: SchemaIR, name: string): ResolvedRelation {
   }
   if (rel.relation === 'oneToMany') {
     // The inverse side: the foreign key is a column of the *target*, holding this row's key.
-    return { name, targetTable: rel.target, parentKey: primaryKeyOf(ir), targetKey: rel.via, toMany: true };
+    return inverseRelation(ir, name, rel, true);
   }
-  if (rel.relation === 'oneToOne' && !ir.columns.some(col => col.name === rel.via)) {
+  const via = relationColumns(ir, name, rel.via);
+  if (rel.relation === 'oneToOne' && !via.every(column => ir.columns.some(candidate => candidate.name === column))) {
     // A one-to-one pair is symmetric, so `OneToOne<'profiles', 'userId'>` does not say which
     // of the two tables holds the key — and the answer is "the one with the column". Declared
     // on `users`, which has no `userId`, it is the inverse side, joined from the primary key
     // exactly as a to-many is; it just cannot match twice.
-    return { name, targetTable: rel.target, parentKey: primaryKeyOf(ir), targetKey: rel.via, toMany: false };
+    return inverseRelation(ir, name, rel, false);
   }
   // The owning side: this row holds the foreign key, and the column it points at is written
   // down on that column, as `References<'users.id'>`.
   return {
     name,
     targetTable: rel.target,
-    parentKey: rel.via,
-    targetKey: referencedColumn(ir, rel.via),
+    parentKey: via,
+    targetKey: via.map(column => referencedColumn(ir, name, rel.target, column, via.length > 1)),
     toMany: false,
   };
 }
 
-/** The column a foreign key points at, per its `References<'table.column'>`; `id` without one. */
-function referencedColumn(ir: SchemaIR, fk: string): string {
-  const [, column] = (ir.columns.find(col => col.name === fk)?.references ?? '').split('.');
-  return column ?? 'id';
+function relationColumns(ir: SchemaIR, relation: string, via: string): readonly string[] {
+  const columns = via.split(',').map(column => column.trim());
+  if (columns.some(column => column.length === 0)) {
+    throw new Error(`${ir.table}.${relation}: relation via "${via}" contains an empty column name`);
+  }
+  return columns;
 }
 
-function primaryKeyOf(ir: SchemaIR): string {
-  const pk = ir.primaryKey[0];
-  if (!pk) throw new Error(`schema ${ir.table} has no primary key, so its relations have nothing to join from`);
-  return pk;
+/** The column a foreign key points at, per its `References<'table.column'>`; `id` without one. */
+function referencedColumn(
+  ir: SchemaIR,
+  relation: string,
+  target: string,
+  fk: string,
+  requireReference: boolean,
+): string {
+  const reference = ir.columns.find(col => col.name === fk)?.references;
+  const separator = reference?.lastIndexOf('.') ?? -1;
+  if (reference !== undefined && separator > 0 && separator < reference.length - 1) {
+    return reference.slice(separator + 1);
+  }
+  if (requireReference) {
+    throw new Error(
+      `${ir.table}.${relation}: composite relation via column "${fk}" must carry ` +
+        `References<'${target}.column'>; every via column must name its target`,
+    );
+  }
+  return 'id';
+}
+
+function primaryKeyOf(ir: SchemaIR): readonly string[] {
+  if (ir.primaryKey.length === 0) {
+    throw new Error(`schema ${ir.table} has no primary key, so its relations have nothing to join from`);
+  }
+  return ir.primaryKey;
+}
+
+function relationTag(relation: 'manyToOne' | 'oneToMany' | 'oneToOne'): string {
+  switch (relation) {
+    case 'manyToOne':
+      return 'ManyToOne';
+    case 'oneToMany':
+      return 'OneToMany';
+    case 'oneToOne':
+      return 'OneToOne';
+  }
+}
+
+function inverseRelation(
+  ir: SchemaIR,
+  name: string,
+  rel: SchemaIR['relations'][number],
+  toMany: boolean,
+): ResolvedRelation {
+  if (rel.relation !== 'oneToMany' && rel.relation !== 'oneToOne') {
+    throw new Error(`${ir.table}.${name}: ${rel.relation} is not an inverse relation`);
+  }
+  const parentKey = primaryKeyOf(ir);
+  const targetKey = relationColumns(ir, name, rel.via);
+  if (parentKey.length !== targetKey.length) {
+    const tag = relationTag(rel.relation);
+    const missing = Math.max(0, parentKey.length - targetKey.length);
+    const suggestedVia = [...parentKey.slice(0, missing), ...targetKey].join(',');
+    const targetLabel = targetKey.length === 1 ? 'column' : 'columns';
+    throw new Error(
+      `${ir.table}.${name}: ${tag}<'${rel.target}', '${rel.via}'> supplies ${String(targetKey.length)} target ` +
+        `${targetLabel} for a ${String(parentKey.length)}-column parent key (${parentKey.join(', ')}); ` +
+        `name every column, in key order — ${tag}<'${rel.target}', '${suggestedVia}'>`,
+    );
+  }
+  return { name, targetTable: rel.target, parentKey, targetKey, toMany };
 }
 
 export type PopulateDialect = Dialect;
@@ -122,6 +185,37 @@ function sanitizeKeys<T>(keys: readonly T[]): T[] {
       seen.add(k);
       result.push(k);
     }
+  }
+  return result;
+}
+
+function sameKeyValue(left: unknown, right: unknown): boolean {
+  if (left instanceof Date && right instanceof Date) return left.getTime() === right.getTime();
+  return Object.is(left, right);
+}
+
+function sanitizeCompositeKeys(
+  ir: SchemaIR,
+  relationName: string,
+  keys: readonly unknown[],
+  arity: number,
+): readonly (readonly unknown[])[] {
+  const result: unknown[][] = [];
+  for (const key of keys) {
+    if (key === null || key === undefined) continue;
+    if (!Array.isArray(key)) {
+      throw new Error(
+        `${ir.table}.${relationName}: composite-key populate expects a ${String(arity)}-column tuple for every parent`,
+      );
+    }
+    if (key.length !== arity) {
+      throw new Error(
+        `${ir.table}.${relationName}: composite-key populate expected ${String(arity)} values, received ${String(key.length)}`,
+      );
+    }
+    if (key.some(value => value === null || value === undefined)) continue;
+    if (result.some(existing => existing.every((value, index) => sameKeyValue(value, key[index])))) continue;
+    result.push([...key]);
   }
   return result;
 }
@@ -158,21 +252,64 @@ export function compilePopulate(
     const parameters: unknown[] = [];
     const filtered = targetFilters.length > 0;
     const onFilters = renderFilters(parameters);
+    const conditions = rel.parentKey.map((parentKey, index) => {
+      const targetKey = rel.targetKey[index];
+      if (targetKey === undefined) {
+        throw new Error(`${ir.table}.${relationName}: resolved relation keys have different lengths`);
+      }
+      return `${q(ir.table)}.${q(parentKey)} = ${q(rel.targetTable)}.${q(targetKey)}`;
+    });
     const sql =
       `SELECT * FROM ${q(ir.table)} ${filtered ? 'LEFT' : 'INNER'} JOIN ${q(rel.targetTable)} ` +
-      `ON ${q(ir.table)}.${q(rel.parentKey)} = ${q(rel.targetTable)}.${q(rel.targetKey)}` +
+      `ON ${conditions.join(' AND ')}` +
       (onFilters.length === 0 ? '' : ` ${onFilters}`);
     return { kind: 'join', sql, parameters };
   }
-  const sanitized = sanitizeKeys(parentIds);
+  if (parentIds.length === 0) {
+    return { kind: 'batched', sql: `SELECT * FROM ${q(rel.targetTable)} WHERE 1 = 0`, parameters: [] };
+  }
+  if (rel.targetKey.length === 1) {
+    const sanitized = sanitizeKeys(parentIds);
+    if (sanitized.length === 0) {
+      return { kind: 'batched', sql: `SELECT * FROM ${q(rel.targetTable)} WHERE 1 = 0`, parameters: [] };
+    }
+    const [targetKey] = rel.targetKey;
+    if (targetKey === undefined) {
+      throw new Error(`${ir.table}.${relationName}: resolved relation has no target key`);
+    }
+    const inList = sanitized.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
+    const parameters: unknown[] = [...sanitized];
+    const filters = renderFilters(parameters);
+    const sql =
+      `SELECT * FROM ${q(rel.targetTable)} WHERE ${q(targetKey)} IN (${inList})` +
+      (filters.length === 0 ? '' : ` ${filters}`);
+    return { kind: 'batched', sql, parameters };
+  }
+  if (dialect === 'mssql') {
+    throw new UnsupportedFeatureError(
+      `composite-key populate for relation "${relationName}"`,
+      dialect,
+      `${ir.table}.${relationName}: SQL Server does not support row-value IN for a composite-key populate`,
+    );
+  }
+  const sanitized = sanitizeCompositeKeys(ir, relationName, parentIds, rel.targetKey.length);
   if (sanitized.length === 0) {
     return { kind: 'batched', sql: `SELECT * FROM ${q(rel.targetTable)} WHERE 1 = 0`, parameters: [] };
   }
-  const inList = sanitized.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
-  const parameters: unknown[] = [...sanitized];
+  const parameters: unknown[] = [];
+  const inList = sanitized
+    .map(tuple => {
+      const placeholders = tuple.map(value => {
+        parameters.push(value);
+        return formatPlaceholder(dialect, parameters.length);
+      });
+      return `(${placeholders.join(', ')})`;
+    })
+    .join(', ');
+  const columns = rel.targetKey.map(targetKey => q(targetKey)).join(', ');
   const filters = renderFilters(parameters);
   const sql =
-    `SELECT * FROM ${q(rel.targetTable)} WHERE ${q(rel.targetKey)} IN (${inList})` +
+    `SELECT * FROM ${q(rel.targetTable)} WHERE (${columns}) IN (${inList})` +
     (filters.length === 0 ? '' : ` ${filters}`);
   return { kind: 'batched', sql, parameters };
 }

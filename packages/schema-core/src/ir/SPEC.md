@@ -154,12 +154,10 @@ A table may declare no key at all, and `primaryKey` is then `[]`. That is a lega
 
 What is _not_ legal is a `primaryKey` naming a column the table does not have, and the reflector refuses that at derivation rather than letting the DDL emit a clause over a phantom column.
 
-Four back-ends read the key, and before this section they each read something different —
-`PrimaryKeyOf` an object-or-scalar, the repository `primaryKey[0]` for `pkColumn`, the DDL
-emitter once read the per-column flag, and `resolveRelation` reads `primaryKey[0]`. The DDL
-boundary now consumes the ordered list; the remaining `primaryKey[0]` readers are still the
-single-column case written as if it were the general one. The list above is what all four
-boundaries must agree on; each of the four specs below says what that boundary does with it.
+Four back-ends read the key, and before this contract they each read something different —
+`PrimaryKeyOf` an object-or-scalar, the repository and relation resolver each read only the
+first entry, and the DDL emitter reconstructed the key from per-column flags. All four now
+consume the ordered list. The specs below say what each boundary does with it.
 
 A composite key may not contain a `serial` column. Auto-increment inside a multi-column key
 is a MySQL-specific shape (the auto-increment column must _lead_ the key), and expressing

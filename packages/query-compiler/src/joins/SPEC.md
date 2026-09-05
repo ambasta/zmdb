@@ -10,6 +10,10 @@
 ```ts
 qb.selectFrom(table)
   .innerJoin(target, leftCol, rightCol, onPredicates?)
+  .innerJoin(target, [
+    { leftCol: 'memberships.tenant_id', rightCol: 'users.tenant_id' },
+    { leftCol: 'memberships.user_id', rightCol: 'users.id' },
+  ], onPredicates?)
   .leftJoin(target, leftCol, rightCol, onPredicates?)
   .rightJoin(target, leftCol, rightCol, onPredicates?)
   .where(...) .orderBy(...) .limit(...) .offset(...)
@@ -17,6 +21,8 @@ qb.selectFrom(table)
 ```
 
 - `leftCol`/`rightCol` are qualified `table.column` or `alias.column` strings.
+- A join over a composite key passes an ordered, non-empty list of those pairs.
+  Compilation conjoins them in one `ON` clause with `AND`.
 - `onPredicates`, when present, are structured predicates appended inside that
   join's `ON`; their parameters share the statement's placeholder sequence.
 - Joins compose with existing where/order/limit/offset.

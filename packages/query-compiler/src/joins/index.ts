@@ -1,5 +1,6 @@
 import {
   type ComparisonPredicate,
+  type JoinCondition,
   type JoinSpec,
   type Predicate,
   frozenQuery,
@@ -13,7 +14,7 @@ import {
 import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
 import { quoteTable } from '../quoting.js';
 
-export type { JoinKind } from '../clauses.js';
+export type { JoinCondition, JoinKind } from '../clauses.js';
 
 interface State {
   readonly table: string;
@@ -26,8 +27,11 @@ interface State {
 
 export interface JoinableSelect {
   innerJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
+  innerJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): JoinableSelect;
   leftJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
+  leftJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): JoinableSelect;
   rightJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
+  rightJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): JoinableSelect;
   where(col: string, op: string, value: unknown): JoinableSelect;
   whereGroup(predicates: readonly ComparisonPredicate[]): JoinableSelect;
   orderBy(col: string, dir: 'asc' | 'desc'): JoinableSelect;

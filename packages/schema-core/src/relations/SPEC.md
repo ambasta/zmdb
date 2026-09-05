@@ -114,8 +114,8 @@ the same reason.
 interface ResolvedRelation {
   readonly name: string;
   readonly targetTable: string;
-  readonly parentKey: string; // on the declaring table
-  readonly targetKey: string; // on the target
+  readonly parentKey: readonly string[]; // on the declaring table
+  readonly targetKey: readonly string[]; // on the target, positionally paired
   readonly toMany: boolean;
 }
 ```
@@ -123,11 +123,13 @@ interface ResolvedRelation {
 Three cases, and which one applies is a fact about the tables rather than about the tag:
 
 - **Owning side** (`ManyToOne`, and `OneToOne` where this table has the column) — `parentKey`
-  is `via`, and `targetKey` is whatever the column's `References<'table.column'>` names, `id`
-  without one.
+  is `via` split on commas in written order, and `targetKey` contains what each column's
+  `References<'table.column'>` names. A one-column relation without `References` still
+  defaults to `id`; every column of a composite relation must carry `References`.
 - **Inverse side** (`OneToMany`, and `OneToOne` where this table does _not_ have the column) —
-  `parentKey` is the primary key and `targetKey` is `via`. A `OneToOne` pair is symmetric and
-  the tag cannot say which half stores the key; the answer is "the one with the column".
+  `parentKey` is the whole ordered primary key and `targetKey` is `via` split on commas. A
+  `OneToOne` pair is symmetric and the tag cannot say which half stores the key; the answer
+  is "the one with the column".
 - **`ManyToMany`** — throws. `via` is a join table, not a column, so one `IN` cannot express
   it, and inferring the join table's two foreign keys from the names either side is how a
   wrong query gets built quietly. Join the two tables explicitly.
@@ -135,24 +137,12 @@ Three cases, and which one applies is a fact about the tables rather than about 
 An unknown name throws and lists the relations the type does declare, because the reason a
 name is unknown is almost always a typo in a `populate`.
 
-### 2.1 A composite parent key (frozen — epic "Composite primary keys")
+### 2.1 A composite parent key
 
-`parentKey` and `targetKey` are single columns above, and `primaryKeyOf(ir)` returns
-`ir.primaryKey[0]`. On a table with a two-column key that silently joins on half of it, which
-produces a superset of the right rows — the worst available failure, because a to-many
-relation returning too many children looks like data rather than like a bug.
-
-Both sides become lists, and their **lengths must match**:
-
-```ts
-interface ResolvedRelation {
-  readonly name: string;
-  readonly targetTable: string;
-  readonly parentKey: readonly string[]; // on the declaring table
-  readonly targetKey: readonly string[]; // on the target, positionally paired with parentKey
-  readonly toMany: boolean;
-}
-```
+Both sides are ordered lists, and their **lengths must match**. This replaced the old
+first-element read, which silently joined a two-column parent on half its key and produced a
+superset of the right rows — the worst available failure, because extra children look like
+data rather than like a query defect.
 
 Pairing is **positional**: `parentKey[i]` joins to `targetKey[i]`. Nothing is matched by name,
 because the two tables are free to name the same fact differently (`users.id` ↔
@@ -177,9 +167,15 @@ Naming the key order in the message is the point. The author has to write the co
 order the parent key declares, and the diagnostic that tells them the count is wrong without
 telling them the order is the one that gets fixed twice.
 
-Downstream, `compilePopulate` conjoins the pairs — a to-one becomes `INNER JOIN t ON p.a = t.x AND p.b = t.y`, and a to-many's batched lookup becomes a tuple `IN` (`WHERE (a, b) IN ((…), (…))`) on Postgres and MySQL.
+Downstream, `compilePopulate` conjoins the pairs — a to-one becomes
+`INNER JOIN t ON p.a = t.x AND p.b = t.y`, and a to-many's batched lookup becomes a tuple
+`IN` (`WHERE (a, b) IN ((…), (…))`) on Postgres, MySQL and SQLite. SQL Server is refused
+explicitly because it does not support row-value `IN`.
 
-SQLite has row values from 3.15, so the same form works there; a driver that predates it is out of scope, and the alternative — an `OR` of conjunctions, one per parent — grows the statement with the batch and is what the `IN` was introduced to avoid. No parent keys is still `WHERE 1 = 0`.
+SQLite has row values from 3.15, so the same form works there; a driver that predates it is
+out of scope, and the alternative — an `OR` of conjunctions, one per parent — grows the
+statement with the batch and is what the `IN` was introduced to avoid. No parent keys is
+still `WHERE 1 = 0`.
 
 A single-column key resolves to a one-element list, so there is one code path rather than a
 general one and a fast one. `parentKey[0]` disappears from the module entirely; a consumer
@@ -193,9 +189,9 @@ that wants one column asserts the length it expects.
   A to-many becomes `readonly Entity<Target>[]`, a to-one `Entity<Target> | null`: a foreign
   key can match nothing, and the empty array covers the to-many case.
 - `compilePopulate(ir, name, dialect, parentIds, targetFilters?)` compiles one: an
-  unfiltered to-one is an `INNER JOIN` on the resolved pair, a filtered to-one is
-  a `LEFT JOIN` with target predicates in `ON`, a to-many is a batched `IN (…)`
-  select with target predicates in `WHERE`, and no parent keys is `WHERE 1 = 0`
+  unfiltered to-one is an `INNER JOIN` on every resolved pair, a filtered to-one is a
+  `LEFT JOIN` with target predicates in `ON`, and a to-many is a batched scalar or tuple
+  `IN (…)` select with target predicates in `WHERE`. No parent keys is `WHERE 1 = 0`
   rather than every row.
 - `attachPopulated(parent, name, value)` returns a new parent object with the relation
   attached. Never mutates the input.

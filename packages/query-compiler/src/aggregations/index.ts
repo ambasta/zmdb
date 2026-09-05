@@ -1,5 +1,6 @@
 import {
   type ComparisonPredicate,
+  type JoinCondition,
   type JoinSpec,
   type Predicate,
   frozenQuery,
@@ -14,7 +15,7 @@ import {
 import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
 import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
-export type { JoinKind } from '../clauses.js';
+export type { JoinCondition, JoinKind } from '../clauses.js';
 
 type SelectItem =
   | { kind: 'col'; col: string }
@@ -49,8 +50,11 @@ export interface AggregateSelect {
   max(expr: string, alias: string): AggregateSelect;
   expr(rawExpr: string, alias: string): AggregateSelect;
   innerJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
+  innerJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): AggregateSelect;
   leftJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
+  leftJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): AggregateSelect;
   rightJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
+  rightJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): AggregateSelect;
   where(col: string, op: string, value: unknown): AggregateSelect;
   orWhere(col: string, op: string, value: unknown): AggregateSelect;
   whereGroup(predicates: readonly ComparisonPredicate[]): AggregateSelect;

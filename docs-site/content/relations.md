@@ -63,20 +63,32 @@ Resolution reads the tables, not the tag:
 - `OneToMany<'posts', 'userId'>` on `users` is the **inverse** side: the join runs from `users`' primary key against `posts.userId`.
 - `OneToOne` is symmetric and cannot say which half stores the key, so the answer is whichever table has the column. `profile?: Profile & OneToOne<'profiles', 'userId'>` on a `users` with no `userId` is the inverse side.
 
+For a composite key, write every `via` column in key order:
+
+```ts
+posts?: Post[] & OneToMany<'posts', 'tenantId,userId'>;
+author?: User & ManyToOne<'users', 'tenantId,userId'>;
+```
+
+`resolveRelation` returns both sides as ordered lists and refuses a length mismatch. On the
+owning side, every column in a composite `via` must carry its own `References` tag; the
+single-column fallback to `id` is not used to guess part of a composite key.
+
 `resolveRelation` is exported if you need the answer yourself:
 
 ```ts
 import { resolveRelation } from '@zmdb/schema-core/relations';
 
 resolveRelation(PostSchema.ir, 'author');
-// { name: 'author', targetTable: 'users', parentKey: 'userId', targetKey: 'id', toMany: false }
+// { name: 'author', targetTable: 'users', parentKey: ['userId'], targetKey: ['id'], toMany: false }
 ```
 
 An unknown name throws and lists the relations the type does declare.
 
 ## Compiling population queries
 
-`compilePopulate` generates the SQL: a to-one is a JOIN, a to-many a batched `IN ()` select.
+`compilePopulate` generates the SQL: a to-one is a JOIN, a to-many a batched scalar or tuple
+`IN ()` select.
 
 ```ts
 import { compilePopulate } from '@zmdb/schema-core/relations';
@@ -91,6 +103,10 @@ const query2 = compilePopulate(PostSchema.ir, 'author', 'postgres');
 ```
 
 Duplicate and nullish parent keys are dropped, and no parent keys compiles to `WHERE 1 = 0` rather than to every row.
+
+For a composite parent key, each parent ID is an ordered tuple. PostgreSQL, MySQL and SQLite
+receive row-value `IN`; SQL Server is refused explicitly rather than receiving syntax it
+cannot execute.
 
 > [!WARNING]
 > `ManyToMany` throws here and in `populate`. `ManyToMany<'roles', 'user_roles'>` names a join

@@ -32,6 +32,19 @@ describe('JOIN compilation (postgres golden)', () => {
     expect(q.text).toBe('SELECT * FROM "a" INNER JOIN "b" ON "b"."a_id" = "a"."id"');
   });
 
+  it('joins a relation on every column of a composite parent key', () => {
+    const q = joinableSelectFrom('memberships as m')
+      .innerJoin('users as u', [
+        { leftCol: 'm.tenant_id', rightCol: 'u.tenant_id' },
+        { leftCol: 'm.user_id', rightCol: 'u.id' },
+      ])
+      .compile();
+    expect(q.text).toBe(
+      'SELECT * FROM "memberships" AS "m" INNER JOIN "users" AS "u" ' +
+        'ON "m"."tenant_id" = "u"."tenant_id" AND "m"."user_id" = "u"."id"',
+    );
+  });
+
   it('right-joins the target table, keeping rows with no match on the left', () => {
     const q = joinableSelectFrom('products')
       .rightJoin('suppliers', 'suppliers.id', 'products.supplier_id')

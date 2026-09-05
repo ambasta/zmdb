@@ -6,7 +6,7 @@ import type { ManyToOne, PrimaryKey, References, Serial, Sql, Table } from '@zmd
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { sqliteDriver } from './drivers/sqlite.js';
-import { BaseRepository, defineRepository, type Driver } from './index.js';
+import { BaseRepository, defineRepository, type Driver, type FilterDef } from './index.js';
 
 export interface Category extends Table<'categories'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -22,13 +22,45 @@ export interface Product extends Table<'products'> {
   category?: Category & ManyToOne<'categories', 'categoryId'>;
 }
 
-const { Product: ProductSchema } = schemasFrom<{ Category: Category; Product: Product }>(import.meta.url, [
-  'Category',
-  'Product',
-]);
+export interface Account extends Table<'accounts'> {
+  tenantId: string & Sql<'text'> & PrimaryKey;
+  id: number & Sql<'integer'> & PrimaryKey;
+  name: string & Sql<'text'>;
+  active: boolean & Sql<'boolean'>;
+}
+
+export interface Membership extends Table<'memberships'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  tenantId: string & Sql<'text'> & References<'accounts.tenantId'>;
+  userId: number & Sql<'integer'> & References<'accounts.id'>;
+  account?: Account & ManyToOne<'accounts', 'tenantId,userId'>;
+}
+
+const {
+  Product: ProductSchema,
+  Account: AccountSchema,
+  Membership: MembershipSchema,
+} = schemasFrom<{
+  Category: Category;
+  Product: Product;
+  Account: Account;
+  Membership: Membership;
+}>(import.meta.url, ['Category', 'Product', 'Account', 'Membership']);
 
 class ProductRepository extends BaseRepository<Product> {
   static override readonly schema = ProductSchema;
+}
+
+const activeAccountFilter = {
+  name: 'activeAccount',
+  table: 'accounts',
+  schema: AccountSchema,
+  where: (_params: void) => [{ col: 'active', op: '=', value: true }] as const,
+} as const satisfies FilterDef;
+
+class MembershipRepository extends BaseRepository<Membership> {
+  static override readonly schema = MembershipSchema;
+  static readonly filters = [activeAccountFilter] as const;
 }
 
 function recordingDriver(
@@ -99,6 +131,21 @@ describe('Relation-Aware Repository Aggregations', () => {
 
     expectOneQuery(driver, GROUPED_JOIN_SQL);
     expect(onlyRow(rows)).toMatchObject({ 'category.name': 'Books', count: 1, sum: 20 });
+  });
+
+  it('conjoins every composite relation pair in one aggregate join', async () => {
+    const driver = recordingDriver([{ count: 1 }]);
+    const repo = new MembershipRepository(driver, 'postgres');
+
+    await repo.aggregate(aggregate => aggregate.joinRelation('account').count('memberships.id', 'count'));
+
+    expectOneQuery(
+      driver,
+      'SELECT COUNT("memberships"."id") AS "count" FROM "memberships" ' +
+        'INNER JOIN "accounts" AS "account" ON "memberships"."tenantId" = "account"."tenantId" ' +
+        'AND "memberships"."userId" = "account"."id" AND "account"."active" = $1',
+    );
+    expect(driver.queries[0]?.parameters).toEqual([true]);
   });
 
   it('throws a descriptive error when referencing an undeclared relation', async () => {

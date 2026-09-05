@@ -4,7 +4,15 @@
 // @zmdb/query-compiler and every type from the schema; there is no runtime
 // reflection, no proxies and no identity map.
 import { issuesFor } from '@zmdb/aot-validator/utilities';
-import type { ColumnExpr, CompiledQuery, Dialect, Predicate, SelectBuilder, SetValue } from '@zmdb/query-compiler';
+import type {
+  ColumnExpr,
+  ComparisonPredicate,
+  CompiledQuery,
+  Dialect,
+  Predicate,
+  SelectBuilder,
+  SetValue,
+} from '@zmdb/query-compiler';
 import {
   chunkArray,
   createQueryCompiler,
@@ -17,7 +25,7 @@ import {
 } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
+import { joinableSelectFrom, type JoinCondition } from '@zmdb/query-compiler/joins';
 import type { RoutineDef } from '@zmdb/query-compiler/schema-objects';
 import {
   isRecord,
@@ -429,6 +437,14 @@ function loaderKey(parts: readonly unknown[]): string {
     .map(value => loaderKeyPart(value))
     .map(part => `${part.length}:${part}`)
     .join('');
+}
+
+function relationKeyValues(row: object, columns: readonly string[]): readonly unknown[] {
+  return columns.map(column => Reflect.get(row, column));
+}
+
+function hasNullishKeyPart(values: readonly unknown[]): boolean {
+  return values.some(value => value === null || value === undefined);
 }
 
 /** Everything a write variant's validation needs, derived once. See `payloadShape`. */
@@ -1162,41 +1178,73 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return populated;
   }
 
-  /**
-   * The children of every parent in one query — using whereIn and parameter chunking — grouped by FK value.
-   * A parent with no children is simply absent from the map.
-   */
+  /** The children of every parent in parameter-bounded queries, grouped by the ordered target key. */
   private async childrenByParent(
     childTable: string,
-    childFk: string,
-    parentIds: readonly unknown[],
+    childKeys: readonly string[],
+    parentKeys: readonly (readonly unknown[])[],
     options?: ReadOptions,
     filters?: ResolvedFilters,
-  ): Promise<Map<unknown, Record<string, unknown>[]>> {
+  ): Promise<Map<string, Record<string, unknown>[]>> {
     options?.signal?.throwIfAborted();
-    const ids = sanitizeKeys(parentIds);
+    if (childKeys.length === 0) {
+      throw new Error(`relation to ${childTable} resolved no target key columns`);
+    }
+    const unique = new Map<string, readonly unknown[]>();
+    for (const values of parentKeys) {
+      if (values.length !== childKeys.length) {
+        throw new Error(
+          `relation to ${childTable} resolved ${String(childKeys.length)} target columns for ` +
+            `${String(values.length)} parent values`,
+        );
+      }
+      if (!hasNullishKeyPart(values)) unique.set(loaderKey(values), values);
+    }
+    const ids = [...unique.values()];
     if (ids.length === 0) return new Map();
-    // DIALECT_PARAM_LIMITS provides a conservative list-length heuristic threshold leaving parameter headroom below driver variable limits.
     const limit = DIALECT_PARAM_LIMITS[this.dialect];
-    const chunks = chunkArray(ids, limit);
+    const chunks = chunkArray(ids, Math.max(1, Math.floor(limit / childKeys.length)));
     const children: Record<string, unknown>[] = [];
     for (const chunk of chunks) {
-      const query = this.compileRead(
-        'populate',
-        options,
-        () => this.qb.selectFrom(childTable).whereIn(childFk, chunk),
-        {
-          table: childTable,
-          qualifyColumns: true,
-          ...(filters === undefined ? {} : { resolvedFilters: filters }),
-        },
-      );
+      let builder = this.qb.selectFrom(childTable);
+      if (childKeys.length === 1) {
+        const [childKey] = childKeys;
+        if (childKey === undefined) throw new Error(`relation to ${childTable} resolved an empty target key`);
+        builder = builder.whereIn(
+          childKey,
+          chunk.map(values => values[0]),
+        );
+      } else {
+        const predicates: ComparisonPredicate[] = [];
+        for (let tupleIndex = 0; tupleIndex < chunk.length; tupleIndex++) {
+          const values = chunk[tupleIndex];
+          if (values === undefined) continue;
+          for (let columnIndex = 0; columnIndex < childKeys.length; columnIndex++) {
+            const childKey = childKeys[columnIndex];
+            if (childKey === undefined) continue;
+            predicates.push({
+              col: childKey,
+              op: '=',
+              value: values[columnIndex],
+              connector: tupleIndex > 0 && columnIndex === 0 ? 'OR' : 'AND',
+            });
+          }
+        }
+        builder = builder.whereGroup(predicates);
+      }
+      const query = this.compileRead('populate', options, () => builder, {
+        table: childTable,
+        qualifyColumns: true,
+        ...(filters === undefined ? {} : { resolvedFilters: filters }),
+      });
       const res = await this.executeRead(query, options?.signal);
       children.push(...res);
     }
-    const byParent = new Map<unknown, Record<string, unknown>[]>();
+    const byParent = new Map<string, Record<string, unknown>[]>();
     for (const c of children) {
-      const key = c[childFk];
+      const values = childKeys.map(childKey => c[childKey]);
+      if (hasNullishKeyPart(values)) continue;
+      const key = loaderKey(values);
       const list = byParent.get(key) ?? [];
       list.push(c);
       byParent.set(key, list);
@@ -1232,16 +1280,16 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const byParent = await this.childrenByParent(
         rel.targetTable,
         rel.targetKey,
-        current.map(parent => Reflect.get(parent, rel.parentKey)),
+        current.map(parent => relationKeyValues(parent, rel.parentKey)),
         options,
         populateFilters.get(name),
       );
       current = current.map(parent => {
-        const parentKey = Reflect.get(parent, rel.parentKey);
-        if (parentKey === null || parentKey === undefined) {
+        const parentKey = relationKeyValues(parent, rel.parentKey);
+        if (hasNullishKeyPart(parentKey)) {
           return { ...parent, [name]: rel.toMany ? [] : null };
         }
-        const list = byParent.get(parentKey) ?? [];
+        const list = byParent.get(loaderKey(parentKey)) ?? [];
         if (rel.toMany) {
           return { ...parent, [name]: list.map(child => ({ ...child })) };
         }
@@ -1255,7 +1303,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   [LOADER_RELATION_KEY]<K extends RelationKeys<T> & string>(parent: Entity<T>, relation: K): string {
     const resolved = this.relation(relation);
-    return loaderKey([Reflect.get(parent, resolved.parentKey)]);
+    return loaderKey(relationKeyValues(parent, resolved.parentKey));
   }
 
   async [LOADER_RELATION_BATCH]<K extends RelationKeys<T> & string>(
@@ -1521,13 +1569,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           this.dialect,
           this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
         );
-        builder = (join.kind === 'inner' ? builder.innerJoin : builder.leftJoin).call(
-          builder,
-          targetTable,
-          join.leftCol,
-          join.rightCol,
-          filtersAsPredicates(targetFilters),
-        );
+        const predicates = filtersAsPredicates(targetFilters);
+        builder =
+          join.kind === 'inner'
+            ? builder.innerJoin(targetTable, join.leftCol, join.rightCol, predicates)
+            : builder.leftJoin(targetTable, join.leftCol, join.rightCol, predicates);
         if (where) builder = builder.where(where.col, where.op, where.value);
         return builder;
       },
@@ -1540,7 +1586,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   /**
-   * A relation as a join: the target table, aliased to the relation name, and the two columns.
+   * A relation as a join: the target table, aliased to the relation name, and its ordered column pairs.
    *
    * One expression for both directions, where the map-driven version needed a branch per
    * cardinality — the two spellings put the joining column under a different key depending
@@ -1553,8 +1599,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     targetTable: string;
     filterTable: string;
     targetReference: string;
-    leftCol: string;
-    rightCol: string;
+    conditions: readonly JoinCondition[];
   } {
     const rel = this.relation(relationName);
     const alias = relationName.trim();
@@ -1564,8 +1609,16 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       targetTable,
       filterTable: rel.targetTable,
       targetReference: alias,
-      leftCol: `${this.tableName}.${rel.parentKey}`,
-      rightCol: `${alias}.${rel.targetKey}`,
+      conditions: rel.parentKey.map((parentKey, index) => {
+        const targetKey = rel.targetKey[index];
+        if (targetKey === undefined) {
+          throw new Error(`${this.tableName}.${relationName}: resolved relation keys have different lengths`);
+        }
+        return {
+          leftCol: `${this.tableName}.${parentKey}`,
+          rightCol: `${alias}.${targetKey}`,
+        };
+      }),
     };
   }
 
@@ -1614,14 +1667,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       builder = b;
       const target: RepositoryAggregateBuilder = Object.assign(builder, {
         joinRelation(relationName: string, kind: 'inner' | 'left' | 'right' = 'inner'): RepositoryAggregateBuilder {
-          const { targetTable, leftCol, rightCol, filters, knownNames } = resolveRelationJoin(relationName);
+          const { targetTable, conditions, filters, knownNames } = resolveRelationJoin(relationName);
           for (const name of filters.names) targetFilterNames.add(name);
           for (const name of knownNames) targetKnownNames.add(name);
           let nextB = builder;
           const predicates = filtersAsPredicates(filters);
-          if (kind === 'left') nextB = builder.leftJoin(targetTable, leftCol, rightCol, predicates);
-          else if (kind === 'right') nextB = builder.rightJoin(targetTable, leftCol, rightCol, predicates);
-          else nextB = builder.innerJoin(targetTable, leftCol, rightCol, predicates);
+          if (kind === 'left') nextB = builder.leftJoin(targetTable, conditions, predicates);
+          else if (kind === 'right') nextB = builder.rightJoin(targetTable, conditions, predicates);
+          else nextB = builder.innerJoin(targetTable, conditions, predicates);
           return wrap(nextB);
         },
       });
@@ -1634,20 +1687,37 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           if (prop === 'innerJoin' || prop === 'leftJoin' || prop === 'rightJoin') {
             return (
               targetTable: string,
-              leftCol: string,
-              rightCol: string,
-              on?: readonly Predicate[],
+              leftColOrConditions: string | readonly JoinCondition[],
+              rightColOrOn?: string | readonly Predicate[],
+              scalarOn?: readonly Predicate[],
             ): RepositoryAggregateBuilder => {
               const { filters, knownNames } = resolveTableJoin(targetTable);
               for (const name of filters.names) targetFilterNames.add(name);
               for (const name of knownNames) targetKnownNames.add(name);
+              const on = typeof leftColOrConditions === 'string' ? scalarOn : rightColOrOn;
+              if (on !== undefined && typeof on === 'string') {
+                throw new TypeError(`join "${targetTable}" received an invalid ON predicate list`);
+              }
               const predicates = [...(on ?? []), ...filtersAsPredicates(filters)];
-              const joined =
-                prop === 'leftJoin'
-                  ? builder.leftJoin(targetTable, leftCol, rightCol, predicates)
-                  : prop === 'rightJoin'
-                    ? builder.rightJoin(targetTable, leftCol, rightCol, predicates)
-                    : builder.innerJoin(targetTable, leftCol, rightCol, predicates);
+              let joined: AggregateSelect;
+              if (typeof leftColOrConditions === 'string') {
+                if (typeof rightColOrOn !== 'string') {
+                  throw new TypeError(`join "${targetTable}" needs a right-hand column`);
+                }
+                if (prop === 'leftJoin') {
+                  joined = builder.leftJoin(targetTable, leftColOrConditions, rightColOrOn, predicates);
+                } else if (prop === 'rightJoin') {
+                  joined = builder.rightJoin(targetTable, leftColOrConditions, rightColOrOn, predicates);
+                } else {
+                  joined = builder.innerJoin(targetTable, leftColOrConditions, rightColOrOn, predicates);
+                }
+              } else if (prop === 'leftJoin') {
+                joined = builder.leftJoin(targetTable, leftColOrConditions, predicates);
+              } else if (prop === 'rightJoin') {
+                joined = builder.rightJoin(targetTable, leftColOrConditions, predicates);
+              } else {
+                joined = builder.innerJoin(targetTable, leftColOrConditions, predicates);
+              }
               return wrap(joined);
             };
           }
@@ -1705,13 +1775,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const applyJoin = (relName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
         if (joinedRelations.has(relName)) return;
         joinedRelations.add(relName);
-        const { targetTable, leftCol, rightCol, filters, knownNames } = this.filteredRelationJoin(relName, options);
+        const { targetTable, conditions, filters, knownNames } = this.filteredRelationJoin(relName, options);
         for (const name of filters.names) targetFilterNames.add(name);
         for (const name of knownNames) targetKnownNames.add(name);
         const predicates = filtersAsPredicates(filters);
-        if (kind === 'left') builder = builder.leftJoin(targetTable, leftCol, rightCol, predicates);
-        else if (kind === 'right') builder = builder.rightJoin(targetTable, leftCol, rightCol, predicates);
-        else builder = builder.innerJoin(targetTable, leftCol, rightCol, predicates);
+        if (kind === 'left') builder = builder.leftJoin(targetTable, conditions, predicates);
+        else if (kind === 'right') builder = builder.rightJoin(targetTable, conditions, predicates);
+        else builder = builder.innerJoin(targetTable, conditions, predicates);
       };
 
       if (spec.joins) {
@@ -1876,14 +1946,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     if (!childTable || !childFk) return this.attachRelations(fetched, [relationName], options, relationFilters);
     const byParent = await this.childrenByParent(
       childTable,
-      childFk,
-      fetched.map(p => p[parentKey]),
+      [childFk],
+      fetched.map(p => [p[parentKey]]),
       options,
       relationFilters.get(relationName),
     );
     return fetched.map(p => ({
       ...p,
-      [relationName]: byParent.get(p[parentKey]) ?? [],
+      [relationName]: byParent.get(loaderKey([p[parentKey]])) ?? [],
     }));
   }
 

@@ -164,6 +164,31 @@ const PeopleSchema = schemaFromIR({
   relations: [],
   foreignKeys: [],
 });
+const TenantUsersSchema = schemaFromIR({
+  table: 'tenantUsers',
+  physicalTable: 'tenant_users',
+  columns: [
+    { ...column('tenantId', 'text', { primaryKey: true }), physicalName: 'tenant_id' },
+    { ...column('id', 'integer', { primaryKey: true }), physicalName: 'user_id' },
+    column('name', 'text'),
+  ],
+  primaryKey: ['tenantId', 'id'],
+  relations: [{ name: 'posts', relation: 'oneToMany', target: 'tenantPosts', via: 'tenantId,userId' }],
+  foreignKeys: [],
+});
+const TenantPostsSchema = schemaFromIR({
+  table: 'tenantPosts',
+  physicalTable: 'tenant_posts',
+  columns: [
+    column('id', 'integer', { primaryKey: true }),
+    { ...column('tenantId', 'text', { references: 'tenantUsers.tenantId' }), physicalName: 'tenant_id' },
+    { ...column('userId', 'integer', { references: 'tenantUsers.id' }), physicalName: 'user_id' },
+    column('title', 'text'),
+  ],
+  primaryKey: ['id'],
+  relations: [{ name: 'author', relation: 'manyToOne', target: 'tenantUsers', via: 'tenantId,userId' }],
+  foreignKeys: [],
+});
 
 const userRows = Array.from({ length: 75 }, (_unused, index) => ({
   id: index + 1,
@@ -437,6 +462,44 @@ describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
       expect(html).toContain('Second');
       expect(html).not.toContain('Other user');
     });
+  });
+
+  it('follows every column of a composite parent relation', async () => {
+    const queries: CompiledQuery[] = [];
+    const parent = { tenant_id: 't1', user_id: 1, name: 'Tenant one user' };
+    const posts = [
+      { id: 10, tenant_id: 't1', user_id: 1, title: 'Right tenant' },
+      { id: 11, tenant_id: 't2', user_id: 1, title: 'Wrong tenant' },
+    ];
+    const driver: Driver = {
+      dialect: 'sqlite',
+      execute(query) {
+        queries.push(query);
+        if (query.text.includes('tenant_users')) return Promise.resolve([parent]);
+        const related = posts.filter(
+          post => post.tenant_id === query.parameters[0] && post.user_id === query.parameters[1],
+        );
+        if (query.text.includes('COUNT(')) return Promise.resolve([{ count: related.length }]);
+        return Promise.resolve(related);
+      },
+    };
+    const { createStudioApp } = await loadStudioApp();
+    await using app = createStudioApp({ schemas: [TenantUsersSchema, TenantPostsSchema], driver });
+    const key = encodeURIComponent(JSON.stringify({ tenantId: 't1', id: 1 }));
+    const response = await app.fetch(new Request(`http://127.0.0.1/tables/tenantUsers/rows/${key}/relations/posts`));
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain('Right tenant');
+    expect(html).not.toContain('Wrong tenant');
+    const relationQueries = queries.map(query => query.text).filter(text => text.includes('tenant_posts'));
+    expect(relationQueries).toHaveLength(2);
+    expect(relationQueries).toEqual(
+      expect.arrayContaining([
+        'SELECT COUNT(*) AS "count" FROM "tenant_posts" WHERE "tenant_id" = ? AND "user_id" = ?',
+        'SELECT "id", "tenant_id", "user_id", "title" FROM "tenant_posts" WHERE "tenant_id" = ? AND "user_id" = ? ORDER BY "id" ASC LIMIT 25 OFFSET 0',
+      ]),
+    );
   });
 
   it('refuses an undeclared sort column before executing a query', async () => {

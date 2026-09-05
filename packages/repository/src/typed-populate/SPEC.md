@@ -55,10 +55,11 @@ find<K extends RelationKeys<T> & string>(where: WhereDTO<T>, opts?: { populate?:
 
 - With no `populate`, the result is a plain `Entity<T>` and **nothing** is attached — an
   unpopulated relation is absent from the row, not present and empty.
-- With `populate: ["orders"]`, the repository fetches the parents, then runs ONE batched
-  `IN (...)` query per relation and attaches results via `attachPopulated` (to-many →
-  `readonly Entity<Order>[]`, to-one → `Entity<User> | null`). The result type is
-  `Populated<T, "orders">`.
+- With `populate: ["orders"]`, the repository fetches the parents, then runs parameter-bounded
+  batched queries per relation and attaches results via `attachPopulated` (to-many →
+  `readonly Entity<Order>[]`, to-one → `Entity<User> | null`). A one-column key uses
+  `IN (...)`; a composite key uses ordered `OR`-of-`AND` groups so every supported driver gets
+  valid SQL. The result type is `Populated<T, "orders">`.
 - A `ManyToMany` relation throws rather than compiling a query: `via` is a join table, and
   guessing its two foreign keys is how a wrong query gets built quietly.
 - Children are plain objects on plain parents — no identity map, no proxies.

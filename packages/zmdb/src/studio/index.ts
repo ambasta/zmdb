@@ -185,11 +185,19 @@ class Studio {
       throw new StudioRequestError(400, messageOf(error));
     }
     const target = this.table(relation.targetTable);
-    const parentColumn = declaredColumn(table, relation.parentKey);
-    const targetColumn = declaredColumn(target, relation.targetKey);
-    const parentValue = rowValue(parent, parentColumn);
+    const predicates = relation.parentKey.map((parentKey, index) => {
+      const targetKey = relation.targetKey[index];
+      if (targetKey === undefined) {
+        throw new StudioRequestError(400, `${table.schema.table}.${relation.name} resolved mismatched key columns`);
+      }
+      const parentColumn = declaredColumn(table, parentKey);
+      return {
+        column: declaredColumn(target, targetKey),
+        value: rowValue(parent, parentColumn),
+      };
+    });
     const options = pageOptions(target, query);
-    const page = await this.page(target, options, [{ column: targetColumn, value: parentValue }]);
+    const page = await this.page(target, options, predicates);
 
     return htmlResponse(
       `${table.schema.table}.${relation.name}`,

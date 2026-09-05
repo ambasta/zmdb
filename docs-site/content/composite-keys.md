@@ -1,8 +1,6 @@
-> **Partial support.** `PrimaryKey` is a per-column tag, and the reflector turns two of them
-> into one ordered key. Snapshots, migration diffs, generated DDL and repository keyed methods
-> preserve that whole key. Keyset pagination orders and cursors by the whole key too. A relation
-> pointing at a composite parent still resolves one key column, so that relation case remains a
-> documented gap.
+> `PrimaryKey` is a per-column tag, and the reflector turns two of them into one ordered key.
+> Snapshots, migration diffs, generated DDL, repository keyed methods, pagination and relations
+> all preserve that whole key.
 
 ## What the declaration says
 
@@ -132,23 +130,32 @@ A single-column key intentionally accepts only the scalar form. Supporting both
 forms would make code silently change meaning if the table later gained a
 composite key.
 
-## What remains
+## Relations and populate
 
-**Relations to a composite parent.** Relation derivation still reads the parent's first key
-column. It must pair every parent-key column with an equally sized `via` list or refuse the
-declaration, never silently join on half a key.
+Relations use comma-separated `via` columns in the same order as the parent key:
 
-Composite repository keys already work throughout the main data path.
-`PrimaryKeyOf<T>` returns a record for multi-column keys, `keyWhere` uses every
-ordered key column, partial keys report missing properties, and keyset pagination
-uses the full key. Snapshot, diff, and DDL operations also preserve key order.
+```ts
+import type { ManyToOne, OneToMany } from 'zmdb/tags';
 
-Nothing about the remaining work is blocked by design. The relation reader must stop treating
-the first primary-key column as the whole key.
+posts?: Post[] & OneToMany<'posts', 'orgId,userId'>;
+author?: User & ManyToOne<'users', 'orgId,userId'>;
+```
+
+`resolveRelation` returns ordered `parentKey` and `targetKey` lists. An inverse relation whose
+`via` list is shorter than the parent key is refused at derivation with the declared key order
+and a corrected spelling. On the owning side, every composite `via` column must carry a
+`References` tag, so no missing half is guessed as `id`.
+
+`compilePopulate` conjoins every pair in a to-one `ON` clause. Batched to-many compilation uses
+tuple `IN` on PostgreSQL, MySQL and SQLite; SQL Server reports an explicit
+unsupported-feature error. Repository population uses portable paired predicates and groups
+children by the entire ordered key.
 
 ## Related
 
-The `manyToMany` join table is the common case for composite keys, and it works today, because [`manyToMany`](./relations.html) addresses the through-table by column names rather than through a repository.
+`ManyToMany` still requires an explicit join through the intermediate table. The join builder
+accepts an ordered list of `ON` pairs, so both foreign-key columns can be stated without
+collapsing either relation to one column.
 
 ---
 

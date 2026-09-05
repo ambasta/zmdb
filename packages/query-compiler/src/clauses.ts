@@ -24,11 +24,15 @@ import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders, unali
 
 export type JoinKind = 'inner' | 'left' | 'right';
 
+export interface JoinCondition {
+  readonly leftCol: string;
+  readonly rightCol: string;
+}
+
 export interface JoinSpec {
   readonly kind: JoinKind;
   readonly target: string;
-  readonly leftCol: string;
-  readonly rightCol: string;
+  readonly conditions: readonly JoinCondition[];
   /** Predicates that belong to this target and therefore stay in the ON clause. */
   readonly on?: readonly Predicate[];
 }
@@ -201,10 +205,13 @@ export function havingClause(dialect: Dialect, preds: readonly Predicate[], para
   return ` HAVING ${predicateList(dialect, preds, params)}`;
 }
 
-/** ` INNER JOIN … ON … = … [AND …]` for each join, in order. */
+/** ` INNER JOIN … ON … = … [AND … = …] [AND …]` for each join, in order. */
 export function joinClauses(dialect: Dialect, joins: readonly JoinSpec[], params: unknown[] = []): string {
   return joins
     .map(j => {
+      const conditions = j.conditions
+        .map(condition => `${quoteColumn(dialect, condition.leftCol)} = ${quoteColumn(dialect, condition.rightCol)}`)
+        .join(' AND ');
       const targetPredicates =
         j.on === undefined || j.on.length === 0
           ? ''
@@ -216,7 +223,7 @@ export function joinClauses(dialect: Dialect, joins: readonly JoinSpec[], params
               .join(' ');
       return (
         ` ${JOIN_KEYWORD[j.kind]} ${quoteTable(dialect, j.target)} ` +
-        `ON ${quoteColumn(dialect, j.leftCol)} = ${quoteColumn(dialect, j.rightCol)}` +
+        `ON ${conditions}` +
         (targetPredicates.length === 0 ? '' : ` ${targetPredicates}`)
       );
     })
@@ -304,11 +311,51 @@ export function tailMethods<C, B>(tail: Tail<C>, next: (patch: TailPatch<C>) => 
   };
 }
 
+export interface JoinMethod<B> {
+  (target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): B;
+  (target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): B;
+}
+
 /** `innerJoin` / `leftJoin` / `rightJoin`, for any state carrying a join list. */
 export function joinMethods<B>(joins: readonly JoinSpec[], next: (patch: { joins: readonly JoinSpec[] }) => B) {
-  const add =
-    (kind: JoinKind) =>
-    (target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): B =>
-      next({ joins: [...joins, { kind, target, leftCol, rightCol, ...(on === undefined ? {} : { on }) }] });
+  const add = (kind: JoinKind): JoinMethod<B> => {
+    function join(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): B;
+    function join(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): B;
+    function join(
+      target: string,
+      leftColOrConditions: string | readonly JoinCondition[],
+      rightColOrOn?: string | readonly Predicate[],
+      scalarOn?: readonly Predicate[],
+    ): B {
+      const conditions =
+        typeof leftColOrConditions === 'string'
+          ? typeof rightColOrOn === 'string'
+            ? [{ leftCol: leftColOrConditions, rightCol: rightColOrOn }]
+            : []
+          : leftColOrConditions;
+      if (conditions.length === 0) {
+        throw new RangeError(`join "${target}" needs at least one ON condition`);
+      }
+      const on = typeof leftColOrConditions === 'string' ? scalarOn : rightColOrOn;
+      if (on !== undefined && typeof on === 'string') {
+        throw new TypeError(`join "${target}" received an invalid ON predicate list`);
+      }
+      return next({
+        joins: [
+          ...joins,
+          {
+            kind,
+            target,
+            conditions: conditions.map(condition => ({
+              leftCol: condition.leftCol,
+              rightCol: condition.rightCol,
+            })),
+            ...(on === undefined ? {} : { on }),
+          },
+        ],
+      });
+    }
+    return join;
+  };
   return { innerJoin: add('inner'), leftJoin: add('left'), rightJoin: add('right') };
 }
