@@ -83,9 +83,11 @@ have one — the answer is a function of a type argument — so `@zmdb/aot-valid
 the call with a frozen literal at build time, and an untransformed build throws a message
 saying exactly that rather than returning a plausible empty schema.
 
-`ir` is required, and that is the whole design. `columns` is the lossy projection §2
-describes; `ir` is the complete one. Every back-end reads the IR — DDL, validator, JSON
-Schema, seeder — so they cannot disagree about a column, and `schemaFromIR(schema.ir)`
+`ir` is required, and that is the whole design. `columns` is the lossy SQL-facing
+projection §2 describes: its keys, `table`, `primaryKey` and local reference columns are
+physical identifiers. `ir` is the complete declaration-facing form and carries both
+declared and physical names. SQL back-ends read the physical projection; validators,
+derived documents and DTOs read declared names from the IR. `schemaFromIR(schema.ir)`
 reproduces `schema` exactly (asserted in `src/ir/ir.spec.ts`). A `CoreSchema` that had to
 reconstruct the IR from its own columns is what the deleted `irFromSchema` did, and it
 guessed a default for each of the five facts §2 lists.

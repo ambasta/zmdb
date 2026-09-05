@@ -234,12 +234,32 @@ export function compilePopulate(
   dialect: PopulateDialect,
   parentIds: readonly unknown[] = [],
   targetFilters: readonly ComparisonPredicate[] = [],
+  schemas: readonly SchemaIR[] = [],
 ): PopulateQuery {
   const rel = resolveRelation(ir, relationName);
   const q = (name: string): string => quoteIdentifier(dialect, name);
+  const targetIr = schemas.find(schema => schema.table === rel.targetTable);
+  const sourceTable = ir.physicalTable;
+  const targetTable = targetIr?.physicalTable ?? rel.targetTable;
+  const physicalColumn = (schema: SchemaIR | undefined, declared: string): string => {
+    if (schema === undefined) return declared;
+    const separator = declared.lastIndexOf('.');
+    const property = separator === -1 ? declared : declared.slice(separator + 1);
+    const physical = schema.columns.find(column => column.name === property)?.physicalName;
+    if (physical === undefined) return declared;
+    if (separator === -1) return physical;
+    const qualifier = declared.slice(0, separator);
+    return `${qualifier === schema.table ? schema.physicalTable : qualifier}.${physical}`;
+  };
+  const parentKeys = rel.parentKey.map(column => physicalColumn(ir, column));
+  const targetKeys = rel.targetKey.map(column => physicalColumn(targetIr, column));
+  const physicalFilters = targetFilters.map(predicate => ({
+    ...predicate,
+    col: physicalColumn(targetIr, predicate.col),
+  }));
   const renderFilters = (parameters: unknown[]): string => {
-    if (targetFilters.length === 0) return '';
-    const body = targetFilters
+    if (physicalFilters.length === 0) return '';
+    const body = physicalFilters
       .map((predicate, index) => {
         const rendered = renderPredicate(dialect, predicate, parameters);
         return index === 0 ? rendered : `${predicate.connector ?? 'AND'} ${rendered}`;
@@ -250,30 +270,30 @@ export function compilePopulate(
   };
   if (!rel.toMany) {
     const parameters: unknown[] = [];
-    const filtered = targetFilters.length > 0;
+    const filtered = physicalFilters.length > 0;
     const onFilters = renderFilters(parameters);
-    const conditions = rel.parentKey.map((parentKey, index) => {
-      const targetKey = rel.targetKey[index];
+    const conditions = parentKeys.map((parentKey, index) => {
+      const targetKey = targetKeys[index];
       if (targetKey === undefined) {
         throw new Error(`${ir.table}.${relationName}: resolved relation keys have different lengths`);
       }
-      return `${q(ir.table)}.${q(parentKey)} = ${q(rel.targetTable)}.${q(targetKey)}`;
+      return `${q(sourceTable)}.${q(parentKey)} = ${q(targetTable)}.${q(targetKey)}`;
     });
     const sql =
-      `SELECT * FROM ${q(ir.table)} ${filtered ? 'LEFT' : 'INNER'} JOIN ${q(rel.targetTable)} ` +
+      `SELECT * FROM ${q(sourceTable)} ${filtered ? 'LEFT' : 'INNER'} JOIN ${q(targetTable)} ` +
       `ON ${conditions.join(' AND ')}` +
       (onFilters.length === 0 ? '' : ` ${onFilters}`);
     return { kind: 'join', sql, parameters };
   }
   if (parentIds.length === 0) {
-    return { kind: 'batched', sql: `SELECT * FROM ${q(rel.targetTable)} WHERE 1 = 0`, parameters: [] };
+    return { kind: 'batched', sql: `SELECT * FROM ${q(targetTable)} WHERE 1 = 0`, parameters: [] };
   }
-  if (rel.targetKey.length === 1) {
+  if (targetKeys.length === 1) {
     const sanitized = sanitizeKeys(parentIds);
     if (sanitized.length === 0) {
-      return { kind: 'batched', sql: `SELECT * FROM ${q(rel.targetTable)} WHERE 1 = 0`, parameters: [] };
+      return { kind: 'batched', sql: `SELECT * FROM ${q(targetTable)} WHERE 1 = 0`, parameters: [] };
     }
-    const [targetKey] = rel.targetKey;
+    const [targetKey] = targetKeys;
     if (targetKey === undefined) {
       throw new Error(`${ir.table}.${relationName}: resolved relation has no target key`);
     }
@@ -281,7 +301,7 @@ export function compilePopulate(
     const parameters: unknown[] = [...sanitized];
     const filters = renderFilters(parameters);
     const sql =
-      `SELECT * FROM ${q(rel.targetTable)} WHERE ${q(targetKey)} IN (${inList})` +
+      `SELECT * FROM ${q(targetTable)} WHERE ${q(targetKey)} IN (${inList})` +
       (filters.length === 0 ? '' : ` ${filters}`);
     return { kind: 'batched', sql, parameters };
   }
@@ -292,9 +312,9 @@ export function compilePopulate(
       `${ir.table}.${relationName}: SQL Server does not support row-value IN for a composite-key populate`,
     );
   }
-  const sanitized = sanitizeCompositeKeys(ir, relationName, parentIds, rel.targetKey.length);
+  const sanitized = sanitizeCompositeKeys(ir, relationName, parentIds, targetKeys.length);
   if (sanitized.length === 0) {
-    return { kind: 'batched', sql: `SELECT * FROM ${q(rel.targetTable)} WHERE 1 = 0`, parameters: [] };
+    return { kind: 'batched', sql: `SELECT * FROM ${q(targetTable)} WHERE 1 = 0`, parameters: [] };
   }
   const parameters: unknown[] = [];
   const inList = sanitized
@@ -306,11 +326,10 @@ export function compilePopulate(
       return `(${placeholders.join(', ')})`;
     })
     .join(', ');
-  const columns = rel.targetKey.map(targetKey => q(targetKey)).join(', ');
+  const columns = targetKeys.map(targetKey => q(targetKey)).join(', ');
   const filters = renderFilters(parameters);
   const sql =
-    `SELECT * FROM ${q(rel.targetTable)} WHERE (${columns}) IN (${inList})` +
-    (filters.length === 0 ? '' : ` ${filters}`);
+    `SELECT * FROM ${q(targetTable)} WHERE (${columns}) IN (${inList})` + (filters.length === 0 ? '' : ` ${filters}`);
   return { kind: 'batched', sql, parameters };
 }
 

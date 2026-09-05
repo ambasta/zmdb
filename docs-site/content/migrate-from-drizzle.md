@@ -31,7 +31,10 @@ Differences that matter:
   pick the dialect when you build a compiler or repository. SingleStore tables
   additionally declare `ShardKey<…>` or `Rowstore` because
   distribution/storage cannot be inferred safely.
-- Columns take no name argument. The property key _is_ the column name.
+- Columns currently take no public name argument. With identity naming, the
+  property key is also the SQL column name. The physical-name execution
+  boundary exists, but project-configured strategies and the explicit-name tag
+  are still tracked on [Naming Strategy](./naming-strategy.html).
 - Nullability is `| null`, not `.notNull()` — the default is non-null, and TypeScript already has a way to say the other thing. Write `(T & Tags) | null`, tags inside.
 - `HasDefault` rather than `.default(true)`: it says the column _has_ a default, not which one. The value goes in the migration, because a type cannot hold a runtime value. This is the one thing Drizzle expresses that a declaration cannot.
 

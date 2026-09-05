@@ -153,10 +153,10 @@ one in. A snapshot describes a database, `diff` compares two databases, and a fu
 back out of a live server, which cannot report anything but physical names. Mixing the two vocabularies
 here would make `diff(pull(), snapshot(schemas))` compare a column against itself and report a change.
 
-`snapshot(schemas)` takes schema values, and by `schema-core/src/ir/SPEC.md` §4.2 a value is already
-entirely in physical vocabulary — `schemaFromIR` keys `columns` by `physicalName`. So this needs no
-translation pass and no access to a strategy, which is the point: the snapshot function stays a pure
-rearrangement of what it was handed.
+`snapshot(schemas)` takes schema values, and by `schema-core/src/ir/SPEC.md` §4.2 their tables,
+column keys and primary keys are already physical. Cross-table references, composite foreign keys and
+table options remain declared identifiers in the IR, so `snapshot` resolves those against the supplied
+schema set and records the corresponding physical names. It never receives or calls a strategy.
 
 **Turning a strategy on under an existing database is a rename, and `diff` cannot discover that.** Two
 snapshots taken either side of the change differ by a dropped `createdAt` and an added `created_at`,

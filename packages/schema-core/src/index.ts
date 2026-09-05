@@ -77,13 +77,14 @@ export interface ColumnMeta {
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
 
 /**
- * A schema value: a table described as data, for the code that runs.
+ * A schema value: a table described in physical SQL names, for the code that runs.
  *
  * There is no type parameter for the column map, and its absence is the point. It used to
  * carry the *literal* map so that `Entity<S>` could read property types out of it; every
  * derivation now takes the declared type instead, so a literal map would be a parameter
- * nothing reads. `columns` is data for the query compiler and the migration emitter, which
- * is the job it is good at.
+ * nothing reads. `table`, `columns`, `primaryKey` and the local side of `references` are
+ * in database vocabulary. The carried IR keeps declared names for derived types,
+ * validation, payloads and result aliases.
  */
 export interface CoreSchema<T extends string = string> {
   readonly table: T;

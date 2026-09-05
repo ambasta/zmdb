@@ -228,10 +228,10 @@ hardDelete(id: PrimaryKeyOf<T>): Promise<boolean>;
 restore(id: PrimaryKeyOf<T>): Promise<boolean>;
 ```
 
-All five build their `WHERE` from `schema.primaryKey` — the ordered list, never
-`primaryKey[0]`. `pkColumn` (the private getter that returns `primaryKey[0]`) is the shape
-this replaces: it is correct for a one-column key and quietly wrong for every other, and it
-must not survive as a fallback.
+The constructor records the ordered declared key from `schema.ir.primaryKey` and its
+physical counterpart from each column's `physicalName`. All five validate key objects in
+declared-property order and emit every physical key predicate — never only
+`primaryKey[0]`.
 
 The rules, in the order they are checked:
 
@@ -388,10 +388,10 @@ so `{ id: inc(1) }` fails on the key rule before the expression rule is reached.
 ### Return values, SQL Server and MySQL
 
 The Postgres family and SQLite return expression-bearing `update`/`increment`
-calls through `RETURNING *`; SQL Server returns them through
-`OUTPUT INSERTED.*`. `updateMany` returns the number of rows the database
-returned from the dialect's row-returning clause (primary-key columns when
-present).
+calls through `RETURNING`; SQL Server uses `OUTPUT INSERTED`. When physical and
+declared names differ, each returned physical column is aliased to its declared
+property key. `updateMany` returns the number of rows the database returned from
+the dialect's row-returning clause (physical primary-key columns when present).
 
 The MySQL family has no `UPDATE … RETURNING`. The repository therefore emits
 no `RETURNING` for an expression-bearing keyed update or upsert update branch,
@@ -592,6 +592,8 @@ interface QueryMeta {
 }
 
 interface RepositoryOptions {
+  /** Schemas referenced by relations whose declared and physical names may differ. */
+  readonly schemas?: readonly CoreSchema<string>[];
   readonly onQuery?: (query: CompiledQuery, meta: QueryMeta) => void;
 }
 ```
@@ -651,9 +653,14 @@ export interface WriteOptions extends CacheInvalidationOptions {
 export interface RepositoryOptions {
   readonly cacheStore?: CacheStore;
   readonly filters?: readonly FilterDef<unknown>[];
+  readonly schemas?: readonly CoreSchema<string>[];
   readonly onQuery?: (query: CompiledQuery, meta: QueryMeta) => void;
 }
 ```
+
+The root schema always contributes its constructor-time declared-to-physical
+map. `schemas` supplies relation targets so populate and relation joins can
+resolve their declared target identifiers without a runtime naming strategy.
 
 ### The batching window is one microtask, and one batch is not one statement
 

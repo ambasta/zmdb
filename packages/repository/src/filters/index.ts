@@ -1,7 +1,7 @@
 import { issuesFor } from '@zmdb/aot-validator/utilities';
 import type { Predicate } from '@zmdb/query-compiler';
 import { isRecord, type CoreSchema, ValidationError } from '@zmdb/schema-core';
-import { appTypeOf } from '@zmdb/schema-core/ir';
+import { appTypeOf, type ColumnIR } from '@zmdb/schema-core/ir';
 
 /** One compiler predicate contributed by a named repository filter. */
 export interface FilterPredicate {
@@ -119,7 +119,7 @@ function validatePredicate(
   predicate: FilterPredicate,
   schema: CoreSchema<string> | undefined,
   accessed: readonly string[],
-): void {
+): ColumnIR {
   if (!isRecord(predicate) || typeof predicate.col !== 'string' || typeof predicate.op !== 'string') {
     throw new ValidationError(`filter \`${filter.name}\` returned an invalid predicate`);
   }
@@ -137,19 +137,19 @@ function validatePredicate(
   const column = validationSchema.ir.columns.find(candidate => candidate.name === columnName);
   if (column === undefined) {
     throw new ValidationError(
-      `filter \`${filter.name}\` names column \`${predicate.col}\`, which is not declared by \`${validationSchema.table}\``,
+      `filter \`${filter.name}\` names column \`${predicate.col}\`, which is not declared by \`${validationSchema.ir.table}\``,
     );
   }
 
   const operator = predicate.op.toLowerCase().trim();
-  if (operator === 'is null' || operator === 'is not null') return;
+  if (operator === 'is null' || operator === 'is not null') return column;
   if (
     predicate.value !== null &&
     typeof predicate.value === 'object' &&
     'compile' in predicate.value &&
     typeof predicate.value.compile === 'function'
   ) {
-    return;
+    return column;
   }
 
   const path = `filters.${filter.name}.${accessed[0] ?? columnName}`;
@@ -163,6 +163,7 @@ function validatePredicate(
   if (issues.length > 0) {
     throw new ValidationError(`validation failed: ${issues.map(issue => issue.path).join(', ')}`, issues);
   }
+  return column;
 }
 
 /** Resolve disables and parameters before a builder is allowed to compile. */
@@ -204,11 +205,14 @@ export function resolveFilters(
     for (let index = 0; index < resolved.predicates.length; index++) {
       const predicate = resolved.predicates[index];
       if (predicate === undefined) throw new ValidationError(`filter \`${filter.name}\` returned an empty predicate`);
-      validatePredicate(filter, predicate, options.schema, resolved.accessed);
+      const column = validatePredicate(filter, predicate, options.schema, resolved.accessed);
+      const separator = predicate.col.lastIndexOf('.');
+      const physicalColumn =
+        separator === -1 ? column.physicalName : `${predicate.col.slice(0, separator + 1)}${column.physicalName}`;
       const col =
-        options.qualifyColumns === true && !predicate.col.includes('.')
-          ? `${options.columnPrefix ?? options.table}.${predicate.col}`
-          : predicate.col;
+        options.qualifyColumns === true && separator === -1
+          ? `${options.columnPrefix ?? options.table}.${physicalColumn}`
+          : physicalColumn;
       const qualified = {
         ...predicate,
         col,

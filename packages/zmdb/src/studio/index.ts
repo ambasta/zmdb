@@ -80,18 +80,18 @@ class Studio {
     const byName = new Map<string, StudioTable>();
     const tables: StudioTable[] = [];
     for (const schema of input.schemas) {
-      if (byName.has(schema.table)) {
-        throw new Error(`zmdb studio received duplicate configured table "${schema.table}"`);
+      if (byName.has(schema.ir.table)) {
+        throw new Error(`zmdb studio received duplicate configured table "${schema.ir.table}"`);
       }
       const visible = new Set(Object.keys(toJsonSchema(schema).properties));
       const table = {
         schema,
         visibleColumns: schema.ir.columns.filter(column => visible.has(column.name)),
       };
-      byName.set(schema.table, table);
+      byName.set(schema.ir.table, table);
       tables.push(table);
     }
-    this.#tables = tables.toSorted((left, right) => left.schema.table.localeCompare(right.schema.table));
+    this.#tables = tables.toSorted((left, right) => left.schema.ir.table.localeCompare(right.schema.ir.table));
     this.#tablesByName = byName;
   }
 
@@ -103,7 +103,7 @@ class Studio {
         : `<ul class="tables">${this.#tables
             .map(
               table =>
-                `<li><a href="${escapeHtml(tablePath(table.schema))}">${escapeHtml(table.schema.table)}</a>` +
+                `<li><a href="${escapeHtml(tablePath(table.schema))}">${escapeHtml(table.schema.ir.table)}</a>` +
                 `<span>${String(table.visibleColumns.length)} visible columns</span></li>`,
             )
             .join('')}</ul>`;
@@ -118,10 +118,10 @@ class Studio {
     const options = pageOptions(table, query);
     const page = await this.page(table, options, []);
     return htmlResponse(
-      table.schema.table,
+      table.schema.ir.table,
       [
-        breadcrumbs([{ href: '/', label: 'tables' }, { label: table.schema.table }]),
-        `<h1>${escapeHtml(table.schema.table)}</h1>`,
+        breadcrumbs([{ href: '/', label: 'tables' }, { label: table.schema.ir.table }]),
+        `<h1>${escapeHtml(table.schema.ir.table)}</h1>`,
         `<p>${String(page.total)} rows. Page ${String(options.page)} of ${String(pageCount(page))}.</p>`,
         renderRows(table, page.rows),
         renderPageControls(tablePath(table.schema), page),
@@ -135,7 +135,7 @@ class Studio {
     const key = decodeKey(table, token);
     const row = await this.oneRow(table, key);
     if (row === undefined) {
-      throw new StudioRequestError(404, `no row matched the declared key for table "${table.schema.table}"`);
+      throw new StudioRequestError(404, `no row matched the declared key for table "${table.schema.ir.table}"`);
     }
 
     const fields = table.visibleColumns
@@ -155,14 +155,14 @@ class Studio {
             .join('')}</ul>`;
 
     return htmlResponse(
-      `${table.schema.table} row`,
+      `${table.schema.ir.table} row`,
       [
         breadcrumbs([
           { href: '/', label: 'tables' },
-          { href: tablePath(table.schema), label: table.schema.table },
+          { href: tablePath(table.schema), label: table.schema.ir.table },
           { label: 'row' },
         ]),
-        `<h1>${escapeHtml(table.schema.table)} row</h1>`,
+        `<h1>${escapeHtml(table.schema.ir.table)} row</h1>`,
         `<dl>${fields}</dl>`,
         '<h2>Declared relations</h2>',
         relations,
@@ -175,7 +175,7 @@ class Studio {
     const key = decodeKey(table, token);
     const parent = await this.oneRow(table, key);
     if (parent === undefined) {
-      throw new StudioRequestError(404, `no row matched the declared key for table "${table.schema.table}"`);
+      throw new StudioRequestError(404, `no row matched the declared key for table "${table.schema.ir.table}"`);
     }
 
     let relation: ResolvedRelation;
@@ -200,16 +200,16 @@ class Studio {
     const page = await this.page(target, options, predicates);
 
     return htmlResponse(
-      `${table.schema.table}.${relation.name}`,
+      `${table.schema.ir.table}.${relation.name}`,
       [
         breadcrumbs([
           { href: '/', label: 'tables' },
-          { href: tablePath(table.schema), label: table.schema.table },
+          { href: tablePath(table.schema), label: table.schema.ir.table },
           { href: rowPath(table.schema, token), label: 'row' },
           { label: relation.name },
         ]),
         `<h1>${escapeHtml(relation.name)}</h1>`,
-        `<p>${String(page.total)} related ${escapeHtml(target.schema.table)} rows.</p>`,
+        `<p>${String(page.total)} related ${escapeHtml(target.schema.ir.table)} rows.</p>`,
         renderRows(target, page.rows),
         renderPageControls(relationPath(table.schema, token, relation.name), page),
       ].join(''),
@@ -371,18 +371,18 @@ function pageOptions(table: StudioTable, query: QueryValues): PageOptions {
   const pageSize = Math.min(requestedPageSize, MAX_PAGE_SIZE);
   const namedOrder = queryValue(query, 'orderBy');
   const defaultOrder =
-    table.schema.primaryKey.find(name => isVisibleColumn(table, name)) ??
+    table.schema.ir.primaryKey.find(name => isVisibleColumn(table, name)) ??
     table.visibleColumns[0]?.name ??
     table.schema.ir.columns[0]?.name;
   if (defaultOrder === undefined) {
-    throw new StudioRequestError(400, `table "${table.schema.table}" declares no columns`);
+    throw new StudioRequestError(400, `table "${table.schema.ir.table}" declares no columns`);
   }
   const orderBy =
     namedOrder === undefined
       ? declaredColumn(table, defaultOrder)
       : (table.visibleColumns.find(column => column.name === namedOrder) ??
         (() => {
-          throw new StudioRequestError(400, `undeclared column "${namedOrder}" on table "${table.schema.table}"`);
+          throw new StudioRequestError(400, `undeclared column "${namedOrder}" on table "${table.schema.ir.table}"`);
         })());
   const namedDirection = queryValue(query, 'direction') ?? 'asc';
   if (namedDirection !== 'asc' && namedDirection !== 'desc') {
@@ -445,34 +445,34 @@ function queryValues(search: URLSearchParams): QueryValues {
 function declaredColumn(table: StudioTable, name: string): ColumnIR {
   const column = table.schema.ir.columns.find(candidate => candidate.name === name);
   if (column === undefined) {
-    throw new StudioRequestError(400, `undeclared column "${name}" on table "${table.schema.table}"`);
+    throw new StudioRequestError(400, `undeclared column "${name}" on table "${table.schema.ir.table}"`);
   }
   return column;
 }
 
 function decodeKey(table: StudioTable, token: string): readonly Predicate[] {
-  if (table.schema.primaryKey.length === 0) {
-    throw new StudioRequestError(400, `table "${table.schema.table}" has no declared primary key`);
+  if (table.schema.ir.primaryKey.length === 0) {
+    throw new StudioRequestError(400, `table "${table.schema.ir.table}" has no declared primary key`);
   }
   if (!hasBrowsableKey(table)) {
-    throw new StudioRequestError(400, `table "${table.schema.table}" has no browser-safe declared key`);
+    throw new StudioRequestError(400, `table "${table.schema.ir.table}" has no browser-safe declared key`);
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(decodePath(token));
   } catch {
-    throw new StudioRequestError(400, `row key for table "${table.schema.table}" is malformed`);
+    throw new StudioRequestError(400, `row key for table "${table.schema.ir.table}" is malformed`);
   }
   if (!isRecord(parsed)) {
-    throw new StudioRequestError(400, `row key for table "${table.schema.table}" must be an object`);
+    throw new StudioRequestError(400, `row key for table "${table.schema.ir.table}" must be an object`);
   }
-  const allowed = new Set(table.schema.primaryKey);
+  const allowed = new Set(table.schema.ir.primaryKey);
   for (const name of Object.keys(parsed)) {
     if (!allowed.has(name)) {
       throw new StudioRequestError(400, `row key names undeclared column "${name}"`);
     }
   }
-  return table.schema.primaryKey.map(name => {
+  return table.schema.ir.primaryKey.map(name => {
     if (!Object.hasOwn(parsed, name)) {
       throw new StudioRequestError(400, `row key is missing declared column "${name}"`);
     }
@@ -490,7 +490,7 @@ function encodeKey(table: StudioTable, row: Readonly<Record<string, unknown>>): 
     return undefined;
   }
   const key: Record<string, unknown> = {};
-  for (const name of table.schema.primaryKey) {
+  for (const name of table.schema.ir.primaryKey) {
     const column = declaredColumn(table, name);
     const value = rowValue(row, column);
     if (value === undefined) {
@@ -504,7 +504,9 @@ function encodeKey(table: StudioTable, row: Readonly<Record<string, unknown>>): 
 }
 
 function hasBrowsableKey(table: StudioTable): boolean {
-  return table.schema.primaryKey.length > 0 && table.schema.primaryKey.every(name => isVisibleColumn(table, name));
+  return (
+    table.schema.ir.primaryKey.length > 0 && table.schema.ir.primaryKey.every(name => isVisibleColumn(table, name))
+  );
 }
 
 function rowValue(row: Readonly<Record<string, unknown>>, column: ColumnIR): unknown {
@@ -528,7 +530,7 @@ function pageCount(page: PageResult): number {
 }
 
 function tablePath(schema: CoreSchema<string>): string {
-  return `/tables/${encodeURIComponent(schema.table)}`;
+  return `/tables/${encodeURIComponent(schema.ir.table)}`;
 }
 
 function rowPath(schema: CoreSchema<string>, token: string): string {

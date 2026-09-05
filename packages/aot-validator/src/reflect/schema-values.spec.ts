@@ -106,7 +106,7 @@ describe('the emitted schema value vs schemaFromIR (REQ-TF-10)', () => {
     expect([...schemas.keys()].toSorted()).toEqual(['memberships', 'users', 'users:again']);
   });
 
-  it('carries resolved physical names through generated code without changing SQL yet', () => {
+  it('carries resolved physical names through generated schema values', () => {
     const named = new Map<string, CoreSchema<string>>();
     const result = transformFile(FILE, readFileSync(FILE, 'utf8'), {
       session,
@@ -122,7 +122,8 @@ describe('the emitted schema value vs schemaFromIR (REQ-TF-10)', () => {
 
     const generatedUsers = named.get('users');
     expect(generatedUsers).toBeDefined();
-    expect(generatedUsers?.table).toBe('users');
+    expect(generatedUsers?.table).toBe('users_physical');
+    expect(Object.keys(generatedUsers?.columns ?? {})).toContain('created_at');
     expect(generatedUsers?.ir.physicalTable).toBe('users_physical');
     expect(generatedUsers?.ir.columns.find(column => column.name === 'createdAt')?.physicalName).toBe('created_at');
   });

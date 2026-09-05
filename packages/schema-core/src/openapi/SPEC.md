@@ -75,7 +75,8 @@ function toOpenApiComponents(schemas: readonly CoreSchema<string>[]): {
 };
 ```
 
-Builds `components.schemas` keyed by PascalCase table name (`users` → `User`).
+Builds `components.schemas` keyed by the PascalCase declared table identity
+(`users` → `User`), never by a configured physical table name.
 Deterministic: same input → byte-identical output.
 
 ## 7. Golden fixture (users)

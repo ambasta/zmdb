@@ -175,14 +175,14 @@ export function schemasFromFiles(
 
       diagnostics.push(...reflected.diagnostics);
       const schema = schemaFromIR(reflected.ir);
-      const previous = schemas.get(schema.table);
+      const previous = schemas.get(schema.ir.table);
       if (previous !== undefined) {
         if (JSON.stringify(previous.ir) !== JSON.stringify(schema.ir)) {
-          throw new Error(`configured schema files export conflicting declarations for table ${schema.table}`);
+          throw new Error(`configured schema files export conflicting declarations for table ${schema.ir.table}`);
         }
         continue;
       }
-      schemas.set(schema.table, schema);
+      schemas.set(schema.ir.table, schema);
     }
   }
 
@@ -198,7 +198,7 @@ export function schemasFromFiles(
   if (schemas.size === 0) {
     throw new Error(`the configured schema files export no tagged table declarations: ${files.toSorted().join(', ')}`);
   }
-  return [...schemas.values()].toSorted((left, right) => left.table.localeCompare(right.table));
+  return [...schemas.values()].toSorted((left, right) => left.ir.table.localeCompare(right.ir.table));
 }
 
 /**

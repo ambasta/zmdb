@@ -463,6 +463,27 @@ describe('schemaFromIR — the value back-end (REQ-TF-10)', () => {
     expect(value.ftsTable).toBe(true);
   });
 
+  it('switches the schema value to physical names while preserving the declared IR', () => {
+    const ir: SchemaIR = {
+      table: 'userAccount',
+      physicalTable: 'user_accounts',
+      columns: [
+        probe({ name: 'id', physicalName: 'account_id', primaryKey: true, sql: 'integer' }),
+        probe({ name: 'createdAt', physicalName: 'created_at', sql: 'timestamp' }),
+      ],
+      primaryKey: ['id'],
+      relations: [],
+      foreignKeys: [],
+    };
+
+    const value = schemaFromIR(ir);
+    expect(value.table).toBe('user_accounts');
+    expect(Object.keys(value.columns)).toEqual(['account_id', 'created_at']);
+    expect(value.primaryKey).toEqual(['account_id']);
+    expect(value.ir).toBe(ir);
+    expect(value.ir.columns.map(candidate => candidate.name)).toEqual(['id', 'createdAt']);
+  });
+
   it('leaves the three things only a type can say out of the projection, and in the IR', () => {
     // `Numeric<10, 2>`, `Codec<'Money'>` and a json payload shape have no home in a
     // `CoreSchema`'s column map: there is no flag for any of them. They used to be *lost* here,

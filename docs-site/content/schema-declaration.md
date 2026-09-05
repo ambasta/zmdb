@@ -167,6 +167,12 @@ SELECT "id", "email" FROM "users" WHERE "role" = $1
 
 The value carries the full IR on `schema.ir`, which is what every back-end reads — the DDL emitter, the validator, the JSON Schema generator and the seeder all work from the same bytes, so they cannot disagree about a column.
 
+`schema.table`, `schema.columns` and `schema.primaryKey` are SQL-facing physical
+identifiers. The direct compiler is also a SQL-level API, so with non-identity
+naming pass physical column keys (for example from `schema.columns`). Repository
+DTOs continue to use declared property names and perform that translation for
+you.
+
 ## Related
 
 - [Tag reference](./tags-reference.html) — every tag, what it means, what it emits

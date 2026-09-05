@@ -11,7 +11,7 @@ automatically.
 ```ts
 createQueryCompiler(dialect)                          // Dialect: six current SQL variants
 schemaOf<T>()                                         // the declaration; compiled away at build time
-defineRepository(schema, driver, { dialect?, relations? })
+defineRepository(schema, driver, { dialect?, schemas? })
 createApp(rootModule)
 toOpenApi(controllers, { info?, schemas? })
 ```

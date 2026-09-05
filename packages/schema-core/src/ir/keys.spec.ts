@@ -63,6 +63,19 @@ describe('the key is the list (frozen: ir/SPEC.md 4.1)', () => {
     expect(schemaFromIR(ir).primaryKey).toEqual(['userId', 'orgId']);
   });
 
+  it('projects an ordered declared key into physical column names', () => {
+    const ir: SchemaIR = {
+      table: 'memberships',
+      physicalTable: 'membership_rows',
+      columns: [column('orgId', { physicalName: 'org_id' }), column('userId', { physicalName: 'user_id' })],
+      primaryKey: ['userId', 'orgId'],
+      relations: [],
+      foreignKeys: [],
+    };
+
+    expect(schemaFromIR(ir).primaryKey).toEqual(['user_id', 'org_id']);
+  });
+
   // A table with no key at all is legal IR. §4.1: "not a defect to normalise: a join table written
   // as two `References` columns with no `PrimaryKey` tag is expressible, and the back-ends each
   // refuse it in their own terms". Green here, and the two back-end halves are asserted where they

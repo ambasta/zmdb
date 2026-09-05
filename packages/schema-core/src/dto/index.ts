@@ -169,6 +169,7 @@ function resolveSubqueryTarget(target: unknown, dialect: Dialect = 'postgres'): 
 export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   builder: B,
   where: WhereDTO<T> | undefined,
+  resolveColumn: (column: string) => string = column => column,
 ): B {
   if (!where) return builder;
   let b: B = builder;
@@ -179,12 +180,13 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   const dialect = (builder as { dialect?: Dialect }).dialect ?? 'postgres';
 
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
+    const resolvedColumn = resolveColumn(col);
     const add = (op: string, rawVal: unknown) => {
       const value = resolveSubqueryTarget(rawVal, dialect);
       if (connector === 'or') {
-        b = b.orWhere(col, op, value);
+        b = b.orWhere(resolvedColumn, op, value);
       } else {
-        b = b.where(col, op, value);
+        b = b.where(resolvedColumn, op, value);
       }
     };
     if (
@@ -215,12 +217,12 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
           } else if (op === 'notNull') {
             add(value ? 'is not null' : 'is null', null);
           } else if (op === 'in' && Array.isArray(value)) {
-            if (connector === 'or' && b.orWhereIn) b = b.orWhereIn(col, value);
-            else if (connector !== 'or' && b.whereIn) b = b.whereIn(col, value);
+            if (connector === 'or' && b.orWhereIn) b = b.orWhereIn(resolvedColumn, value);
+            else if (connector !== 'or' && b.whereIn) b = b.whereIn(resolvedColumn, value);
             else add('in', value);
           } else if (op === 'nin' && Array.isArray(value)) {
-            if (connector === 'or' && b.orWhereNotIn) b = b.orWhereNotIn(col, value);
-            else if (connector !== 'or' && b.whereNotIn) b = b.whereNotIn(col, value);
+            if (connector === 'or' && b.orWhereNotIn) b = b.orWhereNotIn(resolvedColumn, value);
+            else if (connector !== 'or' && b.whereNotIn) b = b.whereNotIn(resolvedColumn, value);
             else add('not in', value);
           } else {
             // `Object.hasOwn`, not a truthy read: `OP_SQL` is an object literal, so an
@@ -289,7 +291,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   if (!fields) return b;
   for (const key of Object.keys(fields)) {
     if (key === 'and') {
-      if (and) for (const sub of and) b = compileWhere(b, sub);
+      if (and) for (const sub of and) b = compileWhere(b, sub, resolveColumn);
     } else if (key === 'or') {
       for (const sub of or ?? []) {
         const group = asRecord(sub);
@@ -360,7 +362,12 @@ export type PaginationSpec = {
   before?: Record<string, unknown> | string | undefined;
 };
 
-export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderBySpec | undefined, pkColumn?: string): B {
+export function applyOrderBy<B extends OrderTarget>(
+  builder: B,
+  order: OrderBySpec | undefined,
+  pkColumn?: string,
+  resolveColumn: (column: string) => string = column => column,
+): B {
   if (!order && !pkColumn) return builder;
   let b = builder;
   const cols: { column: PropertyKey; dir?: OrderDir }[] = order ? [...order] : [];
@@ -368,7 +375,7 @@ export function applyOrderBy<B extends OrderTarget>(builder: B, order: OrderBySp
     cols.push({ column: pkColumn, dir: 'asc' });
   }
   if (cols.length === 0) return builder;
-  for (const { column, dir } of cols) b = b.orderBy(String(column), dir ?? 'asc');
+  for (const { column, dir } of cols) b = b.orderBy(resolveColumn(String(column)), dir ?? 'asc');
   return b;
 }
 
@@ -465,6 +472,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
   orderBy: OrderBySpec,
   userWhere?: WhereDTO<UnknownRow>,
   additionalWhere?: (builder: WhereTarget) => void,
+  resolveColumn: (column: string) => string = column => column,
 ): B {
   if (orderBy.length === 0) return builder;
 
@@ -486,7 +494,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
     const target = new BranchTarget(currentBuilder, i === 0);
 
     if (userWhere) {
-      compileWhere(target, userWhere);
+      compileWhere(target, userWhere, resolveColumn);
     }
     additionalWhere?.(target);
 
@@ -494,13 +502,13 @@ export function applyKeysetFilter<B extends WhereTarget>(
       const itemJ = orderBy[j];
       if (!itemJ) continue;
       const col = String(itemJ.column);
-      target.where(col, '=', cursorValues[col]);
+      target.where(resolveColumn(col), '=', cursorValues[col]);
     }
 
     const curCol = String(itemI.column);
     const dir = itemI.dir ?? 'asc';
     const op = dir === 'desc' ? '<' : '>';
-    target.where(curCol, op, cursorValues[curCol]);
+    target.where(resolveColumn(curCol), op, cursorValues[curCol]);
 
     currentBuilder = target.getBuilder();
   }

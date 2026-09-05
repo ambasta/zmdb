@@ -188,11 +188,13 @@ that wants one column asserts the length it expects.
 - `Populated<T, K>` (in `../derive/query.ts`) widens `Entity<T>` with exactly the keys in `K`.
   A to-many becomes `readonly Entity<Target>[]`, a to-one `Entity<Target> | null`: a foreign
   key can match nothing, and the empty array covers the to-many case.
-- `compilePopulate(ir, name, dialect, parentIds, targetFilters?)` compiles one: an
+- `compilePopulate(ir, name, dialect, parentIds, targetFilters?, schemas?)` compiles one: an
   unfiltered to-one is an `INNER JOIN` on every resolved pair, a filtered to-one is a
   `LEFT JOIN` with target predicates in `ON`, and a to-many is a batched scalar or tuple
   `IN (…)` select with target predicates in `WHERE`. No parent keys is `WHERE 1 = 0`
   rather than every row.
+  The optional schema set resolves a relation's declared target table and
+  columns to physical SQL names; identity names need no extra argument.
 - `attachPopulated(parent, name, value)` returns a new parent object with the relation
   attached. Never mutates the input.
 - `toJsonSchemaWithRelations(schema, variant)` adds a `$ref` per relation to the `entity`

@@ -203,7 +203,9 @@ This module is the IR producer, so by `../../../schema-core/src/ir/SPEC.md` §4.
 
 The alternative — a hook in the query compiler, where names become SQL — is where every other ORM put it, and it is a function call per column per row for the lifetime of the project.
 
-Having it here also satisfies §2.9: the DDL and the emitted validator read one set of physical names rather than resolving names twice and agreeing by luck.
+Having it here also satisfies §2.9: one IR records both vocabularies once. SQL consumers read the
+physical fields while the emitted validator reads declared property names; neither resolves a strategy
+again or agrees with another pass by luck.
 
 The order for one column is: read the tags, then take `Physical<'…'>` if the declaration carries one,
 else `naming.column(property, …)` if configured, else the property name. Explicit beats strategy, and

@@ -88,8 +88,8 @@ export function toOpenApiComponents(schemas: readonly CoreSchema<string>[]): {
   schemas: Record<string, JsonSchemaObject>;
 } {
   const out: Record<string, JsonSchemaObject> = {};
-  for (const s of [...schemas].toSorted((a, b) => a.table.localeCompare(b.table))) {
-    out[componentName(s.table)] = toJsonSchema(s, 'entity');
+  for (const s of [...schemas].toSorted((a, b) => a.ir.table.localeCompare(b.ir.table))) {
+    out[componentName(s.ir.table)] = toJsonSchema(s, 'entity');
   }
   return { schemas: out };
 }

@@ -67,6 +67,12 @@ result after resolution.
 | `migrations.schema` | `string`                              | dialect default    | PostgreSQL family only                |
 | `introspect`        | `{ schemas?, include?, exclude? }`    | command-specific   | names/globs, not filesystem paths     |
 
+> **Naming status.** `loadConfig` validates and returns `naming` and
+> `namingStrategy`, but the CLI schema-reflection calls do not pass either field
+> to the reflector yet. Commands therefore continue to produce identity names.
+> A config that loads successfully is not evidence that DDL, snapshots or
+> repository SQL have adopted the configured strategy.
+
 Every glob must match at least one file, and every matched file must belong to
 the configured TypeScript project. A match outside the project is an error
 rather than a silently omitted table.
@@ -146,6 +152,10 @@ callable fields and checks their boundary explicitly:
 - `driver` must be a function;
 - each present `namingStrategy.column`, `.table`, and `.index` member must be a
   function.
+
+The following example demonstrates that callable-boundary validation. The
+strategy is preserved in the loaded config, but is not yet applied by CLI
+reflection:
 
 ```ts
 export default defineConfig({

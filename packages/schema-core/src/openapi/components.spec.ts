@@ -50,4 +50,13 @@ describe('toOpenApiComponents', () => {
     const b = JSON.stringify(toOpenApiComponents([OrderSchema, UserSchema]));
     expect(a).toBe(b);
   });
+
+  it('keys components by declared tables when physical table names differ', () => {
+    const { User: namedUser } = schemasFrom(import.meta.url, ['User'], {
+      naming: { table: () => 'application_users' },
+    });
+
+    expect(namedUser.table).toBe('application_users');
+    expect(Object.keys(toOpenApiComponents([namedUser]).schemas)).toEqual(['User']);
+  });
 });

@@ -108,6 +108,16 @@ For a composite parent key, each parent ID is an ordered tuple. PostgreSQL, MySQ
 receive row-value `IN`; SQL Server is refused explicitly rather than receiving syntax it
 cannot execute.
 
+When declared and physical names differ, pass the available IR set as the
+sixth argument so the target side can be resolved:
+
+```ts
+compilePopulate(UserSchema.ir, 'posts', 'postgres', [1, 2], [], [UserSchema.ir, PostSchema.ir]);
+```
+
+The repository builds the equivalent schema map once at construction and uses
+it for automatic population.
+
 > [!WARNING]
 > `ManyToMany` throws here and in `populate`. `ManyToMany<'roles', 'user_roles'>` names a join
 > table rather than a column, and guessing its two foreign keys from the tables either side is

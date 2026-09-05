@@ -82,6 +82,19 @@ export type { ComparisonPredicate, Predicate, PredicateGroup } from './clauses.j
 
 export type Direction = 'asc' | 'desc';
 
+/** A database column projected under an application-facing result key. */
+export interface AliasedColumn {
+  readonly column: string;
+  readonly alias: string;
+}
+
+type SelectedColumn = string | AliasedColumn | AliasedDistanceExpression;
+type ReturningColumn = string | AliasedColumn;
+
+function isAliasedColumn(column: SelectedColumn | ReturningColumn): column is AliasedColumn {
+  return typeof column === 'object' && 'column' in column && 'alias' in column;
+}
+
 /**
  * Heuristic element-count chunk thresholds per SQL dialect for IN-list expansion.
  * These conservative limits (2,000 for SQL Server, 30,000 for SQLite, and 60,000
@@ -153,7 +166,7 @@ export interface QueryCompilerOptions {
 
 interface SelectState {
   readonly table: string;
-  readonly columns?: readonly (string | AliasedDistanceExpression)[];
+  readonly columns?: readonly SelectedColumn[];
   readonly wheres: readonly Predicate[];
   readonly orderBys: readonly { col: string | DistanceExpression; dir: Direction }[];
   readonly limitN?: number;
@@ -161,7 +174,7 @@ interface SelectState {
 }
 
 export interface SelectBuilder<T = unknown> {
-  select(columns?: readonly (string | AliasedDistanceExpression)[]): SelectBuilder<T>;
+  select(columns?: readonly SelectedColumn[]): SelectBuilder<T>;
   where(predicate: SpatialPredicate): SelectBuilder<T>;
   where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
   andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
@@ -250,9 +263,11 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState, telemetry: bool
         state.columns && state.columns.length > 0
           ? state.columns
               .map(column =>
-                isAliasedDistanceExpression(column)
-                  ? renderAliasedDistanceExpression(d, column, params)
-                  : quoteColumn(d, column),
+                isAliasedColumn(column)
+                  ? `${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`
+                  : isAliasedDistanceExpression(column)
+                    ? renderAliasedDistanceExpression(d, column, params)
+                    : quoteColumn(d, column),
               )
               .join(', ')
           : '*';
@@ -290,7 +305,7 @@ export interface OnConflictBuilder {
 export interface InsertBuilder {
   values(row: Record<string, unknown>): InsertBuilder;
   onConflict(target?: string | readonly string[]): OnConflictBuilder;
-  returning(cols?: readonly string[]): InsertBuilder;
+  returning(cols?: readonly ReturningColumn[]): InsertBuilder;
   compile(): CompiledQuery;
 }
 export interface UpdateBuilder {
@@ -300,7 +315,7 @@ export interface UpdateBuilder {
   whereGroup(predicates: readonly ComparisonPredicate[]): UpdateBuilder;
   whereIn(col: string, values: readonly unknown[]): UpdateBuilder;
   whereNotIn(col: string, values: readonly unknown[]): UpdateBuilder;
-  returning(cols?: readonly string[]): UpdateBuilder;
+  returning(cols?: readonly ReturningColumn[]): UpdateBuilder;
   compile(): CompiledQuery;
 }
 export interface DeleteBuilder {
@@ -309,7 +324,7 @@ export interface DeleteBuilder {
   whereGroup(predicates: readonly ComparisonPredicate[]): DeleteBuilder;
   whereIn(col: string, values: readonly unknown[]): DeleteBuilder;
   whereNotIn(col: string, values: readonly unknown[]): DeleteBuilder;
-  returning(cols?: readonly string[]): DeleteBuilder;
+  returning(cols?: readonly ReturningColumn[]): DeleteBuilder;
   compile(): CompiledQuery;
 }
 
@@ -347,15 +362,26 @@ function routineCall(
   return frozenQuery(text, args);
 }
 
-function returningClause(d: Dialect, cols?: readonly string[]): string {
+function returningColumn(d: Dialect, column: ReturningColumn): string {
+  if (typeof column === 'string') return column === '*' ? '*' : quoteColumn(d, column);
+  return `${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`;
+}
+
+function returningClause(d: Dialect, cols?: readonly ReturningColumn[]): string {
   if (!cols || cols.length === 0) return '';
   const returning = TRAITS[d].returning;
   if (returning === 'none') throw new UnsupportedFeatureError('returning', d);
   if (returning === 'output') return '';
-  return ` RETURNING ${cols.map(c => (c === '*' ? '*' : quoteColumn(d, c))).join(', ')}`;
+  return ` RETURNING ${cols.map(column => returningColumn(d, column)).join(', ')}`;
 }
 
-function outputClause(d: Dialect, pseudoTable: 'INSERTED' | 'DELETED', cols?: readonly string[]): string {
+function outputColumn(d: Dialect, pseudoTable: 'INSERTED' | 'DELETED', column: ReturningColumn): string {
+  if (typeof column === 'string')
+    return column === '*' ? `${pseudoTable}.*` : `${pseudoTable}.${quoteColumn(d, column)}`;
+  return `${pseudoTable}.${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`;
+}
+
+function outputClause(d: Dialect, pseudoTable: 'INSERTED' | 'DELETED', cols?: readonly ReturningColumn[]): string {
   if (!cols || cols.length === 0) return '';
   const returning = TRAITS[d].returning;
   if (returning === 'none') throw new UnsupportedFeatureError('returning', d);
@@ -364,9 +390,7 @@ function outputClause(d: Dialect, pseudoTable: 'INSERTED' | 'DELETED', cols?: re
   // SQL Server rejects OUTPUT without INTO when the target has an enabled trigger
   // for the statement's DML action. The compiler cannot inspect triggers, and
   // OUTPUT INTO would require a table variable plus a second statement.
-  return ` OUTPUT ${cols
-    .map(column => (column === '*' ? `${pseudoTable}.*` : `${pseudoTable}.${quoteColumn(d, column)}`))
-    .join(', ')}`;
+  return ` OUTPUT ${cols.map(column => outputColumn(d, pseudoTable, column)).join(', ')}`;
 }
 
 interface ConflictState {
@@ -440,7 +464,7 @@ function mssqlMergeSql(
   placeholders: string,
   params: unknown[],
   conflict: ConflictState,
-  ret?: readonly string[],
+  ret?: readonly ReturningColumn[],
 ): string {
   const target = conflict.target;
   if (!target || target.length === 0) {
@@ -515,7 +539,7 @@ function makeInsert(
   d: Dialect,
   table: string,
   row?: Record<string, unknown>,
-  ret?: readonly string[],
+  ret?: readonly ReturningColumn[],
   conflict?: ConflictState,
   telemetry = false,
 ): InsertBuilder {
@@ -596,7 +620,7 @@ function makeUpdate(
   table: string,
   row?: Record<string, unknown>,
   wheres: readonly Predicate[] = [],
-  ret?: readonly string[],
+  ret?: readonly ReturningColumn[],
   telemetry = false,
 ): UpdateBuilder {
   return {
@@ -632,7 +656,7 @@ function makeDelete(
   d: Dialect,
   table: string,
   wheres: readonly Predicate[] = [],
-  ret?: readonly string[],
+  ret?: readonly ReturningColumn[],
   telemetry = false,
 ): DeleteBuilder {
   return {

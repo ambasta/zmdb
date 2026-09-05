@@ -464,6 +464,10 @@ read. It is what `schemaOf<T>()` becomes at build time, and it carries the IR it
 from on the value's required `ir` field, so nothing downstream has to choose between the
 two or reconstruct one from the other.
 
+The value is the SQL-facing projection: `table` is `physicalTable`, `columns` are keyed by
+`physicalName`, and `primaryKey` contains physical column names. The retained IR remains
+the declaration-facing source for DTO keys, derived types and documents.
+
 `schemaFromIR(schemaFromIR(ir).ir)` equals `schemaFromIR(ir)`, and
 `schemaFromIR(schema.ir)` equals `schema` — both asserted in `ir.spec.ts`. That is the
 property the required field rests on: the value holds everything the IR does.

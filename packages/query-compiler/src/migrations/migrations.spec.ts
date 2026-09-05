@@ -1,6 +1,6 @@
 import { schemasFrom, type SchemasFromOptions } from '@zmdb/aot-validator/testing';
 import type { Entity } from '@zmdb/schema-core';
-import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
+import type { PrimaryKey, References, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { UnsupportedFeatureError } from '../errors.js';
@@ -59,23 +59,29 @@ export interface NamingUser extends Table<'userAccount'> {
   createdAt: Date & Sql<'timestamp'>;
 }
 
-// The config-loader dependency stays stubbed here by one literal strategy. The
-// real test helper and reflection path receive it through the shipped build-time
-// option; SQL remains frozen for the next implementation slice.
+export interface NamingPost extends Table<'blogPost'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'userAccount.id'>;
+}
+
+// Keep project-config wiring out of this package-level test: the reflection
+// helper receives one literal build-time strategy, and every SQL consumer below
+// must use only the resolved physical names it records.
 const namingStrategy = {
-  column: (property: string) => (property === 'createdAt' ? 'created_at' : property),
-  table: (declared: string) => (declared === 'userAccount' ? 'user_accounts' : declared),
+  column: (property: string) =>
+    property === 'createdAt' ? 'created_at' : property === 'userId' ? 'user_id' : property,
+  table: (declared: string) =>
+    declared === 'userAccount' ? 'user_accounts' : declared === 'blogPost' ? 'blog_posts' : declared,
   index: (table: string, columns: readonly string[], unique: boolean) =>
     `${table}_${columns.join('_')}_${unique ? 'uniq' : 'idx'}`,
 } satisfies NonNullable<SchemasFromOptions['naming']>;
 
 const namingOptions = { naming: namingStrategy } satisfies SchemasFromOptions;
 
-const { NamingUser: namingUserSchema } = schemasFrom<{ NamingUser: NamingUser }>(
-  import.meta.url,
-  ['NamingUser'],
-  namingOptions,
-);
+const { NamingUser: namingUserSchema, NamingPost: namingPostSchema } = schemasFrom<{
+  NamingUser: NamingUser;
+  NamingPost: NamingPost;
+}>(import.meta.url, ['NamingUser', 'NamingPost'], namingOptions);
 
 const compileNamingCalls: string[] = [];
 const compileNamingStrategy = {
@@ -139,11 +145,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     return column as TableSnapshot['columns'][number];
   }
 
-  // actual today:
-  //   CREATE TABLE "userAccount" ("createdAt" TIMESTAMPTZ NOT NULL, "id" INTEGER PRIMARY KEY)
-  // The `Entity` half already uses property vocabulary; the missing half is the
-  // schema value and DDL carrying physical vocabulary from the same declaration.
-  it.fails('emits DDL with physical names and derives Entity with property names', () => {
+  it('emits DDL with physical names and derives Entity with property names', () => {
     const entity: Entity<NamingUser> = { id: 1, createdAt: new Date(0) };
     expect(Object.keys(entity).toSorted()).toEqual(['createdAt', 'id']);
 
@@ -162,11 +164,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     ).toBe('CREATE TABLE "user_accounts" ("created_at" TIMESTAMPTZ NOT NULL, "id" INTEGER PRIMARY KEY)');
   });
 
-  // actual today:
-  //   CREATE INDEX "userAccount_createdAt_idx" ON "userAccount" ("createdAt")
-  // The literal strategy receives the names produced by the real schema/snapshot
-  // path, so the emitted name can only be physical when that path is physical.
-  it.fails('derives an index name from physical names', () => {
+  it('derives an index name from physical names', () => {
     const table = namingTable();
     const column = timestampColumn(table);
     const name = namingStrategy.index?.(table.name, [column.name], false);
@@ -176,11 +174,10 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     );
   });
 
-  // actual today: the table is `userAccount` and the timestamp column is
-  // `createdAt`; neither physical name reaches the snapshot.
-  it.fails('records physical names in the snapshot', () => {
+  it('records physical names in the snapshot', () => {
     expect(snapshot([namingUserSchema])).toEqual({
       version: 1,
+      extensions: [],
       tables: [
         {
           name: 'user_accounts',
@@ -195,12 +192,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     });
   });
 
-  // actual today:
-  //   CREATE INDEX "user_accounts_created_at_partial" ON "userAccount" ("createdAt")
-  //   WHERE createdAt IS NOT NULL
-  // The structured identifiers are still declared names, while the raw predicate
-  // is already emitted byte-for-byte and must stay that way.
-  it.fails('does not rewrite a raw SQL fragment', () => {
+  it('does not rewrite a raw SQL fragment', () => {
     const table = namingTable();
     const column = timestampColumn(table);
     const ddl = createIndexDdl(
@@ -219,10 +211,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     expect(ddl).not.toContain('WHERE created_at IS NOT NULL');
   });
 
-  // actual today: the naming callbacks run while building the IR, but the
-  // schema value still exposes declared names, so query compilation remains
-  // SELECT "createdAt" FROM "userAccount".
-  it.fails('resolves naming before query compilation without runtime strategy calls', () => {
+  it('resolves naming before query compilation without runtime strategy calls', () => {
     const baseline = createQueryCompiler('postgres').selectFrom('userAccount').select(['createdAt']).compile().text;
     const resolvedCalls = compileNamingCalls.length;
     const physicalColumn = Object.keys(compileNamingUserSchema.columns).find(name => name !== 'id');
@@ -238,6 +227,21 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     expect(named).not.toBe(baseline);
     expect(resolvedCalls).toBe(3);
     expect(compileNamingCalls).toHaveLength(resolvedCalls);
+  });
+
+  it('derives foreign-key columns, targets and constraint names from physical names', () => {
+    const post = snapshot([namingUserSchema, namingPostSchema]).tables.find(table => table.name === 'blog_posts');
+
+    expect(post?.foreignKeys).toEqual([
+      {
+        name: 'blog_posts_user_id_fkey',
+        columns: ['user_id'],
+        targetTable: 'user_accounts',
+        targetColumns: ['id'],
+        onDelete: 'no action',
+        onUpdate: 'no action',
+      },
+    ]);
   });
 });
 

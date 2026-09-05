@@ -198,4 +198,112 @@ describe('compilePopulate', () => {
     );
     expect(q.parameters).toEqual([true, 'admin']);
   });
+
+  it('resolves relation tables, keys and filters to physical names from the schema set', () => {
+    const namedColumn = (
+      name: string,
+      physicalName: string,
+      sql: ColumnIR['sql'],
+      options: Partial<Pick<ColumnIR, 'primaryKey' | 'references' | 'nullable'>> = {},
+    ): ColumnIR => ({
+      name,
+      physicalName,
+      sql,
+      nullable: false,
+      primaryKey: false,
+      serial: false,
+      unique: false,
+      hasDefault: false,
+      sensitive: false,
+      constraints: {},
+      rules: [],
+      ...options,
+    });
+    const users: SchemaIR = {
+      table: 'userAccount',
+      physicalTable: 'user_accounts',
+      columns: [namedColumn('id', 'account_id', 'integer', { primaryKey: true })],
+      primaryKey: ['id'],
+      relations: [{ name: 'posts', relation: 'oneToMany', target: 'blogPost', via: 'userId' }],
+      foreignKeys: [],
+    };
+    const posts: SchemaIR = {
+      table: 'blogPost',
+      physicalTable: 'blog_posts',
+      columns: [
+        namedColumn('id', 'id', 'integer', { primaryKey: true }),
+        namedColumn('userId', 'user_id', 'integer', { references: 'userAccount.id' }),
+        namedColumn('deletedAt', 'deleted_at', 'timestamp', { nullable: true }),
+      ],
+      primaryKey: ['id'],
+      relations: [],
+      foreignKeys: [],
+    };
+
+    const q = compilePopulate(
+      users,
+      'posts',
+      'postgres',
+      [1, 2],
+      [{ col: 'blogPost.deletedAt', op: 'is null', value: undefined }],
+      [users, posts],
+    );
+
+    expect(q.sql).toBe('SELECT * FROM "blog_posts" WHERE "user_id" IN ($1, $2) AND "blog_posts"."deleted_at" IS NULL');
+    expect(q.parameters).toEqual([1, 2]);
+  });
+
+  it('uses every physical column in composite relation joins and tuple batches', () => {
+    const namedColumn = (
+      name: string,
+      physicalName: string,
+      options: Partial<Pick<ColumnIR, 'primaryKey' | 'references'>> = {},
+    ): ColumnIR => ({
+      name,
+      physicalName,
+      sql: 'integer',
+      nullable: false,
+      primaryKey: false,
+      serial: false,
+      unique: false,
+      hasDefault: false,
+      sensitive: false,
+      constraints: {},
+      rules: [],
+      ...options,
+    });
+    const accounts: SchemaIR = {
+      table: 'account',
+      physicalTable: 'account_rows',
+      columns: [
+        namedColumn('tenantId', 'tenant_key', { primaryKey: true }),
+        namedColumn('id', 'account_key', { primaryKey: true }),
+      ],
+      primaryKey: ['tenantId', 'id'],
+      relations: [{ name: 'memberships', relation: 'oneToMany', target: 'membership', via: 'tenantId,accountId' }],
+      foreignKeys: [],
+    };
+    const memberships: SchemaIR = {
+      table: 'membership',
+      physicalTable: 'member_rows',
+      columns: [
+        namedColumn('tenantId', 'tenant_fk', { references: 'account.tenantId' }),
+        namedColumn('accountId', 'account_fk', { references: 'account.id' }),
+      ],
+      primaryKey: [],
+      relations: [{ name: 'account', relation: 'manyToOne', target: 'account', via: 'tenantId,accountId' }],
+      foreignKeys: [],
+    };
+
+    const joined = compilePopulate(memberships, 'account', 'postgres', [], [], [memberships, accounts]);
+    const batched = compilePopulate(accounts, 'memberships', 'postgres', [['t1', 7]], [], [accounts, memberships]);
+
+    expect(joined.sql).toBe(
+      'SELECT * FROM "member_rows" INNER JOIN "account_rows" ' +
+        'ON "member_rows"."tenant_fk" = "account_rows"."tenant_key" ' +
+        'AND "member_rows"."account_fk" = "account_rows"."account_key"',
+    );
+    expect(batched.sql).toBe('SELECT * FROM "member_rows" WHERE ("tenant_fk", "account_fk") IN (($1, $2))');
+    expect(batched.parameters).toEqual(['t1', 7]);
+  });
 });

@@ -130,8 +130,10 @@ export interface SnapshotableSchema {
   >;
   readonly ir?: {
     readonly table: string;
+    readonly physicalTable?: string;
     readonly columns: readonly {
       readonly name: string;
+      readonly physicalName?: string;
       readonly references?: string;
       readonly onDelete?: ReferentialAction;
       readonly onUpdate?: ReferentialAction;
@@ -164,18 +166,58 @@ function referencedTarget(target: string): { readonly table: string; readonly co
   return { table: target.slice(0, separator), column: target.slice(separator + 1) };
 }
 
+function physicalColumn(schema: SnapshotableSchema, declared: string): string {
+  const column = schema.ir?.columns.find(candidate => candidate.name === declared);
+  return column?.physicalName ?? declared;
+}
+
+function physicalTarget(
+  target: string,
+  schemasByDeclaredTable: ReadonlyMap<string, SnapshotableSchema>,
+): { readonly table: string; readonly column: string } {
+  const declared = referencedTarget(target);
+  const schema = schemasByDeclaredTable.get(declared.table);
+  return schema === undefined
+    ? declared
+    : {
+        table: schema.table,
+        column: physicalColumn(schema, declared.column),
+      };
+}
+
+function physicalTableOptions(schema: SnapshotableSchema): TableOptions | undefined {
+  const options = schema.ir?.tableOptions;
+  if (options === undefined) return undefined;
+  return {
+    ...(options.shardKey === undefined
+      ? {}
+      : { shardKey: options.shardKey.map(column => physicalColumn(schema, column)) }),
+    ...(options.sortKey === undefined
+      ? {}
+      : { sortKey: options.sortKey.map(column => physicalColumn(schema, column)) }),
+    ...(options.rowstore === undefined ? {} : { rowstore: options.rowstore }),
+  };
+}
+
 export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot {
+  const schemasByDeclaredTable = new Map(schemas.map(schema => [schema.ir?.table ?? schema.table, schema] as const));
   const extensions = new Map<string, ExtensionSnapshot>();
   const tables: TableSnapshot[] = schemas
     .map(schema => {
-      const irColumns = new Map(schema.ir?.columns.map(column => [column.name, column]) ?? []);
+      const irColumns = new Map(
+        schema.ir?.columns.flatMap(column => [
+          [column.name, column] as const,
+          [column.physicalName ?? column.name, column] as const,
+        ]) ?? [],
+      );
       const columns: ColumnSnapshot[] = Object.entries(schema.columns)
         .map(([name, meta]) => {
           if (typeof meta.type !== 'string') {
             extensions.set(meta.type.extension, { name: meta.type.extension });
           }
+          const ir = irColumns.get(name);
           return {
-            name,
+            name: ir?.physicalName ?? name,
             type: meta.type,
             nullable: meta.flags.nullable,
             primaryKey: meta.flags.primaryKey === true,
@@ -189,11 +231,12 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
       const foreignKeys: ForeignKeySnapshot[] = [];
       for (const [name, meta] of Object.entries(schema.columns)) {
         if (meta.references === undefined) continue;
-        const target = referencedTarget(meta.references.target);
+        const target = physicalTarget(meta.references.target, schemasByDeclaredTable);
         const ir = irColumns.get(name);
+        const localName = ir?.physicalName ?? name;
         foreignKeys.push({
-          name: generatedForeignKeyName(schema.table, [name]),
-          columns: [name],
+          name: generatedForeignKeyName(schema.table, [localName]),
+          columns: [localName],
           targetTable: target.table,
           targetColumns: [target.column],
           onDelete: ir?.onDelete ?? 'no action',
@@ -201,21 +244,27 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
         });
       }
       for (const foreignKey of schema.ir?.foreignKeys ?? []) {
+        const localColumns = foreignKey.columns.map(column => physicalColumn(schema, column));
+        const targetSchema = schemasByDeclaredTable.get(foreignKey.targetTable);
         foreignKeys.push({
-          name: generatedForeignKeyName(schema.table, foreignKey.columns),
-          columns: foreignKey.columns,
-          targetTable: foreignKey.targetTable,
-          targetColumns: foreignKey.targetColumns,
+          name: generatedForeignKeyName(schema.table, localColumns),
+          columns: localColumns,
+          targetTable: targetSchema?.table ?? foreignKey.targetTable,
+          targetColumns:
+            targetSchema === undefined
+              ? foreignKey.targetColumns
+              : foreignKey.targetColumns.map(column => physicalColumn(targetSchema, column)),
           onDelete: 'no action',
           onUpdate: 'no action',
         });
       }
+      const tableOptions = physicalTableOptions(schema);
       return {
         name: schema.table,
         columns,
-        primaryKey: schema.primaryKey,
+        primaryKey: schema.primaryKey.map(column => physicalColumn(schema, column)),
         foreignKeys: foreignKeys.toSorted((a, b) => a.name.localeCompare(b.name)),
-        ...(schema.ir?.tableOptions === undefined ? {} : { tableOptions: schema.ir.tableOptions }),
+        ...(tableOptions === undefined ? {} : { tableOptions }),
       };
     })
     .toSorted((a, b) => a.name.localeCompare(b.name));

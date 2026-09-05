@@ -5,6 +5,7 @@
 // reflection, no proxies and no identity map.
 import { issuesFor } from '@zmdb/aot-validator/utilities';
 import type {
+  AliasedColumn,
   ColumnExpr,
   ComparisonPredicate,
   CompiledQuery,
@@ -66,6 +67,7 @@ import {
   shapeOfVariant,
   type ColumnIR,
   type ObjectIR,
+  type SchemaIR,
   type ShapeIR,
   type TypeIR,
 } from '@zmdb/schema-core/ir';
@@ -127,6 +129,8 @@ export interface QueryMeta {
 export interface RepositoryOptions {
   readonly cacheStore?: CacheStore;
   readonly filters?: readonly FilterDef<unknown>[];
+  /** Schemas referenced by relations whose declared and physical names may differ. */
+  readonly schemas?: readonly CoreSchema<string>[];
   readonly onQuery?: (query: CompiledQuery, meta: QueryMeta) => void;
 }
 
@@ -223,6 +227,39 @@ function staticFiltersFor(constructor: Function): readonly FilterDef<unknown>[] 
  * makes keyed access legal without asserting.
  */
 type EntityRow<T extends DeclaredTable> = Entity<T> & Record<string, unknown>;
+
+interface SchemaSqlNames {
+  readonly schema: CoreSchema<string>;
+  readonly ir: SchemaIR;
+  readonly columns: ReadonlyMap<string, string>;
+  readonly keyColumns: readonly string[];
+  readonly physicalKeyColumns: readonly string[];
+  readonly entityProjection: readonly (string | AliasedColumn)[] | undefined;
+}
+
+function schemaSqlNames(schema: CoreSchema<string>): SchemaSqlNames {
+  const ir = schema.ir;
+  const columns = new Map(ir.columns.map(column => [column.name, column.physicalName]));
+  const renamed = ir.columns.some(column => column.name !== column.physicalName);
+  const entityProjection = renamed
+    ? Object.freeze(
+        ir.columns.map(column =>
+          column.name === column.physicalName
+            ? column.physicalName
+            : { column: column.physicalName, alias: column.name },
+        ),
+      )
+    : undefined;
+  const keyColumns = Object.freeze([...ir.primaryKey]);
+  return {
+    schema,
+    ir,
+    columns,
+    keyColumns,
+    physicalKeyColumns: Object.freeze(keyColumns.map(column => columns.get(column) ?? column)),
+    entityProjection,
+  };
+}
 
 type RelationLoaderMap<T extends DeclaredTable> = {
   [K in RelationKeys<T> & string]?: RelationLoader<T, K>;
@@ -513,6 +550,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   protected readonly dialect: Dialect;
   /** Ordered primary-key columns, resolved once because a repository's schema cannot change. */
   private readonly keyColumns: readonly string[];
+  private readonly physicalKeyColumns: readonly string[];
+  readonly #rootSqlNames: SchemaSqlNames;
+  readonly #sqlNamesByDeclaredTable = new Map<string, SchemaSqlNames>();
+  readonly #sqlNamesByPhysicalTable = new Map<string, SchemaSqlNames>();
+  readonly #additionalSchemas: readonly CoreSchema<string>[];
   /** variant → its columns and their object type. See `payloadShape`. */
   readonly #shapes = new Map<'create' | 'update', PayloadShape>();
   /** The columns a driver may hand back in their storage form. See `decodeRows`. */
@@ -534,19 +576,58 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     this.#cacheStore = options?.cacheStore;
     this.#optionFilters = Object.freeze([...(options?.filters ?? [])]);
     const staticFilters = staticFiltersFor(this.constructor);
-    this.#filterDefinitions = Object.freeze(
-      [...staticFilters, ...this.#optionFilters].map(filter => {
-        if (filter.table !== undefined && filter.schema !== undefined && filter.table !== filter.schema.table) {
+    this.#additionalSchemas = Object.freeze([...(options?.schemas ?? [])]);
+    const rootSchema = this.schema;
+    const configuredSchemas = [
+      rootSchema,
+      ...this.#additionalSchemas,
+      ...staticFilters.flatMap(filter => (filter.schema === undefined ? [] : [filter.schema])),
+      ...this.#optionFilters.flatMap(filter => (filter.schema === undefined ? [] : [filter.schema])),
+    ];
+    for (const schema of configuredSchemas) {
+      const names = schemaSqlNames(schema);
+      const existing = this.#sqlNamesByDeclaredTable.get(names.ir.table);
+      if (existing !== undefined) {
+        if (existing.schema.table !== schema.table) {
           throw new ValidationError(
-            `filter \`${filter.name}\` targets \`${filter.table}\` but its schema declares \`${filter.schema.table}\``,
+            `repository schemas disagree on physical table for \`${names.ir.table}\`: ` +
+              `\`${existing.schema.table}\` and \`${schema.table}\``,
           );
         }
-        return filter.table === undefined ? { ...filter, table: filter.schema?.table ?? this.schema.table } : filter;
+        continue;
+      }
+      this.#sqlNamesByDeclaredTable.set(names.ir.table, names);
+      this.#sqlNamesByPhysicalTable.set(schema.table, names);
+    }
+    const rootNames = this.#sqlNamesByPhysicalTable.get(rootSchema.table);
+    if (rootNames === undefined) throw new Error(`repository schema map omitted ${rootSchema.table}`);
+    this.#rootSqlNames = rootNames;
+    this.#filterDefinitions = Object.freeze(
+      [...staticFilters, ...this.#optionFilters].map(filter => {
+        if (
+          filter.table !== undefined &&
+          filter.schema !== undefined &&
+          filter.table !== filter.schema.ir.table &&
+          filter.table !== filter.schema.table
+        ) {
+          throw new ValidationError(
+            `filter \`${filter.name}\` targets \`${filter.table}\` but its schema declares ` +
+              `\`${filter.schema.ir.table}\` (physical \`${filter.schema.table}\`)`,
+          );
+        }
+        const mapped =
+          filter.schema === undefined
+            ? filter.table === undefined
+              ? this.#rootSqlNames
+              : (this.#sqlNamesByDeclaredTable.get(filter.table) ?? this.#sqlNamesByPhysicalTable.get(filter.table))
+            : this.#sqlNamesByDeclaredTable.get(filter.schema.ir.table);
+        return { ...filter, table: mapped?.schema.table ?? filter.table ?? this.schema.table };
       }),
     );
     this.#onQuery = options?.onQuery;
     this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
-    this.keyColumns = Object.freeze([...this.schema.primaryKey]);
+    this.keyColumns = this.#rootSqlNames.keyColumns;
+    this.physicalKeyColumns = this.#rootSqlNames.physicalKeyColumns;
 
     const seen = new Set<string>();
     for (const filter of this.#filterDefinitions) {
@@ -612,6 +693,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const options: RepositoryOptions = {
       ...(this.#cacheStore === undefined ? {} : { cacheStore: this.#cacheStore }),
       ...(this.#optionFilters.length === 0 ? {} : { filters: this.#optionFilters }),
+      ...(this.#additionalSchemas.length === 0 ? {} : { schemas: this.#additionalSchemas }),
       ...(this.#onQuery === undefined ? {} : { onQuery: this.#onQuery }),
     };
     return new ctor(txDriver, this.dialect, Object.keys(options).length === 0 ? undefined : options);
@@ -732,9 +814,85 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.schema.table;
   }
 
+  private sqlNamesForTable(table: string): SchemaSqlNames | undefined {
+    return this.#sqlNamesByDeclaredTable.get(table) ?? this.#sqlNamesByPhysicalTable.get(table);
+  }
+
+  private relationSqlNames(relation: ResolvedRelation): SchemaSqlNames | undefined {
+    return this.#sqlNamesByDeclaredTable.get(relation.targetTable);
+  }
+
+  private physicalColumn(column: string, names: SchemaSqlNames = this.#rootSqlNames): string {
+    const separator = column.lastIndexOf('.');
+    const property = separator === -1 ? column : column.slice(separator + 1);
+    const physical = names.columns.get(property);
+    if (physical === undefined) return column;
+    if (separator === -1) return physical;
+    const qualifier = column.slice(0, separator);
+    const physicalQualifier =
+      qualifier === names.schema.ir.table || qualifier === names.schema.table ? names.schema.table : qualifier;
+    return `${physicalQualifier}.${physical}`;
+  }
+
+  private aggregateColumn(column: string): string {
+    const separator = column.indexOf('.');
+    if (separator === -1) return this.physicalColumn(column);
+    const relationName = column.slice(0, separator);
+    const relation = this.schema.ir.relations.find(candidate => candidate.name === relationName);
+    if (relation === undefined) return this.physicalColumn(column);
+    const target = this.#sqlNamesByDeclaredTable.get(relation.target);
+    return target === undefined ? column : this.physicalColumn(column, target);
+  }
+
+  private aggregateSelection(column: string): string {
+    const physical = this.aggregateColumn(column);
+    return physical === column ? column : `${physical} as ${column}`;
+  }
+
+  private selectEntity(names: SchemaSqlNames = this.#rootSqlNames): SelectBuilder {
+    const builder = this.qb.selectFrom(names.schema.table);
+    return names.entityProjection === undefined ? builder : builder.select(names.entityProjection);
+  }
+
+  private selectProperties(properties: readonly string[], names: SchemaSqlNames = this.#rootSqlNames): SelectBuilder {
+    const selected: (string | AliasedColumn)[] = [];
+    const seen = new Set<string>();
+    for (const property of properties) {
+      if (seen.has(property)) continue;
+      seen.add(property);
+      const physical = this.physicalColumn(property, names);
+      selected.push(physical === property ? physical : { column: physical, alias: property });
+    }
+    return selected.length === 0 ? this.selectEntity(names) : this.qb.selectFrom(names.schema.table).select(selected);
+  }
+
+  private entityReturning(names: SchemaSqlNames = this.#rootSqlNames): readonly (string | AliasedColumn)[] {
+    return names.entityProjection ?? ['*'];
+  }
+
+  private physicalRecord(
+    record: Readonly<Record<string, unknown>>,
+    names = this.#rootSqlNames,
+  ): Record<string, unknown> {
+    const physical: Record<string, unknown> = {};
+    for (const [property, value] of Object.entries(record)) {
+      physical[this.physicalColumn(property, names)] = value;
+    }
+    return physical;
+  }
+
+  private physicalFields(
+    fields: readonly string[] | Record<string, unknown> | undefined,
+  ): readonly string[] | Record<string, unknown> | undefined {
+    if (fields === undefined) return undefined;
+    return isUpdateFieldList(fields) ? fields.map(column => this.physicalColumn(column)) : this.physicalRecord(fields);
+  }
+
   private filterDefinitionsFor(table: string, schema?: CoreSchema<string>): readonly FilterDef<unknown>[] {
     const definitions = this.#filterDefinitions.filter(filter => filter.table === table);
-    const softDelete = schema?.ir.softDelete;
+    const softDelete =
+      (schema === undefined ? this.sqlNamesForTable(table) : this.sqlNamesForTable(schema.table))?.ir.softDelete ??
+      schema?.ir.softDelete;
     if (softDelete === undefined || definitions.some(filter => filter.name === 'softDelete')) {
       return definitions;
     }
@@ -773,7 +931,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const known = new Set(this.rootFilterNames());
     for (const name of names ?? []) {
       const relation = this.relation(name);
-      for (const filter of this.filterDefinitionsFor(relation.targetTable)) known.add(filter.name);
+      const target = this.relationSqlNames(relation);
+      for (const filter of this.filterDefinitionsFor(target?.schema.table ?? relation.targetTable, target?.schema)) {
+        known.add(filter.name);
+      }
     }
     return [...known];
   }
@@ -878,10 +1039,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const knownNames = this.populateFilterNames(names);
     for (const name of names ?? []) {
       const relation = this.relation(name);
-      let resolved = byTable.get(relation.targetTable);
+      const target = this.relationSqlNames(relation);
+      const targetTable = target?.schema.table ?? relation.targetTable;
+      let resolved = byTable.get(targetTable);
       if (resolved === undefined) {
-        resolved = this.resolveReadFilters('populate', options, relation.targetTable, undefined, true, knownNames);
-        byTable.set(relation.targetTable, resolved);
+        resolved = this.resolveReadFilters('populate', options, targetTable, target?.schema, true, knownNames);
+        byTable.set(targetTable, resolved);
       }
       byRelation.set(name, resolved);
     }
@@ -1014,7 +1177,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   private get decodedColumns(): readonly ColumnIR[] {
-    this.#decoded ??= dbDecodedColumns(this.schema.ir);
+    this.#decoded ??= dbDecodedColumns(this.#rootSqlNames.ir);
     return this.#decoded;
   }
 
@@ -1051,8 +1214,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   private keyWhere<B extends WhereTarget>(builder: B, id: PrimaryKeyOf<T>, method: KeyedMethod): B {
     const values = this.keyValues(id, method);
     let keyed = builder;
-    for (let index = 0; index < this.keyColumns.length; index++) {
-      const column = this.keyColumns[index];
+    for (let index = 0; index < this.physicalKeyColumns.length; index++) {
+      const column = this.physicalKeyColumns[index];
       if (column !== undefined) keyed = keyed.where(column, '=', values[index]);
     }
     return keyed;
@@ -1066,8 +1229,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   private limitOne(builder: SelectBuilder): SelectBuilder {
     if (this.dialect !== 'mssql') return builder.limit(1);
 
-    const fallback = this.schema.ir.columns[0]?.name;
-    const order = this.keyColumns.length > 0 ? this.keyColumns : fallback === undefined ? [] : [fallback];
+    const fallback = this.schema.ir.columns[0]?.physicalName;
+    const order =
+      this.physicalKeyColumns.length > 0 ? this.physicalKeyColumns : fallback === undefined ? [] : [fallback];
     if (order.length === 0) {
       throw new Error(`schema ${this.tableName} has no column available to order a SQL Server first-row read`);
     }
@@ -1102,11 +1266,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const filters = this.resolveReadFilters('loader.load', undefined, this.tableName, this.schema, false);
 
     for (const chunk of chunkArray(unique, chunkSize)) {
-      let builder = this.qb.selectFrom(this.tableName);
+      let builder = this.selectEntity();
       if (columns.length === 1) {
         const [column] = columns;
         if (!column) throw new Error(`schema ${this.tableName} has empty primary key column`);
-        builder = builder.whereIn(column, chunk);
+        builder = builder.whereIn(this.physicalColumn(column), chunk);
       } else {
         for (let tupleIndex = 0; tupleIndex < chunk.length; tupleIndex++) {
           const id = chunk[tupleIndex];
@@ -1116,9 +1280,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
             const column = columns[columnIndex];
             if (!column) continue;
             const value = values[columnIndex];
-            if (tupleIndex === 0 && columnIndex === 0) builder = builder.where(column, '=', value);
-            else if (columnIndex === 0) builder = builder.orWhere(column, '=', value);
-            else builder = builder.andWhere(column, '=', value);
+            const physicalColumn = this.physicalColumn(column);
+            if (tupleIndex === 0 && columnIndex === 0) builder = builder.where(physicalColumn, '=', value);
+            else if (columnIndex === 0) builder = builder.orWhere(physicalColumn, '=', value);
+            else builder = builder.andWhere(physicalColumn, '=', value);
           }
         }
       }
@@ -1148,7 +1313,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const query = this.compileRead(
       'findById',
       opts,
-      () => this.limitOne(this.keyWhere(this.qb.selectFrom(this.tableName), id, 'findById')),
+      () => this.limitOne(this.keyWhere(this.selectEntity(), id, 'findById')),
       { additionalKnownNames: this.populateFilterNames(opts?.populate) },
     );
     return this.firstResult(query, opts, populateFilters);
@@ -1160,7 +1325,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const query = this.compileRead(
       'findOne',
       options,
-      () => this.limitOne(compileWhere(this.qb.selectFrom(this.tableName), where)),
+      () => this.limitOne(compileWhere(this.selectEntity(), where, column => this.physicalColumn(column))),
       { additionalKnownNames: this.populateFilterNames(options?.populate) },
     );
     return this.firstResult(query, options, populateFilters);
@@ -1185,6 +1350,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     parentKeys: readonly (readonly unknown[])[],
     options?: ReadOptions,
     filters?: ResolvedFilters,
+    names: SchemaSqlNames | undefined = this.sqlNamesForTable(childTable),
   ): Promise<Map<string, Record<string, unknown>[]>> {
     options?.signal?.throwIfAborted();
     if (childKeys.length === 0) {
@@ -1205,13 +1371,16 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const limit = DIALECT_PARAM_LIMITS[this.dialect];
     const chunks = chunkArray(ids, Math.max(1, Math.floor(limit / childKeys.length)));
     const children: Record<string, unknown>[] = [];
+    const physicalTable = names?.schema.table ?? childTable;
+    const physicalKeys =
+      names === undefined ? childKeys : childKeys.map(childKey => this.physicalColumn(childKey, names));
     for (const chunk of chunks) {
-      let builder = this.qb.selectFrom(childTable);
-      if (childKeys.length === 1) {
-        const [childKey] = childKeys;
-        if (childKey === undefined) throw new Error(`relation to ${childTable} resolved an empty target key`);
+      let builder = names === undefined ? this.qb.selectFrom(physicalTable) : this.selectEntity(names);
+      if (physicalKeys.length === 1) {
+        const [physicalKey] = physicalKeys;
+        if (physicalKey === undefined) throw new Error(`relation to ${childTable} resolved an empty target key`);
         builder = builder.whereIn(
-          childKey,
+          physicalKey,
           chunk.map(values => values[0]),
         );
       } else {
@@ -1219,11 +1388,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         for (let tupleIndex = 0; tupleIndex < chunk.length; tupleIndex++) {
           const values = chunk[tupleIndex];
           if (values === undefined) continue;
-          for (let columnIndex = 0; columnIndex < childKeys.length; columnIndex++) {
-            const childKey = childKeys[columnIndex];
-            if (childKey === undefined) continue;
+          for (let columnIndex = 0; columnIndex < physicalKeys.length; columnIndex++) {
+            const physicalKey = physicalKeys[columnIndex];
+            if (physicalKey === undefined) continue;
             predicates.push({
-              col: childKey,
+              col: physicalKey,
               op: '=',
               value: values[columnIndex],
               connector: tupleIndex > 0 && columnIndex === 0 ? 'OR' : 'AND',
@@ -1233,7 +1402,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         builder = builder.whereGroup(predicates);
       }
       const query = this.compileRead('populate', options, () => builder, {
-        table: childTable,
+        table: physicalTable,
+        ...(names === undefined ? {} : { schema: names.schema }),
         qualifyColumns: true,
         ...(filters === undefined ? {} : { resolvedFilters: filters }),
       });
@@ -1277,12 +1447,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
     for (const name of names) {
       const rel = this.relation(name);
+      const target = this.relationSqlNames(rel);
       const byParent = await this.childrenByParent(
-        rel.targetTable,
+        target?.schema.table ?? rel.targetTable,
         rel.targetKey,
         current.map(parent => relationKeyValues(parent, rel.parentKey)),
         options,
         populateFilters.get(name),
+        target,
       );
       current = current.map(parent => {
         const parentKey = relationKeyValues(parent, rel.parentKey);
@@ -1333,9 +1505,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async find(where: WhereDTO<T>, opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async find(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
     const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
-    const query = this.compileRead('find', opts, () => compileWhere(this.qb.selectFrom(this.tableName), where), {
-      additionalKnownNames: this.populateFilterNames(opts?.populate),
-    });
+    const query = this.compileRead(
+      'find',
+      opts,
+      () => compileWhere(this.selectEntity(), where, column => this.physicalColumn(column)),
+      {
+        additionalKnownNames: this.populateFilterNames(opts?.populate),
+      },
+    );
     const rows = await this.rows<EntityRow<T>>(query, opts);
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate, opts, populateFilters);
@@ -1346,7 +1523,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async findAll(opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async findAll(opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
     const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
-    const query = this.compileRead('findAll', opts, () => this.qb.selectFrom(this.tableName), {
+    const query = this.compileRead('findAll', opts, () => this.selectEntity(), {
       additionalKnownNames: this.populateFilterNames(opts?.populate),
     });
     const rows = await this.rows<EntityRow<T>>(query, opts);
@@ -1361,7 +1538,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         this.dialect,
         this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
       ).count('*', 'count');
-      if (where !== undefined) builder = compileWhere(builder, where);
+      if (where !== undefined) builder = compileWhere(builder, where, column => this.physicalColumn(column));
       return builder;
     });
     const rows = await this.executeRead(query, options?.signal);
@@ -1376,11 +1553,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   async exists(where?: WhereDTO<T>, options?: ReadOptions): Promise<boolean> {
-    const firstColumn = this.keyColumns[0] ?? this.schema.ir.columns[0]?.name;
+    const firstColumn = this.physicalKeyColumns[0] ?? this.schema.ir.columns[0]?.physicalName;
     if (firstColumn === undefined) throw new Error(`schema ${this.tableName} has no column to test for existence`);
     const query = this.compileRead('exists', options, () => {
       let builder = this.qb.selectFrom(this.tableName).select([firstColumn]);
-      if (where !== undefined) builder = compileWhere(builder, where);
+      if (where !== undefined) builder = compileWhere(builder, where, column => this.physicalColumn(column));
       return this.limitOne(builder);
     });
     return (await this.executeRead(query, options?.signal)).length > 0;
@@ -1423,15 +1600,31 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       'list',
       opts,
       filters => {
-        let builder = applyOrderBy(this.qb.selectFrom(this.tableName), effectiveOrderBy);
+        const selectedProperties =
+          query?.select === undefined
+            ? undefined
+            : [...query.select.map(String), ...effectiveOrderBy.map(item => String(item.column))];
+        let builder = applyOrderBy(
+          selectedProperties === undefined ? this.selectEntity() : this.selectProperties(selectedProperties),
+          effectiveOrderBy,
+          undefined,
+          column => this.physicalColumn(column),
+        );
         if (keyset && cursorValues !== undefined) {
-          builder = applyKeysetFilter(builder, cursorValues, effectiveOrderBy, query?.where, branch => {
-            applyResolvedFilters(branch, filters);
-          });
+          builder = applyKeysetFilter(
+            builder,
+            cursorValues,
+            effectiveOrderBy,
+            query?.where,
+            branch => {
+              applyResolvedFilters(branch, filters);
+            },
+            column => this.physicalColumn(column),
+          );
           if (limit !== undefined) builder = builder.limit(limit + 1);
           return builder;
         }
-        if (query?.where) builder = compileWhere(builder, query.where);
+        if (query?.where) builder = compileWhere(builder, query.where, column => this.physicalColumn(column));
         if (page) {
           builder = applyPagination(builder, {
             limit: limit !== undefined ? limit + 1 : page.limit,
@@ -1479,8 +1672,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       options,
       () =>
         where === undefined
-          ? this.qb.selectFrom(this.tableName)
-          : compileWhere(this.qb.selectFrom(this.tableName), where),
+          ? this.selectEntity()
+          : compileWhere(this.selectEntity(), where, column => this.physicalColumn(column)),
       reportBuffered ? { buffered: true } : {},
     );
     // Resolve the schema-derived decoder once before iteration; the mapper then
@@ -1524,7 +1717,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         this.tableName,
         this.dialect,
         this.driver.queryTelemetry === true ? { ftsTable, telemetry: true } : { ftsTable },
-      ).whereMatch(column, term),
+      ).whereMatch(this.physicalColumn(column), term),
     );
     return this.executeRead(query, options?.signal);
   }
@@ -1570,11 +1763,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
         );
         const predicates = filtersAsPredicates(targetFilters);
+        const leftCol = this.physicalColumn(join.leftCol);
+        const rightCol =
+          targetSchema === undefined ? join.rightCol : this.physicalColumn(join.rightCol, schemaSqlNames(targetSchema));
         builder =
           join.kind === 'inner'
-            ? builder.innerJoin(targetTable, join.leftCol, join.rightCol, predicates)
-            : builder.leftJoin(targetTable, join.leftCol, join.rightCol, predicates);
-        if (where) builder = builder.where(where.col, where.op, where.value);
+            ? builder.innerJoin(targetTable, leftCol, rightCol, predicates)
+            : builder.leftJoin(targetTable, leftCol, rightCol, predicates);
+        if (where) builder = builder.where(this.aggregateColumn(where.col), where.op, where.value);
         return builder;
       },
       {
@@ -1602,12 +1798,16 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     conditions: readonly JoinCondition[];
   } {
     const rel = this.relation(relationName);
+    const target = this.relationSqlNames(rel);
     const alias = relationName.trim();
+    const physicalTargetTable = target?.schema.table ?? rel.targetTable;
     const targetTable =
-      rel.targetTable.toLowerCase() === alias.toLowerCase() ? rel.targetTable : `${rel.targetTable} as ${alias}`;
+      physicalTargetTable.toLowerCase() === alias.toLowerCase()
+        ? physicalTargetTable
+        : `${physicalTargetTable} as ${alias}`;
     return {
       targetTable,
-      filterTable: rel.targetTable,
+      filterTable: physicalTargetTable,
       targetReference: alias,
       conditions: rel.parentKey.map((parentKey, index) => {
         const targetKey = rel.targetKey[index];
@@ -1615,8 +1815,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           throw new Error(`${this.tableName}.${relationName}: resolved relation keys have different lengths`);
         }
         return {
-          leftCol: `${this.tableName}.${parentKey}`,
-          rightCol: `${alias}.${targetKey}`,
+          leftCol: `${this.tableName}.${this.physicalColumn(parentKey)}`,
+          rightCol: `${alias}.${target === undefined ? targetKey : this.physicalColumn(targetKey, target)}`,
         };
       }),
     };
@@ -1625,11 +1825,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   private filteredRelationJoin(relationName: string, options?: ReadOptions) {
     const join = this.resolveRelationJoin(relationName);
     const definitions = this.filterDefinitionsFor(join.filterTable);
+    const targetSchema = this.sqlNamesForTable(join.filterTable)?.schema;
     const filters = this.resolveReadFilters(
       'aggregate',
       options,
       join.filterTable,
-      undefined,
+      targetSchema,
       true,
       this.allDeclaredFilterNames(),
       join.targetReference,
@@ -1680,7 +1881,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       });
 
       return new Proxy<RepositoryAggregateBuilder>(target, {
-        get(t, prop, receiver) {
+        get: (t, prop, receiver) => {
           if (prop === 'joinRelation') {
             return t.joinRelation;
           }
@@ -1724,7 +1925,23 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           const val = Reflect.get(t, prop, receiver);
           if (typeof val === 'function') {
             return (...args: unknown[]) => {
-              const res = val.apply(t, args);
+              let resolvedArgs = args;
+              if (prop === 'select' && Array.isArray(args[0])) {
+                resolvedArgs = [
+                  args[0].map(column => (typeof column === 'string' ? this.aggregateSelection(column) : column)),
+                ];
+              } else if (
+                (prop === 'count' || prop === 'sum' || prop === 'avg' || prop === 'min' || prop === 'max') &&
+                typeof args[0] === 'string' &&
+                args[0] !== '*'
+              ) {
+                resolvedArgs = [this.aggregateColumn(args[0]), ...args.slice(1)];
+              } else if (prop === 'groupBy') {
+                resolvedArgs = args.map(arg => (typeof arg === 'string' ? this.aggregateColumn(arg) : arg));
+              } else if ((prop === 'where' || prop === 'having' || prop === 'orderBy') && typeof args[0] === 'string') {
+                resolvedArgs = [this.aggregateColumn(args[0]), ...args.slice(1)];
+              }
+              const res = val.apply(t, resolvedArgs);
               if (
                 res &&
                 typeof res === 'object' &&
@@ -1817,7 +2034,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
 
       if (spec.groupBy && spec.groupBy.length > 0) {
-        builder = builder.select(spec.groupBy.map(String)).groupBy(...spec.groupBy.map(String));
+        const groupBy = spec.groupBy.map(column => this.aggregateColumn(String(column)));
+        builder = builder
+          .select(spec.groupBy.map(column => this.aggregateSelection(String(column))))
+          .groupBy(...groupBy);
       }
 
       if (spec.computed) {
@@ -1826,7 +2046,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
             builder = builder.expr(comp.raw, alias);
           } else {
             const fnLower = comp.fn.toLowerCase();
-            const col = comp.column ? String(comp.column) : '*';
+            const col = comp.column ? this.aggregateColumn(String(comp.column)) : '*';
             if (fnLower === 'count') builder = builder.count(col, alias);
             else if (fnLower === 'sum') builder = builder.sum(col, alias);
             else if (fnLower === 'avg') builder = builder.avg(col, alias);
@@ -1838,23 +2058,24 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
       if (spec.where) {
         for (const [col, val] of Object.entries(spec.where)) {
+          const physicalColumn = this.aggregateColumn(col);
           if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
             for (const [op, opVal] of Object.entries(val)) {
-              builder = builder.where(col, op === 'eq' ? '=' : op, opVal);
+              builder = builder.where(physicalColumn, op === 'eq' ? '=' : op, opVal);
             }
           } else {
-            builder = builder.where(col, '=', val);
+            builder = builder.where(physicalColumn, '=', val);
           }
         }
       }
 
       if (spec.having) {
-        builder = builder.having(String(spec.having.column), spec.having.op, spec.having.value);
+        builder = builder.having(this.aggregateColumn(String(spec.having.column)), spec.having.op, spec.having.value);
       }
 
       if (spec.orderBy) {
         for (const item of spec.orderBy) {
-          builder = builder.orderBy(String(item.column), item.dir ?? 'asc');
+          builder = builder.orderBy(this.aggregateColumn(String(item.column)), item.dir ?? 'asc');
         }
       }
 
@@ -1935,7 +2156,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         : new Map([
             [relationName, this.resolveReadFilters('populate', options, childTable, undefined, true, knownNames)],
           ]);
-    const parentQuery = this.compileRead('findAllWithMany', options, () => this.qb.selectFrom(this.tableName), {
+    const parentQuery = this.compileRead('findAllWithMany', options, () => this.selectEntity(), {
       additionalKnownNames: knownNames,
     });
     const fetched = await this.rows<EntityRow<T>>(parentQuery, options);
@@ -1963,8 +2184,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async create(dto: CreateDTO<T>, options?: CacheInvalidationOptions): Promise<Entity<T>> {
     const clean = this.validatePayload(dto, 'create');
     this.preInsert(clean);
+    const physical = this.physicalRecord(clean);
     const rows = await this.rows<EntityRow<T>>(
-      this.qb.insertInto(this.tableName).values(clean).returning(['*']).compile(),
+      this.qb.insertInto(this.tableName).values(physical).returning(this.entityReturning()).compile(),
     );
     await this.invalidateCache(options);
     const row = rows[0];
@@ -1983,18 +2205,25 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         ? this.validateUpdatePatch(requestedUpdateFields)
         : requestedUpdateFields;
     const resolvedUpdateFields = this.softDeleteUpsertFields(clean, target, updateFields);
-    const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(resolvedUpdateFields);
+    const physicalTarget =
+      typeof target === 'string' ? this.physicalColumn(target) : target.map(column => this.physicalColumn(column));
+    const physicalUpdateFields = this.physicalFields(resolvedUpdateFields);
+    const ib = this.qb
+      .insertInto(this.tableName)
+      .values(this.physicalRecord(clean))
+      .onConflict(physicalTarget)
+      .doUpdate(physicalUpdateFields);
     if (
       TRAITS[this.dialect].family === 'mysql' &&
-      resolvedUpdateFields !== undefined &&
-      !isUpdateFieldList(resolvedUpdateFields) &&
-      this.hasColumnExpression(resolvedUpdateFields)
+      physicalUpdateFields !== undefined &&
+      !isUpdateFieldList(physicalUpdateFields) &&
+      this.hasColumnExpression(physicalUpdateFields)
     ) {
       await this.driver.execute(ib.compile());
       await this.invalidateCache(opts);
       return undefined;
     }
-    const rows = await this.rows<EntityRow<T>>(ib.returning(['*']).compile());
+    const rows = await this.rows<EntityRow<T>>(ib.returning(this.entityReturning()).compile());
     await this.invalidateCache(opts);
     const row = rows[0];
     if (!row) {
@@ -2015,13 +2244,15 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       this.resolveWriteFilters('updateMany', options);
       return 0;
     }
-    const build = () => compileWhere(this.qb.updateTable(this.tableName).set(clean), where);
+    const physical = this.physicalRecord(clean);
+    const build = () =>
+      compileWhere(this.qb.updateTable(this.tableName).set(physical), where, column => this.physicalColumn(column));
     if (TRAITS[this.dialect].family === 'mysql') {
       await this.driver.execute(this.compileWrite('updateMany', options, build));
       await this.invalidateCache(options);
       return undefined;
     }
-    const returning = this.schema.primaryKey.length > 0 ? this.schema.primaryKey : ['*'];
+    const returning = this.physicalKeyColumns.length > 0 ? this.physicalKeyColumns : ['*'];
     const updated = (
       await this.driver.execute(this.compileWrite('updateMany', options, () => build().returning(returning)))
     ).length;
@@ -2068,19 +2299,20 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     // is the method the caller actually called").
     if (Object.keys(clean).length === 0) {
       const query = this.compileWrite('update', options, () =>
-        this.limitOne(this.keyWhere(this.qb.selectFrom(this.tableName), id, 'update')),
+        this.limitOne(this.keyWhere(this.selectEntity(), id, 'update')),
       );
       return this.firstResult(query);
     }
-    const build = () => this.keyWhere(this.qb.updateTable(this.tableName).set(clean), id, 'update');
-    if (TRAITS[this.dialect].family === 'mysql' && this.hasColumnExpression(clean)) {
+    const physical = this.physicalRecord(clean);
+    const build = () => this.keyWhere(this.qb.updateTable(this.tableName).set(physical), id, 'update');
+    if (TRAITS[this.dialect].family === 'mysql' && this.hasColumnExpression(physical)) {
       await this.driver.execute(this.assertKeyed(this.compileWrite('update', options, build), 'update'));
       await this.invalidateCache(options);
       return undefined;
     }
     const rows = await this.rows<EntityRow<T>>(
       this.assertKeyed(
-        this.compileWrite('update', options, () => build().returning(['*'])),
+        this.compileWrite('update', options, () => build().returning(this.entityReturning())),
         'update',
       ),
     );
@@ -2115,10 +2347,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       softDelete === undefined
         ? () => this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete')
         : () =>
-            this.keyWhere(this.qb.updateTable(this.tableName).set({ [softDelete.column]: new Date() }), id, 'delete');
+            this.keyWhere(
+              this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: new Date() }),
+              id,
+              'delete',
+            );
     const query = mysqlFamily
       ? this.compileWrite('delete', options, build)
-      : this.compileWrite('delete', options, () => build().returning(this.keyColumns));
+      : this.compileWrite('delete', options, () => build().returning(this.physicalKeyColumns));
     const rows = await this.driver.execute(this.assertKeyed(query, 'delete'));
     await this.invalidateCache(options);
     return this.writeMatched(rows);
@@ -2128,14 +2364,19 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const softDelete = this.schema.ir.softDelete;
     const build =
       softDelete === undefined
-        ? () => compileWhere(this.qb.deleteFrom(this.tableName), where)
-        : () => compileWhere(this.qb.updateTable(this.tableName).set({ [softDelete.column]: new Date() }), where);
+        ? () => compileWhere(this.qb.deleteFrom(this.tableName), where, column => this.physicalColumn(column))
+        : () =>
+            compileWhere(
+              this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: new Date() }),
+              where,
+              column => this.physicalColumn(column),
+            );
     if (TRAITS[this.dialect].family === 'mysql') {
       await this.driver.execute(this.compileWrite('deleteMany', options, build));
       await this.invalidateCache(options);
       return undefined;
     }
-    const returning = this.schema.primaryKey.length > 0 ? this.schema.primaryKey : ['*'];
+    const returning = this.physicalKeyColumns.length > 0 ? this.physicalKeyColumns : ['*'];
     const affected = (
       await this.driver.execute(this.compileWrite('deleteMany', options, () => build().returning(returning)))
     ).length;
@@ -2149,7 +2390,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const query =
       TRAITS[this.dialect].family === 'mysql'
         ? this.compileWrite('hardDelete', options, build)
-        : this.compileWrite('hardDelete', options, () => build().returning(this.keyColumns));
+        : this.compileWrite('hardDelete', options, () => build().returning(this.physicalKeyColumns));
     const rows = await this.driver.execute(this.assertKeyed(query, 'hardDelete'));
     await this.invalidateCache(options);
     return this.writeMatched(rows);
@@ -2161,11 +2402,15 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       throw new ValidationError(`${this.tableName}.restore requires a SoftDelete<'column'> declaration`);
     }
     const build = () =>
-      this.keyWhere(this.qb.updateTable(this.tableName).set({ [softDelete.column]: null }), id, 'restore');
+      this.keyWhere(
+        this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: null }),
+        id,
+        'restore',
+      );
     const query =
       TRAITS[this.dialect].family === 'mysql'
         ? this.compileWrite('restore', options, build, { excludedFilterNames: ['softDelete'] })
-        : this.compileWrite('restore', options, () => build().returning(this.keyColumns), {
+        : this.compileWrite('restore', options, () => build().returning(this.physicalKeyColumns), {
             excludedFilterNames: ['softDelete'],
           });
     const rows = await this.driver.execute(this.assertKeyed(query, 'restore'));
@@ -2267,11 +2512,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const issues: ValidationIssue[] = [];
     for (const key of Object.keys(obj)) {
       if (accepted.has(key)) continue;
-      // `hasOwn`, because `columns['constructor']` is not a column.
-      const column = Object.hasOwn(this.schema.columns, key) ? this.schema.columns[key] : undefined;
+      const column = this.schema.ir.columns.find(candidate => candidate.name === key);
       const message = !column
         ? `"${key}" is not a column of "${this.tableName}"`
-        : column.flags.autoIncrement
+        : column.serial
           ? `the database generates "${key}", so a payload cannot supply it`
           : `"${key}" identifies the row and cannot be patched`;
       issues.push({ path: `input.${key}`, message, expected: 'no excess properties', value: obj[key] });

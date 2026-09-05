@@ -5,6 +5,18 @@ import { OP_MAP, chunkArray, createQueryCompiler, distance, sanitizeKeys, stCont
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
 describe('postgres SELECT compilation', () => {
+  it('aliases a physical column back to its property name in the select list', () => {
+    const query = createQueryCompiler('postgres')
+      .selectFrom('user_accounts')
+      .select([{ column: 'created_at', alias: 'createdAt' }, 'id'])
+      .compile();
+
+    expect(query).toEqual({
+      text: 'SELECT "created_at" AS "createdAt", "id" FROM "user_accounts"',
+      parameters: [],
+    });
+  });
+
   it('compiles where + orderBy + limit', () => {
     const qb = createQueryCompiler('postgres');
     const q = qb.selectFrom('users').where('email', '=', 'a@b.com').orderBy('createdAt', 'desc').limit(10).compile();
@@ -68,6 +80,37 @@ describe('postgres SELECT compilation', () => {
   it('compile() is pure (twice → equal)', () => {
     const b = createQueryCompiler('postgres').selectFrom('users').where('id', '=', 1);
     expect(b.compile()).toEqual(b.compile());
+  });
+});
+
+describe('aliased write results', () => {
+  const returned = [{ column: 'created_at', alias: 'createdAt' }] as const;
+
+  it('aliases RETURNING columns for the Postgres family and SQLite', () => {
+    expect(
+      createQueryCompiler('postgres').insertInto('users').values({ created_at: 1 }).returning(returned).compile(),
+    ).toEqual({
+      text: 'INSERT INTO "users" ("created_at") VALUES ($1) RETURNING "created_at" AS "createdAt"',
+      parameters: [1],
+    });
+    expect(
+      createQueryCompiler('sqlite')
+        .updateTable('users')
+        .set({ created_at: 2 })
+        .where('id', '=', 1)
+        .returning(returned)
+        .compile(),
+    ).toEqual({
+      text: 'UPDATE "users" SET "created_at" = ? WHERE "id" = ? RETURNING "created_at" AS "createdAt"',
+      parameters: [2, 1],
+    });
+  });
+
+  it('aliases SQL Server OUTPUT columns', () => {
+    expect(createQueryCompiler('mssql').deleteFrom('users').where('id', '=', 1).returning(returned).compile()).toEqual({
+      text: 'DELETE FROM [users] OUTPUT DELETED.[created_at] AS [createdAt] WHERE [id] = @p1',
+      parameters: [1],
+    });
   });
 });
 

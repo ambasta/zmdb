@@ -441,15 +441,28 @@ export function schemaFromIR(ir: SchemaIR): CoreSchema<string> {
     ? ir
     : { ...ir, columns: normalizedColumns };
 
+  const physicalNames = new Map<string, string>();
+  for (const column of normalizedIr.columns) {
+    const previous = physicalNames.get(column.physicalName);
+    if (previous !== undefined) {
+      throw new Error(
+        `${normalizedIr.table}: \`${previous}\` and \`${column.name}\` both map to the column ` +
+          `\`${column.physicalName}\``,
+      );
+    }
+    physicalNames.set(column.physicalName, column.name);
+  }
+
+  const physicalByProperty = new Map(normalizedIr.columns.map(column => [column.name, column.physicalName]));
   const columns: Record<string, ColumnMeta> = {};
-  for (const col of normalizedIr.columns) columns[col.name] = columnMetaFromIR(col);
+  for (const col of normalizedIr.columns) columns[col.physicalName] = columnMetaFromIR(col);
 
   return {
-    table: normalizedIr.table,
+    table: normalizedIr.physicalTable,
     columns,
-    primaryKey: normalizedIr.primaryKey,
+    primaryKey: normalizedIr.primaryKey.map(column => physicalByProperty.get(column) ?? column),
     references: normalizedIr.columns.flatMap(col =>
-      col.references === undefined ? [] : [{ column: col.name, target: col.references }],
+      col.references === undefined ? [] : [{ column: col.physicalName, target: col.references }],
     ),
     ...(normalizedIr.ftsTable === undefined ? {} : { ftsTable: normalizedIr.ftsTable }),
     ir: normalizedIr,
