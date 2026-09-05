@@ -105,6 +105,10 @@ const MAY_READ = new Map([
       'SQLite declarations and refusals; it does not decide which application values a column admits.',
   ],
   [
+    'packages/query-compiler/src/migrations/runner.ts',
+    'the migration snapshot and diff boundary. Converts schema metadata and column flags into normalized snapshots and change operations.',
+  ],
+  [
     'packages/query-compiler/src/introspect/mysql.ts',
     'the reverse MySQL catalog boundary. Its input is external catalog text, so no declaration ' +
       'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
