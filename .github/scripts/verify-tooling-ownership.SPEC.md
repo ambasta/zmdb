@@ -11,14 +11,14 @@ The shipped/build-input source inventory is every file below `packages/{validato
 `packages/schema/src/ir/{validation-shape,vocabulary}.ts`, `packages/schema/src/naming/index.ts` and `packages/orm/src/outbox/sql.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in
 declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **210 paths**, each exactly once:
+The inventory has **211 paths**, each exactly once:
 
 ```json
 {
   "compiler": 34,
   "migrations": 21,
   "cli": 33,
-  "runtime": 31,
+  "runtime": 32,
   "facade": 53,
   "optional-integration": 0,
   "test-only": 38,
@@ -88,6 +88,7 @@ migrations	packages/migrations/src/operations/upgrade.ts
 migrations	packages/migrations/src/project.ts
 migrations	packages/migrations/src/runner.ts
 migrations	packages/migrations/src/testing.ts
+<<<<<<< HEAD
 cli	packages/cli/src/application-loader.ts
 cli	packages/cli/src/args.ts
 cli	packages/cli/src/atomic.ts
@@ -121,6 +122,7 @@ cli	packages/cli/src/templates/project.ts
 cli	packages/cli/src/templates/repository.ts
 cli	packages/cli/src/templates/schema.ts
 cli	packages/cli/src/templates/types.ts
+runtime	packages/validator/src/advanced/ast.ts
 runtime	packages/validator/src/advanced/index.ts
 runtime	packages/validator/src/errors.ts
 runtime	packages/validator/src/index.ts
