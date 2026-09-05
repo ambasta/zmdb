@@ -6,6 +6,7 @@ import { transformSync } from 'esbuild';
 import { describe, test } from 'vitest';
 
 import { PAGES } from '../docs-site/manifest.mjs';
+import { lenientParse, toolFromSchema } from '../packages/ai/src/index.ts';
 import { tags as aotTags, validate as aotValidate } from '../packages/aot-validator/src/index.ts';
 import {
   assertStringify,
@@ -54,7 +55,6 @@ import {
 } from '../packages/schema-core/src/dto/index.ts';
 import { getRegisteredSchema, isRecord, registeredSchemas, SchemaError } from '../packages/schema-core/src/index.ts';
 import { schemaFromIR, type ColumnIR, type SchemaIR } from '../packages/schema-core/src/ir/index.ts';
-import { lenientParse, toolFromSchema } from '../packages/schema-core/src/llm/index.ts';
 
 class LegacyColumnBuilder {
   meta: Record<string, unknown>;
