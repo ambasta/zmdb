@@ -6,6 +6,12 @@ interface Driver {
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 
+interface ExecuteOptions {
+  readonly signal?: AbortSignal;
+  /** Rows per client/server round trip. Drivers may clamp this value. */
+  readonly batchSize?: number;
+}
+
 interface CompiledQuery {
   readonly text: string;
   readonly parameters: readonly unknown[];
@@ -16,6 +22,11 @@ interface CompiledQuery {
   };
 }
 ```
+
+The options parameter and `stream` are both optional. A pre-existing
+`execute(query)` implementation still satisfies the interface. The repository
+checks `signal` before dispatch and again after `execute` settles; active
+server-side cancellation requires driver cooperation.
 
 zmdb never opens a connection, never pools, never retries and never parses a
 connection string. It hands you text and parameters and expects rows back. An
@@ -40,6 +51,62 @@ export const driver: Driver = {
 ```
 
 The spread on `query.parameters` is because it is `readonly unknown[]` and most clients want a mutable array.
+
+## Streaming and cancellation
+
+Implement `stream` only when the client can step or fetch rows without
+materialising the complete result. The method returns a plain `AsyncIterable`;
+the repository adds single-shot use and `AsyncDisposable`.
+
+A correct cursor implementation has four responsibilities:
+
+1. Acquire its connection lazily, when iteration starts.
+2. Fetch at most `batchSize` rows per round trip and yield only as the consumer
+   asks, so backpressure is real.
+3. Close the cursor and release the connection in `finally`, including when the
+   consumer breaks or throws.
+4. Check `signal` between batches and connect abort to the client's real
+   server-side cancellation primitive when one exists. Cancellation commonly
+   needs a second connection; rejecting only the JavaScript promise leaves the
+   database working.
+
+```ts
+stream(query, options) {
+  const batchSize = options?.batchSize ?? 100;
+  return {
+    async *[Symbol.asyncIterator]() {
+      const connection = await pool.connect();
+      const cursor = await openClientCursor(connection, query); // client-specific
+      try {
+        for (;;) {
+          options?.signal?.throwIfAborted();
+          const rows = await cursor.read(batchSize);
+          options?.signal?.throwIfAborted();
+          if (rows.length === 0) return;
+          yield* rows;
+        }
+      } finally {
+        try {
+          await cursor.close();
+        } finally {
+          connection.release();
+        }
+      }
+    },
+  };
+}
+```
+
+If a driver omits `stream`, `repo.stream()` calls `execute` once and yields the
+buffered array. That preserves compatibility but costs memory proportional to
+the whole result. `requireCursor: true` refuses the fallback. Do not advertise a
+`stream` method that secretly buffers; absence is the capability signal.
+
+For ordinary `execute`, check `signal.throwIfAborted()` before dispatch, attach
+the client's cancellation primitive while the query is active, remove that
+listener in `finally`, and reject with the exact `signal.reason`. See
+[Query Cancellation](./query-cancellation.html) and
+[Streaming](./streaming.html).
 
 ## Why the interface is this small
 

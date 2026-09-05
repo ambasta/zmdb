@@ -1,13 +1,7 @@
-> **ToDo / final docs pass.** `Driver.stream?` and `repo.stream()` provide the
-> async-iterable boundary. The bundled SQLite driver steps native statements,
-> and the Postgres driver uses a server cursor when given a `Pool`. Drivers
-> without that capability, including the bundled SQL Server adapter and a bare
-> Postgres `Client`, use the documented buffered fallback.
-
-The HTTP half also supports streams through
-[`WebResponse.body`](./web-streaming-files.html).
-
-## The repository surface
+`repo.stream()` returns a single-shot `AsyncIterable` and `AsyncDisposable`.
+Prefer `await using`: a started database cursor owns its connection until the
+iterator closes, and disposal covers paths that never reach another
+`iterator.next()`.
 
 ```ts
 await using rows = repo.stream(
@@ -23,10 +17,19 @@ for await (const row of rows) {
 }
 ```
 
-The stream is single-shot. `for await` closes it on `break` or a thrown error,
-and `await using` also covers a stream that was opened and then abandoned. Rows
-cross the same database-value decoder as `find`; the decoder is resolved once
-before iteration.
+`for await` closes the iterator on `break` or a thrown error. `await using`
+additionally closes a stream whose iterator was started and then handed to code
+that returns without finishing it. A stream that was never started acquires no
+connection. Manual iteration carries the corresponding manual responsibility:
+call `iterator.return()` when stopping early.
+
+Rows cross the same database-value decoder as `find`; the decoder is resolved
+once before iteration. Reads are not schema-validated on either path.
+
+The HTTP response layer also supports streams through
+[`WebResponse.body`](./web-streaming-files.html).
+
+## Driver capability and fallback
 
 If the driver has no `stream` method, the repository calls `execute` once and
 yields the buffered rows. The first fallback per driver is reported through
@@ -94,11 +97,12 @@ Other drivers can implement the same optional `Driver.stream` contract. When
 they do not, use `requireCursor: true` to refuse buffering or use keyset
 pagination as above.
 
-## What remains
+## Fallback limits
 
-The remaining gap is adapter coverage: SQL Server and third-party drivers
-without `stream` still buffer. Request abort wiring also remains explicit at
-the application boundary.
+The bundled SQL Server adapter and third-party drivers without `stream` still
+buffer. A bare Postgres `Client` also omits cursor streaming; pass a `Pool` so
+the adapter can own and release one checked-out connection. Request abort
+wiring remains explicit at the application boundary.
 
 ---
 

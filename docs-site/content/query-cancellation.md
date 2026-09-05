@@ -1,8 +1,7 @@
-> **ToDo / final docs pass.** Repository reads and `Driver.execute` accept an
-> `AbortSignal`. Already-aborted reads do not dispatch. The bundled Postgres
-> driver can cancel a running backend when configured with `cancelVia`; SQLite
-> observes abort between stepped rows, while drivers that ignore the option
-> remain advisory.
+Every repository read accepts an `AbortSignal`. Already-aborted reads do not
+compile or dispatch, and a later abort rejects with `signal.reason` once the
+driver settles. Whether it also stops active database work is a driver and
+dialect capability.
 
 ## Why it matters
 
@@ -69,6 +68,16 @@ compatible; the repository rejects after that driver's promise settles.
 `node:sqlite` exposes no `sqlite3_interrupt`. Its real stream checks the signal
 between rows and stops further stepping with the exact abort reason.
 
+## Per-dialect truth
+
+| Driver                               | Active abort behaviour                                                                                                                                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pgDriver(pool, { cancelVia })`      | Reads the busy backend pid and sends `pg_cancel_backend` over another connection. The same pool needs spare capacity, or `cancelVia` can be a separate pool.   |
+| `pgDriver(pool)` without `cancelVia` | Rejects before dispatch or after the current query/fetch settles. A stream stops fetching further batches, but an in-flight server statement is not cancelled. |
+| `sqliteDriver`                       | A stream stops between stepped rows. A synchronous statement already executing inside SQLite runs until that native step returns.                              |
+| `mssqlDriver`                        | Currently advisory: repository code stops waiting only after the node-mssql request settles. Pair it with a server/request timeout.                            |
+| Third-party MySQL driver             | Active cancellation requires `KILL QUERY <connection-id>` over a second connection. zmdb bundles no MySQL driver.                                              |
+
 ## Where the signal comes from
 
 `@zmdb/web`'s `Ctx` carries `params`, `body`, `query`, `headers`, `method`,
@@ -78,7 +87,7 @@ cancellation. If you are behind `node:http`, `req.on('aborted')` is available at
 the adapter; if you are behind `fetch`, `request.signal` is. Either way it has to
 be captured at the adapter and passed down explicitly.
 
-## What remains
+## Application wiring and adapter limits
 
 HTTP request cancellation remains explicit application wiring because `Ctx`
 and `WebRequest` do not carry a database signal. SQL Server and third-party

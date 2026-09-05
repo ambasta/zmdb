@@ -729,14 +729,12 @@ export const PAGE_META = {
   streaming: {
     title: 'Streaming Results',
     group: 'Data Access',
-    status: 'todo',
-    note: 'SQLite stepping and Postgres pool cursors ship; final cross-page documentation remains',
+    status: 'supported',
   },
   'query-cancellation': {
     title: 'Query Cancellation',
     group: 'Data Access',
-    status: 'todo',
-    note: 'Postgres out-of-band cancellation ships with cancelVia; final cross-page documentation remains',
+    status: 'supported',
   },
   serialization: {
     title: 'Serialization',

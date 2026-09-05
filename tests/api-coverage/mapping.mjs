@@ -390,12 +390,17 @@ export const kysely = {
   cancellation: [
     'rejects a pending read when its signal aborts',
     'asks the driver to cancel the server-side query on abort',
+    'cancels the server-side query on abort',
   ],
   'cancellation > *': [
     'rejects a pending read when its signal aborts',
     'asks the driver to cancel the server-side query on abort',
+    'cancels the server-side query on abort',
   ],
-  'async-dispose > *': 'closes the cursor when the consumer breaks early',
+  'async-dispose > *': [
+    'closes the cursor when the consumer breaks early',
+    'releases the connection when an iterator is abandoned',
+  ],
   'introspect > getSchemas': 'reads tables, columns, nullability and primary keys from a real sqlite database',
   'introspect > getTables': [
     'reads tables, columns, nullability and primary keys from a real sqlite database',
@@ -873,18 +878,24 @@ export const mikroOrm = {
     'validates every streamed row with the same validator as find',
     'buffers with a warning when the driver has no stream method',
     'streams real rows from node:sqlite',
+    'streams parameterised rows through a real PostgreSQL cursor',
+    'releases the connection when an iterator is abandoned',
   ],
   cancellation: [
     'rejects a pending read when its signal aborts',
     'asks the driver to cancel the server-side query on abort',
+    'cancels the server-side query on abort',
   ],
   'on-reserve-connection': [
     'closes the cursor when the consumer breaks early',
+    'releases the connection when an iterator is abandoned',
     'refuses to stream outside the transaction that owns the connection',
   ],
   'terminated-connection': [
     'asks the driver to cancel the server-side query on abort',
+    'cancels the server-side query on abort',
     'closes the cursor when the consumer breaks early',
+    'releases the connection when an iterator is abandoned',
   ],
   logging: oos(NO_QUERY_LOG, 'logging'),
   cli: 'emits machine-readable output under --json for every command',
