@@ -71,6 +71,7 @@ import {
   tailMethods,
   whereClause,
   type ComparisonPredicate,
+  type JoinCondition,
   type JoinKind,
   type JoinSpec,
   type Predicate,
@@ -105,7 +106,7 @@ export type {
   VectorColumnOf,
 } from './extensions/index.js';
 export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
-export type { FtsOptions, JoinKind };
+export type { FtsOptions, JoinCondition, JoinKind };
 
 export type Operator =
   | '='
