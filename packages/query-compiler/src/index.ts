@@ -219,17 +219,7 @@ export interface SelectItem {
   readonly raw?: string | undefined;
 }
 
-export type WhereClause =
-  | {
-      readonly kind?: 'comparison';
-      readonly col: string;
-      readonly op: Operator | string;
-      readonly value: unknown;
-      readonly connector?: 'AND' | 'OR' | undefined;
-      readonly isMatch?: boolean | undefined;
-    }
-  | SpatialPredicate
-  | PredicateGroup;
+export type WhereClause = (ComparisonPredicate & { readonly isMatch?: boolean }) | SpatialPredicate | PredicateGroup;
 
 export interface SelectState {
   readonly table: string;
@@ -237,7 +227,7 @@ export interface SelectState {
   readonly joins: readonly JoinSpec[];
   readonly wheres: readonly WhereClause[];
   readonly groups: readonly string[];
-  readonly havings: readonly WhereClause[];
+  readonly havings: readonly Predicate[];
   readonly orderBys: readonly { readonly col: string | DistanceExpression; readonly dir: Direction }[];
   readonly limitN?: number | undefined;
   readonly offsetN?: number | undefined;
@@ -410,28 +400,37 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
       } else {
         colsSql = state.items
           .map(it => {
-            if (it.kind === 'col') {
-              if (isAliasedColumn(it.col!)) {
-                return `${quoteColumn(d, it.col.column)} AS ${quoteIdentifier(d, it.col.alias)}`;
+            if (it.kind === 'col' && it.col !== undefined) {
+              const col = it.col;
+              if (isAliasedColumn(col)) {
+                return `${quoteColumn(d, col.column)} AS ${quoteIdentifier(d, col.alias)}`;
               }
-              if (typeof it.col === 'object' && it.col !== null && isAliasedDistanceExpression(it.col)) {
-                return renderAliasedDistanceExpression(d, it.col, params);
+              if (typeof col === 'object' && col !== null && isAliasedDistanceExpression(col)) {
+                return renderAliasedDistanceExpression(d, col, params);
               }
-              const colStr = it.col as string;
-              const m = /^(\S+)\s+as\s+(\S+)$/i.exec(colStr.trim());
-              if (m && m[1] && m[2]) return `${quoteColumn(d, m[1])} AS ${quoteIdentifier(d, m[2])}`;
-              if (state.joins.length > 0 && colStr.includes('.')) {
-                const prefix = colStr.slice(0, colStr.indexOf('.')).toLowerCase();
-                const { baseName, alias } = parseTableSpec(state.table);
-                if (prefix !== baseName.toLowerCase() && (!alias || prefix !== alias.toLowerCase())) {
-                  return `${quoteColumn(d, colStr)} AS ${quoteIdentifier(d, colStr)}`;
+              if (typeof col === 'string') {
+                const colStr = col;
+                const m = /^(\S+)\s+as\s+(\S+)$/i.exec(colStr.trim());
+                if (m && m[1] && m[2]) return `${quoteColumn(d, m[1])} AS ${quoteIdentifier(d, m[2])}`;
+                if (state.joins.length > 0 && colStr.includes('.')) {
+                  const prefix = colStr.slice(0, colStr.indexOf('.')).toLowerCase();
+                  const { baseName, alias } = parseTableSpec(state.table);
+                  if (prefix !== baseName.toLowerCase() && (!alias || prefix !== alias.toLowerCase())) {
+                    return `${quoteColumn(d, colStr)} AS ${quoteIdentifier(d, colStr)}`;
+                  }
                 }
+                return quoteColumn(d, colStr);
               }
-              return quoteColumn(d, colStr);
             }
-            if (it.kind === 'agg')
-              return `${it.fn}(${quoteColumn(d, it.col as string)}) AS ${quoteIdentifier(d, it.alias!)}`;
-            return `${it.raw} AS ${quoteIdentifier(d, it.alias!)}`;
+            if (it.kind === 'agg' && typeof it.col === 'string') {
+              const alias = it.alias ?? '';
+              return `${it.fn}(${quoteColumn(d, it.col)}) AS ${quoteIdentifier(d, alias)}`;
+            }
+            if (it.kind === 'expr' && typeof it.raw === 'string') {
+              const alias = it.alias ?? '';
+              return `${it.raw} AS ${quoteIdentifier(d, alias)}`;
+            }
+            return '';
           })
           .join(', ');
       }
@@ -489,7 +488,7 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
               cond = `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
             }
           } else {
-            cond = renderPredicate(d, p as Predicate, params);
+            cond = renderPredicate(d, p, params);
           }
           const connector = p.connector ?? 'AND';
           return i === 0 ? cond : `${connector} ${cond}`;
@@ -502,7 +501,7 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
         state.groups.length > 0 ? ` GROUP BY ${state.groups.map(c => quoteColumn(d, c)).join(', ')}` : '';
 
       // 5. HAVING clause
-      const havingSql = havingClause(d, state.havings as readonly ComparisonPredicate[], params);
+      const havingSql = havingClause(d, state.havings, params);
 
       // 6. ORDER BY / LIMIT / OFFSET
       let orderBySql = '';
@@ -511,7 +510,7 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
           .map(order => {
             const expression = isDistanceExpression(order.col)
               ? renderDistanceExpression(d, order.col, params)
-              : quoteColumn(d, order.col as string);
+              : quoteColumn(d, order.col);
             return `${expression} ${order.dir.toUpperCase()}`;
           })
           .join(', ')}`;
