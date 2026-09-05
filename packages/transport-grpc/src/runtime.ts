@@ -1,5 +1,3 @@
-import { once } from 'node:events';
-
 import {
   Client,
   Metadata,
@@ -57,8 +55,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -67,6 +65,7 @@ interface WritableResponseCall extends ServerCallSurface {
   destroy(error: Error): void;
   once(event: 'drain', listener: () => void): this;
   removeListener(event: 'drain', listener: () => void): this;
+  readonly writableNeedDrain?: boolean;
 }
 
 interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
@@ -375,45 +374,64 @@ async function runBidi<S extends GrpcServiceDef>(
   }
 }
 
-function requestValue(decoded: DecodedRequest): unknown {
-  if (!decoded.ok) {
-    throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
+function isDecodedRequest(val: unknown): val is DecodedRequest {
+  return typeof val === 'object' && val !== null && 'ok' in val;
+}
+
+function requestValue(decoded: unknown): unknown {
+  if (isDecodedRequest(decoded)) {
+    if (!decoded.ok) {
+      throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
+    }
+    return decoded.value;
   }
-  return decoded.value;
+  throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
+  const queue: unknown[] = [];
+  let resolveNext: (() => void) | undefined;
+  let done = false;
+  let error: unknown;
+
+  const onData = (data: unknown): void => {
+    queue.push(data);
+    resolveNext?.();
+  };
+  const onEnd = (): void => {
+    done = true;
+    resolveNext?.();
+  };
+  const onError = (err: unknown): void => {
+    error = err;
+    resolveNext?.();
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
   try {
     for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
+      if (queue.length === 0) {
+        if (done) break;
+        if (scope.signal.aborted) throw scope.reason();
+        await new Promise<void>((resolve, reject) => {
+          resolveNext = resolve;
+          const onAbort = (): void => reject(scope.reason());
+          scope.signal.addEventListener('abort', onAbort, { once: true });
+        });
+      }
+      if (error) throw error;
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (item !== undefined) yield requestValue(item);
+      }
     }
   } finally {
-    await iterator.return?.();
-  }
-}
-
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
-  try {
-    return await Promise.race([iterator.next(), aborted]);
-  } finally {
-    removeAbort();
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
   }
 }
 
@@ -426,7 +444,7 @@ async function writeResponses(
   for await (const response of responses) {
     if (scope.signal.aborted) throw scope.reason();
     const valid = method.validateResponse(response);
-    if (!call.write(valid)) {
+    if (!call.write(valid) && call.writableNeedDrain === true) {
       await waitForDrain(call, scope);
     }
   }
@@ -835,7 +853,12 @@ async function pumpRequests(
 ): Promise<void> {
   for await (const request of requests) {
     const valid = method.validateRequest(request);
-    if (!call.write(valid)) await once(call, 'drain');
+    await new Promise<void>((resolve, reject) => {
+      call.write(valid, (error: unknown) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
   }
   call.end();
 }
