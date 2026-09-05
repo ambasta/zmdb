@@ -478,7 +478,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
     }
   }
 
-  let currentBuilder: B = builder;
+  let currentBuilder: WhereTarget = builder;
   const k = orderBy.length;
   const state = { firstCallInBranch: false };
 
@@ -497,9 +497,9 @@ export function applyKeysetFilter<B extends WhereTarget>(
           const resolvedCol = resolveColumn(col);
           if (state.firstCallInBranch) {
             state.firstCallInBranch = false;
-            currentBuilder = currentBuilder.orWhere(resolvedCol, op, value) as B;
+            currentBuilder = currentBuilder.orWhere(resolvedCol, op, value);
           } else {
-            currentBuilder = currentBuilder.where(resolvedCol, op, value) as B;
+            currentBuilder = currentBuilder.where(resolvedCol, op, value);
           }
           return this;
         },
@@ -510,10 +510,10 @@ export function applyKeysetFilter<B extends WhereTarget>(
           if (state.firstCallInBranch) {
             state.firstCallInBranch = false;
             if (!currentBuilder.orWhereGroup) throw new Error('keyset filters require predicate-group support');
-            currentBuilder = currentBuilder.orWhereGroup(predicates) as B;
+            currentBuilder = currentBuilder.orWhereGroup(predicates);
           } else {
             if (!currentBuilder.whereGroup) throw new Error('keyset filters require predicate-group support');
-            currentBuilder = currentBuilder.whereGroup(predicates) as B;
+            currentBuilder = currentBuilder.whereGroup(predicates);
           }
           return this;
         },
@@ -533,9 +533,9 @@ export function applyKeysetFilter<B extends WhereTarget>(
       const col = resolveColumn(String(itemJ.column));
       if (state.firstCallInBranch) {
         state.firstCallInBranch = false;
-        currentBuilder = currentBuilder.orWhere(col, '=', cursorValues[String(itemJ.column)]) as B;
+        currentBuilder = currentBuilder.orWhere(col, '=', cursorValues[String(itemJ.column)]);
       } else {
-        currentBuilder = currentBuilder.where(col, '=', cursorValues[String(itemJ.column)]) as B;
+        currentBuilder = currentBuilder.where(col, '=', cursorValues[String(itemJ.column)]);
       }
     }
 
@@ -544,13 +544,14 @@ export function applyKeysetFilter<B extends WhereTarget>(
     const op = dir === 'desc' ? '<' : '>';
     if (state.firstCallInBranch) {
       state.firstCallInBranch = false;
-      currentBuilder = currentBuilder.orWhere(curCol, op, cursorValues[String(itemI.column)]) as B;
+      currentBuilder = currentBuilder.orWhere(curCol, op, cursorValues[String(itemI.column)]);
     } else {
-      currentBuilder = currentBuilder.where(curCol, op, cursorValues[String(itemI.column)]) as B;
+      currentBuilder = currentBuilder.where(curCol, op, cursorValues[String(itemI.column)]);
     }
   }
 
-  return currentBuilder;
+  // boundary: WhereTarget methods mutate and return the input query builder instance B
+  return currentBuilder as B;
 }
 
 export function applyPagination<B extends OrderTarget>(builder: B, page: PaginationSpec | undefined): B {
