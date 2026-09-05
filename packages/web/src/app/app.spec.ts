@@ -1,3 +1,4 @@
+import { createToken } from '@zmdb/app/di';
 import {
   EventPattern,
   MessagePattern,
@@ -186,6 +187,35 @@ describe('@zmdb/web app: createApp', () => {
     await app[Symbol.asyncDispose]();
 
     expect(checks).toEqual([true, false]);
+  });
+
+  it('runs lifecycle hooks on non-controller providers', async () => {
+    const providerOrder: string[] = [];
+
+    class CacheService implements OnModuleInit, OnApplicationBootstrap, OnShutdown {
+      onModuleInit() {
+        providerOrder.push('cache:init');
+      }
+      onApplicationBootstrap() {
+        providerOrder.push('cache:bootstrap');
+      }
+      onShutdown() {
+        providerOrder.push('cache:shutdown');
+      }
+    }
+
+    const CacheToken = createToken<CacheService>('Cache');
+
+    @Module({
+      providers: [{ token: CacheToken, useValue: new CacheService() }],
+    })
+    class ProviderAppModule {}
+
+    await using app = createApp(ProviderAppModule);
+    await app.init();
+    expect(providerOrder).toEqual(['cache:init', 'cache:bootstrap']);
+    await app[Symbol.asyncDispose]();
+    expect(providerOrder).toEqual(['cache:init', 'cache:bootstrap', 'cache:shutdown']);
   });
 });
 
