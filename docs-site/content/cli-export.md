@@ -1,12 +1,19 @@
-> **ToDo / documentation gap.** `zmdb export` ships in the published binary.
-> The final full command reference and captured transcript remain for the CLI
-> documentation slice.
-
 ## Printing the full schema
 
 ```bash
 npx zmdb export > schema.sql
 ```
+
+Without redirection, the measured SQLite fixture printed:
+
+```text
+$ npx zmdb export
+-- zmdb config: /workspace/shop/zmdb.config.ts
+CREATE TABLE "users" ("email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY);
+```
+
+Only the temporary directory was shortened. The config comment is valid SQL,
+so the same bytes can be redirected unchanged.
 
 The command loads [the project config](./config-file.html), reflects its
 exported tagged tables, snapshots them, diffs from an empty snapshot, and emits

@@ -1,7 +1,3 @@
-> **ToDo / documentation gap.** `up` is deliberately not an executable command.
-> `migrate` applies database migrations; `upgrade` handles the stored snapshot
-> format. The documentation slice still owes the final upgrade transcript.
-
 ## Applying migrations
 
 Use the packaged command:
@@ -51,6 +47,19 @@ Snapshot format version 1 is the only format this build knows. Running
 mtime. A snapshot from a newer build is an invocation error rather than an
 attempted downgrade. No older snapshot shape is frozen yet, so this build does
 not invent a conversion for one.
+
+The current-format fixture and the deliberately refused alias produced:
+
+```text
+$ npx zmdb upgrade
+/workspace/shop/zmdb.config.ts
+snapshot is already at version 1
+
+$ npx zmdb up
+zmdb up: `up` is not a command; use `migrate` to apply migrations or `upgrade` to rewrite a stored snapshot
+$ echo $?
+2
+```
 
 ---
 

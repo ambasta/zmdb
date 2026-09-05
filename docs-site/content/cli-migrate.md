@@ -1,6 +1,3 @@
-> **ToDo / documentation gap.** `migrate`, `rollback`, and `status` ship. The
-> documentation slice still owes final packaged-command transcripts.
-
 ## Applying migrations
 
 ```bash
@@ -8,6 +5,31 @@ npx zmdb migrate
 npx zmdb status
 npx zmdb rollback
 npx zmdb rollback --to 20260904010101
+```
+
+This SQLite transcript was captured through the package bin; only its
+temporary directory was shortened to `/workspace/shop`:
+
+```text
+$ npx zmdb status
+/workspace/shop/zmdb.config.ts
+[ ] 20260905012413 initial
+
+$ npx zmdb migrate
+/workspace/shop/zmdb.config.ts
+apply 20260905012413 initial
+CREATE TABLE "users" ("email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY);
+applied 20260905012413
+
+$ npx zmdb migrate
+/workspace/shop/zmdb.config.ts
+nothing to apply; 0 pending migrations
+
+$ npx zmdb rollback
+/workspace/shop/zmdb.config.ts
+revert 20260905012413 initial
+DROP TABLE "users";
+reverted 20260905012413
 ```
 
 Each command loads `zmdb.config.ts`, opens its `driver` thunk, and reads the

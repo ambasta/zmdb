@@ -1,8 +1,3 @@
-> **ToDo / documentation gap.** The published `zmdb` executable exposes
-> `generate`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`,
-> `export`, `pull`, `modules`, `repl`, `studio`, and `new` scaffolding. The
-> final command transcripts remain.
-
 The schema commands are thin packaged wrappers over the public reflection,
 snapshot, diff, introspection, DDL, migration-runner, catalog-reader, and
 declaration-emitter APIs.
@@ -39,7 +34,35 @@ against its loopback index by publish verification.
 ## A single entry point
 
 The installed binary owns config discovery, help, JSON output, stream
-separation, and exit codes:
+separation, and exit codes. This help transcript was captured from the package
+bin against the repository's SQLite fixture:
+
+```text
+$ npx zmdb --help
+zmdb — schema and application developer tools.
+
+Usage:
+  zmdb <command> [options]
+
+Commands:
+  generate   Create a migration and update the stored snapshot.
+  migrate    Apply pending migrations.
+  rollback   Revert the latest migration or roll back to a version.
+  status     List migration versions and their applied state.
+  push       Apply declaration changes directly to a development database.
+  check      Report schema, migration and snapshot findings.
+  upgrade    Upgrade the stored snapshot format without touching a database.
+  export     Print the declaration set as dialect DDL.
+  pull       Write declarations from a live database catalogue.
+  new        Create a formatter-clean project or application component.
+  modules    Describe application declarations without constructing providers.
+  repl       Boot an application into a local interactive session.
+  studio     Browse configured tables through a read-only loopback server.
+
+Run `zmdb <command> --help` for command-specific options.
+```
+
+The database workflow uses that one entry point:
 
 ```bash
 npx zmdb generate --name add_slug
@@ -55,9 +78,17 @@ Scaffolding instead accepts `--package <name-or-path>` and `--dry-run` and does
 not load database config. Add `--json` when a script needs the stable
 `CliResult` envelope instead of human output.
 
-## What remains
+## Exit codes and streams
 
-- **The final documentation transcripts** for the commands that now ship.
+| Exit | Meaning                                                                   |
+| ---- | ------------------------------------------------------------------------- |
+| `0`  | The command completed and found no requested check failure.               |
+| `1`  | Work ran, but an operation failed or a check found drift.                 |
+| `2`  | The invocation, config, safety confirmation, or command name was invalid. |
+
+Human progress goes to stdout. Under `--json`, stdout is one `CliResult`
+document and progress or warnings move to stderr, so a caller can parse stdout
+without filtering log lines.
 
 ---
 

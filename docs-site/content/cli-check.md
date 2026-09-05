@@ -1,6 +1,3 @@
-> **ToDo / documentation gap.** `check` ships. The documentation slice still
-> owes the final CI transcript and the future embedded-migration check.
-
 ## Run it in CI
 
 ```bash
@@ -17,6 +14,14 @@ Exit codes keep invocation failures separate from findings:
 Under `--json`, stdout is one `CliResult` document. Finding kinds belong in the
 payload rather than in additional exit codes.
 
+The clean SQLite fixture produced:
+
+```text
+$ npx zmdb check
+/workspace/shop/zmdb.config.ts
+check passed
+```
+
 ## Findings
 
 The command currently reports:
@@ -30,6 +35,17 @@ The command currently reports:
 The file and declaration checks need no database. Live drift runs only when the
 config has a `driver`; otherwise the JSON result and human output report that
 check as skipped rather than calling it clean.
+
+After adding one database-only column, the same measured fixture returned one
+JSON document and exit 1. The temporary directory is shortened here:
+
+```text
+$ npx zmdb check --json
+/workspace/shop/zmdb.config.ts
+{"ok":false,"command":"check","config":"/workspace/shop/zmdb.config.ts","result":{"findings":[{"kind":"drift","message":"live database differs from the stored snapshot: 1 database-only and 1 declaration-only operations","subject":"/workspace/shop/zmdb.config.ts"}],"skipped":[]}}
+$ echo $?
+1
+```
 
 ```yaml
 - run: npx zmdb check --json

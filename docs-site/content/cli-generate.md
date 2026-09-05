@@ -1,7 +1,3 @@
-> **ToDo / documentation gap.** `zmdb generate` ships in the published binary.
-> The final full command reference and captured transcript remain for the CLI
-> documentation slice.
-
 ## What generation does
 
 Compare the committed snapshot against your schema objects, and write the SQL that closes the gap:
@@ -24,6 +20,19 @@ The command loads [the project config](./config-file.html), reflects every
 exported tagged table in its concrete schema file set, then passes the resulting
 schemas through the existing `snapshot()`, `diff()`, `emitUp()`, and
 `emitDown()` libraries.
+
+This transcript was captured from the SQLite fixture; only its temporary
+directory was shortened to `/workspace/shop`:
+
+```text
+$ npx zmdb generate --name initial
+/workspace/shop/zmdb.config.ts
+wrote /workspace/shop/migrations/20260905012413_initial.sql (1 operations)
+
+$ npx zmdb generate --name ignored
+/workspace/shop/zmdb.config.ts
+no changes; no migration written
+```
 
 The generated name is `<YYYYMMDDHHMMSS>_<slug>.sql` in UTC. `--name` supplies
 the slug; without it, the command derives one from a single operation or uses

@@ -1,8 +1,3 @@
-> **ToDo / documentation gap.** `zmdb pull` reads PostgreSQL, MySQL and SQLite
-> catalogs through the configured driver and writes deterministic
-> formatter-clean TypeScript declarations. This page remains TODO until the
-> final CLI reference and measured command transcript land.
-
 ## Generate staging declarations
 
 `zmdb pull` writes the emitter's table files and barrel under
@@ -16,6 +11,19 @@ generated file is missing, differs from the live database, or has lost its
 generated header. Both forms use the same catalog read and emitter as a normal
 run. Emitter warnings are printed as `WARNING` lines; with `--json`, the single
 result document stays on stdout and warnings go to stderr.
+
+The SQLite fixture produced this staging run and clean CI check. Only its
+temporary directory was shortened to `/workspace/shop`:
+
+```text
+$ npx zmdb pull
+/workspace/shop/zmdb.config.ts
+wrote .zmdb/introspected/users.ts
+wrote .zmdb/introspected/index.ts
+
+$ npx zmdb pull --check --json
+{"ok":true,"command":"pull","config":"/workspace/shop/zmdb.config.ts","result":{"files":[{"path":".zmdb/introspected/users.ts","tables":["users"]}],"skipped":[]}}
+```
 
 ## Read the catalog and emit declarations today
 

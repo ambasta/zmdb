@@ -36,6 +36,22 @@ The shipped `generate`, `migrate`, `rollback`, `status`, `push`, `check`,
 `upgrade`, `export`, and `pull` commands consume this loader. `up` is deliberately
 refused because it is ambiguous between migration application and snapshot upgrade.
 
+## The resolved path is observable
+
+Commands print the absolute selected config before human-readable database
+work. This transcript came from the SQLite fixture; only its temporary
+directory was shortened to `/workspace/shop`:
+
+```text
+$ npx zmdb check
+/workspace/shop/zmdb.config.ts
+check passed
+```
+
+Under `--json`, the same path is the top-level `config` value. An explicit
+`--config` path and a discovered path therefore have the same observable
+result after resolution.
+
 ## Fields
 
 | Field               | Type                                           | Default            | Resolution                            |

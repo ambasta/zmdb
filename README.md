@@ -27,7 +27,7 @@
 > The current suite has **2,452 passing tests** across 218 files, plus **69
 > expected failures** that describe work still to be done. The compatibility
 > inventory covers 504 of 742 upstream API suites and explains why the other 238
-> are out of scope. The documentation site contains 228 supported pages, 35 TODO
+> are out of scope. The documentation site contains 236 supported pages, 27 TODO
 > pages, and 13 pages for features we do not plan to add.
 
 ## Quick Start
@@ -36,6 +36,14 @@ The `zmdb` package re-exports the whole project:
 
 ```bash
 npm add zmdb@alpha
+```
+
+With tagged table declarations and `zmdb.config.ts` in place, generate and
+apply the reviewed migration through the packaged CLI:
+
+```bash
+npx zmdb generate --name initial
+npx zmdb migrate
 ```
 
 ```typescript

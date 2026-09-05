@@ -818,8 +818,7 @@ export const PAGE_META = {
   'cli-overview': {
     title: 'CLI Overview',
     group: 'CLI',
-    status: 'todo',
-    note: 'all database commands and the installed Studio ship; final transcripts remain',
+    status: 'supported',
   },
   'config-file': {
     title: 'Config File',
@@ -834,44 +833,37 @@ export const PAGE_META = {
   'cli-generate': {
     title: 'generate',
     group: 'CLI',
-    status: 'todo',
-    note: 'generate ships; the final CLI reference and transcript remain for the documentation slice',
+    status: 'supported',
   },
   'cli-migrate': {
     title: 'migrate',
     group: 'CLI',
-    status: 'todo',
-    note: 'migrate, rollback and status ship; the final command transcript remains for the documentation slice',
+    status: 'supported',
   },
   'cli-push': {
     title: 'push',
     group: 'CLI',
-    status: 'todo',
-    note: 'push ships with live diffing and destructive guards; the final command transcript remains',
+    status: 'supported',
   },
   'cli-pull': {
     title: 'pull (introspect)',
     group: 'CLI',
-    status: 'todo',
-    note: 'pull ships; the final CLI reference and transcript remain for the documentation slice',
+    status: 'supported',
   },
   'cli-check': {
     title: 'check',
     group: 'CLI',
-    status: 'todo',
-    note: 'check ships; the final CI transcript and embedded-migration coverage remain',
+    status: 'supported',
   },
   'cli-up': {
     title: 'up',
     group: 'CLI',
-    status: 'todo',
-    note: 'upgrade ships and up is deliberately refused; the final snapshot-upgrade transcript remains',
+    status: 'supported',
   },
   'cli-export': {
     title: 'export',
     group: 'CLI',
-    status: 'todo',
-    note: 'export ships; the final CLI reference and transcript remain for the documentation slice',
+    status: 'supported',
   },
   'cli-studio': {
     title: 'studio',

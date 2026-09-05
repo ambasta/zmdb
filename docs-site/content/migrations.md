@@ -1,5 +1,27 @@
 Migrations manage schema evolution over time. zmdb provides snapshot and diff utilities that compare your in-code schema definitions against the live database, generating the DDL needed to align them.
 
+## The packaged workflow
+
+Most projects should use the CLI so config discovery, atomic files, checksums,
+exit codes, and driver cleanup stay uniform:
+
+```bash
+npx zmdb generate --name add_slug
+git diff -- migrations/
+npx zmdb migrate
+npx zmdb status
+npx zmdb check
+```
+
+`generate` writes one reviewed up/down SQL file plus `snapshot.json`. `migrate`
+applies pending versions and records their checksums; `status` shows the ledger;
+`check` reports uncommitted schema, malformed history, and optional live drift.
+See the [CLI overview](./cli-overview.html) for the complete command and exit
+contract.
+
+Use the library sections below when an application owns snapshots or migration
+arrays in memory rather than files on disk.
+
 ## Taking a Snapshot
 
 Capture the current state of your schemas:
