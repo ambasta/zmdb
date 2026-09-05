@@ -329,6 +329,7 @@ SQL-first, dialect-aware query compiler with catalog introspection, declaration 
   - `CompiledQuery`
   - `DIALECT_PARAM_LIMITS`
   - `Dialect`
+  - `InvalidOperatorError`
   - `SetValue`
   - `UnsupportedFeatureError`
   - `appendComment`

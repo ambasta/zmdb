@@ -42,6 +42,7 @@ export {
   not,
   proposed,
   UnsupportedFeatureError,
+  InvalidOperatorError,
   sanitizeKeys,
   chunkArray,
   DIALECT_PARAM_LIMITS,
