@@ -211,6 +211,7 @@ describe('compilePopulate', () => {
         'AND ("users"."active" = $1 OR "users"."role" = $2)',
     );
     expect(q.parameters).toEqual([true, 'admin']);
+  });
 
   it('compiles a many-to-many relation as a two-pass lookup (pivot and target queries)', () => {
     const q = compilePopulate(UserSchema.ir, 'tags', 'postgres', [10, 20]);

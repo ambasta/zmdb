@@ -1373,16 +1373,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const chunks = chunkArray(ids, limit);
     const rows: Record<string, unknown>[] = [];
     for (const chunk of chunks) {
-      const query = this.compileRead(
-        'populate',
-        options,
-        () => this.qb.selectFrom(table).whereIn(column, chunk),
-        {
-          table,
-          qualifyColumns: true,
-          ...(filters === undefined ? {} : { resolvedFilters: filters }),
-        },
-      );
+      const query = this.compileRead('populate', options, () => this.qb.selectFrom(table).whereIn(column, chunk), {
+        table,
+        qualifyColumns: true,
+        ...(filters === undefined ? {} : { resolvedFilters: filters }),
+      });
       const res = await this.executeRead(query, options?.signal);
       rows.push(...res);
     }
