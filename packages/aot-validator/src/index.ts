@@ -7,10 +7,15 @@
 // `./plugin` and `./transformer` subpaths, which are build-time by contract;
 // `.github/scripts/verify-exports.mjs` enforces the split.
 
-import { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
+import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
 
 export { AssertError, failWith } from './errors.js';
-export { ValidationError, getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
+export {
+  ValidationError,
+  getCachedRegExp,
+  getCachedRegExp as getRegExp,
+  validatePatternComplexity,
+} from './regex-complexity.js';
 
 export interface Rule {
   readonly kind: string;
@@ -50,25 +55,6 @@ export const tags = {
 } as const;
 
 // Caches for zero-allocation fallback validation.
-const regexCache = new Map<string, RegExp>();
-export function getRegExp(pattern: string): RegExp {
-  let re = regexCache.get(pattern);
-  if (re) {
-    regexCache.delete(pattern);
-    regexCache.set(pattern, re);
-    return re;
-  }
-  if (regexCache.size >= MAX_REGEX_CACHE_SIZE) {
-    const oldestKey = regexCache.keys().next().value;
-    if (oldestKey !== undefined) {
-      regexCache.delete(oldestKey);
-    }
-  }
-  re = new RegExp(pattern);
-  regexCache.set(pattern, re);
-  return re;
-}
-
 const enumSetCache = new WeakMap<readonly unknown[], Set<unknown>>();
 export function getEnumSet(values: readonly unknown[]): Set<unknown> {
   let set = enumSetCache.get(values);
