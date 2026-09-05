@@ -263,6 +263,29 @@ credential, TypeIR walker, or workspace path. Optional UI adapters remain the se
 
 The complete contract is [`packages/web/src/contract/SPEC.md`](./packages/web/src/contract/SPEC.md) and [`packages/client/SPEC.md`](./packages/client/SPEC.md).
 
+### 3.6 Frozen client-framework adapter target
+
+Issue #688 freezes the optional UI and meta-framework package boundary for epic #687. An integration earns a package only when it owns framework-native lifecycle, DI/context, SSR isolation, hydration
+or server/browser export behaviour that cannot be expressed as a short recipe over the generated client. A wrapper that only calls a client factory remains documentation.
+
+The target graph is one-way:
+
+```text
+@zmdb/client
+├── @zmdb/react ── @zmdb/react-native, @zmdb/next
+├── @zmdb/angular
+├── @zmdb/vue ──── @zmdb/nuxt
+├── @zmdb/svelte ─ @zmdb/sveltekit
+└── @zmdb/solid
+```
+
+Framework runtimes are required peers of their adapter package. The default `zmdb` package neither depends on nor re-exports these optional packages: one cohesive client contract and documentation
+journey does not justify installing every framework peer. Server/client exports remain physically separate in meta-framework packages, imports perform no I/O or global registration, and a packed
+consumer must prove the qualifying framework behaviour before the package ships.
+
+The complete qualification rule, cancellation/state semantics, peer ranges, export map and nine-package matrix are frozen in
+[`packages/zmdb/src/client-integrations/SPEC.md`](./packages/zmdb/src/client-integrations/SPEC.md).
+
 ---
 
 ## 4. Implementation-language policy
