@@ -20,7 +20,7 @@
 
 > Status legend: ✅ complete. 🚧 in progress. 🔜 planned.
 >
-> The current suite has **2,673 passing tests** across 235 files, plus **75 expected failures** that describe work still to be done. The compatibility inventory covers 504 of 742 upstream API suites
+> The current suite has **2,679 passing tests** across 238 files, plus **82 expected failures** that describe work still to be done. The compatibility inventory covers 504 of 742 upstream API suites
 > and explains why the other 238 are out of scope. The documentation site contains 261 supported pages, 3 TODO pages, and 13 pages for features we do not plan to add.
 
 ## Quick Start

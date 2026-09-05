@@ -34,6 +34,7 @@
     "verify:api-coverage": "node .github/scripts/verify-api-coverage.mjs",
     "verify:bench": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-bench-results.mjs",
     "verify:build-budget": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-build-budget.mjs",
+    "verify:database-boundaries": "node .github/scripts/verify-database-boundaries.mjs && node .github/scripts/verify-database-boundaries.mjs --self-test",
     "verify:devtools-boundary": "node .github/scripts/verify-devtools-boundary.mjs",
     "verify:docs-coverage": "node .github/scripts/verify-docs-coverage.mjs",
     "verify:escape-hatches": "node .github/scripts/verify-escape-hatches.mjs",
