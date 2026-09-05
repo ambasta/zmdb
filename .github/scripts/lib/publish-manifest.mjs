@@ -16,6 +16,7 @@ export const PACKAGES = [
   'client',
   'query-compiler',
   'schema-core',
+  'ai',
   'protobuf',
   'aot-validator',
   'repository',

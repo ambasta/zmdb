@@ -34,6 +34,8 @@
 // An `unsupported` node is a build error, never a guess (plan D4). The walk records a
 // diagnostic and returns `undefined`, and the transformer leaves that call site alone.
 
+import type { ToolProvider } from '@zmdb/ai';
+import { toolSchemaForProvider, ToolSpecRefusalError } from '@zmdb/ai/compiler';
 import {
   jsonSchemaFromShape,
   schemaFromIR,
@@ -48,7 +50,6 @@ import {
   type TypeIR,
   type UnionIR,
 } from '@zmdb/schema-core/ir';
-import { toolSchemaForProvider, ToolSpecRefusalError, type ToolProvider } from '@zmdb/schema-core/llm';
 
 import { emitProtoDecoder } from '../protobuf/decode.js';
 import { emitGrpcDescriptor, emitProtoDescriptor } from '../protobuf/descriptor.js';

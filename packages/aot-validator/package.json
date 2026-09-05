@@ -57,6 +57,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@zmdb/ai": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {

@@ -1,7 +1,17 @@
 # @zmdb/ai — ownership, dependency and entry-point specification
 
-> **Status:** target-state specification for issue #703 and epic #702. This issue changes specifications only. Until the implementation children land, the implementation remains under
-> `packages/schema-core/src/llm/`.
+> **Status:** target-state specification frozen by issue #703 and epic #702, with the first green migration stage implemented by #705. `@zmdb/ai` is now publishable and independently importable; its
+> root, chat, HTTP, and compiler entries are migration-only AI-to-schema-core forwarders, while the merged tool runtime is physically owned here. The remaining integration and MCP moves precede the
+> one coordinated ownership cutover required by §8.
+
+### Current migration state after #705
+
+- `@zmdb/ai`, `/chat`, `/compiler`, `/http`, and `/tool-runtime` are explicit package exports.
+- The package has one runtime dependency, `@zmdb/schema-core`, and no external dependency or peer.
+- Provider-neutral runtime and type tests execute from `packages/ai/src`.
+- AOT `toolFor` imports and generated OpenAPI modules name the new package.
+- Schema-core does not import or forward to AI; its old implementation remains the temporary source behind the permitted new-to-old forwarders.
+- Measured in the #705 worktree, `packages/ai/src` contains 16 files and the temporary `packages/schema-core/src/llm` tree contains 22.
 
 ## 1. Measured starting point
 

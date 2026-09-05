@@ -1,7 +1,7 @@
 # SPEC — the chat loop, the tool registry, and its bounds (frozen)
 
-Part of `@zmdb/schema-core`, exported from the existing `./llm` subpath and the direct `./llm/chat` subpath. A driver-shaped chat loop over a registry of tools, with every bound and every approval
-point in the type. `../SPEC.md` freezes the tool document; `../adapters/SPEC.md` freezes the framework framings; this freezes the loop that calls them.
+Part of `@zmdb/ai`, exported from `@zmdb/ai/chat`. A provider-neutral, driver-shaped chat loop over a registry of tools, with every bound and every approval point in the type. `../SPEC.md` freezes the
+tool document; this file freezes the loop that calls it.
 
 The reason this file is written before any code: an unbounded loop over effectful tools is the one failure in this epic whose consequence is not a wrong answer but a changed database. Every decision
 below is made in the direction of "the unsafe thing must be written out explicitly", and where a default exists it is the restrictive one.
@@ -28,8 +28,7 @@ export interface ToolCall {
 ```
 
 **The rename is not cosmetic.** `docs-site/content/llm-chat.md` and `llm-strategy.md` both declare `interface Message extends Table<'messages'>` as the canonical example, and that is the shape a
-reader has in their own project. A type named `Message` exported from `@zmdb/schema-core/llm` would collide in precisely the file where both are used — the controller that stores a turn and runs a
-loop.
+reader has in their own project. A type named `Message` exported from `@zmdb/ai/chat` would collide in precisely the file where both are used — the controller that stores a turn and runs a loop.
 
 So the wire type is `ChatMessage`, the stored row stays the reader's `Message`, and the two are related by a mapping the application writes, because a stored row has a `conversationId` and a
 `createdAt` that a provider has never heard of.
@@ -77,26 +76,6 @@ One method, no streaming, no retries, no token accounting. All three are real ne
 
 `ToolSpec` — not a provider framing — is what the loop hands the driver, and the driver reframes for its provider (`../SPEC.md` §5). A driver knows which provider it is; the loop does not.
 
-### 2.1 The optional Anthropic driver
-
-One concrete driver ships from `@zmdb/schema-core/llm/chat`:
-
-```ts
-export interface AnthropicMessagesClient {
-  readonly messages: {
-    create(params: Anthropic.MessageCreateParamsNonStreaming): PromiseLike<Anthropic.Message>;
-  };
-}
-
-export declare function anthropicDriver(opts: { readonly client: AnthropicMessagesClient; readonly model: string; readonly maxOutputTokens: number }): ChatDriver;
-```
-
-`@anthropic-ai/sdk` is an optional peer and a type-only import in shipped code. The caller constructs and injects the client; importing the chat module does not read an environment variable,
-instantiate an SDK client or start network I/O.
-
-The adapter translates system, user, assistant and tool-result messages, translates `ToolSpec` into the SDK's tool input schema, and translates text and tool-use response blocks back. Anthropic
-`thinking`/`redacted_thinking` blocks use §1.1's passthrough route. Any other passthrough kind is refused before the SDK call rather than silently dropped.
-
 ## 3. The registry, and effectful-by-default
 
 ```ts
@@ -120,7 +99,7 @@ export declare function defineTools<
 ): R;
 ```
 
-`validate` is the caller's, required, for the reason `../adapters/SPEC.md` §2 gives at length: `assert<T>` is inlined where the checker can resolve `T`, and inside a published generic there is no `T`
+`validate` is the caller's, required, for the reason `../tool-runtime/SPEC.md` gives at length: `assert<T>` is inlined where the checker can resolve `T`, and inside a published generic there is no `T`
 to resolve. So the registry entry carries `v => assert<CreateDTO<User>>(v)` and `handler` is typed from its return.
 
 The registry's erased form is `ToolEntry<unknown>`, not the frozen draft's `ToolEntry<never>`. The latter cannot contain a validator that returns a real value. `defineTools` links each key back to its
@@ -218,7 +197,7 @@ spends its whole budget re-asking is visible in `declined`.
 A tool that throws becomes a tool message with `isError: true`, because the model can act on that. What goes into `content` is bounded on purpose, and this is the section to read before adding a nicer
 error message:
 
-- **A validation failure** — `validationIssuesOf(error)` returns a list (`../adapters/SPEC.md` §5, same function, same reason) — yields the paths and the expectations, and **never
+- **A validation failure** — `validationIssuesOf(error)` returns a list (`../tool-runtime/SPEC.md`, same function, same reason) — yields the paths and the expectations, and **never
   `ValidationIssue.value`**. The model needs the path to fix the call; the value is what it should not be told it got away with sending, and a tool result is the easiest accidental exfiltration path
   in an agent loop.
 - **Anything else** yields exactly `tool <name> failed (<errorId>)`. No message, no class name, no stack. An exception message in this codebase can contain a table name, a column list, a compiled SQL
@@ -226,8 +205,8 @@ error message:
 - `errorId` is 8 hex characters from `globalThis.crypto.getRandomValues` — the Web Crypto route `.oxlintrc.json` requires, and there is no `node:crypto` here — and the same id appears in
   `RunResult.errors` alongside the untouched error. That join is the whole point: an operator reading a transcript can find the real failure without the transcript containing it.
 
-**The loop logs nothing.** `@zmdb/schema-core` has no logger and must not acquire one — it runs in a browser and on a device — so the errors are returned rather than reported, and a caller that
-ignores `RunResult.errors` has decided to. A `console.error` here would be a library writing to a stream it does not own.
+**The loop logs nothing.** `@zmdb/ai` has no logger and must not acquire one — it runs in a browser and on a device — so the errors are returned rather than reported, and a caller that ignores
+`RunResult.errors` has decided to. A `console.error` here would be a library writing to a stream it does not own.
 
 The redaction applies to the generated tool-error message. The caller-owned transcript is preserved: if the incoming assistant message contained the offending value in `toolCalls[].args`, that
 original message remains in `RunResult.messages`. The loop does not mutate or selectively rewrite conversation history; the caller chooses whether and where to retain it.
@@ -242,8 +221,6 @@ original message remains in `RunResult.messages`. The loop does not mutate or se
 5. A validation failure produces a message containing the path and **not** containing the offending value, for a value chosen to be recognisable if it leaked.
 6. A `provider` block on an assistant message is passed to the next `next()` call by identity, unmodified.
 7. A declined call appears in `declined`, produces an `isError` tool message, and does not stop the loop.
-8. The Anthropic adapter is checked against the installed SDK's request and response types without network I/O, carries supported reasoning blocks by identity, and refuses an unknown passthrough block
-   before calling the SDK.
 
 ## 8. Non-goals (rejected)
 

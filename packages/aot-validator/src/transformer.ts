@@ -20,8 +20,8 @@
 // untouched. The price is that the offsets are only valid for the exact text the
 // compiler parsed, so `transformFile` checks that before it trusts one.
 
+import type { ToolProvider } from '@zmdb/ai';
 import type { SchemaIR, ShapeIR, TypeIR } from '@zmdb/schema-core/ir';
-import type { ToolProvider } from '@zmdb/schema-core/llm';
 import { createScanner, LanguageVariant, SyntaxKind } from 'typescript/unstable/ast';
 import {
   isLiteralTypeNode,

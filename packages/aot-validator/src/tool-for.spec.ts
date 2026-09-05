@@ -108,11 +108,11 @@ describe('toolFor AOT emission (#527)', () => {
       sourceName: 'tools.ts',
       entries: [{ callee: 'toolFor', typeText: 'ProviderFixture', name: 'zmdbToolProviderFixture' }],
       typeImports: [],
-      calleeSources: new Map([['toolFor', '@zmdb/schema-core/llm']]),
+      calleeSources: new Map([['toolFor', '@zmdb/ai']]),
       style: "'",
     });
 
-    expect(source).toContain("import type { ToolOptions, ToolProvider, ToolSpecFor } from '@zmdb/schema-core/llm';");
+    expect(source).toContain("import type { ToolOptions, ToolProvider, ToolSpecFor } from '@zmdb/ai';");
     expect(source).toContain(
       'export function zmdbToolProviderFixture<P extends ToolProvider>' +
         '(provider: P, name: string, opts?: ToolOptions): ToolSpecFor[P] {',

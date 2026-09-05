@@ -1,7 +1,7 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '../tags/index.js';
 import { toolFromSchema, lenientParse } from './index.js';
 
 export interface User extends Table<'users'> {

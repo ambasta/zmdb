@@ -132,7 +132,7 @@ Release verification reports every problem in deterministic package/path order a
    > yarn verify:publish
    > node .github/scripts/repoint-dist.mjs
    >
-   > for p in client query-compiler schema-core protobuf aot-validator repository web zmdb; do
+   > for p in client query-compiler schema-core ai protobuf aot-validator repository web zmdb; do
    >   ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha )
    > done
    > ```
@@ -205,7 +205,7 @@ npm view @zmdb/repository dependencies
 
 Future releases are fully automated via CI OIDC — no token, no manual build:
 
-1. Bump the version in all six `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
+1. Bump the version in all seven `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
 2. Tag and push:
    ```bash
    git tag v1.0.0-alpha.N && git push origin v1.0.0-alpha.N

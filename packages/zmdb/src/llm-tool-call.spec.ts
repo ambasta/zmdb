@@ -9,9 +9,9 @@
 // and does the validator agree with it — which is why it lives in the umbrella package rather
 // than next to either half.
 
+import { lenientParse, toolFromSchema } from '@zmdb/ai';
 import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
 import { issuesFor } from '@zmdb/aot-validator/utilities';
-import { lenientParse, toolFromSchema } from '@zmdb/schema-core/llm';
 import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 

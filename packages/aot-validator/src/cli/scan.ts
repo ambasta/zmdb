@@ -324,7 +324,7 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
   random: '@zmdb/aot-validator/utilities',
   toJsonSchema: '@zmdb/schema-core/openapi',
   schemaOf: '@zmdb/schema-core',
-  toolFor: '@zmdb/schema-core/llm',
+  toolFor: '@zmdb/ai',
   grpcDescriptor: '@zmdb/protobuf',
   loadGrpcService: '@zmdb/protobuf',
   protoDescriptor: '@zmdb/protobuf',

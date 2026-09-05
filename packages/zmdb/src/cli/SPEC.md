@@ -233,8 +233,8 @@ hanging until the job times out. `--yes` answers every prompt in advance; on a T
 ## 12. Where the bin lives
 
 The `zmdb` package is a re-export facade — `SPEC.md` there is mostly a "No-collision guarantee" — and a CLI is not a re-export. It goes there anyway, for one reason that outweighs the tidiness
-argument: `npx zmdb generate` is the command people will type, and the alternative is a second published package whose only content is an executable. The facade already depends on all five packages,
-so it can reach the compiler, the reflector and the runner without a new dependency edge.
+argument: `npx zmdb generate` is the command people will type, and the alternative is a second published package whose only content is an executable. The facade already depends on all five data/web
+implementation packages, so it can reach the compiler, the reflector and the runner without a new dependency edge. `@zmdb/ai` is independently published and is not a facade export.
 
 `package.json` declares the canonical single-bin shorthand `"bin": "./src/cli/bin.ts"` (equivalent to `{ "zmdb": "./src/cli/bin.ts" }`) and the export `"./cli": "./src/cli/index.ts"`, and `./cli` is
 in `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs` beside the `zmdb#./unplugin` entry. That gate keeps the config loader, the filesystem walk and the compiler session out of an

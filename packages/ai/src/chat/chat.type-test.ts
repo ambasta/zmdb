@@ -10,29 +10,19 @@
 // The real surface is imported below. The registry uses an erased runtime entry while
 // `defineTools` applies a key-by-key linked constraint, so each handler is checked against
 // its own validator without making the registry uninhabitable.
-import type Anthropic from '@anthropic-ai/sdk';
+import type { Equal, Expect, Extends } from '@zmdb/schema-core';
 
-import type { Equal, Expect, Extends } from '../../index.js';
 import type { ToolSpec } from '../index.js';
 import {
-  type AnthropicMessagesClient,
   defineTools,
   run,
   type ChatDriver,
   type ChatMessage,
-  type HasEffectful,
-  type ProviderPassthrough,
   type RunOptions,
-  type RunOptionsFor,
   type RunResult,
   type ToolCall,
-  type ToolEntry,
   type ToolRegistry,
 } from './index.js';
-
-declare const realAnthropicClient: Anthropic;
-const sdkConformsToDriverClient: AnthropicMessagesClient = realAnthropicClient;
-void sdkConformsToDriverClient;
 
 interface CreateUser {
   readonly email: string;
@@ -84,7 +74,7 @@ type _UnannotatedHandlerTakesValidatorOutput = Expect<
 >;
 
 // §3: `defineTools` is an identity function whose only job is to keep the literal keys and the
-// per-entry types the caller wrote, so `RunOptionsFor` can read `effectful` off them.
+// per-entry types the caller wrote, so `run` can read `effectful` off them.
 type _DefineToolsIsIdentity = Expect<Equal<Inferred, typeof realEntries>>;
 type _KeysSurviveDefineTools = Expect<Equal<keyof Inferred, 'create_user' | 'read_user'>>;
 
@@ -127,7 +117,7 @@ void run(driver, conversation, mismatched, { maxTurns: 4, approve });
 // ---------------------------------------------------------------------------
 
 type EffectfulRegistry = typeof realEntries;
-type _MixedRegistryIsEffectful = Expect<Equal<HasEffectful<EffectfulRegistry>, true>>;
+type EffectfulInputs = { readonly create_user: CreateUser; readonly read_user: ReadUser };
 
 const pureEntries = {
   read_user: {
@@ -138,7 +128,7 @@ const pureEntries = {
   },
 } as const;
 type PureRegistry = typeof pureEntries;
-type _AllReadOnlyRegistryIsNotEffectful = Expect<Equal<HasEffectful<PureRegistry>, false>>;
+type PureInputs = { readonly read_user: ReadUser };
 
 // §4's safe-degradation claim, which is the reason the conditional is written against
 // `{ readonly effectful: false }` rather than against `true`. Two ways to lose the literal —
@@ -153,17 +143,18 @@ const widenedEntries = {
     effectful: false,
   },
 };
-type _WidenedLiteralDegradesToEffectful = Expect<Equal<HasEffectful<typeof widenedEntries>, true>>;
-type _ErasedRegistryDegradesToEffectful = Expect<Equal<HasEffectful<ToolRegistry>, true>>;
+void run(driver, conversation, widenedEntries, { maxTurns: 4, approve });
+// @ts-expect-error — a widened `false` degrades safely to effectful
+void run(driver, conversation, widenedEntries, { maxTurns: 4 });
 declare const dynamicRegistry: ToolRegistry;
 void run(driver, conversation, dynamicRegistry, { maxTurns: 4, approve });
 // @ts-expect-error — an erased/dynamic registry must still provide approval
 void run(driver, conversation, dynamicRegistry, { maxTurns: 4 });
 
-// The two shapes of `RunOptionsFor`, spelled out rather than left to the conditional.
-type EffectfulOptions = RunOptionsFor<EffectfulRegistry>;
+// The two option shapes, observed through the real generic `run` boundary.
+type EffectfulOptions = Parameters<typeof run<EffectfulInputs, EffectfulRegistry>>[3];
 type _EffectfulOptionsRequireApprove = Expect<Extends<EffectfulOptions, { readonly approve: unknown }>>;
-type PureOptions = RunOptionsFor<PureRegistry>;
+type PureOptions = Parameters<typeof run<PureInputs, PureRegistry>>[3];
 type _PureOptionsAreJustRunOptions = Expect<Equal<PureOptions, RunOptions>>;
 type _PureOptionsDoNotRequireApprove = Expect<Equal<Extends<PureOptions, { readonly approve: unknown }>, false>>;
 
@@ -239,6 +230,7 @@ result.messages.push({ role: 'user', content: 'mutating the transcript' });
 
 type ToolMessage = Extract<ChatMessage, { readonly role: 'tool' }>;
 type AssistantMessage = Extract<ChatMessage, { readonly role: 'assistant' }>;
+type ProviderPassthrough = NonNullable<AssistantMessage['provider']>[number];
 
 // §1: a tool result is answered against the call it answers, so `callId` is required on the
 // tool variant and absent from every other one. Without it there is no way to pair a result
@@ -280,4 +272,4 @@ type _PassthroughIsOptionalOnAssistant = Expect<
 // never the registry. It cannot reach a handler, a validator or an `effectful` flag.
 type DriverTools = Parameters<ChatDriver['next']>[1];
 type _DriverSeesOnlyToolSpecs = Expect<Equal<DriverTools, readonly ToolSpec[]>>;
-type _DriverCannotSeeHandlers = Expect<Equal<Extends<DriverTools, readonly ToolEntry<unknown>[]>, false>>;
+type _DriverCannotSeeHandlers = Expect<Equal<Extends<DriverTools, readonly ToolRegistry[string][]>, false>>;

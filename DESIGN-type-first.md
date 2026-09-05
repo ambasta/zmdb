@@ -44,9 +44,9 @@ the library cannot bridge schema to descriptor.
 **TypeScript 7.0.2 — already in `node_modules` — ships a type checker over `typescript/unstable/sync`.** `Checker` exposes `getTypeFromTypeNode`, `getPropertiesOfType`, `getTypeOfSymbolAtLocation`,
 `getTypeArguments`, `isTypeAssignableTo`, the `isXType()` predicates, and `Symbol.flags` for optionality.
 
-Measured on this repo, one `API` instance: **3 ms** to construct, **57 ms** to open all six package projects, **4 ms** to add a second project to an already-open snapshot, and **0 ms** to invalidate a
-changed file. Full semantic diagnostics cost 56–104 ms per project, but the transformer never needs them — that is `tsc`'s job. So the whole-repo reflection budget is one 60 ms payment per build, and
-the only way to get it wrong is to pay it per file.
+At the pre-`@zmdb/ai` six-package baseline, one `API` instance measured **3 ms** to construct, **57 ms** to open the six package projects, **4 ms** to add a second project to an already-open snapshot,
+and **0 ms** to invalidate a changed file. Full semantic diagnostics cost 56–104 ms per project, but the transformer never needs them — that is `tsc`'s job. The seventh package requires a fresh
+whole-repository timing before a new current total is claimed.
 
 ## 3. The encoding
 

@@ -3,7 +3,7 @@ Getting a model to return data your database accepts is two problems: constraini
 ## Constrain: a tool from a schema
 
 ```ts
-import { toolFor } from '@zmdb/schema-core/llm';
+import { toolFor } from '@zmdb/ai';
 import type { User } from './schema.js';
 
 const tool = toolFor<User>('anthropic', 'save_user', {
@@ -45,7 +45,7 @@ The `assert` is the difference between a validation error naming the field and a
 When the model returns text rather than a tool call — a smaller model, a streaming response cut short, a preamble before the JSON — `lenientParse` handles the common damage:
 
 ```ts
-import { lenientParse } from '@zmdb/schema-core/llm';
+import { lenientParse } from '@zmdb/ai';
 
 const result = lenientParse<CreateDTO<User>>(res.text);
 ```

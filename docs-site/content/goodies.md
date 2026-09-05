@@ -87,7 +87,7 @@ Six variants per schema (`entity`, `create`, `update`, `get`, `list`, `search`),
 ## Turn a schema into an LLM tool spec
 
 ```ts
-import { toolFromSchema } from '@zmdb/schema-core/llm';
+import { toolFromSchema } from '@zmdb/ai';
 
 const tool = toolFromSchema('create_user', users, { description: 'Create a user' });
 ```
@@ -97,7 +97,7 @@ See [LLM Function Calling](./llm-function-calling.html).
 ## `lenientParse` survives fenced JSON from a model
 
 ````ts
-import { lenientParse } from '@zmdb/schema-core/llm';
+import { lenientParse } from '@zmdb/ai';
 
 lenientParse<User>('```json\n{"email":"a@b.c"}\n```');
 ````

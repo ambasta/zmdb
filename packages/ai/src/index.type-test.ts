@@ -1,14 +1,9 @@
-// Compile-only contract for llm/SPEC.md §5 and issue #527.
+// Compile-only contract for @zmdb/ai's root provider-document surface.
 
-import type { CoreSchema, Equal, Expect } from '../index.js';
-import type { JsonSchemaObject } from '../openapi/index.js';
-import {
-  toolFor,
-  type GeminiSchemaObject,
-  type StrictJsonSchemaObject,
-  type ToolProvider,
-  type ToolSpec,
-} from './index.js';
+import type { CoreSchema, Equal, Expect } from '@zmdb/schema-core';
+import type { JsonSchemaObject } from '@zmdb/schema-core/openapi';
+
+import { toolFor, type ToolProvider, type ToolSpec, type ToolSpecFor } from './index.js';
 
 type FrozenToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
 
@@ -28,6 +23,9 @@ interface DeclaredRecord {}
 
 const aotAnthropic = toolFor<DeclaredRecord>('anthropic', 'create_record');
 const aotStrict = toolFor<DeclaredRecord>('openai-strict', 'create_record');
+
+type GeminiSchemaObject = ToolSpecFor['gemini']['parameters'];
+type StrictJsonSchemaObject = ToolSpecFor['openai-strict']['function']['parameters'];
 
 export type _provider_union_matches_frozen_surface = Expect<Equal<ToolProvider, FrozenToolProvider>>;
 export type _anthropic_has_input_schema = Expect<Equal<typeof anthropic.input_schema, JsonSchemaObject>>;

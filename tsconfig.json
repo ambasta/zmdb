@@ -31,6 +31,11 @@
     "paths": {
       "@zmdb/client": ["./packages/client/src/index.ts"],
       "@zmdb/client/*": ["./packages/client/src/*/index.ts"],
+      "@zmdb/ai": ["./packages/ai/src/index.ts"],
+      "@zmdb/ai/chat": ["./packages/ai/src/chat/index.ts"],
+      "@zmdb/ai/compiler": ["./packages/ai/src/compiler.ts"],
+      "@zmdb/ai/http": ["./packages/ai/src/http/index.ts"],
+      "@zmdb/ai/tool-runtime": ["./packages/ai/src/tool-runtime.ts"],
       "@zmdb/schema-core": ["./packages/schema-core/src/index.ts"],
       "@zmdb/schema-core/*": ["./packages/schema-core/src/*/index.ts"],
       "@zmdb/query-compiler": ["./packages/query-compiler/src/index.ts"],

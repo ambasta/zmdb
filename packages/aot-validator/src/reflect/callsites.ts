@@ -28,7 +28,7 @@ export const CALL_OWNERS: Readonly<Record<string, readonly string[]>> = Object.f
   random: ['@zmdb/aot-validator/utilities', 'zmdb'],
   toJsonSchema: ['@zmdb/schema-core/openapi', 'zmdb'],
   schemaOf: ['@zmdb/schema-core', 'zmdb'],
-  toolFor: ['@zmdb/schema-core/llm'],
+  toolFor: ['@zmdb/ai'],
   grpcDescriptor: ['@zmdb/protobuf'],
   loadGrpcService: ['@zmdb/protobuf'],
   protoDescriptor: ['@zmdb/protobuf'],

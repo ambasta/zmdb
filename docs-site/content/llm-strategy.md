@@ -20,7 +20,7 @@ behind these choices lives in `TOOL_DIALECTS` with the source and date used to i
 ## One declaration, four provider targets
 
 ```ts
-import { toolFor } from '@zmdb/schema-core/llm';
+import { toolFor } from '@zmdb/ai';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 interface Order extends Table<'orders'> {

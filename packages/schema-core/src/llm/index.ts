@@ -1,4 +1,4 @@
-// LLM function-calling harness — see ./SPEC.md.
+// Temporary implementation behind @zmdb/ai — see packages/ai/src/SPEC.md.
 import type { CoreSchema } from '../index.js';
 import { toJsonSchema } from '../openapi/index.js';
 import { toolFor, type ToolOptions, type ToolSpec } from './providers.js';

@@ -127,32 +127,36 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
       └─────────┬─────────┘
                 ▼
       ┌────────────────┐
-      │@zmdb/aot-      │  (depends on schema-core; TypeScript is a devDep)
+      │    @zmdb/ai    │  (also depends directly on schema-core)
+      │ (neutral tools)│
+      └───────┬────────┘
+              ▼
+      ┌────────────────┐
+      │@zmdb/aot-      │  (also depends directly on schema-core)
       │  validator     │
       └───────┬────────┘
-              └───────┬───────────┐
-                      ▼           │
-             ┌────────────────┐
-             │ @zmdb/repository│  (deps: schema-core, query-compiler, aot-validator)
-             │  + drivers/*    │   optional peer: pg; built-in: node:sqlite
-             └───────┬─────────┘
-                     ▼
-             ┌────────────────┐
-             │   @zmdb/web     │  (deps: schema-core, query-compiler,
-             │ (decorator HTTP)│   aot-validator, repository) — full NestJS-parity layer, shipped
-             └───────┬─────────┘
-                     ▼
-             ┌────────────────┐
-             │      zmdb       │  (umbrella — re-exports the whole ecosystem;
-             │   (meta pkg)    │   depends on all of the above; ZERO logic)
-             └────────────────┘
+              ▼
+      ┌────────────────┐
+      │@zmdb/repository│  (also depends directly on schema-core + query-compiler)
+      │  + drivers/*   │   optional peer: pg; built-in: node:sqlite
+      └───────┬────────┘
+              ▼
+      ┌────────────────┐
+      │   @zmdb/web    │  (also depends directly on schema-core,
+      │(decorator HTTP)│   query-compiler, and aot-validator)
+      └───────┬────────┘
+              ▼
+      ┌────────────────┐
+      │      zmdb      │  (curated umbrella; ZERO logic)
+      └────────────────┘
 ```
 
 **Rules enforced by this DAG:**
 
 - **query-compiler is the lower-level SQL/tooling package.** Its declaration emitter is the only framework path that requires `oxfmt`; ordinary query compilation does not invoke it.
 - **schema-core is the semantic Single Source of Truth.** It reuses lower-level compiler query, quoting, and naming utilities but must not import validator, repository, or web.
-- **aot-validator depends on schema-core, never the reverse.** Reflection and boundary validation remain above the declaration vocabulary.
+- **AI depends on schema-core, never the reverse.** Its provider-neutral public names are migration-only forwarders until the coordinated ownership cutover.
+- **aot-validator depends on schema-core and AI, never the reverse.** Reflection remains above the declaration vocabulary; `toolFor` compilation consumes AI's document boundary.
 - **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and currently owns the driver adapters (built-in `node:sqlite`, structurally injected `pg` and `mssql`).
 - **web sits above repository** — controllers inject repositories, routes validate via the AOT validator, responses serialize via the AOT serializer, and observability reads optional compile-time
   query metadata without parsing SQL at execution.
@@ -160,14 +164,17 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
 
 ### 3.3 Current package map
 
-| Package                | Responsibility                                                                                                                                                                                                                                                                                                   | Runtime deps                                           |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `@zmdb/schema-core`    | The tag vocabulary, the `TypeIR` spine, compile-time type derivation (Entity/Create/Update + read DTOs), relations, OpenAPI, seeding, custom types, LLM tool schemas, the bounded chat runtime, and pure MCP server/client cores                                                                                 | query-compiler                                         |
-| `@zmdb/query-compiler` | SQL-first compiler (select/insert/update/delete, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff and the filesystem-free embedded runner), catalog introspection and declaration emission, the vendor-neutral dialect protocol and the current built-in dialect definitions                 | oxfmt (declaration emitter only)                       |
-| `@zmdb/aot-validator`  | The reflection (a tagged interface -> `TypeIR`), the AOT transformer, `zmdb-codegen`, and `schemaOf`/`is`/`assert`/`validate`/`equals`/`random`, unions, transforms, JSON Ser/De                                                                                                                                 | none (ts is a devDep)                                  |
-| `@zmdb/repository`     | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read-replicas, lifecycle events, framework adapters, **drivers**                                                                                                                                                                         | schema-core, query-compiler                            |
-| `@zmdb/web`            | Stage-3 decorator HTTP framework: controllers, routing, typed `Ctx`, compile-time DI, domain state machines, request pipeline + adapters, modules, guards/pipes/interceptors/filters, app bootstrap + lifecycle, DTO validation/serialization, OpenAPI, observability and W3C trace propagation, WS/SSE, testing | schema-core, query-compiler, aot-validator, repository |
-| `zmdb`                 | Umbrella meta-package (curated root + subpath re-exports)                                                                                                                                                                                                                                                        | all of the above                                       |
+| Package                | Responsibility                                                                                                                                             | Runtime deps                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `@zmdb/client`         | Dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors      | none                                                        |
+| `@zmdb/query-compiler` | SQL-first compiler, DDL/migrations, introspection, declaration emission, the vendor-neutral dialect protocol, and current built-in dialect definitions     | oxfmt                                                       |
+| `@zmdb/schema-core`    | Tags, `TypeIR`, derived DTOs, relations, JSON Schema, seeding, and custom types. The old `./llm*` paths remain temporary implementation during extraction. | query-compiler                                              |
+| `@zmdb/ai`             | Provider-neutral tool documents and dialects, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools                    | schema-core                                                 |
+| `@zmdb/protobuf`       | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                             | none                                                        |
+| `@zmdb/aot-validator`  | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                                  | ai, schema-core                                             |
+| `@zmdb/repository`     | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and current driver adapters                                      | aot-validator, query-compiler, schema-core                  |
+| `@zmdb/web`            | Stage-3 decorator HTTP framework, routing, DI, request pipeline, application lifecycle, OpenAPI, observability, transports, jobs, and testing              | aot-validator, query-compiler, repository, schema-core      |
+| `zmdb`                 | Curated product facade and CLI; no AI public re-export                                                                                                     | aot-validator, query-compiler, repository, schema-core, web |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
 
@@ -290,10 +297,10 @@ consumer must prove the qualifying framework behaviour before the package ships.
 The complete qualification rule, cancellation/state semantics, peer ranges, export map and nine-package matrix are frozen in
 [`packages/zmdb/src/client-integrations/SPEC.md`](./packages/zmdb/src/client-integrations/SPEC.md).
 
-### 3.7 Frozen AI integration ownership target (Issue #703)
+### 3.7 AI integration ownership migration (Issues #703 and #705)
 
-This is a target-state architecture, not a claim about the current tree. The measured starting point still has 32 LLM files, six `./llm*` exports and all three provider/framework peers inside
-`@zmdb/schema-core`.
+Issue #705 publishes the provider-neutral `@zmdb/ai` boundary and moves AOT/generated consumers to it. The root, chat, HTTP, and compiler entries currently forward in the permitted AI-to-schema-core
+direction; shared tool invocation is physically owned by AI. The old six `./llm*` exports and all three provider/framework peers remain until the coordinated integration/MCP ownership cutover.
 
 Provider-neutral schema-derived tool documents, parsing, bounded chat orchestration, shared invocation and OpenAPI-derived tools move to `@zmdb/ai`. Anthropic SDK translation, LangChain framing and
 Vercel AI SDK framing each move to one opt-in integration package. The pure MCP client/server moves to `@zmdb/mcp`.
@@ -311,7 +318,7 @@ Vercel AI SDK framing each move to one opt-in integration package. The pure MCP 
 Arrows point from consumer to direct dependency. `@zmdb/schema-core` has no reverse AI edge, no LLM export and no provider peer in the final graph. Integration SDKs are required peers of only their
 own opt-in package; installing the provider-neutral packages does not install or resolve them. `@zmdb/mcp` uses platform APIs and depends only on `@zmdb/ai`.
 
-`toolFor<T>()` remains an AOT callee, but its declared source and generated witness imports become `@zmdb/ai`; the emitter consumes the shared document producer through `@zmdb/ai/compiler`. Generated
+`toolFor<T>()` remains an AOT callee; its declared source and generated witness imports are `@zmdb/ai`, and the emitter consumes the shared document producer through `@zmdb/ai/compiler`. Generated
 OpenAPI-tool modules import `OpenApiGeneratedTool` from `@zmdb/ai/http`.
 
 The migration cannot preserve the old path by making schema-core forward to AI, because AI already depends on schema-core. New packages temporarily forward to the old implementation; after consumers
@@ -408,7 +415,7 @@ The catalog deliberately does not own versions, dependency ranges, changelogs, n
 to architecture-governance EPIC #721 and its release implementation #728; release tooling may read catalog membership only.
 
 The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
-ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the six-package baseline plus required catalog consumers and rejection rules are frozen in
+ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the seven-package baseline plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
 ### 3.10 Frozen architecture-governance target (#722)
@@ -424,17 +431,18 @@ foundation < runtime < application < integration < tooling < facade
 ```
 
 A package may depend only on its own or an inward zone, every direct workspace dependency must also be named explicitly by that package's policy row, and the dependency's numeric ring must be lower
-than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current six catalog
+than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current seven catalog
 members therefore freeze as:
 
-| Catalog id       | Zone          | Ring | Direct workspace dependencies                                  |
-| ---------------- | ------------- | ---: | -------------------------------------------------------------- |
-| `query-compiler` | `foundation`  |    0 | none                                                           |
-| `schema-core`    | `foundation`  |    1 | `query-compiler`                                               |
-| `aot-validator`  | `runtime`     |    2 | `schema-core`                                                  |
-| `repository`     | `runtime`     |    3 | `aot-validator`, `query-compiler`, `schema-core`               |
-| `web`            | `application` |    4 | `aot-validator`, `query-compiler`, `repository`, `schema-core` |
-| `zmdb`           | `facade`      |    5 | all five package ids above                                     |
+| Catalog id       | Zone          | Ring | Direct workspace dependencies                                         |
+| ---------------- | ------------- | ---: | --------------------------------------------------------------------- |
+| `query-compiler` | `foundation`  |    0 | none                                                                  |
+| `schema-core`    | `foundation`  |    1 | `query-compiler`                                                      |
+| `ai`             | `runtime`     |    2 | `schema-core`                                                         |
+| `aot-validator`  | `runtime`     |    3 | `ai`, `schema-core`                                                   |
+| `repository`     | `runtime`     |    4 | `aot-validator`, `query-compiler`, `schema-core`                      |
+| `web`            | `application` |    5 | `ai`, `aot-validator`, `query-compiler`, `repository`, `schema-core`  |
+| `zmdb`           | `facade`      |    6 | `aot-validator`, `query-compiler`, `repository`, `schema-core`, `web` |
 
 Roadmap-only directories do not receive policy rows. A package is added to this table only when it has a publishable manifest and is admitted to the product catalog; admission and policy must land
 atomically once the catalog exists.
@@ -446,7 +454,7 @@ never inferred from a directory name. Relative source imports retain NodeNext `.
 All catalog packages form one lockstep release train. They carry one version, use `workspace:^` for committed internal ranges, derive publish order from the policy DAG, share one root changelog and
 must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
 
-The complete `PackagePolicy` schema, all six rows, reachability rules, fixture-root contract and exact violation/remediation semantics are frozen in
+The complete `PackagePolicy` schema, all seven rows, reachability rules, fixture-root contract and exact violation/remediation semantics are frozen in
 [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication ordering are frozen in [PUBLISHING.md](./PUBLISHING.md).
 
 ### 3.11 Frozen tooling-package target (#626)
@@ -637,5 +645,5 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the five-package reality (+ `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now
-live in each package's `SPEC.md` and the docs site.
+the north-star-driven language policy in §4 here, and it records the six implementation-package reality (including `@zmdb/ai` and `@zmdb/web`) rather than the original four. Component-level details in
+the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

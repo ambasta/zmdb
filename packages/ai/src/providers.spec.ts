@@ -1,10 +1,10 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemaFromIR, type ColumnIR } from '@zmdb/schema-core/ir';
+import type { JsonSchemaObject } from '@zmdb/schema-core/openapi';
+import type { Codec, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
-import { schemaFromIR, type ColumnIR } from '../ir/index.js';
-import type { JsonSchemaObject } from '../openapi/index.js';
-import type { Codec, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Table, WireAs } from '../tags/index.js';
-import { toolFor, toolFromSchema, type GeminiSchemaObject, type StrictJsonSchemaObject } from './index.js';
+import { toolFor, toolFromSchema, type ToolSpecFor } from './index.js';
 
 // Implementation suite for llm/SPEC.md (#527, epic #524).
 //
@@ -19,6 +19,8 @@ interface Money {
 }
 
 type MoneyColumn = Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>;
+type GeminiSchemaObject = ToolSpecFor['gemini']['parameters'];
+type StrictJsonSchemaObject = ToolSpecFor['openai-strict']['function']['parameters'];
 
 export interface ProviderFixture extends Table<'provider_fixtures'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

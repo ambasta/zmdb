@@ -1,6 +1,7 @@
 # Package architecture and release governance — specification
 
-> **Status:** target contract frozen by issue #722 for epic #721. This issue adds no verifier or release command. The measured baseline is commit `5adba11e` on 2026-09-05.
+> **Status:** target contract frozen by issue #722 for epic #721 and amended for the package admitted by #705. No verifier or release command exists yet. The original measured baseline is commit
+> `5adba11e` on 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -9,8 +10,8 @@ to those members; it does not discover packages from `packages/*`, a workspace g
 
 At the measured baseline:
 
-- exactly six directories under `packages/` contain publishable manifests, and the product-catalog specification freezes those same six admissions;
-- all six manifests carry `1.0.0-alpha.4`;
+- exactly six directories under `packages/` contained publishable manifests;
+- all six manifests carried `1.0.0-alpha.4`;
 - their manifests contain 14 directed workspace dependency entries;
 - the six manifests declare 11 optional peers in total;
 - `@zmdb/query-compiler` declares `oxfmt`, while `zmdb` declares `esbuild` and `oxfmt`; measured source paths reach those third-party dependencies only from the tooling entries frozen below;
@@ -20,6 +21,9 @@ At the measured baseline:
 - `tsconfig.json` sets `allowImportingTsExtensions` to `false`.
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
+
+Issue #705 adds the seventh manifest, `@zmdb/ai`, keeps the common version at `1.0.0-alpha.4`, and raises the direct non-dev workspace-edge count from 14 to 17. The new package has no peer; the seven
+manifests therefore still declare 11 optional peers in total.
 
 ## 2. Canonical policy API
 
@@ -99,8 +103,8 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current six catalog members; it does not claim that the later reachability gates already pass every present barrel. Adding, removing or renaming a
-catalog member requires the catalog and policy key sets to change atomically.
+The following object is normative. It constrains the current seven catalog members; it does not claim that the later reachability gates already pass every present barrel. Adding, removing or renaming
+a catalog member requires the catalog and policy key sets to change atomically.
 
 ```ts
 export const PACKAGE_POLICY = {
@@ -128,11 +132,21 @@ export const PACKAGE_POLICY = {
     toolingEntries: [],
     release: 'lockstep',
   },
-  'aot-validator': {
-    directory: 'packages/aot-validator',
+  ai: {
+    directory: 'packages/ai',
     zone: 'runtime',
     ring: 2,
     allowedWorkspaceDependencies: ['schema-core'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: ['./compiler'],
+    release: 'lockstep',
+  },
+  'aot-validator': {
+    directory: 'packages/aot-validator',
+    zone: 'runtime',
+    ring: 3,
+    allowedWorkspaceDependencies: ['ai', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       oxlint: ['./lint'],
@@ -144,7 +158,7 @@ export const PACKAGE_POLICY = {
   repository: {
     directory: 'packages/repository',
     zone: 'runtime',
-    ring: 3,
+    ring: 4,
     allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -154,8 +168,8 @@ export const PACKAGE_POLICY = {
   web: {
     directory: 'packages/web',
     zone: 'application',
-    ring: 4,
-    allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'repository', 'schema-core'],
+    ring: 5,
+    allowedWorkspaceDependencies: ['ai', 'aot-validator', 'query-compiler', 'repository', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@grpc/grpc-js': ['./microservices/grpc'],
@@ -171,7 +185,7 @@ export const PACKAGE_POLICY = {
   zmdb: {
     directory: 'packages/zmdb',
     zone: 'facade',
-    ring: 5,
+    ring: 6,
     allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'repository', 'schema-core', 'web'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},

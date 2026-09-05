@@ -14,8 +14,13 @@ const META = {
   },
   'schema-core': {
     description:
-      'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, custom types, and an LLM tool harness — the single source of truth for a zmdb data layer.',
+      'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, and custom types — the single source of truth for a zmdb data layer.',
     keywords: ['typescript', 'orm', 'schema', 'dto', 'type-derivation', 'openapi', 'zmdb'],
+  },
+  ai: {
+    description:
+      'Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, and OpenAPI-derived tools for zmdb.',
+    keywords: ['typescript', 'ai', 'llm', 'function-calling', 'json-schema', 'openapi', 'zmdb'],
   },
   'query-compiler': {
     description:

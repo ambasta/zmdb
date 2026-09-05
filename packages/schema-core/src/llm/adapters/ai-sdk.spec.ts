@@ -6,7 +6,7 @@ import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '../../tags/i
 import { toolFromSchema } from '../index.js';
 import { aiSdkTool, type AiSdkToolFields } from './ai-sdk.js';
 
-// Implementation suite for llm/adapters/SPEC.md (#528, epic #524).
+// Implementation suite for packages/ai-vercel/SPEC.md (#528, epic #524).
 
 interface Money {
   readonly cents: number;

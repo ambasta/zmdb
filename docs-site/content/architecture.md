@@ -1,22 +1,34 @@
-zmdb is five packages with a strict dependency order. Nothing depends on anything above it, and no package reaches sideways.
+zmdb currently publishes six implementation packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/ai` is independently installable and is not re-exported by
+the umbrella.
+
+The dependency spine is:
 
 ```
-                    @zmdb  (umbrella re-exports)
-                      |
-   +----------+--------+---------+----------+
-   |          |                  |          |
- @zmdb/web   @zmdb/repository   @zmdb/aot-validator
-   |          |
-   |     @zmdb/query-compiler
-   |          |
-   +---- @zmdb/schema-core ----+
+@zmdb/query-compiler
+          |
+  @zmdb/schema-core
+          |
+      @zmdb/ai
+          |
+ @zmdb/aot-validator
+          |
+ @zmdb/repository
+          |
+      @zmdb/web
+          |
+         zmdb
 ```
+
+Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
 
 ## What each package owns
 
 **`@zmdb/schema-core`** — the tag vocabulary, the IR, the schema object and everything derived from it by types alone. The tags (`Table`, `Sql`, `PrimaryKey`, `Serial`, …, types only, zero runtime
-exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission,
-seeding, and LLM tool specs. It knows nothing about SQL text or about a database — and it does not import `typescript`, which is why reflection lives in `@zmdb/aot-validator` instead.
+exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission, and
+seeding. It does not import `typescript`, which is why reflection lives in `@zmdb/aot-validator` instead.
+
+**`@zmdb/ai`** — provider-neutral tool documents, provider-dialect framing, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools. It depends on schema-core and has
+no provider or framework SDK dependency or peer.
 
 **`@zmdb/query-compiler`** — turns builder calls into `{ text, parameters }` for an injected `SqlDialect` object or a temporary built-in `Dialect` name (`'postgres'`, `'mysql'`, `'sqlite'`, `'mssql'`,
 `'cockroach'`, `'singlestore'`). The object carries resolved traits, capabilities, migrations and introspection without registering globally. When constructed with `{ telemetry: true }`, the compiler
@@ -77,10 +89,10 @@ There is no `reflect-metadata`, no `design:type`, and no metadata provider. The 
 
 > [!NOTE] The consequence: `@zmdb/web` starts with no metadata scan. See [AOT vs JIT](./jit-vs-aot.html) for the measured difference and [Benchmarks](./benchmarks.html) for the numbers.
 
-## Zero required runtime dependencies
+## Provider-neutral dependency boundary
 
-Every `@zmdb/*` package has an empty `dependencies` field. The transformer needs `typescript` at build time; nothing needs anything at runtime. This is what makes the packages usable in a Cloudflare
-Worker or a Durable Object without a bundler fight.
+`@zmdb/ai` has one runtime workspace dependency, `@zmdb/schema-core`, and no external dependency or peer. Provider and framework SDKs remain behind their opt-in integration paths, so importing the AI
+root, chat, HTTP, compiler, or tool-runtime entry does not install an SDK.
 
 ## Assertion discipline
 

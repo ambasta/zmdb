@@ -1,5 +1,5 @@
-zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and TypeScript 7.0+. The easiest way to install is the single umbrella package; the four sub-packages are also published
-individually for advanced/tree-shaken use.
+zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and TypeScript 7.0+. The easiest way to install the data/web stack is the single umbrella package. Its five implementation
+packages are also published individually, and the provider-neutral `@zmdb/ai` package is installed separately when an application needs AI tooling.
 
 ## Recommended: one install
 
@@ -15,8 +15,10 @@ import type { CreateDTO, Entity } from 'zmdb/derive';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
 ```
 
-The `zmdb` package re-exports the curated public API of all four sub-packages, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, `zmdb/relations`, `zmdb/web`,
-`zmdb/drivers/sqlite`, `zmdb/drivers/pg`, …).
+The `zmdb` package re-exports the curated public API of its five implementation packages, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, `zmdb/relations`,
+`zmdb/web`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, …).
+
+`@zmdb/ai` is independently installable and is not re-exported by the umbrella root.
 
 `zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime export, so those two imports vanish entirely from your build output.
 
@@ -40,7 +42,7 @@ The `zmdb` package re-exports the curated public API of all four sub-packages, w
 Prefer to depend only on the pieces you use (better tree-shaking):
 
 ```bash
-npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository
+npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository @zmdb/web
 ```
 
 ## Install Individual Packages
@@ -59,9 +61,12 @@ npm install @zmdb/aot-validator
 
 # Repository with CRUD + transactions
 npm install @zmdb/repository
+
+# Provider-neutral AI tools + bounded chat
+npm install @zmdb/ai
 ```
 
-> [!NOTE] `@zmdb/query-compiler` is a required peer dependency of `@zmdb/repository`.
+> [!NOTE] Workspace packages declare their direct `@zmdb/*` runtime dependencies. Provider and framework SDKs remain opt-in at their integration boundaries.
 
 ## TypeScript Configuration
 
@@ -136,6 +141,8 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/query-compiler` | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                  |
 | `@zmdb/aot-validator`  | Type reflection, full/shallow is/assert/validate, equals/random, serialization               |
 | `@zmdb/repository`     | Auto-validating CRUD, hooks, transactions, populate                                          |
+| `@zmdb/web`            | Controllers, routing, dependency injection, middleware, transports, and jobs                 |
+| `@zmdb/ai`             | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools  |
 
 ## Next Steps
 

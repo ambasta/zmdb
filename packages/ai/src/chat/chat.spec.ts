@@ -1,3 +1,4 @@
+import { ValidationError, validationIssuesOf } from '@zmdb/schema-core';
 // Tests for the chat loop, the tool registry and every bound frozen in ./SPEC.md
 // (#532, epic #530). The driver is scripted, so there is no network and no non-determinism.
 //
@@ -7,21 +8,20 @@
 // redacting it is the loop's responsibility.
 import { describe, expect, it, beforeEach } from 'vitest';
 
-import { ValidationError, validationIssuesOf } from '../../index.js';
 import type { ToolSpec } from '../index.js';
 import {
   defineTools,
   run,
   type ChatDriver,
   type ChatMessage,
-  type ProviderPassthrough,
-  type RunOptionsFor,
   type RunResult,
   type ToolCall,
   type ToolRegistry,
 } from './index.js';
 
 type ErasedToolEntry = ToolRegistry[string];
+type AssistantMessage = Extract<ChatMessage, { readonly role: 'assistant' }>;
+type ProviderPassthrough = NonNullable<AssistantMessage['provider']>[number];
 
 /** ./SPEC.md §5's frozen content for a call `approve` refused. Matched exactly, not by fragment. */
 const DECLINED = 'declined by the operator';
@@ -398,7 +398,7 @@ describe('approval — §4 (required when it matters) and §5 (declined, and the
   // that mean effectful. So the throw is provoked by an *omission*, which is the case a reader
   // reaches by not thinking about the flag.
   //
-  // ONE `as unknown as`, DELIBERATELY. `RunOptionsFor<typeof tools>` already makes this a
+  // ONE `as unknown as`, DELIBERATELY. The public `run` signature already makes this a
   // compile error — ./chat.type-test.ts is where that is asserted — so the only way to reach
   // the runtime check is to be the caller §4 describes: "the one place where someone silenced
   // an error with an `as`". The retype is narrowing-incompatible, which is why it is spelled
@@ -406,7 +406,10 @@ describe('approval — §4 (required when it matters) and §5 (declined, and the
   it('requires an approval hook when a tool is effectful', async () => {
     const driver = scriptedDriver([done]);
     const tools = { delete_user: recordingEntry('delete_user'), search: readOnlyEntry('search') };
-    const noApprove = { maxTurns: 3 } as unknown as RunOptionsFor<typeof tools>;
+    const noApprove = { maxTurns: 3 } as unknown as {
+      readonly maxTurns: number;
+      readonly approve: (call: ToolCall) => Promise<boolean>;
+    };
     const attempt = async (): Promise<RunResult> => run(driver, user, tools, noApprove);
 
     await expect(attempt()).rejects.toBeInstanceOf(Error);

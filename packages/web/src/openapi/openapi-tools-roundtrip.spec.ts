@@ -1,13 +1,13 @@
-// Round-trip the IR-backed OpenAPI document through schema-core's tool generator.
+// Round-trip the IR-backed OpenAPI document through @zmdb/ai's tool generator.
 //
-// This stays in @zmdb/web because schema-core is below web in the dependency graph
-// and cannot import the OpenAPI renderer. The AOT plugin supplies the request and
+// This stays in @zmdb/web because @zmdb/ai is below web in the dependency graph
+// and cannot import the OpenAPI renderer. The AOT plugin supplies request and
 // response schemas; HttpContractIR supplies operation identity and method-specific use.
-
 import { readFileSync } from 'node:fs';
 
+import type { ToolSpec } from '@zmdb/ai';
+import { generateOpenApiToolsModule, toolsFromOpenApi } from '@zmdb/ai/http';
 import { zmdbAot } from '@zmdb/aot-validator/plugin';
-import { generateOpenApiToolsModule, toolsFromOpenApi, type ToolSpec } from '@zmdb/schema-core/llm';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { HttpContractIR, HttpOperationIR, HttpParameterIR, HttpTypeIR } from '../contract/index.js';

@@ -13,11 +13,12 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { generateOpenApiToolsModule } from '@zmdb/schema-core/llm/http';
+import { generateOpenApiToolsModule } from '@zmdb/ai/http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const PACKAGES = join(ROOT, 'packages');
+const AI = join(PACKAGES, 'ai');
 const SCHEMA_CORE = join(PACKAGES, 'schema-core');
 const LLM = join(SCHEMA_CORE, 'src', 'llm');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
@@ -38,7 +39,7 @@ interface ImportReference {
   readonly resolved: string | null;
 }
 
-interface PackedSchemaCore {
+interface PackedPackage {
   readonly directory: string;
   readonly manifest: PackageManifest;
   readonly files: readonly string[];
@@ -81,12 +82,7 @@ const FINAL_OWNER = {
   'tool-runtime.ts': '@zmdb/ai',
 } as const satisfies Readonly<Record<string, AiPackage>>;
 
-const PROVIDER_NEUTRAL_FILES = Object.entries(FINAL_OWNER)
-  .filter(([, owner]) => owner === '@zmdb/ai')
-  .map(([path]) => path)
-  .toSorted();
-
-const CURRENT_PACKED_SUBPATHS = [
+const SCHEMA_CORE_PACKED_SUBPATHS = [
   '@zmdb/schema-core/llm',
   '@zmdb/schema-core/llm/ai-sdk',
   '@zmdb/schema-core/llm/chat',
@@ -96,6 +92,13 @@ const CURRENT_PACKED_SUBPATHS = [
 ] as const;
 
 const TARGET_AI_EXPORTS = ['.', './chat', './compiler', './http', './tool-runtime'] as const;
+const AI_PACKED_SUBPATHS = [
+  '@zmdb/ai',
+  '@zmdb/ai/chat',
+  '@zmdb/ai/compiler',
+  '@zmdb/ai/http',
+  '@zmdb/ai/tool-runtime',
+] as const;
 const AI_SDK_PEERS = ['@anthropic-ai/sdk', '@langchain/core', 'ai'] as const;
 
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
@@ -268,28 +271,38 @@ function npmPackFilename(output: string): string {
   return entry['filename'];
 }
 
-function packSchemaCore(): PackedSchemaCore {
+function packWorkspacePackage(
+  directoryName: string,
+  specifiers: readonly string[],
+  workspaceDependencies: readonly string[],
+): PackedPackage {
   const directory = mkdtempSync(join(tmpdir(), 'zmdb-ai-boundary-'));
-  packDirectory = directory;
+  packDirectories.push(directory);
   const unpacked = join(directory, 'unpacked');
   const app = join(directory, 'consumer');
+  const packageDirectory = join(PACKAGES, directoryName);
   mkdirSync(unpacked, { recursive: true });
   mkdirSync(join(app, 'node_modules', '@zmdb'), { recursive: true });
   writeFileSync(join(app, 'package.json'), '{"name":"ai-boundary-consumer","private":true,"type":"module"}\n');
 
   const output = execFileSync('npm', ['pack', '--json', '--pack-destination', directory], {
-    cwd: SCHEMA_CORE,
+    cwd: packageDirectory,
     encoding: 'utf8',
     env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },
   });
   const archive = join(directory, npmPackFilename(output));
   execFileSync('tar', ['-xzf', archive, '-C', unpacked, '--strip-components=1']);
-  symlinkSync(unpacked, join(app, 'node_modules', '@zmdb', 'schema-core'), 'dir');
+  const manifest = readJson<PackageManifest>(join(unpacked, 'package.json'));
+  const packageName = manifest.name?.split('/')[1];
+  if (packageName === undefined) throw new Error(`${directoryName} has no scoped package name`);
+  symlinkSync(unpacked, join(app, 'node_modules', '@zmdb', packageName), 'dir');
   mkdirSync(join(unpacked, 'node_modules', '@zmdb'), { recursive: true });
-  symlinkSync(join(PACKAGES, 'query-compiler'), join(unpacked, 'node_modules', '@zmdb', 'query-compiler'), 'dir');
+  for (const dependency of workspaceDependencies) {
+    symlinkSync(join(PACKAGES, dependency), join(unpacked, 'node_modules', '@zmdb', dependency), 'dir');
+  }
 
   const smoke = `const out = {};
-for (const specifier of ${JSON.stringify(CURRENT_PACKED_SUBPATHS)}) {
+for (const specifier of ${JSON.stringify(specifiers)}) {
   out[specifier] = Object.keys(await import(specifier)).toSorted();
 }
 process.stdout.write(JSON.stringify(out));
@@ -303,7 +316,7 @@ process.stdout.write(JSON.stringify(out));
   const installedPeers = AI_SDK_PEERS.filter(peer => existsSync(join(app, 'node_modules', ...peer.split('/'))));
   return {
     directory,
-    manifest: readJson<PackageManifest>(join(unpacked, 'package.json')),
+    manifest,
     files: filesUnder(unpacked)
       .map(file => relative(unpacked, file))
       .toSorted(),
@@ -314,18 +327,20 @@ process.stdout.write(JSON.stringify(out));
 
 const readJsonFromText = <T>(text: string): T => JSON.parse(text) as T;
 
-let packed: PackedSchemaCore;
-let packDirectory: string | undefined;
+let packedAi: PackedPackage;
+let packedSchemaCore: PackedPackage;
+const packDirectories: string[] = [];
 
 beforeAll(() => {
-  packed = packSchemaCore();
+  packedAi = packWorkspacePackage('ai', AI_PACKED_SUBPATHS, ['schema-core']);
+  packedSchemaCore = packWorkspacePackage('schema-core', SCHEMA_CORE_PACKED_SUBPATHS, ['query-compiler']);
 }, 60_000);
 
 afterAll(() => {
-  if (packDirectory !== undefined) rmSync(packDirectory, { recursive: true, force: true });
+  for (const directory of packDirectories) rmSync(directory, { recursive: true, force: true });
 });
 
-describe('AI package ownership and isolation (#704)', () => {
+describe('AI package ownership and isolation (#704, #705)', () => {
   it.fails('schema-core exposes no llm subpath or AI peer dependency', () => {
     // Measured at #703: 32 files, six export-map entries and three optional peers still belong
     // to schema-core. Each assertion names the real old owner rather than a future empty package.
@@ -345,25 +360,24 @@ describe('AI package ownership and isolation (#704)', () => {
     expect.soft(aiPeers).toEqual([]);
   });
 
-  it.fails('provider-neutral AI imports no provider or framework SDK', () => {
-    // The present provider-neutral root reaches the Anthropic driver through chat's eager
-    // re-export, and every mapped file is physically owned by schema-core.
+  it('provider-neutral AI imports no provider or framework SDK', () => {
     const entries = [
-      join(LLM, 'index.ts'),
-      join(LLM, 'chat', 'index.ts'),
-      join(LLM, 'http', 'index.ts'),
-      join(LLM, 'providers.ts'),
-      join(LLM, 'tool-runtime.ts'),
-      join(LLM, 'adapters', 'runtime.ts'),
+      join(AI, 'src', 'index.ts'),
+      join(AI, 'src', 'chat', 'index.ts'),
+      join(AI, 'src', 'compiler.ts'),
+      join(AI, 'src', 'http', 'index.ts'),
+      join(AI, 'src', 'tool-runtime.ts'),
     ];
     const forbidden = importClosure(entries)
       .filter(reference => AI_SDK_PEERS.includes(reference.specifier as (typeof AI_SDK_PEERS)[number]))
       .map(reference => `${relative(ROOT, reference.file)} -> ${reference.specifier}`)
       .toSorted();
-    expect
-      .soft(currentOwnership(PROVIDER_NEUTRAL_FILES))
-      .toEqual(PROVIDER_NEUTRAL_FILES.map(path => ({ path, owner: '@zmdb/ai' })));
+    const manifest = readJson<PackageManifest>(join(AI, 'package.json'));
+    expect.soft(entries.map(file => packageOwner(file))).toEqual(entries.map(() => '@zmdb/ai'));
     expect.soft(forbidden).toEqual([]);
+    expect.soft(manifest.dependencies).toEqual({ '@zmdb/schema-core': 'workspace:^' });
+    expect.soft(manifest.peerDependencies).toBeUndefined();
+    expect.soft(AI_SDK_PEERS.filter(peer => manifest.dependencies?.[peer] !== undefined)).toEqual([]);
   });
 
   it.fails('each optional AI integration reaches exactly its declared peer', () => {
@@ -434,7 +448,7 @@ describe('AI package ownership and isolation (#704)', () => {
     expect.soft(observed).toEqual(expected);
   });
 
-  it.fails('toolFor codegen witnesses import from @zmdb/ai', () => {
+  it('toolFor codegen witnesses import from @zmdb/ai', () => {
     const files = [
       join(PACKAGES, 'aot-validator', 'src', 'transformer.ts'),
       join(PACKAGES, 'aot-validator', 'src', 'emit', 'index.ts'),
@@ -455,39 +469,53 @@ describe('AI package ownership and isolation (#704)', () => {
     expect.soft(manifest.dependencies?.['@zmdb/ai']).toBe('workspace:^');
   });
 
-  it.fails('every advertised AI subpath imports from a packed consumer', () => {
-    // All six old LLM exports import successfully from the actual tarball, proving the tested
-    // capability exists. It fails because that packed implementation is named schema-core and
-    // advertises the old export map, not because an @zmdb/ai placeholder is absent.
-    expect(Object.keys(packed.imported).toSorted()).toEqual([...CURRENT_PACKED_SUBPATHS]);
-    expect(packed.files).toContain('src/llm/tool-runtime.ts');
-    expect(packed.files).toContain('src/llm/providers.ts');
-    expect.soft(packed.manifest.name).toBe('@zmdb/ai');
-    expect.soft(Object.keys(packed.manifest.exports ?? {}).toSorted()).toEqual([...TARGET_AI_EXPORTS]);
+  it('every advertised AI subpath imports from a packed consumer', () => {
+    expect(Object.keys(packedAi.imported).toSorted()).toEqual([...AI_PACKED_SUBPATHS]);
+    expect(packedAi.imported['@zmdb/ai']).toEqual(['lenientParse', 'toolFor', 'toolFromSchema']);
+    expect(packedAi.imported['@zmdb/ai/chat']).toEqual(['defineTools', 'run']);
+    expect(packedAi.imported['@zmdb/ai/compiler']).toEqual(['ToolSpecRefusalError', 'toolSchemaForProvider']);
+    expect(packedAi.imported['@zmdb/ai/http']).toEqual([
+      'OpenApiHttpError',
+      'ToolSpecRefusalError',
+      'bindOpenApiTool',
+      'generateOpenApiToolsModule',
+      'toolsFromOpenApi',
+    ]);
+    expect(packedAi.imported['@zmdb/ai/tool-runtime']).toEqual([
+      'executeToolAdapter',
+      'invokeTool',
+      'serialiseToolResult',
+    ]);
+    expect(packedAi.files).toContain('src/tool-runtime.ts');
+    expect(packedAi.files).toContain('src/chat/index.ts');
+    expect.soft(packedAi.manifest.name).toBe('@zmdb/ai');
+    expect.soft(Object.keys(packedAi.manifest.exports ?? {}).toSorted()).toEqual([...TARGET_AI_EXPORTS]);
   });
 
   it.fails('installing @zmdb/schema-core alone installs no AI SDK peer', () => {
     // The consumer contains only the packed schema-core package and none of the SDKs. The
     // remaining failure is its real packed peer contract, which still assigns all three SDK
     // edges to schema-core.
-    expect(packed.installedPeers).toEqual([]);
-    expect.soft(AI_SDK_PEERS.filter(peer => packed.manifest.peerDependencies?.[peer] !== undefined)).toEqual([]);
-    expect.soft(packed.manifest.peerDependenciesMeta).not.toHaveProperty('@anthropic-ai/sdk');
-    expect.soft(packed.manifest.peerDependenciesMeta).not.toHaveProperty('@langchain/core');
-    expect.soft(packed.manifest.peerDependenciesMeta).not.toHaveProperty('ai');
+    expect(packedSchemaCore.installedPeers).toEqual([]);
+    expect
+      .soft(AI_SDK_PEERS.filter(peer => packedSchemaCore.manifest.peerDependencies?.[peer] !== undefined))
+      .toEqual([]);
+    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta).not.toHaveProperty('@anthropic-ai/sdk');
+    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta).not.toHaveProperty('@langchain/core');
+    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta).not.toHaveProperty('ai');
   });
 
-  it.fails('installing @zmdb/ai alone imports chat and HTTP tools without optional peers', () => {
-    const rootKeys = packed.imported['@zmdb/schema-core/llm'];
-    expect(packed.imported['@zmdb/schema-core/llm/chat']).toContain('run');
-    expect(packed.imported['@zmdb/schema-core/llm/http']).toContain('toolsFromOpenApi');
-    expect(packed.installedPeers).toEqual([]);
-    expect.soft(packed.manifest.name).toBe('@zmdb/ai');
+  it('installing @zmdb/ai alone imports chat and HTTP tools without optional peers', () => {
+    const rootKeys = packedAi.imported['@zmdb/ai'];
+    expect(packedAi.imported['@zmdb/ai/chat']).toContain('run');
+    expect(packedAi.imported['@zmdb/ai/http']).toContain('toolsFromOpenApi');
+    expect(packedAi.installedPeers).toEqual([]);
+    expect.soft(packedAi.manifest.name).toBe('@zmdb/ai');
     expect.soft(rootKeys).toEqual(['lenientParse', 'toolFor', 'toolFromSchema']);
-    expect.soft(AI_SDK_PEERS.filter(peer => packed.manifest.peerDependencies?.[peer] !== undefined)).toEqual([]);
+    expect.soft(AI_SDK_PEERS.filter(peer => packedAi.manifest.peerDependencies?.[peer] !== undefined)).toEqual([]);
   });
 
-  it.fails('generated OpenAPI tool modules name @zmdb/ai/http', () => {
+  it('generated OpenAPI tool modules name @zmdb/ai/http', () => {
     const generated = generateOpenApiToolsModule({
       openapi: '3.1.0',
       info: { title: 'AI boundary probe', version: '1.0.0' },

@@ -457,13 +457,18 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Four small packages</h2>
-  <p class="lead">Composable and ESM-only. Use the whole stack, or just the query compiler or validator on their own.</p>
+  <h2>Nine published packages</h2>
+  <p class="lead">Composable and ESM-only. Use the data/web umbrella, provider-neutral AI tools, or an implementation package on its own.</p>
   <div class="pkgs">
-    <div class="pkg"><code>@zmdb/schema-core</code><p>Schema DSL + type derivation (Entity / Create / Update / read DTOs), relations, OpenAPI, seeding, custom types, LLM tools.</p></div>
+    <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
     <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>
+    <div class="pkg"><code>@zmdb/schema-core</code><p>Schema DSL + type derivation (Entity / Create / Update / read DTOs), relations, OpenAPI, seeding, custom types.</p></div>
+    <div class="pkg"><code>@zmdb/ai</code><p>Provider-neutral tool documents, bounded chat orchestration, shared invocation, and OpenAPI-derived tools.</p></div>
+    <div class="pkg"><code>@zmdb/protobuf</code><p>Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts.</p></div>
     <div class="pkg"><code>@zmdb/aot-validator</code><p>AOT is / assert / validate / equals / random, unions, transforms, and JSON Ser/De — inlined at build time.</p></div>
     <div class="pkg"><code>@zmdb/repository</code><p>Auto-validating CRUD, transactions, populate, read-replicas, lifecycle events, framework adapters.</p></div>
+    <div class="pkg"><code>@zmdb/web</code><p>Controllers, routing, dependency injection, request pipelines, OpenAPI, transports, jobs, and scheduling.</p></div>
+    <div class="pkg"><code>zmdb</code><p>The curated data/web umbrella. It contains no implementation logic and does not re-export <code>@zmdb/ai</code>.</p></div>
   </div>
 </section>
 

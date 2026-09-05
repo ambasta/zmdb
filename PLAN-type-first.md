@@ -226,8 +226,9 @@ silence. `ValidationRule.args` is now declared rather than merely read, because 
 
 Do not re-derive these. Measured and committed, not assumed.
 
-- **The checker is cheap.** One `API` instance, `new API()` in **3 ms**, all six package projects opened in **57 ms** total (4 ms to add the second project to an open snapshot), invalidating a changed
-  file in **0 ms**. `getSemanticDiagnostics` is 56–104 ms per project but the transformer never needs it — that is `tsc`'s job. REQ-TF-11 is a wiring discipline, not a performance problem.
+- **The checker is cheap at the measured pre-AI baseline.** One `API` instance, `new API()` in **3 ms**, the then-six package projects opened in **57 ms** total (4 ms to add the second project to an
+  open snapshot), and invalidating a changed file took **0 ms**. `getSemanticDiagnostics` is 56–104 ms per project but the transformer never needs it — that is `tsc`'s job. The seventh package needs a
+  fresh whole-repository timing before a new current total is claimed.
 - **The prototype works** — `scripts/prototypes/type-first/`, 25 asserted expectations, covering tags on intersections, key filtering, resolution through `Omit`/`Pick`/`Partial`, nullability,
   optionality, literal unions, arrays, tuples, nested objects with a cycle guard. (Deleted once the shipped path carried every one of those claims; the mapping is in `DESIGN-type-first.md` §5.)
 - **AST node positions are available** (`pos`, `end`, `getStart()`), so rewriting is surgical rather than regex-based.

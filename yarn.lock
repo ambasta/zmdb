@@ -2210,10 +2210,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/ai@workspace:^, @zmdb/ai@workspace:packages/ai":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/ai@workspace:packages/ai"
+  dependencies:
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
+    oxfmt: "npm:0.66.0"
+    typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/aot-validator@workspace:*, @zmdb/aot-validator@workspace:^, @zmdb/aot-validator@workspace:packages/aot-validator":
   version: 0.0.0-use.local
   resolution: "@zmdb/aot-validator@workspace:packages/aot-validator"
   dependencies:
+    "@zmdb/ai": "workspace:^"
     "@zmdb/protobuf": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     oxlint: "npm:1.81.0"
@@ -2315,6 +2327,7 @@ __metadata:
     "@opentelemetry/api": "npm:^1.9.1"
     "@opentelemetry/sdk-trace-base": "npm:2.11.0"
     "@types/pg": "npm:^8.23.1"
+    "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/protobuf": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
@@ -5364,6 +5377,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "zmdb@workspace:packages/zmdb"
   dependencies:
+    "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"

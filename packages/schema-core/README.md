@@ -1,7 +1,7 @@
 # @zmdb/schema-core
 
-`@zmdb/schema-core` contains the schema tags and shared intermediate representation used throughout zmdb. It also derives entities and DTOs, builds relation and OpenAPI types, and provides the common
-types used by the LLM tools.
+`@zmdb/schema-core` contains the schema tags and shared intermediate representation used throughout zmdb. It also derives entities and DTOs and builds relation and OpenAPI types. Provider-neutral AI
+tools are now published from `@zmdb/ai`.
 
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
@@ -17,7 +17,8 @@ npm add @zmdb/schema-core@alpha
 
 - Core schema APIs: `@zmdb/schema-core`
 - Schema building blocks: `/tags`, `/ir`, `/derive`, `/dto`, `/naming`, `/relations`, `/openapi`, `/custom-types`
-- LLM integrations: `/llm`, `/llm/ai-sdk`, `/llm/chat`, `/llm/http`, `/llm/langchain`, `/llm/mcp`
+- Temporary compatibility paths: `/llm`, `/llm/ai-sdk`, `/llm/chat`, `/llm/http`, `/llm/langchain`, `/llm/mcp`. New provider-neutral code should import `@zmdb/ai`; these paths remain until the
+  coordinated integration and MCP cutover.
 
 ## Documentation
 

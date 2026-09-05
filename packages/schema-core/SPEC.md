@@ -131,8 +131,9 @@ and plausible.
 
 ## 6. Target ownership boundary: schema, not AI
 
-Issue #703 freezes the target boundary for epic #702. This section describes the final package graph; it is not a claim about the tree before the implementation issues land. On 2026-09-05,
-`packages/schema-core/src/llm/` still contains 32 files, `packages/schema-core/package.json` still publishes six `./llm*` entries, and the package still declares three provider/framework peers.
+Issue #703 freezes the target boundary for epic #702. This section describes the final package graph. At baseline commit `94164c53` on 2026-09-05, `packages/schema-core/src/llm/` contained 32 files.
+After #705 moves the provider-neutral specifications and tests, 22 temporary implementation/integration/MCP files remain; the manifest still publishes six `./llm*` compatibility entries and declares
+three provider/framework peers.
 
 The final `@zmdb/schema-core` package owns only the declaration vocabulary and provider-neutral schema products:
 

@@ -10,7 +10,7 @@ import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '../../tags/i
 import { toolFromSchema } from '../index.js';
 import { langchainTool, type LangChainToolFields } from './langchain.js';
 
-// Implementation suite for llm/adapters/SPEC.md (#528, epic #524).
+// Implementation suite for packages/ai-langchain/SPEC.md (#528, epic #524).
 
 interface Money {
   readonly cents: number;

@@ -1,17 +1,11 @@
-# SPEC — LLM function-calling harness (frozen)
+# SPEC — provider-neutral AI tool documents (frozen)
 
-Part of `@zmdb/schema-core`. Turn a schema into an LLM tool/parameter schema and leniently parse+validate model output. Reuses the OpenAPI generator + validators. Epic #157.
+Part of `@zmdb/ai`. Turn a schema into an LLM tool/parameter schema and leniently parse model output. Schema declarations and JSON Schema conversion remain owned by `@zmdb/schema-core`. Epic #157.
 
 ## Issue #635 ownership exit
 
-All 16 build-included files under the current `src/llm/` tree leave the runtime foundation:
-
-- 10 provider-neutral files move to `@zmdb/ai`;
-- the Anthropic, LangChain, and Vercel adapters move to one package each;
-- 3 MCP files move to `@zmdb/mcp`.
-
-The exact paths are frozen in `.github/scripts/verify-runtime-foundation.SPEC.md` §2. Schema retains only the IR and JSON Schema framing those packages consume. No AI symbol, peer, export, generated
-import, or compatibility subpath remains in `@zmdb/schema`.
+The provider-neutral tool, chat, and HTTP contracts leave the runtime foundation for `@zmdb/ai`; Anthropic, LangChain, and Vercel adapters move to one package each; and MCP moves to `@zmdb/mcp`.
+Schema retains only the IR and JSON Schema framing those packages consume. No AI symbol, peer, export, generated import, or compatibility subpath remains in the final `@zmdb/schema` target.
 
 ## API
 
@@ -48,7 +42,7 @@ function lenientParse<T = unknown>(text: string, coerce?: (v: unknown) => T): Pa
 
 ## 1. What the document contains, which decides every question below
 
-One function emits every keyword a zmdb tool spec can contain: `jsonSchemaForColumn` in `../ir/index.ts`. Its output is a small subset of JSON Schema:
+One function emits every keyword a zmdb tool spec can contain: `jsonSchemaForColumn` in `../../schema-core/src/ir/index.ts`. Its output is a small subset of JSON Schema:
 
 | Column                     | Emitted keywords                                                                        |
 | -------------------------- | --------------------------------------------------------------------------------------- |
@@ -65,7 +59,7 @@ One function emits every keyword a zmdb tool spec can contain: `jsonSchemaForCol
 | `WireAs<W>` literal union  | `enum`                                                                                  |
 | nullable, any of the above | the `type` becomes `[T, 'null']`                                                        |
 
-And the document that wraps them is `{ type: 'object', properties, required }` — `JsonSchemaObject` at `../ir/index.ts:512`, three members, all required, all `readonly`.
+And the document that wraps them is `{ type: 'object', properties, required }` — `JsonSchemaObject` in `../../schema-core/src/ir/index.ts`, three members, all required, all `readonly`.
 
 So a zmdb tool spec is **exactly one level deep**, with scalar leaves. There is no `items`, no nested `properties`, no `$ref`, no `$defs`, no `oneOf`/`anyOf`/`allOf`, no `additionalProperties`, no
 `description` on a property, and no recursion. That is not an accident to be fixed later — a tool spec is derived from a table, and a table's columns are scalars.
@@ -128,7 +122,7 @@ preferable to a provider-side 400 after deployment.
 
 ## 3. Optionality, which is already conflated before a provider sees it
 
-Two facts in `../ir/index.ts` decide this, and neither is a provider's fault:
+Two facts in `../../schema-core/src/ir/index.ts` decide this, and neither is a provider's fault:
 
 - `required` is "not optional **and** not nullable" (`jsonSchemaFromShape`): a nullable column is never required, because `null` is admissible for it and demanding the key adds nothing a validator can
   act on.
@@ -223,10 +217,10 @@ five framings, which is the same rule §2.9 of `ARCHITECTURE.md` applies to the 
 Owned by the docs slice; both adapter pages and the strategy page stay `todo` until the epic closes.
 
 1. _Done._ `llm-langchain.md` routed the document through `json-schema-to-zod` and then admitted the conversion was lossy. It now uses `langchainTool`, which passes the document to
-   `DynamicStructuredTool` directly and names what the conversion was dropping — `format`, and `{}` becoming `z.any()` (`adapters/SPEC.md` §3).
+   `DynamicStructuredTool` directly and names what the conversion was dropping — `format`, and `{}` becoming `z.any()` (`../../ai-langchain/SPEC.md`).
 2. _Done._ `llm-vercel-ai-sdk.md` passed `parameters:` to `tool()`, which is the pre-v5 key; v5 calls it `inputSchema`. It also passed `toJsonSchema(...)` straight into `jsonSchema<T>()`, and
    `JsonSchemaObject.properties` is a `Readonly<Record<string, unknown>>` — not assignable to a mutable index signature of JSON-Schema nodes, so that line did not compile. The page now uses
-   `aiSdkTool` with the SDK's own `jsonSchema` factory, keeping that structural boundary out of application code (`adapters/SPEC.md` §4). The same pass fixed two more v4 names on that page,
+   `aiSdkTool` with the SDK's own `jsonSchema` factory, keeping that structural boundary out of application code (`../../ai-vercel/SPEC.md`). The same pass fixed two more v4 names on that page,
    `toDataStreamResponse` and `usage.completionTokens`.
 3. `toolFor` emits a document; it does not make a request. `llm-strategy.md` now distinguishes that from the optional Anthropic `ChatDriver`: one thin injected adapter exists, while there is still no
    unified provider wrapper. Other providers can implement the one-method driver or call their API with `fetch`.

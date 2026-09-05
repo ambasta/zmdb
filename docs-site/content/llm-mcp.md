@@ -1,5 +1,5 @@
-`@zmdb/schema-core/llm/mcp` turns the same validator-linked registry used by the [bounded chat loop](./llm-chat.html) into a pure MCP server, and provides a bounded client for remote MCP tools. The
-package owns protocol messages; your application owns stdio or HTTP framing.
+The temporary `@zmdb/schema-core/llm/mcp` path turns the validator-linked registry from `@zmdb/ai/chat` into a pure MCP server and provides a bounded client for remote MCP tools. The MCP package move
+is a later slice; your application still owns stdio or HTTP framing.
 
 ## Trust boundary first
 
@@ -14,8 +14,8 @@ application may trust.
 
 ```ts
 import { assert } from '@zmdb/aot-validator/utilities';
-import { toolFromSchema } from '@zmdb/schema-core/llm';
-import { defineTools } from '@zmdb/schema-core/llm/chat';
+import { toolFromSchema } from '@zmdb/ai';
+import { defineTools } from '@zmdb/ai/chat';
 import { createMcpServer } from '@zmdb/schema-core/llm/mcp';
 
 const tools = defineTools({

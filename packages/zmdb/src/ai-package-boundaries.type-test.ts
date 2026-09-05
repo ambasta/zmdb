@@ -1,8 +1,6 @@
-// The target packages do not exist yet, so importing their names here would make the typecheck
-// fail for a placeholder rather than freeze their contracts. The current implementation's types
-// are imported type-only, then arranged into the exact future surfaces specified by issue #703.
+// Compile-only contract for the real @zmdb/ai package boundary and the remaining
+// integration-package target surfaces frozen by issue #703.
 
-import type { Equal, Expect } from '@zmdb/schema-core';
 import type {
   lenientParse,
   ParseResult,
@@ -13,13 +11,7 @@ import type {
   ToolSchema,
   ToolSpec,
   ToolSpecFor,
-} from '@zmdb/schema-core/llm';
-import type {
-  aiSdkTool,
-  AiSdkToolFields,
-  AiSdkToolOptions,
-  ToolAdapterOptions as AiSdkToolAdapterOptions,
-} from '@zmdb/schema-core/llm/ai-sdk';
+} from '@zmdb/ai';
 import type {
   defineTools,
   ChatDriver,
@@ -29,7 +21,8 @@ import type {
   RunResult,
   ToolCall,
   ToolRegistry,
-} from '@zmdb/schema-core/llm/chat';
+} from '@zmdb/ai/chat';
+import type { toolSchemaForProvider, ToolSpecRefusalError as CompilerToolSpecRefusalError } from '@zmdb/ai/compiler';
 import type {
   bindOpenApiTool,
   BoundOpenApiTool,
@@ -43,7 +36,22 @@ import type {
   ToolSpecRefusal,
   ToolSpecRefusalError,
   toolsFromOpenApi,
-} from '@zmdb/schema-core/llm/http';
+} from '@zmdb/ai/http';
+import type {
+  executeToolAdapter,
+  InvocableTool,
+  invokeTool,
+  serialiseToolResult,
+  ToolAdapterOptions,
+  ToolInvocation,
+} from '@zmdb/ai/tool-runtime';
+import type { Equal, Expect } from '@zmdb/schema-core';
+import type {
+  aiSdkTool,
+  AiSdkToolFields,
+  AiSdkToolOptions,
+  ToolAdapterOptions as AiSdkToolAdapterOptions,
+} from '@zmdb/schema-core/llm/ai-sdk';
 import type {
   langchainTool,
   LangChainToolFields,
@@ -62,22 +70,11 @@ import type {
   RemoteToolResult,
 } from '@zmdb/schema-core/llm/mcp';
 
-import type { executeToolAdapter, ToolAdapterOptions } from '../../schema-core/src/llm/adapters/runtime.js';
 import type {
   anthropicDriver,
   AnthropicDriverOptions,
   AnthropicMessagesClient,
 } from '../../schema-core/src/llm/chat/drivers/anthropic.js';
-import type {
-  toolSchemaForProvider,
-  ToolSpecRefusalError as CompilerToolSpecRefusalError,
-} from '../../schema-core/src/llm/providers.js';
-import type {
-  InvocableTool,
-  invokeTool,
-  serialiseToolResult,
-  ToolInvocation,
-} from '../../schema-core/src/llm/tool-runtime.js';
 
 type ExportSet<Values extends string, Types extends string> = {
   readonly values: Values;

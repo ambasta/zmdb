@@ -4,7 +4,7 @@ inlined.
 ## Generate the provider shape directly
 
 ```ts
-import { toolFor } from '@zmdb/schema-core/llm';
+import { toolFor } from '@zmdb/ai';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 interface User extends Table<'users'> {
@@ -39,7 +39,7 @@ Read [Provider Schema Strategies](./llm-strategy.html) before choosing a target.
 
 ```ts
 import { schemaOf } from '@zmdb/schema-core';
-import { toolFromSchema, type ToolSpec } from '@zmdb/schema-core/llm';
+import { toolFromSchema, type ToolSpec } from '@zmdb/ai';
 
 const users = schemaOf<User>();
 
@@ -70,7 +70,7 @@ This is especially important for an optional field widened to nullable by the Op
 When the API returns text rather than a structured tool call, `lenientParse` strips an outer Markdown fence and calls `JSON.parse`:
 
 ````ts
-import { lenientParse } from '@zmdb/schema-core/llm';
+import { lenientParse } from '@zmdb/ai';
 
 const fenced = '```json\n{"email":"alice@example.com"}\n```';
 const result = lenientParse(fenced);

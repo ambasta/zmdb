@@ -1,5 +1,5 @@
-> **Supported core, application-owned storage.** `@zmdb/schema-core/llm/chat` provides typed chat messages, a validator-linked tool registry, a bounded loop with effect approval, and an optional
-> Anthropic SDK driver. It does not persist conversations or stream tokens; those remain application concerns below.
+> **Supported core, application-owned storage.** `@zmdb/ai/chat` provides typed chat messages, a validator-linked tool registry, and a bounded loop with effect approval. The Anthropic SDK driver
+> remains on the temporary `@zmdb/schema-core/llm/chat` compatibility path until its dedicated integration package lands. Neither path persists conversations or streams tokens.
 
 ## Safety model
 
@@ -16,8 +16,9 @@ Those are construction rules, not recommendations around an otherwise unbounded 
 
 ```ts
 import Anthropic from '@anthropic-ai/sdk';
+import { defineTools, run } from '@zmdb/ai/chat';
 import { assert } from '@zmdb/aot-validator/utilities';
-import { anthropicDriver, defineTools, run } from '@zmdb/schema-core/llm/chat';
+import { anthropicDriver } from '@zmdb/schema-core/llm/chat';
 
 interface SearchArgs {
   q: string;
