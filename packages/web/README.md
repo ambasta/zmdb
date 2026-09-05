@@ -22,16 +22,16 @@ The package root contains the common HTTP APIs. Feature-specific entry points in
 client modules whose runtime imports are limited to `@zmdb/client`. `zmdb client generate` projects the same compiled IR into sibling OpenAPI and client artifacts; it does not derive one from the
 other.
 
-During the server-package migration, the concrete Redis and RabbitMQ adapters retain their named `/microservices/*` entry points. Typed gRPC servers and clients ship from `@zmdb/transport-grpc`, and
-core NATS ships from `@zmdb/transport-nats`; neither old web subpath forwards. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`. Queues, workers,
-scheduling, leases, and the SQLite memory backend live in `@zmdb/jobs`; the removed web paths do not forward.
+Typed gRPC servers and clients ship from `@zmdb/transport-grpc`, core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, and Redis Pub/Sub ships from
+`@zmdb/transport-redis`; none of their old web subpaths forwards. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`. Queues, workers, scheduling,
+leases, and the SQLite memory backend live in `@zmdb/jobs`; the removed web paths do not forward.
 
 Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install
 `@zmdb/otel` separately to adapt caller-owned `@opentelemetry/api` tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
 
 `@zmdb/web/versioning` provides version decorators and the path, header, and media-type strategies used by the router and OpenAPI generator.
 
-Redis and RabbitMQ clients are optional peers reached only through their named microservices subpaths. Install each selected transport package with its required peer.
+Install each selected transport package with its required peer. `@zmdb/web` declares no broker peer or broker subpath.
 
 ## Documentation
 

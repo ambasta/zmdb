@@ -38,10 +38,10 @@ function nonEmpty(values: readonly string[], description: string): readonly stri
   const unique = new Set<string>();
   for (const value of values) {
     if (value.length === 0) {
-      throw new RangeError(`@zmdb/web: ${description} cannot be empty`);
+      throw new RangeError(`@zmdb/transport-redis: ${description} cannot be empty`);
     }
     if (unique.has(value)) {
-      throw new Error(`@zmdb/web: duplicate ${description} "${value}"`);
+      throw new Error(`@zmdb/transport-redis: duplicate ${description} "${value}"`);
     }
     unique.add(value);
   }
@@ -68,7 +68,7 @@ export function createRedisStrategy(options: RedisStrategyOptions): TransportStr
   const name = options.name ?? 'redis';
   const replyPrefix = options.replyPrefix ?? `zmdb.reply.${globalThis.crypto.randomUUID()}`;
   if (replyPrefix.length === 0) {
-    throw new RangeError('@zmdb/web: Redis replyPrefix cannot be empty');
+    throw new RangeError('@zmdb/transport-redis: Redis replyPrefix cannot be empty');
   }
 
   const inFlight = new InFlight(options.onError);
@@ -99,10 +99,10 @@ export function createRedisStrategy(options: RedisStrategyOptions): TransportStr
 
     async listen(dispatch): Promise<void> {
       if (started) {
-        throw new Error('@zmdb/web: Redis strategy is already listening');
+        throw new Error('@zmdb/transport-redis: Redis strategy is already listening');
       }
       if (closed) {
-        throw new Error('@zmdb/web: Redis strategy is closed');
+        throw new Error('@zmdb/transport-redis: Redis strategy is closed');
       }
       started = true;
 
@@ -147,7 +147,7 @@ export function createRedisStrategy(options: RedisStrategyOptions): TransportStr
     async send(request): Promise<MessageReply> {
       const activePublisher = publisher;
       if (activePublisher === undefined || subscriber === undefined) {
-        throw new Error('@zmdb/web: Redis strategy is not listening');
+        throw new Error('@zmdb/transport-redis: Redis strategy is not listening');
       }
       if (request.signal.aborted) {
         throw abortError(request.signal);
@@ -203,7 +203,7 @@ export function createRedisStrategy(options: RedisStrategyOptions): TransportStr
     async emit(pattern, payload, carrier): Promise<void> {
       const activePublisher = publisher;
       if (activePublisher === undefined || subscriber === undefined) {
-        throw new Error('@zmdb/web: Redis strategy is not listening');
+        throw new Error('@zmdb/transport-redis: Redis strategy is not listening');
       }
       await activePublisher.publish(pattern, encodeDelivery(payload, carrier));
     },
@@ -217,7 +217,7 @@ export function createRedisStrategy(options: RedisStrategyOptions): TransportStr
       const activeSubscriber = subscriber;
       publisher = undefined;
       subscriber = undefined;
-      rejectPending(pending, new Error('@zmdb/web: Redis strategy closed before receiving a reply'));
+      rejectPending(pending, new Error('@zmdb/transport-redis: Redis strategy closed before receiving a reply'));
       if (activePublisher === undefined || activeSubscriber === undefined) {
         return;
       }
@@ -237,7 +237,7 @@ export function createRedisStrategy(options: RedisStrategyOptions): TransportStr
       if (!(await withinGrace(graceful, graceMs))) {
         activeSubscriber.destroy();
         activePublisher.destroy();
-        throw new Error(`@zmdb/web: Redis strategy did not drain within ${String(graceMs)}ms`);
+        throw new Error(`@zmdb/transport-redis: Redis strategy did not drain within ${String(graceMs)}ms`);
       }
     },
   };

@@ -59,6 +59,8 @@
       "@zmdb/otel": ["./packages/otel/dist/index.d.ts"],
       "@zmdb/transport-grpc": ["./packages/transport-grpc/dist/index.d.ts"],
       "@zmdb/transport-nats": ["./packages/transport-nats/dist/index.d.ts"],
+      "@zmdb/transport-rabbitmq": ["./packages/transport-rabbitmq/dist/index.d.ts"],
+      "@zmdb/transport-redis": ["./packages/transport-redis/dist/index.d.ts"],
       "@zmdb/web": ["./packages/web/dist/index.d.ts"],
       "@zmdb/web/*": ["./packages/web/dist/*/index.d.ts"]
     }

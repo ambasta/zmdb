@@ -2681,6 +2681,30 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/transport-rabbitmq@workspace:packages/transport-rabbitmq":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/transport-rabbitmq@workspace:packages/transport-rabbitmq"
+  dependencies:
+    "@zmdb/app": "workspace:^"
+    amqplib: "npm:2.0.1"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    amqplib: ^2.0.1
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/transport-redis@workspace:packages/transport-redis":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/transport-redis@workspace:packages/transport-redis"
+  dependencies:
+    "@zmdb/app": "workspace:^"
+    redis: "npm:6.2.1"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    redis: ^6.2.1
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/web@workspace:^, @zmdb/web@workspace:packages/web":
   version: 0.0.0-use.local
   resolution: "@zmdb/web@workspace:packages/web"
@@ -2690,18 +2714,10 @@ __metadata:
     "@zmdb/app": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
-    amqplib: "npm:2.0.1"
-    redis: "npm:6.2.1"
     typescript: "npm:7.0.2"
   peerDependencies:
-    amqplib: ^2.0.1
-    redis: ^6.2.1
     typescript: ">=7.0.0"
   peerDependenciesMeta:
-    amqplib:
-      optional: true
-    redis:
-      optional: true
     typescript:
       optional: true
   languageName: unknown

@@ -32,6 +32,8 @@ export const PACKAGES = [
   'otel',
   'transport-grpc',
   'transport-nats',
+  'transport-rabbitmq',
+  'transport-redis',
   'web',
   'zmdb',
 ];

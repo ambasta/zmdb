@@ -249,6 +249,24 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  'transport-rabbitmq': packagePolicy({
+    directory: 'packages/transport-rabbitmq',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
+  'transport-redis': packagePolicy({
+    directory: 'packages/transport-redis',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   web: packagePolicy({
     directory: 'packages/web',
     zone: 'application',
@@ -256,8 +274,6 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
-      amqplib: ['./microservices/rabbitmq'],
-      redis: ['./microservices/redis'],
       typescript: ['./contract/compiler'],
     },
     toolingEntries: [

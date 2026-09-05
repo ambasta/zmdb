@@ -1,6 +1,6 @@
 # `@zmdb/transport-rabbitmq` — RabbitMQ transport strategy
 
-> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #659 extracts the shipped web strategy.
+> Frozen by #654 for epic #653 and implemented by #659. RabbitMQ protocol ownership, executable evidence and the sole public root entry live in this package.
 
 ## 1. Boundary and exports
 

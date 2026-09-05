@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@zmdb/app": "1.0.0-alpha.4",
     "@zmdb/transport-redis": "1.0.0-alpha.4",
     "redis": "6.2.1"
   },

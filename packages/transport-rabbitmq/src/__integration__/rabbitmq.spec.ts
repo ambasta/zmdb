@@ -1,12 +1,8 @@
-import { encodeDelivery } from '@zmdb/app/messaging';
 import { connect as connectRabbit } from 'amqplib';
-import { createClient } from 'redis';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createRabbitMqStrategy } from '../rabbitmq/index.js';
-import { createRedisStrategy } from '../redis/index.js';
+import { createRabbitMqStrategy } from '../index.js';
 
-const REDIS_URL = process.env.ZMDB_REDIS_URL;
 const RABBITMQ_URL = process.env.ZMDB_RABBITMQ_URL;
 
 function required(value: string | undefined, name: string): string {
@@ -16,38 +12,7 @@ function required(value: string | undefined, name: string): string {
   return value;
 }
 
-describe.skipIf(REDIS_URL === undefined)('Redis Pub/Sub integration (#560)', () => {
-  it('loses messages published with no connected consumer and delivers live messages', async () => {
-    const url = required(REDIS_URL, 'ZMDB_REDIS_URL');
-    const channel = `zmdb.test.${globalThis.crypto.randomUUID()}`;
-    const raw = createClient({ url });
-    const errors: unknown[] = [];
-    await raw.connect();
-    const subscribers = await raw.publish(channel, encodeDelivery({ id: 'before' }, undefined));
-    const received: unknown[] = [];
-    const strategy = createRedisStrategy({
-      channels: [channel],
-      connection: { url },
-      onError: error => errors.push(error),
-    });
-    try {
-      await strategy.listen(message => {
-        received.push(message.payload);
-        return Promise.resolve({ settlement: { kind: 'ack' } });
-      });
-      await strategy.emit(channel, { id: 'after' });
-      await vi.waitFor(() => expect(received).toEqual([{ id: 'after' }]));
-
-      expect(subscribers).toBe(0);
-      expect(errors).toEqual([]);
-    } finally {
-      await strategy.close(1_000);
-      await raw.close();
-    }
-  });
-});
-
-describe.skipIf(RABBITMQ_URL === undefined)('RabbitMQ integration (#560)', () => {
+describe.skipIf(RABBITMQ_URL === undefined)('RabbitMQ integration (#659)', () => {
   it('redelivers through the TTL retry queue and dead-letters invalid JSON', async () => {
     const connection = required(RABBITMQ_URL, 'ZMDB_RABBITMQ_URL');
     const suffix = globalThis.crypto.randomUUID();

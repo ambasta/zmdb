@@ -103,6 +103,17 @@ const META = {
     install: 'npm add @zmdb/transport-nats@alpha @nats-io/transport-node',
     keywords: ['messaging', 'nats', 'request-reply', 'transport', 'typescript', 'zmdb'],
   },
+  'transport-rabbitmq': {
+    description:
+      'RabbitMQ transport strategy for the zmdb application messaging contract, with confirmed retries and owned dead-letter topology.',
+    install: 'npm add @zmdb/transport-rabbitmq@alpha amqplib',
+    keywords: ['amqp', 'messaging', 'rabbitmq', 'transport', 'typescript', 'zmdb'],
+  },
+  'transport-redis': {
+    description: 'Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.',
+    install: 'npm add @zmdb/transport-redis@alpha redis',
+    keywords: ['messaging', 'pubsub', 'redis', 'transport', 'typescript', 'zmdb'],
+  },
   web: {
     description:
       'HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.',

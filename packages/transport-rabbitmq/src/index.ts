@@ -56,14 +56,14 @@ interface PendingReply {
 
 function requiredName(value: string, description: string): string {
   if (value.length === 0) {
-    throw new RangeError(`@zmdb/web: RabbitMQ ${description} cannot be empty`);
+    throw new RangeError(`@zmdb/transport-rabbitmq: RabbitMQ ${description} cannot be empty`);
   }
   return value;
 }
 
 function positiveInteger(value: number, description: string): number {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new RangeError(`@zmdb/web: RabbitMQ ${description} must be a positive integer`);
+    throw new RangeError(`@zmdb/transport-rabbitmq: RabbitMQ ${description} must be a positive integer`);
   }
   return value;
 }
@@ -133,7 +133,7 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
   const queue = requiredName(options.queue, 'queue');
   const bindings = options.bindings.map(binding => requiredName(binding, 'binding'));
   if (bindings.length === 0) {
-    throw new RangeError('@zmdb/web: RabbitMQ requires at least one binding');
+    throw new RangeError('@zmdb/transport-rabbitmq: RabbitMQ requires at least one binding');
   }
   const deadLetterExchange = requiredName(options.deadLetter.exchange, 'dead-letter exchange');
   const deadLetterQueue = requiredName(options.deadLetter.queue, 'dead-letter queue');
@@ -161,10 +161,10 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
 
     async listen(dispatch): Promise<void> {
       if (started) {
-        throw new Error('@zmdb/web: RabbitMQ strategy is already listening');
+        throw new Error('@zmdb/transport-rabbitmq: RabbitMQ strategy is already listening');
       }
       if (closed) {
-        throw new Error('@zmdb/web: RabbitMQ strategy is closed');
+        throw new Error('@zmdb/transport-rabbitmq: RabbitMQ strategy is closed');
       }
       started = true;
 
@@ -173,8 +173,21 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
           ? await connect(options.connection)
           : await connect(options.connection, options.socketOptions);
       nextModel.on('error', error => reportTransportError(options.onError, error));
-      const nextConsumerChannel = await nextModel.createChannel();
-      const nextPublisherChannel = await nextModel.createConfirmChannel();
+      let nextConsumerChannel: Channel;
+      try {
+        nextConsumerChannel = await nextModel.createChannel();
+      } catch (error) {
+        await nextModel.close().catch(() => undefined);
+        throw error;
+      }
+      let nextPublisherChannel: ConfirmChannel;
+      try {
+        nextPublisherChannel = await nextModel.createConfirmChannel();
+      } catch (error) {
+        await nextConsumerChannel.close().catch(() => undefined);
+        await nextModel.close().catch(() => undefined);
+        throw error;
+      }
       nextConsumerChannel.on('error', error => reportTransportError(options.onError, error));
       nextPublisherChannel.on('error', error => reportTransportError(options.onError, error));
       try {
@@ -210,7 +223,10 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
             }
             const correlationId = optionalProperty(message.properties.correlationId);
             if (correlationId === undefined) {
-              reportTransportError(options.onError, new TypeError('@zmdb/web: RabbitMQ reply has no correlation id'));
+              reportTransportError(
+                options.onError,
+                new TypeError('@zmdb/transport-rabbitmq: RabbitMQ reply has no correlation id'),
+              );
               return;
             }
             const waiter = pending.get(correlationId);
@@ -231,7 +247,9 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
           if (correlationId !== undefined) {
             pending
               .get(correlationId)
-              ?.reject(new Error(`@zmdb/web: RabbitMQ request "${message.fields.routingKey}" was not routed`));
+              ?.reject(
+                new Error(`@zmdb/transport-rabbitmq: RabbitMQ request "${message.fields.routingKey}" was not routed`),
+              );
           }
         });
 
@@ -312,7 +330,7 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
       const activePublisher = publisherChannel;
       const activeReplyQueue = replyQueue;
       if (activePublisher === undefined || activeReplyQueue === undefined) {
-        throw new Error('@zmdb/web: RabbitMQ strategy is not listening');
+        throw new Error('@zmdb/transport-rabbitmq: RabbitMQ strategy is not listening');
       }
       if (request.signal.aborted) {
         throw abortError(request.signal);
@@ -373,7 +391,7 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
     async emit(pattern, payload, carrier): Promise<void> {
       const activePublisher = publisherChannel;
       if (activePublisher === undefined) {
-        throw new Error('@zmdb/web: RabbitMQ strategy is not listening');
+        throw new Error('@zmdb/transport-rabbitmq: RabbitMQ strategy is not listening');
       }
       await publishConfirmed(activePublisher, exchange, pattern, amqpBytes(encodeDelivery(payload, carrier)), {
         contentType: 'application/json',
@@ -397,7 +415,7 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
       consumerTag = undefined;
       replyConsumerTag = undefined;
       replyQueue = undefined;
-      rejectPending(pending, new Error('@zmdb/web: RabbitMQ strategy closed before receiving a reply'));
+      rejectPending(pending, new Error('@zmdb/transport-rabbitmq: RabbitMQ strategy closed before receiving a reply'));
       if (activeModel === undefined || activeConsumer === undefined || activePublisher === undefined) {
         return;
       }
@@ -417,7 +435,7 @@ export function createRabbitMqStrategy(options: RabbitMqStrategyOptions): Transp
       })();
       if (!(await withinGrace(graceful, graceMs))) {
         await activeModel.close().catch(() => undefined);
-        throw new Error(`@zmdb/web: RabbitMQ strategy did not drain within ${String(graceMs)}ms`);
+        throw new Error(`@zmdb/transport-rabbitmq: RabbitMQ strategy did not drain within ${String(graceMs)}ms`);
       }
     },
   };
