@@ -327,6 +327,25 @@ export type OrderByDTO<T extends DeclaredTable> = ReadonlyArray<{
   dir?: OrderDir;
 }>;
 
+/**
+ * Extract keys of non-nullable entity properties.
+ *
+ * When S is unparameterized (e.g. CoreSchema<string>), Entity<S> degrades to an index
+ * signature Record<string, unknown> where every property type absorbs null, causing
+ * filtering to evaluate to never. The `[string] extends [keyof Entity<S>]` guard
+ * falls back to returning all keys in that unparameterized case.
+ */
+export type NonNullableEntityKeys<T extends DeclaredTable> = [string] extends [keyof Entity<T>]
+  ? keyof Entity<T>
+  : {
+      [K in keyof Entity<T>]: null extends Entity<T>[K] ? never : K;
+    }[keyof Entity<T>];
+
+export type KeysetOrderByDTO<T extends DeclaredTable> = ReadonlyArray<{
+  column: NonNullableEntityKeys<T>;
+  dir?: OrderDir;
+}>;
+
 /** Like {@link WhereTarget}: `this`-returning so folding preserves the builder type. */
 export interface OrderTarget {
   orderBy(col: string, dir: OrderDir): this;
@@ -334,13 +353,11 @@ export interface OrderTarget {
   offset(n: number): this;
 }
 export type OffsetPage = { limit: number; offset?: number | undefined };
-export type PaginationDTO<T extends DeclaredTable> =
-  | OffsetPage
-  | {
-      limit: number;
-      after?: Partial<Entity<T>> | string | undefined;
-      before?: Partial<Entity<T>> | string | undefined;
-    };
+export type KeysetCursorPage<T extends DeclaredTable> = {
+  limit: number;
+  after?: Partial<Pick<Entity<T>, NonNullableEntityKeys<T>>> | string | undefined;
+};
+export type PaginationDTO<T extends DeclaredTable> = OffsetPage | KeysetCursorPage<T>;
 
 /**
  * Schema-agnostic views of the order/page DTOs — exactly the fields the folders
@@ -466,21 +483,53 @@ class BranchTarget implements WhereTarget {
   }
 }
 
+type KeysetFilterSchema = {
+  columns?: Record<string, { flags?: { nullable?: boolean | undefined } | undefined }> | undefined;
+};
+
 export function applyKeysetFilter<B extends WhereTarget>(
   builder: B,
   cursorValues: Record<string, unknown>,
   orderBy: OrderBySpec,
   userWhere?: WhereDTO<UnknownRow>,
-  additionalWhere?: (builder: WhereTarget) => void,
-  resolveColumn: (column: string) => string = column => column,
+  additionalWhere?: ((builder: WhereTarget) => void) | KeysetFilterSchema,
+  resolveColumn?: ((column: string) => string) | KeysetFilterSchema,
+  schema?: KeysetFilterSchema,
 ): B {
   if (orderBy.length === 0) return builder;
+
+  let fn: ((builder: WhereTarget) => void) | undefined;
+  let resolveCol: (column: string) => string = column => column;
+  let s: KeysetFilterSchema | undefined;
+
+  if (typeof additionalWhere === 'function') {
+    fn = additionalWhere;
+    if (typeof resolveColumn === 'function') {
+      resolveCol = resolveColumn;
+      s = schema;
+    } else if (resolveColumn && typeof resolveColumn === 'object') {
+      s = resolveColumn;
+    }
+  } else if (additionalWhere && typeof additionalWhere === 'object') {
+    s = additionalWhere;
+    if (typeof resolveColumn === 'function') {
+      resolveCol = resolveColumn;
+    }
+  }
+
+  const cols = s?.columns;
 
   for (const item of orderBy) {
     if (!item) continue;
     const colStr = String(item.column);
+    if (cols && cols[colStr]?.flags?.nullable) {
+      throw new Error(`Invalid keyset sort column "${colStr}": column is nullable`);
+    }
     if (cursorValues[colStr] === undefined) {
       throw new Error(`Invalid cursor: missing value for column "${colStr}"`);
+    }
+    if (cursorValues[colStr] === null) {
+      throw new Error(`Invalid keyset cursor value for column "${colStr}": keyset cursor values cannot be null`);
     }
   }
 
@@ -494,21 +543,21 @@ export function applyKeysetFilter<B extends WhereTarget>(
     const target = new BranchTarget(currentBuilder, i === 0);
 
     if (userWhere) {
-      compileWhere(target, userWhere, resolveColumn);
+      compileWhere(target, userWhere, resolveCol);
     }
-    additionalWhere?.(target);
+    fn?.(target);
 
     for (let j = 0; j < i; j++) {
       const itemJ = orderBy[j];
       if (!itemJ) continue;
       const col = String(itemJ.column);
-      target.where(resolveColumn(col), '=', cursorValues[col]);
+      target.where(resolveCol(col), '=', cursorValues[col]);
     }
 
     const curCol = String(itemI.column);
     const dir = itemI.dir ?? 'asc';
     const op = dir === 'desc' ? '<' : '>';
-    target.where(resolveColumn(curCol), op, cursorValues[curCol]);
+    target.where(resolveCol(curCol), op, cursorValues[curCol]);
 
     currentBuilder = target.getBuilder();
   }
@@ -584,12 +633,21 @@ export function getResult<Row extends Record<string, unknown>>(
 // ---------------------------------------------------------------------------
 // §4–6 Get/List/Search DTOs (types; result assembly in #166/#169/#172)
 // ---------------------------------------------------------------------------
-export interface ListDTO<T extends DeclaredTable> {
+export interface OffsetListDTO<T extends DeclaredTable> {
   where?: WhereDTO<T>;
   orderBy?: OrderByDTO<T>;
-  page?: PaginationDTO<T>;
+  page?: OffsetPage;
   select?: readonly (keyof Entity<T>)[];
 }
+
+export interface KeysetListDTO<T extends DeclaredTable> {
+  where?: WhereDTO<T>;
+  orderBy?: KeysetOrderByDTO<T>;
+  page: KeysetCursorPage<T>;
+  select?: readonly (keyof Entity<T>)[];
+}
+
+export type ListDTO<T extends DeclaredTable> = OffsetListDTO<T> | KeysetListDTO<T>;
 export interface ListResult<Row> {
   readonly items: readonly Row[];
   readonly total?: number;
