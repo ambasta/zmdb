@@ -9,10 +9,69 @@ function tagDriver(tag: string, log: string[]): Driver {
 const q = (text: string) => ({ text, parameters: [] });
 
 describe('read replicas (#128)', () => {
-  it('isWrite detects INSERT/UPDATE/DELETE', () => {
+  it('isWrite detects INSERT/UPDATE/DELETE, write CTEs, DDL, and locking reads', () => {
     expect(isWrite('INSERT INTO x ...')).toBe(true);
     expect(isWrite('  update x set ...')).toBe(true);
     expect(isWrite('SELECT 1')).toBe(false);
+    expect(isWrite('CREATE TABLE users (id INT)')).toBe(true);
+    expect(isWrite('SELECT * FROM users FOR UPDATE')).toBe(true);
+    expect(isWrite('WITH moved AS (DELETE FROM old_users RETURNING *) INSERT INTO new_users SELECT * FROM moved')).toBe(
+      true,
+    );
+    expect(isWrite({ text: 'SELECT * FROM users', parameters: [], isWrite: false })).toBe(false);
+    expect(isWrite({ text: 'SELECT * FROM users', parameters: [], isWrite: true })).toBe(true);
+  });
+
+  it('routes write CTEs, DDL, and locking reads to primary based on metadata or SQL inspection', async () => {
+    const log: string[] = [];
+    const d = withReplicas({
+      primary: tagDriver('P', log),
+      replicas: [tagDriver('R0', log)],
+    });
+
+    const writeCte = {
+      text: 'WITH moved AS (DELETE FROM old_users RETURNING *) INSERT INTO new_users SELECT * FROM moved',
+      parameters: [],
+      isWrite: true,
+      operation: 'insert' as const,
+    };
+    const ddlQuery = {
+      text: 'CREATE TABLE logs (id INT)',
+      parameters: [],
+      isWrite: true,
+      operation: 'ddl' as const,
+    };
+    const lockingQuery = {
+      text: 'SELECT * FROM accounts WHERE id = $1 FOR UPDATE',
+      parameters: [1],
+      isWrite: true,
+      operation: 'select' as const,
+    };
+    const readCte = {
+      text: 'WITH active AS (SELECT * FROM users WHERE active = true) SELECT * FROM active',
+      parameters: [],
+      isWrite: false,
+      operation: 'select' as const,
+    };
+
+    await d.execute(writeCte);
+    await d.execute(ddlQuery);
+    await d.execute(lockingQuery);
+    await d.execute(readCte);
+
+    expect(log).toEqual(['P:WITH m', 'P:CREATE', 'P:SELECT', 'R0:WITH a']);
+  });
+
+  it('preserves primary driver dialect metadata', () => {
+    const primary: Driver = {
+      dialect: 'postgres',
+      execute: async () => [],
+    };
+    const d = withReplicas({
+      primary,
+      replicas: [{ dialect: 'postgres', execute: async () => [] }],
+    });
+    expect(d.dialect).toBe('postgres');
   });
 
   it('routes writes to primary, reads to replicas (round-robin)', async () => {

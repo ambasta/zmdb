@@ -536,6 +536,9 @@ describe('declared repository filters', () => {
         query: {
           text: 'SELECT * FROM "users" WHERE "role" = $1 AND "active" = $2',
           parameters: ['admin', true],
+          operation: 'select',
+          isWrite: false,
+          returnsRows: true,
         },
         meta: { filters: ['active'] },
       },
@@ -922,6 +925,9 @@ describe('soft delete against real SQLite', () => {
           'ON CONFLICT ("role") DO UPDATE SET "tenantId" = EXCLUDED."tenantId", ' +
           '"active" = EXCLUDED."active", "deletedAt" = ? RETURNING *',
         parameters: [9, 'same', false, null],
+        operation: 'insert',
+        isWrite: true,
+        returnsRows: true,
       });
       expect(await repo.findById(1)).toMatchObject({ id: 1, deletedAt: null });
     } finally {

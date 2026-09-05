@@ -285,14 +285,23 @@ describe('MySQL-family row-returning repository writes (#606)', () => {
         {
           text: 'UPDATE `users` SET `age` = `age` + ? WHERE `id` = ?',
           parameters: [1, 1],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         {
           text: 'UPDATE `users` SET `age` = `age` + ? WHERE `role` = ?',
           parameters: [2, 'user'],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         {
           text: 'INSERT INTO `users` (`email`, `age`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `age` = `age` + ?',
           parameters: ['a@b.com', 30, 3],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
       ]);
       for (const query of calls) expect(query.text.toUpperCase()).not.toContain('RETURNING');

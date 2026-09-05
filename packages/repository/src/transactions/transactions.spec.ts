@@ -97,6 +97,17 @@ describe('transaction lifecycle', () => {
     expect(conn.log).toEqual(['BEGIN', 'ROLLBACK']);
   });
 
+  it('propagates dialect metadata across transaction contexts', async () => {
+    const conn = { ...recordingConn(), dialect: 'postgres' as const };
+    const db = createTransactionalDb(conn);
+    await db.transaction(async tx => {
+      expect(tx.dialect).toBe('postgres');
+      await tx.savepoint(async inner => {
+        expect(inner.dialect).toBe('postgres');
+      });
+    });
+  });
+
   // Rolling an inner savepoint back while the outer transaction still commits is
   // covered by `savepoints.spec.ts`, which owns the #38 nesting rules.
 });

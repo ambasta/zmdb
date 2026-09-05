@@ -42,9 +42,6 @@ import {
   TARGET_TOOLING_MANIFESTS,
 } from './verify-tooling-boundaries.mjs';
 
-// Build-time and optional integration subpaths reach their peers on purpose (see
-// `verify-exports.mjs`), so the temp project needs what a consumer of every advertised
-// subpath would already have.
 const PEERS = [
   'typescript',
   'pg',

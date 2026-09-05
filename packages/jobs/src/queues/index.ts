@@ -13,7 +13,7 @@ export interface Clock {
 export type JobDialect = Dialect;
 
 export interface JobStore {
-  readonly dialect?: JobDialect;
+  readonly dialect?: JobDialect | undefined;
   execute(query: {
     readonly text: string;
     readonly parameters: readonly unknown[];

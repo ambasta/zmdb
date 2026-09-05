@@ -286,10 +286,140 @@ export function tailClause(dialect: DialectTarget, tail: Tail): string {
   return text;
 }
 
+/** Analyzes query SQL text to infer fallback operation metadata. */
+export function analyzeQuery(text: string): {
+  operation: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other';
+  isWrite: boolean;
+  returnsRows: boolean;
+} {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { operation: 'other', isWrite: false, returnsRows: false };
+  }
+
+  // Detect DDL operations
+  const isDdl = /\b(CREATE|ALTER|DROP|TRUNCATE|REINDEX|VACUUM)\b/i.test(trimmed);
+
+  // Detect DML writes
+  const isDmlWrite = /\b(INSERT|UPDATE|DELETE|MERGE)\b/i.test(trimmed);
+
+  // Detect locking reads (FOR UPDATE, FOR SHARE, etc.)
+  const isLockingRead =
+    /\bFOR\s+(UPDATE|SHARE|KEY\s+SHARE|NO\s+KEY\s+UPDATE)\b/i.test(trimmed) ||
+    /\bLOCK\s+IN\s+SHARE\s+MODE\b/i.test(trimmed);
+
+  const isWrite = isDdl || isDmlWrite || isLockingRead;
+
+  // Detect returning rows
+  const hasReturning = /\b(RETURNING|OUTPUT)\b/i.test(trimmed);
+  const isRowReturningCommand = /\b(SELECT|PRAGMA|EXPLAIN|SHOW)\b/i.test(trimmed);
+  const returnsRows = hasReturning || isRowReturningCommand;
+
+  // Determine operation category
+  let operation: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other';
+  if (isDdl) {
+    operation = 'ddl';
+  } else {
+    let normalized = trimmed;
+    while (true) {
+      if (normalized.startsWith('/*')) {
+        const endIdx = normalized.indexOf('*/', 2);
+        if (endIdx === -1) {
+          break;
+        }
+        normalized = normalized.slice(endIdx + 2).trimStart();
+      } else if (normalized.startsWith('--')) {
+        const endIdx = normalized.indexOf('\n', 2);
+        if (endIdx === -1) {
+          normalized = '';
+          break;
+        }
+        normalized = normalized.slice(endIdx + 1).trimStart();
+      } else {
+        break;
+      }
+    }
+    if (/^\s*SELECT/i.test(normalized)) {
+      operation = 'select';
+    } else if (/^\s*INSERT/i.test(normalized) || /^\s*MERGE/i.test(normalized)) {
+      operation = 'insert';
+    } else if (/^\s*UPDATE/i.test(normalized)) {
+      operation = 'update';
+    } else if (/^\s*DELETE/i.test(normalized)) {
+      operation = 'delete';
+    } else if (/^\s*WITH\b/i.test(normalized)) {
+      if (/\bINSERT\b/i.test(normalized)) operation = 'insert';
+      else if (/\bUPDATE\b/i.test(normalized)) operation = 'update';
+      else if (/\bDELETE\b/i.test(normalized)) operation = 'delete';
+      else operation = 'select';
+    } else if (isRowReturningCommand) {
+      operation = 'select';
+    } else {
+      operation = 'other';
+    }
+  }
+
+  return { operation, isWrite, returnsRows };
+}
+
+function isQueryTelemetry(val: unknown): val is QueryTelemetry {
+  return typeof val === 'object' && val !== null && 'system' in val;
+}
+
 /** Every `compile()` in this package returns this shape, frozen at both levels. */
-export function frozenQuery(text: string, params: readonly unknown[], telemetry?: QueryTelemetry): CompiledQuery {
-  const parameters = Object.freeze([...params]);
-  return telemetry === undefined ? Object.freeze({ text, parameters }) : Object.freeze({ text, parameters, telemetry });
+export function frozenQuery(
+  text: string,
+  params: readonly unknown[],
+  metaOrTelemetry?:
+    | {
+        operation?: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other' | undefined;
+        isWrite?: boolean | undefined;
+        returnsRows?: boolean | undefined;
+      }
+    | QueryTelemetry
+    | undefined,
+  telemetryArg?: QueryTelemetry | undefined,
+): CompiledQuery {
+  let meta:
+    | {
+        operation?: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other' | undefined;
+        isWrite?: boolean | undefined;
+        returnsRows?: boolean | undefined;
+      }
+    | undefined;
+  let telemetry: QueryTelemetry | undefined = telemetryArg;
+
+  if (isQueryTelemetry(metaOrTelemetry)) {
+    telemetry = metaOrTelemetry;
+  } else if (metaOrTelemetry) {
+    meta = metaOrTelemetry;
+  }
+
+  const inferred = analyzeQuery(text);
+  const operation = meta?.operation ?? inferred.operation;
+  const isWrite = meta?.isWrite ?? inferred.isWrite;
+  const returnsRows = meta?.returnsRows ?? inferred.returnsRows;
+
+  const result: {
+    text: string;
+    parameters: readonly unknown[];
+    operation: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other';
+    isWrite: boolean;
+    returnsRows: boolean;
+    telemetry?: QueryTelemetry;
+  } = {
+    text,
+    parameters: Object.freeze([...params]),
+    operation,
+    isWrite,
+    returnsRows,
+  };
+
+  if (telemetry !== undefined) {
+    result.telemetry = telemetry;
+  }
+
+  return Object.freeze(result);
 }
 
 /** Compile-known database attributes, absent when telemetry was not requested. */

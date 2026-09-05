@@ -3,16 +3,18 @@
 // adapted database driver, recording applied versions in _zmdb_migrations.
 
 import {
+  analyzeQuery,
   createQueryCompiler,
   dialectCapabilities,
   dialectFamily,
   dialectName,
   isSqlDialect,
   formatPlaceholder,
+  frozenQuery,
   quoteIdentifier,
   quoteTable,
-  type CompiledQuery,
   type DialectTarget,
+  type Driver,
   type MigrationDriver as DialectMigrationDriver,
   type SqlDialect,
 } from '../index.js';
@@ -47,9 +49,8 @@ export interface MigrationConnection {
 }
 
 // Interface matching any runtime database driver (e.g. from @zmdb/repository).
-export interface MigrationDriver {
-  readonly dialect?: DialectTarget;
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+export interface MigrationDriver extends Driver {
+  readonly dialect?: DialectTarget | undefined;
   transaction?<T>(run: (driver: MigrationDriver) => Promise<T>): Promise<T>;
 }
 
@@ -123,7 +124,8 @@ export function driverMigrationConnection(
     text: string,
     parameters: readonly unknown[] = [],
   ): Promise<readonly Record<string, unknown>[]> {
-    return driver.execute({ text, parameters });
+    const meta = analyzeQuery(text);
+    return driver.execute(frozenQuery(text, parameters, meta));
   }
 
   async function appliedMigrations(): Promise<readonly AppliedMigration[]> {

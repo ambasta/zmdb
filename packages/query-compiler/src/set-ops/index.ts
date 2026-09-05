@@ -1,3 +1,4 @@
+import { frozenQuery } from '../clauses.js';
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
 import type { DialectTarget } from '../dialects/index.js';
 import type { CompiledQuery } from '../index.js';
@@ -29,7 +30,10 @@ export function setOperation(op: SetOp, queries: readonly CompiledQuery[], diale
     return text;
   });
   const text = fragments.join(` ${SET_KEYWORD[op]} `);
-  return Object.freeze({ text, parameters: Object.freeze(params) });
+  const isWrite = queries.some(q => q.isWrite);
+  const returnsRows = queries.some(q => q.returnsRows !== false);
+  const operation = queries[0]?.operation ?? 'select';
+  return frozenQuery(text, params, { operation, isWrite, returnsRows });
 }
 
 // ---- Batch (§2) ----

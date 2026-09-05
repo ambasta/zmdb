@@ -12,16 +12,25 @@ describe('SQL Server dialect (#508)', () => {
     expect(compiler.insertInto('users').values({ email: 'a@b.com' }).returning(['id']).compile()).toEqual({
       text: 'INSERT INTO [users] ([email]) OUTPUT INSERTED.[id] VALUES (@p1)',
       parameters: ['a@b.com'],
+      operation: 'insert',
+      isWrite: true,
+      returnsRows: true,
     });
     expect(
       compiler.updateTable('users').set({ email: 'b@c.com' }).where('id', '=', 1).returning(['*']).compile(),
     ).toEqual({
       text: 'UPDATE [users] SET [email] = @p1 OUTPUT INSERTED.* WHERE [id] = @p2',
       parameters: ['b@c.com', 1],
+      operation: 'update',
+      isWrite: true,
+      returnsRows: true,
     });
     expect(compiler.deleteFrom('users').where('id', '=', 1).returning(['id']).compile()).toEqual({
       text: 'DELETE FROM [users] OUTPUT DELETED.[id] WHERE [id] = @p1',
       parameters: [1],
+      operation: 'delete',
+      isWrite: true,
+      returnsRows: true,
     });
   });
 
@@ -43,6 +52,9 @@ describe('SQL Server dialect (#508)', () => {
         'WHEN NOT MATCHED THEN INSERT ([email], [role], [visits]) ' +
         'VALUES (src.[email], src.[role], src.[visits]) OUTPUT INSERTED.*;',
       parameters: ['a@b.com', 'user', 1, 1],
+      operation: 'insert',
+      isWrite: true,
+      returnsRows: true,
     });
   });
 

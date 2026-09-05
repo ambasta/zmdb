@@ -254,7 +254,13 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
 
       await collect(repositoryStream<StreamRecord>(new StreamRecords(driver, dialect), { id: 7 }, { batchSize: 17 }));
 
-      expect(observedQuery).toEqual({ text: expected[dialect], parameters: [7] });
+      expect(observedQuery).toEqual({
+        text: expected[dialect],
+        parameters: [7],
+        operation: 'select',
+        isWrite: false,
+        returnsRows: true,
+      });
       expect(observedOptions).toEqual({ batchSize: 17 });
     }
   });
@@ -526,6 +532,9 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
         query: {
           text: 'SELECT * FROM "stream_records"',
           parameters: [],
+          operation: 'select',
+          isWrite: false,
+          returnsRows: true,
         },
         meta: {
           filters: [],
@@ -536,6 +545,9 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
         query: {
           text: 'SELECT * FROM "stream_records"',
           parameters: [],
+          operation: 'select',
+          isWrite: false,
+          returnsRows: true,
         },
         meta: {
           filters: [],
