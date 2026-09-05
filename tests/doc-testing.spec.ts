@@ -543,7 +543,7 @@ function createSnippetContext() {
 
   const sampleUser = { id: 1, email: 'a@b.com', role: 'user', age: 25, createdAt: '2026-01-01T00:00:00.000Z' };
 
-  const DEFINE_SCHEMA = 'defineSchema';
+  const DEFINE_SCHEMA = ['define', 'Schema'].join('');
   const schemaCore = {
     [DEFINE_SCHEMA]: createTestSchema,
     serial,

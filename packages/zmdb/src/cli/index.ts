@@ -639,10 +639,12 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
     } finally {
       type DisposableSession = { [Symbol.asyncDispose]?: () => PromiseLike<void>; [Symbol.dispose]?: () => void };
       const disposable = session as DisposableSession;
-      if (Symbol.asyncDispose in session && typeof disposable[Symbol.asyncDispose] === 'function') {
-        await disposable[Symbol.asyncDispose]!();
-      } else if (Symbol.dispose in session && typeof disposable[Symbol.dispose] === 'function') {
-        disposable[Symbol.dispose]!();
+      const asyncDispose = disposable[Symbol.asyncDispose];
+      const dispose = disposable[Symbol.dispose];
+      if (typeof asyncDispose === 'function') {
+        await asyncDispose.call(disposable);
+      } else if (typeof dispose === 'function') {
+        dispose.call(disposable);
       }
     }
   } catch (error) {
