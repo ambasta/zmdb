@@ -25,6 +25,7 @@ import {
 } from '@grpc/grpc-js';
 import type { ApplicationExtension } from '@zmdb/app';
 import type { GrpcLoadedMethod, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
+
 import {
   GrpcError,
   type GrpcBinding,
