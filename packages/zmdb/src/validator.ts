@@ -11,6 +11,7 @@ export {
   is,
   isShallow,
   issuesFor,
+  makeRng,
   random,
   validate,
   validateShallow,
