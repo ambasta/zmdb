@@ -1391,7 +1391,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     parentKeys: readonly (readonly unknown[])[],
     options?: ReadOptions,
     filters?: ResolvedFilters,
-<<<<<<< HEAD
     names: SchemaSqlNames | undefined = this.sqlNamesForTable(childTable),
   ): Promise<Map<string, Record<string, unknown>[]>> {
     options?.signal?.throwIfAborted();

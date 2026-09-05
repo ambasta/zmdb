@@ -67,7 +67,6 @@ const {
   Order: OrderSchema,
   TenantUser: TenantUserSchema,
   TenantPost: TenantPostSchema,
-  Tag: TagSchema,
   Post: PostSchema,
   ExplicitPost: ExplicitPostSchema,
 } = schemasFrom<{
