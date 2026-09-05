@@ -32,8 +32,8 @@ const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
 
 rmSync(join(pkgDir, 'dist'), { recursive: true, force: true });
 
-const tsc = join(ROOT, 'node_modules', '.bin', 'tsc');
-const res = spawnSync(tsc, ['-p', 'tsconfig.build.json'], { cwd: pkgDir, stdio: 'inherit' });
+const yarnCmd = process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
+const res = spawnSync(yarnCmd, ['tsc', '-p', 'tsconfig.build.json'], { cwd: pkgDir, stdio: 'inherit' });
 if (res.status !== 0) {
   process.stderr.write(`\n${pkg.name}: tsc exited ${res.status}\n`);
   process.exit(res.status ?? 1);
