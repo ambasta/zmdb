@@ -149,7 +149,7 @@ The SQLite introspector has moved to `@zmdb/sqlite`. The ten files above remain 
 packages/repository/src/drivers/mssql.ts
 ```
 
-### `@zmdb/orm` — 17
+### `@zmdb/orm` — 18
 
 ```text
 packages/query-compiler/src/outbox/index.ts
@@ -169,6 +169,7 @@ packages/repository/src/transactions/index.ts
 packages/repository/src/transactions/recording-conn.ts
 packages/repository/src/typed-methods/fixtures.ts
 packages/repository/src/typed-populate/fixtures.ts
+packages/repository/src/validator.ts
 ```
 
 The five fixture/support files remain owned by ORM tests and must stop being published.
