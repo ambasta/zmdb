@@ -1,10 +1,68 @@
-> **Small runtime, not an agent framework.** There is no agent graph, unified
-> provider client abstraction or conversation store. Alongside provider-specific
-> `toolFor`, generic `toolFromSchema` and `lenientParse`,
-> `@zmdb/schema-core/llm/chat` provides a bounded tool loop, typed messages and
-> an optional injected Anthropic SDK driver.
+> **Provider documents, not provider clients.** `toolFor` emits the shape a
+> target API expects. It does not make the request, choose a model or hide
+> provider-specific response handling. The optional framework adapters build
+> tool objects; they do not turn LangChain or the AI SDK into a common client.
 
-## What is actually provided, and why it is the right amount
+## Limits first
+
+A schema-derived tool is the `create` shape of one table: one object level with
+scalar leaves. A literal union becomes `enum`; recursive types and
+discriminated object unions do not enter this API. For a rich `json` payload,
+declare the wire shape with `WireAs<W>` rather than expecting a provider
+dialect to infer it.
+
+The current dialect contract refuses these shapes during generation:
+
+| Condition                                             | Targets                                  | Result                                                                              |
+| ----------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| The visible create shape has no properties            | OpenAI, OpenAI strict, Anthropic, Gemini | `ToolSpecRefusalError`; unhide an allowed field or drop the tool                    |
+| The generated document has more than 1,024 properties | OpenAI, OpenAI strict, Anthropic, Gemini | `ToolSpecRefusalError`; split the operation into smaller tools                      |
+| A property is untyped `{}`, as a plain `json` column  | OpenAI strict, Gemini                    | `ToolSpecRefusalError` naming the provider and property; use `WireAs<W>` or omit it |
+
+`openai`, `anthropic` and the provider-neutral `json-schema` target pass an
+untyped `{}` property through, so it constrains nothing. Validation is still
+required before a handler. The provider data behind these choices lives in
+`TOOL_DIALECTS` with the source and date used to implement it; provider APIs can
+change independently of a zmdb release.
+
+## One declaration, four provider targets
+
+```ts
+import { toolFor } from '@zmdb/schema-core/llm';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+
+interface Order extends Table<'orders'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  amount: bigint & Sql<'bigint'>;
+  note: string & Sql<'text'> & HasDefault;
+  comment: (string & Sql<'text'>) | null;
+  state: 'draft' | 'ready';
+}
+
+const description = 'Record an order';
+
+export const orderTools = {
+  openAI: toolFor<Order>('openai', 'save_order', { description }),
+  openAIStrict: toolFor<Order>('openai-strict', 'save_order', { description }),
+  anthropic: toolFor<Order>('anthropic', 'save_order', { description }),
+  gemini: toolFor<Order>('gemini', 'save_order', { description }),
+};
+```
+
+The current emitter produces these differences from that one declaration:
+
+| Target        | Wrapper                                 | Optional `note`                        | Nullable `comment`                   | `bigint`                                          |
+| ------------- | --------------------------------------- | -------------------------------------- | ------------------------------------ | ------------------------------------------------- |
+| OpenAI        | `{ type: 'function', function: { … } }` | omitted from `required`                | `type: ['string', 'null']`           | `type: 'integer', format: 'int64'`                |
+| OpenAI strict | the same, plus `strict: true`           | required and widened to include `null` | required; `type: ['string', 'null']` | `format: 'int64'` dropped; every object is closed |
+| Anthropic     | `{ name, description, input_schema }`   | omitted from `required`                | `type: ['string', 'null']`           | `type: 'integer', format: 'int64'`                |
+| Gemini        | `{ name, description, parameters }`     | omitted from `required`                | `type: 'string', nullable: true`     | `type: 'integer', format: 'int64'`                |
+
+The OpenAI strict widening is why the boundary validator remains necessary: the
+provider document may admit `null` for a TypeScript field that was optional but
+not nullable.
+
+## What is actually provided
 
 The library gives you the things that are reusable without choosing application
 policy:
@@ -18,7 +76,8 @@ policy:
 - **`run(driver, messages, tools, opts)`** — a provider-independent loop with explicit turn and per-turn tool-call bounds
 - **`anthropicDriver(opts)`** — a thin adapter over an injected optional Anthropic SDK client
 
-Plus the validators, which are the part that actually matters: `assert<CreateDTO<Order>>(toolInput)` before any write.
+Plus the validators, which are the part that actually matters:
+`assert<CreateDTO<Order>>(toolInput)` before any write.
 
 What it deliberately does not give you is one provider abstraction pretending
 every model API is the same. The framework adapters only build tools; the loop

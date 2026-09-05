@@ -1,48 +1,58 @@
-> **Optional integration.** The tool adapter ships at
-> `@zmdb/schema-core/llm/ai-sdk` and supports `ai` `^7.0.83`. A `LanguageModel`
-> wrapper and persistence adapter for `useChat` remain application choices.
+> **Tool integration only.** Install `ai` in the application.
+> `@zmdb/schema-core/llm/ai-sdk` is tested against `7.0.83` and declares the
+> optional peer range `^7.0.83`. A `LanguageModel` wrapper and persistence
+> adapter for `useChat` remain application code.
+
+## Know the boundary
+
+- The adapter emits provider-neutral JSON Schema. The AI SDK and its provider
+  package own any later provider translation.
+- The SDK's `Schema` is branded, so the application passes the installed
+  package's own `jsonSchema` factory. zmdb neither imports `ai` nor fabricates
+  its brand with a cast.
+- `validate` runs before the handler. Validation failures become value-free
+  tool-result text the model can correct; handler and infrastructure errors
+  still throw.
+- The returned fields do not contain a name. In the AI SDK, the key in the
+  `tools` record is the tool name.
 
 ## Tools
 
 `aiSdkTool` builds the fields accepted by `tool()`. Pass the SDK's own
-`jsonSchema` factory so it keeps ownership of its branded schema type:
+`jsonSchema` factory so it keeps ownership of its branded schema type. This
+example compiles against the tested peer:
 
 ```ts
-import { tool, jsonSchema } from 'ai';
-import { aiSdkTool } from '@zmdb/schema-core/llm/ai-sdk';
+import { jsonSchema, tool } from 'ai';
 import { assert } from '@zmdb/aot-validator/utilities';
+import { schemaOf, type CreateDTO } from '@zmdb/schema-core';
+import { aiSdkTool } from '@zmdb/schema-core/llm/ai-sdk';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-export const createUser = tool(
-  aiSdkTool('create_user', users, {
-    jsonSchema,
-    description: 'Create a user',
-    validate: input => assert<CreateDTO<User>>(input),
-    execute: dto => userRepo.create(dto),
-  }),
-);
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: ('admin' | 'user') & HasDefault;
+}
+
+const users = schemaOf<User>();
+
+export const tools = {
+  create_user: tool(
+    aiSdkTool('create_user', users, {
+      jsonSchema,
+      description: 'Create a user',
+      validate: input => assert<CreateDTO<User>>(input),
+      execute: async dto => ({ email: dto.email, role: dto.role ?? 'user' }),
+    }),
+  ),
+};
 ```
 
-The AOT validator remains the trust boundary. It runs before `execute`, and its
-return value is the decoded value the repository receives. Validation failures
-become tool-result text the model can correct; handler failures still throw.
-
-The application no longer needs the `JSONSchema7` cast. The adapter owns that
-single structural handoff, and imports neither Zod nor another schema library.
-
-## Structured output
-
-```ts
-import { generateObject } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
-
-const { object } = await generateObject({
-  model: anthropic('claude-opus-5'),
-  schema: jsonSchema<CreateDTO<User>>(toJsonSchema(users, 'create') as JSONSchema7),
-  prompt: transcript,
-});
-
-await userRepo.create(assert<CreateDTO<User>>(object));
-```
+`schemaOf<User>()` and `assert<CreateDTO<User>>()` are both resolved by the
+normal [AOT setup](./aot-setup.html). The validator's return value is the
+decoded value passed to `execute`, so a custom wire codec can decode there too.
+The application needs no Zod schema and no `JSONSchema7` cast.
 
 ## Streaming through `@zmdb/web`
 

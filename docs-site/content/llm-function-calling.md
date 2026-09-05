@@ -1,110 +1,118 @@
-zmdb can generate tool definitions from your schema for LLM function-calling. The `toolFromSchema` function converts your schema into a JSON Schema that describes the tool's parameters, enabling LLMs to call your repository methods with type-safe inputs.
+zmdb derives a tool's input document from the table's `create` shape. Use
+`toolFor` when you know the target provider; it applies that provider's framing
+and schema rules before the document is inlined.
 
-## Generating Tool Specs
+## Generate the provider shape directly
 
 ```ts
-import { toolFromSchema, type ToolSpec } from '@zmdb/schema-core/llm';
-import { toJsonSchema } from '@zmdb/schema-core';
+import { toolFor } from '@zmdb/schema-core/llm';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
-const spec: ToolSpec = toolFromSchema('createUser', UserSchema, {
-  description: 'Create a new user in the system',
-});
-
-// spec.name => 'createUser'
-// spec.description => 'Create a new user in the system'
-// spec.parameters => JsonSchemaObject (OpenAPI-compatible)
-```
-
-The generated spec follows the OpenAPI 3.0 JSON Schema format:
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "name": { "type": "string" },
-    "email": { "type": "string", "format": "email" }
-  },
-  "required": ["name", "email"]
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: ('admin' | 'user') & HasDefault;
 }
+
+export const createUser = toolFor<User>('openai-strict', 'create_user', {
+  description: 'Create a user',
+});
 ```
 
-## Parsing LLM Responses
+The normal [AOT setup](./aot-setup.html) replaces that call with a frozen
+document. `Serial` fields are absent from the create shape, `Sensitive` fields
+are omitted, and validation tags remain JSON Schema constraints.
 
-When an LLM returns a function call, use `lenientParse` to extract and coerce the arguments:
+Each target has its own top-level shape:
+
+| Target          | Result                                                         |
+| --------------- | -------------------------------------------------------------- |
+| `openai`        | `{ type: 'function', function: { name, parameters } }`         |
+| `openai-strict` | the OpenAI shape plus `strict: true` and a strict document     |
+| `anthropic`     | `{ name, description?, input_schema }`                         |
+| `gemini`        | `{ name, description?, parameters }`                           |
+| `json-schema`   | `{ name, description?, parameters }` without provider rewrites |
+
+Read [Provider Schema Strategies](./llm-strategy.html) before choosing a
+target. It shows the exact optional, nullable and `bigint` rewrites and the
+build-time refusals.
+
+## The provider-neutral case
+
+`toolFromSchema` remains the right API when a framework or protocol wants a
+plain JSON Schema tool record:
 
 ```ts
-import { lenientParse, type ParseResult } from '@zmdb/schema-core/llm';
-import { assert } from '@zmdb/aot-validator/utilities';
+import { schemaOf } from '@zmdb/schema-core';
+import { toolFromSchema, type ToolSpec } from '@zmdb/schema-core/llm';
 
-const llmResponse = `{"name": "Alice", "email": "alice@example.com"}`;
+const users = schemaOf<User>();
 
-const result: ParseResult<UserInput> = lenientParse(llmResponse);
-// result.success => true
-// result.data => { name: 'Alice', email: 'alice@example.com' }
+const generic: ToolSpec = toolFromSchema('create_user', users, {
+  description: 'Create a user',
+});
 ```
 
-The parser handles common LLM quirks:
+It is the schema-value form of the `json-schema` target. It does not apply
+OpenAI strict rewrites, Anthropic's `input_schema` framing or Gemini's nullable
+spelling. The LangChain and AI SDK adapters deliberately start from this
+provider-neutral document because those frameworks perform their own provider
+translation.
+
+## A provider document is not validation
+
+A model response is still untrusted. Validate the returned arguments before a
+repository or handler sees them:
+
+```ts
+import { assert } from '@zmdb/aot-validator/utilities';
+import type { CreateDTO } from '@zmdb/schema-core';
+
+const dto = assert<CreateDTO<User>>(toolCall.input);
+await userRepo.create(dto);
+```
+
+This is especially important for an optional field widened to nullable by the
+OpenAI strict target, or an untyped `json` column that a provider-neutral
+document represents as `{}`.
+
+## Parsing text responses
+
+When the API returns text rather than a structured tool call, `lenientParse`
+strips an outer Markdown fence and calls `JSON.parse`:
 
 ````ts
-// Markdown code fences around the JSON are stripped before parsing.
-// e.g. an LLM returns a fenced block; lenientParse handles it:
-const fenced = '```json\n{"name":"Bob"}\n```';
-lenientParse(fenced);
-// => { success: true, data: { name: 'Bob' } }
+import { lenientParse } from '@zmdb/schema-core/llm';
+
+const fenced = '```json\n{"email":"alice@example.com"}\n```';
+const result = lenientParse(fenced);
+// => { success: true, data: { email: 'alice@example.com' } }
 ````
 
-## Full Flow
+It does not repair trailing commas, single quotes or prose around the JSON.
+Pass a coercion function to validate and decode in the same boundary:
 
 ```ts
-import { BaseRepository } from '@zmdb/repository';
-import { toolFromSchema, lenientParse } from '@zmdb/schema-core/llm';
+const result = lenientParse('{"email":"alice@example.com"}', value => assert<CreateDTO<User>>(value));
 
-// 1. Generate tool spec from your repository's schema
-const toolSpec = toolFromSchema('createUser', UserSchema);
-
-// 2. Send to LLM (your HTTP client or provider SDK)
-// const response = await openai.chat.completions.create({
-//   tools: [{ type: 'function', function: toolSpec }]
-// });
-
-// 3. Parse the function call
-const parseResult = lenientParse<UserInput>(llmText);
-if (!parseResult.success) {
-  throw new Error(parseResult.errors?.join(', '));
+if (!result.success) {
+  throw new Error(result.errors?.join('; ') ?? 'invalid model output');
 }
 
-// 4. Execute against your repository
-const created = await userRepo.create(parseResult.data);
+await userRepo.create(result.data);
 ```
 
-> [!IMPORTANT]
-> Always validate parsed input before passing to the repository. `lenientParse` extracts JSON — it doesn't validate against your schema. Use `@zmdb/aot-validator` for that.
+`lenientParse` catches a validator exception and returns its message in
+`errors`. With no coercion function, `lenientParse<T>` does no validation at
+all: `T` is only the caller's claim, just as it is with `JSON.parse`.
 
-## Coercion
+## Framework adapters
 
-The `coerce` option lets you transform parsed data:
-
-```ts
-interface UserInput {
-  id?: number;
-  name: string;
-}
-
-const result = lenientParse<UserInput>('{"name": "Charlie"}', v => {
-  const input = assert<UserInput>(v); // generated validator, not a cast
-  return { ...input, name: input.name.toUpperCase() };
-});
-// result.data => { name: 'CHARLIE' }
-```
-
-`coerce` receives `unknown`, which is the correct type for model output. Narrowing it with `assert<T>` rather than a cast is what makes the `<UserInput>` type argument true instead of aspirational — and because `lenientParse` catches whatever `coerce` throws, the `AssertError` comes back as `{ success: false, errors: [...] }` rather than an exception.
-
-> [!WARNING]
-> With **no** `coerce`, `lenientParse<T>` does not validate at all — `T` is your claim about the model's output, exactly as with `JSON.parse`. A model that returns `{"name": 42}` gives you `success: true` and a `number` where your types promise a `string`. Always pass a `coerce` that asserts, or run the validator on the result.
-
-> [!TIP]
-> Use a schema validator in your `handle` function to catch malformed LLM output before it reaches the database.
+Use [`langchainTool`](./llm-langchain.html) or
+[`aiSdkTool`](./llm-vercel-ai-sdk.html) when those frameworks own dispatch.
+Both keep the generated schema and AOT validator together, require validation
+before the handler, and add no runtime schema library to zmdb.
 
 ---
 
-See also: [Schema Core](./schema-declaration.html) · [Validation](./validators-is.html) · [Repository](./repository.html)
+See also: [Provider Schema Strategies](./llm-strategy.html) · [Structured Output](./llm-structured-output.html) · [Validation](./validators-assert.html)

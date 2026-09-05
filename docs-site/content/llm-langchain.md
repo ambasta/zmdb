@@ -1,29 +1,56 @@
-> **Optional integration.** The tool adapter ships at
-> `@zmdb/schema-core/llm/langchain` and supports `@langchain/core` `^1.2.9`.
-> Retrievers, vector stores and chat-memory backends remain application choices.
+> **Tool integration only.** Install `@langchain/core` in the application.
+> `@zmdb/schema-core/llm/langchain` is tested against `1.2.9` and declares the
+> optional peer range `^1.2.9`. Retrievers, vector stores and chat-memory
+> backends remain application code.
+
+## Know the boundary
+
+- The adapter emits provider-neutral JSON Schema. LangChain owns any later
+  provider translation.
+- A plain `json` column is still `{}` and constrains nothing. The required
+  `validate` function closes that gap before `execute`.
+- LangChain may reject a shape against the JSON Schema before `func` runs. If
+  input reaches the adapter and validation fails, the adapter returns
+  value-free error text to the model. Handler and infrastructure errors still
+  throw.
+- The shipped adapter graph imports neither LangChain nor a runtime schema
+  library. The peer is loaded only by the application importing it.
 
 ## Tools from schema objects
 
 `langchainTool` supplies the fields `DynamicStructuredTool` expects. Its
-validator runs before the handler and returns the decoded application value:
+validator runs before the handler and returns the decoded application value.
+This example compiles against the tested peer:
 
 ```ts
-import { langchainTool } from '@zmdb/schema-core/llm/langchain';
-import { assert } from '@zmdb/aot-validator/utilities';
 import { DynamicStructuredTool } from '@langchain/core/tools';
+import { assert } from '@zmdb/aot-validator/utilities';
+import { schemaOf, type CreateDTO } from '@zmdb/schema-core';
+import { langchainTool } from '@zmdb/schema-core/llm/langchain';
+import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+
+interface User extends Table<'users'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  role: ('admin' | 'user') & HasDefault;
+}
+
+const users = schemaOf<User>();
 
 export const createUserTool = new DynamicStructuredTool(
   langchainTool('create_user', users, {
     description: 'Create a user',
     validate: input => assert<CreateDTO<User>>(input),
-    execute: dto => userRepo.create(dto),
+    execute: async dto => ({ email: dto.email, role: dto.role ?? 'user' }),
   }),
 );
 ```
 
-The adapter passes zmdb's JSON Schema straight through. Do not route it through
-`json-schema-to-zod`: that conversion drops `format`, so `date-time` and
-`int64` disappear, and turns a `json` column's `{}` into `z.any()`.
+`schemaOf<User>()` and `assert<CreateDTO<User>>()` are both resolved by the
+normal [AOT setup](./aot-setup.html). The adapter passes the generated JSON
+Schema straight through. Do not route it through `json-schema-to-zod`: that
+conversion drops `format`, so `date-time` and `int64` disappear, and turns a
+`json` column's `{}` into `z.any()`.
 
 The `validate` function belongs in the application file so the AOT transform
 can inline it. It is also the place to decode custom wire values before
