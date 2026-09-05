@@ -25,6 +25,7 @@ export interface TestApp extends AsyncDisposable {
   request(req: WebRequest): Promise<WebResponse>;
   get<T>(token: Token<T>): T;
   init(): Promise<void>;
+  close(): Promise<void>;
 }
 
 /**
@@ -45,12 +46,17 @@ export function createTestApp(rootModule: ModuleClass, options: TestAppOptions =
     }
   }
 
-  return {
+  const app: TestApp = {
     request: req => router.handle(req),
     get: <T>(token: Token<T>): T => resolveFrom(application.container, token),
     init: application.init,
+    close: async () => application[Symbol.asyncDispose](),
     [Symbol.asyncDispose]: application[Symbol.asyncDispose],
   };
+  Object.defineProperty(app, 'close', {
+    enumerable: false,
+  });
+  return app;
 }
 
 function resolveFrom<T>(container: Container, token: Token<T>): T {
