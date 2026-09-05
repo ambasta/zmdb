@@ -1,7 +1,8 @@
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
 import type { DialectTarget } from '../dialects/index.js';
 import type { CompiledQuery } from '../index.js';
-import { createCompiledQuery, getSegmentsForQuery } from '../internals.js';
+import { createCompiledQuery } from '../internals.js';
+import { renumberPlaceholders } from '../quoting.js';
 
 export type SetOp = 'union' | 'unionAll' | 'intersect' | 'except';
 
@@ -13,10 +14,9 @@ export const SET_KEYWORD: Record<SetOp, string> = {
 };
 
 /**
- * Combine compiled queries with a set operator. Positional placeholders ($n)
- * are renumbered across the combined parameter list for postgres using numeric offset
- * arithmetic matching each placeholder's numerical value; kept as `?` for mysql/sqlite.
- * Single query ⇒ passthrough; empty ⇒ throw.
+ * Combine compiled queries with a set operator. Positional placeholders ($n, @pn)
+ * are renumbered across the combined parameter list for numbered/named dialects;
+ * kept as `?` for mysql/sqlite. Single query ⇒ passthrough; empty ⇒ throw.
  */
 export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: DialectTarget): CompiledQuery {
   const [first] = queries;
@@ -25,21 +25,8 @@ export function setOperation(op: SetOp, queries: readonly CompiledQuery[], diale
 
   const params: unknown[] = [];
   const fragments = queries.map(q => {
-    let text = q.text;
-    if (dialect === 'postgres') {
-      const offset = params.length;
-      const { segments, numbers } = getSegmentsForQuery(q);
-      if (numbers.length > 0) {
-        let renumbered = segments[0] ?? '';
-        for (let j = 0; j < numbers.length; j++) {
-          const num = numbers[j];
-          if (num !== undefined) {
-            renumbered += `$${offset + num}${segments[j + 1] ?? ''}`;
-          }
-        }
-        text = renumbered;
-      }
-    }
+    const offset = params.length;
+    const text = renumberPlaceholders(q.text, offset, dialect);
     for (const p of q.parameters) params.push(p);
     return text;
   });
