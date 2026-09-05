@@ -1,6 +1,19 @@
 import { describe, it, expect } from 'vitest';
 
-import { OP_MAP, chunkArray, createQueryCompiler, distance, sanitizeKeys, stContains, stDWithin } from './index.js';
+import {
+  createQueryCompiler,
+  sanitizeKeys,
+  chunkArray,
+  OP_MAP,
+  windowFunction,
+  checkDialectCapability,
+  QueryCompilerError,
+  UnsupportedFeatureError,
+  distance,
+  stContains,
+  stDWithin,
+  type Dialect,
+} from './index.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -761,5 +774,126 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
         .where('embedding', 'cosine', [0.1, Number.NaN, 0.3])
         .compile(),
     ).toThrow(/pgvector query may contain only finite numbers/);
+  });
+});
+
+describe('Common Table Expressions (CTEs)', () => {
+  it('compiles non-recursive CTE with sequential parameter offsets on postgres', () => {
+    const qb = createQueryCompiler('postgres');
+    const deptCte = qb.selectFrom('departments').where('active', '=', true);
+    const q = qb.selectFrom('dept_summary').with('dept_summary', deptCte).where('min_salary', '>', 50000).compile();
+
+    expect(q.text).toBe(
+      'WITH "dept_summary" AS (SELECT * FROM "departments" WHERE "active" = $1) SELECT * FROM "dept_summary" WHERE "min_salary" > $2',
+    );
+    expect(q.parameters).toEqual([true, 50000]);
+  });
+
+  it('compiles multiple CTEs with callback builders and sequential parameter offsets', () => {
+    const qb = createQueryCompiler('postgres');
+    const q = qb
+      .selectFrom('final_view')
+      .with('active_users', b => b.selectFrom('users').where('status', '=', 'active'))
+      .with('top_orders', b => b.selectFrom('orders').where('total', '>', 100))
+      .where('id', '=', 42)
+      .compile();
+
+    expect(q.text).toBe(
+      'WITH "active_users" AS (SELECT * FROM "users" WHERE "status" = $1), "top_orders" AS (SELECT * FROM "orders" WHERE "total" > $2) SELECT * FROM "final_view" WHERE "id" = $3',
+    );
+    expect(q.parameters).toEqual(['active', 100, 42]);
+  });
+
+  it('compiles recursive CTEs using WITH RECURSIVE for hierarchical queries', () => {
+    const qb = createQueryCompiler('postgres');
+    const baseNav = qb.selectFrom('org').where('manager_id', '=', null);
+    const q = qb.selectFrom('hierarchy').withRecursive('hierarchy', baseNav).where('depth', '<', 5).compile();
+
+    expect(q.text).toBe(
+      'WITH RECURSIVE "hierarchy" AS (SELECT * FROM "org" WHERE "manager_id" = $1) SELECT * FROM "hierarchy" WHERE "depth" < $2',
+    );
+    expect(q.parameters).toEqual([null, 5]);
+  });
+
+  it('compiles CTEs correctly on MySQL and SQLite dialects with ? placeholders', () => {
+    const mysqlCompiler = createQueryCompiler('mysql');
+    const subMysql = mysqlCompiler.selectFrom('users').where('age', '>=', 21);
+    const qMysql = mysqlCompiler.selectFrom('adults').with('adults', subMysql).where('city', '=', 'NYC').compile();
+
+    expect(qMysql.text).toBe(
+      'WITH `adults` AS (SELECT * FROM `users` WHERE `age` >= ?) SELECT * FROM `adults` WHERE `city` = ?',
+    );
+    expect(qMysql.parameters).toEqual([21, 'NYC']);
+
+    const sqliteCompiler = createQueryCompiler('sqlite');
+    const subSqlite = sqliteCompiler.selectFrom('items').where('stock', '>', 0);
+    const qSqlite = sqliteCompiler
+      .selectFrom('available')
+      .with('available', subSqlite)
+      .where('price', '<', 50)
+      .compile();
+
+    expect(qSqlite.text).toBe(
+      'WITH "available" AS (SELECT * FROM "items" WHERE "stock" > ?) SELECT * FROM "available" WHERE "price" < ?',
+    );
+    expect(qSqlite.parameters).toEqual([0, 50]);
+  });
+});
+
+describe('Window Functions & Projection AST extension', () => {
+  it('compiles ROW_NUMBER, RANK, SUM window functions with PARTITION BY and ORDER BY', () => {
+    const qb = createQueryCompiler('postgres');
+
+    const rowNum = windowFunction('ROW_NUMBER').partitionBy('department_id').orderBy('salary', 'desc').as('rank');
+    const runningTotal = windowFunction('SUM', ['amount'])
+      .partitionBy('user_id')
+      .orderBy('created_at', 'asc')
+      .as('running_total');
+
+    const q = qb.selectFrom('employees').select([rowNum, runningTotal]).where('active', '=', true).compile();
+
+    expect(q.text).toBe(
+      'SELECT ROW_NUMBER() OVER (PARTITION BY "department_id" ORDER BY "salary" DESC) AS "rank", SUM("amount") OVER (PARTITION BY "user_id" ORDER BY "created_at" ASC) AS "running_total" FROM "employees" WHERE "active" = $1',
+    );
+    expect(q.parameters).toEqual([true]);
+  });
+
+  it('compiles selectWindow and window functions on MySQL and SQLite', () => {
+    const mysqlQb = createQueryCompiler('mysql');
+    const wfMysql = windowFunction('RANK').partitionBy(['dept', 'region']).orderBy('score', 'desc').as('dept_rank');
+
+    const qMysql = mysqlQb.selectFrom('scores').selectWindow(wfMysql).where('year', '=', 2026).compile();
+    expect(qMysql.text).toBe(
+      'SELECT RANK() OVER (PARTITION BY `dept`, `region` ORDER BY `score` DESC) AS `dept_rank` FROM `scores` WHERE `year` = ?',
+    );
+    expect(qMysql.parameters).toEqual([2026]);
+  });
+
+  it('throws QueryCompilerError when window functions are attempted outside projection selection lists', () => {
+    const qb = createQueryCompiler('postgres');
+
+    expect(() => {
+      qb.selectFrom('users')
+        .where(windowFunction('ROW_NUMBER') as unknown as string, '=', 1)
+        .compile();
+    }).toThrow(QueryCompilerError);
+
+    expect(() => {
+      qb.selectFrom('users').where('ROW_NUMBER() OVER (ORDER BY id)', '=', 1).compile();
+    }).toThrow(QueryCompilerError);
+
+    expect(() => {
+      qb.selectFrom('users').whereIn('ROW_NUMBER() OVER ()', [1, 2]).compile();
+    }).toThrow(QueryCompilerError);
+  });
+
+  it('throws UnsupportedFeatureError when unsupported capability is requested on restricted dialect', () => {
+    expect(() => {
+      checkDialectCapability('oracle' as unknown as Dialect, 'window functions');
+    }).toThrow(UnsupportedFeatureError);
+
+    expect(() => {
+      checkDialectCapability('oracle' as unknown as Dialect, 'common table expressions');
+    }).toThrow(UnsupportedFeatureError);
   });
 });
