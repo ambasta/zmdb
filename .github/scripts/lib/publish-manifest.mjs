@@ -26,6 +26,7 @@ export const PACKAGES = [
   'protobuf',
   'aot-validator',
   'repository',
+  'sqlite',
   'app',
   'jobs',
   'otel',

@@ -127,15 +127,16 @@ rather than half-applying it.
 
 ## Packaging
 
-- Exposed as `@zmdb/repository/drivers/sqlite`, `@zmdb/repository/drivers/pg` and `@zmdb/repository/drivers/mssql`.
-- `pg` is an **optional peer/dev** dependency of the repo (the sqlite driver has zero external deps); importing the pg driver without `pg` installed fails clearly, not silently.
+- SQLite is exposed by `@zmdb/sqlite` and its `@zmdb/sqlite/node` subpath. `@zmdb/repository/drivers/sqlite` has been removed.
+- The remaining compatibility adapters are `@zmdb/repository/drivers/pg` and `@zmdb/repository/drivers/mssql`.
+- `pg` is a development dependency of the repository while its vertical extraction is pending. The SQLite package declares no third-party database client.
 - `mssql` is a development dependency for the real E2E suite, not a published runtime dependency. Consumers install their chosen compatible node-mssql package and pass its connected pool to the
   structural adapter.
 
 ## Acceptance
 
-- sqlite driver: E2E against an in-memory `node:sqlite` DB — create/find/list/ update/delete round-trips, native iterator streaming, abort between stepped rows, active-statement cache safety and a
-  real rollback (always runs, no external service).
+- sqlite driver: package-owned E2E against an in-memory `node:sqlite` DB — migration and CRUD round-trips, catalog introspection, native iterator streaming, abort between stepped rows,
+  active-statement cache safety and a real rollback (always runs, no external service).
 - pg driver: unit test with a fake `query` recorder asserts it calls `query(text, params)` and returns `.rows`; prepared mode passes a stable `name`; pool and transaction cursors prove command order
   and cleanup. Live-PG E2E proves parameterised `DECLARE`, repeated early-return pool safety and `pg_cancel_backend` cancellation when reachable.
 - mssql driver: unit tests record the `p1…pn` bindings, recordset return and transaction-owned requests. A real suite runs DDL, CRUD and transactional rollback through SQL Server when `ZMDB_MSSQL_URL`

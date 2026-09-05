@@ -35,7 +35,7 @@ export interface IntrospectionDriver {
 
 export interface Introspector<Name extends string = string> {
   readonly name: Name;
-  /** Temporary compatibility alias used by the six-name factory. */
+  /** Temporary compatibility alias used by the legacy built-in factory. */
   readonly dialect?: Name;
   snapshot(driver: IntrospectionDriver, opts?: IntrospectOptions): Promise<CatalogSchemaSnapshot>;
   normalizeForDrift(snapshot: CatalogSchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot;
@@ -81,9 +81,10 @@ export declare function detectDrift(live: SchemaSnapshot, declared: SchemaSnapsh
 epics. At this base those migration implementations have not landed, so the richer exported type is the explicit bridge rather than making this reader slice implement their diff and DDL work.
 
 `IntrospectionDriver` is the structural slice of the driver the repository already injects: `execute(query: CompiledQuery)`. It is declared here because `@zmdb/query-compiler` sits below
-`@zmdb/repository` and cannot import its `Driver` without reversing the package graph. An injected `SqlDialect` carries its introspector directly. `createIntrospector` remains the temporary six-name
-adapter for built-in callers; external object consumers do not register with or pass through it. Catalog queries are ordinary `CompiledQuery` values with parameters, never concatenated strings: the
-schema list and the globs are caller input, and this is a module whose entire job is to send SQL naming things the caller chose.
+`@zmdb/repository` and cannot import its `Driver` without reversing the package graph. An injected `SqlDialect` carries its introspector directly. `createIntrospector` remains the temporary built-in
+adapter for the readers still owned here; its SQLite branch now refuses and directs callers to `@zmdb/sqlite`. External object consumers do not register with or pass through it. Catalog queries are
+ordinary `CompiledQuery` values with parameters, never concatenated strings: the schema list and the globs are caller input, and this is a module whose entire job is to send SQL naming things the
+caller chose.
 
 The package DAG keeps `@zmdb/query-compiler` below `@zmdb/schema-core` and alongside `@zmdb/aot-validator`. Catalog rows are therefore validated here by explicit field validators rather than asserted
 or imported through a forbidden upward or sibling edge. Declaration formatting is the one runtime dependency in this package: `oxfmt`, invoked on generated source so checked-in output follows the
@@ -112,14 +113,14 @@ is indistinguishable from "it is not there". The introspector records the role a
 second catalog to read for them. Both `DATA_TYPE` and `COLUMN_TYPE` are read, because `DATA_TYPE` is `tinyint` and `COLUMN_TYPE` is `tinyint(1)`, and `tinyint(1)` is the only evidence a column was
 meant to be a boolean. `COLUMNS.EXTRA` carries `auto_increment` and the generated-column expression.
 
-**SQLite** — `sqlite_master` for the object list and the original `sql` text, then `PRAGMA table_info` / `index_list` / `index_info` / `index_xinfo` / `foreign_key_list`. Two SQLite specifics matter:
+**SQLite** — `pragma_table_list` for tables and `WITHOUT ROWID`, then `pragma_table_xinfo`, `pragma_index_list`, `pragma_index_info` and `pragma_foreign_key_list`. Two SQLite specifics matter:
 
 - `table_info.pk` is a **1-based ordinal**, not a flag, which is how a composite key's _order_ is recovered — and order is normative per `../migrations/SPEC.md` §1.1, so this is the only dialect where
   the key order comes free.
 - A declared type in SQLite is arbitrary text under type affinity rules, so the reverse map is over the declared text rather than over a fixed set (§3).
 
-`sqlite_master.sql` is the last resort for anything the pragmas do not expose — a partial index's `WHERE`, a generated column's expression, a `WITHOUT ROWID` marker. Parsing it is a fallback and every
-use of it is a warning, because it is the original text and may be formatted any way at all.
+`sqlite_schema.sql` is the fallback for index expressions and a partial index's `WHERE`. Parsing it is a warning because it is original text and may be formatted any way at all. `table_xinfo` detects
+generated columns, but the portable snapshot does not carry their expressions, so the SQLite package omits them with an explicit warning instead of silently treating them as writable ordinary columns.
 
 `PRAGMA foreign_key_list` does not expose a constraint name. The normalized snapshot therefore uses the same deterministic `<table>_<column>_…_fkey` name as the declaration path. This is the one
 snapshot name that is reconstructed rather than read; without it, the same SQLite constraint would diff against itself.
@@ -355,8 +356,8 @@ resolved config (#492). Neither side keeps a private copy of the catalog SQL.
 
 ## 11. Database-package boundary (issue #666)
 
-This section supersedes the central `createIntrospector(dialect: Dialect)` dispatch for the epic #665 target. Issue #668 implements direct object consumption through `dialect.introspector`; the
-central dispatch remains only as six-name compatibility until the database readers move.
+This section supersedes the central `createIntrospector(dialect: Dialect)` dispatch for the epic #665 target. Issue #668 implements direct object consumption through `dialect.introspector`.
+`@zmdb/sqlite` now owns the SQLite reader, so the central dispatch explicitly refuses SQLite and remains only as compatibility for the readers still owned here.
 
 ### 11.1 Vendor-neutral protocol
 
@@ -383,7 +384,7 @@ export interface Introspector<Name extends string = string> {
 
 The selected `SqlDialect<Name>` carries one `Introspector<Name>`. Object callers use `dialect.introspector.snapshot(...)`; that path has no factory, registry, string switch, dynamic package lookup or
 import-side-effect registration. `normalizeForDrift` owns catalog noise that only one database can identify. `detectDrift` remains generic and compares the two normalized snapshots. The temporary
-factory still switches among the built-in readers for string callers.
+factory still switches among the remaining built-in readers for string callers and refuses SQLite with the public package path in its message.
 
 At extraction completion, `emitDeclarations` receives the selected `SqlDialect` rather than a string. Issue #668 leaves its built-in string option intact because config and CLI selection have not
 moved yet. The final object path uses `dialect.name` only in generated provenance and consumes already-normalized catalog facts; it does not dispatch catalog parsing or reverse type maps.

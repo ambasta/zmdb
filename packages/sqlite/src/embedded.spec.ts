@@ -7,10 +7,10 @@ import {
   runEmbedded,
   type EmbeddedConnection,
   type EmbeddedMigration,
-} from '@zmdb/query-compiler/migrations/embedded';
+} from '@zmdb/sqlite/embedded';
 import { describe, expect, it } from 'vitest';
 
-const PACKAGE = resolve(new URL('../../', import.meta.url).pathname, 'package.json');
+const PACKAGE = resolve(new URL('../', import.meta.url).pathname, 'package.json');
 
 function connection(db: DatabaseSync, events?: string[]): EmbeddedConnection {
   return {
@@ -284,8 +284,8 @@ describe('embedded migrations (real SQLite, no filesystem)', () => {
     const packageJson = JSON.parse(readFileSync(PACKAGE, 'utf8')) as {
       exports: Readonly<Record<string, string>>;
     };
-    const exported = packageJson.exports['./migrations/embedded'];
-    expect(exported).toBe('./src/migrations/embedded.ts');
+    const exported = packageJson.exports['./embedded'];
+    expect(exported).toBe('./src/embedded.ts');
     if (exported === undefined) throw new Error('missing embedded migration export');
     const entry = resolve(dirname(PACKAGE), exported);
     expect(moduleGraph(entry)).toEqual([entry]);

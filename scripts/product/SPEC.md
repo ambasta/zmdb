@@ -61,10 +61,10 @@ repository root explicitly.
 
 ## 3. Measured package inventory
 
-At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, and #691 add `@zmdb/protobuf`,
-`@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` integrations, `@zmdb/mcp`, `@zmdb/otel`, and
-`@zmdb/react`. The catalog now accounts for all seventeen manifest-backed packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its
-order from architecture policy; it is not product membership:
+At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, and #691 add `@zmdb/protobuf`,
+`@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` integrations, `@zmdb/mcp`, `@zmdb/otel`,
+`@zmdb/sqlite`, and `@zmdb/react`. The catalog now accounts for all eighteen manifest-backed packages exactly once. The separate hard-coded publication sequence remains release-governance state until
+#728 derives its order from architecture policy; it is not product membership:
 
 | Directory                 | npm name               | Frozen product role | Current facade ownership                                       |
 | ------------------------- | ---------------------- | ------------------- | -------------------------------------------------------------- |
@@ -79,14 +79,15 @@ order from architecture policy; it is not product membership:
 | `packages/mcp`            | `@zmdb/mcp`            | `mcp`               | None; selected protocol integration with no facade export      |
 | `packages/protobuf`       | `@zmdb/protobuf`       | `protobuf`          | None; installed and imported independently                     |
 | `packages/aot-validator`  | `@zmdb/aot-validator`  | `validator`         | Root validator names and `unplugin`                            |
-| `packages/repository`     | `@zmdb/repository`     | `orm`               | Root ORM names and database-driver subpaths                    |
+| `packages/repository`     | `@zmdb/repository`     | `orm`               | Root ORM names and temporary PostgreSQL/SQL Server subpaths    |
+| `packages/sqlite`         | `@zmdb/sqlite`         | `sqlite`            | `zmdb/drivers/sqlite` during the facade cutover                |
 | `packages/app`            | `@zmdb/app`            | `app`               | None; the current `zmdb/web` aggregate is owned by web         |
 | `packages/jobs`           | `@zmdb/jobs`           | `jobs`              | None until the server facade lands in #651                     |
 | `packages/otel`           | `@zmdb/otel`           | `otel`              | None; selected OpenTelemetry integration with no facade export |
 | `packages/web`            | `@zmdb/web`            | `web`               | `zmdb/web`                                                     |
 | `packages/zmdb`           | `zmdb`                 | `product`           | Root composition, `config`, `cli`, and the executable          |
 
-This table is review evidence, not the canonical machine source. The seventeen rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
+This table is review evidence, not the canonical machine source. The eighteen rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
 the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers

@@ -8,8 +8,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { schemaOf } from '@zmdb/schema-core';
 import { assert } from '@zmdb/aot-validator/utilities';
 import { defineRepository, type BaseRepository } from '@zmdb/repository';
+import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 import type { CreateDTO } from 'zmdb/derive';
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import { repositoryToken } from '@zmdb/app/data';
 import { Container, Inject } from '@zmdb/app/di';
 import { Controller, Get, Post, createRouter, validateWith } from '@zmdb/web';
@@ -58,7 +58,7 @@ const db = new DatabaseSync(':memory:');
 db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total NUMERIC NOT NULL)');
 
 const container = new Container();
-container.register(OrderRepo, defineRepository(orderSchema, sqliteDriver(db), { dialect: 'sqlite' }));
+container.register(OrderRepo, defineRepository(orderSchema, sqliteDriver(db), { dialect: sqlite }));
 
 const controller = container.build(OrdersController); // @Inject satisfied here
 const router = createRouter();

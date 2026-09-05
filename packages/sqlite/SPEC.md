@@ -1,6 +1,7 @@
 # `@zmdb/sqlite` — complete SQLite vertical
 
-> Status: frozen by issue #666 for implementation in #669. This directory contains specification only; no package manifest or runtime implementation exists yet.
+> Status: the package implementation for issue #669 is complete and qualified. The temporary generic string-dialect compatibility implementation remains until #675, so final sole ownership is not yet
+> earned. Runtime, type-level, live in-memory, and packed-consumer evidence is mandatory and unskipped.
 
 ## Public contract
 
@@ -19,8 +20,9 @@ sqliteVertical.driver === sqliteDriver;
 sqlite.introspector === sqliteIntrospector;
 ```
 
-The package depends at runtime only on `@zmdb/query-compiler` and `@zmdb/repository`. Its public types are structural; the package has no third-party runtime dependency. The root is browser-safe and
-does not import a Node built-in merely by loading. The structural adapter works with `node:sqlite` when the application passes a `DatabaseSync`-compatible object.
+The package depends at runtime only on `@zmdb/query-compiler` and `@zmdb/repository`. Its manifest declares no direct third-party runtime dependency or database client. Its public types are
+structural; the root is browser-safe and does not import a Node built-in merely by loading. The structural adapter works with `node:sqlite` when the application passes a `DatabaseSync`-compatible
+object.
 
 The SQLite-specific embedded migration runner is a separate browser-safe subpath. It imports no Node built-in, filesystem code, compiler barrel or database binding.
 
@@ -28,23 +30,26 @@ The SQLite-specific embedded migration runner is a separate browser-safe subpath
 
 These values describe the target zmdb implementation, not every feature SQLite may expose through hand-written SQL:
 
-| Capability                            | Value                     | Required behavior                                                               |
-| ------------------------------------- | ------------------------- | ------------------------------------------------------------------------------- |
-| returning insert/upsert/update/delete | true / true / true / true | suffix `RETURNING`                                                              |
-| transactional DDL                     | true                      | migration and ledger row share one transaction                                  |
-| schemas                               | false                     | `CREATE SCHEMA` is refused                                                      |
-| sequences                             | false                     | standalone sequences are refused; rowid-backed serial remains supported         |
-| generated columns                     | true                      | exact generated-column golden and live round-trip                               |
-| partial indexes                       | true                      | predicate preserved by DDL and introspection                                    |
-| foreign keys                          | true                      | adapter enables `PRAGMA foreign_keys = ON`; unsupported ALTER forms are refused |
-| row-level security                    | false                     | explicit refusal                                                                |
-| streaming                             | true                      | `StatementSync.iterate()`-shaped stepping without materializing all rows        |
-| cancellation                          | false                     | abort is observed before dispatch and between rows, not during a native step    |
+| Capability                            | Value                     | Required behavior                                                                                              |
+| ------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| returning insert/upsert/update/delete | true / true / true / true | suffix `RETURNING`                                                                                             |
+| transactional DDL                     | true                      | migration and ledger row share one transaction                                                                 |
+| schemas                               | false                     | `CREATE SCHEMA` is refused                                                                                     |
+| sequences                             | false                     | standalone sequences are refused; rowid-backed serial remains supported                                        |
+| generated columns                     | true                      | exact generated-column golden and live execution; introspection warns on omission                              |
+| partial indexes                       | true                      | predicate preserved by DDL and introspection                                                                   |
+| foreign keys                          | true                      | adapter enables `PRAGMA foreign_keys = ON`; forward table references work; unsupported ALTER forms are refused |
+| row-level security                    | false                     | explicit refusal                                                                                               |
+| streaming                             | true                      | `StatementSync.iterate()`-shaped stepping without materializing all rows                                       |
+| cancellation                          | false                     | abort is observed before dispatch and between rows, not during a native step                                   |
 
 The current central trait record marks schemas and sequences true. Those booleans are not retained: the package contract follows executable zmdb behavior, and unsupported standalone schema/sequence
 operations are refusals rather than plausible SQL.
 
-## Sole ownership after extraction
+## Canonical ownership and final-purge target
+
+`@zmdb/sqlite` is the canonical SQLite package. The temporary generic compatibility branches remain only to let the parallel database packages land independently; #675 removes those branches and earns
+final sole ownership.
 
 `@zmdb/sqlite` owns:
 
@@ -65,6 +70,8 @@ Before execution, the package refuses at least:
 
 - standalone schemas, sequences, materialized views, row-level security and stored routines;
 - primary-key changes and add/drop/change foreign-key operations that require table reconstruction;
+- `serial` outside a sole rowid-backed primary key, because SQLite has no standalone sequence or column identity;
+- reversing a dropped table or column when the generic operation no longer carries its complete definition;
 - a request for in-flight engine cancellation; and
 - any construct whose exact SQLite spelling or catalog round-trip is not represented in the package matrix.
 
@@ -78,8 +85,8 @@ SQLite qualification is always available and never skips. From the packed tarbal
 2. pass a real in-memory `node:sqlite` database to `sqliteDriver`;
 3. apply migrations, run create/read/update/delete/upsert and roll back a transaction;
 4. stream rows, abort between rows and prove an active statement is not evicted;
-5. introspect the resulting database and obtain a clean normalized drift report; and
-6. inspect the installed tree and find no third-party runtime dependency.
+5. introspect the resulting database and prove normalized live/declaration equality (the package test also asserts a clean generic drift report); and
+6. inspect the installed `@zmdb/sqlite` manifest and find no direct third-party runtime dependency.
 
 Golden and type-level tests cover every abstract SQL type, statement form, schema object and refusal. Documentation may call SQLite supported only while all of the above remains required and green.
 

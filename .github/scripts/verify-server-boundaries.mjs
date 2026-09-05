@@ -147,6 +147,7 @@ export const CORE_SERVER_PACKAGES = [
       '@zmdb/app': 'workspace:^',
       '@zmdb/query-compiler': 'workspace:^',
       '@zmdb/repository': 'workspace:^',
+      '@zmdb/sqlite': 'workspace:^',
     },
     exports: ['.', './memory', './schedule'],
     forbiddenPackages: ['@zmdb/web'],

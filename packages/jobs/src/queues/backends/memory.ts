@@ -1,8 +1,8 @@
 // @zmdb/jobs/memory — supported ephemeral queue storage for tests and local execution.
 import { DatabaseSync } from 'node:sqlite';
 
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import { jobPendingIndexDdl } from '@zmdb/repository/jobs';
+import { sqliteDriver } from '@zmdb/sqlite';
 
 import type { JobStore } from '../index.js';
 

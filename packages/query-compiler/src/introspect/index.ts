@@ -2,7 +2,6 @@ import type { Dialect, Introspector } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 import { mysqlIntrospector } from './mysql.js';
 import { postgresIntrospector } from './postgres.js';
-import { sqliteIntrospector } from './sqlite.js';
 
 export type { IntrospectionDriver, Introspector, IntrospectOptions } from '../dialects/index.js';
 
@@ -14,7 +13,18 @@ export {
 } from './emit.js';
 export { detectDrift, type DriftOptions, type DriftReport } from './drift.js';
 export {
+  action,
   CatalogRowError,
+  deterministicForeignKeyName,
+  flagField,
+  integerField,
+  nullableTextField,
+  query,
+  sortByName,
+  sortWarnings,
+  splitSqlList,
+  tableSelected,
+  textField,
   type CatalogColumnSnapshot,
   type CatalogForeignKeySnapshot,
   type CatalogIndexColumn,
@@ -24,6 +34,7 @@ export {
   type CatalogWarning,
   type ReferentialAction,
 } from './common.js';
+export { normalizeDriftSnapshot } from './drift.js';
 
 export interface LegacyIntrospector<Name extends string = string> extends Introspector<Name> {
   readonly dialect: Name;
@@ -50,7 +61,11 @@ export function createIntrospector(dialect: Dialect): LegacyIntrospector<Dialect
     case 'singlestore':
       return inheritedIntrospector(dialect, mysqlIntrospector);
     case 'sqlite':
-      return sqliteIntrospector;
+      throw new UnsupportedFeatureError(
+        'schema introspection',
+        dialect,
+        'SQLite schema introspection is shipped by @zmdb/sqlite; use sqlite.introspector or sqliteIntrospector',
+      );
     case 'mssql':
       throw new UnsupportedFeatureError(
         'schema introspection',

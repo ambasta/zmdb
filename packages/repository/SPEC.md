@@ -4,8 +4,9 @@
 
 ## Issue #635 target ownership
 
-The current package has 22 build-included TypeScript files and 11 export-map entries. Sixteen current files move to `@zmdb/orm`; PostgreSQL owns two, SQLite and SQL Server own one each, web owns the
-endpoint integration, and jobs owns the job-storage module. The compiler outbox file adds the seventeenth ORM-owned file in the complete 137-file map amended after #656.
+The current package has 21 build-included TypeScript files and 10 export-map entries after the SQLite adapter moved to `@zmdb/sqlite`. Sixteen current files move to `@zmdb/orm`; PostgreSQL owns two,
+SQL Server owns one, web owns the endpoint integration, and jobs owns the job-storage module. The compiler outbox file adds the seventeenth ORM-owned file in the complete 137-file map amended after
+#656.
 
 `@zmdb/orm` depends exactly on `@zmdb/schema`, `@zmdb/sql`, and `@zmdb/validator`. Concrete database clients, built-ins, web/jobs, compiler, migrations, and AI are not reachable. The old package and
 every `@zmdb/repository/*` import are deleted rather than forwarded.

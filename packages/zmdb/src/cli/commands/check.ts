@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { schemasFromFiles } from '@zmdb/aot-validator/testing';
-import { createIntrospector, detectDrift } from '@zmdb/query-compiler/introspect';
+import { detectDrift } from '@zmdb/query-compiler/introspect';
 import {
   diff,
   snapshot,
@@ -16,6 +16,7 @@ import {
 } from '@zmdb/query-compiler/migrations';
 
 import type { ResolvedConfig } from '../../config/index.js';
+import { configuredIntrospector } from '../database.js';
 import { readMigrations } from '../migration-files.js';
 import { EMBEDDED_WITH_DOWN_MARKER, embeddedOutputPath, renderEmbeddedModule } from './embed.js';
 
@@ -111,8 +112,13 @@ export async function checkProject(config: ResolvedConfig): Promise<CheckResult>
     skipped.push({ kind: 'drift', reason: `config ${config.configPath} has no driver` });
   } else if (!('newerVersion' in stored)) {
     const driver = await config.driver();
-    const live = await createIntrospector(config.dialect).snapshot(driver, config.introspect);
-    const report = detectDrift(live, stored.snapshot, { dialect: config.dialect });
+    const introspector = configuredIntrospector(config.dialect);
+    const live = await introspector.snapshot(driver, config.introspect);
+    const report = detectDrift(
+      introspector.normalizeForDrift(live, 'live'),
+      introspector.normalizeForDrift(stored.snapshot, 'declared'),
+      { dialect: config.dialect },
+    );
     if (!report.clean) {
       findings.push({
         kind: 'drift',

@@ -459,8 +459,8 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Fifteen published packages</h2>
-  <p class="lead">Composable and ESM-only. Use the cohesive data, app, and HTTP umbrella, provider-neutral AI tools, opt-in provider/framework integrations, MCP, OpenTelemetry adaptation, or an implementation package on its own.</p>
+  <h2>Sixteen published packages</h2>
+  <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in provider/framework integrations, MCP, OpenTelemetry adaptation, or an implementation package on its own.</p>
   <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
     <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>
@@ -473,6 +473,7 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/protobuf</code><p>Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts.</p></div>
     <div class="pkg"><code>@zmdb/aot-validator</code><p>AOT is / assert / validate / equals / random, unions, transforms, and JSON Ser/De — inlined at build time.</p></div>
     <div class="pkg"><code>@zmdb/repository</code><p>Auto-validating CRUD, transactions, populate, read-replicas, lifecycle events, framework adapters.</p></div>
+    <div class="pkg"><code>@zmdb/sqlite</code><p>Complete SQLite dialect, migrations, introspection, embedded runner, and structural <code>node:sqlite</code> driver.</p></div>
     <div class="pkg"><code>@zmdb/app</code><p>Protocol-neutral metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, and observability ports.</p></div>
     <div class="pkg"><code>@zmdb/otel</code><p>OpenTelemetry API adaptation over caller-owned tracers and meters, with no SDK, exporter, or ambient global context.</p></div>
     <div class="pkg"><code>@zmdb/web</code><p>HTTP controllers, routing, request pipelines, OpenAPI, gateways, testing, and runtime adapters over <code>@zmdb/app</code>.</p></div>

@@ -101,8 +101,8 @@ function normalizeIndexes(
 /**
  * Internal normalization boundary used before both calls to the migration diff.
  *
- * Exported from this source file for focused tests, but deliberately not re-exported
- * from the package subpath: `detectDrift` is the public front end.
+ * Exported from the introspection subpath as the vendor-neutral normalization seam
+ * used by independently shipped database introspectors.
  */
 export function normalizeDriftSnapshot(
   snapshot: SchemaSnapshot,

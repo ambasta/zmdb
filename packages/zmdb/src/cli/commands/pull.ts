@@ -1,15 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 
-import {
-  createIntrospector,
-  emitDeclarations,
-  type CatalogWarning,
-  type EmittedDeclarationFile,
-} from '@zmdb/query-compiler/introspect';
+import { emitDeclarations, type CatalogWarning, type EmittedDeclarationFile } from '@zmdb/query-compiler/introspect';
 
 import type { ResolvedConfig } from '../../config/index.js';
 import { writeTextAtomically } from '../atomic.js';
+import { configuredIntrospector } from '../database.js';
 
 export interface PullOptions {
   /** Print the complete generated files and write nothing. */
@@ -62,7 +58,7 @@ export async function pullDeclarations(config: ResolvedConfig, options: PullOpti
   }
 
   const driver = await config.driver();
-  const snapshot = await createIntrospector(config.dialect).snapshot(driver, config.introspect);
+  const snapshot = await configuredIntrospector(config.dialect).snapshot(driver, config.introspect);
   const emitted = await emitDeclarations(snapshot, { dialect: config.dialect });
   const projectRoot = dirname(config.configPath);
   const outputRoot = join(projectRoot, '.zmdb', 'introspected');

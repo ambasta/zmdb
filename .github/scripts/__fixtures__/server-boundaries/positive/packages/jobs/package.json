@@ -10,6 +10,7 @@
   "dependencies": {
     "@zmdb/app": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^"
+    "@zmdb/repository": "workspace:^",
+    "@zmdb/sqlite": "workspace:^"
   }
 }

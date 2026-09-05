@@ -3,8 +3,10 @@ SQLite is fully supported and is the dialect zmdb's own tests use most, because 
 ## Selecting it
 
 ```ts
-const compiler = createQueryCompiler('sqlite');
-const userRepo = defineRepository(users, sqliteDriver(db), { dialect: 'sqlite' });
+import { sqlite, sqliteDriver } from '@zmdb/sqlite';
+
+const compiler = createQueryCompiler(sqlite);
+const userRepo = defineRepository(users, sqliteDriver(db), { dialect: sqlite });
 ```
 
 ## What it emits
@@ -81,12 +83,16 @@ wrong for a multi-instance service — which is the real limit on using SQLite i
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
+import { snapshot, diff } from '@zmdb/query-compiler/migrations';
+import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 
 export function freshDb() {
   const db = new DatabaseSync(':memory:');
-  db.exec('PRAGMA foreign_keys = ON');
-  for (const op of diff({ tables: {} }, snapshot(allSchemas))) db.exec(emitUp(op, 'sqlite'));
+  sqliteDriver(db);
+  const before = { version: 1, tables: [], extensions: [] };
+  const after = snapshot(allSchemas);
+  const operations = diff(before, after, { dialect: 'sqlite' });
+  for (const operation of operations) db.exec(sqlite.migrations.emitUp(operation));
   return db;
 }
 ```

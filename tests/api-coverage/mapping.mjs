@@ -370,7 +370,7 @@ export const kysely = {
     'inner savepoint rollback preserves outer writes (outer commits)',
   ],
   'execute > executeTakeFirstOrThrow': 'findOne adds LIMIT 1',
-  'execute > Kysely.executeQuery': 'round-trips create/find/update/delete against in-memory node:sqlite',
+  'execute > Kysely.executeQuery': 'executes migration CRUD upsert and rollback against live in-memory SQLite',
   'raw-query > raw queries': 'calls query(text, params) and returns rows by default (prepared: false)',
   'raw-sql > raw sql': 'allows bounded dialect-specific operator tokens and keeps every value parameterized',
   'sql-injection > select': [
@@ -407,7 +407,8 @@ export const kysely = {
     'reads tables, columns, nullability and primary keys from a real sqlite database',
     'reads indexes including a unique one and an expression one',
   ],
-  'introspect > getTables > implicit autoincrement': 'recognises a serial column per dialect',
+  'introspect > getTables > implicit autoincrement':
+    'round-trips declaration through DDL node:sqlite and introspection',
 };
 
 // ---------------------------------------------------------------------------
@@ -459,7 +460,7 @@ export const drizzle = {
     'writes a Date and reads a Date back',
     'stores it as the ISO-8601 text the DDL declares, which sorts chronologically',
   ],
-  'timestamp timezone': 'binds it as ISO-8601 UTC text, since node:sqlite binds no object at all',
+  'timestamp timezone': 'binds Date as sortable ISO UTC text',
   'insert null timestamp': 'allows explicit null for nullable json columns while rejecting primitives',
   'insert bigint values': 'hands a Date and a bigint over untouched',
   'array types': oos(NO_JSON_PATH, 'json-properties'),
@@ -607,13 +608,12 @@ export const drizzle = {
 
   // --- prepared statements, transactions, misc ----------------------------
   'prepared statement': 'runs as prepared statement when prepared: true is passed',
-  'prepared statement reuse':
-    'reuses prepared statement references and runs regex at most once per unique query string',
+  'prepared statement reuse': 'reuses prepared statements and evicts the least-recently-used idle statement',
   'prepared statement with placeholder in *': 'compiles andWhere with sequential placeholders',
   'prepared statement built using $dynamic': oos(NO_BUILDER_SURGERY, 'dynamic-queries'),
   'insert: placeholders on columns with encoder': 'compiles andWhere with sequential placeholders',
-  'async api - *': 'round-trips create/find/update/delete against in-memory node:sqlite',
-  'insert via db.*': 'round-trips create/find/update/delete against in-memory node:sqlite',
+  'async api - *': 'executes migration CRUD upsert and rollback against live in-memory SQLite',
+  'insert via db.*': 'executes migration CRUD upsert and rollback against live in-memory SQLite',
   transaction: 'commits on success (BEGIN … COMMIT)',
   'transaction rollback': 'rolls back on throw (BEGIN … ROLLBACK)',
   'nested transaction': 'nested savepoints use distinct names and release on success',

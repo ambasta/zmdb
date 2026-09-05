@@ -29,7 +29,7 @@ Over `expo-sqlite`:
 
 ```ts
 import * as SQLite from 'expo-sqlite';
-import type { EmbeddedConnection } from '@zmdb/query-compiler/migrations/embedded';
+import type { EmbeddedConnection } from '@zmdb/sqlite/embedded';
 
 const db = await SQLite.openDatabaseAsync('app.db');
 
@@ -54,7 +54,7 @@ not call it from inside another SQLite transaction.
 Then, at startup:
 
 ```ts
-import { runEmbedded } from '@zmdb/query-compiler/migrations/embedded';
+import { runEmbedded } from '@zmdb/sqlite/embedded';
 import { migrations } from './generated/migrations.js';
 
 await runEmbedded(conn, migrations);
@@ -98,9 +98,9 @@ Without `--out`, it writes `embedded.ts` beside the SQL files. `--with-down` inc
 
 Commit the generated module and run `npx zmdb check` in CI. It reports `stale-embedded` when the configured migration files and the module no longer match.
 
-The device imports only the finished array and `@zmdb/query-compiler/migrations/embedded`. That leaf entry imports nothing, so the diff engine and DDL emitter do not enter the bundle. This is enforced
-structurally, not left to tree-shaking: the permanent `does not pull the diff engine into the embedded runner's import graph` test resolves the public subpath and requires its graph to contain exactly
-that one source file.
+The device imports only the finished array and `@zmdb/sqlite/embedded`. That leaf entry imports nothing, so the diff engine and DDL emitter do not enter the bundle. This is enforced structurally, not
+left to tree-shaking: the permanent `does not pull the diff engine into the embedded runner's import graph` test resolves the public subpath and requires its graph to contain exactly that one source
+file.
 
 ## Platform adapter boundary
 

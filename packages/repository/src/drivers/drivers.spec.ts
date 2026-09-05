@@ -1,20 +1,10 @@
 import { createRequire } from 'node:module';
-import { DatabaseSync } from 'node:sqlite';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { createQueryCompiler, distance } from '@zmdb/query-compiler';
-import type { Ext, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import type { Ext, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
-import { BaseRepository } from '../index.js';
 import { pgDriver, type PgQueryable } from './pg.js';
-import { sqliteDriver } from './sqlite.js';
-
-export interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'>;
-  age: number & Sql<'integer'>;
-}
 
 interface PgVectorItem extends Table<'pgvector_items'> {
   readonly embedding: readonly number[] & Ext<'vector', 'vector', [3]>;
@@ -28,141 +18,6 @@ function preparePgValue(value: unknown): unknown {
   if (typeof prepareValue !== 'function') throw new TypeError('node-postgres did not expose prepareValue');
   return Reflect.apply(prepareValue, pgUtils, [value]);
 }
-
-const { User: UserSchema } = schemasFrom<{ User: User }>(import.meta.url, ['User']);
-class Users extends BaseRepository<User> {
-  static override readonly schema = UserSchema;
-}
-
-describe('sqliteDriver (#211)', () => {
-  it('round-trips create/find/update/delete against in-memory node:sqlite', async () => {
-    const db = new DatabaseSync(':memory:');
-    db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, age INTEGER NOT NULL)');
-    const users = new Users(sqliteDriver(db), 'sqlite');
-
-    const created = await users.create({ email: 'a@b.com', age: 30 });
-    expect(created.id).toBeGreaterThan(0);
-
-    const found = await users.findById(created.id);
-    expect(found?.email).toBe('a@b.com');
-
-    const admins = await users.find({ age: { gte: 18 } });
-    expect(admins).toHaveLength(1);
-
-    const ok = await users.delete(created.id);
-    expect(ok).toBe(true);
-    expect(await users.findById(created.id)).toBeUndefined();
-  });
-
-  it('reuses prepared statement references and runs regex at most once per unique query string', async () => {
-    const db = new DatabaseSync(':memory:');
-    db.exec('CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)');
-    const prepareSpy = vi.spyOn(db, 'prepare');
-    const testSpy = vi.spyOn(RegExp.prototype, 'test');
-
-    const d = sqliteDriver(db);
-    const query = { text: 'SELECT * FROM items WHERE id = ?', parameters: [1] };
-
-    testSpy.mockClear();
-
-    // First execution compiles statement & tests regex
-    await d.execute(query);
-    expect(prepareSpy).toHaveBeenCalledTimes(1);
-    const testCountAfterFirst = testSpy.mock.calls.length;
-
-    // Subsequent executions reuse prepared statement and skip regex checks
-    await d.execute({ text: 'SELECT * FROM items WHERE id = ?', parameters: [2] });
-    await d.execute({ text: 'SELECT * FROM items WHERE id = ?', parameters: [3] });
-
-    expect(prepareSpy).toHaveBeenCalledTimes(1);
-    expect(testSpy.mock.calls.length).toBe(testCountAfterFirst);
-
-    testSpy.mockRestore();
-  });
-
-  it('evicts oldest statement from cache when maxCacheSize is exceeded (LRU)', async () => {
-    const db = new DatabaseSync(':memory:');
-    db.exec('CREATE TABLE test (id INTEGER PRIMARY KEY)');
-    const prepareSpy = vi.spyOn(db, 'prepare');
-
-    const d = sqliteDriver(db, { maxCacheSize: 2 });
-
-    await d.execute({ text: 'SELECT 1', parameters: [] }); // cached
-    await d.execute({ text: 'SELECT 2', parameters: [] }); // cached
-    expect(prepareSpy).toHaveBeenCalledTimes(2);
-
-    // Re-access SELECT 1 so SELECT 2 becomes oldest
-    await d.execute({ text: 'SELECT 1', parameters: [] });
-    expect(prepareSpy).toHaveBeenCalledTimes(2);
-
-    // Execute SELECT 3 -> evicts SELECT 2
-    await d.execute({ text: 'SELECT 3', parameters: [] });
-    expect(prepareSpy).toHaveBeenCalledTimes(3);
-
-    // SELECT 1 should still be cached
-    await d.execute({ text: 'SELECT 1', parameters: [] });
-    expect(prepareSpy).toHaveBeenCalledTimes(3);
-
-    // SELECT 2 was evicted -> triggers prepare again
-    await d.execute({ text: 'SELECT 2', parameters: [] });
-    expect(prepareSpy).toHaveBeenCalledTimes(4);
-  });
-
-  it('observes abort between stepped rows and rejects with the exact reason', async () => {
-    const db = new DatabaseSync(':memory:');
-    const driver = sqliteDriver(db);
-    const stream = driver.stream;
-    if (stream === undefined) throw new Error('sqliteDriver did not expose stream');
-
-    const controller = new AbortController();
-    const reason = new Error('consumer stopped');
-    const iterator = stream(
-      {
-        text: 'SELECT 1 AS id UNION ALL SELECT 2 AS id ORDER BY id',
-        parameters: [],
-      },
-      { signal: controller.signal },
-    )[Symbol.asyncIterator]();
-
-    await expect(iterator.next()).resolves.toEqual({ done: false, value: { id: 1 } });
-    controller.abort(reason);
-    await expect(iterator.next()).rejects.toBe(reason);
-  });
-
-  it('does not evict a statement while its native iterator is active', async () => {
-    const db = new DatabaseSync(':memory:');
-    const prepareSpy = vi.spyOn(db, 'prepare');
-    const driver = sqliteDriver(db, { maxCacheSize: 1 });
-    const stream = driver.stream;
-    if (stream === undefined) throw new Error('sqliteDriver did not expose stream');
-
-    const iterator = stream({ text: 'SELECT 1 AS id UNION ALL SELECT 2 AS id', parameters: [] })[
-      Symbol.asyncIterator
-    ]();
-    await expect(iterator.next()).resolves.toEqual({ done: false, value: { id: 1 } });
-
-    await driver.execute({ text: 'SELECT 3 AS id', parameters: [] });
-    await iterator.return?.();
-    await driver.execute({ text: 'SELECT 1 AS id UNION ALL SELECT 2 AS id', parameters: [] });
-
-    expect(prepareSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it('keeps a transaction callback on the database and rolls its writes back together', async () => {
-    const db = new DatabaseSync(':memory:');
-    db.exec('CREATE TABLE events (id INTEGER PRIMARY KEY)');
-    const driver = sqliteDriver(db);
-
-    await expect(
-      driver.transaction(async transaction => {
-        await transaction.execute({ text: 'INSERT INTO events (id) VALUES (?)', parameters: [1] });
-        throw new Error('stop');
-      }),
-    ).rejects.toThrow('stop');
-
-    expect(db.prepare('SELECT id FROM events').all()).toEqual([]);
-  });
-});
 
 describe('pgDriver (#211)', () => {
   it('serializes a compiler-bound pgvector parameter through the real node-postgres path', () => {
@@ -406,32 +261,5 @@ describe('pgDriver (#211)', () => {
     ]);
     expect(connect).toHaveBeenCalledOnce();
     expect(release).toHaveBeenCalledOnce();
-  });
-});
-
-describe('sqliteDriver binds a Date', () => {
-  it('binds it as ISO-8601 UTC text, since node:sqlite binds no object at all', async () => {
-    const db = new DatabaseSync(':memory:');
-    db.exec('CREATE TABLE events (at TEXT NOT NULL)');
-    const d = sqliteDriver(db);
-
-    await d.execute({
-      text: 'INSERT INTO events (at) VALUES (?)',
-      parameters: [new Date('2026-01-01T13:30:00.000+01:00')],
-    });
-
-    // Not the local rendering of that instant: UTC, so lexicographic order stays
-    // chronological order in a TEXT column.
-    expect(db.prepare('SELECT at FROM events').all()).toEqual([{ at: '2026-01-01T12:30:00.000Z' }]);
-  });
-
-  it('leaves every other bindable value exactly as it is', async () => {
-    const db = new DatabaseSync(':memory:');
-    db.exec('CREATE TABLE cells (i INTEGER, b INTEGER, t TEXT, n TEXT)');
-    const d = sqliteDriver(db);
-
-    await d.execute({ text: 'INSERT INTO cells (i, b, t, n) VALUES (?, ?, ?, ?)', parameters: [1, 2n, 'three', null] });
-
-    expect(db.prepare('SELECT i, b, t, n FROM cells').all()).toEqual([{ i: 1, b: 2, t: 'three', n: null }]);
   });
 });

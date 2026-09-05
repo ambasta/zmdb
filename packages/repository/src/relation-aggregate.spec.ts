@@ -3,9 +3,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { AggregateSpec } from '@zmdb/schema-core/dto';
 import type { ManyToOne, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.js';
 import { BaseRepository, defineRepository, type Driver, type FilterDef } from './index.js';
 
 export interface Category extends Table<'categories'> {

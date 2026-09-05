@@ -1,7 +1,7 @@
 # SPEC — End-to-end DX: quickstart + wiring helper (frozen)
 
-Epic #220. Removes the "assemble four packages + write a driver + subclass a repository" on-ramp. Delivers (1) a one-call wiring helper and (2) a runnable zero-dependency (`node:sqlite`) example that
-doubles as an E2E spec.
+Epic #220. Removes the "assemble four packages + write a driver + subclass a repository" on-ramp. Delivers (1) a one-call wiring helper and (2) a runnable `node:sqlite` example with no third-party
+database client that doubles as an E2E spec.
 
 ## 1. Wiring helper (#223)
 
@@ -9,7 +9,7 @@ doubles as an E2E spec.
 import { defineRepository } from '@zmdb/repository';
 
 // No subclassing required — bind schema + driver in one call.
-const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
+const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: sqlite });
 
 await users.create({ email: 'a@b.com', age: 30 }); // typed CreateDTO<User>
 const list = await users.list({ page: { limit: 20 } }); // typed ListResult<Entity<User>>
@@ -26,7 +26,7 @@ Frozen behaviour:
 
 ## 2. Runnable example / E2E (#222)
 
-A `node:sqlite` script (zero external deps) that:
+A `node:sqlite` script (no third-party database client) that:
 
 1. defines a schema, 2. creates the table, 3. wires a repo via `defineRepository`
 

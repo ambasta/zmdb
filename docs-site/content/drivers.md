@@ -20,8 +20,8 @@ client and returns rows; it does not parse SQL. `Driver` lives in `@zmdb/reposit
 ```ts
 // node:sqlite — no external dependency
 import { DatabaseSync } from 'node:sqlite';
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import { defineRepository } from '@zmdb/repository';
+import { sqliteDriver } from '@zmdb/sqlite';
 
 const db = new DatabaseSync('app.db');
 const users = defineRepository(UserSchema, sqliteDriver(db));
@@ -51,11 +51,12 @@ const pool = await sql.connect(process.env.DATABASE_URL!);
 const users = defineRepository(UserSchema, mssqlDriver(pool));
 ```
 
-All three accept **structural** types — `SqliteDatabase` is `{ prepare(sql) }`, `PgQueryable` is `{ query(…) }`, and `MssqlPool` is `{ request() }` — so the real client objects are assignable without
-an adapter package becoming a hard runtime dependency of `@zmdb/repository`. `node:sqlite` is built in; install `pg` or `mssql` in the application that uses that client.
+All three accept **structural** types — `SqliteDatabase` is `{ exec(sql); prepare(sql) }`, `PgQueryable` is `{ query(…) }`, and `MssqlPool` is `{ request() }` — so the real client objects are
+assignable without a client library becoming a runtime dependency of the adapter. `@zmdb/sqlite` declares no third-party database client; `node:sqlite` is built in. Install `pg` or `mssql` in the
+application that uses those compatibility adapters.
 
-> [!NOTE] All bundled drivers declare their built-in dialect name. `defineRepository` uses an explicit option first, then `driver.dialect`, then the temporary `'postgres'` fallback. Driver wrappers
-> must preserve the wrapped dialect. A third-party driver can attach a frozen `SqlDialect` object, and the repository uses that same object for compilation, limits, retries and returning behavior.
+> [!NOTE] First-party drivers declare their dialect object. `defineRepository` uses an explicit option first, then `driver.dialect`, then the temporary `'postgres'` fallback. Driver wrappers must
+> preserve the wrapped dialect. A third-party driver can attach a frozen `SqlDialect` object, and the repository uses that same object for compilation, limits, retries and returning behavior.
 
 The SQLite and Postgres drivers cache prepared statements keyed by SQL text, LRU-evicting at `maxCacheSize` (1000 by default). Since the compiler emits one text per query shape and parameterises the
 values, that cache has a bounded number of entries — unless you build SQL by string concatenation, which you should not be doing.
@@ -72,10 +73,11 @@ Any database with a client that takes SQL plus parameters:
 
 ```ts
 import type { Driver } from '@zmdb/repository';
+import { sqlite } from '@zmdb/sqlite';
 
 export function d1Driver(db: D1Database): Driver {
   return {
-    dialect: 'sqlite',
+    dialect: sqlite,
     async execute(query) {
       const { results } = await db
         .prepare(query.text)

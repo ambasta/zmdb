@@ -7,9 +7,9 @@
 // explicit short timeout so that hang is a fast failure instead of the 5s default.
 import { DatabaseSync } from 'node:sqlite';
 
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import { createTransactionalDb } from '@zmdb/repository/transactions';
 import type { TransactionContext, TxConnection } from '@zmdb/repository/transactions';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createEvents, getEventHandlers, OnEvent, type EventFailure, type EventMap } from './index.js';

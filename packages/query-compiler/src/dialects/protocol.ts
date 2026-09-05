@@ -85,7 +85,7 @@ export interface Introspector<Name extends string = string> {
   /** Temporary compatibility alias for the pre-#668 factory surface. */
   readonly dialect?: Name;
   snapshot(driver: IntrospectionDriver, options?: IntrospectOptions): Promise<CatalogSchemaSnapshot>;
-  normalizeForDrift(snapshot: CatalogSchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot;
+  normalizeForDrift(snapshot: SchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot;
 }
 
 export type SchemaObjectOperation =

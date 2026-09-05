@@ -1,0 +1,11 @@
+{
+  "name": "zmdb-database-sqlite-consumer",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/sqlite": "1.0.0-alpha.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1"
+  }
+}

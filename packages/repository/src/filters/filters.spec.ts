@@ -11,10 +11,10 @@ import {
   type FilterDef,
   type QueryMeta,
 } from '@zmdb/repository';
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import type { ColumnIR, SchemaIR } from '@zmdb/schema-core/ir';
 import { jsonSchemaFromIR, schemaFromIR } from '@zmdb/schema-core/ir';
 import type { OneToMany, PrimaryKey, References, Serial, SoftDelete, Sql, Table } from '@zmdb/schema-core/tags';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
 
 export interface FilterUser extends Table<'users'> {

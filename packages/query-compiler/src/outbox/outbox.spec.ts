@@ -4,7 +4,7 @@
 //
 // This package has no dependencies and must keep none (SPEC §1), so the real-database tests use
 // `node:sqlite` — a Node builtin — with a six-line `execute` shim rather than
-// @zmdb/repository's `sqliteDriver`.
+// @zmdb/sqlite's `sqliteDriver`.
 import { DatabaseSync } from 'node:sqlite';
 
 import { describe, expect, it } from 'vitest';
@@ -79,7 +79,7 @@ function readBackByHand(dialect: Dialect, token: string): CompiledQuery {
 /**
  * A `CompiledQuery` sink over `node:sqlite`. `Date` is the app type of every `timestamp`
  * column and node:sqlite refuses to bind one, so parameters are ISO-8601-encoded here for
- * the same reason `@zmdb/repository`'s `sqliteDriver` does it: fixed-width UTC ISO is the one
+ * the same reason `@zmdb/sqlite`'s `sqliteDriver` does it: fixed-width UTC ISO is the one
  * text form whose lexicographic order is its chronological order, which is what makes
  * `lease_until < ?` mean what §4.2 says it means.
  *

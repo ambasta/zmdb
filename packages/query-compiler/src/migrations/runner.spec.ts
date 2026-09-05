@@ -1,9 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 
+import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { pgDriver, type PgQueryable } from '../../../repository/src/drivers/pg.js';
-import { sqliteDriver } from '../../../repository/src/drivers/sqlite.js';
 import {
   down,
   driverMigrationConnection,
@@ -168,7 +168,7 @@ describe('migration runner E2E (real SQLite connection)', () => {
 
   it('refuses to run when a previously applied migration file has changed', async () => {
     const database = new DatabaseSync(':memory:');
-    const adapter = driverMigrationConnection(sqliteDriver(database), 'sqlite');
+    const adapter = driverMigrationConnection(sqliteDriver(database), sqlite);
     const original: Migration = {
       version: 20260904010101,
       name: 'create_audit',
@@ -229,7 +229,7 @@ describe('migration runner E2E (real SQLite connection)', () => {
         applied_at INTEGER NOT NULL
       )
     `);
-    const adapter = driverMigrationConnection(sqliteDriver(database), 'sqlite');
+    const adapter = driverMigrationConnection(sqliteDriver(database), sqlite);
 
     await ensureVersionTable(adapter);
 
@@ -242,7 +242,7 @@ describe('migration runner E2E (real SQLite connection)', () => {
 
   it('uses the configured ledger table for apply and rollback', async () => {
     const database = new DatabaseSync(':memory:');
-    const adapter = driverMigrationConnection(sqliteDriver(database), 'sqlite', { table: 'migration_history' });
+    const adapter = driverMigrationConnection(sqliteDriver(database), sqlite, { table: 'migration_history' });
     const migration: Migration = {
       version: 20260905010101,
       name: 'create_notes',

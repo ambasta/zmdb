@@ -18,6 +18,7 @@ Applications that already have migration data can call the same boundary:
 
 ```ts
 import { driverMigrationConnection, status, up, type Migration } from '@zmdb/query-compiler/migrations/runner';
+import { sqlite } from '@zmdb/sqlite';
 
 const migrations: readonly Migration[] = [
   {
@@ -28,7 +29,7 @@ const migrations: readonly Migration[] = [
   },
 ];
 
-const connection = driverMigrationConnection(driver, 'sqlite');
+const connection = driverMigrationConnection(driver, sqlite);
 await up(connection, migrations);
 console.log(await status(connection, migrations));
 ```

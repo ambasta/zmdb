@@ -1,8 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { sqliteDriver } from '../drivers/sqlite.js';
 import { createTransactionalDb, batch, type TxConnection } from './index.js';
 
 // #39: explicit write-batching helper + E2E (real SQLite atomicity).

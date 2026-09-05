@@ -734,17 +734,18 @@ titles only.
 
 ## 8. What "supported" means, per dialect
 
-The epic requires this to be stated honestly. Six dialect values now ship, and `packages/repository/src/drivers/` contains `pg.ts`, `sqlite.ts` and `mssql.ts`; MySQL remains a supported dialect with
-no bundled adapter. "Supported" means the compiler emits correct SQL, with a bundled adapter where the table says one exists.
+The epic requires this to be stated honestly. Six temporary built-in dialect names still ship. SQLite's complete adapter, migrations, and catalog reader now live in `@zmdb/sqlite`;
+`packages/repository/src/drivers/` retains only the PostgreSQL and SQL Server compatibility adapters. MySQL remains a supported dialect with no official adapter yet. "Supported" means the compiler
+emits correct SQL, with an official adapter where the table says one exists.
 
-| Dialect       | Driver here            | Always-on CI database                                   | Coverage                                                                |
-| ------------- | ---------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `postgres`    | `drivers/pg.ts`        | yes                                                     | golden SQL + real E2E                                                   |
-| `sqlite`      | `drivers/sqlite.ts`    | in-process                                              | golden SQL + real E2E                                                   |
-| `mysql`       | none                   | no                                                      | golden SQL only, today                                                  |
-| `mssql`       | `drivers/mssql.ts`     | no; opt-in through `ZMDB_MSSQL_URL`                     | complete golden matrix + loud-gated real E2E when a server is reachable |
-| `cockroach`   | reuses `drivers/pg.ts` | no                                                      | complete golden matrix; live-server qualification remains               |
-| `singlestore` | none                   | no: the image wants a licence key and several gigabytes | complete golden matrix; live-server qualification remains               |
+| Dialect       | Official/compatibility driver                  | Always-on CI database                                   | Coverage                                                                |
+| ------------- | ---------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `postgres`    | `@zmdb/repository/drivers/pg` compatibility    | yes                                                     | golden SQL + real E2E                                                   |
+| `sqlite`      | `@zmdb/sqlite`                                 | in-process                                              | package goldens + mandatory real and packed E2E                         |
+| `mysql`       | none                                           | no                                                      | golden SQL only, today                                                  |
+| `mssql`       | `@zmdb/repository/drivers/mssql` compatibility | no; opt-in through `ZMDB_MSSQL_URL`                     | complete golden matrix + loud-gated real E2E when a server is reachable |
+| `cockroach`   | reuses the PostgreSQL compatibility adapter    | no                                                      | complete golden matrix; live-server qualification remains               |
+| `singlestore` | none                                           | no: the image wants a licence key and several gigabytes | complete golden matrix; live-server qualification remains               |
 
 SQL Server's opt-in suite executes generated DDL, the adapter's named-parameter binding, bracket escaping, `OUTPUT`, ordered pagination, `MERGE`, timestamp round-trips and column migrations against a
 real server. When `ZMDB_MSSQL_URL` is absent or unreachable, it emits a visible `[skip] SQL Server E2E: …` reason and retains a passing availability assertion rather than silently disappearing.
@@ -798,15 +799,15 @@ the injected path and final architecture.
 ### 11.1 Measured starting point
 
 At commit `94164c53`, the official names are declared together in `index.ts`, the compiler defaults to the string `'postgres'`, `createIntrospector` switches over all six names, repository drivers
-carry optional string names, and config/CLI surfaces pass those strings through. The current tree has three driver implementations (`sqlite`, `pg`, `mssql`), three catalog readers (`sqlite`,
+carry optional string names, and config/CLI surfaces pass those strings through. That measured tree had three driver implementations (`sqlite`, `pg`, `mssql`), three catalog readers (`sqlite`,
 `postgres`, `mysql`), no MySQL driver, and no SQL Server catalog reader. Cockroach and SingleStore inherit central records and delegate catalog work to their parents.
 
 Those facts describe the migration source, not the support state promised by the target packages.
 
 Issue #668 adds a registry-free `dialects/protocol.ts` containing `SqlDialect`, its total traits and capabilities, migration and introspection protocols, and `defineSqlDialect` / `extendSqlDialect`.
 The compiler and helpers accept that object, migration wrappers and the runner delegate through its migration implementation, callers use its introspector directly, and the repository derives and
-caches the same object's behavior. The legacy six-name definitions, factory switches, string overloads, config values and bundled adapters remain until the later extraction children move their
-ownership.
+caches the same object's behavior. Issue #669 moves the SQLite reader and adapter into `@zmdb/sqlite`; the legacy six-name definitions, string overloads, config values, and remaining database
+implementations stay until their extraction children and #675 complete the cutover.
 
 ### 11.2 Generic public contract
 

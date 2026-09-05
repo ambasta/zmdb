@@ -3,9 +3,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { UpdateDTO } from '@zmdb/schema-core';
 import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.js';
 import { BaseRepository, ValidationError } from './index.js';
 
 interface FrozenStreamOptions {
@@ -270,10 +270,9 @@ describe('repository E2E (real SQLite)', () => {
   // explicitly turns it off first. Without that step the body passes today because
   // of a host default and proves nothing about sqliteDriver.
   //
-  // actual today after the explicit OFF:
-  //   { beforeDriver: 0, afterDriver: 0, children: 2 }
-  // sqliteDriver prepares statements but performs no connection setup, so the
-  // constraint remains decorative and both child rows survive.
+  // Package-owned sqliteDriver enables the per-connection pragma. The complete
+  // assertion proves both that setup and the declared cascade:
+  //   { beforeDriver: 0, afterDriver: 1, children: 0 }
   it('cascades a real delete', async () => {
     const cascadeDb = new DatabaseSync(':memory:');
     try {

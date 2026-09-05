@@ -1,7 +1,7 @@
 # Tooling ownership policy — verifier contract
 
 > Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, remeasured for #681, amended by #656 after the protobuf runtime/public-owner
-> extraction, remeasured for #668 after the generic dialect protocol/type split, and amended by #685 for the generated-client command and its CLI fixtures.
+> extraction, remeasured for #668 after the generic dialect protocol/type split, amended by #669 for the SQLite owner move, and amended by #685 for the generated-client command and its CLI fixtures.
 
 ## 1. Extraction rule and totals
 
@@ -66,7 +66,6 @@ migrations	packages/query-compiler/src/introspect/emit.ts
 migrations	packages/query-compiler/src/introspect/index.ts
 migrations	packages/query-compiler/src/introspect/mysql.ts
 migrations	packages/query-compiler/src/introspect/postgres.ts
-migrations	packages/query-compiler/src/introspect/sqlite.ts
 migrations	packages/query-compiler/src/introspect/tagged-property.ts
 migrations	packages/query-compiler/src/migrations/embedded.ts
 migrations	packages/query-compiler/src/migrations/index.ts
@@ -79,6 +78,7 @@ migrations	packages/zmdb/src/cli/commands/migrate.ts
 migrations	packages/zmdb/src/cli/commands/pull.ts
 migrations	packages/zmdb/src/cli/commands/push.ts
 migrations	packages/zmdb/src/cli/commands/upgrade.ts
+migrations	packages/zmdb/src/cli/database.ts
 migrations	packages/zmdb/src/cli/migration-files.ts
 cli	packages/zmdb/src/cli/args.ts
 cli	packages/zmdb/src/cli/atomic.ts
@@ -271,9 +271,10 @@ edge. A topological sort must contain query/schema/validator protocols before co
 
 ## 5. Manifest-edge move map
 
-There are **17 current dependency/peer/development edges** in the three manifests.
+There are **21 current dependency/peer/development edges** in the three manifests.
 
 ```text
+packages/aot-validator/package.json	dependency	@zmdb/ai	move-compiler-build-time
 packages/aot-validator/package.json	dependency	@zmdb/schema-core	retain-runtime
 packages/aot-validator/package.json	peer	oxlint	move-compiler-optional-peer
 packages/aot-validator/package.json	peer	typescript	move-compiler-peer
@@ -284,12 +285,15 @@ packages/aot-validator/package.json	dev	typescript	move-compiler-dev
 packages/query-compiler/package.json	dependency	oxfmt	move-migrations-dependency
 packages/query-compiler/package.json	dev	typescript	retain-query-build
 packages/zmdb/package.json	dependency	@zmdb/aot-validator	retain-facade
+packages/zmdb/package.json	dependency	@zmdb/app	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/query-compiler	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/repository	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/schema-core	retain-facade
+packages/zmdb/package.json	dependency	@zmdb/sqlite	retain-database-facade-until-cutover
 packages/zmdb/package.json	dependency	@zmdb/web	retain-facade
 packages/zmdb/package.json	dependency	esbuild	move-cli-optional-peer-and-dev
 packages/zmdb/package.json	dependency	oxfmt	move-cli-dependency
+packages/zmdb/package.json	dev	@zmdb/ai	retain-facade-boundary-tests
 packages/zmdb/package.json	dev	typescript	retain-facade-build
 ```
 

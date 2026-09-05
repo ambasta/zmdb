@@ -1,15 +1,15 @@
-// node:sqlite driver adapter — see ../drivers/SPEC.md.
-import type { Driver } from '../index.js';
-import type { TransactionalDriver } from './transactional.js';
+import type { Driver, TransactionalDriver } from '@zmdb/repository';
 
-// Minimal structural types, for the same reason as `PgQueryable` in ./pg.ts: the
-// adapter must not hard-depend on `@types/node` at build time (a repo that only
-// ships ESM sources shouldn't need ambient Node types to typecheck). Methods are
-// bivariant, so a real `node:sqlite` `DatabaseSync` is assignable to
-// `SqliteDatabase` — pass one straight in.
+import { sqlite } from './dialect.js';
+
+// Minimal structural types keep the adapter independent of `@types/node` at
+// build time. Methods are bivariant, so a real `node:sqlite` `DatabaseSync` is
+// assignable to `SqliteDatabase` — pass one straight in.
 export interface SqliteStatement {
-  /** Returns rows for a SELECT/RETURNING statement. */
+  /** Returns rows for a row-returning statement such as SELECT, PRAGMA or RETURNING. */
   all(...params: unknown[]): unknown[];
+  /** Describes result columns without executing the statement (`node:sqlite` provides this). */
+  columns?(): readonly unknown[];
   /** Executes a non-returning statement. */
   run(...params: unknown[]): unknown;
   /** Steps a row-returning statement without materialising the result. */
@@ -33,10 +33,10 @@ interface CachedStatement {
 /**
  * The app→db crossing for SQLite (plan D3).
  *
- * `node:sqlite` binds `null`, a number, a bigint, a string and a `Uint8Array`, and throws
- * "Provided value cannot be bound to SQLite parameter N" for anything else. A `Date` is
- * exactly that anything else, and it is also the app type of every `timestamp` column — so
- * before this, a `timestamp` could not be written through this driver at all: passing a
+ * `node:sqlite` binds `null`, a boolean, a number, a bigint, a string and a `Uint8Array`, and
+ * throws "Provided value cannot be bound to SQLite parameter N" for anything else. A `Date`
+ * is exactly that anything else, and it is also the app type of every `timestamp` column —
+ * so before this, a `timestamp` could not be written through this driver at all: passing a
  * `Date` threw here and passing a string was the wrong type one layer up.
  *
  * ISO-8601 is not an arbitrary choice of encoding. It is what the DDL emitter declares the
@@ -54,22 +54,25 @@ function bindable(value: unknown): unknown {
 }
 
 /** Wrap a node:sqlite DatabaseSync as a zmdb Driver. Zero external deps. */
-export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): TransactionalDriver {
+export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): TransactionalDriver<'sqlite'> {
   db.exec('PRAGMA foreign_keys = ON');
   const maxCacheSize = opts?.maxCacheSize ?? 1000;
   const cache = new Map<string, CachedStatement>();
 
   const statementFor = (text: string): CachedStatement => {
     let entry = maxCacheSize > 0 ? cache.get(text) : undefined;
-    if (entry !== undefined) {
+    if (entry !== undefined && entry.activeIterators === 0) {
       cache.delete(text);
       cache.set(text, entry);
       return entry;
     }
 
+    const stmt = db.prepare(text);
+    const columns = stmt.columns?.();
     entry = {
-      stmt: db.prepare(text),
-      isRead: /^\s*SELECT/i.test(text) || /RETURNING/i.test(text),
+      stmt,
+      isRead:
+        columns === undefined ? /^\s*(?:SELECT|PRAGMA)\b/i.test(text) || /RETURNING/i.test(text) : columns.length > 0,
       activeIterators: 0,
     };
     if (maxCacheSize <= 0) return entry;
@@ -82,8 +85,8 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
     return entry;
   };
 
-  const driver: TransactionalDriver = {
-    dialect: 'sqlite',
+  const driver: TransactionalDriver<'sqlite'> = {
+    dialect: sqlite,
     async execute(q, executeOpts) {
       const signal = executeOpts?.signal;
       signal?.throwIfAborted();
@@ -138,7 +141,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
         },
       };
     },
-    async transaction<Result>(run: (driver: Driver) => Promise<Result>): Promise<Result> {
+    async transaction<Result>(run: (driver: Driver<'sqlite'>) => Promise<Result>): Promise<Result> {
       db.exec('BEGIN');
       try {
         const result = await run(driver);

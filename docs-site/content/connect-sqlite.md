@@ -1,30 +1,21 @@
-Dialect: `'sqlite'`. `node:sqlite` is a Node built-in, so this needs no dependency at all — which makes it the fastest path to a working database and the best option for tests.
+Dialect: `sqlite` from `@zmdb/sqlite`. `node:sqlite` is a Node built-in, so no third-party database client is required — which makes it the fastest path to a working database and the best option for
+tests.
 
 ## With `node:sqlite`
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import type { Driver } from '@zmdb/repository';
+import { sqliteDriver } from '@zmdb/sqlite';
 
 const db = new DatabaseSync(process.env.DB_PATH ?? 'app.db');
 
-db.exec('PRAGMA foreign_keys = ON');
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA busy_timeout = 5000');
 
-export const driver: Driver = {
-  async execute(query) {
-    const stmt = db.prepare(query.text);
-    if (/^\s*(select|with)/i.test(query.text)) {
-      return stmt.all(...query.parameters) as Record<string, unknown>[];
-    }
-    stmt.run(...query.parameters);
-    return [];
-  },
-};
+export const driver = sqliteDriver(db);
 ```
 
-The three pragmas are all load-bearing:
+`sqliteDriver` enables `foreign_keys` on the supplied connection. The other two pragmas are application policy:
 
 - **`foreign_keys = ON`** — off by default, **per connection**. Without it your foreign keys exist in the schema and are not enforced. This is the most common SQLite mistake.
 - **`journal_mode = WAL`** — persists in the file once set; lets readers proceed while a write is in progress. Without it a read blocks behind every write.
@@ -66,12 +57,17 @@ Per-column, not by value — a blanket `0 → false` rule turns a genuine count 
 ## In tests
 
 ```ts
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
+import { DatabaseSync } from 'node:sqlite';
+import { snapshot, diff } from '@zmdb/query-compiler/migrations';
+import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 
 export function freshDb() {
   const db = new DatabaseSync(':memory:');
-  db.exec('PRAGMA foreign_keys = ON');
-  for (const op of diff({ tables: {} }, snapshot(allSchemas))) db.exec(emitUp(op, 'sqlite'));
+  sqliteDriver(db);
+  const before = { version: 1, tables: [], extensions: [] };
+  const after = snapshot(allSchemas);
+  const operations = diff(before, after, { dialect: 'sqlite' });
+  for (const operation of operations) db.exec(sqlite.migrations.emitUp(operation));
   return db;
 }
 ```

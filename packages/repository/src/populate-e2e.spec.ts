@@ -2,9 +2,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.js';
 import { BaseRepository } from './index.js';
 
 // #34: integrate populate() into the repository + E2E (real SQLite).

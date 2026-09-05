@@ -12,6 +12,8 @@ export type {
   CatalogWarning,
   ReferentialAction,
 } from './types.js';
+export type { IntrospectionDriver, Introspector, IntrospectOptions } from '../dialects/index.js';
+export { normalizeDriftSnapshot } from './drift.js';
 
 export class CatalogRowError extends TypeError {
   readonly catalog: string;

@@ -1,5 +1,5 @@
 import { schemasFromFiles } from '@zmdb/aot-validator/testing';
-import { detectDrift, createIntrospector } from '@zmdb/query-compiler/introspect';
+import { detectDrift } from '@zmdb/query-compiler/introspect';
 import {
   diff,
   emitUp,
@@ -12,6 +12,7 @@ import { driverMigrationConnection, type MigrationConnection } from '@zmdb/query
 import type { Driver } from '@zmdb/repository';
 
 import type { ResolvedConfig } from '../../config/index.js';
+import { configuredIntrospector } from '../database.js';
 import { configuredDriver } from './migrate.js';
 
 export interface PushPlan {
@@ -31,9 +32,12 @@ export interface PushResult {
 export async function planPush(config: ResolvedConfig): Promise<PushPlan> {
   const driver = await configuredDriver(config);
   const declared = declaredSnapshot(config);
-  const live = await createIntrospector(config.dialect).snapshot(driver, config.introspect);
-  const drift = detectDrift(live, declared, { dialect: config.dialect });
-  const ops = diff(live, declared, { dialect: config.dialect });
+  const introspector = configuredIntrospector(config.dialect);
+  const live = await introspector.snapshot(driver, config.introspect);
+  const normalizedLive = introspector.normalizeForDrift(live, 'live');
+  const normalizedDeclared = introspector.normalizeForDrift(declared, 'declared');
+  const drift = detectDrift(normalizedLive, normalizedDeclared, { dialect: config.dialect });
+  const ops = diff(normalizedLive, normalizedDeclared, { dialect: config.dialect });
   const statements = ops.map(operation => emitUp(operation, config.dialect));
   const destructive = ops
     .map((operation, index) => (isDestructive(operation) ? statements[index] : undefined))

@@ -22,6 +22,7 @@ const PACKAGES = [
   '@zmdb/protobuf',
   '@zmdb/aot-validator',
   '@zmdb/repository',
+  '@zmdb/sqlite',
   '@zmdb/app',
   '@zmdb/jobs',
   '@zmdb/otel',

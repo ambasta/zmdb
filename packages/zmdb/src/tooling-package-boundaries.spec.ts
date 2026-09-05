@@ -35,6 +35,7 @@ const CURRENT_OWNER_DIRECTORIES = [
   'schema-core',
   'aot-validator',
   'repository',
+  'sqlite',
   'app',
   'web',
   'zmdb',
@@ -562,6 +563,12 @@ const { emitDeclarations } = await import('@zmdb/migrations/declarations');
 const { runEmbedded } = await import('@zmdb/migrations/embedded');
 const { readMigrations } = await import('@zmdb/migrations/files');
 const { createIntrospector } = await import('@zmdb/migrations/introspect');
+let sqliteIntrospectionRefused = false;
+try {
+  createIntrospector('sqlite');
+} catch (error) {
+  sqliteIntrospectionRefused = error instanceof Error && error.message.includes('@zmdb/sqlite');
+}
 const previous = snapshot([]);
 const next = snapshot([{
   table: 'widgets',
@@ -597,7 +604,8 @@ process.stdout.write(JSON.stringify({
   plan: plan.operations.length,
   declarations: declarations.files.length,
   files: files.length,
-  dialect: createIntrospector('sqlite').dialect,
+  dialect: createIntrospector('postgres').dialect,
+  sqliteIntrospectionRefused,
   applied,
 }));
 `,
@@ -730,6 +738,8 @@ describe('standalone tooling package fixtures (#627)', () => {
       stderr: '',
     });
     expect.soft(migrationsSmoke?.stdout).toContain('"applied":[1,2]');
+    expect.soft(migrationsSmoke?.stdout).toContain('"dialect":"postgres"');
+    expect.soft(migrationsSmoke?.stdout).toContain('"sqliteIntrospectionRefused":true');
     expect.soft(analyseToolingBoundaries().embeddedViolations).toEqual([]);
   });
 

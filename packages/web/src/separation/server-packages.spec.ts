@@ -251,6 +251,7 @@ describe('core server package boundaries (#646)', () => {
           '@zmdb/app': 'workspace:^',
           '@zmdb/query-compiler': 'workspace:^',
           '@zmdb/repository': 'workspace:^',
+          '@zmdb/sqlite': 'workspace:^',
         },
         exports: ['.', './memory', './schedule'],
         forbiddenPackages: ['@zmdb/web'],

@@ -38,6 +38,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/react          | 1.0.0-alpha.4 | react     | integration: React                     | `npm add @zmdb/react@1.0.0-alpha.4`        | React context, query, and mutation lifecycle bindings for generated zmdb clients.                                                                                                                                       | framework-integrations |
 | @zmdb/repository     | 1.0.0-alpha.4 | orm       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.                                              | repository             |
 | @zmdb/schema-core    | 1.0.0-alpha.4 | schema    | required                               | `npm add zmdb@1.0.0-alpha.4`               | Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.                                                    | schema-declaration     |
+| @zmdb/sqlite         | 1.0.0-alpha.4 | sqlite    | integration: SQLite                    | `npm add @zmdb/sqlite@1.0.0-alpha.4`       | Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.                                                           | dialect-sqlite         |
 | @zmdb/web            | 1.0.0-alpha.4 | web       | required                               | `npm add zmdb@1.0.0-alpha.4`               | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                                                               | web-overview           |
 | zmdb                 | 1.0.0-alpha.4 | product   | required                               | `npm add zmdb@1.0.0-alpha.4`               | The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time. | package-reference      |
 
@@ -229,6 +230,7 @@ Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite m
   - `@zmdb/app` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
+  - `@zmdb/sqlite` → `workspace:^`
 - **Optional dependencies:** None.
 - **Optional peers:** None.
 - **Required peers:** None.
@@ -300,6 +302,7 @@ SQL-first, dialect-aware query compiler with catalog introspection, declaration 
   - `./comments` → `./src/comments/index.ts`
   - `./fts` → `./src/fts/index.ts`
   - `./introspect` → `./src/introspect/index.ts`
+  - `./introspect/runtime` → `./src/introspect/common.ts`
   - `./joins` → `./src/joins/index.ts`
   - `./migrations` → `./src/migrations/index.ts`
   - `./migrations/embedded` → `./src/migrations/embedded.ts`
@@ -368,7 +371,6 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `.` → `./src/index.ts`
   - `./drivers/mssql` → `./src/drivers/mssql.ts`
   - `./drivers/pg` → `./src/drivers/pg.ts`
-  - `./drivers/sqlite` → `./src/drivers/sqlite.ts`
   - `./entity-modeling` → `./src/entity-modeling/index.ts`
   - `./integrations` → `./src/integrations/index.ts`
   - `./jobs` → `./src/jobs/index.ts`
@@ -406,7 +408,6 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `markTransactionClosed`
   - `zmdb/drivers/mssql`
   - `zmdb/drivers/pg`
-  - `zmdb/drivers/sqlite`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/schema-core`
@@ -457,6 +458,27 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `zmdb/relations`
   - `zmdb/tags`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
+
+### `@zmdb/sqlite`
+
+Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+  - `./embedded` → `./src/embedded.ts`
+  - `./node` → `./src/node.ts`
+- **Dependencies:**
+  - `@zmdb/query-compiler` → `workspace:^`
+  - `@zmdb/repository` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:** None.
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:**
+  - `zmdb/drivers/sqlite`
+- **External proof:** fixtures/database-sqlite
 
 ### `@zmdb/web`
 
@@ -537,6 +559,7 @@ at compile time.
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
   - `@zmdb/schema-core` → `workspace:^`
+  - `@zmdb/sqlite` → `workspace:^`
   - `@zmdb/web` → `workspace:^`
   - `esbuild` → `^0.28.2`
   - `oxfmt` → `0.66.0`

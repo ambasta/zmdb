@@ -2553,6 +2553,7 @@ __metadata:
     "@zmdb/app": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
     typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft
@@ -2637,6 +2638,18 @@ __metadata:
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     oxfmt: "npm:0.66.0"
+    typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/sqlite@workspace:^, @zmdb/sqlite@workspace:packages/sqlite":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/sqlite@workspace:packages/sqlite"
+  dependencies:
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft
@@ -5953,6 +5966,7 @@ __metadata:
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
     "@zmdb/web": "workspace:^"
     esbuild: "npm:^0.28.2"
     oxfmt: "npm:0.66.0"

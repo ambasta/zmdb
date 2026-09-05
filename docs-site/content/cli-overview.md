@@ -2,16 +2,17 @@ The schema commands are thin packaged wrappers over the public reflection, snaps
 
 ## The pieces
 
-| Function                        | Module                                     | Does                                      |
-| ------------------------------- | ------------------------------------------ | ----------------------------------------- |
-| `snapshot(schemas)`             | `@zmdb/query-compiler/migrations`          | schema objects → a plain snapshot object  |
-| `diff(prev, next)`              | `@zmdb/query-compiler/migrations`          | two snapshots → operations                |
-| `emitUp(op, dialect)`           | `@zmdb/query-compiler/migrations`          | one operation → SQL                       |
-| `emitDown(op, dialect)`         | `@zmdb/query-compiler/migrations`          | the reverse                               |
-| `createIntrospector(dialect)`   | `@zmdb/query-compiler/introspect`          | live catalog → normalized snapshot        |
-| `emitDeclarations(snapshot, …)` | `@zmdb/query-compiler/introspect`          | snapshot → generated TypeScript files     |
-| `runCli(cmd, conn, migrations)` | `@zmdb/query-compiler/migrations/runner`   | applies / reverts, records versions       |
-| `runEmbedded(conn, migrations)` | `@zmdb/query-compiler/migrations/embedded` | applies bundle-resident SQLite migrations |
+| Function                        | Module                                   | Does                                      |
+| ------------------------------- | ---------------------------------------- | ----------------------------------------- |
+| `snapshot(schemas)`             | `@zmdb/query-compiler/migrations`        | schema objects → a plain snapshot object  |
+| `diff(prev, next)`              | `@zmdb/query-compiler/migrations`        | two snapshots → operations                |
+| `emitUp(op, dialect)`           | `@zmdb/query-compiler/migrations`        | one operation → SQL                       |
+| `emitDown(op, dialect)`         | `@zmdb/query-compiler/migrations`        | the reverse                               |
+| `sqliteIntrospector`            | `@zmdb/sqlite`                           | SQLite catalog → normalized snapshot      |
+| `createIntrospector(dialect)`   | `@zmdb/query-compiler/introspect`        | temporary non-SQLite built-in dispatch    |
+| `emitDeclarations(snapshot, …)` | `@zmdb/query-compiler/introspect`        | snapshot → generated TypeScript files     |
+| `runCli(cmd, conn, migrations)` | `@zmdb/query-compiler/migrations/runner` | applies / reverts, records versions       |
+| `runEmbedded(conn, migrations)` | `@zmdb/sqlite/embedded`                  | applies bundle-resident SQLite migrations |
 
 ## The commands, and where each stands
 

@@ -15,9 +15,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import type { CompiledQuery } from '@zmdb/query-compiler';
 import { snapshot } from '@zmdb/query-compiler/migrations';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { sqliteDriver } from '../drivers/sqlite.js';
 import type { Driver } from '../index.js';
 import { createTransactionalDb } from '../transactions/index.js';
 import type { TxConnection } from '../transactions/index.js';

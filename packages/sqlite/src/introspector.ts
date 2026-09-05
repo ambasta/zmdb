@@ -18,9 +18,12 @@ import {
   type CatalogSchemaSnapshot,
   type CatalogTableSnapshot,
   type CatalogWarning,
-} from './common.js';
-import { normalizeDriftSnapshot } from './drift.js';
-import type { IntrospectionDriver, IntrospectOptions, LegacyIntrospector } from './index.js';
+  normalizeDriftSnapshot,
+  type IntrospectionDriver,
+  type Introspector,
+  type IntrospectOptions,
+} from '@zmdb/query-compiler/introspect/runtime';
+import type { ColumnSnapshot, SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 
 interface SqliteTable {
   readonly schema: string;
@@ -35,6 +38,7 @@ interface SqliteColumn {
   readonly notNull: boolean;
   readonly default: string | null;
   readonly primaryKeyOrdinal: number;
+  readonly hidden: number;
 }
 
 interface SqliteForeignKeyRow {
@@ -82,7 +86,11 @@ function parseTable(row: Readonly<Record<string, unknown>>, index: number): Sqli
 }
 
 function parseColumn(row: Readonly<Record<string, unknown>>, index: number): SqliteColumn {
-  const catalog = 'sqlite pragma_table_info';
+  const catalog = 'sqlite pragma_table_xinfo';
+  const hidden = integerField(row, 'hidden', catalog, index);
+  if (hidden !== 0 && hidden !== 2 && hidden !== 3) {
+    throw new CatalogRowError(catalog, index, 'hidden', '0, 2 or 3 for an ordinary table', hidden);
+  }
   return {
     ordinal: integerField(row, 'cid', catalog, index),
     name: textField(row, 'name', catalog, index),
@@ -90,6 +98,7 @@ function parseColumn(row: Readonly<Record<string, unknown>>, index: number): Sql
     notNull: flagField(row, 'notnull', catalog, index),
     default: nullableTextField(row, 'dflt_value', catalog, index),
     primaryKeyOrdinal: integerField(row, 'pk', catalog, index),
+    hidden,
   };
 }
 
@@ -136,6 +145,7 @@ function sqliteType(
   const normalized = declared.trim().toUpperCase();
   if (serial) return { type: 'serial' };
   if (normalized === 'INTEGER') return { type: 'integer' };
+  if (normalized === 'INT') return { type: 'integer' };
   if (normalized === 'TEXT') return { type: 'text' };
 
   const varchar = /^VARCHAR\s*\(\s*(\d+)\s*\)$/.exec(normalized);
@@ -399,20 +409,32 @@ async function sqliteSnapshot(
     );
   }
 
+  const warnings: CatalogWarning[] = [];
   const columns = new Map<string, readonly SqliteColumn[]>();
   const primaryKeys = new Map<string, readonly string[]>();
   for (const table of tables) {
     const rawColumns = await driver.execute(
-      query('SELECT cid, name, type, "notnull", dflt_value, pk FROM pragma_table_info(?, ?) ORDER BY cid', [
+      query('SELECT cid, name, type, "notnull", dflt_value, pk, hidden FROM pragma_table_xinfo(?, ?) ORDER BY cid', [
         table.name,
         table.schema,
       ]),
     );
     const parsed = rawColumns.map(parseColumn).toSorted((left, right) => left.ordinal - right.ordinal);
-    columns.set(`${table.schema}\0${table.name}`, parsed);
+    for (const column of parsed) {
+      if (column.hidden === 0) continue;
+      warnings.push({
+        table: table.name,
+        column: column.name,
+        reason:
+          `SQLite ${column.hidden === 3 ? 'stored' : 'virtual'} generated column is omitted because ` +
+          'the portable schema snapshot does not carry generated expressions',
+      });
+    }
+    const ordinary = parsed.filter(column => column.hidden === 0);
+    columns.set(`${table.schema}\0${table.name}`, ordinary);
     primaryKeys.set(
       table.name,
-      parsed
+      ordinary
         .filter(column => column.primaryKeyOrdinal > 0)
         .toSorted((left, right) => left.primaryKeyOrdinal - right.primaryKeyOrdinal)
         .map(column => column.name),
@@ -420,7 +442,6 @@ async function sqliteSnapshot(
   }
 
   const snapshots: CatalogTableSnapshot[] = [];
-  const warnings: CatalogWarning[] = [];
   const foreignKeyMode = await driver.execute(query('PRAGMA foreign_keys'));
   const mode = foreignKeyMode[0];
   if (mode === undefined) throw new TypeError('sqlite PRAGMA foreign_keys returned no row');
@@ -451,9 +472,43 @@ async function sqliteSnapshot(
 
 const databaseName = 'sqlite' as const;
 
-export const sqliteIntrospector: LegacyIntrospector<typeof databaseName> = {
+const NORMALIZED_DECLARED_TYPES = Object.freeze({
+  serial: 'serial',
+  integer: 'integer',
+  bigint: 'integer',
+  numeric: 'numeric',
+  text: 'text',
+  varchar: 'text',
+  boolean: 'integer',
+  timestamp: 'text',
+  json: 'text',
+  jsonEnum: 'text',
+} as const);
+
+function normalizeDeclaredColumn(column: ColumnSnapshot): ColumnSnapshot {
+  if (typeof column.type !== 'string') return column;
+  const mapped: unknown = Reflect.get(NORMALIZED_DECLARED_TYPES, column.type);
+  if (typeof mapped !== 'string') return column;
+  if (column.type !== 'varchar') return { ...column, type: mapped };
+  const { length: _length, ...withoutLength } = column;
+  return { ...withoutLength, type: mapped };
+}
+
+function normalizeSqliteDriftSnapshot(snapshot: SchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot {
+  const normalized = normalizeDriftSnapshot(snapshot, role);
+  return {
+    ...normalized,
+    tables: normalized.tables.map(table => ({
+      ...table,
+      columns: role === 'declared' ? table.columns.map(normalizeDeclaredColumn) : table.columns,
+      indexes: table.indexes ?? [],
+    })),
+  };
+}
+
+export const sqliteIntrospector: Introspector<typeof databaseName> = {
   name: databaseName,
   dialect: databaseName,
   snapshot: sqliteSnapshot,
-  normalizeForDrift: (snapshot, role) => normalizeDriftSnapshot(snapshot, role),
+  normalizeForDrift: normalizeSqliteDriftSnapshot,
 };

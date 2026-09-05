@@ -1,8 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
-import { sqliteDriver } from '../drivers/sqlite.js';
 import { BaseRepository } from '../index.js';
 import { UserSchema, type User } from './fixtures.js';
 

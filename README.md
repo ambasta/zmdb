@@ -10,9 +10,9 @@
 
 ## Product and packages
 
-Install `zmdb` for the curated product facade and CLI. The independently installable `@zmdb/*` packages are advanced dependency firebreaks, integrations, and tooling rather than a second beginner
-setup. Their membership, product roles, facade exposure, documentation ownership, and external-consumer evidence come from the [canonical product catalog](./scripts/product/catalog.mjs); the
-[package reference](./docs-site/content/package-reference.md) renders that inventory.
+Install `zmdb` for the curated product facade and CLI, plus the database vertical selected by the application. The SQLite quick start uses `@zmdb/sqlite`. The other independently installable `@zmdb/*`
+packages are advanced dependency firebreaks, integrations, and tooling rather than a second beginner setup. Their membership, product roles, facade exposure, documentation ownership, and
+external-consumer evidence come from the [canonical product catalog](./scripts/product/catalog.mjs); the [package reference](./docs-site/content/package-reference.md) renders that inventory.
 
 AI and MCP stay outside the umbrella: install provider-neutral `@zmdb/ai`, then add only the Anthropic, LangChain, Vercel AI SDK, or MCP package the application uses. The
 [LLM package and migration guide](./docs-site/content/llm-strategy.md) lists the exact installs, optional peers, and replacements for every removed schema-core LLM subpath.
@@ -21,7 +21,7 @@ OpenTelemetry is also opt-in: install `@zmdb/otel` only when adapting caller-own
 
 React is opt-in as well: install `@zmdb/react` only when a generated client needs React context and component-lifecycle ownership.
 
-> The workspace publishes **17 packages** across **122 export-map entry points**. The current suite has **2,947 passing tests** across 265 files, plus **162 expected failures** that describe work
+> The workspace publishes **18 packages** across **125 export-map entry points**. The current suite has **2,977 passing tests** across 269 files, plus **162 expected failures** that describe work
 > still to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO
 > pages, and 13 pages for features we do not plan to add.
 
@@ -49,8 +49,8 @@ npx zmdb migrate
 
 ```typescript
 import { DatabaseSync } from 'node:sqlite';
+import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 import { defineRepository, schemaOf } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 // A table is a TypeScript type. Tags carry the database details that TypeScript
@@ -62,7 +62,7 @@ export interface User extends Table<'users'> {
 }
 
 // Create a typed repository without a subclass.
-const users = defineRepository(schemaOf<User>(), sqliteDriver(new DatabaseSync('app.db')), { dialect: 'sqlite' });
+const users = defineRepository(schemaOf<User>(), sqliteDriver(new DatabaseSync('app.db')), { dialect: sqlite });
 
 await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
 const admins = await users.find({ role: 'admin' }); // typed WhereDTO<S>

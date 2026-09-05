@@ -63,6 +63,11 @@ const META = {
       'Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.',
     keywords: ['typescript', 'repository', 'crud', 'transactions', 'data-layer', 'zmdb'],
   },
+  sqlite: {
+    description:
+      'Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.',
+    keywords: ['typescript', 'sqlite', 'node-sqlite', 'database', 'orm', 'migrations', 'zmdb'],
+  },
   app: {
     description:
       'Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.',

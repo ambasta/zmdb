@@ -115,6 +115,7 @@ const PACKAGES = [
   'protobuf',
   'repository',
   'query-compiler',
+  'sqlite',
   'app',
   'jobs',
   'otel',

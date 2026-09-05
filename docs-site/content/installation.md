@@ -1,23 +1,23 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Fifteen packages are published today: fourteen focused packages plus the `zmdb` umbrella. The easiest way to
-install the cohesive data, application, and HTTP stack is the umbrella; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, and `@zmdb/otel`
-remain independently installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Sixteen packages are published today: fifteen focused packages plus the `zmdb` facade. The recommended
+installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider
+integrations, `@zmdb/mcp`, and `@zmdb/otel` remain independently installable.
 
-## Recommended: one install
+## Recommended: product plus SQLite
 
 ```bash
-npm add zmdb@alpha
+npm add zmdb@alpha @zmdb/sqlite@alpha
 ```
 
 ```ts
-// everything from one import
 import { schemaOf, defineRepository, is } from 'zmdb';
+import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 import type { CreateDTO, Entity } from 'zmdb/derive';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
 ```
 
 The `zmdb` package re-exports the curated public API of its six runtime dependencies, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, `zmdb/relations`,
-`zmdb/web`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, …). The `zmdb/web` facade combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
+`zmdb/web`, `zmdb/drivers/pg`, …). Database selection is explicit: `@zmdb/sqlite` owns SQLite compilation traits, migrations, introspection, and the driver. The temporary `zmdb/drivers/sqlite`
+compatibility path delegates to that package during the database-package cutover. The `zmdb/web` facade combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
 
 `@zmdb/ai` and `@zmdb/mcp` are independently installable and are not re-exported by the umbrella root. Anthropic, LangChain, and Vercel AI SDK users add the matching opt-in integration package and its
 SDK/framework peer.
@@ -49,7 +49,7 @@ contract feeding runtime routing, OpenAPI, and browser/Node client output.
 Prefer to depend only on the pieces you use (better tree-shaking):
 
 ```bash
-npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository @zmdb/app @zmdb/web
+npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository @zmdb/sqlite @zmdb/app @zmdb/web
 ```
 
 ## Install Individual Packages
@@ -68,6 +68,9 @@ npm install @zmdb/aot-validator
 
 # Repository with CRUD + transactions
 npm install @zmdb/repository
+
+# Complete SQLite dialect + migrations + introspection + node:sqlite driver
+npm install @zmdb/sqlite
 
 # Protocol-neutral application kernel
 npm install @zmdb/app
@@ -144,8 +147,9 @@ The query compiler is plain runtime code, so it verifies the install without the
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { sqlite } from '@zmdb/sqlite';
 
-const q = createQueryCompiler('sqlite').selectFrom('users').select(['id']).compile();
+const q = createQueryCompiler(sqlite).selectFrom('users').select(['id']).compile();
 console.log(q.text); // SELECT "id" FROM "users"
 ```
 
@@ -175,6 +179,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/query-compiler` | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                  |
 | `@zmdb/aot-validator`  | Type reflection, full/shallow is/assert/validate, equals/random, serialization               |
 | `@zmdb/repository`     | Auto-validating CRUD, hooks, transactions, populate                                          |
+| `@zmdb/sqlite`         | SQLite compiler traits, migrations, introspection, embedded runner, and `node:sqlite` driver |
 | `@zmdb/app`            | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health    |
 | `@zmdb/web`            | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters      |
 | `@zmdb/client`         | Dependency-free HTTP transport, cancellation, authentication, and typed errors               |

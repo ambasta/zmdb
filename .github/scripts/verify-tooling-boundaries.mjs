@@ -4,7 +4,7 @@
 // The package extraction itself belongs to #628-#630, so this gate has two jobs
 // before those packages exist:
 //
-// 1. turn #626's ownership policy, amended to 151 paths after #667, #681, #656, #668, and #685, into an executable,
+// 1. turn #626's ownership policy, amended to 151 paths after #667, #681, #656, #668, #669, and #685, into an executable,
 //    bijective inventory; and
 // 2. prevent the known runtime/generated-import violations from growing while
 //    the expected-failure tests freeze the zero-violation target.

@@ -13,8 +13,8 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { defineRepository } from '@zmdb/repository';
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import type { OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 
 // 1 — declare your tables once. Everything below is derived from these two interfaces: the
 // DTOs, the validation on `create`, the SQL, the JSON Schema. `Sql<'integer'>` is there
@@ -43,7 +43,7 @@ db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NO
 db.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total INTEGER NOT NULL)');
 
 // 3 — one call wires a fully typed repository (no subclass, no hand-written driver)
-const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
+const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: sqlite });
 
 // 4 — typed CRUD + query + populate
 const u = await users.create({ email: 'ada@zmdb.dev', age: 36 }); // validated first

@@ -2,9 +2,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { Fts, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.js';
 import { BaseRepository } from './index.js';
 import { usePostgres } from './pg-fixture.js';
 

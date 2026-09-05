@@ -4,8 +4,8 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { repositoryToken } from '@zmdb/app/data';
 import { Container, Inject } from '@zmdb/app/di';
 import { defineRepository, type BaseRepository } from '@zmdb/repository';
-import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { sqliteDriver } from '@zmdb/sqlite';
 // Tests (#279) for zmdb data-layer integration — RED first (data exports absent).
 // Orders end-to-end on node:sqlite: controller injects a repository via DI, body
 // validated before persist, typed response. Per packages/web/src/data/SPEC.md.
