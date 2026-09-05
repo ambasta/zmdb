@@ -375,7 +375,7 @@ export const kysely = {
   'sql-injection > select': [
     'main query compiler escapes malicious inputs in table, columns, and wheres',
     'prevents SQL injection through quote breakout in single identifiers',
-    'refuses the measured request-derived operator injection before returning SQL',
+    'rejects invalid or unmapped raw operator strings when not wrapped in unsafeOperator',
   ],
   'sanitize-identifiers > sanitize identifiers': 'escapes internal double quotes in PostgreSQL and SQLite identifiers',
   'handle-empty-in-lists-plugin > *': 'compiles empty whereIn to 1 = 0 and empty whereNotIn to 1 = 1',
