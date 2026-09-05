@@ -179,6 +179,7 @@ export const PRODUCT_CATALOG = Object.freeze([
         'proposed',
         'sanitizeKeys',
         'serializeComment',
+        'windowFunction',
         'withComments',
       ],
       subpaths: [],
