@@ -1,21 +1,13 @@
-Redis Pub/Sub, core NATS and RabbitMQ implement one public strategy contract,
-but they do not pretend to offer equivalent durability. Choose from the
-settlement matrix below before choosing from familiarity.
+Redis Pub/Sub, core NATS and RabbitMQ implement one public strategy contract, but they do not pretend to offer equivalent durability. Choose from the settlement matrix below before choosing from
+familiarity.
 
 ## The strategy boundary
 
-A strategy owns broker framing, subscriptions, replies and settlement. The
-application owns payload validation, handler invocation and retry policy:
+A strategy owns broker framing, subscriptions, replies and settlement. The application owns payload validation, handler invocation and retry policy:
 
 ```ts
 import type { TraceCarrier } from '@zmdb/web/observability';
-import type {
-  DispatchOutcome,
-  MessageReply,
-  RawMessage,
-  TransportCapabilities,
-  TransportRequest,
-} from '@zmdb/web/microservices';
+import type { DispatchOutcome, MessageReply, RawMessage, TransportCapabilities, TransportRequest } from '@zmdb/web/microservices';
 
 export interface TransportStrategy {
   readonly name: string;
@@ -27,12 +19,8 @@ export interface TransportStrategy {
 }
 ```
 
-All three packaged strategies use a versioned JSON envelope and reject an
-`undefined` payload. Malformed JSON reaches the dispatcher as
-`RawMessage.parseError`, with the original input retained for
-`onInvalidPayload`. `traceparent` / `tracestate` travel in the envelope;
-correlation and reply destinations use either envelope fields or native broker
-metadata.
+All three packaged strategies use a versioned JSON envelope and reject an `undefined` payload. Malformed JSON reaches the dispatcher as `RawMessage.parseError`, with the original input retained for
+`onInvalidPayload`. `traceparent` / `tracestate` travel in the envelope; correlation and reply destinations use either envelope fields or native broker metadata.
 
 ## Settlement matrix
 
@@ -46,14 +34,11 @@ metadata.
 | `deliveryAttempt`               | always `1`                  | always `1`                  | `x-death` count, or `2` for a broker-marked redelivery  |
 | capability flags                | `false / false / true`      | `false / false / true`      | `true / true / true`                                    |
 
-Capability order is `redelivery / deadLetter / requestResponse`. Redis and
-core NATS therefore require `dispatcher.onUndeliverable`; RabbitMQ owns the
-retry and dead-letter topology described below.
+Capability order is `redelivery / deadLetter / requestResponse`. Redis and core NATS therefore require `dispatcher.onUndeliverable`; RabbitMQ owns the retry and dead-letter topology described below.
 
 ## Install only the selected client
 
-The neutral package and microservices entry point import no broker client.
-Install the optional peer alongside the adapter you use:
+The neutral package and microservices entry point import no broker client. Install the optional peer alongside the adapter you use:
 
 ```bash
 npm add @zmdb/web redis
@@ -78,14 +63,10 @@ const redis = createRedisStrategy({
 });
 ```
 
-This is Redis Pub/Sub, not Streams. A message published while no matching
-subscriber is connected is lost. There is no acknowledgement, redelivery or
-dead-letter destination, so `deliveryAttempt` is always `1` and
-`createApp({ transports: [redis] })` requires `dispatcher.onUndeliverable`.
+This is Redis Pub/Sub, not Streams. A message published while no matching subscriber is connected is lost. There is no acknowledgement, redelivery or dead-letter destination, so `deliveryAttempt` is
+always `1` and `createApp({ transports: [redis] })` requires `dispatcher.onUndeliverable`.
 
-Exact and glob subscriptions dispatch the concrete channel. Request/reply uses
-a process-owned reply-channel prefix and still requires the caller's explicit
-deadline.
+Exact and glob subscriptions dispatch the concrete channel. Request/reply uses a process-owned reply-channel prefix and still requires the caller's explicit deadline.
 
 ## Core NATS
 
@@ -97,15 +78,10 @@ const nats = createNatsStrategy({
 });
 ```
 
-This is core NATS, not JetStream. Delivery is at-most-once: there is no
-acknowledgement, redelivery or dead-letter destination. Native `*` and final
-`>` subscriptions are compiled into a trie at construction, and each delivery
-matches that trie rather than scanning the configured patterns. Queue groups
-are passed to NATS unchanged; the concrete delivered subject is the dispatcher
-pattern.
+This is core NATS, not JetStream. Delivery is at-most-once: there is no acknowledgement, redelivery or dead-letter destination. Native `*` and final `>` subscriptions are compiled into a trie at
+construction, and each delivery matches that trie rather than scanning the configured patterns. Queue groups are passed to NATS unchanged; the concrete delivered subject is the dispatcher pattern.
 
-Core NATS also requires `dispatcher.onUndeliverable`. Request/reply uses an
-inbox subscription that is removed on reply, timeout, abort or publish failure.
+Core NATS also requires `dispatcher.onUndeliverable`. Request/reply uses an inbox subscription that is removed on reply, timeout, abort or publish failure.
 
 ## RabbitMQ
 
@@ -128,39 +104,28 @@ const rabbit = createRabbitMqStrategy({
 });
 ```
 
-`prefetch` is required and must be a positive integer; it is RabbitMQ's
-consumer backpressure control. The strategy declares topic exchanges, the main
-queue, a per-message-TTL retry queue and an owned dead-letter queue.
+`prefetch` is required and must be a positive integer; it is RabbitMQ's consumer backpressure control. The strategy declares topic exchanges, the main queue, a per-message-TTL retry queue and an owned
+dead-letter queue.
 
-On `retry`, it publisher-confirm-publishes a copy to the retry queue with
-`expiration: afterMs`, then acknowledges the original. The retry queue
-dead-letters the expired copy back to the main exchange. On `dead`, it calls
-`basic.nack(requeue: false)` so the main queue routes the original to the
-configured DLQ. There is deliberately no `nack(requeue: true)`: immediate
-head-of-queue requeue turns deterministic failures into a tight poison-message
-loop.
+On `retry`, it publisher-confirm-publishes a copy to the retry queue with `expiration: afterMs`, then acknowledges the original. The retry queue dead-letters the expired copy back to the main
+exchange. On `dead`, it calls `basic.nack(requeue: false)` so the main queue routes the original to the configured DLQ. There is deliberately no `nack(requeue: true)`: immediate head-of-queue requeue
+turns deterministic failures into a tight poison-message loop.
 
-Broker delivery is never a substitute for an application transaction. Use the
-[transactional outbox](./transactional-outbox.html) when a database write and
-event publication must not become a dual write.
+Broker delivery is never a substitute for an application transaction. Use the [transactional outbox](./transactional-outbox.html) when a database write and event publication must not become a dual
+write.
 
 ## Lifecycle and security
 
-Attach strategies through `createApp`. They open after application bootstrap,
-stop intake before dependencies are disposed, drain in-flight dispatch under
-`graceMs` and close in reverse declaration order.
+Attach strategies through `createApp`. They open after application bootstrap, stop intake before dependencies are disposed, drain in-flight dispatch under `graceMs` and close in reverse declaration
+order.
 
-Connection authentication, TLS and credential rotation are broker-client
-configuration. Do not trust identity claims carried in the payload, and do not
-put secrets in retained or dead-lettered messages. Handler effects must remain
-idempotent because RabbitMQ can redeliver an unacknowledged message.
+Connection authentication, TLS and credential rotation are broker-client configuration. Do not trust identity claims carried in the payload, and do not put secrets in retained or dead-lettered
+messages. Handler effects must remain idempotent because RabbitMQ can redeliver an unacknowledged message.
 
 ## Deferred transports
 
-Kafka is deferred because a consumer-group offset commits every earlier record
-in the partition; that cannot express independent settlement of concurrent
-messages through this interface. MQTT is deferred because broker QoS controls
-redelivery on the broker's schedule and cannot honour `retry.afterMs`.
+Kafka is deferred because a consumer-group offset commits every earlier record in the partition; that cannot express independent settlement of concurrent messages through this interface. MQTT is
+deferred because broker QoS controls redelivery on the broker's schedule and cannot honour `retry.afterMs`.
 
 No bespoke TCP framing is shipped.
 

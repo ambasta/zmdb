@@ -20,7 +20,8 @@ Create the app at module scope and await the same promise, so `init()` runs once
 
 ## Connections are the problem
 
-Two hundred concurrent instances each holding a pool of ten is two thousand connections at a database that accepts a hundred. The symptom is `too many clients already` under load — not at deploy, which is what makes it a production incident rather than a build failure.
+Two hundred concurrent instances each holding a pool of ten is two thousand connections at a database that accepts a hundred. The symptom is `too many clients already` under load — not at deploy,
+which is what makes it a production incident rather than a build failure.
 
 Use an HTTP driver, which holds no connection:
 
@@ -34,14 +35,14 @@ export const driver: Driver = {
 };
 ```
 
-`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the first query.
+`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the
+first query.
 
-[Neon](./connect-neon.html), [Supabase](./connect-supabase.html), [Vercel Postgres](./connect-vercel-postgres.html), [PlanetScale](./connect-planetscale.html) and [Turso](./connect-turso.html) all offer one.
+[Neon](./connect-neon.html), [Supabase](./connect-supabase.html), [Vercel Postgres](./connect-vercel-postgres.html), [PlanetScale](./connect-planetscale.html) and [Turso](./connect-turso.html) all
+offer one.
 
-> [!WARNING]
-> HTTP drivers cannot hold a transaction across statements. `withTransaction` over
-> one does not fail — each statement commits on its own and you get no atomicity.
-> Use a WebSocket or TCP client where you need a real transaction.
+> [!WARNING] HTTP drivers cannot hold a transaction across statements. `withTransaction` over one does not fail — each statement commits on its own and you get no atomicity. Use a WebSocket or TCP
+> client where you need a real transaction.
 
 If you must use TCP, put a pooler in front (Supavisor, PgBouncer in transaction mode) and set `max: 1` per instance.
 
@@ -75,7 +76,8 @@ Make it a build gate. If the transformer does not run, every `assert` in your de
 | zmdb compiler / repository / validators | yes    | yes    |
 | Cold start                              | slower | faster |
 
-Everything in zmdb works at the edge — the compiler is string manipulation and the validators contain no `new Function`, which is what makes them CSP- and Workers-compatible. What does not work at the edge is a TCP pool.
+Everything in zmdb works at the edge — the compiler is string manipulation and the validators contain no `new Function`, which is what makes them CSP- and Workers-compatible. What does not work at the
+edge is a TCP pool.
 
 ```ts
 export const config = { runtime: 'edge' };
@@ -89,7 +91,8 @@ Not from a function. Two instances cold-starting together both run the runner.
 { "buildCommand": "yarn build && node dist/scripts/migrate.js up" }
 ```
 
-Use a **direct, non-pooled** connection string for this — multi-statement DDL through a transaction-mode pooler is how you get a half-applied migration. Neon and Supabase both give you a separate direct URL.
+Use a **direct, non-pooled** connection string for this — multi-statement DDL through a transaction-mode pooler is how you get a half-applied migration. Neon and Supabase both give you a separate
+direct URL.
 
 Better still, run migrations from CI before the deploy, so a failed migration does not produce a deployed application against an old schema.
 
@@ -101,7 +104,8 @@ export const env = assert<{ DATABASE_URL: string }>({
 });
 ```
 
-Validating at module load means a missing variable fails the first invocation with the field name, rather than surfacing as `undefined` inside a connection string. Note that `Number(process.env.PORT)` with no default is `NaN`, and `NaN` passes a `number` check — default before coercing. See [Configuration](./configuration.html).
+Validating at module load means a missing variable fails the first invocation with the field name, rather than surfacing as `undefined` inside a connection string. Note that `Number(process.env.PORT)`
+with no default is `NaN`, and `NaN` passes a `number` check — default before coercing. See [Configuration](./configuration.html).
 
 ## Timeouts
 

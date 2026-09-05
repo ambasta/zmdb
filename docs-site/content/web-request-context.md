@@ -1,4 +1,5 @@
-There is no ambient request context — no `AsyncLocalStorage`, no `RequestContext`, no `@Req()`. `Ctx` is a parameter, and anything a request-scoped value needs to reach must be passed. That is a real constraint with a clean pattern behind it.
+There is no ambient request context — no `AsyncLocalStorage`, no `RequestContext`, no `@Req()`. `Ctx` is a parameter, and anything a request-scoped value needs to reach must be passed. That is a real
+constraint with a clean pattern behind it.
 
 ## What a handler gets
 
@@ -13,14 +14,17 @@ export interface Ctx<Params, Body, Query> {
 }
 ```
 
-Six fields. No `signal`, no `user`, no `requestId`, no mutable bag, and no way to write to it — the router builds it and hands it over. There is no facility to attach a field in a guard for a handler to read later.
+Six fields. No `signal`, no `user`, no `requestId`, no mutable bag, and no way to write to it — the router builds it and hands it over. There is no facility to attach a field in a guard for a handler
+to read later.
 
 ## Why not `AsyncLocalStorage`
 
 The two costs an ambient context imposes:
 
-- **It is invisible.** A service reading the current tenant from ambient storage has a dependency that does not appear in its signature, so it cannot be tested without a context and cannot be reused outside a request.
-- **It leaks across requests when it breaks.** A context lost across an `await` boundary, or a value set on a pooled connection, silently serves one user's data to another. The [Supabase RLS](./deploy-supabase-edge.html) case is the concrete version of this.
+- **It is invisible.** A service reading the current tenant from ambient storage has a dependency that does not appear in its signature, so it cannot be tested without a context and cannot be reused
+  outside a request.
+- **It leaks across requests when it breaks.** A context lost across an `await` boundary, or a value set on a pooled connection, silently serves one user's data to another. The
+  [Supabase RLS](./deploy-supabase-edge.html) case is the concrete version of this.
 
 So the design is: pass it. Explicit, checked, and testable.
 
@@ -38,10 +42,9 @@ async list(ctx: Ctx<Record<never, string>, unknown>) {
 
 ## A per-request driver: the pattern that solves most of it
 
-Where the request-scoped value belongs to the _database session_ rather than to your code, build the driver
-per request. This is how you get tenant scoping, [row-level security](./deploy-supabase-edge.html), [query
-tagging](./sql-comments.html) and per-request query counting without ambient state. Request batching is a
-separate explicit value: construct a [`LoaderScope`](./dataloaders.html) alongside the driver.
+Where the request-scoped value belongs to the _database session_ rather than to your code, build the driver per request. This is how you get tenant scoping,
+[row-level security](./deploy-supabase-edge.html), [query tagging](./sql-comments.html) and per-request query counting without ambient state. Request batching is a separate explicit value: construct a
+[`LoaderScope`](./dataloaders.html) alongside the driver.
 
 ```ts
 function driverFor(tenant: string): Driver {
@@ -68,7 +71,8 @@ async list(ctx: Ctx) {
 
 Two details that are not optional:
 
-- **`true` in `set_config`** makes the setting transaction-local. With `false` it persists on the pooled connection, and the _next_ request on that connection inherits the previous tenant — a cross-tenant data leak with no error.
+- **`true` in `set_config`** makes the setting transaction-local. With `false` it persists on the pooled connection, and the _next_ request on that connection inherits the previous tenant — a
+  cross-tenant data leak with no error.
 - **Build the repository per request.** It is an object over a driver, so this allocation is free. Sharing one repository across tenants defeats the whole arrangement.
 
 ## A request-scoped bundle
@@ -99,11 +103,8 @@ function scopeFor(ctx: Ctx<Record<string, string>, unknown>): RequestScope {
 
 Now handlers take `(ctx)` and build a scope, services take `(scope, args)`, and every dependency is visible in a signature. It tests without a server: construct a scope, call the service.
 
-> [!WARNING]
-> Never store request state on a controller or provider field. Both are
-> **singletons** — each controller instance is built once per app. Writing
-> `this.currentUser = …` in a handler is a race that serves one user's data to
-> another under concurrency, and it will look correct in every single-request test.
+> [!WARNING] Never store request state on a controller or provider field. Both are **singletons** — each controller instance is built once per app. Writing `this.currentUser = …` in a handler is a
+> race that serves one user's data to another under concurrency, and it will look correct in every single-request test.
 
 ## Request ids and logging
 
@@ -132,11 +133,14 @@ const als = new AsyncLocalStorage<RequestScope>();
 const out = await als.run(scope, () => app.handle(req));
 ```
 
-It works, and it is not available on Workers or Deno Deploy, so it costs you edge portability. Use it as an addition — for logging correlation, say — rather than as the mechanism your data access depends on.
+It works, and it is not available on Workers or Deno Deploy, so it costs you edge portability. Use it as an addition — for logging correlation, say — rather than as the mechanism your data access
+depends on.
 
 ## What it would take
 
-An optional `Ctx.state` bag plus a place to populate it (guards and pipes, if [the chain were wired into the router](./web-request-lifecycle.html)). The type question is the interesting one: an untyped `Record<string, unknown>` state bag would need a cast at every read, which is exactly what the framework's [assertion policy](./anti-patterns.html) rules out. A typed version means `Ctx<Params, Body, Query, State>` and threading `State` through the router — doable, and a change to a core public type.
+An optional `Ctx.state` bag plus a place to populate it (guards and pipes, if [the chain were wired into the router](./web-request-lifecycle.html)). The type question is the interesting one: an
+untyped `Record<string, unknown>` state bag would need a cast at every read, which is exactly what the framework's [assertion policy](./anti-patterns.html) rules out. A typed version means
+`Ctx<Params, Body, Query, State>` and threading `State` through the router — doable, and a change to a core public type.
 
 ---
 

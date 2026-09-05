@@ -1,7 +1,5 @@
-Supported dialect: `'mssql'`. The compiler emits T-SQL, migrations cover the
-modeled SQL Server DDL, and the repository ships a thin adapter for an
-already-connected [`mssql`](https://www.npmjs.com/package/mssql) pool. The
-adapter does not open, close or configure that pool.
+Supported dialect: `'mssql'`. The compiler emits T-SQL, migrations cover the modeled SQL Server DDL, and the repository ships a thin adapter for an already-connected
+[`mssql`](https://www.npmjs.com/package/mssql) pool. The adapter does not open, close or configure that pool.
 
 ```ts
 import sql from 'mssql';
@@ -15,9 +13,7 @@ const query = createQueryCompiler('mssql').selectFrom('users').where('email', '=
 const rows = await driver.execute(query);
 ```
 
-The compiler keeps `parameters` positional. The adapter maps array element zero
-to `p1`, element one to `p2`, and so on; `mssql` receives those names without
-the leading `@`.
+The compiler keeps `parameters` positional. The adapter maps array element zero to `p1`, element one to `p2`, and so on; `mssql` receives those names without the leading `@`.
 
 ## SQL contract
 
@@ -38,15 +34,11 @@ the leading `@`.
 | column migrations      | `ADD`; `ALTER COLUMN … NULL\|NOT NULL`; `DROP COLUMN`               | altering a type must carry nullability                         |
 | referential `RESTRICT` | `NO ACTION`                                                         | T-SQL has no `RESTRICT` spelling                               |
 
-A paginated SQL Server select without `.orderBy(...)` is refused at
-`compile()`. The compiler does not invent `ORDER BY (SELECT NULL)`, because that
-would make the query legal without making its pages reproducible.
+A paginated SQL Server select without `.orderBy(...)` is refused at `compile()`. The compiler does not invent `ORDER BY (SELECT NULL)`, because that would make the query legal without making its pages
+reproducible.
 
-`returning()` maps to the correct `OUTPUT` pseudo-table for insert, update and
-delete. SQL Server rejects `OUTPUT` without `INTO` when an enabled trigger
-exists for that DML action. zmdb cannot inspect target-table triggers, and
-`OUTPUT … INTO` would require a table variable and another statement, so
-triggered tables must use a hand-written path.
+`returning()` maps to the correct `OUTPUT` pseudo-table for insert, update and delete. SQL Server rejects `OUTPUT` without `INTO` when an enabled trigger exists for that DML action. zmdb cannot
+inspect target-table triggers, and `OUTPUT … INTO` would require a table variable and another statement, so triggered tables must use a hand-written path.
 
 ## Upsert locking
 
@@ -61,28 +53,19 @@ WHEN NOT MATCHED THEN INSERT ([email], [role])
 VALUES (src.[email], src.[role]);
 ```
 
-`HOLDLOCK` closes the absent-key race between concurrent upserts by taking
-serializable range locks on the target. That correctness has a cost: hot-key
-workloads can block longer or deadlock. SQL Server error `1205` is classified
-as retryable metadata, but a transaction is retried only when the caller opts
-into the transaction retry policy. Keep external side effects out of a retrying
+`HOLDLOCK` closes the absent-key race between concurrent upserts by taking serializable range locks on the target. That correctness has a cost: hot-key workloads can block longer or deadlock. SQL
+Server error `1205` is classified as retryable metadata, but a transaction is retried only when the caller opts into the transaction retry policy. Keep external side effects out of a retrying
 callback.
 
 ## Types and migrations
 
-All ten `SqlType` members have an explicit SQL Server mapping. `varchar` uses
-`NVARCHAR(n)` with `Length<n>` and `NVARCHAR(MAX)` without one. `timestamp`
-uses `DATETIMEOFFSET(3)`, preserving the instant and JavaScript `Date`
-millisecond precision.
+All ten `SqlType` members have an explicit SQL Server mapping. `varchar` uses `NVARCHAR(n)` with `Length<n>` and `NVARCHAR(MAX)` without one. `timestamp` uses `DATETIMEOFFSET(3)`, preserving the
+instant and JavaScript `Date` millisecond precision.
 
-There is no `uuid` member in `SqlType`, so the dialect does not invent a
-`UNIQUEIDENTIFIER` mapping. Use `Sql<'varchar'> & Length<36>` for an
-application-generated GUID, or a custom migration when the native type is
-required.
+There is no `uuid` member in `SqlType`, so the dialect does not invent a `UNIQUEIDENTIFIER` mapping. Use `Sql<'varchar'> & Length<36>` for an application-generated GUID, or a custom migration when the
+native type is required.
 
-Generated migrations cover table creation and removal, add/drop/alter column,
-named foreign keys, indexes including filtered indexes, sequences and
-persisted computed columns.
+Generated migrations cover table creation and removal, add/drop/alter column, named foreign keys, indexes including filtered indexes, sequences and persisted computed columns.
 
 ## Refusals and boundaries
 
@@ -107,16 +90,11 @@ persisted computed columns.
 
 ## Measured coverage
 
-The always-on suite covers the complete six-dialect golden matrix, SQL Server
-DDL and refusal tests, named-parameter binding, transaction pinning, and the
-2,000-parameter and `1205` metadata.
+The always-on suite covers the complete six-dialect golden matrix, SQL Server DDL and refusal tests, named-parameter binding, transaction pinning, and the 2,000-parameter and `1205` metadata.
 
-A separate real-server suite runs DDL, bracket escaping, `OUTPUT`, ordered
-pagination, `MERGE`, transaction rollback, timestamp round-trips, schemas,
-foreign keys, filtered indexes, sequences, persisted computed columns and
-column migrations when `ZMDB_MSSQL_URL` points to a reachable server. Without
-that variable the suite emits a visible `[skip] SQL Server E2E: …` message and
-keeps an availability assertion, so the missing live server is explicit.
+A separate real-server suite runs DDL, bracket escaping, `OUTPUT`, ordered pagination, `MERGE`, transaction rollback, timestamp round-trips, schemas, foreign keys, filtered indexes, sequences,
+persisted computed columns and column migrations when `ZMDB_MSSQL_URL` points to a reachable server. Without that variable the suite emits a visible `[skip] SQL Server E2E: …` message and keeps an
+availability assertion, so the missing live server is explicit.
 
 ---
 

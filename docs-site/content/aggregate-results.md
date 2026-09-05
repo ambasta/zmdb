@@ -1,4 +1,5 @@
-Aggregations compute summary statistics over grouped rows — counts, sums, averages, min/max values. zmdb provides a typed aggregate API that returns compile-time typed results based on your aggregation specification.
+Aggregations compute summary statistics over grouped rows — counts, sums, averages, min/max values. zmdb provides a typed aggregate API that returns compile-time typed results based on your
+aggregation specification.
 
 ## Defining an Aggregate
 
@@ -26,14 +27,7 @@ Pass a builder function to `aggregate()` — you compose exactly what you need.
 
 ```ts
 const results = await ordersRepo.aggregate(spec, agg =>
-  agg
-    .groupBy('status')
-    .count('orderCount')
-    .sum('totalRevenue', 'totalPrice')
-    .avg('avgPrice', 'totalPrice')
-    .min('minOrder', 'totalPrice')
-    .max('maxOrder', 'totalPrice')
-    .compile(),
+  agg.groupBy('status').count('orderCount').sum('totalRevenue', 'totalPrice').avg('avgPrice', 'totalPrice').min('minOrder', 'totalPrice').max('maxOrder', 'totalPrice').compile(),
 );
 ```
 
@@ -66,8 +60,7 @@ type OrderAgg = AggregateResult<Order, typeof spec>;
 // }
 ```
 
-> [!IMPORTANT]
-> `sum` and `avg` return `number | null` (NULL if no rows in group). `min` and `max` return the column's type or `null`. `count` always returns `number`.
+> [!IMPORTANT] `sum` and `avg` return `number | null` (NULL if no rows in group). `min` and `max` return the column's type or `null`. `count` always returns `number`.
 
 ## Without Grouping
 
@@ -111,8 +104,7 @@ const recentStats = await ordersRepo.aggregate(
 );
 ```
 
-> [!TIP]
-> Push filters before aggregation for performance — the database evaluates the WHERE clause before the GROUP BY.
+> [!TIP] Push filters before aggregation for performance — the database evaluates the WHERE clause before the GROUP BY.
 
 ## Cross-links
 

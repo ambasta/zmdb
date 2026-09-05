@@ -29,7 +29,8 @@ Wrappers compose, so this stacks with [replicas](./read-replicas.html), [tagging
 
 ## Log the text, think hard about the parameters
 
-`query.text` is safe: it is generated, and the values are placeholders. `query.parameters` is your users' data — emails, tokens, names, whatever your columns hold. Logging it wholesale puts personal data in your log aggregator, usually with a longer retention than your database.
+`query.text` is safe: it is generated, and the values are placeholders. `query.parameters` is your users' data — emails, tokens, names, whatever your columns hold. Logging it wholesale puts personal
+data in your log aggregator, usually with a longer retention than your database.
 
 If you need parameters for debugging, gate them and redact:
 
@@ -63,7 +64,8 @@ export function logSlow(inner: Driver, thresholdMs = 100): Driver {
 }
 ```
 
-Pair it with a database-side `log_min_duration_statement`, which sees the time the database spent rather than the time your process observed — the difference between the two is queueing, and knowing which one you have is the whole diagnosis.
+Pair it with a database-side `log_min_duration_statement`, which sees the time the database spent rather than the time your process observed — the difference between the two is queueing, and knowing
+which one you have is the whole diagnosis.
 
 ## Counting queries per request
 
@@ -82,7 +84,8 @@ export function counting(inner: Driver) {
 }
 ```
 
-Build it per request and log the count at the end. A handler that issues 40 queries will show up immediately; a handler that issues 3 will not need looking at. See [Query Performance](./perf-queries.html).
+Build it per request and log the count at the end. A handler that issues 40 queries will show up immediately; a handler that issues 3 will not need looking at. See
+[Query Performance](./perf-queries.html).
 
 ## In `@zmdb/web`
 
@@ -117,7 +120,8 @@ There is no logger dependency to pick for you. `pino` if you want speed and leve
 
 ## What is deliberately absent
 
-An ORM that logs needs a logger, log levels, a formatter and a configuration surface for all three — and then you configure it to match the logger you already have. Passing a function to a wrapper is the whole feature, and it means the log line has exactly the fields you want in the format your aggregator expects.
+An ORM that logs needs a logger, log levels, a formatter and a configuration surface for all three — and then you configure it to match the logger you already have. Passing a function to a wrapper is
+the whole feature, and it means the log line has exactly the fields you want in the format your aggregator expects.
 
 ---
 

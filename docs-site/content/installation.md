@@ -1,4 +1,5 @@
-zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and TypeScript 7.0+. The easiest way to install is the single umbrella package; the four sub-packages are also published individually for advanced/tree-shaken use.
+zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and TypeScript 7.0+. The easiest way to install is the single umbrella package; the four sub-packages are also published
+individually for advanced/tree-shaken use.
 
 ## Recommended: one install
 
@@ -14,13 +15,10 @@ import type { CreateDTO, Entity } from 'zmdb/derive';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
 ```
 
-The `zmdb` package re-exports the curated public API of all four sub-packages,
-with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`,
-`zmdb/dto`, `zmdb/relations`, `zmdb/web`, `zmdb/drivers/sqlite`,
-`zmdb/drivers/pg`, …).
+The `zmdb` package re-exports the curated public API of all four sub-packages, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, `zmdb/relations`, `zmdb/web`,
+`zmdb/drivers/sqlite`, `zmdb/drivers/pg`, …).
 
-`zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime
-export, so those two imports vanish entirely from your build output.
+`zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime export, so those two imports vanish entirely from your build output.
 
 ## Prerequisites
 
@@ -63,8 +61,7 @@ npm install @zmdb/aot-validator
 npm install @zmdb/repository
 ```
 
-> [!NOTE]
-> `@zmdb/query-compiler` is a required peer dependency of `@zmdb/repository`.
+> [!NOTE] `@zmdb/query-compiler` is a required peer dependency of `@zmdb/repository`.
 
 ## TypeScript Configuration
 
@@ -85,11 +82,8 @@ Ensure your `tsconfig.json` targets modern features:
 
 ## The build step
 
-zmdb declares tables as **types**, and a type does not exist at runtime. The
-transformer is what closes that gap: it reads the declaration from the type
-checker and replaces each `schemaOf<T>()`, `assert<T>()`, `is<T>()`,
-`validate<T>()`, `equals<T>()`, `assertEquals<T>()`, `random<T>()` and
-`toJsonSchema<T>()` call with the reflected result.
+zmdb declares tables as **types**, and a type does not exist at runtime. The transformer is what closes that gap: it reads the declaration from the type checker and replaces each `schemaOf<T>()`,
+`assert<T>()`, `is<T>()`, `validate<T>()`, `equals<T>()`, `assertEquals<T>()`, `random<T>()` and `toJsonSchema<T>()` call with the reflected result.
 
 ```ts
 // vite.config.ts / rollup / esbuild / webpack — unplugin, so one factory for all
@@ -100,19 +94,14 @@ export default {
 };
 ```
 
-> [!IMPORTANT]
-> Without `project` (or an already-open `session`) the plugin cannot ask the checker
-> what a type is, so it leaves every `f<T>(…)` call alone — and an untransformed
-> `schemaOf<T>()` throws when called. A refused call site is a build error by
-> default, not a silent fallback. See [AOT Setup](./aot-setup.html).
+> [!IMPORTANT] Without `project` (or an already-open `session`) the plugin cannot ask the checker what a type is, so it leaves every `f<T>(…)` call alone — and an untransformed `schemaOf<T>()` throws
+> when called. A refused call site is a build error by default, not a silent fallback. See [AOT Setup](./aot-setup.html).
 
-For a project that only needs the query compiler, there is no build step at all —
-see [Pure TypeScript](./pure-typescript.html).
+For a project that only needs the query compiler, there is no build step at all — see [Pure TypeScript](./pure-typescript.html).
 
 ## Verify Installation
 
-The query compiler is plain runtime code, so it verifies the install without the
-transformer in the way:
+The query compiler is plain runtime code, so it verifies the install without the transformer in the way:
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';

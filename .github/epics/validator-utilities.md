@@ -2,7 +2,8 @@
 
 ## Goal
 
-Deliver typia's ergonomic validator entry points and developer utilities on top of the AOT engine (#3): boolean `is`, throwing `assert`, non-throwing `validate` (returns success/errors), plus `equals`/`assertEquals` (excess-property strictness), detailed structured error reporting, and schema-driven random data generation for tests.
+Deliver typia's ergonomic validator entry points and developer utilities on top of the AOT engine (#3): boolean `is`, throwing `assert`, non-throwing `validate` (returns success/errors), plus
+`equals`/`assertEquals` (excess-property strictness), detailed structured error reporting, and schema-driven random data generation for tests.
 
 ## Parity Reference
 

@@ -1,4 +1,5 @@
-Encore is infrastructure-from-code: you declare services and resources in TypeScript, and Encore provisions the database, the topics and the deployment. That overlaps with zmdb in one place and complements it everywhere else.
+Encore is infrastructure-from-code: you declare services and resources in TypeScript, and Encore provisions the database, the topics and the deployment. That overlaps with zmdb in one place and
+complements it everywhere else.
 
 ## What overlaps and what does not
 
@@ -12,7 +13,8 @@ Encore is infrastructure-from-code: you declare services and resources in TypeSc
 | Typed queries                      | tagged templates                      | query compiler + repository          |
 | Tracing, dashboards                | built in                              | none                                 |
 
-So the sensible arrangement is: **Encore owns infrastructure, endpoints and migrations; zmdb owns the schema, the queries and the row types.** Do not run two migration systems against one database, and do not wrap Encore's endpoints in `@zmdb/web` — you would lose the tracing and typed clients that are the reason to use Encore.
+So the sensible arrangement is: **Encore owns infrastructure, endpoints and migrations; zmdb owns the schema, the queries and the row types.** Do not run two migration systems against one database,
+and do not wrap Encore's endpoints in `@zmdb/web` — you would lose the tracing and typed clients that are the reason to use Encore.
 
 ## A driver over Encore's database
 
@@ -49,13 +51,15 @@ const ops = diff(previousSnapshot, snapshot(allSchemas));
 writeFileSync('migrations/2_add_posts.up.sql', ops.map(o => emitUp(o, 'postgres')).join(';\n') + ';\n');
 ```
 
-You keep the declaration as the source of truth and Encore keeps its own runner. Review the emitted SQL before committing — the generated form is correct but not always what you would write by hand, and Encore's migrations are irreversible in production.
+You keep the declaration as the source of truth and Encore keeps its own runner. Review the emitted SQL before committing — the generated form is correct but not always what you would write by hand,
+and Encore's migrations are irreversible in production.
 
 Do **not** also call `runCli('up', ...)`. Two runners with two version tables against one database is a schema you cannot reason about.
 
 ## Validation
 
-Encore derives validation from an endpoint's request type, which covers the boundary. So the AOT validators are largely redundant here — and Encore compiles with its own toolchain, so the transformer does not run:
+Encore derives validation from an endpoint's request type, which covers the boundary. So the AOT validators are largely redundant here — and Encore compiles with its own toolchain, so the transformer
+does not run:
 
 ```ts
 it('the transformer is running', () => {
@@ -63,7 +67,8 @@ it('the transformer is running', () => {
 });
 ```
 
-Rely on Encore's endpoint validation, and use zmdb's `assert` only in modules you compile yourself. Do not assume `assert` is checking anything inside an Encore service. See [AOT Setup](./aot-setup.html).
+Rely on Encore's endpoint validation, and use zmdb's `assert` only in modules you compile yourself. Do not assume `assert` is checking anything inside an Encore service. See
+[AOT Setup](./aot-setup.html).
 
 ## Transactions
 
@@ -87,7 +92,8 @@ function txDriver(tx: Transaction): Driver {
 const repo = defineRepository(posts, txDriver(tx), { dialect: 'postgres' });
 ```
 
-The repository is an object over a driver, so constructing one per transaction costs nothing. This is the general pattern for any framework that owns its own transaction handle. See [Transactions](./transactions.html).
+The repository is an object over a driver, so constructing one per transaction costs nothing. This is the general pattern for any framework that owns its own transaction handle. See
+[Transactions](./transactions.html).
 
 ## Where the fit is genuinely poor
 

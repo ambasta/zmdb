@@ -25,11 +25,8 @@ await driver.execute({ text: ddl, parameters: [] });
 CREATE MATERIALIZED VIEW "author_stats" AS SELECT ...
 ```
 
-On `mysql`, `singlestore`, `sqlite` or `mssql` this throws
-`UnsupportedFeatureError('materialized views', dialect)` at compile time rather
-than emitting SQL the database will reject. SQL Server indexed views require a
-different declaration shape. Cockroach inherits the Postgres form. See
-[Views](./views.html) for the plain-view path, which works everywhere.
+On `mysql`, `singlestore`, `sqlite` or `mssql` this throws `UnsupportedFeatureError('materialized views', dialect)` at compile time rather than emitting SQL the database will reject. SQL Server
+indexed views require a different declaration shape. Cockroach inherits the Postgres form. See [Views](./views.html) for the plain-view path, which works everywhere.
 
 ## Reading from it
 
@@ -49,12 +46,11 @@ export const authorStatsRepo = defineRepository(schemaOf<AuthorStats>(), driver,
 const top = await authorStatsRepo.list({ orderBy: [{ column: 'postCount', dir: 'desc' }], page: { limit: 10 } });
 ```
 
-`PrimaryKey` on `authorId` is not a claim the database checks — a view has no constraints.
-It is there because the repository needs to know which column identifies a row for
-`findById`, `update` and keyset pagination. See [Virtual Entities](./virtual-entities.html).
+`PrimaryKey` on `authorId` is not a claim the database checks — a view has no constraints. It is there because the repository needs to know which column identifies a row for `findById`, `update` and
+keyset pagination. See [Virtual Entities](./virtual-entities.html).
 
-> [!WARNING]
-> Nothing stops you calling `create`, `update` or `delete` on a repository over a view. The methods exist because they are on `BaseRepository`; the database will reject the statement. If that matters, wrap it:
+> [!WARNING] Nothing stops you calling `create`, `update` or `delete` on a repository over a view. The methods exist because they are on `BaseRepository`; the database will reject the statement. If
+> that matters, wrap it:
 >
 > ```ts
 > class ReadOnly<S extends CoreSchema<string>> extends BaseRepository<S> {
@@ -83,7 +79,8 @@ import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
 createIndexDdl({ name: 'author_stats_pk', table: 'author_stats', columns: ['author_id'], unique: true }, 'postgres');
 ```
 
-Where the refresh runs is your decision: a cron, a [lifecycle hook](./lifecycle-hooks.html) after the writes that invalidate it, or a `LISTEN`/`NOTIFY` worker. For an app-owned cron with explicit replica semantics, see [Task Scheduling](./web-task-scheduling.html).
+Where the refresh runs is your decision: a cron, a [lifecycle hook](./lifecycle-hooks.html) after the writes that invalidate it, or a `LISTEN`/`NOTIFY` worker. For an app-owned cron with explicit
+replica semantics, see [Task Scheduling](./web-task-scheduling.html).
 
 ## Migrations
 
@@ -104,7 +101,8 @@ const migrations = [
 
 ## When a materialized view is the wrong answer
 
-If the view is cheap to compute, `repo.aggregate()` gives you the same numbers without a refresh to get stale. Reach for a materialized view when the aggregate is expensive _and_ you can tolerate the staleness window — and write down what that window is.
+If the view is cheap to compute, `repo.aggregate()` gives you the same numbers without a refresh to get stale. Reach for a materialized view when the aggregate is expensive _and_ you can tolerate the
+staleness window — and write down what that window is.
 
 ---
 

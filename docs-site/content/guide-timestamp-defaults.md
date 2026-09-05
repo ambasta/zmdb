@@ -12,10 +12,8 @@ export interface Post extends Table<'posts'> {
 }
 ```
 
-`HasDefault` makes `createdAt` optional in `CreateDTO<Post>` and says the database will fill
-it. It does not say _with what_ — a type cannot hold a runtime value — so the function name
-goes in the [migration](./migrations-custom.html), which is the only place a dialect is
-actually chosen:
+`HasDefault` makes `createdAt` optional in `CreateDTO<Post>` and says the database will fill it. It does not say _with what_ — a type cannot hold a runtime value — so the function name goes in the
+[migration](./migrations-custom.html), which is the only place a dialect is actually chosen:
 
 ```sql
 ALTER TABLE "posts" ALTER COLUMN "created_at" SET DEFAULT now();
@@ -32,15 +30,11 @@ The function name is dialect-specific:
 | SQLite     | `CURRENT_TIMESTAMP`                         |
 | SQL Server | `SYSDATETIMEOFFSET()`                       |
 
-The declaration is portable across all four; the default expression is not, which is one
-argument for keeping it in the migration where it is visible rather than in a schema that
-claims to be dialect-neutral.
+The declaration is portable across all four; the default expression is not, which is one argument for keeping it in the migration where it is visible rather than in a schema that claims to be
+dialect-neutral.
 
-> [!NOTE]
-> In Postgres, `now()` is the **transaction** start time. Every row inserted in one
-> transaction gets the same timestamp, which is usually what you want — it makes a
-> batch consistent. `clock_timestamp()` is the wall clock and advances per
-> statement.
+> [!NOTE] In Postgres, `now()` is the **transaction** start time. Every row inserted in one transaction gets the same timestamp, which is usually what you want — it makes a batch consistent.
+> `clock_timestamp()` is the wall clock and advances per statement.
 
 ## Application clock
 
@@ -48,14 +42,14 @@ claims to be dialect-neutral.
 createdAt: Date & Sql<'timestamp'>;
 ```
 
-Drop `HasDefault` and the column becomes required in `CreateDTO`, so the compiler asks for
-the value:
+Drop `HasDefault` and the column becomes required in `CreateDTO`, so the compiler asks for the value:
 
 ```ts
 await repo.create({ title, createdAt: new Date() });
 ```
 
-Now every process's clock matters, and clock skew between instances puts rows out of order. Choose this only if you need to backdate rows or to control the timestamp in tests. Freezing the clock in tests is easier with the application clock — but a fixed `now()` via a database session setting is also possible, and testing on the same mechanism you ship is worth more.
+Now every process's clock matters, and clock skew between instances puts rows out of order. Choose this only if you need to backdate rows or to control the timestamp in tests. Freezing the clock in
+tests is easier with the application clock — but a fixed `now()` via a database session setting is also possible, and testing on the same mechanism you ship is worth more.
 
 ## `updated_at`
 
@@ -73,10 +67,8 @@ class PostRepository extends BaseRepository<Post> {
 }
 ```
 
-The hook mutates the validated patch in place and returns nothing, which is why
-it runs before the `SET` clause is built. It runs for `update`, `updateMany`,
-and `increment`; the conflict-update object of `upsert` does not run it.
-Anything writing directly to the table bypasses it.
+The hook mutates the validated patch in place and returns nothing, which is why it runs before the `SET` clause is built. It runs for `update`, `updateMany`, and `increment`; the conflict-update
+object of `upsert` does not run it. Anything writing directly to the table bypasses it.
 
 **A trigger** — in a [custom migration](./migrations-custom.html):
 
@@ -100,25 +92,20 @@ The one that causes data loss. Postgres has two types:
 - `timestamp` — no time zone. Stores wall-clock digits with no offset, so `12:00` is meaningless without knowing where.
 - `timestamptz` — stores an instant, converting on the way in and out.
 
-**Anything that happened wants `timestamptz`,** and that is what you get:
-`Sql<'timestamp'>` emits `TIMESTAMPTZ` on Postgres/Cockroach,
-`DATETIME(3)` on MySQL/SingleStore, `DATETIMEOFFSET(3)` on SQL Server, and
-`TEXT` on SQLite. The app type is `Date` on all six dialects, so the instant is
-what crosses the boundary rather than a set of digits.
+**Anything that happened wants `timestamptz`,** and that is what you get: `Sql<'timestamp'>` emits `TIMESTAMPTZ` on Postgres/Cockroach, `DATETIME(3)` on MySQL/SingleStore, `DATETIMEOFFSET(3)` on SQL
+Server, and `TEXT` on SQLite. The app type is `Date` on all six dialects, so the instant is what crosses the boundary rather than a set of digits.
 
-The old builder emitted a bare `TIMESTAMP` and left `timestamptz` to a hand-written migration;
-that is no longer a thing you have to remember, because a table of zone-less timestamps
-written from servers in different regions cannot be repaired — the information needed to
-interpret them was never stored.
+The old builder emitted a bare `TIMESTAMP` and left `timestamptz` to a hand-written migration; that is no longer a thing you have to remember, because a table of zone-less timestamps written from
+servers in different regions cannot be repaired — the information needed to interpret them was never stored.
 
-SQLite has no date type at all — it stores `TEXT`, and comparisons are lexicographic, so
-store ISO-8601 UTC (`2026-08-31T12:00:00Z`) which sorts correctly as text.
+SQLite has no date type at all — it stores `TEXT`, and comparisons are lexicographic, so store ISO-8601 UTC (`2026-08-31T12:00:00Z`) which sorts correctly as text.
 
 Store UTC, convert at the edges, format in the user's zone in the UI. Never store local time.
 
 ## Reading them back
 
-node-postgres parses `timestamp`/`timestamptz` to `Date`. mysql2 gives you `Date` or a string depending on configuration. SQLite gives you whatever you stored. So `Entity<Post>` says `Date` and your driver may hand you a string:
+node-postgres parses `timestamp`/`timestamptz` to `Date`. mysql2 gives you `Date` or a string depending on configuration. SQLite gives you whatever you stored. So `Entity<Post>` says `Date` and your
+driver may hand you a string:
 
 ```ts
 const at = row.createdAt instanceof Date ? row.createdAt : new Date(String(row.createdAt));

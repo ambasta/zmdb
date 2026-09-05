@@ -38,7 +38,8 @@ export const driver: Driver = {
 };
 ```
 
-`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the first query.
+`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the
+first query.
 
 "Unsafe" here means "not built from a template tag" — the parameters are still bound, not interpolated. Concatenating values into `query.text` would be unsafe; this is not.
 
@@ -54,9 +55,11 @@ await repo.findOne({ email: { eq: 'ada@example.com' } });
 
 ## Pool sizing
 
-The number that matters is `max × instance count ≤ max_connections − headroom`. A `max` of 20 across 10 containers is 200 connections, which is over the default Postgres limit of 100 — and the symptom is `too many clients already` under load, not at startup.
+The number that matters is `max × instance count ≤ max_connections − headroom`. A `max` of 20 across 10 containers is 200 connections, which is over the default Postgres limit of 100 — and the symptom
+is `too many clients already` under load, not at startup.
 
-Keep `max` small. Postgres connections are processes, and a pool of 10 that queues is usually faster than a pool of 50 that thrashes. If you genuinely need more concurrency than that, put PgBouncer in front — see below.
+Keep `max` small. Postgres connections are processes, and a pool of 10 that queues is usually faster than a pool of 50 that thrashes. If you genuinely need more concurrency than that, put PgBouncer in
+front — see below.
 
 ## PgBouncer
 
@@ -67,7 +70,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, statement_ti
 // node-postgres: do not use `pool.query({ name: '...' })` — named statements break in transaction mode
 ```
 
-`postgres.js` needs `prepare: false`. Also note that `SET LOCAL` works (it is transaction-scoped) but plain `SET` does not persist, which matters for [SQL comments](./sql-comments.html) and any session variable you rely on.
+`postgres.js` needs `prepare: false`. Also note that `SET LOCAL` works (it is transaction-scoped) but plain `SET` does not persist, which matters for [SQL comments](./sql-comments.html) and any
+session variable you rely on.
 
 ## Transactions
 
@@ -99,7 +103,8 @@ Managed providers require TLS. Do not disable verification:
 new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: true } });
 ```
 
-`ssl: { rejectUnauthorized: false }` appears in a lot of tutorials and it turns TLS into obfuscation — it encrypts the connection and accepts any certificate, so it does not protect against the attack TLS exists to prevent. If you need a provider's CA, pass it:
+`ssl: { rejectUnauthorized: false }` appears in a lot of tutorials and it turns TLS into obfuscation — it encrypts the connection and accepts any certificate, so it does not protect against the attack
+TLS exists to prevent. If you need a provider's CA, pass it:
 
 ```ts
 ssl: {

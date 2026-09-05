@@ -23,13 +23,10 @@ type Row = Entity<User>;
 // { id: number; address: Address; prefs: Record<string, boolean> | null }
 ```
 
-`Sql<'json'>` says how the column is stored. What it holds is the property's own type, so
-there is no type argument to forget and no `unknown` to cast away — a bare `json()` used to
-be spellable and gave you exactly that.
+`Sql<'json'>` says how the column is stored. What it holds is the property's own type, so there is no type argument to forget and no `unknown` to cast away — a bare `json()` used to be spellable and
+gave you exactly that.
 
-> [!WARNING]
-> Write `(T & Sql<'json'>) | null`, not `(T | null) & Sql<'json'>`. The second distributes the
-> tag into both members and `null & Sql<'json'>` is `never`, so the column stops being nullable
+> [!WARNING] Write `(T & Sql<'json'>) | null`, not `(T | null) & Sql<'json'>`. The second distributes the tag into both members and `null & Sql<'json'>` is `never`, so the column stops being nullable
 > in a way that typechecks.
 
 The DDL per dialect:
@@ -43,7 +40,8 @@ The DDL per dialect:
 
 ## The declaration is a claim, and the validator is what checks it
 
-`address: Address & Sql<'json'>` tells the type system what the column holds. It does not make the database enforce it — a row written by a migration, another service, or `psql` can hold anything. So validate at the boundary where data enters:
+`address: Address & Sql<'json'>` tells the type system what the column holds. It does not make the database enforce it — a row written by a migration, another service, or `psql` can hold anything. So
+validate at the boundary where data enters:
 
 ```ts
 import { assert } from '@zmdb/aot-validator/utilities';
@@ -52,7 +50,8 @@ const dto = assert<CreateDTO<User>>(ctx.body); // checks address.street, .city, 
 await repo.create(dto);
 ```
 
-Because `CreateDTO<User>` includes `address: Address`, the generated validator walks the nested object. That is the whole benefit of the shape being in the declaration: one `assert` at the edge covers the JSON payload too, with paths like `input.address.zip` in the error.
+Because `CreateDTO<User>` includes `address: Address`, the generated validator walks the nested object. That is the whole benefit of the shape being in the declaration: one `assert` at the edge covers
+the JSON payload too, with paths like `input.address.zip` in the error.
 
 For data that was already in the table when you added the type, validate on the way out:
 
@@ -79,10 +78,8 @@ type Row = Entity<Post>;
 // { id: number; status: 'draft' | 'review' | 'published' }
 ```
 
-There is no `as const` in sight, which matters: `jsonEnum(['draft', 'review'] as const)` gave
-you `string` rather than the union the moment the `as const` was missing, silently. `WhereDTO`
-narrows too, so `{ status: { eq: 'publshed' } }` is a compile error rather than a query that
-returns nothing.
+There is no `as const` in sight, which matters: `jsonEnum(['draft', 'review'] as const)` gave you `string` rather than the union the moment the `as const` was missing, silently. `WhereDTO` narrows
+too, so `{ status: { eq: 'publshed' } }` is a compile error rather than a query that returns nothing.
 
 ## Querying inside a JSON column
 
@@ -120,7 +117,8 @@ Add `city: (string & Sql<'text'>) | null` to the interface and it becomes querya
 
 ## Serialization
 
-The `json` column round-trips through your driver. `node-postgres` parses `JSONB` for you; `node:sqlite` gives you the raw `TEXT`, so parse it in the driver or with a [custom type](./custom-types.html):
+The `json` column round-trips through your driver. `node-postgres` parses `JSONB` for you; `node:sqlite` gives you the raw `TEXT`, so parse it in the driver or with a
+[custom type](./custom-types.html):
 
 ```ts
 const addressType = defineType<Address, Address, string>({
@@ -132,10 +130,8 @@ const addressType = defineType<Address, Address, string>({
 });
 ```
 
-> [!NOTE]
-> `assert` rather than `as Address`, at the boundary of the database where you decide what the
-> guarantee is. The three type parameters are wire, app and database — a codec that named only
-> two left the third to be guessed.
+> [!NOTE] `assert` rather than `as Address`, at the boundary of the database where you decide what the guarantee is. The three type parameters are wire, app and database — a codec that named only two
+> left the third to be guessed.
 
 ---
 

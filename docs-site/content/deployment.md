@@ -1,4 +1,5 @@
-zmdb has no runtime dependencies, no native binaries and no engine to ship, so deploying it is deploying your own JavaScript. What needs thought is the build step, the migration ordering, and the connection arithmetic.
+zmdb has no runtime dependencies, no native binaries and no engine to ship, so deploying it is deploying your own JavaScript. What needs thought is the build step, the migration ordering, and the
+connection arithmetic.
 
 ## The build
 
@@ -10,8 +11,7 @@ Two things must be true of your build output.
 { "type": "module" }
 ```
 
-**The AOT transformer ran.** If it did not, generic `is<T>()` and `assert<T>()` calls
-[throw because the runtime has no type witness](./gotchas.html).
+**The AOT transformer ran.** If it did not, generic `is<T>()` and `assert<T>()` calls [throw because the runtime has no type witness](./gotchas.html).
 
 ```json
 {
@@ -31,10 +31,8 @@ it('the transformer is running', () => {
 });
 ```
 
-This is the one deployment check specific to zmdb. Platforms with their own transpiler —
-[Bun](./connect-bun.html), esbuild-only pipelines, or Metro without the
-[React Native wrapper](./connect-react-native.html) — are where configuration is easiest to miss. See
-[AOT Setup](./aot-setup.html).
+This is the one deployment check specific to zmdb. Platforms with their own transpiler — [Bun](./connect-bun.html), esbuild-only pipelines, or Metro without the
+[React Native wrapper](./connect-react-native.html) — are where configuration is easiest to miss. See [AOT Setup](./aot-setup.html).
 
 ## Migrations run before the new code
 
@@ -73,7 +71,8 @@ A correct migration deployed in the wrong order is the most common way to break 
 
 ## Connections
 
-`max × instances ≤ max_connections − headroom`. Keep `max` small — Postgres connections are processes, and a pool of 10 that queues usually beats a pool of 50 that thrashes. For serverless, see [Serverless Performance](./perf-serverless.html).
+`max × instances ≤ max_connections − headroom`. Keep `max` small — Postgres connections are processes, and a pool of 10 that queues usually beats a pool of 50 that thrashes. For serverless, see
+[Serverless Performance](./perf-serverless.html).
 
 ## Configuration
 
@@ -112,8 +111,7 @@ const server = createServer(async (req, res) => {
 server.listen(env.PORT);
 ```
 
-This hand-written module adapter buffers streamed responses. At router level,
-`toNodeHandler` streams with backpressure and cancellation.
+This hand-written module adapter buffers streamed responses. At router level, `toNodeHandler` streams with backpressure and cancellation.
 
 `App` has no `listen()` — it is transport-agnostic on purpose. See [Standalone Applications](./web-standalone.html).
 
@@ -162,7 +160,8 @@ async ready() {                              // can it serve traffic
 }
 ```
 
-Point the load balancer at `/readyz` and the restart policy at `/healthz`. A liveness probe that queries the database restarts your application when the database hiccups, which turns a brief outage into a longer one.
+Point the load balancer at `/readyz` and the restart policy at `/healthz`. A liveness probe that queries the database restarts your application when the database hiccups, which turns a brief outage
+into a longer one.
 
 ---
 

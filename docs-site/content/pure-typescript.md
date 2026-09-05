@@ -1,4 +1,5 @@
-What works with no build plugin, and what does not. The short version: a validator call that gets its shape from a **type argument** needs the transformer, because a type argument does not exist at runtime. Everything that gets its shape from a **value** does not.
+What works with no build plugin, and what does not. The short version: a validator call that gets its shape from a **type argument** needs the transformer, because a type argument does not exist at
+runtime. Everything that gets its shape from a **value** does not.
 
 ## The part that needs the build step
 
@@ -8,20 +9,13 @@ import { is } from '@zmdb/aot-validator/utilities';
 is<User>(payload); // needs the transformer
 ```
 
-`is<T>`, `isShallow<T, D>`, `assert<T>`, `assertShallow<T, D>`, `validate<T>`,
-`validateShallow<T, D>`, `equals<T>`, `assertEquals<T>`, `random<T>`,
-`toJsonSchema<T>`, `schemaOf<T>`, `toolFor<T>`, `protoDescriptor<T>`,
-`protoDecode<T>`, `protoEncode<T>`, `grpcDescriptor<S>` and
-`loadGrpcService<S>` are the seventeen calls the transformer currently rewrites. It replaces each with emitted
-code built from the reflected IR. Where it did not run over a file, the type
-argument is gone and the call **throws** — the validation utilities ask for a
-runtime witness, while the schema, protobuf and gRPC artifact calls name the
-build transform that should have replaced them.
+`is<T>`, `isShallow<T, D>`, `assert<T>`, `assertShallow<T, D>`, `validate<T>`, `validateShallow<T, D>`, `equals<T>`, `assertEquals<T>`, `random<T>`, `toJsonSchema<T>`, `schemaOf<T>`, `toolFor<T>`,
+`protoDescriptor<T>`, `protoDecode<T>`, `protoEncode<T>`, `grpcDescriptor<S>` and `loadGrpcService<S>` are the seventeen calls the transformer currently rewrites. It replaces each with emitted code
+built from the reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — the validation utilities ask for a runtime witness, while the schema, protobuf and
+gRPC artifact calls name the build transform that should have replaced them.
 
-> [!IMPORTANT]
-> There is no fallback that inspects `T` at runtime, because there is nothing to inspect.
-> An earlier version of this page described the untransformed path as "slower but working";
-> it fails open, which is worse than failing, so it now throws. See [AOT Setup](./aot-setup.html).
+> [!IMPORTANT] There is no fallback that inspects `T` at runtime, because there is nothing to inspect. An earlier version of this page described the untransformed path as "slower but working"; it
+> fails open, which is worse than failing, so it now throws. See [AOT Setup](./aot-setup.html).
 
 ## The part that does not
 
@@ -42,7 +36,8 @@ validate(tags.Enum('draft', 'review', 'published'), input.status);
 | `Pattern(re)`                   | a `string` against a regular expression |
 | `Enum(...values)`               | membership — variadic, not an array     |
 
-Every rule answers `false` for a value of the wrong type rather than throwing, and the emitted form has identical boolean semantics — that equivalence is what makes this a safe fallback rather than a second implementation. An unknown `kind` throws.
+Every rule answers `false` for a value of the wrong type rather than throwing, and the emitted form has identical boolean semantics — that equivalence is what makes this a safe fallback rather than a
+second implementation. An unknown `kind` throws.
 
 **Serialization.** Neither `stringify` nor `parse` is transformed, so both work unchanged:
 
@@ -55,11 +50,9 @@ const result = parse(json); // { success, data? , issues? } — malformed JSON i
 
 `parse<T>`'s type argument is an unvalidated claim, exactly as `JSON.parse`'s cast would be. The checking step is separate, and it is one of the transformed validation calls.
 
-**A validator with an explicit schema.** The nine validation/generation utilities accept
-a `TypeIR` value as their fallback witness (`random` takes it first; the eight
-value-checking calls take it second). The three shallow calls additionally accept their
-depth as a third fallback-only argument. The schema and protobuf calls cannot use that
-escape hatch because their public contract is compile-time-only:
+**A validator with an explicit schema.** The nine validation/generation utilities accept a `TypeIR` value as their fallback witness (`random` takes it first; the eight value-checking calls take it
+second). The three shallow calls additionally accept their depth as a third fallback-only argument. The schema and protobuf calls cannot use that escape hatch because their public contract is
+compile-time-only:
 
 ```ts
 import { assert, type TypeIR } from '@zmdb/aot-validator/utilities';
@@ -68,13 +61,14 @@ const ir: TypeIR = { kind: 'scalar', scalar: 'string' };
 assert(rawValue, ir); // no type argument, no transformer
 ```
 
-There used to be a second accepted shape, a hand-written `TypeDescriptor`. It is gone: a
-descriptor is a type written out again by hand, in a form nothing checks against the type it
-claims to describe, so it drifts silently the moment the interface is edited.
+There used to be a second accepted shape, a hand-written `TypeDescriptor`. It is gone: a descriptor is a type written out again by hand, in a form nothing checks against the type it claims to
+describe, so it drifts silently the moment the interface is edited.
 
 Where the IR comes from is the catch: reflecting it from a type is what the build step does. Writing one by hand is reasonable for a scalar and unreasonable for a table.
 
-**Everything that is not the validator.** The query compiler, the repository, `WhereDTO`/`ListDTO` handling, the migration engine, `@zmdb/web`'s routing and DI, and all of the derived DTO _types_ are plain TypeScript and plain functions. They need no plugin. The one exception inside that list is `schemaOf<T>()`, which is how a declaration becomes a runtime schema object — so the value you pass to `defineRepository` comes from the build step even though the repository itself does not.
+**Everything that is not the validator.** The query compiler, the repository, `WhereDTO`/`ListDTO` handling, the migration engine, `@zmdb/web`'s routing and DI, and all of the derived DTO _types_ are
+plain TypeScript and plain functions. They need no plugin. The one exception inside that list is `schemaOf<T>()`, which is how a declaration becomes a runtime schema object — so the value you pass to
+`defineRepository` comes from the build step even though the repository itself does not.
 
 ## Comparison
 

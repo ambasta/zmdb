@@ -10,7 +10,8 @@ const users = await repo.findAll({ populate: ['posts'] });
 
 Two statements. The second collects the keys from the first and batches them into an `IN`, so it is _n + 1 queries per relation_, not per row.
 
-Use it for **one-to-many** and **many-to-many**. A join would multiply the parent row by the number of children, so a user with 40 posts arrives 40 times and you pay for the parent columns 40 times over.
+Use it for **one-to-many** and **many-to-many**. A join would multiply the parent row by the number of children, so a user with 40 posts arrives 40 times and you pay for the parent columns 40 times
+over.
 
 ## `findJoined` / `joinRelation` — one query
 
@@ -30,17 +31,18 @@ One statement, one round trip. Use it for **many-to-one** and **one-to-one**, wh
 | `OneToMany`  | n                    | `populate`                   |
 | `ManyToMany` | n                    | an explicit three-table join |
 
-The rule reduces to: **join when the cardinality is one, batch when it is many.** That is the same decision an ORM's "joined vs select-in strategy" setting makes; the difference is that here it is at the call site, where you can see how many parents you are fetching.
+The rule reduces to: **join when the cardinality is one, batch when it is many.** That is the same decision an ORM's "joined vs select-in strategy" setting makes; the difference is that here it is at
+the call site, where you can see how many parents you are fetching.
 
 ## What is not here
 
-**No lazy loading.** There is no proxy and no `init()`. A relation you did not request is absent from the row _type_, so `user.posts` where you did not populate is a compile error rather than a surprise query. See [Why fetched rows are inert](./inert-rows.html).
+**No lazy loading.** There is no proxy and no `init()`. A relation you did not request is absent from the row _type_, so `user.posts` where you did not populate is a compile error rather than a
+surprise query. See [Why fetched rows are inert](./inert-rows.html).
 
 **No `eager: true`.** A relation is never loaded because of how it was declared, only because of how it was asked for. Two call sites with different needs do not fight over one setting.
 
-**No automatic batching across calls.** Two direct `findById` calls are two queries. When a request needs
-cross-call batching, construct an explicit [`LoaderScope`](./dataloaders.html) and call its loader instead;
-ordinary repository reads never change behaviour because a scope happens to exist.
+**No automatic batching across calls.** Two direct `findById` calls are two queries. When a request needs cross-call batching, construct an explicit [`LoaderScope`](./dataloaders.html) and call its
+loader instead; ordinary repository reads never change behaviour because a scope happens to exist.
 
 **No nested populate.** `populate: ['posts']` loads posts; it does not load `posts.comments`. Do the second level yourself:
 

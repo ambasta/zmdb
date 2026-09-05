@@ -35,7 +35,8 @@ Use **transaction mode for serverless**, and disable prepared statements — see
 
 ## Row Level Security
 
-This is the important interaction. Supabase enables RLS on tables created through its dashboard, and its policies are written against `auth.uid()`. A table created by a zmdb migration has **no RLS and no policies**, which means:
+This is the important interaction. Supabase enables RLS on tables created through its dashboard, and its policies are written against `auth.uid()`. A table created by a zmdb migration has **no RLS and
+no policies**, which means:
 
 - Your server-side driver (using the service role or the postgres user) reads and writes normally.
 - The `anon` and `authenticated` roles that `supabase-js` uses can read and write everything, because there is no policy denying them.
@@ -58,12 +59,8 @@ If any client talks to your database through PostgREST, you must add the policie
 }
 ```
 
-> [!WARNING]
-> A table with RLS enabled and no policies denies everything to non-superusers —
-> including, silently, a client you forgot about. A table with RLS disabled
-> allows everything. Neither default is what you want by accident. If your
-> architecture is "zmdb server only, no direct client access", RLS is optional;
-> if `supabase-js` is in your frontend, it is mandatory.
+> [!WARNING] A table with RLS enabled and no policies denies everything to non-superusers — including, silently, a client you forgot about. A table with RLS disabled allows everything. Neither default
+> is what you want by accident. If your architecture is "zmdb server only, no direct client access", RLS is optional; if `supabase-js` is in your frontend, it is mandatory.
 
 ## Referencing `auth.users`
 
@@ -73,7 +70,8 @@ Supabase's users live in the `auth` schema, which a `Table<…>` declaration can
 userId: string & Sql<'text'>; // FK to auth.users.id, added in a migration
 ```
 
-`References<'auth.users.id'>` does not work: the tag is parsed as `table.column`, so a three-part name is refused. Declare the column without a reference tag and add the constraint in a [custom migration](./migrations-custom.html):
+`References<'auth.users.id'>` does not work: the tag is parsed as `table.column`, so a three-part name is refused. Declare the column without a reference tag and add the constraint in a
+[custom migration](./migrations-custom.html):
 
 ```sql
 ALTER TABLE profiles ADD CONSTRAINT profiles_user_fk
@@ -84,7 +82,8 @@ You lose the compile-time check the tag would give you, which is the trade-off �
 
 ## Edge Functions
 
-Supabase Edge Functions run on Deno. The compiler and validators work unchanged; use `postgres.js` over the transaction-mode pooler and expect a connection per invocation. See [Deploy to Supabase Edge](./deploy-supabase-edge.html).
+Supabase Edge Functions run on Deno. The compiler and validators work unchanged; use `postgres.js` over the transaction-mode pooler and expect a connection per invocation. See
+[Deploy to Supabase Edge](./deploy-supabase-edge.html).
 
 ---
 

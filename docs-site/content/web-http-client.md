@@ -24,7 +24,8 @@ export class ApiClient {
 const user = await client.get('/users/1', raw => assert<ExternalUser>(raw));
 ```
 
-The `validate` parameter is the important part. A remote API's response is untrusted input in exactly the way a request body is — the provider ships a change, a field goes null, and without a check you get `undefined` three layers down instead of an error at the boundary. Passing `assert<T>` costs one argument.
+The `validate` parameter is the important part. A remote API's response is untrusted input in exactly the way a request body is — the provider ships a change, a field goes null, and without a check
+you get `undefined` three layers down instead of an error at the boundary. Passing `assert<T>` costs one argument.
 
 ## Register it as a provider
 
@@ -68,10 +69,8 @@ Combine with a caller's signal when you have one:
 signal: AbortSignal.any([AbortSignal.timeout(5_000), external]);
 ```
 
-An aborted outbound HTTP call is not automatically coupled to a database query
-it triggered. Pass the same signal into the repository read; the bundled
-Postgres driver can then cancel the backend when configured with `cancelVia`.
-See [Query Cancellation](./query-cancellation.html).
+An aborted outbound HTTP call is not automatically coupled to a database query it triggered. Pass the same signal into the repository read; the bundled Postgres driver can then cancel the backend when
+configured with `cancelVia`. See [Query Cancellation](./query-cancellation.html).
 
 ## Retries, for the errors worth retrying
 
@@ -92,7 +91,8 @@ const retryable = (e: unknown) => e instanceof Error && (e.name === 'TimeoutErro
 
 The jitter is not decoration: without it, every instance retries in lockstep and you turn a brief upstream blip into a synchronised thundering herd.
 
-Never retry a non-idempotent `POST` blindly. Send an idempotency key and let the upstream deduplicate, or only retry on a timeout where you know the request did not land — and remember that a timeout does not tell you that.
+Never retry a non-idempotent `POST` blindly. Send an idempotency key and let the upstream deduplicate, or only retry on a timeout where you know the request did not land — and remember that a timeout
+does not tell you that.
 
 ## Do not log the response body
 
@@ -128,7 +128,8 @@ Per process, so with several replicas each learns independently. Good enough, an
 
 ## Calling your own API
 
-Do not. If two controllers in one application need the same logic, extract a service and inject it — an internal HTTP round trip adds latency, a serialisation boundary and a failure mode for no benefit.
+Do not. If two controllers in one application need the same logic, extract a service and inject it — an internal HTTP round trip adds latency, a serialisation boundary and a failure mode for no
+benefit.
 
 ```ts
 // instead of fetch('http://localhost:3000/posts')
@@ -149,7 +150,8 @@ function safeUrl(input: string): URL {
 }
 ```
 
-Allow-list the host; do not block-list. And do not follow redirects when the target is user-influenced (`redirect: 'manual'`) — a permitted host can redirect you to a forbidden one, which defeats a check performed only on the original URL.
+Allow-list the host; do not block-list. And do not follow redirects when the target is user-influenced (`redirect: 'manual'`) — a permitted host can redirect you to a forbidden one, which defeats a
+check performed only on the original URL.
 
 ---
 

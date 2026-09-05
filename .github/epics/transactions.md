@@ -2,7 +2,8 @@
 
 ## Goal
 
-Provide transactional guarantees comparable to mikro-orm's Unit of Work — but **explicit** and **stateless**, with no proxy change-tracking. Callers group operations into a transaction boundary; the framework flushes them as a single atomic SQL transaction.
+Provide transactional guarantees comparable to mikro-orm's Unit of Work — but **explicit** and **stateless**, with no proxy change-tracking. Callers group operations into a transaction boundary; the
+framework flushes them as a single atomic SQL transaction.
 
 ## Parity Reference
 

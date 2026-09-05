@@ -37,9 +37,7 @@ db.exec('PRAGMA journal_mode = WAL');
 export const driver: Driver = {
   async execute(q) {
     const stmt = db.prepare(q.text);
-    const rows = q.text.trimStart().toUpperCase().startsWith('SELECT')
-      ? stmt.all(...q.parameters)
-      : (stmt.run(...q.parameters), []);
+    const rows = q.text.trimStart().toUpperCase().startsWith('SELECT') ? stmt.all(...q.parameters) : (stmt.run(...q.parameters), []);
     return rows.map(hydrate);
   },
 };
@@ -66,18 +64,18 @@ PRAGMA journal_mode = WAL;  -- concurrent readers with a writer
 PRAGMA busy_timeout = 5000; -- wait for the write lock instead of failing
 ```
 
-`foreign_keys` being off by default is the one that bites: the constraint exists
-in your migration, and nothing enforces it. `sqliteDriver(db)` enables it when
-the adapter wraps the connection. A custom driver must still set it on every
-connection itself.
+`foreign_keys` being off by default is the one that bites: the constraint exists in your migration, and nothing enforces it. `sqliteDriver(db)` enables it when the adapter wraps the connection. A
+custom driver must still set it on every connection itself.
 
 ## Types are advisory
 
-SQLite's declared column types are affinities, not constraints — a `TEXT` column will accept an integer. That means the database will not catch a type error the way Postgres would, so the type-level guarantees and the [validators](./validators-assert.html) are doing more of the work here. It is a reason to validate rows coming from a SQLite database you did not write.
+SQLite's declared column types are affinities, not constraints — a `TEXT` column will accept an integer. That means the database will not catch a type error the way Postgres would, so the type-level
+guarantees and the [validators](./validators-assert.html) are doing more of the work here. It is a reason to validate rows coming from a SQLite database you did not write.
 
 ## One writer
 
-SQLite serialises writes at the database level. WAL mode lets readers proceed during a write, but two concurrent writers means one gets `SQLITE_BUSY`. That is fine for a single-process application and wrong for a multi-instance service — which is the real limit on using SQLite in production, not performance.
+SQLite serialises writes at the database level. WAL mode lets readers proceed during a write, but two concurrent writers means one gets `SQLITE_BUSY`. That is fine for a single-process application and
+wrong for a multi-instance service — which is the real limit on using SQLite in production, not performance.
 
 ## Why it is the best test database
 
@@ -95,15 +93,13 @@ export function freshDb() {
 
 `node:sqlite` is a built-in, so this adds no dependency; `:memory:` gives per-test isolation in under a millisecond. See [Testing](./testing.html).
 
-> [!WARNING]
-> Testing on SQLite and deploying on Postgres means the differences above are
-> untested. `ILIKE`, `RETURNING`, `ON CONFLICT`, JSON operators, transactional
-> DDL and case sensitivity all differ. Run the fast suite on SQLite and a smaller
-> integration suite against the real dialect.
+> [!WARNING] Testing on SQLite and deploying on Postgres means the differences above are untested. `ILIKE`, `RETURNING`, `ON CONFLICT`, JSON operators, transactional DDL and case sensitivity all
+> differ. Run the fast suite on SQLite and a smaller integration suite against the real dialect.
 
 ## Connecting
 
-[Local SQLite](./connect-sqlite.html), [Turso](./connect-turso.html), [SQLite Cloud](./connect-sqlite-cloud.html), [Cloudflare D1](./connect-cloudflare-d1.html), [Durable Objects](./connect-cloudflare-do.html), [Bun](./connect-bun.html), [React Native](./connect-react-native.html).
+[Local SQLite](./connect-sqlite.html), [Turso](./connect-turso.html), [SQLite Cloud](./connect-sqlite-cloud.html), [Cloudflare D1](./connect-cloudflare-d1.html),
+[Durable Objects](./connect-cloudflare-do.html), [Bun](./connect-bun.html), [React Native](./connect-react-native.html).
 
 ---
 

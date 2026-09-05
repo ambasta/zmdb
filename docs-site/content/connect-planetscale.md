@@ -37,16 +37,11 @@ export const driver: Driver = {
 
 PlanetScale historically disallowed them, and support depends on your plan and configuration. If they are off, a `REFERENCES` clause is rejected.
 
-`References<'authors.id'>` now emits a real named constraint, including any
-`OnDelete<…>` / `OnUpdate<…>` action. Enable PlanetScale foreign-key support
-before applying that generated migration. The target remains a string literal;
-nothing cross-checks that `authors.id` exists before the server sees the DDL.
+`References<'authors.id'>` now emits a real named constraint, including any `OnDelete<…>` / `OnUpdate<…>` action. Enable PlanetScale foreign-key support before applying that generated migration. The
+target remains a string literal; nothing cross-checks that `authors.id` exists before the server sees the DDL.
 
-If foreign keys are disabled, the generated constraint will be rejected. Omit
-the `References` tag and keep the relationship explicit in query code, or own
-that table's DDL as a custom migration. In either case a dangling `authorId`
-becomes possible and database cascades do not exist. See
-[Cascading](./cascading.html).
+If foreign keys are disabled, the generated constraint will be rejected. Omit the `References` tag and keep the relationship explicit in query code, or own that table's DDL as a custom migration. In
+either case a dangling `authorId` becomes possible and database cascades do not exist. See [Cascading](./cascading.html).
 
 If FKs are unavailable, do writes through repositories and add integrity checks you run periodically:
 
@@ -62,7 +57,8 @@ const orphans = await driver.execute({
 Vitess applies schema changes through its own workflow (deploy requests / online DDL) rather than by running your `ALTER TABLE` directly. That has two implications for [migrations](./migrations.html):
 
 - **Multi-statement `up` values are risky.** One statement per migration. MySQL auto-commits DDL anyway — see [Dialect: MySQL](./dialect-mysql.html).
-- **The migration may be applied out of band.** If your team uses deploy requests, the SQL from [generate](./cli-generate.html) is the input to that process rather than something `runCli` applies. Export it:
+- **The migration may be applied out of band.** If your team uses deploy requests, the SQL from [generate](./cli-generate.html) is the input to that process rather than something `runCli` applies.
+  Export it:
 
   ```bash
   node --experimental-strip-types scripts/export.ts mysql
@@ -72,7 +68,8 @@ Vitess applies schema changes through its own workflow (deploy requests / online
 
 ## Branches
 
-PlanetScale branches are a good fit for zmdb's offline generation: the migration SQL in the pull request is generated without a database, then applied to a branch to verify, then promoted. Point `DATABASE_URL` at the branch in CI.
+PlanetScale branches are a good fit for zmdb's offline generation: the migration SQL in the pull request is generated without a database, then applied to a branch to verify, then promoted. Point
+`DATABASE_URL` at the branch in CI.
 
 ## The MySQL differences still apply
 
@@ -82,7 +79,8 @@ PlanetScale branches are a good fit for zmdb's offline generation: the migration
 
 ## Serverless
 
-The HTTP driver has no connection to establish, which makes it a genuinely good serverless story — no pool sizing, no connection-count arithmetic. It also cannot hold a transaction across statements, for the same reason [Neon's HTTP path](./connect-neon.html) cannot. Use `mysql2` where you need one.
+The HTTP driver has no connection to establish, which makes it a genuinely good serverless story — no pool sizing, no connection-count arithmetic. It also cannot hold a transaction across statements,
+for the same reason [Neon's HTTP path](./connect-neon.html) cannot. Use `mysql2` where you need one.
 
 ---
 

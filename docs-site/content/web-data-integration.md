@@ -1,7 +1,5 @@
-This is where `@zmdb/web` meets the [data layer](./repository.html). A controller
-**injects a repository** via [DI](./web-di.html), validates the request body
-against your **schema-derived DTO**, and returns typed entities — all on the same
-zero-overhead path as the rest of zmdb.
+This is where `@zmdb/web` meets the [data layer](./repository.html). A controller **injects a repository** via [DI](./web-di.html), validates the request body against your **schema-derived DTO**, and
+returns typed entities — all on the same zero-overhead path as the rest of zmdb.
 
 ## Define once, wire it up
 
@@ -28,7 +26,8 @@ const orderSchema = schemaOf<Order>();
 const OrderRepo = repositoryToken<Order>('OrderRepo');
 ```
 
-`schemaOf<Order>()` is the one call that crosses from the type to a value, and it is compile-time only — the transformer replaces it with the reflected schema object. Everything downstream, including the DI token, is parameterised on `Order` itself: the value is what the query compiler needs, the type is what your code is written in.
+`schemaOf<Order>()` is the one call that crosses from the type to a value, and it is compile-time only — the transformer replaces it with the reflected schema object. Everything downstream, including
+the DI token, is parameterised on `Order` itself: the value is what the query compiler needs, the type is what your code is written in.
 
 ## The controller injects the repository
 
@@ -72,24 +71,15 @@ await router.handle({ method: 'POST', path: '/orders', headers: {}, rawBody: { u
 // 200 → the persisted, typed order
 ```
 
-> [!IMPORTANT]
-> The body is validated **before** `create` runs — an invalid payload never
-> reaches the repository (→ 400). `assert<CreateDTO<Order>>` is bound to the
-> declaration by its type argument, so a column added to `Order` is checked here
-> with nothing else to update.
+> [!IMPORTANT] The body is validated **before** `create` runs — an invalid payload never reaches the repository (→ 400). `assert<CreateDTO<Order>>` is bound to the declaration by its type argument, so
+> a column added to `Order` is checked here with nothing else to update.
 
 ## Design notes
 
-- **No `as`** — the repository token carries the schema, so the injected field is
-  `BaseRepository<Order>`.
-- **One source of truth** — `Order` is the interface; the DDL, the DTOs, the
-  validator and the OpenAPI document are all derived from it. See
-  [Schema Declaration](./schema-declaration.html).
-- The repository is a plain [zmdb repository](./repository.html): no proxies, no
-  identity map, [inert rows](./inert-rows.html).
-- First-class validation/serialization _pipes_ (the `@nestjs/swagger`/
-  `ClassSerializerInterceptor` analogues) build on this — coming with the
-  middleware layer.
+- **No `as`** — the repository token carries the schema, so the injected field is `BaseRepository<Order>`.
+- **One source of truth** — `Order` is the interface; the DDL, the DTOs, the validator and the OpenAPI document are all derived from it. See [Schema Declaration](./schema-declaration.html).
+- The repository is a plain [zmdb repository](./repository.html): no proxies, no identity map, [inert rows](./inert-rows.html).
+- First-class validation/serialization _pipes_ (the `@nestjs/swagger`/ `ClassSerializerInterceptor` analogues) build on this — coming with the middleware layer.
 
 ## Cross-links
 

@@ -1,14 +1,10 @@
-> **ToDo / not planned.** No MongoDB target ships. The feasibility study refused
-> it because the current declaration and repository contracts cannot be
-> implemented faithfully: a `Serial` key has no MongoDB equivalent,
-> `aggregate` hands SQL to application code, and the public transaction surface
-> requires savepoints.
+> **ToDo / not planned.** No MongoDB target ships. The feasibility study refused it because the current declaration and repository contracts cannot be implemented faithfully: a `Serial` key has no
+> MongoDB equivalent, `aggregate` hands SQL to application code, and the public transaction surface requires savepoints.
 
 ## Repository method matrix
 
-This is a feasibility record, not a support table. **None of these methods has a
-MongoDB implementation.** “Expressible” means the accepted target study found a
-faithful MongoDB operation for that method; it does not mean zmdb executes it.
+This is a feasibility record, not a support table. **None of these methods has a MongoDB implementation.** “Expressible” means the accepted target study found a faithful MongoDB operation for that
+method; it does not mean zmdb executes it.
 
 | Repository method | MongoDB feasibility                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------------------ |
@@ -27,36 +23,23 @@ faithful MongoDB operation for that method; it does not mean zmdb executes it.
 | `delete`          | expressible as `deleteOne`, with `deletedCount` supplying the boolean result                           |
 | `withTransaction` | refused: MongoDB has no savepoints, while zmdb's public `TransactionContext` requires `savepoint(...)` |
 
-Eight methods are expressible as written, three need a target-specific
-translation, and three are refused. That partial surface is deliberately not
-reported as support.
+Eight methods are expressible as written, three need a target-specific translation, and three are refused. That partial surface is deliberately not reported as support.
 
 ## Why the target was refused
 
-The compiler output shape was not the blocker. The DTO fold is already
-target-neutral: `compileWhere`, `applyOrderBy`, `applyKeysetFilter` and
-`applyPagination` drive structural `WhereTarget` and `OrderTarget` interfaces
-that mention neither SQL nor `CompiledQuery`. A future target could provide its
-own builders, compiled command shape and driver without widening the SQL path.
+The compiler output shape was not the blocker. The DTO fold is already target-neutral: `compileWhere`, `applyOrderBy`, `applyKeysetFilter` and `applyPagination` drive structural `WhereTarget` and
+`OrderTarget` interfaces that mention neither SQL nor `CompiledQuery`. A future target could provide its own builders, compiled command shape and driver without widening the SQL path.
 
-The target still fails the criterion of covering the full read/write surface,
-relations and transactions:
+The target still fails the criterion of covering the full read/write surface, relations and transactions:
 
-- **Keys:** scaffolded schemas use a numeric `Serial` primary key. MongoDB has no
-  server-side sequence, and its normal `_id` is an `ObjectId`, so
-  `create(): Entity<T>` could not return the declared key truthfully.
-- **Aggregation:** `aggregate(callback)` passes a
-  `RepositoryAggregateBuilder` to application code. That callback is
-  SQL-specific by construction, not a target-neutral plan a MongoDB emitter can
+- **Keys:** scaffolded schemas use a numeric `Serial` primary key. MongoDB has no server-side sequence, and its normal `_id` is an `ObjectId`, so `create(): Entity<T>` could not return the declared
+  key truthfully.
+- **Aggregation:** `aggregate(callback)` passes a `RepositoryAggregateBuilder` to application code. That callback is SQL-specific by construction, not a target-neutral plan a MongoDB emitter can
   translate.
-- **Transactions:** MongoDB transactions require a replica set or sharded
-  cluster and do not provide savepoints or nested transactions. zmdb exposes
-  `savepoint` as part of `TransactionContext`.
+- **Transactions:** MongoDB transactions require a replica set or sharded cluster and do not provide savepoints or nested transactions. zmdb exposes `savepoint` as part of `TransactionContext`.
 
-All six current `Dialect` values are SQL dialects. MongoDB is not one: it
-changes the command representation, schema model and transaction capabilities
-rather than only how SQL is written. That requires a separate structural
-target, not another branch in SQL quoting or placeholder code.
+All six current `Dialect` values are SQL dialects. MongoDB is not one: it changes the command representation, schema model and transaction capabilities rather than only how SQL is written. That
+requires a separate structural target, not another branch in SQL quoting or placeholder code.
 
 ## Filters are close, not identical
 
@@ -72,19 +55,14 @@ Most `WhereDTO` operators have a direct command-document spelling:
 | `l2`, `cosine`, `ip`            | refused: these are PostgreSQL vector extension operators, not universal DTO operations |
 | `exists`, `notExists`, grouping | require a target-native nested predicate tree rather than SQL's implicit precedence    |
 
-A `LIKE` pattern cannot be passed to `$regex` verbatim. SQL uses `%` and `_` as
-wildcards, while regular expressions give characters such as `.`, `*`, `+`,
-`?`, `(`, `[` and `\` special meaning. A faithful translation first escapes
-regular-expression metacharacters, then maps `%` to `.*` and `_` to `.`, and
-anchors the result. An unanchored regular expression can also turn an indexed
-lookup into a collection scan.
+A `LIKE` pattern cannot be passed to `$regex` verbatim. SQL uses `%` and `_` as wildcards, while regular expressions give characters such as `.`, `*`, `+`, `?`, `(`, `[` and `\` special meaning. A
+faithful translation first escapes regular-expression metacharacters, then maps `%` to `.*` and `_` to `.`, and anchors the result. An unanchored regular expression can also turn an indexed lookup
+into a collection scan.
 
 ## What works today: schema validation
 
-`toJsonSchema` is useful input to a MongoDB collection validator, but its output
-is not accepted unchanged. MongoDB's JSON Schema subset does not support
-`format`, while zmdb emits `format: 'date-time'` and `format: 'int64'`. MongoDB
-also omits the standard `integer` type in favour of BSON numeric types.
+`toJsonSchema` is useful input to a MongoDB collection validator, but its output is not accepted unchanged. MongoDB's JSON Schema subset does not support `format`, while zmdb emits
+`format: 'date-time'` and `format: 'int64'`. MongoDB also omits the standard `integer` type in favour of BSON numeric types.
 
 ```ts
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
@@ -97,11 +75,8 @@ await db.createCollection('users', {
 });
 ```
 
-The adapter must at least remove unsupported `format` keywords and translate
-`type: 'integer'` to the BSON numeric types the application actually stores.
-That keeps the useful part of the recipe — one declaration feeding validation —
-without claiming that OpenAPI JSON Schema and MongoDB's validator dialect are
-identical.
+The adapter must at least remove unsupported `format` keywords and translate `type: 'integer'` to the BSON numeric types the application actually stores. That keeps the useful part of the recipe — one
+declaration feeding validation — without claiming that OpenAPI JSON Schema and MongoDB's validator dialect are identical.
 
 ## Using zmdb with MongoDB today
 
@@ -128,28 +103,20 @@ export class UsersController {
 }
 ```
 
-This keeps AOT validation, the web layer, OpenAPI generation and a schema
-declaration as input to an application-owned MongoDB validator adapter. It does
-not provide the query builder, repository, migrations, relations or
-transactions. The `normalise` step is load-bearing: an `ObjectId` does not
-satisfy a declared numeric key.
+This keeps AOT validation, the web layer, OpenAPI generation and a schema declaration as input to an application-owned MongoDB validator adapter. It does not provide the query builder, repository,
+migrations, relations or transactions. The `normalise` step is load-bearing: an `ObjectId` does not satisfy a declared numeric key.
 
 ## What would reopen the decision
 
 All three blockers need an answer:
 
-1. the schema vocabulary can declare an externally generated or opaque primary
-   key without changing the declaration per target;
-2. `aggregate` has a complete declarative form instead of requiring the
-   SQL-builder callback; and
-3. the transaction contract either stops requiring savepoints or explicitly
-   permits a target to refuse that named capability.
+1. the schema vocabulary can declare an externally generated or opaque primary key without changing the declaration per target;
+2. `aggregate` has a complete declarative form instead of requiring the SQL-builder callback; and
+3. the transaction contract either stops requiring savepoints or explicitly permits a target to refuse that named capability.
 
-Any future implementation would use the existing structural target seam. It
-would not widen `CompiledQuery`, add a `Target<Q>` parameter to every SQL
-consumer, or map populate to `$lookup`. No such work is planned.
+Any future implementation would use the existing structural target seam. It would not widen `CompiledQuery`, add a `Target<Q>` parameter to every SQL consumer, or map populate to `$lookup`. No such
+work is planned.
 
 ---
 
-See also: [Query Compiler](./select.html) ·
-[toJsonSchema](./llm-json-schema.html) · [Gel](./dialect-gel.html)
+See also: [Query Compiler](./select.html) · [toJsonSchema](./llm-json-schema.html) · [Gel](./dialect-gel.html)

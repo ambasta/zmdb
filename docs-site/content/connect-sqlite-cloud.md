@@ -16,9 +16,11 @@ export const driver: Driver = {
 };
 ```
 
-`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the first query.
+`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the
+first query.
 
-The `sql` method takes the statement and positional parameters, which is what a compiled query gives you. Its return type varies by statement kind, hence the `Array.isArray` guard — a write returns metadata, not rows, and `Driver.execute` must resolve to an array.
+The `sql` method takes the statement and positional parameters, which is what a compiled query gives you. Its return type varies by statement kind, hence the `Array.isArray` guard — a write returns
+metadata, not rows, and `Driver.execute` must resolve to an array.
 
 ## Type conversion
 
@@ -26,15 +28,18 @@ The same three types need handling as [local SQLite](./connect-sqlite.html): `bo
 
 ## What the hosting adds
 
-**Replicas and read routing.** Reads can be served by a replica; writes go to the primary. That composes with [`withReplicas`](./read-replicas.html) if you have separate connection strings, but read the caveat there — routing is decided from the SQL text, so an unusual statement (a CTE that writes) can be routed wrongly. Send anything unusual to the primary explicitly.
+**Replicas and read routing.** Reads can be served by a replica; writes go to the primary. That composes with [`withReplicas`](./read-replicas.html) if you have separate connection strings, but read
+the caveat there — routing is decided from the SQL text, so an unusual statement (a CTE that writes) can be routed wrongly. Send anything unusual to the primary explicitly.
 
-**Eventual consistency on replicas.** A read immediately after a write may not see it. Where that matters, use `RETURNING` so the write returns the row rather than reading it back — SQLite 3.35+ supports it, and `repo.create` uses it.
+**Eventual consistency on replicas.** A read immediately after a write may not see it. Where that matters, use `RETURNING` so the write returns the row rather than reading it back — SQLite 3.35+
+supports it, and `repo.create` uses it.
 
 **Pub/sub and webhooks.** Outside what zmdb touches. If you use them, note that they observe changes the database sees, so writes made through zmdb are visible to them without any integration.
 
 ## Concurrency
 
-It is still SQLite: one writer at a time. The hosting removes the deployment constraints — you can autoscale your application, which [local SQLite](./connect-sqlite.html) does not allow — but it does not remove write serialisation. A write-heavy workload will queue.
+It is still SQLite: one writer at a time. The hosting removes the deployment constraints — you can autoscale your application, which [local SQLite](./connect-sqlite.html) does not allow — but it does
+not remove write serialisation. A write-heavy workload will queue.
 
 Set a generous busy timeout if the client exposes one, and prefer batched writes over many small ones:
 
@@ -62,13 +67,7 @@ export const conn: MigrationConnection = {
     return db.sql(`SELECT version, name, checksum FROM "_zmdb_migrations" ORDER BY version`);
   },
   async recordApplied(version, name, checksum) {
-    await db.sql(
-      `INSERT INTO "_zmdb_migrations" (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)`,
-      version,
-      name,
-      Date.now(),
-      checksum ?? null,
-    );
+    await db.sql(`INSERT INTO "_zmdb_migrations" (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)`, version, name, Date.now(), checksum ?? null);
   },
   async recordReverted(version) {
     await db.sql(`DELETE FROM "_zmdb_migrations" WHERE version = ?`, version);

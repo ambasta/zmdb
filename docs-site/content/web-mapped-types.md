@@ -1,4 +1,5 @@
-There is no `PartialType`, `PickType`, `OmitType` or `IntersectionType`, and there is nothing for them to do: they exist in decorator frameworks because a DTO is a _class_ whose fields carry runtime metadata, so deriving one DTO from another needs a function that copies that metadata. Here a DTO is a type, and TypeScript already has the operators.
+There is no `PartialType`, `PickType`, `OmitType` or `IntersectionType`, and there is nothing for them to do: they exist in decorator frameworks because a DTO is a _class_ whose fields carry runtime
+metadata, so deriving one DTO from another needs a function that copies that metadata. Here a DTO is a type, and TypeScript already has the operators.
 
 ## The built-in derivations
 
@@ -11,8 +12,8 @@ type PostPatch = UpdateDTO<Post>; // every column optional
 type PostQuery = ListDTO<Post>; // { where?, orderBy?, page?, select? }
 ```
 
-`Post` is the interface you declared; the four names above are what derives from it, so
-they track the declaration. `UpdateDTO` is already the `PartialType` case, and it is generated rather than declared.
+`Post` is the interface you declared; the four names above are what derives from it, so they track the declaration. `UpdateDTO` is already the `PartialType` case, and it is generated rather than
+declared.
 
 ## Composing with TypeScript
 
@@ -44,7 +45,8 @@ async list() {
 }
 ```
 
-`select` narrows the row type as well as the SQL, so the projection and the type cannot disagree. The `as const` is required — without it the array widens to `string[]` and you get the full row type back.
+`select` narrows the row type as well as the SQL, so the projection and the type cannot disagree. The `as const` is required — without it the array widens to `string[]` and you get the full row type
+back.
 
 This is better than mapping a full row to a DTO, because the columns are never fetched. See [Query Performance](./perf-queries.html).
 
@@ -61,10 +63,8 @@ Explicit, checked, and it fails to compile if someone adds a sensitive column an
 
 `Sensitive` marks a column for serialization:
 
-> [!WARNING]
-> `Sensitive` affects the derived types and documents, **not** queries. The column is still
-> selected, still travels from the database into your process, and still appears in
-> anything that stringifies the raw row. Use `select` to avoid fetching it.
+> [!WARNING] `Sensitive` affects the derived types and documents, **not** queries. The column is still selected, still travels from the database into your process, and still appears in anything that
+> stringifies the raw row. Use `select` to avoid fetching it.
 
 ## Input types for a form
 
@@ -78,7 +78,8 @@ Compose exactly the shape the endpoint accepts, validate it in one call, and let
 
 ## Where the equivalent is genuinely missing
 
-**JSON Schema for a composed type.** `toJsonSchema(schema, variant)` works from a table and its six variants. It cannot emit a schema for `Omit<Post, 'x'>`, because that is a TypeScript type and the function reads a schema object. So an [OpenAPI](./web-openapi-operations.html) body schema for a hand-composed DTO must be written or post-processed:
+**JSON Schema for a composed type.** `toJsonSchema(schema, variant)` works from a table and its six variants. It cannot emit a schema for `Omit<Post, 'x'>`, because that is a TypeScript type and the
+function reads a schema object. So an [OpenAPI](./web-openapi-operations.html) body schema for a hand-composed DTO must be written or post-processed:
 
 ```ts
 const full = toJsonSchema(posts, 'create');

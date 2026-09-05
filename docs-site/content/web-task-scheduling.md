@@ -1,20 +1,15 @@
 ## Scale-out is the first decision
 
-Three replicas run an in-process timer three times. That is correct for a local
-cache refresh and a billing defect for a cluster-wide job, so every schedule
-must choose explicitly:
+Three replicas run an in-process timer three times. That is correct for a local cache refresh and a billing defect for a cluster-wide job, so every schedule must choose explicitly:
 
 | `runs` value       | Behaviour                                        | Typical use                      |
 | ------------------ | ------------------------------------------------ | -------------------------------- |
 | `once-per-replica` | every application instance runs the task         | local cache or connection state  |
 | `once-per-cluster` | one instance acquires a renewable per-task lease | billing, cleanup, reconciliation |
 
-There is no default. Constructing a scheduler with a
-`once-per-cluster` task and no `leases` throws before the loop starts; it never
-silently degrades to one run per replica.
+There is no default. Constructing a scheduler with a `once-per-cluster` task and no `leases` throws before the loop starts; it never silently degrades to one run per replica.
 
-`LeaseStore` is structural, so the application can implement it over the
-database or coordination service it already operates:
+`LeaseStore` is structural, so the application can implement it over the database or coordination service it already operates:
 
 ```ts
 interface LeaseStore {
@@ -24,19 +19,15 @@ interface LeaseStore {
 }
 ```
 
-The scheduler acquires a lease named after the task before invoking it, renews
-at one third of `leaseMs`, and releases it after settlement or shutdown. A
-failed acquisition produces `onSkipped({ reason: 'lease-not-held' })`. A
-renewal failure reaches `onTaskError` and disables future fires for that task.
+The scheduler acquires a lease named after the task before invoking it, renews at one third of `leaseMs`, and releases it after settlement or shutdown. A failed acquisition produces
+`onSkipped({ reason: 'lease-not-held' })`. A renewal failure reaches `onTaskError` and disables future fires for that task.
 
-A lease bounds concurrent **starters**, not every possible runner. A process
-that stalls beyond its lease can resume after another replica has acquired the
-same task. Durable work must therefore still be idempotent.
+A lease bounds concurrent **starters**, not every possible runner. A process that stalls beyond its lease can resume after another replica has acquired the same task. Durable work must therefore still
+be idempotent.
 
 ## Make a double fire harmless
 
-The recommended cluster-wide task is short: calculate a stable business-period
-key and enqueue durable work with that key.
+The recommended cluster-wide task is short: calculate a stable business-period key and enqueue durable work with that key.
 
 ```ts
 import { Cron } from '@zmdb/web/schedule';
@@ -68,16 +59,12 @@ class BillingTasks {
 }
 ```
 
-The queue's unique deduplication key turns two scheduler fires into one job row.
-The handler should also use its `ctx.idempotencyKey` completion marker as
-described in [Queues](./web-queues.html), because enqueue deduplication and
-at-least-once delivery are separate races.
+The queue's unique deduplication key turns two scheduler fires into one job row. The handler should also use its `ctx.idempotencyKey` completion marker as described in [Queues](./web-queues.html),
+because enqueue deduplication and at-least-once delivery are separate races.
 
 ## Declare and start the scheduler
 
-`@Cron` and `@Interval` only record declarations. `createScheduler` receives
-the instances built for one application, so two applications in one process do
-not share a registry.
+`@Cron` and `@Interval` only record declarations. `createScheduler` receives the instances built for one application, so two applications in one process do not share a registry.
 
 ```ts
 import { Cron, Interval, createScheduler, type LeaseStore } from '@zmdb/web/schedule';
@@ -140,18 +127,14 @@ const scheduler = createScheduler({
 scheduler.start();
 ```
 
-Call `start()` explicitly during bootstrap, or from an owning provider's
-`onApplicationBootstrap`. The scheduler implements `onShutdown()`: registering
-the constructed scheduler as a value provider lets application disposal invoke
-that hook. It installs no process signal handlers.
+Call `start()` explicitly during bootstrap, or from an owning provider's `onApplicationBootstrap`. The scheduler implements `onShutdown()`: registering the constructed scheduler as a value provider
+lets application disposal invoke that hook. It installs no process signal handlers.
 
-Use the same `Clock` instance for queues and schedules. Tests can supply a
-controllable clock; production can use the system-clock implementation above.
+Use the same `Clock` instance for queues and schedules. Tests can supply a controllable clock; production can use the system-clock implementation above.
 
 ## Cron dialect
 
-A five-field expression has normal `crontab(5)` meaning. An optional **leading**
-seconds field makes six:
+A five-field expression has normal `crontab(5)` meaning. An optional **leading** seconds field makes six:
 
 ```text
 ┌───────────── second (0-59), optional
@@ -175,20 +158,14 @@ The parser runs once at scheduler construction.
 | `@reboot`                                     | refused: startup is not a calendar instant       |
 | Quartz `L`, `W`, `#`, `?` or a trailing year  | refused rather than assigned a different dialect |
 
-When both day-of-month and day-of-week are restricted, cron's POSIX **OR**
-rule applies. `0 0 1 * MON` fires on the first of each month and on every
-Monday.
+When both day-of-month and day-of-week are restricted, cron's POSIX **OR** rule applies. `0 0 1 * MON` fires on the first of each month and on every Monday.
 
-An invalid expression, unknown IANA time zone, duplicate task name, non-positive
-duration, or interval longer than `2_147_483_647` milliseconds is a
-construction error. Use `@Cron` rather than a multi-week interval for calendar
-time.
+An invalid expression, unknown IANA time zone, duplicate task name, non-positive duration, or interval longer than `2_147_483_647` milliseconds is a construction error. Use `@Cron` rather than a
+multi-week interval for calendar time.
 
 ## Time zones and daylight saving
 
-`timeZone` defaults to `UTC`, never the host's zone. State is stored as an
-absolute instant; `Intl.DateTimeFormat` converts the requested wall time in the
-declared IANA zone.
+`timeZone` defaults to `UTC`, never the host's zone. State is stored as an absolute instant; `Intl.DateTimeFormat` converts the requested wall time in the declared IANA zone.
 
 For this declaration:
 
@@ -212,37 +189,24 @@ The host's `TZ` setting does not participate.
 
 Overlap is always prevented; there is no option to enable it.
 
-- A cron instant reached while its previous invocation is still running is
-  reported through `onSkipped` with `reason: 'still-running'`.
-- An interval is completion-to-start: its next delay begins only after the
-  previous invocation settles.
-- An instant passed during a clock jump or event-loop pause is reported with
-  `reason: 'missed'`. The scheduler does not catch up missed work.
-- A cluster task that loses the acquisition race reports
-  `reason: 'lease-not-held'`.
+- A cron instant reached while its previous invocation is still running is reported through `onSkipped` with `reason: 'still-running'`.
+- An interval is completion-to-start: its next delay begins only after the previous invocation settles.
+- An instant passed during a clock jump or event-loop pause is reported with `reason: 'missed'`. The scheduler does not catch up missed work.
+- A cluster task that loses the acquisition race reports `reason: 'lease-not-held'`.
 
-`onTaskError(task, scheduledFor, error)` receives thrown task errors, timeout
-reports and lease-renewal failures. The scheduler does not retry task bodies:
-enqueue work when it needs retries and a dead-letter path.
+`onTaskError(task, scheduledFor, error)` receives thrown task errors, timeout reports and lease-renewal failures. The scheduler does not retry task bodies: enqueue work when it needs retries and a
+dead-letter path.
 
-`timeoutMs` is an observation deadline, not a way to terminate JavaScript. A
-scheduled method receives no `AbortSignal`, so a method that does not settle
-remains the active invocation even after its timeout is reported and continues
-to prevent overlap.
-Likewise, `onShutdown()` waits up to `graceMs`, releases held leases and then
-returns, but it cannot forcibly stop application code. A resumed old runner can
-overlap a replacement, so idempotency remains required.
+`timeoutMs` is an observation deadline, not a way to terminate JavaScript. A scheduled method receives no `AbortSignal`, so a method that does not settle remains the active invocation even after its
+timeout is reported and continues to prevent overlap. Likewise, `onShutdown()` waits up to `graceMs`, releases held leases and then returns, but it cannot forcibly stop application code. A resumed old
+runner can overlap a replacement, so idempotency remains required.
 
-Both observation callbacks are isolated: if logging throws, it does not stop
-the scheduler or replace the original error.
+Both observation callbacks are isolated: if logging throws, it does not stop the scheduler or replace the original error.
 
 ## When an external scheduler is still better
 
-A platform cron, Kubernetes `CronJob`, EventBridge or another managed scheduler
-remains a good fit when operations needs a provider-owned run history or does
-not want timers inside the application. Authenticate any HTTP endpoint it
-calls, and keep the same idempotency rule: an external trigger may also be
-retried or delivered again.
+A platform cron, Kubernetes `CronJob`, EventBridge or another managed scheduler remains a good fit when operations needs a provider-owned run history or does not want timers inside the application.
+Authenticate any HTTP endpoint it calls, and keep the same idempotency rule: an external trigger may also be retried or delivered again.
 
 ---
 

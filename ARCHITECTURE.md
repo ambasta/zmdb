@@ -1,36 +1,24 @@
 # zmdb — Architecture
 
-> **Status:** living architecture (supersedes the 2026-08-29 component blueprint).
-> **Baseline (hard floor):** Node.js **26+**, TypeScript **7+**, **ESM-only**.
-> Stage 3 ECMAScript proposals are first-class. Nothing older is supported —
-> ever. We do not ship CommonJS, we do not ship compat shims, we do not test
-> against older engines.
+> **Status:** living architecture (supersedes the 2026-08-29 component blueprint). **Baseline (hard floor):** Node.js **26+**, TypeScript **7+**, **ESM-only**. Stage 3 ECMAScript proposals are
+> first-class. Nothing older is supported — ever. We do not ship CommonJS, we do not ship compat shims, we do not test against older engines.
 >
-> 📖 Component-level API docs live on the docs site
-> (https://ambasta.github.io/zmdb/) and in each package's `SPEC.md`. This file is
-> the **project-wide** architecture: the north stars, the package-splitting
-> doctrine, the implementation-language policy, and the opinionated directives
-> that every package must obey.
+> 📖 Component-level API docs live on the docs site (https://ambasta.github.io/zmdb/) and in each package's `SPEC.md`. This file is the **project-wide** architecture: the north stars, the
+> package-splitting doctrine, the implementation-language policy, and the opinionated directives that every package must obey.
 
 ---
 
 ## 1. North stars
 
-There are exactly two, in priority order. When they conflict, **(1) wins**, and
-the conflict is documented at the call site.
+There are exactly two, in priority order. When they conflict, **(1) wins**, and the conflict is documented at the call site.
 
-1. **Fastest possible runtime for the consuming application.** Every design
-   choice is measured by its cost in the _user's_ hot path — per request, per
-   query, per validation. Work that can happen at build time, install time, or
-   type-check time must _not_ happen at runtime. Allocation, indirection,
-   reflection, and dynamic dispatch on the hot path are defects, not trade-offs.
+1. **Fastest possible runtime for the consuming application.** Every design choice is measured by its cost in the _user's_ hot path — per request, per query, per validation. Work that can happen at
+   build time, install time, or type-check time must _not_ happen at runtime. Allocation, indirection, reflection, and dynamic dispatch on the hot path are defects, not trade-offs.
 
-2. **Maintainability.** The framework must stay small, legible, and changeable by
-   a small team. A feature that cannot be maintained is not shipped. Clever code
-   that no one can safely modify is a liability regardless of speed.
+2. **Maintainability.** The framework must stay small, legible, and changeable by a small team. A feature that cannot be maintained is not shipped. Clever code that no one can safely modify is a
+   liability regardless of speed.
 
-Everything else — ergonomics, breadth, parity with incumbents — is subordinate
-to these two and justified in their terms.
+Everything else — ergonomics, breadth, parity with incumbents — is subordinate to these two and justified in their terms.
 
 ### 1.1 Corollary: the cost model
 
@@ -41,116 +29,68 @@ type-check time   →   build time   →   install time   →   RUNTIME
 (free for users)      (once, CI)       (once, npm i)       (per request — minimize!)
 ```
 
-- **Type-check time** (free for the consumer): schema→type derivation, illegal
-  states, route/param typing, DI graph validation. Prefer this above all.
-- **Build time** (paid once by the consumer's bundler/tsc): AOT validator
-  inlining, SQL compilation where the query is static.
-- **Install time** (paid once): our own `dist` build; native/WASM artifact
-  download.
-- **Runtime** (paid every time): only the irreducible work — the actual SQL
-  round-trip, the inlined validation booleans, one object shape. Anything else
-  here must justify itself against north star (1).
+- **Type-check time** (free for the consumer): schema→type derivation, illegal states, route/param typing, DI graph validation. Prefer this above all.
+- **Build time** (paid once by the consumer's bundler/tsc): AOT validator inlining, SQL compilation where the query is static.
+- **Install time** (paid once): our own `dist` build; native/WASM artifact download.
+- **Runtime** (paid every time): only the irreducible work — the actual SQL round-trip, the inlined validation booleans, one object shape. Anything else here must justify itself against north star
+  (1).
 
 ---
 
 ## 2. Opinionated design directives (non-negotiable)
 
-These are not preferences; they are invariants. A change that violates one is
-rejected regardless of how convenient it is.
+These are not preferences; they are invariants. A change that violates one is rejected regardless of how convenient it is.
 
-1. **No runtime proxies, identity maps, or change tracking.** Reads return plain,
-   inert objects (`prototype === Object.prototype`). Writes are explicit
-   (`create`/`update`/`delete`). This is the single largest source of our speed.
-2. **No runtime reflection.** No `reflect-metadata`, no runtime schema
-   inspection, no `emitDecoratorMetadata`. Type information is erased; derivation
-   is compile-time. Stage 3 decorators may use `context.metadata`, but only for
-   data the decorator itself wrote (never type reflection).
-3. **No runtime parsing/validation engine.** Validation is AOT-inlined to
-   straight-line JavaScript booleans. No Zod/Valibot/Yup on the hot path, ever.
-4. **Explicit SQL.** The query layer compiles to parameterized SQL strings. No
-   implicit magic query objects; no hidden N+1.
-5. **No `as` / no escape hatches.** `any`, `unknown`-casting, `as T` assertions,
-   and non-null `!` in framework code are **defects**. If a type can't be
-   proven, redesign the type, don't assert it. The only permitted assertions are
-   a small, enumerated, individually-justified set of **boundary casts**
-   (§2.1) — each commented with _why it is sound_. Consumer-facing APIs must be
-   assertion-free: a user should never need `as` to use zmdb correctly.
-6. **ESM-only, no dual publishing.** One module format. `"type": "module"`,
-   single `exports` map, no `.cjs`.
-7. **Zero third-party dependencies on the query/validation hot path.** Runtime
-   execution depends only on `@zmdb/*` packages and Node built-ins. Third-party
-   integrations (a `pg` driver, a Hono adapter) are _optional_ and structurally
-   typed. The tooling exception is `oxfmt`, pinned by query-compiler because
-   declaration emission must invoke the same formatter as the repository.
-8. **Reproducible measurement.** Performance claims are backed by the real upstream
-   benchmark harnesses. The results include unsupported cases and trade-offs
-   instead of reducing them to a single score (see the benchmarks dashboard).
-9. **One front-end: a table is a type.** There is no builder DSL and no schema
-   value to maintain. A TypeScript interface with phantom tags is reflected once
-   into `TypeIR`. DDL, DTOs, JSON Schema, and generated validators all consume
-   that same IR.
+1. **No runtime proxies, identity maps, or change tracking.** Reads return plain, inert objects (`prototype === Object.prototype`). Writes are explicit (`create`/`update`/`delete`). This is the single
+   largest source of our speed.
+2. **No runtime reflection.** No `reflect-metadata`, no runtime schema inspection, no `emitDecoratorMetadata`. Type information is erased; derivation is compile-time. Stage 3 decorators may use
+   `context.metadata`, but only for data the decorator itself wrote (never type reflection).
+3. **No runtime parsing/validation engine.** Validation is AOT-inlined to straight-line JavaScript booleans. No Zod/Valibot/Yup on the hot path, ever.
+4. **Explicit SQL.** The query layer compiles to parameterized SQL strings. No implicit magic query objects; no hidden N+1.
+5. **No `as` / no escape hatches.** `any`, `unknown`-casting, `as T` assertions, and non-null `!` in framework code are **defects**. If a type can't be proven, redesign the type, don't assert it. The
+   only permitted assertions are a small, enumerated, individually-justified set of **boundary casts** (§2.1) — each commented with _why it is sound_. Consumer-facing APIs must be assertion-free: a
+   user should never need `as` to use zmdb correctly.
+6. **ESM-only, no dual publishing.** One module format. `"type": "module"`, single `exports` map, no `.cjs`.
+7. **Zero third-party dependencies on the query/validation hot path.** Runtime execution depends only on `@zmdb/*` packages and Node built-ins. Third-party integrations (a `pg` driver, a Hono adapter)
+   are _optional_ and structurally typed. The tooling exception is `oxfmt`, pinned by query-compiler because declaration emission must invoke the same formatter as the repository.
+8. **Reproducible measurement.** Performance claims are backed by the real upstream benchmark harnesses. The results include unsupported cases and trade-offs instead of reducing them to a single score
+   (see the benchmarks dashboard).
+9. **One front-end: a table is a type.** There is no builder DSL and no schema value to maintain. A TypeScript interface with phantom tags is reflected once into `TypeIR`. DDL, DTOs, JSON Schema, and
+   generated validators all consume that same IR.
 
-   `yarn verify:no-defineschema` protects the single front-end by checking every
-   published export. `yarn verify:one-walker` protects the back-end by listing
-   the few places allowed to inspect column metadata, together with the reason
-   for each exception. It fails when another metadata reader appears or an
-   existing exception is no longer needed.
+   `yarn verify:no-defineschema` protects the single front-end by checking every published export. `yarn verify:one-walker` protects the back-end by listing the few places allowed to inspect column
+   metadata, together with the reason for each exception. It fails when another metadata reader appears or an existing exception is no longer needed.
 
-10. **The source runs as-is; the build only mirrors it.** In the repo every
-    `exports` target is a `.ts` file and Node reads it directly, stripping the
-    types. Tests, local development, and consumer fixtures use those source
-    exports, and `yarn verify:exports` imports every published subpath that way.
+10. **The source runs as-is; the build only mirrors it.** In the repo every `exports` target is a `.ts` file and Node reads it directly, stripping the types. Tests, local development, and consumer
+    fixtures use those source exports, and `yarn verify:exports` imports every published subpath that way.
 
-    Relative imports still use NodeNext-style `.js` specifiers. Node does not
-    resolve those to source `.ts` files, so source entry points load the small
-    `scripts/ts-specifier-hook.mjs` resolver. The hook only substitutes a `.ts`
-    sibling when the requested `.js` file does not exist. Real JavaScript files,
-    including generated files and `dist`, are left alone. Source modules must
-    also avoid runtime syntax that Node's type stripping cannot parse, including
-    decorators.
+    Relative imports still use NodeNext-style `.js` specifiers. Node does not resolve those to source `.ts` files, so source entry points load the small `scripts/ts-specifier-hook.mjs` resolver. The
+    hook only substitutes a `.ts` sibling when the requested `.js` file does not exist. Real JavaScript files, including generated files and `dist`, are left alone. Source modules must also avoid
+    runtime syntax that Node's type stripping cannot parse, including decorators.
 
-    Published packages use a file-for-file `tsc` build in `dist`, with `src`
-    included for source maps. A build is required because Node refuses to strip
-    types inside `node_modules`; workspace symlinks would otherwise hide that
-    failure. `yarn verify:publish` catches it by packing each package, installing
-    it outside the workspace, and importing every subpath.
+    Published packages use a file-for-file `tsc` build in `dist`, with `src` included for source maps. A build is required because Node refuses to strip types inside `node_modules`; workspace symlinks
+    would otherwise hide that failure. `yarn verify:publish` catches it by packing each package, installing it outside the workspace, and importing every subpath.
 
 ### 2.1 The `as`-free rule and its narrow exceptions
 
-"No `as`" is a hard project goal. In practice a typed system that touches an
-untyped world (a DB driver returning `Record<string, unknown>`, `JSON.parse`,
-`context.metadata`) has a finite number of **trust boundaries** where a value
-crosses from "the runtime promises this shape" into "the type system knows this
-shape." The policy:
+"No `as`" is a hard project goal. In practice a typed system that touches an untyped world (a DB driver returning `Record<string, unknown>`, `JSON.parse`, `context.metadata`) has a finite number of
+**trust boundaries** where a value crosses from "the runtime promises this shape" into "the type system knows this shape." The policy:
 
-- **Consumer code: zero assertions.** If a user must write `as` to satisfy our
-  API, that is our bug.
-- **Framework code: assertions are a reviewed, enumerated exception**, allowed
-  _only_ at a trust boundary (driver row → `Entity<S>`, parsed JSON → `T`,
-  metadata slot → typed record), each with a `// boundary:` comment stating the
-  runtime guarantee that makes it sound. We prefer, in order: (a) a type-guard
-  function that _proves_ the shape, (b) a generic that carries the type without
-  assertion, (c) a `satisfies` check, and only then (d) a commented boundary
-  cast. New assertions require justification in review; the count is tracked and
-  driven toward zero.
+- **Consumer code: zero assertions.** If a user must write `as` to satisfy our API, that is our bug.
+- **Framework code: assertions are a reviewed, enumerated exception**, allowed _only_ at a trust boundary (driver row → `Entity<S>`, parsed JSON → `T`, metadata slot → typed record), each with a
+  `// boundary:` comment stating the runtime guarantee that makes it sound. We prefer, in order: (a) a type-guard function that _proves_ the shape, (b) a generic that carries the type without
+  assertion, (c) a `satisfies` check, and only then (d) a commented boundary cast. New assertions require justification in review; the count is tracked and driven toward zero.
 
-> The public API is assertion-free. Framework internals use a documented
-> exception list for places where runtime data crosses into a TypeScript type.
+> The public API is assertion-free. Framework internals use a documented exception list for places where runtime data crosses into a TypeScript type.
 >
-> As of 2026-09-04, the 176 shipped files under `packages/*/src` contain 55
-> assertions and 55 matching `// boundary:` comments. They contain no `any`, no
-> non-null assertions, no `as unknown as`, and one lint suppression. The
-> consumer documentation contains no required casts.
+> As of 2026-09-04, the 176 shipped files under `packages/*/src` contain 55 assertions and 55 matching `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`, and
+> one lint suppression. The consumer documentation contains no required casts.
 >
-> The count rose from 28 during the type-first work. Of the 55 current
-> assertions, 26 are in `aot-validator`, mainly around checker values, parsed
-> JSON, and validated return values. Each comment records the runtime guarantee
-> behind its assertion.
+> The count rose from 28 during the type-first work. Of the 55 current assertions, 26 are in `aot-validator`, mainly around checker values, parsed JSON, and validated return values. Each comment
+> records the runtime guarantee behind its assertion.
 >
-> `yarn verify:escape-hatches` enforces both the comments and a per-package count
-> ceiling. It fails when a count rises, when an assertion lacks its boundary
-> comment, or when a ceiling can be lowered. This closes the gap that previously
-> let the total move from 23 to 28 without a failing check (PRD RISK-7).
+> `yarn verify:escape-hatches` enforces both the comments and a per-package count ceiling. It fails when a count rises, when an assertion lacks its boundary comment, or when a ceiling can be lowered.
+> This closes the gap that previously let the total move from 23 to 28 without a failing check (PRD RISK-7).
 
 ---
 
@@ -158,32 +98,19 @@ shape." The policy:
 
 ### 3.1 The splitting doctrine — _when_ a concern earns its own package
 
-We split aggressively along **responsibility seams**, not by file count. A new
-package is justified **only** when it satisfies most of these tests:
+We split aggressively along **responsibility seams**, not by file count. A new package is justified **only** when it satisfies most of these tests:
 
-1. **Distinct responsibility.** It owns one clearly-nameable concern that the
-   others should not know about (e.g. "compile SQL" vs "derive types" vs
-   "validate at the boundary").
-2. **Independent consumability.** A real user would install it _alone_ — e.g.
-   someone who wants only the query compiler, or only the AOT validator, with no
-   interest in the rest.
-3. **Independent versioning value.** Its API changes on a different cadence than
-   its siblings, and forcing a lockstep bump would be user-hostile.
-4. **A one-directional dependency edge.** It can sit at a clean layer in the DAG
-   (below its consumers, above its providers) with **no cycles**. If two
-   candidate packages would need to depend on each other, they are one package.
-5. **Independent testability.** Its contract can be tested without standing up
-   the others.
+1. **Distinct responsibility.** It owns one clearly-nameable concern that the others should not know about (e.g. "compile SQL" vs "derive types" vs "validate at the boundary").
+2. **Independent consumability.** A real user would install it _alone_ — e.g. someone who wants only the query compiler, or only the AOT validator, with no interest in the rest.
+3. **Independent versioning value.** Its API changes on a different cadence than its siblings, and forcing a lockstep bump would be user-hostile.
+4. **A one-directional dependency edge.** It can sit at a clean layer in the DAG (below its consumers, above its providers) with **no cycles**. If two candidate packages would need to depend on each
+   other, they are one package.
+5. **Independent testability.** Its contract can be tested without standing up the others.
 
-If a concern fails these tests it stays a **sub-module** (`src/<concern>/` with
-its own `SPEC.md` and a subpath export) inside an existing package — cheaper to
-maintain, still separable later. **Subpath exports are the default; a new package
-is the exception.** We would rather ship `@zmdb/schema-core/dto` than a premature
-`@zmdb/dto`.
+If a concern fails these tests it stays a **sub-module** (`src/<concern>/` with its own `SPEC.md` and a subpath export) inside an existing package — cheaper to maintain, still separable later.
+**Subpath exports are the default; a new package is the exception.** We would rather ship `@zmdb/schema-core/dto` than a premature `@zmdb/dto`.
 
-Conversely, we **merge** packages that have grown a bidirectional dependency or
-that no one installs independently — dissolving a package is a valid, encouraged
-refactor.
+Conversely, we **merge** packages that have grown a bidirectional dependency or that no one installs independently — dissolving a package is a valid, encouraged refactor.
 
 ### 3.2 The dependency DAG (must stay acyclic)
 
@@ -221,22 +148,13 @@ refactor.
 
 **Rules enforced by this DAG:**
 
-- **query-compiler is the lower-level SQL/tooling package.** Its declaration
-  emitter is the only framework path that requires `oxfmt`; ordinary query
-  compilation does not invoke it.
-- **schema-core is the semantic Single Source of Truth.** It reuses lower-level
-  compiler query, quoting, and naming utilities but must not import validator,
-  repository, or web.
-- **aot-validator depends on schema-core, never the reverse.** Reflection and
-  boundary validation remain above the declaration vocabulary.
-- **repository is the composition layer** — it wires schema + compiler + validator
-  into CRUD, and owns the driver adapters (built-in `node:sqlite`, optional `pg`).
-- **web sits above repository** — controllers inject repositories, routes
-  validate via the AOT validator, responses serialize via the AOT serializer,
-  and observability reads optional compile-time query metadata without parsing
-  SQL at execution.
-- **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the
-  default install; the sub-packages remain the tree-shakeable/advanced path.
+- **query-compiler is the lower-level SQL/tooling package.** Its declaration emitter is the only framework path that requires `oxfmt`; ordinary query compilation does not invoke it.
+- **schema-core is the semantic Single Source of Truth.** It reuses lower-level compiler query, quoting, and naming utilities but must not import validator, repository, or web.
+- **aot-validator depends on schema-core, never the reverse.** Reflection and boundary validation remain above the declaration vocabulary.
+- **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and owns the driver adapters (built-in `node:sqlite`, optional `pg`).
+- **web sits above repository** — controllers inject repositories, routes validate via the AOT validator, responses serialize via the AOT serializer, and observability reads optional compile-time
+  query metadata without parsing SQL at execution.
+- **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the default install; the sub-packages remain the tree-shakeable/advanced path.
 
 ### 3.3 Current + planned package map
 
@@ -251,61 +169,44 @@ refactor.
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
 
-- `@zmdb/aot-validator` may split its **transformer plugin** from its **runtime
-  fallback** if the plugin grows a heavy `typescript` coupling that hurts the
-  runtime package's install weight.
-- `@zmdb/web` will likely spawn **sub-modules first** (routing, DI, pipeline,
-  guards/interceptors) and only promote one to a package if it becomes
-  independently useful (e.g. the DI container).
-- Native/WASM hot-path kernels (§4) would ship as their own artifact packages
-  (`@zmdb/<x>-native`) loaded optionally, never as a hard dependency.
+- `@zmdb/aot-validator` may split its **transformer plugin** from its **runtime fallback** if the plugin grows a heavy `typescript` coupling that hurts the runtime package's install weight.
+- `@zmdb/web` will likely spawn **sub-modules first** (routing, DI, pipeline, guards/interceptors) and only promote one to a package if it becomes independently useful (e.g. the DI container).
+- Native/WASM hot-path kernels (§4) would ship as their own artifact packages (`@zmdb/<x>-native`) loaded optionally, never as a hard dependency.
 
 ---
 
 ## 4. Implementation-language policy
 
-**We target the TypeScript ecosystem; we are not obligated to implement in
-TypeScript.** The public surface (types, tags, decorators) is and will remain
-TypeScript, because that is the _product_. But the _implementation_ of any hot
-path is chosen purely by north star (1): whatever gives the consumer the fastest
-runtime while remaining maintainable.
+**We target the TypeScript ecosystem; we are not obligated to implement in TypeScript.** The public surface (types, tags, decorators) is and will remain TypeScript, because that is the _product_. But
+the _implementation_ of any hot path is chosen purely by north star (1): whatever gives the consumer the fastest runtime while remaining maintainable.
 
 ### 4.1 The decision rule
 
 For each unit of work, pick the leftmost option that meets the perf bar:
 
-1. **Type-level (0 runtime).** If it can be a compile-time type, it is not code.
-   _(derivation, path-param typing, DI-graph checks, domain state machines)_
-2. **AOT-generated JS (0 marginal runtime).** If it can be inlined at the
-   consumer's build, emit straight-line JavaScript. _(validation, static SQL)_
-3. **Hand-written modern JS/TS (fast enough, most maintainable).** The default
-   for everything not on a measured hot path. Node 26's V8 is the target; write
-   monomorphic, allocation-light code.
-4. **Native (N-API) or WASM kernel (last resort, measured).** Only when (1)–(3)
-   are proven insufficient by a benchmark, and only for a **small, stable,
-   pure-function kernel** with a clean boundary (bytes in → bytes/values out).
+1. **Type-level (0 runtime).** If it can be a compile-time type, it is not code. _(derivation, path-param typing, DI-graph checks, domain state machines)_
+2. **AOT-generated JS (0 marginal runtime).** If it can be inlined at the consumer's build, emit straight-line JavaScript. _(validation, static SQL)_
+3. **Hand-written modern JS/TS (fast enough, most maintainable).** The default for everything not on a measured hot path. Node 26's V8 is the target; write monomorphic, allocation-light code.
+4. **Native (N-API) or WASM kernel (last resort, measured).** Only when (1)–(3) are proven insufficient by a benchmark, and only for a **small, stable, pure-function kernel** with a clean boundary
+   (bytes in → bytes/values out).
 
 ### 4.2 Guardrails for reaching down to native/WASM
 
 Because native code trades maintainability for speed, it is gated:
 
-- **Must be justified by a committed benchmark** showing the JS path is the
-  bottleneck in a _consumer_ hot path (not a micro-benchmark of our internals).
-- **Must ship as an optional, separately-versioned artifact** with a **pure-JS
-  fallback of identical behaviour** — installs must never _require_ a native
-  build, and consumers on any platform must work (slower) without it.
-- **WASM is preferred over N-API** for portability (no node-gyp, no per-platform
-  binaries, works in edge runtimes), unless N-API is measurably faster for the
-  specific kernel.
-- **The boundary must be tiny and value-typed** (e.g. "compile this AST to a SQL
-  string", "hash these bytes") — never a chatty API that crosses the JS↔native
-  boundary per row.
+- **Must be justified by a committed benchmark** showing the JS path is the bottleneck in a _consumer_ hot path (not a micro-benchmark of our internals).
+- **Must ship as an optional, separately-versioned artifact** with a **pure-JS fallback of identical behaviour** — installs must never _require_ a native build, and consumers on any platform must work
+  (slower) without it.
+- **WASM is preferred over N-API** for portability (no node-gyp, no per-platform binaries, works in edge runtimes), unless N-API is measurably faster for the specific kernel.
+- **The boundary must be tiny and value-typed** (e.g. "compile this AST to a SQL string", "hash these bytes") — never a chatty API that crosses the JS↔native boundary per row.
 
 ### 4.3 Current state
 
-Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` by `tsc` (`scripts/build-package.mjs`), and it already meets our validation/ORM benchmark targets on Node/Bun/Deno. The AOT validator's inlined output _is_ our "generated JS" tier.
+Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` by `tsc` (`scripts/build-package.mjs`), and it already meets our validation/ORM benchmark targets on Node/Bun/Deno. The AOT
+validator's inlined output _is_ our "generated JS" tier.
 
-**No native/WASM kernel exists or is currently justified.** The policy above is the rule we'll apply _if and when_ a measured bottleneck appears — we do not add native complexity speculatively (north star 2). The realistic first candidates, should they ever be needed, are the AOT validator's JS emitter and the query compiler's string assembly — both pure, both boundary-clean.
+**No native/WASM kernel exists or is currently justified.** The policy above is the rule we'll apply _if and when_ a measured bottleneck appears — we do not add native complexity speculatively (north
+star 2). The realistic first candidates, should they ever be needed, are the AOT validator's JS emitter and the query compiler's string assembly — both pure, both boundary-clean.
 
 ---
 
@@ -314,61 +215,38 @@ Today **everything is TypeScript**, compiled to ESM `.js` + `.d.ts` by `tsc` (`s
 Committing to a hard floor is itself an architecture decision — it removes code:
 
 - **No CommonJS interop, no dual `exports`, no `__dirname` shims.** ESM-only.
-- **No transpilation of modern syntax** — `using`/`await using` (explicit
-  resource mgmt), top-level `await`, `Array.fromAsync`, `Object.groupBy`,
-  `Promise.withResolvers`, `structuredClone`, and **`node:sqlite`** are assumed
-  present. The built-in `node:sqlite` driver is why our quickstart is
-  zero-dependency.
-- **Stage 3 standard decorators** (`experimentalDecorators: false`) with
-  `Symbol.metadata` — the foundation of `@zmdb/web`. No `reflect-metadata`.
-- **No polyfills** in shipped code. If a runtime feature isn't in Node 26, we
-  don't use it; we don't shim it.
+- **No transpilation of modern syntax** — `using`/`await using` (explicit resource mgmt), top-level `await`, `Array.fromAsync`, `Object.groupBy`, `Promise.withResolvers`, `structuredClone`, and
+  **`node:sqlite`** are assumed present. The built-in `node:sqlite` driver is why our quickstart is zero-dependency.
+- **Stage 3 standard decorators** (`experimentalDecorators: false`) with `Symbol.metadata` — the foundation of `@zmdb/web`. No `reflect-metadata`.
+- **No polyfills** in shipped code. If a runtime feature isn't in Node 26, we don't use it; we don't shim it.
 
 ---
 
 ## 6. Cross-cutting standards (every package)
 
-- **`SPEC.md` per concern, frozen before code** (spec → failing tests → impl →
-  docs). Type-level behaviour is tested in a `*.type-test.ts` file next to the
-  module with `Expect<Equal<…>>` and `@ts-expect-error`, never with
-  `expectTypeOf`: vitest only _runs_ specs, so `expectTypeOf(...)` there is a
-  runtime no-op. Those files hold no runtime code — they are a **compilation**
-  gate, run by `yarn typecheck` (which is what CI runs). See PRD §9.6.
-- **Coverage follows upstream documentation and tests.**
-  `yarn verify:docs-coverage` maps 396 documentation pages.
-  `yarn verify:api-coverage` maps the 742 public API suites and 9,258 assertions
-  run by Drizzle, Kysely, MikroORM, NestJS, and Typia.
+- **`SPEC.md` per concern, frozen before code** (spec → failing tests → impl → docs). Type-level behaviour is tested in a `*.type-test.ts` file next to the module with `Expect<Equal<…>>` and
+  `@ts-expect-error`, never with `expectTypeOf`: vitest only _runs_ specs, so `expectTypeOf(...)` there is a runtime no-op. Those files hold no runtime code — they are a **compilation** gate, run by
+  `yarn typecheck` (which is what CI runs). See PRD §9.6.
+- **Coverage follows upstream documentation and tests.** `yarn verify:docs-coverage` maps 396 documentation pages. `yarn verify:api-coverage` maps the 742 public API suites and 9,258 assertions run by
+  Drizzle, Kysely, MikroORM, NestJS, and Typia.
 
-  Each upstream suite in `tests/api-coverage/inventory.mjs` either points to a
-  zmdb test or explains why the behavior is out of scope. At present, 328 zmdb
-  tests cover 504 suites and the remaining 238 have recorded exclusions. These
-  totals are not a quality score: one behavior may appear in many upstream
-  suites, and a single broad zmdb test may receive many credits. The gate prints
-  its broadest mappings so they can be reviewed directly.
+  Each upstream suite in `tests/api-coverage/inventory.mjs` either points to a zmdb test or explains why the behavior is out of scope. At present, 328 zmdb tests cover 504 suites and the remaining 238
+  have recorded exclusions. These totals are not a quality score: one behavior may appear in many upstream suites, and a single broad zmdb test may receive many credits. The gate prints its broadest
+  mappings so they can be reviewed directly.
 
-  The inventory is pinned to specific upstream commits. Maintainers refresh it
-  with `scripts/harvest-api-tests.mjs`; CI uses the pinned copy so an upstream
-  change cannot break this repository without review.
+  The inventory is pinned to specific upstream commits. Maintainers refresh it with `scripts/harvest-api-tests.mjs`; CI uses the pinned copy so an upstream change cannot break this repository without
+  review.
 
-- **tsconfig:** `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
-  `verbatimModuleSyntax`, `isolatedModules`; `@zmdb/web` additionally pins
-  `noImplicitAny` and asserts `experimentalDecorators: false`.
-- **Build:** `scripts/build-package.mjs` runs `tsc` to produce ESM `.js` and
-  `.d.ts` files in a layout that mirrors `src`.
-- **Publish:** Trusted Publishing (OIDC, no token) via CI; `latest` dist-tag
-  tracks the highest-precedence release (stable > rc > beta > alpha); provenance
-  attested. License **GPL-3.0-or-later**.
-- **No hidden state.** No module-level mutable singletons on the hot path (the DI
-  container in `@zmdb/web` is the one explicit, opt-in registry, and it is
-  resolved at class-init, not per request).
+- **tsconfig:** `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, `isolatedModules`; `@zmdb/web` additionally pins `noImplicitAny` and asserts
+  `experimentalDecorators: false`.
+- **Build:** `scripts/build-package.mjs` runs `tsc` to produce ESM `.js` and `.d.ts` files in a layout that mirrors `src`.
+- **Publish:** Trusted Publishing (OIDC, no token) via CI; `latest` dist-tag tracks the highest-precedence release (stable > rc > beta > alpha); provenance attested. License **GPL-3.0-or-later**.
+- **No hidden state.** No module-level mutable singletons on the hot path (the DI container in `@zmdb/web` is the one explicit, opt-in registry, and it is resolved at class-init, not per request).
 
 ---
 
 ## 7. Superseded
 
-This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture
-Specification." Notably it **reverses** that document's §4 recommendation
-("TypeScript for all packages") in favour of the north-star-driven language
-policy in §4 here, and it records the five-package reality (+ `@zmdb/web`) rather
-than the original four. Component-level details in the old doc that remain
-accurate now live in each package's `SPEC.md` and the docs site.
+This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
+the north-star-driven language policy in §4 here, and it records the five-package reality (+ `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now
+live in each package's `SPEC.md` and the docs site.

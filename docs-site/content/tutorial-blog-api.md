@@ -22,19 +22,7 @@ Two tables and one relation. This file is the only place the shape of a post exi
 
 ```ts
 // src/schema.ts
-import type {
-  HasDefault,
-  Length,
-  ManyToOne,
-  OneToMany,
-  Pattern,
-  PrimaryKey,
-  References,
-  Serial,
-  Sql,
-  Table,
-  Unique,
-} from 'zmdb/tags';
+import type { HasDefault, Length, ManyToOne, OneToMany, Pattern, PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
 export interface Author extends Table<'authors'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -66,7 +54,8 @@ type NewPost = CreateDTO<Post>;
 // { authorId: number; title: string; body: string; published?: boolean; createdAt?: Date }
 ```
 
-`id` is gone because it is `Serial`; `published` and `createdAt` are optional because they say `HasDefault`. The relations are gone too — a join target is not something to `INSERT`. Nothing restated any of that; it was read off the declaration.
+`id` is gone because it is `Serial`; `published` and `createdAt` are optional because they say `HasDefault`. The relations are gone too — a join target is not something to `INSERT`. Nothing restated
+any of that; it was read off the declaration.
 
 ## 3. Migrations
 
@@ -102,14 +91,12 @@ export const postRepo = defineRepository(schemaOf<Post>(), driver);
 export type PostRepo = typeof postRepo;
 ```
 
-`defineRepository(schema, driver, options?)` returns a **repository instance**, not a
-class — it builds an anonymous `BaseRepository` subclass with the schema bound as a
-static and constructs it. `findById`, `find`, `findOne`, `list`, `create`, `update`,
-`delete`, `aggregate` and the populate/join methods are all typed against the schema
-you passed. Exporting `typeof postRepo` as a named type is what lets a controller
-annotate its injected field.
+`defineRepository(schema, driver, options?)` returns a **repository instance**, not a class — it builds an anonymous `BaseRepository` subclass with the schema bound as a static and constructs it.
+`findById`, `find`, `findOne`, `list`, `create`, `update`, `delete`, `aggregate` and the populate/join methods are all typed against the schema you passed. Exporting `typeof postRepo` as a named type
+is what lets a controller annotate its injected field.
 
-Relations need no wiring here. `OneToMany<'posts', 'authorId'>` on the interface in step 2 is the whole declaration: `authorRepo.findAll({ populate: ['posts'] })` type-checks the key against it and batches the child query from the same tag. There used to be a `relations` option on this call that restated the target and the foreign key.
+Relations need no wiring here. `OneToMany<'posts', 'authorId'>` on the interface in step 2 is the whole declaration: `authorRepo.findAll({ populate: ['posts'] })` type-checks the key against it and
+batches the child query from the same tag. There used to be a `relations` option on this call that restated the target and the foreign key.
 
 ## 5. A driver
 
@@ -173,8 +160,8 @@ export class PostsController {
 
 `assert<CreateDTO<Post>>` is a validator the transformer derived from the declaration, so adding a required column breaks this call site — not the request, at runtime, in production.
 
-> [!TIP]
-> `Ctx<Params, Body, Query>` is generic over the three request parts. `PathParams<'/posts/:id'>` derives `{ id: string }` from the path literal if you would rather not restate it. See [Typed Request Context](./web-context.html).
+> [!TIP] `Ctx<Params, Body, Query>` is generic over the three request parts. `PathParams<'/posts/:id'>` derives `{ id: string }` from the path literal if you would rather not restate it. See
+> [Typed Request Context](./web-context.html).
 
 ## 7. Wire it up
 
@@ -198,19 +185,15 @@ await using app = createApp(AppModule);
 await app.init(); // runs onModuleInit / onApplicationBootstrap
 
 createServer((req, res) => {
-  app
-    .handle({ method: req.method ?? 'GET', path: req.url ?? '/', headers: req.headers as Record<string, string> })
-    .then(async r => {
-      res.writeHead(r.status, r.headers);
-      res.end(await bodyText(r));
-    });
+  app.handle({ method: req.method ?? 'GET', path: req.url ?? '/', headers: req.headers as Record<string, string> }).then(async r => {
+    res.writeHead(r.status, r.headers);
+    res.end(await bodyText(r));
+  });
 }).listen(3000);
 ```
 
-`app.fetch(request)` is the same application behind a `Request`/`Response` pair, which is what you want on Workers, Deno and Bun. See [Application Bootstrap](./web-app.html).
-The module-level Node snippet buffers a streamed response; use
-`toNodeHandler(router)` when the route surface is registered directly on a
-router and must stream with backpressure.
+`app.fetch(request)` is the same application behind a `Request`/`Response` pair, which is what you want on Workers, Deno and Bun. See [Application Bootstrap](./web-app.html). The module-level Node
+snippet buffers a streamed response; use `toNodeHandler(router)` when the route surface is registered directly on a router and must stream with backpressure.
 
 ## 8. OpenAPI, derived
 

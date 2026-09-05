@@ -17,10 +17,8 @@ export const driver: Driver = {
 };
 ```
 
-`pg.query` is generic over the row type, so passing `Record<string, unknown>` as the
-type argument satisfies `Driver.execute` with no cast — the repository does its own
-row-shape narrowing at one audited boundary, and a driver that asserts here only
-hides a mismatch.
+`pg.query` is generic over the row type, so passing `Record<string, unknown>` as the type argument satisfies `Driver.execute` with no cast — the repository does its own row-shape narrowing at one
+audited boundary, and a driver that asserts here only hides a mismatch.
 
 Then use the Postgres dialect, because it _is_ Postgres:
 
@@ -30,7 +28,8 @@ const repo = defineRepository(users, driver, { dialect: 'postgres' });
 
 ## Why this is the best test database for a Postgres project
 
-[SQLite is faster to start](./connect-sqlite.html), but it is a different database — testing on SQLite leaves `ILIKE`, `RETURNING`, `ON CONFLICT`, JSON operators and transactional DDL untested. PGlite closes that gap:
+[SQLite is faster to start](./connect-sqlite.html), but it is a different database — testing on SQLite leaves `ILIKE`, `RETURNING`, `ON CONFLICT`, JSON operators and transactional DDL untested. PGlite
+closes that gap:
 
 ```ts
 import { beforeEach } from 'vitest';
@@ -47,7 +46,8 @@ beforeEach(async () => {
 });
 ```
 
-Startup is tens of milliseconds rather than the sub-millisecond of `:memory:` SQLite, so a suite of thousands of tests will notice. A reasonable split: SQLite for unit tests that only need _a_ database, PGlite for anything that exercises Postgres-specific SQL, and a real Postgres in CI for the integration suite.
+Startup is tens of milliseconds rather than the sub-millisecond of `:memory:` SQLite, so a suite of thousands of tests will notice. A reasonable split: SQLite for unit tests that only need _a_
+database, PGlite for anything that exercises Postgres-specific SQL, and a real Postgres in CI for the integration suite.
 
 ## Persistence and reuse
 
@@ -85,10 +85,8 @@ const q = createQueryCompiler('postgres').selectFrom('users').where('active', '=
 const rows = await pg.query(q.text, [...q.parameters]);
 ```
 
-Migrations work too — `runCli` needs a
-[`MigrationConnection`](./migrations-web-mobile.html). Four methods are
-required over `pg.exec`; optional checksum and transaction members provide the
-same integrity guarantees as the packaged driver adapter.
+Migrations work too — `runCli` needs a [`MigrationConnection`](./migrations-web-mobile.html). Four methods are required over `pg.exec`; optional checksum and transaction members provide the same
+integrity guarantees as the packaged driver adapter.
 
 ## Limits
 

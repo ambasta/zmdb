@@ -2,42 +2,29 @@
 
 ## One TypeScript backend ecosystem: NestJS + Typia + MikroORM + Kysely, replaced under a single umbrella
 
-> **Status:** unified PRD — the single product requirement of record. Replaces
-> `Stage3_Decorator_Framework_PRD.md` and `zero_maintenance_data_layer_prd.md`, both
-> absorbed in full and **now deleted** (history in git). See §13 for the clause-by-clause
-> reconciliation, including the four places where the source documents contradicted each
-> other or the shipped code.
-> **Baseline (hard floor):** Node.js **26+**, TypeScript **7+**, **ESM-only**, Stage 3 standard decorators.
-> **Companion docs:** `ARCHITECTURE.md` (how we build it), each package's `SPEC.md` (component contracts),
-> `benchmarks/RESULTS.md` (what is measured), `COOKBOOK.md` (how it is used).
-> **Last revised:** 2026-09-02.
+> **Status:** unified PRD — the single product requirement of record. Replaces `Stage3_Decorator_Framework_PRD.md` and `zero_maintenance_data_layer_prd.md`, both absorbed in full and **now deleted**
+> (history in git). See §13 for the clause-by-clause reconciliation, including the four places where the source documents contradicted each other or the shipped code. **Baseline (hard floor):**
+> Node.js **26+**, TypeScript **7+**, **ESM-only**, Stage 3 standard decorators. **Companion docs:** `ARCHITECTURE.md` (how we build it), each package's `SPEC.md` (component contracts),
+> `benchmarks/RESULTS.md` (what is measured), `COOKBOOK.md` (how it is used). **Last revised:** 2026-09-02.
 
 ---
 
 ## 1. Executive summary
 
-A TypeScript backend commonly combines **NestJS** for HTTP and dependency
-injection, **Typia** for boundary validation, **MikroORM** for entities and
-repositories, and **Kysely** for SQL. A schema change then has to be carried
-through several independently maintained layers. The stack may also repeat work
-at runtime through reflection, proxies, schema parsing, and metadata lookups.
+A TypeScript backend commonly combines **NestJS** for HTTP and dependency injection, **Typia** for boundary validation, **MikroORM** for entities and repositories, and **Kysely** for SQL. A schema
+change then has to be carried through several independently maintained layers. The stack may also repeat work at runtime through reflection, proxies, schema parsing, and metadata lookups.
 
 **zmdb is one ecosystem that replaces all four**, built on a single thesis:
 
-> **Every unit of work that can happen before runtime must happen before runtime.**
-> Types derive at type-check time. Validators inline at build time. Routes and the
-> DI graph resolve at init time. Runtime does only the irreducible work: one SQL
-> round-trip, a boolean chain, one object shape.
+> **Every unit of work that can happen before runtime must happen before runtime.** Types derive at type-check time. Validators inline at build time. Routes and the DI graph resolve at init time.
+> Runtime does only the irreducible work: one SQL round-trip, a boolean chain, one object shape.
 
 The product is built around two goals:
 
-1. **Zero-maintenance schema** — the developer edits one file; entities, create/update/read
-   DTOs, query filters, validators, response serializers, OpenAPI, and controller
-   signatures all re-derive, and anything left inconsistent is a **compile error**, not a
-   production 500.
-2. **Zero-overhead runtime** — no `reflect-metadata`, no proxies, no identity map, no
-   change tracking, no runtime parser, no dynamic route lookup. What ships is the code
-   the developer would have written by hand.
+1. **Zero-maintenance schema** — the developer edits one file; entities, create/update/read DTOs, query filters, validators, response serializers, OpenAPI, and controller signatures all re-derive, and
+   anything left inconsistent is a **compile error**, not a production 500.
+2. **Zero-overhead runtime** — no `reflect-metadata`, no proxies, no identity map, no change tracking, no runtime parser, no dynamic route lookup. What ships is the code the developer would have
+   written by hand.
 
 Six packages, one install (`zmdb`), zero required third-party runtime dependencies.
 
@@ -47,11 +34,8 @@ Six packages, one install (`zmdb`), zero required third-party runtime dependenci
 
 ### 2.1 The maintenance half (data layer)
 
-Adding `orders.discount_code` to a conventional stack requires edits to: the SQL
-migration, the ORM entity, the Zod/TypeBox validation schema, the inbound `CreateOrderDto`,
-the `UpdateOrderDto`, and the outbound API response type. Six edits, one intent. Miss one
-and the failure surfaces at runtime, in production, as a silently dropped field or a 500.
-This is a routine source of schema drift.
+Adding `orders.discount_code` to a conventional stack requires edits to: the SQL migration, the ORM entity, the Zod/TypeBox validation schema, the inbound `CreateOrderDto`, the `UpdateOrderDto`, and
+the outbound API response type. Six edits, one intent. Miss one and the failure surfaces at runtime, in production, as a silently dropped field or a 500. This is a routine source of schema drift.
 
 ### 2.2 The performance half (framework layer)
 
@@ -67,11 +51,8 @@ The same stack pays per request, forever, for work that was knowable at build ti
 
 ### 2.3 Why they are one problem
 
-Both halves are the same defect: **work located to the right of where it belongs.** A
-framework that fixes only the data half still pays the reflection tax at the HTTP
-boundary; one that fixes only the HTTP half still forces hand-maintained DTOs. The
-unification is the product: **the schema is the single source of truth for the _whole_
-request lifecycle**, from URL to SQL and back.
+Both halves are the same defect: **work located to the right of where it belongs.** A framework that fixes only the data half still pays the reflection tax at the HTTP boundary; one that fixes only
+the HTTP half still forces hand-maintained DTOs. The unification is the product: **the schema is the single source of truth for the _whole_ request lifecycle**, from URL to SQL and back.
 
 ---
 
@@ -92,30 +73,23 @@ request lifecycle**, from URL to SQL and back.
 npm add zmdb          # the whole ecosystem, one dependency, zero transitive third-party runtime deps
 ```
 
-Granular installs (`@zmdb/schema-core`, `@zmdb/query-compiler`, …) remain fully supported
-and independently useful — a user who wants **only** the Kysely replacement, or **only**
-the Typia replacement, must be able to install exactly that (**REQ-UM-2**).
+Granular installs (`@zmdb/schema-core`, `@zmdb/query-compiler`, …) remain fully supported and independently useful — a user who wants **only** the Kysely replacement, or **only** the Typia
+replacement, must be able to install exactly that (**REQ-UM-2**).
 
 ### 3.3 Non-goals (explicit)
 
-- **Not a Prisma replacement.** We do not ship a separate schema language, a code-gen
-  step producing a client, or a native query engine binary.
-- **Not a Rails/Django.** The CLI has narrow project/component scaffolds and a
-  read-only loopback data viewer, but no admin UI, templating, automatic module
-  edits, or hidden runtime conventions.
-- **Not backwards-compatible with the ecosystem's past.** No CommonJS, no
-  `experimentalDecorators`, no `reflect-metadata` interop shim, no Node < 26. Every one of
-  these is a _feature_: it is code we get to delete (`ARCHITECTURE.md` §5).
-- **Not a drop-in NestJS port.** Stage 3 has no parameter decorators; `@Body()`/`@Param()`
-  cannot and will not exist. The typed `Ctx` object is the replacement, and migration is a
-  mechanical rewrite, not a config flag (§8.4).
+- **Not a Prisma replacement.** We do not ship a separate schema language, a code-gen step producing a client, or a native query engine binary.
+- **Not a Rails/Django.** The CLI has narrow project/component scaffolds and a read-only loopback data viewer, but no admin UI, templating, automatic module edits, or hidden runtime conventions.
+- **Not backwards-compatible with the ecosystem's past.** No CommonJS, no `experimentalDecorators`, no `reflect-metadata` interop shim, no Node < 26. Every one of these is a _feature_: it is code we
+  get to delete (`ARCHITECTURE.md` §5).
+- **Not a drop-in NestJS port.** Stage 3 has no parameter decorators; `@Body()`/`@Param()` cannot and will not exist. The typed `Ctx` object is the replacement, and migration is a mechanical rewrite,
+  not a config flag (§8.4).
 
 ---
 
 ## 4. Product principles (non-negotiable)
 
-Ordered. When two conflict, the lower number wins and the conflict is documented at the
-call site.
+Ordered. When two conflict, the lower number wins and the conflict is documented at the call site.
 
 ### P1 — Push work left of runtime
 
@@ -124,69 +98,47 @@ type-check time   →   build time   →   install time   →   RUNTIME
 (free for users)      (once, CI)       (once, npm i)       (per request — minimize!)
 ```
 
-Anything at runtime that could have been resolved earlier is a **defect**, not a
-trade-off. Allocation, indirection, reflection, and dynamic dispatch on the hot path are
-defects.
+Anything at runtime that could have been resolved earlier is a **defect**, not a trade-off. Allocation, indirection, reflection, and dynamic dispatch on the hot path are defects.
 
 ### P2 — Single source of truth, pure derivation
 
 - **One change vector.** A schema parameter changes in exactly _one_ file.
-- **Dependent derivation.** Entities, create/update payloads, where-filters, order-by,
-  pagination, projections, response shapes, validators, and OpenAPI are **derived**, never
-  authored.
-- **Zero duplicate properties.** Hand-writing a property that already exists in the
-  schema is forbidden in framework code and unnecessary in consumer code.
+- **Dependent derivation.** Entities, create/update payloads, where-filters, order-by, pagination, projections, response shapes, validators, and OpenAPI are **derived**, never authored.
+- **Zero duplicate properties.** Hand-writing a property that already exists in the schema is forbidden in framework code and unnecessary in consumer code.
 
 ### P3 — Compile-time enforcement over runtime checking
 
-Domain invariants, illegal state transitions, route/param typing, and the DI graph are
-expressed in the type system (template literal types, branded/phantom types, conditional
-types). An invalid route, payload, injection, or state transition **must fail `tsc`**.
+Domain invariants, illegal state transitions, route/param typing, and the DI graph are expressed in the type system (template literal types, branded/phantom types, conditional types). An invalid
+route, payload, injection, or state transition **must fail `tsc`**.
 
 ### P4 — Type safety without public escape hatches (no escape hatches on the public surface)
 
-- **Consumer code: zero assertions.** If a user must write `as` to use zmdb correctly,
-  that is our bug.
-- **Framework code: a reviewed, enumerated, shrinking exception list.** `any`,
-  `unknown`-casting, `as T`, and `!` are defects _except_ at an enumerated **trust
-  boundary** (driver row → `Entity<S>`, `JSON.parse` → `T`, `context.metadata` slot →
-  typed record, brand attach), each carrying a `// boundary:` comment stating the runtime
-  guarantee that makes it sound. Preference order: type guard > carrying generic >
-  `satisfies` > commented boundary cast.
+- **Consumer code: zero assertions.** If a user must write `as` to use zmdb correctly, that is our bug.
+- **Framework code: a reviewed, enumerated, shrinking exception list.** `any`, `unknown`-casting, `as T`, and `!` are defects _except_ at an enumerated **trust boundary** (driver row → `Entity<S>`,
+  `JSON.parse` → `T`, `context.metadata` slot → typed record, brand attach), each carrying a `// boundary:` comment stating the runtime guarantee that makes it sound. Preference order: type guard >
+  carrying generic > `satisfies` > commented boundary cast.
 
-> The source PRD said "zero escape hatches", although four of its own examples
-> used them (§13). The enforceable policy is narrower: the public API requires no
-> assertions, internal trust boundaries are listed and explained, and their
-> count cannot rise unnoticed.
+> The source PRD said "zero escape hatches", although four of its own examples used them (§13). The enforceable policy is narrower: the public API requires no assertions, internal trust boundaries are
+> listed and explained, and their count cannot rise unnoticed.
 >
-> The 2026-09-04 count covers 176 shipped files: **55 framework assertions with
-> 55 `// boundary:` comments**, no double casts, no `any`, no non-null
-> assertions, no `@ts-expect-error` in source, one explained lint suppression,
-> and no consumer-facing casts in the documentation.
+> The 2026-09-04 count covers 176 shipped files: **55 framework assertions with 55 `// boundary:` comments**, no double casts, no `any`, no non-null assertions, no `@ts-expect-error` in source, one
+> explained lint suppression, and no consumer-facing casts in the documentation.
 >
-> The first audit on 2026-08-31 found 91 assertions, 14 boundary comments, 19
-> non-null assertions, and four `as any` uses across 67 files. Four structural
-> fixes removed 63 of those cases (§9.4). The remaining 55 are trust boundaries,
-> not a claim of zero internal assertions.
+> The first audit on 2026-08-31 found 91 assertions, 14 boundary comments, 19 non-null assertions, and four `as any` uses across 67 files. Four structural fixes removed 63 of those cases (§9.4). The
+> remaining 55 are trust boundaries, not a claim of zero internal assertions.
 >
-> `yarn verify:escape-hatches` now fails when the count rises or an assertion has
-> no explanation. P4 therefore means: _an assertion-free public surface, with
-> individually justified internal boundaries whose count is ratcheted down._
+> `yarn verify:escape-hatches` now fails when the count rises or an assertion has no explanation. P4 therefore means: _an assertion-free public surface, with individually justified internal boundaries
+> whose count is ratcheted down._
 
 ### P5 — Zero third-party dependencies on the hot path; ESM-only
 
-Query execution, type derivation, validation, and repository operations depend only on
-other `@zmdb/*` packages and Node built-ins. Third-party integrations (a `pg` driver, a
-Hono adapter) are optional and **structurally typed**, so the dependency is never forced.
-The tooling exception is `oxfmt`, pinned by query-compiler because generated declarations
-must be formatted by the same engine as the repository. One module format, one `exports`
-map, no `.cjs`.
+Query execution, type derivation, validation, and repository operations depend only on other `@zmdb/*` packages and Node built-ins. Third-party integrations (a `pg` driver, a Hono adapter) are
+optional and **structurally typed**, so the dependency is never forced. The tooling exception is `oxfmt`, pinned by query-compiler because generated declarations must be formatted by the same engine
+as the repository. One module format, one `exports` map, no `.cjs`.
 
 ### P6 — Reproducible measurement
 
-Performance claims use upstream benchmark harnesses and the actual competitor
-libraries. Results include unsupported cases and trade-offs instead of hiding
-them inside an aggregate score.
+Performance claims use upstream benchmark harnesses and the actual competitor libraries. Results include unsupported cases and trade-offs instead of hiding them inside an aggregate score.
 
 ---
 
@@ -261,8 +213,7 @@ them inside an aggregate score.
 
 ## 6. Functional requirements
 
-Requirement IDs are stable and citable in issues/PRs. Each carries an acceptance
-criterion (**AC**) that is machine-checkable.
+Requirement IDs are stable and citable in issues/PRs. Each carries an acceptance criterion (**AC**) that is machine-checkable.
 
 ### 6.1 Schema core — the single source of truth (REQ-SC)
 
@@ -300,24 +251,17 @@ criterion (**AC**) that is machine-checkable.
 | **REQ-AV-6** | `parse<T>` returns the validated input **as-is** for plain structural types — no defensive object rebuild.                                                                                                     | Identity assertion (`result === input`) + the measured non-regression in `benchmarks/`.                                                                                                                      |
 | **REQ-AV-7** | Error reporting (`validate`) yields a structured path + expected-type list without allocating on the success path.                                                                                             | Success path allocation probe; failure path asserts `path`/`expected`/`value`.                                                                                                                               |
 
-**REQ-AV-1's AC, amended 2026-09-02.** It read _"contains no function call and no object literal
-on the happy path"_, and taken literally that is not achievable — nor desirable. Two calls
-survive on purpose, and the AC now names both rather than being quietly treated as met:
+**REQ-AV-1's AC, amended 2026-09-02.** It read _"contains no function call and no object literal on the happy path"_, and taken literally that is not achievable — nor desirable. Two calls survive on
+purpose, and the AC now names both rather than being quietly treated as met:
 
-- **JS intrinsics.** A check for `number` is `typeof x === 'number' && !Number.isNaN(x)`; a
-  check that a value is an object and not an array calls `Array.isArray`. Those calls _are_ the
-  check. A hand-written predicate would make exactly the same two, and inlining them further
-  would mean emitting slower code to satisfy a sentence.
-- **One hoisted helper per named type.** The emitter inlines an anonymous type and hoists a named
-  one, because a name is the signal that a type may recur or appear twice — a self-referential
-  interface has no inline form at all, and duplicating a shared one multiplies bundle size by its
-  use count. So `is<{ n: number }>(x)` is one boolean expression with no zmdb call in it, and
-  `is<User>(x)` is one call to one `_zmdbCheckUser` shared by every site.
+- **JS intrinsics.** A check for `number` is `typeof x === 'number' && !Number.isNaN(x)`; a check that a value is an object and not an array calls `Array.isArray`. Those calls _are_ the check. A
+  hand-written predicate would make exactly the same two, and inlining them further would mean emitting slower code to satisfy a sentence.
+- **One hoisted helper per named type.** The emitter inlines an anonymous type and hoists a named one, because a name is the signal that a type may recur or appear twice — a self-referential interface
+  has no inline form at all, and duplicating a shared one multiplies bundle size by its use count. So `is<{ n: number }>(x)` is one boolean expression with no zmdb call in it, and `is<User>(x)` is one
+  call to one `_zmdbCheckUser` shared by every site.
 
-Both halves are asserted, on the real bundle, in
-`packages/aot-validator/src/cli/consumer-fixtures.spec.ts`. What the AC was reaching for — no
-interpreter, no descriptor walk, no allocation to answer a yes/no question — holds, and is the
-part REQ-AV-2 states directly.
+Both halves are asserted, on the real bundle, in `packages/aot-validator/src/cli/consumer-fixtures.spec.ts`. What the AC was reaching for — no interpreter, no descriptor walk, no allocation to answer
+a yes/no question — holds, and is the part REQ-AV-2 states directly.
 
 ### 6.4 Repository — the MikroORM replacement (REQ-RP)
 
@@ -362,22 +306,19 @@ part REQ-AV-2 states directly.
 
 ### 6.7 Type-first declaration (REQ-TF)
 
-The design goal that makes **P2** and **P3** literally true rather than aspirational: the declaration is a _type_, and every runtime artefact is generated from it. `defineSchema` inverted this — the column facts lived in a value and the types were a shadow of that value — and it has been deleted rather than kept working alongside the tagged form (REQ-TF-12).
+The design goal that makes **P2** and **P3** literally true rather than aspirational: the declaration is a _type_, and every runtime artefact is generated from it. `defineSchema` inverted this — the
+column facts lived in a value and the types were a shadow of that value — and it has been deleted rather than kept working alongside the tagged form (REQ-TF-12).
 
-Full rationale and encoding are in [DESIGN-type-first.md](DESIGN-type-first.md); the phased implementation plan is in [PLAN-type-first.md](PLAN-type-first.md), whose five shaping decisions were all resolved on 2026-09-02 — notably the removal above, and that a column has three types, rendered per layer (REQ-TF-13).
+Full rationale and encoding are in [DESIGN-type-first.md](DESIGN-type-first.md); the phased implementation plan is in [PLAN-type-first.md](PLAN-type-first.md), whose five shaping decisions were all
+resolved on 2026-09-02 — notably the removal above, and that a column has three types, rendered per layer (REQ-TF-13).
 
-**Where this stands (2026-09-03).** All thirteen requirements are met, and each row below
-names the script or test that enforces it rather than asserting the outcome.
-`yarn verify:tf-acceptance` audits that claim: every row has to name a gate or a spec,
-every file and every quoted test name it cites has to exist, and every gate it cites has
-to be a script `ci.yml` actually runs. A row nobody can execute fails the build.
+**Where this stands (2026-09-03).** All thirteen requirements are met, and each row below names the script or test that enforces it rather than asserting the outcome. `yarn verify:tf-acceptance`
+audits that claim: every row has to name a gate or a spec, every file and every quoted test name it cites has to exist, and every gate it cites has to be a script `ci.yml` actually runs. A row nobody
+can execute fails the build.
 
-REQ-TF-9 was the last row carrying a ⚠️, and what closed it was deleting the type rather
-than ratcheting its count. `TypeDescriptor` and the `irFromDescriptor` bridge are gone, the
-entry points take a `TypeIR` and nothing else, and the four specs that used to write the
-legacy input form now build the generated one. `verify:no-descriptors` holds the count at
-zero with an empty allow-list, and the `PARTIAL_ON_PURPOSE` exemption in
-`verify:tf-coverage` went with it.
+REQ-TF-9 was the last row carrying a ⚠️, and what closed it was deleting the type rather than ratcheting its count. `TypeDescriptor` and the `irFromDescriptor` bridge are gone, the entry points take a
+`TypeIR` and nothing else, and the four specs that used to write the legacy input form now build the generated one. `verify:no-descriptors` holds the count at zero with an empty allow-list, and the
+`PARTIAL_ON_PURPOSE` exemption in `verify:tf-coverage` went with it.
 
 | ID            | Requirement                                                                                                                                                                                                                                                                                                                                      | AC                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -397,120 +338,124 @@ zero with an empty allow-list, and the `PARTIAL_ON_PURPOSE` exemption in
 
 #### REQ-TF-1: what a type test cannot state, and what it missed
 
-REQ-TF-1's criterion is a type test, and a type test is the right instrument for most of it:
-`Equal<(typeof SQL_TYPES)[number], SqlType>` is a compile error the moment somebody adds a
-SQL type without adding it to the list, which is exactly when you want to hear about it.
+REQ-TF-1's criterion is a type test, and a type test is the right instrument for most of it: `Equal<(typeof SQL_TYPES)[number], SqlType>` is a compile error the moment somebody adds a SQL type without
+adding it to the list, which is exactly when you want to hear about it.
 
 Three parts of the same requirement are not statable that way, and all three fail silently.
 
-A tag is an optional `unique symbol` slot, and the reflection cannot import the tags — the module is types-only, by design — so it recognises them by the **escaped symbol name** (`__@zmdbSerial@1`) through the `TAG_NAMES` table. Nothing in the type system connects a `declare const zmdbFts` to its row in that table: a tag with no row compiles, derives correctly, and is quietly absent from the emitted validator.
+A tag is an optional `unique symbol` slot, and the reflection cannot import the tags — the module is types-only, by design — so it recognises them by the **escaped symbol name** (`__@zmdbSerial@1`)
+through the `TAG_NAMES` table. Nothing in the type system connects a `declare const zmdbFts` to its row in that table: a tag with no row compiles, derives correctly, and is quietly absent from the
+emitted validator.
 
-`FLAG_TO_TAG` has the same problem one level up — it names its tags as _strings_, because the tags are parameterised differently and a heterogeneous map of them is not writable, so a rename leaves it naming something that no longer exists.
+`FLAG_TO_TAG` has the same problem one level up — it names its tags as _strings_, because the tags are parameterised differently and a heterogeneous map of them is not writable, so a rename leaves it
+naming something that no longer exists.
 
-And `Constraints` has five optional fields, so a reader that handles four of them is not a type error; that is precisely the bug the IR was introduced to end, where `TypeDescriptor` carried `minimum` and `maxLength` but not `maximum` or `minLength` and `Min<18> & Max<120>` validated differently depending on which walker you asked.
+And `Constraints` has five optional fields, so a reader that handles four of them is not a type error; that is precisely the bug the IR was introduced to end, where `TypeDescriptor` carried `minimum`
+and `maxLength` but not `maximum` or `minLength` and `Min<18> & Max<120>` validated differently depending on which walker you asked.
 
-There were five such walkers in the end, not four. The fifth was the seeder's `genValue`, which read `col.type` and an enum flag and nothing else, so a `Min<18> & Max<120>` column got whatever the PRNG produced and every seeded row failed the table's own validator — inside tests whose subject was something else.
+There were five such walkers in the end, not four. The fifth was the seeder's `genValue`, which read `col.type` and an enum flag and nothing else, so a `Min<18> & Max<120>` column got whatever the
+PRNG produced and every seeded row failed the table's own validator — inside tests whose subject was something else.
 
-It was removed in the same way as the other four: generation now starts from
-the IR and uses the emitter's sampler. This also moved seeding to
-`@zmdb/repository/seeding`, because the sampler lives in
-`@zmdb/aot-validator` and `schema-core` cannot depend on it without reversing
-the package graph. No existing check found the extra walker.
+It was removed in the same way as the other four: generation now starts from the IR and uses the emitter's sampler. This also moved seeding to `@zmdb/repository/seeding`, because the sampler lives in
+`@zmdb/aot-validator` and `schema-core` cannot depend on it without reversing the package graph. No existing check found the extra walker.
 
-The four were found by reading the code with the question in hand; the fifth was found the same way, eight phases later. `yarn verify:one-walker` is the answer to "and the sixth?" — it names who may read column metadata at all, so the next one has to argue for itself in a diff rather than arrive as two convenient lines.
+The four were found by reading the code with the question in hand; the fifth was found the same way, eight phases later. `yarn verify:one-walker` is the answer to "and the sixth?" — it names who may
+read column metadata at all, so the next one has to argue for itself in a diff rather than arrive as two convenient lines.
 
-`yarn verify:tf-coverage` checks those off a parse tree, and found four tags — `Fts`, `OneToOne`, `ManyToMany` and `AnyRelation` — that were published, documented, and written by no test or fixture anywhere in the repo. The reflection's code for reading an FTS table had never run.
+`yarn verify:tf-coverage` checks those off a parse tree, and found four tags — `Fts`, `OneToOne`, `ManyToMany` and `AnyRelation` — that were published, documented, and written by no test or fixture
+anywhere in the repo. The reflection's code for reading an FTS table had never run.
 
-All four are covered now: `Fts<'users_fts'>` went into `reflect/__fixtures__/tables.ts`, where the golden pins the `ftsTable` it produces, and the boolean spelling `Fts<true>` plus the two missing cardinalities went in beside it as assertions of their own. `Fts<true>` is also declared in `ir.spec.ts`, `tagged-to-ddl.spec.ts` and the codemod's corpus, so the two spellings are checked at every stage they pass through.
+All four are covered now: `Fts<'users_fts'>` went into `reflect/__fixtures__/tables.ts`, where the golden pins the `ftsTable` it produces, and the boolean spelling `Fts<true>` plus the two missing
+cardinalities went in beside it as assertions of their own. `Fts<true>` is also declared in `ir.spec.ts`, `tagged-to-ddl.spec.ts` and the codemod's corpus, so the two spellings are checked at every
+stage they pass through.
 
 A vocabulary entry nothing has ever declared is an entry whose behaviour is a guess, so "is every tag exercised" is now part of the gate rather than an assumption.
 
 #### REQ-TF-3: "zero type-level computation", measured
 
-REQ-TF-3 claims a tag costs the compiler nothing, and the acceptance criterion asks for
-typecheck wall-time against an untagged baseline. `yarn verify:instantiations` generates both
-sides from one code path — 512 tables, 4,096 tagged columns, and the same 512 interfaces with
-every tag stripped — and reports what separates them. The claim survives, but not in the form
-it was written in.
+REQ-TF-3 claims a tag costs the compiler nothing, and the acceptance criterion asks for typecheck wall-time against an untagged baseline. `yarn verify:instantiations` generates both sides from one
+code path — 512 tables, 4,096 tagged columns, and the same 512 interfaces with every tag stripped — and reports what separates them. The claim survives, but not in the form it was written in.
 
-**Declarations add little type-checking work.** Across 512 tagged tables, the
-measured cost was 6.01 type instantiations per table above an empty project; the
-untagged version added none. The 6.01 figure tracks the six tag arguments that
-differ between generated tables.
+**Declarations add little type-checking work.** Across 512 tagged tables, the measured cost was 6.01 type instantiations per table above an empty project; the untagged version added none. The 6.01
+figure tracks the six tag arguments that differ between generated tables.
 
-The checker caches an instantiation per distinct type argument, so `Sql<'varchar'>` is instantiated once for a program however many thousand columns carry it, and only the arguments that vary — the table name, and this fixture's per-table lengths, patterns and bounds — cost anything. So the enforceable statement is stronger than "cheap": the cost of declaring is proportional to the number of _distinct tag arguments_, not to the number of tagged columns.
+The checker caches an instantiation per distinct type argument, so `Sql<'varchar'>` is instantiated once for a program however many thousand columns carry it, and only the arguments that vary — the
+table name, and this fixture's per-table lengths, patterns and bounds — cost anything. So the enforceable statement is stronger than "cheap": the cost of declaring is proportional to the number of
+_distinct tag arguments_, not to the number of tagged columns.
 
 Rewriting one tag as a conditional type takes that row from 6.01 to 8.01 and fails the gate.
 
-That finding cost a false result first. The original fixture used identical tag arguments for
-every table and reported 523 instantiations for the whole 512-table schema — one per table,
-nothing per column, apparently free. It was measuring the cache. The same conditional-tag
-mutation moved it by two instantiations in total and passed.
+That finding cost a false result first. The original fixture used identical tag arguments for every table and reported 523 instantiations for the whole 512-table schema — one per table, nothing per
+column, apparently free. It was measuring the cache. The same conditional-tag mutation moved it by two instantiations in total and passed.
 
-**Deriving is not free, and the number is now published.** The DTO suite over a tagged table costs 606 instantiations against the untagged twin's 505 — 1.20x — and about 0.25ms of checker time per table. The key filters are conditional types and that is what the tags are _for_, so the ratio is above 1 by design; what the ratchet enforces is that it does not climb.
+**Deriving is not free, and the number is now published.** The DTO suite over a tagged table costs 606 instantiations against the untagged twin's 505 — 1.20x — and about 0.25ms of checker time per
+table. The key filters are conditional types and that is what the tags are _for_, so the ratio is above 1 by design; what the ratchet enforces is that it does not climb.
 
-Wall-time is the wrinkle: the tagged program's check time is near 2.1x the untagged one's, higher than the instantiation ratio, so the checker is doing work on a tagged declaration that is not an instantiation.
+Wall-time is the wrinkle: the tagged program's check time is near 2.1x the untagged one's, higher than the instantiation ratio, so the checker is doing work on a tagged declaration that is not an
+instantiation.
 
-In absolute terms the whole difference across a 512-table schema is 130ms of check time, which is why the gate on that row is deliberately loose — it is there to catch a change of kind, and the instantiation count, which is reproducible to the digit across runs, is what catches a change of degree.
+In absolute terms the whole difference across a 512-table schema is 130ms of check time, which is why the gate on that row is deliberately loose — it is there to catch a change of kind, and the
+instantiation count, which is reproducible to the digit across runs, is what catches a change of degree.
 
 #### REQ-TF-4 vs REQ-TF-5: why "unchanged" became "substituted"
 
-REQ-TF-4's acceptance criterion originally said the REQ-SC-2…REQ-SC-5 type tests must pass
-**unchanged**. They cannot, and the reason is REQ-TF-5 immediately below it.
+REQ-TF-4's acceptance criterion originally said the REQ-SC-2…REQ-SC-5 type tests must pass **unchanged**. They cannot, and the reason is REQ-TF-5 immediately below it.
 
-REQ-SC-2 asserts `Equal<Entity<S>['email'], string>`. On the tagged side that property is
-`string & Sql<'text'>`, because REQ-TF-5 requires every tag to survive `Omit`, `Pick` and
-`Partial` — the tags are what the validator is generated from, so a derivation that dropped one
-would emit a weaker check on update than on insert. The two criteria are in direct tension and
-REQ-TF-5 wins.
+REQ-SC-2 asserts `Equal<Entity<S>['email'], string>`. On the tagged side that property is `string & Sql<'text'>`, because REQ-TF-5 requires every tag to survive `Omit`, `Pick` and `Partial` — the tags
+are what the validator is generated from, so a derivation that dropped one would emit a weaker check on update than on insert. The two criteria are in direct tension and REQ-TF-5 wins.
 
-Almost nothing is lost by that. A tag is an optional unique-symbol slot, so `string` and
-`string & Sql<'text'>` are _mutually assignable_: a consumer supplies a plain string, reads a
-plain string, and never names a tag. So the criterion is now the three things that actually
-matter — identical key sets, identical optionality, and mutual assignability with the
-schema-value twin — asserted in
-`packages/schema-core/src/derive/type-derivation-tagged.type-test.ts`, which is
-`type-derivation.type-test.ts` with `S` rebound.
+Almost nothing is lost by that. A tag is an optional unique-symbol slot, so `string` and `string & Sql<'text'>` are _mutually assignable_: a consumer supplies a plain string, reads a plain string, and
+never names a tag. So the criterion is now the three things that actually matter — identical key sets, identical optionality, and mutual assignability with the schema-value twin — asserted in
+`packages/schema-core/src/derive/type-derivation-tagged.type-test.ts`, which is `type-derivation.type-test.ts` with `S` rebound.
 
-**"Only `Equal` can see the difference" is not quite true, and finding out where cost a redesign.** A tag erases against an _untagged_ type, but two tagged columns see each other's tags, and a tag payload sits in an invariant position: `Sql<'serial'>` and `Sql<'integer'>` were unrelated types. So `orders.create({ userId: user.id })` — a serial key read out of one table and written into another table's integer foreign key, which is in the quickstart — did not compile.
+**"Only `Equal` can see the difference" is not quite true, and finding out where cost a redesign.** A tag erases against an _untagged_ type, but two tagged columns see each other's tags, and a tag
+payload sits in an invariant position: `Sql<'serial'>` and `Sql<'integer'>` were unrelated types. So `orders.create({ userId: user.id })` — a serial key read out of one table and written into another
+table's integer foreign key, which is in the quickstart — did not compile.
 
-The fix was to stop spelling one fact twice: `serial` left the tag vocabulary (`ColumnSqlType` is `Exclude<SqlType, 'serial'>`), a generated key is now `number & Sql<'integer'> & Serial`, and the reflection maps `integer` + `Serial` back to `sql: 'serial'` so the IR, every dialect's DDL and the equivalence corpus are unchanged.
+The fix was to stop spelling one fact twice: `serial` left the tag vocabulary (`ColumnSqlType` is `Exclude<SqlType, 'serial'>`), a generated key is now `number & Sql<'integer'> & Serial`, and the
+reflection maps `integer` + `Serial` back to `sql: 'serial'` so the IR, every dialect's DDL and the equivalence corpus are unchanged.
 
-The residue is real and much smaller, and is recorded rather than papered over: `varchar` and `text` columns still do not interchange, because unlike the serial case those two columns genuinely are different types. `packages/schema-core/src/tags/serial-foreign-key.type-test.ts` pins both halves.
+The residue is real and much smaller, and is recorded rather than papered over: `varchar` and `text` columns still do not interchange, because unlike the serial case those two columns genuinely are
+different types. `packages/schema-core/src/tags/serial-foreign-key.type-test.ts` pins both halves.
 
-One genuine behavioural change came out of it, and it is a breaking one: `exactOptionalPropertyTypes` is on repo-wide, and the tagged `CreateDTO`/`UpdateDTO` are plain `Partial`s, so `{ email: undefined }` is now an error where the value-side DTOs accepted it. `{}` and `{ email: null }` are how "leave it alone" and "set it to NULL" are spelled; the widened form bought a third spelling for one of two meanings.
+One genuine behavioural change came out of it, and it is a breaking one: `exactOptionalPropertyTypes` is on repo-wide, and the tagged `CreateDTO`/`UpdateDTO` are plain `Partial`s, so
+`{ email: undefined }` is now an error where the value-side DTOs accepted it. `{}` and `{ email: null }` are how "leave it alone" and "set it to NULL" are spelled; the widened form bought a third
+spelling for one of two meanings.
 
 The strict tagged DTO is still assignable everywhere the widened one was — only the reverse fails.
 
 #### REQ-TF-11: "once per build", and the number that turned out not to matter
 
-The criterion asks for one `API` instance across a multi-file build plus a published build-time
-measurement. `yarn verify:build-budget` writes a 64-module project — each module a tagged
-interface with `is`, `assert`, `validate` and `toJsonSchema` over it — runs the real `codegen`
-on a session it owns so it can watch it, and then does the same at 8 modules.
+The criterion asks for one `API` instance across a multi-file build plus a published build-time measurement. `yarn verify:build-budget` writes a 64-module project — each module a tagged interface with
+`is`, `assert`, `validate` and `toJsonSchema` over it — runs the real `codegen` on a session it owns so it can watch it, and then does the same at 8 modules.
 
-The gate is two integers, and neither is a clock. **One compiler API** for the 64-module build, which is the requirement as written. And, the sharper half, **a snapshot-update log that does not depend on the file count**: `[open, refresh]` at 8 modules and `[open, refresh]` at 64.
+The gate is two integers, and neither is a clock. **One compiler API** for the 64-module build, which is the requirement as written. And, the sharper half, **a snapshot-update log that does not depend
+on the file count**: `[open, refresh]` at 8 modules and `[open, refresh]` at 64.
 
-That is what "not once per file" means operationally, because telling the compiler about a new file re-checks it, and it is why `cli/index.ts` writes every witness before transforming any of them — an ordering that reads like an arbitrary choice and is the only reason the second number is 2 instead of 65. Moving those two calls inside the loop is a one-line tidy-up that takes the log to 65 updates; the gate fails.
+That is what "not once per file" means operationally, because telling the compiler about a new file re-checks it, and it is why `cli/index.ts` writes every witness before transforming any of them — an
+ordering that reads like an arbitrary choice and is the only reason the second number is 2 instead of 65. Moving those two calls inside the loop is a one-line tidy-up that takes the log to 65 updates;
+the gate fails.
 
-The clock is published rather than enforced, and the reason is the same mutation. It moved the
-per-module time from 6.0ms to 8.2ms — 37%, comfortably inside any ceiling a shared CI runner
-would tolerate. A wall-time gate would have let that through.
+The clock is published rather than enforced, and the reason is the same mutation. It moved the per-module time from 6.0ms to 8.2ms — 37%, comfortably inside any ceiling a shared CI runner would
+tolerate. A wall-time gate would have let that through.
 
-The published split also corrects the intuition the requirement is usually justified with. Opening the project is about 20ms and **does not grow with the file count**, because the compiler defers the expensive work until something asks it a question; generating costs about 6ms per module, linear, and at 64 modules that dominates the load by a factor of twenty.
+The published split also corrects the intuition the requirement is usually justified with. Opening the project is about 20ms and **does not grow with the file count**, because the compiler defers the
+expensive work until something asks it a question; generating costs about 6ms per module, linear, and at 64 modules that dominates the load by a factor of twenty.
 
-So "the fixed cost dominates" is false here. The claim that is true is the narrower one the requirement actually makes: the load is paid once, and a codegen that reopened the project per file would pay that 20ms sixty-four times for nothing.
+So "the fixed cost dominates" is false here. The claim that is true is the narrower one the requirement actually makes: the load is paid once, and a codegen that reopened the project per file would
+pay that 20ms sixty-four times for nothing.
 
-One thing the measurement forced into the open. `codegen` rewrites the source files it just read, so when it returns, the snapshot its session holds is stale — a second pass on the same session refuses with "changed on disk since the project loaded; run again".
+One thing the measurement forced into the open. `codegen` rewrites the source files it just read, so when it returns, the snapshot its session holds is stale — a second pass on the same session
+refuses with "changed on disk since the project loaded; run again".
 
-That is correct behaviour and a clear message, but it means a rebuild is a new session, not a reused one, which is how the script measures `--check`. On a clean tree that check's log is `[open]` and nothing else: verifying a generated tree in CI costs one project load and no re-checks at all.
+That is correct behaviour and a clear message, but it means a rebuild is a new session, not a reused one, which is how the script measures `--check`. On a clean tree that check's log is `[open]` and
+nothing else: verifying a generated tree in CI costs one project load and no re-checks at all.
 
 ---
 
 ## 7. The unified seam — one schema, one request lifecycle
 
-This section is the **substance of the unification**: the point where the data-layer PRD
-and the decorator-framework PRD stop being two products.
+This section is the **substance of the unification**: the point where the data-layer PRD and the decorator-framework PRD stop being two products.
 
 ### 7.1 The derivation contract
 
@@ -525,24 +470,17 @@ interface Orders extends Table<'orders'> { … }     ← the ONE change vector
       └─ schemaOf<Orders>()    → the column IR → DDL + migration diff
 ```
 
-Five of those six are types, from `zmdb/derive`, applied to the declaration itself; they
-contribute nothing to a bundle. The sixth is the only value in the list — an object literal
-the transformer writes at build time, which is what the DDL and the inlined validators are
-generated from. `zmdb`'s root publishes the same `Entity`/`CreateDTO`/`UpdateDTO` as
-`zmdb/derive` — one definition, re-exported, taking `Orders` and never the value; there is
-no second family keyed by `typeof ordersSchema` (`packages/schema-core/SPEC.md` §4).
+Five of those six are types, from `zmdb/derive`, applied to the declaration itself; they contribute nothing to a bundle. The sixth is the only value in the list — an object literal the transformer
+writes at build time, which is what the DDL and the inlined validators are generated from. `zmdb`'s root publishes the same `Entity`/`CreateDTO`/`UpdateDTO` as `zmdb/derive` — one definition,
+re-exported, taking `Orders` and never the value; there is no second family keyed by `typeof ordersSchema` (`packages/schema-core/SPEC.md` §4).
 
-**REQ-SEAM-1:** A column added to the schema must appear — with no other edit — in the
-repository's typed methods, the controller's body/response types, the AOT-generated
-validator, and the OpenAPI document.
+**REQ-SEAM-1:** A column added to the schema must appear — with no other edit — in the repository's typed methods, the controller's body/response types, the AOT-generated validator, and the OpenAPI
+document.
 
-**REQ-SEAM-2:** A column **removed or renamed** must produce a compile error at every
-dependent site (repository call, controller handler, service, projection, filter) until
-resolved. Silent tolerance of a stale reference is a P0 defect.
+**REQ-SEAM-2:** A column **removed or renamed** must produce a compile error at every dependent site (repository call, controller handler, service, projection, filter) until resolved. Silent tolerance
+of a stale reference is a P0 defect.
 
-**REQ-SEAM-3:** The HTTP boundary and the database boundary validate against the **same
-derived DTO**, from the same source, with the same inlined code — never two schemas kept
-in sync by hand.
+**REQ-SEAM-3:** The HTTP boundary and the database boundary validate against the **same derived DTO**, from the same source, with the same inlined code — never two schemas kept in sync by hand.
 
 ### 7.2 End-to-end worked example
 
@@ -650,7 +588,9 @@ class AppModule {}
 export const app = createApp(AppModule);
 ```
 
-Sections 2–4 use decorators, so they are application files rather than published ones. zmdb's own source has to load under Node's type stripping — that is how the tests, the dev loop and the consumer fixtures run it — and stripping admits no syntax that is not type syntax; `target: ESNext` then means a decorator that did get in would survive the emit into `dist` and reach a runtime with no decorators either.
+Sections 2–4 use decorators, so they are application files rather than published ones. zmdb's own source has to load under Node's type stripping — that is how the tests, the dev loop and the consumer
+fixtures run it — and stripping admits no syntax that is not type syntax; `target: ESNext` then means a decorator that did get in would survive the emit into `dist` and reach a runtime with no
+decorators either.
 
 The declaration in section 1 has that property by construction, which is a large part of why it is a type and not a builder call.
 
@@ -672,13 +612,11 @@ The declaration in section 1 has that property by construction, which is a large
 ### 8.1 Add a new domain to the stack
 
 1. Write **one** `interface` extending `Table<'name'>`, with the tags the columns need.
-2. `defineRepository(schemaOf<T>(), driver, { dialect })` (one call) — or subclass
-   `BaseRepository` for domain queries.
+2. `defineRepository(schemaOf<T>(), driver, { dialect })` (one call) — or subclass `BaseRepository` for domain queries.
 3. Write a controller whose bodies/responses are the derived DTOs.
 4. Register both in a `@Module`.
 
-**REQ-DX-1:** Steps 2–4 must total **under ~10 lines of declarative wiring** per domain,
-with **zero hand-written CRUD** and **zero hand-written DTO properties**.
+**REQ-DX-1:** Steps 2–4 must total **under ~10 lines of declarative wiring** per domain, with **zero hand-written CRUD** and **zero hand-written DTO properties**.
 
 ### 8.2 Change an existing column (the money workflow)
 
@@ -689,9 +627,8 @@ Edit the property in the interface. Then:
 - The validator re-inlines at the next build (**REQ-AV-1**).
 - The OpenAPI document changes on next boot (**REQ-WB-12**).
 
-**REQ-DX-2:** The developer's total edit surface for a column change is **the file holding
-the interface, plus whatever genuinely needed a decision** — never a mechanical re-typing of the same
-field in four places.
+**REQ-DX-2:** The developer's total edit surface for a column change is **the file holding the interface, plus whatever genuinely needed a decision** — never a mechanical re-typing of the same field
+in four places.
 
 ### 8.3 Incremental adoption
 
@@ -706,8 +643,7 @@ field in four places.
 
 ### 8.4 Migration from the incumbents
 
-**REQ-DX-4:** Ship a documented migration path per incumbent, stating plainly what is
-mechanical and what requires redesign:
+**REQ-DX-4:** Ship a documented migration path per incumbent, stating plainly what is mechanical and what requires redesign:
 
 | From         | Mechanical                                                 | Requires redesign                                                                              |
 | ------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -722,8 +658,7 @@ mechanical and what requires redesign:
 
 ### 9.1 Performance targets
 
-Targets are per layer, measured **by the real upstream harness**, reported in
-`benchmarks/RESULTS.md` and the dashboard.
+Targets are per layer, measured **by the real upstream harness**, reported in `benchmarks/RESULTS.md` and the dashboard.
 
 | ID           | Layer      | Requirement                                                                                                                                                                                                                                 |
 | ------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -762,15 +697,11 @@ Targets are per layer, measured **by the real upstream harness**, reported in
 
 ### 9.4 Escape-hatch audit — ratcheted in CI as of 2026-09-04
 
-**`yarn verify:escape-hatches` is the audit.** The table below is what
-`.github/scripts/verify-escape-hatches.mjs` prints, and CI fails on any row that goes up or
-on any assertion whose enclosing function has no `// boundary:` comment. RISK-7 — "P4 holds
-today but nothing keeps it holding" — is closed by that script, not by this section.
+**`yarn verify:escape-hatches` is the audit.** The table below is what `.github/scripts/verify-escape-hatches.mjs` prints, and CI fails on any row that goes up or on any assertion whose enclosing
+function has no `// boundary:` comment. RISK-7 — "P4 holds today but nothing keeps it holding" — is closed by that script, not by this section.
 
-Counted off a real parse tree, per package, over the **176 shipped source files** in
-`packages/*/src`. Tests are excluded and the script says why: `*.spec.ts`, `*.type-test.ts`,
-`__testing__/` and `__fixtures__/`. A file whose job is to prove a type _rejects_ something
-is expected to contain `@ts-expect-error`; those directives are not framework escape hatches.
+Counted off a real parse tree, per package, over the **176 shipped source files** in `packages/*/src`. Tests are excluded and the script says why: `*.spec.ts`, `*.type-test.ts`, `__testing__/` and
+`__fixtures__/`. A file whose job is to prove a type _rejects_ something is expected to contain `@ts-expect-error`; those directives are not framework escape hatches.
 
 | Metric                                     | 2026-08-31 (grep, 67 files) | 2026-09-02 (parse tree, 84 files) | 2026-09-03 (DSL deleted) | 2026-09-04 current | Ceiling |
 | ------------------------------------------ | --------------------------: | --------------------------------: | -----------------------: | -----------------: | ------: |
@@ -783,47 +714,32 @@ is expected to contain `@ts-expect-error`; those directives are not framework es
 | `eslint-disable` / `oxlint-disable` in src |                       **0** |                             **1** |                    **1** |              **1** |       1 |
 | `new Function` / `eval` call sites         |                       **0** |                             **0** |                    **0** |              **0** |       0 |
 
-The third column is plan D2 landing: `defineSchema`, ten column builders and eight function-style modifiers deleted. It took three assertions and one double cast with it, and they are the good kind of removal — nothing was rewritten to dodge a cast, the code that needed the cast is gone.
+The third column is plan D2 landing: `defineSchema`, ten column builders and eight function-style modifiers deleted. It took three assertions and one double cast with it, and they are the good kind of
+removal — nothing was rewritten to dodge a cast, the code that needed the cast is gone.
 
 Both ceilings came down in the same commit, which is the direction this table is supposed to move; see the four structural fixes at the end of this section for the shape of the argument.
 
-Subsequent work had already brought the assertion ceiling from 62 to 61. The shallow
-validator public surface then replaced the three successful validator-return casts with one
-shared `certified` boundary, taking the measured count from 61 to 59 without weakening a
-check. Repository loader work then replaced `attachRelations`' asserted populated-row
-return with checked overloads, taking the count from 59 to 57 and the double-cast count from
-one to zero. Composite-key queries then moved from asserted runtime `where` objects to the
-compiler's typed `where` methods, taking the count from 57 to 55.
+Subsequent work had already brought the assertion ceiling from 62 to 61. The shallow validator public surface then replaced the three successful validator-return casts with one shared `certified`
+boundary, taking the measured count from 61 to 59 without weakening a check. Repository loader work then replaced `attachRelations`' asserted populated-row return with checked overloads, taking the
+count from 59 to 57 and the double-cast count from one to zero. Composite-key queries then moved from asserted runtime `where` objects to the compiler's typed `where` methods, taking the count from 57
+to 55.
 
 Three rows moved between the first two columns, and none of them because the code got worse:
 
-- **Assertions 28 → 65.** The tree grew by 18 files: the reflection front-end, the emitter,
-  the codegen CLI, the `zmdb-codemod` and the test-time bridge — the whole type-first spine,
-  which did not exist on 2026-08-31. Reflection is where casts live: the `typescript@7` client
-  hands back a `Type` and answers "is this an array?" with a `boolean` rather than a
-  predicate, so the check that makes `getTypeArguments` legal cannot narrow its own argument.
-  Every one of the 65 carries a `// boundary:` comment, which is the part the script actually
-  enforces.
+- **Assertions 28 → 65.** The tree grew by 18 files: the reflection front-end, the emitter, the codegen CLI, the `zmdb-codemod` and the test-time bridge — the whole type-first spine, which did not
+  exist on 2026-08-31. Reflection is where casts live: the `typescript@7` client hands back a `Type` and answers "is this an array?" with a `boolean` rather than a predicate, so the check that makes
+  `getTypeArguments` legal cannot narrow its own argument. Every one of the 65 carries a `// boundary:` comment, which is the part the script actually enforces.
 
-  The 65th is the one raise in this table, and it is a raise rather than a swap, so it needs
-  its own sentence: `schemasFrom<{ User: User }>(url, ['User'])` in
-  `aot-validator/src/testing` returns `{ [Name in Names[number]]: SchemaIR }`, and it builds
-  that object in a loop keyed by strings. The keys are values at that point — that is what the
-  function is for — and no way of writing the loop lets the compiler read them back off the
-  array. The loop throws on a name it cannot resolve, so the promise the assertion makes is
-  kept by the code above it rather than by the cast.
+  The 65th is the one raise in this table, and it is a raise rather than a swap, so it needs its own sentence: `schemasFrom<{ User: User }>(url, ['User'])` in `aot-validator/src/testing` returns
+  `{ [Name in Names[number]]: SchemaIR }`, and it builds that object in a loop keyed by strings. The keys are values at that point — that is what the function is for — and no way of writing the loop
+  lets the compiler read them back off the array. The loop throws on a name it cannot resolve, so the promise the assertion makes is kept by the code above it rather than by the cast.
 
-- **Double casts 1 → 2 → 1 → 0.** The second was `attachRelations`' populated-row return in
-  `@zmdb/repository`. The first was `makeColumn`, and it went away with the column builders in
-  plan D2, as this said it would — a column was not a `Column` until
-  `Object.defineProperties` had attached the fluent methods to it, and there is no way to
-  express that as a type-changing operation. Repository loader work replaced
-  `attachRelations`' asserted return with checked overloads, so none remain.
-- **Lint suppressions 0 → 1.** `toJsonSchema<T>(): JsonSchemaObject`'s overload in
-  `schema-core/src/openapi`, which declares a type parameter it never mentions in a
-  parameter — that is the whole point of a type-first signature, and there is nowhere else
-  for `T` to appear. `oxlint`'s `no-unused-vars` is right about the shape and wrong about the
-  intent, so the suppression names the reason. It is the only one in the tree.
+- **Double casts 1 → 2 → 1 → 0.** The second was `attachRelations`' populated-row return in `@zmdb/repository`. The first was `makeColumn`, and it went away with the column builders in plan D2, as
+  this said it would — a column was not a `Column` until `Object.defineProperties` had attached the fluent methods to it, and there is no way to express that as a type-changing operation. Repository
+  loader work replaced `attachRelations`' asserted return with checked overloads, so none remain.
+- **Lint suppressions 0 → 1.** `toJsonSchema<T>(): JsonSchemaObject`'s overload in `schema-core/src/openapi`, which declares a type parameter it never mentions in a parameter — that is the whole point
+  of a type-first signature, and there is nowhere else for `T` to appear. `oxlint`'s `no-unused-vars` is right about the shape and wrong about the intent, so the suppression names the reason. It is
+  the only one in the tree.
 
 Per-package distribution of the 2026-09-04 recount:
 
@@ -836,110 +752,78 @@ Per-package distribution of the 2026-09-04 recount:
 | `@zmdb/query-compiler` |          1 |              1 | the `compile()` duck-type guard                                                      |
 | `zmdb` (umbrella)      |          0 |              0 | —                                                                                    |
 
-`@zmdb/web` has more boundary comments than assertions, which is the intended direction: a
-boundary is a place where types stop proving things, and several of them are guards and
-`unknown` reads rather than casts.
+`@zmdb/web` has more boundary comments than assertions, which is the intended direction: a boundary is a place where types stop proving things, and several of them are guards and `unknown` reads
+rather than casts.
 
-**Writing the ratchet found four hatches nobody had counted**, all fixed by removing them rather than documenting them: a stale `oxlint-disable` in `schema-core`; two non-null assertions in `query-compiler`; and `validate()`'s `Pattern` rule reading `r.args[0] as string` unchecked, so a `Pattern` with a number in it compiled a regex out of the coerced number instead of answering `false` like every other rule with a bad argument.
+**Writing the ratchet found four hatches nobody had counted**, all fixed by removing them rather than documenting them: a stale `oxlint-disable` in `schema-core`; two non-null assertions in
+`query-compiler`; and `validate()`'s `Pattern` rule reading `r.args[0] as string` unchecked, so a `Pattern` with a number in it compiled a regex out of the coerced number instead of answering `false`
+like every other rule with a bad argument.
 
 That last one was a bug, not a style problem, which is the argument for the script in one sentence.
 
-**Conclusion.** `ARCHITECTURE.md` §2.1's rule — "each with a `// boundary:` comment stating
-_why it is sound_" — holds in every package, and now holds mechanically. This is still not
-"zero escape hatches": the survivors are heterogeneous `Map`s, `Function.prototype.constructor`,
-`JSON.parse`, decorator-metadata slots, driver rows, and a compiler client whose predicates
-are booleans. Lowering a ceiling is a normal commit; raising one has to be argued here.
+**Conclusion.** `ARCHITECTURE.md` §2.1's rule — "each with a `// boundary:` comment stating _why it is sound_" — holds in every package, and now holds mechanically. This is still not "zero escape
+hatches": the survivors are heterogeneous `Map`s, `Function.prototype.constructor`, `JSON.parse`, decorator-metadata slots, driver rows, and a compiler client whose predicates are booleans. Lowering a
+ceiling is a normal commit; raising one has to be argued here.
 
 Most of the reduction came from four structural fixes rather than one-off cast edits:
 
-1. **Generic-erasure returns in the column builders** (`schema-core/src/index.ts`) —
-   `makeColumn(): Column` erased `T`/`F`, so each of the **19** builders and function-style
-   modifiers ended in its own `as never`. Making the helper generic in its _result_ type
-   (`makeColumn<C extends Column>`, inferred from the caller's declared return type) removed
-   all 19, leaving one `as unknown as C` inside it carrying the soundness argument. Plan D2
-   then deleted the builders outright and that last one with them, which is the better ending:
-   the cast was sound and well-argued and the right fix was to stop needing it.
-2. **`CoreSchema<string>` widening in the repository** — `list()` cast its typed DTOs down to
-   `CoreSchema<string>` to reach the schema-core helpers, cast the builder through `any` to
-   reach `applyOrderBy`/`applyPagination`, and cast the result back. Making those helpers
-   generic in `S` removed the round-trip, all four `as any`, both lint suppressions **and**
-   the consumer-facing `COOKBOOK.md` cast that the same erasure forced on users.
-3. **`satisfies` instead of `as` for rule construction** (`aot-validator/src/advanced`) —
-   `Object.freeze({ … } as UnionRule)` checks nothing about the literal; `satisfies UnionRule`
-   checks it and keeps the literal type. Paired with an `isRecord` type guard for keyed reads
-   off `unknown`, that removed ~20 casts from one file.
-4. **Re-check instead of assert on the validator fallback path** — `validate()` read rule
-   arguments as `r.args[0] as number`. `args` is `readonly unknown[]`, so the assertion was
-   unchecked; a `typeof arg === 'number'` guard is free after JIT folding and this is the
-   fallback path anyway (the AOT emission is what the benchmarks measure).
+1. **Generic-erasure returns in the column builders** (`schema-core/src/index.ts`) — `makeColumn(): Column` erased `T`/`F`, so each of the **19** builders and function-style modifiers ended in its own
+   `as never`. Making the helper generic in its _result_ type (`makeColumn<C extends Column>`, inferred from the caller's declared return type) removed all 19, leaving one `as unknown as C` inside it
+   carrying the soundness argument. Plan D2 then deleted the builders outright and that last one with them, which is the better ending: the cast was sound and well-argued and the right fix was to stop
+   needing it.
+2. **`CoreSchema<string>` widening in the repository** — `list()` cast its typed DTOs down to `CoreSchema<string>` to reach the schema-core helpers, cast the builder through `any` to reach
+   `applyOrderBy`/`applyPagination`, and cast the result back. Making those helpers generic in `S` removed the round-trip, all four `as any`, both lint suppressions **and** the consumer-facing
+   `COOKBOOK.md` cast that the same erasure forced on users.
+3. **`satisfies` instead of `as` for rule construction** (`aot-validator/src/advanced`) — `Object.freeze({ … } as UnionRule)` checks nothing about the literal; `satisfies UnionRule` checks it and
+   keeps the literal type. Paired with an `isRecord` type guard for keyed reads off `unknown`, that removed ~20 casts from one file.
+4. **Re-check instead of assert on the validator fallback path** — `validate()` read rule arguments as `r.args[0] as number`. `args` is `readonly unknown[]`, so the assertion was unchecked; a
+   `typeof arg === 'number'` guard is free after JIT folding and this is the fallback path anyway (the AOT emission is what the benchmarks measure).
 
-Non-null `!` went the same way: `?.` plus an explicit fallback, which is what
-`noUncheckedIndexedAccess` was asking for all along.
+Non-null `!` went the same way: `?.` plus an explicit fallback, which is what `noUncheckedIndexedAccess` was asking for all along.
 
 ### 9.5 CSP safety (REQ-AV-2) — resolved
 
-`@zmdb/aot-validator`'s `refine()` and `transform()` used to compile a user-supplied source
-string with **`new Function()`** in the runtime-fallback path, contradicting REQ-AV-2's "no
-`new Function()`/`eval`" and narrowing "static CSP-safe emission, no runtime eval" to the
-core `is`/`assert` path. Under a strict CSP those two builders threw.
+`@zmdb/aot-validator`'s `refine()` and `transform()` used to compile a user-supplied source string with **`new Function()`** in the runtime-fallback path, contradicting REQ-AV-2's "no
+`new Function()`/`eval`" and narrowing "static CSP-safe emission, no runtime eval" to the core `is`/`assert` path. Under a strict CSP those two builders threw.
 
-**Resolved via option (a):** both now take a **real function value** (`RefinePredicate` /
-`TransformFn`) and recover `source` from `Function.prototype.toString` purely so the AOT
-transformer can still inline the body. There are **zero** `new Function`/`eval` call sites in
-`packages/*/src`, so the REQ-AV-2 check passes; a predicate passed as a function is also
-typechecked at its call site, which a source string never was. RISK-7b is closed, and
-`yarn verify:escape-hatches` keeps the check in CI.
+**Resolved via option (a):** both now take a **real function value** (`RefinePredicate` / `TransformFn`) and recover `source` from `Function.prototype.toString` purely so the AOT transformer can still
+inline the body. There are **zero** `new Function`/`eval` call sites in `packages/*/src`, so the REQ-AV-2 check passes; a predicate passed as a function is also typechecked at its call site, which a
+source string never was. RISK-7b is closed, and `yarn verify:escape-hatches` keeps the check in CI.
 
 ### 9.6 The type-safety gate was not actually a gate (2026-08-31)
 
-REQ-NF-9 said type-level behaviour is tested. It was not — the assertions existed but nothing
-ran them. Three compounding causes, all now fixed:
+REQ-NF-9 said type-level behaviour is tested. It was not — the assertions existed but nothing ran them. Three compounding causes, all now fixed:
 
-1. **`expectTypeOf` in `.spec.ts` files.** vitest only _executes_ specs; `expectTypeOf(...)`
-   is a runtime no-op unless `vitest typecheck` runs, which it never did. Every such
-   assertion — path-param derivation, brand nominality, DI token binding, DTO shapes — was
-   decoration. All of them are now `Expect<Equal<…>>` in **67 `*.type-test.ts` files** that
-   `tsc` compiles; `expectTypeOf` is banned outright.
-2. **Specs were excluded from every package tsconfig.** So the `@ts-expect-error` directives
-   in them were inert too: a directive in a file outside the program cannot fail. Specs are
-   now inside the program, which turns each of the **242** directives into a real assertion —
-   and `tsc` reports an _unused_ `@ts-expect-error`, so a directive that stops being needed
-   also fails the build.
-3. **CI typechecked four packages, not seven.** The workflow ran a hand-written
-   `for p in schema-core query-compiler aot-validator repository` loop; `web` and `zmdb` were
-   never typechecked. `web` was doubly outside: its tsconfig also remapped `@zmdb/*` to
-   `../*/dist/*.d.ts` — gitignored build output, absent in a fresh checkout and stale
-   whenever a sibling source changed. `scripts/typecheck.mjs` now discovers projects from the
-   filesystem and CI calls `yarn typecheck`, so adding a package cannot silently opt out.
+1. **`expectTypeOf` in `.spec.ts` files.** vitest only _executes_ specs; `expectTypeOf(...)` is a runtime no-op unless `vitest typecheck` runs, which it never did. Every such assertion — path-param
+   derivation, brand nominality, DI token binding, DTO shapes — was decoration. All of them are now `Expect<Equal<…>>` in **67 `*.type-test.ts` files** that `tsc` compiles; `expectTypeOf` is banned
+   outright.
+2. **Specs were excluded from every package tsconfig.** So the `@ts-expect-error` directives in them were inert too: a directive in a file outside the program cannot fail. Specs are now inside the
+   program, which turns each of the **242** directives into a real assertion — and `tsc` reports an _unused_ `@ts-expect-error`, so a directive that stops being needed also fails the build.
+3. **CI typechecked four packages, not seven.** The workflow ran a hand-written `for p in schema-core query-compiler aot-validator repository` loop; `web` and `zmdb` were never typechecked. `web` was
+   doubly outside: its tsconfig also remapped `@zmdb/*` to `../*/dist/*.d.ts` — gitignored build output, absent in a fresh checkout and stale whenever a sibling source changed. `scripts/typecheck.mjs`
+   now discovers projects from the filesystem and CI calls `yarn typecheck`, so adding a package cannot silently opt out.
 
-Bringing the excluded files into the program surfaced **34 real type errors**, including one that invalidated a frozen SPEC: `findById(id, { populate })` returned `Entity<S>`, not a populated type, so the "no lazy getters, typed populate" acceptance criterion had never been met and specs papered over it with casts.
+Bringing the excluded files into the program surfaced **34 real type errors**, including one that invalidated a frozen SPEC: `findById(id, { populate })` returned `Entity<S>`, not a populated type, so
+the "no lazy getters, typed populate" acceptance criterion had never been met and specs papered over it with casts.
 
-`Populated` now derives the attached fields, `find` accepts `populate` too, and an unknown relation name is a compile error rather than a runtime throw. (It derived them from a relations map at the time; it reads the relation off the declared type now, and the map is gone — see §9.4's note on the type-first work.)
+`Populated` now derives the attached fields, `find` accepts `populate` too, and an unknown relation name is a compile error rather than a runtime throw. (It derived them from a relations map at the
+time; it reads the relation off the declared type now, and the map is gone — see §9.4's note on the type-first work.)
 
-**Lesson recorded, not just fixed:** a type-level assertion is only a gate if the file it
-lives in is inside a program that CI compiles. Anything else is a comment.
+**Lesson recorded, not just fixed:** a type-level assertion is only a gate if the file it lives in is inside a program that CI compiles. Anything else is a comment.
 
 ### 9.7 Toolchain and repo hygiene (2026-08-31)
 
 Findings from the same audit that are not type-safety but would have broken a fresh clone:
 
-- **Manifest ↔ lockfile drift.** Six `package.json` files declared `typescript: 5.9.2` /
-  `tsup: 8.5.0` while the lock resolved TS 7.0.2 and tsup 8.5.1, `benchmarks` had `kysely`
-  in `devDependencies` at a version the lock did not carry, and `oxlint`/`oxfmt` were used by
-  the root scripts without being declared at all. `yarn install --immutable` — what CI runs —
-  therefore **failed**, meaning CI could not have been green. All manifests now match the
-  lock and `yarn install --immutable` completes clean.
-- **Yarn linker.** `nodeLinker: node-modules` is now explicit in `.yarnrc.yml`. PnP's
-  resolution does not agree with `tsc`'s `paths`-based source resolution used here, so the
-  two gates disagreed about what a `@zmdb/*` import meant.
-- **Root `typecheck` script never worked.** It was `tsc --build`, which needs a root
-  `tsconfig.json` (none exists) and project references with `composite`, which needs
-  declaration emit, which every `noEmit` package refuses. It failed with TS6053 — a
-  passing-looking script that had never typechecked anything. Replaced by
-  `scripts/typecheck.mjs`.
-- **Remaining:** the root pins `@types/node: "*"`. It is pinned exactly in the lockfile, so
-  builds are reproducible today, but a lock refresh can silently cross a major. Pin it to the
-  Node 26 line at the next online lock refresh.
+- **Manifest ↔ lockfile drift.** Six `package.json` files declared `typescript: 5.9.2` / `tsup: 8.5.0` while the lock resolved TS 7.0.2 and tsup 8.5.1, `benchmarks` had `kysely` in `devDependencies`
+  at a version the lock did not carry, and `oxlint`/`oxfmt` were used by the root scripts without being declared at all. `yarn install --immutable` — what CI runs — therefore **failed**, meaning CI
+  could not have been green. All manifests now match the lock and `yarn install --immutable` completes clean.
+- **Yarn linker.** `nodeLinker: node-modules` is now explicit in `.yarnrc.yml`. PnP's resolution does not agree with `tsc`'s `paths`-based source resolution used here, so the two gates disagreed about
+  what a `@zmdb/*` import meant.
+- **Root `typecheck` script never worked.** It was `tsc --build`, which needs a root `tsconfig.json` (none exists) and project references with `composite`, which needs declaration emit, which every
+  `noEmit` package refuses. It failed with TS6053 — a passing-looking script that had never typechecked anything. Replaced by `scripts/typecheck.mjs`.
+- **Remaining:** the root pins `@types/node: "*"`. It is pinned exactly in the lockfile, so builds are reproducible today, but a lock refresh can silently cross a major. Pin it to the Node 26 line at
+  the next online lock refresh.
 
 ---
 
@@ -947,21 +831,15 @@ Findings from the same audit that are not type-safety but would have broken a fr
 
 The unified product is "done" for a release when **all** hold:
 
-1. Every REQ above is either met with a passing test or explicitly listed as a gap with an
-   owner and an issue.
-2. **0 DNF** in both upstream harnesses (ORM routes, validation cases), with each remaining
-   trade-off enumerated individually.
+1. Every REQ above is either met with a passing test or explicitly listed as a gap with an owner and an issue.
+2. **0 DNF** in both upstream harnesses (ORM routes, validation cases), with each remaining trade-off enumerated individually.
 3. The `@zmdb/web` contract check passes and same-machine peer numbers are refreshed.
-4. A greenfield app — schema → repository → controller → served OpenAPI — is buildable from
-   the quickstart with **`npm add zmdb` and nothing else** (`node:sqlite` driver).
-5. Consumer-facing code in every doc example contains **zero `as`** (✅ **0 violations** —
-   §9.4).
-6. Every framework assertion carries a `// boundary:` comment (✅ **64/64** — §9.4) **and the
-   CI counter is wired** (✅ `yarn verify:escape-hatches`, 2026-09-02) and the `new Function`
-   guard passes (✅ **0 sites**, checked by the same script, §9.5).
-7. `REQ-AV-3` is closed (✅ **2026-09-02**, §9.2): there is a documented build step for a
-   project with a bundler and for a project without one, both covered by a consumer fixture in
-   CI, and both emitting the same compiled checks.
+4. A greenfield app — schema → repository → controller → served OpenAPI — is buildable from the quickstart with **`npm add zmdb` and nothing else** (`node:sqlite` driver).
+5. Consumer-facing code in every doc example contains **zero `as`** (✅ **0 violations** — §9.4).
+6. Every framework assertion carries a `// boundary:` comment (✅ **64/64** — §9.4) **and the CI counter is wired** (✅ `yarn verify:escape-hatches`, 2026-09-02) and the `new Function` guard passes
+   (✅ **0 sites**, checked by the same script, §9.5).
+7. `REQ-AV-3` is closed (✅ **2026-09-02**, §9.2): there is a documented build step for a project with a bundler and for a project without one, both covered by a consumer fixture in CI, and both
+   emitting the same compiled checks.
 
 ---
 
@@ -986,11 +864,9 @@ The unified product is "done" for a release when **all** hold:
 
 ## 12. Out of scope — deliberate exclusions
 
-These are excluded **on principle**, not from lack of time, and each is documented on the
-docs site's Anti-patterns page:
+These are excluded **on principle**, not from lack of time, and each is documented on the docs site's Anti-patterns page:
 
-- Identity map, unit-of-work with auto-flush, dirty checking, lazy proxy relations, JIT
-  entity mappers — incompatible with P1.
+- Identity map, unit-of-work with auto-flush, dirty checking, lazy proxy relations, JIT entity mappers — incompatible with P1.
 - `reflect-metadata`, parameter decorators, `emitDecoratorMetadata` — incompatible with P1 and P3.
 - Runtime schema parsers on the hot path; `new Function()`/`eval` codegen (also CSP-hostile).
 - CommonJS output, dual publishing, polyfills, Node < 26 / TS < 7 support.
@@ -1001,8 +877,7 @@ docs site's Anti-patterns page:
 
 ## 13. Reconciliation of the two source PRDs
 
-Both source documents are absorbed in full. Where they conflicted with each other, with
-`ARCHITECTURE.md`, or with the shipped code, this PRD resolves as follows:
+Both source documents are absorbed in full. Where they conflicted with each other, with `ARCHITECTURE.md`, or with the shipped code, this PRD resolves as follows:
 
 | Source clause                                                                                                                                                                                    | Resolution here                                                                                                                                                                                                                                  |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1015,8 +890,6 @@ Both source documents are absorbed in full. Where they conflicted with each othe
 | Data-layer PRD: _"10x–100x faster than runtime parsing"_ as an assumed property                                                                                                                  | **REQ-NF-1 + §9.2.** Measured: ~40–100× the runtime path, in typia's league — **but only for a build that compiles the checks**, which is now two documented routes with a fixture each rather than an assumption (REQ-AV-3, closed 2026-09-02). |
 | Both PRDs: four packages / a data layer with a separate framework                                                                                                                                | **§5.** Six packages in one acyclic DAG, with the schema as the shared source of truth for _both_ the SQL boundary and the HTTP boundary (§7 — the seam).                                                                                        |
 
-**Supersession:** `Stage3_Decorator_Framework_PRD.md` and
-`zero_maintenance_data_layer_prd.md` have been **deleted**; their content is absorbed above
-and their history is in git (`git log --follow -- Stage3_Decorator_Framework_PRD.md`). This
-document is the single product requirement of record; `ARCHITECTURE.md` remains the
-architecture of record and takes precedence on implementation policy.
+**Supersession:** `Stage3_Decorator_Framework_PRD.md` and `zero_maintenance_data_layer_prd.md` have been **deleted**; their content is absorbed above and their history is in git
+(`git log --follow -- Stage3_Decorator_Framework_PRD.md`). This document is the single product requirement of record; `ARCHITECTURE.md` remains the architecture of record and takes precedence on
+implementation policy.

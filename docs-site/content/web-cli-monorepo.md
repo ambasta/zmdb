@@ -1,5 +1,4 @@
-At a workspace root, `zmdb new` requires `--package`. It discovers the legal
-targets, but it does not guess which one should receive framework code.
+At a workspace root, `zmdb new` requires `--package`. It discovers the legal targets, but it does not guess which one should receive framework code.
 
 ## The refusal is intentional
 
@@ -23,10 +22,8 @@ zmdb new: refusing to guess a workspace package; pass --package <name>. Candidat
   @acme/worker (apps/worker)
 ```
 
-No file is written. A wrong package choice is not a warning that can be fixed
-before the command exits; it is source code silently created in a package that
-may not even depend on the web framework. One explicit flag is cheaper than
-finding that file later.
+No file is written. A wrong package choice is not a warning that can be fixed before the command exits; it is source code silently created in a package that may not even depend on the web framework.
+One explicit flag is cheaper than finding that file later.
 
 ## Select a package explicitly
 
@@ -41,8 +38,7 @@ add to src/app.module.ts, in @Module({ controllers: [ … ] }):
   PostsController,
 ```
 
-The output paths are relative to the selected package. The measured workspace
-tree is:
+The output paths are relative to the selected package. The measured workspace tree is:
 
 ```text
 apps/
@@ -63,8 +59,7 @@ npx zmdb new controller posts --package apps/api
 
 ## Invocation inside a package
 
-When the current directory is inside exactly one discovered workspace package,
-there is no choice to make and the CLI targets that package:
+When the current directory is inside exactly one discovered workspace package, there is no choice to make and the CLI targets that package:
 
 ```text
 $ cd apps/worker
@@ -76,9 +71,7 @@ add to src/app.module.ts, in @Module({ imports: [ … ] }):
   JobsModule,
 ```
 
-It does not infer a target merely because a workspace currently contains one
-candidate. Workspace membership changes; the current directory is the stable
-signal that the caller selected a package.
+It does not infer a target merely because a workspace currently contains one candidate. Workspace membership changes; the current directory is the stable signal that the caller selected a package.
 
 ## What workspace discovery reads
 
@@ -89,13 +82,11 @@ The CLI walks upward to the nearest workspace declaration and supports:
 - `pnpm-workspace.yaml`;
 - include and `!` exclusion patterns.
 
-Each matching package is resolved to its real path, read for its `name`, and
-listed deterministically. A symlink that escapes the workspace root is ignored.
+Each matching package is resolved to its real path, read for its `name`, and listed deterministically. A symlink that escapes the workspace root is ignored.
 
 ## Build orchestration stays with the package manager
 
-There is no `zmdb new library`, `zmdb.workspace.json`, or framework build
-planner. Yarn, pnpm, and npm already know the dependency graph:
+There is no `zmdb new library`, `zmdb.workspace.json`, or framework build planner. Yarn, pnpm, and npm already know the dependency graph:
 
 ```json
 {
@@ -109,9 +100,7 @@ planner. Yarn, pnpm, and npm already know the dependency graph:
 }
 ```
 
-Topological build order, caching, and parallelism belong there. The scaffold's
-monorepo responsibility is narrower: choose one package safely and write only
-below it.
+Topological build order, caching, and parallelism belong there. The scaffold's monorepo responsibility is narrower: choose one package safely and write only below it.
 
 ## Share declarations as types
 
@@ -136,9 +125,7 @@ import type { Post } from '@acme/domain';
 const posts = defineRepository(schemaOf<Post>(), driver, { dialect: 'postgres' });
 ```
 
-`schemaOf<Post>()` is transformed in the consuming package. Keep the AOT adapter
-configured in every package that calls a transformed function, and retain a
-small canary such as:
+`schemaOf<Post>()` is transformed in the consuming package. Keep the AOT adapter configured in every package that calls a transformed function, and retain a small canary such as:
 
 ```ts
 it('runs the transformer', () => {
@@ -146,11 +133,9 @@ it('runs the transformer', () => {
 });
 ```
 
-Each application should also own the `zmdb.config.ts` that names its schema
-globs, migrations, dialect, and driver. That explicit config answers which
-application owns which tables without adding a second workspace registry.
+Each application should also own the `zmdb.config.ts` that names its schema globs, migrations, dialect, and driver. That explicit config answers which application owns which tables without adding a
+second workspace registry.
 
 ---
 
-See also: [CLI & Scaffolding](./web-cli.html) · [Configuration](./configuration.html) ·
-[Modules](./web-modules.html)
+See also: [CLI & Scaffolding](./web-cli.html) · [Configuration](./configuration.html) · [Modules](./web-modules.html)

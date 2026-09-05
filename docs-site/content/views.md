@@ -1,7 +1,8 @@
-Views in zmdb are declarative schema objects that encapsulate reusable SELECT queries. They provide a way to define virtual tables based on the result of a query, which is particularly useful for complex joins, aggregations, or exposing a simplified API over normalized data.
+Views in zmdb are declarative schema objects that encapsulate reusable SELECT queries. They provide a way to define virtual tables based on the result of a query, which is particularly useful for
+complex joins, aggregations, or exposing a simplified API over normalized data.
 
-> [!IMPORTANT]
-> zmdb treats views as pure DDL declarations — you define them once and let the migration system handle creation/dropping. Views are **not** automatically synced with schema changes; you must manually update them when underlying tables change.
+> [!IMPORTANT] zmdb treats views as pure DDL declarations — you define them once and let the migration system handle creation/dropping. Views are **not** automatically synced with schema changes; you
+> must manually update them when underlying tables change.
 
 ## Creating a Simple View
 
@@ -30,7 +31,8 @@ CREATE VIEW "user_with_post_count" AS SELECT u.id, u.email, COUNT(p.id) AS post_
 
 ## Materialized Views
 
-Materialized views store the result of the query physically on disk, making them useful for expensive aggregations or frequently accessed data that doesn't need to be real-time. PostgreSQL is the only supported dialect.
+Materialized views store the result of the query physically on disk, making them useful for expensive aggregations or frequently accessed data that doesn't need to be real-time. PostgreSQL is the only
+supported dialect.
 
 ```ts
 import { createViewDdl, UnsupportedFeatureError } from '@zmdb/query-compiler/schema-objects';
@@ -54,8 +56,8 @@ CREATE MATERIALIZED VIEW "sales_summary" AS SELECT region, SUM(amount) AS total_
            GROUP BY region
 ```
 
-> [!NOTE]
-> Materialized views require periodic refreshes. Use `REFRESH MATERIALIZED VIEW "view_name"` to update the data. On MySQL, SingleStore, SQLite or SQL Server, this will throw `UnsupportedFeatureError`; Cockroach inherits the Postgres form.
+> [!NOTE] Materialized views require periodic refreshes. Use `REFRESH MATERIALIZED VIEW "view_name"` to update the data. On MySQL, SingleStore, SQLite or SQL Server, this will throw
+> `UnsupportedFeatureError`; Cockroach inherits the Postgres form.
 
 ## Dropping Views
 
@@ -81,13 +83,7 @@ import { createQueryCompiler } from '@zmdb/query-compiler';
 
 const compiler = createQueryCompiler('postgres');
 
-const query = compiler
-  .selectFrom('user_with_post_count')
-  .select(['id', 'email', 'post_count'])
-  .where('post_count', '>', 5)
-  .orderBy('post_count', 'desc')
-  .limit(10)
-  .compile();
+const query = compiler.selectFrom('user_with_post_count').select(['id', 'email', 'post_count']).where('post_count', '>', 5).orderBy('post_count', 'desc').limit(10).compile();
 
 console.log(query.text);
 console.log(query.parameters);
@@ -98,8 +94,7 @@ SELECT "id", "email", "post_count" FROM "user_with_post_count" WHERE "post_count
 -- parameters: [5]
 ```
 
-> [!TIP]
-> Views are read-only in most databases. If you need to modify data through a view, you'll need to define INSTEAD OF triggers or use an updatable view with the proper constraints.
+> [!TIP] Views are read-only in most databases. If you need to modify data through a view, you'll need to define INSTEAD OF triggers or use an updatable view with the proper constraints.
 
 ## Related
 

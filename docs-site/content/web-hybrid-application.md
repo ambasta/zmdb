@@ -1,6 +1,5 @@
-One application can own HTTP routing, custom or packaged Redis, NATS and
-RabbitMQ strategies, and typed gRPC bindings. They share one container and one
-bounded lifecycle; the host still owns the HTTP listening socket.
+One application can own HTTP routing, custom or packaged Redis, NATS and RabbitMQ strategies, and typed gRPC bindings. They share one container and one bounded lifecycle; the host still owns the HTTP
+listening socket.
 
 ## One application, two transport surfaces
 
@@ -21,8 +20,7 @@ await using app = createApp(AppModule, {
 await app.init();
 ```
 
-Add gRPC through its separate binding contract rather than the broker strategy
-array:
+Add gRPC through its separate binding contract rather than the broker strategy array:
 
 ```ts
 await using app = createApp(AppModule, {
@@ -37,14 +35,10 @@ await using app = createApp(AppModule, {
 });
 ```
 
-The same module graph and controller instances serve the HTTP and message
-surfaces. A controller can therefore inject one repository and expose both a
-route and a message handler without opening a second pool or constructing a
-second singleton.
+The same module graph and controller instances serve the HTTP and message surfaces. A controller can therefore inject one repository and expose both a route and a message handler without opening a
+second pool or constructing a second singleton.
 
-There is no `connectMicroservice` or `startAllMicroservices`. `init()` is the
-one startup boundary, so a process cannot accidentally serve HTTP while
-forgetting to start its configured consumers.
+There is no `connectMicroservice` or `startAllMicroservices`. `init()` is the one startup boundary, so a process cannot accidentally serve HTTP while forgetting to start its configured consumers.
 
 ## Startup and shutdown order
 
@@ -56,8 +50,7 @@ Initialization is ordered:
 4. call `transport.listen` in declaration order;
 5. bind the optional gRPC server.
 
-A rejecting `listen` or gRPC bind closes transports opened earlier and rejects
-`init()`. Start the external HTTP server only after `init()` resolves.
+A rejecting `listen` or gRPC bind closes transports opened earlier and rejects `init()`. Start the external HTTP server only after `init()` resolves.
 
 Disposal mirrors the dependency direction:
 
@@ -66,9 +59,7 @@ Disposal mirrors the dependency direction:
 3. close transports in reverse declaration order;
 4. run `onShutdown` in reverse construction order.
 
-Intake stops before repositories and other handler dependencies are disposed.
-Every configured transport is asked to close even when an earlier close
-rejects.
+Intake stops before repositories and other handler dependencies are disposed. Every configured transport is asked to close even when an earlier close rejects.
 
 ## Serving HTTP
 
@@ -84,10 +75,8 @@ const result = await app.handle({
 const response = await app.fetch(new Request('https://service.example/health'));
 ```
 
-The host still owns its listening socket and must close it as part of process
-shutdown. `toNodeHandler` currently accepts a `Router`, not an `App`, so do not
-pass `app` to it; use `app.fetch`/`app.handle` in a compatible host or build the
-Node router explicitly as described by [Standalone Applications](./web-standalone.html).
+The host still owns its listening socket and must close it as part of process shutdown. `toNodeHandler` currently accepts a `Router`, not an `App`, so do not pass `app` to it; use
+`app.fetch`/`app.handle` in a compatible host or build the Node router explicitly as described by [Standalone Applications](./web-standalone.html).
 
 ## Several transports
 
@@ -101,38 +90,29 @@ const app = createApp(AppModule, {
 });
 ```
 
-Names must be non-empty and unique because `MessageContext.transport` records
-the strategy that delivered the message. All transports share the same
-startup-built handler map.
+Names must be non-empty and unique because `MessageContext.transport` records the strategy that delivered the message. All transports share the same startup-built handler map.
 
-A strategy without redelivery or dead-letter support requires
-`dispatcher.onUndeliverable`; a strategy without request/reply support can
-still carry events, while typed client calls reject immediately.
+A strategy without redelivery or dead-letter support requires `dispatcher.onUndeliverable`; a strategy without request/reply support can still carry events, while typed client calls reject
+immediately.
 
 ## Deliberate HTTP-only degradation
 
-If HTTP should remain available when a broker is unavailable, do not attach
-that broker to the same application startup. Run the consumer as a separate
-process or compose it outside `createApp` with an explicit health and shutdown
-contract.
+If HTTP should remain available when a broker is unavailable, do not attach that broker to the same application startup. Run the consumer as a separate process or compose it outside `createApp` with
+an explicit health and shutdown contract.
 
-That is a deployment decision, not an implicit fallback. Silently accepting
-HTTP traffic while every message consumer is disconnected makes ordinary
-health checks lie.
+That is a deployment decision, not an implicit fallback. Silently accepting HTTP traffic while every message consumer is disconnected makes ordinary health checks lie.
 
 ## Other sidecars
 
-WebSocket servers, polling workers and CLI entry points remain ordinary
-composition around the same container:
+WebSocket servers, polling workers and CLI entry points remain ordinary composition around the same container:
 
 ```ts
 const reports = app.container.resolve(REPORTS);
 await reports.sendDigests();
 ```
 
-External workers must still expose a stop function that awaits in-flight work.
-Only `TransportStrategy` instances and gRPC bindings supplied in `AppOptions`
-participate in the application's automatic bounded shutdown.
+External workers must still expose a stop function that awaits in-flight work. Only `TransportStrategy` instances and gRPC bindings supplied in `AppOptions` participate in the application's automatic
+bounded shutdown.
 
 ---
 

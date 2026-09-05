@@ -1,6 +1,4 @@
-There is no `ModuleRef`. There are two explicit surfaces instead:
-`app.container`, for typed provider lookup, and `app.lazy`, for loading a module
-that was declared lazy.
+There is no `ModuleRef`. There are two explicit surfaces instead: `app.container`, for typed provider lookup, and `app.lazy`, for loading a module that was declared lazy.
 
 ## Getting a provider
 
@@ -39,11 +37,11 @@ export class PostsController {
 }
 ```
 
-`@Inject` is a **field** decorator. The `!` is required — the decorator supplies the initializer, so TypeScript needs the definite-assignment assertion. Constructor-parameter injection does not work: `Container.build` calls `new Ctor()` with no arguments, and `Constructor<T>` is `new () => T`.
+`@Inject` is a **field** decorator. The `!` is required — the decorator supplies the initializer, so TypeScript needs the definite-assignment assertion. Constructor-parameter injection does not work:
+`Container.build` calls `new Ctor()` with no arguments, and `Constructor<T>` is `new () => T`.
 
-An injected field resolves once, during its controller's construction. Eager
-controllers are constructed at startup; a lazily imported controller is
-constructed on its first load. Neither path adds a per-request provider proxy.
+An injected field resolves once, during its controller's construction. Eager controllers are constructed at startup; a lazily imported controller is constructed on its first load. Neither path adds a
+per-request provider proxy.
 
 ## When you genuinely need the container
 
@@ -96,10 +94,8 @@ const admin = app.lazy.find(handle => handle.name === 'AdminModule');
 await admin?.load();
 ```
 
-The handle belongs to this app, reports
-`'unloaded' | 'loading' | 'loaded' | 'failed'`, and loads only a module already
-declared with `lazy(AdminModule)` in the graph. It is not an API for attaching an
-arbitrary class at runtime.
+The handle belongs to this app, reports `'unloaded' | 'loading' | 'loaded' | 'failed'`, and loads only a module already declared with `lazy(AdminModule)` in the graph. It is not an API for attaching
+an arbitrary class at runtime.
 
 ## Transient providers
 
@@ -107,21 +103,17 @@ arbitrary class at runtime.
 { token: REQUEST_ID, useFactory: () => crypto.randomUUID(), scope: 'transient' }
 ```
 
-`Scope` is `'singleton' | 'transient'`. A transient factory re-runs on every `resolve`, which is the closest thing to a non-singleton instance — but note that a field-injected transient resolves **once**, at construction, so the holder keeps one value. Transient only behaves transiently when you call `resolve` yourself. See [Injection Scopes](./web-injection-scopes.html).
+`Scope` is `'singleton' | 'transient'`. A transient factory re-runs on every `resolve`, which is the closest thing to a non-singleton instance — but note that a field-injected transient resolves
+**once**, at construction, so the holder keeps one value. Transient only behaves transiently when you call `resolve` yourself. See [Injection Scopes](./web-injection-scopes.html).
 
 ## What `ModuleRef` does that this does not
 
 - **`resolve()` with a fresh dependency subtree.** No equivalent; scopes are singleton or transient only.
 - **Module-scoped lookup.** `compileModule` builds **one flat container** for the whole graph, so there is no per-module registry to look in. Which brings us to the caveat below.
-- **Arbitrary runtime module attachment.** Lazy subtrees must be declared and
-  validated at startup. See [Lazy Modules](./web-lazy-modules.html).
+- **Arbitrary runtime module attachment.** Lazy subtrees must be declared and validated at startup. See [Lazy Modules](./web-lazy-modules.html).
 
-> [!WARNING]
-> `ModuleDef.exports` is accepted and **not enforced**. Every provider from every
-> module in the graph lands in one container, so a controller can inject a token
-> from a module it did not import. A token collision between two modules is
-> refused at startup. Keep tokens unique, export them from one owner module, and
-> treat `exports` as documentation for now.
+> [!WARNING] `ModuleDef.exports` is accepted and **not enforced**. Every provider from every module in the graph lands in one container, so a controller can inject a token from a module it did not
+> import. A token collision between two modules is refused at startup. Keep tokens unique, export them from one owner module, and treat `exports` as documentation for now.
 
 ---
 

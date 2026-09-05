@@ -1,4 +1,5 @@
-There is no `app.enableCors()`, and CORS cannot be implemented inside a handler: the router builds the response headers and a handler cannot add to them. CORS belongs in your adapter, or at the proxy in front of it.
+There is no `app.enableCors()`, and CORS cannot be implemented inside a handler: the router builds the response headers and a handler cannot add to them. CORS belongs in your adapter, or at the proxy
+in front of it.
 
 ## In the adapter
 
@@ -37,19 +38,15 @@ Six details there are load-bearing.
 
 **`webRequest(req)`.** There is no `toWebRequest` to import; `app.handle` takes a `WebRequest` the adapter builds itself, and it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
-**`bodyText(out)`.** This custom header wrapper buffers streamed responses. Use
-the built-in Node adapter when backpressure and client-disconnect cancellation
-matter.
+**`bodyText(out)`.** This custom header wrapper buffers streamed responses. Use the built-in Node adapter when backpressure and client-disconnect cancellation matter.
 
-**`vary: origin`.** Without it, a shared cache or CDN serves the `access-control-allow-origin` computed for one origin to a request from another — which either breaks legitimate clients or grants access you did not intend.
+**`vary: origin`.** Without it, a shared cache or CDN serves the `access-control-allow-origin` computed for one origin to a request from another — which either breaks legitimate clients or grants
+access you did not intend.
 
 **An allow-list, echoed.** The header must name a single origin, so with several allowed origins you echo the request's `Origin` **after** checking it against the set. Never echo it unchecked.
 
-> [!WARNING]
-> `access-control-allow-origin: *` with `access-control-allow-credentials: true` is
-> rejected by browsers, and echoing an arbitrary `Origin` alongside credentials is
-> equivalent to allowing every site to make authenticated requests as your users.
-> That is a full account-takeover primitive. Use a fixed allow-list.
+> [!WARNING] `access-control-allow-origin: *` with `access-control-allow-credentials: true` is rejected by browsers, and echoing an arbitrary `Origin` alongside credentials is equivalent to allowing
+> every site to make authenticated requests as your users. That is a full account-takeover primitive. Use a fixed allow-list.
 
 **Preflight short-circuits.** An `OPTIONS` request must not reach the router — there are no `OPTIONS` routes, so it would 404 and the browser would block the real request with a confusing error.
 
@@ -89,25 +86,24 @@ Every managed platform has an equivalent. Configure it in one place: CORS header
 
 ## What CORS is not
 
-CORS is a **browser** policy. It does not stop `curl`, a server-side client, or an attacker — anyone can send any request with any origin and read the response outside a browser. It only stops page JavaScript on another site from reading your responses.
+CORS is a **browser** policy. It does not stop `curl`, a server-side client, or an attacker — anyone can send any request with any origin and read the response outside a browser. It only stops page
+JavaScript on another site from reading your responses.
 
-So CORS is not authorisation, and it is not [CSRF protection](./web-csrf.html): a cross-site form post needs no preflight and is unaffected by your CORS policy. Authorise every request on its own merits.
+So CORS is not authorisation, and it is not [CSRF protection](./web-csrf.html): a cross-site form post needs no preflight and is unaffected by your CORS policy. Authorise every request on its own
+merits.
 
 ## Development
 
 ```ts
-const ALLOWED = new Set(
-  process.env.NODE_ENV === 'production'
-    ? ['https://app.example.com']
-    : ['http://localhost:5173', 'http://localhost:3000'],
-);
+const ALLOWED = new Set(process.env.NODE_ENV === 'production' ? ['https://app.example.com'] : ['http://localhost:5173', 'http://localhost:3000']);
 ```
 
 Gate the permissive list on the environment explicitly, so a wildcard cannot reach production by being the default.
 
 ## What it would take
 
-For CORS to be a framework feature, a handler or a filter would need to set response headers — the same [handler-cannot-set-headers](./web-request-lifecycle.html) blocker affecting [cookies](./web-cookies-sessions.html), [CSRF](./web-csrf.html) and [caching](./web-caching.html). With that, CORS is an `Interceptor` plus an `OPTIONS` route.
+For CORS to be a framework feature, a handler or a filter would need to set response headers — the same [handler-cannot-set-headers](./web-request-lifecycle.html) blocker affecting
+[cookies](./web-cookies-sessions.html), [CSRF](./web-csrf.html) and [caching](./web-caching.html). With that, CORS is an `Interceptor` plus an `OPTIONS` route.
 
 Even then, the proxy remains the better place for a production deployment.
 

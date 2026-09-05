@@ -1,7 +1,5 @@
-The `forRoot()` / `forFeature()` analogue. `Module` is a **class decorator**, so a
-configurable module is a function that returns a decorated class. There is no
-`ConfigurableModuleBuilder` and no `DynamicModule` type — a function returning a
-`ModuleClass` is the whole mechanism.
+The `forRoot()` / `forFeature()` analogue. `Module` is a **class decorator**, so a configurable module is a function that returns a decorated class. There is no `ConfigurableModuleBuilder` and no
+`DynamicModule` type — a function returning a `ModuleClass` is the whole mechanism.
 
 ## The forRoot pattern
 
@@ -39,24 +37,17 @@ export function mailerModule(options: MailerOptions): ModuleClass {
 export class AppModule {}
 ```
 
-Each call returns a **fresh class** with its own metadata, so two differently
-configured instances of the same module do not interfere at the decorator level.
+Each call returns a **fresh class** with its own metadata, so two differently configured instances of the same module do not interfere at the decorator level.
 
-A factory receives the `Container`, so it resolves its own options — there is no
-`inject: [...]` array on a provider.
+A factory receives the `Container`, so it resolves its own options — there is no `inject: [...]` array on a provider.
 
 ## Two behaviours to know about
 
-> [!WARNING]
-> **`exports` is recorded but not enforced.** `compileModule` builds one flat
-> container: every provider from every module in the graph is visible to every
-> controller. Listing `exports` documents intent, and nothing stops a controller
-> from injecting a token you did not export. Treat module boundaries as a
-> convention, and keep internal tokens un-exported so the intent is at least
+> [!WARNING] **`exports` is recorded but not enforced.** `compileModule` builds one flat container: every provider from every module in the graph is visible to every controller. Listing `exports`
+> documents intent, and nothing stops a controller from injecting a token you did not export. Treat module boundaries as a convention, and keep internal tokens un-exported so the intent is at least
 > readable.
 
-Importing the same dynamic module twice with the same tokens is refused at
-startup:
+Importing the same dynamic module twice with the same tokens is refused at startup:
 
 ```ts
 imports: [mailerModule(transactional), mailerModule(marketing)];
@@ -72,8 +63,7 @@ export const MARKETING = createToken<Mailer>('MARKETING');
 
 ## The forFeature pattern
 
-The same function, parameterised per feature. A repository module is the common
-case:
+The same function, parameterised per feature. A repository module is the common case:
 
 ```ts
 export function repositoryModule<S extends Schema>(token: Token<Repo<S>>, schema: S): ModuleClass {
@@ -94,27 +84,21 @@ export function repositoryModule<S extends Schema>(token: Token<Repo<S>>, schema
 export class AppModule {}
 ```
 
-Distinct tokens avoid that declaration conflict. `repositoryToken<S>(name)`
-from `@zmdb/web/data` gives you a typed token in one call — see
-[Repository Providers](./web-data-integration.html).
+Distinct tokens avoid that declaration conflict. `repositoryToken<S>(name)` from `@zmdb/web/data` gives you a typed token in one call — see [Repository Providers](./web-data-integration.html).
 
 ## Ordering
 
-For eager imports, `compileModule` visits `imports` depth-first, then registers
-the module's own providers and builds its controllers. So:
+For eager imports, `compileModule` visits `imports` depth-first, then registers the module's own providers and builds its controllers. So:
 
 - A module's controllers see everything its imports registered. Good.
-- An **imported** module's controllers do **not** see the importing module's
-  providers, because those are registered afterwards. `@Inject` resolves eagerly
-  at build time, so you get `UnresolvedTokenError` at boot.
+- An **imported** module's controllers do **not** see the importing module's providers, because those are registered afterwards. `@Inject` resolves eagerly at build time, so you get
+  `UnresolvedTokenError` at boot.
 
-Put a token in the module that owns it, and import that module wherever it is
-needed.
+Put a token in the module that owns it, and import that module wherever it is needed.
 
 ## Async options
 
-`useFactory` is synchronous. Await the options before calling the module
-function — top-level `await` in an ESM entry point is the whole answer:
+`useFactory` is synchronous. Await the options before calling the module function — top-level `await` in an ESM entry point is the whole answer:
 
 ```ts
 const secrets = await loadSecrets();
@@ -133,15 +117,12 @@ await using app = createTestApp(AppModule, {
 });
 ```
 
-Overrides are registered first and win over any provider with the same token, so
-you do not need to re-parameterise the module under test.
+Overrides are registered first and win over any provider with the same token, so you do not need to re-parameterise the module under test.
 
 ## Design notes
 
-- A function returning a class: no builder API, no `DynamicModule` shape, no
-  runtime graph rewriting.
-- Options are ordinary providers keyed by a [`Token`](./web-di.html), so the type
-  flows without an `as`.
+- A function returning a class: no builder API, no `DynamicModule` shape, no runtime graph rewriting.
+- Options are ordinary providers keyed by a [`Token`](./web-di.html), so the type flows without an `as`.
 - Granular imports: `@zmdb/web/di`, `@zmdb/web/modules`.
 
 ---

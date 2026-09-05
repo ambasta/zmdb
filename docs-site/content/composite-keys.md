@@ -1,6 +1,5 @@
-> **Supported.** `PrimaryKey` is a per-column tag, and the reflector turns two of them into one ordered key.
-> Snapshots, migration diffs, generated DDL, repository keyed methods, pagination and relations
-> all preserve that whole key.
+> **Supported.** `PrimaryKey` is a per-column tag, and the reflector turns two of them into one ordered key. Snapshots, migration diffs, generated DDL, repository keyed methods, pagination and
+> relations all preserve that whole key.
 
 ## What the declaration says
 
@@ -14,14 +13,12 @@ export interface Membership extends Table<'memberships'> {
 }
 ```
 
-Two `PrimaryKey` tags is how you say composite, and the reflected schema records it correctly —
-`primaryKey` is `['orgId', 'userId']`. There is no separate `primaryKey: [...]` option to keep
-in step with the columns, which removes one way to get this wrong.
+Two `PrimaryKey` tags is how you say composite, and the reflected schema records it correctly — `primaryKey` is `['orgId', 'userId']`. There is no separate `primaryKey: [...]` option to keep in step
+with the columns, which removes one way to get this wrong.
 
 ## What the DDL emitter does with it
 
-The snapshot stores the ordered key separately from its alphabetically sorted columns. A generated
-migration therefore emits one table constraint in declaration order:
+The snapshot stores the ordered key separately from its alphabetically sorted columns. A generated migration therefore emits one table constraint in declaration order:
 
 ```sql
 CREATE TABLE "memberships" (
@@ -32,23 +29,15 @@ CREATE TABLE "memberships" (
 )
 ```
 
-The four root dialects and Cockroach use that same table-level shape with their
-own identifier quoting and integer spelling. SingleStore does too after the
-table declares its required `ShardKey<…>` or `Rowstore`; without one it refuses
-the table rather than choosing a distribution layout. A one-column key keeps
-the existing inline form, including SQLite's `INTEGER PRIMARY KEY` rowid alias.
+The four root dialects and Cockroach use that same table-level shape with their own identifier quoting and integer spelling. SingleStore does too after the table declares its required `ShardKey<…>` or
+`Rowstore`; without one it refuses the table rather than choosing a distribution layout. A one-column key keeps the existing inline form, including SQLite's `INTEGER PRIMARY KEY` rowid alias.
 
-Changing the key produces one reversible `alter_primary_key` operation. Postgres and MySQL emit
-one `ALTER TABLE` statement that drops the old key and adds the new one. SQLite has no key-alter
-form, so generation throws an `UnsupportedFeatureError` naming the table and requiring a
-hand-written table rebuild. SQL Server also refuses the generated operation because the snapshot
-does not carry the existing primary-key constraint name needed for `DROP CONSTRAINT`.
+Changing the key produces one reversible `alter_primary_key` operation. Postgres and MySQL emit one `ALTER TABLE` statement that drops the old key and adds the new one. SQLite has no key-alter form,
+so generation throws an `UnsupportedFeatureError` naming the table and requiring a hand-written table rebuild. SQL Server also refuses the generated operation because the snapshot does not carry the
+existing primary-key constraint name needed for `DROP CONSTRAINT`.
 
-> [!NOTE]
-> Two `References<…>` tags emit two independent single-column foreign keys. They
-> are never grouped merely because both columns belong to one primary key. When
-> one constraint must pair several local and target columns, declare it
-> explicitly on the table:
+> [!NOTE] Two `References<…>` tags emit two independent single-column foreign keys. They are never grouped merely because both columns belong to one primary key. When one constraint must pair several
+> local and target columns, declare it explicitly on the table:
 >
 > ```ts
 > import type { ForeignKey, Table } from 'zmdb/tags';
@@ -69,8 +58,7 @@ await repo.find({ orgId: { eq: 1 } });
 
 ## What the repository does with a composite key
 
-`PrimaryKeyOf<T>` is a record when the key has two or more columns, so the key is an object and
-the three keyed methods take it directly:
+`PrimaryKeyOf<T>` is a record when the key has two or more columns, so the key is an object and the three keyed methods take it directly:
 
 ```ts
 import type { PrimaryKeyOf } from '@zmdb/schema-core';
@@ -85,10 +73,8 @@ await repo.delete(key);
 // DELETE FROM "memberships" WHERE "orgId" = $1 AND "userId" = $2 RETURNING "orgId", "userId"
 ```
 
-A typed key missing `userId` does not compile. The same value arriving through
-an untyped boundary is refused before any SQL is compiled. `IncompleteKeyError`
-extends `ValidationError`, names the table, method and every missing column in
-key order, and exposes the table and missing columns as fields:
+A typed key missing `userId` does not compile. The same value arriving through an untyped boundary is refused before any SQL is compiled. `IncompleteKeyError` extends `ValidationError`, names the
+table, method and every missing column in key order, and exposes the table and missing columns as fields:
 
 ```text
 memberships.findById requires every key column; missing: userId
@@ -100,9 +86,8 @@ Passing `{}` lists both columns in key order:
 memberships.findById requires every key column; missing: orgId, userId
 ```
 
-Only own properties count. A `userId` inherited from the key object's prototype is still
-reported missing, so a prototype cannot silently complete a partial key. A scalar is also
-refused with the expected object shape rather than being bound as one parameter.
+Only own properties count. A `userId` inherited from the key object's prototype is still reported missing, so a prototype cannot silently complete a partial key. A scalar is also refused with the
+expected object shape rather than being bound as one parameter.
 
 Extra keys are ignored, so you can pass a whole row you already have:
 
@@ -110,27 +95,21 @@ Extra keys are ignored, so you can pass a whole row you already have:
 await repo.delete(row); // row is a Membership; only orgId and userId are read
 ```
 
-The same ordered key is the default conflict target for `upsert` and the deterministic
-tie-breaker for `list`. A composite-key cursor therefore carries every key column, rather than
-skipping rows that tie on the first one.
+The same ordered key is the default conflict target for `upsert` and the deterministic tie-breaker for `list`. A composite-key cursor therefore carries every key column, rather than skipping rows that
+tie on the first one.
 
 ## One-column keys take the value, not a record
 
-On a table whose key is a _single_ column, `findById`, `update` and `delete` take the value —
-`42`, not `{ id: 42 }`. The record form is a `ValidationError` naming the method and the column:
+On a table whose key is a _single_ column, `findById`, `update` and `delete` take the value — `42`, not `{ id: 42 }`. The record form is a `ValidationError` naming the method and the column:
 
 ```ts
 await repo.delete({ id: 42 });
 // ValidationError: products.delete requires the value of "id", not an object
 ```
 
-A value is a string, a number, a bigint, a boolean or a `Date`. `null`, `undefined`, an array and
-an object are all refused, and nothing is compiled or executed first.
+A value is a string, a number, a bigint, a boolean or a `Date`. `null`, `undefined`, an array and an object are all refused, and nothing is compiled or executed first.
 
-> [!NOTE]
-> Older versions accepted this object form and produced SQL with no `WHERE`
-> clause. `findById` returned the first row, while `update` and `delete` affected
-> the whole table:
+> [!NOTE] Older versions accepted this object form and produced SQL with no `WHERE` clause. `findById` returned the first row, while `update` and `delete` affected the whole table:
 >
 > ```ts
 > await repo.findById({ id: 42 }); // SELECT * FROM "products" LIMIT 1
@@ -138,14 +117,10 @@ an object are all refused, and nothing is compiled or executed first.
 > await repo.delete({ id: 42 }); // DELETE FROM "products" RETURNING "id"
 > ```
 >
-> TypeScript rejected these calls, but untyped request data or a cast could still
-> reach the runtime path. The repository now validates the key before compiling
-> SQL. In addition, `compileWhere` rejects empty operator maps, and `update` and
-> `delete` refuse to run compiled SQL without a `WHERE` clause.
+> TypeScript rejected these calls, but untyped request data or a cast could still reach the runtime path. The repository now validates the key before compiling SQL. In addition, `compileWhere` rejects
+> empty operator maps, and `update` and `delete` refuse to run compiled SQL without a `WHERE` clause.
 
-A single-column key intentionally accepts only the scalar form. Supporting both
-forms would make code silently change meaning if the table later gained a
-composite key.
+A single-column key intentionally accepts only the scalar form. Supporting both forms would make code silently change meaning if the table later gained a composite key.
 
 ## Relations and populate
 
@@ -158,21 +133,16 @@ posts?: Post[] & OneToMany<'posts', 'orgId,userId'>;
 author?: User & ManyToOne<'users', 'orgId,userId'>;
 ```
 
-`resolveRelation` returns ordered `parentKey` and `targetKey` lists. An inverse relation whose
-`via` list is shorter than the parent key is refused at derivation with the declared key order
-and a corrected spelling. On the owning side, every composite `via` column must carry a
-`References` tag, so no missing half is guessed as `id`.
+`resolveRelation` returns ordered `parentKey` and `targetKey` lists. An inverse relation whose `via` list is shorter than the parent key is refused at derivation with the declared key order and a
+corrected spelling. On the owning side, every composite `via` column must carry a `References` tag, so no missing half is guessed as `id`.
 
-`compilePopulate` conjoins every pair in a to-one `ON` clause. Batched to-many compilation uses
-tuple `IN` on PostgreSQL, MySQL and SQLite; SQL Server reports an explicit
-unsupported-feature error. Repository population uses portable paired predicates and groups
-children by the entire ordered key.
+`compilePopulate` conjoins every pair in a to-one `ON` clause. Batched to-many compilation uses tuple `IN` on PostgreSQL, MySQL and SQLite; SQL Server reports an explicit unsupported-feature error.
+Repository population uses portable paired predicates and groups children by the entire ordered key.
 
 ## Related
 
-`ManyToMany` still requires an explicit join through the intermediate table. The join builder
-accepts an ordered list of `ON` pairs, so both foreign-key columns can be stated without
-collapsing either relation to one column.
+`ManyToMany` still requires an explicit join through the intermediate table. The join builder accepts an ordered list of `ON` pairs, so both foreign-key columns can be stated without collapsing either
+relation to one column.
 
 ---
 

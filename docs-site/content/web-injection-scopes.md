@@ -34,18 +34,12 @@ A factory receives the `Container`, so a provider can depend on another:
 
 `scope` only applies to `useFactory`. A `'singleton'` factory runs once and the result is cached; a `'transient'` factory runs on every `resolve`.
 
-> [!NOTE]
-> The method is `resolve(token)`, not `get(token)`. `has(token)` checks for a
-> registration without resolving, and `build(Ctor)` constructs a class and
-> populates its `@Inject` fields.
+> [!NOTE] The method is `resolve(token)`, not `get(token)`. `has(token)` checks for a registration without resolving, and `build(Ctor)` constructs a class and populates its `@Inject` fields.
 
 ## Why there is no request scope
 
-A request-scoped provider means the container rebuilds a sub-graph on every
-request. That is per-request allocation and resolution work, which is precisely
-what constructing each controller once per app avoids. A lazy controller moves
-that one construction to its first load; it does not become request-scoped. See
-[Performance](./web-performance.html).
+A request-scoped provider means the container rebuilds a sub-graph on every request. That is per-request allocation and resolution work, which is precisely what constructing each controller once per
+app avoids. A lazy controller moves that one construction to its first load; it does not become request-scoped. See [Performance](./web-performance.html).
 
 The consequence is that request-specific values are **passed**, not injected. There is [no ambient request context](./web-request-context.html) either — no `AsyncLocalStorage`, no `ctx.state` bag.
 
@@ -73,17 +67,16 @@ async list(ctx: Ctx<Record<never, string>, unknown>) {
 }
 ```
 
-That covers tenant scoping, row-level security, per-request query budgets and per-request batching without a scope mechanism. The full treatment, including the `set_config(..., true)` transaction-local detail that prevents a cross-tenant leak on a pooled connection, is in [Request Context](./web-request-context.html).
+That covers tenant scoping, row-level security, per-request query budgets and per-request batching without a scope mechanism. The full treatment, including the `set_config(..., true)`
+transaction-local detail that prevents a cross-tenant leak on a pooled connection, is in [Request Context](./web-request-context.html).
 
-> [!WARNING]
-> Never store request state on a controller or provider field. Both are
-> **singletons** — each instance is constructed once per app — so `this.currentUser = …`
-> in a handler is a race that serves one user's data to another, and it looks
-> correct in every single-request test.
+> [!WARNING] Never store request state on a controller or provider field. Both are **singletons** — each instance is constructed once per app — so `this.currentUser = …` in a handler is a race that
+> serves one user's data to another, and it looks correct in every single-request test.
 
 ## Transactions
 
-A transaction is the request-scoped lifecycle people usually reach for a scope to express, and it needs no scope mechanism — `db.transaction` owns the callback, and `repo.withTransaction(tx)` returns a **new repository instance** bound to that transaction's connection:
+A transaction is the request-scoped lifecycle people usually reach for a scope to express, and it needs no scope mechanism — `db.transaction` owns the callback, and `repo.withTransaction(tx)` returns
+a **new repository instance** bound to that transaction's connection:
 
 ```ts
 await this.db.transaction(async tx => {

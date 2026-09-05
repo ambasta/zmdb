@@ -1,8 +1,5 @@
-`createApp` bootstraps an application from a root [module](./web-modules.html):
-it compiles the DI graph, builds the [router](./web-pipeline.html), and registers
-every controller's routes — **once**. It exposes lifecycle hooks and `await using`
-graceful shutdown. Its optional second argument attaches
-[message transports](./web-microservices.html) and typed
+`createApp` bootstraps an application from a root [module](./web-modules.html): it compiles the DI graph, builds the [router](./web-pipeline.html), and registers every controller's routes — **once**.
+It exposes lifecycle hooks and `await using` graceful shutdown. Its optional second argument attaches [message transports](./web-microservices.html) and typed
 [gRPC bindings](./web-microservices-grpc.html) to the same lifecycle.
 
 ## Bootstrapping
@@ -20,14 +17,11 @@ await app.handle({ method: 'GET', path: '/ping', headers: {} }); // framework-ne
 await app.fetch(new Request('http://x/ping')); // Fetch (Hono/edge)
 ```
 
-`app.lazy` contains the per-app handles for
-[lazy module imports](./web-lazy-modules.html). It is empty for an all-eager
-graph.
+`app.lazy` contains the per-app handles for [lazy module imports](./web-lazy-modules.html). It is empty for an all-eager graph.
 
 ## Lifecycle hooks
 
-Implement any of these on a controller (or provider) and they run at the right
-time:
+Implement any of these on a controller (or provider) and they run at the right time:
 
 ```ts
 import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from '@zmdb/web';
@@ -48,15 +42,12 @@ class Db implements OnModuleInit, OnShutdown {
 | lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass                                           |
 | shutdown  | gRPC closes → transports close in reverse declaration order → instances `onShutdown` in **reverse construction order** |
 
-“All” means every constructed object provider and controller. Value providers
-enter the ledger when registered; factory providers enter only when resolved.
-A factory first resolved after `init()` is still shut down, without retroactive
-init hooks, and an unresolved factory is never constructed for lifecycle.
+“All” means every constructed object provider and controller. Value providers enter the ledger when registered; factory providers enter only when resolved. A factory first resolved after `init()` is
+still shut down, without retroactive init hooks, and an unresolved factory is never constructed for lifecycle.
 
 ## Graceful shutdown with `await using`
 
-`createApp` returns an `AsyncDisposable`, so Stage-3 explicit resource management
-cleans up automatically:
+`createApp` returns an `AsyncDisposable`, so Stage-3 explicit resource management cleans up automatically:
 
 ```ts
 await using app = createApp(AppModule);
@@ -67,11 +58,8 @@ await app.init();
 
 ## Design notes
 
-- **Bootstrap-time declarations** — the full graph is validated and every route
-  is registered once. Lazy instances alone are deferred; the dispatcher reads
-  no metadata per request.
-- **Eager message consumers** — a lazy controller with message-pattern metadata
-  is rejected because the closed dispatch map is built at startup.
+- **Bootstrap-time declarations** — the full graph is validated and every route is registered once. Lazy instances alone are deferred; the dispatcher reads no metadata per request.
+- **Eager message consumers** — a lazy controller with message-pattern metadata is rejected because the closed dispatch map is built at startup.
 - **No `as`** — hook detection uses structural `in`-narrowing, not casts.
 - Granular import: `import { createApp } from '@zmdb/web/app'`.
 

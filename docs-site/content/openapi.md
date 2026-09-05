@@ -1,9 +1,9 @@
-The OpenAPI generation system produces OpenAPI 3.x compatible component schemas from a zmdb table declaration. This enables automatic API documentation, client SDK generation, and validation layer interoperability.
+The OpenAPI generation system produces OpenAPI 3.x compatible component schemas from a zmdb table declaration. This enables automatic API documentation, client SDK generation, and validation layer
+interoperability.
 
 > 📄 **Download Specification:** [Download full OpenAPI 3.0 specification (openapi.json)](../openapi.json) generated directly from core schema definitions upon every site build.
 
-> [!NOTE]
-> OpenAPI schemas are derived at build time from your table declarations. There's no runtime reflection — the generation is deterministic and happens during the build process.
+> [!NOTE] OpenAPI schemas are derived at build time from your table declarations. There's no runtime reflection — the generation is deterministic and happens during the build process.
 
 ## Generating Components
 
@@ -67,8 +67,7 @@ import { toListSchema } from '@zmdb/schema-core/openapi';
 const listSchema = toListSchema(userSchema);
 ```
 
-> [!IMPORTANT]
-> The `get`, `list`, and `search` variants include auto-increment columns since those are present in responses. The `create` variant excludes them because the database generates them.
+> [!IMPORTANT] The `get`, `list`, and `search` variants include auto-increment columns since those are present in responses. The `create` variant excludes them because the database generates them.
 
 ## Integration with Express/Fastify
 
@@ -129,8 +128,7 @@ Tags on a column map to OpenAPI schema keywords:
 | `Pattern<S>`    | `pattern`       | `{ "pattern": "^\\d+$" }` |
 | a literal union | `enum`          | `{ "enum": ["a", "b"] }`  |
 
-There is no `Enum` tag, because a literal union already says it and TypeScript checks it
-everywhere a flag would not.
+There is no `Enum` tag, because a literal union already says it and TypeScript checks it everywhere a flag would not.
 
 ```ts
 interface Account extends Table<'accounts'> {
@@ -197,8 +195,7 @@ const fullSpec = {
 };
 ```
 
-> [!TIP]
-> The generated spec can be exported as JSON/YAML and fed into tools like Swagger UI, Redoc, or OpenAPI Generator for client SDKs.
+> [!TIP] The generated spec can be exported as JSON/YAML and fed into tools like Swagger UI, Redoc, or OpenAPI Generator for client SDKs.
 
 ## Search Schema (Full-Text Search)
 

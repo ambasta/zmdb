@@ -1,4 +1,5 @@
-`ExceptionFilter` exists as an interface, and `runChain` calls filters when the handler or an earlier link throws. What does **not** exist is the wiring: the router never calls `runChain`, so a filter's response cannot reach the client unless you invoke the chain yourself.
+`ExceptionFilter` exists as an interface, and `runChain` calls filters when the handler or an earlier link throws. What does **not** exist is the wiring: the router never calls `runChain`, so a
+filter's response cannot reach the client unless you invoke the chain yourself.
 
 ## The interface
 
@@ -22,10 +23,8 @@ export const dbErrors: ExceptionFilter = {
 };
 ```
 
-Build the response with `json`, `text`, `bytes`, `stream` or `respond` rather
-than as an object literal. The factories construct the tagged body union and
-mark the response for pass-through; an untagged object remains an ordinary
-handler value and is serialized as a 200. See the warning below.
+Build the response with `json`, `text`, `bytes`, `stream` or `respond` rather than as an object literal. The factories construct the tagged body union and mark the response for pass-through; an
+untagged object remains an ordinary handler value and is serialized as a 200. See the warning below.
 
 ## The gap you must plan around
 
@@ -33,17 +32,11 @@ handler value and is serialized as a 200. See the warning below.
 const result = await runChain({ guards: [], pipes: [], interceptors: [], filters: [dbErrors] }, ctx, handler);
 ```
 
-> [!WARNING]
-> `runChain` returns the filter's `WebResponse` **as a value**, and the router
-> serialises a returned value as a **200** unless it was built by `json`, `text`,
-> `bytes`, `stream` or `respond` — those tag the object, and a tagged response is passed through with its
-> own status. So `catch: () => json(body, { status: 409 })` really is a 409, while
-> `catch: () => ({ status: 409, body, headers })` is a 200 whose body contains the
-> number 409. Measured both ways. See
-> [Request Lifecycle](./web-request-lifecycle.html).
+> [!WARNING] `runChain` returns the filter's `WebResponse` **as a value**, and the router serialises a returned value as a **200** unless it was built by `json`, `text`, `bytes`, `stream` or `respond`
+> — those tag the object, and a tagged response is passed through with its own status. So `catch: () => json(body, { status: 409 })` really is a 409, while
+> `catch: () => ({ status: 409, body, headers })` is a 200 whose body contains the number 409. Measured both ways. See [Request Lifecycle](./web-request-lifecycle.html).
 
-A router dispatch has these built-in outcomes; a status carried by a thrown
-error is not one of the inputs:
+A router dispatch has these built-in outcomes; a status carried by a thrown error is not one of the inputs:
 
 | Status | Cause                                                                           |
 | ------ | ------------------------------------------------------------------------------- |
@@ -54,7 +47,8 @@ error is not one of the inputs:
 | 406    | no acceptable media-type version matched                                        |
 | 500    | a guard or handler threw anything else                                          |
 
-A handler that _returns_ `json(value, { status })`, `text(...)` or `respond(...)` picks its own status and headers — so catching an error and returning a response is the way to get a 403 or 409 today. What is still missing is the cross-cutting part: a filter that applies to every route without each handler repeating the `catch`.
+A handler that _returns_ `json(value, { status })`, `text(...)` or `respond(...)` picks its own status and headers — so catching an error and returning a response is the way to get a 403 or 409 today.
+What is still missing is the cross-cutting part: a filter that applies to every route without each handler repeating the `catch`.
 
 ## What to do today
 
@@ -64,7 +58,8 @@ A handler that _returns_ `json(value, { status })`, `text(...)` or `respond(...)
 throw new ValidationError('title is required', [{ path: ['title'], message: 'required' }]);
 ```
 
-`assert<T>()` throws an `AssertError` carrying an `issues` array, and the router turns **any** thrown object with an `issues` property into a 400 with those paths in the body — it duck-types rather than checking a class, so `ValidationError` from `@zmdb/schema-core` and your own error types work identically. Validating the body therefore gives you a 400 with the issue paths for free.
+`assert<T>()` throws an `AssertError` carrying an `issues` array, and the router turns **any** thrown object with an `issues` property into a 400 with those paths in the body — it duck-types rather
+than checking a class, so `ValidationError` from `@zmdb/schema-core` and your own error types work identically. Validating the body therefore gives you a 400 with the issue paths for free.
 
 **For any other status, map it in your adapter.** The one place that can set a status and headers:
 
@@ -88,11 +83,10 @@ createServer(async (req, res) => {
 });
 ```
 
-This example uses `bodyText`, so it buffers a streamed response. Use
-`toNodeHandler` when the adapter must preserve streaming. The status mapping
-remains in one readable table.
+This example uses `bodyText`, so it buffers a streamed response. Use `toNodeHandler` when the adapter must preserve streaming. The status mapping remains in one readable table.
 
-`webRequest(req)` is the dozen-line `WebRequest` build every adapter sample here uses — there is no `toWebRequest` to import, and it is written out in [Request Lifecycle](./web-request-lifecycle.html).
+`webRequest(req)` is the dozen-line `WebRequest` build every adapter sample here uses — there is no `toWebRequest` to import, and it is written out in
+[Request Lifecycle](./web-request-lifecycle.html).
 
 ## Never leak the error
 
@@ -106,11 +100,8 @@ function publicMessage(status: number): string {
 console.error(JSON.stringify({ requestId, name: errorName(error), stack: stackOf(error) }));
 ```
 
-> [!WARNING]
-> A database error message contains table names, column names, constraint names and
-> sometimes the offending value. Returning `String(error)` to a client discloses your
-> schema and occasionally user data. Log the detail with a request id; return a
-> generic message and that id.
+> [!WARNING] A database error message contains table names, column names, constraint names and sometimes the offending value. Returning `String(error)` to a client discloses your schema and
+> occasionally user data. Log the detail with a request id; return a generic message and that id.
 
 The framework's 500 body is already generic. The mistake is adding detail to be helpful.
 
@@ -120,23 +111,29 @@ The framework's 500 body is already generic. The mistake is adding detail to be 
 catch { return { rows: [], total: 0 }; }   // wrong
 ```
 
-An empty result where an error occurred is worse than a 500: the client believes there is no data, retries nothing, and the failure never surfaces in your error rate. Let it throw, log it, alert on it.
+An empty result where an error occurred is worse than a 500: the client believes there is no data, retries nothing, and the failure never surfaces in your error rate. Let it throw, log it, alert on
+it.
 
-The one legitimate exception is a genuinely optional dependency — a cache miss, an enrichment call — where degraded is a defined mode. Log at `warn` even then, so a permanently broken dependency is visible.
+The one legitimate exception is a genuinely optional dependency — a cache miss, an enrichment call — where degraded is a defined mode. Log at `warn` even then, so a permanently broken dependency is
+visible.
 
 ## Errors from a driver
 
-zmdb does not translate driver errors. What reaches you is your client's error with its native code — `23505` on Postgres, `ER_DUP_ENTRY` on MySQL — which is deliberate: a wrapper class loses the detail and needs a mapping table that is always incomplete.
+zmdb does not translate driver errors. What reaches you is your client's error with its native code — `23505` on Postgres, `ER_DUP_ENTRY` on MySQL — which is deliberate: a wrapper class loses the
+detail and needs a mapping table that is always incomplete.
 
 Translate at the boundary, where you know what the code should become. See [Custom Driver](./custom-driver.html).
 
 ## What it would take
 
-One change, framework-internal and not blocked on anything else: **wire `runChain` into the router**, registrable per controller or per route. Until then a filter only runs where a handler invokes the chain itself.
+One change, framework-internal and not blocked on anything else: **wire `runChain` into the router**, registrable per controller or per route. Until then a filter only runs where a handler invokes the
+chain itself.
 
-The second half of this gap has closed. A `WebResponse` built by `json`, `text` or `respond` carries a non-enumerable tag, and the router returns a tagged response as-is instead of serialising it — so a filter's 409 is a 409 today. Only a hand-built literal still becomes a 200.
+The second half of this gap has closed. A `WebResponse` built by `json`, `text` or `respond` carries a non-enumerable tag, and the router returns a tagged response as-is instead of serialising it — so
+a filter's 409 is a 409 today. Only a hand-built literal still becomes a 200.
 
-That one change makes the interface on this page work as designed, and they would also fix [guards](./web-middleware.html), [interceptors](./web-middleware.html), [CORS](./web-cors.html) and [health checks](./web-health-checks.html).
+That one change makes the interface on this page work as designed, and they would also fix [guards](./web-middleware.html), [interceptors](./web-middleware.html), [CORS](./web-cors.html) and
+[health checks](./web-health-checks.html).
 
 ---
 

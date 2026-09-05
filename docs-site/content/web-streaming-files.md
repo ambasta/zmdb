@@ -1,6 +1,5 @@
-`@zmdb/web` responses can carry text, bytes or a `ReadableStream`. Both adapters
-honour the body kind; the Node adapter respects `write()` backpressure and
-cancels the source when the client disconnects.
+`@zmdb/web` responses can carry text, bytes or a `ReadableStream`. Both adapters honour the body kind; the Node adapter respects `write()` backpressure and cancels the source when the client
+disconnects.
 
 ```ts
 export type ResponseBody =
@@ -15,12 +14,10 @@ export type ResponseBody =
 
 ## Migrating from string response bodies
 
-Handler code that uses `json()`, `text()`, or `respond()` does not change; those
-factories now construct the tagged text arm internally. A plain handler return
-value also keeps its existing meaning and is serialized as `200 application/json`.
+Handler code that uses `json()`, `text()`, or `respond()` does not change; those factories now construct the tagged text arm internally. A plain handler return value also keeps its existing meaning
+and is serialized as `200 application/json`.
 
-Only code that reads or constructs `WebResponse.body` directly must account for
-the union:
+Only code that reads or constructs `WebResponse.body` directly must account for the union:
 
 ```ts
 return respond({
@@ -29,10 +26,8 @@ return respond({
 });
 ```
 
-`respond()` deliberately remains string-only. Use `bytes()` for an in-memory
-binary body, `stream()` for an application-owned stream, and `file()` for a
-trusted file path. Consumers that need text in tests can call
-`await bodyText(response)`; doing so drains a stream.
+`respond()` deliberately remains string-only. Use `bytes()` for an in-memory binary body, `stream()` for an application-owned stream, and `file()` for a trusted file path. Consumers that need text in
+tests can call `await bodyText(response)`; doing so drains a stream.
 
 ## Stream from a handler
 
@@ -50,14 +45,11 @@ events() {
 }
 ```
 
-`onError` is required. Once headers and the first chunk have been sent, an HTTP
-status can no longer report a failure. The Node adapter destroys the connection
-instead of ending a truncated body cleanly; the callback is the server-side
-record of what happened.
+`onError` is required. Once headers and the first chunk have been sent, an HTTP status can no longer report a failure. The Node adapter destroys the connection instead of ending a truncated body
+cleanly; the callback is the server-side record of what happened.
 
-Pass `length` only when it is known. The adapters set `content-length` from that
-value, and body consumption fails if the stream produces a different byte count.
-Without it, the runtime chooses streaming framing.
+Pass `length` only when it is known. The adapters set `content-length` from that value, and body consumption fails if the stream produces a different byte count. Without it, the runtime chooses
+streaming framing.
 
 ## Send bytes
 
@@ -69,8 +61,7 @@ return bytes(png, {
 });
 ```
 
-The byte length overrides a caller-supplied `content-length`. Framing belongs to
-the adapter, so a handler-supplied `transfer-encoding` is removed.
+The byte length overrides a caller-supplied `content-length`. Framing belongs to the adapter, so a handler-supplied `transfer-encoding` is removed.
 
 ## Send a known file
 
@@ -90,24 +81,17 @@ async download(ctx: Ctx<{ id: string }>) {
 }
 ```
 
-`file()` opens a path the application already trusts, measures it, and streams it
-without materialising the whole file. It does not confine user input to a root,
-decode URL paths, implement ranges or generate cache validators. Those security
-and HTTP policies belong to the shipped
-[static-file handler](./web-static-files.html).
+`file()` opens a path the application already trusts, measures it, and streams it without materialising the whole file. It does not confine user input to a root, decode URL paths, implement ranges or
+generate cache validators. Those security and HTTP policies belong to the shipped [static-file handler](./web-static-files.html).
 
-For large public downloads, a presigned object-storage URL is still usually the
-better architecture: the application signs and records the request while the CDN
-serves the bytes.
+For large public downloads, a presigned object-storage URL is still usually the better architecture: the application signs and records the request while the CDN serves the bytes.
 
 ## Cancellation and bodyless responses
 
 - A Node client disconnect cancels the stream reader.
 - Cancelling a Fetch response body propagates to the source stream.
-- `HEAD`, `204` and `304` send no body and cancel a stream that was created for
-  the response.
-- `bodyText(response)` drains any body arm for tests and in-process consumers.
-  A drained stream cannot then be sent again.
+- `HEAD`, `204` and `304` send no body and cancel a stream that was created for the response.
+- `bodyText(response)` drains any body arm for tests and in-process consumers. A drained stream cannot then be sent again.
 
 ## Request-body limits
 
@@ -118,9 +102,8 @@ createServer(toNodeHandler(router, { maxBodyBytes: 8 * 1024 * 1024 }));
 const fetch = toFetchHandler(router, { maxBodyBytes: 8 * 1024 * 1024 });
 ```
 
-The value must be a positive safe integer. An oversized body receives `413` and
-is not dispatched. JSON and text remain decoded values; another content type
-reaches `WebRequest.rawBody` as exact bytes.
+The value must be a positive safe integer. An oversized body receives `413` and is not dispatched. JSON and text remain decoded values; another content type reaches `WebRequest.rawBody` as exact
+bytes.
 
 ---
 

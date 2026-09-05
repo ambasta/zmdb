@@ -26,7 +26,8 @@ The correlation — `posts.author_id = users.id` — is what makes it a subquery
 .whereExists(...)
 ```
 
-Use a join when you need columns from the other table, `EXISTS` when you only need the predicate. Getting this wrong is a common source of "why are there duplicates" and of `DISTINCT` being added to paper over it — which then forces a sort.
+Use a join when you need columns from the other table, `EXISTS` when you only need the predicate. Getting this wrong is a common source of "why are there duplicates" and of `DISTINCT` being added to
+paper over it — which then forces a sort.
 
 ## `NOT EXISTS`
 
@@ -38,10 +39,8 @@ c.selectFrom('users')
   .compile();
 ```
 
-> [!WARNING]
-> Prefer `NOT EXISTS` over `NOT IN` on a nullable column. `x NOT IN (1, 2, NULL)`
-> is never true — `NULL` makes the whole predicate unknown, so you get zero rows
-> and no error. `NOT EXISTS` has no such behaviour.
+> [!WARNING] Prefer `NOT EXISTS` over `NOT IN` on a nullable column. `x NOT IN (1, 2, NULL)` is never true — `NULL` makes the whole predicate unknown, so you get zero rows and no error. `NOT EXISTS`
+> has no such behaviour.
 
 ## In the DTO API
 
@@ -53,7 +52,8 @@ await userRepo.find({
 });
 ```
 
-That is `IN (subquery)` rather than `EXISTS`, and for a moderate number of ids it performs comparably. There is no `exists:` key in `FieldOps` — for a correlated `EXISTS` at the DTO level, drop to the builder.
+That is `IN (subquery)` rather than `EXISTS`, and for a moderate number of ids it performs comparably. There is no `exists:` key in `FieldOps` — for a correlated `EXISTS` at the DTO level, drop to the
+builder.
 
 ## Combining with other filters
 
@@ -86,7 +86,8 @@ This is the difference between `EXISTS` being the fast option and being the slow
 | Columns from the other table       | a join               |
 | Absence, nullable column           | `NOT EXISTS`         |
 
-Modern Postgres and MySQL planners often rewrite between these, so the difference is smaller than folklore suggests — but the row-multiplication difference with a join is not a planner detail, it changes your results.
+Modern Postgres and MySQL planners often rewrite between these, so the difference is smaller than folklore suggests — but the row-multiplication difference with a join is not a planner detail, it
+changes your results.
 
 ---
 

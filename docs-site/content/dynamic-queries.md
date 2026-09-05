@@ -18,10 +18,7 @@ await repo.list({ where: buildWhere(ctx.query), page: { limit: 20 } });
 
 An empty object means no `WHERE` clause, so the "no filters" case needs no special handling. Every assignment is checked against the column type, so `{ minAge: 'x' }` does not compile.
 
-> [!NOTE]
-> Use `!== undefined`, not truthiness. `if (q.minAge)` drops `minAge=0`, and
-> `if (q.status)` drops `status=''` — the classic pair of bugs in this exact
-> function.
+> [!NOTE] Use `!== undefined`, not truthiness. `if (q.minAge)` drops `minAge=0`, and `if (q.status)` drops `status=''` — the classic pair of bugs in this exact function.
 
 ## Sorting and pagination from the request
 
@@ -31,12 +28,11 @@ type Sortable = (typeof SORTABLE)[number];
 
 const isSortable = (v: string): v is Sortable => (SORTABLE as readonly string[]).includes(v);
 
-const orderBy = isSortable(ctx.query.sort ?? '')
-  ? [{ column: ctx.query.sort as Sortable, dir: ctx.query.dir === 'desc' ? 'desc' : 'asc' }]
-  : [{ column: 'createdAt', dir: 'desc' }];
+const orderBy = isSortable(ctx.query.sort ?? '') ? [{ column: ctx.query.sort as Sortable, dir: ctx.query.dir === 'desc' ? 'desc' : 'asc' }] : [{ column: 'createdAt', dir: 'desc' }];
 ```
 
-The allow-list matters: `orderBy.column` is typed as a column of the schema, but a string arriving from a query parameter is `string`, and the cast is where the check has to happen. Validating against a literal union means the cast is justified rather than assumed — and it stops a caller ordering by a [`Sensitive`](./tags-reference.html) column.
+The allow-list matters: `orderBy.column` is typed as a column of the schema, but a string arriving from a query parameter is `string`, and the cast is where the check has to happen. Validating against
+a literal union means the cast is justified rather than assumed — and it stops a caller ordering by a [`Sensitive`](./tags-reference.html) column.
 
 Better still, let the validator do it:
 
@@ -73,12 +69,7 @@ Allow-list `isRelation` the same way — a caller that can name arbitrary relati
 `WhereDTO` fields are combined with `AND`, so a single search term over three columns needs the builder:
 
 ```ts
-const q = createQueryCompiler('postgres')
-  .selectFrom('users')
-  .where('name', 'ilike', `%${term}%`)
-  .orWhere('email', 'ilike', `%${term}%`)
-  .orWhere('bio', 'ilike', `%${term}%`)
-  .compile();
+const q = createQueryCompiler('postgres').selectFrom('users').where('name', 'ilike', `%${term}%`).orWhere('email', 'ilike', `%${term}%`).orWhere('bio', 'ilike', `%${term}%`).compile();
 ```
 
 For anything larger than a few columns, use [full-text search](./full-text-search.html) — three `ILIKE`s with a leading wildcard cannot use an index.

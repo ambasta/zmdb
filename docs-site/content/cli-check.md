@@ -11,8 +11,7 @@ Exit codes keep invocation failures separate from findings:
 - `1`: the project or database has one or more findings;
 - `2`: the invocation or config is invalid.
 
-Under `--json`, stdout is one `CliResult` document. Finding kinds belong in the
-payload rather than in additional exit codes.
+Under `--json`, stdout is one `CliResult` document. Finding kinds belong in the payload rather than in additional exit codes.
 
 The clean SQLite fixture produced:
 
@@ -32,12 +31,10 @@ The command currently reports:
 - `missing-down`: a migration file has no `-- zmdb:down` section;
 - `drift`: the live database differs from the stored snapshot.
 
-The file and declaration checks need no database. Live drift runs only when the
-config has a `driver`; otherwise the JSON result and human output report that
-check as skipped rather than calling it clean.
+The file and declaration checks need no database. Live drift runs only when the config has a `driver`; otherwise the JSON result and human output report that check as skipped rather than calling it
+clean.
 
-After adding one database-only column, the same measured fixture returned one
-JSON document and exit 1. The temporary directory is shortened here:
+After adding one database-only column, the same measured fixture returned one JSON document and exit 1. The temporary directory is shortened here:
 
 ```text
 $ npx zmdb check --json
@@ -53,9 +50,8 @@ $ echo $?
 
 ## What it does not prove
 
-`check` does not replay every migration into an empty database or execute every
-`down` section. A project that wants that stronger deployment rehearsal can run
-the public migration runner against a disposable SQLite or Postgres database:
+`check` does not replay every migration into an empty database or execute every `down` section. A project that wants that stronger deployment rehearsal can run the public migration runner against a
+disposable SQLite or Postgres database:
 
 ```ts
 await runCli('up', connection, migrations);
@@ -63,11 +59,8 @@ await runCli('down', connection, migrations);
 await runCli('up', connection, migrations);
 ```
 
-After `zmdb embed` creates the default `migrations/embedded.ts`, `check`
-regenerates the expected bytes in memory and reports `stale-embedded` when the
-SQL files, checksums, ordering, or `--with-down` content no longer match. A
-project that has never opted into an embedded module is not required to create
-one.
+After `zmdb embed` creates the default `migrations/embedded.ts`, `check` regenerates the expected bytes in memory and reports `stale-embedded` when the SQL files, checksums, ordering, or `--with-down`
+content no longer match. A project that has never opted into an embedded module is not required to create one.
 
 ---
 

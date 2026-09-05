@@ -1,10 +1,8 @@
-`validate<T>()` is non-throwing validation: it returns a result object rather than raising. Use it where a failure is an expected outcome you have to render — a request body, a config file, a queue message — and [`assert`](./validators-assert.html) where a failure means a bug.
+`validate<T>()` is non-throwing validation: it returns a result object rather than raising. Use it where a failure is an expected outcome you have to render — a request body, a config file, a queue
+message — and [`assert`](./validators-assert.html) where a failure means a bug.
 
-> [!WARNING]
-> Use full-depth `validate<T>()` for untrusted input. `validateShallow<T, D>()`
-> deliberately omits checks below `D` and can report success for malformed nested
-> data; it is only for rechecking data whose deeper contents are already trusted.
-> See [Shallow Validation](./validators-shallow.html).
+> [!WARNING] Use full-depth `validate<T>()` for untrusted input. `validateShallow<T, D>()` deliberately omits checks below `D` and can report success for malformed nested data; it is only for
+> rechecking data whose deeper contents are already trusted. See [Shallow Validation](./validators-shallow.html).
 
 ```ts
 interface ValidateResult<T> {
@@ -34,8 +32,7 @@ const bad = validate<Signup>({ email: 'invalid', age: 15 });
 // { success: false, errors: [ … ] }
 ```
 
-On success, `data` is narrowed to `T`; on failure it is absent and `errors` is populated. The
-two are never both present, so the discriminator to branch on is `success`:
+On success, `data` is narrowed to `T`; on failure it is absent and `errors` is populated. The two are never both present, so the discriminator to branch on is `success`:
 
 ```ts
 const result = validate<Signup>(body);
@@ -43,12 +40,8 @@ if (!result.success) return reply.status(400).send({ errors: result.errors });
 result.data; // Signup
 ```
 
-> [!NOTE]
-> The transformer rewrites `validate<Signup>(body)` into a call carrying `Signup`'s IR,
-> reflected from the type at build time. The second parameter — a `TypeIR` — is the escape
-> hatch for a caller that already holds one;
-> the transformer normally supplies it and you do not write it. Without the transformer, an
-> untransformed call with no second argument throws.
+> [!NOTE] The transformer rewrites `validate<Signup>(body)` into a call carrying `Signup`'s IR, reflected from the type at build time. The second parameter — a `TypeIR` — is the escape hatch for a
+> caller that already holds one; the transformer normally supplies it and you do not write it. Without the transformer, an untransformed call with no second argument throws.
 
 ## Error Structure
 
@@ -103,8 +96,7 @@ const patch = validate<UpdateDTO<User>>(body); // every column optional, `id` ab
 
 ## Integration with Repository
 
-You get this without asking on every write. `create`, `upsert` and `update` validate the payload
-against the same IR before any SQL is compiled:
+You get this without asking on every write. `create`, `upsert` and `update` validate the payload against the same IR before any SQL is compiled:
 
 ```ts
 await repo.create({ email: 'new@example.com', age: 25 }); // OK
@@ -125,9 +117,11 @@ try {
 }
 ```
 
-`validationIssuesOf` is structural rather than an `instanceof` check — it accepts anything carrying a well-formed `issues` array, so a zod or io-ts error from elsewhere in the same handler lands in the same branch — and it drops entries missing a `path` or a `message` rather than serialising them half-formed into a response body.
+`validationIssuesOf` is structural rather than an `instanceof` check — it accepts anything carrying a well-formed `issues` array, so a zod or io-ts error from elsewhere in the same handler lands in
+the same branch — and it drops entries missing a `path` or a `message` rather than serialising them half-formed into a response body.
 
-Two things it checks that a hand-written walk over the columns would not: the bounds (`Min`, `Pattern`, `MaxLength`) that the declaration carries, and excess keys — supplying a `Serial` column gets you `the database generates "id", so a payload cannot supply it` rather than a silent drop.
+Two things it checks that a hand-written walk over the columns would not: the bounds (`Min`, `Pattern`, `MaxLength`) that the declaration carries, and excess keys — supplying a `Serial` column gets
+you `the database generates "id", so a payload cannot supply it` rather than a silent drop.
 
 ## `validate` against the others
 

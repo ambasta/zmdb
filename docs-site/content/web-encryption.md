@@ -1,4 +1,5 @@
-There is nothing framework-specific here — Node's `node:crypto` is the whole toolkit, and [Directive 7](./anti-patterns.html) means no crypto library is a dependency. What this page covers is the choices that go wrong when encryption meets a database.
+There is nothing framework-specific here — Node's `node:crypto` is the whole toolkit, and [Directive 7](./anti-patterns.html) means no crypto library is a dependency. What this page covers is the
+choices that go wrong when encryption meets a database.
 
 ## Passwords: hash, never encrypt
 
@@ -23,7 +24,8 @@ export async function verifyPassword(password: string, stored: string): Promise<
 }
 ```
 
-Encryption is reversible; a password store must not be. `scrypt` is in Node with no dependency; Argon2id is better if you are willing to add one. Never `sha256(password)` — a fast hash is brute-forceable at billions of guesses per second.
+Encryption is reversible; a password store must not be. `scrypt` is in Node with no dependency; Argon2id is better if you are willing to add one. Never `sha256(password)` — a fast hash is
+brute-forceable at billions of guesses per second.
 
 Store the algorithm and salt with the hash, as above, so you can migrate the parameters later without a flag day.
 
@@ -65,14 +67,12 @@ async function store(dto: { ssn: string }) {
 }
 ```
 
-There is no `@Encrypted()` column decorator and no transparent column transform. That is a genuine gap — the [`postSelect` hook](./lifecycle-hooks.html) can decrypt on the way out, but there is no matching transform on the way in that covers `create`, `update` and the query builder uniformly.
+There is no `@Encrypted()` column decorator and no transparent column transform. That is a genuine gap — the [`postSelect` hook](./lifecycle-hooks.html) can decrypt on the way out, but there is no
+matching transform on the way in that covers `create`, `update` and the query builder uniformly.
 
-> [!WARNING]
-> An encrypted column cannot be queried. `where('ssn', '=', value)` compares
-> ciphertexts, and with a random IV the same plaintext encrypts differently every
-> time — so equality never matches. If you must look a value up, store a separate
-> deterministic HMAC of it (`hmac(value, indexKey)`) and query that. Accept that a
-> deterministic index leaks equality: identical values produce identical hashes.
+> [!WARNING] An encrypted column cannot be queried. `where('ssn', '=', value)` compares ciphertexts, and with a random IV the same plaintext encrypts differently every time — so equality never
+> matches. If you must look a value up, store a separate deterministic HMAC of it (`hmac(value, indexKey)`) and query that. Accept that a deterministic index leaks equality: identical values produce
+> identical hashes.
 
 Ordering, `LIKE` and ranges are gone entirely. Design around it before encrypting a column you filter on.
 
@@ -85,7 +85,8 @@ The part that decides whether any of this helps.
 - **Store a key id with the ciphertext** (`v2.iv.tag.body`) so you can rotate. Without it, rotation means decrypting everything with a key you have to keep forever.
 - **A key derived from a password needs a KDF**, not a hash: `scrypt(passphrase, salt, 32)`, not `sha256(passphrase)`.
 
-If the encryption key sits in the same environment as the database credentials, encryption at the application layer buys you very little over the database's own at-rest encryption. Be clear about which threat you are addressing.
+If the encryption key sits in the same environment as the database credentials, encryption at the application layer buys you very little over the database's own at-rest encryption. Be clear about
+which threat you are addressing.
 
 ## Tokens and comparisons
 
@@ -95,11 +96,13 @@ const token = randomBytes(32).toString('base64url');
 
 `randomBytes`, never `Math.random()` — the latter is predictable and has been the root cause of many session-prediction vulnerabilities.
 
-Store a hash of the token, not the token, so a database leak does not hand over live credentials. Compare with `timingSafeEqual` after a length check; `===` short-circuits and leaks the value byte by byte.
+Store a hash of the token, not the token, so a database leak does not hand over live credentials. Compare with `timingSafeEqual` after a length check; `===` short-circuits and leaks the value byte by
+byte.
 
 ## What not to log
 
-Never log a key, a token, a password, a ciphertext, or query parameters — parameters are where encrypted values and credentials travel. Log parameter _types_ if you need shape information. See [Logging](./logging.html).
+Never log a key, a token, a password, a ciphertext, or query parameters — parameters are where encrypted values and credentials travel. Log parameter _types_ if you need shape information. See
+[Logging](./logging.html).
 
 ---
 

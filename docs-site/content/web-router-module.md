@@ -1,4 +1,5 @@
-There is no `RouterModule` and no `forRoutes` configuration. A route's path is the controller prefix plus the method path, composed once by the decorators — so prefixing is a string, not a registration API.
+There is no `RouterModule` and no `forRoutes` configuration. A route's path is the controller prefix plus the method path, composed once by the decorators — so prefixing is a string, not a
+registration API.
 
 ## How paths compose
 
@@ -34,12 +35,10 @@ const router = createRouter({ versioning: { kind: 'path', prefix: 'v' } });
 router.register(new PostsController());
 ```
 
-This registers `/v1/posts` and `/v2/posts` at startup. Header and media-type
-strategies use the same `@Version` declaration with a different
-`createRouter({ versioning })` option; see [API Versioning](./web-versioning.html).
+This registers `/v1/posts` and `/v2/posts` at startup. Header and media-type strategies use the same `@Version` declaration with a different `createRouter({ versioning })` option; see
+[API Versioning](./web-versioning.html).
 
-Manual prefixes remain valid, including when a shared constant keeps them
-consistent:
+Manual prefixes remain valid, including when a shared constant keeps them consistent:
 
 ```ts
 const V1 = '/api/v1';
@@ -77,7 +76,8 @@ class C {
 }
 ```
 
-`/posts/latest` matches `/:id` first, with `params.id === 'latest'`. Declare literal paths before parameterised ones, within a controller and across controllers — the order across controllers is the order of the `controllers` array in `@Module`.
+`/posts/latest` matches `/:id` first, with `params.id === 'latest'`. Declare literal paths before parameterised ones, within a controller and across controllers — the order across controllers is the
+order of the `controllers` array in `@Module`.
 
 This is the single most common routing bug in this framework. See [Request Lifecycle](./web-request-lifecycle.html).
 
@@ -110,7 +110,8 @@ await Promise.all([publicApp.init(), adminApp.init()]);
 const handler = (req: WebRequest) => (req.path.startsWith('/admin') ? adminApp.handle(req) : publicApp.handle(req));
 ```
 
-Nothing is global, so this works. Two containers means shared providers are built twice — keep the pool and driver in a module-scope value both import. See [Multiple Servers](./web-multiple-servers.html).
+Nothing is global, so this works. Two containers means shared providers are built twice — keep the pool and driver in a module-scope value both import. See
+[Multiple Servers](./web-multiple-servers.html).
 
 ## Path parameters
 
@@ -123,7 +124,8 @@ async comment(ctx: Ctx<{ id: string; commentId: string }>) {
 }
 ```
 
-`PathParams<'/posts/:id'>` derives the params type from a path literal if you would rather not restate it. Everything is a `string`, so coerce and check — `Number('abc')` is `NaN`, and `NaN` is a `number` that passes a type check and reaches your database as a nonsense parameter.
+`PathParams<'/posts/:id'>` derives the params type from a path literal if you would rather not restate it. Everything is a `string`, so coerce and check — `Number('abc')` is `NaN`, and `NaN` is a
+`number` that passes a type check and reaches your database as a nonsense parameter.
 
 There are no optional segments, no wildcards, no regex constraints and no catch-all patterns. A `/*` route is not expressible; handle unmatched paths in the adapter, where the router's 404 arrives.
 

@@ -1,6 +1,4 @@
-Insert rows with the query builder, or (preferably) through a repository's
-`create()`, which validates the payload against `CreateDTO<S>` **before** any SQL
-is emitted.
+Insert rows with the query builder, or (preferably) through a repository's `create()`, which validates the payload against `CreateDTO<S>` **before** any SQL is emitted.
 
 ## Basic insert
 
@@ -38,9 +36,7 @@ const user = await users.create({ email: 'a@b.com' }); // role defaults applied
 // returns Entity<User>
 ```
 
-> [!IMPORTANT]
-> If the payload is invalid, `create` throws a structured `ValidationError` and
-> **no SQL runs** — the driver is never called. Auto-increment PKs and defaulted
-> columns may be omitted from the payload (that is what `CreateDTO` encodes).
+> [!IMPORTANT] If the payload is invalid, `create` throws a structured `ValidationError` and **no SQL runs** — the driver is never called. Auto-increment PKs and defaulted columns may be omitted from
+> the payload (that is what `CreateDTO` encodes).
 
 See also [batch inserts](./batch.html) for multiple statements in one round-trip.

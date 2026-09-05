@@ -1,22 +1,20 @@
 # Derived DTOs from a Tagged Type — Spec (PRD §6.7 REQ-TF-4 … REQ-TF-6)
 
-> Part of `@zmdb/schema-core` (module `src/derive/`). Types only; no runtime export.
-> Design: `DESIGN-type-first.md` §4.2, `PLAN-type-first.md` Phase 3.
+> Part of `@zmdb/schema-core` (module `src/derive/`). Types only; no runtime export. Design: `DESIGN-type-first.md` §4.2, `PLAN-type-first.md` Phase 3.
 
 ## 1. One set of names
 
-There is exactly one `Entity`, one `CreateDTO`, one `UpdateDTO` and one `PrimaryKeyOf`
-(plan D2), and they are these. The schema-value versions that used to live in
-`../index.ts` are gone; the package root re-exports these names, and this module keeps its
-own directory only because that is where they were written.
+There is exactly one `Entity`, one `CreateDTO`, one `UpdateDTO` and one `PrimaryKeyOf` (plan D2), and they are these. The schema-value versions that used to live in `../index.ts` are gone; the package
+root re-exports these names, and this module keeps its own directory only because that is where they were written.
 
-Every derivation takes a tagged type and nothing else. There is no conditional
-dispatch on `{ columns: … }` — backwards compatibility is not a requirement (plan D2),
-which also means no per-use `extends` test and no instantiation cost from a dispatch.
+Every derivation takes a tagged type and nothing else. There is no conditional dispatch on `{ columns: … }` — backwards compatibility is not a requirement (plan D2), which also means no per-use
+`extends` test and no instantiation cost from a dispatch.
 
-The parameter is also constrained, which is what makes "nothing else" enforceable rather than a convention. `DeclaredTable` is `Table<string>`; because `Table` is all-optional, TypeScript's weak-type rule rejects any source with no property in common with it, and a schema value has none.
+The parameter is also constrained, which is what makes "nothing else" enforceable rather than a convention. `DeclaredTable` is `Table<string>`; because `Table` is all-optional, TypeScript's weak-type
+rule rejects any source with no property in common with it, and a schema value has none.
 
-So `Entity<typeof userSchema>` does not compile — worth constraining for because the wrong answer was structurally plausible, being a type with keys and types that nothing downstream would have questioned. A row keyed by a table _name_ still passes, via the index-signature exemption; `dto/index.ts`'s `UnknownRow` is the only type that needs it.
+So `Entity<typeof userSchema>` does not compile — worth constraining for because the wrong answer was structurally plausible, being a type with keys and types that nothing downstream would have
+questioned. A row keyed by a table _name_ still passes, via the index-signature exemption; `dto/index.ts`'s `UnknownRow` is the only type that needs it.
 
 ## 2. Key filters
 
@@ -40,27 +38,17 @@ type KeysCarrying<T, Tag> = {
 
 Three details are load-bearing:
 
-- **`NonNullable<T[K]>`, not `T[K]`.** A nullable defaulted column is declared
-  `(string & HasDefault) | null`, and `null` is not assignable to a weak object type,
-  so the union as a whole does not match `HasDefault`. Testing the non-nullable arm is
-  what makes such a column optional on insert instead of required.
-- **`-?` on the probe**, so an already-optional property is still examined under
-  `exactOptionalPropertyTypes`.
-- **`K extends string`**, so entity-level tags (`Table`, `Fts`, `SoftDelete`,
-  `ForeignKey`) arriving through `extends` never show up in `keyof`.
+- **`NonNullable<T[K]>`, not `T[K]`.** A nullable defaulted column is declared `(string & HasDefault) | null`, and `null` is not assignable to a weak object type, so the union as a whole does not
+  match `HasDefault`. Testing the non-nullable arm is what makes such a column optional on insert instead of required.
+- **`-?` on the probe**, so an already-optional property is still examined under `exactOptionalPropertyTypes`.
+- **`K extends string`**, so entity-level tags (`Table`, `Fts`, `SoftDelete`, `ForeignKey`) arriving through `extends` never show up in `keyof`.
 
-`ColumnKeys<T>` is written out as its own projection rather than as
-`Exclude<AllKeys<T>, RelationKeys<T>>`, which does not compile. For an unresolved `T`
-both operands normalise to the same deferred expression, so the subtraction yields
-`never` — and then `Pick<Entity<T>, DefaultKeys<T>>` is an error, because nothing is a
-key of an entity with no keys.
+`ColumnKeys<T>` is written out as its own projection rather than as `Exclude<AllKeys<T>, RelationKeys<T>>`, which does not compile. For an unresolved `T` both operands normalise to the same deferred
+expression, so the subtraction yields `never` — and then `Pick<Entity<T>, DefaultKeys<T>>` is an error, because nothing is a key of an entity with no keys.
 
-That same limit is why `AsColumns<T, K> = K & keyof Entity<T>` exists. `SerialKeys<T>`
-and friends _are_ subsets of `ColumnKeys<T>` — a relation cannot carry `Serial` — but
-TypeScript only relates two of these projections while the target's template is
-unconditional, and `ColumnKeys<T>`'s is a conditional on the relation tag. So the subset
-is stated as an intersection, which is assignable to either side by definition, rather
-than proved. Nothing changes for a concrete type.
+That same limit is why `AsColumns<T, K> = K & keyof Entity<T>` exists. `SerialKeys<T>` and friends _are_ subsets of `ColumnKeys<T>` — a relation cannot carry `Serial` — but TypeScript only relates two
+of these projections while the target's template is unconditional, and `ColumnKeys<T>`'s is a conditional on the relation tag. So the subset is stated as an intersection, which is assignable to either
+side by definition, rather than proved. Nothing changes for a concrete type.
 
 ## 3. The DTO suite
 
@@ -72,91 +60,61 @@ than proved. Nothing changes for a concrete type.
 | `ReadDTO<T>`      | `Sensitive` columns removed.                                                       |
 | `PrimaryKeyOf<T>` | Scalar for one key, object map for a composite, `unknown` for none.                |
 
-`CreateDTO` omits a generated column rather than making it optional. Supplying a
-defaulted column is legitimate; supplying a generated one is a mistake, so the two
-tags produce different shapes — that is the whole reason they are separate tags.
+`CreateDTO` omits a generated column rather than making it optional. Supplying a defaulted column is legitimate; supplying a generated one is a mistake, so the two tags produce different shapes — that
+is the whole reason they are separate tags.
 
-A nullable column is optional for the same reason a defaulted one is: omitting the key
-inserts `NULL`, which is exactly what passing `null` does. The generated `create`
-document has never listed a nullable column as required, and the repository has never
-demanded it at runtime, so requiring it in the type meant a client that followed the
-published contract wrote a payload the type rejected. It stays present-and-optional
-rather than absent, because passing `null` explicitly is legitimate.
+A nullable column is optional for the same reason a defaulted one is: omitting the key inserts `NULL`, which is exactly what passing `null` does. The generated `create` document has never listed a
+nullable column as required, and the repository has never demanded it at runtime, so requiring it in the type meant a client that followed the published contract wrote a payload the type rejected. It
+stays present-and-optional rather than absent, because passing `null` explicitly is legitimate.
 
-The nullable timestamp named by `SoftDelete<Column>` is the exception: it is
-absent from both write DTOs because repository `delete` and `restore` own it.
-It remains in `Entity<T>` so a caller who explicitly includes deleted rows can
-observe the deletion time.
+The nullable timestamp named by `SoftDelete<Column>` is the exception: it is absent from both write DTOs because repository `delete` and `restore` own it. It remains in `Entity<T>` so a caller who
+explicitly includes deleted rows can observe the deletion time.
 
-Tags survive every derivation. If a derivation dropped one, the AOT would emit a
-weaker check for the update path than for the insert path, silently (REQ-TF-5). The
-type tests assert the full intersection, tags included, on both.
+Tags survive every derivation. If a derivation dropped one, the AOT would emit a weaker check for the update path than for the insert path, silently (REQ-TF-5). The type tests assert the full
+intersection, tags included, on both.
 
-`PrimaryKeyOf` is named for plan D1 so the _tag_ can be `PrimaryKey` — which is the
-name typed at every declaration site.
+`PrimaryKeyOf` is named for plan D1 so the _tag_ can be `PrimaryKey` — which is the name typed at every declaration site.
 
-**A relation is not a column.** A property declared `author?: User & ManyToOne<…>` is a
-join target, so `RelationKeys<T>` takes it out of `Entity<T>` and therefore out of
-everything derived from it. Left in, it would be a column to `INSERT`, a column to
-`SELECT` and a JSON Schema property, none of which it is.
+**A relation is not a column.** A property declared `author?: User & ManyToOne<…>` is a join target, so `RelationKeys<T>` takes it out of `Entity<T>` and therefore out of everything derived from it.
+Left in, it would be a column to `INSERT`, a column to `SELECT` and a JSON Schema property, none of which it is.
 
 ## 3a. The read/query surface (`./query.ts`)
 
-The type-first counterpart of the schema-keyed shapes in `../dto/index.ts`:
-`WhereDTO<T>`, `OrderByDTO<T>`, `PaginationDTO<T>`, `Projection<T, K>`,
-`GetOptions<T>`, `GetDTO<T, O>`, `ListDTO<T>`, `PopulatedEntity<T, K>` /
-`Populated<T, K>`, `JoinRow<T, K, Kind>`.
+The type-first counterpart of the schema-keyed shapes in `../dto/index.ts`: `WhereDTO<T>`, `OrderByDTO<T>`, `PaginationDTO<T>`, `Projection<T, K>`, `GetOptions<T>`, `GetDTO<T, O>`, `ListDTO<T>`,
+`PopulatedEntity<T, K>` / `Populated<T, K>`, `JoinRow<T, K, Kind>`.
 
 Two things there are deliberately **not** duplicated:
 
-- **The operator vocabulary.** `FieldOps<V>` and `SubqueryTarget<V>` are keyed off a
-  column's value type and never mention a schema, so there is nothing in them to
-  re-point. A second copy would be a second operator set to keep in step.
-- **Every runtime helper.** `compileWhere`, `applyOrderBy`, `applyPagination`, `project`
-  and `buildListResult` already take schema-agnostic views — `WhereTarget`,
-  `OrderBySpec`, `PaginationSpec` — precisely so a caller's own typed DTO is assignable
-  without a widening cast. A tagged type's DTO is assignable to the same views, so the
-  existing functions serve both and `./query.ts` is types only.
+- **The operator vocabulary.** `FieldOps<V>` and `SubqueryTarget<V>` are keyed off a column's value type and never mention a schema, so there is nothing in them to re-point. A second copy would be a
+  second operator set to keep in step.
+- **Every runtime helper.** `compileWhere`, `applyOrderBy`, `applyPagination`, `project` and `buildListResult` already take schema-agnostic views — `WhereTarget`, `OrderBySpec`, `PaginationSpec` —
+  precisely so a caller's own typed DTO is assignable without a widening cast. A tagged type's DTO is assignable to the same views, so the existing functions serve both and `./query.ts` is types only.
 
-`WhereDTO<T>` carries the operators. It replaced a `Partial<Entity<T>>` that did not:
-the package root publishes the operator-bearing `WhereDTO` from `../dto/index.ts`, so the
-weaker spelling would have quietly dropped `{ age: { gte: 18 } }` from every caller the
-moment Phase 9 re-pointed the root here.
+`WhereDTO<T>` carries the operators. It replaced a `Partial<Entity<T>>` that did not: the package root publishes the operator-bearing `WhereDTO` from `../dto/index.ts`, so the weaker spelling would
+have quietly dropped `{ age: { gte: 18 } }` from every caller the moment Phase 9 re-pointed the root here.
 
-Two shapes are strictly better than their schema-keyed originals, because a schema
-_value_ cannot express them:
+Two shapes are strictly better than their schema-keyed originals, because a schema _value_ cannot express them:
 
-- `GetOptions<T>.populate` is `readonly RelationKeys<T>[]`, not `readonly string[]`, so a
-  misspelled relation name is a compile error.
-- `Populated<T, K>` reads the cardinality off the **declaration**: `author?: User &
-ManyToOne<…>` is one `User` and `comments?: Comment[] & OneToMany<…>` is an array,
-  natively (REQ-TF-2). The schema-value version had to recover the target type and
-  rebuild the array from a `RelationMeta` through six nested conditional types
-  (`../relations/index.ts`'s `RelationEntityFromDef`), because a relation value does not
-  carry its target's type. Nothing in `./query.ts` reads a cardinality at all.
+- `GetOptions<T>.populate` is `readonly RelationKeys<T>[]`, not `readonly string[]`, so a misspelled relation name is a compile error.
+- `Populated<T, K>` reads the cardinality off the **declaration**: `author?: User & ManyToOne<…>` is one `User` and `comments?: Comment[] & OneToMany<…>` is an array, natively (REQ-TF-2). The
+  schema-value version had to recover the target type and rebuild the array from a `RelationMeta` through six nested conditional types (`../relations/index.ts`'s `RelationEntityFromDef`), because a
+  relation value does not carry its target's type. Nothing in `./query.ts` reads a cardinality at all.
 
-`Populated` strips `undefined` from the relations it names. A relation is declared
-optional, which is what lets an unpopulated row exist; populating one is exactly the
-claim that it is there. `-?` alone will not do it — the key set is `K & keyof T`, so the
-mapped type is not homomorphic and the modifier has nothing to strip.
+`Populated` strips `undefined` from the relations it names. A relation is declared optional, which is what lets an unpopulated row exist; populating one is exactly the claim that it is there. `-?`
+alone will not do it — the key set is `K & keyof T`, so the mapped type is not homomorphic and the modifier has nothing to strip.
 
 ## 4. The wire shape (plan D3 / REQ-TF-13)
 
-`Entity<T>` is the **app** type. `Wire<T>` and `WireCreateDTO<T>` are what a JSON body
-actually contains: a `timestamp` becomes `string` and a `bigint` becomes `string`,
-because neither survives JSON. Nullability is carried through (`string | null`). The
-web pipeline decodes wire → app once at the boundary so handlers keep seeing `Date`.
+`Entity<T>` is the **app** type. `Wire<T>` and `WireCreateDTO<T>` are what a JSON body actually contains: a `timestamp` becomes `string` and a `bigint` becomes `string`, because neither survives JSON.
+Nullability is carried through (`string | null`). The web pipeline decodes wire → app once at the boundary so handlers keep seeing `Date`.
 
 ## 5. Test strategy: exact identity, never assignability
 
 Every assertion about a derivation uses `Expect<Equal<…>>`.
 
-A key filter that stops matching resolves to `never`, and `never` is assignable to
-everything — so `SerialKeys<User> extends 'id'` passes even when the filter is
-completely broken, and `Omit<T, never>` is `T`, and `Partial<Pick<T, never>>` is `{}`.
-The first probe written for plan D5 was fooled by exactly that and reported success
-while no tag was matching at all. `../tags/duplicate-install.type-test.ts` records the
-trap as `_D6_asserts_nothing` so nobody lays it again.
+A key filter that stops matching resolves to `never`, and `never` is assignable to everything — so `SerialKeys<User> extends 'id'` passes even when the filter is completely broken, and
+`Omit<T, never>` is `T`, and `Partial<Pick<T, never>>` is `{}`. The first probe written for plan D5 was fooled by exactly that and reported success while no tag was matching at all.
+`../tags/duplicate-install.type-test.ts` records the trap as `_D6_asserts_nothing` so nobody lays it again.
 
 ## 6. Verified
 
@@ -181,15 +139,10 @@ trap as `_D6_asserts_nothing` so nobody lays it again.
 
 ## 7. Non-goals (rejected)
 
-- A conditional dispatch accepting either a schema value or a tagged type. It existed
-  only to keep `Entity<typeof UserSchema>` compiling, and it cost an `extends` test at
-  every use (plan D2). It is deleted, along with the schema-value derivations it
-  dispatched to; a caller holding a value crosses to its type at a boundary that declares
-  `TaggedSchema<T>`, once, by inference.
+- A conditional dispatch accepting either a schema value or a tagged type. It existed only to keep `Entity<typeof UserSchema>` compiling, and it cost an `extends` test at every use (plan D2). It is
+  deleted, along with the schema-value derivations it dispatched to; a caller holding a value crosses to its type at a boundary that declares `TaggedSchema<T>`, once, by inference.
 - Making a generated column optional on insert rather than absent.
-- Runtime stripping as the mechanism for `Sensitive`. The type must make the leak
-  impossible; stripping is the belt, not the braces.
+- Runtime stripping as the mechanism for `Sensitive`. The type must make the leak impossible; stripping is the belt, not the braces.
 - A `Partial<Entity<T>>` `WhereDTO`. §3a.
-- Reading cardinality back out of a relation tag. The declared type already says it, and
-  a tag that has to be decoded is a tag that can disagree with the declaration.
+- Reading cardinality back out of a relation tag. The declared type already says it, and a tag that has to be decoded is a tag that can disagree with the declaration.
 - A second copy of the operator types or the query folders. §3a.

@@ -1,11 +1,10 @@
-`Sql<T>` names the SQL column type. It drives the DDL emitted by [migrations](./migrations.html), and it is the half of a column declaration that TypeScript cannot infer — `integer`, `bigint` and `numeric` are all `number` in TS, and `text` and `varchar` are both `string`.
+`Sql<T>` names the SQL column type. It drives the DDL emitted by [migrations](./migrations.html), and it is the half of a column declaration that TypeScript cannot infer — `integer`, `bigint` and
+`numeric` are all `number` in TS, and `text` and `varchar` are both `string`.
 
 ## Type mapping
 
-Each dialect renders the type it owns. The declaration stays abstract — it
-says `timestamp`, never `TIMESTAMPTZ` — and the DDL emitter is where that
-becomes a real type, because the four root grammars do not agree and a schema
-should not have to pick.
+Each dialect renders the type it owns. The declaration stays abstract — it says `timestamp`, never `TIMESTAMPTZ` — and the DDL emitter is where that becomes a real type, because the four root grammars
+do not agree and a schema should not have to pick.
 
 | `Sql<…>`    | Postgres      | MySQL         | SQLite    | SQL Server          | TS type                    |
 | ----------- | ------------- | ------------- | --------- | ------------------- | -------------------------- |
@@ -19,13 +18,11 @@ should not have to pick.
 | `json`      | `JSONB`       | `JSON`        | `TEXT`    | `NVARCHAR(MAX)`     | whatever shape you declare |
 | `jsonEnum`  | `TEXT`        | `TEXT`        | `TEXT`    | `NVARCHAR(MAX)`     | a literal union            |
 
-`serial` is the tenth, and it is the one you spell as a **tag** rather than an `Sql<…>` argument — `Sql<'serial'>` does not typecheck, because `Serial` already means it. It emits `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER` / `INT IDENTITY(1,1)`, is `number` in TS, and is omitted from `CreateDTO` entirely.
+`serial` is the tenth, and it is the one you spell as a **tag** rather than an `Sql<…>` argument — `Sql<'serial'>` does not typecheck, because `Serial` already means it. It emits `SERIAL` /
+`INT AUTO_INCREMENT` / `INTEGER` / `INT IDENTITY(1,1)`, is `number` in TS, and is omitted from `CreateDTO` entirely.
 
-Cockroach inherits the Postgres column map except that `integer` is `INT4` and
-`Serial` is `INT8 DEFAULT unique_rowid()`. SingleStore inherits MySQL except
-that `Serial` is `BIGINT AUTO_INCREMENT`; its table-level shard, sort and
-rowstore declarations are documented on the
-[SingleStore page](./dialect-singlestore.html).
+Cockroach inherits the Postgres column map except that `integer` is `INT4` and `Serial` is `INT8 DEFAULT unique_rowid()`. SingleStore inherits MySQL except that `Serial` is `BIGINT AUTO_INCREMENT`;
+its table-level shard, sort and rowstore declarations are documented on the [SingleStore page](./dialect-singlestore.html).
 
 ```ts
 interface Event extends Table<'events'> {
@@ -41,29 +38,29 @@ interface Event extends Table<'events'> {
 }
 ```
 
-Note what is _not_ written there. `live: boolean` needs no `Sql<'boolean'>` and `at: Date` needs no `Sql<'timestamp'>` — the mapping is forced, so stating it twice would only create something to disagree about. And there is no `jsonEnum` tag at all: `'created' | 'updated' | 'deleted'` is a literal union, which is how TypeScript says that, and the reflection reads the members off the type.
+Note what is _not_ written there. `live: boolean` needs no `Sql<'boolean'>` and `at: Date` needs no `Sql<'timestamp'>` — the mapping is forced, so stating it twice would only create something to
+disagree about. And there is no `jsonEnum` tag at all: `'created' | 'updated' | 'deleted'` is a literal union, which is how TypeScript says that, and the reflection reads the members off the type.
 
 Four rows are worth a sentence:
 
-- **`timestamp` is `TIMESTAMPTZ` in Postgres**, not `TIMESTAMP`. `TIMESTAMP` there means _without_ time zone: it keeps the wall clock and discards the offset, so a `Date` written from one zone reads back as a different instant in another. MySQL has no zone-aware type with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so `DATETIME(3)` holds UTC with the milliseconds a `Date` has. SQL Server uses `DATETIMEOFFSET(3)` for the same instant-preserving contract.
-- **`varchar` needs its length**, as `Length<N>`. `Length<255>` becomes `VARCHAR(255)` or SQL Server's `NVARCHAR(255)` where the dialect has a bounded varchar. A `varchar` with no `Length` degrades to the dialect's widest text spelling rather than emitting invalid or one-character DDL; SQL Server uses `NVARCHAR(MAX)`. `Length<N>` also emits `maxLength: N` into the JSON Schema, which is one fact serving two outputs rather than two facts to keep aligned.
-- **`bigint` is `bigint`, not `number`.** A `BIGINT` past 2^53 is not representable as a double, so the app type is the one that can hold it. See [bigint keys](./bigint-keys.html) for what that costs at the boundary.
+- **`timestamp` is `TIMESTAMPTZ` in Postgres**, not `TIMESTAMP`. `TIMESTAMP` there means _without_ time zone: it keeps the wall clock and discards the offset, so a `Date` written from one zone reads
+  back as a different instant in another. MySQL has no zone-aware type with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so `DATETIME(3)` holds UTC with the
+  milliseconds a `Date` has. SQL Server uses `DATETIMEOFFSET(3)` for the same instant-preserving contract.
+- **`varchar` needs its length**, as `Length<N>`. `Length<255>` becomes `VARCHAR(255)` or SQL Server's `NVARCHAR(255)` where the dialect has a bounded varchar. A `varchar` with no `Length` degrades to
+  the dialect's widest text spelling rather than emitting invalid or one-character DDL; SQL Server uses `NVARCHAR(MAX)`. `Length<N>` also emits `maxLength: N` into the JSON Schema, which is one fact
+  serving two outputs rather than two facts to keep aligned.
+- **`bigint` is `bigint`, not `number`.** A `BIGINT` past 2^53 is not representable as a double, so the app type is the one that can hold it. See [bigint keys](./bigint-keys.html) for what that costs
+  at the boundary.
 - **SQLite has affinities, not types.** `INTEGER PRIMARY KEY` _is_ the rowid, which is what makes `Serial` auto-increment without an `AUTOINCREMENT` keyword.
 
 ## That is the whole set
 
-Ten abstract types, closed. A type supplied by a database extension uses
-`Ext<Extension, Name, Args>` instead, including `vector`, `geometry`, and
-`citext`. Other storage types such as `uuid`, `date`, `time`, `interval`,
-`inet`, `cidr`, and arrays still need a [custom type](./custom-types.html) or a
-`json` column.
+Ten abstract types, closed. A type supplied by a database extension uses `Ext<Extension, Name, Args>` instead, including `vector`, `geometry`, and `citext`. Other storage types such as `uuid`, `date`,
+`time`, `interval`, `inet`, `cidr`, and arrays still need a [custom type](./custom-types.html) or a `json` column.
 
-The union is small on purpose. Every back-end has to answer for every member:
-the DDL emitter needs a spelling in six dialects, the validator needs a check,
-the JSON Schema generator needs a keyword, and the seeder needs a generator.
-Ten members mean ninety answers, all of them written down and tested. A
-`SqlType` with forty members would mean most of those answers were guesses in
-whichever back-end nobody exercised.
+The union is small on purpose. Every back-end has to answer for every member: the DDL emitter needs a spelling in six dialects, the validator needs a check, the JSON Schema generator needs a keyword,
+and the seeder needs a generator. Ten members mean ninety answers, all of them written down and tested. A `SqlType` with forty members would mean most of those answers were guesses in whichever
+back-end nobody exercised.
 
 ## Constraining a column
 
@@ -80,14 +77,11 @@ interface User extends Table<'users'> {
 }
 ```
 
-`References<'users.id'>` is a string literal read as `table.column`, so there is no wrapping function and no schema value to import — the whole reason the old `references(integer().notNull(), UserSchema, 'id')` had to be a function was that it needed the target's value at hand. The [tag reference](./tags-reference.html) has the rest.
+`References<'users.id'>` is a string literal read as `table.column`, so there is no wrapping function and no schema value to import — the whole reason the old
+`references(integer().notNull(), UserSchema, 'id')` had to be a function was that it needed the target's value at hand. The [tag reference](./tags-reference.html) has the rest.
 
-> [!NOTE]
-> It is a string, and nothing cross-checks it: a typo in the table or column name reaches
-> the IR unchallenged. It reaches generated migrations as a named foreign-key
-> constraint; compose `OnDelete<…>` and `OnUpdate<…>` on the same column when
-> the action is not `NO ACTION`. The tag also feeds relation-aware documents and
-> the pull/diff tooling.
+> [!NOTE] It is a string, and nothing cross-checks it: a typo in the table or column name reaches the IR unchallenged. It reaches generated migrations as a named foreign-key constraint; compose
+> `OnDelete<…>` and `OnUpdate<…>` on the same column when the action is not `NO ACTION`. The tag also feeds relation-aware documents and the pull/diff tooling.
 
 ## How columns become DDL
 
@@ -104,17 +98,14 @@ CREATE TABLE [users] ([createdAt] DATETIMEOFFSET(3) NOT NULL, [email] NVARCHAR(M
 
 Columns come out sorted by name, because a snapshot has to be byte-stable to be diffable.
 
-The snapshot still cannot carry `DEFAULT` values or general `CHECK`
-constraints. It now carries the `Unique` flag so SingleStore can validate and
-emit a unique declaration against its shard key, but the ordinary generated
-migration path still does not create standalone unique constraints for the
-other dialects. For defaults this is not only a snapshot gap — `HasDefault`
-says a column _has_ a default, not _which one_, because a default is a runtime
-value and no type holds one.
+The snapshot still cannot carry `DEFAULT` values or general `CHECK` constraints. It now carries the `Unique` flag so SingleStore can validate and emit a unique declaration against its shard key, but
+the ordinary generated migration path still does not create standalone unique constraints for the other dialects. For defaults this is not only a snapshot gap — `HasDefault` says a column _has_ a
+default, not _which one_, because a default is a runtime value and no type holds one.
 
-Write the value in the migration, where the DDL is written anyway. Validation tags feed the JSON Schema, the OpenAPI document and the [seed generator](./seed-functions.html); enforce them at the HTTP boundary with [`assert`](./validators-assert.html), where a failure becomes a 400 rather than a partially-applied write.
+Write the value in the migration, where the DDL is written anyway. Validation tags feed the JSON Schema, the OpenAPI document and the [seed generator](./seed-functions.html); enforce them at the HTTP
+boundary with [`assert`](./validators-assert.html), where a failure becomes a 400 rather than a partially-applied write.
 
-> [!TIP]
-> A column is required in `CreateDTO` unless something says otherwise. `HasDefault` makes it optional, `| null` makes it optional, and `Serial` removes it from the type entirely. See [Type derivation](./type-derivation.html).
+> [!TIP] A column is required in `CreateDTO` unless something says otherwise. `HasDefault` makes it optional, `| null` makes it optional, and `Serial` removes it from the type entirely. See
+> [Type derivation](./type-derivation.html).
 
 For richer schema objects (indexes, generated columns, sequences), see [Indexes & constraints](./indexes-constraints.html) and [Generated columns](./generated-columns.html).

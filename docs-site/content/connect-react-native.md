@@ -1,7 +1,5 @@
-> **ToDo / feature gap.** There is no React Native adapter. `node:sqlite` is a
-> Node built-in and does not exist on device, and nothing in zmdb ships a
-> `Driver` over `expo-sqlite` or `op-sqlite`. The driver below is fifteen lines,
-> so this is a missing adapter rather than a missing capability.
+> **ToDo / feature gap.** There is no React Native adapter. `node:sqlite` is a Node built-in and does not exist on device, and nothing in zmdb ships a `Driver` over `expo-sqlite` or `op-sqlite`. The
+> driver below is fifteen lines, so this is a missing adapter rather than a missing capability.
 
 ## What runs on device unchanged
 
@@ -55,8 +53,7 @@ Faster, and it supports SQLCipher if you need the database encrypted at rest —
 
 ## The transformer
 
-Metro does not run TypeScript custom transformers, so zmdb wraps its Babel-transformer seam instead. The
-supported range is Metro `>=0.87.0 <0.88.0`.
+Metro does not run TypeScript custom transformers, so zmdb wraps its Babel-transformer seam instead. The supported range is Metro `>=0.87.0 <0.88.0`.
 
 Bare React Native:
 
@@ -78,9 +75,8 @@ const { withZmdb } = require('@zmdb/aot-validator/metro');
 module.exports = withZmdb(getDefaultConfig(__dirname));
 ```
 
-`withZmdb` preserves the existing `babelTransformerPath`, including Expo's or an app-supplied transformer,
-and delegates to it after applying the same transform as the unplugin and `zmdb-codegen`. There is no Expo
-config plugin; config plugins run at prebuild and cannot configure the later Metro process.
+`withZmdb` preserves the existing `babelTransformerPath`, including Expo's or an app-supplied transformer, and delegates to it after applying the same transform as the unplugin and `zmdb-codegen`.
+There is no Expo config plugin; config plugins run at prebuild and cannot configure the later Metro process.
 
 If loading the TypeScript project in every Metro worker uses too much memory, lower the pool explicitly:
 
@@ -88,13 +84,10 @@ If loading the TypeScript project in every Metro worker uses too much memory, lo
 module.exports = withZmdb(getDefaultConfig(__dirname), { workerCount: 2 });
 ```
 
-The cache key includes the zmdb version, transformer options, `tsconfig.json`, and the path, size and mtime of
-each project source. A running dev server still cannot know that changing a type in one file invalidates
-generated code cached for another file. After that kind of edit, restart with `--reset-cache`; for Expo use
-`expo start --clear`.
+The cache key includes the zmdb version, transformer options, `tsconfig.json`, and the path, size and mtime of each project source. A running dev server still cannot know that changing a type in one
+file invalidates generated code cached for another file. After that kind of edit, restart with `--reset-cache`; for Expo use `expo start --clear`.
 
-An unconfigured `schemaOf<T>()` or generic validator call still throws its
-[untransformed-build error](./gotchas.html). Keep a canary against the real bundle:
+An unconfigured `schemaOf<T>()` or generic validator call still throws its [untransformed-build error](./gotchas.html). Keep a canary against the real bundle:
 
 ```ts
 it('validators are transformed', () => {
@@ -106,11 +99,8 @@ See [AOT Setup](./aot-setup.html).
 
 ## Migrations on device
 
-Run `zmdb embed` during the build, map the same SQLite handle onto the
-three-method `EmbeddedConnection`, and call `runEmbedded` at startup. The full
-example is on [Web & Mobile Migrations](./migrations-web-mobile.html), including
-checksum and downgrade refusal, why `down` is nearly useless on a device, and
-why every migration must apply from any older version.
+Run `zmdb embed` during the build, map the same SQLite handle onto the three-method `EmbeddedConnection`, and call `runEmbedded` at startup. The full example is on
+[Web & Mobile Migrations](./migrations-web-mobile.html), including checksum and downgrade refusal, why `down` is nearly useless on a device, and why every migration must apply from any older version.
 
 ## Design constraints that are not zmdb's
 
@@ -118,11 +108,13 @@ why every migration must apply from any older version.
 
 **Migrations run while the user waits.** A backfill over a large local table is a launch spinner. Prefer nullable columns and lazy backfill.
 
-**Sync is your problem.** zmdb has no sync engine. Either write one over your API — see [HTTP Proxy](./connect-http-proxy.html) for the transport shape — or use a sync-first backend and zmdb only for local reads.
+**Sync is your problem.** zmdb has no sync engine. Either write one over your API — see [HTTP Proxy](./connect-http-proxy.html) for the transport shape — or use a sync-first backend and zmdb only for
+local reads.
 
 ## What it would take
 
-An `@zmdb/repository/expo-sqlite` entry point with the driver and migration connection above. It adds a peer dependency on a platform package, which is the reason it is not there rather than a design problem.
+An `@zmdb/repository/expo-sqlite` entry point with the driver and migration connection above. It adds a peer dependency on a platform package, which is the reason it is not there rather than a design
+problem.
 
 ---
 

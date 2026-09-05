@@ -1,4 +1,5 @@
-Because a `Driver` has one required method over `{ text, parameters }`, you can put anything between your application and the database — including your own HTTP endpoint. This is how you reach a database from a runtime with no TCP.
+Because a `Driver` has one required method over `{ text, parameters }`, you can put anything between your application and the database — including your own HTTP endpoint. This is how you reach a
+database from a runtime with no TCP.
 
 ## The client driver
 
@@ -41,7 +42,8 @@ export class SqlProxyController {
 
 ## Read this before you deploy it
 
-**That endpoint executes arbitrary SQL as your database user.** A proxy accepting `text` from a client is a remote SQL console. If it is reachable from a browser, so is your entire database — a `DROP TABLE`, a `SELECT` over another tenant's rows, a `pg_read_file`. Authentication does not fix it, because an authenticated user is exactly who would abuse it.
+**That endpoint executes arbitrary SQL as your database user.** A proxy accepting `text` from a client is a remote SQL console. If it is reachable from a browser, so is your entire database — a
+`DROP TABLE`, a `SELECT` over another tenant's rows, a `pg_read_file`. Authentication does not fix it, because an authenticated user is exactly who would abuse it.
 
 Only deploy the shape above **server to server**, inside a trust boundary, with a token that is not shipped to any client.
 
@@ -51,11 +53,9 @@ For anything a client can reach, do not accept SQL. Accept a name and typed argu
 
 ```ts
 const QUERIES = {
-  activeUsers: (args: { limit: number }) =>
-    createQueryCompiler('postgres').selectFrom('users').where('active', '=', true).limit(args.limit).compile(),
+  activeUsers: (args: { limit: number }) => createQueryCompiler('postgres').selectFrom('users').where('active', '=', true).limit(args.limit).compile(),
 
-  userById: (args: { id: number }) =>
-    createQueryCompiler('postgres').selectFrom('users').where('id', '=', args.id).compile(),
+  userById: (args: { id: number }) => createQueryCompiler('postgres').selectFrom('users').where('id', '=', args.id).compile(),
 } as const;
 
 @Controller('/query')
@@ -74,7 +74,8 @@ export class QueryController {
 
 Now the client chooses from a fixed set, the arguments are validated, and the parameters are bound. The blast radius is the queries you wrote.
 
-Better still: skip the generic layer and write ordinary endpoints. `@Controller('/users')` with `@Get('/')` is the same amount of code and produces an [OpenAPI document](./openapi.html) — a "query proxy" is usually a REST API with the types removed.
+Better still: skip the generic layer and write ordinary endpoints. `@Controller('/users')` with `@Get('/')` is the same amount of code and produces an [OpenAPI document](./openapi.html) — a "query
+proxy" is usually a REST API with the types removed.
 
 ## What it costs
 
@@ -90,7 +91,8 @@ const rows = (await res.json()).map(r => assert<Entity<User>>(revive(r)));
 
 ## Where it is genuinely the right answer
 
-A trusted internal service consolidating database access; a local-first client syncing through your API; a runtime with no TCP that must reach Postgres. In all three the proxy is server-controlled — which is the property that makes it acceptable.
+A trusted internal service consolidating database access; a local-first client syncing through your API; a runtime with no TCP that must reach Postgres. In all three the proxy is server-controlled —
+which is the property that makes it acceptable.
 
 ---
 

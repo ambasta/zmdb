@@ -1,7 +1,6 @@
 # Benchmarking Harness — Frozen Spec (Issue #69)
 
-> Status: **FROZEN** for TDD. Implementation (#70–#73) must satisfy this spec.
-> Lives in the top-level `benchmarks/` workspace (never published). Node 26+, ESM, TS 7.
+> Status: **FROZEN** for TDD. Implementation (#70–#73) must satisfy this spec. Lives in the top-level `benchmarks/` workspace (never published). Node 26+, ESM, TS 7.
 
 ## 1. Workspace layout
 
@@ -39,16 +38,13 @@ Rules:
 
 - `status: 'ok'` MUST carry `opsPerSec`.
 - `status: 'dnf'` MUST carry a non-empty `dnfReason`.
-- **DNF is a first-class value.** An in-scope case is NEVER silently omitted:
-  it appears as `ok` (with a score) or `dnf` (with a reason).
+- **DNF is a first-class value.** An in-scope case is NEVER silently omitted: it appears as `ok` (with a score) or `dnf` (with a reason).
 
 ## 3. DNF reason taxonomy (frozen)
 
-- `dnf (anti-pattern): <detail>` — the case only makes sense for a pattern zmdb
-  rejects (identity map, proxy lazy-load, active-record save). Permitted to skip
-  execution but MUST still appear as a DNF row.
-- `dnf (not implemented): <detail>` — a supported-in-principle case we have not
-  wired yet. MUST appear as a DNF row until implemented.
+- `dnf (anti-pattern): <detail>` — the case only makes sense for a pattern zmdb rejects (identity map, proxy lazy-load, active-record save). Permitted to skip execution but MUST still appear as a DNF
+  row.
+- `dnf (not implemented): <detail>` — a supported-in-principle case we have not wired yet. MUST appear as a DNF row until implemented.
 
 ## 4. Validation case matrix (moltar) — suite `validation`
 

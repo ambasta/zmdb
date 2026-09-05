@@ -1,4 +1,5 @@
-Dialect: `'postgres'`. Nile is Postgres with tenant isolation built into the database, which makes it an unusually good fit for the [multi-tenancy problem](./entity-filters.html) zmdb does not solve on its own.
+Dialect: `'postgres'`. Nile is Postgres with tenant isolation built into the database, which makes it an unusually good fit for the [multi-tenancy problem](./entity-filters.html) zmdb does not solve
+on its own.
 
 ## Setup
 
@@ -22,7 +23,8 @@ export const driver: Driver = {
 
 ## Tenant-aware tables
 
-Nile's model is that a table can be declared tenant-aware, after which the database itself scopes every query to the tenant set on the session. The declaration is DDL, so it goes in a [migration](./migrations-custom.html):
+Nile's model is that a table can be declared tenant-aware, after which the database itself scopes every query to the tenant set on the session. The declaration is DDL, so it goes in a
+[migration](./migrations-custom.html):
 
 ```ts
 {
@@ -49,10 +51,8 @@ export interface Todo extends Table<'todos'> {
 const todos = schemaOf<Todo>();
 ```
 
-`Sql<'text'>` rather than a UUID type, because `SqlType` has no `uuid` member — the
-migration above writes `UUID` and the declaration calls it text. That mismatch is
-deliberate and narrow: it affects generated DDL for this table, which you are
-writing by hand anyway, and nothing else reads the column as anything but a string.
+`Sql<'text'>` rather than a UUID type, because `SqlType` has no `uuid` member — the migration above writes `UUID` and the declaration calls it text. That mismatch is deliberate and narrow: it affects
+generated DDL for this table, which you are writing by hand anyway, and nothing else reads the column as anything but a string.
 
 ## Setting the tenant per request
 
@@ -84,19 +84,15 @@ if (tenantId === undefined) throw new ValidationError('missing tenant', []);
 const repo = defineRepository(todos, tenantDriver(tenantId), { dialect: 'postgres' });
 ```
 
-> [!WARNING]
-> `SET LOCAL` is transaction-scoped, so the pattern above only holds if the
-> statement and the `SET` are in the same transaction — with a checked-out client
-> and no explicit `BEGIN`, each statement is its own transaction, so the
-> `SET LOCAL` applies to the `SET` statement's own transaction and not the next one.
-> Either wrap both in `BEGIN`/`COMMIT`, or use plain `SET` on a client you hold
-> for the whole request. Verify with a test that a query for tenant A returns
-> nothing when the session is tenant B — a tenancy mechanism you have not tried
-> to break is a tenancy mechanism you do not have.
+> [!WARNING] `SET LOCAL` is transaction-scoped, so the pattern above only holds if the statement and the `SET` are in the same transaction — with a checked-out client and no explicit `BEGIN`, each
+> statement is its own transaction, so the `SET LOCAL` applies to the `SET` statement's own transaction and not the next one. Either wrap both in `BEGIN`/`COMMIT`, or use plain `SET` on a client you
+> hold for the whole request. Verify with a test that a query for tenant A returns nothing when the session is tenant B — a tenancy mechanism you have not tried to break is a tenancy mechanism you do
+> not have.
 
 ## Why this is better than an application-level filter
 
-The [application-level version](./entity-filters.html) requires every read to carry the filter, and a single missed one leaks across tenants. Database-enforced isolation holds even for [raw SQL](./raw-sql.html), a migration, or a colleague in `psql` — which is the same argument for [Postgres RLS](./connect-supabase.html), and it is the right argument.
+The [application-level version](./entity-filters.html) requires every read to carry the filter, and a single missed one leaks across tenants. Database-enforced isolation holds even for
+[raw SQL](./raw-sql.html), a migration, or a colleague in `psql` — which is the same argument for [Postgres RLS](./connect-supabase.html), and it is the right argument.
 
 ## Nile's built-in tables
 
@@ -106,11 +102,9 @@ Nile provides `tenants` and `users` tables of its own. Reference them by name, s
 tenantId: string & Sql<'text'> & References<'tenants.id'>;
 ```
 
-`References<'tenants.id'>` is a string literal and nothing validates that the table
-exists, which is exactly what you want here — the target is Nile's, not yours.
+`References<'tenants.id'>` is a string literal and nothing validates that the table exists, which is exactly what you want here — the target is Nile's, not yours.
 
-Do not generate migrations that would alter them. Declare a table zmdb does not own
-only if you intend zmdb to own it, which you do not.
+Do not generate migrations that would alter them. Declare a table zmdb does not own only if you intend zmdb to own it, which you do not.
 
 ---
 

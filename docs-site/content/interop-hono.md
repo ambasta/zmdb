@@ -1,4 +1,5 @@
-Hono is a small, fast, standards-based router. `@zmdb/web`'s `App` exposes `fetch(request)` and `handle(req)` and owns no server, which makes the two compose rather than compete — you can mount zmdb inside Hono, or use zmdb's data layer under Hono routes and skip `@zmdb/web` entirely.
+Hono is a small, fast, standards-based router. `@zmdb/web`'s `App` exposes `fetch(request)` and `handle(req)` and owns no server, which makes the two compose rather than compete — you can mount zmdb
+inside Hono, or use zmdb's data layer under Hono routes and skip `@zmdb/web` entirely.
 
 ## zmdb data layer, Hono routes
 
@@ -36,15 +37,11 @@ hono.get('/health', c => c.text('ok'));
 
 Use this when you want zmdb's DI and OpenAPI for the API surface and Hono's middleware for everything around it — CORS, static assets, compression, streaming.
 
-> [!NOTE]
-> Your controllers see the full path, so a controller behind `/api/*` must be
-> declared as `@Controller('/api/posts')`. `App` does not know it is mounted and
-> does not strip a prefix.
+> [!NOTE] Your controllers see the full path, so a controller behind `/api/*` must be declared as `@Controller('/api/posts')`. `App` does not know it is mounted and does not strip a prefix.
 
 ## Hono middleware fills real gaps
 
-This is the strongest argument for the combination. Several cross-cutting
-features `@zmdb/web` does not ship are one Hono middleware away:
+This is the strongest argument for the combination. Several cross-cutting features `@zmdb/web` does not ship are one Hono middleware away:
 
 | Gap in `@zmdb/web`                      | Hono            |
 | --------------------------------------- | --------------- |
@@ -53,9 +50,7 @@ features `@zmdb/web` does not ship are one Hono middleware away:
 | [CSRF](./web-csrf.html)                 | `csrf()`        |
 | Rate limiting, CORS, secure headers     | middleware      |
 
-Put those outside the mount, where Hono owns the `Response`.
-For an application-owned response stream, `@zmdb/web` itself provides
-`stream()`.
+Put those outside the mount, where Hono owns the `Response`. For an application-owned response stream, `@zmdb/web` itself provides `stream()`.
 
 ## Choosing between them
 
@@ -82,9 +77,8 @@ api.post('/posts', async c => {
 });
 ```
 
-Catch validation failures in `app.onError` and map them to a 400. Without the
-[transformer](./aot-setup.html), the generic call instead throws
-`runtime type witness required in test/fallback mode`, so keep a build-path canary:
+Catch validation failures in `app.onError` and map them to a 400. Without the [transformer](./aot-setup.html), the generic call instead throws `runtime type witness required in test/fallback mode`, so
+keep a build-path canary:
 
 ```ts
 it('the transformer is running', () => {
@@ -94,10 +88,8 @@ it('the transformer is running', () => {
 
 ## On the edge
 
-Hono targets Workers, Deno and Bun; so does zmdb's read path, with an
-[HTTP driver](./perf-serverless.html). Bun still needs a separate build route.
-React Native uses the [`withZmdb` Metro wrapper](./connect-react-native.html).
-Keep the canary against either built artefact.
+Hono targets Workers, Deno and Bun; so does zmdb's read path, with an [HTTP driver](./perf-serverless.html). Bun still needs a separate build route. React Native uses the
+[`withZmdb` Metro wrapper](./connect-react-native.html). Keep the canary against either built artefact.
 
 ---
 

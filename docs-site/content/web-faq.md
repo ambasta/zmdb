@@ -1,5 +1,4 @@
-What maps 1:1 from NestJS, what's deliberately different, and the
-feature-gap list.
+What maps 1:1 from NestJS, what's deliberately different, and the feature-gap list.
 
 ## Maps directly
 
@@ -16,24 +15,18 @@ feature-gap list.
 
 ## Deliberately different
 
-- **No `reflect-metadata`** — Stage-3 decorators native; the route table + DI
-  graph resolve **once at boot**, zero runtime reflection.
-- **No request-scoped providers by default** — request data rides on
-  [`Ctx`](./web-injection-scopes.html), not a rebuilt DI sub-tree.
+- **No `reflect-metadata`** — Stage-3 decorators native; the route table + DI graph resolve **once at boot**, zero runtime reflection.
+- **No request-scoped providers by default** — request data rides on [`Ctx`](./web-injection-scopes.html), not a rebuilt DI sub-tree.
 - **No `as`** on the consumer surface — everything is inferred/typed.
-- **Responses are transport-neutral descriptors** (`{ status, headers, body }`),
-  so the [Node and Fetch adapters](./web-pipeline.html) share one handler.
+- **Responses are transport-neutral descriptors** (`{ status, headers, body }`), so the [Node and Fetch adapters](./web-pipeline.html) share one handler.
 - **Target ES2026+/ESNext** — no downlevel of decorators in source.
 
 ## Known feature gaps
 
-- [File upload](./web-file-upload.html) (multipart) · [GraphQL](./web-graphql.html) ·
-  [Microservices](./web-microservices.html)
+- [File upload](./web-file-upload.html) (multipart) · [GraphQL](./web-graphql.html) · [Microservices](./web-microservices.html)
 
-Everything else (config, auth, authz, CORS, cookies/sessions, rate limiting,
-security headers, caching, logging) is a **pattern on the existing primitives**,
-documented in this Guides group rather than a bundled module — so there's no
-hidden magic and nothing to reflect.
+Everything else (config, auth, authz, CORS, cookies/sessions, rate limiting, security headers, caching, logging) is a **pattern on the existing primitives**, documented in this Guides group rather
+than a bundled module — so there's no hidden magic and nothing to reflect.
 
 ## Cross-links
 

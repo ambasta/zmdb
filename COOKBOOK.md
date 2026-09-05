@@ -1,11 +1,9 @@
 # zmdb Cookbook — Real-World Scenarios
 
-> How common tasks are handled end-to-end. Every example below maps to a
-> **frozen spec** (see each package's `SPEC.md`). Anything not yet backed by a
-> frozen spec is explicitly marked **(planned)** so you can tell contract from roadmap.
+> How common tasks are handled end-to-end. Every example below maps to a **frozen spec** (see each package's `SPEC.md`). Anything not yet backed by a frozen spec is explicitly marked **(planned)** so
+> you can tell contract from roadmap.
 >
-> Targets: Node.js 26+, ESM-only, TypeScript 7. No proxies, no identity map,
-> no runtime parsing — validation and serialization are AOT-compiled.
+> Targets: Node.js 26+, ESM-only, TypeScript 7. No proxies, no identity map, no runtime parsing — validation and serialization are AOT-compiled.
 
 ## Table of contents
 
@@ -27,8 +25,7 @@
 
 ## 1. Declaring a model
 
-A table **is** a TypeScript type. That declaration is the single source of truth;
-every derived type flows from it. Backed by `packages/schema-core/SPEC.md`.
+A table **is** a TypeScript type. That declaration is the single source of truth; every derived type flows from it. Backed by `packages/schema-core/SPEC.md`.
 
 ```ts
 import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
@@ -48,19 +45,13 @@ export interface Order extends Table<'orders'> {
 }
 ```
 
-- Each property is its **app type** intersected with **tags**: the app type is what
-  your code sees, the tags say what TypeScript has no syntax for. `Table<Name>` on the
-  `extends` clause carries the table name.
-- Tags are phantom `unique symbol` slots and `@zmdb/schema-core/tags` has no runtime
-  exports, so the file above compiles to no JavaScript at all.
-- `Sql<T>` is only needed where TypeScript is ambiguous. `string`, `boolean`, `bigint`,
-  `Date` and a string-literal union are inferred; `number` is refused, because
-  TypeScript spells both `integer` and `numeric` the same way.
-- Write `(T & Tags) | null` for a nullable column, never `(T | null) & Tags` — the
-  intersection distributes over the union and `null & Unique` is `never`.
-- There is no builder DSL and no global registry. If you have a codebase full of
-  `defineSchema('users', { id: serial().primaryKey() })`, `scripts/codemod-tagged-schema.mjs`
-  converts it.
+- Each property is its **app type** intersected with **tags**: the app type is what your code sees, the tags say what TypeScript has no syntax for. `Table<Name>` on the `extends` clause carries the
+  table name.
+- Tags are phantom `unique symbol` slots and `@zmdb/schema-core/tags` has no runtime exports, so the file above compiles to no JavaScript at all.
+- `Sql<T>` is only needed where TypeScript is ambiguous. `string`, `boolean`, `bigint`, `Date` and a string-literal union are inferred; `number` is refused, because TypeScript spells both `integer`
+  and `numeric` the same way.
+- Write `(T & Tags) | null` for a nullable column, never `(T | null) & Tags` — the intersection distributes over the union and `null & Unique` is `never`.
+- There is no builder DSL and no global registry. If you have a codebase full of `defineSchema('users', { id: serial().primaryKey() })`, `scripts/codemod-tagged-schema.mjs` converts it.
 
 The value the query compiler and the repository read comes from `schemaOf<T>()`:
 
@@ -71,10 +62,8 @@ export const userSchema = schemaOf<User>();
 export const orderSchema = schemaOf<Order>();
 ```
 
-That call is compiled away. Its answer is a function of a type argument, and type
-arguments do not exist at runtime, so the transformer replaces it with a frozen object
-literal — and an untransformed build throws a message saying exactly that rather than
-handing back an empty schema. Wire the unplugin, or run `zmdb-codegen`.
+That call is compiled away. Its answer is a function of a type argument, and type arguments do not exist at runtime, so the transformer replaces it with a frozen object literal — and an untransformed
+build throws a message saying exactly that rather than handing back an empty schema. Wire the unplugin, or run `zmdb-codegen`.
 
 ---
 
@@ -99,24 +88,18 @@ type PublicUser = ReadDTO<User>;
 // Entity<User> minus every column tagged Sensitive
 ```
 
-`Serial` **removes** `id` rather than making it optional: there is no value you could
-usefully pass for a column the database generates, and the repository refuses a payload
-that supplies one.
+`Serial` **removes** `id` rather than making it optional: there is no value you could usefully pass for a column the database generates, and the repository refuses a payload that supplies one.
 
-Change the declaration (e.g. add a column) and all four types update automatically;
-any code that no longer satisfies them fails to compile — that is the anti-drift guarantee.
+Change the declaration (e.g. add a column) and all four types update automatically; any code that no longer satisfies them fails to compile — that is the anti-drift guarantee.
 
-> Every derivation takes the **declared type**, including the read surface in `./dto`.
-> There used to be a second set on `@zmdb/schema-core`'s root that took the schema value
-> instead; those are gone, and the root re-exports these. `Entity<User>`, never
-> `Entity<typeof UserSchema>`.
+> Every derivation takes the **declared type**, including the read surface in `./dto`. There used to be a second set on `@zmdb/schema-core`'s root that took the schema value instead; those are gone,
+> and the root re-exports these. `Entity<User>`, never `Entity<typeof UserSchema>`.
 
 ---
 
 ## 3. CRUD
 
-Backed by `packages/repository/SPEC.md`. A repository is just a schema binding —
-the entire required body is one line.
+Backed by `packages/repository/SPEC.md`. A repository is just a schema binding — the entire required body is one line.
 
 ```ts
 import { BaseRepository } from '@zmdb/repository';
@@ -147,8 +130,7 @@ const updated = await users.update(u.id, { role: 'admin' });
 const ok = await users.delete(u.id); // boolean
 ```
 
-If a payload is invalid, `create`/`update` throw a structured `ValidationError`
-and **no SQL is executed** (the driver is never called).
+If a payload is invalid, `create`/`update` throw a structured `ValidationError` and **no SQL is executed** (the driver is never called).
 
 ---
 
@@ -166,9 +148,8 @@ user.email = 'new@example.com';
 await users.update(1, { email: 'new@example.com' });
 ```
 
-There is **no change tracking, no proxy, no `flush()`**. A write happens only when
-you call `create` / `update` / `delete`. This is deliberate: it removes the proxy
-layer and identity map entirely, which is where the zero-overhead guarantee comes from.
+There is **no change tracking, no proxy, no `flush()`**. A write happens only when you call `create` / `update` / `delete`. This is deliberate: it removes the proxy layer and identity map entirely,
+which is where the zero-overhead guarantee comes from.
 
 Coming from a "load, mutate, flush" workflow, the translation is:
 
@@ -183,9 +164,7 @@ Coming from a "load, mutate, flush" workflow, the translation is:
 
 ## 5. Transactions & grouped writes
 
-The legitimate job `flush()` does in other ORMs — atomically committing several
-writes — is handled by **explicit transactions**. Backed by
-`packages/repository/src/transactions/SPEC.md`.
+The legitimate job `flush()` does in other ORMs — atomically committing several writes — is handled by **explicit transactions**. Backed by `packages/repository/src/transactions/SPEC.md`.
 
 ```ts
 import { createTransactionalDb } from '@zmdb/repository/transactions';
@@ -203,10 +182,8 @@ await db.transaction(async tx => {
 });
 ```
 
-- Emitted SQL ordering is deterministic: `BEGIN … COMMIT` on success,
-  `BEGIN … ROLLBACK` on throw.
-- Nested `tx.savepoint(fn)` maps to `SAVEPOINT` / `RELEASE` / `ROLLBACK TO SAVEPOINT`,
-  so an inner failure can roll back without losing the outer transaction.
+- Emitted SQL ordering is deterministic: `BEGIN … COMMIT` on success, `BEGIN … ROLLBACK` on throw.
+- Nested `tx.savepoint(fn)` maps to `SAVEPOINT` / `RELEASE` / `ROLLBACK TO SAVEPOINT`, so an inner failure can roll back without losing the outer transaction.
 
 ### Drivers
 
@@ -225,12 +202,10 @@ This keeps the core DB-agnostic; adapters wrap `pg`, `mysql2`, `better-sqlite3`,
 
 ## 6. Relations
 
-Declared on the type; resolved by **explicit** `populate` — no lazy proxy getters.
-Backed by `packages/schema-core/src/relations/SPEC.md`.
+Declared on the type; resolved by **explicit** `populate` — no lazy proxy getters. Backed by `packages/schema-core/src/relations/SPEC.md`.
 
-A relation is a property whose declared type says the cardinality and whose tag says
-where to join. Relation properties are optional, and they are excluded from `Entity<T>`,
-`CreateDTO<T>` and the DDL:
+A relation is a property whose declared type says the cardinality and whose tag says where to join. Relation properties are optional, and they are excluded from `Entity<T>`, `CreateDTO<T>` and the
+DDL:
 
 ```ts
 import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
@@ -247,9 +222,8 @@ interface Order extends Table<'orders'> {
 }
 ```
 
-Both tags take the target table **and** the foreign-key column. Cardinality is
-deliberately not read back out of the tag — `Order[]` versus `User` already says it,
-and a tag that repeated it could disagree with the declaration.
+Both tags take the target table **and** the foreign-key column. Cardinality is deliberately not read back out of the tag — `Order[]` versus `User` already says it, and a tag that repeated it could
+disagree with the declaration.
 
 ```ts
 // Related data loads ONLY when populated (explicit):
@@ -257,27 +231,22 @@ const user = await users.findById(1, { populate: ['orders'] });
 // user.orders: Order[]  — attached to the result type only because we populated it
 ```
 
-The declaration above is the only place either fact is written. `defineRepository(userSchema,
-driver)` takes no relations, `BaseRepository<User>` takes no second type parameter for them,
-and `populate: ['orders']` is checked against `RelationKeys<User>` — a misspelling is a
-compile error. There is no `oneToMany()` builder to write a map with.
+The declaration above is the only place either fact is written. `defineRepository(userSchema, driver)` takes no relations, `BaseRepository<User>` takes no second type parameter for them, and
+`populate: ['orders']` is checked against `RelationKeys<User>` — a misspelling is a compile error. There is no `oneToMany()` builder to write a map with.
 
 - to-one → `JOIN`; to-many → batched `IN (…)` select. Strategy is deterministic.
-- Which side holds the key is read off the tables, not the tag: `OneToOne` is symmetric, so
-  the side with the column owns it. `References<'users.id'>` names the column the join
-  matches, and a foreign key without one is assumed to point at `id`.
+- Which side holds the key is read off the tables, not the tag: `OneToOne` is symmetric, so the side with the column owns it. `References<'users.id'>` names the column the join matches, and a foreign
+  key without one is assumed to point at `id`.
 - No identity map: populated children are plain objects, not shared references.
-- `ManyToMany` populate throws. `ManyToMany<'tags', 'post_tags'>` names a join table rather
-  than a column, and inferring its two foreign keys from the tables either side is how a
-  wrong query gets built quietly — join the two tables yourself.
+- `ManyToMany` populate throws. `ManyToMany<'tags', 'post_tags'>` names a join table rather than a column, and inferring its two foreign keys from the tables either side is how a wrong query gets
+  built quietly — join the two tables yourself.
 
 ---
 
 ## 7. Validation at the boundary
 
-Validation is **AOT-compiled**: `validate(tags.X(...), value)` is replaced at build
-time with inline JavaScript (no Zod-style runtime parser). Backed by
-`packages/aot-validator/SPEC.md` and the advanced-validation spec.
+Validation is **AOT-compiled**: `validate(tags.X(...), value)` is replaced at build time with inline JavaScript (no Zod-style runtime parser). Backed by `packages/aot-validator/SPEC.md` and the
+advanced-validation spec.
 
 ```ts
 import { tags, validate } from '@zmdb/aot-validator';
@@ -288,8 +257,7 @@ const ok = validate(tags.Min(0), input.totalPrice);
 // const ok = (typeof input.totalPrice === 'number' && input.totalPrice >= 0);
 ```
 
-Utility surface (typia-style), backed by the validator-utilities spec. Note the
-subpath — the eight type-argument calls live in `/utilities`, not on the root:
+Utility surface (typia-style), backed by the validator-utilities spec. Note the subpath — the eight type-argument calls live in `/utilities`, not on the root:
 
 ```ts
 import { assert, is, validate } from '@zmdb/aot-validator/utilities';
@@ -303,23 +271,18 @@ const res = validate<CreateUser>(payload); // { success, data?, errors? }
 // res.errors[i] = { path: 'input.email', expected, value, message }
 ```
 
-`is`, `assert`, `validate`, `equals`, `assertEquals`, `random`, `toJsonSchema` and
-`schemaOf` are the eight calls the transformer rewrites. A file it did not reach has no
-type argument left to read, so the call **throws** rather than passing everything — a
-validator that fails open is worse than one that fails.
+`is`, `assert`, `validate`, `equals`, `assertEquals`, `random`, `toJsonSchema` and `schemaOf` are the eight calls the transformer rewrites. A file it did not reach has no type argument left to read,
+so the call **throws** rather than passing everything — a validator that fails open is worse than one that fails.
 
-The rule-first form is the one that needs no build step, because the constraint arrives
-as a value: `validate(tags.Min(0), price)` runs under `ts-node`, in a REPL, anywhere.
+The rule-first form is the one that needs no build step, because the constraint arrives as a value: `validate(tags.Min(0), price)` runs under `ts-node`, in a REPL, anywhere.
 
-Advanced constructs (refinements, transforms, unions, coercion, brands, object
-strictness) are covered by `packages/aot-validator/src/advanced/SPEC.md`.
+Advanced constructs (refinements, transforms, unions, coercion, brands, object strictness) are covered by `packages/aot-validator/src/advanced/SPEC.md`.
 
 ---
 
 ## 8. Serialization / Deserialization
 
-AOT JSON serializer — straight-line concatenation, no reflection. Backed by
-`packages/aot-validator/src/serialization/SPEC.md`.
+AOT JSON serializer — straight-line concatenation, no reflection. Backed by `packages/aot-validator/src/serialization/SPEC.md`.
 
 ```ts
 import { stringify, assertStringify, parse } from '@zmdb/aot-validator/serialization';
@@ -336,8 +299,7 @@ if (result.success) use(result.data);
 else report(result.issues); // { path, expected, value, message }[]
 ```
 
-Frozen escaping rules (quotes, control chars, unicode); `undefined` object props
-are omitted; `bigint` throws `TypeError` (documented policy).
+Frozen escaping rules (quotes, control chars, unicode); `undefined` object props are omitted; `bigint` throws `TypeError` (documented policy).
 
 ---
 
@@ -365,18 +327,14 @@ async function createUserHandler(req: Request): Promise<Response> {
 }
 ```
 
-One declaration drives the request DTO, the DB write, and the response type. Change the
-interface and this handler fails to compile until updated — no drift.
+One declaration drives the request DTO, the DB write, and the response type. Change the interface and this handler fails to compile until updated — no drift.
 
 ---
 
 ## 10. JSON Schema / OpenAPI
 
-Because the declaration already carries column types, nullability, defaults, and
-validation tags, a JSON Schema / OpenAPI document is generated **deterministically
-at build time** from the same source of truth. Backed by
-`packages/schema-core/src/openapi/SPEC.md` (epic #62; spec frozen in #63,
-implementation in #64–#67).
+Because the declaration already carries column types, nullability, defaults, and validation tags, a JSON Schema / OpenAPI document is generated **deterministically at build time** from the same source
+of truth. Backed by `packages/schema-core/src/openapi/SPEC.md` (epic #62; spec frozen in #63, implementation in #64–#67).
 
 ```ts
 import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema-core/openapi';
@@ -389,30 +347,25 @@ const components = toOpenApiComponents([userSchema, orderSchema]);
 // components.schemas.User / .Order  (OpenAPI 3.1)
 ```
 
-`toJsonSchema<T>()` is one of the eight transformed calls and produces the `entity`
-variant. The two-argument form takes a schema value and a variant — `'entity'`
-(default) | `'create'` | `'update'` — which is how you get a request body.
+`toJsonSchema<T>()` is one of the eight transformed calls and produces the `entity` variant. The two-argument form takes a schema value and a variant — `'entity'` (default) | `'create'` | `'update'` —
+which is how you get a request body.
 
 Frozen behavior:
 
 - Build-time generation only — **no runtime reflection**.
 - `create`/`update` variants for request bodies, `entity` for responses.
-- Validation tags map to keywords: `Min→minimum`, `Max→maximum`,
-  `MinLength/MaxLength→minLength/maxLength`, `Pattern→pattern`. Those five are the
-  whole set. `enum` comes from a declared string-literal union, not from a tag, and
-  `Rule<'name'>` has no JSON Schema equivalent at all — it is dropped.
+- Validation tags map to keywords: `Min→minimum`, `Max→maximum`, `MinLength/MaxLength→minLength/maxLength`, `Pattern→pattern`. Those five are the whole set. `enum` comes from a declared string-literal
+  union, not from a tag, and `Rule<'name'>` has no JSON Schema equivalent at all — it is dropped.
 - Every variant drops columns tagged `Sensitive` as its last step.
-- Relations emit `$ref` (to-one) / `items:{$ref}` (to-many) — via
-  `toJsonSchemaWithRelations(schema, variant)`, which reads them off `schema.ir`, so a
-  generated document cannot name a relation the table does not have.
+- Relations emit `$ref` (to-one) / `items:{$ref}` (to-many) — via `toJsonSchemaWithRelations(schema, variant)`, which reads them off `schema.ir`, so a generated document cannot name a relation the
+  table does not have.
 - Deterministic (stable key ordering) so output is committable/diffable.
 
 ---
 
 ## 11. Migrations
 
-The declaration is the source of truth, so migrations are **diffed** from it. Backed by
-`packages/query-compiler/src/migrations/SPEC.md`.
+The declaration is the source of truth, so migrations are **diffed** from it. Backed by `packages/query-compiler/src/migrations/SPEC.md`.
 
 ```ts
 import { diff, emitDown, emitUp, runCli, snapshot } from '@zmdb/query-compiler/migrations';
@@ -435,44 +388,30 @@ const output = runCli('up', connection, migrations); // 'applied: 3'
 - Deterministic schema snapshot → `diff(prev, next)` → dialect-correct DDL.
 - Migrations are plain, reviewable SQL; `down` reverses `up`.
 - No runtime `updateSchema()` against production (explicitly rejected).
-- **(planned)** A `zmdb migrate` command. The only shipped binary today is
-  `zmdb-codegen`, which is the AOT transform, not the migration runner.
-- The snapshot format models name, type, nullability, primary keys, lengths and
-  foreign keys with referential actions. A `UNIQUE` constraint, a column default
-  and an FTS index still need a custom migration.
+- **(planned)** A `zmdb migrate` command. The only shipped binary today is `zmdb-codegen`, which is the AOT transform, not the migration runner.
+- The snapshot format models name, type, nullability, primary keys, lengths and foreign keys with referential actions. A `UNIQUE` constraint, a column default and an FTS index still need a custom
+  migration.
 
 ---
 
 ## 12. Mental-model summary
 
-- **Declare once** as a type; **derive everything** (Entity/CreateDTO/UpdateDTO/ReadDTO,
-  relations, validators, serializers, migrations, OpenAPI).
+- **Declare once** as a type; **derive everything** (Entity/CreateDTO/UpdateDTO/ReadDTO, relations, validators, serializers, migrations, OpenAPI).
 - **Reads return inert plain objects.** Mutating them does nothing.
 - **Writes are explicit and validated**: `create` / `update` / `delete`.
 - **Atomicity is explicit**: `db.transaction(...)`, not implicit flush.
 - **Validation & Ser/De are AOT-compiled**: inline JS, native speed, no runtime parser.
-- **No proxies, no identity map, no runtime reflection.** Types are read by the
-  transformer, at build time, from the real checker. That is the price of, and the
-  reason for, the zero-overhead guarantee.
+- **No proxies, no identity map, no runtime reflection.** Types are read by the transformer, at build time, from the real checker. That is the price of, and the reason for, the zero-overhead
+  guarantee.
 
 ---
 
 ## 13. Typed reads (Get / List / Search DTOs)
 
-The read side is fully typed via `@zmdb/schema-core/dto` — no more
-`Record<string, unknown>`.
+The read side is fully typed via `@zmdb/schema-core/dto` — no more `Record<string, unknown>`.
 
 ```ts
-import {
-  compileWhere,
-  applyOrderBy,
-  applyPagination,
-  project,
-  buildListResult,
-  type WhereDTO,
-  type OrderByDTO,
-  type ListResult,
-} from '@zmdb/schema-core/dto';
+import { compileWhere, applyOrderBy, applyPagination, project, buildListResult, type WhereDTO, type OrderByDTO, type ListResult } from '@zmdb/schema-core/dto';
 
 // Typed filter (per-column value types + operator set):
 const where: WhereDTO<User> = {
@@ -493,5 +432,4 @@ const page: ListResult<UserRow> = buildListResult(rows, { limit: 20 }); // { ite
 
 - **GetDTO / getResult** narrow a single-row fetch by `select`.
 - **SearchDTO / buildSearchResult** add full-text query + ranking (`_score`).
-- **Populated<T,K>** types populated relations; **AggregateResult<T,Spec>** types
-  grouped aggregates. See the [docs site](https://ambasta.github.io/zmdb/docs/read-dtos.html).
+- **Populated<T,K>** types populated relations; **AggregateResult<T,Spec>** types grouped aggregates. See the [docs site](https://ambasta.github.io/zmdb/docs/read-dtos.html).

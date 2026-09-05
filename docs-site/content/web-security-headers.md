@@ -1,6 +1,4 @@
-The `helmet` analogue — a small [Interceptor](./web-middleware.html) that merges
-hardening headers onto every response. No global plugin; it's one composable
-link so you can see exactly what's set.
+The `helmet` analogue — a small [Interceptor](./web-middleware.html) that merges hardening headers onto every response. No global plugin; it's one composable link so you can see exactly what's set.
 
 ## A helmet-equivalent interceptor
 

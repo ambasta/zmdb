@@ -42,9 +42,7 @@ db.pragma('journal_mode = WAL');
 export const driver: Driver = {
   async execute(query) {
     const stmt = db.prepare(query.text);
-    return stmt.reader
-      ? (stmt.all(...query.parameters) as Record<string, unknown>[])
-      : (stmt.run(...query.parameters), []);
+    return stmt.reader ? (stmt.all(...query.parameters) as Record<string, unknown>[]) : (stmt.run(...query.parameters), []);
   },
 };
 ```
@@ -78,11 +76,13 @@ export function freshDb() {
 }
 ```
 
-Sub-millisecond, isolated per test, schema derived from your actual schema objects rather than a fixture. This is the single best reason to keep SQLite in a Postgres project. See [Testing](./testing.html).
+Sub-millisecond, isolated per test, schema derived from your actual schema objects rather than a fixture. This is the single best reason to keep SQLite in a Postgres project. See
+[Testing](./testing.html).
 
 ## Concurrency in production
 
-SQLite serialises writes at the database level. WAL gives you concurrent readers, but two writers means one gets `SQLITE_BUSY`. That is fine for a single process and wrong for a multi-instance deployment — and it is the real constraint on SQLite in production, not speed.
+SQLite serialises writes at the database level. WAL gives you concurrent readers, but two writers means one gets `SQLITE_BUSY`. That is fine for a single process and wrong for a multi-instance
+deployment — and it is the real constraint on SQLite in production, not speed.
 
 If you deploy on one instance with a persistent disk (Fly, Railway with a volume, a VPS), SQLite is a genuinely good choice. If you autoscale, use [Turso](./connect-turso.html) or Postgres.
 

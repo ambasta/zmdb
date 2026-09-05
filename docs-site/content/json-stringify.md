@@ -1,4 +1,5 @@
-`stringify` serializes a value to JSON. It is byte-identical to `JSON.stringify` for every value it accepts; the one difference is that a `bigint` anywhere in the graph throws one message rather than the engine's.
+`stringify` serializes a value to JSON. It is byte-identical to `JSON.stringify` for every value it accepts; the one difference is that a `bigint` anywhere in the graph throws one message rather than
+the engine's.
 
 ## Basic Usage
 
@@ -14,7 +15,8 @@ stringify(null); // 'null'
 stringify(undefined); // undefined — not a string, exactly as JSON.stringify
 ```
 
-No replacer and no space parameter. Where you want either, call `JSON.stringify` directly; this entry point exists for the `bigint` policy and for the AOT path to hook into later, not to wrap the whole API.
+No replacer and no space parameter. Where you want either, call `JSON.stringify` directly; this entry point exists for the `bigint` policy and for the AOT path to hook into later, not to wrap the
+whole API.
 
 ## Bigint
 
@@ -23,9 +25,11 @@ stringify({ id: 123n });
 // TypeError: Do not know how to serialize a BigInt
 ```
 
-The check is applied at the top level _and_ through a replacer, so a `bigint` nested five levels down throws the same message rather than the engine's own wording. Normalising it is the point: one message means a caller can match on it.
+The check is applied at the top level _and_ through a replacer, so a `bigint` nested five levels down throws the same message rather than the engine's own wording. Normalising it is the point: one
+message means a caller can match on it.
 
-A `bigint` column does not need you to solve this by hand, though. The **wire** type for `Sql<'bigint'>` is a `string` with `format: 'int64'`, and you get that without asking — it is in the generated JSON Schema, the OpenAPI document, and what `wireEncoder` produces:
+A `bigint` column does not need you to solve this by hand, though. The **wire** type for `Sql<'bigint'>` is a `string` with `format: 'int64'`, and you get that without asking — it is in the generated
+JSON Schema, the OpenAPI document, and what `wireEncoder` produces:
 
 ```ts
 export interface Event extends Table<'events'> {
@@ -46,12 +50,9 @@ import { assertStringify } from '@zmdb/aot-validator/serialization';
 const json = assertStringify(payload, ir); // throws AssertError if payload is wrong
 ```
 
-> [!IMPORTANT]
-> `assertStringify` is **not** one of the seventeen calls the transformer currently rewrites (`is`,
-> `isShallow`, `assert`, `assertShallow`, `equals`, `assertEquals`, `validate`,
-> `validateShallow`, `random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`,
-> `protoEncode`, `grpcDescriptor`, `loadGrpcService`), so its schema has to be a runtime argument. With none, it throws
-> `runtime type witness required in test/fallback mode`.
+> [!IMPORTANT] `assertStringify` is **not** one of the seventeen calls the transformer currently rewrites (`is`, `isShallow`, `assert`, `assertShallow`, `equals`, `assertEquals`, `validate`,
+> `validateShallow`, `random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`, `protoEncode`, `grpcDescriptor`, `loadGrpcService`), so its schema has to be a runtime argument.
+> With none, it throws `runtime type witness required in test/fallback mode`.
 >
 > The transformed equivalent is two calls, and it is the one to write today:
 >
@@ -72,11 +73,8 @@ const json = assertStringify(payload, ir); // throws AssertError if payload is w
 
 ## AOT inlining
 
-> [!NOTE]
-> Not implemented. `stringify` is not in the transformer's rewrite list, so there is no
-> emitted concatenation for a known shape — the call is the runtime function in a built
-> bundle as much as in dev. The plan is straight-line concatenation from the same `TypeIR`
-> the validators use; the observable contract above is what will not change when it lands.
+> [!NOTE] Not implemented. `stringify` is not in the transformer's rewrite list, so there is no emitted concatenation for a known shape — the call is the runtime function in a built bundle as much as
+> in dev. The plan is straight-line concatenation from the same `TypeIR` the validators use; the observable contract above is what will not change when it lands.
 
 The validators _are_ inlined, and where a hot path is serializing something it just checked, the check is the part that was costing you. See [jit-vs-aot](./jit-vs-aot.html).
 

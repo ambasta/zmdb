@@ -34,7 +34,8 @@ export const driver: Driver = {
 };
 ```
 
-`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the first query.
+`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the
+first query.
 
 `unsafe` means "not from a template tag" — the parameters are still bound, not interpolated.
 
@@ -42,7 +43,8 @@ export const driver: Driver = {
 
 This is the one thing to get right, and it is where Bun projects go wrong.
 
-Bun's own transpiler does not run TypeScript custom transformers, so `is<T>()` and `assert<T>()` compile to calls with no descriptor — and [silently accept everything](./gotchas.html). Bun's `--bun` runtime does not fix this; the transform has to happen at build time.
+Bun's own transpiler does not run TypeScript custom transformers, so `is<T>()` and `assert<T>()` compile to calls with no descriptor — and [silently accept everything](./gotchas.html). Bun's `--bun`
+runtime does not fix this; the transform has to happen at build time.
 
 **Build with `tsc` (or tsup) and run the output:**
 
@@ -84,7 +86,8 @@ No adapter. See [Standalone Applications](./web-standalone.html).
 
 ## Testing
 
-`bun test` works, with the same transformer caveat — a test importing source directly gets untransformed validators. Either run the suite against built output, or use `vitest`, which the project's own tests use and which supports the transformer through its TypeScript pipeline.
+`bun test` works, with the same transformer caveat — a test importing source directly gets untransformed validators. Either run the suite against built output, or use `vitest`, which the project's own
+tests use and which supports the transformer through its TypeScript pipeline.
 
 ---
 

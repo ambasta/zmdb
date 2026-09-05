@@ -1,6 +1,5 @@
-`zmdb new` creates projects and application components. `zmdb generate` keeps
-its separate meaning: generate a migration from the declared schema. `zmdb
-embed` packages SQLite migration SQL into a filesystem-free TypeScript module.
+`zmdb new` creates projects and application components. `zmdb generate` keeps its separate meaning: generate a migration from the declared schema. `zmdb embed` packages SQLite migration SQL into a
+filesystem-free TypeScript module.
 
 ## Start a project
 
@@ -38,13 +37,10 @@ blog/
 └── zmdb.config.ts
 ```
 
-It is a runnable SQLite application, not a collection of placeholders. The
-config opens a file-backed database, the health test drives the real web test
-application and database driver, and the AOT adapter is used for both application
-and test builds.
+It is a runnable SQLite application, not a collection of placeholders. The config opens a file-backed database, the health test drives the real web test application and database driver, and the AOT
+adapter is used for both application and test builds.
 
-After installing dependencies, the generated scripts exercise the same classes
-of gate as this repository:
+After installing dependencies, the generated scripts exercise the same classes of gate as this repository:
 
 ```bash
 cd blog
@@ -58,8 +54,7 @@ npm start
 
 ## Add application components
 
-The six scaffold kinds are `project`, `schema`, `controller`, `module`,
-`repository`, and `command`:
+The six scaffold kinds are `project`, `schema`, `controller`, `module`, `repository`, and `command`:
 
 ```text
 $ npx zmdb new schema post
@@ -111,24 +106,18 @@ src/
 └── posts.controller.ts
 ```
 
-Every scaffold that contains behaviour includes a behavioural spec. The schema
-spec also contains an AOT canary, so a package that forgot the transformer fails
-in its tests instead of accepting unchecked input.
+Every scaffold that contains behaviour includes a behavioural spec. The schema spec also contains an AOT canary, so a package that forgot the transformer fails in its tests instead of accepting
+unchecked input.
 
 ## Safety properties
 
-- Source, JSON, and build files are formatted with the repository's formatter
-  before they are written.
-- Existing paths are never replaced. `--force` is a database-operation flag and
-  does not override scaffold conflicts.
+- Source, JSON, and build files are formatted with the repository's formatter before they are written.
+- Existing paths are never replaced. `--force` is a database-operation flag and does not override scaffold conflicts.
 - `--dry-run` prints every complete formatted file and writes nothing.
-- A scaffold never edits a barrel or an existing application module. It prints
-  the exact registration entry instead.
-- Invalid TypeScript names and ambiguous workspace targets are usage errors.
-  See [Monorepos & Libraries](./web-cli-monorepo.html).
+- A scaffold never edits a barrel or an existing application module. It prints the exact registration entry instead.
+- Invalid TypeScript names and ambiguous workspace targets are usage errors. See [Monorepos & Libraries](./web-cli-monorepo.html).
 
-These are structural rules in the implementation and acceptance tests, not
-recommendations for template authors.
+These are structural rules in the implementation and acceptance tests, not recommendations for template authors.
 
 ## Why the generated source stays small
 
@@ -144,15 +133,12 @@ export class PostsController {
 }
 ```
 
-The useful generated material is the route test and the explicit module wiring,
-not a second abstraction over controllers. A schema is still one interface;
-DTOs, JSON Schema, DDL, and validators derive from it rather than becoming more
-generated files.
+The useful generated material is the route test and the explicit module wiring, not a second abstraction over controllers. A schema is still one interface; DTOs, JSON Schema, DDL, and validators
+derive from it rather than becoming more generated files.
 
 ## The rest of the executable
 
-The same bin also owns migrations, checks, catalog pull, DDL export, module
-inspection, the REPL, and the read-only Studio:
+The same bin also owns migrations, checks, catalog pull, DDL export, module inspection, the REPL, and the read-only Studio:
 
 ```bash
 npx zmdb --help
@@ -163,10 +149,8 @@ npx zmdb check
 npx zmdb studio
 ```
 
-See the [CLI overview](./cli-overview.html) for the complete command and exit-code
-reference.
+See the [CLI overview](./cli-overview.html) for the complete command and exit-code reference.
 
 ---
 
-See also: [Monorepos & Libraries](./web-cli-monorepo.html) · [Building CLI
-Applications](./web-cli-apps.html) · [studio](./cli-studio.html)
+See also: [Monorepos & Libraries](./web-cli-monorepo.html) · [Building CLI Applications](./web-cli-apps.html) · [studio](./cli-studio.html)

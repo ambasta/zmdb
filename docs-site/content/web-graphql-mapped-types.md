@@ -1,10 +1,10 @@
-> **Not planned.** `@zmdb/web` does not provide GraphQL mapped types because
-> [GraphQL is out of scope](./web-graphql.html). Use TypeScript's built-in type
-> operators to compose DTOs for the supported HTTP surface.
+> **Not planned.** `@zmdb/web` does not provide GraphQL mapped types because [GraphQL is out of scope](./web-graphql.html). Use TypeScript's built-in type operators to compose DTOs for the supported
+> HTTP surface.
 
 ## Why these helpers exist elsewhere, and would not here
 
-A decorator-based GraphQL library represents a type as a **class carrying runtime metadata**. `@Field()` on each property populates a registry that the schema builder reads. Deriving one type from another therefore needs a function that copies that metadata — hence `PartialType(CreatePostInput)`.
+A decorator-based GraphQL library represents a type as a **class carrying runtime metadata**. `@Field()` on each property populates a registry that the schema builder reads. Deriving one type from
+another therefore needs a function that copies that metadata — hence `PartialType(CreatePostInput)`.
 
 zmdb has no such registry. A DTO is a TypeScript type derived from a schema, and TypeScript already has the operators:
 
@@ -28,13 +28,15 @@ const input = assert<Omit<NewPost, 'authorId'>>(args.input);
 
 ## Where the gap is not, after all
 
-**Generating GraphQL SDL from a composed type** reads like the missing capability, and this page used to say so — a hypothetical `toGraphQLType(schema, variant)` working from a _schema object_, with `Omit<PostRow, 'authorEmail'>` having no runtime representation to hand it. That framing is wrong, and the frozen emitter (`packages/schema-core/src/sdl/SPEC.md` §10) does not have the problem:
+**Generating GraphQL SDL from a composed type** reads like the missing capability, and this page used to say so — a hypothetical `toGraphQLType(schema, variant)` working from a _schema object_, with
+`Omit<PostRow, 'authorEmail'>` having no runtime representation to hand it. That framing is wrong, and the frozen emitter (`packages/schema-core/src/sdl/SPEC.md` §10) does not have the problem:
 
 ```ts
 sdlOf<Omit<Entity<Post>, 'authorEmail'>>('PublicPost');
 ```
 
-`sdlOf` reads a **type argument**, not a schema object. The transform resolves the composition with the TypeScript checker before any of it exists at runtime, so what the emitter walks is the already-composed shape — the same reason `assert<Omit<NewPost, 'authorId'>>` works two sections up. The name is an argument because a composed type has no name of its own to borrow.
+`sdlOf` reads a **type argument**, not a schema object. The transform resolves the composition with the TypeScript checker before any of it exists at runtime, so what the emitter walks is the
+already-composed shape — the same reason `assert<Omit<NewPost, 'authorId'>>` works two sections up. The name is an argument because a composed type has no name of its own to borrow.
 
 The same is true on the JSON Schema side, which is why the post-processing this page recommended is not needed either:
 
@@ -42,7 +44,8 @@ The same is true on the JSON Schema side, which is why the post-processing this 
 const publicPost = toJsonSchema<Omit<Entity<Post>, 'authorEmail'>>();
 ```
 
-So `omitFromSchema(schema, keys)` is refused rather than unbuilt. A helper that deletes keys from an emitted document is unchecked — misspell `authorEmial` and it silently does nothing, and the column stays in your public schema. Composing the type instead makes the same mistake a compile error.
+So `omitFromSchema(schema, keys)` is refused rather than unbuilt. A helper that deletes keys from an emitted document is unchecked — misspell `authorEmial` and it silently does nothing, and the column
+stays in your public schema. Composing the type instead makes the same mistake a compile error.
 
 What genuinely does not exist, and will not, is `PartialType`/`PickType`/`OmitType`/`IntersectionType`. Those are functions that copy runtime metadata, and there is no metadata to copy.
 
@@ -60,7 +63,8 @@ type PublicPost = Pick<Entity<Post>, (typeof PUBLIC_FIELDS)[number]>;
 const { items } = await repo.list({ select: PUBLIC_FIELDS, page: { limit: 20 } });
 ```
 
-One declaration, three uses: the type, the SQL projection, and — when a GraphQL emitter exists — the field set. `select` narrows the row type as well as the query, so the projection and the type cannot disagree, and the omitted columns are never fetched.
+One declaration, three uses: the type, the SQL projection, and — when a GraphQL emitter exists — the field set. `select` narrows the row type as well as the query, so the projection and the type
+cannot disagree, and the omitted columns are never fetched.
 
 The `as const` is required. Without it the array widens to `string[]` and you get the full row type back with no error.
 
@@ -86,15 +90,18 @@ function toPublic(post: PostRow): PublicPost {
 }
 ```
 
-Explicit, and it fails to compile when someone adds a sensitive column — provided `PublicPost` is an `Omit` of the real entity rather than a hand-written interface. That is the discipline worth keeping: derive the narrow type from the wide one so the compiler notices new fields.
+Explicit, and it fails to compile when someone adds a sensitive column — provided `PublicPost` is an `Omit` of the real entity rather than a hand-written interface. That is the discipline worth
+keeping: derive the narrow type from the wide one so the compiler notices new fields.
 
 Better still, do not fetch them: `select` keeps the column out of the SQL entirely.
 
 ## What it would have taken
 
-Nothing at all, for this page's subject. The operators are already better than the helpers, and the emitter took a type argument, so a composed shape would have produced SDL and JSON Schema with no composition helper in between. The JSON Schema half of that is real today; the SDL half is not, because [the GraphQL layer is out of scope](./web-graphql.html).
+Nothing at all, for this page's subject. The operators are already better than the helpers, and the emitter took a type argument, so a composed shape would have produced SDL and JSON Schema with no
+composition helper in between. The JSON Schema half of that is real today; the SDL half is not, because [the GraphQL layer is out of scope](./web-graphql.html).
 
-One constraint worth carrying over from the freeze: a composed type needs the name you pass. `sdlOf` refuses an **anonymous** object type — a nested `{ street: string }` inside a payload, say — rather than inventing `PostShipTo`, because a name the emitter chose is a public identifier in your schema that nobody wrote down. Give the shape an interface, or a `sdlOf` call of its own.
+One constraint worth carrying over from the freeze: a composed type needs the name you pass. `sdlOf` refuses an **anonymous** object type — a nested `{ street: string }` inside a payload, say — rather
+than inventing `PostShipTo`, because a name the emitter chose is a public identifier in your schema that nobody wrote down. Give the shape an interface, or a `sdlOf` call of its own.
 
 ---
 

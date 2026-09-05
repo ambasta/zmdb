@@ -75,11 +75,8 @@ beforeEach(() => {
 
 The schema comes from your actual schema objects, so it cannot drift from a fixture. Sub-millisecond, isolated per test.
 
-> [!WARNING]
-> Testing on SQLite while deploying on Postgres leaves `ILIKE`, `RETURNING`,
-> `ON CONFLICT`, JSON operators, transactional DDL and case sensitivity
-> untested. Use [PGlite](./connect-pglite.html) for tests that touch those, and a
-> real Postgres for the integration suite.
+> [!WARNING] Testing on SQLite while deploying on Postgres leaves `ILIKE`, `RETURNING`, `ON CONFLICT`, JSON operators, transactional DDL and case sensitivity untested. Use
+> [PGlite](./connect-pglite.html) for tests that touch those, and a real Postgres for the integration suite.
 
 ## Fixtures from the schema
 

@@ -1,4 +1,5 @@
-Fetched rows in zmdb are plain objects with no change tracking, no proxies, and no identity map. Mutating them has zero effect on the database. This is a deliberate design choice that enables zero-overhead data access.
+Fetched rows in zmdb are plain objects with no change tracking, no proxies, and no identity map. Mutating them has zero effect on the database. This is a deliberate design choice that enables
+zero-overhead data access.
 
 ## The Mutation Fallacy
 
@@ -22,8 +23,7 @@ const check = await users.findById(1);
 console.log(check.email); // original value
 ```
 
-> [!IMPORTANT]
-> Fetched rows are inert. The only way to persist changes is through explicit `create`, `update`, or `delete` methods on the repository.
+> [!IMPORTANT] Fetched rows are inert. The only way to persist changes is through explicit `create`, `update`, or `delete` methods on the repository.
 
 ## Why Inert?
 
@@ -72,8 +72,7 @@ protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<
 }
 ```
 
-> [!TIP]
-> `postSelect` is the escape hatch for row enrichment. Use it for computed fields, masking, or adding metadata — but it doesn't enable auto-persisting.
+> [!TIP] `postSelect` is the escape hatch for row enrichment. Use it for computed fields, masking, or adding metadata — but it doesn't enable auto-persisting.
 
 ## Performance Impact
 

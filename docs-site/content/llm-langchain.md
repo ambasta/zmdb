@@ -1,26 +1,17 @@
-> **Tool integration only.** Install `@langchain/core` in the application.
-> `@zmdb/schema-core/llm/langchain` is tested against `1.2.9` and declares the
-> optional peer range `^1.2.9`. Retrievers, vector stores and chat-memory
-> backends remain application code.
+> **Tool integration only.** Install `@langchain/core` in the application. `@zmdb/schema-core/llm/langchain` is tested against `1.2.9` and declares the optional peer range `^1.2.9`. Retrievers, vector
+> stores and chat-memory backends remain application code.
 
 ## Know the boundary
 
-- The adapter emits provider-neutral JSON Schema. LangChain owns any later
-  provider translation.
-- A plain `json` column is still `{}` and constrains nothing. The required
-  `validate` function closes that gap before `execute`.
-- LangChain may reject a shape against the JSON Schema before `func` runs. If
-  input reaches the adapter and validation fails, the adapter returns
-  value-free error text to the model. Handler and infrastructure errors still
-  throw.
-- The shipped adapter graph imports neither LangChain nor a runtime schema
-  library. The peer is loaded only by the application importing it.
+- The adapter emits provider-neutral JSON Schema. LangChain owns any later provider translation.
+- A plain `json` column is still `{}` and constrains nothing. The required `validate` function closes that gap before `execute`.
+- LangChain may reject a shape against the JSON Schema before `func` runs. If input reaches the adapter and validation fails, the adapter returns value-free error text to the model. Handler and
+  infrastructure errors still throw.
+- The shipped adapter graph imports neither LangChain nor a runtime schema library. The peer is loaded only by the application importing it.
 
 ## Tools from schema objects
 
-`langchainTool` supplies the fields `DynamicStructuredTool` expects. Its
-validator runs before the handler and returns the decoded application value.
-This example compiles against the tested peer:
+`langchainTool` supplies the fields `DynamicStructuredTool` expects. Its validator runs before the handler and returns the decoded application value. This example compiles against the tested peer:
 
 ```ts
 import { DynamicStructuredTool } from '@langchain/core/tools';
@@ -46,23 +37,15 @@ export const createUserTool = new DynamicStructuredTool(
 );
 ```
 
-`schemaOf<User>()` and `assert<CreateDTO<User>>()` are both resolved by the
-normal [AOT setup](./aot-setup.html). The adapter passes the generated JSON
-Schema straight through. Do not route it through `json-schema-to-zod`: that
-conversion drops `format`, so `date-time` and `int64` disappear, and turns a
-`json` column's `{}` into `z.any()`.
+`schemaOf<User>()` and `assert<CreateDTO<User>>()` are both resolved by the normal [AOT setup](./aot-setup.html). The adapter passes the generated JSON Schema straight through. Do not route it through
+`json-schema-to-zod`: that conversion drops `format`, so `date-time` and `int64` disappear, and turns a `json` column's `{}` into `z.any()`.
 
-The `validate` function belongs in the application file so the AOT transform
-can inline it. It is also the place to decode custom wire values before
-`execute` receives them. A `json` column is the clearest reason it remains
-required: its JSON Schema is `{}` and constrains nothing.
+The `validate` function belongs in the application file so the AOT transform can inline it. It is also the place to decode custom wire values before `execute` receives them. A `json` column is the
+clearest reason it remains required: its JSON Schema is `{}` and constrains nothing.
 
-LangChain checks the JSON Schema before it calls `func`. The `validate` arrow
-then handles accepted shapes, including constraints hidden behind `{}`, before
-your handler runs.
+LangChain checks the JSON Schema before it calls `func`. The `validate` arrow then handles accepted shapes, including constraints hidden behind `{}`, before your handler runs.
 
-LangChain tool results are text. The adapter passes strings through and
-JSON-stringifies other handler results.
+LangChain tool results are text. The adapter passes strings through and JSON-stringifies other handler results.
 
 ## A retriever over your own tables
 
@@ -88,20 +71,12 @@ export class DocsRetriever extends BaseRetriever {
 }
 ```
 
-`findByFullText(column, term, { signal })` takes the column to match against, the
-term and an optional cancellation signal. It has no limit or ranking option, so
-slice in your code or drop to the [FTS builder](./full-text-search.html) for
-`ORDER BY rank`. It returns `readonly Record<string, unknown>[]` rather than
-typed entities, because a joined FTS row is not the entity shape; hence the
-`String(...)` at the boundary. The schema needs `ftsTable` declared or the call
-throws `UnsupportedFeatureError` — never a silently-wrong query.
+`findByFullText(column, term, { signal })` takes the column to match against, the term and an optional cancellation signal. It has no limit or ranking option, so slice in your code or drop to the
+[FTS builder](./full-text-search.html) for `ORDER BY rank`. It returns `readonly Record<string, unknown>[]` rather than typed entities, because a joined FTS row is not the entity shape; hence the
+`String(...)` at the boundary. The schema needs `ftsTable` declared or the call throws `UnsupportedFeatureError` — never a silently-wrong query.
 
-For vector similarity, declare a `pgvector` column with
-`Ext<'vector', 'vector', [dimensions]>`; zmdb installs the extension and emits
-the column DDL, while `createIndexDdl` emits its HNSW or IVFFlat index. Typed
-distance expressions are not available yet, so the similarity query remains
-[raw SQL](./raw-sql.html). See
-[Vector Search](./guide-vector-search.html) and
+For vector similarity, declare a `pgvector` column with `Ext<'vector', 'vector', [dimensions]>`; zmdb installs the extension and emits the column DDL, while `createIndexDdl` emits its HNSW or IVFFlat
+index. Typed distance expressions are not available yet, so the similarity query remains [raw SQL](./raw-sql.html). See [Vector Search](./guide-vector-search.html) and
 [Database Extensions](./db-extensions.html).
 
 ## Chat memory in your database
@@ -155,14 +130,14 @@ export class ZmdbChatHistory extends BaseListChatMessageHistory {
 }
 ```
 
-`role` is the boundary worth care: LangChain's message types are wider than your `jsonEnum`, so `stored.type` is a `string` where the column wants a union. `ROLES.find` narrows it by a runtime check, which is why no `as` appears here — and it turns a shape mismatch into a loud error instead of a row the database rejects later, or worse, accepts. If dropping unknown types is preferable to failing, `return` instead of throwing; the point is that the decision is written down.
+`role` is the boundary worth care: LangChain's message types are wider than your `jsonEnum`, so `stored.type` is a `string` where the column wants a union. `ROLES.find` narrows it by a runtime check,
+which is why no `as` appears here — and it turns a shape mismatch into a loud error instead of a row the database rejects later, or worse, accepts. If dropping unknown types is preferable to failing,
+`return` instead of throwing; the point is that the decision is written down.
 
 ## What is worth being careful about
 
-LangChain adds a large dependency tree, which may be justified when the
-application needs its orchestration features. If the requirement is only to call
-a model with a schema-constrained tool and validate the result, the
-[plain `fetch` example](./llm-http.html) does that without another dependency.
+LangChain adds a large dependency tree, which may be justified when the application needs its orchestration features. If the requirement is only to call a model with a schema-constrained tool and
+validate the result, the [plain `fetch` example](./llm-http.html) does that without another dependency.
 
 ---
 

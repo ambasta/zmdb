@@ -1,4 +1,5 @@
-`@zmdb/web/gateways` gives you the decorator and dispatch half of a WebSocket layer. The socket half is yours — there is no adapter, because binding a transport is the host's job here as it is for [HTTP](./web-standalone.html).
+`@zmdb/web/gateways` gives you the decorator and dispatch half of a WebSocket layer. The socket half is yours — there is no adapter, because binding a transport is the host's job here as it is for
+[HTTP](./web-standalone.html).
 
 ## What exists
 
@@ -82,7 +83,8 @@ server.on('upgrade', (req, socket, head) => {
 });
 ```
 
-Browsers cannot set headers on a WebSocket, so the token arrives in the subprotocol or a query parameter — and a query parameter ends up in access logs, so prefer the subprotocol or a short-lived ticket fetched over HTTP first.
+Browsers cannot set headers on a WebSocket, so the token arrives in the subprotocol or a query parameter — and a query parameter ends up in access logs, so prefer the subprotocol or a short-lived
+ticket fetched over HTTP first.
 
 Keep the authenticated identity in a per-connection map, not on the gateway instance. The gateway is a singleton shared by every socket; a field assigned per connection is a cross-user data leak.
 
@@ -109,22 +111,18 @@ Remove sockets on `close` **and** on `error`, or the set grows forever and you b
 
 ## Server-sent events
 
-The response layer can now carry an SSE stream, but the existing `sseStream`
-helper has not earned direct `stream(sseStream(...))` wiring. Its public byte
-type is still `Uint8Array<ArrayBufferLike>`, while `stream()` deliberately
-requires `Uint8Array<ArrayBuffer>`, and its source has no `cancel` hook to call
-`iterator.return()` when a client disconnects.
+The response layer can now carry an SSE stream, but the existing `sseStream` helper has not earned direct `stream(sseStream(...))` wiring. Its public byte type is still `Uint8Array<ArrayBufferLike>`,
+while `stream()` deliberately requires `Uint8Array<ArrayBuffer>`, and its source has no `cancel` hook to call `iterator.return()` when a client disconnects.
 
-Use `stream()` with an application-owned SSE `ReadableStream` that implements
-`cancel`, or adapt a provider stream that already propagates cancellation. Do
-not put a long-lived iterator or cursor behind the current helper and assume a
-disconnect releases it.
+Use `stream()` with an application-owned SSE `ReadableStream` that implements `cancel`, or adapt a provider stream that already propagates cancellation. Do not put a long-lived iterator or cursor
+behind the current helper and assume a disconnect releases it.
 
 Send a comment line (`: ping\n\n`) every 20–30 seconds or proxies will close an idle stream. See [Streaming](./streaming.html).
 
 ## No Socket.IO, no protocol negotiation
 
-The dispatcher is transport-agnostic: it maps an event name and a payload to a method. Whether the frames arrive over `ws`, `uWebSockets.js`, Socket.IO or a Durable Object is your choice, and none of it is in the package. That is the same trade as `App` having no `listen()` — less provided, nothing to fight.
+The dispatcher is transport-agnostic: it maps an event name and a payload to a method. Whether the frames arrive over `ws`, `uWebSockets.js`, Socket.IO or a Durable Object is your choice, and none of
+it is in the package. That is the same trade as `App` having no `listen()` — less provided, nothing to fight.
 
 ## Cloudflare Durable Objects
 

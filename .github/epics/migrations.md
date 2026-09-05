@@ -2,7 +2,8 @@
 
 ## Goal
 
-Generate SQL migrations directly from the single-source-of-truth schema, comparable to mikro-orm's migrator + schema generator. Because the schema is the source of truth, the migration engine diffs the declared schema against the current DB (or previous snapshot) and emits forward/backward SQL.
+Generate SQL migrations directly from the single-source-of-truth schema, comparable to mikro-orm's migrator + schema generator. Because the schema is the source of truth, the migration engine diffs
+the declared schema against the current DB (or previous snapshot) and emits forward/backward SQL.
 
 ## Parity Reference
 

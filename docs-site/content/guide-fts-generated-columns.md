@@ -12,7 +12,8 @@ export interface Article extends Table<'articles'>, Fts<'articles_fts'> {
 }
 ```
 
-`Fts<'articles_fts'>` is what `findByFullText` uses — see [Full-Text Search](./full-text-search.html). It sits on the `extends` clause next to `Table<…>` because it is a fact about the entity rather than about a column; `Fts<true>` is the shorthand for "index this table, I do not care what the index is called".
+`Fts<'articles_fts'>` is what `findByFullText` uses — see [Full-Text Search](./full-text-search.html). It sits on the `extends` clause next to `Table<…>` because it is a fact about the entity rather
+than about a column; `Fts<true>` is the shorthand for "index this table, I do not care what the index is called".
 
 ## The generated column and its index
 
@@ -33,7 +34,8 @@ const fragment = generatedColumnDdl(
 await exec(`ALTER TABLE "articles" ADD COLUMN ${fragment}`);
 ```
 
-`generatedColumnDdl(col, dialect)` takes the column and a dialect, and returns a column _fragment_ rather than a statement — the same text belongs in a `CREATE TABLE` body and in an `ALTER TABLE … ADD COLUMN`, so the table name stays yours to write.
+`generatedColumnDdl(col, dialect)` takes the column and a dialect, and returns a column _fragment_ rather than a statement — the same text belongs in a `CREATE TABLE` body and in an
+`ALTER TABLE … ADD COLUMN`, so the table name stays yours to write.
 
 Three details in that expression that matter:
 
@@ -84,7 +86,8 @@ const rows = await driver.execute({
 });
 ```
 
-`websearch_to_tsquery` is the one to use for user input — it accepts quoted phrases and `-exclusions` and never throws on malformed input. `to_tsquery` raises a syntax error on a stray operator, which becomes a 500 on a search box.
+`websearch_to_tsquery` is the one to use for user input — it accepts quoted phrases and `-exclusions` and never throws on malformed input. `to_tsquery` raises a syntax error on a stray operator, which
+becomes a 500 on a search box.
 
 The term is a parameter. The regconfig is a literal. Do not swap those.
 
@@ -119,12 +122,10 @@ Only the Postgres path uses a generated column, so a portable search feature nee
 
 ## Do not declare the generated column
 
-Leave `search` out of the interface. A property there would appear in `CreateDTO<Article>` as
-something to insert, and the database rejects any write to a generated column. Query it through
-the builder or raw SQL, as above.
+Leave `search` out of the interface. A property there would appear in `CreateDTO<Article>` as something to insert, and the database rejects any write to a generated column. Query it through the
+builder or raw SQL, as above.
 
-There is no tag for "generated", and adding one would be a promise the schema cannot keep: the
-expression is dialect-specific SQL, and a type cannot hold SQL.
+There is no tag for "generated", and adding one would be a promise the schema cannot keep: the expression is dialect-specific SQL, and a type cannot hold SQL.
 
 ---
 

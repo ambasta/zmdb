@@ -1,6 +1,4 @@
-`BaseRepository.updateMany` applies one validated patch to every matching row
-in one statement. Ordinary values and closed SET expressions are both
-supported:
+`BaseRepository.updateMany` applies one validated patch to every matching row in one statement. Ordinary values and closed SET expressions are both supported:
 
 ```ts
 import { inc } from 'zmdb';
@@ -9,13 +7,11 @@ const affected = await postRepo.updateMany({ authorId }, { published: true });
 await postRepo.updateMany({ authorId }, { views: inc(1) });
 ```
 
-The `where` is a typed `WhereDTO`, the patch is an expression-aware
-`UpdatePatch`, and both are compiled into one statement.
+The `where` is a typed `WhereDTO`, the patch is an expression-aware `UpdatePatch`, and both are compiled into one statement.
 
 ## SQL by dialect
 
-For `postRepo.updateMany({ published: false }, { views: inc(1) })`, the
-repository emits:
+For `postRepo.updateMany({ published: false }, { views: inc(1) })`, the repository emits:
 
 ```sql
 -- PostgreSQL
@@ -31,16 +27,12 @@ UPDATE "posts" SET "views" = "views" + ? WHERE "published" = ? RETURNING "id"
 UPDATE [posts] SET [views] = [views] + @p1 OUTPUT INSERTED.[id] WHERE [published] = @p2
 ```
 
-The parameters are `[1, false]`. The Postgres family, SQLite and SQL Server
-return the number of primary-key rows returned by the statement. The MySQL
-family omits unsupported `RETURNING`, executes the same atomic update, and
-resolves to `undefined`.
+The parameters are `[1, false]`. The Postgres family, SQLite and SQL Server return the number of primary-key rows returned by the statement. The MySQL family omits unsupported `RETURNING`, executes
+the same atomic update, and resolves to `undefined`.
 
 ## Different values per row
 
-This is a separate shape and remains outside the typed API. The closed SET
-expressions operate on each row's own column; they do not provide a `CASE`
-expression or a `VALUES` source.
+This is a separate shape and remains outside the typed API. The closed SET expressions operate on each row's own column; they do not provide a `CASE` expression or a `VALUES` source.
 
 ```ts
 for (const { id, title } of updates) await postRepo.update(id, { title }); // N statements
@@ -77,7 +69,8 @@ await driver.execute({
 });
 ```
 
-One round trip. Note that every value is a placeholder — the only thing interpolated is the generated placeholder _positions_, which is the line that keeps this injection-safe. Never interpolate `u.title`.
+One round trip. Note that every value is a placeholder — the only thing interpolated is the generated placeholder _positions_, which is the line that keeps this injection-safe. Never interpolate
+`u.title`.
 
 Batch it. A thousand rows in one statement exceeds parameter limits on every dialect — chunk to a few hundred.
 
@@ -92,11 +85,13 @@ FROM (VALUES ($1::int, $2::text), ($3::int, $4::text)) AS v(id, title)
 WHERE p.id = v.id
 ```
 
-The casts on the first tuple are required — without them Postgres cannot infer the `VALUES` column types and errors. MySQL's equivalent is a join against a derived table; SQLite 3.33+ supports `UPDATE ... FROM`.
+The casts on the first tuple are required — without them Postgres cannot infer the `VALUES` column types and errors. MySQL's equivalent is a join against a derived table; SQLite 3.33+ supports
+`UPDATE ... FROM`.
 
 ## Workaround 4 — temp table, for large volumes
 
-For tens of thousands of rows: `COPY` (or a batched insert) into a temporary table, then one `UPDATE ... FROM` join. This is what a bulk loader does, and it is an order of magnitude faster than anything statement-per-row.
+For tens of thousands of rows: `COPY` (or a batched insert) into a temporary table, then one `UPDATE ... FROM` join. This is what a bulk loader does, and it is an order of magnitude faster than
+anything statement-per-row.
 
 ## Bulk _delete_ has the same shape
 
@@ -109,12 +104,8 @@ There is no `deleteWhere` on the repository either — the builder covers it.
 
 ## What remains
 
-Per-row values in one statement need a `VALUES` source plus a `CASE` or
-source-column expression surface. The current vocabulary deliberately
-references only the column named by the `set()` key, so this is wider than
-[increment](./guide-increment-decrement.html) or
-[toggle](./guide-toggle-boolean.html). Repository-level bulk delete is also a
-separate gap.
+Per-row values in one statement need a `VALUES` source plus a `CASE` or source-column expression surface. The current vocabulary deliberately references only the column named by the `set()` key, so
+this is wider than [increment](./guide-increment-decrement.html) or [toggle](./guide-toggle-boolean.html). Repository-level bulk delete is also a separate gap.
 
 ---
 

@@ -68,10 +68,7 @@ createdb -h localhost -U postgres app_test
 ```
 
 ```ts
-const url =
-  process.env.NODE_ENV === 'test'
-    ? 'postgres://postgres:dev@localhost:5432/app_test'
-    : 'postgres://postgres:dev@localhost:5432/app_dev';
+const url = process.env.NODE_ENV === 'test' ? 'postgres://postgres:dev@localhost:5432/app_test' : 'postgres://postgres:dev@localhost:5432/app_dev';
 ```
 
 ## Resetting fast
@@ -89,7 +86,8 @@ beforeEach(() => driver.execute({ text: `TRUNCATE ${tables} RESTART IDENTITY CAS
 
 `RESTART IDENTITY` resets sequences, so ids are stable across tests. `CASCADE` handles foreign keys.
 
-The table list is an array you keep, not a registry you query — a schema comes from a type, and a type cannot register itself. A table missing from `ALL_TABLES` is a table this helper silently skips, so pin the array with a test; [Monorepo layout](./web-cli-monorepo.html) has one that walks the source for `extends Table<'…'>`.
+The table list is an array you keep, not a registry you query — a schema comes from a type, and a type cannot register itself. A table missing from `ALL_TABLES` is a table this helper silently skips,
+so pin the array with a test; [Monorepo layout](./web-cli-monorepo.html) has one that walks the source for `extends Table<'…'>`.
 
 **A transaction per test, rolled back** — also fast, and gives perfect isolation, but your code cannot use transactions of its own. That is a real limitation for anything testing `withTransaction`.
 
@@ -130,7 +128,8 @@ Paste in `query.text` from a compiled query and you are debugging the exact stat
 
 ## No Docker
 
-[PGlite](./connect-pglite.html) is Postgres compiled to WebAssembly, in-process, no daemon — excellent for tests and for a machine where you cannot run Docker. It does not have every extension, so PostGIS and pgvector still need a real server.
+[PGlite](./connect-pglite.html) is Postgres compiled to WebAssembly, in-process, no daemon — excellent for tests and for a machine where you cannot run Docker. It does not have every extension, so
+PostGIS and pgvector still need a real server.
 
 Homebrew (`brew install postgresql@17`) and Postgres.app are fine too; Docker just makes the version explicit and the teardown complete.
 

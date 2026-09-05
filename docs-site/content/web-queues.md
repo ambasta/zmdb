@@ -1,9 +1,7 @@
 ## Delivery is at-least-once: make the effect idempotent
 
-A worker can commit an effect and die before it marks the job done. That crash
-window makes delivery **at-least-once**, so every handler must make a repeated
-invocation harmless. Scaling from one worker to many does not change that
-obligation.
+A worker can commit an effect and die before it marks the job done. That crash window makes delivery **at-least-once**, so every handler must make a repeated invocation harmless. Scaling from one
+worker to many does not change that obligation.
 
 The framework gives every invocation a stable key:
 
@@ -11,25 +9,17 @@ The framework gives every invocation a stable key:
 ctx.idempotencyKey === (dedupeKey ?? jobId);
 ```
 
-For an effect that must happen once, write `ctx.idempotencyKey` to
-`zmdb_job_done` in the same transaction as the effect. The worker checks that
-table before invoking the handler. A later retry or replay then finishes as
-`done` with `skipped: 1`.
+For an effect that must happen once, write `ctx.idempotencyKey` to `zmdb_job_done` in the same transaction as the effect. The worker checks that table before invoking the handler. A later retry or
+replay then finishes as `done` with `skipped: 1`.
 
-The worker cannot safely write the marker around the handler: writing it first
-can lose work, while writing it afterwards cannot be atomic with an application
-effect in another transaction. The handler owns the only transaction that can
-make the effect and marker one fact.
+The worker cannot safely write the marker around the handler: writing it first can lose work, while writing it afterwards cannot be atomic with an application effect in another transaction. The
+handler owns the only transaction that can make the effect and marker one fact.
 
-Enqueue-side deduplication solves a different race. Repeating a non-empty
-`dedupeKey` returns the existing job id because `dedupe_key` has a unique
-constraint. Use both mechanisms when both duplicate enqueue and duplicate
-delivery matter.
+Enqueue-side deduplication solves a different race. Repeating a non-empty `dedupeKey` returns the existing job id because `dedupe_key` has a unique constraint. Use both mechanisms when both duplicate
+enqueue and duplicate delivery matter.
 
-Marker cleanup is deliberately application policy. Retention must exceed the
-retry and manual-replay horizon, and the framework cannot infer either value.
-The shipped scheduler can trigger cleanup, but it does not choose the retention
-interval.
+Marker cleanup is deliberately application policy. Retention must exceed the retry and manual-replay horizon, and the framework cannot infer either value. The shipped scheduler can trigger cleanup,
+but it does not choose the retention interval.
 
 ## What ships
 
@@ -38,15 +28,12 @@ The queue has two public constructors:
 - `createQueue<Jobs>({ store, clock })` inserts typed jobs, including delayed jobs and enqueue-side deduplication.
 - `createWorker<Jobs>(options)` claims jobs under a lease, validates at consume, applies bounded retries, exposes dead letters and drains on shutdown.
 
-The durable declarations are `JobRow` and `JobDoneRow` from
-`@zmdb/repository/jobs`. Generate their tables through the same tagged-schema
-migration path as application tables, and include
-`jobPendingIndexDdl(dialect)`. The pending index is partial on the Postgres
-family, SQLite and SQL Server, and status-leading on the MySQL family. The
-supported in-memory backend installs the same shape automatically because it
-is ephemeral test storage.
+The durable declarations are `JobRow` and `JobDoneRow` from `@zmdb/repository/jobs`. Generate their tables through the same tagged-schema migration path as application tables, and include
+`jobPendingIndexDdl(dialect)`. The pending index is partial on the Postgres family, SQLite and SQL Server, and status-leading on the MySQL family. The supported in-memory backend installs the same
+shape automatically because it is ephemeral test storage.
 
-`JobStore` is structural: a zmdb `Driver` satisfies it directly, and a transaction satisfies `enqueueInTransaction`. The package also ships an isolated SQLite memory backend and a node-postgres adapter. `pg` is an optional peer, so the core queue entry does not load it.
+`JobStore` is structural: a zmdb `Driver` satisfies it directly, and a transaction satisfies `enqueueInTransaction`. The package also ships an isolated SQLite memory backend and a node-postgres
+adapter. `pg` is an optional peer, so the core queue entry does not load it.
 
 ## Choosing a backend
 
@@ -58,7 +45,8 @@ import { createMemoryJobStore } from '@zmdb/web/queues/backends/memory';
 using store = createMemoryJobStore();
 ```
 
-It creates `zmdb_job`, `zmdb_job_done`, the unique `dedupe_key` constraint and the pending-claim index in a fresh `node:sqlite` `:memory:` database. `store.database` is exposed for deterministic seed and assertion queries. Closing or disposing the store destroys all rows.
+It creates `zmdb_job`, `zmdb_job_done`, the unique `dedupe_key` constraint and the pending-claim index in a fresh `node:sqlite` `:memory:` database. `store.database` is exposed for deterministic seed
+and assertion queries. Closing or disposing the store destroys all rows.
 
 For durable Postgres storage, install the optional peer and adapt a caller-owned pool:
 
@@ -133,9 +121,11 @@ worker.start();
 await queue.enqueue('email.send', { userId: 42 });
 ```
 
-Registration is explicit and by value. `createWorker` builds one dispatch `Map` at startup; there is no module scan, decorator side effect or process-global registry. Build handlers through the container first when they have injected dependencies, then pass those instances in the `handlers` array.
+Registration is explicit and by value. `createWorker` builds one dispatch `Map` at startup; there is no module scan, decorator side effect or process-global registry. Build handlers through the
+container first when they have injected dependencies, then pass those instances in the `handlers` array.
 
-The worker itself implements `onShutdown()`. Register a value instance as a provider, or resolve a factory provider before it is needed, and application disposal drains it automatically. The worker has no `onModuleInit`, so start it explicitly during bootstrap. It does not install process signal handlers.
+The worker itself implements `onShutdown()`. Register a value instance as a provider, or resolve a factory provider before it is needed, and application disposal drains it automatically. The worker
+has no `onModuleInit`, so start it explicitly during bootstrap. It does not install process signal handlers.
 
 ## Transactions, delay and enqueue deduplication
 
@@ -144,16 +134,12 @@ Use the transaction overload when creating a row and its job must be atomic:
 ```ts
 await db.transaction(async tx => {
   const order = await orderRepo.withTransaction(tx).create(dto);
-  await queue.enqueueInTransaction(
-    tx,
-    'audit.write',
-    { message: `order ${order.id} created` },
-    { dedupeKey: `order-created:${order.id}` },
-  );
+  await queue.enqueueInTransaction(tx, 'audit.write', { message: `order ${order.id} created` }, { dedupeKey: `order-created:${order.id}` });
 });
 ```
 
-A repeated `dedupeKey` returns the original job id. The unique `dedupe_key` column is the race-safe part; the read before insert only avoids an expected constraint error in the ordinary repeated-call path.
+A repeated `dedupeKey` returns the original job id. The unique `dedupe_key` column is the race-safe part; the read before insert only avoids an expected constraint error in the ordinary repeated-call
+path.
 
 `delayMs` writes the lease into the future:
 
@@ -171,11 +157,13 @@ Payloads are stored as text and parsed and validated when consumed. This is a ve
 - A name with no registered handler retries under the worker policy, then goes dead as `unknown-name`. This allows a rolling deployment's worker to catch up with a newer enqueuer.
 - A thrown or timed-out handler retries and eventually goes dead as `attempts-exhausted`.
 
-The default is five attempts with exponential backoff from one second to a five-minute ceiling. Every delay gets proportional jitter in `[75%, 125%)`; fixed backoff is jittered too. A handler may override its timeout and retry policy or lower its concurrency, but cannot raise its concurrency above the worker's process-wide bound.
+The default is five attempts with exponential backoff from one second to a five-minute ceiling. Every delay gets proportional jitter in `[75%, 125%)`; fixed backoff is jittered too. A handler may
+override its timeout and retry policy or lower its concurrency, but cannot raise its concurrency above the worker's process-wide bound.
 
 `leaseMs` must be strictly greater than the worker timeout and every handler timeout override. This keeps a live handler's row out of another worker's claim set for its entire execution window.
 
-`ctx.attempt` is one-based. `ctx.signal` is aborted on timeout and after the shutdown grace period. A timed-out handler that ignores the signal keeps occupying its concurrency slot until its promise settles, so the configured bound continues to count the work actually running.
+`ctx.attempt` is one-based. `ctx.signal` is aborted on timeout and after the shutdown grace period. A timed-out handler that ignores the signal keeps occupying its concurrency slot until its promise
+settles, so the configured bound continues to count the work actually running.
 
 ## Dead letters and replay
 
@@ -191,11 +179,13 @@ const first = invalid[0];
 if (first !== undefined) await worker.replay(first.jobId);
 ```
 
-`replay` resets the same row and its attempt count. Reusing the id is load-bearing: if a completion marker already exists, the replay is skipped instead of assigning the work a fresh identity and running it twice.
+`replay` resets the same row and its attempt count. Reusing the id is load-bearing: if a completion marker already exists, the replay is skipped instead of assigning the work a fresh identity and
+running it twice.
 
 ## Drain and multiple workers
 
-Claiming is a three-statement lease protocol: select candidates, conditionally update their lease, then read back only rows carrying this batch's random token. The conditional update is the arbitration, so several workers can share one table without `FOR UPDATE SKIP LOCKED` or a transaction held for the duration of a handler.
+Claiming is a three-statement lease protocol: select candidates, conditionally update their lease, then read back only rows carrying this batch's random token. The conditional update is the
+arbitration, so several workers can share one table without `FOR UPDATE SKIP LOCKED` or a transaction held for the duration of a handler.
 
 On shutdown the worker:
 
@@ -204,18 +194,15 @@ On shutdown the worker:
 3. aborts unfinished job signals;
 4. writes their lease back to the current instant without incrementing attempts.
 
-An abort signal is cooperative. A handler that ignores `ctx.signal` cannot be
-forcibly stopped and keeps occupying its concurrency slot until its promise
-settles. Drain still returns after the bounded grace period and requeues the
-row; the old JavaScript invocation may therefore overlap its replacement, which
-is another reason the effect must be idempotent.
+An abort signal is cooperative. A handler that ignores `ctx.signal` cannot be forcibly stopped and keeps occupying its concurrency slot until its promise settles. Drain still returns after the bounded
+grace period and requeues the row; the old JavaScript invocation may therefore overlap its replacement, which is another reason the effect must be idempotent.
 
-If the final lease write fails, the original lease still expires and another
-worker claims the row later. Work becomes late rather than silently lost.
+If the final lease write fails, the original lease still expires and another worker claims the row later. Work becomes late rather than silently lost.
 
 ## Backend boundary
 
-The worker has one SQL-shaped `JobStore` state machine. The shipped memory backend implements it with `node:sqlite`; the shipped real adapter maps node-postgres `Pool`/`Client` objects through the repository's `pgDriver`. Redis, SQS and BullMQ adapters are not hidden dependencies or aliases for this SQL contract.
+The worker has one SQL-shaped `JobStore` state machine. The shipped memory backend implements it with `node:sqlite`; the shipped real adapter maps node-postgres `Pool`/`Client` objects through the
+repository's `pgDriver`. Redis, SQS and BullMQ adapters are not hidden dependencies or aliases for this SQL contract.
 
 Recurring work remains [Task Scheduling](./web-task-scheduling.html). The scheduler should enqueue short, deduplicated jobs rather than perform durable work in its lease-holding callback.
 

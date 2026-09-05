@@ -96,8 +96,7 @@ Or install the packages you want:
 npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository
 ```
 
-Then wire the build plugin once. `schemaOf<T>()` and the validators read a type
-argument, which does not survive to runtime, so an untransformed build throws.
+Then wire the build plugin once. `schemaOf<T>()` and the validators read a type argument, which does not survive to runtime, so an untransformed build throws.
 
 ## Why Not [Existing Tool]?
 

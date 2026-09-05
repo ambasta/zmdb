@@ -23,16 +23,11 @@ interface CompiledQuery {
 }
 ```
 
-The options parameter and `stream` are both optional. A pre-existing
-`execute(query)` implementation still satisfies the interface. The repository
-checks `signal` before dispatch and again after `execute` settles; active
-server-side cancellation requires driver cooperation.
+The options parameter and `stream` are both optional. A pre-existing `execute(query)` implementation still satisfies the interface. The repository checks `signal` before dispatch and again after
+`execute` settles; active server-side cancellation requires driver cooperation.
 
-The driver boundary never opens a connection, pools, retries a statement or
-parses a connection string. It hands you text and parameters and expects rows
-back. The transaction helper can re-run an entire callback only when the caller
-opts into a dialect-classified retry policy. An observability wrapper may opt
-the compiler into the optional `telemetry` field; a normal driver can ignore it
+The driver boundary never opens a connection, pools, retries a statement or parses a connection string. It hands you text and parameters and expects rows back. The transaction helper can re-run an
+entire callback only when the caller opts into a dialect-classified retry policy. An observability wrapper may opt the compiler into the optional `telemetry` field; a normal driver can ignore it
 because execution still uses only text and bound parameters.
 
 ## The minimum
@@ -55,21 +50,16 @@ The spread on `query.parameters` is because it is `readonly unknown[]` and most 
 
 ## Streaming and cancellation
 
-Implement `stream` only when the client can step or fetch rows without
-materialising the complete result. The method returns a plain `AsyncIterable`;
-the repository adds single-shot use and `AsyncDisposable`.
+Implement `stream` only when the client can step or fetch rows without materialising the complete result. The method returns a plain `AsyncIterable`; the repository adds single-shot use and
+`AsyncDisposable`.
 
 A correct cursor implementation has four responsibilities:
 
 1. Acquire its connection lazily, when iteration starts.
-2. Fetch at most `batchSize` rows per round trip and yield only as the consumer
-   asks, so backpressure is real.
-3. Close the cursor and release the connection in `finally`, including when the
-   consumer breaks or throws.
-4. Check `signal` between batches and connect abort to the client's real
-   server-side cancellation primitive when one exists. Cancellation commonly
-   needs a second connection; rejecting only the JavaScript promise leaves the
-   database working.
+2. Fetch at most `batchSize` rows per round trip and yield only as the consumer asks, so backpressure is real.
+3. Close the cursor and release the connection in `finally`, including when the consumer breaks or throws.
+4. Check `signal` between batches and connect abort to the client's real server-side cancellation primitive when one exists. Cancellation commonly needs a second connection; rejecting only the
+   JavaScript promise leaves the database working.
 
 ```ts
 stream(query, options) {
@@ -98,16 +88,11 @@ stream(query, options) {
 }
 ```
 
-If a driver omits `stream`, `repo.stream()` calls `execute` once and yields the
-buffered array. That preserves compatibility but costs memory proportional to
-the whole result. `requireCursor: true` refuses the fallback. Do not advertise a
-`stream` method that secretly buffers; absence is the capability signal.
+If a driver omits `stream`, `repo.stream()` calls `execute` once and yields the buffered array. That preserves compatibility but costs memory proportional to the whole result. `requireCursor: true`
+refuses the fallback. Do not advertise a `stream` method that secretly buffers; absence is the capability signal.
 
-For ordinary `execute`, check `signal.throwIfAborted()` before dispatch, attach
-the client's cancellation primitive while the query is active, remove that
-listener in `finally`, and reject with the exact `signal.reason`. See
-[Query Cancellation](./query-cancellation.html) and
-[Streaming](./streaming.html).
+For ordinary `execute`, check `signal.throwIfAborted()` before dispatch, attach the client's cancellation primitive while the query is active, remove that listener in `finally`, and reject with the
+exact `signal.reason`. See [Query Cancellation](./query-cancellation.html) and [Streaming](./streaming.html).
 
 ## Why the interface is this small
 
@@ -123,9 +108,7 @@ Every capability an ORM usually owns becomes something you can substitute withou
 | Transaction retries       | explicit transaction policy — see [Cockroach](./dialect-cockroach.html) |
 | Type coercion             | this page, below                                                        |
 
-The driver wrappers compose as `Driver → Driver`. Transaction retries are the
-exception: only the transaction helper owns the whole callback that must be
-replayed.
+The driver wrappers compose as `Driver → Driver`. Transaction retries are the exception: only the transaction helper owns the whole callback that must be replayed.
 
 ## Type coercion belongs here
 
@@ -207,13 +190,9 @@ See [Testing](./testing.html).
 
 ## Errors
 
-Let them propagate. Outside an explicitly retrying transaction, zmdb does not
-catch or translate driver errors, so what your handler sees is your client's
-error object with its native code — `23505` on Postgres, `ER_DUP_ENTRY` on
-MySQL. The transaction wrapper may inspect the direct `code` only when the
-caller opts into a dialect-classified retry; it still rethrows the original
-error when retries are disabled or exhausted. Translate at your HTTP boundary,
-where you know what the codes should become:
+Let them propagate. Outside an explicitly retrying transaction, zmdb does not catch or translate driver errors, so what your handler sees is your client's error object with its native code — `23505`
+on Postgres, `ER_DUP_ENTRY` on MySQL. The transaction wrapper may inspect the direct `code` only when the caller opts into a dialect-classified retry; it still rethrows the original error when retries
+are disabled or exhausted. Translate at your HTTP boundary, where you know what the codes should become:
 
 ```ts
 try {
@@ -237,7 +216,8 @@ See [Request Lifecycle](./web-request-lifecycle.html).
 
 ## Transactions
 
-`Driver` has no transaction method. `createTransactionalDb(conn)` takes a connection abstraction instead, because a transaction must run on one pinned connection while a pool-backed driver is free to use any. See [Transactions](./transactions.html).
+`Driver` has no transaction method. `createTransactionalDb(conn)` takes a connection abstraction instead, because a transaction must run on one pinned connection while a pool-backed driver is free to
+use any. See [Transactions](./transactions.html).
 
 ---
 

@@ -1,12 +1,8 @@
-A command application is the same compiled module graph, dependency injection,
-validation boundary, and lifecycle as an HTTP application, driven by argv
-instead of a request. It creates no listener.
+A command application is the same compiled module graph, dependency injection, validation boundary, and lifecycle as an HTTP application, driven by argv instead of a request. It creates no listener.
 
 ## A repository-backed batch command
 
-The arguments are an ordinary DTO. Its emitted JSON Schema defines the flat argv
-surface, and its emitted validator checks the coerced object before `run`
-receives it.
+The arguments are an ordinary DTO. Its emitted JSON Schema defines the flat argv surface, and its emitted validator checks the coerced object before `run` receives it.
 
 ```ts
 // scripts/backfill-slugs.ts
@@ -89,13 +85,11 @@ await app.init();
 process.exitCode = await app.run();
 ```
 
-The zero-argument command class receives its repository through the same
-`@Inject` field mechanism as a controller. A controller and command that request
-`POSTS` from the same module graph receive the same singleton.
+The zero-argument command class receives its repository through the same `@Inject` field mechanism as a controller. A controller and command that request `POSTS` from the same module graph receive the
+same singleton.
 
-There is no `@Args()` or `@Option()` parameter decorator. Stage-3 decorators
-have no parameter form, and the emitted JSON Schema already carries the option
-names and scalar types without duplicating them in runtime metadata.
+There is no `@Args()` or `@Option()` parameter decorator. Stage-3 decorators have no parameter form, and the emitted JSON Schema already carries the option names and scalar types without duplicating
+them in runtime metadata.
 
 ## Generated help is measured from the same declaration
 
@@ -114,8 +108,7 @@ Options:
   --help
 ```
 
-Help is alphabetical for options because it comes from the emitted document;
-positionals retain the order in `positionals`.
+Help is alphabetical for options because it comes from the emitted document; positionals retain the order in `positionals`.
 
 ## argv mapping
 
@@ -141,19 +134,14 @@ The parser follows these conventions:
 - JSON Schema `number` and `integer` properties are coerced before validation.
 - Named positionals bind in declaration order.
 - Values after `--` are passthrough and never enter the DTO.
-- Unknown flags, extra positionals, missing required values, and validation
-  failures print command help and return exit code 2.
+- Unknown flags, extra positionals, missing required values, and validation failures print command help and return exit code 2.
 
-Nested objects and arrays of objects are refused when the application is
-created: argv is a flat boundary. A property omitted from JSON Schema, including
-one tagged `Sensitive`, never becomes a registered flag. Secrets belong in the
-environment, not process arguments.
+Nested objects and arrays of objects are refused when the application is created: argv is a flat boundary. A property omitted from JSON Schema, including one tagged `Sensitive`, never becomes a
+registered flag. Secrets belong in the environment, not process arguments.
 
 ## Dispatch and exit codes
 
-With several commands, no name or `--help` prints every command and description.
-A single registered command may omit its name, which keeps a one-command binary
-terse.
+With several commands, no name or `--help` prints every command and description. A single registered command may omit its name, which keeps a one-command binary terse.
 
 `run` returns an exit code and never calls `process.exit`:
 
@@ -165,27 +153,18 @@ terse.
 | thrown error         | 1, with the message on stderr    |
 | usage error          | 2, with generated help on stderr |
 
-Assign the result to `process.exitCode`. Calling `process.exit(...)` would skip
-`await using` disposal and can leave a pool or driver open.
+Assign the result to `process.exitCode`. Calling `process.exit(...)` would skip `await using` disposal and can leave a pool or driver open.
 
 ## Lifecycle and the AOT boundary
 
-`app.init()` runs provider and command `onModuleInit` /
-`onApplicationBootstrap` hooks in construction order. Disposal runs
-`onShutdown` in reverse construction order, so a command shuts down before the
-provider it resolved. An unresolved provider factory is not constructed merely
-to look for hooks.
+`app.init()` runs provider and command `onModuleInit` / `onApplicationBootstrap` hooks in construction order. Disposal runs `onShutdown` in reverse construction order, so a command shuts down before
+the provider it resolved. An unresolved provider factory is not constructed merely to look for hooks.
 
-Build command entry points with the configured AOT adapter. Running the source
-through Node type stripping skips the transform; an untransformed `assert<T>()`
-throws `runtime type witness required in test/fallback mode`. The failure is
-loud rather than permissive, but it still means the command was not built
-correctly.
+Build command entry points with the configured AOT adapter. Running the source through Node type stripping skips the transform; an untransformed `assert<T>()` throws
+`runtime type witness required in test/fallback mode`. The failure is loud rather than permissive, but it still means the command was not built correctly.
 
-`zmdb new command <name>` creates a command and behavioural spec with the same
-surface, then prints the `@Module({ commands: [...] })` registration.
+`zmdb new command <name>` creates a command and behavioural spec with the same surface, then prints the `@Module({ commands: [...] })` registration.
 
 ---
 
-See also: [CLI & Scaffolding](./web-cli.html) · [Standalone
-Applications](./web-standalone.html) · [Cursor Pagination](./guide-cursor-pagination.html)
+See also: [CLI & Scaffolding](./web-cli.html) · [Standalone Applications](./web-standalone.html) · [Cursor Pagination](./guide-cursor-pagination.html)

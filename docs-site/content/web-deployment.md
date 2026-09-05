@@ -11,7 +11,8 @@ An application is `createApp` plus an adapter, so deployment is ordinary Node de
 }
 ```
 
-Build in CI, deploy the artefact. Building on the target host means the transformer's behaviour depends on the host's toolchain, and a host that builds differently from CI is how validation ends up disabled in production only.
+Build in CI, deploy the artefact. Building on the target host means the transformer's behaviour depends on the host's toolchain, and a host that builds differently from CI is how validation ends up
+disabled in production only.
 
 **Verify the transformer ran in the artefact you are shipping:**
 
@@ -21,7 +22,8 @@ it('the transformer is running', () => {
 });
 ```
 
-Run this against the built output, not the source. AOT validation [fails open](./jit-vs-aot.html) — if the transformer is skipped, `is<T>()` returns `true` for invalid input and nothing errors. That is the single most consequential deployment mistake available with this stack.
+Run this against the built output, not the source. AOT validation [fails open](./jit-vs-aot.html) — if the transformer is skipped, `is<T>()` returns `true` for invalid input and nothing errors. That
+is the single most consequential deployment mistake available with this stack.
 
 ## A container image
 
@@ -79,12 +81,11 @@ process.once('SIGTERM', async () => {
 });
 ```
 
-`webRequest(req)` is the Node conversion from
-[Request Lifecycle](./web-request-lifecycle.html). This compact adapter buffers
-streamed responses; for streaming, register an explicit `Router` and pass that
-router to `toNodeHandler`.
+`webRequest(req)` is the Node conversion from [Request Lifecycle](./web-request-lifecycle.html). This compact adapter buffers streamed responses; for streaming, register an explicit `Router` and pass
+that router to `toNodeHandler`.
 
-The order matters and the sleep is the part people omit. Closing the server first drops requests the load balancer has already sent, which shows up as a burst of 502s on every deploy. See [Health Checks](./web-health-checks.html).
+The order matters and the sleep is the part people omit. Closing the server first drops requests the load balancer has already sent, which shows up as a burst of 502s on every deploy. See
+[Health Checks](./web-health-checks.html).
 
 ## Migrations
 
@@ -98,7 +99,8 @@ Run them as a separate step, never on application boot:
 
 On boot with several replicas, every replica races the same migration. Some dialects will deadlock; some will half-apply.
 
-Make migrations backward-compatible so old and new code can run together during a rollout: add a column before writing to it, stop reading a column before dropping it. A single deploy that adds a `NOT NULL` column without a default fails every request from the old replicas. See [Migrations](./migrations.html).
+Make migrations backward-compatible so old and new code can run together during a rollout: add a column before writing to it, stop reading a column before dropping it. A single deploy that adds a
+`NOT NULL` column without a default fails every request from the old replicas. See [Migrations](./migrations.html).
 
 ## Behind a proxy
 
@@ -107,7 +109,8 @@ Terminate TLS at the proxy. Then:
 - **`x-forwarded-for`** is the client IP. `req.socket.remoteAddress` is the proxy. Trust the header only from a proxy you control, or an attacker sets it.
 - **`x-forwarded-proto`** tells you whether the original request was HTTPS.
 - **Set a body limit** at the proxy _and_ in your adapter — the framework has none, so a large body is a memory-exhaustion vector. See [Raw Body](./web-raw-body.html).
-- **Set security headers** at the proxy: `strict-transport-security`, `x-content-type-options: nosniff`, `x-frame-options: DENY`. A handler can set them per response via `json(value, { headers })`, but a proxy applies them to every response including errors, which is what you want here.
+- **Set security headers** at the proxy: `strict-transport-security`, `x-content-type-options: nosniff`, `x-frame-options: DENY`. A handler can set them per response via `json(value, { headers })`,
+  but a proxy applies them to every response including errors, which is what you want here.
 
 ## The pre-flight checklist
 
@@ -125,11 +128,8 @@ Terminate TLS at the proxy. Then:
 | `/metrics` and admin routes not publicly reachable         | [Multiple Servers](./web-multiple-servers.html) |
 | Source maps enabled                                        | [Hot Reload](./web-hot-reload.html)             |
 
-> [!WARNING]
-> Never set `ssl: { rejectUnauthorized: false }` to make a connection work. It
-> disables certificate verification entirely, which makes the connection
-> interceptable — and the fix is to supply the provider's CA certificate, which
-> every managed database publishes.
+> [!WARNING] Never set `ssl: { rejectUnauthorized: false }` to make a connection work. It disables certificate verification entirely, which makes the connection interceptable — and the fix is to
+> supply the provider's CA certificate, which every managed database publishes.
 
 ---
 

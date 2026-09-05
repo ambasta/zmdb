@@ -1,4 +1,5 @@
-TypeBox is the closest neighbour zmdb has, because it targets JSON Schema. That makes the interop genuinely useful rather than just a migration path: zmdb _emits_ JSON Schema, and TypeBox _is_ JSON Schema.
+TypeBox is the closest neighbour zmdb has, because it targets JSON Schema. That makes the interop genuinely useful rather than just a migration path: zmdb _emits_ JSON Schema, and TypeBox _is_ JSON
+Schema.
 
 ```ts
 // TypeBox
@@ -17,7 +18,8 @@ is<User>(body);
 
 ## The `new Function` difference
 
-This is the substantive one. `TypeCompiler.Compile` generates a function with `new Function`, which is fast and needs runtime code generation. zmdb's validators contain **no `new Function` and no `eval` anywhere in the packages** — the descriptor is a literal produced at build time.
+This is the substantive one. `TypeCompiler.Compile` generates a function with `new Function`, which is fast and needs runtime code generation. zmdb's validators contain **no `new Function` and no
+`eval` anywhere in the packages** — the descriptor is a literal produced at build time.
 
 |                                                 | TypeBox `TypeCompiler`     | zmdb                       |
 | ----------------------------------------------- | -------------------------- | -------------------------- |
@@ -27,7 +29,8 @@ This is the substantive one. `TypeCompiler.Compile` generates a function with `n
 | Cold-start cost                                 | compile per process        | none                       |
 | Steady-state speed                              | very fast                  | comparable                 |
 
-TypeBox's uncompiled `Value.Check` avoids codegen but is much slower. So the choice under a strict CSP is between slow TypeBox and fast zmdb, which is the case where this actually matters. See [JIT vs AOT](./jit-vs-aot.html).
+TypeBox's uncompiled `Value.Check` avoids codegen but is much slower. So the choice under a strict CSP is between slow TypeBox and fast zmdb, which is the case where this actually matters. See
+[JIT vs AOT](./jit-vs-aot.html).
 
 ## Real interop: zmdb schema → JSON Schema → TypeBox
 

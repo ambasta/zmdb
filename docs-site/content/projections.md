@@ -1,4 +1,5 @@
-Projections let you narrow the result set to specific columns, reducing payload size and improving query performance. zmdb provides compile-time type narrowing and a runtime helper for applying projections to fetched rows.
+Projections let you narrow the result set to specific columns, reducing payload size and improving query performance. zmdb provides compile-time type narrowing and a runtime helper for applying
+projections to fetched rows.
 
 ## Narrowing Select Results
 
@@ -44,8 +45,7 @@ console.log(q.text);
 // SELECT "email", "role" FROM "users" WHERE "id" = $1
 ```
 
-> [!IMPORTANT]
-> Projections are compile-time checked against the schema. If you reference a column that doesn't exist, TypeScript will error before your code runs.
+> [!IMPORTANT] Projections are compile-time checked against the schema. If you reference a column that doesn't exist, TypeScript will error before your code runs.
 
 ## Use Cases
 
@@ -61,8 +61,7 @@ const publicUser = await users.findById(id, {
 // Never leaks internal fields like password_hash
 ```
 
-> [!TIP]
-> Combine projections with pagination to minimize data transfer. Fetch only what you display.
+> [!TIP] Combine projections with pagination to minimize data transfer. Fetch only what you display.
 
 ## Cross-links
 

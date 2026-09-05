@@ -1,12 +1,8 @@
-Row-Level Security (RLS) is a PostgreSQL feature that restricts which rows users can access based on their session characteristics. It's the recommended approach for multi-tenant applications, providing security at the database level without relying solely on application logic.
+Row-Level Security (RLS) is a PostgreSQL feature that restricts which rows users can access based on their session characteristics. It's the recommended approach for multi-tenant applications,
+providing security at the database level without relying solely on application logic.
 
-> [!IMPORTANT]
-> zmdb's RLS DDL surface is available only on the `'postgres'` dialect.
-> Cockroach is refused because deployed server versions vary; MySQL,
-> SingleStore, and SQLite do not provide this policy shape. SQL Server has
-> native RLS, but it requires predicate functions and security policies that
-> `RlsPolicy` cannot represent. Every other dialect throws
-> `UnsupportedFeatureError`.
+> [!IMPORTANT] zmdb's RLS DDL surface is available only on the `'postgres'` dialect. Cockroach is refused because deployed server versions vary; MySQL, SingleStore, and SQLite do not provide this
+> policy shape. SQL Server has native RLS, but it requires predicate functions and security policies that `RlsPolicy` cannot represent. Every other dialect throws `UnsupportedFeatureError`.
 
 ## Enabling Row-Level Security
 
@@ -23,8 +19,7 @@ console.log(ddl);
 ALTER TABLE "orders" ENABLE ROW LEVEL SECURITY
 ```
 
-> [!WARNING]
-> Once RLS is enabled, all queries against the table are subject to RLS policies. If no policy exists, no rows will be returned. Always create at least one policy after enabling RLS.
+> [!WARNING] Once RLS is enabled, all queries against the table are subject to RLS policies. If no policy exists, no rows will be returned. Always create at least one policy after enabling RLS.
 
 ## Creating RLS Policies
 
@@ -140,8 +135,7 @@ CREATE POLICY "tenant_update" ON "tenants" FOR UPDATE USING (id = current_settin
 CREATE POLICY "tenant_delete" ON "tenants" FOR DELETE USING (id = current_setting('app.tenant_id', true)::uuid)
 ```
 
-> [!TIP]
-> Set the tenant context using `SET LOCAL app.tenant_id = 'uuid-here'` in your transaction, then execute queries. The RLS policy automatically filters rows.
+> [!TIP] Set the tenant context using `SET LOCAL app.tenant_id = 'uuid-here'` in your transaction, then execute queries. The RLS policy automatically filters rows.
 
 ## Bypass for Service Accounts
 
@@ -164,8 +158,7 @@ const bypassPolicy = {
 CREATE POLICY "admin_bypass" ON "orders" FOR ALL USING (current_user = 'admin')
 ```
 
-> [!NOTE]
-> Bypassing RLS is a powerful privilege that should be granted sparingly. Create separate service accounts for admin operations rather than using superuser accounts.
+> [!NOTE] Bypassing RLS is a powerful privilege that should be granted sparingly. Create separate service accounts for admin operations rather than using superuser accounts.
 
 ## Disabling RLS
 

@@ -1,12 +1,8 @@
-> **Supported.** A configured `Meter` receives the HTTP request-duration and
-> database operation-duration histograms. There is still no Prometheus client,
-> exporter, backend, `@Metric` decorator or built-in `/metrics` endpoint.
+> **Supported.** A configured `Meter` receives the HTTP request-duration and database operation-duration histograms. There is still no Prometheus client, exporter, backend, `@Metric` decorator or
+> built-in `/metrics` endpoint.
 >
-> The metric names and units, and which attributes come from compile time rather
-> than runtime, are frozen in `packages/web/src/observability/SPEC.md` against
-> semantic conventions **v1.30.0**. The registry below remains a dependency-free
-> alternative; values exported through the framework `Meter` use the conventional
-> names and seconds units documented below.
+> The metric names and units, and which attributes come from compile time rather than runtime, are frozen in `packages/web/src/observability/SPEC.md` against semantic conventions **v1.30.0**. The
+> registry below remains a dependency-free alternative; values exported through the framework `Meter` use the conventional names and seconds units documented below.
 
 ## The four things worth measuring
 
@@ -71,16 +67,18 @@ metrics.increment('http_requests', { path: ctx.path }); // wrong
 metrics.increment('http_requests', { route: '/posts/:id' }); // right
 ```
 
-`ctx.path` is `/posts/1`, `/posts/2`, … — one time series per id. That is how a metrics backend falls over, and how a bill arrives. Label by the **route pattern**, which you can get from `getRoutes`, and never by a user id, email, tenant or request id.
+`ctx.path` is `/posts/1`, `/posts/2`, … — one time series per id. That is how a metrics backend falls over, and how a bill arrives. Label by the **route pattern**, which you can get from `getRoutes`,
+and never by a user id, email, tenant or request id.
 
 Do not put personal data in a label either. Metrics are retained long-term and are usually less access-controlled than logs.
 
-Getting the route pattern is harder than the two lines above suggest, and for a structural reason: `Ctx` carries `path`, the concrete one, and only the matched route knows the pattern. Reconstructing it from `getRoutes` outside the router means re-running the match. The router therefore owns the server span and request histogram — it is the one place `http.route` exists without being derived twice.
+Getting the route pattern is harder than the two lines above suggest, and for a structural reason: `Ctx` carries `path`, the concrete one, and only the matched route knows the pattern. Reconstructing
+it from `getRoutes` outside the router means re-running the match. The router therefore owns the server span and request histogram — it is the one place `http.route` exists without being derived
+twice.
 
 ## Wiring in the framework metrics
 
-`createRouter` and `createApp` accept the same `Observability` object. The
-optional OpenTelemetry adapter takes application-owned API objects:
+`createRouter` and `createApp` accept the same `Observability` object. The optional OpenTelemetry adapter takes application-owned API objects:
 
 ```ts
 import { metrics, trace } from '@opentelemetry/api';
@@ -95,34 +93,26 @@ const observability = fromOpenTelemetry({
 await using app = createApp(AppModule, { observability });
 ```
 
-`@opentelemetry/api` is an optional peer used only by `@zmdb/web/otel`. The core
-package does not choose an exporter or metrics backend.
+`@opentelemetry/api` is an optional peer used only by `@zmdb/web/otel`. The core package does not choose an exporter or metrics backend.
 
-Queries use `tracedDriver`. Passing `ctx.span` is what parents a query span to the
-handler; metrics work without a tracer:
+Queries use `tracedDriver`. Passing `ctx.span` is what parents a query span to the handler; metrics work without a tracer:
 
 ```ts
 const driver = tracedDriver(baseDriver, observability, ctx.span);
 const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
 ```
 
-The wrapper marks the driver as needing query telemetry. Repositories then ask
-the compiler to attach an optional `{ system, operation, collection }` object.
-Without that opt-in a compiled query remains the same two-key `{ text,
-parameters }` value as before.
+The wrapper marks the driver as needing query telemetry. Repositories then ask the compiler to attach an optional `{ system, operation, collection }` object. Without that opt-in a compiled query
+remains the same two-key `{ text, parameters }` value as before.
 
-Do not derive the verb by parsing SQL. A first-word regex reads `WITH` for a CTE
-that ends in an `INSERT`, and a leading comment changes the first token. Optional
-compile-time telemetry exists so the driver does not have to guess.
+Do not derive the verb by parsing SQL. A first-word regex reads `WITH` for a CTE that ends in an `INSERT`, and a leading comment changes the first token. Optional compile-time telemetry exists so the
+driver does not have to guess.
 
 ## Measured framework overhead
 
-The committed run measured all three configurations on 2026-09-05 with Node
-26.8.1 on an AMD Ryzen 7 7840U. Each row is the median of six samples after a
-750 ms warmup per workload and mode; all six mode orders were used. The
-recording case used a real `BasicTracerProvider`, `SimpleSpanProcessor` and
-bounded `SpanExporter`, with exporter flush/reset outside the timed interval
-and metrics disabled.
+The committed run measured all three configurations on 2026-09-05 with Node 26.8.1 on an AMD Ryzen 7 7840U. Each row is the median of six samples after a 750 ms warmup per workload and mode; all six
+mode orders were used. The recording case used a real `BasicTracerProvider`, `SimpleSpanProcessor` and bounded `SpanExporter`, with exporter flush/reset outside the timed interval and metrics
+disabled.
 
 | workload | configuration      | median ns/op | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | --------------: | ----------------: | -------------: |
@@ -133,11 +123,8 @@ and metrics disabled.
 | query    | API no-op          |       314.93 |         +316.8% |                 0 |         1.668x |
 | query    | recording exporter |      2749.11 |        +3538.5% |                 1 |         1.393x |
 
-The request workload is one matched `GET`; the query workload is one compiled
-`SELECT` through `tracedDriver`. These are nanosecond-scale framework
-microbenchmarks, not end-to-end service latency. The raw 36 samples, runtime
-provenance, input hashes and median operations per second are published in
-`benchmarks/site/observability.json` and summarised on
+The request workload is one matched `GET`; the query workload is one compiled `SELECT` through `tracedDriver`. These are nanosecond-scale framework microbenchmarks, not end-to-end service latency. The
+raw 36 samples, runtime provenance, input hashes and median operations per second are published in `benchmarks/site/observability.json` and summarised on
 [Web Performance & Benchmarks](./web-benchmarks.html).
 
 ## Exposing a hand-rolled registry
@@ -165,18 +152,15 @@ metrics() {
 
 Keep `/metrics` off your public listener, or require an auth header — it names every route and leaks traffic shape.
 
-This endpoint is application code. zmdb does not install a registry, renderer or
-scrape route.
+This endpoint is application code. zmdb does not install a registry, renderer or scrape route.
 
-> [!WARNING]
-> `/metrics` must not be publicly reachable. It reveals route inventory, traffic
-> volumes, error rates and often internal identifiers — a reconnaissance gift. Bind
-> it to a separate internal port (see [Multiple Servers](./web-multiple-servers.html)),
-> or restrict it at the proxy.
+> [!WARNING] `/metrics` must not be publicly reachable. It reveals route inventory, traffic volumes, error rates and often internal identifiers — a reconnaissance gift. Bind it to a separate internal
+> port (see [Multiple Servers](./web-multiple-servers.html)), or restrict it at the proxy.
 
 ## Structured logs may be enough
 
-If you already emit one structured line per request, most backends derive rate, latency and error metrics from logs. That gives you the four measurements above with no metrics infrastructure — worth doing before adding a second telemetry system. See [Logging](./logging.html).
+If you already emit one structured line per request, most backends derive rate, latency and error metrics from logs. That gives you the four measurements above with no metrics infrastructure — worth
+doing before adding a second telemetry system. See [Logging](./logging.html).
 
 ## The names change if you export them
 
@@ -189,27 +173,21 @@ The registry on this page is yours, so `http_duration_ms` is whatever you say it
 | `http_errors`      | the HTTP histogram's optional `error.type` label | **seconds** |
 | `db_errors`        | — application- or backend-owned                  |             |
 
-**Seconds, not milliseconds**, and this is the one that bites without an error: the convention's histograms have bucket boundaries chosen for seconds, so millisecond observations exported under a seconds-named metric all land in the top bucket and every percentile reads as "slower than the largest bucket". A dashboard built on it looks plausible and is meaningless.
+**Seconds, not milliseconds**, and this is the one that bites without an error: the convention's histograms have bucket boundaries chosen for seconds, so millisecond observations exported under a
+seconds-named metric all land in the top bucket and every percentile reads as "slower than the largest bucket". A dashboard built on it looks plausible and is meaningless.
 
-The HTTP error rate is derivable from `error.type` on the request-duration
-histogram, so a separate HTTP error counter would be a second source for one
-number. The database-duration histogram has no error label; derive database
-failures from spans or an application-owned counter. Two framework histograms,
-not four: pool statistics belong to a driver the framework does not own.
+The HTTP error rate is derivable from `error.type` on the request-duration histogram, so a separate HTTP error counter would be a second source for one number. The database-duration histogram has no
+error label; derive database failures from spans or an application-owned counter. Two framework histograms, not four: pool statistics belong to a driver the framework does not own.
 
 ## Framework boundaries
 
-The framework supplies a `Meter` port, an optional `@zmdb/web/otel` adapter and
-the low-cardinality route information only the router knows.
+The framework supplies a `Meter` port, an optional `@zmdb/web/otel` adapter and the low-cardinality route information only the router knows.
 
-Exactly two histograms are emitted, and only when a meter exists:
-`http.server.request.duration` and `db.client.operation.duration`. HTTP error
-rate is derivable from the first histogram's optional `error.type`; database
-error and pool metrics remain the application or driver's responsibility.
+Exactly two histograms are emitted, and only when a meter exists: `http.server.request.duration` and `db.client.operation.duration`. HTTP error rate is derivable from the first histogram's optional
+`error.type`; database error and pool metrics remain the application or driver's responsibility.
 
-The per-request observation point for _interceptors_ remains deliberately absent:
-[`runChain` is still not wired into the router](./web-request-lifecycle.html), so
-there is no interceptor span or interceptor-owned framework metric.
+The per-request observation point for _interceptors_ remains deliberately absent: [`runChain` is still not wired into the router](./web-request-lifecycle.html), so there is no interceptor span or
+interceptor-owned framework metric.
 
 ---
 

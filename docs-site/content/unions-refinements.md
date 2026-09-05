@@ -1,4 +1,5 @@
-Unions are TypeScript unions. There is no `union()` combinator to learn for the validator, because the type argument is already the schema — `validate<Circle | Square>(x)` is the whole declaration, and the emitter finds the discriminant on its own.
+Unions are TypeScript unions. There is no `union()` combinator to learn for the validator, because the type argument is already the schema — `validate<Circle | Square>(x)` is the whole declaration,
+and the emitter finds the discriminant on its own.
 
 ## Unions
 
@@ -9,18 +10,16 @@ assert<string | number>(input); // string | number
 validate<string | null>(input); // the nullable-column shape
 ```
 
-An **undiscriminated** union is checked arm by arm: the value satisfies the union if it satisfies any member. On failure there is no arm to blame, so you get one issue naming the whole union at the union's own path:
+An **undiscriminated** union is checked arm by arm: the value satisfies the union if it satisfies any member. On failure there is no arm to blame, so you get one issue naming the whole union at the
+union's own path:
 
 ```ts
 validate<string | number>(true);
 // errors: [{ path: 'input', expected: 'string | number', message: 'expected string | number', value: true }]
 ```
 
-> [!NOTE]
-> Excess-property checks are not defined for an undiscriminated union, and neither
-> `equals<T>` nor `assertEquals<T>` applies one there. A value can satisfy several arms at
-> once, so "which arm's property list is the declared one" has no answer. Discriminated
-> unions do get the check, per arm.
+> [!NOTE] Excess-property checks are not defined for an undiscriminated union, and neither `equals<T>` nor `assertEquals<T>` applies one there. A value can satisfy several arms at once, so "which
+> arm's property list is the declared one" has no answer. Discriminated unions do get the check, per arm.
 
 ## Discriminated Unions
 
@@ -67,7 +66,8 @@ interface Node {
 assert<Node>(input); // walks the whole chain
 ```
 
-`random<Node>()` terminates because a back-reference arm of a union is dropped when sampling, so `next` samples to `null`. A reference with no non-recursive arm beside it is refused rather than looped — see [random](./random.html).
+`random<Node>()` terminates because a back-reference arm of a union is dropped when sampling, so `next` samples to `null`. A reference with no non-recursive arm beside it is refused rather than looped
+— see [random](./random.html).
 
 ## Refinements
 
@@ -82,14 +82,12 @@ export interface Account extends Table<'accounts'> {
 }
 ```
 
-The reflection records the _name_ and nothing else — a rule takes no arguments, and an unregistered name is a build error rather than a check that silently passes. `Rule<'a' | 'b'>` is how a column carries two.
+The reflection records the _name_ and nothing else — a rule takes no arguments, and an unregistered name is a build error rather than a check that silently passes. `Rule<'a' | 'b'>` is how a column
+carries two.
 
-> [!WARNING]
-> `Rule<'name'>` lands in `ColumnIR.rules`, which is the **column** IR. The general type path
-> honours only the five constraint keywords — `minimum`, `maximum`, `minLength`, `maxLength`,
-> `pattern` — so a `Rule<'iban'>` on a bare type argument to `assert<T>()` is currently
-> ignored rather than refused. On a declared column it reaches the consumers that read
-> `ColumnIR`; anywhere else, write the check yourself.
+> [!WARNING] `Rule<'name'>` lands in `ColumnIR.rules`, which is the **column** IR. The general type path honours only the five constraint keywords — `minimum`, `maximum`, `minLength`, `maxLength`,
+> `pattern` — so a `Rule<'iban'>` on a bare type argument to `assert<T>()` is currently ignored rather than refused. On a declared column it reaches the consumers that read `ColumnIR`; anywhere else,
+> write the check yourself.
 
 The tags that _are_ honoured everywhere:
 
@@ -107,9 +105,8 @@ See [Tag Reference](./tags-reference.html).
 
 ## The rule-object API
 
-`@zmdb/aot-validator/advanced` contains the older rule-value API:
-`refine`, `transform`, `union`, `discriminated`, `validateObject`, and
-`coerce`. It predates type-first declarations and is mostly a stub:
+`@zmdb/aot-validator/advanced` contains the older rule-value API: `refine`, `transform`, `union`, `discriminated`, `validateObject`, and `coerce`. It predates type-first declarations and is mostly a
+stub:
 
 ```ts
 import { refine, validateObject } from '@zmdb/aot-validator/advanced';
@@ -121,13 +118,16 @@ validateObject({ age: 17 }, { age: adult }, 'strict');
 //                             message: 'must be at least 18', value: 17 }] }
 ```
 
-`refine` takes a **function**, not a source string. The string form would need `unsafe-eval`, which contradicts the entire point of ahead-of-time emission, and a function is typechecked at the call site where a string predicate can only fail at runtime. The source text is recovered from `Function.prototype.toString`, so inlining is still possible without it.
+`refine` takes a **function**, not a source string. The string form would need `unsafe-eval`, which contradicts the entire point of ahead-of-time emission, and a function is typechecked at the call
+site where a string predicate can only fail at runtime. The source text is recovered from `Function.prototype.toString`, so inlining is still possible without it.
 
 What that module does not do:
 
-- `validateObject` returns `{ success, issues }` and **no `data`**. `'strip'` and `'passthrough'` are therefore indistinguishable today; only `'strict'` changes behaviour, by reporting each excess key as `no excess property` at `input.<key>`.
+- `validateObject` returns `{ success, issues }` and **no `data`**. `'strip'` and `'passthrough'` are therefore indistinguishable today; only `'strict'` changes behaviour, by reporting each excess key
+  as `no excess property` at `input.<key>`.
 - `transform()` builds a rule and nothing applies it. No value is converted.
-- Of the primitive rule kinds, `validateObject` implements `Min` and `MaxLength`; every other `kind` falls through to "ok". A rule it does not know **passes** rather than refusing, which is the opposite of the type path's behaviour and the main reason to prefer the type path.
+- Of the primitive rule kinds, `validateObject` implements `Min` and `MaxLength`; every other `kind` falls through to "ok". A rule it does not know **passes** rather than refusing, which is the
+  opposite of the type path's behaviour and the main reason to prefer the type path.
 - `discriminated()` evaluates its chosen branch against `value.value`, not against the value itself.
 
 For unions, discriminated unions and constraint checking, the type argument does all of this properly. Reach into `advanced` only for `coerce.number` or `Brand`.
@@ -145,12 +145,8 @@ const orderId = 456 as OrderId;
 // userId = orderId; // type error, though both are numbers at runtime
 ```
 
-> [!WARNING]
-> A brand is compile-time only — it erases to the base type, so `assert<UserId>(x)` checks
-> `number` and nothing more. That is the same phantom-symbol mechanism the declaration tags
-> use, and it has the same consequence: the brand is a claim your code makes to itself, not
-> a check. Where the value comes from outside, brand it _after_ validating whatever actually
-> distinguishes it.
+> [!WARNING] A brand is compile-time only — it erases to the base type, so `assert<UserId>(x)` checks `number` and nothing more. That is the same phantom-symbol mechanism the declaration tags use, and
+> it has the same consequence: the brand is a claim your code makes to itself, not a check. Where the value comes from outside, brand it _after_ validating whatever actually distinguishes it.
 
 ---
 

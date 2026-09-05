@@ -22,8 +22,7 @@ Deno.serve(async request => {
 
 Deno strips type annotations and runs the result. There is no TypeScript transformer plugin mechanism, so the descriptor argument that `assert<T>` and `is<T>` need is never emitted.
 
-**`assert<T>(body)` therefore returns the body unchanged and performs no
-validation.** It produces neither an error nor a warning.
+**`assert<T>(body)` therefore returns the body unchanged and performs no validation.** It produces neither an error nor a warning.
 
 ```ts
 // in a Supabase Edge Function, this passes
@@ -32,7 +31,8 @@ assert<{ id: number }>({ id: 'not a number' });
 
 Two practical options:
 
-**1. Do not use the AOT validators here.** Everything else works natively — the query compiler, `BaseRepository`, the derived DTO _types_, `@zmdb/web` routing and DI. `schemaOf<T>()` needs the transform, so run the build step over the function's source and deploy the output. Validate the boundary with something Deno can run:
+**1. Do not use the AOT validators here.** Everything else works natively — the query compiler, `BaseRepository`, the derived DTO _types_, `@zmdb/web` routing and DI. `schemaOf<T>()` needs the
+transform, so run the build step over the function's source and deploy the output. Validate the boundary with something Deno can run:
 
 ```ts
 import { z } from 'npm:zod';
@@ -48,7 +48,8 @@ Deno.serve(async request => {
 
 You keep the typed data layer and lose only the single-declaration validation. See [Zod](./interop-zod.html).
 
-**2. Pre-build with `tsc` and the transformer.** Compile a module that owns validation, and import the built JavaScript from the function. Workable, but it means a build pipeline in front of a platform designed not to need one.
+**2. Pre-build with `tsc` and the transformer.** Compile a module that owns validation, and import the built JavaScript from the function. Workable, but it means a build pipeline in front of a
+platform designed not to need one.
 
 Whichever you choose, put the canary where it will be seen:
 
@@ -83,7 +84,8 @@ export const driver = {
 };
 ```
 
-Check the variable rather than asserting it with `!`. A missing secret then fails at module evaluation — the deploy is visibly broken — instead of surfacing as a connection error on a user's request. See [Configuration](./web-configuration.html).
+Check the variable rather than asserting it with `!`. A missing secret then fails at module evaluation — the deploy is visibly broken — instead of surfacing as a connection error on a user's request.
+See [Configuration](./web-configuration.html).
 
 `prepare: false` is required through Supavisor in transaction mode. `max: 1` because functions scale horizontally. See [Supabase](./connect-supabase.html).
 
@@ -108,7 +110,8 @@ function driverFor(jwt: string) {
 }
 ```
 
-Note `true` — that makes the setting transaction-local. With `false` it persists on a pooled connection and the _next_ request inherits the previous user's claims, which is a cross-tenant data leak. Build the driver per request; do not share one.
+Note `true` — that makes the setting transaction-local. With `false` it persists on a pooled connection and the _next_ request inherits the previous user's claims, which is a cross-tenant data leak.
+Build the driver per request; do not share one.
 
 ## Migrations
 
@@ -116,7 +119,8 @@ Use Supabase's own migration tooling (`supabase db push`), or zmdb's runner from
 
 ## Limits
 
-Edge Functions have a CPU-time budget and a memory cap. zmdb adds essentially nothing to either — no engine, no metadata scan, no schema construction at load — which is why the platform fit is otherwise good.
+Edge Functions have a CPU-time budget and a memory cap. zmdb adds essentially nothing to either — no engine, no metadata scan, no schema construction at load — which is why the platform fit is
+otherwise good.
 
 ---
 

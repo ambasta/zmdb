@@ -1,12 +1,9 @@
-Stage 3 has **no parameter decorators**, so `@zmdb/web` handlers take a single
-strongly-typed **context** object instead of `@Param`/`@Body`/`@Query` arguments.
-Crucially, the params type is **derived from the route string** at compile
-time — you never hand-write it, and you never need an `as` cast.
+Stage 3 has **no parameter decorators**, so `@zmdb/web` handlers take a single strongly-typed **context** object instead of `@Param`/`@Body`/`@Query` arguments. Crucially, the params type is **derived
+from the route string** at compile time — you never hand-write it, and you never need an `as` cast.
 
 ## Path-param derivation
 
-`PathParams<Path>` reads `:name` segments out of a route string via
-template-literal types:
+`PathParams<Path>` reads `:name` segments out of a route string via template-literal types:
 
 ```ts
 import type { PathParams } from '@zmdb/web';
@@ -32,8 +29,7 @@ interface Ctx<Params, Body, Query> {
 
 ## Binding a handler to its route
 
-`HandlerFor<Path, Body>` ties `ctx.params` to the route string, so a typo in a
-param name is a **compile error** — no runtime surprise, no assertion:
+`HandlerFor<Path, Body>` ties `ctx.params` to the route string, so a typo in a param name is a **compile error** — no runtime surprise, no assertion:
 
 ```ts
 import type { HandlerFor } from '@zmdb/web';
@@ -47,8 +43,7 @@ const getUser: HandlerFor<'/users/:id', never> = ctx => {
 
 ## Extracting params at runtime
 
-`extractParams(pattern, path)` turns a request path into the params object (or
-`undefined` on a mismatch):
+`extractParams(pattern, path)` turns a request path into the params object (or `undefined` on a mismatch):
 
 ```ts
 import { extractParams } from '@zmdb/web';
@@ -58,10 +53,8 @@ extractParams('/users/:id/posts/:postId', '/u/1/p/7'); // (mismatch) → undefin
 extractParams('/health', '/health'); // {}
 ```
 
-It compiles `pattern` on every call, which is what you want for a one-off match
-and not what you want in a hot loop. A route pattern is a constant, so the
-dispatcher splits the work in two and does the pattern half once, at
-registration:
+It compiles `pattern` on every call, which is what you want for a one-off match and not what you want in a hot loop. A route pattern is a constant, so the dispatcher splits the work in two and does
+the pattern half once, at registration:
 
 ```ts
 import { compilePattern, countSegments, matchCompiled } from '@zmdb/web';
@@ -78,12 +71,9 @@ Use this pair if you are building your own dispatcher over `getRoutes`.
 ## Design notes
 
 - **100% compile-time** param typing; matching is the only runtime code.
-- **Matching allocates only the result.** A pattern with no params returns a
-  shared frozen empty object and allocates nothing else; one with params
-  allocates the params object and one string per param. It never builds
-  intermediate segment arrays, and never re-parses the pattern.
-- **No `as` on the consumer surface** — params are typed by derivation, not by
-  assertion.
+- **Matching allocates only the result.** A pattern with no params returns a shared frozen empty object and allocates nothing else; one with params allocates the params object and one string per
+  param. It never builds intermediate segment arrays, and never re-parses the pattern.
+- **No `as` on the consumer surface** — params are typed by derivation, not by assertion.
 - Granular import: `import type { Ctx } from '@zmdb/web/context'`.
 
 ## Cross-links

@@ -1,7 +1,8 @@
-Generated columns are table columns whose values are computed automatically from an expression. They're computed at write time (stored) or read time (virtual), ensuring data consistency without application-level calculations.
+Generated columns are table columns whose values are computed automatically from an expression. They're computed at write time (stored) or read time (virtual), ensuring data consistency without
+application-level calculations.
 
-> [!IMPORTANT]
-> Generated columns are computed by the database, not by zmdb. This ensures values are always consistent even if written directly to the database. zmdb supports them through DDL emission; a generated column is simply left out of the declaration, which is what makes it read-only everywhere downstream.
+> [!IMPORTANT] Generated columns are computed by the database, not by zmdb. This ensures values are always consistent even if written directly to the database. zmdb supports them through DDL emission;
+> a generated column is simply left out of the declaration, which is what makes it read-only everywhere downstream.
 
 ## Creating a Generated Column
 
@@ -25,8 +26,7 @@ console.log(ddl);
 "full_name" VARCHAR(255) GENERATED ALWAYS AS (first_name || ' ' || last_name) STORED
 ```
 
-> [!NOTE]
-> The `stored: true` option makes the column "stored" (computed and written to disk). Omit it for virtual columns (computed on read). PostgreSQL requires `STORED` for generated columns.
+> [!NOTE] The `stored: true` option makes the column "stored" (computed and written to disk). Omit it for virtual columns (computed on read). PostgreSQL requires `STORED` for generated columns.
 
 ## Common Use Cases
 
@@ -83,8 +83,7 @@ const totalPriceDef = {
 
 ## Leaving them out of the declaration
 
-Declare the base columns and stop there. A generated column has no property, which is exactly
-how it stays out of `CreateDTO` and `UpdateDTO`:
+Declare the base columns and stop there. A generated column has no property, which is exactly how it stays out of `CreateDTO` and `UpdateDTO`:
 
 ```ts
 import type { Numeric, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
@@ -97,14 +96,10 @@ export interface Order extends Table<'orders'> {
 }
 ```
 
-> [!WARNING]
-> Do not add a property for a generated column. It would appear in `CreateDTO<Order>` as
-> something to insert, and the database rejects any INSERT/UPDATE that targets a generated
-> column. There is no tag that would fix this, and there should not be: the expression is
-> dialect-specific SQL and a type cannot hold SQL.
+> [!WARNING] Do not add a property for a generated column. It would appear in `CreateDTO<Order>` as something to insert, and the database rejects any INSERT/UPDATE that targets a generated column.
+> There is no tag that would fix this, and there should not be: the expression is dialect-specific SQL and a type cannot hold SQL.
 
-If you need to _read_ it through a typed path, declare a second interface over a view — see
-[Virtual Entities](./virtual-entities.html).
+If you need to _read_ it through a typed path, declare a second interface over a view — see [Virtual Entities](./virtual-entities.html).
 
 ## Querying Generated Columns
 
@@ -124,8 +119,7 @@ console.log(query.text);
 SELECT "id", "unit_price", "quantity", "total_price" FROM "orders"
 ```
 
-> [!TIP]
-> Generated columns are particularly useful for indexes. Create an index on a generated column for fast lookups on computed values without duplicating the computation logic.
+> [!TIP] Generated columns are particularly useful for indexes. Create an index on a generated column for fast lookups on computed values without duplicating the computation logic.
 
 ## Dialect Support
 
@@ -136,9 +130,7 @@ SELECT "id", "unit_price", "quantity", "total_price" FROM "orders"
 | MySQL      | ✅                | Virtual by default, `STORED` for persisted |
 | SQL Server | ✅                | `AS (expression) PERSISTED` when stored    |
 
-> [!NOTE]
-> `generatedColumnDdl` emits each shipped dialect's syntax, including SQL
-> Server's computed-column form.
+> [!NOTE] `generatedColumnDdl` emits each shipped dialect's syntax, including SQL Server's computed-column form.
 
 ## Related
 

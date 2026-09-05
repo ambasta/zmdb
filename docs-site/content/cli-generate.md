@@ -16,13 +16,10 @@ Note what is _not_ in that diagram: the database. Generation never connects, so 
 npx zmdb generate --name add_slug
 ```
 
-The command loads [the project config](./config-file.html), reflects every
-exported tagged table in its concrete schema file set, then passes the resulting
-schemas through the existing `snapshot()`, `diff()`, `emitUp()`, and
-`emitDown()` libraries.
+The command loads [the project config](./config-file.html), reflects every exported tagged table in its concrete schema file set, then passes the resulting schemas through the existing `snapshot()`,
+`diff()`, `emitUp()`, and `emitDown()` libraries.
 
-This transcript was captured from the SQLite fixture; only its temporary
-directory was shortened to `/workspace/shop`:
+This transcript was captured from the SQLite fixture; only its temporary directory was shortened to `/workspace/shop`:
 
 ```text
 $ npx zmdb generate --name initial
@@ -34,9 +31,8 @@ $ npx zmdb generate --name ignored
 no changes; no migration written
 ```
 
-The generated name is `<YYYYMMDDHHMMSS>_<slug>.sql` in UTC. `--name` supplies
-the slug; without it, the command derives one from a single operation or uses
-`schema_change`. One file carries both directions:
+The generated name is `<YYYYMMDDHHMMSS>_<slug>.sql` in UTC. `--name` supplies the slug; without it, the command derives one from a single operation or uses `schema_change`. One file carries both
+directions:
 
 ```sql
 -- zmdb:up
@@ -45,17 +41,13 @@ ALTER TABLE "users" ADD COLUMN "slug" TEXT NOT NULL;
 ALTER TABLE "users" DROP COLUMN "slug";
 ```
 
-Down operations are emitted in reverse order. The migration and snapshot are
-each written through a sibling temporary file followed by `rename`; a failed
-migration rename leaves neither a partial target nor a temporary file. The
-snapshot is updated only after the migration file is in place.
+Down operations are emitted in reverse order. The migration and snapshot are each written through a sibling temporary file followed by `rename`; a failed migration rename leaves neither a partial
+target nor a temporary file. The snapshot is updated only after the migration file is in place.
 
-`create_extension` has no generated inverse: the down section removes dependent
-tables and columns but leaves the extension installed. Dropping it safely needs
-a hand-written migration after checking every dependent object.
+`create_extension` has no generated inverse: the down section removes dependent tables and columns but leaves the extension installed. Dropping it safely needs a hand-written migration after checking
+every dependent object.
 
-If the diff is empty, the command exits 0 and writes nothing. With `--json`,
-stdout is one result document; human-readable errors stay on stderr.
+If the diff is empty, the command exits 0 and writes nothing. With `--json`, stdout is one result document; human-readable errors stay on stderr.
 
 ## Review the output
 
@@ -67,16 +59,13 @@ The SQL is in your pull request, which is the point. Look for:
 
 ## The first migration
 
-With no stored snapshot, the command diffs against
-`{ version: 1, tables: [], extensions: [] }` and writes the initial migration
-plus `snapshot.json`.
+With no stored snapshot, the command diffs against `{ version: 1, tables: [], extensions: [] }` and writes the initial migration plus `snapshot.json`.
 
 For an existing database you are adopting, do the opposite: write the snapshot with no migration, so the baseline is "this already exists". See [Schema-first](./schema-first.html).
 
 ## Several dialects
 
-The configured dialect selects the emitter. Use separate config files and
-output directories when one declaration set targets several dialects:
+The configured dialect selects the emitter. Use separate config files and output directories when one declaration set targets several dialects:
 
 ```bash
 npx zmdb generate --config zmdb.postgres.config.ts --name add_slug
@@ -87,11 +76,8 @@ The snapshots remain dialect-independent; the generated SQL does not.
 
 ## What the command adds
 
-The wrapper adds config and project resolution, exported-table discovery,
-sortable names, one-file up/down output, atomic replacement, no-change
-handling, JSON results, and uniform exit codes. The schema plan and SQL remain
-the output of the existing migration libraries rather than a second
-implementation in the CLI.
+The wrapper adds config and project resolution, exported-table discovery, sortable names, one-file up/down output, atomic replacement, no-change handling, JSON results, and uniform exit codes. The
+schema plan and SQL remain the output of the existing migration libraries rather than a second implementation in the CLI.
 
 ---
 

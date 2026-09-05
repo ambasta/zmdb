@@ -1,6 +1,5 @@
-> **Not planned.** `@zmdb/web` has no GraphQL field middleware because
-> [GraphQL is out of scope](./web-graphql.html). The alternatives below use
-> features that exist today, and the final `preSave` limitation still applies.
+> **Not planned.** `@zmdb/web` has no GraphQL field middleware because [GraphQL is out of scope](./web-graphql.html). The alternatives below use features that exist today, and the final `preSave`
+> limitation still applies.
 
 ## What field middleware is for
 
@@ -21,7 +20,8 @@ The strongest version of field-level control, and it is available today:
 const { items } = await repo.list({ select: ['id', 'title', 'createdAt'], page: { limit: 20 } });
 ```
 
-`select` narrows both the SQL and the row type. A column that is not selected never leaves the database, so there is no value to mask, nothing in a log, nothing in a heap dump and nothing in an error payload. Field middleware masks _after_ fetching; this is strictly stronger.
+`select` narrows both the SQL and the row type. A column that is not selected never leaves the database, so there is no value to mask, nothing in a log, nothing in a heap dump and nothing in an error
+payload. Field middleware masks _after_ fetching; this is strictly stronger.
 
 The `as const` on a shared field list is required, or the array widens to `string[]` and you get the full row type back:
 
@@ -39,11 +39,8 @@ interface User extends Table<'users'> {
 }
 ```
 
-> [!WARNING]
-> `Sensitive` affects **serialization**, not queries. The column is still
-> selected, still travels from the database into your process, and still appears in
-> anything that stringifies the raw row — including a debug log or an error dump. It
-> is a serialization marker, not an access control.
+> [!WARNING] `Sensitive` affects **serialization**, not queries. The column is still selected, still travels from the database into your process, and still appears in anything that stringifies the raw
+> row — including a debug log or an error dump. It is a serialization marker, not an access control.
 
 Combine it with `select` for defence in depth: `select` keeps the value out of the process, `Sensitive` catches the case where something serialises a row you did fetch.
 
@@ -57,9 +54,11 @@ function toDto(post: Post, viewer: Viewer): PublicPost {
 }
 ```
 
-Verbose, and it has two properties field middleware does not: the rule is a plain function you can unit test without a server, and the compiler tells you when a new sensitive column appears — provided `PublicPost` is an `Omit` of the real entity rather than a hand-written interface.
+Verbose, and it has two properties field middleware does not: the rule is a plain function you can unit test without a server, and the compiler tells you when a new sensitive column appears — provided
+`PublicPost` is an `Omit` of the real entity rather than a hand-written interface.
 
-The pattern that scales better is to make the unauthorised data unreachable at the data layer, with a [per-request driver](./web-request-context.html) that sets a tenant or with row-level security. A control at that level cannot be forgotten by a new field; a per-field check can.
+The pattern that scales better is to make the unauthorised data unreachable at the data layer, with a [per-request driver](./web-request-context.html) that sets a tenant or with row-level security. A
+control at that level cannot be forgotten by a new field; a per-field check can.
 
 ## Transform on read
 
@@ -73,7 +72,8 @@ class UserRepository extends BaseRepository<User> {
 }
 ```
 
-It runs on every read path through the repository, which is what makes it trustworthy. The asymmetry to know about: there is no matching pre-write hook that covers `create`, `update` and the query builder uniformly, so an inbound transform — encrypting a column, say — has to live in your service. See [Repository Hooks](./lifecycle-hooks.html) and [Encryption](./web-encryption.html).
+It runs on every read path through the repository, which is what makes it trustworthy. The asymmetry to know about: there is no matching pre-write hook that covers `create`, `update` and the query
+builder uniformly, so an inbound transform — encrypting a column, say — has to live in your service. See [Repository Hooks](./lifecycle-hooks.html) and [Encryption](./web-encryption.html).
 
 ## Timing a field
 
@@ -87,7 +87,8 @@ A slow field is nearly always a slow query or an N+1 pattern. Instrumenting the 
 
 ## What it would have taken
 
-Field middleware presupposes field resolution, so it followed [the GraphQL layer](./web-graphql-resolvers.html) — which is out of scope, so this is a record rather than a plan. The shape is frozen, in `packages/web/src/graphql/SPEC.md` §5 and §11, and it is not a new decorator:
+Field middleware presupposes field resolution, so it followed [the GraphQL layer](./web-graphql-resolvers.html) — which is out of scope, so this is a record rather than a plan. The shape is frozen, in
+`packages/web/src/graphql/SPEC.md` §5 and §11, and it is not a new decorator:
 
 ```ts
 const ownerOnly: Chain = { guards: [OwnerOrAdmin], pipes: [], interceptors: [], filters: [] };
@@ -98,14 +99,15 @@ registry.register<PostFields>(container.build(PostResolver), {
 });
 ```
 
-It uses the same `Chain`, `Guard`, `Pipe`, `Interceptor`, and
-`ExceptionFilter` interfaces as an HTTP route, but binds them per field in the
-registration table. Two consequences follow:
+It uses the same `Chain`, `Guard`, `Pipe`, `Interceptor`, and `ExceptionFilter` interfaces as an HTTP route, but binds them per field in the registration table. Two consequences follow:
 
-- A chain does **not** inherit down a traversal. A guard on `Query.post` says nothing about `Post.authorEmail`; each field that exposes data carries its own. That is deliberate, for the reason the section above gives — a control that a new field can be added without is a control that will be forgotten.
-- It authorises, it does not mask. A guard refuses the field, which becomes an error entry with `FORBIDDEN` in `extensions.code` and `null` in the data; nothing rewrites a value on the way out. `Sensitive` still does not stop a resolver returning a value, exactly as the warning above says, so the `select` advice on this page keeps its force.
+- A chain does **not** inherit down a traversal. A guard on `Query.post` says nothing about `Post.authorEmail`; each field that exposes data carries its own. That is deliberate, for the reason the
+  section above gives — a control that a new field can be added without is a control that will be forgotten.
+- It authorises, it does not mask. A guard refuses the field, which becomes an error entry with `FORBIDDEN` in `extensions.code` and `null` in the data; nothing rewrites a value on the way out.
+  `Sensitive` still does not stop a resolver returning a value, exactly as the warning above says, so the `select` advice on this page keeps its force.
 
-Because the binding is a table rather than an annotation, the boot check can be exhaustive: every decorated field must appear in it, and every key in it must be a decorated field. A typo is a boot failure rather than a field that silently resolves with no guard.
+Because the binding is a table rather than an annotation, the boot check can be exhaustive: every decorated field must appear in it, and every key in it must be a decorated field. A typo is a boot
+failure rather than a field that silently resolves with no guard.
 
 Three fields carry a chain and forty do not, in most schemas, and the frozen design is built around that ratio:
 
@@ -116,13 +118,17 @@ registry.register<PostFields>(resolver, bindings, {
 });
 ```
 
-**Three declared levels, flattened once at registration.** A field's own `chain` is the third, and the concatenation happens at boot, not per request — `chainFor('Post', 'author')` returns the same object every time. Guards, pipes and interceptors go broadest-first, so a global timer wraps the field's work and a field's pipe sees what the type's pipe produced.
+**Three declared levels, flattened once at registration.** A field's own `chain` is the third, and the concatenation happens at boot, not per request — `chainFor('Post', 'author')` returns the same
+object every time. Guards, pipes and interceptors go broadest-first, so a global timer wraps the field's work and a field's pipe sees what the type's pipe produced.
 
-**Filters go narrowest-first**, because the first filter that returns a response wins: a global catch-all placed first would swallow every error before a field's own filter ran, and every test would still pass.
+**Filters go narrowest-first**, because the first filter that returns a response wins: a global catch-all placed first would swallow every error before a field's own filter ran, and every test would
+still pass.
 
-**A field with no chain in any of the three levels is not wrapped.** The resolver map holds the bound method itself, so this feature costs a schema that does not use it nothing at all — not a small constant, zero. A field that does carry one allocates its context, plus a piped context only when there are pipes to fold.
+**A field with no chain in any of the three levels is not wrapped.** The resolver map holds the bound method itself, so this feature costs a schema that does not use it nothing at all — not a small
+constant, zero. A field that does carry one allocates its context, plus a piped context only when there are pipes to fold.
 
-The framework-side gap worth closing independently is the missing **pre-write** counterpart to `postSelect` — a `preSave` transform applied uniformly across `create`, `update` and the compiler. That would make transparent column encryption and normalisation possible without duplicating the logic in every write path, which is a real, current limitation rather than a GraphQL one.
+The framework-side gap worth closing independently is the missing **pre-write** counterpart to `postSelect` — a `preSave` transform applied uniformly across `create`, `update` and the compiler. That
+would make transparent column encryption and normalisation possible without duplicating the logic in every write path, which is a real, current limitation rather than a GraphQL one.
 
 ---
 

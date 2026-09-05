@@ -1,12 +1,9 @@
-Typed gRPC services, exhaustive bindings and clients ship through
-`@zmdb/web/microservices/grpc`. The declaration selects unary, client-streaming,
-server-streaming or bidirectional calls without loading a `.proto` at runtime.
+Typed gRPC services, exhaustive bindings and clients ship through `@zmdb/web/microservices/grpc`. The declaration selects unary, client-streaming, server-streaming or bidirectional calls without
+loading a `.proto` at runtime.
 
 ## One TypeScript contract, including the wire format
 
-gRPC uses the same type-derived protobuf path as `protoEncode`,
-`protoDecode` and `protoDescriptor`. Declare message field numbers in
-TypeScript and load the service at build time:
+gRPC uses the same type-derived protobuf path as `protoEncode`, `protoDecode` and `protoDescriptor`. Declare message field numbers in TypeScript and load the service at build time:
 
 ```ts
 import { loadGrpcService } from '@zmdb/aot-validator';
@@ -52,18 +49,13 @@ type Orders = {
 export const ordersService = loadGrpcService<Orders>('Orders', 'orders');
 ```
 
-`loadGrpcService` is an AOT call. The build transform or `zmdb-codegen`
-replaces it with a frozen descriptor, method paths, streaming flags,
-validators and protobuf codecs. No `.proto` file is read or parsed at runtime,
-and `@grpc/proto-loader` is not a direct dependency.
+`loadGrpcService` is an AOT call. The build transform or `zmdb-codegen` replaces it with a frozen descriptor, method paths, streaming flags, validators and protobuf codecs. No `.proto` file is read or
+parsed at runtime, and `@grpc/proto-loader` is not a direct dependency.
 
-That shape also makes the service closed: a binding with an unimplemented
-method does not compile. The streaming flags select the handler signature, so
-using a unary function where a server stream is declared is a compile error.
+That shape also makes the service closed: a binding with an unimplemented method does not compile. The streaming flags select the handler signature, so using a unary function where a server stream is
+declared is a compile error.
 
-Use `grpcDescriptor<Orders>('Orders', 'orders')` when another language needs
-the generated `.proto` contract. Commit that artifact and review its diff like
-any other wire-contract change.
+Use `grpcDescriptor<Orders>('Orders', 'orders')` when another language needs the generated `.proto` contract. Commit that artifact and review its diff like any other wire-contract change.
 
 ## Bind all four call types
 
@@ -113,10 +105,8 @@ const ordersBinding = bindGrpcService(
 );
 ```
 
-The service is a type alias and the handler object is a mapped type over every
-method. Omitting a method, using a unary handler for a streaming method, or
-passing the wrong request type is a compile error. There is no `@GrpcMethod`
-decorator because a decorator cannot make a closed service exhaustive.
+The service is a type alias and the handler object is a mapped type over every method. Omitting a method, using a unary handler for a streaming method, or passing the wrong request type is a compile
+error. There is no `@GrpcMethod` decorator because a decorator cannot make a closed service exhaustive.
 
 The four declaration shapes select four distinct APIs:
 
@@ -129,9 +119,8 @@ The four declaration shapes select four distinct APIs:
 
 ## Application lifecycle
 
-Pass bindings to `createApp`. Broker transports start first, then gRPC binds.
-A failed bind closes transports that already opened. Disposal closes gRPC and
-broker transports before application shutdown hooks:
+Pass bindings to `createApp`. Broker transports start first, then gRPC binds. A failed bind closes transports that already opened. Disposal closes gRPC and broker transports before application
+shutdown hooks:
 
 ```ts
 await using app = createApp(AppModule, {
@@ -146,18 +135,13 @@ await using app = createApp(AppModule, {
 await app.init();
 ```
 
-Credentials are required and have no implicit insecure default. For TLS, pass
-server root certificates, key/certificate pairs and the client-certificate
-policy instead of `'insecure'`.
+Credentials are required and have no implicit insecure default. For TLS, pass server root certificates, key/certificate pairs and the client-certificate policy instead of `'insecure'`.
 
-Graceful shutdown calls grpc-js `tryShutdown`; when `graceMs` expires it calls
-`forceShutdown`, so an abandoned bidirectional stream cannot stall a deploy
-indefinitely.
+Graceful shutdown calls grpc-js `tryShutdown`; when `graceMs` expires it calls `forceShutdown`, so an abandoned bidirectional stream cannot stall a deploy indefinitely.
 
 ## Typed clients
 
-The client uses the same generated artifact and therefore the same request,
-response and streaming declarations:
+The client uses the same generated artifact and therefore the same request, response and streaming declarations:
 
 ```ts
 import { createGrpcClient } from '@zmdb/web/microservices/grpc';
@@ -185,19 +169,14 @@ for await (const update of client.watch({ id: 'o1' })) {
 }
 ```
 
-Client-streaming and bidirectional methods accept an
-`AsyncIterable<Request>`. Server-streaming and bidirectional methods return an
-`AsyncIterable<Response>`. Every call accepts an optional deadline override,
-`AbortSignal`, outbound metadata, and validated initial-metadata/trailer
-callbacks.
+Client-streaming and bidirectional methods accept an `AsyncIterable<Request>`. Server-streaming and bidirectional methods return an `AsyncIterable<Response>`. Every call accepts an optional deadline
+override, `AbortSignal`, outbound metadata, and validated initial-metadata/trailer callbacks.
 
 ## Deadlines and cancellation
 
-Every typed client call has a finite default deadline. The server exposes the
-effective budget through:
+Every typed client call has a finite default deadline. The server exposes the effective budget through:
 
-- `call.signal`, aborted when the caller cancels, its deadline expires, or the
-  service `maxDurationMs` expires;
+- `call.signal`, aborted when the caller cancels, its deadline expires, or the service `maxDurationMs` expires;
 - `call.remainingMs()`, read at the moment it is called.
 
 Propagate the remaining budget to nested work:
@@ -215,28 +194,19 @@ get: async call => {
 },
 ```
 
-The service example above sets `maxDurationMs`, so the forwarded budget is
-finite even when an external caller omits a deadline. When the caller's
-deadline expires, the adapter aborts `call.signal`; the nested operation is
-cancelled and the handler's `finally` runs.
+The service example above sets `maxDurationMs`, so the forwarded budget is finite even when an external caller omits a deadline. When the caller's deadline expires, the adapter aborts `call.signal`;
+the nested operation is cancelled and the handler's `finally` runs.
 
-An external client may omit a deadline. Such a call is served and
-`remainingMs()` returns `Number.POSITIVE_INFINITY` unless `maxDurationMs`
-provides a server-side bound.
+An external client may omit a deadline. Such a call is served and `remainingMs()` returns `Number.POSITIVE_INFINITY` unless `maxDurationMs` provides a server-side bound.
 
-The adapter makes request streams abort-aware and closes response generators
-when callers stop reading, so handler `finally` blocks run on both cancellation
-paths.
+The adapter makes request streams abort-aware and closes response generators when callers stop reading, so handler `finally` blocks run on both cancellation paths.
 
 ## Metadata and errors
 
-Text metadata is exposed as `headers`. Binary `-bin` metadata is copied into a
-separate `binaryHeaders` map as `Uint8Array`; it is never base64 text in
-`headers`. `validateMetadata` runs before either map reaches application code.
+Text metadata is exposed as `headers`. Binary `-bin` metadata is copied into a separate `binaryHeaders` map as `Uint8Array`; it is never base64 text in `headers`. `validateMetadata` runs before either
+map reaches application code.
 
-Use `call.setTrailer(key, value)` for facts learned after streaming starts.
-There is intentionally no `setHeader`, because response headers may already
-have been sent after the first yielded message.
+Use `call.setTrailer(key, value)` for facts learned after streaming starts. There is intentionally no `setHeader`, because response headers may already have been sent after the first yielded message.
 
 Throw `GrpcError` only with details safe to disclose:
 
@@ -244,9 +214,7 @@ Throw `GrpcError` only with details safe to disclose:
 throw new GrpcError('NOT_FOUND', 'order not found');
 ```
 
-Every other thrown value becomes `INTERNAL` with the fixed detail
-`internal error`; the real failure reaches the required `onError` sink.
-Malformed or invalid request frames return `INVALID_ARGUMENT`.
+Every other thrown value becomes `INTERNAL` with the fixed detail `internal error`; the real failure reaches the required `onError` sink. Malformed or invalid request frames return `INVALID_ARGUMENT`.
 
 ---
 

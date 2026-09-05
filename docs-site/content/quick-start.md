@@ -1,11 +1,8 @@
-This guide takes you from an empty project to a validated, type-safe data layer
-in a few minutes. By the end you will have defined a schema, derived its types,
-run CRUD through a repository, and issued a typed query.
+This guide takes you from an empty project to a validated, type-safe data layer in a few minutes. By the end you will have defined a schema, derived its types, run CRUD through a repository, and
+issued a typed query.
 
-> [!NOTE]
-> zmdb targets **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. It never
-> opens a database connection itself — you inject a small `Driver`, so it works
-> with `pg`, `mysql2`, `better-sqlite3`, or `node:sqlite`.
+> [!NOTE] zmdb targets **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. It never opens a database connection itself — you inject a small `Driver`, so it works with `pg`, `mysql2`,
+> `better-sqlite3`, or `node:sqlite`.
 
 ## 1. Install
 
@@ -13,17 +10,13 @@ run CRUD through a repository, and issued a typed query.
 npm add zmdb@alpha
 ```
 
-One package re-exports the whole ecosystem. (Prefer granular installs? Use the
-four `@zmdb/*` packages instead — see [Installation](./installation.html).)
-Then wire the transformer once — see [AOT setup](./aot-setup.html). It is not an
-optimisation you can skip: `schemaOf<T>()` and the validators read a type argument,
-which does not exist at runtime, so an untransformed build throws rather than
-quietly checking nothing.
+One package re-exports the whole ecosystem. (Prefer granular installs? Use the four `@zmdb/*` packages instead — see [Installation](./installation.html).) Then wire the transformer once — see
+[AOT setup](./aot-setup.html). It is not an optimisation you can skip: `schemaOf<T>()` and the validators read a type argument, which does not exist at runtime, so an untransformed build throws rather
+than quietly checking nothing.
 
 ## 2. Declare your table once
 
-A table is a TypeScript type. That declaration is the single source of truth, and
-everything else derives from it.
+A table is a TypeScript type. That declaration is the single source of truth, and everything else derives from it.
 
 ```ts
 import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
@@ -42,13 +35,10 @@ export interface Order extends Table<'orders'> {
 }
 ```
 
-Each property is its **app type** intersected with **tags**. The app type is what your
-code sees; the tags say what TypeScript has no syntax for. Tags are phantom `unique
-symbol` slots, so they erase completely — this file compiles to no JavaScript at all.
+Each property is its **app type** intersected with **tags**. The app type is what your code sees; the tags say what TypeScript has no syntax for. Tags are phantom `unique symbol` slots, so they erase
+completely — this file compiles to no JavaScript at all.
 
-There is no builder DSL and no global registry. If you have a codebase full of
-`defineSchema('users', { id: serial().primaryKey() })`, the
-[codemod](./codemod.html) converts it.
+There is no builder DSL and no global registry. If you have a codebase full of `defineSchema('users', { id: serial().primaryKey() })`, the [codemod](./codemod.html) converts it.
 
 ## 3. Types derive automatically
 
@@ -64,19 +54,15 @@ type CreateUser = CreateDTO<User>;
 type UpdateUser = UpdateDTO<User>; //  Partial<CreateUser>
 ```
 
-> [!TIP]
-> Change a column and every derived type updates. Any call site that no longer
-> satisfies them **fails to compile** — that compile error is the anti-drift
-> guarantee. See [Type derivation](./type-derivation.html).
+> [!TIP] Change a column and every derived type updates. Any call site that no longer satisfies them **fails to compile** — that compile error is the anti-drift guarantee. See
+> [Type derivation](./type-derivation.html).
 
-`Serial` removes `id` from the create type rather than making it optional: there is no
-value you could usefully pass for a column the database generates.
+`Serial` removes `id` from the create type rather than making it optional: there is no value you could usefully pass for a column the database generates.
 
 ## 4. CRUD through a repository
 
-A repository binds your schema to a driver. The fastest way is the
-**`defineRepository`** helper (no subclass, no hand-written driver) with the
-built-in `node:sqlite` driver — a genuinely zero-dependency setup:
+A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the built-in `node:sqlite` driver — a genuinely
+zero-dependency setup:
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
@@ -107,21 +93,13 @@ class UserRepository extends BaseRepository<User> {
 const users = new UserRepository(sqliteDriver(db), 'sqlite');
 ```
 
-> [!IMPORTANT]
-> `schemaOf<T>()` is a **compile-time** call — the answer is a function of a type
-> argument, and type arguments do not exist at runtime. The transformer replaces it
-> with a frozen object literal. An untransformed build throws a message saying exactly
-> that; it does not hand back an empty schema. Wire up the
-> [plugin](./aot-setup.html) or the [codegen CLI](./cli-codegen.html).
+> [!IMPORTANT] `schemaOf<T>()` is a **compile-time** call — the answer is a function of a type argument, and type arguments do not exist at runtime. The transformer replaces it with a frozen object
+> literal. An untransformed build throws a message saying exactly that; it does not hand back an empty schema. Wire up the [plugin](./aot-setup.html) or the [codegen CLI](./cli-codegen.html).
 
-> [!TIP]
-> Use `pgDriver` from `@zmdb/repository/drivers/pg` for PostgreSQL. A full
-> runnable example lives at `examples/quickstart.ts`. See [Drivers](./drivers.html).
+> [!TIP] Use `pgDriver` from `@zmdb/repository/drivers/pg` for PostgreSQL. A full runnable example lives at `examples/quickstart.ts`. See [Drivers](./drivers.html).
 
-> [!IMPORTANT]
-> Rows you read back are **plain, inert objects**. Mutating `user.email = 'x'`
-> persists nothing — writes only happen through `create`/`update`/`delete`.
-> This is deliberate; see [Why fetched rows are inert](./inert-rows.html).
+> [!IMPORTANT] Rows you read back are **plain, inert objects**. Mutating `user.email = 'x'` persists nothing — writes only happen through `create`/`update`/`delete`. This is deliberate; see
+> [Why fetched rows are inert](./inert-rows.html).
 
 ## 5. Query your data (typed)
 
@@ -142,9 +120,7 @@ ORDER BY "createdAt" DESC
 LIMIT 21
 ```
 
-The filter, ordering and pagination are all typed against `User`. See
-[Filters](./filters.html), [Ordering & pagination](./pagination.html) and the
-[Read/Query DTOs](./read-dtos.html).
+The filter, ordering and pagination are all typed against `User`. See [Filters](./filters.html), [Ordering & pagination](./pagination.html) and the [Read/Query DTOs](./read-dtos.html).
 
 ## 6. Atomic writes with transactions
 

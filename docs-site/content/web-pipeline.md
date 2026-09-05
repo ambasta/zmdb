@@ -1,10 +1,6 @@
-The router ties everything together. Register a controller instance and the
-router reads its [routes](./web-controllers.html) **once**, then dispatches each
-request through: **select version → match → build
-[Ctx](./web-context.html) → guards → validate body → invoke handler →
-serialize**. With no version strategy, version selection is absent. Thin
-adapters connect it to `node:http` or any Fetch runtime (Hono, edge) with **no
-hard dependency** on either.
+The router ties everything together. Register a controller instance and the router reads its [routes](./web-controllers.html) **once**, then dispatches each request through: **select version → match →
+build [Ctx](./web-context.html) → guards → validate body → invoke handler → serialize**. With no version strategy, version selection is absent. Thin adapters connect it to `node:http` or any Fetch
+runtime (Hono, edge) with **no hard dependency** on either.
 
 ## Creating a router
 
@@ -37,8 +33,7 @@ router.register(new UsersController(), {
 
 ## The pipeline
 
-`router.handle(req)` returns `{ status, body, headers }`, where `body` is tagged
-as `text`, `bytes` or `stream`:
+`router.handle(req)` returns `{ status, body, headers }`, where `body` is tagged as `text`, `bytes` or `stream`:
 
 | step          | behavior                                                                                                                                                                                                                                                |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -56,10 +51,8 @@ await router.handle({ method: 'POST', path: '/users', headers: {}, rawBody: { no
 // { status: 400, ... }  — validateBody threw; create() never ran
 ```
 
-> [!IMPORTANT]
-> Validation runs **before** the handler, so an invalid body never reaches your
-> code. Pair `validateBody` with `@zmdb/aot-validator`'s `assert` for
-> zero-runtime-parser validation against a schema DTO.
+> [!IMPORTANT] Validation runs **before** the handler, so an invalid body never reaches your code. Pair `validateBody` with `@zmdb/aot-validator`'s `assert` for zero-runtime-parser validation against
+> a schema DTO.
 
 ## Adapters (no hard deps)
 
@@ -74,16 +67,12 @@ createServer(toNodeHandler(router)).listen(3000);
 const handler = toFetchHandler(router); // (Request) => Promise<Response>
 ```
 
-Both adapters are **structurally typed** — `@zmdb/web` does not depend on
-`node:http` or Hono; you bring the runtime. Both default request bodies to 1 MiB;
-pass `{ maxBodyBytes }` to raise that bound.
+Both adapters are **structurally typed** — `@zmdb/web` does not depend on `node:http` or Hono; you bring the runtime. Both default request bodies to 1 MiB; pass `{ maxBodyBytes }` to raise that bound.
 
 ## Design notes
 
-- **No per-request reflection.** The route table is resolved at `register` time;
-  each request allocates one `Ctx` + one result object.
-- **No `as` on the consumer surface.** (Internally, two isolated+documented
-  boundary casts read the controller constructor and the handler method.)
+- **No per-request reflection.** The route table is resolved at `register` time; each request allocates one `Ctx` + one result object.
+- **No `as` on the consumer surface.** (Internally, two isolated+documented boundary casts read the controller constructor and the handler method.)
 - Granular import: `import { createRouter } from '@zmdb/web/pipeline'`.
 
 ## Cross-links

@@ -48,7 +48,8 @@ const stmts = queries.map(q => db.prepare(q.text).bind(...q.parameters));
 const results = await db.batch(stmts);
 ```
 
-Compile with the builder, hand over `text`/`parameters`. A `populate` call is two statements — fine. A loop of `findById` calls is a loop of round trips, and that is where a request goes from 20ms to 2s. See [Loading Strategies](./loading-strategies.html).
+Compile with the builder, hand over `text`/`parameters`. A `populate` call is two statements — fine. A loop of `findById` calls is a loop of round trips, and that is where a request goes from 20ms to
+2s. See [Loading Strategies](./loading-strategies.html).
 
 ## Transactions
 
@@ -66,21 +67,21 @@ SQLite storage classes, so `boolean`, `timestamp` and `json` need hydrating — 
 
 ## Migrations
 
-Wrangler has its own migration system (`wrangler d1 migrations`), which expects `.sql` files in a directory. That pairs well with zmdb: [generate](./cli-generate.html) writes the SQL, Wrangler applies it.
+Wrangler has its own migration system (`wrangler d1 migrations`), which expects `.sql` files in a directory. That pairs well with zmdb: [generate](./cli-generate.html) writes the SQL, Wrangler applies
+it.
 
 ```bash
 node --experimental-strip-types scripts/generate.ts add_slug   # writes migrations/*.up.sql
 wrangler d1 migrations apply app
 ```
 
-Point your generate script at `migrations/` with Wrangler's naming convention and the two fit together with no glue. Using `runCli` instead is possible — a `MigrationConnection` over the binding — but it can only run inside a Worker, which is an awkward place to run migrations.
+Point your generate script at `migrations/` with Wrangler's naming convention and the two fit together with no glue. Using `runCli` instead is possible — a `MigrationConnection` over the binding — but
+it can only run inside a Worker, which is an awkward place to run migrations.
 
 ## Limits
 
-Database size, statement count per batch and query duration are all capped, and
-the caps change. A `find({})` over a large table will hit one of them. D1's
-driver has no cursor, so [`repo.stream()`](./streaming.html) uses the same
-materialising fallback and does not avoid those limits. Paginate everything.
+Database size, statement count per batch and query duration are all capped, and the caps change. A `find({})` over a large table will hit one of them. D1's driver has no cursor, so
+[`repo.stream()`](./streaming.html) uses the same materialising fallback and does not avoid those limits. Paginate everything.
 
 ---
 

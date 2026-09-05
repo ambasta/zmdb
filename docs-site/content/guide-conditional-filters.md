@@ -31,7 +31,8 @@ An empty `where` is a valid unfiltered query, so no special case is needed for "
 if (q.minAge) where.age = { gte: q.minAge }; // wrong
 ```
 
-`0` is falsy. So is `''`, and so is `false`. `minAge=0` silently drops the filter, and `active=false` searches for active users — the worst kind of bug, because it looks right and only fails on one input.
+`0` is falsy. So is `''`, and so is `false`. `minAge=0` silently drops the filter, and `active=false` searches for active users — the worst kind of bug, because it looks right and only fails on one
+input.
 
 Always compare against `undefined`. And turn on `strict-boolean-expressions` in your linter, which flags exactly this:
 
@@ -39,10 +40,7 @@ Always compare against `undefined`. And turn on `strict-boolean-expressions` in 
 { "rules": { "@typescript-eslint/strict-boolean-expressions": "error" } }
 ```
 
-> [!WARNING]
-> `exactOptionalPropertyTypes: true` makes `where.age = undefined` a type error
-> rather than a silent no-op, which is what you want. Assign inside the `if`,
-> never unconditionally.
+> [!WARNING] `exactOptionalPropertyTypes: true` makes `where.age = undefined` a type error rather than a silent no-op, which is what you want. Assign inside the `if`, never unconditionally.
 
 The spread form has the same bug in a shape the linter rule above does not catch:
 
@@ -50,10 +48,8 @@ The spread form has the same bug in a shape the linter rule above does not catch
 const where: WhereDTO<User> = { age: q.minAge === undefined ? {} : { gte: q.minAge } }; // wrong
 ```
 
-Every key of the operator map is optional, so `{}` type-checks. It used to mean "no operator
-on `age`", which folded to no predicate at all — the column was named and every row matched.
-It is now a `ValidationError` naming the column, so the mistake is a 400 rather than a full
-table scan on a `SELECT` and the whole table on an `UPDATE` or `DELETE`. Omit the key instead:
+Every key of the operator map is optional, so `{}` type-checks. It used to mean "no operator on `age`", which folded to no predicate at all — the column was named and every row matched. It is now a
+`ValidationError` naming the column, so the mistake is a 400 rather than a full table scan on a `SELECT` and the whole table on an `UPDATE` or `DELETE`. Omit the key instead:
 
 ```ts
 const where: WhereDTO<User> = { ...(q.minAge === undefined ? {} : { age: { gte: q.minAge } }) };
@@ -113,11 +109,13 @@ type Sortable = (typeof SORTABLE)[number];
 const column: Sortable = SORTABLE.includes(q.sort as Sortable) ? (q.sort as Sortable) : 'id';
 ```
 
-`orderBy` in the DTO is typed to the schema's columns, so a value from a query string cannot be passed without narrowing it — which is the type system pushing you toward the whitelist rather than a cast.
+`orderBy` in the DTO is typed to the schema's columns, so a value from a query string cannot be passed without narrowing it — which is the type system pushing you toward the whitelist rather than a
+cast.
 
 ## What is not available
 
-There is no `and`/`or` combinator at the DTO level, so a nested `(a AND b) OR (c AND d)` is not expressible in `WhereDTO`. Use the builder's `orWhere`, or [raw SQL](./raw-sql.html) for genuinely complex predicates.
+There is no `and`/`or` combinator at the DTO level, so a nested `(a AND b) OR (c AND d)` is not expressible in `WhereDTO`. Use the builder's `orWhere`, or [raw SQL](./raw-sql.html) for genuinely
+complex predicates.
 
 ---
 

@@ -1,8 +1,5 @@
-> **Database actions are supported; application graph cascades remain explicit.**
-> `OnDelete<…>` and `OnUpdate<…>` are tags on the column that carries
-> `References<…>`. Generated migrations emit and diff the foreign-key
-> constraint. Repository deletes do not walk relation objects or persist an
-> object graph.
+> **Database actions are supported; application graph cascades remain explicit.** `OnDelete<…>` and `OnUpdate<…>` are tags on the column that carries `References<…>`. Generated migrations emit and
+> diff the foreign-key constraint. Repository deletes do not walk relation objects or persist an object graph.
 
 ## Declare the database action
 
@@ -16,9 +13,8 @@ interface Post extends Table<'posts'> {
 }
 ```
 
-The two actions are independent. Omitting either tag emits `NO ACTION`
-explicitly. `OnDelete<'set null'>` is refused on a non-nullable column, and
-`'set default'` is refused unless the column has `HasDefault`.
+The two actions are independent. Omitting either tag emits `NO ACTION` explicitly. `OnDelete<'set null'>` is refused on a non-nullable column, and `'set default'` is refused unless the column has
+`HasDefault`.
 
 The generated PostgreSQL constraint for `authorId` is:
 
@@ -39,8 +35,7 @@ ALTER TABLE `posts`
   ON DELETE CASCADE ON UPDATE NO ACTION
 ```
 
-SQLite has no `ALTER TABLE … ADD CONSTRAINT`, so the same action is inline in
-the table creation:
+SQLite has no `ALTER TABLE … ADD CONSTRAINT`, so the same action is inline in the table creation:
 
 ```sql
 CREATE TABLE "posts" (
@@ -51,9 +46,7 @@ CREATE TABLE "posts" (
 )
 ```
 
-Each `References<'table.column'>` is one single-column constraint. A composite
-foreign key is declared explicitly at table level so separate references are
-never grouped by guesswork:
+Each `References<'table.column'>` is one single-column constraint. A composite foreign key is declared explicitly at table level so separate references are never grouped by guesswork:
 
 ```ts
 import type { ForeignKey } from 'zmdb/tags';
@@ -76,25 +69,17 @@ interface Membership extends Table<'memberships'>, ForeignKey<'tenantId,userId',
 ## Migration behavior and limits
 
 - PostgreSQL, MySQL and SQL Server create all tables first, then add named constraints.
-- MySQL receives a deterministic supporting index immediately before each
-  constraint. `SET DEFAULT` is refused because InnoDB does not implement it.
-- SQLite emits constraints inline in `CREATE TABLE`. A cycle between newly
-  created tables is refused because neither table can be created first.
-- SQL Server emits `NO ACTION` for a declared `RESTRICT`, because T-SQL has no
-  `RESTRICT` keyword.
-- SQLite cannot add, drop or change a constraint on an existing table. The diff
-  names the constraint and requires a hand-written table rebuild.
-- Generated constraint names use `<table>_<column>_fkey`; names longer than
-  PostgreSQL's 63-character limit are refused rather than truncated.
+- MySQL receives a deterministic supporting index immediately before each constraint. `SET DEFAULT` is refused because InnoDB does not implement it.
+- SQLite emits constraints inline in `CREATE TABLE`. A cycle between newly created tables is refused because neither table can be created first.
+- SQL Server emits `NO ACTION` for a declared `RESTRICT`, because T-SQL has no `RESTRICT` keyword.
+- SQLite cannot add, drop or change a constraint on an existing table. The diff names the constraint and requires a hand-written table rebuild.
+- Generated constraint names use `<table>_<column>_fkey`; names longer than PostgreSQL's 63-character limit are refused rather than truncated.
 
-The `node:sqlite` adapter runs `PRAGMA foreign_keys = ON` when it wraps a
-connection, and the repository E2E proves a real `ON DELETE CASCADE`. A custom
-SQLite driver still owns its connection setup.
+The `node:sqlite` adapter runs `PRAGMA foreign_keys = ON` when it wraps a connection, and the repository E2E proves a real `ON DELETE CASCADE`. A custom SQLite driver still owns its connection setup.
 
 ## Cascade in application code when deletion has side effects
 
-When a cascade also archives rows, emits an event or calls a service, make those
-steps explicit in a transaction:
+When a cascade also archives rows, emits an event or calls a service, make those steps explicit in a transaction:
 
 ```ts
 await db.transaction(async () => {
@@ -103,13 +88,11 @@ await db.transaction(async () => {
 });
 ```
 
-Order matters: children first, then the parent, unless the database constraint
-itself uses `CASCADE`.
+Order matters: children first, then the parent, unless the database constraint itself uses `CASCADE`.
 
 ## Persist cascades have no equivalent
 
-MikroORM's `cascade: [Cascade.PERSIST]` writes a new parent and its new children
-from one `flush()`. Here that is two explicit writes in a transaction:
+MikroORM's `cascade: [Cascade.PERSIST]` writes a new parent and its new children from one `flush()`. Here that is two explicit writes in a transaction:
 
 ```ts
 await db.transaction(async () => {
@@ -118,8 +101,7 @@ await db.transaction(async () => {
 });
 ```
 
-The insert order is visible, and there is no identity-map graph walk hidden
-behind the call.
+The insert order is visible, and there is no identity-map graph walk hidden behind the call.
 
 ---
 

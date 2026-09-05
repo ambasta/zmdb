@@ -1,4 +1,5 @@
-Dialect: `'postgres'`. Vercel Postgres is Neon underneath, and the `@vercel/postgres` client is a thin wrapper over `@neondatabase/serverless` — so everything on the [Neon page](./connect-neon.html) applies.
+Dialect: `'postgres'`. Vercel Postgres is Neon underneath, and the `@vercel/postgres` client is a thin wrapper over `@neondatabase/serverless` — so everything on the [Neon page](./connect-neon.html)
+applies.
 
 ## Setup
 
@@ -14,7 +15,8 @@ export const driver: Driver = {
 };
 ```
 
-`sql.query(text, params)` is the parameterised form. The tagged-template form (`sql\`SELECT ...\``) is for hand-written queries; a compiled query already has its parameters separated, so `query` is the one you want.
+`sql.query(text, params)` is the parameterised form. The tagged-template form (`sql\`SELECT ...\``) is for hand-written queries; a compiled query already has its parameters separated, so `query` is
+the one you want.
 
 The client reads `POSTGRES_URL` from the environment automatically, which `vercel env pull` populates locally.
 
@@ -39,7 +41,8 @@ The same warning as Neon: over HTTP, a transaction block does not error — it j
 
 ## Edge runtime
 
-The driver above works in an Edge function unchanged, because it is `fetch` underneath. zmdb itself has nothing that needs Node built-ins on the read path — the compiler is string manipulation and the validators are generated code:
+The driver above works in an Edge function unchanged, because it is `fetch` underneath. zmdb itself has nothing that needs Node built-ins on the read path — the compiler is string manipulation and the
+validators are generated code:
 
 ```ts
 export const runtime = 'edge';
@@ -65,7 +68,8 @@ Do not run the migrator at module scope in a serverless function. Every cold sta
 
 ## Instance count and connections
 
-Serverless functions scale to many instances, each potentially holding a connection. Use the pooled URL for request handling, keep your own `max` at 1 or 2 per instance, and let the pooler do the multiplexing. A `max: 10` in a function that scales to 100 instances is 1000 connections aimed at a database that will accept a fraction of that.
+Serverless functions scale to many instances, each potentially holding a connection. Use the pooled URL for request handling, keep your own `max` at 1 or 2 per instance, and let the pooler do the
+multiplexing. A `max: 10` in a function that scales to 100 instances is 1000 connections aimed at a database that will accept a fraction of that.
 
 ---
 

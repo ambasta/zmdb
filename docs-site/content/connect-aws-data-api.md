@@ -53,9 +53,7 @@ function toField(v: unknown) {
 ```ts
 function unwrap(res: { records?: unknown[][]; columnMetadata?: { name?: string }[] }) {
   const names = (res.columnMetadata ?? []).map(c => c.name ?? '');
-  return (res.records ?? []).map(record =>
-    Object.fromEntries(record.map((field, i) => [names[i] ?? `column_${i}`, fromField(field)])),
-  );
+  return (res.records ?? []).map(record => Object.fromEntries(record.map((field, i) => [names[i] ?? `column_${i}`, fromField(field)])));
 }
 
 function fromField(f: Record<string, unknown>): unknown {
@@ -64,14 +62,9 @@ function fromField(f: Record<string, unknown>): unknown {
 }
 ```
 
-> [!WARNING]
-> `fromField` above uses `??` over the possible keys, which is concise and
-> subtly wrong for `longValue: 0` — `0` is not nullish, so that case is fine, but
-> `booleanValue: false` is also not nullish and also fine, while a genuinely
-> absent field falls through to `null`. Write it as an explicit key check if you
-> care about the difference between a missing field and a null one. This is the
-> kind of place where [validating the rows](./raw-sql.html) against
-> `Entity<S>` earns its keep.
+> [!WARNING] `fromField` above uses `??` over the possible keys, which is concise and subtly wrong for `longValue: 0` — `0` is not nullish, so that case is fine, but `booleanValue: false` is also not
+> nullish and also fine, while a genuinely absent field falls through to `null`. Write it as an explicit key check if you care about the difference between a missing field and a null one. This is the
+> kind of place where [validating the rows](./raw-sql.html) against `Entity<S>` earns its keep.
 
 ## Transactions
 
@@ -87,7 +80,8 @@ Build a second `Driver` that carries the id and pass that one to `createTransact
 
 ## Why use it
 
-**No connection management from Lambda.** The reason the Data API exists: a Lambda that scales to hundreds of concurrent invocations cannot each hold a Postgres connection. HTTP has none to hold. See [Serverless Performance](./perf-serverless.html).
+**No connection management from Lambda.** The reason the Data API exists: a Lambda that scales to hundreds of concurrent invocations cannot each hold a Postgres connection. HTTP has none to hold. See
+[Serverless Performance](./perf-serverless.html).
 
 **IAM instead of credentials in the environment**, since access is authorised by role.
 
@@ -97,7 +91,8 @@ Build a second `Driver` that carries the id and pass that one to `createTransact
 
 **No cursors, and row-count limits.** Large result sets are truncated or rejected. Paginate everything.
 
-For a long-running server, use a normal Postgres connection to the same cluster instead — see [Postgres](./connect-postgres.html). The Data API is for the case where connection count is the binding constraint.
+For a long-running server, use a normal Postgres connection to the same cluster instead — see [Postgres](./connect-postgres.html). The Data API is for the case where connection count is the binding
+constraint.
 
 ---
 

@@ -22,6 +22,17 @@
   ],
   "insertFinalNewline": true,
   "objectWrap": "preserve",
+  "overrides": [
+    {
+      "files": ["*.md", "*.mdx"],
+      "options": {
+        "printWidth": 200,
+        "proseWrap": "always",
+        "singleAttributePerLine": false,
+        "tabWidth": 2
+      }
+    }
+  ],
   "printWidth": 120,
   "proseWrap": "preserve",
   "quoteProps": "as-needed",

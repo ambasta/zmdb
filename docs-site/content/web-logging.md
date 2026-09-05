@@ -1,8 +1,5 @@
-There is no `Logger` service and no bundled logger — [zero runtime
-dependencies](./why-zmdb.html). What you get is the two seams worth logging at:
-an [interceptor](./web-middleware.html) around a handler, and a `Driver` wrapper
-around every query. Both take the sink as an argument, so tests assert on records
-instead of scraping stdout.
+There is no `Logger` service and no bundled logger — [zero runtime dependencies](./why-zmdb.html). What you get is the two seams worth logging at: an [interceptor](./web-middleware.html) around a
+handler, and a `Driver` wrapper around every query. Both take the sink as an argument, so tests assert on records instead of scraping stdout.
 
 ## Structured, not printf
 
@@ -16,9 +13,7 @@ export const jsonLines: Sink = record => {
 };
 ```
 
-One JSON object per line. Every log platform ingests it, every field is
-queryable, and nothing needs a regex to parse. A formatted string is a field you
-cannot filter on.
+One JSON object per line. Every log platform ingests it, every field is queryable, and nothing needs a regex to parse. A formatted string is a field you cannot filter on.
 
 ## Request logging
 
@@ -48,22 +43,16 @@ export function requestLog(sink: Sink): Interceptor {
 }
 ```
 
-Two corrections to the obvious version of this. `next()` resolves to the
-**handler's return value**, not a `WebResponse` — there is no `result.status` to
-log, because the router assigns the status after the chain is done. And `Ctx` has
-no `route` field: it carries `params`, `body`, `query`, `headers`, `method`,
-`path` and optional `span`. `ctx.path` is the concrete path, `/users/42`; the
-span is explicit trace context, not a general state bag.
+Two corrections to the obvious version of this. `next()` resolves to the **handler's return value**, not a `WebResponse` — there is no `result.status` to log, because the router assigns the status
+after the chain is done. And `Ctx` has no `route` field: it carries `params`, `body`, `query`, `headers`, `method`, `path` and optional `span`. `ctx.path` is the concrete path, `/users/42`; the span
+is explicit trace context, not a general state bag.
 
-> [!WARNING]
-> **The router does not call `runChain`**, so an interceptor registered on a
-> controller does nothing — invoke the chain in the handler, or log in your adapter
-> instead. See [Request Lifecycle](./web-request-lifecycle.html).
+> [!WARNING] **The router does not call `runChain`**, so an interceptor registered on a controller does nothing — invoke the chain in the handler, or log in your adapter instead. See
+> [Request Lifecycle](./web-request-lifecycle.html).
 
 ## Logging in the adapter instead
 
-The adapter sees the status, the byte count and every request including the 404s,
-which makes it the better place for access logging:
+The adapter sees the status, the byte count and every request including the 404s, which makes it the better place for access logging:
 
 ```ts
 import { bodyText } from '@zmdb/web';
@@ -84,23 +73,17 @@ createServer(async (req, res) => {
 });
 ```
 
-Echo the request id back to correlate logs. Distributed traces use the W3C
-`traceparent` and optional `tracestate` carrier instead. The custom logger
-buffers a streamed body; `toNodeHandler` preserves backpressure and
-cancellation.
+Echo the request id back to correlate logs. Distributed traces use the W3C `traceparent` and optional `tracestate` carrier instead. The custom logger buffers a streamed body; `toNodeHandler` preserves
+backpressure and cancellation.
 
 `webRequest(req)` is the `WebRequest` the adapter builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
 
-> [!NOTE]
-> `ctx.path` is high-cardinality: `/users/1`, `/users/2`, … Fine in logs, wrong for
-> [metrics](./web-observability.html) — label a counter with the route **pattern**
-> from `getRoutes`, or you will create a time series per user id and take your
-> metrics backend down.
+> [!NOTE] `ctx.path` is high-cardinality: `/users/1`, `/users/2`, … Fine in logs, wrong for [metrics](./web-observability.html) — label a counter with the route **pattern** from `getRoutes`, or you
+> will create a time series per user id and take your metrics backend down.
 
 ## Logging queries
 
-A `Driver` wrapper covers handlers, workers and CLI scripts alike, because it sits
-under all of them:
+A `Driver` wrapper covers handlers, workers and CLI scripts alike, because it sits under all of them:
 
 ```ts
 import type { Driver } from '@zmdb/repository';
@@ -129,20 +112,14 @@ export function loggingDriver(inner: Driver, sink: Sink): Driver {
 }
 ```
 
-`query.text` is safe to log: it contains placeholders (`$1`, `?`) and never the
-values, because the compiler never interpolates. `query.parameters` is the
-opposite — log the **count**, or the types, never the contents.
+`query.text` is safe to log: it contains placeholders (`$1`, `?`) and never the values, because the compiler never interpolates. `query.parameters` is the opposite — log the **count**, or the types,
+never the contents.
 
-> [!WARNING]
-> Query parameters are the user's data: email addresses, tokens, the plaintext of
-> whatever you are about to hash. The same applies to request bodies, the
-> `authorization` header, `cookie`, and any upstream response body. Logs are
-> replicated, retained for years, and readable by more people than your database —
-> a `console.log(ctx.body)` added during debugging is a data breach that passes
-> code review because it looks like debugging.
+> [!WARNING] Query parameters are the user's data: email addresses, tokens, the plaintext of whatever you are about to hash. The same applies to request bodies, the `authorization` header, `cookie`,
+> and any upstream response body. Logs are replicated, retained for years, and readable by more people than your database — a `console.log(ctx.body)` added during debugging is a data breach that
+> passes code review because it looks like debugging.
 
-Redact by allow-list, not deny-list — log the fields you chose, rather than
-removing the ones you remembered.
+Redact by allow-list, not deny-list — log the fields you chose, rather than removing the ones you remembered.
 
 ## Levels, and what to put at each
 
@@ -153,8 +130,7 @@ removing the ones you remembered.
 | `info`  | one line per request, plus significant state changes                   |
 | `debug` | queries, payload shapes; off in production                             |
 
-Log an error **once**, where you handle it. Logging at every frame on the way up
-turns one incident into thirty lines and makes the rate meaningless.
+Log an error **once**, where you handle it. Logging at every frame on the way up turns one incident into thirty lines and makes the rate meaningless.
 
 ## Injecting the sink
 
@@ -173,16 +149,13 @@ await using app = createTestApp(AppModule, {
 expect(records.at(-1)).toMatchObject({ level: 'error', status: 500 });
 ```
 
-Which makes logging _testable_: the assertion that an error path actually logs is
-the assertion nobody writes, and it is the one that matters at 3am.
+Which makes logging _testable_: the assertion that an error path actually logs is the assertion nobody writes, and it is the one that matters at 3am.
 
 ## Design notes
 
-- No global logger and no ambient context, so nothing to reset between tests and
-  nothing shared between concurrent requests. A traced handler can read
-  `ctx.span?.spanContext()` explicitly when a log needs trace correlation.
-- `sink` is one function type — adapt pino, `console`, or an array in a test in a
-  single line.
+- No global logger and no ambient context, so nothing to reset between tests and nothing shared between concurrent requests. A traced handler can read `ctx.span?.spanContext()` explicitly when a log
+  needs trace correlation.
+- `sink` is one function type — adapt pino, `console`, or an array in a test in a single line.
 - Granular imports: `@zmdb/web/middleware`, `@zmdb/repository`.
 
 ---

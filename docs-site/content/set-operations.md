@@ -1,4 +1,5 @@
-Set operations combine result sets from multiple queries — UNION, INTERSECT, and EXCEPT. Batch executes multiple statements in a single round-trip. zmdb's query compiler exposes both primitives directly, giving you full control over SQL generation.
+Set operations combine result sets from multiple queries — UNION, INTERSECT, and EXCEPT. Batch executes multiple statements in a single round-trip. zmdb's query compiler exposes both primitives
+directly, giving you full control over SQL generation.
 
 ## UNION / UNION ALL
 
@@ -35,8 +36,7 @@ const activeWithOrders = setOperation('intersect', [activeUsersQuery, ordersQuer
 const neverOrdered = setOperation('except', [allUsersQuery, ordersQuery], 'postgres');
 ```
 
-> [!NOTE]
-> All queries in a set operation must have the same column count and compatible types. The query compiler doesn't validate this — your database will reject mismatched unions.
+> [!NOTE] All queries in a set operation must have the same column count and compatible types. The query compiler doesn't validate this — your database will reject mismatched unions.
 
 ## Batch Execution
 
@@ -82,8 +82,7 @@ const combined = setOperation('union', [q1, q2], 'postgres');
 // combined.parameters => [1, 2] (assuming q2 had one param)
 ```
 
-> [!WARNING]
-> Batch does NOT guarantee transaction semantics by default. Wrap in a transaction if you need atomicity.
+> [!WARNING] Batch does NOT guarantee transaction semantics by default. Wrap in a transaction if you need atomicity.
 
 ---
 

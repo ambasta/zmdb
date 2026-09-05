@@ -1,11 +1,9 @@
-Stored functions and procedures use one `RoutineDef` for typed calls and
-explicit DDL. Calls validate the declared arguments and results, while routine
-bodies remain opaque text that migration authors manage explicitly.
+Stored functions and procedures use one `RoutineDef` for typed calls and explicit DDL. Calls validate the declared arguments and results, while routine bodies remain opaque text that migration authors
+manage explicitly.
 
 ## Call an existing routine
 
-Declare the signature once, then expose the protected repository call through
-an application-named method:
+Declare the signature once, then expose the protected repository call through an application-named method:
 
 ```ts
 import type { RoutineDef } from '@zmdb/query-compiler/schema-objects';
@@ -35,19 +33,13 @@ class OrdersRepository extends BaseRepository<Order> {
 }
 ```
 
-`ArgsOf` derives `readonly [Date]` from the parameter declaration.
-`ResultOf` derives `number`; a procedure derives `void`, and a scalar `setof`
-function derives a readonly array. Arguments are checked before SQL is compiled,
-every value is bound, and returned values are decoded and validated against the
-same declaration.
+`ArgsOf` derives `readonly [Date]` from the parameter declaration. `ResultOf` derives `number`; a procedure derives `void`, and a scalar `setof` function derives a readonly array. Arguments are
+checked before SQL is compiled, every value is bound, and returned values are decoded and validated against the same declaration.
 
-Calls made through a repository returned by `withTransaction(tx)` use the
-transaction connection. zmdb cannot inspect an opaque routine body to discover
-an internal `COMMIT` or `ROLLBACK`; keep transaction-controlling procedures
-outside an outer transaction.
+Calls made through a repository returned by `withTransaction(tx)` use the transaction connection. zmdb cannot inspect an opaque routine body to discover an internal `COMMIT` or `ROLLBACK`; keep
+transaction-controlling procedures outside an outer transaction.
 
-The lower SQL layer is available when validation is deliberately owned
-elsewhere:
+The lower SQL layer is available when validation is deliberately owned elsewhere:
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
@@ -57,39 +49,27 @@ await driver.execute(calls.callFunction('archive_old_orders', [cutoff]));
 await driver.execute(calls.callProcedure('rebuild_search_index', []));
 ```
 
-That layer accepts a string name and `readonly unknown[]`. It quotes the name and
-binds every value, but it cannot prove that the selected routine or its
-arguments match a declaration. Do not feed it a request-selected routine;
-request-derived values belong through the declared repository call.
+That layer accepts a string name and `readonly unknown[]`. It quotes the name and binds every value, but it cannot prove that the selected routine or its arguments match a declaration. Do not feed it
+a request-selected routine; request-derived values belong through the declared repository call.
 
 ### Why validation is a security boundary
 
-Binding protects the outer `SELECT` or `CALL`, not dynamic SQL assembled inside
-an opaque routine body. A routine created outside zmdb may also run with definer
-rights, turning permission to call it into permission to act as its owner. The
-repository therefore checks the declaration, arity, and app-layer argument
-types before compiling the call. Routine authors must still parameterize or
-validate any dynamic SQL inside the body.
+Binding protects the outer `SELECT` or `CALL`, not dynamic SQL assembled inside an opaque routine body. A routine created outside zmdb may also run with definer rights, turning permission to call it
+into permission to act as its owner. The repository therefore checks the declaration, arity, and app-layer argument types before compiling the call. Routine authors must still parameterize or validate
+any dynamic SQL inside the body.
 
-Generated MySQL DDL uses `SQL SECURITY INVOKER`, and the declaration does not
-offer definer rights. Quoting a request-selected name would prevent identifier
-injection but would still let the request choose which privileged program to
-run, which is why the typed path takes a declared `RoutineDef` rather than a
-name.
+Generated MySQL DDL uses `SQL SECURITY INVOKER`, and the declaration does not offer definer rights. Quoting a request-selected name would prevent identifier injection but would still let the request
+choose which privileged program to run, which is why the typed path takes a declared `RoutineDef` rather than a name.
 
 ## Manage an opaque body
 
-Use the same declaration from the call site when emitting an explicit
-migration:
+Use the same declaration from the call site when emitting an explicit migration:
 
 ```ts
 import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '@zmdb/query-compiler/schema-objects';
 import type { MigrationConnection } from '@zmdb/query-compiler/migrations';
 
-export async function applyArchiveOldOrders(
-  migrationConnection: MigrationConnection,
-  previous: RoutineDef | undefined,
-): Promise<void> {
+export async function applyArchiveOldOrders(migrationConnection: MigrationConnection, previous: RoutineDef | undefined): Promise<void> {
   const changed = previous === undefined || routineFingerprint(previous) !== routineFingerprint(archiveOldOrders);
   const statements = changed ? replaceRoutineStatements(previous, archiveOldOrders, 'postgres') : [];
 
@@ -97,25 +77,16 @@ export async function applyArchiveOldOrders(
 }
 ```
 
-`routineFingerprint` covers the declaration and strips only trailing whitespace
-from each line and trailing newlines from the body. With the comparison above,
-a reindent, comment edit, or keyword case change produces a different
-fingerprint and re-emits the routine. zmdb does not parse or otherwise normalize
-the body.
+`routineFingerprint` covers the declaration and strips only trailing whitespace from each line and trailing newlines from the body. With the comparison above, a reindent, comment edit, or keyword case
+change produces a different fingerprint and re-emits the routine. zmdb does not parse or otherwise normalize the body.
 
-`createRoutineDdl` returns one driver statement. `replaceRoutineStatements`
-returns an ordered array because MySQL replacement is `DROP` followed by
-`CREATE`, and `DELIMITER` is a mysql CLI directive rather than SQL. Execute each
-element separately; joining on semicolons breaks routine bodies.
+`createRoutineDdl` returns one driver statement. `replaceRoutineStatements` returns an ordered array because MySQL replacement is `DROP` followed by `CREATE`, and `DELIMITER` is a mysql CLI directive
+rather than SQL. Execute each element separately; joining on semicolons breaks routine bodies.
 
-Postgres uses `CREATE OR REPLACE` while the signature is unchanged. A signature
-change first drops the previous typed signature so it cannot quietly leave an
-old overload behind. MySQL always drops then creates, and those two DDL
-statements are not atomic because MySQL commits DDL implicitly.
+Postgres uses `CREATE OR REPLACE` while the signature is unchanged. A signature change first drops the previous typed signature so it cannot quietly leave an old overload behind. MySQL always drops
+then creates, and those two DDL statements are not atomic because MySQL commits DDL implicitly.
 
-Migration snapshots and diffs do not carry `RoutineDef` values. Store the
-previous declaration with migration state you own, decide where the statements
-run, and execute the ordered result through a
+Migration snapshots and diffs do not carry `RoutineDef` values. Store the previous declaration with migration state you own, decide where the statements run, and execute the ordered result through a
 [custom migration](./migrations-custom.html).
 
 ## Dialect behavior
@@ -129,14 +100,9 @@ run, and execute the ordered result through a
 | sqlite      | refuses                                                                         | refuses                                                     |
 | mssql       | refuses                                                                         | refuses                                                     |
 
-Only input parameters are supported: `out` and `inout` are refused. Function
-returns are scalar SQL types or, on the Postgres family, a `setof` scalar; composite/table
-returns and overload declarations are not represented. SQLite has no stored
-routines, so both DDL and calls fail explicitly rather than being emulated.
-SQL Server also refuses this surface: its routine grammar and return shapes are
-not represented by the current `RoutineDef`. SingleStore calls can target
-hand-written routines, but its declaration grammar is likewise not represented
-by `RoutineDef`.
+Only input parameters are supported: `out` and `inout` are refused. Function returns are scalar SQL types or, on the Postgres family, a `setof` scalar; composite/table returns and overload
+declarations are not represented. SQLite has no stored routines, so both DDL and calls fail explicitly rather than being emulated. SQL Server also refuses this surface: its routine grammar and return
+shapes are not represented by the current `RoutineDef`. SingleStore calls can target hand-written routines, but its declaration grammar is likewise not represented by `RoutineDef`.
 
 ## Deliberate boundaries
 

@@ -1,4 +1,5 @@
-Create, Read, Update, and Delete operations form the backbone of any data layer. zmdb's repository provides full CRUD semantics with automatic validation against your schema, ensuring that only well-typed data reaches the database.
+Create, Read, Update, and Delete operations form the backbone of any data layer. zmdb's repository provides full CRUD semantics with automatic validation against your schema, ensuring that only
+well-typed data reaches the database.
 
 ## Create
 
@@ -19,8 +20,7 @@ INSERT INTO "users" ("email", "role") VALUES ($1, $2) RETURNING *
 -- parameters: ['alice@example.com', 'user']
 ```
 
-> [!IMPORTANT]
-> If validation fails, **no SQL is executed**. The driver is never called with an invalid payload.
+> [!IMPORTANT] If validation fails, **no SQL is executed**. The driver is never called with an invalid payload.
 
 ## Read
 
@@ -42,9 +42,7 @@ const allUsers = await users.findAll();
 
 ## Update
 
-Partial update. The payload is an `UpdatePatch<S>` — all fields are optional;
-ordinary values must match `UpdateDTO<S>`, and branded expression operands must
-match the same column type.
+Partial update. The payload is an `UpdatePatch<S>` — all fields are optional; ordinary values must match `UpdateDTO<S>`, and branded expression operands must match the same column type.
 
 ```ts
 import { inc } from 'zmdb';
@@ -63,14 +61,10 @@ UPDATE "users" SET "role" = $1 WHERE "id" = $2 RETURNING *
 -- parameters: ['admin', 1]
 ```
 
-The Postgres family, SQLite and SQL Server expression-bearing keyed updates
-return the computed row; `updateMany` returns the number of rows returned. The
-MySQL family omits unsupported `RETURNING` for expression-bearing keyed updates
-and every `updateMany`, so those calls resolve to `undefined` without issuing a
-follow-up `SELECT`.
+The Postgres family, SQLite and SQL Server expression-bearing keyed updates return the computed row; `updateMany` returns the number of rows returned. The MySQL family omits unsupported `RETURNING`
+for expression-bearing keyed updates and every `updateMany`, so those calls resolve to `undefined` without issuing a follow-up `SELECT`.
 
-> [!WARNING]
-> Unlike ORM proxies, zmdb rows are inert. Mutating a fetched object **does not persist**:
+> [!WARNING] Unlike ORM proxies, zmdb rows are inert. Mutating a fetched object **does not persist**:
 
 ```ts
 const user = await users.findById(1);
@@ -81,12 +75,9 @@ await users.update(1, { role: 'admin' }); // ✅ Explicit update required
 
 ## Delete
 
-Remove a row by ID. Returns `true` if a row was deleted, `false` if the ID didn't exist.
-On a table declared with `SoftDelete<'deletedAt'>`, this is a guarded `UPDATE`
-that records a Node `Date`; use `hardDelete(id)` for a deliberate physical delete
-and `restore(id)` to clear the managed timestamp. The
-[Entity Filters](./entity-filters.html) guide covers visibility escapes, write
-filters, relation targets, and unique-index behavior.
+Remove a row by ID. Returns `true` if a row was deleted, `false` if the ID didn't exist. On a table declared with `SoftDelete<'deletedAt'>`, this is a guarded `UPDATE` that records a Node `Date`; use
+`hardDelete(id)` for a deliberate physical delete and `restore(id)` to clear the managed timestamp. The [Entity Filters](./entity-filters.html) guide covers visibility escapes, write filters, relation
+targets, and unique-index behavior.
 
 ```ts
 const deleted = await users.delete(1);
@@ -110,17 +101,14 @@ RETURNING "id"
 
 ## Validation Semantics
 
-`create`, `update`, `updateMany`, and the update object passed to `upsert` run
-validation before compiling SQL:
+`create`, `update`, `updateMany`, and the update object passed to `upsert` run validation before compiling SQL:
 
 | Operation | Auto-increment fields   | Fields with defaults | Required fields    |
 | --------- | ----------------------- | -------------------- | ------------------ |
 | create    | **Rejected** (always)   | Optional             | Must be present    |
 | update    | Ignored (cannot update) | Optional             | N/A (all optional) |
 
-For an expression-valued update, only that key is removed from the ordinary
-row-value check; its operand is validated against the column's app type, and
-every ordinary sibling remains strict.
+For an expression-valued update, only that key is removed from the ordinary row-value check; its operand is validated against the column's app type, and every ordinary sibling remains strict.
 
 ```ts
 // This throws — id is auto-increment
@@ -130,8 +118,7 @@ await users.create({ id: 999, email: 'test@example.com' });
 await users.create({}); // email is required
 ```
 
-> [!TIP]
-> The validation error includes a structured `issues` array with paths and messages, useful for API error responses.
+> [!TIP] The validation error includes a structured `issues` array with paths and messages, useful for API error responses.
 
 ## Cross-links
 

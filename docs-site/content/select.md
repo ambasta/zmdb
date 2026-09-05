@@ -1,7 +1,5 @@
-zmdb's query builder is **SQL-first**: it maps directly to SQL rather than hiding
-it behind an object graph. Every builder call is typed against your schema, and
-`.compile()` returns a parameterized `{ text, parameters }` — nothing runs until
-you hand it to a driver.
+zmdb's query builder is **SQL-first**: it maps directly to SQL rather than hiding it behind an object graph. Every builder call is typed against your schema, and `.compile()` returns a parameterized
+`{ text, parameters }` — nothing runs until you hand it to a driver.
 
 The examples below assume this schema:
 
@@ -29,13 +27,11 @@ const q = qc.selectFrom('users').compile();
 SELECT * FROM "users"
 ```
 
-Through a repository you usually call `findAll()` / `findById()` instead, which
-return `Entity<S>` objects.
+Through a repository you usually call `findAll()` / `findById()` instead, which return `Entity<S>` objects.
 
 ## Partial select (projection)
 
-Pass the columns you want. Combined with the DTO `project`/`select` helpers this
-also **narrows the result type** to the chosen columns.
+Pass the columns you want. Combined with the DTO `project`/`select` helpers this also **narrows the result type** to the chosen columns.
 
 ```ts
 qc.selectFrom('users').select(['id', 'email']).compile();
@@ -45,15 +41,12 @@ qc.selectFrom('users').select(['id', 'email']).compile();
 SELECT "id", "email" FROM "users"
 ```
 
-> [!NOTE]
-> zmdb lists columns explicitly rather than emitting `SELECT *` when you project,
-> so the column order in the result is deterministic. See [Projections](./projections.html)
-> for the typed `Projection<S, K>` narrowing.
+> [!NOTE] zmdb lists columns explicitly rather than emitting `SELECT *` when you project, so the column order in the result is deterministic. See [Projections](./projections.html) for the typed
+> `Projection<S, K>` narrowing.
 
 ## Filtering
 
-`where(column, operator, value)` adds a predicate; chained `where`/`andWhere` are
-ANDed and `orWhere` is ORed. Values are always parameterized.
+`where(column, operator, value)` adds a predicate; chained `where`/`andWhere` are ANDed and `orWhere` is ORed. Values are always parameterized.
 
 ```ts
 qc.selectFrom('users').where('role', '=', 'admin').andWhere('email', 'like', '%@corp.com').compile();
@@ -64,8 +57,7 @@ SELECT * FROM "users" WHERE "role" = $1 AND "email" LIKE $2
 -- parameters: ['admin', '%@corp.com']
 ```
 
-For a typed, schema-derived filter object (operator sets, AND/OR groups), use
-[`compileWhere` + WhereDTO](./filters.html).
+For a typed, schema-derived filter object (operator sets, AND/OR groups), use [`compileWhere` + WhereDTO](./filters.html).
 
 ## Ordering
 
@@ -87,8 +79,7 @@ qc.selectFrom('users').orderBy('id', 'asc').limit(20).offset(40).compile();
 SELECT * FROM "users" ORDER BY "id" ASC LIMIT 20 OFFSET 40
 ```
 
-See [Ordering & pagination](./pagination.html) for typed `OrderByDTO` /
-`PaginationDTO` and keyset (cursor) pagination.
+See [Ordering & pagination](./pagination.html) for typed `OrderByDTO` / `PaginationDTO` and keyset (cursor) pagination.
 
 ## Dialect differences
 
@@ -106,8 +97,7 @@ createQueryCompiler('mysql').selectFrom('users').where('id', '=', 1).compile();
 // text: SELECT * FROM `users` WHERE `id` = ?   parameters: [1]
 ```
 
-SQL Server pagination uses `OFFSET … ROWS FETCH NEXT … ROWS ONLY` and requires
-an explicit `.orderBy(...)`; an unordered paginated query is refused.
+SQL Server pagination uses `OFFSET … ROWS FETCH NEXT … ROWS ONLY` and requires an explicit `.orderBy(...)`; an unordered paginated query is refused.
 
 ## Next steps
 

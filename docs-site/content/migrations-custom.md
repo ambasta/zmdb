@@ -1,7 +1,5 @@
-Generated migrations cover tables, columns, and installation of extensions
-required by extension-backed columns. Everything else — views, triggers,
-extension upgrades or removal, data backfills, index rebuilds — is a migration
-you write. The runner does not care which kind it is.
+Generated migrations cover tables, columns, and installation of extensions required by extension-backed columns. Everything else — views, triggers, extension upgrades or removal, data backfills, index
+rebuilds — is a migration you write. The runner does not care which kind it is.
 
 ## The shape
 
@@ -41,7 +39,8 @@ export const migrations: Migration[] = [
 ];
 ```
 
-That three-step split — add nullable, backfill, tighten — is how you add a `NOT NULL` column to a populated table without a full-table exclusive lock and without a default you do not want. Doing it in one step is the most common cause of a migration that works on an empty test database and locks production.
+That three-step split — add nullable, backfill, tighten — is how you add a `NOT NULL` column to a populated table without a full-table exclusive lock and without a default you do not want. Doing it in
+one step is the most common cause of a migration that works on an empty test database and locks production.
 
 ## Multiple statements
 
@@ -54,11 +53,13 @@ up: [
 ].join(';\n'),
 ```
 
-`node-postgres` accepts multi-statement strings and runs them in one implicit transaction. `mysql2` needs `multipleStatements: true`. If you would rather not depend on that, make each statement its own migration — more entries, no ambiguity.
+`node-postgres` accepts multi-statement strings and runs them in one implicit transaction. `mysql2` needs `multipleStatements: true`. If you would rather not depend on that, make each statement its
+own migration — more entries, no ambiguity.
 
 ## Data migrations
 
-A backfill that cannot be expressed as one `UPDATE` is a script, not a migration. Migrations run inside a transaction and hold locks; a loop over a million rows should not. Do the structural change as a migration and the backfill as a separately-run, resumable job:
+A backfill that cannot be expressed as one `UPDATE` is a script, not a migration. Migrations run inside a transaction and hold locks; a loop over a million rows should not. Do the structural change as
+a migration and the backfill as a separately-run, resumable job:
 
 ```ts
 // scripts/backfill-slug.ts — run after migration 5, before 7
@@ -95,9 +96,7 @@ const dialect = process.env.DB_DIALECT as Dialect;
 export const migrations = dialect === 'postgres' ? pgMigrations : sqliteMigrations;
 ```
 
-Hand-written migrations usually have to fork too — even among the four root
-dialects, `ALTER COLUMN` has different grammar. Cockroach and SingleStore
-inherit the Postgres and MySQL forms respectively.
+Hand-written migrations usually have to fork too — even among the four root dialects, `ALTER COLUMN` has different grammar. Cockroach and SingleStore inherit the Postgres and MySQL forms respectively.
 
 ## Testing them
 

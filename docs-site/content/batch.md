@@ -1,4 +1,5 @@
-Batch operations execute multiple statements in a single database round-trip. Use `batch` when you need to run several independent queries together — bulk inserts, multi-table updates, or grouped operations that benefit from a single network call.
+Batch operations execute multiple statements in a single database round-trip. Use `batch` when you need to run several independent queries together — bulk inserts, multi-table updates, or grouped
+operations that benefit from a single network call.
 
 ## The Batch Handle
 
@@ -32,8 +33,7 @@ const results = await batchHandle.execute(async statements => {
 
 The callback receives all compiled statements and returns an array of results in the same order.
 
-> [!NOTE]
-> Not all drivers support multi-statement execution. Check your driver documentation. For PostgreSQL, use `pg`'s query chaining or a transaction.
+> [!NOTE] Not all drivers support multi-statement execution. Check your driver documentation. For PostgreSQL, use `pg`'s query chaining or a transaction.
 
 ## Bulk Inserts
 
@@ -63,8 +63,7 @@ The query compiler handles parameter arrays correctly. Each statement has its ow
 // Combined params => ['Alice', 'alice@example.com', 'Bob', 'bob@example.com']
 ```
 
-> [!WARNING]
-> Batch does NOT guarantee atomicity by default. Wrap in a transaction if all-or-nothing semantics are required.
+> [!WARNING] Batch does NOT guarantee atomicity by default. Wrap in a transaction if all-or-nothing semantics are required.
 
 ## Empty Batches
 
@@ -78,8 +77,7 @@ const result = await empty.execute(async () => {
 // result => []
 ```
 
-> [!TIP]
-> Use batch for independent operations. If operations have dependencies (e.g., insert then query the ID), use a transaction instead.
+> [!TIP] Use batch for independent operations. If operations have dependencies (e.g., insert then query the ID), use a transaction instead.
 
 ---
 

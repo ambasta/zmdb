@@ -1,4 +1,5 @@
-Cookies can be **read** in a handler, from `ctx.headers.cookie`. They cannot be **set** from a handler — the router controls the response headers — so `set-cookie` goes in your adapter. There is no session middleware; a session store is a provider you inject.
+Cookies can be **read** in a handler, from `ctx.headers.cookie`. They cannot be **set** from a handler — the router controls the response headers — so `set-cookie` goes in your adapter. There is no
+session middleware; a session store is a provider you inject.
 
 ## Reading a cookie
 
@@ -23,7 +24,8 @@ async me(ctx: Ctx<Record<never, string>, unknown>) {
 }
 ```
 
-Split on the **first** `=` only. A cookie value can contain `=` (base64 padding, for instance), and `split('=')` truncates it — which produces an intermittently invalid session id that is very hard to debug.
+Split on the **first** `=` only. A cookie value can contain `=` (base64 padding, for instance), and `split('=')` truncates it — which produces an intermittently invalid session id that is very hard to
+debug.
 
 ## Setting one
 
@@ -43,9 +45,11 @@ createServer(async (req, res) => {
 });
 ```
 
-`webRequest(req)` is the `WebRequest` build the adapter does itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html). Note that it consumes the request stream, so a login `POST` body reaches the handler only if the adapter reads it there rather than after `app.handle`.
+`webRequest(req)` is the `WebRequest` build the adapter does itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html). Note that it
+consumes the request stream, so a login `POST` body reaches the handler only if the adapter reads it there rather than after `app.handle`.
 
-Getting the value from the handler to the adapter is the awkward part, since there is no response object to attach it to. The workable arrangement is to have the login route return the session id in its body and let the adapter turn that into a cookie for that one path:
+Getting the value from the handler to the adapter is the awkward part, since there is no response object to attach it to. The workable arrangement is to have the login route return the session id in
+its body and let the adapter turn that into a cookie for that one path:
 
 ```ts
 const path = (req.url ?? '/').split('?')[0];
@@ -55,9 +59,8 @@ if (path === '/auth/login' && out.status === 200) {
 }
 ```
 
-Ugly, and clear about the limitation. If cookies are central to your application, a bearer token in the `Authorization` header avoids this entirely and is the shape the framework is built for.
-The custom cookie adapter buffers a streamed body; the login response is
-deliberately a small JSON text response.
+Ugly, and clear about the limitation. If cookies are central to your application, a bearer token in the `Authorization` header avoids this entirely and is the shape the framework is built for. The
+custom cookie adapter buffers a streamed body; the login response is deliberately a small JSON text response.
 
 ## The attributes, and why each one
 
@@ -75,7 +78,8 @@ sid=…; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800
 
 All five. `HttpOnly` and `Secure` are the two that turn a survivable bug into a breach.
 
-Do not put anything but an opaque identifier in a cookie. A cookie containing a user id, a role or JSON is client-controlled data that arrives back looking authoritative — the classic privilege escalation. If you must, sign it and verify the signature with `timingSafeEqual`.
+Do not put anything but an opaque identifier in a cookie. A cookie containing a user id, a role or JSON is client-controlled data that arrives back looking authoritative — the classic privilege
+escalation. If you must, sign it and verify the signature with `timingSafeEqual`.
 
 ## A session store as a provider
 
@@ -141,10 +145,8 @@ export interface Session extends Table<'sessions'> {
 }
 ```
 
-Create an explicit unique index on `token_hash` with `createIndexDdl`, then
-delete expired rows on a schedule — see [Indexes & Constraints](./indexes-constraints.html)
-and [Task Scheduling](./web-task-scheduling.html). One fewer system to run, one
-more query per request.
+Create an explicit unique index on `token_hash` with `createIndexDdl`, then delete expired rows on a schedule — see [Indexes & Constraints](./indexes-constraints.html) and
+[Task Scheduling](./web-task-scheduling.html). One fewer system to run, one more query per request.
 
 ---
 

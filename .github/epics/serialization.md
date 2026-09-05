@@ -2,7 +2,8 @@
 
 ## Goal
 
-Provide typia-grade JSON serialization — a compile-time-generated, allocation-lean `stringify` that is dramatically faster than `JSON.stringify` for known schema types, and a matching typed `parse`/decode path. Serialization code is emitted by `@zmdb/aot-validator`'s transformer from the schema/type.
+Provide typia-grade JSON serialization — a compile-time-generated, allocation-lean `stringify` that is dramatically faster than `JSON.stringify` for known schema types, and a matching typed
+`parse`/decode path. Serialization code is emitted by `@zmdb/aot-validator`'s transformer from the schema/type.
 
 ## Parity Reference
 

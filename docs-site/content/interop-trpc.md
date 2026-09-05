@@ -1,4 +1,5 @@
-tRPC gives you end-to-end typed RPC with no code generation. zmdb gives you typed data access and typed HTTP. They overlap on the HTTP layer and complement each other everywhere else — using tRPC for transport and zmdb for the data layer is a sensible architecture.
+tRPC gives you end-to-end typed RPC with no code generation. zmdb gives you typed data access and typed HTTP. They overlap on the HTTP layer and complement each other everywhere else — using tRPC for
+transport and zmdb for the data layer is a sensible architecture.
 
 ## zmdb as tRPC's data layer
 
@@ -12,23 +13,17 @@ import type { CreateDTO, ListDTO } from '@zmdb/repository';
 const t = initTRPC.context<{ postRepo: PostRepo }>().create();
 
 export const appRouter = t.router({
-  list: t.procedure
-    .input((raw: unknown) => assert<ListDTO<Post>>(raw))
-    .query(({ input, ctx }) => ctx.postRepo.list(input)),
+  list: t.procedure.input((raw: unknown) => assert<ListDTO<Post>>(raw)).query(({ input, ctx }) => ctx.postRepo.list(input)),
 
-  create: t.procedure
-    .input((raw: unknown) => assert<CreateDTO<Post>>(raw))
-    .mutation(({ input, ctx }) => ctx.postRepo.create(input)),
+  create: t.procedure.input((raw: unknown) => assert<CreateDTO<Post>>(raw)).mutation(({ input, ctx }) => ctx.postRepo.create(input)),
 });
 ```
 
-Two things to notice. `.input()` accepts any parser function, so `assert<T>` drops in where a Zod schema would go — no adapter needed. And `CreateDTO<Post>` and `ListDTO<Post>` are _derived_ from the schema, so the procedure's input type tracks the table. Adding a required column is a type error in the procedure, not a runtime rejection.
+Two things to notice. `.input()` accepts any parser function, so `assert<T>` drops in where a Zod schema would go — no adapter needed. And `CreateDTO<Post>` and `ListDTO<Post>` are _derived_ from the
+schema, so the procedure's input type tracks the table. Adding a required column is a type error in the procedure, not a runtime rejection.
 
-> [!WARNING]
-> If the [transformer is not running](./aot-setup.html), that `.input()` parser
-> returns the input unchanged and validates nothing — while tRPC's types still
-> claim it is validated. Under tRPC this is worse than usual, because the typed
-> client makes unvalidated input feel safe. Add the canary test.
+> [!WARNING] If the [transformer is not running](./aot-setup.html), that `.input()` parser returns the input unchanged and validates nothing — while tRPC's types still claim it is validated. Under
+> tRPC this is worse than usual, because the typed client makes unvalidated input feel safe. Add the canary test.
 
 ```ts
 it('the transformer is running', () => {
@@ -51,11 +46,10 @@ If you are choosing between them for the HTTP layer:
 | Subscription protocol        | built in                | application-owned                        |
 | Class + decorator style      | no                      | yes                                      |
 
-The sensible split: tRPC for an internal TypeScript-to-TypeScript API where the inferred client is the whole point; `@zmdb/web` for a public REST API where OpenAPI is the contract and consumers are not all TypeScript.
+The sensible split: tRPC for an internal TypeScript-to-TypeScript API where the inferred client is the whole point; `@zmdb/web` for a public REST API where OpenAPI is the contract and consumers are
+not all TypeScript.
 
-tRPC's subscription protocol remains a real advantage: `@zmdb/web` can stream a
-response body, but it does not define subscription routing, reconnection or a
-client protocol.
+tRPC's subscription protocol remains a real advantage: `@zmdb/web` can stream a response body, but it does not define subscription routing, reconnection or a client protocol.
 
 ## Both, side by side
 
@@ -84,7 +78,8 @@ const createContext = () => ({
 
 ## Migrating from tRPC to `@zmdb/web`
 
-Procedure-by-procedure. A query becomes a `@Get`, a mutation a `@Post`; `.input()` becomes `assert<T>(ctx.body)`; context becomes an injected field (`@Inject`, never a constructor parameter). The part you lose is the inferred client — generate one from [OpenAPI](./openapi.html) instead, which is a build step where tRPC had none. Do not migrate subscriptions; there is nowhere for them to go yet.
+Procedure-by-procedure. A query becomes a `@Get`, a mutation a `@Post`; `.input()` becomes `assert<T>(ctx.body)`; context becomes an injected field (`@Inject`, never a constructor parameter). The part
+you lose is the inferred client — generate one from [OpenAPI](./openapi.html) instead, which is a build step where tRPC had none. Do not migrate subscriptions; there is nowhere for them to go yet.
 
 ---
 

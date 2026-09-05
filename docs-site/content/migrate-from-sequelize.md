@@ -21,24 +21,19 @@ export interface User extends Table<'users'> {
 }
 ```
 
-Two things move rather than translate. The type is declared once and everything else is
-derived from it, so there is no `DataTypes` import and no second object to keep in step.
-And `defaultValue: true` becomes `HasDefault` plus a DDL default: the tag says the column
-_has_ a default, not which one, because a default is a runtime value and no type holds one.
+Two things move rather than translate. The type is declared once and everything else is derived from it, so there is no `DataTypes` import and no second object to keep in step. And
+`defaultValue: true` becomes `HasDefault` plus a DDL default: the tag says the column _has_ a default, not which one, because a default is a runtime value and no type holds one.
 
 ```sql
 ALTER TABLE "users" ALTER COLUMN "active" SET DEFAULT true;
 ```
 
-Sequelize adds `id`, `createdAt` and `updatedAt` for you. zmdb adds nothing — every column in the table is a property on the interface, because the interface is what generates the DDL and the DTOs. Being implicit about columns is how the DTO and the table drift apart.
+Sequelize adds `id`, `createdAt` and `updatedAt` for you. zmdb adds nothing — every column in the table is a property on the interface, because the interface is what generates the DDL and the DTOs.
+Being implicit about columns is how the DTO and the table drift apart.
 
-> [!NOTE]
-> If you are migrating an existing Sequelize database, the catalog reader and
-> `emitDeclarations()` now produce one reviewed interface per table, including timestamp
-> properties and comments for database defaults. Unrepresentable columns are omitted with
-> structural warnings and matching `TODO` comments. `zmdb pull` packages that
-> reader/emitter path with protected staging files, `--dry-run`, and `--check`;
-> see [pull](./cli-pull.html).
+> [!NOTE] If you are migrating an existing Sequelize database, the catalog reader and `emitDeclarations()` now produce one reviewed interface per table, including timestamp properties and comments for
+> database defaults. Unrepresentable columns are omitted with structural warnings and matching `TODO` comments. `zmdb pull` packages that reader/emitter path with protected staging files, `--dry-run`,
+> and `--check`; see [pull](./cli-pull.html).
 
 ## Query methods
 
@@ -55,9 +50,11 @@ Sequelize adds `id`, `createdAt` and `updatedAt` for you. zmdb adds nothing — 
 | `instance.save()`                         | — rows are plain data                    |
 | `instance.reload()`                       | `repo.findById(id)`                      |
 
-`findAndCountAll` mapping to `list` is not a rename, and the difference will bite if you assume it is. `list` returns `ListResult<Row>` — `{ items, hasMore, total?, cursor? }` — and it takes the same `where` / `orderBy` / `page` DTO your HTTP layer received, which is the improvement.
+`findAndCountAll` mapping to `list` is not a rename, and the difference will bite if you assume it is. `list` returns `ListResult<Row>` — `{ items, hasMore, total?, cursor? }` — and it takes the same
+`where` / `orderBy` / `page` DTO your HTTP layer received, which is the improvement.
 
-But **`total` is never populated by `list()`**: Sequelize's `count` was a second query it ran for you, and here you run it yourself with `aggregate`. See [Count rows](./guide-count-rows.html). If your UI only needs "is there another page", `hasMore` is free and no count is needed at all.
+But **`total` is never populated by `list()`**: Sequelize's `count` was a second query it ran for you, and here you run it yourself with `aggregate`. See [Count rows](./guide-count-rows.html). If your
+UI only needs "is there another page", `hasMore` is free and no count is needed at all.
 
 ## Operators
 
@@ -105,11 +102,14 @@ See [Lifecycle Hooks](./lifecycle-hooks.html).
 
 ## Migrations and umzug
 
-Sequelize CLI + umzug becomes the [migration runner](./migrations-cli.html), which is the same idea (ordered, versioned, recorded in a table) with a `MigrationConnection` you implement over your driver.
+Sequelize CLI + umzug becomes the [migration runner](./migrations-cli.html), which is the same idea (ordered, versioned, recorded in a table) with a `MigrationConnection` you implement over your
+driver.
 
 ## Validation
 
-Sequelize's model-level `validate` runs on `save`. zmdb splits this in two: column [validation rules](./schema-declaration.html) feed the JSON Schema and OpenAPI output, and request payloads are checked by a [generated validator](./validators-assert.html) at the HTTP boundary, before anything reaches the repository. Validating at the edge means an invalid request never becomes a partially-applied write.
+Sequelize's model-level `validate` runs on `save`. zmdb splits this in two: column [validation rules](./schema-declaration.html) feed the JSON Schema and OpenAPI output, and request payloads are
+checked by a [generated validator](./validators-assert.html) at the HTTP boundary, before anything reaches the repository. Validating at the edge means an invalid request never becomes a
+partially-applied write.
 
 ---
 

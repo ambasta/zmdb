@@ -1,6 +1,5 @@
-zmdb derives a tool's input document from the table's `create` shape. Use
-`toolFor` when you know the target provider; it applies that provider's framing
-and schema rules before the document is inlined.
+zmdb derives a tool's input document from the table's `create` shape. Use `toolFor` when you know the target provider; it applies that provider's framing and schema rules before the document is
+inlined.
 
 ## Generate the provider shape directly
 
@@ -19,9 +18,8 @@ export const createUser = toolFor<User>('openai-strict', 'create_user', {
 });
 ```
 
-The normal [AOT setup](./aot-setup.html) replaces that call with a frozen
-document. `Serial` fields are absent from the create shape, `Sensitive` fields
-are omitted, and validation tags remain JSON Schema constraints.
+The normal [AOT setup](./aot-setup.html) replaces that call with a frozen document. `Serial` fields are absent from the create shape, `Sensitive` fields are omitted, and validation tags remain JSON
+Schema constraints.
 
 Each target has its own top-level shape:
 
@@ -33,14 +31,11 @@ Each target has its own top-level shape:
 | `gemini`        | `{ name, description?, parameters }`                           |
 | `json-schema`   | `{ name, description?, parameters }` without provider rewrites |
 
-Read [Provider Schema Strategies](./llm-strategy.html) before choosing a
-target. It shows the exact optional, nullable and `bigint` rewrites and the
-build-time refusals.
+Read [Provider Schema Strategies](./llm-strategy.html) before choosing a target. It shows the exact optional, nullable and `bigint` rewrites and the build-time refusals.
 
 ## The provider-neutral case
 
-`toolFromSchema` remains the right API when a framework or protocol wants a
-plain JSON Schema tool record:
+`toolFromSchema` remains the right API when a framework or protocol wants a plain JSON Schema tool record:
 
 ```ts
 import { schemaOf } from '@zmdb/schema-core';
@@ -53,16 +48,12 @@ const generic: ToolSpec = toolFromSchema('create_user', users, {
 });
 ```
 
-It is the schema-value form of the `json-schema` target. It does not apply
-OpenAI strict rewrites, Anthropic's `input_schema` framing or Gemini's nullable
-spelling. The LangChain and AI SDK adapters deliberately start from this
-provider-neutral document because those frameworks perform their own provider
-translation.
+It is the schema-value form of the `json-schema` target. It does not apply OpenAI strict rewrites, Anthropic's `input_schema` framing or Gemini's nullable spelling. The LangChain and AI SDK adapters
+deliberately start from this provider-neutral document because those frameworks perform their own provider translation.
 
 ## A provider document is not validation
 
-A model response is still untrusted. Validate the returned arguments before a
-repository or handler sees them:
+A model response is still untrusted. Validate the returned arguments before a repository or handler sees them:
 
 ```ts
 import { assert } from '@zmdb/aot-validator/utilities';
@@ -72,14 +63,11 @@ const dto = assert<CreateDTO<User>>(toolCall.input);
 await userRepo.create(dto);
 ```
 
-This is especially important for an optional field widened to nullable by the
-OpenAI strict target, or an untyped `json` column that a provider-neutral
-document represents as `{}`.
+This is especially important for an optional field widened to nullable by the OpenAI strict target, or an untyped `json` column that a provider-neutral document represents as `{}`.
 
 ## Parsing text responses
 
-When the API returns text rather than a structured tool call, `lenientParse`
-strips an outer Markdown fence and calls `JSON.parse`:
+When the API returns text rather than a structured tool call, `lenientParse` strips an outer Markdown fence and calls `JSON.parse`:
 
 ````ts
 import { lenientParse } from '@zmdb/schema-core/llm';
@@ -89,8 +77,7 @@ const result = lenientParse(fenced);
 // => { success: true, data: { email: 'alice@example.com' } }
 ````
 
-It does not repair trailing commas, single quotes or prose around the JSON.
-Pass a coercion function to validate and decode in the same boundary:
+It does not repair trailing commas, single quotes or prose around the JSON. Pass a coercion function to validate and decode in the same boundary:
 
 ```ts
 const result = lenientParse('{"email":"alice@example.com"}', value => assert<CreateDTO<User>>(value));
@@ -102,15 +89,12 @@ if (!result.success) {
 await userRepo.create(result.data);
 ```
 
-`lenientParse` catches a validator exception and returns its message in
-`errors`. With no coercion function, `lenientParse<T>` does no validation at
-all: `T` is only the caller's claim, just as it is with `JSON.parse`.
+`lenientParse` catches a validator exception and returns its message in `errors`. With no coercion function, `lenientParse<T>` does no validation at all: `T` is only the caller's claim, just as it is
+with `JSON.parse`.
 
 ## Framework adapters
 
-Use [`langchainTool`](./llm-langchain.html) or
-[`aiSdkTool`](./llm-vercel-ai-sdk.html) when those frameworks own dispatch.
-Both keep the generated schema and AOT validator together, require validation
+Use [`langchainTool`](./llm-langchain.html) or [`aiSdkTool`](./llm-vercel-ai-sdk.html) when those frameworks own dispatch. Both keep the generated schema and AOT validator together, require validation
 before the handler, and add no runtime schema library to zmdb.
 
 ---

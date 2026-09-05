@@ -28,8 +28,7 @@ const server = createServer(async (req, res) => {
 server.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
 ```
 
-This module-level adapter buffers streamed responses. Use `toNodeHandler` at
-router level when streaming and backpressure must be preserved.
+This module-level adapter buffers streamed responses. Use `toNodeHandler` at router level when streaming and backpressure must be preserved.
 
 Two Railway-specific requirements: bind `0.0.0.0`, not `localhost`, or the health check cannot reach you; and use `process.env.PORT`, which Railway assigns.
 
@@ -52,7 +51,8 @@ The timeout is the important half — `server.close` waits for open connections,
 
 ## Connecting
 
-Railway's Postgres plugin injects `DATABASE_URL`. Use the private network URL (`postgres.railway.internal`) rather than the public proxy — lower latency, no egress, and the traffic does not leave the project.
+Railway's Postgres plugin injects `DATABASE_URL`. Use the private network URL (`postgres.railway.internal`) rather than the public proxy — lower latency, no egress, and the traffic does not leave the
+project.
 
 ```ts
 import { Pool } from 'pg';
@@ -71,7 +71,8 @@ export const driver: Driver = {
 };
 ```
 
-Because this is a long-running process with a real pool, `withTransaction` works properly — unlike the HTTP-driver situation on [Vercel](./deploy-vercel.html) and [Netlify](./deploy-netlify.html). This is the main reason to prefer a container.
+Because this is a long-running process with a real pool, `withTransaction` works properly — unlike the HTTP-driver situation on [Vercel](./deploy-vercel.html) and [Netlify](./deploy-netlify.html).
+This is the main reason to prefer a container.
 
 Keep `max` × replicas under the database's `max_connections`. Railway's Postgres defaults are modest, so a pool of 10 across 3 replicas is already 30.
 
@@ -92,7 +93,8 @@ Set the pre-deploy command to `yarn migrate` in the service settings. It runs on
 
 Do not run migrations at boot. With more than one replica they race. See [migrate](./cli-migrate.html).
 
-And keep the schema backward-compatible for one deploy: during a rolling restart, the old code runs against the new schema, so dropping a column the old code selects is a two-deploy operation. See [Deployment](./deployment.html).
+And keep the schema backward-compatible for one deploy: during a rolling restart, the old code runs against the new schema, so dropping a column the old code selects is a two-deploy operation. See
+[Deployment](./deployment.html).
 
 ## The transformer
 

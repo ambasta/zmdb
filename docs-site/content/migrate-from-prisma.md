@@ -1,4 +1,5 @@
-Prisma's schema lives in its own DSL and its client is generated. zmdb's schema _is_ a TypeScript type and nothing is generated into your repo, so this migration replaces the build step as well as the query API.
+Prisma's schema lives in its own DSL and its client is generated. zmdb's schema _is_ a TypeScript type and nothing is generated into your repo, so this migration replaces the build step as well as the
+query API.
 
 ## `schema.prisma` → a TypeScript module
 
@@ -23,18 +24,18 @@ export interface User extends Table<'users'> {
 export const userSchema = schemaOf<User>();
 ```
 
-The mapping is close to line-for-line: `@id` is `PrimaryKey`, `@default(autoincrement())` is `Serial`, `@unique` is `Unique`, `Post[]` is `Post[] & OneToMany<'posts', 'authorId'>`. What Prisma spells with attributes, zmdb spells with intersections.
+The mapping is close to line-for-line: `@id` is `PrimaryKey`, `@default(autoincrement())` is `Serial`, `@unique` is `Unique`, `Post[]` is `Post[] & OneToMany<'posts', 'authorId'>`. What Prisma spells
+with attributes, zmdb spells with intersections.
 
 The consequences of leaving the DSL:
 
-- No `prisma generate`. There is no generated client to be stale, and your editor resolves types from the declaration directly. There _is_ a build step, but it emits nothing into your repository — see [AOT Setup](./aot-setup.html).
+- No `prisma generate`. There is no generated client to be stale, and your editor resolves types from the declaration directly. There _is_ a build step, but it emits nothing into your repository — see
+  [AOT Setup](./aot-setup.html).
 - No `@relation` back-reference bookkeeping. Relations are one-directional; declare the sides you actually query.
 - Column types are ordinary type aliases, so you can factor them: `type Money = number & Sql<'numeric'> & Numeric<12, 2>`, then `total: Money`.
 
-> [!NOTE]
-> The relation _tag_ documents the relationship and reaches the derived documents, but the
-> repository's `populate` still needs the runtime `relations` map beside the schema. The two
-> are not yet one source. See [Relations](./relations.html).
+> [!NOTE] The relation _tag_ documents the relationship and reaches the derived documents, but the repository's `populate` still needs the runtime `relations` map beside the schema. The two are not
+> yet one source. See [Relations](./relations.html).
 
 ## Client → repository
 
@@ -69,16 +70,16 @@ Prisma's nested filter objects are close to zmdb's `WhereDTO`:
 
 ## Migrations
 
-`prisma migrate dev` becomes a [generate script](./cli-generate.html) over a committed snapshot. Both approaches produce SQL files you review and commit; zmdb's diff runs against the snapshot rather than a shadow database, so it needs no second connection and works offline.
+`prisma migrate dev` becomes a [generate script](./cli-generate.html) over a committed snapshot. Both approaches produce SQL files you review and commit; zmdb's diff runs against the snapshot rather
+than a shadow database, so it needs no second connection and works offline.
 
-`prisma db pull` becomes `zmdb pull`. It reads through the configured driver,
-writes generated declarations under `.zmdb/introspected`, refuses to overwrite
-a file whose generated header was removed, and offers `--dry-run` and
-`--check`; see [pull](./cli-pull.html).
+`prisma db pull` becomes `zmdb pull`. It reads through the configured driver, writes generated declarations under `.zmdb/introspected`, refuses to overwrite a file whose generated header was removed,
+and offers `--dry-run` and `--check`; see [pull](./cli-pull.html).
 
 ## Where the models went
 
-Prisma returns plain objects too, so this is the one migration where the _shape_ of a result does not change. What changes is that relations are not sometimes-present: if you did not `populate`, the key is absent from the type rather than typed as optional. That turns a class of runtime `undefined` into compile errors.
+Prisma returns plain objects too, so this is the one migration where the _shape_ of a result does not change. What changes is that relations are not sometimes-present: if you did not `populate`, the
+key is absent from the type rather than typed as optional. That turns a class of runtime `undefined` into compile errors.
 
 ## Things Prisma has that zmdb does not
 

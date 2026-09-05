@@ -1,14 +1,12 @@
-> **ToDo / feature gap.** There are no documentation decorators — no
-> `@ApiOperation`, `@ApiProperty`, `@ApiResponse`, `@ApiTags`, `@ApiQuery` or
-> `@ApiBearerAuth`. The only decorators in the project are `@Controller`,
-> `@Get/@Post/@Put/@Patch/@Delete`, `@Module`, `@Inject`, `@Gateway` and
-> `@Subscribe`.
+> **ToDo / feature gap.** There are no documentation decorators — no `@ApiOperation`, `@ApiProperty`, `@ApiResponse`, `@ApiTags`, `@ApiQuery` or `@ApiBearerAuth`. The only decorators in the project
+> are `@Controller`, `@Get/@Post/@Put/@Patch/@Delete`, `@Module`, `@Inject`, `@Gateway` and `@Subscribe`.
 
 ## What replaces them
 
 Two things, and between them they cover most of what decorators are used for.
 
-**Schemas come from the table, not from annotations.** This is the substantive difference. A decorator-based generator needs `@ApiProperty()` on every DTO field, which is the schema written a second time — and it drifts:
+**Schemas come from the table, not from annotations.** This is the substantive difference. A decorator-based generator needs `@ApiProperty()` on every DTO field, which is the schema written a second
+time — and it drifts:
 
 ```ts
 // what a decorator framework needs
@@ -25,7 +23,8 @@ class CreatePostDto {
 schemas: { '/posts': { body: toJsonSchema(posts, 'create') } }
 ```
 
-The second cannot drift, because it is derived from the same declaration the queries use. Add a column and the spec updates; make one nullable and the `required` array updates. No annotation to forget. See [OpenAPI Schemas](./openapi.html).
+The second cannot drift, because it is derived from the same declaration the queries use. Add a column and the spec updates; make one nullable and the `required` array updates. No annotation to
+forget. See [OpenAPI Schemas](./openapi.html).
 
 **Prose and metadata go in a post-processing pass.** The document is a plain object:
 
@@ -41,9 +40,8 @@ Object.assign(operation, {
 });
 ```
 
-`operationId` is already generated from the method and public route path. You
-can replace it in this post-processing pass if an external contract requires a
-different stable name, but most applications should keep the generated value.
+`operationId` is already generated from the method and public route path. You can replace it in this post-processing pass if an external contract requires a different stable name, but most
+applications should keep the generated value.
 
 ## A maintainable version of that
 
@@ -88,13 +86,11 @@ A missing summary now fails CI. With decorators, a missing `@ApiOperation` is in
 Not generated at all — `toOpenApi` emits path parameters only. Add them in the same pass:
 
 ```ts
-op.parameters = [
-  ...(op.parameters ?? []),
-  { name: 'limit', in: 'query', required: false, schema: { type: 'integer' } },
-];
+op.parameters = [...(op.parameters ?? []), { name: 'limit', in: 'query', required: false, schema: { type: 'integer' } }];
 ```
 
-Note `OpenApiParameter` as generated is narrowed to `in: 'path'`, so you are augmenting a plain object rather than constructing the library's type. That is fine — the document is `Record<string, unknown>`-shaped at the leaves.
+Note `OpenApiParameter` as generated is narrowed to `in: 'path'`, so you are augmenting a plain object rather than constructing the library's type. That is fine — the document is
+`Record<string, unknown>`-shaped at the leaves.
 
 ## Examples
 
@@ -110,11 +106,8 @@ Do not put real data in an example. Specs get published, and an "example" user w
 
 The decorator half is not hard — a `@ApiDoc({ summary, tags })` method decorator writing to `Symbol.metadata`, read by `toOpenApi` the same way `getRoutes` reads routes. Perhaps fifty lines.
 
-It has not shipped because a prose-only decorator offers little over a keyed
-record, while a schema-bearing decorator such as `@ApiProperty` would recreate
-the duplicate declarations that schema derivation removes. If added, the
-decorator will carry only prose and metadata; schemas will still come from
-`toJsonSchema`.
+It has not shipped because a prose-only decorator offers little over a keyed record, while a schema-bearing decorator such as `@ApiProperty` would recreate the duplicate declarations that schema
+derivation removes. If added, the decorator will carry only prose and metadata; schemas will still come from `toJsonSchema`.
 
 ---
 

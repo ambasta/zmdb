@@ -40,10 +40,8 @@ await repo.find({ name: { ilike: '%ada%' } });
 // WHERE "name" ILIKE $1
 ```
 
-On MySQL/SingleStore and SQL Server, case-insensitivity normally comes from the
-collation instead; on SQLite, `LIKE` is already case-insensitive for ASCII.
-Cockroach follows the Postgres operator grammar. If a query has to behave the
-same on all six, that difference is worth a test.
+On MySQL/SingleStore and SQL Server, case-insensitivity normally comes from the collation instead; on SQLite, `LIKE` is already case-insensitive for ASCII. Cockroach follows the Postgres operator
+grammar. If a query has to behave the same on all six, that difference is worth a test.
 
 ## Features you reach past the builder for
 
@@ -53,13 +51,9 @@ Postgres has a lot the builder does not model. All of them work through [raw SQL
 - `JSONB` operators (`->>`, `@>`, `?`) — see [JSON Properties](./json-properties.html)
 - full-text search with `tsvector` — see [Full-Text Search](./full-text-search.html)
 - window functions, recursive CTEs, `LATERAL`
-- `FOR UPDATE SKIP LOCKED` — raw SQL only; the
-  [Transactional Outbox](./transactional-outbox.html) deliberately uses a
-  portable conditional lease update instead
+- `FOR UPDATE SKIP LOCKED` — raw SQL only; the [Transactional Outbox](./transactional-outbox.html) deliberately uses a portable conditional lease update instead
 - arrays and ranges
-- extension SQL beyond the closed pgvector distance and
-  `ST_Contains`/`ST_DWithin` surfaces — see
-  [Database Extensions](./db-extensions.html)
+- extension SQL beyond the closed pgvector distance and `ST_Contains`/`ST_DWithin` surfaces — see [Database Extensions](./db-extensions.html)
 
 ## Operational settings worth having
 
@@ -81,15 +75,16 @@ new Pool({
 
 **`bigint` comes back as a string** from `node-postgres`, deliberately, to avoid precision loss. Decide in the driver — see [bigint keys](./bigint-keys.html).
 
-**`numeric` comes back as a string** too, for the same reason. If you are storing money, keeping it a string and doing the arithmetic in the database is the correct answer; parsing it to a float is how you get rounding errors in an invoice.
+**`numeric` comes back as a string** too, for the same reason. If you are storing money, keeping it a string and doing the arithmetic in the database is the correct answer; parsing it to a float is
+how you get rounding errors in an invoice.
 
-**`timestamp` means an instant.** `Sql<'timestamp'>` emits `TIMESTAMPTZ`.
-Use a [custom type](./custom-types.html) when the driver representation or
-application wire form needs to differ from `Date`.
+**`timestamp` means an instant.** `Sql<'timestamp'>` emits `TIMESTAMPTZ`. Use a [custom type](./custom-types.html) when the driver representation or application wire form needs to differ from `Date`.
 
 ## Connecting
 
-Postgres-wire-compatible services include [local Postgres](./connect-postgres.html), [Neon](./connect-neon.html), [Supabase](./connect-supabase.html), [Vercel Postgres](./connect-vercel-postgres.html), [Xata](./connect-xata.html), [Nile](./connect-nile.html), [PGlite](./connect-pglite.html) and [AWS Data API](./connect-aws-data-api.html). Cockroach uses the same wire adapter through its dedicated [`'cockroach'` variant](./dialect-cockroach.html).
+Postgres-wire-compatible services include [local Postgres](./connect-postgres.html), [Neon](./connect-neon.html), [Supabase](./connect-supabase.html),
+[Vercel Postgres](./connect-vercel-postgres.html), [Xata](./connect-xata.html), [Nile](./connect-nile.html), [PGlite](./connect-pglite.html) and [AWS Data API](./connect-aws-data-api.html). Cockroach
+uses the same wire adapter through its dedicated [`'cockroach'` variant](./dialect-cockroach.html).
 
 ---
 

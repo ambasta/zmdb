@@ -1,4 +1,5 @@
-The rest of `@zmdb/aot-validator/utilities`. Each takes its shape from its type argument, which the transformer replaces with emitted code at build time; an untransformed call has nothing to work from and throws. See [AOT Setup](./aot-setup.html).
+The rest of `@zmdb/aot-validator/utilities`. Each takes its shape from its type argument, which the transformer replaces with emitted code at build time; an untransformed call has nothing to work from
+and throws. See [AOT Setup](./aot-setup.html).
 
 ## `equals` / `assertEquals` — reject unknown keys
 
@@ -15,7 +16,8 @@ equals<Config>({ host: 'a', port: 1, prot: 2 }); // false — `prot` is not in t
 assertEquals<Config>(raw); // throws instead of returning false
 ```
 
-`is` and `assert` ignore extra properties, which is right for an API request you do not control. `equals` is right when an unknown key means someone made a mistake you should surface — a config file, an internal message, a payload whose sender you own. The typo case is the strongest argument for it: `prot: 8080` with `is` gives you a default port and a confusing afternoon.
+`is` and `assert` ignore extra properties, which is right for an API request you do not control. `equals` is right when an unknown key means someone made a mistake you should surface — a config file,
+an internal message, a payload whose sender you own. The typo case is the strongest argument for it: `prot: 8080` with `is` gives you a default port and a confusing afternoon.
 
 ## `random` — a value that satisfies a type
 
@@ -39,11 +41,8 @@ it('serialization round-trips', () => {
 
 The values satisfy the type and any recognised `validate()` rules. They are not realistic — see [Seed Functions](./seed-functions.html) if you want data that looks like data.
 
-> [!NOTE]
-> `random<T>()` is not seeded — the transformer inlines it over `Math.random`, so two calls
-> give two values and a failing generated case is not reproducible from the test output. Log
-> the value on failure, or use `seedRows` / `makeRng` from
-> [`@zmdb/repository/seeding`](./seeding.html), which drive the same sampler from a seed.
+> [!NOTE] `random<T>()` is not seeded — the transformer inlines it over `Math.random`, so two calls give two values and a failing generated case is not reproducible from the test output. Log the value
+> on failure, or use `seedRows` / `makeRng` from [`@zmdb/repository/seeding`](./seeding.html), which drive the same sampler from a seed.
 
 ## `validate` — errors without an exception
 
@@ -56,7 +55,8 @@ if (!result.success) {
 }
 ```
 
-Each error carries the path (`input.address.zip`), the expected type and the value found — which is what makes a 400 response useful to whoever is calling you. Prefer this over catching an `assert`: a validation failure is an expected outcome of an untrusted input, not an exceptional one.
+Each error carries the path (`input.address.zip`), the expected type and the value found — which is what makes a 400 response useful to whoever is calling you. Prefer this over catching an `assert`: a
+validation failure is an expected outcome of an untrusted input, not an exceptional one.
 
 ## Choosing between them
 

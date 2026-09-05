@@ -1,26 +1,16 @@
-> **Tool integration only.** Install `ai` in the application.
-> `@zmdb/schema-core/llm/ai-sdk` is tested against `7.0.83` and declares the
-> optional peer range `^7.0.83`. A `LanguageModel` wrapper and persistence
-> adapter for `useChat` remain application code.
+> **Tool integration only.** Install `ai` in the application. `@zmdb/schema-core/llm/ai-sdk` is tested against `7.0.83` and declares the optional peer range `^7.0.83`. A `LanguageModel` wrapper and
+> persistence adapter for `useChat` remain application code.
 
 ## Know the boundary
 
-- The adapter emits provider-neutral JSON Schema. The AI SDK and its provider
-  package own any later provider translation.
-- The SDK's `Schema` is branded, so the application passes the installed
-  package's own `jsonSchema` factory. zmdb neither imports `ai` nor fabricates
-  its brand with a cast.
-- `validate` runs before the handler. Validation failures become value-free
-  tool-result text the model can correct; handler and infrastructure errors
-  still throw.
-- The returned fields do not contain a name. In the AI SDK, the key in the
-  `tools` record is the tool name.
+- The adapter emits provider-neutral JSON Schema. The AI SDK and its provider package own any later provider translation.
+- The SDK's `Schema` is branded, so the application passes the installed package's own `jsonSchema` factory. zmdb neither imports `ai` nor fabricates its brand with a cast.
+- `validate` runs before the handler. Validation failures become value-free tool-result text the model can correct; handler and infrastructure errors still throw.
+- The returned fields do not contain a name. In the AI SDK, the key in the `tools` record is the tool name.
 
 ## Tools
 
-`aiSdkTool` builds the fields accepted by `tool()`. Pass the SDK's own
-`jsonSchema` factory so it keeps ownership of its branded schema type. This
-example compiles against the tested peer:
+`aiSdkTool` builds the fields accepted by `tool()`. Pass the SDK's own `jsonSchema` factory so it keeps ownership of its branded schema type. This example compiles against the tested peer:
 
 ```ts
 import { jsonSchema, tool } from 'ai';
@@ -49,15 +39,12 @@ export const tools = {
 };
 ```
 
-`schemaOf<User>()` and `assert<CreateDTO<User>>()` are both resolved by the
-normal [AOT setup](./aot-setup.html). The validator's return value is the
-decoded value passed to `execute`, so a custom wire codec can decode there too.
-The application needs no Zod schema and no `JSONSchema7` cast.
+`schemaOf<User>()` and `assert<CreateDTO<User>>()` are both resolved by the normal [AOT setup](./aot-setup.html). The validator's return value is the decoded value passed to `execute`, so a custom
+wire codec can decode there too. The application needs no Zod schema and no `JSONSchema7` cast.
 
 ## Streaming through `@zmdb/web`
 
-The response layer can carry the SDK's `ReadableStream`. Convert the SDK
-`Response` into a tagged stream response:
+The response layer can carry the SDK's `ReadableStream`. Convert the SDK `Response` into a tagged stream response:
 
 ```ts
 const result = streamText({
@@ -74,8 +61,7 @@ return stream(response.body, {
 });
 ```
 
-The framework handles backpressure and disconnect cancellation. The provider SDK
-still owns its event format and token-stream semantics.
+The framework handles backpressure and disconnect cancellation. The provider SDK still owns its event format and token-stream semantics.
 
 ## Persisting `useChat` history
 
@@ -97,7 +83,8 @@ const result = streamText({
 });
 ```
 
-`outputTokens` is v5's name for what v4 called `completionTokens`, and it is optional — a provider that reports no usage leaves it `undefined`, which is why the column is nullable rather than `NOT NULL DEFAULT 0`.
+`outputTokens` is v5's name for what v4 called `completionTokens`, and it is optional — a provider that reports no usage leaves it `undefined`, which is why the column is nullable rather than
+`NOT NULL DEFAULT 0`.
 
 Write the user's message _before_ the call, not in `onFinish` — otherwise a failed generation loses the prompt and the user retypes it.
 
@@ -120,9 +107,8 @@ The `id` tie-break matters: two messages in the same millisecond otherwise come 
 
 ## What remains application code
 
-A `zmdbChatStore(repo)` would still pin zmdb to the SDK's persistence
-interfaces, which have changed shape more than once. Keeping the short
-`onFinish` repository call in the application makes that upgrade your decision.
+A `zmdbChatStore(repo)` would still pin zmdb to the SDK's persistence interfaces, which have changed shape more than once. Keeping the short `onFinish` repository call in the application makes that
+upgrade your decision.
 
 ---
 

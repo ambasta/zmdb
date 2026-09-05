@@ -1,8 +1,5 @@
-PostGIS-backed columns participate in declaration and migration like core
-columns. zmdb installs the extension before the table, emits GIST index DDL,
-and provides closed typed `ST_Contains` and `ST_DWithin` predicates for declared
-`geometry` columns. Writes and projections that need other PostGIS functions
-remain explicit, parameterised SQL.
+PostGIS-backed columns participate in declaration and migration like core columns. zmdb installs the extension before the table, emits GIST index DDL, and provides closed typed `ST_Contains` and
+`ST_DWithin` predicates for declared `geometry` columns. Writes and projections that need other PostGIS functions remain explicit, parameterised SQL.
 
 ## Declare the column
 
@@ -32,11 +29,8 @@ CREATE TABLE "venues" (
 );
 ```
 
-The application and wire shape is the declared GeoJSON object. A bare database
-projection may still return WKB, so select a GeoJSON projection explicitly when
-the result needs the geometry itself. Catalog pull can discover that the column
-is PostGIS-backed, but it cannot infer your application-level GeoJSON shape and
-therefore omits that property from generated declarations.
+The application and wire shape is the declared GeoJSON object. A bare database projection may still return WKB, so select a GeoJSON projection explicitly when the result needs the geometry itself.
+Catalog pull can discover that the column is PostGIS-backed, but it cannot infer your application-level GeoJSON shape and therefore omits that property from generated declarations.
 
 ## Create the spatial index
 
@@ -69,14 +63,11 @@ CREATE INDEX "venues_location_gist" ON "venues" USING gist ("location")
 | Speed                       | faster                                  | slower      |
 | Correct over long distances | no                                      | yes         |
 
-For "venues within 5km" use `geography`, where `ST_DWithin` takes metres. With
-`geometry(Point, 4326)`, `ST_DWithin(a, b, 5000)` means 5000 coordinate units
-and can silently match everything.
+For "venues within 5km" use `geography`, where `ST_DWithin` takes metres. With `geometry(Point, 4326)`, `ST_DWithin(a, b, 5000)` means 5000 coordinate units and can silently match everything.
 
 ## Insert
 
-The typed writer does not lower GeoJSON through `ST_GeomFromGeoJSON`, so use a
-parameterised statement:
+The typed writer does not lower GeoJSON through `ST_GeomFromGeoJSON`, so use a parameterised statement:
 
 ```ts
 const name = 'Bengaluru';
@@ -88,13 +79,11 @@ await driver.execute({
 });
 ```
 
-GeoJSON positions are longitude first. Swapped latitude/longitude remains a
-valid point, so the database cannot diagnose it.
+GeoJSON positions are longitude first. Swapped latitude/longitude remains a valid point, so the database cannot diagnose it.
 
 ## Typed geometry predicates
 
-For a declared `geometry` column, `stDWithin<T>(column, point, distance)`
-supplies the closed predicate and binds both the GeoJSON value and distance:
+For a declared `geometry` column, `stDWithin<T>(column, point, distance)` supplies the closed predicate and binds both the GeoJSON value and distance:
 
 ```ts
 import { createQueryCompiler, stDWithin } from '@zmdb/query-compiler';
@@ -107,9 +96,8 @@ const nearby = createQueryCompiler('postgres')
 const rows = await driver.execute(nearby);
 ```
 
-The distance above is in the geometry's coordinate units. `stContains<T>` is
-the other typed predicate. Both sides are tied to the declared geometry shape,
-so a polygon column accepts a declared polygon rather than an arbitrary object:
+The distance above is in the geometry's coordinate units. `stContains<T>` is the other typed predicate. Both sides are tied to the declared geometry shape, so a polygon column accepts a declared
+polygon rather than an arbitrary object:
 
 ```ts
 import { stContains } from '@zmdb/query-compiler';
@@ -137,14 +125,10 @@ const candidatePolygon: GeoJsonPolygon = {
   ],
 };
 
-const contained = createQueryCompiler('postgres')
-  .selectFrom('regions')
-  .where(stContains<Region>('area', candidatePolygon))
-  .compile();
+const contained = createQueryCompiler('postgres').selectFrom('regions').where(stContains<Region>('area', candidatePolygon)).compile();
 ```
 
-The compiler emits only the closed PostGIS function names and binds the GeoJSON
-arguments. Every non-PostgreSQL dialect refuses these predicates.
+The compiler emits only the closed PostGIS function names and binds the GeoJSON arguments. Every non-PostgreSQL dialect refuses these predicates.
 
 ## Metre-based radius search
 
@@ -158,8 +142,7 @@ interface VenueGeography extends Table<'venue_geographies'> {
 }
 ```
 
-The typed spatial helpers currently target `geometry`. A geography query that
-also projects `ST_Distance` therefore remains explicit, parameterised SQL:
+The typed spatial helpers currently target `geometry`. A geography query that also projects `ST_Distance` therefore remains explicit, parameterised SQL:
 
 ```ts
 const [longitude, latitude] = point.coordinates;
@@ -175,8 +158,7 @@ const radiusRows = await driver.execute({
 });
 ```
 
-Use `ST_DWithin` in `WHERE`, not `ST_Distance(...) < r`. Of those two radius
-forms, only `ST_DWithin` can use the GIST index.
+Use `ST_DWithin` in `WHERE`, not `ST_Distance(...) < r`. Of those two radius forms, only `ST_DWithin` can use the GIST index.
 
 ## Type raw results
 
@@ -198,10 +180,8 @@ SELECT id, name, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lo
 FROM venues
 ```
 
-PostGIS support is available only on the `'postgres'` dialect in zmdb.
-Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse extension
-installation, PostGIS-backed DDL and the spatial predicate nodes instead of
-substituting an incompatible type or function.
+PostGIS support is available only on the `'postgres'` dialect in zmdb. Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse extension installation, PostGIS-backed DDL and the spatial predicate
+nodes instead of substituting an incompatible type or function.
 
 ---
 

@@ -8,9 +8,7 @@ q.text; // 'SELECT * FROM "users" WHERE "id" = $1'
 q.parameters; // [1]
 ```
 
-Every `CompiledQuery` has readonly `text` and `parameters`. The default compiler
-still returns exactly those two keys, so existing logs, snapshots and equality
-checks remain unchanged:
+Every `CompiledQuery` has readonly `text` and `parameters`. The default compiler still returns exactly those two keys, so existing logs, snapshots and equality checks remain unchanged:
 
 ```ts
 expect(q).toEqual({ text: 'SELECT * FROM "users" WHERE "id" = $1', parameters: [1] });
@@ -55,10 +53,7 @@ export function explain(q: CompiledQuery): string {
 }
 ```
 
-> [!WARNING]
-> The output is not valid SQL to run. Executing an interpolated string is exactly
-> the injection vector parameters exist to close. Keep this in your logging
-> module, not your data layer.
+> [!WARNING] The output is not valid SQL to run. Executing an interpolated string is exactly the injection vector parameters exist to close. Keep this in your logging module, not your data layer.
 
 ## Counting queries
 
@@ -98,7 +93,8 @@ export function pageOf(query: { page?: string; per?: string }) {
 }
 ```
 
-`and` is a merge, so two parts constraining the same column means the later wins rather than both applying — a real limitation of [`WhereDTO` having no combinators](./filters.html), not a subtlety of the helper.
+`and` is a merge, so two parts constraining the same column means the later wins rather than both applying — a real limitation of [`WhereDTO` having no combinators](./filters.html), not a subtlety of
+the helper.
 
 ## Narrowing a row to a projection
 

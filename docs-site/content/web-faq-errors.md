@@ -2,16 +2,14 @@ A guide to the errors this framework actually produces, and the ones that produc
 
 ## `is<T>()` throws `runtime type witness required`
 
-**The most important entry on this page.** The AOT transformer did not run, and the erased type argument has
-no runtime witness.
+**The most important entry on this page.** The AOT transformer did not run, and the erased type argument has no runtime witness.
 
 ```ts
 is<{ id: number }>({ id: 'not a number' });
 // throws: runtime type witness required in test/fallback mode
 ```
 
-Causes, in order of frequency: running with `--experimental-strip-types` or `ts-node`; a bundler that does
-not invoke the transformer (esbuild, SWC, Bun, Turbopack, Deno); Metro without
+Causes, in order of frequency: running with `--experimental-strip-types` or `ts-node`; a bundler that does not invoke the transformer (esbuild, SWC, Bun, Turbopack, Deno); Metro without
 [`withZmdb`](./connect-react-native.html); or a build that skipped the plugin configuration.
 
 The fix is a test that fails loudly:
@@ -36,8 +34,7 @@ The error names the token's description, which is why a meaningful description p
 
 ## `@zmdb/web: import cycle in the module graph: AModule -> BModule -> AModule`
 
-Two modules import each other. The message names the full cycle path, including
-an edge declared with `lazy()`.
+Two modules import each other. The message names the full cycle path, including an edge declared with `lazy()`.
 
 Usually the fix is to extract the shared providers into a third module both import, rather than to break the cycle by moving a controller.
 
@@ -58,7 +55,8 @@ router.register(AdminController); // /posts/admin  — unreachable
 for (const C of CONTROLLERS) for (const r of getRoutes(C)) console.log(r.method, r.path, r.handlerName);
 ```
 
-**The path is not what you think.** `@Controller` and the method decorator compose, duplicate slashes collapse and a trailing slash is stripped. `@Controller('/posts/')` plus `@Get('/:id')` gives `/posts/:id`, but check rather than assume.
+**The path is not what you think.** `@Controller` and the method decorator compose, duplicate slashes collapse and a trailing slash is stripped. `@Controller('/posts/')` plus `@Get('/:id')` gives
+`/posts/:id`, but check rather than assume.
 
 ## `ctx.query` is always empty
 
@@ -73,10 +71,8 @@ See [Typed Request Context](./web-context.html).
 
 ## `ctx.body` is a string when you expected an object
 
-For `application/json`, `application/*+json`, `text/*`, or a request with no
-content type, parsing falls back to the decoded string on a `JSON.parse` failure.
-Other explicit content types are preserved as bytes; for example,
-`application/x-www-form-urlencoded` arrives as a `Uint8Array`.
+For `application/json`, `application/*+json`, `text/*`, or a request with no content type, parsing falls back to the decoded string on a `JSON.parse` failure. Other explicit content types are
+preserved as bytes; for example, `application/x-www-form-urlencoded` arrives as a `Uint8Array`.
 
 Validate at the top of the handler and the failure becomes a 400 instead of a confusing `undefined` deeper in:
 
@@ -88,9 +84,11 @@ See [Raw Body](./web-raw-body.html).
 
 ## A 500 where you threw a 403
 
-`ChainError(403, …)` reaching the router serialises as a 500. A handler throw has only two built-in mappings — 400 when it carries `issues`, and 500 otherwise — and the status on the error is ignored. Route selection separately returns 400 for an unsupported header version, 406 for an unacceptable media-type version, or 404 for an unknown path; a registered guard returning `false` returns 403.
+`ChainError(403, …)` reaching the router serialises as a 500. A handler throw has only two built-in mappings — 400 when it carries `issues`, and 500 otherwise — and the status on the error is ignored.
+Route selection separately returns 400 for an unsupported header version, 406 for an unacceptable media-type version, or 404 for an unknown path; a registered guard returning `false` returns 403.
 
-Nothing in the router's dispatch path calls `runChain`, so no `ExceptionFilter` runs unless your handler ran the chain itself; one that does reaches the client, provided the filter built its response with `json`, `text` or `respond` rather than as a plain `{ status, body, headers }` literal, which serialises as a 200.
+Nothing in the router's dispatch path calls `runChain`, so no `ExceptionFilter` runs unless your handler ran the chain itself; one that does reaches the client, provided the filter built its response
+with `json`, `text` or `respond` rather than as a plain `{ status, body, headers }` literal, which serialises as a 200.
 
 Catch it and return the status instead of throwing:
 
@@ -121,10 +119,8 @@ See [Dependency Injection](./web-di.html).
 
 ## Request state from another user appears
 
-Controllers and providers are **singletons** — each instance is built once per
-app, either eagerly or on its lazy module's first load. `this.currentUser = …`
-in a handler is a race that serves one user's data to another, and it looks
-correct in every single-request test.
+Controllers and providers are **singletons** — each instance is built once per app, either eagerly or on its lazy module's first load. `this.currentUser = …` in a handler is a race that serves one
+user's data to another, and it looks correct in every single-request test.
 
 Keep request state in local variables or a [per-request object](./web-request-context.html), never on an instance field.
 
@@ -140,11 +136,13 @@ A cross-tenant data leak with no error. See [Request Context](./web-request-cont
 
 ## `UnsupportedFeatureError`
 
-The query compiler cannot express something in the target dialect. Check the [dialect pages](./dialect-postgres.html) for what each supports; the common cases are features that exist in Postgres and not in SQLite or MySQL.
+The query compiler cannot express something in the target dialect. Check the [dialect pages](./dialect-postgres.html) for what each supports; the common cases are features that exist in Postgres and
+not in SQLite or MySQL.
 
 ## `ValidationError` with an empty `issues` array
 
-You constructed it that way — `new ValidationError('message', [])`. The router treats anything with an `issues` property as a 400, so this is the idiomatic way to signal a client error, and an empty array is fine. Validator-produced errors populate `issues` with paths.
+You constructed it that way — `new ValidationError('message', [])`. The router treats anything with an `issues` property as a 400, so this is the idiomatic way to signal a client error, and an empty
+array is fine. Validator-produced errors populate `issues` with paths.
 
 ## The process will not exit after a script
 

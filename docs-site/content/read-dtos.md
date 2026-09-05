@@ -1,4 +1,5 @@
-Read Data Transfer Objects provide typed query inputs and result shapes for fetching data. zmdb derives all read types from your schema — any change to the schema automatically updates the DTOs, eliminating drift between your API contracts and database queries.
+Read Data Transfer Objects provide typed query inputs and result shapes for fetching data. zmdb derives all read types from your schema — any change to the schema automatically updates the DTOs,
+eliminating drift between your API contracts and database queries.
 
 ## WhereDTO — Typed Filters
 
@@ -87,8 +88,7 @@ const result = buildListResult(rows, { limit: 20 });
 // result: { items, hasMore, total?, cursor? }
 ```
 
-> [!IMPORTANT]
-> `total` is only present when you explicitly request it. `hasMore` is computed from limit+1 fetch.
+> [!IMPORTANT] `total` is only present when you explicitly request it. `hasMore` is computed from limit+1 fetch.
 
 ## SearchDTO — Full-Text Search
 

@@ -1,4 +1,5 @@
-MySQL is fully supported by the compiler. The differences from Postgres are in quoting, placeholders, and three type mappings — plus two behaviours that will surprise you if Postgres is your reference point.
+MySQL is fully supported by the compiler. The differences from Postgres are in quoting, placeholders, and three type mappings — plus two behaviours that will surprise you if Postgres is your reference
+point.
 
 ## Selecting it
 
@@ -52,16 +53,14 @@ const row = await repo.findOne({ email: { eq: dto.email } });
 
 Two round trips. Selecting on a unique column rather than `LAST_INSERT_ID()` is safer across a pool, where the second statement may land on a different connection.
 
-Expression-valued repository writes have a narrower explicit contract:
-`update(id, { count: inc(1) })`, `increment`, every `updateMany`, and an
-expression-valued `upsert` update object omit unsupported `RETURNING`, execute
-one statement, and resolve to `undefined`. They do not issue a hidden follow-up
-`SELECT`. This does not retrofit the other pre-existing repository write paths;
-the create example above still applies to them.
+Expression-valued repository writes have a narrower explicit contract: `update(id, { count: inc(1) })`, `increment`, every `updateMany`, and an expression-valued `upsert` update object omit
+unsupported `RETURNING`, execute one statement, and resolve to `undefined`. They do not issue a hidden follow-up `SELECT`. This does not retrofit the other pre-existing repository write paths; the
+create example above still applies to them.
 
 ## `boolean` is `TINYINT(1)`
 
-MySQL has no boolean type, so `Sql<'boolean'>` becomes `TINYINT(1)` and comes back as `0` or `1`, not `false` or `true`. `mysql2` does not convert it for you. Fix it in the driver, where you know the schema is a MySQL one:
+MySQL has no boolean type, so `Sql<'boolean'>` becomes `TINYINT(1)` and comes back as `0` or `1`, not `false` or `true`. `mysql2` does not convert it for you. Fix it in the driver, where you know the
+schema is a MySQL one:
 
 ```ts
 // per-column, explicit — a generic 0/1 coercion will mangle real integers
@@ -72,7 +71,8 @@ Or use `mysql2`'s `typeCast` to handle `TINY` columns with length 1 globally. Ei
 
 ## Case sensitivity
 
-**`LIKE` is case-insensitive by default**, because the default collation is `utf8mb4_0900_ai_ci`. So `like` and `ilike` behave the same, and code written against MySQL will start matching differently the day it runs on Postgres. If you need case-sensitive matching, that is a collation choice:
+**`LIKE` is case-insensitive by default**, because the default collation is `utf8mb4_0900_ai_ci`. So `like` and `ilike` behave the same, and code written against MySQL will start matching differently
+the day it runs on Postgres. If you need case-sensitive matching, that is a collation choice:
 
 ```sql
 ALTER TABLE users MODIFY email VARCHAR(255) COLLATE utf8mb4_0900_as_cs;
@@ -92,13 +92,13 @@ CREATE DATABASE app CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 ## DDL is not transactional
 
-MySQL auto-commits DDL, so a migration with two `ALTER TABLE`s can leave the first applied and the second failed. Wrapping it in `BEGIN`/`COMMIT` does not help. One statement per migration on MySQL. See [migrate](./cli-migrate.html).
+MySQL auto-commits DDL, so a migration with two `ALTER TABLE`s can leave the first applied and the second failed. Wrapping it in `BEGIN`/`COMMIT` does not help. One statement per migration on MySQL.
+See [migrate](./cli-migrate.html).
 
 ## Connecting
 
-[PlanetScale](./connect-planetscale.html), [TiDB](./connect-tidb.html), and any
-MySQL-compatible server. PlanetScale may have foreign keys disabled; generated
-constraints from `References<…>` need that support turned on before migration.
+[PlanetScale](./connect-planetscale.html), [TiDB](./connect-tidb.html), and any MySQL-compatible server. PlanetScale may have foreign keys disabled; generated constraints from `References<…>` need
+that support turned on before migration.
 
 ---
 

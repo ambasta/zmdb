@@ -12,18 +12,13 @@ $ npx zmdb export
 CREATE TABLE "users" ("email" TEXT NOT NULL, "id" INTEGER PRIMARY KEY);
 ```
 
-Only the temporary directory was shortened. The config comment is valid SQL,
-so the same bytes can be redirected unchanged.
+Only the temporary directory was shortened. The config comment is valid SQL, so the same bytes can be redirected unchanged.
 
-The command loads [the project config](./config-file.html), reflects its
-exported tagged tables, snapshots them, diffs from an empty snapshot, and emits
-each operation for the configured dialect. It does not connect to a database or
-need credentials.
+The command loads [the project config](./config-file.html), reflects its exported tagged tables, snapshots them, diffs from an empty snapshot, and emits each operation for the configured dialect. It
+does not connect to a database or need credentials.
 
-The human form writes a SQL comment naming the resolved config followed by DDL
-to stdout, so redirection remains valid SQL. With `--json`, stdout is exactly
-one `CliResult` document containing `ops` and `statements`; errors and other
-human-readable text stay on stderr.
+The human form writes a SQL comment naming the resolved config followed by DDL to stdout, so redirection remains valid SQL. With `--json`, stdout is exactly one `CliResult` document containing `ops`
+and `statements`; errors and other human-readable text stay on stderr.
 
 Use separate configs to compare dialects:
 
@@ -44,7 +39,8 @@ npx zmdb export --config zmdb.sqlite.config.ts > schema.sqlite.sql
 COPY schema.sql /docker-entrypoint-initdb.d/01-schema.sql
 ```
 
-**A reviewable artefact.** Committing `schema.sql` and regenerating it in CI makes every schema change show up as a SQL diff in the pull request, next to the TypeScript one. That is a cheap and surprisingly effective review aid.
+**A reviewable artefact.** Committing `schema.sql` and regenerating it in CI makes every schema change show up as a SQL diff in the pull request, next to the TypeScript one. That is a cheap and
+surprisingly effective review aid.
 
 ```yaml
 - run: npx zmdb export > schema.sql
@@ -53,10 +49,8 @@ COPY schema.sql /docker-entrypoint-initdb.d/01-schema.sql
 
 ## What it does not include
 
-The export covers what `snapshot()` implements today — required extension
-installation, tables, columns, core and extension-backed types, nullability,
-primary keys, foreign keys with referential actions, and `varchar` lengths. It
-does **not** include:
+The export covers what `snapshot()` implements today — required extension installation, tables, columns, core and extension-backed types, nullability, primary keys, foreign keys with referential
+actions, and `varchar` lengths. It does **not** include:
 
 - defaults or unique constraints
 - indexes — those come from `createIndexDdl`, see [Indexes & Constraints](./indexes-constraints.html)
@@ -64,7 +58,8 @@ does **not** include:
 - triggers, functions, or extension upgrades/removal
 - anything from a [hand-written migration](./migrations-custom.html)
 
-So `schema.sql` is not a complete database definition once your project has any of the above. If you want a genuinely complete dump, that is `pg_dump --schema-only` against a migrated database — which is a different tool doing a different job, and the right one for a backup.
+So `schema.sql` is not a complete database definition once your project has any of the above. If you want a genuinely complete dump, that is `pg_dump --schema-only` against a migrated database — which
+is a different tool doing a different job, and the right one for a backup.
 
 To include the schema objects that _are_ emitted by helpers, append them:
 

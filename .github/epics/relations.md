@@ -2,7 +2,8 @@
 
 ## Goal
 
-Provide first-class relation modeling comparable to mikro-orm's ManyToOne / OneToMany / OneToOne / ManyToMany — **without** an identity map, proxies, or lazy runtime-loaded references. Relations are declared in the schema DSL and resolve to explicit, type-safe JOIN/populate SQL compiled ahead of time.
+Provide first-class relation modeling comparable to mikro-orm's ManyToOne / OneToMany / OneToOne / ManyToMany — **without** an identity map, proxies, or lazy runtime-loaded references. Relations are
+declared in the schema DSL and resolve to explicit, type-safe JOIN/populate SQL compiled ahead of time.
 
 ## Parity Reference
 

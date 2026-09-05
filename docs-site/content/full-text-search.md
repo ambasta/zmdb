@@ -1,5 +1,4 @@
-PostgreSQL full-text search is expressible directly in the query builder, and a
-typed [SearchDTO](./read-dtos.html) layers ranking + paging on top.
+PostgreSQL full-text search is expressible directly in the query builder, and a typed [SearchDTO](./read-dtos.html) layers ranking + paging on top.
 
 ## Match a term
 
@@ -33,8 +32,5 @@ const search: SearchDTO<Product> = {
 const result = buildSearchResult(hits, { limit: 20 }); // items carry an optional _score
 ```
 
-> [!IMPORTANT]
-> FTS is dialect-specific. On SQLite (no arbitrary-column FTS without FTS5),
-> `findByFullText` throws an explicit `UnsupportedFeatureError` rather than
-> silently running a wrong query. This is one of the routes exercised against
-> real Postgres in the [benchmarks](../benchmarks/index.html).
+> [!IMPORTANT] FTS is dialect-specific. On SQLite (no arbitrary-column FTS without FTS5), `findByFullText` throws an explicit `UnsupportedFeatureError` rather than silently running a wrong query. This
+> is one of the routes exercised against real Postgres in the [benchmarks](../benchmarks/index.html).

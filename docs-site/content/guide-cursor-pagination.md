@@ -1,4 +1,5 @@
-`OFFSET 100000` makes the database produce and discard 100,000 rows before returning yours. Keyset (cursor) pagination filters instead, so page 5,000 costs the same as page 1 — and `list()` implements it for you, cursor encoding included.
+`OFFSET 100000` makes the database produce and discard 100,000 rows before returning yours. Keyset (cursor) pagination filters instead, so page 5,000 costs the same as page 1 — and `list()` implements
+it for you, cursor encoding included.
 
 ## Offset pagination, and where it breaks
 
@@ -31,13 +32,15 @@ export async function feed(after?: string) {
 }
 ```
 
-That is the whole implementation. `list()` fetches `limit + 1` rows, trims to `limit`, sets `hasMore` from the extra row, and — when there is a next page — encodes the last kept row's sort-key values into an opaque base64 `cursor`. Hand `page.cursor` back to the client and pass it as `after` next time.
+That is the whole implementation. `list()` fetches `limit + 1` rows, trims to `limit`, sets `hasMore` from the extra row, and — when there is a next page — encodes the last kept row's sort-key values
+into an opaque base64 `cursor`. Hand `page.cursor` back to the client and pass it as `after` next time.
 
 `ListResult` is `{ items, total?, hasMore, cursor? }`. `total` is **never populated by `list()`** — a count is a second query you have to ask for, see [Count rows](./guide-count-rows.html).
 
 ## Ties are handled for you
 
-If the sort column is not unique, rows with equal values can be skipped or repeated across a page boundary. This is the classic keyset bug, and `list()` closes it: if your `orderBy` does not already include the primary key, it **appends `{ column: pk, dir: 'asc' }`** before compiling. So
+If the sort column is not unique, rows with equal values can be skipped or repeated across a page boundary. This is the classic keyset bug, and `list()` closes it: if your `orderBy` does not already
+include the primary key, it **appends `{ column: pk, dir: 'asc' }`** before compiling. So
 
 ```ts
 orderBy: [{ column: 'created_at', dir: 'desc' }];
@@ -51,9 +54,11 @@ The generated predicate is the proper lexicographic comparison, not a naive `cre
 created_at < :at OR (created_at = :at AND id > :id)
 ```
 
-One `OR` branch per sort column, each pinning the preceding columns with `=`. Your own `where` is replicated into every branch, so a tenant filter is not lost in the second branch — which is exactly the mistake hand-written keyset pagination makes.
+One `OR` branch per sort column, each pinning the preceding columns with `=`. Your own `where` is replicated into every branch, so a tenant filter is not lost in the second branch — which is exactly
+the mistake hand-written keyset pagination makes.
 
-Composite keyset comparison therefore needs no builder and no raw SQL. Row-value syntax — `(created_at, id) < (:at, :id)` — is tidier for a human to read and would need [raw SQL](./raw-sql.html), but it is not more correct.
+Composite keyset comparison therefore needs no builder and no raw SQL. Row-value syntax — `(created_at, id) < (:at, :id)` — is tidier for a human to read and would need [raw SQL](./raw-sql.html), but
+it is not more correct.
 
 ## Index the sort key
 
@@ -61,7 +66,8 @@ Composite keyset comparison therefore needs no builder and no raw SQL. Row-value
 createIndexDdl({ name: 'posts_created_id', table: 'posts', columns: ['created_at', 'id'] }, 'postgres');
 ```
 
-Match the index column order to the `ORDER BY`, **including the primary key `list()` appends**. Without the index the database sorts the whole table per page and you have lost the point of keyset pagination.
+Match the index column order to the `ORDER BY`, **including the primary key `list()` appends**. Without the index the database sorts the whole table per page and you have lost the point of keyset
+pagination.
 
 ## The cursor is encoding, not authentication
 
@@ -73,16 +79,19 @@ page: { limit: 20, after: { created_at: at, id } }   // equivalent, and useful i
 
 Both end up as query parameters.
 
-> [!WARNING]
-> A base64 cursor is trivially forgeable — anyone can decode one, edit it, and send it back. A cursor must therefore never carry authorisation. Filter by tenant and by owner in the `where` clause on every page, so a forged cursor can move a caller _within_ their own result set and nowhere else. See [Authorization](./web-authorization.html).
+> [!WARNING] A base64 cursor is trivially forgeable — anyone can decode one, edit it, and send it back. A cursor must therefore never carry authorisation. Filter by tenant and by owner in the `where`
+> clause on every page, so a forged cursor can move a caller _within_ their own result set and nowhere else. See [Authorization](./web-authorization.html).
 
-A malformed cursor throws (`Invalid cursor format`, or `Invalid cursor: missing value for column "x"` when the `orderBy` changed between requests) — which reaches the router as a **500**, not a 400. Decode-and-validate at your boundary if a bad cursor should be a client error.
+A malformed cursor throws (`Invalid cursor format`, or `Invalid cursor: missing value for column "x"` when the `orderBy` changed between requests) — which reaches the router as a **500**, not a 400.
+Decode-and-validate at your boundary if a bad cursor should be a client error.
 
 ## `before` is declared but ignored
 
-> **ToDo / feature gap.** `PaginationDTO` accepts `{ limit, before }`, but `list()` only reads `after`. A `before` cursor is **silently dropped** — you get the first page back with no error, which is the worst possible failure mode for backwards pagination.
+> **ToDo / feature gap.** `PaginationDTO` accepts `{ limit, before }`, but `list()` only reads `after`. A `before` cursor is **silently dropped** — you get the first page back with no error, which is
+> the worst possible failure mode for backwards pagination.
 
-Until it lands, page backwards by reversing the `orderBy` and reversing the returned `items` in your code. What it would take: the `after` branch in `list()` generalised to emit the flipped comparison operators for `before`, and `buildListResult` emitting a start cursor alongside the end cursor.
+Until it lands, page backwards by reversing the `orderBy` and reversing the returned `items` in your code. What it would take: the `after` branch in `list()` generalised to emit the flipped comparison
+operators for `before`, and `buildListResult` emitting a start cursor alongside the end cursor.
 
 ## What you give up
 

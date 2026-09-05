@@ -1,7 +1,5 @@
-Define HTTP controllers with **Stage-3 decorators**. `@Controller` sets a path
-prefix; `@Get`/`@Post`/`@Put`/`@Patch`/`@Delete` mark handler methods. All route
-data is stored in the standard `Symbol.metadata` record — **no `reflect-metadata`,
-no runtime type reflection**. The route table is resolved once via `getRoutes`.
+Define HTTP controllers with **Stage-3 decorators**. `@Controller` sets a path prefix; `@Get`/`@Post`/`@Put`/`@Patch`/`@Delete` mark handler methods. All route data is stored in the standard
+`Symbol.metadata` record — **no `reflect-metadata`, no runtime type reflection**. The route table is resolved once via `getRoutes`.
 
 ## Declaring a controller
 
@@ -32,16 +30,12 @@ class UsersController {
 }
 ```
 
-> [!NOTE]
-> Stage 3 has **no parameter decorators**, so handlers don't take `@Param`/`@Body`
-> arguments. Instead they'll receive a single strongly-typed request context —
-> see the [typed context](./web-overview.html) work (path params are _derived_
-> from the route string). This page covers the route wiring itself.
+> [!NOTE] Stage 3 has **no parameter decorators**, so handlers don't take `@Param`/`@Body` arguments. Instead they'll receive a single strongly-typed request context — see the
+> [typed context](./web-overview.html) work (path params are _derived_ from the route string). This page covers the route wiring itself.
 
 ## Reading the route table
 
-`getRoutes(ControllerClass)` returns the resolved routes — the controller prefix
-composed with each method path, normalized, in **declaration order**:
+`getRoutes(ControllerClass)` returns the resolved routes — the controller prefix composed with each method path, normalized, in **declaration order**:
 
 ```ts
 import { getRoutes } from '@zmdb/web';
@@ -55,8 +49,7 @@ getRoutes(UsersController);
 // ]
 ```
 
-The table is computed by reading `context.metadata` — cache it freely; it is
-stable after class initialization and never re-reflected per request.
+The table is computed by reading `context.metadata` — cache it freely; it is stable after class initialization and never re-reflected per request.
 
 ## Path composition
 
@@ -67,14 +60,12 @@ stable after class initialization and never re-reflected per request.
 | _(none)_             | `/health`   | `/health`    |
 | `users/`             | `/`         | `/users`     |
 
-Duplicate slashes collapse and a trailing slash is stripped (the root `/` stays
-`/`).
+Duplicate slashes collapse and a trailing slash is stripped (the root `/` stays `/`).
 
 ## Design notes
 
 - **No `as` on the consumer surface** — you never assert types to declare routes.
-- Route/prefix data is kept in **symbol-keyed** slots inside `context.metadata`,
-  off the public string keyspace.
+- Route/prefix data is kept in **symbol-keyed** slots inside `context.metadata`, off the public string keyspace.
 - Granular import: `import { getRoutes } from '@zmdb/web/routing'`.
 
 ## Cross-links

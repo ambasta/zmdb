@@ -7,12 +7,7 @@ Every builder ends in `.compile()`, which returns `{ text, parameters }`. No con
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
-const { text, parameters } = createQueryCompiler('postgres')
-  .selectFrom('users')
-  .where('age', '>=', 18)
-  .orderBy('email', 'asc')
-  .limit(10)
-  .compile();
+const { text, parameters } = createQueryCompiler('postgres').selectFrom('users').where('age', '>=', 18).orderBy('email', 'asc').limit(10).compile();
 ```
 
 Assert on `text` in a unit test. This is the same value the driver gets.
@@ -41,7 +36,8 @@ import { seedRows } from '@zmdb/repository/seeding';
 const rows = seedRows(userSchema, { count: 50, seed: 1234 });
 ```
 
-Deterministic for a given seed, and shaped by the column's whole declaration rather than only its SQL type — a literal union gets a member, a `timestamp` gets a `Date`, a `Min<18>` column gets a number at least eighteen. It is the same sampler [`random<T>()`](./random.html) uses, so the rows satisfy `repo.create`'s own validator. See [Seed Value Generators](./seed-functions.html).
+Deterministic for a given seed, and shaped by the column's whole declaration rather than only its SQL type — a literal union gets a member, a `timestamp` gets a `Date`, a `Min<18>` column gets a
+number at least eighteen. It is the same sampler [`random<T>()`](./random.html) uses, so the rows satisfy `repo.create`'s own validator. See [Seed Value Generators](./seed-functions.html).
 
 ## Generate a value from any type, not just a schema
 
@@ -106,7 +102,8 @@ import { lenientParse } from '@zmdb/schema-core/llm';
 lenientParse<User>('```json\n{"email":"a@b.c"}\n```');
 ````
 
-Strips a leading or trailing code fence before parsing, which is what a model wraps JSON in when you asked for JSON. Prose before the fence is not stripped. See [Structured Output](./llm-structured-output.html).
+Strips a leading or trailing code fence before parsing, which is what a model wraps JSON in when you asked for JSON. Prose before the fence is not stripped. See
+[Structured Output](./llm-structured-output.html).
 
 ## The test harness boots the real app
 
@@ -144,10 +141,7 @@ Anything with a `compile()` works, including a hand-built `CompiledQuery`. See [
 `IndexDef` takes a `where` clause:
 
 ```ts
-createIndexDdl(
-  { name: 'active_email', table: 'users', columns: ['email'], unique: true, where: 'deleted_at IS NULL' },
-  'postgres',
-);
+createIndexDdl({ name: 'active_email', table: 'users', columns: ['email'], unique: true, where: 'deleted_at IS NULL' }, 'postgres');
 ```
 
 ---

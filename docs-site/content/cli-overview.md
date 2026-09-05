@@ -1,6 +1,4 @@
-The schema commands are thin packaged wrappers over the public reflection,
-snapshot, diff, introspection, DDL, migration-runner, catalog-reader, and
-declaration-emitter APIs.
+The schema commands are thin packaged wrappers over the public reflection, snapshot, diff, introspection, DDL, migration-runner, catalog-reader, and declaration-emitter APIs.
 
 ## The pieces
 
@@ -29,15 +27,12 @@ declaration-emitter APIs.
 | `pull` / `generate-entities` | protected `zmdb pull` declaration staging              | [pull](./cli-pull.html)                               |
 | `studio`                     | installed read-only loopback browser                   | [studio](./cli-studio.html)                           |
 
-The catalog-backed `pull` is packaged with overwrite protection, dry-run, and
-check modes. Studio's installed binary is parsed by plain Node and exercised
-against its loopback index by publish verification.
+The catalog-backed `pull` is packaged with overwrite protection, dry-run, and check modes. Studio's installed binary is parsed by plain Node and exercised against its loopback index by publish
+verification.
 
 ## A single entry point
 
-The installed binary owns config discovery, help, JSON output, stream
-separation, and exit codes. This help transcript was captured from the package
-bin against the repository's SQLite fixture:
+The installed binary owns config discovery, help, JSON output, stream separation, and exit codes. This help transcript was captured from the package bin against the repository's SQLite fixture:
 
 ```text
 $ npx zmdb --help
@@ -77,10 +72,8 @@ npx zmdb pull --dry-run
 npx zmdb new controller posts
 ```
 
-The schema commands accept `--config <path>` and `--project <tsconfig>`.
-Scaffolding instead accepts `--package <name-or-path>` and `--dry-run` and does
-not load database config. Add `--json` when a script needs the stable
-`CliResult` envelope instead of human output.
+The schema commands accept `--config <path>` and `--project <tsconfig>`. Scaffolding instead accepts `--package <name-or-path>` and `--dry-run` and does not load database config. Add `--json` when a
+script needs the stable `CliResult` envelope instead of human output.
 
 ## Exit codes and streams
 
@@ -90,9 +83,7 @@ not load database config. Add `--json` when a script needs the stable
 | `1`  | Work ran, but an operation failed or a check found drift.                 |
 | `2`  | The invocation, config, safety confirmation, or command name was invalid. |
 
-Human progress goes to stdout. Under `--json`, stdout is one `CliResult`
-document and progress or warnings move to stderr, so a caller can parse stdout
-without filtering log lines.
+Human progress goes to stdout. Under `--json`, stdout is one `CliResult` document and progress or warnings move to stderr, so a caller can parse stdout without filtering log lines.
 
 ---
 

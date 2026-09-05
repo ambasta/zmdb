@@ -2,8 +2,7 @@ Migrations manage schema evolution over time. zmdb provides snapshot and diff ut
 
 ## The packaged workflow
 
-Most projects should use the CLI so config discovery, atomic files, checksums,
-exit codes, and driver cleanup stay uniform:
+Most projects should use the CLI so config discovery, atomic files, checksums, exit codes, and driver cleanup stay uniform:
 
 ```bash
 npx zmdb generate --name add_slug
@@ -13,14 +12,10 @@ npx zmdb status
 npx zmdb check
 ```
 
-`generate` writes one reviewed up/down SQL file plus `snapshot.json`. `migrate`
-applies pending versions and records their checksums; `status` shows the ledger;
-`check` reports uncommitted schema, malformed history, and optional live drift.
-See the [CLI overview](./cli-overview.html) for the complete command and exit
-contract.
+`generate` writes one reviewed up/down SQL file plus `snapshot.json`. `migrate` applies pending versions and records their checksums; `status` shows the ledger; `check` reports uncommitted schema,
+malformed history, and optional live drift. See the [CLI overview](./cli-overview.html) for the complete command and exit contract.
 
-Use the library sections below when an application owns snapshots or migration
-arrays in memory rather than files on disk.
+Use the library sections below when an application owns snapshots or migration arrays in memory rather than files on disk.
 
 ## Taking a Snapshot
 
@@ -64,8 +59,7 @@ Change operations include:
 - `add_column` — new column in existing table
 - `drop_column` — removed column
 - `alter_column_type` — type change
-- `alter_primary_key` — ordered primary-key change; explicitly refused on
-  SQLite and SQL Server (the latter needs the existing constraint name)
+- `alter_primary_key` — ordered primary-key change; explicitly refused on SQLite and SQL Server (the latter needs the existing constraint name)
 
 ## Generating DDL
 
@@ -87,8 +81,7 @@ for (const op of changes) {
 // DOWN: ALTER TABLE "users" DROP COLUMN "new_col"
 ```
 
-> [!NOTE]
-> Column renames are not detected — they're treated as drop + add. Track renames manually or use a naming convention.
+> [!NOTE] Column renames are not detected — they're treated as drop + add. Track renames manually or use a naming convention.
 
 ## Version Table
 
@@ -103,12 +96,10 @@ CREATE TABLE IF NOT EXISTS _zmdb_migrations (
 )
 ```
 
-SQLite uses `INTEGER` for both numeric columns because its integer storage is
-already 64-bit. A null checksum identifies history written by an older runner;
-new rows store SHA-256 over the exact `up` section.
+SQLite uses `INTEGER` for both numeric columns because its integer storage is already 64-bit. A null checksum identifies history written by an older runner; new rows store SHA-256 over the exact `up`
+section.
 
-> [!TIP]
-> Always store migrations in version control. Pair with the CLI runner for local development.
+> [!TIP] Always store migrations in version control. Pair with the CLI runner for local development.
 
 ---
 

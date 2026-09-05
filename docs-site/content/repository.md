@@ -1,4 +1,5 @@
-The repository pattern provides a typed, validated data access layer backed by your schema definition. zmdb's `BaseRepository` delivers CRUD, upsert, expression-valued updates, lifecycle hooks, validation interception, and transaction support — all without proxies or an identity map.
+The repository pattern provides a typed, validated data access layer backed by your schema definition. zmdb's `BaseRepository` delivers CRUD, upsert, expression-valued updates, lifecycle hooks,
+validation interception, and transaction support — all without proxies or an identity map.
 
 ## Defining a Repository
 
@@ -13,8 +14,7 @@ class UserRepository extends BaseRepository<User> {
 }
 ```
 
-> [!IMPORTANT]
-> The `static readonly schema = UserSchema` line is required. It binds the schema to the class so the repository can derive types and validate payloads.
+> [!IMPORTANT] The `static readonly schema = UserSchema` line is required. It binds the schema to the class so the repository can derive types and validate payloads.
 
 ## Injecting a Driver
 
@@ -73,15 +73,13 @@ await users.hardDelete(created.id);
 await users.restore(created.id);
 ```
 
-For a numeric column, `repo.increment(id, column, by?)` is the typed atomic
-shortcut. The column union is derived from updatable `integer`, `bigint`, and
-`numeric` declarations, and the operand preserves number versus bigint.
+For a numeric column, `repo.increment(id, column, by?)` is the typed atomic shortcut. The column union is derived from updatable `integer`, `bigint`, and `numeric` declarations, and the operand
+preserves number versus bigint.
 
 ## Typed filtering & pagination
 
-Beyond `findById`/`findOne`, the repository exposes typed `find` and `list`
-methods driven by the schema-derived [WhereDTO](./filters.html) and
-[pagination](./pagination.html) DTOs — no untyped `Record` filters.
+Beyond `findById`/`findOne`, the repository exposes typed `find` and `list` methods driven by the schema-derived [WhereDTO](./filters.html) and [pagination](./pagination.html) DTOs — no untyped
+`Record` filters.
 
 ```ts
 // find(where: WhereDTO<S>) → readonly Entity<S>[]
@@ -105,17 +103,12 @@ SELECT * FROM "users" WHERE "email" = $1 LIMIT 1
 SELECT * FROM "users" WHERE "role" = $1 ORDER BY "createdAt" DESC LIMIT 21
 ```
 
-> [!NOTE]
-> `list` fetches `limit + 1` rows and trims, so `hasMore` is computed without a
-> separate `COUNT`. The operator set
-> (`eq/ne/lt/lte/gt/gte/in/nin/like/ilike/isNull/notNull`) and result shape come
-> from [Filters](./filters.html) and the
-> [Read/Query DTOs](./read-dtos.html).
+> [!NOTE] `list` fetches `limit + 1` rows and trims, so `hasMore` is computed without a separate `COUNT`. The operator set (`eq/ne/lt/lte/gt/gte/in/nin/like/ilike/isNull/notNull`) and result shape
+> come from [Filters](./filters.html) and the [Read/Query DTOs](./read-dtos.html).
 
 ## Lifecycle Hooks
 
-Hooks fire synchronously around their corresponding repository operations.
-Override them in your subclass.
+Hooks fire synchronously around their corresponding repository operations. Override them in your subclass.
 
 ```ts
 class UserRepository extends BaseRepository<User> {
@@ -147,10 +140,8 @@ class UserRepository extends BaseRepository<User> {
 }
 ```
 
-`preUpdate` runs for `update`, `updateMany`, and `increment`. `upsert` runs
-`preInsert` for its create payload; its conflict-update object does not also run
-`preUpdate`. A soft delete emits SQL `UPDATE`, but follows delete semantics:
-`preDelete` runs and `preUpdate` does not.
+`preUpdate` runs for `update`, `updateMany`, and `increment`. `upsert` runs `preInsert` for its create payload; its conflict-update object does not also run `preUpdate`. A soft delete emits SQL
+`UPDATE`, but follows delete semantics: `preDelete` runs and `preUpdate` does not.
 
 ## Transactions
 
@@ -163,9 +154,7 @@ await tx.query('BEGIN');
 try {
   const txRepo = users.withTransaction({ execute: tx.query.bind(tx) });
   const user = await txRepo.create({ email: 'a@b.com' });
-  const order = await ordersRepo
-    .withTransaction({ execute: tx.query.bind(tx) })
-    .create({ userId: user.id, total: 100 });
+  const order = await ordersRepo.withTransaction({ execute: tx.query.bind(tx) }).create({ userId: user.id, total: 100 });
 
   await tx.query('COMMIT');
 } catch (e) {
@@ -176,8 +165,7 @@ try {
 }
 ```
 
-> [!NOTE]
-> `withTransaction` returns a shallow clone — the original repository's driver is unchanged.
+> [!NOTE] `withTransaction` returns a shallow clone — the original repository's driver is unchanged.
 
 ## Cross-links
 

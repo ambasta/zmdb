@@ -1,4 +1,5 @@
-There is no discovery API. Nothing scans the filesystem, nothing reads decorator metadata at runtime to find providers, and there is no `DiscoveryService` — you list your controllers and providers in `@Module`, and the framework builds exactly those.
+There is no discovery API. Nothing scans the filesystem, nothing reads decorator metadata at runtime to find providers, and there is no `DiscoveryService` — you list your controllers and providers in
+`@Module`, and the framework builds exactly those.
 
 ## What that means in practice
 
@@ -11,12 +12,11 @@ There is no discovery API. Nothing scans the filesystem, nothing reads decorator
 export class AppModule {}
 ```
 
-The module graph is the manifest. `compileModule` validates eager and lazy
-imports, registers eager providers, builds eager controllers, and throws on an
-import cycle with its path. Lazy-controller routes are still known and
-registered at startup; only their instances are deferred.
+The module graph is the manifest. `compileModule` validates eager and lazy imports, registers eager providers, builds eager controllers, and throws on an import cycle with its path. Lazy-controller
+routes are still known and registered at startup; only their instances are deferred.
 
-There is no glob, no `autoLoadEntities`, no `require.context`, no `reflect-metadata` scan. The cost is that adding a controller means adding a line; the benefit is that a missing registration is a compile error at the module, not a route that silently does not exist.
+There is no glob, no `autoLoadEntities`, no `require.context`, no `reflect-metadata` scan. The cost is that adding a controller means adding a line; the benefit is that a missing registration is a
+compile error at the module, not a route that silently does not exist.
 
 ## Finding your own routes
 
@@ -48,7 +48,8 @@ This is also how [OpenAPI generation](./openapi.html) works: `toOpenApi(controll
 
 ## Finding your schemas
 
-Nothing enumerates your tables either. A schema comes from a type — `schemaOf<User>()` — and a type is not a value that can register itself, so there is nowhere for a registry to record into. Keep the array:
+Nothing enumerates your tables either. A schema comes from a type — `schemaOf<User>()` — and a type is not a value that can register itself, so there is nowhere for a registry to record into. Keep the
+array:
 
 ```ts
 import { schemaOf } from '@zmdb/schema-core';
@@ -72,13 +73,9 @@ for (const op of diff({ tables: {} }, snapshot([...ALL_TABLES]))) await exec(emi
 
 `snapshot` takes an explicit array by design, for the same reason `@Module` takes an explicit `controllers` list.
 
-> [!NOTE]
-> The old failure mode was an import-order one: a registry only knew about schemas
-> whose module had been imported, so a `TRUNCATE`-everything helper could silently
-> miss a table. The array has the same hazard in a more visible place — a table
-> missing from `ALL_TABLES` is a line you can grep for. If it matters, pin it with a
-> test that walks the source for `extends Table<'…'>` and compares the two sets;
-> [Monorepo layout](./web-cli-monorepo.html) has one.
+> [!NOTE] The old failure mode was an import-order one: a registry only knew about schemas whose module had been imported, so a `TRUNCATE`-everything helper could silently miss a table. The array has
+> the same hazard in a more visible place — a table missing from `ALL_TABLES` is a line you can grep for. If it matters, pin it with a test that walks the source for `extends Table<'…'>` and compares
+> the two sets; [Monorepo layout](./web-cli-monorepo.html) has one.
 
 ## Finding providers
 
@@ -88,14 +85,13 @@ if (app.container.has(CACHE)) {
 }
 ```
 
-`has` and `resolve` are keyed by token identity — there is no way to enumerate what is registered, because the container's map is private. If you need a list of the providers of some kind, keep the list:
+`has` and `resolve` are keyed by token identity — there is no way to enumerate what is registered, because the container's map is private. If you need a list of the providers of some kind, keep the
+list:
 
 ```ts
 export const HEALTH_CHECKS = [DB_CHECK, CACHE_CHECK, QUEUE_CHECK] as const;
 
-const results = await Promise.all(
-  HEALTH_CHECKS.filter(t => app.container.has(t)).map(t => app.container.resolve(t).check()),
-);
+const results = await Promise.all(HEALTH_CHECKS.filter(t => app.container.has(t)).map(t => app.container.resolve(t).check()));
 ```
 
 An explicit array is what a discovery-based plugin system gives you anyway, minus the runtime scan and the ordering surprises.
@@ -104,13 +100,15 @@ An explicit array is what a discovery-based plugin system gives you anyway, minu
 
 Three reasons, and they are the same reasons the rest of the framework has no reflection:
 
-- **Startup cost.** A filesystem scan plus metadata reflection is paid on every cold start. There is nothing to scan here, which is most of why [serverless cold starts](./perf-serverless.html) are cheap.
+- **Startup cost.** A filesystem scan plus metadata reflection is paid on every cold start. There is nothing to scan here, which is most of why [serverless cold starts](./perf-serverless.html) are
+  cheap.
 - **Bundling.** A dynamic `require` of a glob defeats every bundler and every tree-shaker. An explicit import list bundles correctly with no configuration.
 - **Failure mode.** A typo'd filename in a glob produces a missing route with no error. A missing import produces a compile error.
 
 ## What it would take
 
-An opt-in `discover(controllers)` helper that walks a supplied array and returns routes plus tokens would be a thin wrapper over `getRoutes` and add little. Filesystem-based discovery would be a genuine change of philosophy and is not planned — see [Anti-Patterns](./anti-patterns.html).
+An opt-in `discover(controllers)` helper that walks a supplied array and returns routes plus tokens would be a thin wrapper over `getRoutes` and add little. Filesystem-based discovery would be a
+genuine change of philosophy and is not planned — see [Anti-Patterns](./anti-patterns.html).
 
 ---
 

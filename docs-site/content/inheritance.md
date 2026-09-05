@@ -1,4 +1,5 @@
-Inheritance lets you model entity hierarchies in a single database table using a discriminator column. zmdb provides `SingleTableInheritance` utilities to map rows to their correct subtypes at runtime.
+Inheritance lets you model entity hierarchies in a single database table using a discriminator column. zmdb provides `SingleTableInheritance` utilities to map rows to their correct subtypes at
+runtime.
 
 ## Single Table Inheritance
 
@@ -100,24 +101,18 @@ import { createQueryCompiler } from '@zmdb/query-compiler';
 const compiler = createQueryCompiler('postgres');
 
 // Get all concerts
-const concerts = compiler
-  .selectFrom('events')
-  .select(['id', 'title', 'venue', 'artist'])
-  .where('type', '=', 'concert')
-  .compile();
+const concerts = compiler.selectFrom('events').select(['id', 'title', 'venue', 'artist']).where('type', '=', 'concert').compile();
 
 // concerts.text => SELECT ... WHERE "type" = $1
 // concerts.parameters => ['concert']
 ```
 
-The declaration gets you two things here that the row shape alone does not: `type` narrows to
-`'concert' | 'game'`, so the `switch` below is exhaustive and a third subtype breaks the
-compile; and the per-subtype columns are typed as `| null`, which is what the table says. The
-part it cannot express is the invariant — that a `concert` row has a `title` and a `game` row
-does not — because that is a `CHECK` constraint, not a type.
+The declaration gets you two things here that the row shape alone does not: `type` narrows to `'concert' | 'game'`, so the `switch` below is exhaustive and a third subtype breaks the compile; and the
+per-subtype columns are typed as `| null`, which is what the table says. The part it cannot express is the invariant — that a `concert` row has a `title` and a `game` row does not — because that is a
+`CHECK` constraint, not a type.
 
-> [!NOTE]
-> Inheritance in zmdb is a runtime pattern, not a database constraint. You must ensure data integrity (e.g., that the type-specific columns match the discriminator) in your application code, or with a `CHECK` in a [custom migration](./migrations-custom.html).
+> [!NOTE] Inheritance in zmdb is a runtime pattern, not a database constraint. You must ensure data integrity (e.g., that the type-specific columns match the discriminator) in your application code,
+> or with a `CHECK` in a [custom migration](./migrations-custom.html).
 
 ## Polymorphic Relations
 
@@ -136,8 +131,7 @@ async function handleEventAttachment(eventRow: Record<string, unknown>) {
 }
 ```
 
-> [!TIP]
-> Keep discriminator columns indexed for efficient filtering. Add a partial index if your DB supports it (e.g., `WHERE type IS NOT NULL`).
+> [!TIP] Keep discriminator columns indexed for efficient filtering. Add a partial index if your DB supports it (e.g., `WHERE type IS NOT NULL`).
 
 ---
 

@@ -1,8 +1,7 @@
 # JSON Schema / OpenAPI Generation — Frozen Spec (Issue #63)
 
-> Status: **FROZEN** for TDD. Implementation (#64–#67) must satisfy this spec.
-> Part of `@zmdb/schema-core` (module `src/openapi/`). Build-time only, no runtime reflection.
-> Targets: Node 26+, ESM, TS 7. JSON Schema draft 2020-12 / OpenAPI 3.1.
+> Status: **FROZEN** for TDD. Implementation (#64–#67) must satisfy this spec. Part of `@zmdb/schema-core` (module `src/openapi/`). Build-time only, no runtime reflection. Targets: Node 26+, ESM,
+> TS 7. JSON Schema draft 2020-12 / OpenAPI 3.1.
 
 ## 1. toJsonSchema(schema, variant?)
 
@@ -11,8 +10,7 @@ type Variant = 'entity' | 'create' | 'update'; // default 'entity'
 function toJsonSchema(schema: CoreSchema<string>, variant?: Variant): JsonSchemaObject;
 ```
 
-Emits a draft 2020-12 object schema. Output keys are **stably ordered**
-(alphabetical within `properties`; `required` sorted) so documents are diffable.
+Emits a draft 2020-12 object schema. Output keys are **stably ordered** (alphabetical within `properties`; `required` sorted) so documents are diffable.
 
 ### Read variants (#173/#174/#175)
 
@@ -23,10 +21,8 @@ type Variant = 'entity' | 'create' | 'update' | 'get' | 'list' | 'search';
 ```
 
 - `get` → the entity response schema (same shape as `entity`).
-- `list` → an envelope `{ items: { type:'array', items: entity }, total?: integer,
-hasMore: boolean, cursor?: string }` via `toListSchema(schema)`.
-- `search` → `list` whose item schema also carries an optional `_score` number,
-  via `toSearchSchema(schema)`.
+- `list` → an envelope `{ items: { type:'array', items: entity }, total?: integer, hasMore: boolean, cursor?: string }` via `toListSchema(schema)`.
+- `search` → `list` whose item schema also carries an optional `_score` number, via `toSearchSchema(schema)`.
 - Deterministic key ordering; build-time only; no runtime reflection.
 
 ## 2. Column type → JSON Schema mapping
@@ -58,8 +54,7 @@ Nullable columns → `{ "type": ["<t>", "null"] }`.
 ## 4. Variant rules (DTO-aware)
 
 - `entity`: all columns; `required` = non-nullable columns.
-- `create`: omit `autoIncrement` columns; `hasDefault` columns are **optional**
-  (excluded from `required`).
+- `create`: omit `autoIncrement` columns; `hasDefault` columns are **optional** (excluded from `required`).
 - `update`: like `create` but `required` is `[]` (all optional).
 
 ## 5. Relations → $ref
@@ -75,9 +70,7 @@ function toOpenApiComponents(schemas: readonly CoreSchema<string>[]): {
 };
 ```
 
-Builds `components.schemas` keyed by the PascalCase declared table identity
-(`users` → `User`), never by a configured physical table name.
-Deterministic: same input → byte-identical output.
+Builds `components.schemas` keyed by the PascalCase declared table identity (`users` → `User`), never by a configured physical table name. Deterministic: same input → byte-identical output.
 
 ## 7. Golden fixture (users)
 

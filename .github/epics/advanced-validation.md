@@ -2,7 +2,8 @@
 
 ## Goal
 
-Match zod's expressive validation surface and typia's rich type support — but **AOT-compiled** by `@zmdb/aot-validator` into inline JS, never runtime-parsed. Extends the base validator (issue #3) beyond primitive tag checks.
+Match zod's expressive validation surface and typia's rich type support — but **AOT-compiled** by `@zmdb/aot-validator` into inline JS, never runtime-parsed. Extends the base validator (issue #3)
+beyond primitive tag checks.
 
 ## Parity Reference
 

@@ -49,7 +49,8 @@ Same code. Edge Functions run on Deno, so:
 
 ## The transformer
 
-Netlify builds functions with esbuild, which **does not run TypeScript transformers**. Type annotations are stripped and nothing else happens — so `assert<T>` receives no descriptor and validates nothing, silently.
+Netlify builds functions with esbuild, which **does not run TypeScript transformers**. Type annotations are stripped and nothing else happens — so `assert<T>` receives no descriptor and validates
+nothing, silently.
 
 Build with `tsc` yourself and point Netlify at the output:
 
@@ -70,9 +71,11 @@ it('the transformer is running', () => {
 });
 ```
 
-`node_bundler = "none"` with pre-built output is the reliable arrangement: your build produces the transformed JavaScript, Netlify ships it unchanged. Since zmdb has zero runtime dependencies, there is very little for a bundler to do anyway.
+`node_bundler = "none"` with pre-built output is the reliable arrangement: your build produces the transformed JavaScript, Netlify ships it unchanged. Since zmdb has zero runtime dependencies, there
+is very little for a bundler to do anyway.
 
-Make the canary a build gate. It is the only thing standing between a misconfigured build and a deployed application whose validation layer reports success unconditionally. See [AOT Setup](./aot-setup.html).
+Make the canary a build gate. It is the only thing standing between a misconfigured build and a deployed application whose validation layer reports success unconditionally. See
+[AOT Setup](./aot-setup.html).
 
 ## Connections
 
@@ -84,11 +87,10 @@ const sql = neon(requireEnv('DATABASE_URL'));
 export const driver: Driver = { execute: async q => await sql.query(q.text, [...q.parameters]) };
 ```
 
-`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the first query.
+`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the
+first query.
 
-> [!WARNING]
-> An HTTP driver cannot hold a transaction across statements. `withTransaction`
-> over one gives you no atomicity and no error — each statement commits alone.
+> [!WARNING] An HTTP driver cannot hold a transaction across statements. `withTransaction` over one gives you no atomicity and no error — each statement commits alone.
 
 ## Environment and secrets
 
@@ -98,7 +100,8 @@ Set them in the Netlify UI or `netlify env:set`, scoped per context (production,
 export const env = assert<{ DATABASE_URL: string }>({ DATABASE_URL: process.env.DATABASE_URL });
 ```
 
-Deploy previews are the trap here: a preview pointed at the production database will happily let a test run destroy real data. Give previews their own database, or fail the build when the context is a preview and the URL is production.
+Deploy previews are the trap here: a preview pointed at the production database will happily let a test run destroy real data. Give previews their own database, or fail the build when the context is a
+preview and the URL is production.
 
 ## Migrations
 
@@ -106,7 +109,8 @@ From CI, before the deploy, with a direct non-pooled connection. Not from a func
 
 ## Timeouts
 
-Functions default to 10s (26s configurable); Edge Functions have a 50ms CPU budget with unbounded wall time for I/O. Set `statement_timeout` under the function limit so a slow query is a logged error rather than a killed invocation.
+Functions default to 10s (26s configurable); Edge Functions have a 50ms CPU budget with unbounded wall time for I/O. Set `statement_timeout` under the function limit so a slow query is a logged error
+rather than a killed invocation.
 
 ---
 

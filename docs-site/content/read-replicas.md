@@ -1,4 +1,5 @@
-Read replicas distribute read traffic across multiple database instances while writes always go to the primary. zmdb's `withReplicas` wrapper creates a composite driver that routes queries based on the SQL statement type.
+Read replicas distribute read traffic across multiple database instances while writes always go to the primary. zmdb's `withReplicas` wrapper creates a composite driver that routes queries based on
+the SQL statement type.
 
 ## Configuring Replicas
 
@@ -40,8 +41,7 @@ isWrite('UPDATE users SET ...'); // true
 isWrite('DELETE FROM users ...'); // true
 ```
 
-> [!NOTE]
-> There's no replication lag detection. Reads may return stale data. For use cases requiring strong consistency, query the primary explicitly.
+> [!NOTE] There's no replication lag detection. Reads may return stale data. For use cases requiring strong consistency, query the primary explicitly.
 
 ## Custom Load Balancing
 
@@ -85,8 +85,7 @@ class ResilientDriver implements Driver {
 }
 ```
 
-> [!TIP]
-> Use connection pool health checks to remove unhealthy replicas from the pool automatically. Most pool libraries support this.
+> [!TIP] Use connection pool health checks to remove unhealthy replicas from the pool automatically. Most pool libraries support this.
 
 ## Zero Replicas
 

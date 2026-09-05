@@ -1,11 +1,9 @@
 # @zmdb/query-compiler
 
-`@zmdb/query-compiler` turns typed query descriptions into SQL for each
-supported dialect. It covers reads and writes, joins, aggregates, full-text
-search, set operations, schema objects, introspection, and migrations.
+`@zmdb/query-compiler` turns typed query descriptions into SQL for each supported dialect. It covers reads and writes, joins, aggregates, full-text search, set operations, schema objects,
+introspection, and migrations.
 
-It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript
-schema drives validation, serialization, SQL, OpenAPI, and CRUD.
+It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
 ## Install
 
@@ -13,14 +11,11 @@ schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 npm add @zmdb/query-compiler@alpha
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires
-> **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under
-> `./dist`.
+> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
 ## Entry points
 
-- Query compilation: `@zmdb/query-compiler`, `/joins`, `/aggregations`, `/fts`,
-  `/set-ops`
+- Query compilation: `@zmdb/query-compiler`, `/joins`, `/aggregations`, `/fts`, `/set-ops`
 - Database metadata: `/introspect`, `/naming`, `/schema-objects`, `/comments`
 - Schema changes and messaging: `/migrations`, `/migrations/runner`, `/outbox`
 

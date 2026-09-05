@@ -1,8 +1,5 @@
-Supported dialect variant: `'cockroach'`. It inherits the Postgres wire and
-query family, overrides the type and feature decisions that differ, and carries
-Cockroach's retry classification. Support here means the emitted SQL and
-refusals are covered; the repository does not currently run a live Cockroach
-server in its automated gate.
+Supported dialect variant: `'cockroach'`. It inherits the Postgres wire and query family, overrides the type and feature decisions that differ, and carries Cockroach's retry classification. Support
+here means the emitted SQL and refusals are covered; the repository does not currently run a live Cockroach server in its automated gate.
 
 ## Using it
 
@@ -11,16 +8,13 @@ const compiler = createQueryCompiler('cockroach');
 const userRepo = defineRepository(users, pgDriver(pool), { dialect: 'cockroach' });
 ```
 
-Use a Postgres-protocol client through the
-[Postgres driver](./connect-postgres.html); the driver boundary is unchanged:
+Use a Postgres-protocol client through the [Postgres driver](./connect-postgres.html); the driver boundary is unchanged:
 
 ```ts
 const pool = new Pool({ connectionString: process.env.COCKROACH_URL });
 ```
 
-Ordinary selects, inserts, updates, deletes, joins, subqueries, `RETURNING` and
-`ON CONFLICT` inherit the Postgres grammar. Telemetry reports the Postgres wire
-family.
+Ordinary selects, inserts, updates, deletes, joins, subqueries, `RETURNING` and `ON CONFLICT` inherit the Postgres grammar. Telemetry reports the Postgres wire family.
 
 ## Divergence and refusal matrix
 
@@ -56,14 +50,11 @@ export interface User extends Table<'users'> {
 ALTER TABLE "users" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 ```
 
-`HasDefault` drops `id` from `CreateDTO<User>`'s required keys without claiming
-that it is an auto-incrementing integer.
+`HasDefault` drops `id` from `CreateDTO<User>`'s required keys without claiming that it is an auto-incrementing integer.
 
 ## Retryable transactions
 
-Cockroach is serializable by default, so `40001` (`RETRY_SERIALIZABLE`) under
-contention is normal. Give the pinned transaction connection the Cockroach
-dialect and opt into bounded retries:
+Cockroach is serializable by default, so `40001` (`RETRY_SERIALIZABLE`) under contention is normal. Give the pinned transaction connection the Cockroach dialect and opt into bounded retries:
 
 ```ts
 const db = createTransactionalDb({ ...connection, dialect: 'cockroach' });
@@ -76,24 +67,18 @@ await db.transaction(
 );
 ```
 
-The callback may run five times in that example. Keep message publishing, HTTP
-calls, file writes and other non-idempotent side effects outside it; a database
-rollback cannot undo them. Without the `retry` option, the callback runs once.
+The callback may run five times in that example. Keep message publishing, HTTP calls, file writes and other non-idempotent side effects outside it; a database rollback cannot undo them. Without the
+`retry` option, the callback runs once.
 
 ## Migration behavior
 
-`ALTER TABLE` can return before the change has propagated, and several
-statements cannot share an explicit transaction.
-Split a migration whose later statement depends immediately on an earlier
-schema change.
+`ALTER TABLE` can return before the change has propagated, and several statements cannot share an explicit transaction. Split a migration whose later statement depends immediately on an earlier schema
+change.
 
 ## Measured coverage
 
-The automated suite covers every frozen matrix construct for `'cockroach'`,
-the two type overrides, inherited query and migration paths, materialized-view
-inheritance, RLS and full-text refusals, Postgres-family routine DDL, catalog
-dispatch, and the opt-in `40001` retry sequence. It does not start a Cockroach
-server, so accepting the emitted SQL and observing schema-change behavior on a
+The automated suite covers every frozen matrix construct for `'cockroach'`, the two type overrides, inherited query and migration paths, materialized-view inheritance, RLS and full-text refusals,
+Postgres-family routine DDL, catalog dispatch, and the opt-in `40001` retry sequence. It does not start a Cockroach server, so accepting the emitted SQL and observing schema-change behavior on a
 specific Cockroach release remain deployment qualification.
 
 ---

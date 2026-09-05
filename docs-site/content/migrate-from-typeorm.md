@@ -23,18 +23,15 @@ export interface User extends Table<'users'> {
 }
 ```
 
-The decorators become intersection tags on the property, and the class becomes an
-`interface`. The differences that will bite during a port:
+The decorators become intersection tags on the property, and the class becomes an `interface`. The differences that will bite during a port:
 
-- **There is no value here.** `User` is a type; `schemaOf<User>()` is what produces the
-  schema value a repository takes, and it is compiled away at build time.
+- **There is no value here.** `User` is a type; `schemaOf<User>()` is what produces the schema value a repository takes, and it is compiled away at build time.
 - **No `@Column` needed.** Every property is a column unless its type is a relation.
-- **Nullability is `| null`**, not an option object — and the tags go _inside_ the
-  parentheses: `(Date & Sql<'timestamp'>) | null`.
-- **`HasDefault` says the column _has_ a default, not which one.** A default is a runtime
-  value and no type holds one, so `now()` lives in the migration.
+- **Nullability is `| null`**, not an option object — and the tags go _inside_ the parentheses: `(Date & Sql<'timestamp'>) | null`.
+- **`HasDefault` says the column _has_ a default, not which one.** A default is a runtime value and no type holds one, so `now()` lives in the migration.
 
-`@CreateDateColumn` / `@UpdateDateColumn` have no equivalent. `createdAt` is `HasDefault` plus a `SET DEFAULT now()` in the DDL; `updatedAt` is either a database trigger or a value you set in a [lifecycle hook](./lifecycle-hooks.html) — explicitly, in your code, where you can test it. See [Timestamp defaults](./guide-timestamp-defaults.html).
+`@CreateDateColumn` / `@UpdateDateColumn` have no equivalent. `createdAt` is `HasDefault` plus a `SET DEFAULT now()` in the DDL; `updatedAt` is either a database trigger or a value you set in a
+[lifecycle hook](./lifecycle-hooks.html) — explicitly, in your code, where you can test it. See [Timestamp defaults](./guide-timestamp-defaults.html).
 
 ## Repository
 
@@ -69,35 +66,26 @@ export interface Post extends Table<'posts'> {
 }
 ```
 
-The tag names the target table and join column. The declared property type carries
-the cardinality: `User & …` is to-one, while `Comment[] & …` is to-many.
+The tag names the target table and join column. The declared property type carries the cardinality: `User & …` is to-one, while `Comment[] & …` is to-many.
 
-Keep relation properties optional. `Entity<T>` omits them, and a returned row
-contains the relation only when it was requested. `populate: ['author']` checks
-the name against the declaration and batches the query from the same tag.
+Keep relation properties optional. `Entity<T>` omits them, and a returned row contains the relation only when it was requested. `populate: ['author']` checks the name against the declaration and
+batches the query from the same tag.
 
 `eager: true` has no equivalent — that is lazy loading with the switch flipped, and both are excluded. Ask for what you want with `populate`. See [Loading Strategies](./loading-strategies.html).
 
-`cascade: true` has no application-level equivalent: zmdb does not walk an
-object graph and persist or remove related rows. Database `ON DELETE` and
-`ON UPDATE` actions are supported through the declaration — see
-[Cascading](./cascading.html).
+`cascade: true` has no application-level equivalent: zmdb does not walk an object graph and persist or remove related rows. Database `ON DELETE` and `ON UPDATE` actions are supported through the
+declaration — see [Cascading](./cascading.html).
 
 ## Migrations
 
 TypeORM's `migration:generate` diffs entities against the live database. zmdb diffs the declarations against a **committed snapshot file**, and never reads the database to work out what to do:
 
 ```ts
-const ops = diff(
-  JSON.parse(readFileSync('migrations/snapshot.json', 'utf8')),
-  snapshot([schemaOf<User>(), schemaOf<Post>()]),
-);
+const ops = diff(JSON.parse(readFileSync('migrations/snapshot.json', 'utf8')), snapshot([schemaOf<User>(), schemaOf<Post>()]));
 ```
 
-That means generation works offline and in CI, and the snapshot is a reviewable
-artefact in the diff. A separate library workflow can now read the live catalog
-and emit declarations, and `detectDrift()` reports the two directions. The
-`check` command has not landed; see [pull](./cli-pull.html).
+That means generation works offline and in CI, and the snapshot is a reviewable artefact in the diff. A separate library workflow can now read the live catalog and emit declarations, and
+`detectDrift()` reports the two directions. The `check` command has not landed; see [pull](./cli-pull.html).
 
 ## `synchronize: true` has no equivalent
 

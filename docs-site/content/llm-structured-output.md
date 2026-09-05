@@ -11,10 +11,8 @@ const tool = toolFor<User>('anthropic', 'save_user', {
 });
 ```
 
-That produces Anthropic's `{ name, description, input_schema }` shape directly. `Sensitive` columns are omitted,
-the validation constraints are retained, and the provider document is computed from the declaration IR and
-inlined by the AOT transform. `toolFromSchema(name, schema, opts)` remains available when a provider-neutral
-`{ name, description, parameters }` record is what the caller needs.
+That produces Anthropic's `{ name, description, input_schema }` shape directly. `Sensitive` columns are omitted, the validation constraints are retained, and the provider document is computed from the
+declaration IR and inlined by the AOT transform. `toolFromSchema(name, schema, opts)` remains available when a provider-neutral `{ name, description, parameters }` record is what the caller needs.
 
 ```ts
 const res = await client.messages.create({
@@ -39,7 +37,8 @@ const dto = assert<CreateDTO<User>>(block?.input);
 await repo.create(dto);
 ```
 
-Do not skip this. Tool-use schemas are a strong hint, not an enforced contract — a model can omit an optional-looking required field, return `"42"` where you asked for a number, or hallucinate a key. The `assert` is the difference between a validation error naming the field and a database error naming a constraint, or worse, a row with `NaN` in it.
+Do not skip this. Tool-use schemas are a strong hint, not an enforced contract — a model can omit an optional-looking required field, return `"42"` where you asked for a number, or hallucinate a key.
+The `assert` is the difference between a validation error naming the field and a database error naming a constraint, or worse, a row with `NaN` in it.
 
 ## Recovering from malformed JSON
 
@@ -51,7 +50,8 @@ import { lenientParse } from '@zmdb/schema-core/llm';
 const result = lenientParse<CreateDTO<User>>(res.text);
 ```
 
-It strips a leading or trailing markdown code fence and calls `JSON.parse`. That is the whole of it: leading prose, trailing commas and single quotes all come back as `{ success: false, errors: [...] }` carrying the `JSON.parse` message. It does not make the _content_ correct either, so validate afterwards:
+It strips a leading or trailing markdown code fence and calls `JSON.parse`. That is the whole of it: leading prose, trailing commas and single quotes all come back as
+`{ success: false, errors: [...] }` carrying the `JSON.parse` message. It does not make the _content_ correct either, so validate afterwards:
 
 ```ts
 const result = lenientParse(res.text);

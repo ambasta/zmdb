@@ -1,7 +1,6 @@
 # Advanced Validation Semantics — Frozen Spec (Issue #45)
 
-> Status: **FROZEN** for TDD. Implementation (#46–#50) must satisfy this spec.
-> Part of `@zmdb/aot-validator`. Targets: Node 26+, ESM, TS 7, synchronous & inline.
+> Status: **FROZEN** for TDD. Implementation (#46–#50) must satisfy this spec. Part of `@zmdb/aot-validator`. Targets: Node 26+, ESM, TS 7, synchronous & inline.
 
 ## 1. Refinements
 
@@ -9,9 +8,7 @@
 refine(predicateSource: string, message: string): Rule
 ```
 
-Emitted inline: the predicate expression is inlined verbatim against the value;
-on failure a structured error carrying `message` is produced. Predicates MUST be
-pure and synchronous.
+Emitted inline: the predicate expression is inlined verbatim against the value; on failure a structured error carrying `message` is produced. Predicates MUST be pure and synchronous.
 
 ## 2. Transforms
 

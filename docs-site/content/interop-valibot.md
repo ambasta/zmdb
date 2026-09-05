@@ -1,4 +1,5 @@
-Valibot's pitch is bundle size: a pipeline of tree-shakeable functions instead of a class-based schema. It ends up architecturally close to Zod, and the comparison with zmdb is the same one — schema-as-value versus type-as-schema.
+Valibot's pitch is bundle size: a pipeline of tree-shakeable functions instead of a class-based schema. It ends up architecturally close to Zod, and the comparison with zmdb is the same one —
+schema-as-value versus type-as-schema.
 
 ```ts
 // Valibot
@@ -28,7 +29,8 @@ If bundle size is the deciding factor, measure your actual types rather than tru
 
 ## Where zmdb wins outright
 
-Valibot still needs the schema written twice in effect — once as a pipeline, once as the type you get back from `InferOutput`. It reads as one declaration, but any type you already have (from an OpenAPI generator, a shared package, a database schema) must be re-expressed as a pipeline to validate it. `assert<T>` takes the type you have.
+Valibot still needs the schema written twice in effect — once as a pipeline, once as the type you get back from `InferOutput`. It reads as one declaration, but any type you already have (from an
+OpenAPI generator, a shared package, a database schema) must be re-expressed as a pipeline to validate it. `assert<T>` takes the type you have.
 
 ## Where Valibot wins
 
@@ -59,11 +61,13 @@ const custom = v.parse(buildPipeline(tenantConfig), extra); // tenant-defined sh
 | `v.strictObject` / `v.looseObject` | `validateObject(x, 'strict' \| 'passthrough')` |
 | `v.optional(S)`                    | `T \| undefined` in the type                   |
 
-`validateObject` also has a `'strip'` mode, which drops unknown keys instead of accepting or rejecting them — the right choice for a public API where extra fields should not be persisted. See [Object Modes](./unions-refinements.html).
+`validateObject` also has a `'strip'` mode, which drops unknown keys instead of accepting or rejecting them — the right choice for a public API where extra fields should not be persisted. See
+[Object Modes](./unions-refinements.html).
 
 ## Migrating
 
-Same three steps as [the Zod migration](./interop-zod.html): keep the inferred type as a real interface, swap `parse`/`safeParse` for `assert`/`validate`, and add the transformer canary **first** — without it the swap replaces working validation with unconditional success.
+Same three steps as [the Zod migration](./interop-zod.html): keep the inferred type as a real interface, swap `parse`/`safeParse` for `assert`/`validate`, and add the transformer canary **first** —
+without it the swap replaces working validation with unconditional success.
 
 ```ts
 it('the transformer is running', () => {

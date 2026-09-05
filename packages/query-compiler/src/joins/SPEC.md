@@ -1,9 +1,7 @@
 # Query Builder JOINs — Frozen Spec (Issue #84)
 
-> Status: **FROZEN** for TDD. Implementation (#85–#88) must satisfy this spec.
-> Part of `@zmdb/query-compiler`. Targets: Node 26+, ESM, TS 7.
-> Motivation: zmdb DNFs the join routes of drizzle-benchmarks. This freezes the
-> join builder grammar + golden SQL.
+> Status: **FROZEN** for TDD. Implementation (#85–#88) must satisfy this spec. Part of `@zmdb/query-compiler`. Targets: Node 26+, ESM, TS 7. Motivation: zmdb DNFs the join routes of
+> drizzle-benchmarks. This freezes the join builder grammar + golden SQL.
 
 ## 1. Grammar
 
@@ -21,14 +19,11 @@ qb.selectFrom(table)
 ```
 
 - `leftCol`/`rightCol` are qualified `table.column` or `alias.column` strings.
-- A join over a composite key passes an ordered, non-empty list of those pairs.
-  Compilation conjoins them in one `ON` clause with `AND`.
-- `onPredicates`, when present, are structured predicates appended inside that
-  join's `ON`; their parameters share the statement's placeholder sequence.
+- A join over a composite key passes an ordered, non-empty list of those pairs. Compilation conjoins them in one `ON` clause with `AND`.
+- `onPredicates`, when present, are structured predicates appended inside that join's `ON`; their parameters share the statement's placeholder sequence.
 - Joins compose with existing where/order/limit/offset.
 - Aliasing: `selectFrom('employees as e')` and `innerJoin('employees as r', ...)`.
-- Builders remain immutable; compilation is pure string building (no runtime
-  type resolution), parameterized, dialect-aware.
+- Builders remain immutable; compilation is pure string building (no runtime type resolution), parameterized, dialect-aware.
 
 ## 2. Golden SQL (postgres)
 
@@ -55,9 +50,7 @@ selectFrom('a').innerJoin('b','b.a_id','a.id')
 
 ## 3. Identifier quoting rule
 
-A qualified reference `x.y` quotes each part: `"x"."y"`. An aliased table
-`t as al` compiles to `"t" AS "al"`. Dialect: pg/sqlite double quotes, mysql
-backticks (same as existing dialect strategy).
+A qualified reference `x.y` quotes each part: `"x"."y"`. An aliased table `t as al` compiles to `"t" AS "al"`. Dialect: pg/sqlite double quotes, mysql backticks (same as existing dialect strategy).
 
 ## 4. Non-goals (rejected)
 

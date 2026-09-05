@@ -1,4 +1,5 @@
-Next.js and zmdb divide cleanly: Next owns rendering and routing, zmdb owns the schema, queries and validation. `@zmdb/web` is usually not part of the picture — you call repositories from server components and route handlers.
+Next.js and zmdb divide cleanly: Next owns rendering and routing, zmdb owns the schema, queries and validation. `@zmdb/web` is usually not part of the picture — you call repositories from server
+components and route handlers.
 
 ## One module for the driver
 
@@ -22,7 +23,8 @@ export const userRepo = defineRepository(users, driver, { dialect: 'postgres' })
 export const postRepo = defineRepository(posts, driver, { dialect: 'postgres' });
 ```
 
-`import 'server-only'` is the guard that matters. Without it, importing this from a client component is a build-time-successful, runtime-broken bundle — and it would ship your connection string to the browser. Add it before you write anything else.
+`import 'server-only'` is the guard that matters. Without it, importing this from a client component is a build-time-successful, runtime-broken bundle — and it would ship your connection string to the
+browser. Add it before you write anything else.
 
 The schema file itself is safe to import anywhere: `schemaOf<Post>()` compiles to a plain object literal and the DTO types are types, so a client component can use `Entity<Post>` with no runtime cost.
 
@@ -50,7 +52,8 @@ export default async function PostsPage() {
 
 Query directly. No API route, no fetch, no serialisation — and `p.title` is typed from the schema.
 
-Watch for N+1s: a server component that renders a list of children, each fetching its own row, is a query per child. Fetch with `populate` in the parent and pass down. See [Loading Strategies](./loading-strategies.html).
+Watch for N+1s: a server component that renders a list of children, each fetching its own row, is a query per child. Fetch with `populate` in the parent and pass down. See
+[Loading Strategies](./loading-strategies.html).
 
 ## Route handlers
 
@@ -90,12 +93,15 @@ A server action is a public endpoint. `FormData` is entirely attacker-controlled
 
 ## The transformer
 
-This is the part that bites. Next.js compiles with SWC or Turbopack, and **the zmdb TypeScript transformer does not run in either**. So `assert<T>` in a route handler or server action silently validates nothing.
+This is the part that bites. Next.js compiles with SWC or Turbopack, and **the zmdb TypeScript transformer does not run in either**. So `assert<T>` in a route handler or server action silently
+validates nothing.
 
 Two workable answers:
 
-- **Compile the validated modules separately.** Keep `assert`-using code in a small package built with `tsc` and the transformer, and import the built output. Verifiable, and the canary test covers it.
-- **Do not use the AOT validators under Next.** Use the schema, compiler, repository and DTO types — none of which need a transformer — and validate with Zod or ajv at the Next boundary. See [Zod](./interop-zod.html).
+- **Compile the validated modules separately.** Keep `assert`-using code in a small package built with `tsc` and the transformer, and import the built output. Verifiable, and the canary test covers
+  it.
+- **Do not use the AOT validators under Next.** Use the schema, compiler, repository and DTO types — none of which need a transformer — and validate with Zod or ajv at the Next boundary. See
+  [Zod](./interop-zod.html).
 
 Either way, put the canary somewhere it runs:
 

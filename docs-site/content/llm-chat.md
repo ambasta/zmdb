@@ -1,25 +1,16 @@
-> **Supported core, application-owned storage.** `@zmdb/schema-core/llm/chat`
-> provides typed chat messages, a validator-linked tool registry, a bounded loop
-> with effect approval, and an optional Anthropic SDK driver. It does not persist
-> conversations or stream tokens; those remain application concerns below.
+> **Supported core, application-owned storage.** `@zmdb/schema-core/llm/chat` provides typed chat messages, a validator-linked tool registry, a bounded loop with effect approval, and an optional
+> Anthropic SDK driver. It does not persist conversations or stream tokens; those remain application concerns below.
 
 ## Safety model
 
 The loop makes the unsafe choices explicit before it calls a model or a tool:
 
-- `maxTurns` is required, and `maxToolCallsPerTurn` defaults to 8. The total
-  budget is their product and is returned as `result.budget`.
-- A tool is effectful unless it says `effectful: false`. If any tool is
-  effectful, `approve` is required by the type and checked again at runtime
-  before the first driver call.
-- Model-written arguments remain `unknown` until the registry entry's validator
-  accepts them. A handler never receives the raw value.
-- Unknown tools, declined calls, and invalid arguments become bounded error tool
-  messages. Handler internals stay in `result.errors` and are not exposed to the
-  model.
+- `maxTurns` is required, and `maxToolCallsPerTurn` defaults to 8. The total budget is their product and is returned as `result.budget`.
+- A tool is effectful unless it says `effectful: false`. If any tool is effectful, `approve` is required by the type and checked again at runtime before the first driver call.
+- Model-written arguments remain `unknown` until the registry entry's validator accepts them. A handler never receives the raw value.
+- Unknown tools, declined calls, and invalid arguments become bounded error tool messages. Handler internals stay in `result.errors` and are not exposed to the model.
 
-Those are construction rules, not recommendations around an otherwise
-unbounded agent loop.
+Those are construction rules, not recommendations around an otherwise unbounded agent loop.
 
 ## Running a bounded tool loop
 
@@ -78,15 +69,11 @@ const result = await run(driver, [{ role: 'user', content: 'Find the retention p
 });
 ```
 
-`maxTurns` is required. `maxToolCallsPerTurn` defaults to 8, and
-`result.budget` reports their product. A turn above the tool-call cap is not
-partially executed. Invalid arguments and unknown tools become error tool
-messages so the model can correct its request; handler failures are sanitised in
-the transcript while the untouched error is returned in `result.errors`.
+`maxTurns` is required. `maxToolCallsPerTurn` defaults to 8, and `result.budget` reports their product. A turn above the tool-call cap is not partially executed. Invalid arguments and unknown tools
+become error tool messages so the model can correct its request; handler failures are sanitised in the transcript while the untouched error is returned in `result.errors`.
 
-`run` holds no module state. Pass the returned message list into a later call if
-you want to continue the conversation, or persist it using the tables below.
-Implement the one-method `ChatDriver` interface for another provider.
+`run` holds no module state. Pass the returned message list into a later call if you want to continue the conversation, or persist it using the tables below. Implement the one-method `ChatDriver`
+interface for another provider.
 
 ## The tables
 
@@ -112,17 +99,15 @@ export interface Message extends Table<'messages'> {
 }
 ```
 
-A literal union for `role` means a typo is a compile error. `toolUse` as a declared JSON shape means a tool call round-trips without a second table — and the shape reaches the emitted validator, so a malformed tool call is caught on the way in rather than on the way back out.
+A literal union for `role` means a typo is a compile error. `toolUse` as a declared JSON shape means a tool call round-trips without a second table — and the shape reaches the emitted validator, so a
+malformed tool call is caught on the way in rather than on the way back out.
 
 `createdAt` says `HasDefault`, which is what makes it optional on insert. The default _value_ — `now()` — goes in the migration, because a type can say a column has a default but not which one.
 
 Index the lookup you will do on every request:
 
 ```ts
-createIndexDdl(
-  { name: 'messages_conversation', table: 'messages', columns: ['conversation_id', 'created_at'] },
-  'postgres',
-);
+createIndexDdl({ name: 'messages_conversation', table: 'messages', columns: ['conversation_id', 'created_at'] }, 'postgres');
 ```
 
 ## Loading a conversation
@@ -175,7 +160,8 @@ export class ChatController {
 }
 ```
 
-Wrap the two writes and the call in a transaction only if you want "no reply means no user message" — usually you do not, because a failed model call should leave the user's message in the history to retry against.
+Wrap the two writes and the call in a transaction only if you want "no reply means no user message" — usually you do not, because a failed model call should leave the user's message in the history to
+retry against.
 
 ## Context windows
 
@@ -199,10 +185,8 @@ function fit(history: readonly Row[], budget: number): readonly Row[] {
 }
 ```
 
-Iterating the reversed copy rather than indexing backwards is what keeps this free
-of non-null assertions: `for…of` yields `Row`, while `history[i]` yields
-`Row | undefined` and tempts you into a `!` that
-[the project treats as a defect](./architecture.html).
+Iterating the reversed copy rather than indexing backwards is what keeps this free of non-null assertions: `for…of` yields `Row`, while `history[i]` yields `Row | undefined` and tempts you into a `!`
+that [the project treats as a defect](./architecture.html).
 
 Storing `tokens` on the row is what makes this exact rather than a guess — and it is why the column is there.
 
@@ -210,24 +194,18 @@ Storing `tokens` on the row is what makes this exact rather than a guess — and
 
 ## Streaming
 
-`WebResponse.body` can carry a stream. The shipped `ChatDriver.next` contract
-still returns one complete assistant message, so token streaming needs a
-provider-specific stream at the route:
+`WebResponse.body` can carry a stream. The shipped `ChatDriver.next` contract still returns one complete assistant message, so token streaming needs a provider-specific stream at the route:
 
 - Adapt a provider SDK's native `Response.body` directly with `stream()`.
-- For SSE, build an application-owned stream whose `cancel` closes the provider
-  iterator. The existing `sseStream` helper still lacks that cancellation
-  contract — see [WebSockets & SSE](./web-ws-adapter.html).
+- For SSE, build an application-owned stream whose `cancel` closes the provider iterator. The existing `sseStream` helper still lacks that cancellation contract — see
+  [WebSockets & SSE](./web-ws-adapter.html).
 
-See [Streaming Files](./web-streaming-files.html) for cancellation and error
-semantics.
+See [Streaming Files](./web-streaming-files.html) for cancellation and error semantics.
 
 ## What remains application-owned
 
-Conversation persistence, token-aware truncation, summarisation and streaming
-still depend on your storage and provider policy. The bounded tool-call loop is
-the reusable part that now ships; it deliberately does not choose a retry
-policy, a token-accounting format or a conversation table for you.
+Conversation persistence, token-aware truncation, summarisation and streaming still depend on your storage and provider policy. The bounded tool-call loop is the reusable part that now ships; it
+deliberately does not choose a retry policy, a token-accounting format or a conversation table for you.
 
 ---
 

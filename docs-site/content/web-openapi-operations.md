@@ -32,7 +32,8 @@ const doc = toOpenApi([PostsController, UsersController], {
 }
 ```
 
-Four things happen automatically: `:id` becomes `{id}`, path parameters are declared as required strings, each operation gets a stable method-and-path-derived `operationId`, and paths and methods are emitted in sorted order so the document is byte-stable across runs. That last property is what lets you commit the spec and diff it in review — a spec that reorders itself is a spec nobody reads.
+Four things happen automatically: `:id` becomes `{id}`, path parameters are declared as required strings, each operation gets a stable method-and-path-derived `operationId`, and paths and methods are
+emitted in sorted order so the document is byte-stable across runs. That last property is what lets you commit the spec and diff it in review — a spec that reorders itself is a spec nobody reads.
 
 ## Adding schemas
 
@@ -53,12 +54,11 @@ const doc = toOpenApi([PostsController], {
 });
 ```
 
-> [!WARNING]
-> The key must be the **zmdb** route path — `/posts/:id`, not `/posts/{id}` —
-> because lookup happens before the path is converted. A `{id}` key silently
-> matches nothing, and you get an operation with no schema and no error.
+> [!WARNING] The key must be the **zmdb** route path — `/posts/:id`, not `/posts/{id}` — because lookup happens before the path is converted. A `{id}` key silently matches nothing, and you get an
+> operation with no schema and no error.
 
-`RouteSchemas` has exactly two fields, `body` and `response`, and both are plain `JsonSchema`. The schema variants (`entity | create | update | get | list | search`) come from `@zmdb/schema-core/openapi` and are derived from your table, so a new column appears in the spec with no edit. See [OpenAPI Schemas](./openapi.html).
+`RouteSchemas` has exactly two fields, `body` and `response`, and both are plain `JsonSchema`. The schema variants (`entity | create | update | get | list | search`) come from
+`@zmdb/schema-core/openapi` and are derived from your table, so a new column appears in the spec with no edit. See [OpenAPI Schemas](./openapi.html).
 
 ## Two operations on one path
 
@@ -68,7 +68,8 @@ A path with several methods shares one path item, so give each method its own en
 schemas: { '/posts': { body: toJsonSchema(posts, 'create') } }
 ```
 
-That body schema attaches to **every** method on `/posts`, including the `GET`. There is no per-method schema key. If your `GET /posts` and `POST /posts` need different documents, the practical options are to split the path or to post-process the returned document:
+That body schema attaches to **every** method on `/posts`, including the `GET`. There is no per-method schema key. If your `GET /posts` and `POST /posts` need different documents, the practical
+options are to split the path or to post-process the returned document:
 
 ```ts
 const doc = toOpenApi([PostsController], options);
@@ -92,7 +93,8 @@ The document is a plain object, so editing it is legitimate and is the escape ha
 | Security                 | derived from guards; see [OpenAPI Security](./web-openapi-security.html)                   |
 | API versions             | strategy-specific; see [API Versioning](./web-versioning.html)                             |
 
-`operationId` and `tags` are the two that matter most in practice, because client generators use them for method and class names. zmdb emits the operation identifier from the lowercased method and public route path — `POST /users/:id/roles` becomes `post_users_id_roles` — and refuses a collision rather than silently overwriting one route.
+`operationId` and `tags` are the two that matter most in practice, because client generators use them for method and class names. zmdb emits the operation identifier from the lowercased method and
+public route path — `POST /users/:id/roles` becomes `post_users_id_roles` — and refuses a collision rather than silently overwriting one route.
 
 Tags remain addable in a post-processing pass, and doing it from the same metadata keeps them in sync:
 
@@ -115,15 +117,11 @@ Derived from the same source of truth as the routes, it survives a rename. This 
 
 ## Why generated responses still contain only `200`
 
-Runtime is broader than the generated response map. A handler can return any
-status through `json`, `text`, `bytes`, `stream`, `file` or `respond`; guard
-refusal produces `403`; version negotiation can produce `400` or `406`; and the
-router also owns `404` and `500`.
+Runtime is broader than the generated response map. A handler can return any status through `json`, `text`, `bytes`, `stream`, `file` or `respond`; guard refusal produces `403`; version negotiation
+can produce `400` or `406`; and the router also owns `404` and `500`.
 
-`toOpenApi` still emits only `200: OK` because `RouteSchemas` has no per-status
-response map. Declaring `201`, `400` or `404` without an input describing that
-operation's actual response would be another hand-written contract. Add those
-responses in a post-processing pass when your handler or adapter owns them.
+`toOpenApi` still emits only `200: OK` because `RouteSchemas` has no per-status response map. Declaring `201`, `400` or `404` without an input describing that operation's actual response would be
+another hand-written contract. Add those responses in a post-processing pass when your handler or adapter owns them.
 
 ## Serving it
 
@@ -151,4 +149,5 @@ Build the document once at startup, not per request. And consider committing it 
 
 ---
 
-See also: [OpenAPI Generation](./web-openapi.html) · [OpenAPI Schemas](./openapi.html) · [OpenAPI Security](./web-openapi-security.html) · [API Versioning](./web-versioning.html) · [OpenAPI Decorators](./web-openapi-decorators.html)
+See also: [OpenAPI Generation](./web-openapi.html) · [OpenAPI Schemas](./openapi.html) · [OpenAPI Security](./web-openapi-security.html) · [API Versioning](./web-versioning.html) ·
+[OpenAPI Decorators](./web-openapi-decorators.html)

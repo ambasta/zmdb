@@ -1,7 +1,5 @@
-> **Not planned.** `@zmdb/web` has no GraphQL plugin system because
-> [GraphQL is out of scope](./web-graphql.html). The table below shows where the
-> usual logging, tracing, limiting, and caching hooks belong in a zmdb
-> application.
+> **Not planned.** `@zmdb/web` has no GraphQL plugin system because [GraphQL is out of scope](./web-graphql.html). The table below shows where the usual logging, tracing, limiting, and caching hooks
+> belong in a zmdb application.
 
 ## What plugins are used for
 
@@ -14,8 +12,7 @@ Almost always one of four things, and each has a home in a zmdb application.
 | Depth / complexity limits      | [Query Complexity](./web-graphql-complexity.html)                        |
 | Response caching               | [Caching](./web-caching.html)                                            |
 
-All four follow the same pattern: wrap the component you want to observe. The
-framework uses composable interfaces instead of a plugin registry.
+All four follow the same pattern: wrap the component you want to observe. The framework uses composable interfaces instead of a plugin registry.
 
 ## The driver wrapper is the highest-value hook
 
@@ -47,11 +44,8 @@ const driver = instrumented(traced(retrying(base)), sink);
 
 That composition is the plugin system, and it is checked by the compiler rather than by a registration order.
 
-> [!WARNING]
-> Log `query.text`, never `query.parameters`. The compiled SQL contains
-> placeholders — that is the point of `CompiledQuery` — while the parameters are user
-> data: emails, tokens, personal detail. Log `query.parameters.length` if you need
-> shape information.
+> [!WARNING] Log `query.text`, never `query.parameters`. The compiled SQL contains placeholders — that is the point of `CompiledQuery` — while the parameters are user data: emails, tokens, personal
+> detail. Log `query.parameters.length` if you need shape information.
 
 ## Middleware interfaces that do exist
 
@@ -70,7 +64,8 @@ export const timing: Interceptor = {
 };
 ```
 
-With the caveat that matters: **the router does not call `runChain`**. Interceptors run only where you invoke the chain yourself. See [Request Lifecycle](./web-request-lifecycle.html) and [Interceptors](./web-middleware.html).
+With the caveat that matters: **the router does not call `runChain`**. Interceptors run only where you invoke the chain yourself. See [Request Lifecycle](./web-request-lifecycle.html) and
+[Interceptors](./web-middleware.html).
 
 ## If you are running a GraphQL server today
 
@@ -83,7 +78,8 @@ const yoga = createYoga({
 });
 ```
 
-Instrument the data layer with a driver wrapper and the transport with the server's plugins. That division is clean: the driver sees queries, the plugin sees operations, and neither duplicates the other.
+Instrument the data layer with a driver wrapper and the transport with the server's plugins. That division is clean: the driver sees queries, the plugin sees operations, and neither duplicates the
+other.
 
 ## Response caching, carefully
 
@@ -93,13 +89,15 @@ The one plugin category where the GraphQL version is genuinely hard to replicate
 const key = `${operationName}:${hash(variables)}:${viewer.id}`;
 ```
 
-The `viewer.id` in the key is not optional. A cache keyed on the query and variables alone serves one user's authorised result to another — and because GraphQL fields are authorised individually, the same query text legitimately returns different data per viewer. That is the single most common cache-poisoning bug in GraphQL deployments.
+The `viewer.id` in the key is not optional. A cache keyed on the query and variables alone serves one user's authorised result to another — and because GraphQL fields are authorised individually, the
+same query text legitimately returns different data per viewer. That is the single most common cache-poisoning bug in GraphQL deployments.
 
 Prefer caching at the data layer, where the key is a row and a tenant, over caching whole responses. See [Caching](./web-caching.html).
 
 ## What it would have taken: nothing, and that is the frozen answer
 
-The GraphQL design is frozen in `packages/web/src/graphql/SPEC.md`, and **there is no `ServerPlugin`**. That is a decision with reasons rather than a deferral, and it came from working backwards from the hooks such an interface would carry. Every one of them turned out to be impossible here, already yours, or a second name for something that exists:
+The GraphQL design is frozen in `packages/web/src/graphql/SPEC.md`, and **there is no `ServerPlugin`**. That is a decision with reasons rather than a deferral, and it came from working backwards from
+the hooks such an interface would carry. Every one of them turned out to be impossible here, already yours, or a second name for something that exists:
 
 | The hook a plugin API would need | Why it is not there                                                                                                     |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -109,13 +107,16 @@ The GraphQL design is frozen in `packages/web/src/graphql/SPEC.md`, and **there 
 | `onExecute(ctx, next)`           | That signature **is** `Interceptor.intercept(ctx, next)`, and the field chain already calls it in the right place.      |
 | a complexity hook                | [`complexityOf`](./web-graphql-complexity.html) is a function your controller calls between `parse` and `execute`.      |
 
-So the conclusion of this page's own second section holds all the way through the design: **wrap the thing you want to observe.** A second extension mechanism aliasing the first is how two ways to do one thing get documented, diverge, and then disagree about ordering — with interceptors and plugins specifically, about which one wraps the other.
+So the conclusion of this page's own second section holds all the way through the design: **wrap the thing you want to observe.** A second extension mechanism aliasing the first is how two ways to do
+one thing get documented, diverge, and then disagree about ordering — with interceptors and plugins specifically, about which one wraps the other.
 
-What does change is per-field granularity. A chain can be declared globally, per type, or on a single field, and the three layers are flattened once at registration into one chain per field, so `Post.authorEmail` can carry a guard that `Query.post` does not. See [Field Middleware](./web-graphql-field-middleware.html).
+What does change is per-field granularity. A chain can be declared globally, per type, or on a single field, and the three layers are flattened once at registration into one chain per field, so
+`Post.authorEmail` can carry a guard that `Query.post` does not. See [Field Middleware](./web-graphql-field-middleware.html).
 
 An Apollo or envelop plugin still works, unchanged, because it plugs into the engine you constructed. Not owning the transport is what makes that true.
 
-Independently useful and still not built: wiring `runChain` into the router so interceptors apply to HTTP routes without hand-rolled invocation, and a documented observation point around `app.handle`. The caveat in the section above is about the router, and the GraphQL freeze does not lift it — the field chain calls `runChain`; the router still does not.
+Independently useful and still not built: wiring `runChain` into the router so interceptors apply to HTTP routes without hand-rolled invocation, and a documented observation point around `app.handle`.
+The caveat in the section above is about the router, and the GraphQL freeze does not lift it — the field chain calls `runChain`; the router still does not.
 
 ---
 

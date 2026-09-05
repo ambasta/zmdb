@@ -1,9 +1,7 @@
 # Query Builder Aggregations — Frozen Spec (Issue #89)
 
-> Status: **FROZEN** for TDD. Implementation (#90–#93) must satisfy this spec.
-> Part of `@zmdb/query-compiler`. Targets: Node 26+, ESM, TS 7.
-> Motivation: zmdb DNFs the aggregate routes of drizzle-benchmarks. This freezes
-> the aggregate / GROUP BY / computed-column grammar.
+> Status: **FROZEN** for TDD. Implementation (#90–#93) must satisfy this spec. Part of `@zmdb/query-compiler`. Targets: Node 26+, ESM, TS 7. Motivation: zmdb DNFs the aggregate routes of
+> drizzle-benchmarks. This freezes the aggregate / GROUP BY / computed-column grammar.
 
 ## 1. Grammar
 
@@ -19,8 +17,7 @@ qb.selectFrom(table)
   .compile()
 ```
 
-Composes with the JOIN builder (#84). Immutable, pure string compilation,
-parameterized, dialect-aware.
+Composes with the JOIN builder (#84). Immutable, pure string compilation, parameterized, dialect-aware.
 
 ## 2. Golden SQL (postgres)
 
@@ -43,14 +40,11 @@ selectFrom('order_details')
    params: [0]
 ```
 
-Aggregate functions emit `FN("qualified"."col") AS "alias"`. `expr(raw, alias)`
-emits `raw AS "alias"` (raw is caller-provided, not quoted — the escape hatch
-for `sum(qty*price)::real`).
+Aggregate functions emit `FN("qualified"."col") AS "alias"`. `expr(raw, alias)` emits `raw AS "alias"` (raw is caller-provided, not quoted — the escape hatch for `sum(qty*price)::real`).
 
 ## 3. Result typing
 
-Computed columns are typed via the alias: `count→number`, `sum/avg→number`,
-`min/max→same as column`, `expr→unknown` (caller annotates).
+Computed columns are typed via the alias: `count→number`, `sum/avg→number`, `min/max→same as column`, `expr→unknown` (caller annotates).
 
 ## 4. Non-goals (rejected)
 

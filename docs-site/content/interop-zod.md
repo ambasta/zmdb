@@ -26,8 +26,7 @@ const parsed = assert<User>(body);
 | Transforms                        | `.transform()`       | [`transform`](./unions-refinements.html)     |
 | Failure mode if misconfigured     | n/a                  | **throws: no runtime type witness**          |
 
-That last row is the one to internalise. A generic zmdb call cannot recover its erased type argument when the
-transformer is absent, so it throws rather than guessing. See [Gotchas](./gotchas.html).
+That last row is the one to internalise. A generic zmdb call cannot recover its erased type argument when the transformer is absent, so it throws rather than guessing. See [Gotchas](./gotchas.html).
 
 ## Using both in one codebase
 
@@ -41,7 +40,8 @@ const formSchema = buildZodFromUserConfig(config);
 const dto = assert<CreatePostDto>(body);
 ```
 
-The dynamic case is the one zmdb genuinely cannot do: a type parameter must be known at compile time, so a schema assembled at runtime has to be interpreted by something. Zod is a good answer for that; so is [`evalRule`](./unions-refinements.html) for simple rules, or ajv over JSON Schema.
+The dynamic case is the one zmdb genuinely cannot do: a type parameter must be known at compile time, so a schema assembled at runtime has to be interpreted by something. Zod is a good answer for
+that; so is [`evalRule`](./unions-refinements.html) for simple rules, or ajv over JSON Schema.
 
 ## Feeding a zmdb schema to Zod
 
@@ -54,7 +54,8 @@ const jsonSchema = toJsonSchema(users, 'create');
 // then use a json-schema-to-zod converter, or ajv directly
 ```
 
-`toJsonSchema(schema, variant)` covers `entity | create | update | get | list | search`, so the create-shaped schema already omits `serial` columns and respects `defaultTo`. See [OpenAPI Schemas](./openapi.html).
+`toJsonSchema(schema, variant)` covers `entity | create | update | get | list | search`, so the create-shaped schema already omits `serial` columns and respects `defaultTo`. See
+[OpenAPI Schemas](./openapi.html).
 
 Often the simpler move is to skip Zod for that route: the DTO types are already derived from the schema, and `assert<CreateDTO<User>>(body)` needs no bridge at all.
 
@@ -83,13 +84,11 @@ User.parse(body)      → assert<User>(body)
 User.safeParse(body)  → validate<User>(body)   // { success, data?, errors? }
 ```
 
-**3. Translate the refinements you actually rely on.** Format checks that Zod gives you as methods are `validate()` rules or a [`refine`](./unions-refinements.html) predicate. Decide explicitly which ones matter — `z.string().email()` is a regex, and half the codebases that call it do not need it.
+**3. Translate the refinements you actually rely on.** Format checks that Zod gives you as methods are `validate()` rules or a [`refine`](./unions-refinements.html) predicate. Decide explicitly which
+ones matter — `z.string().email()` is a regex, and half the codebases that call it do not need it.
 
-> [!WARNING]
-> Zod coerces nothing by default and neither does `assert`. But `z.coerce.number()`
-> has no direct equivalent — use [`coerce`](./unions-refinements.html) explicitly, and
-> only at a boundary where the input is genuinely stringly-typed (query strings,
-> form bodies).
+> [!WARNING] Zod coerces nothing by default and neither does `assert`. But `z.coerce.number()` has no direct equivalent — use [`coerce`](./unions-refinements.html) explicitly, and only at a boundary
+> where the input is genuinely stringly-typed (query strings, form bodies).
 
 **4. Add the canary test before you trust any of it.**
 
@@ -99,14 +98,12 @@ it('the transformer is running', () => {
 });
 ```
 
-Without this, step 2 replaces working validation with a runtime failure in the first untransformed build
-path. The canary finds that during the build rather than in production.
+Without this, step 2 replaces working validation with a runtime failure in the first untransformed build path. The canary finds that during the build rather than in production.
 
 ## When to stay on Zod
 
 - Schemas defined at runtime.
-- A toolchain with no zmdb build route — [Bun](./connect-bun.html) or an esbuild-only pipeline. Metro uses
-  the [React Native wrapper](./connect-react-native.html).
+- A toolchain with no zmdb build route — [Bun](./connect-bun.html) or an esbuild-only pipeline. Metro uses the [React Native wrapper](./connect-react-native.html).
 - Heavy use of Zod's ecosystem (`zod-to-openapi`, form libraries binding to Zod schemas).
 
 There is no prize for having one validator.

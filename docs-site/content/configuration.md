@@ -1,10 +1,7 @@
-Application configuration has no implicit initialisation step. Everything the
-runtime needs is still a function argument, which means a wrong repository or
-web configuration is usually a compile error rather than a filesystem surprise.
+Application configuration has no implicit initialisation step. Everything the runtime needs is still a function argument, which means a wrong repository or web configuration is usually a compile error
+rather than a filesystem surprise.
 
-Build tools and the planned schema-command CLI have a separate
-[`zmdb.config.ts`](./config-file.html) loader. Applications do not read it
-automatically.
+Build tools and the planned schema-command CLI have a separate [`zmdb.config.ts`](./config-file.html) loader. Applications do not read it automatically.
 
 ## What each layer takes
 
@@ -16,10 +13,8 @@ createApp(rootModule)
 toOpenApi(controllers, { info?, schemas? })
 ```
 
-That is the complete runtime surface. There is no `reflect-metadata`, boot-time
-metadata scan, or ambient config read. `zmdb.config.ts` is an explicit tooling
-boundary for schema files, dialect and migration paths; it does not change how
-an application constructs a driver or repository.
+That is the complete runtime surface. There is no `reflect-metadata`, boot-time metadata scan, or ambient config read. `zmdb.config.ts` is an explicit tooling boundary for schema files, dialect and
+migration paths; it does not change how an application constructs a driver or repository.
 
 The one thing that _is_ configured outside a function argument is the build plugin, because it has to find your `tsconfig.json`:
 
@@ -70,12 +65,11 @@ export const driver: Driver = {
 };
 ```
 
-Validating the environment once, at import, is the highest-value use of the validator in an application. A missing `DATABASE_URL` fails at startup naming the field, instead of at 3am as `undefined` inside a connection string.
+Validating the environment once, at import, is the highest-value use of the validator in an application. A missing `DATABASE_URL` fails at startup naming the field, instead of at 3am as `undefined`
+inside a connection string.
 
-> [!WARNING]
-> `Number(undefined)` is `NaN`, and `NaN` is a `number` — so it passes a `number`
-> check. Default _before_ coercing, as above. `Number(process.env.PORT)` with no
-> `??` will validate cleanly and then bind to nothing.
+> [!WARNING] `Number(undefined)` is `NaN`, and `NaN` is a `number` — so it passes a `number` check. Default _before_ coercing, as above. `Number(process.env.PORT)` with no `??` will validate cleanly
+> and then bind to nothing.
 
 ## Per-environment values
 
@@ -135,7 +129,8 @@ Log a redacted projection instead, or mark the column [`Sensitive`](./tags-refer
 export const dialect = (process.env.DB_DIALECT ?? 'postgres') as Dialect;
 ```
 
-The cost is that dialect differences become runtime differences. `ILIKE`, `RETURNING`, `ON CONFLICT` and transactional DDL all vary — see [Dialect: SQLite](./dialect-sqlite.html). Fine for a test suite; think carefully before shipping two dialects to production.
+The cost is that dialect differences become runtime differences. `ILIKE`, `RETURNING`, `ON CONFLICT` and transactional DDL all vary — see [Dialect: SQLite](./dialect-sqlite.html). Fine for a test
+suite; think carefully before shipping two dialects to production.
 
 ---
 

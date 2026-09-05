@@ -7,11 +7,12 @@ declare const zmdbSerial: unique symbol;
 export type Serial = { readonly [zmdbSerial]?: true };
 ```
 
-All three parts are load-bearing. `unique symbol` cannot be forged or collide with a data property of the same name. `?` means no runtime value is ever required, so the tag erases to nothing — a tagged declaration and its untagged twin compile to byte-identical JavaScript. And an all-optional (weak) object type is not assignable from an unrelated type, which is what makes `T[K] extends Serial` an exact question rather than a structural coincidence.
+All three parts are load-bearing. `unique symbol` cannot be forged or collide with a data property of the same name. `?` means no runtime value is ever required, so the tag erases to nothing — a
+tagged declaration and its untagged twin compile to byte-identical JavaScript. And an all-optional (weak) object type is not assignable from an unrelated type, which is what makes
+`T[K] extends Serial` an exact question rather than a structural coincidence.
 
-`Ext<E, N, A>` is the one structural exception. Its optional `__zmdbExt`
-tuple carries the installable extension, SQL type name, and validated arguments
-through reflection without adding a runtime symbol.
+`Ext<E, N, A>` is the one structural exception. Its optional `__zmdbExt` tuple carries the installable extension, SQL type name, and validated arguments through reflection without adding a runtime
+symbol.
 
 The module has **zero runtime exports**. There is nothing to import at runtime, no decorator metadata, no registry.
 
@@ -41,14 +42,10 @@ interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
 interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['createdAt', 'id']> {}
 ```
 
-Shard and sort tuples must be non-empty, name each column once, and refer to
-columns declared by the interface.
+Shard and sort tuples must be non-empty, name each column once, and refer to columns declared by the interface.
 
-`SoftDelete<Column>` must name an existing nullable `Sql<'timestamp'>` column.
-Reflection rejects any other declaration. The column is returned on entities but
-is absent from create and update DTOs because repository methods own it. `delete`
-writes the current `Date`, `restore` writes `NULL`, and `hardDelete` deliberately
-uses physical `DELETE`. See [Entity Filters](./entity-filters.html).
+`SoftDelete<Column>` must name an existing nullable `Sql<'timestamp'>` column. Reflection rejects any other declaration. The column is returned on entities but is absent from create and update DTOs
+because repository methods own it. `delete` writes the current `Date`, `restore` writes `NULL`, and `hardDelete` deliberately uses physical `DELETE`. See [Entity Filters](./entity-filters.html).
 
 ## Structural
 
@@ -67,16 +64,17 @@ uses physical `DELETE`. See [Entity Filters](./entity-filters.html).
 | `Codec<Name>`        | `string`         | names a [custom type](./custom-types.html) codec          |
 | `WireAs<W>`          | **a type**       | what the column looks like over the wire                  |
 
-`Unique` is carried through reflection and migration snapshots. SingleStore
-uses it to validate and emit shard-compatible uniqueness; the ordinary
-generated migration path for the root dialects still needs an explicit unique
-index from `createIndexDdl`.
+`Unique` is carried through reflection and migration snapshots. SingleStore uses it to validate and emit shard-compatible uniqueness; the ordinary generated migration path for the root dialects still
+needs an explicit unique index from `createIndexDdl`.
 
-`Serial` and `HasDefault` are distinct on purpose. Supplying a defaulted column is legitimate, so it is _optional_ on insert; supplying a database-generated one is a mistake, so it is _absent_ from the insert type entirely.
+`Serial` and `HasDefault` are distinct on purpose. Supplying a defaulted column is legitimate, so it is _optional_ on insert; supplying a database-generated one is a mistake, so it is _absent_ from
+the insert type entirely.
 
-`Serial` implies `hasDefault` and always has. A serial column's value comes from a sequence the database owns, so `INSERT` may omit it — and "may be omitted on insert" is exactly what `hasDefault` says to `CreateDTO`, to the JSON Schema's `required` list and to the [seeder](./seeding.html). Getting this wrong is invisible in the DDL and only the create path notices.
+`Serial` implies `hasDefault` and always has. A serial column's value comes from a sequence the database owns, so `INSERT` may omit it — and "may be omitted on insert" is exactly what `hasDefault`
+says to `CreateDTO`, to the JSON Schema's `required` list and to the [seeder](./seeding.html). Getting this wrong is invisible in the DDL and only the create path notices.
 
-`WireAs<W>` is the only tag whose payload is a type rather than a literal, and it has to be: a codec's wire form is arbitrary — cents as a decimal string, a point as a pair of numbers — so nothing but the type itself can name it. A `Codec` column with no `WireAs` is a **build error**, not a column assumed to cross unchanged.
+`WireAs<W>` is the only tag whose payload is a type rather than a literal, and it has to be: a codec's wire form is arbitrary — cents as a decimal string, a point as a pair of numbers — so nothing but
+the type itself can name it. A `Codec` column with no `WireAs` is a **build error**, not a column assumed to cross unchanged.
 
 ```ts
 amount: number & Sql<'bigint'> & Codec<'Money'> & WireAs<string>;
@@ -103,17 +101,14 @@ amount: number & Sql<'bigint'> & Codec<'Money'> & WireAs<string>;
 
 Plus `Serial`, which is `SERIAL` / `INT AUTO_INCREMENT` / `INTEGER` / `INT IDENTITY(1,1)` (SQLite's rowid alias is what makes it auto-increment there).
 
-Cockroach inherits the Postgres map except for `integer` (`INT4`) and
-`Serial` (`INT8 DEFAULT unique_rowid()`). SingleStore inherits MySQL except for
-`Serial` (`BIGINT AUTO_INCREMENT`).
+Cockroach inherits the Postgres map except for `integer` (`INT4`) and `Serial` (`INT8 DEFAULT unique_rowid()`). SingleStore inherits MySQL except for `Serial` (`BIGINT AUTO_INCREMENT`).
 
-That is the whole core set. Extension-backed types such as `vector`,
-`geometry`, and `citext` use `Ext`; other storage types such as `uuid`, `date`,
-`interval`, `inet`, and arrays need a [custom type](./custom-types.html) or a
-`json` column. [Column Types](./column-types.html) has the reasoning.
+That is the whole core set. Extension-backed types such as `vector`, `geometry`, and `citext` use `Ext`; other storage types such as `uuid`, `date`, `interval`, `inet`, and arrays need a
+[custom type](./custom-types.html) or a `json` column. [Column Types](./column-types.html) has the reasoning.
 
-> [!NOTE]
-> `timestamp` is `TIMESTAMPTZ` in Postgres, not `TIMESTAMP`. Postgres reads the latter as "without time zone", which stores the wall clock and forgets the offset. MySQL has no zone-aware type with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so it gets `DATETIME(3)`, keeping the milliseconds a `Date` has, with the application owning the zone. SQL Server uses `DATETIMEOFFSET(3)` to preserve the instant and millisecond precision.
+> [!NOTE] `timestamp` is `TIMESTAMPTZ` in Postgres, not `TIMESTAMP`. Postgres reads the latter as "without time zone", which stores the wall clock and forgets the offset. MySQL has no zone-aware type
+> with a usable range — `TIMESTAMP` converts to the session zone and stops in 2038 — so it gets `DATETIME(3)`, keeping the milliseconds a `Date` has, with the application owning the zone. SQL Server
+> uses `DATETIMEOFFSET(3)` to preserve the instant and millisecond precision.
 
 `Sql<…>` is required wherever the app type maps more than one way: `number` could be `integer` or `numeric`, `string` could be `text` or `varchar`. It is optional where the mapping is forced.
 
@@ -133,9 +128,11 @@ age: number & Sql<'integer'> & Min<18> & Max<120>;
 email: string & Sql<'varchar'> & Length<255> & Pattern<'^\\S+@\\S+$'>;
 ```
 
-`Rule<Name>` is the named escape hatch, and an **unregistered name is a build error**, not a silently skipped check. The runtime vocabulary in `@zmdb/aot-validator` uses the same spellings — `tags.Min(18)`, `tags.Max(120)` — so there is one name per constraint rather than one per layer.
+`Rule<Name>` is the named escape hatch, and an **unregistered name is a build error**, not a silently skipped check. The runtime vocabulary in `@zmdb/aot-validator` uses the same spellings —
+`tags.Min(18)`, `tags.Max(120)` — so there is one name per constraint rather than one per layer.
 
-A template literal type derives a pattern on its own: `` `${string}@${string}` `` becomes `^[\s\S]*@[\s\S]*$`, merged with rather than replaced by an explicit `Pattern<…>`. `${number}` is refused — TypeScript accepts exponents, signs and `Infinity` there, so every short regex is either stricter or looser than the type, and both are wrong in a validator.
+A template literal type derives a pattern on its own: `` `${string}@${string}` `` becomes `^[\s\S]*@[\s\S]*$`, merged with rather than replaced by an explicit `Pattern<…>`. `${number}` is refused —
+TypeScript accepts exponents, signs and `Infinity` there, so every short regex is either stricter or looser than the type, and both are wrong in a validator.
 
 There is no `Enum` tag. A literal union is how you declare that, and TypeScript models it better than a flag does.
 
@@ -157,7 +154,8 @@ interface Post extends Table<'posts'> {
 }
 ```
 
-Cardinality is deliberately **not** readable back out of the tag. The declared type already says it — `User & ManyToOne<…>` is to-one and `Comment[] & OneToMany<…>` is to-many, natively — and a tag that has to be decoded is a tag that can disagree with the declaration.
+Cardinality is deliberately **not** readable back out of the tag. The declared type already says it — `User & ManyToOne<…>` is to-one and `Comment[] & OneToMany<…>` is to-many, natively — and a tag
+that has to be decoded is a tag that can disagree with the declaration.
 
 A relation is not a column: `Entity<T>` excludes `author` and `comments`, or a join target becomes something to `INSERT`. See [Relations](./relations.html).
 
@@ -176,14 +174,17 @@ TypeScript already says all six, the reflection reads them off the type directly
 
 `Nullable<T>` and `NonNull<T>` are exported as readability aliases. They are **not** tags: `Nullable<string>` is exactly `string | null`.
 
-> [!WARNING]
-> Spell a nullable column `(T & Tags) | null` — tags inside, `| null` outside. TypeScript normalises `(T | null) & Unique` into `(T & Unique) | (null & Unique)`, and `null & Unique` reduces to `never`, so the column silently stops being nullable. A trap with a mechanism, not a style preference.
+> [!WARNING] Spell a nullable column `(T & Tags) | null` — tags inside, `| null` outside. TypeScript normalises `(T | null) & Unique` into `(T & Unique) | (null & Unique)`, and `null & Unique` reduces
+> to `never`, so the column silently stops being nullable. A trap with a mechanism, not a style preference.
 
 ## Two installs of `zmdb`
 
-`unique symbol` identity is nominal, so two copies of `@zmdb/schema-core` in one `node_modules` produce two non-matching `Serial` tags from identical source text. The consequence is not a type error: the filter that picks serial columns collapses to `never`, `Omit<T, never>` is `T`, and a generated column silently becomes **required** on insert — while the emitted validator, which matches tags by name, still treats it as generated.
+`unique symbol` identity is nominal, so two copies of `@zmdb/schema-core` in one `node_modules` produce two non-matching `Serial` tags from identical source text. The consequence is not a type error:
+the filter that picks serial columns collapses to `never`, `Omit<T, never>` is `T`, and a generated column silently becomes **required** on insert — while the emitted validator, which matches tags by
+name, still treats it as generated.
 
-That asymmetry is why the build refuses it. The reflection can see the escaped symbol ids the type system distinguishes (`__@zmdbSerial@1` against `__@zmdbSerial@12`) and names both spellings in the error. Deduplicate the install.
+That asymmetry is why the build refuses it. The reflection can see the escaped symbol ids the type system distinguishes (`__@zmdbSerial@1` against `__@zmdbSerial@12`) and names both spellings in the
+error. Deduplicate the install.
 
 ## Web decorators
 

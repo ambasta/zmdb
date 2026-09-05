@@ -1,4 +1,5 @@
-`toJsonSchema` turns a schema object — the value `schemaOf<T>()` produces — into a JSON Schema document. That is the currency every LLM API and every other validation library speaks, so it is the bridge out of zmdb's type system.
+`toJsonSchema` turns a schema object — the value `schemaOf<T>()` produces — into a JSON Schema document. That is the currency every LLM API and every other validation library speaks, so it is the
+bridge out of zmdb's type system.
 
 ## Basic use
 
@@ -57,7 +58,8 @@ age: (number & Sql<'integer'> & Max<120>) | null;
 }
 ```
 
-So a constraint written once shapes the emitted validator, the OpenAPI document, the LLM tool schema and any consumer generating a form — without being re-declared anywhere. The five keywords that travel this far are `minimum`, `maximum`, `minLength`, `maxLength` and `pattern`; `Rule<'name'>` reaches the column IR but has no JSON Schema counterpart.
+So a constraint written once shapes the emitted validator, the OpenAPI document, the LLM tool schema and any consumer generating a form — without being re-declared anywhere. The five keywords that
+travel this far are `minimum`, `maximum`, `minLength`, `maxLength` and `pattern`; `Rule<'name'>` reaches the column IR but has no JSON Schema counterpart.
 
 ## Sensitive columns are omitted
 
@@ -65,7 +67,8 @@ So a constraint written once shapes the emitted validator, the OpenAPI document,
 passwordHash: string & Sql<'text'> & Sensitive;
 ```
 
-Absent from the output, in every variant — `create` included. The filter runs at the last step before a document is produced, so no derived type a caller invents routes around it. That is what makes it safe to hand a derived schema to a model or publish it in a document. Note that `Entity<User>` and `CreateDTO<User>` still carry the column: the tag is about what leaves, not about what the row is.
+Absent from the output, in every variant — `create` included. The filter runs at the last step before a document is produced, so no derived type a caller invents routes around it. That is what makes
+it safe to hand a derived schema to a model or publish it in a document. Note that `Entity<User>` and `CreateDTO<User>` still carry the column: the tag is about what leaves, not about what the row is.
 
 ## Relations
 
@@ -75,7 +78,8 @@ import { toJsonSchemaWithRelations } from '@zmdb/schema-core/openapi';
 toJsonSchemaWithRelations(userSchema, 'entity');
 ```
 
-Adds a `$ref` per relation the type declares — `posts?: Post[] & OneToMany<'posts', 'authorId'>` becomes an array of the target's entity schema, which is the shape a `populate` actually returns, so the document matches the response. Relations reach the `entity` variant only: a `create` body is columns, and a nested entity in one would advertise a write path that does not exist.
+Adds a `$ref` per relation the type declares — `posts?: Post[] & OneToMany<'posts', 'authorId'>` becomes an array of the target's entity schema, which is the shape a `populate` actually returns, so
+the document matches the response. Relations reach the `entity` variant only: a `create` body is columns, and a nested entity in one would advertise a write path that does not exist.
 
 ## Every schema at once
 
@@ -85,7 +89,8 @@ import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
 const components = toOpenApiComponents([userSchema, postSchema, commentSchema]);
 ```
 
-Keyed by table name and variant, ready to drop into an OpenAPI document's `components.schemas`, or to serve as a manifest of your data model. You supply the array — nothing enumerates your tables, because a type cannot register itself. See [OpenAPI](./openapi.html).
+Keyed by table name and variant, ready to drop into an OpenAPI document's `components.schemas`, or to serve as a manifest of your data model. You supply the array — nothing enumerates your tables,
+because a type cannot register itself. See [OpenAPI](./openapi.html).
 
 ## Feeding it to a model
 
@@ -116,7 +121,8 @@ import { jsonSchemaToZod } from 'json-schema-to-zod';
 const zodSchema = jsonSchemaToZod(toJsonSchema(userSchema, 'create'));
 ```
 
-You do not need this for validation — the [AOT validators](./validators-assert.html) work from the TypeScript type directly — but it is how you hand a shape to a library that is already in your stack. See [Zod](./interop-zod.html).
+You do not need this for validation — the [AOT validators](./validators-assert.html) work from the TypeScript type directly — but it is how you hand a shape to a library that is already in your stack.
+See [Zod](./interop-zod.html).
 
 ---
 

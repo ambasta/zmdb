@@ -1,4 +1,5 @@
-zmdb is framework-agnostic — it doesn't depend on Express, Hono, Fastify, or any other web framework. The `makeEndpoint` utility provides a thin adapter layer that converts your repository into an HTTP handler. Each framework wraps this in 1-2 lines.
+zmdb is framework-agnostic — it doesn't depend on Express, Hono, Fastify, or any other web framework. The `makeEndpoint` utility provides a thin adapter layer that converts your repository into an
+HTTP handler. Each framework wraps this in 1-2 lines.
 
 ## The Endpoint Handler
 
@@ -61,9 +62,7 @@ import { z } from 'zod';
 
 const t = initTRPC.create();
 export const appRouter = t.router({
-  createUser: t.procedure
-    .input(z.object({ name: z.string(), email: z.string() }))
-    .mutation(({ input }) => endpoint(input)),
+  createUser: t.procedure.input(z.object({ name: z.string(), email: z.string() })).mutation(({ input }) => endpoint(input)),
 });
 ```
 
@@ -82,8 +81,7 @@ class UserController {
 }
 ```
 
-> [!NOTE]
-> The `validate` function should parse and validate input. Use `@zmdb/aot-validator` for compile-time inlined validation — zero runtime overhead.
+> [!NOTE] The `validate` function should parse and validate input. Use `@zmdb/aot-validator` for compile-time inlined validation — zero runtime overhead.
 
 ## Serialization
 
@@ -99,8 +97,7 @@ const handler: Handler<Input, Output> = {
 };
 ```
 
-> [!TIP]
-> Keep handlers thin — delegate to your repository. The endpoint layer should only handle HTTP concerns (parsing, serialization, status codes).
+> [!TIP] Keep handlers thin — delegate to your repository. The endpoint layer should only handle HTTP concerns (parsing, serialization, status codes).
 
 ---
 

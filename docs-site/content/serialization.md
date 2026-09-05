@@ -8,16 +8,12 @@ import { stringify } from '@zmdb/aot-validator/serialization';
 const json = stringify(row);
 ```
 
-`stringify` is byte-identical to `JSON.stringify` for every value it accepts. The one
-difference is `bigint`: it throws a `TypeError` with one fixed message wherever in the graph
-the value sits, rather than the engine's own wording.
+`stringify` is byte-identical to `JSON.stringify` for every value it accepts. The one difference is `bigint`: it throws a `TypeError` with one fixed message wherever in the graph the value sits,
+rather than the engine's own wording.
 
-> [!NOTE]
-> There is no type argument and no specialised serializer. `stringify` is **not** one of the
-> eight calls the transformer rewrites, so nothing is emitted for a known shape and every key
-> present on the object appears in the output. A specialised emitter built from the same
-> `TypeIR` the validators use is the plan; it is not the behaviour today, and a document that
-> told you extra keys were dropped was describing something that does not happen.
+> [!NOTE] There is no type argument and no specialised serializer. `stringify` is **not** one of the eight calls the transformer rewrites, so nothing is emitted for a known shape and every key present
+> on the object appears in the output. A specialised emitter built from the same `TypeIR` the validators use is the plan; it is not the behaviour today, and a document that told you extra keys were
+> dropped was describing something that does not happen.
 
 To drop keys, drop them from the value — a projection, not a serializer:
 
@@ -36,8 +32,7 @@ import { assertStringify } from '@zmdb/aot-validator/serialization';
 const json = assertStringify(row, ir); // throws AssertError if row is wrong
 ```
 
-`assertStringify` is not transformed either, so its schema is a runtime argument. The
-transformed equivalent is two calls, and it is the one to write today:
+`assertStringify` is not transformed either, so its schema is a runtime argument. The transformed equivalent is two calls, and it is the one to write today:
 
 ```ts
 const json = stringify(assert<Entity<User>>(row));
@@ -54,16 +49,14 @@ const result = parse(text);
 if (!result.success) throw new ValidationError('invalid payload', result.issues ?? []);
 ```
 
-`parse` reports malformed JSON as `issues` rather than throwing, which makes it the right
-function at an HTTP boundary: a syntax error is a value you turn into a 400, not an exception
-you have to catch to avoid a 500. Note the field is `issues`, not `errors` — `validate`'s
-result uses `errors`, and the two shapes are otherwise the same.
+`parse` reports malformed JSON as `issues` rather than throwing, which makes it the right function at an HTTP boundary: a syntax error is a value you turn into a 400, not an exception you have to
+catch to avoid a 500. Note the field is `issues`, not `errors` — `validate`'s result uses `errors`, and the two shapes are otherwise the same.
 
-Throw, or return a response the router recognises. An **object literal** is not one: the router serialises an untagged return value as a **200**, so a returned `{ status: 400, … }` becomes a 200 whose body happens to contain the number 400. `json(body, { status: 400 })` is recognised and really is a 400, and so is a throw carrying an `issues` property — see [Request Lifecycle](./web-request-lifecycle.html).
+Throw, or return a response the router recognises. An **object literal** is not one: the router serialises an untagged return value as a **200**, so a returned `{ status: 400, … }` becomes a 200 whose
+body happens to contain the number 400. `json(body, { status: 400 })` is recognised and really is a 400, and so is a throw carrying an `issues` property — see
+[Request Lifecycle](./web-request-lifecycle.html).
 
-> [!WARNING]
-> `parse<T>()`'s type argument is an **unvalidated claim** — the same one `JSON.parse` gives
-> you. It checks nothing. The checking step is separate:
+> [!WARNING] `parse<T>()`'s type argument is an **unvalidated claim** — the same one `JSON.parse` gives you. It checks nothing. The checking step is separate:
 >
 > ```ts
 > const parsed = parse(text);
@@ -102,7 +95,8 @@ This has three separate consequences:
 
 - **`Entity<User>` keeps it.** The column is still selected and still on the row — the tag changes what a _read endpoint_ may return, not what a query returns.
 - **`CreateDTO<User>` keeps it too**, deliberately: you have to be able to send a password.
-- **The generated JSON Schema and OpenAPI documents never name it**, in any variant, including `create`. The filter is applied at the last step before a document is published, so no derived type a caller invents can route around it.
+- **The generated JSON Schema and OpenAPI documents never name it**, in any variant, including `create`. The filter is applied at the last step before a document is published, so no derived type a
+  caller invents can route around it.
 
 If the value must never leave the database at all, do not select it:
 
@@ -120,28 +114,24 @@ type PublicUser = Pick<Entity<User>, 'id' | 'email'>;
 
 `Sql<'timestamp'>` gives you a `Date` in the app type, and `stringify` emits it as an ISO-8601 string exactly as `JSON.stringify` does.
 
-> [!IMPORTANT]
-> Coming back the other way, nothing revives it. `parse` is `JSON.parse`, so a `Date`-typed
-> field arrives as a **string**, and `assert<Entity<User>>` on that value fails — correctly,
+> [!IMPORTANT] Coming back the other way, nothing revives it. `parse` is `JSON.parse`, so a `Date`-typed field arrives as a **string**, and `assert<Entity<User>>` on that value fails — correctly,
 > because a string is not a `Date`.
 >
-> The boundary that converts is `wireDecoder`, which reads the column's wire type
-> (`string`, `format: 'date-time'`) and produces a `Date` for the app type. Use it, or
-> convert the field yourself before asserting.
+> The boundary that converts is `wireDecoder`, which reads the column's wire type (`string`, `format: 'date-time'`) and produces a `Date` for the app type. Use it, or convert the field yourself before
+> asserting.
 
 ## Numbers that arrive as strings
 
-`bigint` and `numeric` columns come back as strings from several drivers. `assert`ing a row against `Entity<S>` will _fail_ on those, correctly — the row does not match the type. Fix it in the driver, which is the only layer that knows which client it wraps. See [bigint keys](./bigint-keys.html).
+`bigint` and `numeric` columns come back as strings from several drivers. `assert`ing a row against `Entity<S>` will _fail_ on those, correctly — the row does not match the type. Fix it in the driver,
+which is the only layer that knows which client it wraps. See [bigint keys](./bigint-keys.html).
 
-A `bigint` column's **wire** type is a string with `format: 'int64'` automatically, since `JSON.stringify(1n)` throws. That is the one place the three types of a column — wire, app, db — are visibly all different, and none of them is a mistake.
+A `bigint` column's **wire** type is a string with `format: 'int64'` automatically, since `JSON.stringify(1n)` throws. That is the one place the three types of a column — wire, app, db — are visibly
+all different, and none of them is a mistake.
 
 ## In `@zmdb/web`
 
-Handlers return a value and the framework serializes it into the text arm of
-`WebResponse.body`. Reach for `stringify` explicitly when you want the `bigint`
-policy, and for `wireEncoder` when the response has codec or `bigint` columns
-that need converting. The `bytes()` and `stream()` factories bypass JSON
-serialization deliberately.
+Handlers return a value and the framework serializes it into the text arm of `WebResponse.body`. Reach for `stringify` explicitly when you want the `bigint` policy, and for `wireEncoder` when the
+response has codec or `bigint` columns that need converting. The `bytes()` and `stream()` factories bypass JSON serialization deliberately.
 
 ---
 

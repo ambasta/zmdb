@@ -30,9 +30,12 @@ export const driver: Driver = {
 };
 ```
 
-`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the first query.
+`requireEnv(name)` is the three-line helper from [Configuration](./web-configuration.html) — it throws on a missing or empty variable, so a misconfigured deployment fails at boot rather than on the
+first query.
 
-Two boundary details, both of which other libSQL snippets paper over with a cast. `query.parameters` is `readonly unknown[]`, and libSQL's `InValue` is a closed union — so the conversion is a real narrowing, and the `JSON.stringify` fallback is the decision about what happens to a JSON column value rather than a runtime surprise. And a libSQL `Row` is an array-like with numeric _and_ named access; rebuilding it against `result.columns` gives you a plain `Record<string, unknown>`, which is what `Driver.execute` promises to return.
+Two boundary details, both of which other libSQL snippets paper over with a cast. `query.parameters` is `readonly unknown[]`, and libSQL's `InValue` is a closed union — so the conversion is a real
+narrowing, and the `JSON.stringify` fallback is the decision about what happens to a JSON column value rather than a runtime surprise. And a libSQL `Row` is an array-like with numeric _and_ named
+access; rebuilding it against `result.columns` gives you a plain `Record<string, unknown>`, which is what `Driver.execute` promises to return.
 
 Works in Node, Bun, Deno, Cloudflare Workers and Vercel Edge, because it is `fetch` underneath.
 
@@ -49,7 +52,8 @@ const client = createClient({
 });
 ```
 
-The consequence to internalise: **reads are eventually consistent.** A write followed immediately by a read may not see it, because the read went to the local replica. If a request writes and then reads back, sync explicitly:
+The consequence to internalise: **reads are eventually consistent.** A write followed immediately by a read may not see it, because the read went to the local replica. If a request writes and then
+reads back, sync explicitly:
 
 ```ts
 await repo.create(dto);
@@ -57,7 +61,8 @@ await client.sync();
 const row = await repo.findOne({ email: { eq: dto.email } });
 ```
 
-Or use the `RETURNING` clause so the write itself gives you the row — libSQL supports it, so `repo.create` gets the row back in one statement and no read-after-write question arises. That is the better answer.
+Or use the `RETURNING` clause so the write itself gives you the row — libSQL supports it, so `repo.create` gets the row back in one statement and no read-after-write question arises. That is the
+better answer.
 
 ## Type conversion
 
@@ -116,7 +121,8 @@ const clientFor = (tenant: string) =>
 const repo = defineRepository(users, driverFor(clientFor(tenant)), { dialect: 'sqlite' });
 ```
 
-The cost is that migrations must run against every tenant database. `runCli` takes a connection, so that is a loop — and a loop that must be resumable, because failing halfway through a thousand tenants is a state you have to recover from. Record progress.
+The cost is that migrations must run against every tenant database. `runCli` takes a connection, so that is a loop — and a loop that must be resumable, because failing halfway through a thousand
+tenants is a state you have to recover from. Record progress.
 
 ---
 

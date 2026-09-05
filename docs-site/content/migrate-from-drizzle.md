@@ -27,16 +27,13 @@ export interface User extends Table<'users'> {
 Differences that matter:
 
 - **It is a type, not a value.** There is no `pgTable` call and nothing to construct — `schemaOf<User>()` produces the value the query compiler reads, at build time.
-- No dialect-specific import. One declaration supplies the shared shape; you
-  pick the dialect when you build a compiler or repository. SingleStore tables
-  additionally declare `ShardKey<…>` or `Rowstore` because
-  distribution/storage cannot be inferred safely.
-- Columns currently take no public name argument. With identity naming, the
-  property key is also the SQL column name. The physical-name execution
-  boundary exists, but project-configured strategies and the explicit-name tag
-  are still tracked on [Naming Strategy](./naming-strategy.html).
+- No dialect-specific import. One declaration supplies the shared shape; you pick the dialect when you build a compiler or repository. SingleStore tables additionally declare `ShardKey<…>` or
+  `Rowstore` because distribution/storage cannot be inferred safely.
+- Columns currently take no public name argument. With identity naming, the property key is also the SQL column name. The physical-name execution boundary exists, but project-configured strategies and
+  the explicit-name tag are still tracked on [Naming Strategy](./naming-strategy.html).
 - Nullability is `| null`, not `.notNull()` — the default is non-null, and TypeScript already has a way to say the other thing. Write `(T & Tags) | null`, tags inside.
-- `HasDefault` rather than `.default(true)`: it says the column _has_ a default, not which one. The value goes in the migration, because a type cannot hold a runtime value. This is the one thing Drizzle expresses that a declaration cannot.
+- `HasDefault` rather than `.default(true)`: it says the column _has_ a default, not which one. The value goes in the migration, because a type cannot hold a runtime value. This is the one thing
+  Drizzle expresses that a declaration cannot.
 
 ## Types
 
@@ -47,8 +44,7 @@ Differences that matter:
 | —                           | `UpdateDTO<User>` |
 | —                           | `WhereDTO<User>`  |
 
-The zmdb column takes the declared interface, not `typeof` a value — the declaration is
-already the type, so there is nothing to read it back out of.
+The zmdb column takes the declared interface, not `typeof` a value — the declaration is already the type, so there is nothing to read it back out of.
 
 ## Queries
 
@@ -62,7 +58,8 @@ await repo.findOne({ email: { eq: 'a@b.c' } });
 createQueryCompiler('postgres').selectFrom('users').where('email', '=', 'a@b.c').compile();
 ```
 
-Note the two operator vocabularies: the [DTO](./filters.html) uses `eq` / `gte` / `in`, the [builder](./select.html) uses `'='` / `'>='` / `'in'`. The DTO one is typed per column; the builder one is closer to the SQL.
+Note the two operator vocabularies: the [DTO](./filters.html) uses `eq` / `gte` / `in`, the [builder](./select.html) uses `'='` / `'>='` / `'in'`. The DTO one is typed per column; the builder one is
+closer to the SQL.
 
 ## Relational queries
 
@@ -76,16 +73,12 @@ Same shape of result, same one-query-per-relation strategy. See [Loading Strateg
 
 ## Migrations
 
-`drizzle-kit generate` becomes a script calling `snapshot()` + `diff()` + `emitUp()`. The snapshot file plays the same role as Drizzle's `meta/_journal.json` + snapshot pair. See [generate](./cli-generate.html) for the script and [CLI Overview](./cli-overview.html) for what is missing.
+`drizzle-kit generate` becomes a script calling `snapshot()` + `diff()` + `emitUp()`. The snapshot file plays the same role as Drizzle's `meta/_journal.json` + snapshot pair. See
+[generate](./cli-generate.html) for the script and [CLI Overview](./cli-overview.html) for what is missing.
 
-For an existing Drizzle-managed database, start with
-[schema-first adoption](./schema-first.html) instead of translating the schema
-object blind: introspect into a staging directory, review the generated tags and
-warnings, commit a baseline snapshot, and run `detectDrift()` against a restored
-database in CI. The [pull command](./cli-pull.html) packages that library
-workflow rather than defining a second one. It writes protected staging
-declarations under `.zmdb/introspected`, with `--dry-run` for review and
-`--check` for CI.
+For an existing Drizzle-managed database, start with [schema-first adoption](./schema-first.html) instead of translating the schema object blind: introspect into a staging directory, review the
+generated tags and warnings, commit a baseline snapshot, and run `detectDrift()` against a restored database in CI. The [pull command](./cli-pull.html) packages that library workflow rather than
+defining a second one. It writes protected staging declarations under `.zmdb/introspected`, with `--dry-run` for review and `--check` for CI.
 
 ## Validation
 
@@ -94,9 +87,7 @@ Drop `drizzle-zod`. `assert<CreateDTO<User>>(body)` is generated from the same d
 ## What you lose
 
 - arbitrary `ON CONFLICT` predicates — the typed common forms are covered by [Upsert](./upsert.html)
-- arbitrary SQL update expressions — the closed atomic forms (`inc`, `dec`,
-  `mul`, `not`, `concat`, `coalesce`, `proposed`) are covered by
-  [Incrementing a value](./guide-increment-decrement.html)
+- arbitrary SQL update expressions — the closed atomic forms (`inc`, `dec`, `mul`, `not`, `concat`, `coalesce`, `proposed`) are covered by [Incrementing a value](./guide-increment-decrement.html)
 - `drizzle-kit studio`'s write controls — zmdb's [Studio](./cli-studio.html) is deliberately read-only
 - the `pg`/`mysql`/`sqlite` type zoo: zmdb has ten column types, not sixty. `Sql<'json'>` and [custom types](./custom-types.html) cover most of the rest.
 

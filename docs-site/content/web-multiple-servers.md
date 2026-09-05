@@ -1,4 +1,5 @@
-Nothing in the framework is global. `createApp` returns an independent object with its own container and its own router, so running several servers in one process is a matter of calling it more than once.
+Nothing in the framework is global. `createApp` returns an independent object with its own container and its own router, so running several servers in one process is a matter of calling it more than
+once.
 
 ```ts
 const publicApp = createApp(PublicModule);
@@ -10,21 +11,14 @@ const handlePublic = (request: Request) => publicApp.fetch(request);
 const handleAdmin = (request: Request) => adminApp.fetch(request);
 ```
 
-Bind those two Fetch handlers to separate listeners with the host runtime. Two
-ports then have two route tables and two containers, with no shared registry or
-ordering dependency. The current Node `toNodeHandler` accepts a `Router`, not an
-`App`; use the explicit-router path below when Node owns the sockets.
+Bind those two Fetch handlers to separate listeners with the host runtime. Two ports then have two route tables and two containers, with no shared registry or ordering dependency. The current Node
+`toNodeHandler` accepts a `Router`, not an `App`; use the explicit-router path below when Node owns the sockets.
 
 ## Why you would
 
-**Separating public from internal.** The strongest reason, because it is a
-security boundary you get from network configuration rather than from code.
-Bind the public listener to `0.0.0.0` and the internal listener to
-`127.0.0.1`. The loopback-only port keeps
-[`/metrics`](./web-observability.html), health detail and admin routes
-unreachable from outside the host regardless of proxy configuration. A guard
-is one mistake away from being bypassed; a socket that does not accept external
-connections is not.
+**Separating public from internal.** The strongest reason, because it is a security boundary you get from network configuration rather than from code. Bind the public listener to `0.0.0.0` and the
+internal listener to `127.0.0.1`. The loopback-only port keeps [`/metrics`](./web-observability.html), health detail and admin routes unreachable from outside the host regardless of proxy
+configuration. A guard is one mistake away from being bypassed; a socket that does not accept external connections is not.
 
 **Different middleware or body limits per surface.** A webhook endpoint that needs [raw bytes](./web-raw-body.html) and a large limit can have its own adapter without affecting the JSON API.
 
@@ -50,15 +44,10 @@ export class PublicModule {}
 export class AdminModule {}
 ```
 
-A module both apps import is the mechanism. `createApp(rootModule, options?)`
-accepts only application-owned message transports, dispatcher policy and a
-shutdown grace bound; it does **not** accept provider overrides. Those remain a
-`createTestApp` feature, so a shared instance comes from a shared module whose
-`useValue` is evaluated once, at import time, no matter how many graphs
-reference it.
+A module both apps import is the mechanism. `createApp(rootModule, options?)` accepts only application-owned message transports, dispatcher policy and a shutdown grace bound; it does **not** accept
+provider overrides. Those remain a `createTestApp` feature, so a shared instance comes from a shared module whose `useValue` is evaluated once, at import time, no matter how many graphs reference it.
 
-If you need overrides outside a test, drop one level down and wire the router
-yourself:
+If you need overrides outside a test, drop one level down and wire the router yourself:
 
 ```ts
 import { compileModule } from '@zmdb/web/modules';
@@ -71,14 +60,13 @@ for (const controller of controllers) router.register(controller);
 createServer(toNodeHandler(router)).listen(3000);
 ```
 
-That is exactly what `createApp` does, minus the lifecycle hooks — which you then
-call yourself if any controller implements them.
+That is exactly what `createApp` does, minus the lifecycle hooks — which you then call yourself if any controller implements them.
 
-That manual loop is for an all-eager graph. `createApp` also registers route
-trampolines for declared lazy controllers; `compileModule().controllers` only
-contains instances that have already been constructed.
+That manual loop is for an all-eager graph. `createApp` also registers route trampolines for declared lazy controllers; `compileModule().controllers` only contains instances that have already been
+constructed.
 
-Get this right or you will double your connection count — with `max: 10` in two apps you hold 20 connections and your pool sizing calculations are silently wrong. See [Connection Pooling](./connect-postgres.html).
+Get this right or you will double your connection count — with `max: 10` in two apps you hold 20 connections and your pool sizing calculations are silently wrong. See
+[Connection Pooling](./connect-postgres.html).
 
 ## One process, or several?
 
@@ -114,9 +102,9 @@ createServer(async (req, res) => {
 });
 ```
 
-Note that `adminApp`'s controllers must then declare the `/admin` prefix themselves — the dispatcher does not strip it, and a mismatch produces a 404 that looks like a routing bug. `webRequest(req)` is the `WebRequest` the dispatcher builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html).
-This prefix dispatcher buffers a streamed response; separate Router-based
-`toNodeHandler(...)` servers preserve streaming.
+Note that `adminApp`'s controllers must then declare the `/admin` prefix themselves — the dispatcher does not strip it, and a mismatch produces a 404 that looks like a routing bug. `webRequest(req)`
+is the `WebRequest` the dispatcher builds itself — there is no `toWebRequest` to import; it is written out in [Request Lifecycle](./web-request-lifecycle.html). This prefix dispatcher buffers a
+streamed response; separate Router-based `toNodeHandler(...)` servers preserve streaming.
 
 Prefix dispatch on a single port is **not** a security boundary. Anything reachable on the port is reachable; use separate ports and a loopback bind for that.
 
@@ -132,12 +120,12 @@ createHttps({ key, cert }, toNodeHandler(publicRouter)).listen(443);
 createSecureServer({ key, cert, allowHTTP1: true }, toNodeHandler(adminRouter)).listen(8443);
 ```
 
-In practice terminate TLS at a proxy or load balancer, which also handles certificate rotation, OCSP and HTTP/2 negotiation. Terminating in Node means you own certificate renewal, and a lapsed certificate is a full outage.
+In practice terminate TLS at a proxy or load balancer, which also handles certificate rotation, OCSP and HTTP/2 negotiation. Terminating in Node means you own certificate renewal, and a lapsed
+certificate is a full outage.
 
 ## Fetch-based runtimes
 
-`App.fetch` is already a `(Request) => Promise<Response>` for Workers, Deno and
-Bun. Multiple apps compose directly:
+`App.fetch` is already a `(Request) => Promise<Response>` for Workers, Deno and Bun. Multiple apps compose directly:
 
 ```ts
 const handlePublic = (request: Request) => publicApp.fetch(request);

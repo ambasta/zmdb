@@ -1,6 +1,5 @@
-> **Not planned.** `@zmdb/web` does not provide GraphQL resolvers or a GraphQL
-> server. [GraphQL is out of scope](./web-graphql.html). The example below shows
-> how to place an external GraphQL server in front of ordinary zmdb services.
+> **Not planned.** `@zmdb/web` does not provide GraphQL resolvers or a GraphQL server. [GraphQL is out of scope](./web-graphql.html). The example below shows how to place an external GraphQL server in
+> front of ordinary zmdb services.
 
 ## Running GraphQL alongside a zmdb application
 
@@ -94,12 +93,11 @@ Post: {
 
 A per-request map deduplicates; a batching loader that collects ids in a tick and issues one `where: { id: { in: ids } }` does better. See [DataLoaders](./dataloaders.html).
 
-> [!WARNING]
-> Never make the loader a module-level singleton. It would cache rows across
-> requests and across users, which serves one user's data to another — and the bug
-> is invisible in any single-request test.
+> [!WARNING] Never make the loader a module-level singleton. It would cache rows across requests and across users, which serves one user's data to another — and the bug is invisible in any
+> single-request test.
 
-The frozen design does not add request-scoped DI to solve this. A container scope would put the lifetime in the injector, where a singleton resolver holding a request-scoped loader is a compile-clean way to reintroduce the bug above; instead the per-request value travels on the context object that already reaches every resolver, which is the seam [DataLoaders](./dataloaders.html) builds on.
+The frozen design does not add request-scoped DI to solve this. A container scope would put the lifetime in the injector, where a singleton resolver holding a request-scoped loader is a compile-clean
+way to reintroduce the bug above; instead the per-request value travels on the context object that already reaches every resolver, which is the seam [DataLoaders](./dataloaders.html) builds on.
 
 **Fetch relations up front** with `findAllWithMany` when the shape is predictable, which is the cheaper answer where it applies. See [Loading Relations](./loading-strategies.html).
 
@@ -127,15 +125,18 @@ Post: {
 }
 ```
 
-Authorise on the **field that exposes the data**, not on the query that started the traversal. `Sensitive` on a column [affects the derived types and documents, not queries](./web-mapped-types.html), so it will not save you here.
+Authorise on the **field that exposes the data**, not on the query that started the traversal. `Sensitive` on a column [affects the derived types and documents, not queries](./web-mapped-types.html),
+so it will not save you here.
 
-The frozen design keeps this property rather than smoothing it over: a middleware chain is bound to one field, and it does **not** inherit down a traversal. A guard on `Query.post` says nothing about `Post.authorEmail`, because a chain that ran for every field a query happened to touch would authorise the traversal, which is the mistake this section is about.
+The frozen design keeps this property rather than smoothing it over: a middleware chain is bound to one field, and it does **not** inherit down a traversal. A guard on `Query.post` says nothing about
+`Post.authorEmail`, because a chain that ran for every field a query happened to touch would authorise the traversal, which is the mistake this section is about.
 
 Also disable introspection in production and cap query depth and complexity — see [Query Complexity](./web-graphql-complexity.html).
 
 ## What it would have taken
 
-The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`, and it is not being implemented. Four decorators, a registry, and a type that ties the two halves together:
+The design is frozen, in `packages/web/src/graphql/SPEC.md` and `packages/schema-core/src/sdl/SPEC.md`, and it is not being implemented. Four decorators, a registry, and a type that ties the two
+halves together:
 
 ```ts
 @Resolver('Post')
@@ -155,13 +156,18 @@ class PostResolver implements ResolversOf<PostFields, AppContext> {
 
 Three things about that shape are worth keeping on record, because each corrects something this page or its neighbours assumed.
 
-**`graphql` is not a dependency, and not a peer either.** This page used to say an optional entry point with a peer dependency; the freeze goes further. `parts()` hands back a `typeDefs` string and a plain nested map of functions, which is what `createSchema` above already takes, and the one place a `graphql` value is genuinely needed — constructing a custom scalar — takes the constructor as an argument. So there is nothing to declare, optional or otherwise.
+**`graphql` is not a dependency, and not a peer either.** This page used to say an optional entry point with a peer dependency; the freeze goes further. `parts()` hands back a `typeDefs` string and a
+plain nested map of functions, which is what `createSchema` above already takes, and the one place a `graphql` value is genuinely needed — constructing a custom scalar — takes the constructor as an
+argument. So there is nothing to declare, optional or otherwise.
 
-**There is no `@Args`.** Stage 3 decorators have no parameter form — the same reason `@zmdb/web` puts params, body, query and headers on one context object rather than decorating parameters — so the arguments arrive as `ctx.body`, already validated and already piped. `body` _is_ the arguments; a separate `args` field would be the pre-pipe value, and reaching for the wrong one is a silent bug.
+**There is no `@Args`.** Stage 3 decorators have no parameter form — the same reason `@zmdb/web` puts params, body, query and headers on one context object rather than decorating parameters — so the
+arguments arrive as `ctx.body`, already validated and already piped. `body` _is_ the arguments; a separate `args` field would be the pre-pipe value, and reaching for the wrong one is a silent bug.
 
-**A field with arguments cannot skip validation.** The registry requires a `validate` function for exactly those fields, in the type, so the `assert` two sections up is not advice you can forget — omitting it fails to compile. The validator is yours to pass because `assert<T>` only inlines where the checker can resolve `T`, which is your call site and not the framework's.
+**A field with arguments cannot skip validation.** The registry requires a `validate` function for exactly those fields, in the type, so the `assert` two sections up is not advice you can forget —
+omitting it fails to compile. The validator is yours to pass because `assert<T>` only inlines where the checker can resolve `T`, which is your call site and not the framework's.
 
-Nothing serves `/graphql`, and nothing will. The composition at the top of this page is not a stopgap, it is the answer — one container, one pool, both surfaces, with the schema library as your dependency rather than the framework's.
+Nothing serves `/graphql`, and nothing will. The composition at the top of this page is not a stopgap, it is the answer — one container, one pool, both surfaces, with the schema library as your
+dependency rather than the framework's.
 
 ---
 

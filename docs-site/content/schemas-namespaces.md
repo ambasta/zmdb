@@ -1,9 +1,8 @@
-Database schemas provide a namespace for organizing database objects. In PostgreSQL, schemas allow you to group tables, views, and other objects into logical units, enabling multiple teams or applications to use the same database without naming collisions.
+Database schemas provide a namespace for organizing database objects. In PostgreSQL, schemas allow you to group tables, views, and other objects into logical units, enabling multiple teams or
+applications to use the same database without naming collisions.
 
-> [!IMPORTANT]
-> zmdb supports schema creation through pure DDL functions on PostgreSQL and
-> SQL Server. MySQL and SQLite do not expose this namespace shape through the
-> dialect (they use databases and database files respectively).
+> [!IMPORTANT] zmdb supports schema creation through pure DDL functions on PostgreSQL and SQL Server. MySQL and SQLite do not expose this namespace shape through the dialect (they use databases and
+> database files respectively).
 
 ## Creating a Schema
 
@@ -46,12 +45,7 @@ import { createQueryCompiler } from '@zmdb/query-compiler';
 const compiler = createQueryCompiler('postgres');
 
 // Query a table in a specific schema
-const query = compiler
-  .selectFrom('analytics.events')
-  .select(['event_id', 'event_type', 'occurred_at'])
-  .where('event_type', '=', 'page_view')
-  .limit(100)
-  .compile();
+const query = compiler.selectFrom('analytics.events').select(['event_id', 'event_type', 'occurred_at']).where('event_type', '=', 'page_view').limit(100).compile();
 
 console.log(query.text);
 console.log(query.parameters);
@@ -83,8 +77,7 @@ CREATE SCHEMA "globex";
 CREATE SCHEMA "soylent"
 ```
 
-> [!TIP]
-> For multi-tenant applications, consider using row-level security (RLS) within a single schema instead of managing dozens of schemas. See the [RLS](./rls.html) documentation.
+> [!TIP] For multi-tenant applications, consider using row-level security (RLS) within a single schema instead of managing dozens of schemas. See the [RLS](./rls.html) documentation.
 
 ### Team-Based Organization
 
@@ -116,8 +109,7 @@ PostgreSQL uses a `search_path` to resolve unqualified object names. The default
 const setSearchPathDdl = `SET search_path TO analytics, public`;
 ```
 
-> [!NOTE]
-> This DDL is a session-level setting. For permanent changes, use `ALTER DATABASE` or `ALTER ROLE`.
+> [!NOTE] This DDL is a session-level setting. For permanent changes, use `ALTER DATABASE` or `ALTER ROLE`.
 
 ## Dropping Schemas
 

@@ -1,7 +1,5 @@
-AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime
-parsing overhead. The validator transforms the full and depth-limited
-`is`/`assert`/`validate` families into direct JavaScript checks — no Zod-style runtime
-parsers, no reflection.
+AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime parsing overhead. The validator transforms the full and depth-limited `is`/`assert`/`validate` families into
+direct JavaScript checks — no Zod-style runtime parsers, no reflection.
 
 ## Why AOT?
 
@@ -15,8 +13,7 @@ const ok = is<{ email: string }>(input);
 const ok = typeof input === 'object' && input !== null && typeof input.email === 'string';
 ```
 
-> [!IMPORTANT]
-> AOT validation achieves 5-24× speedup over runtime validators on assert operations. See [benchmarks](./benchmarks.html) for real numbers.
+> [!IMPORTANT] AOT validation achieves 5-24× speedup over runtime validators on assert operations. See [benchmarks](./benchmarks.html) for real numbers.
 
 ## Build Plugin
 
@@ -46,10 +43,8 @@ For TypeScript project references or direct ts-patch usage:
 
 ## Prove the transform is installed
 
-No lint rule can prove that a transform runs. A project may wire zmdb through
-Vite, esbuild, Webpack, Rollup, ts-patch or `zmdb-codegen`, and a linter looking
-at one source file cannot distinguish those working configurations from a
-missing one without false positives.
+No lint rule can prove that a transform runs. A project may wire zmdb through Vite, esbuild, Webpack, Rollup, ts-patch or `zmdb-codegen`, and a linter looking at one source file cannot distinguish
+those working configurations from a missing one without false positives.
 
 Add a build-path smoke test instead:
 
@@ -62,9 +57,8 @@ it('runs the zmdb AOT transform', () => {
 });
 ```
 
-An untransformed `schemaOf<User>()` call throws rather than returning a
-plausible empty schema. The [Lint Rules](./lint-rules.html) complement this test
-by catching declaration mistakes that are precise from syntax alone.
+An untransformed `schemaOf<User>()` call throws rather than returning a plausible empty schema. The [Lint Rules](./lint-rules.html) complement this test by catching declaration mistakes that are
+precise from syntax alone.
 
 ## Intercepted Functions
 
@@ -127,16 +121,10 @@ The transformer recursively inlines nested object checks:
 const ok = is<{ user: { email: string } }>(input);
 
 // Output
-const ok =
-  typeof input === 'object' &&
-  input !== null &&
-  typeof input.user === 'object' &&
-  input.user !== null &&
-  typeof input.user.email === 'string';
+const ok = typeof input === 'object' && input !== null && typeof input.user === 'object' && input.user !== null && typeof input.user.email === 'string';
 ```
 
-> [!TIP]
-> Deeply nested objects emit longer inline expressions. For extreme depth (10+ levels), consider flattening your types.
+> [!TIP] Deeply nested objects emit longer inline expressions. For extreme depth (10+ levels), consider flattening your types.
 
 ## Excluded Files
 
@@ -160,14 +148,10 @@ export default defineConfig({
 
 ## Runtime witness fallback
 
-An untransformed generic call has no runtime access to its type argument.
-`is<User>(payload)`, `assert<User>(payload)`, `validate<User>(payload)` and their
-shallow variants therefore throw
-`runtime type witness required in test/fallback mode`; they do not silently run
-a weaker reflective validator.
+An untransformed generic call has no runtime access to its type argument. `is<User>(payload)`, `assert<User>(payload)`, `validate<User>(payload)` and their shallow variants therefore throw
+`runtime type witness required in test/fallback mode`; they do not silently run a weaker reflective validator.
 
-The utilities accept an explicit `TypeIR` witness for tests and generated
-fallback modules:
+The utilities accept an explicit `TypeIR` witness for tests and generated fallback modules:
 
 ```ts
 import { is } from '@zmdb/aot-validator/utilities';
@@ -175,10 +159,8 @@ import { is } from '@zmdb/aot-validator/utilities';
 const ok = is(payload, userTypeIr);
 ```
 
-The generic `schemaOf<T>()`, `toJsonSchema<T>()` and protobuf calls are
-compile-time-only surfaces. `toJsonSchema(schema, variant)` remains available
-when the caller already has a runtime schema. Use the build plugin or
-`zmdb-codegen` for the generic forms.
+The generic `schemaOf<T>()`, `toJsonSchema<T>()` and protobuf calls are compile-time-only surfaces. `toJsonSchema(schema, variant)` remains available when the caller already has a runtime schema. Use
+the build plugin or `zmdb-codegen` for the generic forms.
 
 ## Cross-links
 

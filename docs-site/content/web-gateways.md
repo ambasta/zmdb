@@ -1,8 +1,5 @@
-Real-time handlers use the same Stage-3 metadata + DI machinery as HTTP
-controllers. `@Gateway`/`@Subscribe` mark event handlers; a dispatcher routes
-messages with a typed context; `sseStream` frames an async iterable as
-Server-Sent Events — **no `ws` dependency** (transport is an adapter; SSE uses
-standard streams).
+Real-time handlers use the same Stage-3 metadata + DI machinery as HTTP controllers. `@Gateway`/`@Subscribe` mark event handlers; a dispatcher routes messages with a typed context; `sseStream` frames
+an async iterable as Server-Sent Events — **no `ws` dependency** (transport is an adapter; SSE uses standard streams).
 
 ## Declaring a gateway
 
@@ -34,13 +31,11 @@ await dispatcher.dispatch('message', { text: 'hi' }); // → { echo: 'hi' }
 await dispatcher.dispatch('nope', {}); // → undefined (no handler)
 ```
 
-Wire `dispatch` to your transport of choice (a `ws` server, a Bun/Deno socket)
-— the gateway itself has no transport dependency.
+Wire `dispatch` to your transport of choice (a `ws` server, a Bun/Deno socket) — the gateway itself has no transport dependency.
 
 ## Server-Sent Events
 
-`sseStream` turns an async iterable into a properly-framed SSE byte stream you
-can return from a Fetch `Response` — SSE needs **no** extra dependency:
+`sseStream` turns an async iterable into a properly-framed SSE byte stream you can return from a Fetch `Response` — SSE needs **no** extra dependency:
 
 ```ts
 import { sseStream } from '@zmdb/web';
@@ -60,8 +55,7 @@ return new Response(sseStream(ticks()), {
 ## Design notes
 
 - **Stage-3 metadata**, no `reflect-metadata`, no runtime reflection.
-- **No hard transport dependency** — WS is adapter-based; SSE uses standard
-  streams + `TextEncoder`.
+- **No hard transport dependency** — WS is adapter-based; SSE uses standard streams + `TextEncoder`.
 - **No `as`** on the consumer surface.
 - Granular import: `import { Gateway } from '@zmdb/web/gateways'`.
 

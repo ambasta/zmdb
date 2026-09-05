@@ -15,11 +15,13 @@ function recording(inner: Driver) {
 }
 ```
 
-Wrap it per request in development and log the count. A handler at 40 queries is your problem; a handler at 3 is not, no matter what the library overhead is. Then pin the number in a test so it cannot regress silently — see [Testing](./testing.html).
+Wrap it per request in development and log the count. A handler at 40 queries is your problem; a handler at 3 is not, no matter what the library overhead is. Then pin the number in a test so it cannot
+regress silently — see [Testing](./testing.html).
 
 ## The N+1s zmdb can and cannot prevent
 
-**Within one call, prevented by construction.** `populate` batches with an `IN` over the collected keys — two queries for one relation regardless of row count. A lazy-loading ORM issues one per row, and you cannot see it in the code.
+**Within one call, prevented by construction.** `populate` batches with an `IN` over the collected keys — two queries for one relation regardless of row count. A lazy-loading ORM issues one per row,
+and you cannot see it in the code.
 
 **Across calls, not prevented.** A loop of `findById` is a loop of queries:
 
@@ -44,7 +46,8 @@ See [DataLoaders](./dataloaders.html).
 | `OneToMany`              | n                    | `populate` — two queries, no row multiplication |
 | `ManyToMany`             | n                    | an explicit three-table join                    |
 
-Joining a one-to-many returns the parent once per child, so a user with 40 posts arrives 40 times and you pay for the parent columns 40 times. That is why `populate` exists. See [Loading Strategies](./loading-strategies.html).
+Joining a one-to-many returns the parent once per child, so a user with 40 posts arrives 40 times and you pay for the parent columns 40 times. That is why `populate` exists. See
+[Loading Strategies](./loading-strategies.html).
 
 ## Select fewer columns
 
@@ -52,14 +55,13 @@ Joining a one-to-many returns the parent once per child, so a user with 40 posts
 await repo.list({ select: ['id', 'title'], page: { limit: 50 } });
 ```
 
-The row type narrows too, so this is checked. It matters most for wide rows and `text`/`json` columns — and it can turn a heap fetch into an index-only scan, which is a much larger win than the byte count suggests.
+The row type narrows too, so this is checked. It matters most for wide rows and `text`/`json` columns — and it can turn a heap fetch into an index-only scan, which is a much larger win than the byte
+count suggests.
 
 ## Index what you filter and order by
 
-`Unique` records the constraint. SingleStore migration generation now carries
-that flag so it can enforce the shard-key rule; the other dialects still need
-an explicit schema-object migration for a standalone unique index. See
-[Indexes & Constraints](./indexes-constraints.html).
+`Unique` records the constraint. SingleStore migration generation now carries that flag so it can enforce the shard-key rule; the other dialects still need an explicit schema-object migration for a
+standalone unique index. See [Indexes & Constraints](./indexes-constraints.html).
 
 ```ts
 import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
@@ -67,7 +69,8 @@ import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
 createIndexDdl({ name: 'posts_author_created', table: 'posts', columns: ['author_id', 'created_at'] }, 'postgres');
 ```
 
-Column order in a composite index is not arbitrary: equality columns first, then the range or sort column. `(author_id, created_at)` serves `WHERE author_id = ? ORDER BY created_at` and `(created_at, author_id)` does not.
+Column order in a composite index is not arbitrary: equality columns first, then the range or sort column. `(author_id, created_at)` serves `WHERE author_id = ? ORDER BY created_at` and
+`(created_at, author_id)` does not.
 
 Partial indexes are supported and are the right tool for a filtered subset:
 
@@ -81,9 +84,7 @@ Functional indexes use the tagged expression form:
 createIndexDdl({ name: 'users_email_lower', table: 'users', columns: [{ expr: 'lower("email")' }] }, 'postgres');
 ```
 
-The expression is schema-authored DDL and is emitted verbatim. PostgreSQL,
-Cockroach and SQLite accept it; MySQL, SingleStore and SQL Server need a
-generated column instead.
+The expression is schema-authored DDL and is emitted verbatim. PostgreSQL, Cockroach and SQLite accept it; MySQL, SingleStore and SQL Server need a generated column instead.
 
 ## Read the plan
 
@@ -113,7 +114,9 @@ See [Cursor-based pagination](./guide-cursor-pagination.html).
 
 ## What the library itself costs
 
-Compiling a query is string concatenation over a plain object — nanoseconds, and no allocation of consequence. There is no identity map to maintain, no change tracking, no proxies and no metadata reflection, so there is no per-row overhead beyond building the row object. That is most of why the [ORM benchmark](./benchmarks.html) numbers look the way they do, and it also means library overhead is not where your time goes. Your time goes in the round trips and the plans.
+Compiling a query is string concatenation over a plain object — nanoseconds, and no allocation of consequence. There is no identity map to maintain, no change tracking, no proxies and no metadata
+reflection, so there is no per-row overhead beyond building the row object. That is most of why the [ORM benchmark](./benchmarks.html) numbers look the way they do, and it also means library overhead
+is not where your time goes. Your time goes in the round trips and the plans.
 
 ## `LIKE '%term%'` cannot use an index
 

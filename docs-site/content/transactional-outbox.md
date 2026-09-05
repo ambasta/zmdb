@@ -1,11 +1,9 @@
-> **Supported.** `@zmdb/repository/outbox` exports the declared table, the
-> transaction-only writer and the dispatcher. `@zmdb/query-compiler/outbox`
-> exports the migration and the dialect-aware claim statements.
+> **Supported.** `@zmdb/repository/outbox` exports the declared table, the transaction-only writer and the dispatcher. `@zmdb/query-compiler/outbox` exports the migration and the dialect-aware claim
+> statements.
 
 ## The problem it solves
 
-You want to write a row and publish a message, and you want either both or neither. A database transaction
-cannot include a broker call:
+You want to write a row and publish a message, and you want either both or neither. A database transaction cannot include a broker call:
 
 ```ts
 await db.transaction(async () => {
@@ -14,15 +12,12 @@ await db.transaction(async () => {
 });
 ```
 
-The outbox makes the publish a database write. A separate dispatcher reads only committed rows and sends them
-to the broker.
+The outbox makes the publish a database write. A separate dispatcher reads only committed rows and sends them to the broker.
 
 ## Declare and migrate the table
 
-`OutboxSchema` is an ordinary schema value, so it participates in the committed
-post-migration snapshot. Create the table with the dedicated migration: a generic
-snapshot diff cannot carry its defaults, partial index or MySQL's bounded key
-columns.
+`OutboxSchema` is an ordinary schema value, so it participates in the committed post-migration snapshot. Create the table with the dedicated migration: a generic snapshot diff cannot carry its
+defaults, partial index or MySQL's bounded key columns.
 
 ```ts
 import { snapshot, up } from '@zmdb/query-compiler/migrations';
@@ -36,11 +31,8 @@ const current = snapshot([UserSchema, OrderSchema, OutboxSchema]);
 // Persist `current` as the schema state after migration 17.
 ```
 
-Do not also emit a generic create-table diff for `OutboxSchema`; that would try
-to create the same table twice and would omit the outbox-specific physical
-details. The snapshot declaration records the snake_case column names used by
-the migration and dispatcher. `OutboxRow` presents timestamp and lease fields
-in app-style camelCase.
+Do not also emit a generic create-table diff for `OutboxSchema`; that would try to create the same table twice and would omit the outbox-specific physical details. The snapshot declaration records the
+snake_case column names used by the migration and dispatcher. `OutboxRow` presents timestamp and lease fields in app-style camelCase.
 
 The row has this public shape:
 
@@ -61,28 +53,19 @@ interface OutboxRow extends Table<'zmdb_outbox'> {
 
 Four choices are load-bearing:
 
-- `status`, not `deliveredAt IS NULL`: the builder can emit `IS NULL`, but an
-  explicit status also represents `dead` and leads the pending-row index.
+- `status`, not `deliveredAt IS NULL`: the builder can emit `IS NULL`, but an explicit status also represents `dead` and leads the pending-row index.
 - `dead` is a terminal state, so a poison message leaves the pending working set.
 - `payload` is text, preserving the exact bytes the caller supplied.
 - `id` is application-generated text, so the writer needs no dialect-dependent `RETURNING`.
 
-Postgres/Cockroach use `TIMESTAMPTZ`, MySQL/SingleStore use `DATETIME(3)`,
-SQLite stores fixed-width ISO timestamps as `TEXT`, and SQL Server uses
-`DATETIMEOFFSET(3)` with `SYSDATETIMEOFFSET()`. The SQLite database-clock
-default uses `strftime` to keep the same sortable UTC representation as
-driver-bound `Date` values. The Postgres family, SQLite and SQL Server pending
-indexes are filtered. The MySQL family uses a full index whose leading
-`status` column can still seek to pending rows. `outboxMigration` handles that
-difference; the lower-level `createIndexDdl` remains literal and does not
+Postgres/Cockroach use `TIMESTAMPTZ`, MySQL/SingleStore use `DATETIME(3)`, SQLite stores fixed-width ISO timestamps as `TEXT`, and SQL Server uses `DATETIMEOFFSET(3)` with `SYSDATETIMEOFFSET()`. The
+SQLite database-clock default uses `strftime` to keep the same sortable UTC representation as driver-bound `Date` values. The Postgres family, SQLite and SQL Server pending indexes are filtered. The
+MySQL family uses a full index whose leading `status` column can still seek to pending rows. `outboxMigration` handles that difference; the lower-level `createIndexDdl` remains literal and does not
 silently discard predicates.
 
-The MySQL-family migration uses bounded `VARCHAR` storage for the UUID, lease
-token and status because those engines cannot key an unrestricted `TEXT`
-column. The SingleStore form is explicitly `CREATE ROWSTORE TABLE`, matching
-the outbox's transactional write path instead of selecting storage by omission.
-SQL Server uses the corresponding bounded `NVARCHAR` columns, and the
-application types remain strings.
+The MySQL-family migration uses bounded `VARCHAR` storage for the UUID, lease token and status because those engines cannot key an unrestricted `TEXT` column. The SingleStore form is explicitly
+`CREATE ROWSTORE TABLE`, matching the outbox's transactional write path instead of selecting storage by omission. SQL Server uses the corresponding bounded `NVARCHAR` columns, and the application
+types remain strings.
 
 ## Write inside the caller's transaction
 
@@ -95,8 +78,8 @@ await db.transaction(async tx => {
 });
 ```
 
-There is no outbox writer that accepts a bare driver. Both rows use the caller's `TransactionContext`, so a
-rollback removes both. A custom `TxConnection` should expose the dialect of the driver it wraps.
+There is no outbox writer that accepts a bare driver. Both rows use the caller's `TransactionContext`, so a rollback removes both. A custom `TxConnection` should expose the dialect of the driver it
+wraps.
 
 ## Dispatch
 
@@ -124,10 +107,8 @@ The bounded defaults are part of the operating contract:
 | `idleMs`      | `1_000`                               | first delay after an empty pass                  |
 | `maxIdleMs`   | `30_000`                              | cap for the doubling idle delay                  |
 
-`createOutboxDispatcher` also implements the app lifecycle structurally:
-`onModuleInit()` is the idempotent alias for `start()`, and `onShutdown()` is
-awaitable. Register the instance as a value provider, or resolve its factory
-before `app.init()`, to have init start it and app disposal drain it.
+`createOutboxDispatcher` also implements the app lifecycle structurally: `onModuleInit()` is the idempotent alias for `start()`, and `onShutdown()` is awaitable. Register the instance as a value
+provider, or resolve its factory before `app.init()`, to have init start it and app disposal drain it.
 
 Each pass uses three ordinary statements:
 
@@ -135,10 +116,9 @@ Each pass uses three ordinary statements:
 2. Conditionally update those rows with a per-batch lease token.
 3. Read back by that token to learn which rows this dispatcher actually won.
 
-The conditional `UPDATE` is the concurrency control. Two dispatchers may see the same candidate, but only the
-first can move its lease into the future; the second read-back gets no row. No database transaction or row lock
-is held while the broker runs. The compiler emits the same protocol for SQLite, MySQL, Postgres and SQL
-Server; the contention semantics and index plan are exercised against a real SQLite database.
+The conditional `UPDATE` is the concurrency control. Two dispatchers may see the same candidate, but only the first can move its lease into the future; the second read-back gets no row. No database
+transaction or row lock is held while the broker runs. The compiler emits the same protocol for SQLite, MySQL, Postgres and SQL Server; the contention semantics and index plan are exercised against a
+real SQLite database.
 
 Rows are published sequentially within a claimed batch and marked independently:
 
@@ -148,19 +128,15 @@ Rows are published sequentially within a claimed batch and marked independently:
 | failed, attempts left      | pending, `leaseUntil = now + backoff`, `lastError` |
 | failed, attempts exhausted | `status = 'dead'`, `lastError`, then `onDead`      |
 
-Before `publish` runs, the dispatcher validates that the database row has string `id`, `topic` and `payload`
-fields and a non-negative integer `attempts`. A malformed payload is marked dead instead of becoming a poison
-retry. Parsing and validating the topic-specific contents remains the consumer's responsibility.
+Before `publish` runs, the dispatcher validates that the database row has string `id`, `topic` and `payload` fields and a non-negative integer `attempts`. A malformed payload is marked dead instead of
+becoming a poison retry. Parsing and validating the topic-specific contents remains the consumer's responsibility.
 
-The default retry delay is capped exponential backoff. Idle polling doubles from 1s to 30s and resets after
-work; a full batch polls again immediately.
+The default retry delay is capped exponential backoff. Idle polling doubles from 1s to 30s and resets after work; a full batch polls again immediately.
 
 ## Guarantees
 
-Delivery is **at least once**. If publish succeeds and the process dies before the delivered mark, the lease
-expires and another dispatcher publishes the row again. Consumers must be idempotent and should carry a
-deduplication key in the payload; the [queue worker's idempotency guidance](./web-queues.html) shows the same
-handler-owned completion-marker rule.
+Delivery is **at least once**. If publish succeeds and the process dies before the delivered mark, the lease expires and another dispatcher publishes the row again. Consumers must be idempotent and
+should carry a deduplication key in the payload; the [queue worker's idempotency guidance](./web-queues.html) shows the same handler-owned completion-marker rule.
 
 Ordering is deliberately weak:
 
@@ -170,26 +146,20 @@ Ordering is deliberately weak:
 | one dispatcher, `batch > 1` | claimed by `createdAt`, then published sequentially |
 | multiple dispatchers        | none                                                |
 
-Those are clean-pass sequencing properties, not a durable ordering contract. A
-failed older row backs off while a newer row can publish, so code that requires
-per-topic order needs an application-owned per-topic sequencing rule.
+Those are clean-pass sequencing properties, not a durable ordering contract. A failed older row backs off while a newer row can publish, so code that requires per-topic order needs an
+application-owned per-topic sequencing rule.
 
 ## Operating it
 
 - Use `runOnce()` for cron/serverless operation, or `start()` for the owned polling loop.
-- When the dispatcher is a constructed app provider, `app.init()` starts it and
-  disposal stops claiming and finishes the in-flight batch. A lazy factory first
-  resolved after init is still drained, but is not retroactively started; an
-  unresolved factory is never built for shutdown.
+- When the dispatcher is a constructed app provider, `app.init()` starts it and disposal stops claiming and finishes the in-flight batch. A lazy factory first resolved after init is still drained, but
+  is not retroactively started; an unresolved factory is never built for shutdown.
 - Outside an app, call `onShutdown()` explicitly to drain the owned loop.
-- Alert on pending-row lag, not only process health:
-  `MAX(now() - created_at) WHERE status = 'pending'`.
-- Query `status = 'dead'` for terminal rows and inspect `last_error`, `attempts`,
-  `topic`, and `payload` before replaying.
+- Alert on pending-row lag, not only process health: `MAX(now() - created_at) WHERE status = 'pending'`.
+- Query `status = 'dead'` for terminal rows and inspect `last_error`, `attempts`, `topic`, and `payload` before replaying.
 
-There is deliberately no automatic replay helper: retrying a poison message
-before fixing its cause only makes it poison again. After fixing the cause,
-reset the chosen row explicitly so the normal claim path can see it:
+There is deliberately no automatic replay helper: retrying a poison message before fixing its cause only makes it poison again. After fixing the cause, reset the chosen row explicitly so the normal
+claim path can see it:
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
@@ -211,11 +181,10 @@ const replay = createQueryCompiler(driver.dialect ?? 'postgres')
 await driver.execute(replay);
 ```
 
-On Postgres, `LISTEN/NOTIFY` can reduce latency, but keep the periodic poll as a floor: notifications can be
-missed during reconnects.
+On Postgres, `LISTEN/NOTIFY` can reduce latency, but keep the periodic poll as a floor: notifications can be missed during reconnects.
 
-The broker adapter remains application-supplied through `publish`, and payload-specific validation remains a
-consumer concern because the outbox deliberately accepts any byte-stable string, including non-JSON formats.
+The broker adapter remains application-supplied through `publish`, and payload-specific validation remains a consumer concern because the outbox deliberately accepts any byte-stable string, including
+non-JSON formats.
 
 ---
 

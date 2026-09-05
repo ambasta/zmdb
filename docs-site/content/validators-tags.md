@@ -1,17 +1,12 @@
 There are **two** things called tags, and this page is mostly about telling them apart.
 
-- **Type tags** — `Min<N>`, `Max<N>`, `MinLength<N>`, `MaxLength<N>`, `Pattern<S>`, `Rule<'…'>`
-  from `zmdb/tags`. These go on a column in a declaration. They are types; they erase. This is
-  what you want almost always, and the [Tag Reference](./tags-reference.html) is their home.
-- **Rule values** — `tags.Min(18)` from `@zmdb/aot-validator`. Runtime objects for a one-off
-  check against a bare value that is not part of any table.
+- **Type tags** — `Min<N>`, `Max<N>`, `MinLength<N>`, `MaxLength<N>`, `Pattern<S>`, `Rule<'…'>` from `zmdb/tags`. These go on a column in a declaration. They are types; they erase. This is what you
+  want almost always, and the [Tag Reference](./tags-reference.html) is their home.
+- **Rule values** — `tags.Min(18)` from `@zmdb/aot-validator`. Runtime objects for a one-off check against a bare value that is not part of any table.
 
-They have the same names because they mean the same constraints. They are not
-interchangeable: one is a type argument, the other is a function call.
+They have the same names because they mean the same constraints. They are not interchangeable: one is a type argument, the other is a function call.
 
-> [!TIP]
-> Both forms compile away. A type tag becomes part of the validator the transformer emits for
-> `assert<T>`; a rule value in `validate(tags.Min(18), x)` is rewritten in place to `x >= 18`.
+> [!TIP] Both forms compile away. A type tag becomes part of the validator the transformer emits for `assert<T>`; a rule value in `validate(tags.Min(18), x)` is rewritten in place to `x >= 18`.
 
 ## Constraints on a column
 
@@ -28,12 +23,10 @@ export interface User extends Table<'users'> {
 }
 ```
 
-`assert<CreateDTO<User>>(body)` now checks the pattern, both lengths and both bounds, because
-they are part of the type it was generated from. The same constraints reach the
+`assert<CreateDTO<User>>(body)` now checks the pattern, both lengths and both bounds, because they are part of the type it was generated from. The same constraints reach the
 [JSON Schema](./json-schema.html) and [OpenAPI](./openapi.html) output.
 
-Note what `role` does _not_ have: there is no `Enum` type tag, because a literal union already
-says it and TypeScript checks it at every assignment rather than only at the boundary.
+Note what `role` does _not_ have: there is no `Enum` type tag, because a literal union already says it and TypeScript checks it at every assignment rather than only at the boundary.
 
 ## Rule values, for a value with no table
 
@@ -69,7 +62,8 @@ validate(tags.MaxLength(5), 'too long'); // false
 validate(tags.Enum('admin', 'user'), 'guest'); // false
 ```
 
-The transformer scans for `validate(` whose first argument is a `tags.KIND(...)` call and replaces the whole expression with the equivalent comparison — `21 >= 18` — so there is no function call and no rule object at runtime. That rewrite is the reason the argument order is rule-first: it is what makes the call recognisable in the source.
+The transformer scans for `validate(` whose first argument is a `tags.KIND(...)` call and replaces the whole expression with the equivalent comparison — `21 >= 18` — so there is no function call and
+no rule object at runtime. That rewrite is the reason the argument order is rule-first: it is what makes the call recognisable in the source.
 
 **The `utilities` one is the whole-value validator.** It takes a type argument, not tags, and gives you a result object instead of a boolean:
 
@@ -80,14 +74,14 @@ validate<Age>(25);
 validate<CreateDTO<User>>(body);
 ```
 
-The second parameter is the escape hatch, not the interface: it accepts a schema built by hand
-for the rare caller that has one, and the transformer supplies it from the type argument
-otherwise. An untransformed call with neither throws rather than passing everything.
+The second parameter is the escape hatch, not the interface: it accepts a schema built by hand for the rare caller that has one, and the transformer supplies it from the type argument otherwise. An
+untransformed call with neither throws rather than passing everything.
 
-> [!WARNING]
-> Passing a tag to the `utilities` version — `validate(tags.Min(18), 21)` after importing from `/utilities` — treats the tag object as the _value_ and `21` as the _descriptor_. Import the one you mean; the two are not interchangeable and neither is a type error against the other's arguments in every case.
+> [!WARNING] Passing a tag to the `utilities` version — `validate(tags.Min(18), 21)` after importing from `/utilities` — treats the tag object as the _value_ and `21` as the _descriptor_. Import the
+> one you mean; the two are not interchangeable and neither is a type error against the other's arguments in every case.
 
-In practice: put constraints on columns as type tags and let the declaration carry them, use `assert<T>`/`is<T>` from `/utilities` at request boundaries, and reach for `validate(tags.X(…), value)` only for a one-off check on a value that is not part of a table.
+In practice: put constraints on columns as type tags and let the declaration carry them, use `assert<T>`/`is<T>` from `/utilities` at request boundaries, and reach for `validate(tags.X(…), value)`
+only for a one-off check on a value that is not part of a table.
 
 ## Semantics
 
@@ -132,8 +126,7 @@ validate(
 );
 ```
 
-> [!IMPORTANT]
-> The AOT transformer currently inlines `validate(tags.X(...), expr)` calls. Complex compositions may still fall back to the runtime validator in some cases.
+> [!IMPORTANT] The AOT transformer currently inlines `validate(tags.X(...), expr)` calls. Complex compositions may still fall back to the runtime validator in some cases.
 
 - [Tag Reference](./tags-reference.html) — the full type-tag vocabulary
 - [validate](./validators-validate.html) — non-throwing validation

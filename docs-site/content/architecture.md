@@ -14,13 +14,19 @@ zmdb is five packages with a strict dependency order. Nothing depends on anythin
 
 ## What each package owns
 
-**`@zmdb/schema-core`** — the tag vocabulary, the IR, the schema object and everything derived from it by types alone. The tags (`Table`, `Sql`, `PrimaryKey`, `Serial`, …, types only, zero runtime exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission, seeding, and LLM tool specs. It knows nothing about SQL text or about a database — and it does not import `typescript`, which is why reflection lives in `@zmdb/aot-validator` instead.
+**`@zmdb/schema-core`** — the tag vocabulary, the IR, the schema object and everything derived from it by types alone. The tags (`Table`, `Sql`, `PrimaryKey`, `Serial`, …, types only, zero runtime
+exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission,
+seeding, and LLM tool specs. It knows nothing about SQL text or about a database — and it does not import `typescript`, which is why reflection lives in `@zmdb/aot-validator` instead.
 
-**`@zmdb/query-compiler`** — turns builder calls into `{ text, parameters }` for a `Dialect` (`'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore'`). When constructed with `{ telemetry: true }`, it also attaches the compile-known database system, operation and collection for an execution wrapper to consume. Also owns joins, aggregations, full-text search, set operations, DDL for schema objects (indexes, views, sequences, generated columns, namespaces, RLS), and the migration snapshot/diff engine. It never opens a connection.
+**`@zmdb/query-compiler`** — turns builder calls into `{ text, parameters }` for a `Dialect` (`'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore'`). When constructed with
+`{ telemetry: true }`, it also attaches the compile-known database system, operation and collection for an execution wrapper to consume. Also owns joins, aggregations, full-text search, set
+operations, DDL for schema objects (indexes, views, sequences, generated columns, namespaces, RLS), and the migration snapshot/diff engine. It never opens a connection.
 
-**`@zmdb/aot-validator`** — the TypeScript transformer plus the runtime helpers it emits calls to (`is`, `assert`, `validate`, `stringify`, `parse`, `random`). The transformer runs during your build and replaces a generic call with a specialised checker derived from the checker's view of `T`.
+**`@zmdb/aot-validator`** — the TypeScript transformer plus the runtime helpers it emits calls to (`is`, `assert`, `validate`, `stringify`, `parse`, `random`). The transformer runs during your build
+and replaces a generic call with a specialised checker derived from the checker's view of `T`.
 
-**`@zmdb/repository`** — the only package that touches a connection, and it does so through a driver interface with one required method and optional streaming. Holds `BaseRepository`, transactions, replicas, embeddables, inheritance, lifecycle hooks.
+**`@zmdb/repository`** — the only package that touches a connection, and it does so through a driver interface with one required method and optional streaming. Holds `BaseRepository`, transactions,
+replicas, embeddables, inheritance, lifecycle hooks.
 
 **`@zmdb/web`** — HTTP. Controllers, DI container, modules, the middleware chain, adapters, gateways, OpenAPI assembly, test harness.
 
@@ -42,10 +48,8 @@ export interface CompiledQuery {
 }
 ```
 
-That is the whole handoff. The default compiler still returns exactly `text` and
-`parameters`, so existing snapshots keep their shape; telemetry appears only
-when a driver wrapper opts the compiler into it. Every query can still be
-asserted without a database, and the compiler still has no I/O to mock.
+That is the whole handoff. The default compiler still returns exactly `text` and `parameters`, so existing snapshots keep their shape; telemetry appears only when a driver wrapper opts the compiler
+into it. Every query can still be asserted without a database, and the compiler still has no I/O to mock.
 
 ### 2. The driver has one required method
 
@@ -56,26 +60,30 @@ export interface Driver {
 }
 ```
 
-Everything database-specific lives on your side of that line — pooling, retries, TLS, serverless HTTP transports. That is why [connecting](./drivers.html) to Neon, D1, Turso or PlanetScale is a page of documentation rather than a package: they are all "implement `execute`".
+Everything database-specific lives on your side of that line — pooling, retries, TLS, serverless HTTP transports. That is why [connecting](./drivers.html) to Neon, D1, Turso or PlanetScale is a page
+of documentation rather than a package: they are all "implement `execute`".
 
 ## No runtime code generation
 
-There is no `new Function` and no `eval` anywhere in `packages/*/src`. Validators are emitted as source by the transformer during your build, so what runs in production is code that `tsc` type-checked and that you can read in the output bundle. This is enforced by a grep in CI, not by convention.
+There is no `new Function` and no `eval` anywhere in `packages/*/src`. Validators are emitted as source by the transformer during your build, so what runs in production is code that `tsc` type-checked
+and that you can read in the output bundle. This is enforced by a grep in CI, not by convention.
 
 ## No runtime reflection
 
-There is no `reflect-metadata`, no `design:type`, and no metadata provider. The decorators in `@zmdb/web` (`@Controller`, `@Get`, `@Module`) record route and provider information in module-local maps — they never ask the runtime what type a parameter has, because at runtime that information is gone. Types are read by the transformer, at compile time, from the real checker.
+There is no `reflect-metadata`, no `design:type`, and no metadata provider. The decorators in `@zmdb/web` (`@Controller`, `@Get`, `@Module`) record route and provider information in module-local maps
+— they never ask the runtime what type a parameter has, because at runtime that information is gone. Types are read by the transformer, at compile time, from the real checker.
 
-> [!NOTE]
-> The consequence: `@zmdb/web` starts with no metadata scan. See [AOT vs JIT](./jit-vs-aot.html) for the measured difference and [Benchmarks](./benchmarks.html) for the numbers.
+> [!NOTE] The consequence: `@zmdb/web` starts with no metadata scan. See [AOT vs JIT](./jit-vs-aot.html) for the measured difference and [Benchmarks](./benchmarks.html) for the numbers.
 
 ## Zero required runtime dependencies
 
-Every `@zmdb/*` package has an empty `dependencies` field. The transformer needs `typescript` at build time; nothing needs anything at runtime. This is what makes the packages usable in a Cloudflare Worker or a Durable Object without a bundler fight.
+Every `@zmdb/*` package has an empty `dependencies` field. The transformer needs `typescript` at build time; nothing needs anything at runtime. This is what makes the packages usable in a Cloudflare
+Worker or a Durable Object without a bundler fight.
 
 ## Assertion discipline
 
-The public surface is assertion-free: no `any`, no `as T`, no non-null `!` in framework code. Where an assertion is genuinely irreducible — a primary-key name read from schema metadata cannot be related to `Col<S>` by control flow — it carries a `// boundary:` comment stating the invariant that makes it sound. Reviews reject the label without the argument.
+The public surface is assertion-free: no `any`, no `as T`, no non-null `!` in framework code. Where an assertion is genuinely irreducible — a primary-key name read from schema metadata cannot be
+related to `Col<S>` by control flow — it carries a `// boundary:` comment stating the invariant that makes it sound. Reviews reject the label without the argument.
 
 ---
 

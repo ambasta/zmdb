@@ -1,4 +1,5 @@
-`App` owns no server. It exposes `handle(req)` for a framework-neutral request and `fetch(request)` for a web-standard one, and that is the whole transport surface — which is what lets one application run behind `node:http`, a Fetch runtime, a Lambda, a test harness, or no server at all.
+`App` owns no server. It exposes `handle(req)` for a framework-neutral request and `fetch(request)` for a web-standard one, and that is the whole transport surface — which is what lets one application
+run behind `node:http`, a Fetch runtime, a Lambda, a test harness, or no server at all.
 
 ## No `listen()`
 
@@ -12,7 +13,8 @@ export interface App extends AsyncDisposable {
 }
 ```
 
-There is deliberately no `app.listen(3000)`. Binding a socket is the host's job, and keeping it out means the same application object is driven identically by a server, a serverless invocation and a test.
+There is deliberately no `app.listen(3000)`. Binding a socket is the host's job, and keeping it out means the same application object is driven identically by a server, a serverless invocation and a
+test.
 
 ## Behind `node:http`
 
@@ -54,9 +56,8 @@ createServer(async (req, res) => {
 }).listen(3000, '0.0.0.0');
 ```
 
-Note `path` excludes the query string — `WebRequest` has a separate `query` field, and passing `/users?a=1` as `path` means no route matches.
-This hand-written module adapter buffers streamed responses; the router-level
-`toNodeHandler` above preserves streaming and backpressure.
+Note `path` excludes the query string — `WebRequest` has a separate `query` field, and passing `/users?a=1` as `path` means no route matches. This hand-written module adapter buffers streamed
+responses; the router-level `toNodeHandler` above preserves streaming and backpressure.
 
 ## Behind a Fetch runtime
 
@@ -98,17 +99,11 @@ export class PostsController implements OnModuleInit, OnShutdown {
 }
 ```
 
-`init()` runs `onModuleInit` on every constructed eager provider and controller,
-then `onApplicationBootstrap` on the same ledger. A lazily imported module runs
-both passes on the instances it constructs. Disposal runs `onShutdown` in
-**reverse construction order**, so a dependent stops before the dependency its
-factory resolved; a lazy module that never loaded has nothing to stop.
+`init()` runs `onModuleInit` on every constructed eager provider and controller, then `onApplicationBootstrap` on the same ledger. A lazily imported module runs both passes on the instances it
+constructs. Disposal runs `onShutdown` in **reverse construction order**, so a dependent stops before the dependency its factory resolved; a lazy module that never loaded has nothing to stop.
 
-> [!NOTE]
-> Value providers enter lifecycle immediately. Factory providers enter only when
-> resolved: one resolved after `init()` is still shut down, but does not receive
-> retroactive init hooks, and an unresolved factory is never built merely to stop
-> it.
+> [!NOTE] Value providers enter lifecycle immediately. Factory providers enter only when resolved: one resolved after `init()` is still shut down, but does not receive retroactive init hooks, and an
+> unresolved factory is never built merely to stop it.
 
 ## Graceful shutdown
 

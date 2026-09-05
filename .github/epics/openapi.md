@@ -2,10 +2,8 @@
 
 ## Goal
 
-Generate JSON Schema and OpenAPI documents **deterministically at build time** from
-the single-source-of-truth schema — the same `defineSchema` metadata that already
-drives Entity/CreateDTO/UpdateDTO, validation tags, relations, and migrations. No
-runtime reflection; the generated documents are artifacts, not live objects.
+Generate JSON Schema and OpenAPI documents **deterministically at build time** from the single-source-of-truth schema — the same `defineSchema` metadata that already drives Entity/CreateDTO/UpdateDTO,
+validation tags, relations, and migrations. No runtime reflection; the generated documents are artifacts, not live objects.
 
 ## Parity Reference
 
@@ -16,8 +14,7 @@ runtime reflection; the generated documents are artifacts, not live objects.
 
 - `toJsonSchema(schema)` → JSON Schema (draft 2020-12) object for a table's `Entity`.
 - DTO-aware generation: request bodies use `CreateDTO`/`UpdateDTO`, responses use `Entity`.
-- Validation tags map to JSON Schema keywords: `Min→minimum`, `Max→maximum`,
-  `MinLength/MaxLength→minLength/maxLength`, `Pattern→pattern`, `Enum→enum`.
+- Validation tags map to JSON Schema keywords: `Min→minimum`, `Max→maximum`, `MinLength/MaxLength→minLength/maxLength`, `Pattern→pattern`, `Enum→enum`.
 - Relations map to `$ref`/`items:{$ref}` component references.
 - `toOpenApiComponents([...schemas])` → `components.schemas` map for an OpenAPI 3.1 doc.
 - Deterministic, stable output (sorted keys) suitable for committing/diffing.

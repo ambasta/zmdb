@@ -1,4 +1,5 @@
-Dialect: `'sqlite'`. A Durable Object with SQLite storage gives you a private, strongly-consistent SQLite database co-located with a single-threaded actor — which changes what you can rely on compared to [D1](./connect-cloudflare-d1.html).
+Dialect: `'sqlite'`. A Durable Object with SQLite storage gives you a private, strongly-consistent SQLite database co-located with a single-threaded actor — which changes what you can rely on compared
+to [D1](./connect-cloudflare-d1.html).
 
 ## Setup
 
@@ -36,7 +37,8 @@ export class Room extends DurableObject {
 }
 ```
 
-Creating the schema in the constructor works here and nowhere else: each Durable Object owns its own database, and `diff` from empty is idempotent enough if you use `CREATE TABLE IF NOT EXISTS` — see the migrations note below.
+Creating the schema in the constructor works here and nowhere else: each Durable Object owns its own database, and `diff` from empty is idempotent enough if you use `CREATE TABLE IF NOT EXISTS` — see
+the migrations note below.
 
 ## What single-threading buys you
 
@@ -50,7 +52,8 @@ That last point is unusual and worth using. Most of the concurrency caveats else
 
 ## Migrations
 
-`ctx.storage.sql.exec` is synchronous, so a `MigrationConnection` over it is straightforward — but the runner is async and the constructor is not. Do migrations in `blockConcurrencyWhile`, which holds requests until it finishes:
+`ctx.storage.sql.exec` is synchronous, so a `MigrationConnection` over it is straightforward — but the runner is async and the constructor is not. Do migrations in `blockConcurrencyWhile`, which holds
+requests until it finishes:
 
 ```ts
 constructor(ctx: DurableObjectState, env: Env) {
@@ -61,13 +64,16 @@ constructor(ctx: DurableObjectState, env: Env) {
 }
 ```
 
-Every object migrates itself on first wake after a deploy. That is the right model for per-object databases — there is no central place to run it from — but it means a migration must be fast, since it delays the first request to that object.
+Every object migrates itself on first wake after a deploy. That is the right model for per-object databases — there is no central place to run it from — but it means a migration must be fast, since it
+delays the first request to that object.
 
 ## The architecture this enables
 
-One database per entity: a room, a document, a game, a user's workspace. Each is small, consistent and isolated, and multi-tenancy is structural rather than a [filter you must remember](./entity-filters.html).
+One database per entity: a room, a document, a game, a user's workspace. Each is small, consistent and isolated, and multi-tenancy is structural rather than a
+[filter you must remember](./entity-filters.html).
 
-What you give up is cross-object queries. There is no join between two Durable Objects, so "list all rooms with more than 10 messages" requires each object to report upward, or a separate [D1](./connect-cloudflare-d1.html) index maintained alongside. Decide that shape before committing to the model, because retrofitting a global query is expensive.
+What you give up is cross-object queries. There is no join between two Durable Objects, so "list all rooms with more than 10 messages" requires each object to report upward, or a separate
+[D1](./connect-cloudflare-d1.html) index maintained alongside. Decide that shape before committing to the model, because retrofitting a global query is expensive.
 
 ## Type conversion
 
@@ -75,7 +81,8 @@ SQLite storage classes as usual — `boolean` as `0`/`1`, `timestamp` as text, `
 
 ## Limits
 
-Per-object storage is capped, and the object is single-threaded — so a slow query blocks every request to that object, not just the current one. Index accordingly, and keep the per-object dataset small by design.
+Per-object storage is capped, and the object is single-threaded — so a slow query blocks every request to that object, not just the current one. Index accordingly, and keep the per-object dataset
+small by design.
 
 ---
 

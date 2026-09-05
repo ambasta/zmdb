@@ -1,7 +1,7 @@
-Indexes and constraints are essential schema objects for data integrity and query performance. zmdb provides DDL functions to create indexes (including unique and partial indexes) and check constraints.
+Indexes and constraints are essential schema objects for data integrity and query performance. zmdb provides DDL functions to create indexes (including unique and partial indexes) and check
+constraints.
 
-> [!TIP]
-> Indexes improve read performance but add overhead to writes. Use them strategically based on your query patterns. Constraints should always be defined to maintain data integrity.
+> [!TIP] Indexes improve read performance but add overhead to writes. Use them strategically based on your query patterns. Constraints should always be defined to maintain data integrity.
 
 ## Creating a Basic Index
 
@@ -46,8 +46,7 @@ console.log(ddl);
 CREATE UNIQUE INDEX "idx_users_email_unique" ON "users" ("email")
 ```
 
-> [!NOTE]
-> PostgreSQL automatically creates a unique index for `UNIQUE` constraints and primary keys. Use explicit unique indexes when you need additional control or want a named index for management.
+> [!NOTE] PostgreSQL automatically creates a unique index for `UNIQUE` constraints and primary keys. Use explicit unique indexes when you need additional control or want a named index for management.
 
 ## Composite Indexes
 
@@ -92,8 +91,7 @@ console.log(ddl);
 CREATE INDEX "idx_orders_pending" ON "orders" ("id") WHERE status = 'pending'
 ```
 
-> [!IMPORTANT]
-> Partial indexes only help queries that include the WHERE condition. Make sure your application queries match the partial index condition.
+> [!IMPORTANT] Partial indexes only help queries that include the WHERE condition. Make sure your application queries match the partial index condition.
 
 ## Check Constraints
 
@@ -131,12 +129,7 @@ ALTER TABLE "products" ADD CONSTRAINT "chk_product_price" CHECK (price > 0)
 ### Enum-Like Constraints
 
 ```ts
-const enumConstraint = checkConstraintDdl(
-  'orders',
-  'chk_order_status',
-  "status IN ('pending', 'processing', 'completed', 'cancelled')",
-  'postgres',
-);
+const enumConstraint = checkConstraintDdl('orders', 'chk_order_status', "status IN ('pending', 'processing', 'completed', 'cancelled')", 'postgres');
 ```
 
 ```sql
@@ -175,10 +168,8 @@ console.log(ddl);
 CREATE INDEX "idx_users_email_lower" ON "users" (lower("email"))
 ```
 
-Expression text is emitted verbatim, so quote identifiers inside it and never interpolate user
-input. PostgreSQL, Cockroach and SQLite accept this form. MySQL, SingleStore and
-SQL Server are refused with an `UnsupportedFeatureError`; use a generated
-column there.
+Expression text is emitted verbatim, so quote identifiers inside it and never interpolate user input. PostgreSQL, Cockroach and SQLite accept this form. MySQL, SingleStore and SQL Server are refused
+with an `UnsupportedFeatureError`; use a generated column there.
 
 ## Dropping Indexes and Constraints
 

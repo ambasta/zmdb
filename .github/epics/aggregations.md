@@ -2,9 +2,8 @@
 
 ## Motivation (from real benchmarks)
 
-zmdb returns **DNF (HTTP 501)** on the aggregate routes of the drizzle-benchmarks
-suite because `@zmdb/query-compiler` has **no aggregate / GROUP BY / computed-
-column builder** ([benchmarks/RESULTS.md](../../benchmarks/RESULTS.md)):
+zmdb returns **DNF (HTTP 501)** on the aggregate routes of the drizzle-benchmarks suite because `@zmdb/query-compiler` has **no aggregate / GROUP BY / computed- column builder**
+([benchmarks/RESULTS.md](../../benchmarks/RESULTS.md)):
 
 | route                  | why DNF                                                          |
 | ---------------------- | ---------------------------------------------------------------- |
@@ -13,10 +12,8 @@ column builder** ([benchmarks/RESULTS.md](../../benchmarks/RESULTS.md)):
 
 ## Goal
 
-Add aggregation support to `@zmdb/query-compiler`: `select()` with computed
-expressions (`count`, `sum`, `avg`, `min`, `max`, arithmetic), `groupBy(...)`,
-`having(...)`, and result typing for computed columns. Compose with JOINs
-(depends on the JOIN epic) and existing where/order/limit/offset.
+Add aggregation support to `@zmdb/query-compiler`: `select()` with computed expressions (`count`, `sum`, `avg`, `min`, `max`, arithmetic), `groupBy(...)`, `having(...)`, and result typing for computed
+columns. Compose with JOINs (depends on the JOIN epic) and existing where/order/limit/offset.
 
 ## Definition of Done
 
@@ -26,8 +23,7 @@ Sub-issues collectively deliver:
 2. Aggregate functions (count/sum/avg/min/max) + arithmetic expressions.
 3. `groupBy` + `having` compilation.
 4. Repository integration returning typed computed columns + E2E on real Postgres.
-5. Re-run the two DNF aggregate routes; confirm 200 + correct aggregates + record
-   throughput vs drizzle/kysely.
+5. Re-run the two DNF aggregate routes; confirm 200 + correct aggregates + record throughput vs drizzle/kysely.
 
 ## Constraints
 
