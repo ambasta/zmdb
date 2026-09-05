@@ -354,7 +354,7 @@ export const PACKAGE_POLICY = {
     directory: 'packages/zmdb',
     zone: 'facade',
     ring: 7,
-    allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'repository', 'schema-core', 'sqlite', 'web'],
+    allowedWorkspaceDependencies: ['ai', 'aot-validator', 'app', 'query-compiler', 'repository', 'schema-core', 'sqlite', 'web'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: ['./cli', './config', './unplugin', './web/contract/compiler', 'bin:zmdb'],

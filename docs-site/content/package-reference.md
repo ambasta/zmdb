@@ -643,6 +643,7 @@ at compile time.
   - `./web/contract` → `./src/web-contract.ts`
   - `./web/contract/compiler` → `./src/web-contract-compiler.ts`
 - **Dependencies:**
+  - `@zmdb/ai` → `workspace:^`
   - `@zmdb/aot-validator` → `workspace:^`
   - `@zmdb/app` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
