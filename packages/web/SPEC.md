@@ -480,7 +480,8 @@ RedisStrategyOptions
 <!-- #645-ownership:end -->
 
 The six generated-service names (`grpcDescriptor`, `loadGrpcService`, `GrpcLoadedMethod`, `GrpcLoadedService`, `GrpcMethodDef`, `GrpcServiceDef`) target `@zmdb/protobuf`. The remaining gRPC names
-target `@zmdb/transport-grpc`; NATS, RabbitMQ, Redis, PostgreSQL jobs and OpenTelemetry target their correspondingly named packages. Exact adapter peer contracts remain owned by #654.
+target `@zmdb/transport-grpc`; NATS now ships from `@zmdb/transport-nats`, while RabbitMQ, Redis and PostgreSQL jobs retain their frozen package targets. OpenTelemetry ships from `@zmdb/otel`. Exact
+adapter peer contracts remain owned by #654.
 
 #### Private benchmark helpers — 11
 

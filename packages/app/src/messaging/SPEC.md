@@ -4,8 +4,8 @@ This is the application-owned, transport-neutral broker layer of epic #556, impl
 deadlines, tracing propagation and the public transport strategy SPI. A strategy owns broker framing, subscriptions, replies and applying settlements. Typed gRPC remains a separate contract because it
 is not a `TransportStrategy`.
 
-The old `@zmdb/web/microservices` entry is removed rather than forwarded. The concrete Redis, core NATS and RabbitMQ adapters remain temporary web-owned integrations until #658, #659 and #660 move
-them to their dedicated packages; from #648 onward they import only this public app contract and its broker-free transport kit.
+The old `@zmdb/web/microservices` entry is removed rather than forwarded. Core NATS now ships from `@zmdb/transport-nats`; the concrete Redis and RabbitMQ adapters remain temporary web-owned
+integrations until #659 and #660 move them to their dedicated packages. Every adapter imports only this public app contract and its broker-free transport kit.
 
 ## 1. A message is not an HTTP request
 
@@ -295,16 +295,16 @@ connection closing remain in the adapter.
 
 ## 9. Broker strategies
 
-Until their dedicated extraction issues land, the three concrete clients remain optional peers behind separate web integration subpaths:
+The three concrete clients implement the same strategy contract, but their current owners differ:
 
 - `@zmdb/web/microservices/redis` uses Redis Pub/Sub;
-- `@zmdb/web/microservices/nats` uses core NATS;
+- `@zmdb/transport-nats` uses core NATS;
 - `@zmdb/web/microservices/rabbitmq` uses a RabbitMQ topic exchange.
 
 Importing `@zmdb/app` or `@zmdb/app/messaging` reaches none of those clients. The old neutral web entry no longer exists. A plain app install therefore contains no broker client.
 
-The #654 target removes the three remaining adapter subpaths and all three peers from web. The corresponding dedicated package roots preserve the behavior below; selecting one package makes its one
-broker peer required there. There is no forwarding layer.
+The #654 target removes the two remaining adapter subpaths and peers from web. NATS already uses its dedicated package root and required peer; the Redis and RabbitMQ package roots preserve the
+behavior below when their extraction slices land. There is no forwarding layer.
 
 All three adapters use the same versioned JSON envelope. Payloads must be JSON-serializable and cannot be `undefined`. The envelope carries W3C trace propagation; correlation and reply destinations
 use either envelope fields or the broker's native metadata. Parsing remains the strategy's responsibility: malformed JSON becomes `RawMessage.parseError` with the original text retained in `payload`.
@@ -383,5 +383,6 @@ The ownership sequence is:
 | `@zmdb/web/microservices/rabbitmq` | `@zmdb/transport-rabbitmq`                | #659  |
 | `@zmdb/web/microservices/redis`    | `@zmdb/transport-redis`                   | #660  |
 
-The neutral web entry is deleted without a forwarder in #648, and #657 likewise removes the old gRPC subpath after moving its adapter to `@zmdb/transport-grpc`. The remaining concrete broker entries
-are not neutral-core compatibility layers; their later extraction issues delete them without forwarders. The app-owned SPI and kit here are the only inward messaging dependency they share.
+The neutral web entry was deleted without a forwarder in #648; #657 likewise removed the old gRPC subpath, and #658 removed the old NATS subpath after moving their adapters to dedicated packages. The
+remaining concrete Redis and RabbitMQ entries are not neutral-core compatibility layers; their extraction issues delete them without forwarders. The app-owned SPI and kit here are the only inward
+messaging dependency they share.

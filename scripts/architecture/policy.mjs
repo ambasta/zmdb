@@ -240,6 +240,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  'transport-nats': packagePolicy({
+    directory: 'packages/transport-nats',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['app'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   web: packagePolicy({
     directory: 'packages/web',
     zone: 'application',
@@ -247,7 +256,6 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
-      '@nats-io/transport-node': ['./microservices/nats'],
       amqplib: ['./microservices/rabbitmq'],
       redis: ['./microservices/redis'],
       typescript: ['./contract/compiler'],

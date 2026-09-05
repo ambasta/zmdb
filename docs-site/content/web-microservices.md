@@ -1,5 +1,5 @@
-`@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. The temporary web integration subpaths provide Redis Pub/Sub, core NATS, RabbitMQ and a separate
-typed gRPC surface. Applications own those transports through the same module graph and bounded lifecycle as HTTP.
+`@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. Core NATS ships from `@zmdb/transport-nats`; temporary web integration subpaths still provide Redis
+Pub/Sub, RabbitMQ and a separate typed gRPC surface. Applications own those transports through the same module graph and bounded lifecycle as HTTP.
 
 ## The public seam
 
@@ -136,7 +136,7 @@ Install only the client used by the selected strategy:
 
 ```bash
 npm add @zmdb/web redis
-npm add @zmdb/web @nats-io/transport-node
+npm add @zmdb/transport-nats @nats-io/transport-node
 npm add @zmdb/web amqplib
 ```
 
@@ -144,7 +144,7 @@ Import the adapter through its own optional subpath:
 
 ```ts
 import { createRedisStrategy } from '@zmdb/web/microservices/redis';
-import { createNatsStrategy } from '@zmdb/web/microservices/nats';
+import { createNatsStrategy } from '@zmdb/transport-nats';
 import { createRabbitMqStrategy } from '@zmdb/web/microservices/rabbitmq';
 ```
 

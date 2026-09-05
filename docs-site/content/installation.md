@@ -1,6 +1,6 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Sixteen packages are published today: fifteen focused packages plus the `zmdb` facade. The recommended
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty packages are published today: nineteen focused packages plus the `zmdb` facade. The recommended
 installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider
-integrations, `@zmdb/mcp`, and `@zmdb/otel` remain independently installable.
+integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, and `@zmdb/transport-nats` remain independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -86,6 +86,9 @@ npm install @zmdb/protobuf
 
 # Typed gRPC server and client adapter
 npm install @zmdb/transport-grpc @grpc/grpc-js
+
+# Core NATS transport strategy
+npm install @zmdb/transport-nats @nats-io/transport-node
 
 # Provider-neutral AI tools + bounded chat
 npm install @zmdb/ai
@@ -188,6 +191,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/client`         | Dependency-free HTTP transport, cancellation, authentication, and typed errors               |
 | `@zmdb/protobuf`       | Dependency-free protobuf calls, generated-code wire ABI, and typed gRPC artifacts            |
 | `@zmdb/transport-grpc` | Typed gRPC servers, clients, streaming, deadlines, metadata, and bounded lifecycle           |
+| `@zmdb/transport-nats` | Core NATS wildcard, queue-group, event, and request/reply transport strategy                 |
 | `@zmdb/ai`             | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools  |
 | `@zmdb/ai-anthropic`   | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                  |
 | `@zmdb/ai-langchain`   | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer             |

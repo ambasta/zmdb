@@ -282,6 +282,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-server-integrations' },
   }),
   productPackage({
+    id: 'transport-nats',
+    directory: 'packages/transport-nats',
+    npmName: '@zmdb/transport-nats',
+    role: 'transport-nats',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'core NATS messaging' },
+    docsOwner: 'web-microservices-transports',
+    consumer: { fixture: 'fixtures/consumer-server-integrations' },
+  }),
+  productPackage({
     id: 'web',
     directory: 'packages/web',
     npmName: '@zmdb/web',

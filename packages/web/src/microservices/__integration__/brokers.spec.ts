@@ -3,12 +3,10 @@ import { connect as connectRabbit } from 'amqplib';
 import { createClient } from 'redis';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createNatsStrategy } from '../nats/index.js';
 import { createRabbitMqStrategy } from '../rabbitmq/index.js';
 import { createRedisStrategy } from '../redis/index.js';
 
 const REDIS_URL = process.env.ZMDB_REDIS_URL;
-const NATS_URL = process.env.ZMDB_NATS_URL;
 const RABBITMQ_URL = process.env.ZMDB_RABBITMQ_URL;
 
 function required(value: string | undefined, name: string): string {
@@ -45,52 +43,6 @@ describe.skipIf(REDIS_URL === undefined)('Redis Pub/Sub integration (#560)', () 
     } finally {
       await strategy.close(1_000);
       await raw.close();
-    }
-  });
-});
-
-describe.skipIf(NATS_URL === undefined)('core NATS integration (#560)', () => {
-  it('uses a wildcard queue group for concrete event and request subjects', async () => {
-    const servers = required(NATS_URL, 'ZMDB_NATS_URL');
-    const prefix = `zmdb.test.${globalThis.crypto.randomUUID()}`;
-    const errors: unknown[] = [];
-    const delivered: string[] = [];
-    const strategy = createNatsStrategy({
-      connection: { servers },
-      subscriptions: [{ subject: `${prefix}.*`, queue: `${prefix}.workers` }],
-      onError: error => errors.push(error),
-    });
-    try {
-      await strategy.listen(message => {
-        delivered.push(message.pattern);
-        return Promise.resolve({
-          settlement: { kind: 'ack' },
-          ...(message.replyTo === undefined || message.correlationId === undefined
-            ? {}
-            : {
-                reply: {
-                  kind: 'result',
-                  correlationId: message.correlationId,
-                  payload: message.payload,
-                },
-              }),
-        });
-      });
-      await strategy.emit(`${prefix}.event`, { id: 1 });
-      const controller = new AbortController();
-      const reply = await strategy.send({
-        pattern: `${prefix}.request`,
-        payload: { id: 2 },
-        correlationId: 'request-2',
-        timeoutMs: 1_000,
-        signal: controller.signal,
-      });
-      await vi.waitFor(() => expect(delivered).toEqual([`${prefix}.event`, `${prefix}.request`]));
-
-      expect(reply).toEqual({ kind: 'result', correlationId: 'request-2', payload: { id: 2 } });
-      expect(errors).toEqual([]);
-    } finally {
-      await strategy.close(1_000);
     }
   });
 });

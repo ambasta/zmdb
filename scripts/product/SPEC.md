@@ -61,10 +61,10 @@ repository root explicitly.
 
 ## 3. Measured package inventory
 
-At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, and #657 add `@zmdb/protobuf`,
-`@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`,
-`@zmdb/react`, and `@zmdb/transport-grpc`. The catalog now accounts for all nineteen manifest-backed packages exactly once. The separate hard-coded publication sequence remains release-governance
-state until #728 derives its order from architecture policy; it is not product membership:
+At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #657, and #658 add
+`@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`,
+`@zmdb/sqlite`, `@zmdb/react`, `@zmdb/transport-grpc`, and `@zmdb/transport-nats`. The catalog now accounts for all twenty manifest-backed packages exactly once. The separate hard-coded publication
+sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
 
 | Directory                 | npm name               | Frozen product role | Current facade ownership                                       |
 | ------------------------- | ---------------------- | ------------------- | -------------------------------------------------------------- |
@@ -85,11 +85,12 @@ state until #728 derives its order from architecture policy; it is not product m
 | `packages/jobs`           | `@zmdb/jobs`           | `jobs`              | None until the server facade lands in #651                     |
 | `packages/otel`           | `@zmdb/otel`           | `otel`              | None; selected OpenTelemetry integration with no facade export |
 | `packages/transport-grpc` | `@zmdb/transport-grpc` | `grpc`              | None; selected gRPC integration with no facade export          |
+| `packages/transport-nats` | `@zmdb/transport-nats` | `transport-nats`    | None; selected core NATS integration with no facade export     |
 | `packages/web`            | `@zmdb/web`            | `web`               | `zmdb/web`                                                     |
 | `packages/zmdb`           | `zmdb`                 | `product`           | Root composition, `config`, `cli`, and the executable          |
 
-This table is review evidence, not the canonical machine source. The nineteen rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
-the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
+This table is review evidence, not the canonical machine source. The twenty rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus the
+consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers
 

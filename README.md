@@ -19,11 +19,13 @@ AI and MCP stay outside the umbrella: install provider-neutral `@zmdb/ai`, then 
 
 OpenTelemetry is also opt-in: install `@zmdb/otel` only when adapting caller-owned tracers and meters to the application observability ports.
 
+Core NATS messaging is opt-in: install `@zmdb/transport-nats` with `@nats-io/transport-node`; neither the application kernel nor the HTTP package owns that peer.
+
 React is opt-in as well: install `@zmdb/react` only when a generated client needs React context and component-lifecycle ownership.
 
 Typed gRPC is opt-in: install `@zmdb/transport-grpc` with grpc-js when an application needs generated protobuf services, streaming clients and a bounded server extension.
 
-> The workspace publishes **19 packages** across **125 export-map entry points**. The current suite has **2,979 passing tests** across 269 files, plus **161 expected failures** that describe work
+> The workspace publishes **20 packages** across **125 export-map entry points**. The current suite has **2,987 passing tests** across 271 files, plus **160 expected failures** that describe work
 > still to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO
 > pages, and 13 pages for features we do not plan to add.
 

@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "@nats-io/transport-node": "3.4.0",
+    "@zmdb/app": "1.0.0-alpha.4",
     "@zmdb/transport-nats": "1.0.0-alpha.4"
   },
   "zmdbFixture": {

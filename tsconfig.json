@@ -62,6 +62,7 @@
       "@zmdb/jobs/schedule": ["./packages/jobs/src/schedule/index.ts"],
       "@zmdb/otel": ["./packages/otel/src/index.ts"],
       "@zmdb/transport-grpc": ["./packages/transport-grpc/src/index.ts"],
+      "@zmdb/transport-nats": ["./packages/transport-nats/src/index.ts"],
       "@zmdb/web": ["./packages/web/src/index.ts"],
       "@zmdb/web/*": ["./packages/web/src/*/index.ts"]
     }

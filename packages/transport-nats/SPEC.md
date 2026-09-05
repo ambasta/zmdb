@@ -1,6 +1,6 @@
 # `@zmdb/transport-nats` — core NATS transport strategy
 
-> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #658 extracts the shipped web strategy.
+> Frozen by #654 for epic #653 and implemented by #658. The strategy, matcher, executable evidence and sole public root entry belong to this package.
 
 ## 1. Boundary and exports
 
@@ -29,8 +29,8 @@ The root is the only export. It depends on `@zmdb/app` at `workspace:^` and decl
 The frozen capability tuple is `{ redelivery: false, deadLetter: false, requestResponse: true }`. Native `*` and final-`>` subjects plus queue groups are supported. Subscription membership is compiled
 at construction and delivery dispatches the concrete subject.
 
-The strategy instance is caller/application owned. Its first `listen` opens one NATS connection and the declared subscriptions; another `listen` or a listen after close fails. `close(graceMs)` stops
-subscriptions, drains accepted dispatches, drains the connection and force-closes on timeout. Connections are never module scoped or shared implicitly.
+The strategy instance is caller/application owned. Its first `listen` opens one NATS connection and the declared subscriptions; another `listen` or a listen after close fails. `close(graceMs)` drains
+the subscriptions, waits for accepted dispatches, flushes pending replies and closes the connection; it force-closes on timeout. Connections are never module scoped or shared implicitly.
 
 Core NATS is at-most-once. Retry/dead outcomes are observable through the app's undeliverable sink rather than represented as broker support. Request timeout and cancellation use the common app
 transport contract; no adapter-owned retry policy exists.

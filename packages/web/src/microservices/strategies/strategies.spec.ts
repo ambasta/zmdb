@@ -7,9 +7,6 @@ const brokerFactories = vi.hoisted(() => ({
   amqp: (_connection: unknown, _socketOptions?: unknown): unknown => {
     throw new Error('RabbitMQ test factory is not configured');
   },
-  nats: (_options?: unknown): unknown => {
-    throw new Error('NATS test factory is not configured');
-  },
   redis: (_options?: unknown): unknown => {
     throw new Error('Redis test factory is not configured');
   },
@@ -19,19 +16,12 @@ vi.mock('redis', () => ({
   createClient: (options?: unknown): unknown => brokerFactories.redis(options),
 }));
 
-vi.mock('@nats-io/transport-node', () => ({
-  connect: (options?: unknown): unknown => brokerFactories.nats(options),
-  createInbox: (): string => '_INBOX.test',
-}));
-
 vi.mock('amqplib', () => ({
   connect: (connection: unknown, socketOptions?: unknown): unknown => brokerFactories.amqp(connection, socketOptions),
 }));
 
-import { createNatsStrategy } from '../nats/index.js';
 import { createRabbitMqStrategy } from '../rabbitmq/index.js';
 import { createRedisStrategy } from '../redis/index.js';
-import { createNatsSubjectMatcher } from './nats-matcher.js';
 
 type RedisListener = (message: string, channel: string) => void;
 
@@ -121,97 +111,6 @@ class FakeRedisPublisher {
 
   destroy(): void {
     this.closed = true;
-  }
-}
-
-interface FakeNatsMessage {
-  readonly subject: string;
-  readonly reply?: string;
-  readonly responded: string[];
-  respond(data: Uint8Array): boolean;
-  string(): string;
-}
-
-type NatsCallback = (error: Error | null, message: FakeNatsMessage) => void;
-
-class FakeNatsSubscription {
-  readonly subject: string;
-  readonly queue: string | undefined;
-  readonly callback: NatsCallback | undefined;
-  closed = false;
-
-  constructor(subject: string, options: { readonly queue?: string; readonly callback?: NatsCallback } = {}) {
-    this.subject = subject;
-    this.queue = options.queue;
-    this.callback = options.callback;
-  }
-
-  unsubscribe(): void {
-    this.closed = true;
-  }
-
-  drain(): Promise<void> {
-    this.closed = true;
-    return Promise.resolve();
-  }
-}
-
-class FakeNatsConnection {
-  readonly subscriptions: FakeNatsSubscription[] = [];
-  readonly published: {
-    readonly subject: string;
-    readonly data: Uint8Array;
-    readonly reply?: string;
-  }[] = [];
-  drained = false;
-
-  subscribe(subject: string, options: { readonly queue?: string; readonly callback?: NatsCallback } = {}) {
-    const subscription = new FakeNatsSubscription(subject, options);
-    this.subscriptions.push(subscription);
-    return subscription;
-  }
-
-  publish(subject: string, data: Uint8Array, options: { readonly reply?: string } = {}): void {
-    this.published.push({
-      subject,
-      data,
-      ...(options.reply === undefined ? {} : { reply: options.reply }),
-    });
-  }
-
-  flush(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  closed(): Promise<void | Error> {
-    return new Promise(() => undefined);
-  }
-
-  drain(): Promise<void> {
-    this.drained = true;
-    return Promise.resolve();
-  }
-
-  close(): Promise<void> {
-    this.drained = true;
-    return Promise.resolve();
-  }
-
-  deliver(subject: string, payload: string, reply?: string): FakeNatsMessage {
-    const message: FakeNatsMessage = {
-      subject,
-      ...(reply === undefined ? {} : { reply }),
-      responded: [],
-      respond(data): boolean {
-        message.responded.push(new TextDecoder().decode(data));
-        return reply !== undefined;
-      },
-      string: () => payload,
-    };
-    for (const subscription of this.subscriptions) {
-      subscription.callback?.(null, message);
-    }
-    return message;
   }
 }
 
@@ -436,54 +335,6 @@ describe('Redis Pub/Sub strategy (#560)', () => {
   });
 });
 
-describe('core NATS strategy (#560)', () => {
-  it('matches NATS wildcards through a startup trie with native token semantics', () => {
-    const matcher = createNatsSubjectMatcher(['orders.*.created', 'audit.>']);
-
-    expect({
-      oneToken: matcher.matches('orders.eu.created'),
-      noToken: matcher.matches('orders.created'),
-      tooMany: matcher.matches('orders.eu.priority.created'),
-      tail: matcher.matches('audit.eu.security'),
-      emptyTail: matcher.matches('audit'),
-    }).toEqual({
-      oneToken: true,
-      noToken: false,
-      tooMany: false,
-      tail: true,
-      emptyTail: false,
-    });
-  });
-
-  it('passes queue groups to NATS and dispatches the concrete subject behind a wildcard', async () => {
-    const connection = new FakeNatsConnection();
-    brokerFactories.nats = () => Promise.resolve(connection);
-    const patterns: string[] = [];
-    const strategy = createNatsStrategy({
-      subscriptions: [{ subject: 'orders.*', queue: 'orders-workers' }],
-      onError: error => {
-        throw error;
-      },
-    });
-    await strategy.listen(message => {
-      patterns.push(message.pattern);
-      return Promise.resolve({ settlement: { kind: 'ack' } });
-    });
-
-    connection.deliver('orders.created', encodeDelivery({ id: 1 }, undefined));
-    await vi.waitFor(() => expect(patterns).toEqual(['orders.created']));
-    expect(connection.subscriptions.map(subscription => [subscription.subject, subscription.queue])).toEqual([
-      ['orders.*', 'orders-workers'],
-    ]);
-    expect(strategy.capabilities).toEqual({
-      redelivery: false,
-      deadLetter: false,
-      requestResponse: true,
-    });
-    await strategy.close(100);
-  });
-});
-
 describe('RabbitMQ strategy (#560)', () => {
   it('exposes prefetch and owns the retry and dead-letter topology', async () => {
     const model = new FakeRabbitModel();
@@ -577,12 +428,12 @@ describe('RabbitMQ strategy (#560)', () => {
 
 it('a plain install pulls in no broker client', () => {
   const manifest = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'));
-  const peers = ['@nats-io/transport-node', 'amqplib', 'redis'];
+  const peers = ['amqplib', 'redis'];
 
-  expect(peers.map(peer => manifest.dependencies?.[peer])).toEqual([undefined, undefined, undefined]);
-  expect(peers.map(peer => manifest.peerDependenciesMeta?.[peer]?.optional)).toEqual([true, true, true]);
-  expect(peers.map(peer => manifest.devDependencies?.[peer])).toEqual(['3.4.0', '2.0.1', '6.2.1']);
+  expect(peers.map(peer => manifest.dependencies?.[peer])).toEqual([undefined, undefined]);
+  expect(peers.map(peer => manifest.peerDependenciesMeta?.[peer]?.optional)).toEqual([true, true]);
+  expect(peers.map(peer => manifest.devDependencies?.[peer])).toEqual(['2.0.1', '6.2.1']);
   expect(Object.keys(manifest.exports)).toEqual(
-    expect.arrayContaining(['./microservices/redis', './microservices/nats', './microservices/rabbitmq']),
+    expect.arrayContaining(['./microservices/redis', './microservices/rabbitmq']),
   );
 });

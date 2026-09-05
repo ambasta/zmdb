@@ -8,7 +8,7 @@ class SubjectNode {
 function tokens(value: string, description: string): readonly string[] {
   const parts = value.split('.');
   if (parts.length === 0 || parts.some(part => part.length === 0)) {
-    throw new RangeError(`@zmdb/web: ${description} must contain non-empty dot-separated tokens`);
+    throw new RangeError(`@zmdb/transport-nats: ${description} must contain non-empty dot-separated tokens`);
   }
   return parts;
 }
@@ -20,7 +20,7 @@ function add(root: SubjectNode, pattern: string): void {
     const part = parts[index];
     if (part === '>') {
       if (index !== parts.length - 1) {
-        throw new RangeError('@zmdb/web: a NATS > wildcard must be the final token');
+        throw new RangeError('@zmdb/transport-nats: a NATS > wildcard must be the final token');
       }
       node.tail = true;
       return;
@@ -31,7 +31,7 @@ function add(root: SubjectNode, pattern: string): void {
       continue;
     }
     if (part?.includes('*') || part?.includes('>')) {
-      throw new RangeError('@zmdb/web: NATS wildcards must occupy a whole token');
+      throw new RangeError('@zmdb/transport-nats: NATS wildcards must occupy a whole token');
     }
     let child = node.literals.get(part ?? '');
     if (child === undefined) {

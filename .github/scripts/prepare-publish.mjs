@@ -98,6 +98,11 @@ const META = {
     install: 'npm add @zmdb/transport-grpc@alpha @grpc/grpc-js',
     keywords: ['grpc', 'http2', 'protobuf', 'transport', 'typescript', 'zmdb'],
   },
+  'transport-nats': {
+    description: 'Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.',
+    install: 'npm add @zmdb/transport-nats@alpha @nats-io/transport-node',
+    keywords: ['messaging', 'nats', 'request-reply', 'transport', 'typescript', 'zmdb'],
+  },
   web: {
     description:
       'HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.',

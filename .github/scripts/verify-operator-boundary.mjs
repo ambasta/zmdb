@@ -40,6 +40,7 @@ const PACKAGES = [
   'jobs',
   'otel',
   'transport-grpc',
+  'transport-nats',
   'web',
   'zmdb',
 ];

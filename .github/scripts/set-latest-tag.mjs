@@ -27,6 +27,7 @@ const PACKAGES = [
   '@zmdb/jobs',
   '@zmdb/otel',
   '@zmdb/transport-grpc',
+  '@zmdb/transport-nats',
   '@zmdb/web',
   'zmdb',
 ];

@@ -20,7 +20,7 @@ import {
   type TransportStrategy,
 } from '@zmdb/app/messaging';
 
-import { createNatsSubjectMatcher } from './nats-matcher.js';
+import { createNatsSubjectMatcher } from './matcher.js';
 
 function bytes(text: string): Uint8Array {
   return new TextEncoder().encode(text);
@@ -44,14 +44,14 @@ function validateSubscriptions(subscriptions: readonly NatsSubscription[]): read
   const seen = new Set<string>();
   return subscriptions.map(subscription => {
     if (subscription.subject.length === 0) {
-      throw new RangeError('@zmdb/web: a NATS subscription subject cannot be empty');
+      throw new RangeError('@zmdb/transport-nats: a NATS subscription subject cannot be empty');
     }
     if (subscription.queue !== undefined && subscription.queue.length === 0) {
-      throw new RangeError('@zmdb/web: a NATS queue group cannot be empty');
+      throw new RangeError('@zmdb/transport-nats: a NATS queue group cannot be empty');
     }
     const key = `${subscription.subject}\u0000${subscription.queue ?? ''}`;
     if (seen.has(key)) {
-      throw new Error(`@zmdb/web: duplicate NATS subscription "${subscription.subject}"`);
+      throw new Error(`@zmdb/transport-nats: duplicate NATS subscription "${subscription.subject}"`);
     }
     seen.add(key);
     return { ...subscription };
@@ -82,10 +82,10 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
 
     async listen(dispatch): Promise<void> {
       if (started) {
-        throw new Error('@zmdb/web: NATS strategy is already listening');
+        throw new Error('@zmdb/transport-nats: NATS strategy is already listening');
       }
       if (closed) {
-        throw new Error('@zmdb/web: NATS strategy is closed');
+        throw new Error('@zmdb/transport-nats: NATS strategy is closed');
       }
       started = true;
 
@@ -104,7 +104,9 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
                     }
                     void inFlight.run(async () => {
                       if (!matcher.matches(message.subject)) {
-                        throw new Error(`@zmdb/web: NATS delivered unsubscribed subject "${message.subject}"`);
+                        throw new Error(
+                          `@zmdb/transport-nats: NATS delivered unsubscribed subject "${message.subject}"`,
+                        );
                       }
                       const delivery = decodeDelivery(
                         message.subject,
@@ -114,7 +116,7 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
                       );
                       const outcome = await dispatch(delivery);
                       if (outcome.reply !== undefined && !message.respond(bytes(encodeReply(outcome.reply)))) {
-                        throw new Error('@zmdb/web: NATS request has no reply subject');
+                        throw new Error('@zmdb/transport-nats: NATS request has no reply subject');
                       }
                     });
                   },
@@ -128,7 +130,9 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
                     }
                     void inFlight.run(async () => {
                       if (!matcher.matches(message.subject)) {
-                        throw new Error(`@zmdb/web: NATS delivered unsubscribed subject "${message.subject}"`);
+                        throw new Error(
+                          `@zmdb/transport-nats: NATS delivered unsubscribed subject "${message.subject}"`,
+                        );
                       }
                       const delivery = decodeDelivery(
                         message.subject,
@@ -138,7 +142,7 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
                       );
                       const outcome = await dispatch(delivery);
                       if (outcome.reply !== undefined && !message.respond(bytes(encodeReply(outcome.reply)))) {
-                        throw new Error('@zmdb/web: NATS request has no reply subject');
+                        throw new Error('@zmdb/transport-nats: NATS request has no reply subject');
                       }
                     });
                   },
@@ -166,7 +170,7 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
     async send(request): Promise<MessageReply> {
       const activeConnection = connection;
       if (activeConnection === undefined) {
-        throw new Error('@zmdb/web: NATS strategy is not listening');
+        throw new Error('@zmdb/transport-nats: NATS strategy is not listening');
       }
       if (request.signal.aborted) {
         throw abortError(request.signal);
@@ -178,11 +182,12 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
       let abort = (): void => undefined;
       let resolveResponse = (_reply: MessageReply): void => undefined;
       let rejectResponse = (_error: unknown): void => undefined;
+      let finished = false;
       const response = new Promise<MessageReply>((resolve, reject) => {
         resolveResponse = resolve;
         rejectResponse = reject;
       });
-      const finish = (): void => {
+      const cleanup = (): void => {
         responseSubscription?.unsubscribe();
         request.signal.removeEventListener('abort', abort);
         if (timer !== undefined) {
@@ -190,8 +195,20 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
         }
       };
       const fail = (error: unknown): void => {
-        finish();
+        if (finished) {
+          return;
+        }
+        finished = true;
+        cleanup();
         rejectResponse(error);
+      };
+      const succeed = (reply: MessageReply): void => {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        cleanup();
+        resolveResponse(reply);
       };
       abort = (): void => fail(abortError(request.signal));
 
@@ -199,13 +216,12 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
         responseSubscription = activeConnection.subscribe(inbox, {
           max: 1,
           callback(error, message): void {
-            finish();
             if (error !== null) {
               fail(error);
               return;
             }
             try {
-              resolveResponse(decodeReply(message.string()));
+              succeed(decodeReply(message.string()));
             } catch (decodeError) {
               fail(decodeError);
             }
@@ -215,11 +231,14 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
         timer = setTimeout(() => {
           fail(new MessageTimeoutError(request.pattern, request.timeoutMs, request.correlationId));
         }, request.timeoutMs);
-        activeConnection.publish(
-          request.pattern,
-          bytes(encodeDelivery(request.payload, request, { correlationId: request.correlationId })),
-          { reply: inbox },
-        );
+        await activeConnection.flush();
+        if (!finished) {
+          activeConnection.publish(
+            request.pattern,
+            bytes(encodeDelivery(request.payload, request, { correlationId: request.correlationId })),
+            { reply: inbox },
+          );
+        }
       } catch (error) {
         fail(error);
       }
@@ -229,7 +248,7 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
     async emit(pattern, payload, carrier): Promise<void> {
       const activeConnection = connection;
       if (activeConnection === undefined) {
-        throw new Error('@zmdb/web: NATS strategy is not listening');
+        throw new Error('@zmdb/transport-nats: NATS strategy is not listening');
       }
       activeConnection.publish(pattern, bytes(encodeDelivery(payload, carrier)));
     },
@@ -251,11 +270,12 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
         await Promise.all(subscriptionsToClose.map(subscription => subscription.drain()));
         inFlight.stop();
         await inFlight.settled();
-        await activeConnection.drain();
+        await activeConnection.flush();
+        await activeConnection.close();
       })();
       if (!(await withinGrace(graceful, graceMs))) {
         await activeConnection.close();
-        throw new Error(`@zmdb/web: NATS strategy did not drain within ${String(graceMs)}ms`);
+        throw new Error(`@zmdb/transport-nats: NATS strategy did not drain within ${String(graceMs)}ms`);
       }
     },
   };
