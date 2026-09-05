@@ -27,21 +27,28 @@
 > The current suite has **2,562 passing tests** across 223 files, plus **27
 > expected failures** that describe work still to be done. The compatibility
 > inventory covers 504 of 742 upstream API suites and explains why the other 238
-> are out of scope. The documentation site contains 245 supported pages, 18 TODO
+> are out of scope. The documentation site contains 249 supported pages, 14 TODO
 > pages, and 13 pages for features we do not plan to add.
 
 ## Quick Start
 
-The `zmdb` package re-exports the whole project:
+Create a formatter-clean SQLite project with the packaged CLI:
 
 ```bash
-npm add zmdb@alpha
+npx zmdb@alpha new project blog
+cd blog
+npm install
+npm run check
+npm run build
+npm start
 ```
 
-With tagged table declarations and `zmdb.config.ts` in place, generate and
-apply the reviewed migration through the packaged CLI:
+The generated project includes a strict TypeScript config, AOT build adapter,
+health route and behavioural test, and `zmdb.config.ts`. Add a table declaration,
+then generate and apply its reviewed migration through the same executable:
 
 ```bash
+npx zmdb new schema user
 npx zmdb generate --name initial
 npx zmdb migrate
 ```

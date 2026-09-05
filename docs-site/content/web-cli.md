@@ -1,170 +1,170 @@
-> **ToDo / documentation gap.** The `zmdb` executable ships `generate`,
-> `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`,
-> `pull`, `modules`, `repl`, `studio`, and formatter-backed `new` scaffolding.
-> The final command transcripts remain.
+`zmdb new` creates projects and application components. `zmdb generate` keeps
+its separate meaning: generate a migration from the declared schema.
 
-## Scaffolding that ships
+## Start a project
 
-Create a SQLite-backed project:
+This transcript is from the real package bin:
+
+```text
+$ npx zmdb new project blog
+created blog/package.json
+created blog/tsconfig.json
+created blog/scripts/build.mjs
+created blog/vitest.config.ts
+created blog/zmdb.config.ts
+created blog/src/app.module.ts
+created blog/src/main.ts
+created blog/src/health.controller.ts
+created blog/src/health.controller.spec.ts
+created blog/.gitignore
+```
+
+The generated tree is exactly:
+
+```text
+blog/
+├── .gitignore
+├── package.json
+├── scripts/
+│   └── build.mjs
+├── src/
+│   ├── app.module.ts
+│   ├── health.controller.spec.ts
+│   ├── health.controller.ts
+│   └── main.ts
+├── tsconfig.json
+├── vitest.config.ts
+└── zmdb.config.ts
+```
+
+It is a runnable SQLite application, not a collection of placeholders. The
+config opens a file-backed database, the health test drives the real web test
+application and database driver, and the AOT adapter is used for both application
+and test builds.
+
+After installing dependencies, the generated scripts exercise the same classes
+of gate as this repository:
 
 ```bash
-npx zmdb new project blog
+cd blog
+npm install
+npm run check
+npm run build
+npm start
 ```
 
-The generated project includes strict TypeScript configuration, formatter and
-linter scripts, an AOT build adapter, a health controller with a behavioural
-test, and a file-backed SQLite config. Its `check`, `test`, `build`, and `start`
-scripts are self-contained once dependencies are installed.
+`check` runs formatting, TypeScript, lint, the AOT test build, and Vitest.
 
-Inside an existing package, generate an application component and its
-behavioural spec:
+## Add application components
 
-```bash
-npx zmdb new schema post
-npx zmdb new controller posts
-npx zmdb new module billing
-npx zmdb new repository post
-npx zmdb new command import-posts
+The six scaffold kinds are `project`, `schema`, `controller`, `module`,
+`repository`, and `command`:
+
+```text
+$ npx zmdb new schema post
+created src/post.ts
+created src/post.spec.ts
+
+$ npx zmdb new controller posts
+created src/posts.controller.ts
+created src/posts.controller.spec.ts
+
+add to src/app.module.ts, in @Module({ controllers: [ … ] }):
+  PostsController,
+
+$ npx zmdb new module billing
+created src/billing.module.ts
+created src/billing.module.spec.ts
+
+add to src/app.module.ts, in @Module({ imports: [ … ] }):
+  BillingModule,
+
+$ npx zmdb new repository post
+created src/post.repository.ts
+created src/post.repository.spec.ts
+
+add to src/app.module.ts, in @Module({ providers: [ … ] }):
+  postRepositoryProvider(driver),
+
+$ npx zmdb new command import-posts
+created src/import-posts.command.ts
+created src/import-posts.command.spec.ts
+
+add to src/app.module.ts, in @Module({ commands: [ … ] }):
+  ImportPostsCommand,
 ```
 
-Generation formats every supported source file before writing it, refuses to
-replace an existing path, and prints the module wiring instead of editing a
-barrel or application module. Use `--dry-run` to inspect the complete formatted
-output without writing files.
+Those commands add this measured file set:
 
-## Operational commands
-
-The packaged database commands use the same runner described in the CLI guide:
-
-```bash
-npx zmdb migrate
-npx zmdb status
-npx zmdb rollback
-npx zmdb check
+```text
+src/
+├── billing.module.spec.ts
+├── billing.module.ts
+├── import-posts.command.spec.ts
+├── import-posts.command.ts
+├── post.repository.spec.ts
+├── post.repository.ts
+├── post.spec.ts
+├── post.ts
+├── posts.controller.spec.ts
+└── posts.controller.ts
 ```
 
-The library boundary remains available when an application already owns the
-migration array:
+Every scaffold that contains behaviour includes a behavioural spec. The schema
+spec also contains an AOT canary, so a package that forgot the transformer fails
+in its tests instead of accepting unchecked input.
 
-```ts
-// scripts/migrate.ts
-import { runCli } from '@zmdb/query-compiler/migrations/runner';
-import { migrations } from '../src/migrations/index.js';
+## Safety properties
 
-await runCli(process.argv[2] ?? 'status', connection, migrations);
-```
+- Source, JSON, and build files are formatted with the repository's formatter
+  before they are written.
+- Existing paths are never replaced. `--force` is a database-operation flag and
+  does not override scaffold conflicts.
+- `--dry-run` prints every complete formatted file and writes nothing.
+- A scaffold never edits a barrel or an existing application module. It prints
+  the exact registration entry instead.
+- Invalid TypeScript names and ambiguous workspace targets are usage errors.
+  See [Monorepos & Libraries](./web-cli-monorepo.html).
 
-```json
-{
-  "scripts": {
-    "migrate": "node --experimental-strip-types scripts/migrate.ts"
-  }
-}
-```
+These are structural rules in the implementation and acceptance tests, not
+recommendations for template authors.
 
-```bash
-yarn migrate up
-yarn migrate status
-```
+## Why the generated source stays small
 
-`runCli(command, connection, migrations)` handles `up`, `down` and `status`
-against a `MigrationConnection` you supply. See [Migration
-Runner](./migrations-cli.html).
-
-**Ordinary Node scripts over the module graph.** Because `createApp` needs no server, any operational task is a script with full access to your services:
-
-```ts
-// scripts/backfill.ts
-await using app = createApp(AppModule);
-await app.init();
-const posts = app.container.resolve(POSTS);
-
-for (const row of (await posts.list({ page: { limit: 1000 } })).items) {
-  await posts.update(row.id, { slug: slugify(row.title) });
-}
-```
-
-`await using` disposes the app, closing the pool so the process exits. See [Standalone Applications](./web-standalone.html).
-
-**A local read-only data browser.** The Studio implementation serves the tables
-declared by the active config on `127.0.0.1`. It accepts no SQL or write method,
-omits `Sensitive` columns, and caps pages at 50 rows. Publish verification
-executes the installed command, waits for its loopback URL, and fetches that
-declared-table index. See [studio](./cli-studio.html).
-
-## Why scaffolding stays deliberately small
-
-A generated controller remains ordinary framework code:
+A controller remains ordinary framework code:
 
 ```ts
 @Controller('/posts')
 export class PostsController {
-  @Inject(POSTS) private readonly repo!: PostRepo;
-
   @Get()
-  list() {
-    return this.repo.list({ page: { limit: 20 } });
+  list(): { readonly resource: string; readonly items: readonly unknown[] } {
+    return { resource: 'posts', items: [] };
   }
 }
 ```
 
-The scaffold pairs it with a real route-behaviour test and prints the one module
-registration step. It does not generate barrel edits, mocked-reflection
-boilerplate, or hidden provider metadata.
+The useful generated material is the route test and the explicit module wiring,
+not a second abstraction over controllers. A schema is still one interface;
+DTOs, JSON Schema, DDL, and validators derive from it rather than becoming more
+generated files.
 
-A schema, similarly, is one `interface`, and the DTOs, JSON Schema, DDL and validators are all [derived from it](./type-derivation.html) rather than generated as files. That is the design decision that removes most of the generator's job — and the reason the one build step that does exist, [`zmdb-codegen`](./cli-codegen.html), writes nothing into your repository.
+## The rest of the executable
 
-## Database tooling boundaries
+The same bin also owns migrations, checks, catalog pull, DDL export, module
+inspection, the REPL, and the read-only Studio:
 
-**Introspection command wiring.** `zmdb pull` now reads PostgreSQL, MySQL, and
-SQLite catalogs through the configured driver and writes protected staging
-declarations. `--dry-run` previews complete files, `--check` reports byte drift
-without writing, and `detectDrift()` remains the library comparison against
-reviewed declarations. See [`cli-pull`](./cli-pull.html). Studio deliberately
-does not depend on that introspection path: it browses only the declarations
-selected by the config.
-
-**Migration generation from a diff against the live database.** `detectDrift()`
-can compare declarations with an introspected snapshot, but generation still
-uses the committed snapshot workflow and there is no reviewed command that
-applies live findings. See [Migrations](./migrations.html).
-
-## Rolling your own commands
-
-`parseArgs` is in Node, so a small task runner needs no dependency:
-
-```ts
-import { parseArgs } from 'node:util';
-
-const { positionals, values } = parseArgs({
-  allowPositionals: true,
-  options: { limit: { type: 'string', default: '100' }, 'dry-run': { type: 'boolean' } },
-});
-
-const COMMANDS: Record<string, (o: { limit: number; dryRun: boolean }) => Promise<void>> = {
-  backfill,
-  reindex,
-};
-
-const command = COMMANDS[positionals[0] ?? ''];
-if (command === undefined) {
-  console.error(`usage: task <${Object.keys(COMMANDS).join('|')}> [--limit n] [--dry-run]`);
-  process.exit(1);
-}
-await command({ limit: Number(values.limit), dryRun: values['dry-run'] === true });
+```bash
+npx zmdb --help
+npx zmdb generate --name add_posts
+npx zmdb migrate
+npx zmdb check
+npx zmdb studio
 ```
 
-A `--dry-run` that logs instead of writing is worth building into anything that touches production data — it is the difference between reviewing a backfill and discovering it.
-
-## What it would take
-
-The `new` dispatch, templates, workspace targeting, formatter integration, and
-generated-code gates have landed. The migration, push, check, and upgrade
-commands now own their executable config, driver, policy, and output wiring.
-
-`pull` now owns the reader/emitter staging policy. The commands still worth
-building include a repeatable seed runner.
+See the [CLI overview](./cli-overview.html) for the complete command and exit-code
+reference.
 
 ---
 
-See also: [Migration Runner](./migrations-cli.html) · [Standalone Applications](./web-standalone.html) · [Schema Introspection](./cli-pull.html)
+See also: [Monorepos & Libraries](./web-cli-monorepo.html) · [Building CLI
+Applications](./web-cli-apps.html) · [studio](./cli-studio.html)

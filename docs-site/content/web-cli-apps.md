@@ -1,20 +1,23 @@
-Command applications use the same module graph, dependency injection and lifecycle as an HTTP application,
-without creating a listener. `@zmdb/web/cli` supplies the `@Command` decorator and `createCommandApp`.
+A command application is the same compiled module graph, dependency injection,
+validation boundary, and lifecycle as an HTTP application, driven by argv
+instead of a request. It creates no listener.
 
-## Declare a command
+## A repository-backed batch command
 
-The arguments are an ordinary DTO. Its emitted JSON Schema drives option parsing, number coercion and help;
-its emitted validator checks the final object before `run` receives it.
+The arguments are an ordinary DTO. Its emitted JSON Schema defines the flat argv
+surface, and its emitted validator checks the coerced object before `run`
+receives it.
 
 ```ts
-import { assert } from '@zmdb/aot-validator';
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+// scripts/backfill-slugs.ts
+import { assert, defineRepository, schemaOf, type BaseRepository } from 'zmdb';
 import { Command, createCommandApp } from '@zmdb/web/cli';
-import { Inject } from '@zmdb/web/di';
-import { Module } from '@zmdb/web/modules';
+import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { Inject, Module, repositoryToken } from 'zmdb/web';
 
-import { POSTS } from '../src/tokens.js';
-import type { PostRepository } from '../src/types.js';
+import config from '../zmdb.config.js';
+import type { Post } from '../src/post.js';
+import { slugify } from '../src/slugify.js';
 
 interface BackfillArgs {
   readonly tenant: string;
@@ -22,6 +25,8 @@ interface BackfillArgs {
   readonly dryRun?: boolean;
   readonly tag?: readonly string[];
 }
+
+const POSTS = repositoryToken<Post>('PostRepository');
 
 @Command<BackfillArgs>({
   name: 'backfill-slugs',
@@ -31,25 +36,50 @@ interface BackfillArgs {
   positionals: ['tenant'],
 })
 class BackfillSlugs {
-  @Inject(POSTS) private readonly posts!: PostRepository;
+  @Inject(POSTS) private readonly posts!: BaseRepository<Post>;
 
   async run(args: BackfillArgs): Promise<void> {
-    const page = await this.posts.list({
-      page: { limit: args.limit ?? 500 },
-    });
+    let after: string | undefined;
 
-    for (const post of page.items) {
-      if (args.dryRun === true) {
-        console.log(`${post.id}: ${post.slug ?? '∅'} -> ${slugify(post.title)}`);
-      } else {
-        await this.posts.update(post.id, { slug: slugify(post.title) });
+    for (;;) {
+      const page = await this.posts.list({
+        where: { tenant: args.tenant },
+        orderBy: [{ column: 'id', dir: 'asc' }],
+        page: {
+          limit: args.limit ?? 500,
+          ...(after === undefined ? {} : { after }),
+        },
+      });
+
+      for (const post of page.items) {
+        const slug = slugify(post.title);
+        if (args.dryRun === true) {
+          console.log(`${String(post.id)}: ${post.slug ?? '∅'} -> ${slug}`);
+        } else {
+          await this.posts.update(post.id, { slug });
+        }
       }
+
+      if (!page.hasMore || page.cursor === undefined) break;
+      after = page.cursor;
     }
   }
 }
 
+if (config.driver === undefined) {
+  throw new Error('backfill-slugs needs a configured driver');
+}
+const driver = await config.driver();
+
 @Module({
-  providers: [postRepositoryProvider],
+  providers: [
+    {
+      token: POSTS,
+      useValue: defineRepository(schemaOf<Post>(), driver, {
+        dialect: driver.dialect ?? config.dialect,
+      }),
+    },
+  ],
   commands: [BackfillSlugs],
 })
 class AppModule {}
@@ -59,16 +89,35 @@ await app.init();
 process.exitCode = await app.run();
 ```
 
-The class has a zero-argument constructor. Dependencies use the same `@Inject` fields as controllers, and a
-controller and command in one module resolve the same singleton provider.
+The zero-argument command class receives its repository through the same
+`@Inject` field mechanism as a controller. A controller and command that request
+`POSTS` from the same module graph receive the same singleton.
 
-There is deliberately no `@Args()` or `@Option()` parameter decorator. Stage-3 decorators have no parameter
-form, and the JSON Schema document already carries the option names and scalar types without duplicating
-them in decorator metadata.
+There is no `@Args()` or `@Option()` parameter decorator. Stage-3 decorators
+have no parameter form, and the emitted JSON Schema already carries the option
+names and scalar types without duplicating them in runtime metadata.
 
-## argv conventions
+## Generated help is measured from the same declaration
 
-For the declaration above:
+For the declaration above, the real command runner emits:
+
+```text
+$ node dist/backfill-slugs.mjs --help
+Usage: backfill-slugs <tenant>
+
+Backfill missing post slugs
+
+Options:
+  --dry-run
+  --limit <value>
+  --tag <value>...
+  --help
+```
+
+Help is alphabetical for options because it comes from the emitted document;
+positionals retain the order in `positionals`.
+
+## argv mapping
 
 ```text
 backfill-slugs acme --limit 100 --dry-run --tag urgent --tag repair
@@ -85,74 +134,58 @@ becomes:
 }
 ```
 
-The parser follows the conventional spellings:
+The parser follows these conventions:
 
-- `dryRun` becomes `--dry-run`, while `--no-dry-run` supplies `false`.
-- A repeated array flag is always an array, including a single occurrence.
+- `dryRun` maps to `--dry-run`; `--no-dry-run` supplies `false`.
+- A repeated array flag is always an array, including one occurrence.
 - JSON Schema `number` and `integer` properties are coerced before validation.
-- `positionals` binds names in declaration order.
+- Named positionals bind in declaration order.
 - Values after `--` are passthrough and never enter the DTO.
-- Unknown flags, missing required values and validator failures print command help and return exit code 2.
+- Unknown flags, extra positionals, missing required values, and validation
+  failures print command help and return exit code 2.
 
-Nested objects and arrays of objects are refused when the application is created: argv is a flat boundary.
-A property tagged `Sensitive` is absent from the emitted document, so no flag is registered for it; secrets
-belong in the environment rather than process arguments.
+Nested objects and arrays of objects are refused when the application is
+created: argv is a flat boundary. A property omitted from JSON Schema, including
+one tagged `Sensitive`, never becomes a registered flag. Secrets belong in the
+environment, not process arguments.
 
-## Help and exit codes
+## Dispatch and exit codes
 
-With several commands, no name or `--help` prints every command and its description. A single registered
-command may omit its name, which keeps a one-command binary terse. `command --help` is derived from the same
-args document used by the parser, so it cannot drift from accepted flags.
+With several commands, no name or `--help` prints every command and description.
+A single registered command may omit its name, which keeps a one-command binary
+terse.
 
 `run` returns an exit code and never calls `process.exit`:
 
-| Command result       |                        Exit code |
-| -------------------- | -------------------------------: |
-| `undefined` / `void` |                                0 |
-| number               |     floored and clamped to 0–255 |
-| `true` / `false`     |                            0 / 1 |
-| thrown error         |    1, with the message on stderr |
+| Command result       | Exit code                        |
+| -------------------- | -------------------------------- |
+| `undefined` / `void` | 0                                |
+| number               | floored and clamped to 0–255     |
+| `true` / `false`     | 0 / 1                            |
+| thrown error         | 1, with the message on stderr    |
 | usage error          | 2, with generated help on stderr |
 
-Assign the result to `process.exitCode`. Calling `process.exit(...)` would skip `await using` disposal and can
-leave a pool or driver open.
+Assign the result to `process.exitCode`. Calling `process.exit(...)` would skip
+`await using` disposal and can leave a pool or driver open.
 
-## Lifecycle and operational safety
+## Lifecycle and the AOT boundary
 
-`app.init()` runs provider and command `onModuleInit` / `onApplicationBootstrap` hooks in construction order.
-Disposal runs `onShutdown` in reverse construction order, so a command closes before the provider it
-resolved. An unresolved provider factory is not constructed merely to look for hooks.
+`app.init()` runs provider and command `onModuleInit` /
+`onApplicationBootstrap` hooks in construction order. Disposal runs
+`onShutdown` in reverse construction order, so a command shuts down before the
+provider it resolved. An unresolved provider factory is not constructed merely
+to look for hooks.
 
-For destructive work, keep an explicit `--dry-run`, print the target database, and process bounded keyset
-pages rather than one offset scan:
+Build command entry points with the configured AOT adapter. Running the source
+through Node type stripping skips the transform; an untransformed `assert<T>()`
+throws `runtime type witness required in test/fallback mode`. The failure is
+loud rather than permissive, but it still means the command was not built
+correctly.
 
-```ts
-console.error(`database: ${new URL(env.DATABASE_URL).host}`);
-
-let after: string | undefined;
-for (;;) {
-  const page = await posts.list({
-    orderBy: [{ column: 'id', dir: 'asc' }],
-    page: { limit: 500, ...(after !== undefined ? { after } : {}) },
-  });
-
-  for (const row of page.items) {
-    if (!args.dryRun) await posts.update(row.id, { slug: slugify(row.title) });
-  }
-
-  if (!page.hasMore) break;
-  after = page.cursor;
-}
-```
-
-## The transformer still matters
-
-Running a command source through Node type stripping skips the AOT transformer. An untransformed
-`assert<T>()` therefore throws `runtime type witness required in test/fallback mode` rather than accepting
-unvalidated input. Build command entry points with the configured transformer, and keep a transformer canary
-in generated-project tests.
+`zmdb new command <name>` creates a command and behavioural spec with the same
+surface, then prints the `@Module({ commands: [...] })` registration.
 
 ---
 
-See also: [CLI](./web-cli.html) · [Standalone Applications](./web-standalone.html) ·
-[Cursor Pagination](./guide-cursor-pagination.html)
+See also: [CLI & Scaffolding](./web-cli.html) · [Standalone
+Applications](./web-standalone.html) · [Cursor Pagination](./guide-cursor-pagination.html)

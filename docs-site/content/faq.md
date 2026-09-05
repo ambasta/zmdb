@@ -6,9 +6,13 @@ Yes, if you write a type argument. The eight calls it rewrites are `is`, `assert
 
 `stringify`, `parse`, `decode` and `assertStringify` are _not_ transformed, and neither are the DTO types, the query compiler, the migration engine or `@zmdb/web` — those are types plus plain functions. See [AOT Setup](./aot-setup.html) and [Pure TypeScript](./pure-typescript.html).
 
-## Why is there no `zmdb` command?
+## What does the `zmdb` command cover?
 
-Because it is not built yet. The engine is: `snapshot()`, `diff()`, `emitUp()` and the migration runner are all public API, and the [CLI pages](./cli-overview.html) show the ~20-line script that does each drizzle-kit command today. Packaging that as an executable is tracked, not done.
+The installed executable owns project and component scaffolds, migrations,
+catalog pull, checks, DDL export, module inspection, the REPL, and the local
+read-only Studio. It keeps the underlying snapshot, diff, introspection, and
+migration-runner APIs public, so applications can still assemble a narrower
+workflow. See the [CLI overview](./cli-overview.html).
 
 ## Does zmdb support MongoDB?
 

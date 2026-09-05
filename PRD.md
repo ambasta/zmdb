@@ -100,7 +100,9 @@ the Typia replacement, must be able to install exactly that (**REQ-UM-2**).
 
 - **Not a Prisma replacement.** We do not ship a separate schema language, a code-gen
   step producing a client, or a native query engine binary.
-- **Not a Rails/Django.** No admin UI, no scaffolding CLI beyond migrations, no templating.
+- **Not a Rails/Django.** The CLI has narrow project/component scaffolds and a
+  read-only loopback data viewer, but no admin UI, templating, automatic module
+  edits, or hidden runtime conventions.
 - **Not backwards-compatible with the ecosystem's past.** No CommonJS, no
   `experimentalDecorators`, no `reflect-metadata` interop shim, no Node < 26. Every one of
   these is a _feature_: it is code we get to delete (`ARCHITECTURE.md` §5).

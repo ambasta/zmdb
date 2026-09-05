@@ -864,8 +864,7 @@ export const PAGE_META = {
   'cli-studio': {
     title: 'studio',
     group: 'CLI',
-    status: 'todo',
-    note: 'the read-only loopback browser ships; the final CLI transcript pass remains',
+    status: 'supported',
   },
   'dialect-postgres': {
     title: 'PostgreSQL',
@@ -1693,20 +1692,17 @@ export const PAGE_META = {
   'web-cli': {
     title: 'CLI & Scaffolding',
     group: 'Web Framework — CLI',
-    status: 'todo',
-    note: 'scaffolding, all database commands and the installed Studio ship; final transcripts remain',
+    status: 'supported',
   },
   'web-cli-monorepo': {
     title: 'Monorepos & Libraries',
     group: 'Web Framework — CLI',
-    status: 'todo',
-    note: 'explicit --package targeting ships; the final CLI docs pass waits on remaining CLI work',
+    status: 'supported',
   },
   'web-cli-apps': {
     title: 'Building CLI Applications',
     group: 'Web Framework — CLI',
-    status: 'todo',
-    note: 'command applications, scaffolding and studio ship; the final CLI docs pass remains',
+    status: 'supported',
   },
   'web-microservices': {
     title: 'Microservices',
