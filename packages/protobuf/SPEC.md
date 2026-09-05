@@ -1,6 +1,6 @@
 # `@zmdb/protobuf` — generated protobuf runtime contract
 
-> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #656 creates the package. The shipped implementation remains in `@zmdb/aot-validator` meanwhile.
+> Frozen by #654 for epic #653 and implemented by #656. The package now owns the public calls, artifact types, and wire ABI while `@zmdb/aot-validator` retains the single compiler front end.
 
 ## 1. Ownership
 

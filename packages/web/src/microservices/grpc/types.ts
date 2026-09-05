@@ -1,4 +1,4 @@
-import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from '@zmdb/aot-validator';
+import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from './artifact.js';
 
 /** Text and binary gRPC metadata are kept in separate maps. */
 export interface GrpcMetadata {
@@ -155,5 +155,3 @@ export interface GrpcClientOptions<S extends GrpcServiceDef> {
   readonly deadlineMs: number;
   readonly validateMetadata: GrpcMetadataValidator;
 }
-
-export type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef };

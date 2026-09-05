@@ -1,14 +1,14 @@
 # Tooling ownership policy — verifier contract
 
-> Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, and remeasured for #681 on a worktree based at
-> `5e3c4c77b7e89da2be14046588b70945835d1395`.
+> Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, remeasured for #681, and amended by #656 after the protobuf runtime/public-owner
+> extraction.
 
 ## 1. Extraction rule and totals
 
 The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
 and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **140 paths**, each exactly once:
+The inventory has **138 paths**, each exactly once:
 
 ```json
 {
@@ -17,7 +17,7 @@ The inventory has **140 paths**, each exactly once:
   "cli": 20,
   "runtime": 23,
   "facade": 12,
-  "optional-integration": 6,
+  "optional-integration": 4,
   "test-only": 28,
   "obsolete": 1
 }
@@ -135,12 +135,10 @@ facade	packages/zmdb/src/tags.ts
 facade	packages/zmdb/src/web-contract-compiler.ts
 facade	packages/zmdb/src/web-contract.ts
 facade	packages/zmdb/src/web.ts
-optional-integration	packages/aot-validator/src/grpc.ts
 optional-integration	packages/aot-validator/src/protobuf/decode.ts
 optional-integration	packages/aot-validator/src/protobuf/descriptor.ts
 optional-integration	packages/aot-validator/src/protobuf/encode.ts
 optional-integration	packages/aot-validator/src/protobuf/grpc-ir.ts
-optional-integration	packages/aot-validator/src/protobuf/wire.ts
 test-only	packages/aot-validator/src/lint/__fixtures__/nullable-tags.fixed.ts
 test-only	packages/aot-validator/src/lint/__fixtures__/nullable-tags.input.ts
 test-only	packages/aot-validator/src/lint/__fixtures__/rule-tester.ts
@@ -177,7 +175,7 @@ moving to compiler. `obsolete` means deletion with no replacement file; the beha
 
 ## 3. Public export and executable map
 
-There are **43 current export keys**: 15 AOT validator, 13 query compiler and 15 facade.
+There are **42 current export keys**: 14 AOT validator, 13 query compiler and 15 facade.
 
 ```text
 @zmdb/aot-validator	.	retain	@zmdb/aot-validator
@@ -189,7 +187,6 @@ There are **43 current export keys**: 15 AOT validator, 13 query compiler and 15
 @zmdb/aot-validator	./utilities	retain	@zmdb/aot-validator/utilities
 @zmdb/aot-validator	./metro	delete-after-move	@zmdb/compiler/metro
 @zmdb/aot-validator	./plugin	delete-after-move	@zmdb/compiler/unplugin
-@zmdb/aot-validator	./protobuf/wire	retain-until-integration-epic	@zmdb/aot-validator/protobuf/wire
 @zmdb/aot-validator	./reflect	delete-after-move	@zmdb/compiler/reflect
 @zmdb/aot-validator	./testing	delete-after-move	@zmdb/compiler/testing
 @zmdb/aot-validator	./codegen	delete-after-move	@zmdb/compiler
@@ -261,7 +258,7 @@ edge. A topological sort must contain query/schema/validator protocols before co
 
 ## 5. Manifest-edge move map
 
-There are **16 current dependency/peer/development edges** in the three manifests.
+There are **17 current dependency/peer/development edges** in the three manifests.
 
 ```text
 packages/aot-validator/package.json	dependency	@zmdb/schema-core	retain-runtime
@@ -269,6 +266,7 @@ packages/aot-validator/package.json	peer	oxlint	move-compiler-optional-peer
 packages/aot-validator/package.json	peer	typescript	move-compiler-peer
 packages/aot-validator/package.json	dev	oxlint	move-compiler-dev
 packages/aot-validator/package.json	dev	protobufjs	retain-optional-integration-dev
+packages/aot-validator/package.json	dev	@zmdb/protobuf	retain-compiler-boundary-tests
 packages/aot-validator/package.json	dev	typescript	move-compiler-dev
 packages/query-compiler/package.json	dependency	oxfmt	move-migrations-dependency
 packages/query-compiler/package.json	dev	typescript	retain-query-build

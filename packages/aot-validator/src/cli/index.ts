@@ -31,6 +31,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
 import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
 
+import { CALL_OWNERS, STRICT_OWNER_CALLEES } from '../reflect/callsites.js';
 import { ReflectSession, type SourceFileHandle } from '../reflect/session.js';
 import { CALLEES, transformFile } from '../transformer.js';
 import { scan, type Entry, type SiteEntry, type TypeImport } from './scan.js';
@@ -77,11 +78,19 @@ export interface CodegenResult {
 }
 
 /**
- * Cheap pre-filter: does this file even mention one of the transformed functions with a type
- * argument? Reading a file and matching a regex is orders of magnitude less than asking the
- * compiler for its AST, and in a real project almost every file answers no.
+ * Cheap pre-filter: does this file import any package that owns a transformed call?
+ * Looking for the owner rather than a callee spelling preserves the fast path for aliases.
  */
-const MENTIONS_CALLEE = new RegExp(`\\b(?:${[...CALLEES].join('|')})\\s*<`);
+const OWNER_SPECIFIERS = [...new Set(Object.values(CALL_OWNERS).flat())];
+const MENTIONS_OWNER = new RegExp(
+  `\\bfrom\\s+['"](?:${OWNER_SPECIFIERS.map(specifier => specifier.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})['"]`,
+);
+const MENTIONS_FORWARDED_CALL = new RegExp(
+  `\\b(?:${[...CALLEES]
+    .filter(callee => !STRICT_OWNER_CALLEES.has(callee))
+    .map(callee => callee.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')})\\s*<`,
+);
 
 export function codegen(options: CodegenOptions): CodegenResult {
   const project = resolve(options.project);
@@ -137,7 +146,7 @@ function run(session: ReflectSession, project: string, options: CodegenOptions):
       // with a delete; either way there is nothing here to rewrite.
       continue;
     }
-    if (!hadWitness && !MENTIONS_CALLEE.test(code)) continue;
+    if (!hadWitness && !MENTIONS_OWNER.test(code) && !MENTIONS_FORWARDED_CALL.test(code)) continue;
 
     const sourceFile = session.sourceFile(fileName);
     if (!sourceFile) {
@@ -158,7 +167,7 @@ function run(session: ReflectSession, project: string, options: CodegenOptions):
       continue;
     }
 
-    const scanned = scan({ sourceFile, witnessFile, tsExtensions });
+    const scanned = scan({ checker: session.checker, sourceFile, witnessFile, tsExtensions });
     for (const refusal of scanned.refusals) {
       problems.push(`${show(fileName)}: cannot generate for \`${refusal.typeText}\` — ${refusal.reason}`);
     }

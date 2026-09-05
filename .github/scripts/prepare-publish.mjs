@@ -23,6 +23,11 @@ const META = {
       'Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.',
     keywords: ['typescript', 'validation', 'aot', 'runtime-types', 'json', 'serialization', 'zmdb'],
   },
+  protobuf: {
+    description:
+      "Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.",
+    keywords: ['typescript', 'protobuf', 'grpc', 'serialization', 'aot', 'zmdb'],
+  },
   repository: {
     description:
       'Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.',

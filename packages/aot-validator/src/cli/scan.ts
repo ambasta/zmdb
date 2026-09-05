@@ -1,5 +1,5 @@
-// The syntactic half of `zmdb-codegen`: what to generate, and what the generated module
-// has to import to say it.
+// The source-analysis half of `zmdb-codegen`: what to generate, which canonical
+// package export each call resolves to, and what the generated module has to import.
 //
 // Nothing here asks the checker anything. That is deliberate — every question this file
 // answers is about *text*: which calls carry a type argument, which names that type
@@ -35,8 +35,9 @@ import {
   isTypeReferenceNode,
   isVariableStatement,
 } from 'typescript/unstable/ast/is';
+import type { Checker } from 'typescript/unstable/sync';
 
-import { findCallSites, type CallSite } from '../reflect/callsites.js';
+import { CALL_OWNERS, findOwnedCallSites, type CallSite } from '../reflect/callsites.js';
 import { CALLEES } from '../transformer.js';
 
 /** How a name got into a module's scope, in a form that can be written down again. */
@@ -324,11 +325,11 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
   toJsonSchema: '@zmdb/schema-core/openapi',
   schemaOf: '@zmdb/schema-core',
   toolFor: '@zmdb/schema-core/llm',
-  grpcDescriptor: '@zmdb/aot-validator',
-  loadGrpcService: '@zmdb/aot-validator',
-  protoDescriptor: '@zmdb/aot-validator',
-  protoDecode: '@zmdb/aot-validator',
-  protoEncode: '@zmdb/aot-validator',
+  grpcDescriptor: '@zmdb/protobuf',
+  loadGrpcService: '@zmdb/protobuf',
+  protoDescriptor: '@zmdb/protobuf',
+  protoDecode: '@zmdb/protobuf',
+  protoEncode: '@zmdb/protobuf',
 };
 
 /**
@@ -341,6 +342,7 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
  * same reason.
  */
 function calleeSpecifier(facts: ModuleFacts, site: CallSite): string {
+  if (site.specifier !== undefined) return site.specifier;
   const direct = facts.imports.get(site.callee);
   if (direct) return direct.specifier;
   const target = site.node.expression;
@@ -356,6 +358,7 @@ function calleeSpecifier(facts: ModuleFacts, site: CallSite): string {
 // -----------------------------------------------------------------------------
 
 export interface ScanInput {
+  readonly checker: Checker;
   readonly sourceFile: SourceFile;
   /** The previous run's witness, when there is one. See `scan` for why it is read. */
   readonly witnessFile?: SourceFile | undefined;
@@ -405,7 +408,7 @@ function siblingSpecifier(fileName: string, extension: string): string {
  * validators for code that no longer exists.
  */
 export function scan(input: ScanInput): ScanResult {
-  const { sourceFile, witnessFile } = input;
+  const { checker, sourceFile, witnessFile } = input;
   const sourceText = sourceFile.text;
 
   const entries: Entry[] = [];
@@ -486,7 +489,7 @@ export function scan(input: ScanInput): ScanResult {
   // above an old one — the source references these names, and a rename would be a diff in
   // hand-written code for no reason.
   if (witnessFile) {
-    for (const site of findCallSites(witnessFile, CALLEES)) {
+    for (const site of findOwnedCallSites(witnessFile, checker, CALLEES, CALL_OWNERS)) {
       const typeText = witnessFile.text.slice(site.typeArgument.getStart(), site.typeArgument.end);
       const depth = depthOf(site, witnessFile);
       const argumentsText = capturedArguments(site, witnessFile);
@@ -499,7 +502,7 @@ export function scan(input: ScanInput): ScanResult {
     }
   }
 
-  for (const site of findCallSites(sourceFile, CALLEES)) {
+  for (const site of findOwnedCallSites(sourceFile, checker, CALLEES, CALL_OWNERS)) {
     const typeText = sourceText.slice(site.typeArgument.getStart(), site.typeArgument.end);
     const depth = depthOf(site, sourceFile);
     const argumentsText = capturedArguments(site, sourceFile);

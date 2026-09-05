@@ -1,3 +1,4 @@
+import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
 import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 
 import type { Observability } from '../../observability/index.js';
@@ -13,11 +14,8 @@ import type {
   GrpcFailure,
   GrpcHandler,
   GrpcHandlers,
-  GrpcLoadedService,
   GrpcMetadata,
-  GrpcMethodDef,
   GrpcServerOptions,
-  GrpcServiceDef,
   GrpcServiceSpec,
   GrpcStatus,
   bindGrpcService,

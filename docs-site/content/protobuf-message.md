@@ -4,7 +4,7 @@
 ## Field numbers are the wire contract
 
 ```ts
-import { protoDescriptor } from '@zmdb/aot-validator';
+import { protoDescriptor } from '@zmdb/protobuf';
 import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 type State = 'active' | 'paused';
@@ -59,7 +59,7 @@ integer is a `bigint` on both encode and decode, even when its current value wou
 Proto3 implicit presence makes a required scalar's zero value indistinguishable from absence:
 
 ```ts
-import { protoDecode, protoEncode } from '@zmdb/aot-validator';
+import { protoDecode, protoEncode } from '@zmdb/protobuf';
 import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 interface RequiredCount {

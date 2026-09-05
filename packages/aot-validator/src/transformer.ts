@@ -33,7 +33,7 @@ import type { Type } from 'typescript/unstable/sync';
 
 import { Emitter, escapePattern, type EmitOptions } from './emit/index.js';
 import type { GrpcServiceIR } from './protobuf/grpc-ir.js';
-import { findCallSites, type CallSite } from './reflect/callsites.js';
+import { CALL_OWNERS, findOwnedCallSites, OWNED_CALLEES, type CallSite } from './reflect/callsites.js';
 import { Reflector, type ReflectOptions } from './reflect/index.js';
 import type { ReflectSession } from './reflect/session.js';
 import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
@@ -46,25 +46,7 @@ import { MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complex
  * and the CLI leaves as a runtime walk, which is a silent performance cliff between two
  * paths that are supposed to be equivalent.
  */
-export const CALLEES: ReadonlySet<string> = new Set([
-  'is',
-  'isShallow',
-  'assert',
-  'assertShallow',
-  'equals',
-  'assertEquals',
-  'validate',
-  'validateShallow',
-  'random',
-  'toJsonSchema',
-  'schemaOf',
-  'toolFor',
-  'grpcDescriptor',
-  'loadGrpcService',
-  'protoDescriptor',
-  'protoDecode',
-  'protoEncode',
-]);
+export const CALLEES: ReadonlySet<string> = OWNED_CALLEES;
 
 /**
  * What the reflector made of the type argument.
@@ -119,6 +101,8 @@ export interface TransformContext {
   readonly session: ReflectSession;
   readonly emit?: EmitOptions;
   readonly reflect?: ReflectOptions;
+  /** Synthetic test projects can opt into their ambient global call declarations. */
+  readonly allowUnboundCallees?: boolean;
 }
 
 /**
@@ -146,7 +130,9 @@ export function transformFile(fileName: string, code: string, context: Transform
     );
   }
 
-  const sites = findCallSites(sourceFile, CALLEES);
+  const sites = findOwnedCallSites(sourceFile, session.checker, CALLEES, CALL_OWNERS, {
+    allowUnbound: context.allowUnboundCallees === true,
+  });
   if (sites.length === 0) {
     const out = transformCode(code);
     return { code: out, changed: out !== code, diagnostics: [] };

@@ -23,8 +23,8 @@ import {
   type UntypedServiceImplementation,
   type sendUnaryData,
 } from '@grpc/grpc-js';
-import type { GrpcLoadedMethod, GrpcMethodDef, GrpcServiceDef } from '@zmdb/aot-validator';
 
+import type { GrpcLoadedMethod, GrpcMethodDef, GrpcServiceDef } from './artifact.js';
 import {
   GrpcError,
   type GrpcBinding,

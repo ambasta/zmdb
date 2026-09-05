@@ -20,11 +20,11 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ProtoReader, ProtoWriter } from '@zmdb/protobuf/wire';
 import type { TypeIR } from '@zmdb/schema-core/ir';
 import type { Diagnostic } from 'typescript/unstable/sync';
 
 import { AssertError } from '../../errors.js';
-import { ProtoReader, ProtoWriter } from '../../protobuf/wire.js';
 import { findCallSites } from '../../reflect/callsites.js';
 import { Reflector } from '../../reflect/index.js';
 import { ReflectSession } from '../../reflect/session.js';
@@ -60,6 +60,8 @@ const TSCONFIG = {
       '@zmdb/schema-core/*': [`${ROOT}packages/schema-core/src/*/index.ts`],
       '@zmdb/aot-validator': [`${ROOT}packages/aot-validator/src/index.ts`],
       '@zmdb/aot-validator/*': [`${ROOT}packages/aot-validator/src/*/index.ts`],
+      '@zmdb/protobuf': [`${ROOT}packages/protobuf/src/index.ts`],
+      '@zmdb/protobuf/*': [`${ROOT}packages/protobuf/src/*.ts`],
     },
   },
   include: ['**/*.ts'],
@@ -165,6 +167,7 @@ export class FixtureProject implements Disposable {
     this.session.refresh([this.module]);
     return transformFile(this.module, source, {
       session: this.session,
+      allowUnboundCallees: true,
       ...(this.#emit ? { emit: this.#emit } : {}),
     });
   }

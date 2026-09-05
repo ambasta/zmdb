@@ -2214,6 +2214,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/aot-validator@workspace:packages/aot-validator"
   dependencies:
+    "@zmdb/protobuf": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     oxlint: "npm:1.81.0"
     protobufjs: "npm:8.8.0"
@@ -2239,6 +2240,14 @@ __metadata:
     "@zmdb/query-compiler": "workspace:*"
     "@zmdb/schema-core": "workspace:*"
     kysely: "npm:^0.29.5"
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/protobuf@workspace:^, @zmdb/protobuf@workspace:packages/protobuf":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/protobuf@workspace:packages/protobuf"
+  dependencies:
+    typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft
 
@@ -2299,6 +2308,7 @@ __metadata:
     "@opentelemetry/sdk-trace-base": "npm:2.11.0"
     "@types/pg": "npm:^8.23.1"
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/protobuf": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"

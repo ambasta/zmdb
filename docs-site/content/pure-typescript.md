@@ -14,6 +14,8 @@ is<User>(payload); // needs the transformer
 built from the reflected IR. Where it did not run over a file, the type argument is gone and the call **throws** — the validation utilities ask for a runtime witness, while the schema, protobuf and
 gRPC artifact calls name the build transform that should have replaced them.
 
+The five protobuf and gRPC artifact calls are imported from `@zmdb/protobuf`; reflection and emission still run once through `@zmdb/aot-validator`.
+
 > [!IMPORTANT] There is no fallback that inspects `T` at runtime, because there is nothing to inspect. An earlier version of this page described the untransformed path as "slower but working"; it
 > fails open, which is worse than failing, so it now throws. See [AOT Setup](./aot-setup.html).
 

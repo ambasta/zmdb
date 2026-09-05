@@ -1,11 +1,3 @@
-export {
-  grpcDescriptor,
-  loadGrpcService,
-  type GrpcLoadedMethod,
-  type GrpcLoadedService,
-  type GrpcMethodDef,
-  type GrpcServiceDef,
-} from './loader.js';
 export { bindGrpcService, createGrpcClient } from './runtime.js';
 export {
   GrpcError,

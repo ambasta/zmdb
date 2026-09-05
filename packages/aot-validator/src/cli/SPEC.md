@@ -30,10 +30,11 @@ The programmatic `codegen` / `watchCodegen` boundary accepts `naming?: NamingStr
 ## 2. What it rewrites
 
 `src/cli/scan.ts` finds calls to the seventeen callees the transformer currently knows — `is`, `isShallow`, `assert`, `assertShallow`, `equals`, `assertEquals`, `validate`, `validateShallow`,
-`random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`, `protoEncode`, `grpcDescriptor` and `loadGrpcService` — with a type argument. The scan is textual and deliberately
-cheap, because most files have none; the compiler is only asked about the files that do. A non-default shallow depth is part of the generated export's identity, so `isShallow<Row, 1>` and
-`isShallow<Row, 2>` cannot collapse onto one wrapper. The gRPC forms also require two string literals; those service/package arguments are captured in the zero-argument generated wrapper and its
-export identity.
+`random`, `toJsonSchema`, `schemaOf`, `toolFor`, `protoDescriptor`, `protoDecode`, `protoEncode`, `grpcDescriptor` and `loadGrpcService` — with a type argument. A cheap text/import prefilter skips
+files that cannot contain a candidate; the scan itself uses the checker. The five protobuf/gRPC artifact calls transform only when their direct, aliased, or namespace binding resolves to
+`@zmdb/protobuf`; local and foreign same-named calls are ignored. Existing validator/schema forwarding behavior is preserved. A non-default shallow depth is part of the generated export's identity, so
+`isShallow<Row, 1>` and `isShallow<Row, 2>` cannot collapse onto one wrapper. The gRPC forms also require two string literals; those service/package arguments are captured in the zero-argument
+generated wrapper and its export identity.
 
 Per source file that validates anything, **three files beside it and one edit to the source**. `is<User>(data)` becomes `zmdbIsUser(data)`, imported from a generated module. For `src/app.ts`:
 

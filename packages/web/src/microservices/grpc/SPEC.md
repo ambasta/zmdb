@@ -7,7 +7,7 @@ Part of `@zmdb/web`, a new `./microservices/grpc` subpath. `../SPEC.md` owns bro
 
 > **Ownership target frozen by #654:** the full adapter contract below moves to `@zmdb/transport-grpc`, where grpc-js is the package's one required peer and `grpcExtension(GrpcServerOptions)` supplies
 > the `@zmdb/app` lifecycle. Generated service calls and `GrpcLoaded*`/`Grpc*Def` types move to `@zmdb/protobuf` and are not re-exported by the transport. `@zmdb/web/microservices/grpc` is removed
-> with no forwarding subpath. Until #657 lands, the paragraphs below continue to describe shipped behavior at the old location.
+> with no forwarding subpath. #656 has completed the artifact move; until #657 lands, the paragraphs below continue to describe adapter behavior at the old location.
 
 ## 1. gRPC is not a broker, so almost nothing in `../SPEC.md` applies
 
@@ -78,8 +78,8 @@ It emits the `service` block and every message block it references, so the artif
 diff it in CI, and the contract-change review that `.proto` files are prized for is a pull request — which is exactly what `web-microservices-grpc.md` already recommends doing with an OpenAPI
 document.
 
-`grpcDescriptor` belongs to this gRPC epic but lives in `@zmdb/aot-validator`, next to `protoDescriptor`, **not here**. `@zmdb/web` does not gain a `TypeIR` walker; the walker exists once and this
-epic calls it. §8 is the rest of that boundary.
+`grpcDescriptor` and `protoDescriptor` are public calls in `@zmdb/protobuf`, while their one reflector and emitter remain in `@zmdb/aot-validator`. `@zmdb/web` does not gain a `TypeIR` walker; the
+walker exists once and this epic calls it. §8 is the rest of that boundary.
 
 The `ServiceDefinition` object `@grpc/grpc-js`'s `Server.addService` wants is built from `loadGrpcService`'s generated method table. Each entry carries the same validators and protobuf codecs the
 standalone message calls emit. That is the entire reason `@grpc/proto-loader` is unnecessary: everything it would have produced is already available in a typed build artifact.
@@ -319,14 +319,13 @@ application rules are part of the service contract.
 
 ## 11. The boundary with the protobuf epic, stated as a dependency
 
-`#557` step 9 asked for this boundary. The shipped split is:
+`#557` step 9 asked for this boundary. The transitional split after #656 is:
 
-| Build-time type/codec layer (`@zmdb/aot-validator`, `@zmdb/schema-core`) | Runtime web layer (`@zmdb/web/microservices/grpc`)   |
-| ------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `ProtoField<N>`, `Proto<K>` and their IR carriage                        | `GrpcServiceDef`, `GrpcMethodDef` public types       |
-| `protoEncode`, `protoDecode`, `protoDescriptor`                          | `bindGrpcService`, `GrpcHandlers`                    |
-| `grpcDescriptor`, `loadGrpcService`                                      | server/client adapters and application lifecycle     |
-| field-number, wire-type and method-shape diagnostics                     | deadlines, cancellation, metadata and status mapping |
+| Compiler (`@zmdb/aot-validator`, `@zmdb/schema-core`) | Artifact runtime (`@zmdb/protobuf`)                 | Temporary adapter (`@zmdb/web/microservices/grpc`)   |
+| ----------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------- |
+| one reflection session and protobuf/service-IR walk   | five source calls and `Grpc*Def` public types       | `bindGrpcService`, `GrpcHandlers`                    |
+| descriptor, validator and codec emission              | generated service artifacts and byte-level wire ABI | server/client adapters and application lifecycle     |
+| field-number and method-shape diagnostics             | no checker, emitter, parser, runtime peer, or I/O   | deadlines, cancellation, metadata and status mapping |
 
 The #654 target separates public runtime ownership from compiler ownership:
 
@@ -339,8 +338,8 @@ The #654 target separates public runtime ownership from compiler ownership:
 There is **one** `TypeIR` walker and it remains in `@zmdb/aot-validator`. `grpcDescriptor` is publicly owned by `@zmdb/protobuf` but compiled by that existing emitter; moving the walk into either
 runtime package would create the second interpretation this boundary forbids.
 
-The complete path currently ships from the old packages. The target preserves it: one reflection walk emits the descriptor, validators and codecs, `@zmdb/protobuf` supplies the generated ABI, and
-`@zmdb/transport-grpc` turns the artifact into grpc-js service definitions and typed client calls without parsing the descriptor.
+The artifact half now ships from `@zmdb/protobuf`. #657 completes the target by moving the adapter from web to `@zmdb/transport-grpc`; one reflection walk continues to emit the descriptor, validators,
+and codecs without parsing the descriptor at runtime.
 
 Everything else in this epic — `TransportStrategy`, the dispatcher, the broker strategies, the hybrid lifecycle — is genuinely independent, so the epic's claim holds for six of its seven sub-issues.
 

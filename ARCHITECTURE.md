@@ -322,6 +322,8 @@ The exact 32-file ownership map, public exports, peer matrix, publish order and 
 This section is the target frozen for epic #653, not a claim about the current tree. The measured starting point has protobuf calls, service artifacts and wire primitives in `@zmdb/aot-validator`; six
 external peers on `@zmdb/web`; and six integration subpaths under web.
 
+Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces. The six transport/jobs/telemetry packages remain later slices of the same target.
+
 The final manifest graph is:
 
 | Package                    | Direct internal dependencies  | Sole external peer               |
@@ -473,7 +475,7 @@ This extraction does not create three products. `zmdb/compiler`, `zmdb/migration
 not duplicated implementations. The root does not eagerly import them. The old `zmdb/unplugin` spelling is governed as a compatibility alias by #721/#728 rather than by this ownership move.
 
 Runtime package roots never reach the tooling packages. Generated application code may call the runtime validator ABI, but it never imports `@zmdb/compiler`. The measured move policy is
-[`verify-tooling-ownership.SPEC.md`](./.github/scripts/verify-tooling-ownership.SPEC.md): 138 current shipped/build-input paths, 41 current export keys, two current binaries, 16 current manifest edges
+[`verify-tooling-ownership.SPEC.md`](./.github/scripts/verify-tooling-ownership.SPEC.md): 138 current shipped/build-input paths, 42 current export keys, two current binaries, 17 current manifest edges
 and 12 checked-in generated artifacts are each assigned exactly once.
 
 The package contracts are [`packages/compiler/SPEC.md`](./packages/compiler/SPEC.md), [`packages/migrations/SPEC.md`](./packages/migrations/SPEC.md) and
@@ -552,8 +554,9 @@ Arrows point from a dependency to its consumer.
 - Foundation manifests have no external production, optional, or peer dependency. Their `node:*` allowlist is empty; concrete SQLite is an optional package, not an ORM built-in.
 - Compiler, migrations, CLI, AI/MCP, web/jobs, and concrete database packages point inward. A foundation export cannot reach them directly or transitively.
 
-The cutover deletes `@zmdb/schema-core`, `@zmdb/query-compiler`, `@zmdb/aot-validator`, and `@zmdb/repository` and all of their old subpaths. They do not survive as forwarding packages. The measured
-136-file, 54-subpath, and 24-manifest-entry move map is normative in [`.github/scripts/verify-runtime-foundation.SPEC.md`](./.github/scripts/verify-runtime-foundation.SPEC.md).
+The cutover deletes `@zmdb/schema-core`, `@zmdb/query-compiler`, `@zmdb/aot-validator`, and `@zmdb/repository` and all of their old subpaths. They do not survive as forwarding packages. After #656
+extracted protobuf, the measured 137-file, 53-subpath, and 25-manifest-entry move map is normative in
+[`.github/scripts/verify-runtime-foundation.SPEC.md`](./.github/scripts/verify-runtime-foundation.SPEC.md).
 
 ---
 

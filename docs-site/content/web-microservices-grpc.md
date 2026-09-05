@@ -6,7 +6,7 @@ loading a `.proto` at runtime.
 gRPC uses the same type-derived protobuf path as `protoEncode`, `protoDecode` and `protoDescriptor`. Declare message field numbers in TypeScript and load the service at build time:
 
 ```ts
-import { loadGrpcService } from '@zmdb/aot-validator';
+import { loadGrpcService } from '@zmdb/protobuf';
 import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 interface GetOrder {
@@ -49,8 +49,8 @@ type Orders = {
 export const ordersService = loadGrpcService<Orders>('Orders', 'orders');
 ```
 
-`loadGrpcService` is an AOT call. The build transform or `zmdb-codegen` replaces it with a frozen descriptor, method paths, streaming flags, validators and protobuf codecs. No `.proto` file is read or
-parsed at runtime, and `@grpc/proto-loader` is not a direct dependency.
+`loadGrpcService` is declared by `@zmdb/protobuf` and compiled by the `@zmdb/aot-validator` build transform or `zmdb-codegen`. It becomes a frozen descriptor, method paths, streaming flags,
+validators, and protobuf codecs. No `.proto` file is read or parsed at runtime, and `@grpc/proto-loader` is not a direct dependency.
 
 That shape also makes the service closed: a binding with an unimplemented method does not compile. The streaming flags select the handler signature, so using a unary function where a server stream is
 declared is a compile error.

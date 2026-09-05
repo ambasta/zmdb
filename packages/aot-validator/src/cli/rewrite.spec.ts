@@ -48,6 +48,8 @@ const TSCONFIG = {
       '@zmdb/schema-core/*': [`${ROOT}packages/schema-core/src/*/index.ts`],
       '@zmdb/aot-validator': [`${ROOT}packages/aot-validator/src/index.ts`],
       '@zmdb/aot-validator/*': [`${ROOT}packages/aot-validator/src/*/index.ts`],
+      '@zmdb/protobuf': [`${ROOT}packages/protobuf/src/index.ts`],
+      '@zmdb/protobuf/*': [`${ROOT}packages/protobuf/src/*.ts`],
       '@consumer/validation': [`${ROOT}packages/aot-validator/src/utilities/index.ts`],
     },
   },
@@ -262,7 +264,7 @@ export const explain = (value: unknown) => validate<Order>(value);
 
 describe('a protobuf encoder call', () => {
   it('writes a checked Uint8Array wrapper and preserves the wire-runtime import', () => {
-    const run = generate(`import { protoEncode } from '@zmdb/aot-validator';
+    const run = generate(`import { protoEncode } from '@zmdb/protobuf';
 import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 export interface Message {
@@ -278,15 +280,47 @@ export const encodeMessage = (value: Message): Uint8Array => protoEncode<Message
     const generated = readFileSync(join(run.src, 'app.zmdb.generated.js'), 'utf8');
     const declaration = readFileSync(join(run.src, 'app.zmdb.generated.d.ts'), 'utf8');
     expect(generated).toContain('ProtoWriter');
-    expect(generated).toContain('@zmdb/aot-validator/protobuf/wire');
+    expect(generated).toContain('@zmdb/protobuf/wire');
     expect(generated).toContain('export function zmdbProtoEncodeMessage(value)');
     expect(declaration).toContain('export declare function zmdbProtoEncodeMessage(value: Message): Uint8Array;');
+  });
+
+  it('recognises an aliased canonical binding and removes only its local name', () => {
+    const run = generate(`import { protoEncode as encodeProto } from '@zmdb/protobuf';
+import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+
+export interface Message {
+  value: number & Proto<'int32'> & ProtoField<1>;
+}
+
+export const encodeMessage = (value: Message): Uint8Array => encodeProto<Message>(value);
+`);
+    ok(run.result);
+    expect(run.app).toContain('zmdbProtoEncodeMessage(value)');
+    expect(run.app).not.toContain('encodeProto<Message>');
+    expect(run.app).not.toContain("from '@zmdb/protobuf'");
+  });
+
+  it('recognises the canonical namespace property', () => {
+    const run = generate(`import * as protobuf from '@zmdb/protobuf';
+import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
+
+export interface Message {
+  value: number & Proto<'int32'> & ProtoField<1>;
+}
+
+export const encodeMessage = (value: Message): Uint8Array => protobuf.protoEncode<Message>(value);
+`);
+    ok(run.result);
+    expect(run.app).toContain('zmdbProtoEncodeMessage(value)');
+    expect(run.app).not.toContain('protobuf.protoEncode<Message>');
+    expect(run.app).not.toContain("from '@zmdb/protobuf'");
   });
 });
 
 describe('a protobuf decoder call', () => {
   it('writes a checked message wrapper and preserves the bounded wire-runtime import', () => {
-    const run = generate(`import { protoDecode } from '@zmdb/aot-validator';
+    const run = generate(`import { protoDecode } from '@zmdb/protobuf';
 import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 export interface Message {
@@ -302,7 +336,7 @@ export const decodeMessage = (bytes: Uint8Array): Message => protoDecode<Message
     const generated = readFileSync(join(run.src, 'app.zmdb.generated.js'), 'utf8');
     const declaration = readFileSync(join(run.src, 'app.zmdb.generated.d.ts'), 'utf8');
     expect(generated).toContain('ProtoReader');
-    expect(generated).toContain('@zmdb/aot-validator/protobuf/wire');
+    expect(generated).toContain('@zmdb/protobuf/wire');
     expect(generated).toContain('export function zmdbProtoDecodeMessage(bytes)');
     expect(declaration).toContain('export declare function zmdbProtoDecodeMessage(bytes: Uint8Array): Message;');
   });
@@ -310,7 +344,7 @@ export const decodeMessage = (bytes: Uint8Array): Message => protoDecode<Message
 
 describe('a gRPC service loader call', () => {
   it('captures the service and package literals in a zero-argument generated wrapper', () => {
-    const run = generate(`import { loadGrpcService } from '@zmdb/aot-validator';
+    const run = generate(`import { loadGrpcService } from '@zmdb/protobuf';
 import type { ProtoField } from '@zmdb/schema-core/tags';
 
 export interface Ping {
@@ -336,6 +370,37 @@ export const echo = loadGrpcService<Echo>('Echo', 'demo');
     expect(declaration).toContain(
       'export declare function zmdbLoadGrpcServiceEchoEchoDemo(): GrpcLoadedService<Echo>;',
     );
+  });
+});
+
+describe('non-canonical protobuf calls', () => {
+  it('an unrelated local protoEncode function is not transformed', () => {
+    const source = `function protoEncode<T>(value: T): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(value));
+}
+
+export const bytes = protoEncode<{ readonly id: number }>({ id: 1 });
+`;
+    const run = generate(source);
+    ok(run.result);
+    expect(run.app).toBe(source);
+    expect(run.result.written).toEqual([]);
+  });
+
+  it('leaves a same-named foreign export byte-identical', () => {
+    const source = `import { protoEncode } from './foreign.js';
+
+export const bytes = protoEncode<{ readonly id: number }>({ id: 1 });
+`;
+    const run = generate(source, {
+      'foreign.ts': `export function protoEncode<T>(_value: T): Uint8Array {
+  return new Uint8Array();
+}
+`,
+    });
+    ok(run.result);
+    expect(run.app).toBe(source);
+    expect(run.result.written).toEqual([]);
   });
 });
 

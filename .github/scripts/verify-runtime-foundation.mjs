@@ -72,7 +72,7 @@ export const FOUNDATION_PACKAGES = [
   {
     name: '@zmdb/validator',
     dir: 'validator',
-    exports: ['.', './advanced', './errors', './protobuf/wire', './serialization'],
+    exports: ['.', './advanced', './errors', './serialization'],
     dependencies: ['@zmdb/schema'],
   },
   {

@@ -9,7 +9,13 @@
 //        node .github/scripts/set-latest-tag.mjs --dry-run  (print only)
 import { execFileSync } from 'node:child_process';
 
-const PACKAGES = ['@zmdb/schema-core', '@zmdb/query-compiler', '@zmdb/aot-validator', '@zmdb/repository'];
+const PACKAGES = [
+  '@zmdb/schema-core',
+  '@zmdb/query-compiler',
+  '@zmdb/protobuf',
+  '@zmdb/aot-validator',
+  '@zmdb/repository',
+];
 const DRY = process.argv.includes('--dry-run');
 
 // precedence rank of a version's channel: higher = preferred for `latest`.

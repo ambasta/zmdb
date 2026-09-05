@@ -83,6 +83,8 @@ precise from syntax alone.
 
 The transformer recognizes these seventeen generic entry points:
 
+The five protobuf/gRPC entries are imported from `@zmdb/protobuf`; `@zmdb/aot-validator` remains their compiler and does not re-export them.
+
 | Function                            | Emits                                       |
 | ----------------------------------- | ------------------------------------------- |
 | `is<T>(x)`                          | Inline full-depth boolean check             |

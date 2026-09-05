@@ -177,7 +177,7 @@ export class Emitter {
     this.#prefix = options.prefix ?? '_zmdb';
     this.#maxHelpers = options.maxHelpers ?? DEFAULT_MAX_HELPERS;
     this.#errorModule = options.errorModule ?? '@zmdb/aot-validator/errors';
-    this.#protobufModule = options.protobufModule ?? '@zmdb/aot-validator/protobuf/wire';
+    this.#protobufModule = options.protobufModule ?? '@zmdb/protobuf/wire';
   }
 
   get diagnostics(): readonly EmitDiagnostic[] {

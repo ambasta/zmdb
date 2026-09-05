@@ -8,6 +8,6 @@
 // module next door. Nothing here is checked against the implementation, and nothing needs
 // to be — the witness makes the same claims against the runtime API, and *that* is checked.
 import type { Orders } from './orders.js';
-import type { GrpcLoadedService } from '@zmdb/aot-validator';
+import type { GrpcLoadedService } from '@zmdb/protobuf';
 
 export declare function zmdbLoadGrpcServiceOrdersOrdersOrders(): GrpcLoadedService<Orders>;

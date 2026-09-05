@@ -63,8 +63,8 @@ function importsNaming(source: string, names: readonly string[]): string[] {
   return [...new Set(modules)].toSorted();
 }
 
-describe('protobuf package provenance (#655)', () => {
-  it.fails('generated protobuf codecs import only @zmdb/protobuf/wire', () => {
+describe('protobuf package provenance (#656)', () => {
+  it('generated protobuf codecs import only @zmdb/protobuf/wire', () => {
     const codecs = generated('.zmdb.generated.js').filter(({ source }) => /Proto(?:Reader|Writer)/.test(source));
     expect(codecs.length).toBeGreaterThan(0);
     for (const codec of codecs) {
@@ -73,7 +73,7 @@ describe('protobuf package provenance (#655)', () => {
     }
   });
 
-  it.fails('generated gRPC artifacts import their public types only from @zmdb/protobuf', () => {
+  it('generated gRPC artifacts import their public types only from @zmdb/protobuf', () => {
     const artifacts = [...generated('.zmdb.generated.d.ts'), ...generated('.zmdb.witness.ts')].filter(({ source }) =>
       /GrpcLoadedService|loadGrpcService/.test(source),
     );

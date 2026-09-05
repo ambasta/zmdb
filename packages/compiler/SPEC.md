@@ -13,7 +13,8 @@
 - discovery, validation and resolution of `zmdb.config.*`.
 
 The exact current-file move map is frozen in [`../../.github/scripts/verify-tooling-ownership.SPEC.md`](../../.github/scripts/verify-tooling-ownership.SPEC.md). Thirty current shipped/build-input
-files have this owner. Runtime validation, serialization, protobuf/gRPC integration and test fixtures do not move merely because they currently share the `@zmdb/aot-validator` directory.
+files have this owner. Runtime validation and serialization do not move merely because they currently share the `@zmdb/aot-validator` directory. Protobuf reflection and emission remain compiler work,
+while #656 moved the public calls, artifact types, and wire runtime to `@zmdb/protobuf`.
 
 ## 2. Package DAG
 

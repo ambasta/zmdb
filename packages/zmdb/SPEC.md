@@ -23,6 +23,11 @@ silently made private by this spec.
 
 The sum is the inventory assertion: `18 + 48 + 1 + 3 + 4 = 74`. #619 must turn that review-time measurement into an executable exact-export test.
 
+### 1.1.1 Protobuf extraction amendment (#656)
+
+The three integration names above are a historical baseline measurement. They are no longer root exports: `protoDecode`, `protoDescriptor`, and `protoEncode`, together with the gRPC artifact calls and
+types, are owned only by `@zmdb/protobuf`. The product root does not forward optional protocol packages.
+
 ### 1.2 Every current named subpath
 
 | Current subpath       | Classification      | Target concern / disposition                                                                 |

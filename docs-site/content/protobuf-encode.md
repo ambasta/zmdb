@@ -6,7 +6,7 @@
 Give every property a stable field number and select an integer width whenever the field is not a protobuf `double`:
 
 ```ts
-import { protoEncode } from '@zmdb/aot-validator';
+import { protoEncode } from '@zmdb/protobuf';
 import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 interface UserMessage {

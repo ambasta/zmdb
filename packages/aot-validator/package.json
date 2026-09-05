@@ -42,7 +42,6 @@
     "./utilities": "./src/utilities/index.ts",
     "./metro": "./src/plugin/metro.ts",
     "./plugin": "./src/plugin/index.ts",
-    "./protobuf/wire": "./src/protobuf/wire.ts",
     "./reflect": "./src/reflect/index.ts",
     "./testing": "./src/testing/index.ts",
     "./codegen": "./src/cli/index.ts",
@@ -61,6 +60,7 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "@zmdb/protobuf": "workspace:^",
     "oxlint": "1.81.0",
     "protobufjs": "8.8.0",
     "typescript": "7.0.2"

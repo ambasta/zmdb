@@ -43,7 +43,7 @@ import {
   isStringLiteral,
 } from 'typescript/unstable/ast/is';
 
-import { CALLEES, Rewriter } from '../transformer.js';
+import { Rewriter } from '../transformer.js';
 import type { Entry, SiteEntry, TypeImport } from './scan.js';
 
 /** Wraps the header and the import block: everything the `.js` does not want. */
@@ -550,7 +550,16 @@ export function rewriteSource(input: RewriteInput): string {
   // The import edits come after the call edits and are all at lower offsets, so no applied
   // edit lies inside one of their spans and the `Rewriter`'s arithmetic is unaffected.
   const owned = new Set(calleeSources.values());
-  const context: EditContext = { specifier, statement, names, owned, style, live: liveIdentifiers(sourceFile, sites) };
+  const compiled = new Set(sites.map(({ site }) => site.binding));
+  const context: EditContext = {
+    specifier,
+    statement,
+    names,
+    owned,
+    compiled,
+    style,
+    live: liveIdentifiers(sourceFile, sites),
+  };
   for (const edit of importEdits(sourceFile, context).toSorted((a, b) => b.start - a.start)) {
     rewriter.replace(edit.start, edit.end, edit.text);
   }
@@ -660,6 +669,8 @@ interface EditContext {
   readonly names: readonly string[];
   /** Specifiers a callee was imported from, whose namespace binding may now be dead. */
   readonly owned: ReadonlySet<string>;
+  /** Local named-import or namespace bindings whose calls were compiled away. */
+  readonly compiled: ReadonlySet<string>;
   readonly style: string;
   /** See `liveIdentifiers`: the names that still count as a use. */
   readonly live: ReadonlySet<string>;
@@ -675,7 +686,7 @@ interface EditContext {
  * from — and only when the name is referenced nowhere in what is left.
  */
 function importEdits(sourceFile: SourceFile, context: EditContext): TextEdit[] {
-  const { specifier, statement, names, owned, style, live } = context;
+  const { specifier, statement, names, owned, compiled, style, live } = context;
   const edits: TextEdit[] = [];
   let existing: { start: number; end: number; withLine: number; names: string[] } | undefined;
   // Where the generated import can go, and where it cannot. The new statement goes after the
@@ -732,7 +743,7 @@ function importEdits(sourceFile: SourceFile, context: EditContext): TextEdit[] {
     for (const element of bindings.elements) {
       if (!isIdentifier(element.name)) continue;
       const local = element.name.text;
-      if (CALLEES.has(local) && dead(local)) {
+      if (compiled.has(local) && dead(local)) {
         dropped = true;
         continue;
       }

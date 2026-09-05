@@ -5,8 +5,8 @@
 
 ## Issue #635 target ownership
 
-The current package has 56 build-included TypeScript files and 15 export-map entries. Their final owners are 47 files in `@zmdb/compiler`, 8 in `@zmdb/validator`, and the obsolete standalone
-executable entry in `@zmdb/cli`.
+After #656, the current package has 54 build-included TypeScript files and 14 export-map entries. Their final owners are 47 files in `@zmdb/compiler`, 6 in `@zmdb/validator`, and the obsolete
+standalone executable entry in `@zmdb/cli`.
 
 `@zmdb/validator` contains only emitted-code runtime helpers and depends only on `@zmdb/schema`. It has no TypeScript, compiler, emitter, plugin, lint, CLI, Metro, filesystem, provider, or formatter
 reachability. The old package and every `@zmdb/aot-validator/*` subpath are deleted rather than forwarded.
@@ -102,12 +102,12 @@ machine that cannot hold N loaded projects.
 
 ## 6.1 Protobuf ownership after #654
 
-The optional-package target moves protobuf's source calls, gRPC service-artifact types and byte runtime to `@zmdb/protobuf`; it does not move compilation here or create another compiler there.
-`@zmdb/aot-validator` remains the sole owner of the TypeScript session, reflection, protobuf/service IR and emission.
+Issue #656 moved protobuf's source calls, gRPC service-artifact types and byte runtime to `@zmdb/protobuf`; it did not move compilation here or create another compiler there. `@zmdb/aot-validator`
+remains the sole owner of the TypeScript session, reflection, protobuf/service IR and emission.
 
 Call recognition must stop relying on identifier text for the five moved names. A direct, aliased or namespace binding is transformed only when the checker resolves it to the canonical
-`@zmdb/protobuf` root export. A local shadow, a same-named function from another module and an old `@zmdb/aot-validator` import are left untouched. Other AOT calls retain their declared owners under
-the same binding-based registry rather than maintaining a second protobuf-only scanner.
+`@zmdb/protobuf` root export. A local shadow, a same-named function from another module and an old `@zmdb/aot-validator` import are left untouched. Other AOT calls retain their existing declared-owner
+and forwarding behavior; there is still one shared scanner rather than a second protobuf-only path.
 
 The compiler has no runtime dependency on `@zmdb/protobuf`: source imports provide the call declarations and emitted JavaScript imports its wire ABI directly. The exact handshake and migration are
 frozen in [`../protobuf/SPEC.md`](../protobuf/SPEC.md) and `src/emit/SPEC.md` §7b.
@@ -120,7 +120,7 @@ frozen in [`../protobuf/SPEC.md`](../protobuf/SPEC.md) and `src/emit/SPEC.md` §
 - [x] A new module is announced as `created`, not `changed` — a `changed` notification for a file the program has never seen is a measured no-op, so the stale-retry path picks by `sourceFile(id)`.
 - [x] Every declared export resolves, names a source path the build mirrors, imports under plain `node`, and — except for the eight build-time subpaths — cannot reach `typescript` through any chain of
       imports.
-- [x] All fifteen subpaths, and the `zmdb-codegen` binary, still resolve after `npm pack` and install — checked from a project outside this repository, because the workspace's symlinks hide the one
+- [x] All fourteen subpaths, and the `zmdb-codegen` binary, still resolve after `npm pack` and install — checked from a project outside this repository, because the workspace's symlinks hide the one
       failure that matters (`yarn verify:publish`).
 - [x] Removing an entry from `BUILD_TIME_ENTRIES` produces the expected errors, so the guard is not vacuous.
 - [x] The tag-rule form still inlines to the table in §2, and matches the runtime fallback for good and bad input on every rule.

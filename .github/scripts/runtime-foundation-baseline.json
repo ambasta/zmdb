@@ -5,7 +5,7 @@
     "missing target package @zmdb/schema: packages/schema/package.json",
     "missing target package @zmdb/sql: packages/sql/package.json",
     "missing target package @zmdb/validator: packages/validator/package.json",
-    "old import @zmdb/aot-validator remains in [packages/web/src/microservices/grpc/loader.ts, packages/web/src/microservices/grpc/runtime.ts, packages/web/src/microservices/grpc/types.ts, packages/zmdb/src/index.ts]",
+    "old import @zmdb/aot-validator remains in [packages/zmdb/src/index.ts]",
     "old import @zmdb/aot-validator/advanced remains in [packages/web/src/cli/index.ts]",
     "old import @zmdb/aot-validator/reflect remains in [packages/web/src/contract/compiler/index.ts, packages/zmdb/src/config/index.ts]",
     "old import @zmdb/aot-validator/testing remains in [packages/aot-validator/src/testing/index.ts, packages/repository/src/dx/fixtures.ts, packages/repository/src/orders-fixture.ts, packages/repository/src/typed-methods/fixtures.ts, packages/repository/src/typed-populate/fixtures.ts, packages/schema-core/src/dto/fixtures.ts, packages/schema-core/src/relations/fixtures.ts, packages/zmdb/src/cli/commands/check.ts, packages/zmdb/src/cli/commands/export.ts, packages/zmdb/src/cli/commands/generate.ts, packages/zmdb/src/cli/commands/push.ts, packages/zmdb/src/cli/index.ts]",

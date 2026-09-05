@@ -5,8 +5,8 @@
 
 ## Issue #635 compiler/runtime boundary
 
-This emitter moves to `@zmdb/compiler/emit`; emitted validation code imports `@zmdb/validator/errors`, while emitted protobuf code imports `@zmdb/validator/protobuf/wire`. Neither generated path may
-import `@zmdb/compiler`, and no validator export may reach this module.
+This emitter moves to `@zmdb/compiler/emit`; emitted validation code imports `@zmdb/validator/errors`, while emitted protobuf code imports `@zmdb/protobuf/wire`. Neither generated path may import
+`@zmdb/compiler`, and no validator export may reach this module.
 
 ## 1. Why it exists
 

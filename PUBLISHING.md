@@ -10,8 +10,8 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 
 ## Frozen lockstep governance target (#722)
 
-This section is the normative target for epic #721. The current workflow still repeats six package names in release scripts and has no root `CHANGELOG.md` or release-plan module; #728 implements this
-contract and removes those repetitions.
+This section is the normative target for epic #721. The current workflow still repeats seven package names in release scripts and has no root `CHANGELOG.md` or release-plan module; #728 implements
+this contract and removes those repetitions.
 
 ### Authorities and release plan
 
@@ -132,7 +132,7 @@ Release verification reports every problem in deterministic package/path order a
    > yarn verify:publish
    > node .github/scripts/repoint-dist.mjs
    >
-   > for p in query-compiler schema-core aot-validator repository web zmdb; do
+   > for p in query-compiler schema-core protobuf aot-validator repository web zmdb; do
    >   ( cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha )
    > done
    > ```

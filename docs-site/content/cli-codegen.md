@@ -20,6 +20,8 @@ For each source file that calls one of the seventeen generic entry points with a
 non-default shallow depth is part of the generated export name, so two checks over the same type at different depths remain different functions. The two gRPC forms additionally capture their service
 and package string literals in a zero-argument generated wrapper:
 
+The five protobuf/gRPC artifact calls must come from `@zmdb/protobuf`; aliases and namespace imports are resolved through the checker, while local or foreign same-named functions are left alone.
+
 ```
 src/handlers.ts                      your source; the call is rewritten
 src/handlers.zmdb.witness.ts         the type argument, kept, and checked by your tsc

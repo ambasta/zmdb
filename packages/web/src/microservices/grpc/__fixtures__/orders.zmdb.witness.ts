@@ -12,8 +12,8 @@
 // no bookkeeping to keep in step.
 
 import type { Orders } from './orders.js';
-import type { GrpcLoadedService } from '@zmdb/aot-validator';
-import { loadGrpcService } from '@zmdb/aot-validator';
+import type { GrpcLoadedService } from '@zmdb/protobuf';
+import { loadGrpcService } from '@zmdb/protobuf';
 /*zmdb:/imports*/
 
 /*zmdb:begin:zmdbLoadGrpcServiceOrdersOrdersOrders*/

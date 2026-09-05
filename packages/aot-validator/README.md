@@ -1,7 +1,7 @@
 # @zmdb/aot-validator
 
-`@zmdb/aot-validator` generates validation and serialization code during the build. It supports full and shallow checks, assertions, structured validation errors, equality, random values, JSON,
-transforms, protobuf, and typed gRPC service artifacts without shipping a runtime schema parser.
+`@zmdb/aot-validator` generates validation, serialization, protobuf, and typed gRPC artifacts during the build. It owns the single TypeScript reflection and emission front end; source-level protobuf
+calls, service-artifact types, and the generated-code wire ABI are published separately by `@zmdb/protobuf`.
 
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
@@ -15,7 +15,7 @@ npm add @zmdb/aot-validator@alpha
 
 ## Entry points
 
-- Runtime APIs: `@zmdb/aot-validator`, `/advanced`, `/emit`, `/errors`, `/serialization`, `/utilities`, `/protobuf/wire`
+- Runtime APIs: `@zmdb/aot-validator`, `/advanced`, `/emit`, `/errors`, `/serialization`, `/utilities`
 - Build tooling: `/plugin`, `/reflect`, `/testing`, `/codegen`, `/transformer`, `/unplugin`
 
 ## Documentation

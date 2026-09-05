@@ -7,8 +7,7 @@ import { describe, expect, it } from 'vitest';
 const ROOT = process.cwd();
 const BOUNDARY_VERIFIER = join(ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs');
 const CONSUMER_VERIFIER = join(ROOT, 'fixtures', 'consumer-server-integrations', 'verify-installed.mjs');
-const SERVER_PACKAGES = [
-  '@zmdb/protobuf',
+const PENDING_SERVER_PACKAGES = [
   '@zmdb/transport-grpc',
   '@zmdb/transport-nats',
   '@zmdb/transport-rabbitmq',
@@ -51,7 +50,15 @@ function filesUnder(directory: string): string[] {
 }
 
 describe('optional server package isolation (#655)', () => {
-  it.fails.each(SERVER_PACKAGES)('imports %s from its dedicated package', packageName => {
+  it('imports @zmdb/protobuf from its dedicated package', () => {
+    const result = spawnSync(process.execPath, ['--input-type=module', '--eval', "await import('@zmdb/protobuf')"], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    expect(result.status, result.stderr).toBe(0);
+  });
+
+  it.fails.each(PENDING_SERVER_PACKAGES)('imports %s from its dedicated package', packageName => {
     const result = spawnSync(
       process.execPath,
       ['--input-type=module', '--eval', `await import(${JSON.stringify(packageName)})`],
@@ -82,6 +89,13 @@ describe('optional server package isolation (#655)', () => {
       encoding: 'utf8',
     });
   }, 300_000);
+
+  it('protobuf imports and typechecks from an installed tarball', () => {
+    execFileSync(process.execPath, [CONSUMER_VERIFIER, '--integration', '@zmdb/protobuf'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+  }, 180_000);
 
   it('retains every existing real-service title', () => {
     const source = filesUnder(join(ROOT, 'packages'))

@@ -10,59 +10,7 @@
 import { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
 
 export { AssertError, failWith } from './errors.js';
-export {
-  grpcDescriptor,
-  loadGrpcService,
-  type GrpcLoadedMethod,
-  type GrpcLoadedService,
-  type GrpcMethodDef,
-  type GrpcServiceDef,
-} from './grpc.js';
 export { ValidationError, getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
-
-/**
- * Emit the proto3 descriptor for `T` at build time.
- *
- * A type argument does not exist at runtime, so an untransformed call cannot provide
- * a partial fallback. The build plugin replaces this call with a string literal.
- */
-export function protoDescriptor<_T>(): string {
-  throw new Error(
-    'protoDescriptor<T>() was not replaced at build time. It is compiled away by the zmdb transform ' +
-      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
-      'be read at runtime, so there is no descriptor to fall back to.',
-  );
-}
-
-/**
- * Encode `value` as protobuf at build time.
- *
- * The type argument and its field tags do not exist at runtime, so the build plugin
- * replaces this call with a generated encoder. An unreplaced call cannot guess a wire
- * contract and fails by name.
- */
-export function protoEncode<T>(_value: T): Uint8Array {
-  throw new Error(
-    'protoEncode<T>(value) was not replaced at build time. It is compiled away by the zmdb transform ' +
-      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
-      'be read at runtime, so there is no protobuf wire contract to fall back to.',
-  );
-}
-
-/**
- * Decode protobuf `bytes` as `T` at build time.
- *
- * The type argument and its field tags do not exist at runtime, so the build plugin
- * replaces this call with a generated decoder. An unreplaced call cannot guess a wire
- * contract and fails by name.
- */
-export function protoDecode<T>(_bytes: Uint8Array): T {
-  throw new Error(
-    'protoDecode<T>(bytes) was not replaced at build time. It is compiled away by the zmdb transform ' +
-      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
-      'be read at runtime, so there is no protobuf wire contract to fall back to.',
-  );
-}
 
 export interface Rule {
   readonly kind: string;

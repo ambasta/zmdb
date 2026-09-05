@@ -78,7 +78,7 @@ export {
   AssertError,
 } from '@zmdb/aot-validator/utilities';
 export type { ValidateResult } from '@zmdb/aot-validator/utilities';
-export { protoDecode, protoDescriptor, protoEncode, tags } from '@zmdb/aot-validator';
+export { tags } from '@zmdb/aot-validator';
 
 // The type-first pair, from the OpenAPI subpath because that is where the JSON Schema
 // vocabulary lives. `toJsonSchema<T>()` and `toJsonSchema(schema)` are one overloaded

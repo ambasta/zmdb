@@ -1,9 +1,4 @@
-import {
-  protoDecode as srcProtoDecode,
-  protoDescriptor as srcProtoDescriptor,
-  protoEncode as srcProtoEncode,
-  tags as srcTags,
-} from '@zmdb/aot-validator';
+import { tags as srcTags } from '@zmdb/aot-validator';
 import {
   is as srcIs,
   isShallow as srcIsShallow,
@@ -60,9 +55,6 @@ import {
   migrations,
   mul,
   not,
-  protoDecode,
-  protoDescriptor,
-  protoEncode,
   proposed,
   schemaOf,
   tags,
@@ -111,9 +103,15 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(validate).toBe(srcValidate);
     expect(validateShallow).toBe(srcValidateShallow);
     expect(tags).toBe(srcTags);
-    expect(protoDecode).toBe(srcProtoDecode);
-    expect(protoDescriptor).toBe(srcProtoDescriptor);
-    expect(protoEncode).toBe(srcProtoEncode);
+  });
+
+  it('does not re-export the optional protobuf compiler calls', async () => {
+    const product: Record<string, unknown> = await import('./index.js');
+    expect(
+      ['grpcDescriptor', 'loadGrpcService', 'protoDecode', 'protoDescriptor', 'protoEncode'].filter(
+        name => name in product,
+      ),
+    ).toEqual([]);
   });
 
   it('re-exports the repository surface, including IncompleteKeyError', () => {

@@ -12,8 +12,8 @@
 // because that is what it is; reformatting that would leave `zmdb-codegen --check`
 // permanently out of date against a file nothing was wrong with.
 import { AssertError as _zmdbAssertError } from "@zmdb/aot-validator/utilities";
-import { ProtoReader as _zmdbProtoReader } from "@zmdb/aot-validator/protobuf/wire";
-import { ProtoWriter as _zmdbProtoWriter } from "@zmdb/aot-validator/protobuf/wire";
+import { ProtoReader as _zmdbProtoReader } from "@zmdb/protobuf/wire";
+import { ProtoWriter as _zmdbProtoWriter } from "@zmdb/protobuf/wire";
 function _zmdbCheckGetOrder0(_v) { return typeof _v === "object" && _v !== null && !Array.isArray(_v) && (typeof _v.id === "string" && _v.id.length >= 1); }
 function _zmdbIssues1(_v, _p, _o) { _zmdbIssuesGetOrder2(_v, _p, _o); }
 function _zmdbIssuesGetOrder2(_v, _p, _o) { if (!(typeof _v === "object" && _v !== null && !Array.isArray(_v))) { _zmdbIssue(_o, _p, "GetOrder", _v); } else { if (!(typeof _v.id === "string")) { _zmdbIssue(_o, _p + ".id", "string", _v.id); } else { if (!(_v.id.length >= 1)) _zmdbIssue(_o, _p + ".id", "minLength 1", _v.id); } } }

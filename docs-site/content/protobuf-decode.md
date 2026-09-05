@@ -3,7 +3,7 @@
 ## Decode a tagged message
 
 ```ts
-import { protoDecode } from '@zmdb/aot-validator';
+import { protoDecode } from '@zmdb/protobuf';
 import type { Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 interface UserMessage {

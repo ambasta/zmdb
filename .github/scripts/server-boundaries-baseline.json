@@ -1,6 +1,5 @@
 {
   "problems": [
-    "@zmdb/aot-validator still publishes old integration subpaths [./protobuf/wire]",
     "@zmdb/web core dependencies {\"@zmdb/aot-validator\":\"workspace:^\",\"@zmdb/query-compiler\":\"workspace:^\",\"@zmdb/repository\":\"workspace:^\",\"@zmdb/schema-core\":\"workspace:^\"}, expected {\"@zmdb/aot-validator\":\"workspace:^\",\"@zmdb/app\":\"workspace:^\",\"@zmdb/repository\":\"workspace:^\",\"@zmdb/schema-core\":\"workspace:^\"}",
     "@zmdb/web core exports [., ./app, ./bench, ./cli, ./compression, ./context, ./contract, ./contract/compiler, ./cqrs, ./csrf, ./data, ./devtools, ./di, ./dto-pipes, ./events, ./gateways, ./health, ./microservices, ./microservices/grpc, ./microservices/nats, ./microservices/rabbitmq, ./microservices/redis, ./middleware, ./modules, ./observability, ./openapi, ./otel, ./pipeline, ./queues, ./queues/backends/memory, ./queues/backends/pg, ./routing, ./schedule, ./state, ./static, ./testing, ./upload, ./versioning], expected [., ./app, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./middleware, ./openapi, ./pipeline, ./routing, ./static, ./testing, ./upload, ./versioning]",
     "@zmdb/web core peerDependencies [@grpc/grpc-js, @nats-io/transport-node, @opentelemetry/api, amqplib, pg, redis], expected []",
@@ -14,7 +13,6 @@
     "missing core package manifest for @zmdb/jobs: packages/jobs/package.json",
     "missing package manifest for @zmdb/jobs-postgres: packages/jobs-postgres/package.json",
     "missing package manifest for @zmdb/otel: packages/otel/package.json",
-    "missing package manifest for @zmdb/protobuf: packages/protobuf/package.json",
     "missing package manifest for @zmdb/transport-grpc: packages/transport-grpc/package.json",
     "missing package manifest for @zmdb/transport-nats: packages/transport-nats/package.json",
     "missing package manifest for @zmdb/transport-rabbitmq: packages/transport-rabbitmq/package.json",

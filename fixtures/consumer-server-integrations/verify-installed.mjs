@@ -5,9 +5,9 @@
 // into a clean npm project and proves that neither an optional server package nor
 // one of its peers appears anywhere in that dependency tree.
 //
-// `--integrations` packs every target package, extracts the tarballs into one
-// clean project per fixture, then runs the fixture's JavaScript and TypeScript.
-// That mode is intentionally red until the seven package manifests exist.
+// `--integration <package>` packs one implemented target into its clean fixture,
+// while `--integrations` checks the complete target set. The aggregate mode stays
+// intentionally red until the remaining six package manifests exist.
 
 import { spawnSync } from 'node:child_process';
 import {
@@ -227,8 +227,10 @@ function linkRootPackage(appNodeModules, name) {
   symlinkSync(source, destination, 'dir');
 }
 
-function verifyIntegrationConsumers(packages, scratch) {
-  const fixtures = fixtureProjects();
+function verifyIntegrationConsumers(packages, scratch, target) {
+  const fixtures =
+    target === undefined ? fixtureProjects() : fixtureProjects().filter(fixture => fixture.target === target);
+  if (fixtures.length === 0) throw new Error(`no optional-server fixture targets ${String(target)}`);
   const missing = fixtures.filter(fixture => !packages.has(fixture.target)).map(fixture => fixture.target);
   if (missing.length > 0) {
     throw new Error(`optional server packages are not implemented: ${missing.join(', ')}`);
@@ -244,6 +246,7 @@ function verifyIntegrationConsumers(packages, scratch) {
   const tarballs = packWorkspace(packages, allNames, scratch);
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc');
   const failures = [];
+  cpSync(join(FIXTURES, 'tsconfig.base.json'), join(scratch, 'tsconfig.base.json'));
 
   for (const fixture of fixtures) {
     const app = join(scratch, `consumer-${fixture.name}`);
@@ -271,15 +274,20 @@ function verifyIntegrationConsumers(packages, scratch) {
 
 function main() {
   const mode = process.argv[2];
-  if (mode !== '--core' && mode !== '--integrations') {
-    throw new Error('usage: verify-installed.mjs --core|--integrations');
+  const target = process.argv[3];
+  if (mode !== '--core' && mode !== '--integrations' && mode !== '--integration') {
+    throw new Error('usage: verify-installed.mjs --core|--integrations|--integration <package>');
   }
+  if (mode === '--integration' && target === undefined) {
+    throw new Error('--integration requires an exact package name');
+  }
+  if (mode !== '--integration' && target !== undefined) throw new Error(`${mode} accepts no package argument`);
 
   const scratch = mkdtempSync(join(tmpdir(), 'zmdb-server-consumer-'));
   try {
     const packages = workspacePackages();
     if (mode === '--core') verifyCoreInstall(packages, scratch);
-    else verifyIntegrationConsumers(packages, scratch);
+    else verifyIntegrationConsumers(packages, scratch, mode === '--integration' ? target : undefined);
   } finally {
     if (process.env.ZMDB_KEEP_SERVER_FIXTURES === undefined) {
       rmSync(scratch, { recursive: true, force: true });

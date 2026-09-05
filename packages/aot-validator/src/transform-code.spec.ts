@@ -183,7 +183,8 @@ describe('CALLEES', () => {
     const core = await import('@zmdb/schema-core');
     const llm = await import('@zmdb/schema-core/llm');
     const openapi = await import('@zmdb/schema-core/openapi');
-    const surface: Record<string, unknown> = { ...openapi, ...core, ...llm, ...utilities, ...validator };
+    const protobuf = await import('@zmdb/protobuf');
+    const surface: Record<string, unknown> = { ...openapi, ...core, ...llm, ...protobuf, ...utilities, ...validator };
     for (const callee of CALLEES) {
       expect(typeof surface[callee], `${callee} is in CALLEES but nothing exports it`).toBe('function');
     }

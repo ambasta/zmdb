@@ -32,6 +32,9 @@ The transformer recognizes the seventeen generic calls in `CALLEES`: `is<T>(x)`,
 `grpcDescriptor<S>(service, package)` and `loadGrpcService<S>(service, package)`. It reads the type argument (and the shallow depth or required gRPC string literals) from the TS checker and replaces
 the call with emitted JavaScript.
 
+The five protobuf/gRPC artifact calls are recognised only through a resolved direct, aliased, or namespace binding to `@zmdb/protobuf`. The plugin leaves local shadows, foreign same-named exports, and
+removed AOT/umbrella spellings unchanged.
+
 ## 3. Emitted-JS contract (frozen)
 
 For `is<T>(x)` where `T = { a: number; b: string }` the transformer emits an **inline, monomorphic, allocation-free, early-exit** boolean expression — NOT a walk over a runtime witness:

@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635
+# Runtime foundation boundary policy — issue #635, amended by #656
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -16,22 +16,22 @@ find packages/schema-core/src packages/query-compiler/src \
 Those are exactly the TypeScript files included by the four current `tsconfig.build.json` files. Fixtures and `__testing__` helpers are included because the build configuration does not currently
 exclude them; the ownership map therefore cannot pretend they are not shipped.
 
-Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`; the earlier
-136-file count predated them even though this specification landed later:
+Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`. Issue #656 then
+moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`:
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              30 |                 15 |
 | `@zmdb/query-compiler` |                              31 |                 13 |
-| `@zmdb/aot-validator`  |                              56 |                 15 |
+| `@zmdb/aot-validator`  |                              54 |                 14 |
 | `@zmdb/repository`     |                              22 |                 11 |
-| **Total**              |                         **139** |             **54** |
+| **Total**              |                         **137** |             **53** |
 
-The four manifests contain 24 dependency entries: 6 `dependencies`, 5 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
+The four manifests contain 25 dependency entries: 6 `dependencies`, 5 `peerDependencies`, and 14 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 139 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
+Every one of the 137 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
 whose declared destination no longer exists in the architecture policy.
 
 ### `@zmdb/ai` — 10
@@ -256,21 +256,19 @@ be duplicated. The three `testing/` files freeze that protocol for #667; they re
 packages/repository/src/drivers/sqlite.ts
 ```
 
-### `@zmdb/validator` — 8
+### `@zmdb/validator` — 6
 
 ```text
 packages/aot-validator/src/advanced/index.ts
 packages/aot-validator/src/errors.ts
-packages/aot-validator/src/grpc.ts
 packages/aot-validator/src/index.ts
-packages/aot-validator/src/protobuf/wire.ts
 packages/aot-validator/src/regex-complexity.ts
 packages/aot-validator/src/serialization/index.ts
 packages/aot-validator/src/utilities/index.ts
 ```
 
-The validator owns rule validation, emitted-code helpers, serialization, random generation, protobuf/gRPC runtime calls and wire helpers, and public validation errors. Compiler-side
-descriptor/encoder/decoder production remains in `@zmdb/compiler`.
+The validator owns rule validation, emitted-code helpers, serialization, random generation, and public validation errors. `@zmdb/protobuf` owns protobuf/gRPC public calls, artifact types, and wire
+helpers; compiler-side descriptor/encoder/decoder production remains in `@zmdb/compiler`.
 
 ### `@zmdb/web` — 1
 
@@ -289,14 +287,14 @@ A file-level map is insufficient where one current barrel or module exports two 
 | `schema-core/src/relations/index.ts`         | `ResolvedRelation` and `resolveRelation`                                                                                | `PopulateDialect`, `PopulateQuery`, `compilePopulate`, `attachPopulated`, `JoinRow`, and `aliasRow` → `@zmdb/orm/relations`                                                                                                |
 | `query-compiler/src/dialects/index.ts`       | dialect protocol/types, registry-composition algorithm, capability refusal helper                                       | official dialect records and name dispatch → database packages when #665 lands                                                                                                                                             |
 | `query-compiler/src/schema-objects/index.ts` | runtime schema-object SQL                                                                                               | snapshot/diff ordering and lifecycle planning stay in `@zmdb/migrations`; `ddlType` is injected so SQL does not import migrations                                                                                          |
-| `aot-validator/src/index.ts`                 | rule runtime, validator helpers, and protobuf/gRPC runtime calls                                                        | no split; compiler-only emit/reflection code leaves through its own files                                                                                                                                                  |
+| `aot-validator/src/index.ts`                 | rule runtime and validator helpers                                                                                      | protobuf/gRPC public calls moved to `@zmdb/protobuf` in #656; compiler-only emit/reflection code leaves through its own files                                                                                              |
 | `repository/src/entity-modeling/index.ts`    | lifecycle events, subscribers, and `EventBus` → `@zmdb/orm/entity-modeling`                                             | embeddable flatten/lift and single-table-inheritance helpers → `@zmdb/schema/entity-modeling`                                                                                                                              |
 
 No symbol may be temporarily exported from both destinations. A move and its import rewrites land together.
 
 ## 4. Public export map
 
-All 54 current package export entries have one disposition:
+All 53 current package export entries have one disposition:
 
 ### Current `@zmdb/schema-core` — 15
 
@@ -336,7 +334,7 @@ All 54 current package export entries have one disposition:
 | `./set-ops`             | `@zmdb/sql/set-ops`           |
 | `./schema-objects`      | `@zmdb/sql/schema-objects`    |
 
-### Current `@zmdb/aot-validator` — 15
+### Current `@zmdb/aot-validator` — 14
 
 | Old subpath       | Final public owner              |
 | ----------------- | ------------------------------- |
@@ -349,7 +347,6 @@ All 54 current package export entries have one disposition:
 | `./utilities`     | `@zmdb/validator`               |
 | `./metro`         | `@zmdb/compiler/metro`          |
 | `./plugin`        | `@zmdb/compiler/plugin`         |
-| `./protobuf/wire` | `@zmdb/validator/protobuf/wire` |
 | `./reflect`       | `@zmdb/compiler/reflect`        |
 | `./testing`       | `@zmdb/compiler/testing`        |
 | `./codegen`       | `@zmdb/compiler/codegen`        |
@@ -372,39 +369,40 @@ All 54 current package export entries have one disposition:
 | `./drivers/pg`      | `@zmdb/postgres`                                                                    |
 | `./drivers/mssql`   | `@zmdb/mssql`                                                                       |
 
-After cutover, the four old package names and all 54 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
+After cutover, the four old package names and all 53 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
 consumers. There are no forwarding packages and no `exports` aliases.
 
 ## 5. Manifest dependency disposition
 
 Every current manifest entry has one disposition:
 
-| Current manifest section and entry              | Final disposition                                                   |
-| ----------------------------------------------- | ------------------------------------------------------------------- |
-| `schema-core dependencies @zmdb/query-compiler` | deleted; DTO/populate SQL moves to ORM and naming moves to schema   |
-| `schema-core peers @anthropic-ai/sdk`           | `@zmdb/ai-anthropic` peer only                                      |
-| `schema-core peers @langchain/core`             | `@zmdb/ai-langchain` peer only                                      |
-| `schema-core peers ai`                          | `@zmdb/ai-vercel` peer only                                         |
-| `schema-core dev @anthropic-ai/sdk`             | `@zmdb/ai-anthropic` dev dependency                                 |
-| `schema-core dev @zmdb/aot-validator`           | compiler/schema test fixture dependency; not a schema runtime edge  |
-| `schema-core dev oxfmt`                         | root/tooling formatter only; absent from `@zmdb/schema`             |
-| `schema-core dev typescript`                    | build/test-only dependency permitted on `@zmdb/schema`              |
-| `query-compiler dependencies oxfmt`             | `@zmdb/migrations` dependency only                                  |
-| `query-compiler dev typescript`                 | build/test-only dependency permitted on `@zmdb/sql`                 |
-| `aot-validator dependencies @zmdb/schema-core`  | becomes `@zmdb/validator -> @zmdb/schema`                           |
-| `aot-validator peers oxlint`                    | `@zmdb/compiler` peer only                                          |
-| `aot-validator peers typescript`                | `@zmdb/compiler` peer only                                          |
-| `aot-validator dev oxlint`                      | `@zmdb/compiler` dev dependency                                     |
-| `aot-validator dev protobufjs`                  | validator protobuf-conformance dev dependency; never a runtime edge |
-| `aot-validator dev typescript`                  | `@zmdb/compiler` dev dependency                                     |
-| `repository dependencies @zmdb/aot-validator`   | becomes `@zmdb/orm -> @zmdb/validator`                              |
-| `repository dependencies @zmdb/query-compiler`  | becomes `@zmdb/orm -> @zmdb/sql`                                    |
-| `repository dependencies @zmdb/schema-core`     | becomes `@zmdb/orm -> @zmdb/schema`                                 |
-| `repository dev @types/mssql`                   | `@zmdb/mssql` dev dependency                                        |
-| `repository dev @types/pg`                      | `@zmdb/postgres` dev dependency                                     |
-| `repository dev mssql`                          | `@zmdb/mssql` dev dependency and peer                               |
-| `repository dev pg`                             | `@zmdb/postgres` dev dependency and peer                            |
-| `repository dev typescript`                     | build/test-only dependency permitted on `@zmdb/orm`                 |
+| Current manifest section and entry              | Final disposition                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------ |
+| `schema-core dependencies @zmdb/query-compiler` | deleted; DTO/populate SQL moves to ORM and naming moves to schema  |
+| `schema-core peers @anthropic-ai/sdk`           | `@zmdb/ai-anthropic` peer only                                     |
+| `schema-core peers @langchain/core`             | `@zmdb/ai-langchain` peer only                                     |
+| `schema-core peers ai`                          | `@zmdb/ai-vercel` peer only                                        |
+| `schema-core dev @anthropic-ai/sdk`             | `@zmdb/ai-anthropic` dev dependency                                |
+| `schema-core dev @zmdb/aot-validator`           | compiler/schema test fixture dependency; not a schema runtime edge |
+| `schema-core dev oxfmt`                         | root/tooling formatter only; absent from `@zmdb/schema`            |
+| `schema-core dev typescript`                    | build/test-only dependency permitted on `@zmdb/schema`             |
+| `query-compiler dependencies oxfmt`             | `@zmdb/migrations` dependency only                                 |
+| `query-compiler dev typescript`                 | build/test-only dependency permitted on `@zmdb/sql`                |
+| `aot-validator dependencies @zmdb/schema-core`  | becomes `@zmdb/validator -> @zmdb/schema`                          |
+| `aot-validator peers oxlint`                    | `@zmdb/compiler` peer only                                         |
+| `aot-validator peers typescript`                | `@zmdb/compiler` peer only                                         |
+| `aot-validator dev oxlint`                      | `@zmdb/compiler` dev dependency                                    |
+| `aot-validator dev @zmdb/protobuf`              | compiler boundary-test dev dependency; never a runtime edge        |
+| `aot-validator dev protobufjs`                  | compiler protobuf-conformance dev dependency; never a runtime edge |
+| `aot-validator dev typescript`                  | `@zmdb/compiler` dev dependency                                    |
+| `repository dependencies @zmdb/aot-validator`   | becomes `@zmdb/orm -> @zmdb/validator`                             |
+| `repository dependencies @zmdb/query-compiler`  | becomes `@zmdb/orm -> @zmdb/sql`                                   |
+| `repository dependencies @zmdb/schema-core`     | becomes `@zmdb/orm -> @zmdb/schema`                                |
+| `repository dev @types/mssql`                   | `@zmdb/mssql` dev dependency                                       |
+| `repository dev @types/pg`                      | `@zmdb/postgres` dev dependency                                    |
+| `repository dev mssql`                          | `@zmdb/mssql` dev dependency and peer                              |
+| `repository dev pg`                             | `@zmdb/postgres` dev dependency and peer                           |
+| `repository dev typescript`                     | build/test-only dependency permitted on `@zmdb/orm`                |
 
 For a foundation package, “zero external dependencies” means:
 
@@ -454,20 +452,21 @@ Workspace task scheduling must derive this order from manifests. No second handw
 
 Generated code is part of the runtime graph. These are the required replacements:
 
-| Current generated/default specifier           | Final specifier                 |
-| --------------------------------------------- | ------------------------------- |
-| `@zmdb/schema-core`                           | `@zmdb/schema`                  |
-| `@zmdb/schema-core/tags`                      | `@zmdb/schema/tags`             |
-| `@zmdb/schema-core/openapi`                   | `@zmdb/schema/openapi`          |
-| `@zmdb/schema-core/llm`                       | `@zmdb/ai`                      |
-| `@zmdb/schema-core/llm/http`                  | `@zmdb/ai/http`                 |
-| `@zmdb/aot-validator/utilities`               | `@zmdb/validator`               |
-| `@zmdb/aot-validator/errors`                  | `@zmdb/validator/errors`        |
-| `@zmdb/aot-validator/protobuf/wire`           | `@zmdb/validator/protobuf/wire` |
-| `@zmdb/aot-validator` for protobuf/gRPC calls | `@zmdb/validator`               |
-| `@zmdb/query-compiler/migrations*`            | `@zmdb/migrations*`             |
+| Current generated/default specifier           | Final specifier          |
+| --------------------------------------------- | ------------------------ |
+| `@zmdb/schema-core`                           | `@zmdb/schema`           |
+| `@zmdb/schema-core/tags`                      | `@zmdb/schema/tags`      |
+| `@zmdb/schema-core/openapi`                   | `@zmdb/schema/openapi`   |
+| `@zmdb/schema-core/llm`                       | `@zmdb/ai`               |
+| `@zmdb/schema-core/llm/http`                  | `@zmdb/ai/http`          |
+| `@zmdb/aot-validator/utilities`               | `@zmdb/validator`        |
+| `@zmdb/aot-validator/errors`                  | `@zmdb/validator/errors` |
+| `@zmdb/aot-validator/protobuf/wire`           | `@zmdb/protobuf/wire`    |
+| `@zmdb/aot-validator` for protobuf/gRPC calls | `@zmdb/protobuf`         |
+| `@zmdb/query-compiler/migrations*`            | `@zmdb/migrations*`      |
 
-There are 41 measured fixed old-package specifier occurrences to rewrite:
+At the #636 baseline there were 41 measured fixed old-package specifier occurrences to rewrite. Issue #656 completed the protobuf/gRPC rows above; the runtime-foundation ratchet freezes the remaining
+old-package imports:
 
 - 26 production generator/default sites: 17 `DEFAULT_MODULES` entries, 2 scan/witness fallbacks, 1 CLI-selected error fallback, 2 emitter defaults, 3 OpenAPI-tool imports, and 1 introspection
   declaration import;
