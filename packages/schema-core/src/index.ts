@@ -195,21 +195,17 @@ export interface ValidationIssue {
 
 export class ValidationError extends Error {
   readonly issues: readonly ValidationIssue[];
-  /** @deprecated Use `issues` instead. */
-  declare readonly errors?: readonly ValidationIssue[];
 
   constructor(message: string, issues: readonly ValidationIssue[] = []) {
     super(message);
     this.name = 'ValidationError';
     this.issues = issues;
-    Object.defineProperty(this, 'errors', {
-      get() {
-        console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
-        return this.issues;
-      },
-      enumerable: true,
-      configurable: true,
-    });
+  }
+
+  /** @deprecated Use `issues` instead. */
+  get errors(): readonly ValidationIssue[] | undefined {
+    console.warn('DeprecationWarning: "errors" property is deprecated, use "issues" instead.');
+    return this.issues;
   }
 }
 
