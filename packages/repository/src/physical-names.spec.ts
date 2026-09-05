@@ -247,8 +247,9 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
     await new NamedUsers(driver).aggregate(aggregate => aggregate.expr(raw, 'bucket').count('id', 'count'));
 
     expect(driver.calls[0]?.text).toBe(
-      `SELECT ${raw} AS "bucket", COUNT("account_id") AS "count" FROM "user_accounts"`,
+      'SELECT date_trunc($1, "created_at") AS "bucket", COUNT("account_id") AS "count" FROM "user_accounts"',
     );
+    expect(driver.calls[0]?.parameters).toEqual(['day']);
   });
 
   it('returns aliased driver rows without a per-row naming rewrite', async () => {

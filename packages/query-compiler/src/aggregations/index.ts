@@ -14,14 +14,14 @@ import {
 } from '../clauses.js';
 import type { DialectTarget } from '../dialects/index.js';
 import type { CompiledQuery, QueryCompilerOptions } from '../index.js';
-import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
+import { quoteColumn, quoteIdentifier, quoteTable, sanitizeExpression } from '../quoting.js';
 
 export type { JoinCondition, JoinKind } from '../clauses.js';
 
 type SelectItem =
   | { kind: 'col'; col: string }
   | { kind: 'agg'; fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX'; col: string; alias: string }
-  | { kind: 'expr'; raw: string; alias: string };
+  | { kind: 'expr'; raw: string; alias: string; params?: readonly unknown[] | Record<string, unknown> | undefined };
 
 interface Comparison {
   col: string;
@@ -49,7 +49,7 @@ export interface AggregateSelect {
   avg(expr: string, alias: string): AggregateSelect;
   min(expr: string, alias: string): AggregateSelect;
   max(expr: string, alias: string): AggregateSelect;
-  expr(rawExpr: string, alias: string): AggregateSelect;
+  expr(rawExpr: string, alias: string, params?: readonly unknown[] | Record<string, unknown>): AggregateSelect;
   innerJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
   innerJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): AggregateSelect;
   leftJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
@@ -81,7 +81,7 @@ function make(d: DialectTarget, s: State, telemetry: boolean): AggregateSelect {
     avg: (e, a) => agg('AVG', e, a),
     min: (e, a) => agg('MIN', e, a),
     max: (e, a) => agg('MAX', e, a),
-    expr: (raw, alias) => next({ items: [...s.items, { kind: 'expr', raw, alias }] }),
+    expr: (raw, alias, params) => next({ items: [...s.items, { kind: 'expr', raw, alias, params }] }),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value, connector: 'AND' }] }),
     orWhere: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value, connector: 'OR' }] }),
     whereGroup: predicates => next({ wheres: [...s.wheres, { kind: 'group', predicates, connector: 'AND' }] }),
@@ -98,8 +98,18 @@ function make(d: DialectTarget, s: State, telemetry: boolean): AggregateSelect {
           }
           return quoteColumn(d, it.col);
         }
-        if (it.kind === 'agg') return `${it.fn}(${quoteColumn(d, it.col)}) AS ${quoteIdentifier(d, it.alias)}`;
-        return `${it.raw} AS ${quoteIdentifier(d, it.alias)}`;
+        if (it.kind === 'agg') {
+          let colSql = it.col;
+          if (colSql.toLowerCase().startsWith('distinct ')) {
+            colSql = `DISTINCT ${quoteColumn(d, colSql.slice(9).trim())}`;
+          } else if (colSql !== '*') {
+            colSql = quoteColumn(d, colSql);
+          }
+          return `${it.fn}(${colSql}) AS ${quoteIdentifier(d, it.alias)}`;
+        }
+        const sanitized = sanitizeExpression(it.raw, d, it.params, params.length);
+        params.push(...sanitized.parameters);
+        return `${sanitized.text} AS ${quoteIdentifier(d, it.alias)}`;
       });
       const groupBy = s.groups.length > 0 ? ` GROUP BY ${s.groups.map(c => quoteColumn(d, c)).join(', ')}` : '';
       const text =

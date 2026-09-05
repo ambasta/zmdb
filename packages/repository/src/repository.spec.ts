@@ -655,3 +655,20 @@ describe('stored routine integration (real Postgres, loudly gated)', () => {
     }
   });
 });
+
+describe('BaseRepository aggregate with parameterized raw expressions', () => {
+  it('passes raw expression and parameters to the query compiler', async () => {
+    const driver = fakeDriver([{ id: 1, total: 150 }]);
+    const repo = new UserRepository(driver);
+    const result = await repo.aggregate({
+      computed: {
+        total: { fn: 'sum', raw: 'sum(quantity * ?) * ?', params: [1.5, 100] },
+      },
+      groupBy: ['id'],
+    });
+    expect(result).toEqual([{ id: 1, total: 150 }]);
+    const query = driver.calls[0] as { text: string; parameters: readonly unknown[] };
+    expect(query.text).toContain('sum("quantity" * $1) * $2 AS "total"');
+    expect(query.parameters).toEqual([1.5, 100]);
+  });
+});
