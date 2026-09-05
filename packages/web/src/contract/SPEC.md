@@ -21,17 +21,17 @@ These facts define the migration starting point. They are not retained as compat
 
 The final ownership is:
 
-| Owner                         | Responsibility                                                                                                                   |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `@zmdb/web/contract`          | Public declaration helpers, `HttpContractIR`, wire metadata, deterministic normalisation, and contract diagnostics               |
-| `@zmdb/web/contract/compiler` | Build-time collection of declared operations through one `ReflectSession`, plus conversion of reflected `TypeIR` into HTTP plans |
-| `@zmdb/aot-validator/reflect` | The only TypeScript type front-end: TypeScript `Type` to `TypeIR`                                                                |
-| `@zmdb/aot-validator/emit`    | Precomputed request decoders, response validators, and wire codecs generated from `TypeIR`                                       |
-| `@zmdb/web` routing           | Binding compiled operations to controller methods and dispatching them                                                           |
-| `@zmdb/web/openapi`           | A pure `HttpContractIR` to OpenAPI 3.1 emitter                                                                                   |
-| `@zmdb/client`                | Dependency-free transport, request execution, body limits, cancellation, authentication injection, and stable error classes      |
-| generated application module  | Operation-specific input/output types and precomputed request/response plans; imports only `@zmdb/client` at runtime             |
-| `zmdb`                        | Curated product re-exports; no contract collection, reflection, generation, or transport implementation                          |
+| Owner                         | Responsibility                                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `@zmdb/web/contract`          | Public declaration helpers, `HttpContractIR`, wire metadata, deterministic normalisation, and contract diagnostics          |
+| `@zmdb/web/contract/compiler` | Build-time collection through one `ReflectSession`, plus deterministic typed-client generation and AOT response validation  |
+| `@zmdb/aot-validator/reflect` | The only TypeScript type front-end: TypeScript `Type` to `TypeIR`                                                           |
+| `@zmdb/aot-validator/emit`    | Precomputed request decoders, response validators, and wire codecs generated from `TypeIR`                                  |
+| `@zmdb/web` routing           | Binding compiled operations to controller methods and dispatching them                                                      |
+| `@zmdb/web/openapi`           | A pure `HttpContractIR` to OpenAPI 3.1 emitter                                                                              |
+| `@zmdb/client`                | Dependency-free transport, request execution, body limits, cancellation, authentication injection, and stable error classes |
+| generated application module  | Operation-specific input/output types and precomputed request/response plans; imports only `@zmdb/client` at runtime        |
+| `zmdb`                        | Curated product re-exports; no contract collection, reflection, generation, or transport implementation                     |
 
 The dependency direction is acyclic:
 

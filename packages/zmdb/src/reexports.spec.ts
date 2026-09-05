@@ -180,6 +180,8 @@ describe('zmdb umbrella re-exports (#227)', () => {
     expect(runtime.defineHttpContract).toBe(runtimeSource.defineHttpContract);
     expect(runtime.httpOperation).toBe(runtimeSource.httpOperation);
     expect(compiler.compileHttpContracts).toBe(compilerSource.compileHttpContracts);
+    expect(compiler.generateHttpClient).toBe(compilerSource.generateHttpClient);
+    expect(compiler.HTTP_CLIENT_GENERATOR_VERSION).toBe(compilerSource.HTTP_CLIENT_GENERATOR_VERSION);
   });
 
   it('exposes zmdb/tags and zmdb/derive with no runtime cost', async () => {

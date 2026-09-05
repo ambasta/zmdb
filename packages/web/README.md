@@ -15,8 +15,11 @@ npm add @zmdb/web@alpha
 
 ## Entry points
 
-The package root contains the common HTTP APIs. Feature-specific entry points include `/routing`, `/versioning`, `/context`, `/contract`, `/pipeline`, `/middleware`, `/app`, `/openapi`, `/health`,
-`/upload`, `/static`, `/compression`, `/gateways`, `/testing`, and `/devtools`.
+The package root contains the common HTTP APIs. Feature-specific entry points include `/routing`, `/versioning`, `/context`, `/contract`, `/contract/compiler`, `/pipeline`, `/middleware`, `/app`,
+`/openapi`, `/health`, `/upload`, `/static`, `/compression`, `/gateways`, `/testing`, and `/devtools`.
+
+`@zmdb/web/contract` contains inert HTTP declarations and serialisable `HttpContractIR`. The build-time `@zmdb/web/contract/compiler` entry compiles those declarations and emits deterministic typed
+client modules whose runtime imports are limited to `@zmdb/client`.
 
 During the server-package migration, transport strategies and clients remain at `/microservices`, dedicated Redis, NATS, RabbitMQ, and gRPC adapters retain their named entry points, and queues and
 scheduling retain `/queues` and `/schedule`. Queue backends are published under `/queues/backends`.

@@ -1,6 +1,45 @@
-There is no HTTP client module — no `HttpService`, no Axios wrapper, no `HttpModule`. Node has `fetch`, and wrapping it in a provider is a few lines that you control.
+zmdb has two deliberately separate HTTP client paths:
 
-## A typed client
+- APIs declared with `@zmdb/web/contract` can emit an exact typed client module. The generated module imports only the dependency-free `@zmdb/client` runtime and validates successful JSON responses
+  with precomputed AOT code.
+- Unrelated third-party APIs have no generic `HttpService`, Axios wrapper, or `HttpModule`. Use `fetch` or a small provider that owns that upstream's policy.
+
+## Generate a client from `HttpContractIR`
+
+The current generation boundary is a build-tool API:
+
+```ts
+import { writeFile } from 'node:fs/promises';
+
+import type { HttpContractIR } from '@zmdb/web/contract';
+import { generateHttpClient } from '@zmdb/web/contract/compiler';
+
+export async function writeHttpClient(contract: HttpContractIR): Promise<void> {
+  const generated = generateHttpClient(contract);
+  await Promise.all([writeFile('src/http-client.generated.ts', generated.source), writeFile('src/http-client.generated.ts.map', generated.sourceMap)]);
+}
+```
+
+The result is stable for the same contract and generator version. Each operation gets an exact input type, exact successful-status result type, typed documented errors, request encoding, response
+dispatch, and straight-line validation. Unsupported contract or `TypeIR` shapes fail generation instead of widening to `unknown`.
+
+Use the generated factory with an injected transport or the default Fetch transport:
+
+```ts
+import { createApiClient } from './http-client.generated.js';
+
+const api = createApiClient({
+  baseUrl: 'https://api.example.com',
+  authentication: () => ({
+    requirement: 0,
+    headers: { authorization: `Bearer ${process.env.API_TOKEN ?? ''}` },
+  }),
+});
+```
+
+Generation does not embed the base URL or credentials. Authentication is resolved for each call by `@zmdb/client`.
+
+## A typed client for a third-party API
 
 ```ts
 export class ApiClient {

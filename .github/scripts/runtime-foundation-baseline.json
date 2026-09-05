@@ -21,6 +21,7 @@
     "missing target package @zmdb/validator: packages/validator/package.json",
     "old import @zmdb/aot-validator remains in [packages/zmdb/src/index.ts]",
     "old import @zmdb/aot-validator/advanced remains in [packages/app/src/commands/index.ts]",
+    "old import @zmdb/aot-validator/emit remains in [packages/web/src/contract/compiler/client.ts]",
     "old import @zmdb/aot-validator/reflect remains in [packages/web/src/contract/compiler/index.ts, packages/zmdb/src/config/index.ts]",
     "old import @zmdb/aot-validator/testing remains in [packages/aot-validator/src/testing/index.ts, packages/repository/src/dx/fixtures.ts, packages/repository/src/orders-fixture.ts, packages/repository/src/typed-methods/fixtures.ts, packages/repository/src/typed-populate/fixtures.ts, packages/schema-core/src/dto/fixtures.ts, packages/schema-core/src/relations/fixtures.ts, packages/zmdb/src/cli/commands/check.ts, packages/zmdb/src/cli/commands/export.ts, packages/zmdb/src/cli/commands/generate.ts, packages/zmdb/src/cli/commands/push.ts, packages/zmdb/src/cli/index.ts]",
     "old import @zmdb/aot-validator/unplugin remains in [packages/zmdb/src/unplugin.ts]",

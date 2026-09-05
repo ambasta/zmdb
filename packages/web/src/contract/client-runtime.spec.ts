@@ -2,23 +2,25 @@ import {
   createClientRuntime,
   type AuthenticationProvider,
   type ClientBody,
-  type ClientHeaders,
-  type ClientOperationResponse,
   type ClientRequest,
-  type ClientResponseBody,
+  type ClientResponse,
   type ClientTransport,
   type GeneratedOperation,
 } from '@zmdb/client';
 import { prepareClientBody } from '@zmdb/client/body';
+import { createFakeClientTransport, type HeldClientRequest } from '@zmdb/client/testing';
 import { describe, expect, it } from 'vitest';
 
-import { HTTP_CONVERGENCE_FIXTURE, type FrozenHttpOperation } from './__fixtures__/http-convergence.js';
+import { createApiClient } from './__fixtures__/http-client.generated.js';
+import { HTTP_CONVERGENCE_FIXTURE } from './__fixtures__/http-convergence.js';
+import { generateHttpClient } from './compiler/index.js';
+import type { HttpContractIR } from './index.js';
 
 // FROZEN SURFACE — packages/client/SPEC.md §§2-9.
 //
-// #682 supplies the real transport runtime and body helper. Operation-specific
-// request/response code remains the #684 boundary, so only those generated calls
-// stay as executable expected failures.
+// #682 supplies the transport runtime and body helper. #684 now supplies the
+// operation-specific request and response code, so the former expected failures
+// below are ordinary executable regressions against the checked-in generated client.
 
 interface UpdateAccountInput {
   readonly path: { readonly accountId: string };
@@ -48,30 +50,18 @@ type UpdateAccountResult =
       readonly headers: Readonly<Record<never, never>>;
     };
 
-function unimplemented(what: string): never {
-  throw new Error(`${what} has no production implementation`);
-}
-
 const prepareBody: (kind: 'json' | 'text' | 'bytes' | 'stream' | 'empty', value: unknown) => ClientBody | undefined = (
   kind,
   value,
 ) => prepareClientBody(kind, value);
 
-const operation: GeneratedOperation<UpdateAccountInput, UpdateAccountResult> = {
+const runtimeOperation: GeneratedOperation<UpdateAccountInput, UpdateAccountResult> = {
   abi: 1,
   operationId: HTTP_CONVERGENCE_FIXTURE.contract.operations[0].operationId,
   method: HTTP_CONVERGENCE_FIXTURE.contract.operations[0].method,
-  security: HTTP_CONVERGENCE_FIXTURE.contract.operations[0].security,
-  schemes: HTTP_CONVERGENCE_FIXTURE.contract.securitySchemes,
-  version: { kind: 'header', values: ['1', '2'], default: '1' },
-  prepare: (_input, _version) => unimplemented('generated operation.prepare'),
-  read: (_response, _version) => unimplemented('generated operation.read'),
-};
-
-const runtimeOperation: GeneratedOperation<UpdateAccountInput, UpdateAccountResult> = {
-  ...operation,
   security: [],
   schemes: {},
+  version: { kind: 'header', values: ['1', '2'], default: '1' },
   prepare: (_input, version) => ({
     path: HTTP_CONVERGENCE_FIXTURE.expectedRequest.path,
     query: HTTP_CONVERGENCE_FIXTURE.expectedRequest.query,
@@ -87,72 +77,118 @@ const runtimeOperation: GeneratedOperation<UpdateAccountInput, UpdateAccountResu
 
 const protectedRuntimeOperation: GeneratedOperation<UpdateAccountInput, UpdateAccountResult> = {
   ...runtimeOperation,
-  security: operation.security,
-  schemes: operation.schemes,
+  security: HTTP_CONVERGENCE_FIXTURE.contract.operations[0].security,
+  schemes: HTTP_CONVERGENCE_FIXTURE.contract.securitySchemes,
 };
 
 function input(): UpdateAccountInput {
   return HTTP_CONVERGENCE_FIXTURE.input;
 }
 
-function unreadBody(): ClientResponseBody {
-  return {
-    empty: () => Promise.reject(new Error('generated operation did not choose empty()')),
-    json: () => Promise.reject(new Error('generated operation did not choose json()')),
-    text: () => Promise.reject(new Error('generated operation did not choose text()')),
-    bytes: () => Promise.reject(new Error('generated operation did not choose bytes()')),
-    stream: () => unimplemented('generated operation did not choose stream()'),
-  };
+function responseBody(body: string): ReadableStream<Uint8Array<ArrayBuffer>> {
+  const bytes = new TextEncoder().encode(body);
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
 }
 
-function response(status: number, headers: ClientHeaders = {}): ClientOperationResponse {
+function jsonResponse(status: number, body: unknown, headers: Readonly<Record<string, string>> = {}): ClientResponse {
   return {
     status,
-    headers,
-    body: unreadBody(),
-    unexpectedStatus: () => Promise.reject(new Error('generated operation did not call unexpectedStatus()')),
+    headers: { 'content-type': 'application/json', ...headers },
+    body: responseBody(JSON.stringify(body)),
   };
 }
 
-function operationResponse(status: number): FrozenHttpOperation['responses'][number] | undefined {
-  return HTTP_CONVERGENCE_FIXTURE.contract.operations[0].responses.find(candidate => candidate.status === status);
+function authentication(): AuthenticationProvider {
+  return () => ({ requirement: 0, headers: { authorization: 'Bearer frozen-test-token' } });
+}
+
+async function generatedCall(): Promise<{
+  readonly held: HeldClientRequest;
+  readonly pending: ReturnType<ReturnType<typeof createApiClient>['patch_accounts_accountId']>;
+}> {
+  const fake = createFakeClientTransport();
+  const client = createApiClient({
+    baseUrl: '/api',
+    transport: fake.transport,
+    authentication: authentication(),
+  });
+  const pending = client.patch_accounts_accountId(HTTP_CONVERGENCE_FIXTURE.input, { version: '2' });
+  return { held: await fake.nextRequest(), pending };
+}
+
+async function finishEmpty(
+  held: HeldClientRequest,
+  pending: ReturnType<ReturnType<typeof createApiClient>['patch_accounts_accountId']>,
+): Promise<void> {
+  held.respond({ status: 204, headers: {}, body: null });
+  await expect(pending).resolves.toEqual({ status: 204, body: undefined, headers: {} });
 }
 
 describe('@zmdb/client frozen request planning', () => {
-  it.fails('the frozen operation example renders one unambiguous request plan', () => {
-    expect(operation.prepare(input(), '2')).toEqual(HTTP_CONVERGENCE_FIXTURE.expectedRequest);
+  it('the frozen operation example renders one unambiguous request plan', async () => {
+    const { held, pending } = await generatedCall();
+    expect(held.request).toEqual({
+      method: 'PATCH',
+      url: '/api/accounts/acct%2Fblue%3Fdraft%231?include=roles%20%26%20permissions&include=teams',
+      headers: {
+        accept: 'application/json, application/problem+json',
+        'accept-version': '2',
+        authorization: 'Bearer frozen-test-token',
+        'content-type': 'application/json',
+        cookie: 'session=session%20value',
+        'x-request-id': 'request-680',
+      },
+      body: '{"displayName":"Ada","metadata":null}',
+    });
+    await finishEmpty(held, pending);
   });
 
-  it.fails('every supported body and parameter location has a specified wire representation', () => {
-    const plan = operation.prepare(input(), '2');
-    expect(plan.path).toBe(HTTP_CONVERGENCE_FIXTURE.expectedRequest.path);
-    expect(plan.query).toEqual(HTTP_CONVERGENCE_FIXTURE.expectedRequest.query);
-    expect(plan.headers).toEqual(HTTP_CONVERGENCE_FIXTURE.expectedRequest.headers);
-    expect(plan.cookies).toEqual(HTTP_CONVERGENCE_FIXTURE.expectedRequest.cookies);
-    expect(plan.body).toBe(HTTP_CONVERGENCE_FIXTURE.expectedRequest.body);
-    expect(HTTP_CONVERGENCE_FIXTURE.bodyKinds.map(body => prepareBody(body.kind, undefined))).toHaveLength(5);
+  it('every supported body and parameter location has a specified wire representation', async () => {
+    const { held, pending } = await generatedCall();
+    expect(held.request.url).toContain(HTTP_CONVERGENCE_FIXTURE.expectedRequest.path);
+    expect(held.request.url).toContain('include=roles%20%26%20permissions&include=teams');
+    expect(held.request.headers['x-request-id']).toBe(HTTP_CONVERGENCE_FIXTURE.expectedRequest.headers['x-request-id']);
+    expect(held.request.headers.cookie).toBe('session=session%20value');
+    expect(held.request.body).toBe(HTTP_CONVERGENCE_FIXTURE.expectedRequest.body);
+    const stream = new ReadableStream<Uint8Array>();
+    const bytes = Uint8Array.of(1, 2, 3);
+    expect([
+      prepareBody('json', null),
+      prepareBody('text', 'ready'),
+      prepareBody('bytes', bytes),
+      prepareBody('stream', stream),
+      prepareBody('empty', undefined),
+    ]).toEqual(['null', 'ready', bytes, stream, undefined]);
+    await finishEmpty(held, pending);
   });
 
-  it.fails('encodes every path parameter exactly once', () => {
-    const plan = operation.prepare(input(), '2');
-    expect(plan.path).toBe('/accounts/acct%2Fblue%3Fdraft%231');
-    expect(plan.path).not.toContain('%252F');
-    expect(plan.path.match(/acct/g)).toHaveLength(1);
+  it('encodes every path parameter exactly once', async () => {
+    const { held, pending } = await generatedCall();
+    const path = held.request.url.split('?')[0];
+    expect(path).toBe('/api/accounts/acct%2Fblue%3Fdraft%231');
+    expect(path).not.toContain('%252F');
+    expect(path?.match(/acct/g)).toHaveLength(1);
+    await finishEmpty(held, pending);
   });
 
-  it.fails('omits undefined query values and repeats arrays', () => {
-    const plan = operation.prepare(input(), '2');
-    expect(plan.query).toEqual([
-      { name: 'include', value: 'roles & permissions' },
-      { name: 'include', value: 'teams' },
-    ]);
-    expect(plan.query.some(pair => pair.name === 'dry-run')).toBe(false);
+  it('omits undefined query values and repeats arrays', async () => {
+    const { held, pending } = await generatedCall();
+    expect(held.request.url.split('?')[1]).toBe('include=roles%20%26%20permissions&include=teams');
+    expect(held.request.url).not.toContain('dry-run');
+    await finishEmpty(held, pending);
   });
 
-  it.fails('distinguishes an empty body from JSON null', () => {
+  it('distinguishes an empty body from JSON null', async () => {
+    const { held, pending } = await generatedCall();
     expect(prepareBody('empty', undefined)).toBeUndefined();
     expect(prepareBody('json', null)).toBe('null');
-    expect(operation.prepare(input(), '2').body).toContain('"metadata":null');
+    expect(held.request.body).toContain('"metadata":null');
+    await finishEmpty(held, pending);
   });
 
   it('prepares JSON, text, bytes, stream, and empty bodies without changing ownership', () => {
@@ -169,39 +205,98 @@ describe('@zmdb/client frozen request planning', () => {
 });
 
 describe('@zmdb/client frozen response dispatch', () => {
-  it.fails('selects a validator by response status', async () => {
-    expect(operationResponse(200)?.body).not.toEqual(operationResponse(202)?.body);
-    await expect(operation.read(response(202), '2')).resolves.toEqual({
+  it('selects a validator by response status', async () => {
+    const { held, pending } = await generatedCall();
+    held.respond(jsonResponse(202, { jobId: 'job-680' }));
+    await expect(pending).resolves.toEqual({
       status: 202,
       body: { jobId: 'job-680' },
       headers: {},
     });
   });
 
-  it.fails('rejects an undocumented status', async () => {
-    await expect(Promise.resolve().then(() => operation.read(response(418), '2'))).rejects.toMatchObject({
+  it('rejects an undocumented status', async () => {
+    const { held, pending } = await generatedCall();
+    held.respond({
+      status: 418,
+      headers: { 'content-type': 'text/plain' },
+      body: responseBody('teapot'),
+    });
+    await expect(pending).rejects.toMatchObject({
       name: 'UnexpectedStatusError',
       status: 418,
     });
   });
 
-  it.fails('keeps documented errors distinct from malformed and invalid successful responses', async () => {
-    await expect(Promise.resolve().then(() => operation.read(response(404), '2'))).rejects.toMatchObject({
+  it('keeps documented errors distinct from malformed and invalid successful responses', async () => {
+    const documented = await generatedCall();
+    documented.held.respond({
+      ...jsonResponse(404, { code: 'missing', message: 'Not found' }),
+      headers: { 'content-type': 'application/problem+json' },
+    });
+    await expect(documented.pending).rejects.toMatchObject({
       name: 'ClientResponseError',
       status: 404,
     });
-    await expect(Promise.resolve().then(() => operation.read(response(200), '2'))).resolves.toMatchObject({
+
+    const malformed = await generatedCall();
+    malformed.held.respond({
+      status: 200,
+      headers: { 'content-type': 'application/json', etag: '"malformed"' },
+      body: responseBody('{'),
+    });
+    await expect(malformed.pending).rejects.toMatchObject({
+      name: 'ResponseDecodeError',
+      status: 200,
+    });
+
+    const invalid = await generatedCall();
+    invalid.held.respond(jsonResponse(200, { id: 'acct-1', displayName: 42 }, { etag: '"invalid"' }));
+    await expect(invalid.pending).rejects.toMatchObject({
+      name: 'ResponseValidationError',
       status: 200,
     });
   });
 
-  it.fails('selects header and media-type response versions from the generated plan', async () => {
-    await expect(operation.read(response(200, { 'content-type': 'application/json' }), '1')).resolves.toMatchObject({
-      status: 200,
-    });
-    await expect(
-      operation.read(response(200, { 'content-type': 'application/json; version=2' }), '2'),
-    ).resolves.toMatchObject({ status: 200 });
+  it('selects header and media-type response versions from the generated plan', async () => {
+    const header = await generatedCall();
+    expect(header.held.request.headers['accept-version']).toBe('2');
+    header.held.respond(jsonResponse(200, { id: 'acct-1', displayName: 'Ada' }, { etag: '"header-v2"' }));
+    await expect(header.pending).resolves.toMatchObject({ status: 200 });
+
+    const mediaContract: HttpContractIR = {
+      format: 1,
+      types: {},
+      operations: [
+        {
+          operationId: 'get_media',
+          controller: 'MediaController',
+          handler: 'read',
+          method: 'GET',
+          path: '/media',
+          parameters: [],
+          responses: [
+            {
+              status: 200,
+              description: 'Media',
+              headers: [],
+              body: { kind: 'text', mediaType: 'text/plain' },
+              versions: {
+                '1': { kind: 'text', mediaType: 'text/plain' },
+                '2': { kind: 'text', mediaType: 'text/vnd.zmdb' },
+              },
+            },
+          ],
+          security: [],
+          version: { kind: 'media-type', key: 'version', values: ['1', '2'], default: '1' },
+          deprecated: false,
+        },
+      ],
+      securitySchemes: {},
+    };
+    const source = generateHttpClient(mediaContract).source;
+    expect(source).toContain('text/plain; version=1');
+    expect(source).toContain('text/vnd.zmdb; version=2');
   });
 });
 
@@ -240,14 +335,18 @@ describe('@zmdb/client frozen transport, cancellation, and authentication', () =
       requests.push(request);
       return { status: 204, headers: {}, body: null };
     };
-    const authentication: AuthenticationProvider = context => {
+    const authenticationProvider: AuthenticationProvider = context => {
       expect(context.requirements).toEqual([{ bearerAuth: [] }, { apiKeyAuth: [] }]);
       return { requirement: 0, headers: { authorization: `Bearer ${secret}` } };
     };
-    const runtime = createClientRuntime({ baseUrl: '/api', transport, authentication });
+    const runtime = createClientRuntime({
+      baseUrl: '/api',
+      transport,
+      authentication: authenticationProvider,
+    });
     await runtime.call(protectedRuntimeOperation, input(), { version: '2' });
     expect(requests).toHaveLength(1);
     expect(requests[0]?.headers.authorization).toBe(`Bearer ${secret}`);
-    expect(JSON.stringify(operation)).not.toContain(secret);
+    expect(JSON.stringify(protectedRuntimeOperation)).not.toContain(secret);
   });
 });

@@ -59,6 +59,8 @@ import {
   type SecurityScheme,
 } from '../index.js';
 
+export { generateHttpClient, HTTP_CLIENT_GENERATOR_VERSION, type GeneratedHttpClientModule } from './client.js';
+
 export interface HttpContractSource {
   /** File path or file URL containing the exported declaration. */
   readonly file: string | URL;

@@ -257,8 +257,9 @@ package or capability is experimental and documentation must say which evidence 
 
 ### 3.5 Frozen shared HTTP-contract and generated-client target
 
-Issue #681 ships the inert contract declarations, deterministic compiler and contract-aware router registration shown below. Issue #682 ships the dependency-free `@zmdb/client` execution runtime, and
-issue #683 makes OpenAPI a pure emitter over the same `HttpContractIR`. Generated operation modules and their end-to-end build workflow remain on the later migration steps.
+Issue #681 ships the inert contract declarations, deterministic compiler and contract-aware router registration shown below. Issue #682 ships the dependency-free `@zmdb/client` execution runtime,
+issue #683 makes OpenAPI a pure emitter over the same `HttpContractIR`, and issue #684 ships deterministic typed operation modules with AOT response validation. Config and CLI generation remain on a
+later migration step.
 
 ```text
 @zmdb/schema-core/ir

@@ -14,7 +14,7 @@ npm add @zmdb/client@alpha
 
 ## Entry points
 
-- `@zmdb/client` — generated-operation ABI and runtime.
+- `@zmdb/client` — generated-operation ABI, runtime, and the body/URL primitives used by generated modules.
 - `@zmdb/client/body` — request-body preparation helpers and response limits.
 - `@zmdb/client/errors` — stable client error classes.
 - `@zmdb/client/headers` — header normalisation and conflict-safe merging.
