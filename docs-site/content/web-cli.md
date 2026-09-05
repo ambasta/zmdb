@@ -1,5 +1,6 @@
 `zmdb new` creates projects and application components. `zmdb generate` keeps
-its separate meaning: generate a migration from the declared schema.
+its separate meaning: generate a migration from the declared schema. `zmdb
+embed` packages SQLite migration SQL into a filesystem-free TypeScript module.
 
 ## Start a project
 
@@ -156,6 +157,7 @@ inspection, the REPL, and the read-only Studio:
 ```bash
 npx zmdb --help
 npx zmdb generate --name add_posts
+npx zmdb embed
 npx zmdb migrate
 npx zmdb check
 npx zmdb studio

@@ -1,8 +1,7 @@
-> **ToDo / feature gap.** The migration runner needs a `MigrationConnection`, and
-> the browser and React Native have no such connection out of the box. Nothing in
-> zmdb ships an adapter for `wa-sqlite`, `sql.js`, OPFS, `expo-sqlite` or
-> `op-sqlite`. `node:sqlite` is a Node built-in and is not available in either
-> environment. See also [React Native](./connect-react-native.html).
+> **ToDo / integration gap.** `zmdb embed` and the filesystem-free embedded
+> runner ship. What is still missing is a first-party `Driver` adapter for
+> `wa-sqlite`, `sql.js`, OPFS, `expo-sqlite` or `op-sqlite`. `node:sqlite`
+> remains a Node-only binding. See also [React Native](./connect-react-native.html).
 
 ## What actually transfers
 
@@ -15,24 +14,17 @@ Most of zmdb does, because most of it is types and string manipulation:
 
 What does not transfer is the last inch: something that takes `{ text, parameters }` and runs it.
 
-## Implementing the connection
+## The embedded connection
 
-`MigrationConnection` has four required methods. The optional members below add
-checksum verification and a transaction around each migration plus its ledger
-row:
+The embedded runner deliberately does not import the query compiler or the
+server migration runner. Its three-method connection maps directly onto the
+SQLite bindings used in browsers and React Native:
 
 ```ts
-interface MigrationConnection {
-  exec(sql: string): Promise<void> | void;
-  appliedVersions(): Promise<readonly number[]> | readonly number[];
-  appliedMigrations?():
-    | Promise<readonly { version: number; name: string; checksum: string | null }[]>
-    | readonly { version: number; name: string; checksum: string | null }[];
-  recordApplied(version: number, name: string, checksum?: string): Promise<void> | void;
-  recordReverted(version: number): Promise<void> | void;
-  ensureVersionTable?(): Promise<void> | void;
-  checksum?(sql: string): Promise<string> | string;
-  transaction?<T>(run: (connection?: MigrationConnection) => Promise<T>): Promise<T>;
+interface EmbeddedConnection {
+  exec(sql: string): Promise<void>;
+  run(sql: string, params: readonly (string | number | null)[]): Promise<void>;
+  rows(sql: string, params: readonly (string | number | null)[]): Promise<readonly Record<string, unknown>[]>;
 }
 ```
 
@@ -40,69 +32,42 @@ Over `expo-sqlite`:
 
 ```ts
 import * as SQLite from 'expo-sqlite';
+import type { EmbeddedConnection } from '@zmdb/query-compiler/migrations/embedded';
 
 const db = await SQLite.openDatabaseAsync('app.db');
 
-export const conn: MigrationConnection = {
+export const conn: EmbeddedConnection = {
   async exec(sql) {
     await db.execAsync(sql);
   },
 
-  async appliedVersions() {
-    const rows = await db.getAllAsync<{ version: number }>(`SELECT version FROM "_zmdb_migrations"`);
-    return rows.map(r => r.version);
+  async run(sql, params) {
+    await db.runAsync(sql, ...params);
   },
 
-  async appliedMigrations() {
-    return db.getAllAsync<{ version: number; name: string; checksum: string | null }>(
-      `SELECT version, name, checksum FROM "_zmdb_migrations" ORDER BY version`,
-    );
-  },
-
-  async recordApplied(version, name, checksum) {
-    await db.runAsync(
-      `INSERT INTO "_zmdb_migrations" ("version", "name", "applied_at", "checksum") VALUES (?, ?, ?, ?)`,
-      version,
-      name,
-      Date.now(),
-      checksum ?? null,
-    );
-  },
-
-  async recordReverted(version) {
-    await db.runAsync(`DELETE FROM "_zmdb_migrations" WHERE "version" = ?`, version);
-  },
-
-  async transaction(run) {
-    await db.execAsync('BEGIN');
-    try {
-      const result = await run();
-      await db.execAsync('COMMIT');
-      return result;
-    } catch (error) {
-      await db.execAsync('ROLLBACK');
-      throw error;
-    }
+  async rows(sql, params) {
+    return db.getAllAsync<Record<string, unknown>>(sql, ...params);
   },
 };
 ```
 
-The default table is
-`_zmdb_migrations(version, name, applied_at, checksum)`. The runner creates it
-before reading, so a connection that keeps its own ledger under another name
-leaves two unrelated histories.
+The runner creates or upgrades
+`_zmdb_migrations(version, name, applied_at, checksum)`, compares build-time
+checksums, and issues `BEGIN` / `COMMIT` around each migration body and ledger
+insert. Do not call it from inside another SQLite transaction.
 
 Then, at startup:
 
 ```ts
-import { runCli } from '@zmdb/query-compiler/migrations/runner';
+import { runEmbedded } from '@zmdb/query-compiler/migrations/embedded';
+import { migrations } from './generated/migrations.js';
 
-await runCli('up', conn, migrations);
+await runEmbedded(conn, migrations);
 ```
 
 For the browser with `wa-sqlite` over OPFS the shape is identical — open the
-database, implement the four required methods, and add the optional checksum and
-transaction methods when the binding can support them.
+database and map its multi-statement execute, parameterized write, and row-query
+calls onto the same three methods.
 
 ## The constraints that make client-side migrations different
 
@@ -118,17 +83,27 @@ transaction methods when the binding can support them.
 
 Generation happens on your machine, in Node, at build time — not on the device:
 
-```ts
-// scripts/generate-client-migrations.mjs
-const ops = diff(JSON.parse(readFileSync('client/snapshot.json', 'utf8')), snapshot([todos, tags]));
-writeFileSync('client/migrations/003.ts', render(ops, 'sqlite'));
+```bash
+npx zmdb embed --out src/generated/migrations.ts
 ```
 
-The device only ever imports the finished array, so no diffing code ships in the bundle.
+The command reads the configured migration directory in version order, copies
+each `-- zmdb:up` section verbatim, computes its SHA-256 checksum in Node, and
+writes a formatter-clean TypeScript array. Without `--out`, it writes
+`embedded.ts` beside the SQL files. `--with-down` includes down sections for a
+development harness; the device runner does not use them.
+
+The device imports only the finished array and
+`@zmdb/query-compiler/migrations/embedded`. That leaf entry imports nothing, so
+the diff engine and DDL emitter do not enter the bundle.
 
 ## What it would take
 
-Two thin adapters — `@zmdb/repository/expo-sqlite` and something over `wa-sqlite` — each implementing `Driver` and `MigrationConnection`. Neither is difficult; both would add a peer dependency on a platform package, which is the reason they have not been written rather than a design problem. See [Writing a Driver](./custom-driver.html) if you need one before then; the adapter above is the whole job.
+Two thin adapters — `@zmdb/repository/expo-sqlite` and something over
+`wa-sqlite` — each implementing `Driver`. The embedded migration side needs
+only the three-method connection above. The peer dependencies on platform
+packages are the remaining integration cost. See
+[Writing a Driver](./custom-driver.html) if you need one before then.
 
 ---
 

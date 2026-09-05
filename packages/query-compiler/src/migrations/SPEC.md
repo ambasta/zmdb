@@ -521,8 +521,8 @@ auto-increment values there are allocated per partition in large strides.
   its DDL auto-commits.
 
 `up`/`down`/`status` are the _library_ verbs, and they are not the command names. The executable spells
-them `migrate`, `rollback` and `status`, and deliberately has no `up` command at all — the reasoning, and
-the nine-command surface these three dispatch into, are frozen in `zmdb`'s `src/cli/SPEC.md` §1.
+them `migrate`, `rollback` and `status`, and deliberately has no `up` command at all — the reasoning and
+the command surface these three dispatch into are frozen in `zmdb`'s `src/cli/SPEC.md` §1.
 
 A generated version is a 14-digit `YYYYMMDDHHMMSS` stamp. The adapter widens an
 existing Postgres/MySQL version column before reading the ledger, while
@@ -652,7 +652,7 @@ The recommended handling for `ledger-ahead` belongs on the page and is the one t
 An empty ledger is not a special case. A reinstalled or evicted database is "version 0", every migration is
 pending, and that path is the one every fresh install takes.
 
-### 5.4 Generation: `zmdb embed`, a twelfth verb
+### 5.4 Generation: `zmdb embed`, a filesystem-free verb
 
 Reads the migration directory, splits each file at the `-- zmdb:up` / `-- zmdb:down` sentinels (§4), digests
 the `up` section, and writes one TypeScript module:
@@ -671,7 +671,7 @@ export const migrations: readonly EmbeddedMigration[] = [
   `export --embed`** either: `export` writes the full DDL for the schema set to stdout (§9 there) from
   declarations, not from files. Both would be a second meaning for a verb that has one, which is the wart
   that spec's §1 and §13 are both about. So `embed` reads migration files, writes a TypeScript module,
-  connects to nothing — a row in that spec's command table, and eleven verbs becomes twelve.
+  connects to nothing — a row in that spec's database-command table.
 - A TypeScript module rather than JSON: the declared type plus `as const` means a hand-edit that breaks the
   shape is a typecheck failure, and the alternative that seems simpler — importing the `.sql` files — needs
   `assetExts` surgery in the Metro config, which is the thing the wrapper in
@@ -702,9 +702,9 @@ runner is a leaf module: the property "the device ships the statements and nothi
 the shape of the import graph, since nothing downstream will enforce it.
 
 Consequences the implementation slice owns: the subpath is added to `package.json` `exports`,
-`verify-exports.mjs` then checks that it resolves and reaches no non-zmdb specifier (it reaches none at all),
-and `ARCHITECTURE.md` §10's subpath count moves. It is not a build-time entry — it never touches
-`typescript` — so it does not go in `BUILD_TIME_ENTRIES`.
+`verify-exports.mjs` checks that it resolves and reaches no non-zmdb specifier (it reaches none at all), and
+publish verification counts and imports the additional installed subpath. It is not a build-time entry — it
+never touches `typescript` — so it does not go in `BUILD_TIME_ENTRIES`.
 
 ### 5.6 The driver requirement, once, for device and browser alike
 

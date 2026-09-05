@@ -42,13 +42,13 @@ They are the only three commands that need no new engine work, and saying so her
 being redesigned.
 
 Two more verbs are frozen further down and are not about the schema at all: `new` writes files (§13) and
-`studio` serves a page (§14). Twelve in total, and the count is not the interesting number — the division
-is. The ten above read or write a database or the tree that describes it; the two below are a code
-generator and a viewer, and neither is allowed to acquire an opinion about migrations.
+`studio` serves a page (§14). The amendments add `modules` and `repl`, making fourteen visible commands in
+three groups: ten read or write a database or the tree that describes it, two are a code generator and a
+viewer, and two describe or inhabit an application's object graph.
 
-`embed` is the twelfth and the newest; it is in the first group because it reads the migration files, though
-it is the only verb in it that neither connects nor writes into the schema tree. Its output is a module an
-application bundle imports, and the format belongs to `@zmdb/query-compiler` — see §4.1.
+`embed` belongs to the first group because it reads the migration files, though it is the only verb there
+that neither connects nor writes into the schema tree. Its output is a module an application bundle imports,
+and the format belongs to `@zmdb/query-compiler` — see §4.1.
 
 ## 2. Argument parsing and exit codes are already decided
 
@@ -559,7 +559,9 @@ wrong-after-this:
 #599 and the roadmap both call it `zmdb graph`. In this CLI that name is unavailable, under the
 rule §1 and §13 are both about: a verb must not acquire a second meaning.
 
-`zmdb`'s other twelve verbs are about a database schema. In that company `graph` reads as the table graph — the foreign-key graph a `pull` walks, the dependency order a `push` sorts DDL into, the thing a schema visualiser would draw.
+Ten existing verbs are about a database or the tree that describes it. In that company `graph` reads as the
+table graph — the foreign-key graph a `pull` walks, the dependency order a `push` sorts DDL into, the thing
+a schema visualiser would draw.
 
 A developer typing `zmdb graph` in a project with thirty tables and four modules cannot know which one they are asking for, and the output tells them only after the fact. `zmdb modules` names the thing it describes, matches `@zmdb/web`'s module vocabulary exactly, and leaves `graph` free for the schema graph if that is ever wanted — which is the same argument §12.1's `embed` makes against `export --embed`.
 

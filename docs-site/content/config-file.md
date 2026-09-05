@@ -32,7 +32,7 @@ config.schemaFiles; // absolute files, expanded eagerly
 config.outDir; // absolute migration output directory
 ```
 
-The shipped `generate`, `migrate`, `rollback`, `status`, `push`, `check`,
+The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`,
 `upgrade`, `export`, and `pull` commands consume this loader. `up` is deliberately
 refused because it is ambiguous between migration application and snapshot upgrade.
 

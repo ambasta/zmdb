@@ -117,7 +117,7 @@ compile-time telemetry exists so the driver does not have to guess.
 
 ## Measured framework overhead
 
-The committed run measured all three configurations on 2026-09-04 with Node
+The committed run measured all three configurations on 2026-09-05 with Node
 26.8.1 on an AMD Ryzen 7 7840U. Each row is the median of six samples after a
 750 ms warmup per workload and mode; all six mode orders were used. The
 recording case used a real `BasicTracerProvider`, `SimpleSpanProcessor` and
@@ -126,12 +126,12 @@ and metrics disabled.
 
 | workload | configuration      | median ns/op | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       392.05 |        baseline |                 0 |         1.202x |
-| request  | API no-op          |      1418.94 |         +261.9% |                 0 |         2.810x |
-| request  | recording exporter |      7376.07 |        +1781.4% |                 3 |         1.079x |
-| query    | off                |        89.95 |        baseline |                 0 |         3.193x |
-| query    | API no-op          |       407.78 |         +353.3% |                 0 |         3.411x |
-| query    | recording exporter |      3919.22 |        +4256.9% |                 1 |         3.282x |
+| request  | off                |       335.03 |        baseline |                 0 |         1.074x |
+| request  | API no-op          |      1251.34 |         +273.5% |                 0 |         1.188x |
+| request  | recording exporter |      6682.68 |        +1894.7% |                 3 |         1.055x |
+| query    | off                |        73.48 |        baseline |                 0 |         1.052x |
+| query    | API no-op          |       300.98 |         +309.6% |                 0 |         1.041x |
+| query    | recording exporter |      2379.68 |        +3138.4% |                 1 |         1.013x |
 
 The request workload is one matched `GET`; the query workload is one compiled
 `SELECT` through `tracedDriver`. These are nanosecond-scale framework

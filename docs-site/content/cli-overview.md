@@ -4,28 +4,30 @@ declaration-emitter APIs.
 
 ## The pieces
 
-| Function                        | Module                                   | Does                                     |
-| ------------------------------- | ---------------------------------------- | ---------------------------------------- |
-| `snapshot(schemas)`             | `@zmdb/query-compiler/migrations`        | schema objects → a plain snapshot object |
-| `diff(prev, next)`              | `@zmdb/query-compiler/migrations`        | two snapshots → operations               |
-| `emitUp(op, dialect)`           | `@zmdb/query-compiler/migrations`        | one operation → SQL                      |
-| `emitDown(op, dialect)`         | `@zmdb/query-compiler/migrations`        | the reverse                              |
-| `createIntrospector(dialect)`   | `@zmdb/query-compiler/introspect`        | live catalog → normalized snapshot       |
-| `emitDeclarations(snapshot, …)` | `@zmdb/query-compiler/introspect`        | snapshot → generated TypeScript files    |
-| `runCli(cmd, conn, migrations)` | `@zmdb/query-compiler/migrations/runner` | applies / reverts, records versions      |
+| Function                        | Module                                     | Does                                      |
+| ------------------------------- | ------------------------------------------ | ----------------------------------------- |
+| `snapshot(schemas)`             | `@zmdb/query-compiler/migrations`          | schema objects → a plain snapshot object  |
+| `diff(prev, next)`              | `@zmdb/query-compiler/migrations`          | two snapshots → operations                |
+| `emitUp(op, dialect)`           | `@zmdb/query-compiler/migrations`          | one operation → SQL                       |
+| `emitDown(op, dialect)`         | `@zmdb/query-compiler/migrations`          | the reverse                               |
+| `createIntrospector(dialect)`   | `@zmdb/query-compiler/introspect`          | live catalog → normalized snapshot        |
+| `emitDeclarations(snapshot, …)` | `@zmdb/query-compiler/introspect`          | snapshot → generated TypeScript files     |
+| `runCli(cmd, conn, migrations)` | `@zmdb/query-compiler/migrations/runner`   | applies / reverts, records versions       |
+| `runEmbedded(conn, migrations)` | `@zmdb/query-compiler/migrations/embedded` | applies bundle-resident SQLite migrations |
 
 ## The commands, and where each stands
 
-| drizzle-kit / mikro-orm      | zmdb today                                             | Page                                                |
-| ---------------------------- | ------------------------------------------------------ | --------------------------------------------------- |
-| `new`                        | project and application-component scaffolds            | [scaffolding](./web-cli.html)                       |
-| `generate`                   | `zmdb generate`                                        | [generate](./cli-generate.html)                     |
-| `migrate` / `up`             | `zmdb migrate`; `up` is deliberately refused           | [migrate](./cli-migrate.html) · [up](./cli-up.html) |
-| `push`                       | live-catalog diff with a destructive SQL guard         | [push](./cli-push.html)                             |
-| `check`                      | snapshot, file-history, and optional live-drift checks | [check](./cli-check.html)                           |
-| `export`                     | `zmdb export`                                          | [export](./cli-export.html)                         |
-| `pull` / `generate-entities` | protected `zmdb pull` declaration staging              | [pull](./cli-pull.html)                             |
-| `studio`                     | installed read-only loopback browser                   | [studio](./cli-studio.html)                         |
+| drizzle-kit / mikro-orm      | zmdb today                                             | Page                                                  |
+| ---------------------------- | ------------------------------------------------------ | ----------------------------------------------------- |
+| `new`                        | project and application-component scaffolds            | [scaffolding](./web-cli.html)                         |
+| `generate`                   | `zmdb generate`                                        | [generate](./cli-generate.html)                       |
+| `embed`                      | bundle-resident SQLite migration module                | [web/mobile migrations](./migrations-web-mobile.html) |
+| `migrate` / `up`             | `zmdb migrate`; `up` is deliberately refused           | [migrate](./cli-migrate.html) · [up](./cli-up.html)   |
+| `push`                       | live-catalog diff with a destructive SQL guard         | [push](./cli-push.html)                               |
+| `check`                      | snapshot, file-history, and optional live-drift checks | [check](./cli-check.html)                             |
+| `export`                     | `zmdb export`                                          | [export](./cli-export.html)                           |
+| `pull` / `generate-entities` | protected `zmdb pull` declaration staging              | [pull](./cli-pull.html)                               |
+| `studio`                     | installed read-only loopback browser                   | [studio](./cli-studio.html)                           |
 
 The catalog-backed `pull` is packaged with overwrite protection, dry-run, and
 check modes. Studio's installed binary is parsed by plain Node and exercised
@@ -46,6 +48,7 @@ Usage:
 
 Commands:
   generate   Create a migration and update the stored snapshot.
+  embed      Compile SQLite migrations into a bundle-resident TypeScript module.
   migrate    Apply pending migrations.
   rollback   Revert the latest migration or roll back to a version.
   status     List migration versions and their applied state.
@@ -66,6 +69,7 @@ The database workflow uses that one entry point:
 
 ```bash
 npx zmdb generate --name add_slug
+npx zmdb embed
 npx zmdb migrate
 npx zmdb check --json
 npx zmdb export > schema.sql

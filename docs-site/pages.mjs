@@ -798,7 +798,7 @@ export const PAGE_META = {
     title: 'Migrations on Web & Mobile',
     group: 'Migrations',
     status: 'todo',
-    note: 'no bundler-embedded migration runner; depends on the React Native build path',
+    note: 'embedded runner and Metro transform ship; first-party browser/mobile drivers remain',
   },
   seeding: {
     title: 'Seeding',
@@ -1011,7 +1011,7 @@ export const PAGE_META = {
     title: 'React Native & Expo',
     group: 'Connecting',
     status: 'todo',
-    note: 'no Metro plugin for the AOT transformer, so schemas and validators are not transformed in an RN bundle',
+    note: 'the Metro transform ships; no first-party React Native SQLite Driver adapter',
   },
   'validators-is': {
     title: 'is()',

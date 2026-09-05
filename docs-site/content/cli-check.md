@@ -63,9 +63,11 @@ await runCli('down', connection, migrations);
 await runCli('up', connection, migrations);
 ```
 
-The frozen CLI contract also names a `stale-embedded` finding. The `embed`
-command and its configured output path have not shipped, so there is no
-embedded artefact for this command to compare yet.
+After `zmdb embed` creates the default `migrations/embedded.ts`, `check`
+regenerates the expected bytes in memory and reports `stale-embedded` when the
+SQL files, checksums, ordering, or `--with-down` content no longer match. A
+project that has never opted into an embedded module is not required to create
+one.
 
 ---
 

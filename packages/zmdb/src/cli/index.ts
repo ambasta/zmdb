@@ -16,6 +16,7 @@ import type { ModuleClass } from '@zmdb/web/modules';
 
 import { commandHelp, globalHelp, parseCommand, type ParsedCommand } from './args.js';
 import { checkProject, type CheckResult } from './commands/check.js';
+import { embedMigrations, type EmbedOptions, type EmbedResult } from './commands/embed.js';
 import { exportSchema, type ExportResult } from './commands/export.js';
 import { generateMigration, type GenerateOptions, type GenerateResult } from './commands/generate.js';
 import {
@@ -34,10 +35,12 @@ import { CliInvocationError } from './errors.js';
 import { CliOutput, type CliResult } from './output.js';
 import { createReplSession, replHistoryPath } from './repl.js';
 
-export { exportSchema, generateMigration, pullDeclarations };
+export { embedMigrations, exportSchema, generateMigration, pullDeclarations };
 export type {
   CheckResult,
   CliResult,
+  EmbedOptions,
+  EmbedResult,
   ExportResult,
   GenerateOptions,
   GenerateResult,
@@ -201,6 +204,17 @@ async function runDatabaseCommand(parsed: ParsedCommand, io: RuntimeEnvironment)
 
   const output = pendingOutput.withConfig(config.configPath);
   try {
+    if (parsed.command === 'embed') {
+      const out = typeof parsed.values.out === 'string' ? parsed.values.out : undefined;
+      const result = await embedMigrations(config, {
+        ...(out === undefined ? {} : { out }),
+        ...(parsed.values['with-down'] === true ? { withDown: true } : {}),
+      });
+      return output.result(
+        result,
+        `${config.configPath}\nwrote ${result.file} (${String(result.migrations.length)} migrations)\n`,
+      );
+    }
     if (parsed.command === 'generate') {
       const name = typeof parsed.values.name === 'string' ? parsed.values.name : undefined;
       if (name !== undefined && !/[a-z0-9]/i.test(name)) {

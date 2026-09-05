@@ -1,14 +1,7 @@
-// Compile-only public-surface freeze for migrations/SPEC.md §5.
-//
-// The static import asks the real package export map for the future leaf module.
-// Its current error is expected; initialized local values below preserve the
-// frozen types without declaring a boundary that does not exist.
+import { runEmbedded, type EmbeddedConnection, type EmbeddedMigration } from '@zmdb/query-compiler/migrations/embedded';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
-
-// @ts-expect-error frozen (#520): the real package subpath and function do not exist yet.
-import type { runEmbedded } from '@zmdb/query-compiler/migrations/embedded';
 
 interface FrozenEmbeddedMigration {
   readonly version: number;
@@ -28,14 +21,11 @@ type FrozenRunEmbedded = (
   migrations: readonly FrozenEmbeddedMigration[],
 ) => Promise<readonly number[]>;
 
-export type _RunEmbeddedBoundary = typeof runEmbedded;
+export type _RunEmbeddedBoundary = Expect<Equal<typeof runEmbedded, FrozenRunEmbedded>>;
+export type _MigrationBoundary = Expect<Equal<EmbeddedMigration, FrozenEmbeddedMigration>>;
+export type _ConnectionBoundary = Expect<Equal<EmbeddedConnection, FrozenEmbeddedConnection>>;
 
-function unimplemented(what: string): never {
-  throw new Error(`${what} is a compile-only frozen surface`);
-}
-
-const frozenRunEmbedded: FrozenRunEmbedded = async (_connection, _migrations) => unimplemented('runEmbedded');
-const connection: FrozenEmbeddedConnection = {
+const connection: EmbeddedConnection = {
   async exec(_sql): Promise<void> {},
   async run(_sql, _params): Promise<void> {},
   async rows(_sql, _params): Promise<readonly Record<string, unknown>[]> {
@@ -49,8 +39,7 @@ const migrations = [
     up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)',
     checksum: 'sha256:create-users',
   },
-] as const satisfies readonly FrozenEmbeddedMigration[];
+] as const satisfies readonly EmbeddedMigration[];
 
-export const applied = frozenRunEmbedded(connection, migrations);
-export type _FrozenMigrationShape = Expect<(typeof migrations)[number] extends FrozenEmbeddedMigration ? true : false>;
+export const applied = runEmbedded(connection, migrations);
 export type _AppliedVersionsAreReadonly = Expect<Equal<Awaited<typeof applied>, readonly number[]>>;

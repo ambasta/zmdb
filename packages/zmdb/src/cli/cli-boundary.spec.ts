@@ -14,7 +14,7 @@ import {
   DuplicateProviderAppModule,
   ShadowedRouteAppModule,
 } from '../../../web/src/modules/__fixtures__/large-graph.js';
-import { exportSchema, generateMigration, pullDeclarations } from './index.js';
+import { embedMigrations, exportSchema, generateMigration, pullDeclarations } from './index.js';
 
 // `zmdb modules`, `zmdb repl`, and the barriers around them. Tests freeze for the epic "The module
 // graph as a first-class object" (#598 / spec freeze #599); the frozen text is `./SPEC.md`'s
@@ -104,6 +104,7 @@ describe('the zmdb CLI boundary', () => {
   });
 
   it('exports the database command wrappers from the CLI subpath', () => {
+    expect(typeof embedMigrations).toBe('function');
     expect(typeof generateMigration).toBe('function');
     expect(typeof exportSchema).toBe('function');
     expect(typeof pullDeclarations).toBe('function');

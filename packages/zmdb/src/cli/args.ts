@@ -63,6 +63,22 @@ const DATABASE_COMMANDS: Readonly<Record<string, CommandDefinition>> = {
     },
     maximumPositionals: 0,
   },
+  embed: {
+    usage: 'zmdb embed [--out <file>] [--with-down]',
+    summary: 'Compile SQLite migrations into a bundle-resident TypeScript module.',
+    options: {
+      out: {
+        type: 'string',
+        valueName: 'file',
+        description: 'Write this module instead of migrations/embedded.ts.',
+      },
+      'with-down': {
+        type: 'boolean',
+        description: 'Include down sections for development tooling.',
+      },
+    },
+    maximumPositionals: 0,
+  },
   migrate: {
     usage: 'zmdb migrate',
     summary: 'Apply pending migrations.',

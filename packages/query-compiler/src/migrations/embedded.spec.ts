@@ -1,52 +1,25 @@
-// Tests freeze for migrations/SPEC.md §5.
-//
-// The future module is loaded through the package subpath a device application
-// will import. Today that real boundary throws ERR_PACKAGE_PATH_NOT_EXPORTED;
-// there is no local runner stub that could make the SQLite assertions pass.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
+import {
+  EmbeddedMigrationError,
+  runEmbedded,
+  type EmbeddedConnection,
+  type EmbeddedMigration,
+} from '@zmdb/query-compiler/migrations/embedded';
 import { describe, expect, it } from 'vitest';
 
 const PACKAGE = resolve(new URL('../../', import.meta.url).pathname, 'package.json');
-const EMBEDDED = '@zmdb/query-compiler/migrations/embedded';
 
-// FROZEN SURFACE — transcribed from SPEC.md §5.1 and §5.3 until the real
-// package subpath exists. Values below are always real initialized objects.
-interface EmbeddedMigration {
-  readonly version: number;
-  readonly name: string;
-  readonly up: string;
-  readonly checksum: string;
-}
-
-interface EmbeddedConnection {
-  exec(sql: string): Promise<void>;
-  run(sql: string, params: readonly (string | number | null)[]): Promise<void>;
-  rows(sql: string, params: readonly (string | number | null)[]): Promise<readonly Record<string, unknown>[]>;
-}
-
-interface EmbeddedMigrationError extends Error {
-  readonly kind: 'duplicate' | 'checksum' | 'ledger-ahead' | 'ledger-shape';
-}
-
-interface EmbeddedModule {
-  readonly EmbeddedMigrationError: new (...args: never[]) => EmbeddedMigrationError;
-  runEmbedded(connection: EmbeddedConnection, migrations: readonly EmbeddedMigration[]): Promise<readonly number[]>;
-}
-
-async function embeddedModule(): Promise<EmbeddedModule> {
-  return import(EMBEDDED) as Promise<EmbeddedModule>;
-}
-
-function connection(db: DatabaseSync): EmbeddedConnection {
+function connection(db: DatabaseSync, events?: string[]): EmbeddedConnection {
   return {
     async exec(sql): Promise<void> {
+      events?.push(sql);
       db.exec(sql);
     },
     async run(sql, params): Promise<void> {
+      events?.push('ledger insert');
       db.prepare(sql).run(...params);
     },
     async rows(sql, params): Promise<readonly Record<string, unknown>[]> {
@@ -73,18 +46,16 @@ async function rejection(promise: Promise<unknown>): Promise<EmbeddedMigrationEr
   try {
     await promise;
   } catch (error) {
-    return error as EmbeddedMigrationError;
+    if (error instanceof EmbeddedMigrationError) return error;
+    throw error;
   }
   throw new Error('expected the embedded runner to reject');
 }
 
 describe('embedded migrations (real SQLite, no filesystem)', () => {
-  // Measured 2026-09-05: importing the real package boundary throws
-  // ERR_PACKAGE_PATH_NOT_EXPORTED for `./migrations/embedded`.
-  it.fails('applies embedded migrations in order and records them in the on-device ledger', async () => {
+  it('applies embedded migrations in order and records them in the on-device ledger', async () => {
     const db = new DatabaseSync(':memory:');
     try {
-      const { runEmbedded } = await embeddedModule();
       expect(await runEmbedded(connection(db), [ADD_EMAIL, CREATE_USERS])).toEqual([
         CREATE_USERS.version,
         ADD_EMAIL.version,
@@ -117,12 +88,50 @@ describe('embedded migrations (real SQLite, no filesystem)', () => {
     }
   });
 
-  // Measured 2026-09-05: the package subpath is absent, so no current export
-  // compares the stored and bundled checksums before applying a migration.
-  it.fails('refuses to apply an embedded migration whose checksum changed', async () => {
+  it('applies each migration in a transaction on sqlite', async () => {
+    const db = new DatabaseSync(':memory:');
+    const events: string[] = [];
+    try {
+      await runEmbedded(connection(db, events), [CREATE_USERS, ADD_EMAIL]);
+      expect(events.slice(events.indexOf('BEGIN'))).toEqual([
+        'BEGIN',
+        CREATE_USERS.up,
+        'ledger insert',
+        'COMMIT',
+        'BEGIN',
+        ADD_EMAIL.up,
+        'ledger insert',
+        'COMMIT',
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('rolls back a failed migration body and its ledger row', async () => {
+    const db = new DatabaseSync(':memory:');
+    const broken: EmbeddedMigration = {
+      version: 20260905090200,
+      name: 'broken',
+      up: 'CREATE TABLE partial (id INTEGER PRIMARY KEY); THIS IS NOT SQL',
+      checksum: 'sha256:broken',
+    };
+    try {
+      await expect(runEmbedded(connection(db), [broken])).rejects.toThrow(
+        `failed to apply embedded migration ${String(broken.version)} ${broken.name}`,
+      );
+      expect(
+        db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'partial'").get(),
+      ).toBeUndefined();
+      expect(db.prepare('SELECT version FROM _zmdb_migrations').all()).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses to apply an embedded migration whose checksum changed', async () => {
     const db = new DatabaseSync(':memory:');
     try {
-      const { EmbeddedMigrationError, runEmbedded } = await embeddedModule();
       await runEmbedded(connection(db), [CREATE_USERS]);
       const changed = { ...CREATE_USERS, checksum: 'sha256:edited-after-release' };
       const error = await rejection(runEmbedded(connection(db), [changed]));
@@ -137,9 +146,77 @@ describe('embedded migrations (real SQLite, no filesystem)', () => {
     }
   });
 
-  // Measured 2026-09-05: no embedded runner is exported, so an older bundle
-  // has no boundary that refuses a ledger version from a newer application.
-  it.fails('errors when the ledger contains an id the bundle does not have', async () => {
+  it('accepts legacy ledger rows with no checksum and adds the checksum column', async () => {
+    const db = new DatabaseSync(':memory:');
+    try {
+      db.exec(`
+        CREATE TABLE users (id INTEGER PRIMARY KEY);
+        CREATE TABLE _zmdb_migrations (
+          version INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          applied_at INTEGER NOT NULL
+        );
+        INSERT INTO _zmdb_migrations(version, name, applied_at)
+        VALUES (${String(CREATE_USERS.version)}, '${CREATE_USERS.name}', 0);
+      `);
+      await expect(runEmbedded(connection(db), [CREATE_USERS, ADD_EMAIL])).resolves.toEqual([ADD_EMAIL.version]);
+      expect(
+        db
+          .prepare("SELECT name FROM pragma_table_info('_zmdb_migrations') ORDER BY cid")
+          .all()
+          .map(row => row.name),
+      ).toEqual(['version', 'name', 'applied_at', 'checksum']);
+      expect(db.prepare('SELECT version, checksum FROM _zmdb_migrations ORDER BY version').all()).toEqual([
+        { version: CREATE_USERS.version, checksum: null },
+        { version: ADD_EMAIL.version, checksum: ADD_EMAIL.checksum },
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses duplicate bundled versions before touching the database', async () => {
+    let calls = 0;
+    const unused: EmbeddedConnection = {
+      async exec(): Promise<void> {
+        calls += 1;
+      },
+      async run(): Promise<void> {
+        calls += 1;
+      },
+      async rows(): Promise<readonly Record<string, unknown>[]> {
+        calls += 1;
+        return [];
+      },
+    };
+    const duplicate = { ...CREATE_USERS, name: 'same_version_again' };
+    const error = await rejection(runEmbedded(unused, [CREATE_USERS, duplicate]));
+    expect(error).toMatchObject({ kind: 'duplicate' });
+    expect(error.message).toContain(String(CREATE_USERS.version));
+    expect(calls).toBe(0);
+  });
+
+  it('reports an incompatible ledger shape before applying a migration', async () => {
+    const events: string[] = [];
+    const malformed: EmbeddedConnection = {
+      async exec(sql): Promise<void> {
+        events.push(sql);
+      },
+      async run(): Promise<void> {
+        events.push('run');
+      },
+      async rows(sql): Promise<readonly Record<string, unknown>[]> {
+        events.push(sql);
+        return [{ name: 'version' }, { name: 'name' }];
+      },
+    };
+    const error = await rejection(runEmbedded(malformed, [CREATE_USERS]));
+    expect(error).toMatchObject({ kind: 'ledger-shape' });
+    expect(error.message).toContain('applied_at');
+    expect(events).toHaveLength(1);
+  });
+
+  it('errors when the ledger contains an id the bundle does not have', async () => {
     const db = new DatabaseSync(':memory:');
     try {
       db.exec(`
@@ -152,21 +229,58 @@ describe('embedded migrations (real SQLite, no filesystem)', () => {
         INSERT INTO _zmdb_migrations(version, name, applied_at, checksum)
         VALUES (20260905090200, 'from_the_future', 0, 'sha256:future');
       `);
-      const { EmbeddedMigrationError, runEmbedded } = await embeddedModule();
       const error = await rejection(runEmbedded(connection(db), [CREATE_USERS]));
       expect(error).toBeInstanceOf(EmbeddedMigrationError);
       expect(error).toMatchObject({ kind: 'ledger-ahead' });
       expect(error.message).toContain('20260905090200');
       expect(error.message).toContain(String(CREATE_USERS.version));
+      expect(error.message).toContain('older than the database');
     } finally {
       db.close();
     }
   });
 
-  // Measured 2026-09-05: package.json has no `./migrations/embedded` export.
-  // The existing `./migrations` and `./migrations/runner` graphs both reach the
-  // compiler, so neither can satisfy this assertion.
-  it.fails("does not pull the diff engine into the embedded runner's import graph", () => {
+  it('runs through a browser-SQLite async driver shape without Node APIs', async () => {
+    const columns = ['version', 'name', 'applied_at', 'checksum'];
+    const ledger: Record<string, unknown>[] = [];
+    const events: string[] = [];
+    const browser = {
+      async execAsync(sql: string): Promise<void> {
+        events.push(sql);
+      },
+      async runAsync(sql: string, ...params: readonly (string | number | null)[]): Promise<void> {
+        events.push(sql);
+        ledger.push({
+          version: params[0],
+          name: params[1],
+          applied_at: params[2],
+          checksum: params[3],
+        });
+      },
+      async getAllAsync(sql: string): Promise<readonly Record<string, unknown>[]> {
+        events.push(sql);
+        return sql.includes('pragma_table_info') ? columns.map(name => ({ name })) : ledger;
+      },
+    };
+    const browserConnection: EmbeddedConnection = {
+      exec: sql => browser.execAsync(sql),
+      run: (sql, params) => browser.runAsync(sql, ...params),
+      rows: sql => browser.getAllAsync(sql),
+    };
+
+    await expect(runEmbedded(browserConnection, [CREATE_USERS])).resolves.toEqual([CREATE_USERS.version]);
+    expect(ledger).toEqual([
+      {
+        version: CREATE_USERS.version,
+        name: CREATE_USERS.name,
+        applied_at: expect.any(Number),
+        checksum: CREATE_USERS.checksum,
+      },
+    ]);
+    expect(events).toContain(CREATE_USERS.up);
+  });
+
+  it("does not pull the diff engine into the embedded runner's import graph", () => {
     const packageJson = JSON.parse(readFileSync(PACKAGE, 'utf8')) as {
       exports: Readonly<Record<string, string>>;
     };

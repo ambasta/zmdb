@@ -106,7 +106,11 @@ See [AOT Setup](./aot-setup.html).
 
 ## Migrations on device
 
-Implement `MigrationConnection` over the same handle and run it at startup — the full example is on [Web & Mobile Migrations](./migrations-web-mobile.html), including why `down` is nearly useless on a device and why every migration must apply from any older version.
+Run `zmdb embed` during the build, map the same SQLite handle onto the
+three-method `EmbeddedConnection`, and call `runEmbedded` at startup. The full
+example is on [Web & Mobile Migrations](./migrations-web-mobile.html), including
+checksum and downgrade refusal, why `down` is nearly useless on a device, and
+why every migration must apply from any older version.
 
 ## Design constraints that are not zmdb's
 
