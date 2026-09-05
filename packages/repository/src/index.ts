@@ -1368,8 +1368,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     options?.signal?.throwIfAborted();
     const ids = sanitizeKeys(values);
     if (ids.length === 0) return [];
-    // DIALECT_PARAM_LIMITS provides a conservative list-length heuristic threshold leaving parameter headroom below driver variable limits.
-    const limit = DIALECT_PARAM_LIMITS[this.dialect];
+    const limit = this.dialectTraits.paramLimit;
     const chunks = chunkArray(ids, limit);
     const rows: Record<string, unknown>[] = [];
     for (const chunk of chunks) {
