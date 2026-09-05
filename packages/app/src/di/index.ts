@@ -121,14 +121,16 @@ export class Container {
   // their first result back into #bindings.
   readonly #factories = new Map<Token<unknown>, { factory: (c: Container) => unknown; scope: Scope }>();
 
-  /** Bind a token to an instance. The instance type is constrained to T. */
-  register<T>(token: Token<T>, instance: T): void {
+  /** Bind a token to an instance. Returns `this` for fluent chaining. */
+  register<T>(token: Token<T>, instance: T): this {
     this.#bindings.set(token, instance);
+    return this;
   }
 
-  /** Bind a token to a factory with a scope (default singleton). */
-  registerFactory<T>(token: Token<T>, factory: (c: Container) => T, scope: Scope = 'singleton'): void {
+  /** Bind a token to a factory with a scope (default singleton). Returns `this` for fluent chaining. */
+  registerFactory<T>(token: Token<T>, factory: (c: Container) => T, scope: Scope = 'singleton'): this {
     this.#factories.set(token, { factory, scope });
+    return this;
   }
 
   /** True if the token is registered (as a value or a factory). */
@@ -162,10 +164,10 @@ export class Container {
 }
 
 // boundary: `register<T>` is the only writer and stores exactly the token's T
-// under that token key, so reading it back as T is sound. This is the single
-// enumerated boundary cast in the DI module (ARCHITECTURE.md §2.1) — a
+// under that token key, so reading it back as T is sound. This and narrowFactoryValue
+// are the enumerated boundary casts in the DI module (ARCHITECTURE.md §2.1) — a
 // heterogeneous token→instance Map cannot prove its value type structurally, so
-// the assertion is isolated here with the soundness argument, and never appears
+// the assertions are isolated here with soundness arguments, and never appear
 // at a call site or on the consumer surface.
 function readBinding<T>(bindings: ReadonlyMap<Token<unknown>, unknown>, token: Token<T>): T {
   return bindings.get(token) as T;

@@ -57,8 +57,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string, listener: (...args: readonly unknown[]) => void): this;
+  removeListener(event: string, listener: (...args: readonly unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -69,7 +69,12 @@ interface WritableResponseCall extends ServerCallSurface {
   removeListener(event: 'drain', listener: () => void): this;
 }
 
-interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
+interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {
+  on(event: 'data', listener: (data: DecodedRequest) => void): this;
+  on(event: string, listener: (...args: readonly unknown[]) => void): this;
+  removeListener(event: 'data', listener: (data: DecodedRequest) => void): this;
+  removeListener(event: string, listener: (...args: readonly unknown[]) => void): this;
+}
 
 interface CallScope {
   readonly signal: AbortSignal;
@@ -383,37 +388,72 @@ function requestValue(decoded: DecodedRequest): unknown {
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
+  const queue: unknown[] = [];
+  let signalResolve: (() => void) | undefined;
+  let streamEnded = false;
+  let streamError: unknown = undefined;
+
+  const notify = () => {
+    if (signalResolve !== undefined) {
+      const resolve = signalResolve;
+      signalResolve = undefined;
+      resolve();
+    }
+  };
+
+  const onData = (data: DecodedRequest) => {
+    try {
+      queue.push(requestValue(data));
+      notify();
+    } catch (err) {
+      streamError = err;
+      notify();
+    }
+  };
+
+  const onEnd = () => {
+    streamEnded = true;
+    notify();
+  };
+
+  const onError = (err: unknown) => {
+    streamError = err;
+    notify();
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
   try {
     for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
+      if (scope.signal.aborted) throw scope.reason();
+      if (streamError !== undefined) throw streamError;
+      if (queue.length > 0) {
+        const value = queue.shift();
+        yield value;
+        continue;
+      }
+      if (streamEnded) break;
+
+      let removeAbort = (): void => undefined;
+      await new Promise<void>((resolve, reject) => {
+        signalResolve = resolve;
+        if (scope.signal.aborted) {
+          reject(scope.reason());
+          return;
+        }
+        const onAbort = () => reject(scope.reason());
+        scope.signal.addEventListener('abort', onAbort, { once: true });
+        removeAbort = () => scope.signal.removeEventListener('abort', onAbort);
+      }).finally(() => {
+        removeAbort();
+      });
     }
   } finally {
-    await iterator.return?.();
-  }
-}
-
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
-  try {
-    return await Promise.race([iterator.next(), aborted]);
-  } finally {
-    removeAbort();
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
   }
 }
 
@@ -816,6 +856,7 @@ function bidiCall<S extends GrpcServiceDef>(
     outboundMetadata(callOptions?.metadata),
     { deadline: Date.now() + deadlineMs },
   );
+  call.resume();
   const observation = new ClientObservation(call, options.validateMetadata, callOptions);
   const removeAbort = attachAbort(call, callOptions?.signal);
   const pumping = requestPump(call, payload, method);
@@ -863,11 +904,54 @@ async function* clientResponses(
   pumping?: RequestPump,
 ): AsyncIterable<unknown> {
   let completed = false;
-  try {
-    for await (const response of call) {
-      observation.throwIfInvalid();
-      yield response;
+  const queue: unknown[] = [];
+  let signalResolve: (() => void) | undefined;
+  let streamEnded = false;
+  let streamError: unknown = undefined;
+
+  const notify = () => {
+    if (signalResolve !== undefined) {
+      const resolve = signalResolve;
+      signalResolve = undefined;
+      resolve();
     }
+  };
+
+  const onData = (data: unknown) => {
+    queue.push(data);
+    notify();
+  };
+
+  const onEnd = () => {
+    streamEnded = true;
+    notify();
+  };
+
+  const onError = (err: unknown) => {
+    streamError = err;
+    notify();
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
+  try {
+    for (;;) {
+      observation.throwIfInvalid();
+      if (streamError !== undefined) throw streamError;
+      if (queue.length > 0) {
+        const response = queue.shift();
+        yield response;
+        continue;
+      }
+      if (streamEnded) break;
+
+      await new Promise<void>(resolve => {
+        signalResolve = resolve;
+      });
+    }
+
     if (pumping !== undefined) {
       await pumping.done;
       throwPumpFailure(pumping);
@@ -880,8 +964,14 @@ async function* clientResponses(
     if (pumping !== undefined) throwPumpFailure(pumping);
     throw error;
   } finally {
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
     removeAbort();
-    if (!completed) call.cancel();
+    if (!completed) {
+      call.on('error', () => undefined);
+      call.cancel();
+    }
   }
 }
 
