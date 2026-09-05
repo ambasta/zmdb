@@ -8,26 +8,6 @@ import { compilePopulate, resolveRelation } from './index.js';
 // declare `posts`, `profile`, `author` and `tags` as tags on the interface, and there is no
 // relation map anywhere in this file to disagree with them.
 
-interface FrozenTargetPredicate {
-  readonly col: string;
-  readonly op: string;
-  readonly value: unknown;
-  readonly connector?: 'AND' | 'OR';
-}
-
-// relations/SPEC.md §3.1 says compilePopulate "gains the target's filters" but does
-// not spell the parameter. This is the narrow positional widening of the existing
-// callable: resolved predicates follow parentIds, and the real function remains the
-// thing under test. If the implementation issue freezes another signature, update this
-// one alias before landing rather than keeping two call forms.
-const compilePopulateWithTargetFilters = compilePopulate as unknown as (
-  ir: SchemaIR,
-  relationName: string,
-  dialect: Parameters<typeof compilePopulate>[2],
-  parentIds: readonly unknown[],
-  targetFilters: readonly FrozenTargetPredicate[],
-) => ReturnType<typeof compilePopulate>;
-
 describe('resolveRelation', () => {
   it('resolves the owning side from the foreign key and what it references', () => {
     // `author?: User & ManyToOne<'users', 'userId'>` on `posts`, whose `userId` carries
@@ -175,18 +155,8 @@ describe('compilePopulate', () => {
     expect(q.parameters).toEqual([1, 2]);
   });
 
-  // Actual at 9e6b9757:
-  // SELECT * FROM "posts" INNER JOIN "users"
-  //   ON "posts"."userId" = "users"."id"
-  // with no parameters; the fifth argument is ignored.
-  it.fails('applies the target filter when populating a to-one relation', () => {
-    const q = compilePopulateWithTargetFilters(
-      PostSchema.ir,
-      'author',
-      'postgres',
-      [],
-      [{ col: 'users.tenantId', op: '=', value: 42 }],
-    );
+  it('applies the target filter when populating a to-one relation', () => {
+    const q = compilePopulate(PostSchema.ir, 'author', 'postgres', [], [{ col: 'users.tenantId', op: '=', value: 42 }]);
 
     expect(q.kind).toBe('join');
     expect(q.sql).toBe(
@@ -195,11 +165,8 @@ describe('compilePopulate', () => {
     expect(q.parameters).toEqual([42]);
   });
 
-  // Actual at 9e6b9757:
-  // SELECT * FROM "posts" WHERE "userId" IN ($1, $2)
-  // with parameters [1, 2]; the fifth argument is ignored.
-  it.fails('applies the target filter to the batched query of a to-many populate', () => {
-    const q = compilePopulateWithTargetFilters(
+  it('applies the target filter to the batched query of a to-many populate', () => {
+    const q = compilePopulate(
       UserSchema.ir,
       'posts',
       'postgres',
@@ -210,5 +177,25 @@ describe('compilePopulate', () => {
     expect(q.kind).toBe('batched');
     expect(q.sql).toBe('SELECT * FROM "posts" WHERE "userId" IN ($1, $2) AND "posts"."deletedAt" IS NULL');
     expect(q.parameters).toEqual([1, 2]);
+  });
+
+  it('keeps an OR target filter grouped inside the join condition', () => {
+    const q = compilePopulate(
+      PostSchema.ir,
+      'author',
+      'postgres',
+      [],
+      [
+        { col: 'users.active', op: '=', value: true },
+        { col: 'users.role', op: '=', value: 'admin', connector: 'OR' },
+      ],
+    );
+
+    expect(q.kind).toBe('join');
+    expect(q.sql).toBe(
+      'SELECT * FROM "posts" LEFT JOIN "users" ON "posts"."userId" = "users"."id" ' +
+        'AND ("users"."active" = $1 OR "users"."role" = $2)',
+    );
+    expect(q.parameters).toEqual([true, 'admin']);
   });
 });

@@ -201,7 +201,10 @@ class UserRepository extends BaseRepository<User> {
 
 Explicit method, explicit predicate, and the type checks — no `as any`, because `deletedAt` is a real nullable column on the declaration.
 
-> **ToDo / feature gap.** There is no automatic soft-delete filter: every read must carry `deletedAt: { isNull: true }` itself, and forgetting it in one place resurrects deleted rows in that one endpoint. Schema-level [entity filters](./entity-filters.html) are the fix, and they are not built.
+> **Partial support.** Named [entity filters](./entity-filters.html) now apply the
+> read predicate across every repository read path. The public `SoftDelete` schema
+> tag and delete-as-update mutation are not built, so the explicit `softDelete`
+> method above remains necessary.
 
 ## Timestamps: prefer a default
 

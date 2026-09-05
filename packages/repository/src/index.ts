@@ -4,7 +4,7 @@
 // @zmdb/query-compiler and every type from the schema; there is no runtime
 // reflection, no proxies and no identity map.
 import { issuesFor } from '@zmdb/aot-validator/utilities';
-import type { ColumnExpr, CompiledQuery, Dialect, SelectBuilder, SetValue } from '@zmdb/query-compiler';
+import type { ColumnExpr, CompiledQuery, Dialect, Predicate, SelectBuilder, SetValue } from '@zmdb/query-compiler';
 import { chunkArray, createQueryCompiler, DIALECT_PARAM_LIMITS, EXPR, inc, sanitizeKeys } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
@@ -64,6 +64,15 @@ import {
   type CacheStore,
 } from './cache/index.js';
 import {
+  applyResolvedFilters,
+  filtersAsPredicates,
+  resolveFilters,
+  type FilterDef,
+  type FilterOverrides,
+  type FilterTarget,
+  type ResolvedFilters,
+} from './filters/index.js';
+import {
   createEntityLoader,
   createRelationLoader,
   LOADER_ENTITY_BATCH,
@@ -84,12 +93,20 @@ export interface Driver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
 
-export interface RepositoryOptions {
-  readonly cacheStore?: CacheStore;
+export interface QueryMeta {
+  readonly filters: readonly string[];
+  readonly buffered?: boolean;
 }
 
-export interface ReadOptions {
+export interface RepositoryOptions {
+  readonly cacheStore?: CacheStore;
+  readonly filters?: readonly FilterDef<unknown>[];
+  readonly onQuery?: (query: CompiledQuery, meta: QueryMeta) => void;
+}
+
+export interface ReadOptions<Defs extends readonly FilterDef<unknown>[] = readonly FilterDef<unknown>[]> {
   readonly cache?: CacheOptions | false;
+  readonly filters?: FilterOverrides<Defs>;
 }
 
 type PopulateReadOptions<K extends string> = ReadOptions & {
@@ -99,6 +116,49 @@ type PopulateReadOptions<K extends string> = ReadOptions & {
 type InternalReadOptions = ReadOptions & {
   readonly populate?: readonly string[];
 };
+
+interface ReadBuilder extends FilterTarget {
+  compile(): CompiledQuery;
+}
+
+interface ReadCompileSettings {
+  readonly table?: string;
+  readonly columnPrefix?: string;
+  readonly schema?: CoreSchema<string>;
+  readonly qualifyColumns?: boolean;
+  readonly filtersApplied?: boolean;
+  readonly additionalFilterNames?: readonly string[];
+  readonly additionalKnownNames?: readonly string[];
+  readonly resolvedFilters?: ResolvedFilters;
+}
+
+function parseTableSpec(spec: string): { readonly table: string; readonly reference: string } {
+  const match = /^(\S+)(?:\s+(?:as\s+)?(\S+))?$/i.exec(spec.trim());
+  const table = match?.[1] ?? spec.trim();
+  return { table, reference: match?.[2] ?? table };
+}
+
+function isFilterDef(value: unknown): value is FilterDef<unknown> {
+  return (
+    isRecord(value) &&
+    typeof value.name === 'string' &&
+    typeof value.where === 'function' &&
+    (value.table === undefined || typeof value.table === 'string') &&
+    (value.schema === undefined ||
+      (isRecord(value.schema) && typeof value.schema.table === 'string' && isRecord(value.schema.ir))) &&
+    (value.enabled === undefined || typeof value.enabled === 'boolean') &&
+    (value.appliesToWrites === undefined || typeof value.appliesToWrites === 'boolean')
+  );
+}
+
+function staticFiltersFor(constructor: Function): readonly FilterDef<unknown>[] {
+  const value: unknown = Reflect.get(constructor, 'filters');
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || !value.every(isFilterDef)) {
+    throw new ValidationError('repository static filters must be an array of filter definitions');
+  }
+  return value;
+}
 
 /**
  * A fetched row: the derived entity plus the string-keyed view that populate
@@ -389,6 +449,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   /** Undefined until a custom store is supplied or an opted-in read needs the bounded default. */
   #cacheStore: CacheStore | undefined;
   #cacheFailureReported = false;
+  readonly #optionFilters: readonly FilterDef<unknown>[];
+  readonly #filterDefinitions: readonly FilterDef<unknown>[];
+  readonly #onQuery: RepositoryOptions['onQuery'];
+  readonly #queryFilters = new WeakMap<CompiledQuery, readonly string[]>();
   /** Loader state is keyed by the explicit request-scope token, never globally. */
   readonly #entityLoaders = new WeakMap<object, EntityLoader<T>>();
   readonly #relationLoaders = new WeakMap<object, RelationLoaderMap<T>>();
@@ -397,8 +461,31 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     this.driver = driver;
     this.dialect = dialect;
     this.#cacheStore = options?.cacheStore;
+    this.#optionFilters = Object.freeze([...(options?.filters ?? [])]);
+    const staticFilters = staticFiltersFor(this.constructor);
+    this.#filterDefinitions = Object.freeze(
+      [...staticFilters, ...this.#optionFilters].map(filter => {
+        if (filter.table !== undefined && filter.schema !== undefined && filter.table !== filter.schema.table) {
+          throw new ValidationError(
+            `filter \`${filter.name}\` targets \`${filter.table}\` but its schema declares \`${filter.schema.table}\``,
+          );
+        }
+        return filter.table === undefined ? { ...filter, table: filter.schema?.table ?? this.schema.table } : filter;
+      }),
+    );
+    this.#onQuery = options?.onQuery;
     this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
     this.keyColumns = Object.freeze([...this.schema.primaryKey]);
+
+    const seen = new Set<string>();
+    for (const filter of this.#filterDefinitions) {
+      if (filter.name.trim().length === 0) throw new ValidationError('filter names must not be empty');
+      const identity = `${filter.table ?? this.schema.table}\u0000${filter.name}`;
+      if (seen.has(identity)) {
+        throw new ValidationError(`filter \`${filter.name}\` is declared more than once for \`${filter.table}\``);
+      }
+      seen.add(identity);
+    }
   }
 
   [LOADER_FOR_SCOPE](scope: object): EntityLoader<T> {
@@ -445,11 +532,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         ? { queryTelemetry: true, execute: q => tx.execute(q) }
         : { execute: q => tx.execute(q) };
     const ctor = this.constructor as new (driver: Driver, dialect?: Dialect, options?: RepositoryOptions) => this;
-    return new ctor(
-      txDriver,
-      this.dialect,
-      this.#cacheStore === undefined ? undefined : { cacheStore: this.#cacheStore },
-    );
+    const options: RepositoryOptions = {
+      ...(this.#cacheStore === undefined ? {} : { cacheStore: this.#cacheStore }),
+      ...(this.#optionFilters.length === 0 ? {} : { filters: this.#optionFilters }),
+      ...(this.#onQuery === undefined ? {} : { onQuery: this.#onQuery }),
+    };
+    return new ctor(txDriver, this.dialect, Object.keys(options).length === 0 ? undefined : options);
   }
 
   /**
@@ -567,6 +655,126 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.schema.table;
   }
 
+  private filterDefinitionsFor(table: string, schema?: CoreSchema<string>): readonly FilterDef<unknown>[] {
+    const definitions = this.#filterDefinitions.filter(filter => filter.table === table);
+    const softDelete = schema?.ir.softDelete;
+    if (softDelete === undefined || definitions.some(filter => filter.name === 'softDelete')) {
+      return definitions;
+    }
+    return [
+      ...definitions,
+      {
+        name: 'softDelete',
+        table,
+        where: (_params: unknown) => [
+          {
+            col: softDelete.column,
+            op: 'is null',
+            value: undefined,
+          },
+        ],
+      },
+    ];
+  }
+
+  private knownFilterNames(
+    definitions: readonly FilterDef<unknown>[],
+    additional: readonly string[] = [],
+  ): readonly string[] {
+    return [...new Set([...definitions.map(filter => filter.name), ...additional])];
+  }
+
+  private rootFilterNames(): readonly string[] {
+    return this.filterDefinitionsFor(this.tableName, this.schema).map(filter => filter.name);
+  }
+
+  private allDeclaredFilterNames(): readonly string[] {
+    return [...new Set([...this.rootFilterNames(), ...this.#filterDefinitions.map(filter => filter.name)])];
+  }
+
+  private populateFilterNames(names: readonly string[] | undefined): readonly string[] {
+    const known = new Set(this.rootFilterNames());
+    for (const name of names ?? []) {
+      const relation = this.relation(name);
+      for (const filter of this.filterDefinitionsFor(relation.targetTable)) known.add(filter.name);
+    }
+    return [...known];
+  }
+
+  private resolveReadFilters(
+    method: string,
+    options: ReadOptions | undefined,
+    table: string,
+    schema: CoreSchema<string> | undefined,
+    qualifyColumns: boolean,
+    additionalKnownNames: readonly string[] = [],
+    columnPrefix = table,
+  ): ResolvedFilters {
+    const definitions = this.filterDefinitionsFor(table, schema);
+    return resolveFilters(definitions, options?.filters, {
+      method,
+      table,
+      columnPrefix,
+      ...(schema === undefined ? {} : { schema }),
+      ...(qualifyColumns ? { qualifyColumns: true } : {}),
+      knownNames: this.knownFilterNames(definitions, additionalKnownNames),
+    });
+  }
+
+  /**
+   * The only place a repository read becomes a CompiledQuery.
+   *
+   * Filter parameters are resolved before `build` runs, the resolved predicates
+   * are conjoined unless a structurally richer builder already placed them, and
+   * the same point reports the final SQL plus the applied names.
+   */
+  private compileRead<B extends ReadBuilder>(
+    method: string,
+    options: ReadOptions | undefined,
+    build: (filters: ResolvedFilters) => B,
+    settings: ReadCompileSettings = {},
+  ): CompiledQuery {
+    const table = settings.table ?? this.tableName;
+    const schema = settings.schema ?? (table === this.tableName ? this.schema : undefined);
+    const resolved =
+      settings.resolvedFilters ??
+      this.resolveReadFilters(
+        method,
+        options,
+        table,
+        schema,
+        settings.qualifyColumns === true,
+        settings.additionalKnownNames,
+        settings.columnPrefix,
+      );
+    const built = build(resolved);
+    const filtered = settings.filtersApplied === true ? built : applyResolvedFilters(built, resolved);
+    const query = filtered.compile();
+    const names = Object.freeze([...new Set([...resolved.names, ...(settings.additionalFilterNames ?? [])])]);
+    this.#queryFilters.set(query, names);
+    this.#onQuery?.(query, { filters: names });
+    return query;
+  }
+
+  private resolvePopulateFilters(
+    names: readonly string[] | undefined,
+    options: ReadOptions | undefined,
+  ): ReadonlyMap<string, ResolvedFilters> {
+    const byRelation = new Map<string, ResolvedFilters>();
+    const byTable = new Map<string, ResolvedFilters>();
+    const knownNames = this.populateFilterNames(names);
+    for (const name of names ?? []) {
+      const relation = this.relation(name);
+      let resolved = byTable.get(relation.targetTable);
+      if (resolved === undefined) {
+        resolved = this.resolveReadFilters('populate', options, relation.targetTable, undefined, true, knownNames);
+        byTable.set(relation.targetTable, resolved);
+      }
+      byRelation.set(name, resolved);
+    }
+    return byRelation;
+  }
+
   private requiredKeyColumns(): readonly string[] {
     if (this.keyColumns.length === 0) throw new Error(`schema ${this.tableName} has no primary key`);
     return this.keyColumns;
@@ -600,10 +808,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
 
     const store = (this.#cacheStore ??= memoryStore());
+    const filters = this.#queryFilters.get(query);
     const key = resultCacheKey({
       dialect: this.dialect,
       schema: this.schema.ir,
       table: this.tableName,
+      ...(filters === undefined ? {} : { filters }),
       query,
     });
 
@@ -755,6 +965,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const parameterLimit = DIALECT_PARAM_LIMITS[this.dialect];
     const chunkSize = Math.max(1, Math.floor(parameterLimit / columns.length));
     const found = new Map<string, Entity<T>>();
+    const filters = this.resolveReadFilters('loader.load', undefined, this.tableName, this.schema, false);
 
     for (const chunk of chunkArray(unique, chunkSize)) {
       let builder = this.qb.selectFrom(this.tableName);
@@ -778,7 +989,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         }
       }
 
-      const rows = await this.rows<EntityRow<T>>(builder.compile());
+      const query = this.compileRead('loader.load', undefined, () => builder, { resolvedFilters: filters });
+      const rows = await this.rows<EntityRow<T>>(query);
       for (const row of rows) {
         found.set(loaderKey(columns.map(column => row[column])), row);
       }
@@ -798,29 +1010,37 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   ): Promise<Populated<T, K> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts: ReadOptions): Promise<Entity<T> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts?: InternalReadOptions): Promise<Entity<T> | undefined> {
-    const query = this.limitOne(this.keyWhere(this.qb.selectFrom(this.tableName), id, 'findById')).compile();
-    return this.firstResult(query, opts?.populate, opts?.cache);
+    const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
+    const query = this.compileRead(
+      'findById',
+      opts,
+      () => this.limitOne(this.keyWhere(this.qb.selectFrom(this.tableName), id, 'findById')),
+      { additionalKnownNames: this.populateFilterNames(opts?.populate) },
+    );
+    return this.firstResult(query, opts, populateFilters);
   }
 
   /** The shared body of `findById` and `findOne`: first row for a where clause, relations attached if asked for. */
-  private async firstMatching(
-    where: WhereDTO<T>,
-    populate?: readonly string[],
-    cache?: CacheOptions | false,
-  ): Promise<Entity<T> | undefined> {
-    const query = this.limitOne(compileWhere(this.qb.selectFrom(this.tableName), where)).compile();
-    return this.firstResult(query, populate, cache);
+  private async firstMatching(where: WhereDTO<T>, options?: InternalReadOptions): Promise<Entity<T> | undefined> {
+    const populateFilters = this.resolvePopulateFilters(options?.populate, options);
+    const query = this.compileRead(
+      'findOne',
+      options,
+      () => this.limitOne(compileWhere(this.qb.selectFrom(this.tableName), where)),
+      { additionalKnownNames: this.populateFilterNames(options?.populate) },
+    );
+    return this.firstResult(query, options, populateFilters);
   }
 
   private async firstResult(
     query: CompiledQuery,
-    populate?: readonly string[],
-    cache?: CacheOptions | false,
+    options?: InternalReadOptions,
+    populateFilters: ReadonlyMap<string, ResolvedFilters> = new Map(),
   ): Promise<Entity<T> | undefined> {
-    const rows = await this.rows<EntityRow<T>>(query, cache);
+    const rows = await this.rows<EntityRow<T>>(query, options?.cache);
     const row = rows[0];
-    if (!row || !populate?.length) return row;
-    const [populated] = await this.attachRelations([row], populate);
+    if (!row || !options?.populate?.length) return row;
+    const [populated] = await this.attachRelations([row], options.populate, options, populateFilters);
     return populated;
   }
 
@@ -832,6 +1052,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     childTable: string,
     childFk: string,
     parentIds: readonly unknown[],
+    options?: ReadOptions,
+    filters?: ResolvedFilters,
   ): Promise<Map<unknown, Record<string, unknown>[]>> {
     const ids = sanitizeKeys(parentIds);
     if (ids.length === 0) return new Map();
@@ -840,7 +1062,17 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const chunks = chunkArray(ids, limit);
     const children: Record<string, unknown>[] = [];
     for (const chunk of chunks) {
-      const res = await this.driver.execute(this.qb.selectFrom(childTable).whereIn(childFk, chunk).compile());
+      const query = this.compileRead(
+        'populate',
+        options,
+        () => this.qb.selectFrom(childTable).whereIn(childFk, chunk),
+        {
+          table: childTable,
+          qualifyColumns: true,
+          ...(filters === undefined ? {} : { resolvedFilters: filters }),
+        },
+      );
+      const res = await this.driver.execute(query);
       children.push(...res);
     }
     const byParent = new Map<unknown, Record<string, unknown>[]>();
@@ -857,12 +1089,21 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   private attachRelations<K extends RelationKeys<T> & string>(
     parents: readonly Entity<T>[],
     names: readonly K[],
+    options?: ReadOptions,
+    populateFilters?: ReadonlyMap<string, ResolvedFilters>,
   ): Promise<readonly Populated<T, K>[]>;
   private attachRelations<Row extends object>(
     parents: readonly Row[],
     names: readonly string[],
+    options?: ReadOptions,
+    populateFilters?: ReadonlyMap<string, ResolvedFilters>,
   ): Promise<readonly Row[]>;
-  private async attachRelations(parents: readonly object[], names: readonly string[]): Promise<readonly object[]> {
+  private async attachRelations(
+    parents: readonly object[],
+    names: readonly string[],
+    options?: ReadOptions,
+    populateFilters: ReadonlyMap<string, ResolvedFilters> = this.resolvePopulateFilters(names, options),
+  ): Promise<readonly object[]> {
     if (parents.length === 0) return parents;
     let current: object[] = parents.map(parent => ({ ...parent }));
 
@@ -872,6 +1113,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         rel.targetTable,
         rel.targetKey,
         current.map(parent => Reflect.get(parent, rel.parentKey)),
+        options,
+        populateFilters.get(name),
       );
       current = current.map(parent => {
         const parentKey = Reflect.get(parent, rel.parentKey);
@@ -899,7 +1142,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     parents: readonly Entity<T>[],
     relation: K,
   ): Promise<readonly RelationValueOf<T, K>[]> {
-    const populated = await this.attachRelations(parents, [relation]);
+    const filters = this.resolvePopulateFilters([relation], undefined);
+    const populated = await this.attachRelations(parents, [relation], undefined, filters);
     return populated.map(parent => parent[relation]);
   }
 
@@ -910,7 +1154,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async findOne(where: WhereDTO<T>): Promise<Entity<T> | undefined>;
   async findOne(where: WhereDTO<T>, opts: ReadOptions): Promise<Entity<T> | undefined>;
   async findOne(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<Entity<T> | undefined> {
-    return this.firstMatching(where, opts?.populate, opts?.cache);
+    return this.firstMatching(where, opts);
   }
 
   async find(where: WhereDTO<T>): Promise<readonly Entity<T>[]>;
@@ -920,19 +1164,58 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   ): Promise<readonly Populated<T, K>[]>;
   async find(where: WhereDTO<T>, opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async find(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
-    const b = compileWhere(this.qb.selectFrom(this.tableName), where);
-    const rows = await this.rows<EntityRow<T>>(b.compile(), opts?.cache);
+    const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
+    const query = this.compileRead('find', opts, () => compileWhere(this.qb.selectFrom(this.tableName), where), {
+      additionalKnownNames: this.populateFilterNames(opts?.populate),
+    });
+    const rows = await this.rows<EntityRow<T>>(query, opts?.cache);
     if (!opts?.populate?.length) return rows;
-    return this.attachRelations(rows, opts.populate);
+    return this.attachRelations(rows, opts.populate, opts, populateFilters);
   }
 
   async findAll<K extends RelationKeys<T> & string>(opts: PopulateReadOptions<K>): Promise<readonly Populated<T, K>[]>;
   async findAll(): Promise<readonly Entity<T>[]>;
   async findAll(opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async findAll(opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
-    const rows = await this.rows<EntityRow<T>>(this.qb.selectFrom(this.tableName).compile(), opts?.cache);
+    const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
+    const query = this.compileRead('findAll', opts, () => this.qb.selectFrom(this.tableName), {
+      additionalKnownNames: this.populateFilterNames(opts?.populate),
+    });
+    const rows = await this.rows<EntityRow<T>>(query, opts?.cache);
     if (!opts?.populate?.length) return rows;
-    return this.attachRelations(rows, opts.populate);
+    return this.attachRelations(rows, opts.populate, opts, populateFilters);
+  }
+
+  async count(where?: WhereDTO<T>, options?: ReadOptions): Promise<number> {
+    const query = this.compileRead('count', options, () => {
+      let builder = aggregateSelectFrom(
+        this.tableName,
+        this.dialect,
+        this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
+      ).count('*', 'count');
+      if (where !== undefined) builder = compileWhere(builder, where);
+      return builder;
+    });
+    const rows = await this.driver.execute(query);
+    const value = rows[0]?.['count'];
+    if (value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'bigint' || typeof value === 'string') {
+      const count = Number(value);
+      if (Number.isSafeInteger(count)) return count;
+    }
+    throw new ValidationError(`count for \`${this.tableName}\` was not a safe integer`);
+  }
+
+  async exists(where?: WhereDTO<T>, options?: ReadOptions): Promise<boolean> {
+    const firstColumn = this.keyColumns[0] ?? this.schema.ir.columns[0]?.name;
+    if (firstColumn === undefined) throw new Error(`schema ${this.tableName} has no column to test for existence`);
+    const query = this.compileRead('exists', options, () => {
+      let builder = this.qb.selectFrom(this.tableName).select([firstColumn]);
+      if (where !== undefined) builder = compileWhere(builder, where);
+      return this.limitOne(builder);
+    });
+    return (await this.driver.execute(query)).length > 0;
   }
 
   async list<K extends RelationKeys<T> & string>(
@@ -942,7 +1225,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async list(query?: ListDTO<T>): Promise<ListResult<Entity<T>>>;
   async list(query: ListDTO<T> | undefined, opts: ReadOptions): Promise<ListResult<Entity<T>>>;
   async list(query?: ListDTO<T>, opts?: InternalReadOptions): Promise<ListResult<Entity<T>>> {
-    let b = this.qb.selectFrom(this.tableName);
+    const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
     const keyColumns = this.requiredKeyColumns();
 
     const userOrderBy = query?.orderBy;
@@ -953,13 +1236,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
     }
 
-    b = applyOrderBy(b, effectiveOrderBy);
-
     const page = query?.page;
     const limit = page && 'limit' in page ? page.limit : undefined;
-
-    if (page && 'after' in page && page.after !== undefined && page.after !== null) {
-      let cursorValues: Record<string, unknown>;
+    const keyset = page && 'after' in page && page.after !== undefined && page.after !== null;
+    let cursorValues: Record<string, unknown> | undefined;
+    if (keyset) {
       if (typeof page.after === 'string') {
         cursorValues = decodeCursor(page.after);
       } else if (typeof page.after === 'object' && !Array.isArray(page.after)) {
@@ -968,25 +1249,36 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       } else {
         throw new Error('Invalid cursor parameter: expected string or object');
       }
-
-      b = applyKeysetFilter(b, cursorValues, effectiveOrderBy, query?.where);
-
-      if (limit !== undefined) {
-        b = b.limit(limit + 1);
-      }
-    } else {
-      if (query?.where) {
-        b = compileWhere(b, query.where);
-      }
-      if (page) {
-        b = applyPagination(b, {
-          limit: limit !== undefined ? limit + 1 : page.limit,
-          offset: 'offset' in page ? page.offset : undefined,
-        });
-      }
     }
 
-    const rows = await this.rows<EntityRow<T>>(b.compile(), opts?.cache);
+    const compiled = this.compileRead(
+      'list',
+      opts,
+      filters => {
+        let builder = applyOrderBy(this.qb.selectFrom(this.tableName), effectiveOrderBy);
+        if (keyset && cursorValues !== undefined) {
+          builder = applyKeysetFilter(builder, cursorValues, effectiveOrderBy, query?.where, branch => {
+            applyResolvedFilters(branch, filters);
+          });
+          if (limit !== undefined) builder = builder.limit(limit + 1);
+          return builder;
+        }
+        if (query?.where) builder = compileWhere(builder, query.where);
+        if (page) {
+          builder = applyPagination(builder, {
+            limit: limit !== undefined ? limit + 1 : page.limit,
+            offset: 'offset' in page ? page.offset : undefined,
+          });
+        }
+        return builder;
+      },
+      {
+        filtersApplied: keyset === true,
+        additionalKnownNames: this.populateFilterNames(opts?.populate),
+      },
+    );
+
+    const rows = await this.rows<EntityRow<T>>(compiled, opts?.cache);
     const listOpts = {
       ...(limit !== undefined ? { limit } : {}),
       ...(query?.select ? { select: query.select } : {}),
@@ -994,7 +1286,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     };
     const res = buildListResult(rows, listOpts);
     if (opts?.populate?.length) {
-      const populatedItems = await this.attachRelations(res.items, opts.populate);
+      const populatedItems = await this.attachRelations(res.items, opts.populate, opts, populateFilters);
       return { ...res, items: populatedItems };
     }
     return res;
@@ -1004,16 +1296,20 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // SQLite compiles FTS5 virtual table JOINs when ftsTable is declared on the
   // schema; querying plain SQLite columns without a declared virtual table
   // throws UnsupportedFeatureError (never a silently-wrong query).
-  async findByFullText(column: string, term: string): Promise<readonly Record<string, unknown>[]> {
+  async findByFullText(
+    column: string,
+    term: string,
+    options?: ReadOptions,
+  ): Promise<readonly Record<string, unknown>[]> {
     const ftsTable = this.schema.ftsTable;
-    const q = ftsSelectFrom(
-      this.tableName,
-      this.dialect,
-      this.driver.queryTelemetry === true ? { ftsTable, telemetry: true } : { ftsTable },
-    )
-      .whereMatch(column, term)
-      .compile();
-    return this.driver.execute(q);
+    const query = this.compileRead('findByFullText', options, () =>
+      ftsSelectFrom(
+        this.tableName,
+        this.dialect,
+        this.driver.queryTelemetry === true ? { ftsTable, telemetry: true } : { ftsTable },
+      ).whereMatch(column, term),
+    );
+    return this.driver.execute(query);
   }
 
   // #87 — JOIN integration. Fetch this table left-joined to a target on an FK,
@@ -1022,24 +1318,56 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async findJoined<Target extends DeclaredTable, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: TaggedSchema<Target>; leftCol: string; rightCol: string; kind?: Kind },
     where?: { col: string; op: string; value: unknown },
+    options?: ReadOptions,
   ): Promise<readonly JoinRow<Entity<T>, Entity<Target>, Kind>[]>;
   async findJoined<Joined = Record<string, unknown>, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: string; leftCol: string; rightCol: string; kind?: Kind },
     where?: { col: string; op: string; value: unknown },
+    options?: ReadOptions,
   ): Promise<readonly JoinRow<Entity<T>, Joined, Kind>[]>;
   async findJoined(
     join: { target: string | CoreSchema<string>; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
     where?: { col: string; op: string; value: unknown },
+    options?: ReadOptions,
   ): Promise<readonly Record<string, unknown>[]> {
     const targetTable = typeof join.target === 'string' ? join.target : join.target.table;
-    let b = joinableSelectFrom(
-      this.tableName,
-      this.dialect,
-      this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
+    const targetSpec = parseTableSpec(targetTable);
+    const targetSchema = typeof join.target === 'string' ? undefined : join.target;
+    const targetDefinitions = this.filterDefinitionsFor(targetSpec.table, targetSchema);
+    const targetFilters = this.resolveReadFilters(
+      'findJoined',
+      options,
+      targetSpec.table,
+      targetSchema,
+      true,
+      this.rootFilterNames(),
+      targetSpec.reference,
     );
-    b = (join.kind === 'inner' ? b.innerJoin : b.leftJoin).call(b, targetTable, join.leftCol, join.rightCol);
-    if (where) b = b.where(where.col, where.op, where.value);
-    return this.driver.execute(b.compile());
+    const query = this.compileRead(
+      'findJoined',
+      options,
+      () => {
+        let builder = joinableSelectFrom(
+          this.tableName,
+          this.dialect,
+          this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
+        );
+        builder = (join.kind === 'inner' ? builder.innerJoin : builder.leftJoin).call(
+          builder,
+          targetTable,
+          join.leftCol,
+          join.rightCol,
+          filtersAsPredicates(targetFilters),
+        );
+        if (where) builder = builder.where(where.col, where.op, where.value);
+        return builder;
+      },
+      {
+        additionalFilterNames: targetFilters.names,
+        additionalKnownNames: targetDefinitions.map(filter => filter.name),
+      },
+    );
+    return this.driver.execute(query);
   }
 
   /**
@@ -1054,6 +1382,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    */
   protected resolveRelationJoin(relationName: string): {
     targetTable: string;
+    filterTable: string;
+    targetReference: string;
     leftCol: string;
     rightCol: string;
   } {
@@ -1063,28 +1393,66 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       rel.targetTable.toLowerCase() === alias.toLowerCase() ? rel.targetTable : `${rel.targetTable} as ${alias}`;
     return {
       targetTable,
+      filterTable: rel.targetTable,
+      targetReference: alias,
       leftCol: `${this.tableName}.${rel.parentKey}`,
       rightCol: `${alias}.${rel.targetKey}`,
     };
   }
 
-  private createRepositoryAggregateBuilder(): RepositoryAggregateBuilder {
+  private filteredRelationJoin(relationName: string, options?: ReadOptions) {
+    const join = this.resolveRelationJoin(relationName);
+    const definitions = this.filterDefinitionsFor(join.filterTable);
+    const filters = this.resolveReadFilters(
+      'aggregate',
+      options,
+      join.filterTable,
+      undefined,
+      true,
+      this.allDeclaredFilterNames(),
+      join.targetReference,
+    );
+    return { ...join, filters, knownNames: definitions.map(filter => filter.name) };
+  }
+
+  private createRepositoryAggregateBuilder(
+    options: ReadOptions | undefined,
+    targetFilterNames: Set<string>,
+    targetKnownNames: Set<string>,
+  ): RepositoryAggregateBuilder {
     let builder = aggregateSelectFrom(
       this.tableName,
       this.dialect,
       this.driver.queryTelemetry === true ? { telemetry: true } : undefined,
     );
-    const resolveRelationJoin = (relationName: string) => this.resolveRelationJoin(relationName);
+    const resolveRelationJoin = (relationName: string) => this.filteredRelationJoin(relationName, options);
+    const resolveTableJoin = (targetTable: string) => {
+      const target = parseTableSpec(targetTable);
+      const definitions = this.filterDefinitionsFor(target.table);
+      const filters = this.resolveReadFilters(
+        'aggregate',
+        options,
+        target.table,
+        undefined,
+        true,
+        this.allDeclaredFilterNames(),
+        target.reference,
+      );
+      return { filters, knownNames: definitions.map(filter => filter.name) };
+    };
 
     const wrap = (b: AggregateSelect): RepositoryAggregateBuilder => {
       builder = b;
       const target: RepositoryAggregateBuilder = Object.assign(builder, {
         joinRelation(relationName: string, kind: 'inner' | 'left' | 'right' = 'inner'): RepositoryAggregateBuilder {
-          const { targetTable, leftCol, rightCol } = resolveRelationJoin(relationName);
+          const { targetTable, leftCol, rightCol, filters, knownNames } = resolveRelationJoin(relationName);
+          for (const name of filters.names) targetFilterNames.add(name);
+          for (const name of knownNames) targetKnownNames.add(name);
           let nextB = builder;
-          if (kind === 'left') nextB = builder.leftJoin(targetTable, leftCol, rightCol);
-          else if (kind === 'right') nextB = builder.rightJoin(targetTable, leftCol, rightCol);
-          else nextB = builder.innerJoin(targetTable, leftCol, rightCol);
+          const predicates = filtersAsPredicates(filters);
+          if (kind === 'left') nextB = builder.leftJoin(targetTable, leftCol, rightCol, predicates);
+          else if (kind === 'right') nextB = builder.rightJoin(targetTable, leftCol, rightCol, predicates);
+          else nextB = builder.innerJoin(targetTable, leftCol, rightCol, predicates);
           return wrap(nextB);
         },
       });
@@ -1093,6 +1461,26 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         get(t, prop, receiver) {
           if (prop === 'joinRelation') {
             return t.joinRelation;
+          }
+          if (prop === 'innerJoin' || prop === 'leftJoin' || prop === 'rightJoin') {
+            return (
+              targetTable: string,
+              leftCol: string,
+              rightCol: string,
+              on?: readonly Predicate[],
+            ): RepositoryAggregateBuilder => {
+              const { filters, knownNames } = resolveTableJoin(targetTable);
+              for (const name of filters.names) targetFilterNames.add(name);
+              for (const name of knownNames) targetKnownNames.add(name);
+              const predicates = [...(on ?? []), ...filtersAsPredicates(filters)];
+              const joined =
+                prop === 'leftJoin'
+                  ? builder.leftJoin(targetTable, leftCol, rightCol, predicates)
+                  : prop === 'rightJoin'
+                    ? builder.rightJoin(targetTable, leftCol, rightCol, predicates)
+                    : builder.innerJoin(targetTable, leftCol, rightCol, predicates);
+              return wrap(joined);
+            };
           }
           const val = Reflect.get(t, prop, receiver);
           if (typeof val === 'function') {
@@ -1122,17 +1510,20 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // #92 & relation-aware aggregations. Runs a grouped aggregate (count/sum/…)
   // returning typed computed columns or relation-aware flat output fields.
   async aggregate<Out extends Record<string, unknown> = Record<string, unknown>>(
-    specOrBuild: AggregateSpec<T> | ((agg: RepositoryAggregateBuilder) => { compile(): CompiledQuery } | void),
+    specOrBuild: AggregateSpec<T> | ((agg: RepositoryAggregateBuilder) => AggregateSelect | void),
+    options?: ReadOptions,
   ): Promise<readonly Out[]> {
     let q: CompiledQuery;
+    const targetFilterNames = new Set<string>();
+    const targetKnownNames = new Set<string>();
 
     if (typeof specOrBuild === 'function') {
-      const builder = this.createRepositoryAggregateBuilder();
+      const builder = this.createRepositoryAggregateBuilder(options, targetFilterNames, targetKnownNames);
       const res = specOrBuild(builder);
-      q =
-        res && typeof res === 'object' && 'compile' in res && typeof res.compile === 'function'
-          ? res.compile()
-          : builder.compile();
+      q = this.compileRead('aggregate', options, () => res ?? builder, {
+        additionalFilterNames: [...targetFilterNames],
+        additionalKnownNames: [...targetKnownNames],
+      });
     } else if (typeof specOrBuild === 'object' && specOrBuild !== null) {
       const spec = specOrBuild;
       let builder = aggregateSelectFrom(
@@ -1145,10 +1536,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const applyJoin = (relName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
         if (joinedRelations.has(relName)) return;
         joinedRelations.add(relName);
-        const { targetTable, leftCol, rightCol } = this.resolveRelationJoin(relName);
-        if (kind === 'left') builder = builder.leftJoin(targetTable, leftCol, rightCol);
-        else if (kind === 'right') builder = builder.rightJoin(targetTable, leftCol, rightCol);
-        else builder = builder.innerJoin(targetTable, leftCol, rightCol);
+        const { targetTable, leftCol, rightCol, filters, knownNames } = this.filteredRelationJoin(relName, options);
+        for (const name of filters.names) targetFilterNames.add(name);
+        for (const name of knownNames) targetKnownNames.add(name);
+        const predicates = filtersAsPredicates(filters);
+        if (kind === 'left') builder = builder.leftJoin(targetTable, leftCol, rightCol, predicates);
+        else if (kind === 'right') builder = builder.rightJoin(targetTable, leftCol, rightCol, predicates);
+        else builder = builder.innerJoin(targetTable, leftCol, rightCol, predicates);
       };
 
       if (spec.joins) {
@@ -1228,7 +1622,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (spec.limit !== undefined) builder = builder.limit(spec.limit);
       if (spec.offset !== undefined) builder = builder.offset(spec.offset);
 
-      q = builder.compile();
+      q = this.compileRead('aggregate', options, () => builder, {
+        additionalFilterNames: [...targetFilterNames],
+        additionalKnownNames: [...targetKnownNames],
+      });
     } else {
       throw new Error('aggregate requires a builder callback or AggregateSpec object');
     }
@@ -1264,29 +1661,56 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // #34 — explicit populate for a to-many relation. Loads parents, then batches
   // one IN() query for children, and attaches them under `relationName`. No
   // proxies, no identity map — children are plain rows on plain parents.
-  async findAllWithMany<K extends RelationKeys<T> & string>(relationName: K): Promise<readonly Populated<T, K>[]>;
+  async findAllWithMany<K extends RelationKeys<T> & string>(
+    relationName: K,
+    options?: ReadOptions,
+  ): Promise<readonly Populated<T, K>[]>;
   async findAllWithMany(
     relationName: string,
     childTable: string,
     childFk: string,
     parentKey?: string,
+    options?: ReadOptions,
   ): Promise<readonly Record<string, unknown>[]>;
   async findAllWithMany(
     relationName: string,
-    childTable?: string,
+    childTableOrOptions?: string | ReadOptions,
     childFk?: string,
     parentKey = 'id',
+    explicitOptions?: ReadOptions,
   ): Promise<readonly Record<string, unknown>[]> {
-    const fetched = await this.rows<EntityRow<T>>(this.qb.selectFrom(this.tableName).compile());
+    const childTable = typeof childTableOrOptions === 'string' ? childTableOrOptions : undefined;
+    const options = typeof childTableOrOptions === 'string' ? explicitOptions : childTableOrOptions;
+    const knownNames =
+      childTable === undefined
+        ? this.populateFilterNames([relationName])
+        : [
+            ...new Set([
+              ...this.rootFilterNames(),
+              ...this.filterDefinitionsFor(childTable).map(filter => filter.name),
+            ]),
+          ];
+    const relationFilters =
+      !childTable || !childFk
+        ? this.resolvePopulateFilters([relationName], options)
+        : new Map([
+            [relationName, this.resolveReadFilters('populate', options, childTable, undefined, true, knownNames)],
+          ]);
+    const parentQuery = this.compileRead('findAllWithMany', options, () => this.qb.selectFrom(this.tableName), {
+      additionalKnownNames: knownNames,
+    });
+    const fetched = await this.rows<EntityRow<T>>(parentQuery, options?.cache);
     if (fetched.length === 0) return fetched;
     // Without an explicit child table/FK the relation has to be looked up, which
     // is what attachRelations does; with one, the caller has already told us
     // everything the batched fetch needs.
-    if (!childTable || !childFk) return this.attachRelations(fetched, [relationName]);
+    if (!childTable || !childFk) return this.attachRelations(fetched, [relationName], options, relationFilters);
     const byParent = await this.childrenByParent(
       childTable,
       childFk,
       fetched.map(p => p[parentKey]),
+      options,
+      relationFilters.get(relationName),
     );
     return fetched.map(p => ({
       ...p,
@@ -1640,6 +2064,7 @@ export function defineRepository<T extends DeclaredTable>(
 }
 
 export { memoryStore, type CacheInvalidationOptions, type CacheOptions, type CacheStore } from './cache/index.js';
+export type { FilterDef, FilterOverride, FilterOverrides, FilterParams, FilterPredicate } from './filters/index.js';
 export {
   createLoaderScope,
   type EntityLoader,

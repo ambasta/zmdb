@@ -1,7 +1,7 @@
 // Read/Query DTO family — see ./SPEC.md.
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
-import type { CompiledQuery, Dialect, SelectBuilder } from '@zmdb/query-compiler';
+import type { ComparisonPredicate, CompiledQuery, Dialect, SelectBuilder } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
 import type { DeclaredTable, RelationKeys } from '../derive/index.js';
@@ -80,6 +80,8 @@ export type WhereDTO<T extends DeclaredTable> = {
 export interface WhereTarget {
   where(col: string, op: string, value: unknown): this;
   orWhere(col: string, op: string, value: unknown): this;
+  whereGroup?(predicates: readonly ComparisonPredicate[]): this;
+  orWhereGroup?(predicates: readonly ComparisonPredicate[]): this;
   whereExists?(subquery: unknown): this;
   orWhereExists?(subquery: unknown): this;
   whereNotExists?(subquery: unknown): this;
@@ -436,12 +438,20 @@ class BranchTarget implements WhereTarget {
   }
 
   // A keyset branch is a conjunction that is OR'd onto the branches before it,
-  // so the branch spends its OR on the first predicate and conjoins the rest —
-  // which is the same whichever method the caller reaches for. An OR *inside*
-  // the user's own where therefore flattens into the branch's AND; expressing it
-  // faithfully needs predicate grouping, which WhereTarget has no way to say.
+  // so the branch spends its OR on the first predicate and conjoins the rest.
+  // Repository filters use `whereGroup` below to preserve their own OR boundary;
+  // compileWhere's user-authored `or` tree is still flat and remains a separate
+  // predicate-tree problem.
   orWhere(col: string, op: string, value: unknown): this {
     return this.where(col, op, value);
+  }
+
+  whereGroup(predicates: readonly ComparisonPredicate[]): this {
+    const method = this.firstCallInBranch ? this.b.orWhereGroup : this.b.whereGroup;
+    if (method === undefined) throw new Error('keyset filters require predicate-group support');
+    this.firstCallInBranch = false;
+    this.b = method.call(this.b, predicates);
+    return this;
   }
 
   getBuilder(): WhereTarget {
@@ -454,6 +464,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
   cursorValues: Record<string, unknown>,
   orderBy: OrderBySpec,
   userWhere?: WhereDTO<UnknownRow>,
+  additionalWhere?: (builder: WhereTarget) => void,
 ): B {
   if (orderBy.length === 0) return builder;
 
@@ -477,6 +488,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
     if (userWhere) {
       compileWhere(target, userWhere);
     }
+    additionalWhere?.(target);
 
     for (let j = 0; j < i; j++) {
       const itemJ = orderBy[j];

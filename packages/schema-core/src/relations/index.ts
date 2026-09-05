@@ -16,7 +16,13 @@
 //
 // What is left is the part that was never a duplicate: `resolveRelation`, which turns one
 // `RelationIR` into the pair of columns a query needs, and the two row helpers.
-import { quoteIdentifier, formatPlaceholder, type Dialect } from '@zmdb/query-compiler';
+import {
+  quoteIdentifier,
+  formatPlaceholder,
+  renderPredicate,
+  type ComparisonPredicate,
+  type Dialect,
+} from '@zmdb/query-compiler';
 
 import type { SchemaIR } from '../ir/index.js';
 
@@ -133,22 +139,42 @@ export function compilePopulate(
   relationName: string,
   dialect: PopulateDialect,
   parentIds: readonly unknown[] = [],
+  targetFilters: readonly ComparisonPredicate[] = [],
 ): PopulateQuery {
   const rel = resolveRelation(ir, relationName);
   const q = (name: string): string => quoteIdentifier(dialect, name);
+  const renderFilters = (parameters: unknown[]): string => {
+    if (targetFilters.length === 0) return '';
+    const body = targetFilters
+      .map((predicate, index) => {
+        const rendered = renderPredicate(dialect, predicate, parameters);
+        return index === 0 ? rendered : `${predicate.connector ?? 'AND'} ${rendered}`;
+      })
+      .join(' ');
+    const grouped = targetFilters.some((predicate, index) => index > 0 && predicate.connector === 'OR');
+    return `AND ${grouped ? `(${body})` : body}`;
+  };
   if (!rel.toMany) {
+    const parameters: unknown[] = [];
+    const filtered = targetFilters.length > 0;
+    const onFilters = renderFilters(parameters);
     const sql =
-      `SELECT * FROM ${q(ir.table)} INNER JOIN ${q(rel.targetTable)} ` +
-      `ON ${q(ir.table)}.${q(rel.parentKey)} = ${q(rel.targetTable)}.${q(rel.targetKey)}`;
-    return { kind: 'join', sql, parameters: [] };
+      `SELECT * FROM ${q(ir.table)} ${filtered ? 'LEFT' : 'INNER'} JOIN ${q(rel.targetTable)} ` +
+      `ON ${q(ir.table)}.${q(rel.parentKey)} = ${q(rel.targetTable)}.${q(rel.targetKey)}` +
+      (onFilters.length === 0 ? '' : ` ${onFilters}`);
+    return { kind: 'join', sql, parameters };
   }
   const sanitized = sanitizeKeys(parentIds);
   if (sanitized.length === 0) {
     return { kind: 'batched', sql: `SELECT * FROM ${q(rel.targetTable)} WHERE 1 = 0`, parameters: [] };
   }
   const inList = sanitized.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
-  const sql = `SELECT * FROM ${q(rel.targetTable)} WHERE ${q(rel.targetKey)} IN (${inList})`;
-  return { kind: 'batched', sql, parameters: [...sanitized] };
+  const parameters: unknown[] = [...sanitized];
+  const filters = renderFilters(parameters);
+  const sql =
+    `SELECT * FROM ${q(rel.targetTable)} WHERE ${q(rel.targetKey)} IN (${inList})` +
+    (filters.length === 0 ? '' : ` ${filters}`);
+  return { kind: 'batched', sql, parameters };
 }
 
 /**

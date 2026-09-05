@@ -67,18 +67,16 @@ the question.
 
 ### 2.1 Three places where SQL is in the plan rather than in the emitter
 
-**(a) The plan's meaning depends on SQL's operator precedence.** A predicate list is flat:
-`WhereClause` is `{ col, op, value, connector }` and `predicateList` in `clauses.ts` renders them in
-order, joining each to the previous with its own connector and **emitting no parentheses at all**. The
-grouping is supplied by the engine: SQL binds `AND` tighter than `OR`, so a three-predicate list
+**(a) The plan's meaning depends on SQL's operator precedence.** An ordinary predicate list is flat:
+`WhereClause` is `{ col, op, value, connector }` and `predicateList` in `clauses.ts` renders those entries
+in order with no implicit parentheses. SQL binds `AND` tighter than `OR`, so a three-predicate list
 `[{a, AND}, {b, OR}, {c, AND}]` means `a OR (b AND c)`, which is exactly what keyset pagination wants.
 
 `applyKeysetFilter` is built on that and says so. Its `BranchTarget` wrapper spends a branch's one
-`OR` on the branch's first predicate and conjoins the rest, and the comment above `orWhere` records
-the cost:
-
-> An OR _inside_ the user's own where therefore flattens into the branch's AND; expressing it
-> faithfully needs predicate grouping, which `WhereTarget` has no way to say.
+`OR` on the branch's first predicate and conjoins the rest. `WhereTarget` now has optional
+`whereGroup`/`orWhereGroup` methods, and repository filters use them to preserve one filter's Boolean
+boundary. `compileWhere` does not yet build that grouped tree for the user's own `and`/`or` DTO arms, so
+an OR inside the user's where still flattens into the branch's AND.
 
 For a SQL target this is a known, documented under-expressiveness.
 
@@ -86,10 +84,9 @@ For a non-SQL target it is worse than that, because **MongoDB has no precedence 
 
 A target that does not is not slightly wrong; it returns a different result set. This is the "silently wrong query" the project refuses everywhere else, arriving through the abstraction that was supposed to prevent it.
 
-Anything that generalises the plan therefore has to nest the predicate tree first, which is a change
-to the SQL path — `WhereDTO`'s `and`/`or` arms would finally round-trip faithfully — and a real
-improvement. It is also strictly larger than the target work and belongs to whichever epic owns
-predicate grouping, not to this one.
+Anything that generalises the plan therefore still has to nest the whole predicate tree first —
+`WhereDTO`'s `and`/`or` arms must round-trip through group nodes, not only repository filters. That is
+strictly larger than the target work and belongs to whichever epic owns general predicate grouping.
 
 **(b) The operator vocabulary is closed in the DTO and open in the builder.** `FieldOps` has twelve universal operators (`eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `like`, `ilike`, `isNull`, `notNull`) plus the vector-only `l2`, `cosine` and `ip` members, and `and`/`or`/`exists`/`notExists` live on `WhereDTO` itself. That vocabulary is closed and checkable; the twelve universal members map almost one-to-one onto Mongo (§4.1), while the three extension members are PostgreSQL-only and type-constrained to vector columns.
 

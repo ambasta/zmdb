@@ -190,9 +190,11 @@ that wants one column asserts the length it expects.
 - `Populated<T, K>` (in `../derive/query.ts`) widens `Entity<T>` with exactly the keys in `K`.
   A to-many becomes `readonly Entity<Target>[]`, a to-one `Entity<Target> | null`: a foreign
   key can match nothing, and the empty array covers the to-many case.
-- `compilePopulate(ir, name, dialect, parentIds)` compiles one: a to-one is an `INNER JOIN` on
-  the resolved pair, a to-many a batched `IN (…)` select over the parent keys, and no parent
-  keys is `WHERE 1 = 0` rather than every row.
+- `compilePopulate(ir, name, dialect, parentIds, targetFilters?)` compiles one: an
+  unfiltered to-one is an `INNER JOIN` on the resolved pair, a filtered to-one is
+  a `LEFT JOIN` with target predicates in `ON`, a to-many is a batched `IN (…)`
+  select with target predicates in `WHERE`, and no parent keys is `WHERE 1 = 0`
+  rather than every row.
 - `attachPopulated(parent, name, value)` returns a new parent object with the relation
   attached. Never mutates the input.
 - `toJsonSchemaWithRelations(schema, variant)` adds a `$ref` per relation to the `entity`
@@ -200,7 +202,7 @@ that wants one column asserts the length it expects.
 
 ### 3.1 Populating a filtered target (frozen — epic "Entity filters and soft delete")
 
-`compilePopulate` gains the target's filters, and the two relation kinds take them in different places
+`compilePopulate` accepts the target's filters, and the two relation kinds take them in different places
 because only one of them can drop a parent row.
 
 **To-many** — the filters conjoin the batched query's `WHERE`, after the `IN`:

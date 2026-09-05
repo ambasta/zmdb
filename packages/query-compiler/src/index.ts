@@ -27,6 +27,7 @@ import {
   whereClause,
   type ComparisonPredicate,
   type Predicate,
+  type PredicateGroup,
 } from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
 import {
@@ -73,6 +74,8 @@ export type Operator =
   | (string & {});
 
 export { OP_MAP } from './clauses.js';
+export { renderPredicate } from './clauses.js';
+export type { ComparisonPredicate, Predicate, PredicateGroup } from './clauses.js';
 
 export type Direction = 'asc' | 'desc';
 
@@ -160,6 +163,8 @@ export interface SelectBuilder<T = unknown> {
   andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
   orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
   orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  whereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
+  orWhereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   andWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
   orWhereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
@@ -186,6 +191,8 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState, telemetry: bool
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
   const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
     next({ wheres: [...state.wheres, { ...predicate, connector }] });
+  const addGroup = (connector: 'AND' | 'OR', predicates: readonly ComparisonPredicate[]) =>
+    next({ wheres: [...state.wheres, { kind: 'group', predicates, connector } satisfies PredicateGroup] });
 
   function where(predicate: SpatialPredicate): SelectBuilder<T>;
   function where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
@@ -218,6 +225,8 @@ function makeSelect<T = unknown>(d: Dialect, state: SelectState, telemetry: bool
     where,
     andWhere,
     orWhere,
+    whereGroup: predicates => addGroup('AND', predicates),
+    orWhereGroup: predicates => addGroup('OR', predicates),
     whereIn: (col, values) => addWhere('AND', col, 'in', values),
     andWhereIn: (col, values) => addWhere('AND', col, 'in', values),
     orWhereIn: (col, values) => addWhere('OR', col, 'in', values),

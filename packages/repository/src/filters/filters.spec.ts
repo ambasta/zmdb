@@ -1,35 +1,33 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import type { CompiledQuery } from '@zmdb/query-compiler';
-import { BaseRepository, type Driver } from '@zmdb/repository';
+import {
+  BaseRepository,
+  createLoaderScope,
+  memoryStore,
+  type Driver,
+  type FilterDef,
+  type QueryMeta,
+} from '@zmdb/repository';
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import type { ColumnIR, SchemaIR } from '@zmdb/schema-core/ir';
 import { schemaFromIR } from '@zmdb/schema-core/ir';
-import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import type { OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
-
-// Tests freeze for #449. The production filter types do not exist yet, so this file
-// declares only the frozen value shape from repository/SPEC.md §3c and hands those
-// values to the real BaseRepository. No repository method is stubbed.
-interface FrozenPredicate {
-  readonly col: string;
-  readonly op: string;
-  readonly value: unknown;
-  readonly connector?: 'AND' | 'OR';
-}
-
-interface FilterDef<P = void> {
-  readonly name: string;
-  readonly where: (params: P) => readonly FrozenPredicate[];
-  readonly enabled?: boolean;
-  readonly appliesToWrites?: boolean;
-}
 
 export interface FilterUser extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   tenantId: number & Sql<'integer'>;
   role: string & Sql<'text'>;
   active: boolean & Sql<'boolean'>;
+  deletedAt: (Date & Sql<'timestamp'>) | null;
+  posts?: FilterPost[] & OneToMany<'posts', 'userId'>;
+}
+
+export interface FilterPost extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  userId: number & Sql<'integer'> & References<'users.id'>;
+  tenantId: number & Sql<'integer'>;
   deletedAt: (Date & Sql<'timestamp'>) | null;
 }
 
@@ -61,11 +59,32 @@ const USER_IR: SchemaIR = {
     column('deletedAt', 'timestamp', { nullable: true }),
   ],
   primaryKey: ['id'],
-  relations: [],
+  relations: [{ name: 'posts', relation: 'oneToMany', target: 'posts', via: 'userId' }],
   foreignKeys: [],
 };
 
 const UserSchema = schemaFromIR(USER_IR);
+const PostSchema = schemaFromIR({
+  table: 'posts',
+  physicalTable: 'posts',
+  columns: [
+    column('id', 'integer', { primaryKey: true, serial: true }),
+    column('userId', 'integer'),
+    column('tenantId', 'integer'),
+    column('deletedAt', 'timestamp', { nullable: true }),
+  ],
+  primaryKey: ['id'],
+  relations: [],
+  foreignKeys: [],
+} satisfies SchemaIR);
+const OrganizationSchema = schemaFromIR({
+  table: 'organizations',
+  physicalTable: 'organizations',
+  columns: [column('id', 'integer', { primaryKey: true }), column('tenantId', 'integer')],
+  primaryKey: ['id'],
+  relations: [],
+  foreignKeys: [],
+} satisfies SchemaIR);
 
 const activeFilter = {
   name: 'active',
@@ -76,6 +95,20 @@ const tenantFilter = {
   name: 'tenant',
   where: ({ tenantId }: { readonly tenantId: number }) => [{ col: 'tenantId', op: '=', value: tenantId }] as const,
 } as const satisfies FilterDef<{ readonly tenantId: number }>;
+
+const activeOrAdminFilter = {
+  name: 'activeOrAdmin',
+  where: (_params: void) =>
+    [
+      { col: 'active', op: '=', value: true },
+      { col: 'role', op: '=', value: 'admin', connector: 'OR' },
+    ] as const,
+} as const satisfies FilterDef;
+
+const visibleFilter = {
+  name: 'visible',
+  where: (_params: void) => [{ col: 'active', op: '=', value: true }] as const,
+} as const satisfies FilterDef;
 
 class ActiveUsers extends BaseRepository<FilterUser> {
   static override readonly schema = UserSchema;
@@ -94,6 +127,47 @@ class TenantAndActiveUsers extends BaseRepository<FilterUser> {
 
 class PlainUsers extends BaseRepository<FilterUser> {
   static override readonly schema = UserSchema;
+}
+
+class ActiveOrAdminUsers extends BaseRepository<FilterUser> {
+  static override readonly schema = UserSchema;
+  static readonly filters = [activeOrAdminFilter] as const;
+}
+
+class VisibleUsers extends BaseRepository<FilterUser> {
+  static override readonly schema = UserSchema;
+  static readonly filters = [visibleFilter] as const;
+}
+
+const postVisibilityFilter = {
+  name: 'postVisibility',
+  table: 'posts',
+  schema: PostSchema,
+  where: (_params: void) => [{ col: 'deletedAt', op: 'is null', value: undefined }] as const,
+} as const satisfies FilterDef;
+
+const organizationTenantFilter = {
+  name: 'organizationTenant',
+  table: 'organizations',
+  schema: OrganizationSchema,
+  where: ({ tenantId }: { readonly tenantId: number }) => [{ col: 'tenantId', op: '=', value: tenantId }] as const,
+} as const satisfies FilterDef<{ readonly tenantId: number }>;
+
+const postTenantFilter = {
+  name: 'postTenant',
+  table: 'posts',
+  schema: PostSchema,
+  where: ({ tenantId }: { readonly tenantId: number }) => [{ col: 'tenantId', op: '=', value: tenantId }] as const,
+} as const satisfies FilterDef<{ readonly tenantId: number }>;
+
+class UsersWithTargetFilters extends BaseRepository<FilterUser> {
+  static override readonly schema = UserSchema;
+  static readonly filters = [activeFilter, postVisibilityFilter, organizationTenantFilter] as const;
+}
+
+class UsersWithParameterizedPostFilter extends BaseRepository<FilterUser> {
+  static override readonly schema = UserSchema;
+  static readonly filters = [postTenantFilter] as const;
 }
 
 interface RecordingDriver extends Driver {
@@ -116,10 +190,7 @@ function statements(calls: readonly CompiledQuery[]): readonly { text: string; p
 }
 
 describe('declared repository filters', () => {
-  // Actual at 9e6b9757: all five statements below omit `"active" = $n`.
-  // `count` and `exists` are also absent from BaseRepository, so the final two
-  // assertions preserve that unresolved surface without inventing signatures.
-  it.fails('applies a declared filter to every single-table read', async () => {
+  it('applies a declared filter to every single-table read', async () => {
     const driver = recordingDriver();
     const repo = new ActiveUsers(driver);
 
@@ -128,6 +199,8 @@ describe('declared repository filters', () => {
     await repo.find({ role: 'admin' });
     await repo.findAll();
     await repo.list({ page: { limit: 2, offset: 0 } });
+    await repo.count();
+    await repo.exists();
 
     expect(statements(driver.calls)).toEqual([
       {
@@ -150,19 +223,18 @@ describe('declared repository filters', () => {
         text: 'SELECT * FROM "users" WHERE "active" = $1 ORDER BY "id" ASC LIMIT 3 OFFSET 0',
         parameters: [true],
       },
+      {
+        text: 'SELECT COUNT(*) AS "count" FROM "users" WHERE "active" = $1',
+        parameters: [true],
+      },
+      {
+        text: 'SELECT "id" FROM "users" WHERE "active" = $1 LIMIT 1',
+        parameters: [true],
+      },
     ]);
-
-    expect(Reflect.get(repo, 'count'), 'repository/SPEC.md names count, but no callable signature exists').toBeTypeOf(
-      'function',
-    );
-    expect(Reflect.get(repo, 'exists'), 'repository/SPEC.md names exists, but no callable signature exists').toBeTypeOf(
-      'function',
-    );
   });
 
-  // Actual at 9e6b9757:
-  // SELECT "role", COUNT("id") AS "n" FROM "users" GROUP BY "role"
-  it.fails('applies a filter to an aggregation and a group-by', async () => {
+  it('applies a filter to an aggregation and a group-by', async () => {
     const driver = recordingDriver();
     const repo = new ActiveUsers(driver);
 
@@ -207,8 +279,7 @@ describe('declared repository filters', () => {
     expect(Reflect.get(repo, 'deleteMany')).toBeTypeOf('function');
   });
 
-  // Actual at 9e6b9757: findAll resolves and executes SELECT * FROM "users".
-  it.fails('throws when a parameterised filter is called without its parameter, naming the filter', async () => {
+  it('throws when a parameterised filter is called without its parameter, naming the filter', async () => {
     const driver = recordingDriver();
     const repo = new TenantUsers(driver);
 
@@ -219,25 +290,29 @@ describe('declared repository filters', () => {
     expect(driver.calls).toEqual([]);
   });
 
-  // The cast widens only findAll's existing options object with the exact form
-  // frozen in repository/SPEC.md §3c. The call still reaches the real method.
-  // Actual at 9e6b9757: SELECT * FROM "users", parameters [].
-  it.fails('disables one named filter for one call and leaves the others applied', async () => {
+  it('disables one named filter for one call and leaves the others applied', async () => {
     const driver = recordingDriver();
     const repo = new TenantAndActiveUsers(driver);
-    const findAll = repo.findAll.bind(repo) as (options: {
-      readonly filters: {
-        readonly tenant: { readonly tenantId: number };
-        readonly active: false;
-      };
-    }) => ReturnType<TenantAndActiveUsers['findAll']>;
-
-    await findAll({ filters: { tenant: { tenantId: 42 }, active: false } });
+    await repo.findAll({ filters: { tenant: { tenantId: 42 }, active: false } });
 
     expect(statements(driver.calls)).toEqual([
       {
         text: 'SELECT * FROM "users" WHERE "tenantId" = $1',
         parameters: [42],
+      },
+    ]);
+  });
+
+  it('conjoins an OR filter as one predicate group', async () => {
+    const driver = recordingDriver();
+    const repo = new ActiveOrAdminUsers(driver);
+
+    await repo.find({ tenantId: 42 });
+
+    expect(statements(driver.calls)).toEqual([
+      {
+        text: 'SELECT * FROM "users" WHERE "tenantId" = $1 AND ("active" = $2 OR "role" = $3)',
+        parameters: [42, true, 'admin'],
       },
     ]);
   });
@@ -260,13 +335,273 @@ describe('declared repository filters', () => {
       },
     ]);
   });
+
+  it('accepts read filters supplied through RepositoryOptions', async () => {
+    const driver = recordingDriver();
+    const repo = new PlainUsers(driver, 'postgres', { filters: [activeFilter] });
+
+    await repo.findAll();
+
+    expect(statements(driver.calls)).toEqual([
+      {
+        text: 'SELECT * FROM "users" WHERE "active" = $1',
+        parameters: [true],
+      },
+    ]);
+  });
+
+  it('refuses invalid filter parameters and unknown names before compilation', async () => {
+    const driver = recordingDriver();
+    const repo = new TenantUsers(driver);
+
+    await expect(repo.findAll({ filters: { tenant: { tenantId: 'not-an-integer' } } })).rejects.toThrow(
+      /filters\.tenant\.tenantId/,
+    );
+    await expect(repo.findAll({ filters: { tenent: false } })).rejects.toThrow(
+      'unknown filter `tenent`; declared filters: tenant',
+    );
+    expect(driver.calls).toEqual([]);
+  });
+
+  it('treats null parameters as missing and preserves a parameterless filter error', async () => {
+    const tenantDriver = recordingDriver();
+    const tenantRepo = new TenantUsers(tenantDriver);
+
+    await expect(tenantRepo.findAll({ filters: { tenant: null } })).rejects.toThrow(
+      'filter `tenant` requires parameters (tenantId) and none were supplied',
+    );
+    expect(tenantDriver.calls).toEqual([]);
+
+    class BrokenUsers extends BaseRepository<FilterUser> {
+      static override readonly schema = UserSchema;
+      static readonly filters = [
+        {
+          name: 'broken',
+          where: (_params: void) => {
+            throw new Error('filter callback failed');
+          },
+        },
+      ] as const satisfies readonly FilterDef[];
+    }
+
+    const brokenDriver = recordingDriver();
+    await expect(new BrokenUsers(brokenDriver).findAll()).rejects.toThrow('filter callback failed');
+    expect(brokenDriver.calls).toEqual([]);
+  });
+
+  it('rejects a target-only override on a single-table read', async () => {
+    const driver = recordingDriver();
+    const repo = new UsersWithTargetFilters(driver);
+
+    await expect(repo.findAll({ filters: { organizationTenant: { tenantId: 42 } } })).rejects.toThrow(
+      'unknown filter `organizationTenant`; declared filters: active',
+    );
+    expect(driver.calls).toEqual([]);
+  });
+
+  it('refuses a missing target-filter parameter before compiling the parent read', async () => {
+    const driver = recordingDriver([{ id: 1, tenantId: 42, role: 'admin', active: true, deletedAt: null }]);
+    const repo = new UsersWithParameterizedPostFilter(driver);
+
+    await expect(repo.findById(1, { populate: ['posts'] })).rejects.toThrow(
+      'filter `postTenant` requires parameters (tenantId) and none were supplied; pass them per call — ' +
+        'populate({ filters: { postTenant: { tenantId } } }) — or disable it by name',
+    );
+    expect(driver.calls).toEqual([]);
+  });
+
+  it('passes target-filter parameters through findAllWithMany', async () => {
+    const calls: CompiledQuery[] = [];
+    const driver: Driver = {
+      execute(query) {
+        calls.push(query);
+        return Promise.resolve(
+          calls.length === 1 ? [{ id: 1, tenantId: 42, role: 'admin', active: true, deletedAt: null }] : [],
+        );
+      },
+    };
+    const repo = new UsersWithParameterizedPostFilter(driver);
+
+    await repo.findAllWithMany('posts', { filters: { postTenant: { tenantId: 42 } } });
+
+    expect(statements(calls)).toEqual([
+      { text: 'SELECT * FROM "users"', parameters: [] },
+      {
+        text: 'SELECT * FROM "posts" WHERE "userId" IN ($1) AND "posts"."tenantId" = $2',
+        parameters: [1, 42],
+      },
+    ]);
+  });
+
+  it('reports the final SQL and applied filter names through onQuery', async () => {
+    const driver = recordingDriver();
+    const observations: { readonly query: CompiledQuery; readonly meta: QueryMeta }[] = [];
+    const repo = new ActiveUsers(driver, 'postgres', {
+      onQuery(query, meta) {
+        observations.push({ query, meta });
+      },
+    });
+
+    await repo.find({ role: 'admin' });
+
+    expect(observations).toEqual([
+      {
+        query: {
+          text: 'SELECT * FROM "users" WHERE "role" = $1 AND "active" = $2',
+          parameters: ['admin', true],
+        },
+        meta: { filters: ['active'] },
+      },
+    ]);
+  });
+
+  it('includes applied filter names in result-cache keys', async () => {
+    const store = memoryStore();
+    const firstDriver = recordingDriver([{ id: 1, tenantId: 42, role: 'admin', active: true, deletedAt: null }]);
+    const secondDriver = recordingDriver([{ id: 2, tenantId: 42, role: 'user', active: true, deletedAt: null }]);
+    const active = new ActiveUsers(firstDriver, 'postgres', { cacheStore: store });
+    const visible = new VisibleUsers(secondDriver, 'postgres', { cacheStore: store });
+
+    expect((await active.findAll({ cache: { ttlMs: 1_000 } }))[0]?.id).toBe(1);
+    expect((await visible.findAll({ cache: { ttlMs: 1_000 } }))[0]?.id).toBe(2);
+    expect(firstDriver.calls).toHaveLength(1);
+    expect(secondDriver.calls).toHaveLength(1);
+  });
+
+  it('routes every read method through the same filter application', async () => {
+    const driver = recordingDriver();
+    const repo = new UsersWithTargetFilters(driver);
+    const scope = createLoaderScope();
+
+    await repo.findById(1);
+    await repo.findOne({});
+    await repo.find({ role: 'admin' });
+    await repo.findAll();
+    await repo.list({ page: { limit: 1, offset: 0 } });
+    await repo.count();
+    await repo.exists();
+    await repo.aggregate(aggregate => aggregate.count('id', 'count'));
+    await repo.findByFullText('role', 'admin');
+    await repo.findJoined(
+      { target: 'organizations', leftCol: 'users.tenantId', rightCol: 'organizations.id' },
+      undefined,
+      { filters: { organizationTenant: { tenantId: 42 } } },
+    );
+    await repo.findAllWithMany('posts', 'posts', 'userId');
+    await scope.loaderFor(repo).load(1);
+    await scope.relationLoader(repo, 'posts').load({
+      id: 1,
+      tenantId: 42,
+      role: 'admin',
+      active: true,
+      deletedAt: null,
+    });
+
+    expect(driver.calls).toHaveLength(13);
+    for (const query of driver.calls.slice(0, 12)) expect(query.text).toContain('"active" = $');
+    expect(driver.calls[12]?.text).toContain('"posts"."deletedAt" IS NULL');
+  });
+
+  it('keeps a filter on every keyset branch', async () => {
+    const driver = recordingDriver();
+    const repo = new ActiveUsers(driver);
+
+    await repo.list({
+      where: { tenantId: 42 },
+      orderBy: [{ column: 'role', dir: 'asc' }],
+      page: { limit: 2, after: { role: 'admin', id: 7 } },
+    });
+
+    expect(statements(driver.calls)).toEqual([
+      {
+        text:
+          'SELECT * FROM "users" WHERE "tenantId" = $1 AND "active" = $2 AND "role" > $3 ' +
+          'OR "tenantId" = $4 AND "active" = $5 AND "role" = $6 AND "id" > $7 ' +
+          'ORDER BY "role" ASC, "id" ASC LIMIT 3',
+        parameters: [42, true, 'admin', 42, true, 'admin', 7],
+      },
+    ]);
+  });
+
+  it('places target filters in JOIN ON and batched populate WHERE clauses', async () => {
+    const calls: CompiledQuery[] = [];
+    const observedFilters: (readonly string[])[] = [];
+    const driver: Driver = {
+      execute(query) {
+        calls.push(query);
+        if (query.text.startsWith('SELECT * FROM "users"')) {
+          return Promise.resolve([{ id: 1, tenantId: 42, role: 'admin', active: true, deletedAt: null }]);
+        }
+        return Promise.resolve([]);
+      },
+    };
+    const repo = new UsersWithTargetFilters(driver, 'postgres', {
+      onQuery(_query, meta) {
+        observedFilters.push(meta.filters);
+      },
+    });
+
+    await repo.findJoined(
+      { target: 'organizations', leftCol: 'users.tenantId', rightCol: 'organizations.id' },
+      undefined,
+      { filters: { organizationTenant: { tenantId: 42 } } },
+    );
+    await repo.findById(1, { populate: ['posts'] });
+    await repo.aggregate(aggregate => aggregate.joinRelation('posts', 'left').count('posts.id', 'n'));
+
+    expect(statements(calls)).toEqual([
+      {
+        text:
+          'SELECT * FROM "users" LEFT JOIN "organizations" ' +
+          'ON "users"."tenantId" = "organizations"."id" AND "organizations"."tenantId" = $1 ' +
+          'WHERE "active" = $2',
+        parameters: [42, true],
+      },
+      {
+        text: 'SELECT * FROM "users" WHERE "id" = $1 AND "active" = $2 LIMIT 1',
+        parameters: [1, true],
+      },
+      {
+        text: 'SELECT * FROM "posts" WHERE "userId" IN ($1) AND "posts"."deletedAt" IS NULL',
+        parameters: [1],
+      },
+      {
+        text:
+          'SELECT COUNT("posts"."id") AS "n" FROM "users" LEFT JOIN "posts" ' +
+          'ON "users"."id" = "posts"."userId" AND "posts"."deletedAt" IS NULL ' +
+          'WHERE "active" = $1',
+        parameters: [true],
+      },
+    ]);
+    expect(observedFilters).toEqual([
+      ['active', 'organizationTenant'],
+      ['active'],
+      ['postVisibility'],
+      ['active', 'postVisibility'],
+    ]);
+  });
+
+  it('applies target filters to direct aggregate joins', async () => {
+    const driver = recordingDriver();
+    const repo = new UsersWithTargetFilters(driver);
+
+    await repo.aggregate(aggregate =>
+      aggregate.leftJoin('posts as posts', 'users.id', 'posts.userId').count('posts.id', 'n'),
+    );
+
+    expect(statements(driver.calls)).toEqual([
+      {
+        text:
+          'SELECT COUNT("posts"."id") AS "n" FROM "users" LEFT JOIN "posts" AS "posts" ' +
+          'ON "users"."id" = "posts"."userId" AND "posts"."deletedAt" IS NULL ' +
+          'WHERE "active" = $1',
+        parameters: [true],
+      },
+    ]);
+  });
 });
 
-type SoftDeleteSchemaIR = SchemaIR & {
-  readonly softDelete: { readonly column: 'deletedAt' };
-};
-
-const SOFT_DELETE_IR: SoftDeleteSchemaIR = {
+const SOFT_DELETE_IR: SchemaIR = {
   ...USER_IR,
   softDelete: { column: 'deletedAt' },
 };
@@ -333,21 +668,14 @@ describe('soft delete against real SQLite', () => {
     }
   });
 
-  // Actual at 9e6b9757: both calls emit the same unfiltered SELECT and both
-  // return the deleted row.
-  it.fails('reads soft-deleted rows only when the filter is explicitly disabled', async () => {
+  it('reads soft-deleted rows only when the filter is explicitly disabled', async () => {
     const db = openSoftDeleteDatabase();
     try {
       db.exec("INSERT INTO users VALUES (1, 7, 'user', 1, '2026-09-01T00:00:00.000Z')");
       const { driver, calls } = recordedSqlite(db);
       const repo = new SoftDeleteUsers(driver, 'sqlite');
-      const findById = repo.findById.bind(repo) as (
-        id: number,
-        options: { readonly filters: { readonly softDelete: false } },
-      ) => ReturnType<SoftDeleteUsers['findById']>;
-
       const hidden = await repo.findById(1);
-      const visible = await findById(1, { filters: { softDelete: false } });
+      const visible = await repo.findById(1, { filters: { softDelete: false } });
 
       expect(statements(calls)).toEqual([
         {
@@ -369,8 +697,7 @@ describe('soft delete against real SQLite', () => {
 
   // The first three rows are deleted and the next twelve are live. Filtering in
   // SQL returns ten live rows; LIMIT-before-post-filtering can return only seven.
-  // Actual at 9e6b9757: no WHERE, items 1..10.
-  it.fails('applies a filter before LIMIT rather than post-filtering rows', async () => {
+  it('applies a filter before LIMIT rather than post-filtering rows', async () => {
     const db = openSoftDeleteDatabase();
     try {
       const insert = db.prepare('INSERT INTO users VALUES (?, 7, ?, 1, ?)');

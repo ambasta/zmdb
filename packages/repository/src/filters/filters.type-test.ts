@@ -1,23 +1,6 @@
-// Compile-only half of #449. The production exports do not exist in the tests-freeze
-// slice, so these are the exact local shapes frozen by repository/SPEC.md §3c. The
-// implementation slice replaces them with imports and keeps every assertion below.
-//
-// No `declare const`: every positive and negative call uses a concrete value.
 import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
 
-interface FrozenPredicate {
-  readonly col: string;
-  readonly op: string;
-  readonly value: unknown;
-  readonly connector?: 'AND' | 'OR';
-}
-
-interface FilterDef<P = void> {
-  readonly name: string;
-  readonly where: (params: P) => readonly FrozenPredicate[];
-  readonly enabled?: boolean;
-  readonly appliesToWrites?: boolean;
-}
+import type { FilterDef, FilterOverrides, FilterParams, ReadOptions } from '../index.js';
 
 const tenantFilter = {
   name: 'tenant',
@@ -31,16 +14,6 @@ const activeFilter = {
 } as const satisfies FilterDef;
 
 const filters = [tenantFilter, activeFilter] as const;
-
-type FilterParams<F> = F extends { readonly where: (params: infer P) => readonly FrozenPredicate[] } ? P : never;
-type FilterOverride<F> = [FilterParams<F>] extends [void] ? false : FilterParams<F> | false;
-type FilterOverrides<Defs extends readonly { readonly name: string }[]> = {
-  readonly [Def in Defs[number] as Def['name']]?: FilterOverride<Def>;
-};
-
-interface ReadOptions<Defs extends readonly { readonly name: string }[]> {
-  readonly filters?: FilterOverrides<Defs>;
-}
 
 type _NamesStayLiteral = Expect<Mutual<(typeof filters)[number]['name'], 'tenant' | 'active'>>;
 type _TenantParamsStayExact = Expect<Equal<FilterParams<typeof tenantFilter>, { readonly tenantId: number }>>;

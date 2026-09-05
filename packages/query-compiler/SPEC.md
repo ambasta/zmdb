@@ -424,11 +424,21 @@ the part that belongs in this file is what the question turned up about the seam
 
 So §1's contract stands as written, `Driver` keeps taking a `CompiledQuery`, and the alternatives — a `Q` type parameter, or a discriminated union — are both rejected: the parameter reaches `WhereDTO` through `SubqueryTarget` and therefore lands inside the `verify:instantiations` budget, and the union turns all 46 references to `CompiledQuery` into narrowing sites. `ARCHITECTURE.md` §2.6 settles it — an abstraction that costs the SQL path anything is the wrong one, and the structural seam costs it nothing.
 
-**One thing this file has been quietly wrong about.** §2's grammar presents a predicate list as a list. `predicateList` joins predicates with each one's own connector and emits **no parentheses**, so the meaning of a compiled `WHERE` is supplied by SQL's precedence: `[{a, AND}, {b, OR}, {c, AND}]` is `a OR (b AND c)`.
+**One thing this file has been quietly wrong about.** §2's grammar presents an
+ordinary predicate list as a list. `predicateList` joins those predicates with
+each one's own connector and emits no implicit parentheses, so the meaning of
+`[{a, AND}, {b, OR}, {c, AND}]` is still supplied by SQL precedence.
 
-Keyset pagination depends on that — `applyKeysetFilter`'s branch wrapper says so in its own comment, and its cost is that an `OR` inside a user's `where` flattens into the branch's `AND`. The grammar is therefore not target-neutral: a target with no operator precedence to inherit must reimplement SQL's in order to read a plan correctly.
+`PredicateGroup` is the narrow exception: repository filters use an explicit
+group node so a filter such as `(active OR admin)` stays conjoined with the
+caller's predicate in `WHERE` and with the key equality in `JOIN ON`. This does
+not make the general DTO tree nested. An `OR` inside a user's `WhereDTO` still
+flattens inside keyset pagination, and a target with no operator precedence to
+inherit still cannot consume that ordinary flat plan faithfully.
 
-Nesting the predicate tree is the fix, it is an improvement to the SQL path, and it is a precondition for any target rather than a part of one.
+Nesting the whole predicate tree remains the fix and a precondition for any
+non-SQL target; the filter group is a bounded SQL-path correctness primitive,
+not that generalisation.
 
 ## 6. Non-goals / anti-patterns (rejected)
 

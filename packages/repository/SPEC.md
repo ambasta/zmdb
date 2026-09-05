@@ -399,12 +399,18 @@ outside this expression-write contract.
 
 ## 3c. Entity filters and soft delete (frozen — epic "Entity filters and soft delete")
 
-A filter is a predicate the repository conjoins into **every** query it compiles. That makes it the
-highest-leverage piece of SQL in the system, so the shape is constrained before the behaviour.
+A filter is a predicate the repository conjoins into **every read** it compiles. That makes it the
+highest-leverage piece of SQL in the system, so the shape is constrained before the behaviour. The
+read rule and join placement below are implemented; the write rule and public soft-delete tag remain
+frozen requirements for the next sub-issue.
 
 ```ts
 export interface FilterDef<P = void> {
   readonly name: string;
+  /** Omit for this repository's table; set for a join or populate target. */
+  readonly table?: string;
+  /** Target schema used to validate its columns and parameter values. */
+  readonly schema?: CoreSchema<string>;
   /** Conjoined with AND into the query's WHERE. Not a string — see below. */
   readonly where: (params: P) => readonly Predicate[];
   /** Applied unless explicitly disabled. Default true. */
@@ -426,6 +432,11 @@ users.findAll({ filters: { softDelete: false } });
 
 And a fragment carrying its own `$1` would collide with the numbering of the statement it is spliced into — the compiler numbers placeholders across the whole query, and a filter is appended after the caller's predicates, so a hand-written fragment is wrong for every query except the first one it was tested against.
 
+A filter for another table carries that table's `CoreSchema`, unless the read itself
+accepts a `TaggedSchema` target. This is what lets the ordinary boundary validator
+check both the named column and request-supplied parameter before compilation;
+a table name alone has no column types to validate against.
+
 Soft delete is declared instead of registered, as a tag, and lives in the IR
 (`../schema-core/src/ir/SPEC.md` §4.4): it is a property of the table, it needs no parameters, and three
 other code paths need to know about it. A parameterised filter cannot go there — the IR is serialised to
@@ -434,9 +445,9 @@ a file for the AOT route and a function does not survive that.
 ### The read rule
 
 Every read is filtered, and the list is written out because these are the paths that get forgotten:
-`findById`, `findOne`, `findAll`, `count`, `exists`, every aggregation, and the second query of a
-`populate`. `findById` included — a soft-deleted row is **not** findable by its id, which is the entire
-point rather than an edge case.
+loader batches, `findById`, `findOne`, `find`, `findAll`, `list`, `count`, `exists`, full-text reads,
+explicit joins, every aggregation, and the second query of a `populate`. `findById` included — a
+soft-deleted row is **not** findable by its id, which is the entire point rather than an edge case.
 
 `driver.execute` is not filtered and cannot be. zmdb does not parse the SQL a caller wrote, so raw SQL is
 outside the boundary; the spec makes this explicit instead of leaving the impression that a filter is a

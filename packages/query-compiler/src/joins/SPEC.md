@@ -9,14 +9,16 @@
 
 ```ts
 qb.selectFrom(table)
-  .innerJoin(target, leftCol, rightCol)
-  .leftJoin(target, leftCol, rightCol)
-  .rightJoin(target, leftCol, rightCol)
+  .innerJoin(target, leftCol, rightCol, onPredicates?)
+  .leftJoin(target, leftCol, rightCol, onPredicates?)
+  .rightJoin(target, leftCol, rightCol, onPredicates?)
   .where(...) .orderBy(...) .limit(...) .offset(...)
   .compile()
 ```
 
 - `leftCol`/`rightCol` are qualified `table.column` or `alias.column` strings.
+- `onPredicates`, when present, are structured predicates appended inside that
+  join's `ON`; their parameters share the statement's placeholder sequence.
 - Joins compose with existing where/order/limit/offset.
 - Aliasing: `selectFrom('employees as e')` and `innerJoin('employees as r', ...)`.
 - Builders remain immutable; compilation is pure string building (no runtime

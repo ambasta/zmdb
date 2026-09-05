@@ -1,4 +1,11 @@
-import { frozenQuery, queryTelemetry, renderPredicate, tailClause } from '../clauses.js';
+import {
+  frozenQuery,
+  queryTelemetry,
+  renderPredicate,
+  tailClause,
+  type ComparisonPredicate,
+  type PredicateGroup,
+} from '../clauses.js';
 import { TRAITS } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
@@ -39,7 +46,7 @@ interface Predicate {
 }
 interface State {
   table: string;
-  preds: Predicate[];
+  preds: Array<Predicate | PredicateGroup>;
   ftsTable?: string | boolean | undefined;
   limitN?: number | undefined;
   offsetN?: number | undefined;
@@ -48,6 +55,7 @@ interface State {
 export interface FtsSelect {
   whereMatch(column: string, term: string, options?: FtsTableOptions | string | boolean): FtsSelect;
   where(col: string, op: string, value: unknown): FtsSelect;
+  whereGroup(predicates: readonly ComparisonPredicate[]): FtsSelect;
   limit(n: number): FtsSelect;
   offset(n: number): FtsSelect;
   compile(): CompiledQuery;
@@ -62,6 +70,7 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
       return next({ preds: [...s.preds, { kind: 'match', col: column, value: term }], ftsTable });
     },
     where: (col, op, value) => next({ preds: [...s.preds, { kind: 'cmp', col, op, value }] }),
+    whereGroup: predicates => next({ preds: [...s.preds, { kind: 'group', predicates, connector: 'AND' }] }),
     limit: n => next({ limitN: n }),
     offset: n => next({ offsetN: n }),
     compile: () => {
@@ -97,6 +106,7 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
           const ftsRef = ftsAlias ? quoteIdentifier(d, ftsAlias) : quoteColumn(d, ftsTableName);
 
           const parts = s.preds.map(p => {
+            if (p.kind === 'group') return renderPredicate(d, p, params);
             if (p.kind === 'match') {
               const colName = p.col.slice(p.col.lastIndexOf('.') + 1);
               params.push(escapeFts5Term(p.value));
@@ -110,6 +120,7 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
         text = `SELECT * FROM ${quoteTable(d, s.table)}`;
         if (s.preds.length > 0) {
           const parts = s.preds.map(p => {
+            if (p.kind === 'group') return renderPredicate(d, p, params);
             if (p.kind !== 'match') {
               return renderPredicate(d, { col: p.col, op: p.op ?? '=', value: p.value }, params);
             }

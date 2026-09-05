@@ -1,78 +1,96 @@
-> **ToDo / feature gap.** There is no filter registry — nothing equivalent to
-> MikroORM's `@Filter` or TypeORM's soft-delete-aware `withDeleted`. A
-> `WhereDTO` you do not pass is not applied.
+> **Partial support.** Named filters now cover repository reads. Write-path filters,
+> the public `SoftDelete<'column'>` tag, `delete`-as-update, `hardDelete`, and
+> `restore` remain feature gaps.
 
-The two things people want this for are multi-tenancy and soft deletes, and both are worth doing explicitly today because a silently-applied filter is a silently-_missing_ filter when someone reaches for the compiler instead of the repository.
+A filter returns compiler predicates, never SQL text. It is declared on a repository
+subclass or supplied through `RepositoryOptions`, and is active unless one call
+disables it by name:
+
+```ts
+import { BaseRepository, type FilterDef } from '@zmdb/repository';
+
+const livePosts = {
+  name: 'live',
+  where: (_params: void) => [{ col: 'deletedAt', op: 'is null', value: undefined }] as const,
+} as const satisfies FilterDef;
+
+class PostRepository extends BaseRepository<Post> {
+  static readonly schema = postSchema;
+  static readonly filters = [livePosts] as const;
+}
+
+await posts.findAll();
+await posts.findAll({ filters: { live: false } });
+```
+
+The filter is compiled into SQL before pagination. The same structural compilation
+point covers keyed reads, `find`, `findAll`, `list`, `count`, `exists`, full-text
+reads, explicit joins, aggregations, loader batches, and populate queries. Raw
+`driver.execute` calls remain outside this boundary because zmdb does not parse
+caller-written SQL.
+
+## Parameterised filters
+
+Parameters are supplied per call. Missing, `null`, invalid, or unknown parameters
+are refused before the query is compiled or sent to the driver:
+
+```ts
+const tenant = {
+  name: 'tenant',
+  where: ({ tenantId }: { readonly tenantId: number }) => [{ col: 'tenantId', op: '=', value: tenantId }] as const,
+} as const satisfies FilterDef<{ readonly tenantId: number }>;
+
+class TenantPostRepository extends BaseRepository<Post> {
+  static readonly schema = postSchema;
+  static readonly filters = [tenant] as const;
+}
+
+await posts.findAll({ filters: { tenant: { tenantId: request.tenantId } } });
+```
+
+See [Request Context](./web-request-context.html) for obtaining the value from a
+request-scoped provider. For tenant isolation, database row-level security is still
+the stronger boundary because it also constrains raw SQL.
+
+## Filters on joins and populate
+
+A target-table filter names its table explicitly:
+
+```ts
+const visibleComments = {
+  name: 'visibleComments',
+  table: 'comments',
+  schema: commentSchema,
+  where: (_params: void) => [{ col: 'deletedAt', op: 'is null', value: undefined }] as const,
+} as const satisfies FilterDef;
+```
+
+Repository populate uses its existing batched target query, so the target predicate
+follows the key `IN (...)` in that query's `WHERE` for both cardinalities. The
+lower-level `compilePopulate` helper and explicit/relation-aware joins keep a target
+predicate in the join's `ON` clause; a filtered to-one `compilePopulate` statement
+uses `LEFT JOIN`, so hiding a target never removes its parent.
+
+## Audit the final statement
+
+`RepositoryOptions.onQuery` observes the final compiled statement and the names of
+the filters that were applied:
+
+```ts
+const posts = new PostRepository(driver, 'postgres', {
+  onQuery(query, meta) {
+    audit({ sql: query.text, filters: meta.filters });
+  },
+});
+```
 
 ## Soft delete
 
-```ts
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-
-export interface Post extends Table<'posts'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  title: string & Sql<'text'>;
-  deletedAt: (Date & Sql<'timestamp'>) | null;
-}
-
-const postSchema = schemaOf<Post>();
-```
-
-The tags go **inside** the parentheses on a nullable column — `(Date | null) & Sql<'timestamp'>`
-distributes, and `null & Sql<'timestamp'>` is `never`.
-
-Put the filter in a repository subclass so there is one place it can be wrong:
-
-```ts
-class PostRepository extends BaseRepository<Post> {
-  static readonly schema = postSchema;
-
-  private live(where: WhereDTO<Post> = {}): WhereDTO<Post> {
-    return { ...where, deletedAt: { isNull: true } };
-  }
-
-  override find(where: WhereDTO<Post> = {}) {
-    return super.find(this.live(where));
-  }
-
-  override list(dto: ListDTO<Post> = {}) {
-    return super.list({ ...dto, where: this.live(dto.where) });
-  }
-
-  findWithDeleted(where: WhereDTO<Post> = {}) {
-    return super.find(where);
-  }
-
-  softDelete(id: number) {
-    return super.update(id, { deletedAt: new Date() });
-  }
-}
-```
-
-Override every read you use — `find`, `findOne`, `findAll`, `list`, `aggregate`. Missing one is the failure mode, so a test that asserts a soft-deleted row is absent from each is worth the lines.
-
-## Multi-tenancy
-
-Same shape, with the tenant coming from the request rather than a constant. Take it as a constructor argument and build the repository per request rather than reading ambient state:
-
-```ts
-class TenantPostRepository extends BaseRepository<Post> {
-  static readonly schema = postSchema;
-
-  constructor(
-    driver: Driver,
-    private readonly tenantId: number,
-  ) {
-    super(driver);
-  }
-
-  override find(where: WhereDTO<Post> = {}) {
-    return super.find({ ...where, tenantId: { eq: this.tenantId } });
-  }
-}
-```
-
-Because the tenant is a constructor parameter, there is no way to construct the repository without deciding it, and no async-context plumbing to get wrong. See [Request Context](./web-request-context.html) for wiring it into a request-scoped provider.
+If a schema IR already carries `softDelete: { column: 'deletedAt' }`, repository
+reads expose it as the built-in `softDelete` filter and callers can opt into deleted
+rows with `{ filters: { softDelete: false } }`. The public schema tag and mutation
+behaviour are not built yet, so applications must still implement soft deletion as
+an explicit `update` until that write-side work lands.
 
 ## Row-level security instead
 
@@ -84,17 +102,6 @@ CREATE POLICY tenant_isolation ON posts USING (tenant_id = current_setting('app.
 ```
 
 Set the variable in your driver, per connection, per request. This is the only version that is safe against someone writing raw SQL, which makes it the right answer for tenancy specifically.
-
-## What it would take
-
-The frozen design does not use `WhereDTO` factories. Parameterised filters are named
-repository values whose `where(params)` returns compiler predicates; soft delete alone is
-declared by a `SoftDelete<'deletedAt'>` tag because `delete`, DTO derivation, and schema
-checking all need that table-level fact. Active predicates are conjoined while SQL is
-compiled, and one filter can be disabled explicitly by name for one call.
-
-That contract is not implemented yet, so the explicit repository and row-level-security
-workarounds above remain the supported choices today.
 
 ---
 

@@ -249,6 +249,8 @@ export interface SchemaIR {
   readonly relations: readonly RelationIR[];
   readonly foreignKeys: readonly ForeignKeyIR[];
   readonly ftsTable?: string | boolean;
+  /** Read-side soft-delete predicate; the public declaration tag lands in #451. */
+  readonly softDelete?: { readonly column: string };
 }
 
 // ---------------------------------------------------------------------------

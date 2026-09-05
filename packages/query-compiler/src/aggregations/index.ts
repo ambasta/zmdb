@@ -1,5 +1,7 @@
 import {
+  type ComparisonPredicate,
   type JoinSpec,
+  type Predicate,
   frozenQuery,
   havingClause,
   joinClauses,
@@ -23,13 +25,14 @@ interface Comparison {
   col: string;
   op: string;
   value: unknown;
+  connector?: 'AND' | 'OR';
 }
 
 interface State {
   readonly table: string;
   readonly items: readonly SelectItem[];
   readonly joins: readonly JoinSpec[];
-  readonly wheres: readonly Comparison[];
+  readonly wheres: readonly Predicate[];
   readonly groups: readonly string[];
   readonly havings: readonly Comparison[];
   readonly orderBys: readonly { col: string; dir: 'asc' | 'desc' }[];
@@ -45,10 +48,12 @@ export interface AggregateSelect {
   min(expr: string, alias: string): AggregateSelect;
   max(expr: string, alias: string): AggregateSelect;
   expr(rawExpr: string, alias: string): AggregateSelect;
-  innerJoin(target: string, leftCol: string, rightCol: string): AggregateSelect;
-  leftJoin(target: string, leftCol: string, rightCol: string): AggregateSelect;
-  rightJoin(target: string, leftCol: string, rightCol: string): AggregateSelect;
+  innerJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
+  leftJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
+  rightJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): AggregateSelect;
   where(col: string, op: string, value: unknown): AggregateSelect;
+  orWhere(col: string, op: string, value: unknown): AggregateSelect;
+  whereGroup(predicates: readonly ComparisonPredicate[]): AggregateSelect;
   groupBy(...cols: string[]): AggregateSelect;
   having(col: string, op: string, value: unknown): AggregateSelect;
   orderBy(col: string, dir: 'asc' | 'desc'): AggregateSelect;
@@ -72,7 +77,9 @@ function make(d: Dialect, s: State, telemetry: boolean): AggregateSelect {
     min: (e, a) => agg('MIN', e, a),
     max: (e, a) => agg('MAX', e, a),
     expr: (raw, alias) => next({ items: [...s.items, { kind: 'expr', raw, alias }] }),
-    where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value }] }),
+    where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value, connector: 'AND' }] }),
+    orWhere: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value, connector: 'OR' }] }),
+    whereGroup: predicates => next({ wheres: [...s.wheres, { kind: 'group', predicates, connector: 'AND' }] }),
     groupBy: (...cols) => next({ groups: [...s.groups, ...cols] }),
     having: (col, op, value) => next({ havings: [...s.havings, { col, op, value }] }),
     compile: () => {
@@ -92,7 +99,7 @@ function make(d: Dialect, s: State, telemetry: boolean): AggregateSelect {
       const groupBy = s.groups.length > 0 ? ` GROUP BY ${s.groups.map(c => quoteColumn(d, c)).join(', ')}` : '';
       const text =
         `SELECT ${cols.join(', ')} FROM ${quoteTable(d, s.table)}` +
-        joinClauses(d, s.joins) +
+        joinClauses(d, s.joins, params) +
         whereClause(d, s.wheres, params) +
         groupBy +
         havingClause(d, s.havings, params) +

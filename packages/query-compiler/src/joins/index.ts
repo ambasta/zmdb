@@ -1,5 +1,7 @@
 import {
+  type ComparisonPredicate,
   type JoinSpec,
+  type Predicate,
   frozenQuery,
   joinClauses,
   joinMethods,
@@ -16,17 +18,18 @@ export type { JoinKind } from '../clauses.js';
 interface State {
   readonly table: string;
   readonly joins: readonly JoinSpec[];
-  readonly wheres: readonly { col: string; op: string; value: unknown }[];
+  readonly wheres: readonly Predicate[];
   readonly orderBys: readonly { col: string; dir: 'asc' | 'desc' }[];
   readonly limitN?: number;
   readonly offsetN?: number;
 }
 
 export interface JoinableSelect {
-  innerJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
-  leftJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
-  rightJoin(target: string, leftCol: string, rightCol: string): JoinableSelect;
+  innerJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
+  leftJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
+  rightJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
   where(col: string, op: string, value: unknown): JoinableSelect;
+  whereGroup(predicates: readonly ComparisonPredicate[]): JoinableSelect;
   orderBy(col: string, dir: 'asc' | 'desc'): JoinableSelect;
   limit(n: number): JoinableSelect;
   offset(n: number): JoinableSelect;
@@ -39,11 +42,12 @@ function make(d: Dialect, s: State, telemetry: boolean): JoinableSelect {
     ...joinMethods(s.joins, next),
     ...tailMethods(s, next),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value }] }),
+    whereGroup: predicates => next({ wheres: [...s.wheres, { kind: 'group', predicates, connector: 'AND' }] }),
     compile: () => {
       const params: unknown[] = [];
       const text =
         `SELECT * FROM ${quoteTable(d, s.table)}` +
-        joinClauses(d, s.joins) +
+        joinClauses(d, s.joins, params) +
         whereClause(d, s.wheres, params) +
         tailClause(d, s);
       return frozenQuery(text, params, queryTelemetry(d, 'SELECT', s.table, telemetry));

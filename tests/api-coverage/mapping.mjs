@@ -749,6 +749,7 @@ export const mikroOrm = {
   ),
   filters: [
     'applies a declared filter to every single-table read',
+    'routes every read method through the same filter application',
     'applies the target filter when populating a to-one relation',
     'applies the target filter to the batched query of a to-many populate',
     'applies a filter to an aggregation and a group-by',

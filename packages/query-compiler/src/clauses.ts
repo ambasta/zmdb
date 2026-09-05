@@ -29,6 +29,8 @@ export interface JoinSpec {
   readonly target: string;
   readonly leftCol: string;
   readonly rightCol: string;
+  /** Predicates that belong to this target and therefore stay in the ON clause. */
+  readonly on?: readonly Predicate[];
 }
 
 /**
@@ -44,7 +46,14 @@ export interface ComparisonPredicate {
   readonly connector?: 'AND' | 'OR' | undefined;
 }
 
-export type Predicate = ComparisonPredicate | SpatialPredicateNode;
+/** One parenthesized predicate list, attached to the surrounding list by `connector`. */
+export interface PredicateGroup {
+  readonly kind: 'group';
+  readonly predicates: readonly Predicate[];
+  readonly connector?: 'AND' | 'OR' | undefined;
+}
+
+export type Predicate = ComparisonPredicate | SpatialPredicateNode | PredicateGroup;
 
 export interface Tail<C = string> {
   readonly orderBys?: readonly { readonly col: C; readonly dir: 'asc' | 'desc' }[] | undefined;
@@ -116,6 +125,10 @@ export function sqlOperator(op: string, dialect: Dialect = 'postgres'): string {
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
 export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[]): string {
+  if (p.kind === 'group') {
+    if (p.predicates.length === 0) throw new TypeError('predicate groups must not be empty');
+    return `(${predicateList(dialect, p.predicates, params)})`;
+  }
   if (p.kind === 'spatial') return renderSpatialPredicate(dialect, p, params);
   const normalized = p.op.toLowerCase().trim();
   const sqlOp = sqlOperator(p.op, dialect);
@@ -184,14 +197,25 @@ export function havingClause(dialect: Dialect, preds: readonly Predicate[], para
   return ` HAVING ${predicateList(dialect, preds, params)}`;
 }
 
-/** ` INNER JOIN … ON … = …` for each join, in order. */
-export function joinClauses(dialect: Dialect, joins: readonly JoinSpec[]): string {
+/** ` INNER JOIN … ON … = … [AND …]` for each join, in order. */
+export function joinClauses(dialect: Dialect, joins: readonly JoinSpec[], params: unknown[] = []): string {
   return joins
-    .map(
-      j =>
+    .map(j => {
+      const targetPredicates =
+        j.on === undefined || j.on.length === 0
+          ? ''
+          : j.on
+              .map((predicate, index) => {
+                const rendered = renderPredicate(dialect, predicate, params);
+                return `${index === 0 ? 'AND' : (predicate.connector ?? 'AND')} ${rendered}`;
+              })
+              .join(' ');
+      return (
         ` ${JOIN_KEYWORD[j.kind]} ${quoteTable(dialect, j.target)} ` +
-        `ON ${quoteColumn(dialect, j.leftCol)} = ${quoteColumn(dialect, j.rightCol)}`,
-    )
+        `ON ${quoteColumn(dialect, j.leftCol)} = ${quoteColumn(dialect, j.rightCol)}` +
+        (targetPredicates.length === 0 ? '' : ` ${targetPredicates}`)
+      );
+    })
     .join('');
 }
 
@@ -279,7 +303,7 @@ export function tailMethods<C, B>(tail: Tail<C>, next: (patch: TailPatch<C>) => 
 export function joinMethods<B>(joins: readonly JoinSpec[], next: (patch: { joins: readonly JoinSpec[] }) => B) {
   const add =
     (kind: JoinKind) =>
-    (target: string, leftCol: string, rightCol: string): B =>
-      next({ joins: [...joins, { kind, target, leftCol, rightCol }] });
+    (target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): B =>
+      next({ joins: [...joins, { kind, target, leftCol, rightCol, ...(on === undefined ? {} : { on }) }] });
   return { innerJoin: add('inner'), leftJoin: add('left'), rightJoin: add('right') };
 }
