@@ -25,7 +25,6 @@ import {
 } from '@grpc/grpc-js';
 import type { ApplicationExtension } from '@zmdb/app';
 import type { GrpcLoadedMethod, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
-
 import {
   GrpcError,
   type GrpcBinding,
@@ -57,8 +56,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string, listener: (arg?: unknown) => void): this;
+  removeListener(event: string, listener: (arg?: unknown) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -382,38 +381,71 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
-async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
-  try {
-    for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
-    }
-  } finally {
-    await iterator.return?.();
-  }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
+function toDecodedRequest(chunk: unknown): DecodedRequest {
+  if (isRecord(chunk) && chunk.ok === true) {
+    return { ok: true, value: chunk.value };
+  }
+  if (isRecord(chunk) && chunk.ok === false) {
+    return { ok: false, error: chunk.error };
+  }
+  return { ok: false, error: chunk };
+}
+
+async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
+  const queue: DecodedRequest[] = [];
+  let resolver: (() => void) | undefined;
+  let ended = false;
+  let streamError: unknown;
+
+  const onData = (chunk: unknown): void => {
+    queue.push(toDecodedRequest(chunk));
+    resolver?.();
+  };
+  const onEnd = (): void => {
+    ended = true;
+    resolver?.();
+  };
+  const onError = (err: unknown): void => {
+    streamError = err;
+    resolver?.();
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
   try {
-    return await Promise.race([iterator.next(), aborted]);
+    for (;;) {
+      if (streamError !== undefined) throw streamError;
+      if (scope.signal.aborted) throw scope.reason();
+      if (queue.length > 0) {
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield requestValue(item);
+        }
+      } else if (ended) {
+        return;
+      } else {
+        await new Promise<void>((resolve, reject) => {
+          resolver = resolve;
+          const onAbort = (): void => reject(scope.reason());
+          if (scope.signal.aborted) {
+            reject(scope.reason());
+          } else {
+            scope.signal.addEventListener('abort', onAbort, { once: true });
+          }
+        });
+        resolver = undefined;
+      }
+    }
   } finally {
-    removeAbort();
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
   }
 }
 
