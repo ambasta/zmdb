@@ -117,7 +117,9 @@ export type _PairsValuesAreStrings = Expect<Equal<CommentPairs[CommentKey], stri
 // existing `toEqual` in this repository compares has changed, and §6's whole argument —
 // "a compiled query can be cached and reused across requests that would tag it differently" —
 // is gone. `../index.ts:77-80` is the interface; these lines are the fence around it.
-export type _CompiledQueryKeysToday = Expect<Equal<keyof CompiledQuery, 'text' | 'parameters' | 'telemetry'>>;
+export type _CompiledQueryKeysToday = Expect<
+  Equal<keyof CompiledQuery, 'text' | 'parameters' | 'operation' | 'isWrite' | 'returnsRows' | 'telemetry'>
+>;
 
 declare const today: CompiledQuery;
 

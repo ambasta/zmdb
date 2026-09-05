@@ -55,18 +55,30 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         postgres: {
           text: 'UPDATE "posts" SET "views" = "views" + $1 WHERE "id" = $2',
           parameters: [1, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'UPDATE `posts` SET `views` = `views` + ? WHERE `id` = ?',
           parameters: [1, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text: 'UPDATE "posts" SET "views" = "views" + ? WHERE "id" = ?',
           parameters: [1, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text: 'UPDATE [posts] SET [views] = [views] + @p1 WHERE [id] = @p2',
           parameters: [1, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -84,18 +96,30 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         postgres: {
           text: 'UPDATE "posts" SET "stock" = "stock" - $1 WHERE "id" = $2',
           parameters: [1, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'UPDATE `posts` SET `stock` = `stock` - ? WHERE `id` = ?',
           parameters: [1, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text: 'UPDATE "posts" SET "stock" = "stock" - ? WHERE "id" = ?',
           parameters: [1, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text: 'UPDATE [posts] SET [stock] = [stock] - @p1 WHERE [id] = @p2',
           parameters: [1, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -113,18 +137,30 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         postgres: {
           text: 'UPDATE "posts" SET "score" = "score" * $1 WHERE "id" = $2',
           parameters: [3, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'UPDATE `posts` SET `score` = `score` * ? WHERE `id` = ?',
           parameters: [3, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text: 'UPDATE "posts" SET "score" = "score" * ? WHERE "id" = ?',
           parameters: [3, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text: 'UPDATE [posts] SET [score] = [score] * @p1 WHERE [id] = @p2',
           parameters: [3, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -142,18 +178,30 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         postgres: {
           text: 'UPDATE "posts" SET "published" = NOT "published" WHERE "id" = $1',
           parameters: [7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'UPDATE `posts` SET `published` = NOT `published` WHERE `id` = ?',
           parameters: [7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text: 'UPDATE "posts" SET "published" = NOT "published" WHERE "id" = ?',
           parameters: [7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text: 'UPDATE [posts] SET [published] = ~[published] WHERE [id] = @p1',
           parameters: [7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -171,18 +219,30 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         postgres: {
           text: 'UPDATE "posts" SET "title" = "title" || $1 WHERE "id" = $2',
           parameters: [' (draft)', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'UPDATE `posts` SET `title` = CONCAT(`title`, ?) WHERE `id` = ?',
           parameters: [' (draft)', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text: 'UPDATE "posts" SET "title" = "title" || ? WHERE "id" = ?',
           parameters: [' (draft)', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text: 'UPDATE [posts] SET [title] = CONCAT([title], @p1) WHERE [id] = @p2',
           parameters: [' (draft)', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -200,18 +260,30 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         postgres: {
           text: 'UPDATE "users" SET "nickname" = COALESCE("nickname", $1) WHERE "id" = $2',
           parameters: ['anonymous', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'UPDATE `users` SET `nickname` = COALESCE(`nickname`, ?) WHERE `id` = ?',
           parameters: ['anonymous', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text: 'UPDATE "users" SET "nickname" = COALESCE("nickname", ?) WHERE "id" = ?',
           parameters: ['anonymous', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text: 'UPDATE [users] SET [nickname] = COALESCE([nickname], @p1) WHERE [id] = @p2',
           parameters: ['anonymous', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -229,18 +301,30 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         postgres: {
           text: 'UPDATE "posts" SET "views" = "views" + $1, "title" = $2 WHERE "id" = $3',
           parameters: [2, 'published', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'UPDATE `posts` SET `views` = `views` + ?, `title` = ? WHERE `id` = ?',
           parameters: [2, 'published', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text: 'UPDATE "posts" SET "views" = "views" + ?, "title" = ? WHERE "id" = ?',
           parameters: [2, 'published', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text: 'UPDATE [posts] SET [views] = [views] + @p1, [title] = @p2 WHERE [id] = @p3',
           parameters: [2, 'published', 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -261,18 +345,27 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
             'INSERT INTO "counters" ("key", "stock") VALUES ($1, $2) ' +
             'ON CONFLICT ("key") DO UPDATE SET "stock" = EXCLUDED."stock"',
           parameters: ['k', 5],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text:
             'INSERT INTO `counters` (`key`, `stock`) VALUES (?, ?) ' +
             'ON DUPLICATE KEY UPDATE `stock` = VALUES(`stock`)',
           parameters: ['k', 5],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text:
             'INSERT INTO "counters" ("key", "stock") VALUES (?, ?) ' +
             'ON CONFLICT ("key") DO UPDATE SET "stock" = EXCLUDED."stock"',
           parameters: ['k', 5],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text:
@@ -281,6 +374,9 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
             'WHEN MATCHED THEN UPDATE SET [stock] = src.[stock] ' +
             'WHEN NOT MATCHED THEN INSERT ([key], [stock]) VALUES (src.[key], src.[stock]);',
           parameters: ['k', 5],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -303,16 +399,25 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
             'INSERT INTO "counters" ("key", "hits") VALUES ($1, $2) ' +
             'ON CONFLICT ("key") DO UPDATE SET "hits" = "hits" + $3',
           parameters: ['k', 1, 1],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'INSERT INTO `counters` (`key`, `hits`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `hits` = `hits` + ?',
           parameters: ['k', 1, 1],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text:
             'INSERT INTO "counters" ("key", "hits") VALUES (?, ?) ' +
             'ON CONFLICT ("key") DO UPDATE SET "hits" = "hits" + ?',
           parameters: ['k', 1, 1],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text:
@@ -321,6 +426,9 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
             'WHEN MATCHED THEN UPDATE SET [hits] = tgt.[hits] + @p3 ' +
             'WHEN NOT MATCHED THEN INSERT ([key], [hits]) VALUES (src.[key], src.[hits]);',
           parameters: ['k', 1, 1],
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );
@@ -351,18 +459,30 @@ describe('expression-valued SET (frozen: query-compiler/SPEC.md 5b)', () => {
         postgres: {
           text: 'UPDATE "documents" SET "payload" = $1 WHERE "id" = $2',
           parameters: [document, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mysql: {
           text: 'UPDATE `documents` SET `payload` = ? WHERE `id` = ?',
           parameters: [document, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         sqlite: {
           text: 'UPDATE "documents" SET "payload" = ? WHERE "id" = ?',
           parameters: [document, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
         mssql: {
           text: 'UPDATE [documents] SET [payload] = @p1 WHERE [id] = @p2',
           parameters: [document, 7],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: false,
         },
       },
     );

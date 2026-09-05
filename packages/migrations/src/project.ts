@@ -54,7 +54,7 @@ export function requiredDriver(project: MigrationProject): MigrationDriver {
   if (driver === undefined) {
     throw new MigrationProjectError(`config ${project.configPath} needs a driver for this operation`);
   }
-  if (dialectName(driver.dialect) !== dialectName(project.dialect)) {
+  if (driver.dialect !== undefined && dialectName(driver.dialect) !== dialectName(project.dialect)) {
     throw new MigrationProjectError(
       `config ${project.configPath} declares ${dialectName(project.dialect)} but its driver declares ${dialectName(driver.dialect)}`,
     );

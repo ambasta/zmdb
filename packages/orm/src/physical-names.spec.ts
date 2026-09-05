@@ -165,6 +165,9 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
           'SELECT "account_id" AS "id", "display_name" AS "displayName", ' +
           '"created_at" AS "createdAt" FROM "user_accounts" WHERE "display_name" = $1',
         parameters: ['Ada'],
+        operation: 'select',
+        isWrite: false,
+        returnsRows: true,
       },
     ]);
   });
@@ -182,6 +185,9 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
         '"created_at" AS "createdAt" FROM "user_accounts" ' +
         'ORDER BY "created_at" DESC, "account_id" ASC LIMIT 3 OFFSET 0',
       parameters: [],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -197,6 +203,9 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
         'SELECT "display_name" AS "displayName", "account_id" AS "id" FROM "user_accounts" ' +
         'ORDER BY "account_id" ASC LIMIT 2',
       parameters: [],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -213,6 +222,9 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
         'SELECT "created_at" AS "createdAt", COUNT("account_id") AS "count" ' +
         'FROM "user_accounts" GROUP BY "created_at" ORDER BY "created_at" ASC',
       parameters: [],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -234,12 +246,18 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
           'INSERT INTO "user_accounts" ("account_id", "display_name", "created_at") VALUES ($1, $2, $3) ' +
           'RETURNING "account_id" AS "id", "display_name" AS "displayName", "created_at" AS "createdAt"',
         parameters: [7, 'Ada', returned.createdAt],
+        operation: 'insert',
+        isWrite: true,
+        returnsRows: true,
       },
       {
         text:
           'UPDATE "user_accounts" SET "display_name" = $1 WHERE "account_id" = $2 ' +
           'RETURNING "account_id" AS "id", "display_name" AS "displayName", "created_at" AS "createdAt"',
         parameters: ['Grace', 7],
+        operation: 'update',
+        isWrite: true,
+        returnsRows: true,
       },
     ]);
   });

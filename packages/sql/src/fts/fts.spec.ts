@@ -95,7 +95,7 @@ describe('full-text search compilation', () => {
       .selectFrom(trustedTable('customers'))
       .whereMatch('company_name', 'ltd')
       .compile();
-    expect(Object.keys(q)).toEqual(['text', 'parameters']);
+    expect(Object.keys(q)).toEqual(['text', 'parameters', 'operation', 'isWrite', 'returnsRows']);
     expect(q.telemetry).toBeUndefined();
   });
 
