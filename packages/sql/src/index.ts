@@ -38,6 +38,8 @@ import {
   type ReturningStatement,
   type SqlDialect,
 } from './dialects/index.js';
+// @zmdb/sql — implementation.
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export type { CompiledQuery, QueryEffects, QueryTelemetry } from './compiled-query.js';
 export {
@@ -248,7 +250,10 @@ export function assertNoWindowFunction(value: unknown, context: string): void {
   }
 }
 
-export function renderWindowProjectionNode(d: DialectTarget, item: WindowProjectionNode | WindowFunctionBuilder): string {
+export function renderWindowProjectionNode(
+  d: DialectTarget,
+  item: WindowProjectionNode | WindowFunctionBuilder,
+): string {
   const node = isWindowFunctionBuilder(item) ? item.toNode() : item;
   const fnName = node.functionName.toUpperCase();
 
