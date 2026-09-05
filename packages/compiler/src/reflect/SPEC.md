@@ -152,7 +152,7 @@ export interface ReflectOptions {
 
 // Canonical public type: @zmdb/schema/naming
 export interface NamingStrategy {
-  readonly column?: (property: string, context: { table: string }) => string;
+  readonly column?: (property: string, context: { readonly table: string }) => string;
   readonly table?: (declared: string) => string;
   readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
 }
@@ -163,15 +163,13 @@ column, writes the results into `physicalTable` and `physicalName`, and nothing 
 
 The alternative — a hook in the query compiler, where names become SQL — is where every other ORM put it, and it is a function call per column per row for the lifetime of the project.
 
-Having it here also satisfies §2.9: one IR records both vocabularies once. SQL consumers read the physical fields while the emitted validator reads declared property names; neither resolves a strategy
-again or agrees with another pass by luck.
+Having it here also satisfies §2.9: the DDL and the emitted validator read one set of physical names rather than resolving names twice and agreeing by luck.
 
 The order for one column is: read the tags, then take `Physical<'…'>` if the declaration carries one, else `naming.column(property, …)` if configured, else the property name. Explicit beats strategy,
 and the strategy is never consulted for a column that already answered the question.
 
 `Physical` is a type-only export from both `@zmdb/schema/tags` and `@zmdb/core/tags`. The same optional unique-symbol slot is read in two positions: directly on the interface for `physicalTable`, and
 from a property's intersection members for `physicalName`.
-
 `context.table` is the **declared** table name, not the physical one. A user function that special-cases a table wants the string the author wrote, and passing the declared name means that function
 reads the same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently changes which branch a `column` strategy takes.
 

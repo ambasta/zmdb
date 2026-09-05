@@ -130,8 +130,9 @@ expressible, and the back-ends each refuse it in their own terms (the repository
 
 What is _not_ legal is a `primaryKey` naming a column the table does not have, and the reflector refuses that at derivation rather than letting the DDL emit a clause over a phantom column.
 
-Four back-ends read the key, and before this contract they each read something different — `PrimaryKeyOf` an object-or-scalar, the repository and relation resolver each read only the first entry, and
-the DDL emitter reconstructed the key from per-column flags. All four now consume the ordered list. The specs below say what each boundary does with it.
+Four back-ends read the key, and before this section they each read something different — `PrimaryKeyOf` an object-or-scalar, the repository `primaryKey[0]` for `pkColumn`, the DDL emitter once read
+the per-column flag, and `resolveRelation` reads `primaryKey[0]`. The DDL boundary now consumes the ordered list; the remaining `primaryKey[0]` readers are still the single-column case written as if
+it were the general one. The list above is what all four boundaries must agree on; each of the four specs below says what that boundary does with it.
 
 A composite key may not contain a `serial` column. Auto-increment inside a multi-column key is a MySQL-specific shape (the auto-increment column must _lead_ the key), and expressing that constraint
 would mean the declaration order of an interface silently deciding whether the schema is portable. The reflector refuses instead:
@@ -174,7 +175,7 @@ per build; see `../../../compiler/src/reflect/SPEC.md` §7a for where.
 `ir` it carries is entirely in declaration vocabulary. Every existing consumer is already on the correct side of that line by accident of what it reads: the DDL emitter and `snapshot` take the value,
 the derived types and the validator take the IR.
 
-**Explicit beats strategy**, through the public `Physical<Name>` tag:
+**Explicit beats strategy**, through one new tag:
 
 ```ts
 interface User extends Table<'users'>, Physical<'user_accounts'> {
@@ -292,14 +293,13 @@ Both non-scalar types need `decodeDbValue` to do real work, and what arrives dep
   `ST_AsGeoJSON("location") AS "location"` and written through `ST_GeomFromGeoJSON($n)`. That costs nothing per row beyond the function call the database was going to have to do anyway, and it means
   `decodeDbValue` sees JSON text and nothing dialect-specific. A geometry column reached by a bare `SELECT *` is therefore a bug in the projection, not something the decoder papers over.
 
-`citext` needs no conversion, and it overlaps with the expression-index recipe on purpose. An explicit unique expression index on `lower(email)` works on the PostgreSQL family and SQLite. The MySQL
-family and SQL Server use a generated lowercase column plus an ordinary unique index because `createIndexDdl` refuses their different expression-index grammar. A `citext` column is Postgres-only and
-makes every comparison case-insensitive rather than just the indexed lookup. Prefer the expression index unless the column's _semantics_ are case-insensitive.
+`citext` needs no conversion, and it overlaps with the expression-index recipe on purpose: `{ expr: 'lower(email)' }` plus `Unique` gets case-insensitive uniqueness on every dialect, and a `citext`
+column gets it on Postgres only, in exchange for every comparison being case-insensitive rather than just the index. Prefer the expression index unless the column's _semantics_ are case-insensitive.
 
 **Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse an extension type, and there is no fallback.** The refusal is an `UnsupportedFeatureError` at DDL time naming the dialect, the column and
 the extension:
 
-```
+```text
 sqlite does not support the extension type vector(1536) on "items"."embedding" (extension `vector`);
 there is no equivalent, and storing it as TEXT would produce an embedding no query can search
 ```
@@ -354,7 +354,8 @@ export type ProtoField<N extends number> = { readonly [zmdbProtoField]?: N };
 /** Wire type, where TypeScript is ambiguous about width or signedness. */
 export type Proto<K extends ProtoScalar> = { readonly [zmdbProtoScalar]?: K };
 
-type ProtoScalar = 'int32' | 'int64' | 'uint32' | 'uint64' | 'sint32' | 'sint64' | 'fixed32' | 'fixed64' | 'sfixed32' | 'sfixed64' | 'float' | 'double' | 'bool' | 'string' | 'bytes';
+export const PROTO_SCALARS = ['int32', 'int64', 'uint32', 'uint64', 'sint32', 'sint64', 'fixed32', 'fixed64', 'sfixed32', 'sfixed64', 'float', 'double', 'bool', 'string', 'bytes'] as const;
+export type ProtoScalar = (typeof PROTO_SCALARS)[number];
 ```
 
 A branded-primitive encoding — `{ readonly __protoField?: N }` — is the shape `../tags/SPEC.md` explicitly rejects: it "collides with real data properties and is forgeable". A message type is by
@@ -389,9 +390,6 @@ A nested object type is a nested message with its own `1 …` space. Field numbe
 
 Turns a `SchemaIR` into the `CoreSchema` value the query compiler and the repositories read. It is what `schemaOf<T>()` becomes at build time, and it carries the IR it was built from on the value's
 required `ir` field, so nothing downstream has to choose between the two or reconstruct one from the other.
-
-The value is the SQL-facing projection: `table` is `physicalTable`, `columns` are keyed by `physicalName`, and `primaryKey` contains physical column names. The retained IR remains the
-declaration-facing source for DTO keys, derived types and documents.
 
 `schemaFromIR(schemaFromIR(ir).ir)` equals `schemaFromIR(ir)`, and `schemaFromIR(schema.ir)` equals `schema` — both asserted in `ir.spec.ts`. That is the property the required field rests on: the
 value holds everything the IR does.

@@ -10,16 +10,19 @@ Schema retains only the IR and JSON Schema framing those packages consume. No AI
 ## API
 
 ```ts
-interface ToolSpec {
-  name: string;
-  description?: string;
-  parameters: JsonSchemaObject;
+export interface ToolOptions {
+  readonly description?: string;
 }
-function toolFromSchema<S>(name: string, schema: S, opts?: { description?: string }): ToolSpec;
+
+export interface ToolSpec {
+  readonly name: string;
+  readonly description?: string;
+  readonly parameters: JsonSchemaObject;
+}
+export function toolFromSchema(name: string, schema: CoreSchema<string>, opts?: ToolOptions): ToolSpec;
 
 type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
-function toolFor<T, P extends ToolProvider>(provider: P, name: string, opts?: { description?: string }): ToolSpecFor[P];
-function toolFor<P extends ToolProvider>(provider: P, name: string, schema: CoreSchema<string>, opts?: { description?: string }): ToolSpecFor[P];
+export function toolFor(provider: ToolProvider, name: string, schemaOrOptions?: ToolSchema | ToolOptions, options?: ToolOptions): AnyToolSpec;
 
 interface ParseResult<T> {
   success: boolean;
@@ -184,13 +187,25 @@ output have one producer rather than merely similar tests.
 export type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';
 
 export interface ToolSpecFor {
-  readonly openai: { type: 'function'; function: { name: string; description?: string; parameters: JsonSchemaObject } };
-  readonly 'openai-strict': {
-    type: 'function';
-    function: { name: string; description?: string; strict: true; parameters: StrictJsonSchemaObject };
+  readonly openai: {
+    readonly type: 'function';
+    readonly function: {
+      readonly name: string;
+      readonly description?: string;
+      readonly parameters: JsonSchemaObject;
+    };
   };
-  readonly anthropic: { name: string; description?: string; input_schema: JsonSchemaObject };
-  readonly gemini: { name: string; description?: string; parameters: GeminiSchemaObject };
+  readonly 'openai-strict': {
+    readonly type: 'function';
+    readonly function: {
+      readonly name: string;
+      readonly description?: string;
+      readonly strict: true;
+      readonly parameters: StrictJsonSchemaObject;
+    };
+  };
+  readonly anthropic: { readonly name: string; readonly description?: string; readonly input_schema: JsonSchemaObject };
+  readonly gemini: { readonly name: string; readonly description?: string; readonly parameters: GeminiSchemaObject };
   readonly 'json-schema': ToolSpec;
 }
 

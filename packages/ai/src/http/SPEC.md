@@ -28,17 +28,22 @@ export interface OpenApiGeneratedTool<T> {
   readonly validate: (input: unknown) => T;
 }
 
-export declare function bindOpenApiTool<T>(
-  tool: OpenApiGeneratedTool<T>,
-  opts: {
-    readonly baseUrl: string;
-    readonly allowedBaseUrls: readonly string[];
-    readonly headers?: Readonly<Record<string, string>>;
-    readonly timeoutMs?: number;
-    readonly maxResponseBytes?: number;
-    readonly fetch?: typeof globalThis.fetch;
-  },
-): { readonly spec: ToolSpec; readonly validate: (input: unknown) => T; handler(input: T): Promise<unknown> };
+export interface OpenApiCallerOptions {
+  readonly baseUrl: string;
+  readonly allowedBaseUrls: readonly string[];
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly timeoutMs?: number;
+  readonly maxResponseBytes?: number;
+  readonly fetch?: typeof globalThis.fetch;
+}
+
+export interface BoundOpenApiTool<T> {
+  readonly spec: ToolSpec;
+  readonly validate: (input: unknown) => T;
+  readonly handler: (input: T) => Promise<unknown>;
+}
+
+export declare function bindOpenApiTool<T>(tool: OpenApiGeneratedTool<T>, options: OpenApiCallerOptions): BoundOpenApiTool<T>;
 ```
 
 The mapping, and the part the issue's step 8 asks for:

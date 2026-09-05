@@ -37,11 +37,13 @@ type FieldOps<V> = {
   notNull?: boolean; // null checks
 };
 
-type WhereDTO<T extends DeclaredTable> = {
+export type WhereDTO<T extends DeclaredTable> = {
   [K in keyof Entity<T>]?: Entity<T>[K] | FieldOps<Entity<T>[K]>;
 } & {
   and?: readonly WhereDTO<T>[];
   or?: readonly WhereDTO<T>[];
+  exists?: SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[];
+  notExists?: SubqueryTarget<unknown> | readonly SubqueryTarget<unknown>[];
 };
 ```
 
@@ -92,9 +94,14 @@ type OrderDir = 'asc' | 'desc';
 type OrderByDTO<T> = ReadonlyArray<{ column: keyof Entity<T>; dir?: OrderDir }>;
 // dir defaults to 'asc'.
 
-type OffsetPage = { limit: number; offset?: number };
-type CursorPage<T> = { limit: number; after?: CursorOf<T>; before?: CursorOf<T> };
-type PaginationDTO<T> = OffsetPage | CursorPage<T>;
+export type OffsetPage = { limit: number; offset?: number | undefined };
+export type PaginationDTO<T extends DeclaredTable> =
+  | OffsetPage
+  | {
+      limit: number;
+      after?: Partial<Entity<T>> | string | undefined;
+      before?: Partial<Entity<T>> | string | undefined;
+    };
 // CursorOf<T> is an opaque encoding of the last row's order-key values.
 ```
 
@@ -198,9 +205,9 @@ type SearchResult<Row> = ListResult<SearchHit<Row>>;
 
 ```ts
 type AggFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
-interface AggregateSpec<T> {
-  groupBy?: readonly (keyof Entity<T>)[];
-  computed: Readonly<Record<string, { fn: AggFn; column?: keyof Entity<T> }>>;
+export interface AggregateSpec<T extends DeclaredTable> {
+  groupBy?: readonly AggregateColumn<T>[];
+  computed: Record<string, ComputedSpec<T>>;
 }
 type AggComputedType<T, C> = C extends { fn: 'count' }
   ? number

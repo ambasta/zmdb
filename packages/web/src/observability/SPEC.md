@@ -280,10 +280,7 @@ in the framework.
 
 ```ts
 export declare function toTraceparent(span: Span): string;
-export declare function toTraceHeaders(span: Span): {
-  readonly traceparent: string;
-  readonly tracestate?: string;
-};
+export declare function toTraceHeaders(span: Span): TraceCarrier;
 ```
 
 and the caller writes those headers. Patching a global is what a no-dependency package should be least willing to do, the auto-instrumentation on `web-tracing.md` already patches `fetch` for anyone
