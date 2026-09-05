@@ -22,12 +22,12 @@ were used, so every mode appeared twice in each ordinal position; each workload/
 
 | workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       330.10 |      3029418 |        baseline |                 0 |         1.066x |
-| request  | API no-op          |      1207.65 |       828052 |         +265.8% |                 0 |         1.066x |
-| request  | recording exporter |      6498.62 |       153879 |        +1868.7% |                 3 |         1.055x |
-| query    | off                |        70.49 |     14185610 |        baseline |                 0 |         1.088x |
-| query    | API no-op          |       315.43 |      3170305 |         +347.5% |                 0 |         1.142x |
-| query    | recording exporter |      2454.04 |       407491 |        +3381.2% |                 1 |         1.023x |
+| request  | off                |      1063.65 |       940157 |        baseline |                 0 |         1.034x |
+| request  | API no-op          |      3052.11 |       327642 |         +186.9% |                 0 |         1.034x |
+| request  | recording exporter |     16337.74 |        61208 |        +1436.0% |                 3 |         1.151x |
+| query    | off                |       198.52 |      5037394 |        baseline |                 0 |         1.040x |
+| query    | API no-op          |       750.84 |      1331836 |         +278.2% |                 0 |         1.029x |
+| query    | recording exporter |      5994.54 |       166819 |        +2919.7% |                 1 |         1.012x |
 
 The request workload is one matched `GET` and records the server, route and handler spans. The query workload is one compiled `SELECT` through `tracedDriver` and records one client span. The recording
 case uses a real `BasicTracerProvider`, `SimpleSpanProcessor` and bounded exporter; exporter flush/reset are outside the timed interval, and metrics are disabled in all three modes. The raw 36

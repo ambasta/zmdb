@@ -15,12 +15,12 @@ workload/mode. The runner uses all six mode permutations, placing every mode twi
 
 | workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       330.10 |      3029418 |        baseline |                 0 |         1.066x |
-| request  | API no-op          |      1207.65 |       828052 |         +265.8% |                 0 |         1.066x |
-| request  | recording exporter |      6498.62 |       153879 |        +1868.7% |                 3 |         1.055x |
-| query    | off                |        70.49 |     14185610 |        baseline |                 0 |         1.088x |
-| query    | API no-op          |       315.43 |      3170305 |         +347.5% |                 0 |         1.142x |
-| query    | recording exporter |      2454.04 |       407491 |        +3381.2% |                 1 |         1.023x |
+| request  | off                |      1063.65 |       940157 |        baseline |                 0 |         1.034x |
+| request  | API no-op          |      3052.11 |       327642 |         +186.9% |                 0 |         1.034x |
+| request  | recording exporter |     16337.74 |        61208 |        +1436.0% |                 3 |         1.151x |
+| query    | off                |       198.52 |      5037394 |        baseline |                 0 |         1.040x |
+| query    | API no-op          |       750.84 |      1331836 |         +278.2% |                 0 |         1.029x |
+| query    | recording exporter |      5994.54 |       166819 |        +2919.7% |                 1 |         1.012x |
 
 The request workload consumes one matched `GET` response and exports the server, route and handler spans. The query workload consumes one compiled `SELECT` result through `tracedDriver` and exports
 one client span. The recording case is a real `BasicTracerProvider` plus `SimpleSpanProcessor` and a bounded exporter; exporter flush/reset are outside the timed interval, and metrics are disabled in
@@ -36,8 +36,8 @@ relation objects (`customer`, `warehouse`, `carrier`) and an `items` list contai
 
 | mode            | median ns/op | median ops/s | max/min spread |
 | --------------- | -----------: | -----------: | -------------: |
-| full            |       448.66 |    2,228,870 |         1.030x |
-| shallow depth 1 |         9.95 |  100,460,099 |         1.044x |
+| full            |     1,325.06 |      754,681 |         1.024x |
+| shallow depth 1 |        40.38 |   24,767,110 |         1.025x |
 
 Depth 1 used 2.22% of the full validator's time in this session, a measured 45.07× ratio. It makes a deliberately weaker promise: it checks top-level scalars, relation object shapes and list
 array-ness, but not fields inside those relations or list elements. Six semantic probes establish that distinction before timing, including malformed nested fields that full rejects and shallow

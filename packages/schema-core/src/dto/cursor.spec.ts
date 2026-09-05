@@ -60,6 +60,14 @@ describe('Composite Keyset Cursor Utilities', () => {
       const arrayCursor = encodeCursor([1, 2, 3] as unknown as Record<string, unknown>);
       expect(() => decodeCursor(arrayCursor)).toThrow(/Invalid cursor/);
     });
+
+    it('throws when decoded JSON payload contains prototype-polluting keys', () => {
+      const protoCursor = encodeCursor(JSON.parse('{"id":1,"__proto__":{"admin":true}}'));
+      expect(() => decodeCursor(protoCursor)).toThrow(/Invalid cursor payload: disallowed property/);
+
+      const ctorCursor = encodeCursor(JSON.parse('{"id":1,"constructor":{"admin":true}}'));
+      expect(() => decodeCursor(ctorCursor)).toThrow(/Invalid cursor payload: disallowed property/);
+    });
   });
 
   describe('applyOrderBy with PK tie-breaker', () => {
