@@ -48,7 +48,6 @@
     "old import @zmdb/schema-core/dto remains in [packages/repository/src/index.ts, packages/zmdb/src/dto.ts]",
     "old import @zmdb/schema-core/ir remains in [packages/aot-validator/src/emit/__testing__/project.ts, packages/aot-validator/src/emit/index.ts, packages/aot-validator/src/emit/shape.ts, packages/aot-validator/src/protobuf/decode.ts, packages/aot-validator/src/protobuf/descriptor.ts, packages/aot-validator/src/protobuf/encode.ts, packages/aot-validator/src/protobuf/grpc-ir.ts, packages/aot-validator/src/reflect/index.ts, packages/aot-validator/src/testing/index.ts, packages/aot-validator/src/transformer.ts, packages/aot-validator/src/utilities/index.ts, packages/app/src/commands/index.ts, packages/repository/src/cache/index.ts, packages/repository/src/filters/index.ts, packages/repository/src/index.ts, packages/repository/src/outbox/index.ts, packages/repository/src/seeding/index.ts, packages/web/src/contract/compiler/index.ts, packages/web/src/contract/index.ts, packages/web/src/data/index.ts, packages/zmdb/src/ir.ts, packages/zmdb/src/studio/index.ts]",
     "old import @zmdb/schema-core/llm remains in [packages/ai/src/compiler.ts, packages/ai/src/index.ts]",
-    "old import @zmdb/schema-core/llm/ai-sdk remains in [fixtures/llm-adapters/src/contracts.ts]",
     "old import @zmdb/schema-core/llm/chat remains in [packages/ai/src/chat/index.ts]",
     "old import @zmdb/schema-core/llm/http remains in [packages/ai/src/http/index.ts]",
     "old import @zmdb/schema-core/llm/langchain remains in [packages/ai-langchain/src/index.ts]",

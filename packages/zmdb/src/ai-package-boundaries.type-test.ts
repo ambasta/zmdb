@@ -19,6 +19,12 @@ import type {
   ToolAdapterOptions as LangChainToolAdapterOptions,
 } from '@zmdb/ai-langchain';
 import type {
+  aiSdkTool,
+  AiSdkToolFields,
+  AiSdkToolOptions,
+  ToolAdapterOptions as AiSdkToolAdapterOptions,
+} from '@zmdb/ai-vercel';
+import type {
   defineTools,
   ChatDriver,
   ChatMessage,
@@ -52,12 +58,6 @@ import type {
   ToolInvocation,
 } from '@zmdb/ai/tool-runtime';
 import type { Equal, Expect } from '@zmdb/schema-core';
-import type {
-  aiSdkTool,
-  AiSdkToolFields,
-  AiSdkToolOptions,
-  ToolAdapterOptions as AiSdkToolAdapterOptions,
-} from '@zmdb/schema-core/llm/ai-sdk';
 import type {
   createMcpClient,
   createMcpServer,

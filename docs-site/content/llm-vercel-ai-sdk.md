@@ -1,5 +1,5 @@
-> **Tool integration only.** Install `ai` in the application. `@zmdb/schema-core/llm/ai-sdk` is tested against `7.0.83` and declares the optional peer range `^7.0.83`. A `LanguageModel` wrapper and
-> persistence adapter for `useChat` remain application code.
+> **Tool integration only.** Install `@zmdb/ai`, `@zmdb/ai-vercel` and `ai@^7.0.83` in the application. The adapter's packed consumer runs against `7.0.83` and `7.0.92`; `ai` is an optional peer of
+> the integration package. A `LanguageModel` wrapper and persistence adapter for `useChat` remain application code.
 
 ## Know the boundary
 
@@ -14,9 +14,9 @@
 
 ```ts
 import { jsonSchema, tool } from 'ai';
+import { aiSdkTool } from '@zmdb/ai-vercel';
 import { assert } from '@zmdb/aot-validator/utilities';
 import { schemaOf, type CreateDTO } from '@zmdb/schema-core';
-import { aiSdkTool } from '@zmdb/schema-core/llm/ai-sdk';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 interface User extends Table<'users'> {

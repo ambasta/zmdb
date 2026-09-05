@@ -1,11 +1,11 @@
 # @zmdb/ai-vercel — Vercel AI SDK tool integration specification
 
-> **Status:** target package boundary frozen by issue #703. Runtime source and a manifest are added by later implementation issues.
+> **Status:** implemented by issue #708. The package owns the adapter, its real-SDK and packed-consumer tests, and the `ai` peer; the old schema-core adapter path is removed.
 
 ## 1. Responsibility
 
-This package owns the Vercel AI SDK tool-object translation currently implemented by `packages/schema-core/src/llm/adapters/ai-sdk.ts`. It adapts a provider-neutral zmdb tool document to the SDK's
-branded `inputSchema` contract and uses `@zmdb/ai/tool-runtime` for validation and execution semantics.
+This package owns the Vercel AI SDK tool-object translation in `packages/ai-vercel/src/index.ts`. It adapts a provider-neutral zmdb tool document to the SDK's branded `inputSchema` contract and uses
+`@zmdb/ai/tool-runtime` for validation and execution semantics.
 
 It does not own provider dialects, model clients, streaming UI state, persistence, `useChat`, provider packages or AOT validation.
 
@@ -40,19 +40,21 @@ The caller passes the installed SDK's `jsonSchema` function. The package neither
 ## 3. Dependencies and peer
 
 - Direct workspace dependency: `@zmdb/ai` at `workspace:^`.
-- Sole external peer: `ai` at `^7.0.83`.
-- Required consumer matrix: the declared lower bound `7.0.83` and the currently declared/resolved fixture version `7.0.92`.
-- No direct dependency on `@zmdb/schema-core`, `@ai-sdk/*`, Zod, a provider SDK or another integration package.
+- Sole external peer: `ai` at `^7.0.83`, marked optional because shipped source never imports it and receives the branded factory from the caller.
+- Tested development versions: `ai` `7.0.92` and the `ai-lower-bound` alias at `7.0.83`.
+- No runtime dependency on `@zmdb/schema-core`, `@ai-sdk/*`, Zod, a provider SDK or another integration package. `zod` is a development-only entry that satisfies the AI SDK's own peer while both
+  versions compile and execute.
 
-The current tree proves `7.0.92`, not the lower bound. The final package may retain `^7.0.83` only after a packed fixture passes at both versions; otherwise its peer range narrows to `^7.0.92`.
-Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
+The packed fixture executes both `7.0.83` and `7.0.92`, so the declared lower bound is proven. Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
 
 ## 4. Migration and qualification
 
-The implementation moves:
+Issue #708 moved:
 
-- `adapters/ai-sdk.ts` to `packages/ai-vercel/src/index.ts`; and
-- `adapters/ai-sdk.spec.ts` to `packages/ai-vercel/src/index.spec.ts`.
+- `adapters/ai-sdk.ts` to `packages/ai-vercel/src/index.ts`;
+- `adapters/ai-sdk.spec.ts` to `packages/ai-vercel/src/index.spec.ts`;
+- the real-package fixture import to `@zmdb/ai-vercel`; and
+- the `ai` peer and `./llm/ai-sdk` export out of schema-core.
 
 The shared adapter runtime moves to `@zmdb/ai/tool-runtime`.
 
@@ -68,8 +70,7 @@ Qualification must prove:
 
 ## 5. README and non-goals
 
-The README states `yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.83`, shows `jsonSchema` injection and the caller-owned validator, and does not claim lower-bound compatibility until the two-version
-fixture passes.
+The README states `yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.83`, shows `jsonSchema` injection and the caller-owned validator, and names the two versions exercised by the packed fixture.
 
 No `LanguageModel` wrapper, provider package, streaming UI state, persistence adapter, `useChat` store or runtime schema library belongs here.
 

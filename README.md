@@ -18,6 +18,7 @@
 | [`@zmdb/ai`](./packages/ai)                         | ✅     | Provider-neutral tool documents, bounded chat, invocation, and OpenAPI tools         |
 | [`@zmdb/ai-anthropic`](./packages/ai-anthropic)     | ✅     | Optional Anthropic Messages driver for the provider-neutral chat contract            |
 | [`@zmdb/ai-langchain`](./packages/ai-langchain)     | ✅     | Optional LangChain structured-tool integration over the shared AI contract           |
+| [`@zmdb/ai-vercel`](./packages/ai-vercel)           | ✅     | Optional Vercel AI SDK tool integration with caller-owned schema branding            |
 | [`@zmdb/protobuf`](./packages/protobuf)             | ✅     | Zero-dependency protobuf calls, typed gRPC artifacts, and generated-code wire ABI    |
 | [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | Build-time validation, serialization, reflection, and artifact emission              |
 | [`@zmdb/repository`](./packages/repository)         | ✅     | Typed CRUD, transactions, relations, loaders, caching, and streaming                 |
@@ -27,7 +28,7 @@
 
 > Status legend: ✅ complete. 🚧 in progress. 🔜 planned.
 >
-> The workspace publishes **12 packages** across **126 export-map entry points**. The current suite has **2,844 passing tests** across 258 files, plus **87 expected failures** that describe work still
+> The workspace publishes **13 packages** across **126 export-map entry points**. The current suite has **2,850 passing tests** across 259 files, plus **85 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 261 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

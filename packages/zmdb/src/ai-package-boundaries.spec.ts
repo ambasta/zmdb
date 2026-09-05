@@ -21,6 +21,7 @@ const PACKAGES = join(ROOT, 'packages');
 const AI = join(PACKAGES, 'ai');
 const AI_ANTHROPIC = join(PACKAGES, 'ai-anthropic');
 const AI_LANGCHAIN = join(PACKAGES, 'ai-langchain');
+const AI_VERCEL = join(PACKAGES, 'ai-vercel');
 const SCHEMA_CORE = join(PACKAGES, 'schema-core');
 const LLM = join(SCHEMA_CORE, 'src', 'llm');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
@@ -87,7 +88,6 @@ const FINAL_OWNER = {
 
 const SCHEMA_CORE_PACKED_SUBPATHS = [
   '@zmdb/schema-core/llm',
-  '@zmdb/schema-core/llm/ai-sdk',
   '@zmdb/schema-core/llm/chat',
   '@zmdb/schema-core/llm/http',
   '@zmdb/schema-core/llm/langchain',
@@ -183,6 +183,16 @@ function currentOwnership(paths: readonly string[]): readonly { readonly path: s
   return paths.map(path => ({ path, owner: packageOwner(join(LLM, path)) }));
 }
 
+function implementationFile(path: string, owner: AiPackage): string {
+  if (owner === '@zmdb/ai-anthropic' && path === 'chat/drivers/anthropic.ts') {
+    return join(AI_ANTHROPIC, 'src', 'index.ts');
+  }
+  if (owner === '@zmdb/ai-vercel' && path === 'adapters/ai-sdk.ts') {
+    return join(AI_VERCEL, 'src', 'index.ts');
+  }
+  return join(LLM, path);
+}
+
 function packageNameFromSpecifier(specifier: string): string | null {
   const match = /^(@[^/]+\/[^/]+|[^@][^/]*)(?:\/.*)?$/.exec(specifier);
   return match?.[1] ?? null;
@@ -201,7 +211,7 @@ function projectedAiGraph(): string[] {
   const edges = new Set<string>();
   const production = Object.entries(FINAL_OWNER)
     .filter(([path]) => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.endsWith('.type-test.ts'))
-    .map(([path, owner]) => (owner === '@zmdb/ai-anthropic' ? join(AI_ANTHROPIC, 'src', 'index.ts') : join(LLM, path)));
+    .map(([path, owner]) => implementationFile(path, owner));
   const aotSources = [
     join(PACKAGES, 'aot-validator', 'src', 'transformer.ts'),
     join(PACKAGES, 'aot-validator', 'src', 'emit', 'index.ts'),
@@ -336,6 +346,7 @@ const readJsonFromText = <T>(text: string): T => JSON.parse(text) as T;
 let packedAi: PackedPackage;
 let packedAnthropic: PackedPackage;
 let packedAiLangChain: PackedPackage;
+let packedAiVercel: PackedPackage;
 let packedSchemaCore: PackedPackage;
 const packDirectories: string[] = [];
 
@@ -343,6 +354,7 @@ beforeAll(() => {
   packedAi = packWorkspacePackage('ai', AI_PACKED_SUBPATHS, ['schema-core']);
   packedAnthropic = packWorkspacePackage('ai-anthropic', ANTHROPIC_PACKED_SUBPATHS, ['ai', 'schema-core']);
   packedAiLangChain = packWorkspacePackage('ai-langchain', AI_LANGCHAIN_PACKED_SUBPATHS, ['ai', 'schema-core']);
+  packedAiVercel = packWorkspacePackage('ai-vercel', ['@zmdb/ai-vercel'], ['ai', 'schema-core', 'query-compiler']);
   packedSchemaCore = packWorkspacePackage('schema-core', SCHEMA_CORE_PACKED_SUBPATHS, ['query-compiler']);
 }, 60_000);
 
@@ -350,10 +362,10 @@ afterAll(() => {
   for (const directory of packDirectories) rmSync(directory, { recursive: true, force: true });
 });
 
-describe('AI package ownership and isolation (#704, #705, #706, #707)', () => {
+describe('AI package ownership and isolation (#704, #705, #706, #707, #708)', () => {
   it.fails('schema-core exposes no llm subpath or AI peer dependency', () => {
-    // #706 and #707 remove the Anthropic/LangChain peers, but the remaining Vercel
-    // integration and provider-neutral forwarders keep this final-state assertion red.
+    // #706-#708 remove all provider/framework peers, but the remaining implementation,
+    // integration and MCP files plus five compatibility exports keep this final-state assertion red.
     const manifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
     const llmExports = Object.keys(manifest.exports ?? {}).filter(
       path => path === './llm' || path.startsWith('./llm/'),
@@ -416,7 +428,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707)', () => {
     expect.soft(aiManifest.dependencies?.['@anthropic-ai/sdk']).toBeUndefined();
     expect.soft(schemaManifest.devDependencies?.['@anthropic-ai/sdk']).toBeUndefined();
     expect.soft(schemaManifest.peerDependencies?.['@anthropic-ai/sdk']).toBeUndefined();
-    expect.soft(schemaManifest.peerDependenciesMeta).not.toHaveProperty('@anthropic-ai/sdk');
+    expect.soft(schemaManifest.peerDependenciesMeta ?? {}).not.toHaveProperty('@anthropic-ai/sdk');
     expect.soft(Object.keys(packedAnthropic.imported)).toEqual([...ANTHROPIC_PACKED_SUBPATHS]);
     expect.soft(packedAnthropic.imported['@zmdb/ai-anthropic']).toEqual(['anthropicDriver']);
     expect.soft(packedAnthropic.installedPeers).toEqual([]);
@@ -424,23 +436,18 @@ describe('AI package ownership and isolation (#704, #705, #706, #707)', () => {
     expect.soft(Object.keys(packedAnthropic.manifest.exports ?? {})).toEqual([...TARGET_ANTHROPIC_EXPORTS]);
   });
 
-  it.fails('the remaining optional AI integration reaches exactly its declared peer', () => {
-    const integrations = [
-      { owner: '@zmdb/ai-vercel', source: 'adapters/ai-sdk.ts', peer: 'ai', range: '^7.0.83' },
-    ] as const;
+  it('@zmdb/ai-vercel owns only the Vercel AI SDK peer', () => {
+    const file = join(AI_VERCEL, 'src', 'index.ts');
+    const manifest = readJson<PackageManifest>(join(AI_VERCEL, 'package.json'));
+    const sdkImports = importClosure([file])
+      .filter(reference => reference.specifier === 'ai' || reference.specifier.startsWith('ai/'))
+      .map(reference => `${relative(ROOT, reference.file)} -> ${reference.specifier}`);
 
-    for (const integration of integrations) {
-      const file = join(LLM, integration.source);
-      const owner = packageOwner(file);
-      const manifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
-      expect.soft(owner, integration.source).toBe(integration.owner);
-      expect.soft(manifest.dependencies, `${integration.owner} workspace dependencies`).toEqual({
-        '@zmdb/ai': 'workspace:^',
-      });
-      expect.soft(manifest.peerDependencies, `${integration.owner} external peer`).toEqual({
-        [integration.peer]: integration.range,
-      });
-    }
+    expect.soft(packageOwner(file)).toBe('@zmdb/ai-vercel');
+    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(manifest.peerDependencies).toEqual({ ai: '^7.0.83' });
+    expect.soft(manifest.peerDependenciesMeta).toEqual({ ai: { optional: true } });
+    expect.soft(sdkImports).toEqual([]);
   });
 
   it('publishes LangChain as its own optional-peer integration', () => {
@@ -459,8 +466,8 @@ describe('AI package ownership and isolation (#704, #705, #706, #707)', () => {
     expect.soft(manifest.peerDependenciesMeta).toEqual({
       '@langchain/core': { optional: true },
     });
-    expect.soft(schemaManifest.peerDependencies).not.toHaveProperty('@langchain/core');
-    expect.soft(schemaManifest.peerDependenciesMeta).not.toHaveProperty('@langchain/core');
+    expect.soft(schemaManifest.peerDependencies ?? {}).not.toHaveProperty('@langchain/core');
+    expect.soft(schemaManifest.peerDependenciesMeta ?? {}).not.toHaveProperty('@langchain/core');
     expect.soft(aiManifest.dependencies ?? {}).not.toHaveProperty('@langchain/core');
     expect.soft(aiManifest.peerDependencies ?? {}).not.toHaveProperty('@langchain/core');
   });
@@ -558,17 +565,27 @@ describe('AI package ownership and isolation (#704, #705, #706, #707)', () => {
     expect.soft(packedAiLangChain.files).toContain('src/index.ts');
   });
 
-  it.fails('installing @zmdb/schema-core alone installs no AI SDK peer', () => {
-    // The consumer contains only the packed schema-core package and none of the SDKs. The
-    // remaining failure is its real packed peer contract, which still assigns the Vercel
-    // SDK edge to schema-core.
+  it('@zmdb/ai-vercel packs with one root and no installed SDK peer', () => {
+    expect(packedAiVercel.imported['@zmdb/ai-vercel']).toEqual(['aiSdkTool']);
+    expect(packedAiVercel.files).toContain('src/index.ts');
+    expect.soft(packedAiVercel.manifest.name).toBe('@zmdb/ai-vercel');
+    expect.soft(Object.keys(packedAiVercel.manifest.exports ?? {})).toEqual(['.']);
+    expect.soft(packedAiVercel.manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(packedAiVercel.manifest.peerDependencies).toEqual({ ai: '^7.0.83' });
+    expect.soft(packedAiVercel.manifest.peerDependenciesMeta).toEqual({ ai: { optional: true } });
+    expect.soft(packedAiVercel.installedPeers).toEqual([]);
+  });
+
+  it('installing @zmdb/schema-core alone installs no AI SDK peer', () => {
+    // The consumer contains only the packed schema-core package and none of the SDKs.
+    // #706-#708 moved all three optional peers to their integration packages.
     expect(packedSchemaCore.installedPeers).toEqual([]);
     expect
       .soft(AI_SDK_PEERS.filter(peer => packedSchemaCore.manifest.peerDependencies?.[peer] !== undefined))
       .toEqual([]);
-    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta).not.toHaveProperty('@anthropic-ai/sdk');
-    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta).not.toHaveProperty('@langchain/core');
-    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta).not.toHaveProperty('ai');
+    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta ?? {}).not.toHaveProperty('@anthropic-ai/sdk');
+    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta ?? {}).not.toHaveProperty('@langchain/core');
+    expect.soft(packedSchemaCore.manifest.peerDependenciesMeta ?? {}).not.toHaveProperty('ai');
   });
 
   it('installing @zmdb/ai alone imports chat and HTTP tools without optional peers', () => {

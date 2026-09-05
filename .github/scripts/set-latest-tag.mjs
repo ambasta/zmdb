@@ -16,6 +16,7 @@ const PACKAGES = [
   '@zmdb/ai',
   '@zmdb/ai-anthropic',
   '@zmdb/ai-langchain',
+  '@zmdb/ai-vercel',
   '@zmdb/protobuf',
   '@zmdb/aot-validator',
   '@zmdb/repository',

@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635, amended by #656, #668 and #706
+# Runtime foundation boundary policy — issue #635, amended by #656, #668, #705, #706, #707 and #708
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -17,21 +17,22 @@ Those are exactly the TypeScript files included by the four current `tsconfig.bu
 exclude them; the ownership map therefore cannot pretend they are not shipped.
 
 Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`. Issue #656 then
-moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`:
+moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`; #705 added the provider-neutral AI edge used by the compiler; #706 and
+#707 moved the Anthropic and LangChain peers; and #708 moved the Vercel adapter, export and peer out of schema-core:
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
-| `@zmdb/schema-core`    |                              29 |                 15 |
+| `@zmdb/schema-core`    |                              28 |                 14 |
 | `@zmdb/query-compiler` |                              36 |                 13 |
 | `@zmdb/aot-validator`  |                              54 |                 14 |
 | `@zmdb/repository`     |                              22 |                 11 |
-| **Total**              |                         **141** |             **53** |
+| **Total**              |                         **140** |             **52** |
 
-The four manifests contain 24 dependency entries: 7 `dependencies`, 4 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
+The four manifests contain 22 dependency entries: 7 `dependencies`, 2 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 141 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
+Every one of the 140 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
 whose declared destination no longer exists in the architecture policy.
 
 ### `@zmdb/ai` — 10
@@ -61,11 +62,9 @@ packages/ai-anthropic/src/index.ts
 packages/schema-core/src/llm/adapters/langchain.ts
 ```
 
-### `@zmdb/ai-vercel` — 1
+### `@zmdb/ai-vercel` — 0
 
-```text
-packages/schema-core/src/llm/adapters/ai-sdk.ts
-```
+Issue #708 moved the sole Vercel adapter directly to `packages/ai-vercel/src/index.ts`, so no old foundation file remains in this destination.
 
 ### `@zmdb/cli` — 1
 
@@ -300,9 +299,9 @@ No symbol may be temporarily exported from both destinations. A move and its imp
 
 ## 4. Public export map
 
-All 53 current package export entries have one disposition:
+All 52 current package export entries have one disposition:
 
-### Current `@zmdb/schema-core` — 15
+### Current `@zmdb/schema-core` — 14
 
 | Old subpath       | Final public owner                                                                  |
 | ----------------- | ----------------------------------------------------------------------------------- |
@@ -316,7 +315,6 @@ All 53 current package export entries have one disposition:
 | `./openapi`       | `@zmdb/schema/openapi`                                                              |
 | `./custom-types`  | `@zmdb/schema/custom-types`                                                         |
 | `./llm`           | `@zmdb/ai`                                                                          |
-| `./llm/ai-sdk`    | `@zmdb/ai-vercel`                                                                   |
 | `./llm/chat`      | `@zmdb/ai/chat`                                                                     |
 | `./llm/http`      | `@zmdb/ai/http`                                                                     |
 | `./llm/langchain` | `@zmdb/ai-langchain`                                                                |
@@ -375,7 +373,7 @@ All 53 current package export entries have one disposition:
 | `./drivers/pg`      | `@zmdb/postgres`                                                                    |
 | `./drivers/mssql`   | `@zmdb/mssql`                                                                       |
 
-After cutover, the four old package names and all 53 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
+After cutover, the four old package names and all 52 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
 consumers. There are no forwarding packages and no `exports` aliases.
 
 ## 5. Manifest dependency disposition
@@ -387,13 +385,13 @@ Every current manifest entry has one disposition:
 | `schema-core dependencies @zmdb/query-compiler` | deleted; DTO/populate SQL moves to ORM and naming moves to schema  |
 | `schema-core peers @anthropic-ai/sdk`           | `@zmdb/ai-anthropic` peer only                                     |
 | `schema-core peers @langchain/core`             | `@zmdb/ai-langchain` peer only                                     |
-| `schema-core peers ai`                          | `@zmdb/ai-vercel` peer only                                        |
 | `schema-core dev @anthropic-ai/sdk`             | `@zmdb/ai-anthropic` dev dependency                                |
 | `schema-core dev @zmdb/aot-validator`           | compiler/schema test fixture dependency; not a schema runtime edge |
 | `schema-core dev oxfmt`                         | root/tooling formatter only; absent from `@zmdb/schema`            |
 | `schema-core dev typescript`                    | build/test-only dependency permitted on `@zmdb/schema`             |
 | `query-compiler dependencies oxfmt`             | `@zmdb/migrations` dependency only                                 |
 | `query-compiler dev typescript`                 | build/test-only dependency permitted on `@zmdb/sql`                |
+| `aot-validator dependencies @zmdb/ai`           | `@zmdb/compiler` build-time dependency; never a foundation edge    |
 | `aot-validator dependencies @zmdb/schema-core`  | becomes `@zmdb/validator -> @zmdb/schema`                          |
 | `aot-validator peers oxlint`                    | `@zmdb/compiler` peer only                                         |
 | `aot-validator peers typescript`                | `@zmdb/compiler` peer only                                         |

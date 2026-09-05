@@ -40,7 +40,6 @@
     "./openapi": "./src/openapi/index.ts",
     "./custom-types": "./src/custom-types/index.ts",
     "./llm": "./src/llm/index.ts",
-    "./llm/ai-sdk": "./src/llm/adapters/ai-sdk.ts",
     "./llm/chat": "./src/llm/chat/index.ts",
     "./llm/http": "./src/llm/http/index.ts",
     "./llm/langchain": "./src/llm/adapters/langchain.ts",
@@ -61,14 +60,6 @@
     "@zmdb/aot-validator": "workspace:^",
     "oxfmt": "0.66.0",
     "typescript": "7.0.2"
-  },
-  "peerDependencies": {
-    "ai": "^7.0.83"
-  },
-  "peerDependenciesMeta": {
-    "ai": {
-      "optional": true
-    }
   },
   "engines": {
     "node": ">=26"

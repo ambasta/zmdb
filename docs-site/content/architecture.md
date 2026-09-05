@@ -1,5 +1,5 @@
-zmdb currently publishes eleven focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side roots,
-while `@zmdb/ai` and the opt-in Anthropic and LangChain integrations are independently installable and are not re-exported by the umbrella.
+zmdb currently publishes twelve focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side roots,
+while `@zmdb/ai` and the opt-in Anthropic, LangChain, and Vercel integrations are independently installable and are not re-exported by the umbrella.
 
 The dependency spine is:
 
@@ -24,8 +24,8 @@ The dependency spine is:
          zmdb
 ```
 
-`@zmdb/ai-anthropic` depends inward on `@zmdb/ai`; the LangChain migration shell also keeps a temporary schema-core edge until #710. `@zmdb/client` and `@zmdb/protobuf` are independent roots. Higher
-packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
+`@zmdb/ai-anthropic` and `@zmdb/ai-vercel` depend inward only on `@zmdb/ai`; the LangChain migration shell also keeps a temporary schema-core edge until #710. `@zmdb/client` and `@zmdb/protobuf` are
+independent roots. Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
 
 ## What each package owns
 
@@ -44,6 +44,9 @@ structural client.
 
 **`@zmdb/ai-langchain`** — the optional LangChain structured-tool boundary. It owns the optional `@langchain/core@^1.2.9` peer and exposes only the adapter root. During the coordinated extraction it
 forwards to the old schema-core implementation; #710 removes that temporary edge after the other AI integrations exist.
+
+**`@zmdb/ai-vercel`** — the optional Vercel AI SDK tool boundary. It depends only on `@zmdb/ai`, owns the optional `ai@^7.0.83` peer, and receives the installed SDK's branded `jsonSchema` factory
+without importing the SDK in shipped source.
 
 **`@zmdb/query-compiler`** — turns builder calls into `{ text, parameters }` for an injected `SqlDialect` object or a temporary built-in `Dialect` name (`'postgres'`, `'mysql'`, `'sqlite'`, `'mssql'`,
 `'cockroach'`, `'singlestore'`). The object carries resolved traits, capabilities, migrations and introspection without registering globally. When constructed with `{ telemetry: true }`, the compiler
@@ -112,10 +115,12 @@ they never ask the runtime what type a parameter has, because at runtime that in
 
 ## Provider-neutral dependency boundary
 
-`@zmdb/ai` has one runtime workspace dependency, `@zmdb/schema-core`, and no external dependency or peer. `@zmdb/ai-anthropic` and `@zmdb/ai-langchain` are separate opt-in packages with one optional
-SDK/framework peer each. Importing the provider-neutral root, chat, HTTP, compiler, or tool-runtime entry does not install or resolve either peer.
+`@zmdb/ai` has one runtime workspace dependency, `@zmdb/schema-core`, and no external dependency or peer. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` are separate opt-in packages
+with one optional SDK/framework peer each. Importing the provider-neutral root, chat, HTTP, compiler, or tool-runtime entry does not install or resolve any of those peers.
 
 `@langchain/core` is absent from both schema-core and the provider-neutral AI manifest.
+
+The Vercel adapter's packed-consumer matrix exercises both the declared lower bound, `7.0.83`, and the current repository version, `7.0.92`.
 
 ## Assertion discipline
 

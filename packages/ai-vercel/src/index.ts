@@ -1,6 +1,5 @@
-import type { CoreSchema } from '../../index.js';
-import { toolFromSchema } from '../index.js';
-import { executeToolAdapter, type ToolAdapterOptions } from './runtime.js';
+import { toolFromSchema, type ToolSchema } from '@zmdb/ai';
+import { executeToolAdapter, type ToolAdapterOptions } from '@zmdb/ai/tool-runtime';
 
 export interface AiSdkToolOptions<T, Output, Schema> extends ToolAdapterOptions<T, Output> {
   /**
@@ -19,7 +18,7 @@ export interface AiSdkToolFields<Schema, Output> {
 
 export function aiSdkTool<T, Output, Schema>(
   name: string,
-  schema: CoreSchema<string>,
+  schema: ToolSchema,
   options: AiSdkToolOptions<T, Output, Schema>,
 ): AiSdkToolFields<Schema, Output> {
   const inputSchema = options.jsonSchema(toolFromSchema(name, schema).parameters);
@@ -32,4 +31,4 @@ export function aiSdkTool<T, Output, Schema>(
   };
 }
 
-export type { ToolAdapterOptions } from './runtime.js';
+export type { ToolAdapterOptions } from '@zmdb/ai/tool-runtime';

@@ -30,6 +30,10 @@ const META = {
     description: 'Optional LangChain structured-tool adapter for provider-neutral zmdb AI tool documents.',
     keywords: ['typescript', 'ai', 'llm', 'langchain', 'json-schema', 'zmdb'],
   },
+  'ai-vercel': {
+    description: 'Optional Vercel AI SDK tool adapter for provider-neutral zmdb AI tool documents.',
+    keywords: ['typescript', 'ai', 'llm', 'vercel', 'function-calling', 'zmdb'],
+  },
   'query-compiler': {
     description:
       'SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.',

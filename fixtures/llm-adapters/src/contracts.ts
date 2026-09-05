@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { langchainTool } from '@zmdb/ai-langchain';
+import { aiSdkTool } from '@zmdb/ai-vercel';
 import type { CoreSchema } from '@zmdb/schema-core';
-import { aiSdkTool } from '@zmdb/schema-core/llm/ai-sdk';
 import { jsonSchema, tool } from 'ai';
 
 // Compile-only real-package conformance for llm/adapters/SPEC.md.

@@ -1,50 +1,69 @@
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import type { ToolSchema } from '@zmdb/ai';
+import { jsonSchema, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ValidationError } from '../../index.js';
-import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '../../tags/index.js';
-import { toolFromSchema } from '../index.js';
-import { aiSdkTool, type AiSdkToolFields } from './ai-sdk.js';
-
-// Implementation suite for packages/ai-vercel/SPEC.md (#528, epic #524).
-
-interface Money {
-  readonly cents: number;
-}
-
-type MoneyColumn = Money & Sql<'integer'> & Codec<'Money'> & WireAs<string>;
-
-export interface AdapterInvoice extends Table<'adapter_invoices'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  amount: MoneyColumn;
-  memo: string & Sql<'text'>;
-}
-
-const { AdapterInvoice: InvoiceSchema } = schemasFrom(import.meta.url, ['AdapterInvoice']);
+import { aiSdkTool, type AiSdkToolFields } from './index.js';
 
 interface InvoiceInput {
-  readonly amount: Money;
+  readonly amount: { readonly cents: number };
   readonly memo: string;
 }
+
+class InputValidationError extends Error {
+  constructor(
+    readonly issues: readonly { readonly path: string; readonly message: string; readonly expected?: string }[],
+  ) {
+    super('invalid tool arguments');
+  }
+}
+
+const textColumn = (name: string) => ({
+  name,
+  physicalName: name,
+  sql: 'text' as const,
+  nullable: false,
+  primaryKey: false,
+  serial: false,
+  unique: false,
+  hasDefault: false,
+  sensitive: false,
+  constraints: {},
+  rules: [],
+});
+
+const InvoiceSchema = {
+  table: 'adapter_invoices',
+  columns: {
+    amount: { type: 'text', flags: { nullable: false } },
+    memo: { type: 'text', flags: { nullable: false } },
+  },
+  primaryKey: [],
+  references: [],
+  ir: {
+    table: 'adapter_invoices',
+    physicalTable: 'adapter_invoices',
+    columns: [textColumn('amount'), textColumn('memo')],
+    primaryKey: [],
+    relations: [],
+    foreignKeys: [],
+  },
+} satisfies ToolSchema;
 
 const decodeInvoice = (value: unknown): InvoiceInput => {
   const input = Object(value);
   const amount: unknown = Reflect.get(input, 'amount');
   const memo: unknown = Reflect.get(input, 'memo');
   if (typeof amount !== 'string' || !/^\d+\.\d{2}$/.test(amount)) {
-    throw new ValidationError('invalid tool arguments', [
+    throw new InputValidationError([
       {
         path: '$input.amount',
         message: 'amount must be a decimal string',
         expected: 'decimal string',
-        value: amount,
       },
     ]);
   }
   if (typeof memo !== 'string') {
-    throw new ValidationError('invalid tool arguments', [
-      { path: '$input.memo', message: 'memo must be a string', expected: 'string', value: memo },
-    ]);
+    throw new InputValidationError([{ path: '$input.memo', message: 'memo must be a string', expected: 'string' }]);
   }
   return { amount: { cents: Math.round(Number(amount) * 100) }, memo };
 };
@@ -59,7 +78,7 @@ const brandSchema = (schema: unknown): { readonly kind: 'ai-sdk-schema'; readonl
   schema,
 });
 
-describe('Vercel AI SDK tool adapter (#528)', () => {
+describe('Vercel AI SDK tool adapter (#708)', () => {
   it('validates AI SDK model arguments before the handler runs', async () => {
     const order: string[] = [];
     const handler = vi.fn((_input: InvoiceInput): string => {
@@ -137,18 +156,24 @@ describe('Vercel AI SDK tool adapter (#528)', () => {
   });
 
   it('calls the injected jsonSchema exactly once with the generic document', () => {
-    const jsonSchema = vi.fn(brandSchema);
+    const jsonSchemaFactory = vi.fn(brandSchema);
     const adapted = aiSdkTool('create_invoice', InvoiceSchema, {
-      jsonSchema,
+      jsonSchema: jsonSchemaFactory,
       description: 'Create an invoice',
       validate: decodeInvoice,
       execute: input => input,
     });
-    const generic = toolFromSchema('create_invoice', InvoiceSchema).parameters;
 
-    expect(jsonSchema).toHaveBeenCalledOnce();
-    expect(JSON.stringify(jsonSchema.mock.calls[0]?.[0])).toBe(JSON.stringify(generic));
-    expect(adapted.inputSchema).toBe(jsonSchema.mock.results[0]?.value);
+    expect(jsonSchemaFactory).toHaveBeenCalledOnce();
+    expect(adapted.inputSchema).toBe(jsonSchemaFactory.mock.results[0]?.value);
+    expect(jsonSchemaFactory.mock.calls[0]?.[0]).toEqual({
+      type: 'object',
+      properties: {
+        amount: { type: 'string' },
+        memo: { type: 'string' },
+      },
+      required: ['amount', 'memo'],
+    });
   });
 
   it('returns the SDK fields without inventing a name property', () => {
@@ -162,5 +187,19 @@ describe('Vercel AI SDK tool adapter (#528)', () => {
     expect(adapted.description).toBe('Create an invoice');
     expect(adapted.inputSchema.kind).toBe('ai-sdk-schema');
     expect(Reflect.has(adapted, 'name')).toBe(false);
+  });
+
+  it('real ai tool() accepts the returned fields', () => {
+    const adapted = aiSdkTool('create_invoice', InvoiceSchema, {
+      jsonSchema,
+      description: 'Create an invoice',
+      validate: decodeInvoice,
+      execute: input => input.amount.cents,
+    });
+
+    const real = tool(adapted);
+
+    expect(real.inputSchema).toBe(adapted.inputSchema);
+    expect(real.execute).toBe(adapted.execute);
   });
 });
