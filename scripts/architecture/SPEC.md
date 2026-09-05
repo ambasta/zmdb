@@ -2,7 +2,8 @@
 
 > **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, and the #710 AI ownership cutover. Issue #724
 > implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and
-> lockstep-manifest enforcement. Runtime-reachability and release verifiers remain later slices. The original measured baseline is commit `5adba11e` on 2026-09-05.
+> lockstep-manifest enforcement. #726 implements policy-driven runtime, tooling and optional-peer reachability; only the release verifier remains a later slice. The original measured baseline is
+> commit `5adba11e` on 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -24,7 +25,7 @@ At the measured baseline:
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
 Issues #656, #682, #705, #647, #706, #707, #708, and #709 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, and `@zmdb/mcp`.
-Issue #710 removed the temporary LangChain-to-schema-core edge. The current fourteen manifests keep `1.0.0-alpha.4`, declare 26 direct non-dev workspace edges, and retain 11 optional peers, each on
+Issue #710 removed the temporary LangChain-to-schema-core edge. The current fourteen manifests keep `1.0.0-alpha.4`, declare 26 direct non-dev workspace edges, and retain 14 optional peers, each on
 its owning integration package.
 
 ## 2. Canonical policy API
@@ -120,7 +121,7 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current fourteen catalog members; it does not claim that the later reachability gates already pass every present barrel. Adding, removing or
+The following object is normative. It constrains the current fourteen catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
 renaming a catalog member requires the catalog and policy key sets to change atomically.
 
 ```ts
@@ -228,6 +229,8 @@ export const PACKAGE_POLICY = {
     allowedWorkspaceDependencies: ['ai', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
+      metro: ['./metro'],
+      'metro-babel-transformer': ['./metro'],
       oxlint: ['./lint'],
       typescript: ['./codegen', './metro', './plugin', './reflect', './testing', './transformer', './unplugin', 'bin:zmdb-codegen'],
     },
@@ -267,6 +270,7 @@ export const PACKAGE_POLICY = {
       amqplib: ['./microservices/rabbitmq'],
       pg: ['./queues/backends/pg'],
       redis: ['./microservices/redis'],
+      typescript: ['./contract/compiler'],
     },
     toolingEntries: ['./bench', './contract/compiler', './devtools', './testing'],
     release: 'lockstep',
@@ -278,7 +282,7 @@ export const PACKAGE_POLICY = {
     allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'repository', 'schema-core', 'web'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
-    toolingEntries: ['./cli', './config', './unplugin', 'bin:zmdb'],
+    toolingEntries: ['./cli', './config', './unplugin', './web/contract/compiler', 'bin:zmdb'],
     release: 'lockstep',
   },
 } as const;
@@ -292,7 +296,7 @@ The empty `allowedRuntimeDependencies` arrays are deliberate. Current non-worksp
 Every tooling selector carries an adjacent implementation comment explaining its purpose. A later package split moves the selector and dependency together; it does not leave a compatibility exemption
 in the former owner.
 
-The optional-peer assignments are the intended narrow boundaries. A broader current barrel path is a defect for #726 to expose and remediate, not a reason to broaden the row.
+The optional-peer assignments are the enforced narrow boundaries. A broader barrel path is a reachability failure, not a reason to broaden the row.
 
 ## 5. Runtime, tooling and peer reachability
 
@@ -417,6 +421,10 @@ Violations: tooling leaks, peer leaks, undeclared packages, dev-only production 
 Remediation: move the import behind its assigned entry, split the integration/tooling package, declare and test the peer at the correct owner, or remove the stale exemption. Broadening an entry list
 is valid only with a reviewed architecture-policy change and measured packed-consumer need.
 
+[`verify-runtime-reachability.mjs`](../../.github/scripts/verify-runtime-reachability.mjs) implements this boundary. `yarn verify:runtime-reachability` runs the committed tree and nine self-test
+mutations, and CI invokes that package script directly. `verify:exports` delegates policy checks to the same implementation; `verify:devtools-boundary` is a compatibility command rather than a second
+ownership list.
+
 ### 7.3 `verify-package-metadata`
 
 Inputs: catalog, policy, committed manifests and required package files.
@@ -491,6 +499,7 @@ The frozen test titles are:
 - `rejects a runtime export reaching a tooling module`;
 - `rejects an optional peer reachable from an unassigned export`;
 - `rejects a dependency absent from the manifest`;
+- `rejects a stale tooling or peer exemption`;
 - `rejects incomplete or inconsistent package metadata`;
 - `rejects versions that differ across the lockstep train`;
 - `rejects an optional peer without optional metadata`;
@@ -499,8 +508,9 @@ The frozen test titles are:
 - `derives topological publish order from the package graph`.
 
 #725 retires the three expected failures for cycles, forbidden policy edges and workspace imports absent from the manifest, and adds executable stale-edge, non-canonical-ring and private-import
-coverage. #727 retires the incomplete-metadata and lockstep-version expected failures and adds executable optional-peer metadata coverage. Later implementation tests still freeze stale runtime
-exemptions, deterministic release plans and the two remaining CI commands named by #726 and #728.
+coverage. #726 retires the tooling- and optional-peer-reachability expected failures, adds executable stale-exemption coverage and wires the generic command into CI. #727 retires the
+incomplete-metadata and lockstep-version expected failures and adds executable optional-peer metadata coverage. #728 still owns the two release expected failures, deterministic release plans and the
+remaining release CI command.
 
 ## 10. Explicit refusals
 

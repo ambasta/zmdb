@@ -1,15 +1,9 @@
 {
   "version": 1,
   "problems": [
-    "@zmdb/ai reaches non-foundation workspace package @zmdb/aot-validator",
     "@zmdb/ai reaches non-foundation workspace package @zmdb/query-compiler",
     "@zmdb/ai reaches non-foundation workspace package @zmdb/query-compiler",
     "@zmdb/ai reaches non-foundation workspace package @zmdb/query-compiler",
-    "@zmdb/ai reaches non-foundation workspace package @zmdb/schema-core",
-    "@zmdb/ai reaches non-foundation workspace package @zmdb/schema-core",
-    "@zmdb/ai reaches non-foundation workspace package @zmdb/schema-core",
-    "@zmdb/ai reaches non-foundation workspace package @zmdb/schema-core",
-    "@zmdb/ai reaches non-foundation workspace package @zmdb/schema-core",
     "@zmdb/ai reaches non-foundation workspace package @zmdb/schema-core",
     "@zmdb/ai reaches non-foundation workspace package @zmdb/schema-core",
     "@zmdb/ai reaches non-foundation workspace package @zmdb/schema-core",

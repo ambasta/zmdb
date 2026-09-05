@@ -112,8 +112,8 @@ The boundary is structural:
 - it opens no listener, not even on loopback, and accepts only local terminal input;
 - there is no `--host`, `--port`, `--inspect` or remote protocol;
 - `--json` is refused because an interactive conversation is not one JSON document;
-- `node:repl` exists only under the build-time `zmdb/cli` entry;
-- `yarn verify:devtools-boundary` proves no production export reaches the REPL or inspector implementation.
+- `node:repl` exists only under the policy-defined tooling entry `zmdb/cli`;
+- `yarn verify:runtime-reachability` proves no ordinary export reaches the REPL or inspector implementation; `yarn verify:devtools-boundary` is its compatibility alias.
 
 ## AOT calls in the prompt
 

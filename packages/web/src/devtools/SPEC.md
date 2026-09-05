@@ -313,15 +313,13 @@ DoD 6 of the epic asks that nothing in this path be importable into a production
 1. **A separate subpath.** `packages/web/package.json` gains `"./devtools": "./src/devtools/index.ts"`. Nothing under `src/devtools/` is re-exported from `src/index.ts`, from `../app/index.ts`, or
    from `packages/zmdb/src/web.ts` — and that last one is where this rule gets broken first, because that file's stated habit is to enumerate every public symbol (`packages/zmdb/src/web.ts:1-2`).
    `lazy` and the two metadata readers are re-exported there; `describeGraph` and the renderers are not.
-2. **The REPL is not in this package at all.** It is a `zmdb` CLI command (`../../../zmdb/src/cli/SPEC.md`'s amendment §R4) behind an entry that §12 of that file already puts in `BUILD_TIME_ENTRIES`
-   (`.github/scripts/verify-exports.mjs:107-119`), so it is not present in an application bundle to be reached. `@zmdb/web` exports no function that starts a REPL, and `node:repl` appears nowhere
-   under `packages/web/src`.
-3. **A gate.** `yarn verify:devtools-boundary` → `.github/scripts/verify-devtools-boundary.mjs`, in `.github/scripts/` rather than in `scripts/` as #602 currently says — repository verification
-   scripts live there, while `verify:fixtures` runs a package's own bin. It walks the transitive import graph from every production `@zmdb/web` and `zmdb` `exports` target except the two intended tool
-   entries, `@zmdb/web#./devtools` and build-time-only `zmdb#./cli`, and fails if any other entry reaches a file under `src/devtools/` or a `node:repl` specifier, printing the chain. The walker
-   already exists: `importsOf` and `resolveSpecifier` at `.github/scripts/verify-exports.mjs:145-173` do this for `typescript`, including following `@zmdb/*` across package boundaries and matching
-   dynamic `import()`, and `pathToTypescript` at `:158-173` is the shape to copy. The reverse direction is allowed and must be: `src/devtools/` imports public `@zmdb/app/modules`, `@zmdb/app/di`, and
-   `../routing`, which is the point.
+2. **The REPL is not in this package at all.** It is a `zmdb` CLI command (`../../../zmdb/src/cli/SPEC.md`'s amendment §R4) behind `./cli` and `bin:zmdb`, which the canonical architecture policy marks
+   as tooling entries, so it is not present in an ordinary application export to be reached. `@zmdb/web` exports no function that starts a REPL, and `node:repl` appears nowhere under
+   `packages/web/src`.
+3. **A gate.** `yarn verify:runtime-reachability` walks every export and executable through relative and workspace imports, with tooling ownership supplied only by the architecture policy.
+   `@zmdb/web#./devtools`, `zmdb#./cli` and `zmdb#bin:zmdb` are the intended tooling entries; an ordinary entry reaching `src/devtools/` or `node:repl` fails with the shortest chain. The historical
+   `yarn verify:devtools-boundary` command remains a compatibility wrapper over the generic verifier. The reverse direction is allowed and must be: `src/devtools/` imports public `@zmdb/app/modules`,
+   `@zmdb/app/di`, and `../routing`, which is the point.
 4. **No TTY, no REPL.** The runtime refusal, specified in that same amendment, so that even `zmdb repl` spawned from a request handler declines.
 
 The failure mode all four exist to prevent is one line in a controller — `import { describeGraph } from '@zmdb/web/devtools'` behind a `/__graph` route — which ships the inspector into production and

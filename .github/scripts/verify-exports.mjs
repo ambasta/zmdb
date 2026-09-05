@@ -5,12 +5,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createImportGraph } from './lib/import-graph.mjs';
-import {
-  TARGET_PRODUCT_TOOLING_EXPORTS,
-  TARGET_TOOLING_BIN,
-  TARGET_TOOLING_EXPORTS,
-} from './verify-tooling-boundaries.mjs';
+import { verifyRuntimeReachability } from './verify-runtime-reachability.mjs';
+import { TARGET_TOOLING_BIN, TARGET_TOOLING_EXPORTS } from './verify-tooling-boundaries.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PACKAGES_DIR = join(ROOT, 'packages');
@@ -135,130 +131,14 @@ if (existsSync(UMBRELLA_SRC)) {
   }
 }
 
-// The runtime/build-time split (REQ-TF-8's other half). `typescript@7` is a Go binary with
-// a JS client; importing it from a module that ends up in someone's application bundle
-// means shipping a compiler to the browser, or — more likely — a bundler error about a
-// child process. So every export except the ones listed here must be reachable without it.
-//
-// The listed subpaths are the build-time surface, and their reason for existing is that
-// they talk to the compiler. Adding to this list is a decision about what a consumer's
-// bundle contains, which is why it is spelled out rather than inferred.
-const BUILD_TIME_ENTRIES = new Set([
-  '@zmdb/aot-validator#./codegen',
-  '@zmdb/aot-validator#./lint',
-  '@zmdb/aot-validator#./metro',
-  '@zmdb/aot-validator#./plugin',
-  '@zmdb/aot-validator#./reflect',
-  // The compiler-backed schema bridge: tests name interfaces with `schemasFrom`, while the
-  // zmdb CLI passes its resolved declaration files to `schemasFromFiles`. It is a compiler
-  // client by definition — that is the service — because `schemaOf<T>()` has no runtime and
-  // build tools still need a checked route from tagged interfaces to schema values.
-  '@zmdb/aot-validator#./testing',
-  '@zmdb/aot-validator#./transformer',
-  '@zmdb/aot-validator#./unplugin',
-  ...TARGET_TOOLING_EXPORTS['@zmdb/compiler'].map(subpath => `@zmdb/compiler#${subpath}`),
-  '@zmdb/cli#.',
-  '@zmdb/web#./contract/compiler',
-  'zmdb#./cli',
-  ...Object.values(TARGET_PRODUCT_TOOLING_EXPORTS).flatMap(subpaths => subpaths.map(subpath => `zmdb#${subpath}`)),
-  'zmdb#./unplugin',
-  'zmdb#./web/contract/compiler',
-]);
-
-const importGraph = createImportGraph(ROOT);
-
-/** The chain of files from `entry` to the first one that imports `typescript`, or null. */
-function pathToTypescript(entry) {
-  const path = importGraph.findImportPath(entry, ({ specifier }) => /^typescript(\/|$)/.test(specifier));
-  return path === null ? null : path.slice(0, -1);
-}
-
-const lintEntry = join(PACKAGES_DIR, 'aot-validator', 'src', 'lint', 'index.ts');
-const lintCompilerChain = pathToTypescript(lintEntry);
-if (lintCompilerChain) {
-  const trail = lintCompilerChain.map(file => file.slice(ROOT.length + 1)).join(' -> ');
-  console.error(
-    `[ERROR] @zmdb/aot-validator/lint reaches typescript through ${trail}; ` +
-      'lint rules must stay independent of the transformer/compiler runtime',
-  );
+// Keep the historical export verifier entry point responsible for manifest
+// resolution and source importability. Reachability belongs to the canonical
+// architecture-policy gate, and delegation here preserves compatibility for
+// callers that still run only `verify:exports`.
+const reachability = await verifyRuntimeReachability(ROOT);
+for (const diagnostic of reachability.diagnostics) {
+  console.error(diagnostic);
   errorsCount++;
-}
-
-for (const pkgDirName of packageDirs) {
-  const pkgDir = join(PACKAGES_DIR, pkgDirName);
-  const pkgJsonPath = join(pkgDir, 'package.json');
-  if (!existsSync(pkgJsonPath)) continue;
-  const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
-
-  for (const [subpath, target] of Object.entries(pkg.exports ?? {})) {
-    if (typeof target !== 'string') continue;
-    if (BUILD_TIME_ENTRIES.has(`${pkg.name}#${subpath}`)) continue;
-    const chain = pathToTypescript(join(pkgDir, target));
-    if (chain) {
-      const trail = chain.map(file => file.slice(ROOT.length + 1)).join(' -> ');
-      console.error(`[ERROR] ${pkg.name} export "${subpath}" reaches typescript at build-time-only cost: ${trail}`);
-      errorsCount++;
-    }
-  }
-}
-
-// The OpenTelemetry API is an optional integration peer. Only the explicit
-// adapter subpath may reach it; importing the package root or the dependency-free
-// observability ports must not ask a consumer to install that peer.
-const webManifest = JSON.parse(readFileSync(join(PACKAGES_DIR, 'web', 'package.json'), 'utf8'));
-for (const [subpath, target] of Object.entries(webManifest.exports ?? {})) {
-  if (typeof target !== 'string' || subpath === './otel') continue;
-  const chain = importGraph.findImportPath(
-    join(PACKAGES_DIR, 'web', target),
-    ({ specifier }) => specifier === '@opentelemetry/api' || specifier.startsWith('@opentelemetry/api/'),
-  );
-  if (chain !== null) {
-    const trail = chain
-      .slice(0, -1)
-      .map(file => file.slice(ROOT.length + 1))
-      .join(' -> ');
-    console.error(`[ERROR] @zmdb/web export "${subpath}" reaches optional @opentelemetry/api: ${trail}`);
-    errorsCount++;
-  }
-}
-
-// Broker clients are optional integration peers. Each may be reached only from
-// its explicit strategy subpath; the package root and transport-neutral
-// microservices seam must remain importable without any broker installed.
-const BROKER_PEERS = new Map([
-  ['@nats-io/transport-node', './microservices/nats'],
-  ['amqplib', './microservices/rabbitmq'],
-  ['redis', './microservices/redis'],
-]);
-
-for (const [peer, allowedSubpath] of BROKER_PEERS) {
-  if (webManifest.dependencies?.[peer] !== undefined) {
-    console.error(`[ERROR] @zmdb/web broker client "${peer}" is a dependency instead of an optional peer`);
-    errorsCount++;
-  }
-  if (
-    webManifest.peerDependencies?.[peer] === undefined ||
-    webManifest.peerDependenciesMeta?.[peer]?.optional !== true
-  ) {
-    console.error(`[ERROR] @zmdb/web broker client "${peer}" is not declared as an optional peer`);
-    errorsCount++;
-  }
-
-  for (const [subpath, target] of Object.entries(webManifest.exports ?? {})) {
-    if (typeof target !== 'string' || subpath === allowedSubpath) continue;
-    const chain = importGraph.findImportPath(
-      join(PACKAGES_DIR, 'web', target),
-      ({ specifier }) => specifier === peer || specifier.startsWith(`${peer}/`),
-    );
-    if (chain !== null) {
-      const trail = chain
-        .slice(0, -1)
-        .map(file => file.slice(ROOT.length + 1))
-        .join(' -> ');
-      console.error(`[ERROR] @zmdb/web export "${subpath}" reaches optional broker peer "${peer}": ${trail}`);
-      errorsCount++;
-    }
-  }
 }
 
 // Every subpath actually loads, under `node`, with no bundler and no transform.
@@ -312,6 +192,8 @@ if (errorsCount > 0) {
   console.error(`\nExport manifest validation failed with ${errorsCount} error(s).`);
   process.exit(1);
 } else {
-  console.log('\n[SUCCESS] every export entry point resolves, imports under plain node, and stays off typescript.');
+  console.log(
+    '\n[SUCCESS] every export entry point resolves, imports under plain node, and satisfies architecture reachability policy.',
+  );
   process.exit(0);
 }

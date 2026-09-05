@@ -9,9 +9,10 @@ import { describe, expect, it } from 'vitest';
 //
 // DoD 6 of the epic asks that the inspector not be importable into a production request path
 // "enforced, not documented", and §9 answers with four independent barriers: a separate `./devtools`
-// subpath, a REPL that lives in the `zmdb` CLI rather than in `@zmdb/web`, a gate
-// (`yarn verify:devtools-boundary`), and a runtime TTY refusal. This file is about the third, and
-// about the two manifest facts the first two consist of.
+// subpath, a REPL that lives in the `zmdb` CLI rather than in `@zmdb/web`, the generic runtime
+// reachability gate (with `yarn verify:devtools-boundary` retained as a compatibility command), and
+// a runtime TTY refusal. This file is about the third, and about the two manifest facts the first
+// two consist of.
 //
 // §10.11 asks that the gate fail on a planted inspector import and pass on the committed tree.
 // The oracle below uses overlays so all three plants are tested without mutating the workspace:
@@ -397,16 +398,14 @@ describe('the devtools boundary', () => {
     expect(record.scripts?.['verify:devtools-boundary']).toBe('node .github/scripts/verify-devtools-boundary.mjs');
   });
 
-  // The gate has to be *run*, not merely present. Separate from the two above because a
-  // script that exists and is wired to `yarn` but never invoked by a workflow is the failure mode
-  // that looks most like success: `yarn verify:devtools-boundary` passes locally forever and nothing
-  // stops the plant from merging.
-  it('runs the boundary gate in CI', () => {
+  // The generic gate has to be *run*, not merely present. The old command remains callable for
+  // downstream compatibility, while CI owns one policy-driven reachability decision.
+  it('runs the generic reachability gate in CI', () => {
     const workflow = join(ROOT, '.github', 'workflows', 'ci.yml');
     const source = existsSync(workflow) ? readFileSync(workflow, 'utf8') : '';
-    const found = source.includes('verify:devtools-boundary')
-      ? 'verify:devtools-boundary'
-      : 'no verify:devtools-boundary step';
-    expect(found).toBe('verify:devtools-boundary');
+    const found = source.includes('verify:runtime-reachability')
+      ? 'verify:runtime-reachability'
+      : 'no verify:runtime-reachability step';
+    expect(found).toBe('verify:runtime-reachability');
   });
 });

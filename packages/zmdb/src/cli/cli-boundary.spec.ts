@@ -7,6 +7,7 @@ import { describeGraph } from '@zmdb/web/devtools';
 import { createTestApp } from '@zmdb/web/testing';
 import { describe, expect, it } from 'vitest';
 
+import { PACKAGE_POLICY } from '../../../../scripts/architecture/policy.mjs';
 import {
   AmbiguousTokenAppModule,
   AppModule,
@@ -103,7 +104,7 @@ describe('the zmdb CLI boundary', () => {
   });
 
   // §12: the export, separate from the bin because they fail independently — the bin is what
-  // a user types and the export is what `BUILD_TIME_ENTRIES` and the test suite import.
+  // a user types and the export is what the architecture policy and test suite import.
   it('publishes ./cli as a zmdb subpath', () => {
     const manifest: unknown = JSON.parse(readFileSync(join(ROOT, 'packages', 'zmdb', 'package.json'), 'utf8'));
     const record: { exports?: Record<string, unknown> } = Object(manifest);
@@ -120,16 +121,9 @@ describe('the zmdb CLI boundary', () => {
   });
 
   // §12 and §R5.2, and this is the barrier rather than a tidiness rule: the entry has to be
-  // *build-time only* or a server bundle contains the REPL.
-  //
-  // Asserted against the source text of the gate and not by running it, deliberately. The set is a
-  // literal in `.github/scripts/verify-exports.mjs`, the gate exits non-zero for a dozen unrelated
-  // reasons, and what §12 freezes is membership of that list — "beside the `zmdb#./unplugin` entry
-  // that is already there", which is the entry this assertion also proves is still present.
-  it('lists zmdb#./cli in BUILD_TIME_ENTRIES', () => {
-    const gate = readFileSync(join(ROOT, '.github', 'scripts', 'verify-exports.mjs'), 'utf8');
-    const listed = ['zmdb#./cli', 'zmdb#./unplugin'].filter(entry => gate.includes(`'${entry}'`));
-    expect(listed).toEqual(['zmdb#./cli', 'zmdb#./unplugin']);
+  // policy-owned tooling or a server bundle contains the REPL.
+  it('classifies the CLI, executable and bundler adapter as tooling entries', () => {
+    expect(PACKAGE_POLICY['zmdb']?.toolingEntries).toEqual(expect.arrayContaining(['./cli', './unplugin', 'bin:zmdb']));
   });
 
   // §12's split: the work in `index.ts`, argument parsing and exit codes in `bin.ts`. One

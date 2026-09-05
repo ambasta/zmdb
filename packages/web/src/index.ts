@@ -237,21 +237,3 @@ export {
   type TaskOptions,
   type TaskRuns,
 } from './schedule/index.js';
-
-// Testing utilities: in-process app + provider overrides. See ./testing.
-export { createTestApp, type TestApp, type TestAppOptions } from './testing/index.js';
-
-// Router benchmark & perf verification. See ./bench.
-export {
-  benchmarkAppStartup,
-  benchmarkObservability,
-  benchmarkRouter,
-  countMetadataReads,
-  type BenchmarkOptions,
-  type BenchmarkResult,
-  type MetadataReadCounter,
-  type ObservabilityBenchmarkMode,
-  type ObservabilityBenchmarkOptions,
-  type ObservabilityBenchmarkResult,
-  type ObservabilityBenchmarkWorkload,
-} from './bench/index.js';

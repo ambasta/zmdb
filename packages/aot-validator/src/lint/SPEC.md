@@ -216,13 +216,15 @@ plugin whose subject is mistakes the type system cannot catch: if the fix were m
 
 The argument for a separate package is that a consumer gets the rules without the transformer.
 
-That argument is already satisfied by a gate. `.github/scripts/verify-exports.mjs` partitions this package's subpaths into a runtime surface and a `BUILD_TIME_ENTRIES` set, on exactly this reasoning —
-a build-time entry must not be reachable from an application bundle, or a consumer ships a compiler to a browser.
+That argument is already satisfied by a gate. The canonical architecture policy classifies this package's tooling entries, and `.github/scripts/verify-runtime-reachability.mjs` starts independently
+from every export — a tooling entry must not be reachable from an ordinary application export, or a consumer ships a compiler to a browser.
 
-A lint plugin is loaded by a linter and never by an application, so `./lint` joins that set and the isolation the separate package would buy is enforced by CI instead of by a `package.json`.
+A lint plugin is loaded by a linter and never by an application, so `./lint` is a policy tooling entry and the isolation the separate package would buy is enforced by CI instead of by a
+`package.json`.
 
 `package.json` exports `"./lint": "./src/lint/index.ts"`, which `it('declares every export as a source path the build mirrors', …)` in `../plugin/packaging.spec.ts` covers; the build-time export
-assertion names the subpath explicitly, and the import-graph gate rejects any path from that entry to `typescript`, which keeps the rules independent of the transformer/compiler runtime.
+assertion names the subpath explicitly, and the optional-peer assignment excludes `./lint`, so the reachability gate rejects any path from that entry to `typescript` and keeps the rules independent of
+the transformer/compiler runtime.
 
 Against the new package: one more artifact to version, publish and changelog, for rules that are a few hundred lines and share this package's vocabulary.
 

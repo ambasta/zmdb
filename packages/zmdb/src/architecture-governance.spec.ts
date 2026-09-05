@@ -416,9 +416,10 @@ describe('architecture and release governance fixtures', () => {
   });
 
   // #725 retires the cycle, forbidden-edge and missing-manifest expected failures.
+  // #726 retires the runtime reachability failures and adds stale-exemption coverage.
   // #727 retires metadata and version drift and adds optional-peer metadata coverage.
-  // The four remaining `it.fails` cases belong to #726 and #728.
-  it.fails('rejects a runtime export reaching a tooling module', () => {
+  // The two remaining `it.fails` cases belong to #728.
+  it('rejects a runtime export reaching a tooling module', () => {
     const result = runVerifier(VERIFIERS.runtime, fixtureRoot('tooling-leak'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
@@ -426,7 +427,7 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  it.fails('rejects an optional peer reachable from an unassigned export', () => {
+  it('rejects an optional peer reachable from an unassigned export', () => {
     const result = runVerifier(VERIFIERS.runtime, fixtureRoot('peer-leak'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
@@ -448,6 +449,13 @@ describe('architecture and release governance fixtures', () => {
     expect(diagnosticLines(result)).toEqual([
       '[ARCH_EDGE_UNDECLARED] app -> core at packages/app/src/index.ts: @fixture/app imports @fixture/core, but packages/app/package.json has no non-dev dependency on @fixture/core. Remediation: add the intended direct dependency and policy id, or remove the import.',
     ]);
+  });
+
+  it('rejects a stale tooling or peer exemption', () => {
+    const result = runVerifier(VERIFIERS.runtime, ROOT, '--self-test');
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('runtime reachability self-test: 9 case(s) passed.');
+    expect(result.stderr).toBe('');
   });
 
   it('rejects incomplete or inconsistent package metadata', () => {

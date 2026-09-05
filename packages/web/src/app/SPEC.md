@@ -13,7 +13,8 @@
   - **`container: Container`** — the resolved DI container.
   - **`lazy: readonly LazyModuleHandle[]`** — per-app handles for lazily imported modules; empty when the graph has none.
   - **`init(): Promise<void>`** — invoke lifecycle `onModuleInit` / `onApplicationBootstrap` hooks (in construction order) on every constructed provider/controller/command that implements them, then
-    build the message dispatcher, open configured broker transports and bind the optional gRPC server. Repeated calls share one initialization.
+    build the message dispatcher, open configured broker transports and bind the optional gRPC server through the opener registered by the explicit gRPC subpath. Repeated calls share one
+    initialization.
   - **`[Symbol.asyncDispose](): Promise<void>`** — invoke `onShutdown` hooks in reverse construction order; the gRPC server and configured transports close first under the application grace bound.
 
 `AppOptions` is declared by `../microservices/SPEC.md`: transports, the dispatcher sinks/policy, observability, optional gRPC server options, and an optional positive `graceMs` whose default is 5,000

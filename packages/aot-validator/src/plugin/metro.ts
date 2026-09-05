@@ -16,7 +16,6 @@ import type { BabelTransformer, BabelTransformerArgs, BabelTransformerCacheKeyOp
 const require = createRequire(import.meta.url);
 const ENTRY = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = resolve(dirname(ENTRY), '../..');
-const SOURCE_ENTRY = ENTRY.endsWith('.ts');
 const SOURCE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs)$/;
 const DELEGATE_FIELD = 'unstable_zmdbDelegatePath';
 const PROJECT_FIELD = 'unstable_zmdbProjectPath';
@@ -218,21 +217,15 @@ function loadDelegate(path: string): BabelTransformer {
 }
 
 function loadPlugin(): PluginModule {
-  return require(internal('plugin/index'));
+  return require('./index.js');
 }
 
 function loadTransformer(): TransformerModule {
-  return require(internal('transformer'));
+  return require('../transformer.js');
 }
 
 function loadSession(): SessionModule {
-  return require(internal('reflect/session'));
-}
-
-function internal(module: string): string {
-  const tree = SOURCE_ENTRY ? 'src' : 'dist';
-  const extension = SOURCE_ENTRY ? '.ts' : '.js';
-  return join(PACKAGE_ROOT, tree, `${module}${extension}`);
+  return require('../reflect/session.js');
 }
 
 function ensureHook(config: RuntimeConfig): TransformHook {

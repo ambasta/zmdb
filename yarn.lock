@@ -2479,13 +2479,21 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/protobuf": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
+    metro: "npm:0.87.0"
+    metro-babel-transformer: "npm:0.87.0"
     oxlint: "npm:1.81.0"
     protobufjs: "npm:8.8.0"
     typescript: "npm:7.0.2"
   peerDependencies:
+    metro: ">=0.87.0 <0.88.0"
+    metro-babel-transformer: ">=0.87.0 <0.88.0"
     oxlint: ">=1.81.0 <1.82.0"
     typescript: ">=7.0.0"
   peerDependenciesMeta:
+    metro:
+      optional: true
+    metro-babel-transformer:
+      optional: true
     oxlint:
       optional: true
     typescript:
@@ -2607,6 +2615,7 @@ __metadata:
     amqplib: ^2.0.1
     pg: ^8.23.0
     redis: ^6.2.1
+    typescript: ">=7.0.0"
   peerDependenciesMeta:
     "@grpc/grpc-js":
       optional: true
@@ -2619,6 +2628,8 @@ __metadata:
     pg:
       optional: true
     redis:
+      optional: true
+    typescript:
       optional: true
   languageName: unknown
   linkType: soft

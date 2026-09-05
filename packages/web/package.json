@@ -96,7 +96,8 @@
     "@opentelemetry/api": "^1.9.0",
     "amqplib": "^2.0.1",
     "pg": "^8.23.0",
-    "redis": "^6.2.1"
+    "redis": "^6.2.1",
+    "typescript": ">=7.0.0"
   },
   "peerDependenciesMeta": {
     "@grpc/grpc-js": {
@@ -115,6 +116,9 @@
       "optional": true
     },
     "redis": {
+      "optional": true
+    },
+    "typescript": {
       "optional": true
     }
   },

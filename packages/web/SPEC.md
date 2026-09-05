@@ -6,7 +6,8 @@
 ## Position in the architecture
 
 `@zmdb/web` sits **above** `@zmdb/repository` in the dependency DAG (ARCHITECTURE.md §3). It depends on `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler` and `@zmdb/repository`; it
-has **zero required third-party runtime dependencies**. Integrations such as `pg` and `@opentelemetry/api`, broker clients and `@grpc/grpc-js` are optional peers.
+has **zero required third-party runtime dependencies**. Integrations such as `pg` and `@opentelemetry/api`, broker clients and `@grpc/grpc-js` are optional peers; TypeScript is an optional peer only
+for `./contract/compiler`.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -24,7 +25,7 @@ has **zero required third-party runtime dependencies**. Integrations such as `pg
 
 - New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
 - `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). No required third-party runtime deps; `pg`, `@opentelemetry/api`, broker
-  clients and `@grpc/grpc-js` are optional peers for their respective integration subpaths.
+  clients and `@grpc/grpc-js` are optional peers for their respective integration subpaths, and TypeScript is optional only for `./contract/compiler`.
 - `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish, exactly like the sibling packages).
 
 ### tsconfig

@@ -237,9 +237,9 @@ The `zmdb` package is a re-export facade — `SPEC.md` there is mostly a "No-col
 argument: `npx zmdb generate` is the command people will type, and the alternative is a second published package whose only content is an executable. The facade already depends on all five data/web
 implementation packages, so it can reach the compiler, the reflector and the runner without a new dependency edge. `@zmdb/ai` is independently published and is not a facade export.
 
-`package.json` declares the canonical single-bin shorthand `"bin": "./src/cli/bin.ts"` (equivalent to `{ "zmdb": "./src/cli/bin.ts" }`) and the export `"./cli": "./src/cli/index.ts"`, and `./cli` is
-in `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs` beside the `zmdb#./unplugin` entry. That gate keeps the config loader, the filesystem walk and the compiler session out of an
-application bundle — the same reason the entry beside it exists.
+`package.json` declares the canonical single-bin shorthand `"bin": "./src/cli/bin.ts"` (equivalent to `{ "zmdb": "./src/cli/bin.ts" }`) and the export `"./cli": "./src/cli/index.ts"`. The canonical
+architecture policy classifies `./cli`, `bin:zmdb` and `./unplugin` as tooling entries. The runtime-reachability gate keeps their config loader, filesystem walk and compiler session out of ordinary
+application exports.
 
 Dispatch, argument parsing, output and exit-code decisions live behind `index.ts`; `bin.ts` only passes `process.argv` into `runCli` and assigns the returned exit code. That split is what makes the
 commands testable without spawning a process.
@@ -564,15 +564,15 @@ DoD 6 of the epic asks that a REPL not be reachable from a running server, enfor
 leaves the property true:
 
 1. **No API starts a REPL.** `@zmdb/web` exports no such function, from any subpath, and `node:repl` appears nowhere under `packages/web/src`. The only entry point is this command.
-2. **The entry is build-time only.** The command lives under `./src/cli/`, whose `./cli` export joins `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs` per §12 — the same gate that keeps
-   the config loader and the compiler session out of an application bundle. A server bundle does not contain this code to reach.
+2. **The entry is build-time only.** The command lives under `./src/cli/`, whose `./cli` export and `bin:zmdb` executable are tooling entries in the canonical architecture policy per §12. The generic
+   reachability gate keeps the config loader and compiler session out of ordinary application exports. A server bundle does not contain this code to reach.
 3. **`zmdb repl` requires a TTY.** With `stdin` not a TTY it exits 2, naming the reason. This is §11's existing rule applied to a whole command rather than to a prompt, and it is the barrier that
    survives contact with reality: a process under systemd, in a container, or on Lambda has no TTY, so a REPL cannot be started inside it even by a shell escape that reaches the CLI. It also refuses
    the specific attack the rule exists for — piping a socket into stdin — because that is not a TTY either. The failure mode it prevents is a production process acquiring an interactive prompt on a
    stream somebody else controls.
-4. **A gate.** `yarn verify:devtools-boundary` → `.github/scripts/verify-devtools-boundary.mjs`, which also asserts that neither `zmdb`'s `.` nor its `./web` re-exports the inspector (`@zmdb/web`'s
-   `src/devtools/SPEC.md` §9). The facade enumerates every public symbol by habit (`packages/zmdb/src/web.ts:1-2`), so that file is where this rule breaks first, and a gate is the only thing that
-   notices.
+4. **A gate.** `yarn verify:runtime-reachability` enforces the policy for every package export and executable. `yarn verify:devtools-boundary` remains a compatibility wrapper over that same verifier
+   and therefore also catches `zmdb`'s `.` or `./web` re-exporting the inspector (`@zmdb/web`'s `src/devtools/SPEC.md` §9). The facade enumerates every public symbol by habit
+   (`packages/zmdb/src/web.ts:1-2`), so that file is where this rule breaks first, and a gate is the only thing that notices.
 
 **There is no socket, no `--inspect`, no `--host` and no `--port`.** §14.3's argument for `studio` applies here in a stronger form: for the studio, the loopback bind _is_ the security boundary; for
 the REPL there is no bind at all, so the boundary is satisfied vacuously.

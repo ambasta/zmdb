@@ -4,7 +4,8 @@ provider for a fake, then assert on the response.
 ## In-process requests
 
 ```ts
-import { bodyText, createTestApp } from '@zmdb/web';
+import { bodyText } from '@zmdb/web';
+import { createTestApp } from '@zmdb/web/testing';
 
 const app = createTestApp(AppModule);
 const res = await app.request({ method: 'GET', path: '/hello', headers: {} });

@@ -17,7 +17,7 @@ setup. Their membership, product roles, facade exposure, documentation ownership
 AI and MCP stay outside the umbrella: install provider-neutral `@zmdb/ai`, then add only the Anthropic, LangChain, Vercel AI SDK, or MCP package the application uses. The
 [LLM package and migration guide](./docs-site/content/llm-strategy.md) lists the exact installs, optional peers, and replacements for every removed schema-core LLM subpath.
 
-> The workspace publishes **14 packages** across **122 export-map entry points**. The current suite has **2,912 passing tests** across 261 files, plus **181 expected failures** that describe work
+> The workspace publishes **14 packages** across **122 export-map entry points**. The current suite has **2,915 passing tests** across 261 files, plus **179 expected failures** that describe work
 > still to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 261 supported pages, 3 TODO
 > pages, and 13 pages for features we do not plan to add.
 

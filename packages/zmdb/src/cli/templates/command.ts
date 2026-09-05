@@ -36,7 +36,8 @@ export class ${name.pascal}Command {
     {
       path: `src/${name.fileStem}.command.spec.ts`,
       source: `import { createCommandApp } from '@zmdb/app/commands';
-import { createTestApp, Module } from 'zmdb/web';
+import { createTestApp } from '@zmdb/web/testing';
+import { Module } from 'zmdb/web';
 import { describe, expect, it } from 'vitest';
 
 import {

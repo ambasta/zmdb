@@ -22,7 +22,7 @@ export class ${name.pascal}Module {}
     },
     {
       path: `src/${name.fileStem}.module.spec.ts`,
-      source: `import { createTestApp } from 'zmdb/web';
+      source: `import { createTestApp } from '@zmdb/web/testing';
 import { describe, expect, it } from 'vitest';
 
 import { ${name.constant}_STATUS, ${name.pascal}Module } from './${name.fileStem}.module.js';

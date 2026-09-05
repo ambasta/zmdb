@@ -11,7 +11,7 @@ import {
   type ModuleClass,
 } from '@zmdb/app';
 
-import type { OpenedGrpcServer } from '../microservices/grpc/runtime.js';
+import { openBoundGrpcServer, type OpenedGrpcServer } from '../microservices/grpc/bridge.js';
 import {
   createMessageDispatcher,
   getMessagePatterns,
@@ -128,8 +128,7 @@ function legacyTransportExtension(
         await startTransports(transports, dispatcherOptions, context, opened);
       }
       if (options.grpc !== undefined) {
-        const { openGrpcServer } = await import('../microservices/grpc/runtime.js');
-        openedGrpc = await openGrpcServer(options.grpc);
+        openedGrpc = await openBoundGrpcServer(options.grpc);
       }
     },
     async stop({ graceMs }) {

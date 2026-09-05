@@ -56,7 +56,8 @@ The dependency direction is acyclic:
 ```
 
 `@zmdb/aot-validator` does not import `@zmdb/web`, even as a type-only edge. The web compiler calls the existing public reflect and emit back-ends. The runtime `@zmdb/web/contract` entry does not
-reach TypeScript, the compiler session, the filesystem, or the build-time compiler subpath.
+reach TypeScript, the compiler session, the filesystem, or the build-time compiler subpath. TypeScript is an optional peer assigned only to `@zmdb/web/contract/compiler` in the canonical architecture
+policy.
 
 ## 3. One explicit declaration
 

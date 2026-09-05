@@ -596,7 +596,8 @@ Neither is a defect in a Node build and neither is being changed here. They are 
 be true by the shape of the import graph, since nothing downstream will enforce it.
 
 Consequences the implementation slice owns: the subpath is added to `package.json` `exports`, `verify-exports.mjs` checks that it resolves and reaches no non-zmdb specifier (it reaches none at all),
-and publish verification counts and imports the additional installed subpath. It is not a build-time entry — it never touches `typescript` — so it does not go in `BUILD_TIME_ENTRIES`.
+and publish verification counts and imports the additional installed subpath. It is an ordinary runtime entry — it never touches `typescript` — so the architecture policy does not classify it as
+tooling.
 
 ### 5.6 The driver requirement, once, for device and browser alike
 

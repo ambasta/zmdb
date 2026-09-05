@@ -62,15 +62,25 @@
   },
   "devDependencies": {
     "@zmdb/protobuf": "workspace:^",
+    "metro": "0.87.0",
+    "metro-babel-transformer": "0.87.0",
     "oxlint": "1.81.0",
     "protobufjs": "8.8.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "metro": ">=0.87.0 <0.88.0",
+    "metro-babel-transformer": ">=0.87.0 <0.88.0",
     "oxlint": ">=1.81.0 <1.82.0",
     "typescript": ">=7.0.0"
   },
   "peerDependenciesMeta": {
+    "metro": {
+      "optional": true
+    },
+    "metro-babel-transformer": {
+      "optional": true
+    },
     "oxlint": {
       "optional": true
     },

@@ -15,7 +15,8 @@ export interface ${name.pascal} extends Table<'${name.table}'> {
     {
       path: `src/${name.fileStem}.spec.ts`,
       source: `import { is, schemaOf } from 'zmdb';
-import { createTestApp, Module } from 'zmdb/web';
+import { createTestApp } from '@zmdb/web/testing';
+import { Module } from 'zmdb/web';
 import { describe, expect, it } from 'vitest';
 
 import type { ${name.pascal} } from './${name.fileStem}.js';

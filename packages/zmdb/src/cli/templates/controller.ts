@@ -17,7 +17,8 @@ export class ${name.pascal}Controller {
     },
     {
       path: `src/${name.fileStem}.controller.spec.ts`,
-      source: `import { bodyText, createTestApp, Module } from 'zmdb/web';
+      source: `import { createTestApp } from '@zmdb/web/testing';
+import { bodyText, Module } from 'zmdb/web';
 import { describe, expect, it } from 'vitest';
 
 import { ${name.pascal}Controller } from './${name.fileStem}.controller.js';

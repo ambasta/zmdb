@@ -278,6 +278,10 @@ export interface GrpcServerOptions {
 `AppOptions` (`../SPEC.md` §10) gains `readonly grpc?: GrpcServerOptions`, and everything else follows that file's ordering with no exception: the server binds in `init()` after
 `runInit(lifecycleInstances)`, a failed bind rejects `init()` and closes what was already opened, and the server shuts down before the shutdown hooks run so no handler outlives the repository it uses.
 
+The application root stays importable without grpc-js and performs no global registration. A binding returned by the explicit `@zmdb/web/microservices/grpc` subpath carries a private-symbol server
+opener. `createApp` obtains the opener from the supplied bindings through a peer-free bridge; an empty or hand-built binding list is rejected instead of dynamically importing the optional peer from
+the package root.
+
 `credentials` is **required and has no default.** `createInsecure()` as a default is how a service ends up serving plaintext in production with credentials in metadata — `web-microservices-grpc.md`
 names it — and `'insecure'` as an explicit, greppable string is the difference between a decision and an omission. It is the same rule `../SPEC.md` applies to `timeoutMs` and `close(graceMs)`: the
 value that matters is stated by whoever knows the deployment.

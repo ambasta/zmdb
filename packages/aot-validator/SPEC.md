@@ -74,13 +74,15 @@ It is a compiler client by definition — that is the service — and it exists 
 `./metro` is the eighth build-time subpath. Its `withZmdb(config)` wraps a project's existing Babel transformer (`src/plugin/SPEC.md` §6), and it is the one entry point reached by `require` of an ES
 module rather than by `import`, because `metro.config.js` is CommonJS in every React Native template.
 
-`typescript` is an **optional peer dependency**: installing this package to call `is(value, ir)` at runtime should not pull down a compiler, and a build that uses the plugin already has one.
+`typescript`, `metro`, and `metro-babel-transformer` are **optional peer dependencies**. Installing this package to call `is(value, ir)` at runtime should not pull down a compiler or a React Native
+toolchain. The canonical architecture policy assigns TypeScript only to compiler-facing entries and assigns both Metro peers only to `./metro`.
 
 `./errors` is published because the _emitted_ code imports it by name — `import { AssertError } from "@zmdb/aot-validator/errors"` — so an unpublished subpath would make every AOT build produce code
 that cannot resolve. It is also why a caller's `catch (e) { e instanceof AssertError }` behaves the same built or not: both paths throw that exact class.
 
-`.github/scripts/verify-exports.mjs` enforces the split transitively, following `@zmdb/*` specifiers across package boundaries — the umbrella package is the one consumers actually import, so a guard
-that stopped at the boundary would miss the only graph that matters. `BUILD_TIME_ENTRIES` is the allowlist, and adding to it is a decision about what a consumer's bundle contains.
+`.github/scripts/verify-runtime-reachability.mjs` enforces the split transitively, following relative and workspace imports from every export and executable. Tooling entries, allowed runtime
+dependencies, and optional-peer assignments come only from the canonical architecture policy; the verifier has no package, peer, or tool allowlist. `verify:exports` delegates to the same gate while
+retaining export resolution and loading checks.
 
 ## 5. Runtime-safety fallback
 
@@ -118,11 +120,10 @@ frozen in [`../protobuf/SPEC.md`](../protobuf/SPEC.md) and `src/emit/SPEC.md` §
 - [x] A build opens exactly one `API` instance, measured as a delta on `apiInstanceCount()`; zero when there is no project.
 - [x] Watch mode refreshes rather than reopens: the session's update log contains exactly one `'open'` however many files change.
 - [x] A new module is announced as `created`, not `changed` — a `changed` notification for a file the program has never seen is a measured no-op, so the stale-retry path picks by `sourceFile(id)`.
-- [x] Every declared export resolves, names a source path the build mirrors, imports under plain `node`, and — except for the eight build-time subpaths — cannot reach `typescript` through any chain of
-      imports.
+- [x] Every declared export resolves, names a source path the build mirrors, imports under plain `node`, and satisfies the canonical tooling, runtime-dependency, and optional-peer reachability policy.
 - [x] All fourteen subpaths, and the `zmdb-codegen` binary, still resolve after `npm pack` and install — checked from a project outside this repository, because the workspace's symlinks hide the one
       failure that matters (`yarn verify:publish`).
-- [x] Removing an entry from `BUILD_TIME_ENTRIES` produces the expected errors, so the guard is not vacuous.
+- [x] Governance fixtures prove tooling leaks, optional-peer leaks, undeclared dependencies, stale exemptions, and incomplete optional-peer metadata fail with shortest import paths.
 - [x] The tag-rule form still inlines to the table in §2, and matches the runtime fallback for good and bad input on every rule.
 - [x] The scanner leaves code alone that has no validator call, matches whole identifiers rather than substrings, ignores calls inside comments and string literals, and scans faster than a megabyte a
       second.

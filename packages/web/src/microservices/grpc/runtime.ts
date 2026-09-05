@@ -25,6 +25,7 @@ import {
 } from '@grpc/grpc-js';
 
 import type { GrpcLoadedMethod, GrpcMethodDef, GrpcServiceDef } from './artifact.js';
+import { GRPC_SERVER_OPENER, type GrpcServerOpener, type OpenedGrpcServer } from './bridge.js';
 import {
   GrpcError,
   type GrpcBinding,
@@ -41,6 +42,8 @@ import {
   type GrpcServiceSpec,
   type GrpcStatus,
 } from './types.js';
+
+export type { OpenedGrpcServer } from './bridge.js';
 
 type RuntimeMethod = GrpcLoadedMethod<GrpcMethodDef>;
 
@@ -85,11 +88,6 @@ interface RequestPump {
   failure(): { readonly failed: false } | { readonly failed: true; readonly error: unknown };
 }
 
-export interface OpenedGrpcServer {
-  readonly port: number;
-  close(graceMs: number): Promise<void>;
-}
-
 class BoundGrpcService<S extends GrpcServiceDef> implements GrpcBinding {
   readonly service: string;
   readonly methods: readonly string[];
@@ -101,6 +99,10 @@ class BoundGrpcService<S extends GrpcServiceDef> implements GrpcBinding {
     this.#handlers = handlers;
     this.service = spec.definition.name;
     this.methods = Object.freeze(Object.keys(spec.definition.methods));
+  }
+
+  get [GRPC_SERVER_OPENER](): GrpcServerOpener {
+    return openGrpcServer;
   }
 
   register(server: Server): void {

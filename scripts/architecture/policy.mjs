@@ -140,6 +140,8 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: ['ai', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
+      metro: ['./metro'],
+      'metro-babel-transformer': ['./metro'],
       oxlint: ['./lint'],
       typescript: [
         './codegen',
@@ -206,6 +208,7 @@ export const PACKAGE_POLICY = Object.freeze({
       amqplib: ['./microservices/rabbitmq'],
       pg: ['./queues/backends/pg'],
       redis: ['./microservices/redis'],
+      typescript: ['./contract/compiler'],
     },
     toolingEntries: [
       // Benchmark-only request and pipeline harnesses.
@@ -232,6 +235,8 @@ export const PACKAGE_POLICY = Object.freeze({
       './config',
       // Public bundler integration delegated to the validator package.
       './unplugin',
+      // Curated facade over the HTTP contract compiler.
+      './web/contract/compiler',
       // The sole product command-line executable.
       'bin:zmdb',
     ],

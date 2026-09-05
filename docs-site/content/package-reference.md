@@ -137,6 +137,8 @@ Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/ran
   - `@zmdb/schema-core` → `workspace:^`
 - **Optional dependencies:** None.
 - **Optional peers:**
+  - `metro` → `>=0.87.0 <0.88.0`
+  - `metro-babel-transformer` → `>=0.87.0 <0.88.0`
   - `oxlint` → `>=1.81.0 <1.82.0`
   - `typescript` → `>=7.0.0`
 - **Required peers:** None.
@@ -445,6 +447,7 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
   - `amqplib` → `^2.0.1`
   - `pg` → `^8.23.0`
   - `redis` → `^6.2.1`
+  - `typescript` → `>=7.0.0`
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`

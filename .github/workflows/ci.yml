@@ -52,8 +52,8 @@ jobs:
       - name: Verify export manifests
         run: yarn verify:exports
 
-      - name: Verify developer tools stay out of production entries
-        run: yarn verify:devtools-boundary
+      - name: Verify runtime, tooling, and optional-peer reachability
+        run: yarn verify:runtime-reachability
 
       - name: Verify tooling package ownership and runtime isolation
         run: node .github/scripts/verify-tooling-boundaries.mjs

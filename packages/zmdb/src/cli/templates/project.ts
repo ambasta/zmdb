@@ -224,7 +224,8 @@ export class HealthController {
     },
     {
       path: 'src/health.controller.spec.ts',
-      source: `import { bodyText, createTestApp } from 'zmdb/web';
+      source: `import { createTestApp } from '@zmdb/web/testing';
+import { bodyText } from 'zmdb/web';
 import { describe, expect, it } from 'vitest';
 
 import config from '../zmdb.config.js';

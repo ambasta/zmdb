@@ -28,8 +28,9 @@ export function ${name.camel}RepositoryProvider(driver: Driver): ProviderDef<Bas
       path: `src/${name.fileStem}.repository.spec.ts`,
       source: `import { DatabaseSync } from 'node:sqlite';
 
+import { createTestApp } from '@zmdb/web/testing';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
-import { createTestApp, Module } from 'zmdb/web';
+import { Module } from 'zmdb/web';
 import { describe, expect, it } from 'vitest';
 
 import {
