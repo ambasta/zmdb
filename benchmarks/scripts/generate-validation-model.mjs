@@ -39,7 +39,7 @@ const check = process.argv.includes('--check');
 // Install its canonical resolver before loading any source module; static imports would be
 // linked too early for the hook to affect their transitive dependencies.
 await import('../../scripts/ts-specifier-hook.mjs');
-const [{ findCallSites }, { Reflector }, { ReflectSession, withSession }, { transformFile }] = await Promise.all([
+const [{ findCallSites }, { Reflector }, { withSession }, { transformFile }] = await Promise.all([
   import('../../packages/compiler/src/reflect/callsites.js'),
   import('../../packages/compiler/src/reflect/index.js'),
   import('../../packages/compiler/src/reflect/session.js'),
@@ -77,7 +77,7 @@ const { model, aot, shallow } = withSession({ project: PROJECT }, session => {
     throw new Error(`the reflection refused: ${JSON.stringify(reflector.diagnostics)}`);
   }
 
-  const model = `${BANNER('harness/validation/model.ts')}
+  const modelContent = `${BANNER('harness/validation/model.ts')}
 import type { TypeIR } from '../../../packages/schema-core/src/ir/index.js';
 
 /** The runtime witness for \`Moltar\`: what the descriptor-walking path reads per call. */
@@ -96,7 +96,7 @@ export const MOLTAR: TypeIR = ${JSON.stringify(ir, null, 2)};
   // Every call is inlined, so both imports are now unreferenced. Dropping them is what a
   // bundler does anyway — `@zmdb/aot-validator` is `sideEffects: false` — and it makes the
   // measured module honest about what the AOT path costs: nothing is loaded to run it.
-  const aot = `${BANNER('harness/validation/aot-source.ts')}${strip(result.code, [
+  const aotContent = `${BANNER('harness/validation/aot-source.ts')}${strip(result.code, [
     /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
     /^import type \{[^}]*\} from '[^']*';\n/m,
   ])}`;
@@ -109,11 +109,11 @@ export const MOLTAR: TypeIR = ${JSON.stringify(ir, null, 2)};
   if (/\b(?:is|isShallow)<PopulatedOrderRow/.test(shallowResult.code)) {
     throw new Error('the transform left a populated-row generic call in place');
   }
-  const shallow = `${BANNER('harness/validation/shallow-source.ts')}${strip(shallowResult.code, [
+  const shallowContent = `${BANNER('harness/validation/shallow-source.ts')}${strip(shallowResult.code, [
     /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
   ])}`;
 
-  return { model, aot, shallow };
+  return { model: modelContent, aot: aotContent, shallow: shallowContent };
 });
 
 function strip(code, patterns) {
