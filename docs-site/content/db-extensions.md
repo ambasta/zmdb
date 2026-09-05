@@ -1,7 +1,7 @@
-> **ToDo / partial feature gap.** Extension installation, parameterised
-> extension-backed columns, PostgreSQL index methods, closed vector distance
-> expressions and the `ST_Contains`/`ST_DWithin` predicates are supported. Typed
-> extension writes and spatial projections, plus the complete runnable guides, remain.
+PostgreSQL extension types are declared without opening the core `SqlType`
+vocabulary. zmdb carries the extension name, supplied type and type parameters
+through reflection, snapshots and migrations; it also exposes closed pgvector
+distance expressions and the two typed PostGIS predicates documented below.
 
 ## Declaring an extension-backed column
 
@@ -40,6 +40,11 @@ CREATE TABLE "documents" (
 Extension names are sorted for stable snapshots. Removing the declaration does **not** generate `DROP EXTENSION`: a safe removal needs a hand-written migration after checking every dependent object.
 
 MySQL, SQLite and SQL Server refuse PostgreSQL extension installation and extension-backed column DDL. There is no text fallback, because a value that round-trips as text is still unusable by the extension operators it was declared for.
+
+`Ext` names storage and migration behavior; it does not install a runtime value
+codec. Extension-specific writes that need conversion therefore remain explicit,
+parameterised statements. [Custom Types & Codecs](./custom-types.html) explains
+the separate app/wire/database conversion boundary.
 
 ## Index methods and operator classes
 
@@ -83,7 +88,8 @@ builder: vector operators and geometry functions place schema-authored
 identifiers beside request values, so each operator is selected from a known set
 and every value remains parameterised. Raw SQL is still needed for extension
 writes, geography-specific expressions and spatial projections beyond those two
-predicates; the end-to-end guide remains a follow-up.
+predicates. The linked guides show those boundaries in complete PostgreSQL
+recipes rather than hiding them behind a broader claim.
 
 ---
 

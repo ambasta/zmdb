@@ -588,8 +588,7 @@ export const PAGE_META = {
   'db-extensions': {
     title: 'Database Extensions',
     group: 'Schema',
-    status: 'todo',
-    note: 'closed query expressions ship; complete runnable extension guides remain',
+    status: 'supported',
   },
   'stored-routines': {
     title: 'Stored Procedures & Functions',
@@ -1308,14 +1307,12 @@ export const PAGE_META = {
   'guide-vector-search': {
     title: 'Vector similarity search',
     group: 'Guides',
-    status: 'todo',
-    note: 'typed distance projection and ordering ship; the complete runnable recipe remains',
+    status: 'supported',
   },
   'guide-postgis': {
     title: 'Geometry and point columns',
     group: 'Guides',
-    status: 'todo',
-    note: 'geometry predicates ship; catalog application shape and typed projections remain',
+    status: 'supported',
   },
   'guide-local-postgres': {
     title: 'A local PostgreSQL',

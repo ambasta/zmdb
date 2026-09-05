@@ -152,6 +152,20 @@ const encoded = encodeValue(MoneyType, { amount: 50, currency: 'EUR' });
 > [!IMPORTANT]
 > Custom types do NOT add runtime validation. If the database returns malformed data, `fromDb` will throw — or worse, succeed with nonsense. Pair them with `@zmdb/aot-validator`, as `PriorityType.fromDb` does above.
 
+## Extension-backed storage types
+
+`Codec<'Name'>` and `Ext<'extension', 'type', [...]>` solve different problems.
+A codec converts values between wire, application and database forms. `Ext`
+names a PostgreSQL extension type for schema reflection and migration DDL; it
+does not invoke the codec registry.
+
+That distinction matters for pgvector and PostGIS. Their declarations, indexes
+and closed query expressions are typed, while writes that need a
+database-specific constructor or text encoding use explicit parameterised SQL.
+See [Database Extensions](./db-extensions.html), [Vector similarity
+search](./guide-vector-search.html), and [PostGIS](./guide-postgis.html) for the
+working boundaries.
+
 ---
 
 See also: [Schema Declaration](./schema-declaration.html) · [Tag Reference](./tags-reference.html) · [Validation](./validators-is.html) · [DTO Helpers](./read-dtos.html)
