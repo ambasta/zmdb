@@ -202,7 +202,7 @@ describe('the Metro build path', () => {
   );
 
   it(
-    'emits the same code as the plugin and CLI routes for the same input',
+    'transforms one consumer through direct codegen and the unplugin with byte-equivalent generated behavior',
     async () => {
       const evidence = await configured();
       const source = readFileSync(ENTRY, 'utf8');

@@ -11,8 +11,8 @@
     "isolatedModules": true,
     "allowImportingTsExtensions": false,
     "noEmit": true,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["installed-cli.ts"]
 }

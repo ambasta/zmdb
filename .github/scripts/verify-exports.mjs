@@ -6,6 +6,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createImportGraph } from './lib/import-graph.mjs';
+import {
+  TARGET_PRODUCT_TOOLING_EXPORTS,
+  TARGET_TOOLING_BIN,
+  TARGET_TOOLING_EXPORTS,
+} from './verify-tooling-boundaries.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PACKAGES_DIR = join(ROOT, 'packages');
@@ -74,6 +79,33 @@ for (const pkgDirName of packageDirs) {
   }
 }
 
+// The three tooling manifests do not exist yet, but once any one is admitted
+// its public surface is no longer "whatever the manifest happened to contain".
+// #627 freezes these exact source export keys and the one executable owner.
+for (const [packageName, expected] of Object.entries(TARGET_TOOLING_EXPORTS)) {
+  const pkg = [...packageDirs]
+    .map(directory => {
+      const path = join(PACKAGES_DIR, directory, 'package.json');
+      return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : undefined;
+    })
+    .find(manifest => manifest?.name === packageName);
+  if (pkg === undefined) continue;
+  const observed = Object.keys(pkg.exports ?? {}).toSorted();
+  if (JSON.stringify(observed) !== JSON.stringify([...expected].toSorted())) {
+    console.error(`[ERROR] ${packageName} exports ${JSON.stringify(observed)}, expected ${JSON.stringify(expected)}`);
+    errorsCount++;
+  }
+  if (packageName === TARGET_TOOLING_BIN.packageName) {
+    const bins = typeof pkg.bin === 'string' ? { [pkg.name]: pkg.bin } : (pkg.bin ?? {});
+    if (JSON.stringify(Object.keys(bins)) !== JSON.stringify([TARGET_TOOLING_BIN.command])) {
+      console.error(
+        `[ERROR] ${packageName} owns ${JSON.stringify(Object.keys(bins))}, expected only ${TARGET_TOOLING_BIN.command}`,
+      );
+      errorsCount++;
+    }
+  }
+}
+
 // The umbrella surface (REQ-UM-3). `zmdb` is the package consumers actually import,
 // so every symbol it publishes must be enumerated and must come from a workspace
 // package. A bare `export *` there would let a sibling widen the public API without
@@ -124,8 +156,10 @@ const BUILD_TIME_ENTRIES = new Set([
   '@zmdb/aot-validator#./testing',
   '@zmdb/aot-validator#./transformer',
   '@zmdb/aot-validator#./unplugin',
+  ...TARGET_TOOLING_EXPORTS['@zmdb/compiler'].map(subpath => `@zmdb/compiler#${subpath}`),
+  '@zmdb/cli#.',
   'zmdb#./cli',
-  'zmdb#./config',
+  ...Object.values(TARGET_PRODUCT_TOOLING_EXPORTS).flatMap(subpaths => subpaths.map(subpath => `zmdb#${subpath}`)),
   'zmdb#./unplugin',
 ]);
 

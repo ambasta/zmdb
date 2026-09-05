@@ -1,6 +1,6 @@
 # Consumer fixtures
 
-Four projects use zmdb the way somebody who installed it would, kept here so that CI builds them rather than trusting that they still work.
+Six projects use zmdb the way somebody who installed it would, kept here so that CI builds or explicitly freezes them rather than trusting that they still work.
 
 `consumer-cli/` and `consumer-plugin/` contain the **same program**, declared the same way, and reach the compiled validator by the two supported routes:
 
@@ -26,6 +26,11 @@ source still makes, that both print the same bytes, and that both compile to the
 
 `llm-adapters/` is compile-only and independent of that pair. It pins the real `@langchain/core` and `ai` packages, then checks the frozen plain-object adapter shapes against their constructors. The
 framework dependencies belong to that private consumer fixture; neither becomes a dependency or peer of `@zmdb/schema-core`.
+
+`consumer-compiler/` and `consumer-migrations/` freeze the standalone package contracts selected by #626. Their manifests use versioned dependencies, their configs have no `paths` map or
+`skipLibCheck`, and #627 typechecks them against tarballs under the future package names. Those typechecks are expected failures until the extraction issues create the packages and every frozen
+subpath. `consumer-cli/tsconfig.installed.json` does the same for the future installed `@zmdb/cli` boundary while the existing files in that directory continue to prove today's no-bundler codegen
+route.
 
 `web-custom-transport.ts` is a single external consumer rather than a project. The web suite executes it, and `verify:publish` copies it beside the packed packages and compiles it there. Its imports
 are limited to `@zmdb/web/microservices` and `@zmdb/web/observability`, so the custom strategy contract is checked from the same side of the package boundary as an installed application.

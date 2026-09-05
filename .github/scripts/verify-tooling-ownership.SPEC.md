@@ -1,14 +1,13 @@
 # Tooling ownership policy — verifier contract
 
-> Status: **FROZEN** for GitHub sub-issue #626. A later tests/implementation slice may encode this file as an executable verifier. The inventory below was measured at
-> `ca8ac2e9aac5fe63f12b5600e4d4dc36ae9c97fa`.
+> Status: **FROZEN** for GitHub sub-issue #626 and amended by #627 after #667 added database-boundary test support. The inventory below was measured at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`.
 
 ## 1. Extraction rule and totals
 
 The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
 and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **135 paths**, each exactly once:
+The inventory has **138 paths**, each exactly once:
 
 ```json
 {
@@ -18,7 +17,7 @@ The inventory has **135 paths**, each exactly once:
   "runtime": 23,
   "facade": 10,
   "optional-integration": 6,
-  "test-only": 25,
+  "test-only": 28,
   "obsolete": 1
 }
 ```
@@ -160,6 +159,9 @@ test-only	packages/aot-validator/src/reflect/__fixtures__/schema-values.ts
 test-only	packages/aot-validator/src/reflect/__fixtures__/tables.ts
 test-only	packages/aot-validator/src/reflect/__fixtures__/tsconfig.json
 test-only	packages/query-compiler/src/introspect/__fixtures__/mysql-8.4.11.json
+test-only	packages/query-compiler/src/testing/capability-matrix.ts
+test-only	packages/query-compiler/src/testing/database-vertical.ts
+test-only	packages/query-compiler/src/testing/external-dialect.fixture.ts
 test-only	packages/zmdb/src/cli/__fixtures__/project/package.json
 test-only	packages/zmdb/src/cli/__fixtures__/project/src/schema.ts
 test-only	packages/zmdb/src/cli/__fixtures__/project/tsconfig.json
@@ -281,7 +283,7 @@ formatter or compiler peer after extraction.
 
 ## 6. Fixtures and packed consumers
 
-The 25 internal fixture/test-support paths are already enumerated as `test-only` in §2. The three external fixture trees contain **27 files**:
+The 28 internal fixture/test-support paths are already enumerated as `test-only` in §2. The three external fixture trees contain **27 files**:
 
 ```text
 fixtures/consumer-cli/package.json

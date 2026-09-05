@@ -1,0 +1,11 @@
+{
+  "name": "@zmdb-fixture/consumer-compiler",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/compiler": "1.0.0-alpha.4",
+    "@zmdb/schema-core": "1.0.0-alpha.4",
+    "typescript": "7.0.2"
+  }
+}

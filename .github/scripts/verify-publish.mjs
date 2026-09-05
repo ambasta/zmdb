@@ -35,6 +35,12 @@ import { join } from 'node:path';
 
 import { PACKAGES, ROOT, publishManifest, readManifest } from './lib/publish-manifest.mjs';
 import { inspectProductConsumerFixture } from './verify-product-facade.mjs';
+import {
+  TARGET_PRODUCT_TOOLING_EXPORTS,
+  TARGET_TOOLING_BIN,
+  TARGET_TOOLING_EXPORTS,
+  TARGET_TOOLING_MANIFESTS,
+} from './verify-tooling-boundaries.mjs';
 
 // Build-time and optional integration subpaths reach their peers on purpose (see
 // `verify-exports.mjs`), so the temp project needs what a consumer of every advertised
@@ -55,6 +61,7 @@ const PEERS = [
 ];
 const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'web-custom-transport.ts');
 const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
+const ADMITTED_PACKAGE_NAMES = new Set(PACKAGES.map(name => readManifest(name).name));
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
 
@@ -274,8 +281,56 @@ for (const name of PACKAGES) {
   for (const subpath of Object.keys(pkg.exports)) {
     specifiers.push(subpath === '.' ? pkg.name : `${pkg.name}${subpath.slice(1)}`);
   }
+  const expectedToolingExports = TARGET_TOOLING_EXPORTS[pkg.name];
+  if (expectedToolingExports !== undefined) {
+    const observed = Object.keys(pkg.exports).toSorted();
+    if (JSON.stringify(observed) !== JSON.stringify([...expectedToolingExports].toSorted())) {
+      fail(
+        `${pkg.name} packed exports ${JSON.stringify(observed)}, expected ${JSON.stringify(expectedToolingExports)}`,
+      );
+    }
+    const contract = TARGET_TOOLING_MANIFESTS[pkg.name];
+    const dependencies = Object.keys(pkg.dependencies ?? {}).toSorted();
+    if (JSON.stringify(dependencies) !== JSON.stringify([...contract.dependencies].toSorted())) {
+      fail(
+        `${pkg.name} packed dependencies ${JSON.stringify(dependencies)}, expected ${JSON.stringify(contract.dependencies)}`,
+      );
+    }
+    const peers = Object.keys(pkg.peerDependencies ?? {}).toSorted();
+    if (JSON.stringify(peers) !== JSON.stringify([...contract.peerDependencies].toSorted())) {
+      fail(`${pkg.name} packed peers ${JSON.stringify(peers)}, expected ${JSON.stringify(contract.peerDependencies)}`);
+    }
+    for (const peer of contract.peerDependencies) {
+      const optional = pkg.peerDependenciesMeta?.[peer]?.optional === true;
+      if (optional !== contract.optionalPeers.includes(peer)) {
+        fail(
+          `${pkg.name} packed peer ${peer} optional=${String(optional)}, ` +
+            `expected ${String(contract.optionalPeers.includes(peer))}`,
+        );
+      }
+    }
+  }
+  if (pkg.name === 'zmdb') {
+    for (const [toolingPackage, subpaths] of Object.entries(TARGET_PRODUCT_TOOLING_EXPORTS)) {
+      if (!ADMITTED_PACKAGE_NAMES.has(toolingPackage)) continue;
+      if (pkg.dependencies?.[toolingPackage] === undefined) {
+        fail(`zmdb packed manifest does not depend on ${toolingPackage}`);
+      }
+      for (const subpath of subpaths) {
+        if (typeof pkg.exports?.[subpath] !== 'string') {
+          fail(`zmdb packed manifest is missing ${subpath} for ${toolingPackage}`);
+        }
+      }
+    }
+  }
   if (pkg.bin) {
     const bins = typeof pkg.bin === 'string' ? { [pkg.name]: pkg.bin } : pkg.bin;
+    if (
+      pkg.name === TARGET_TOOLING_BIN.packageName &&
+      JSON.stringify(Object.keys(bins)) !== JSON.stringify([TARGET_TOOLING_BIN.command])
+    ) {
+      fail(`${pkg.name} packed bins ${JSON.stringify(Object.keys(bins))}, expected ["${TARGET_TOOLING_BIN.command}"]`);
+    }
     for (const [command, target] of Object.entries(bins)) {
       const binPath = join(into, target);
       const source = (() => {

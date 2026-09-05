@@ -52,6 +52,9 @@ jobs:
       - name: Verify developer tools stay out of production entries
         run: yarn verify:devtools-boundary
 
+      - name: Verify tooling package ownership and runtime isolation
+        run: node .github/scripts/verify-tooling-boundaries.mjs
+
       # `verify:exports` runs inside the workspace, where `node_modules/@zmdb/*` is a
       # symlink and Node resolves past it — so it can pass for a package that cannot be
       # imported once installed. This builds, packs, installs into a throwaway project,
