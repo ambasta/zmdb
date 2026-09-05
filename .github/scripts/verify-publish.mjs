@@ -515,7 +515,7 @@ if (specifiers.includes(NEXT_SERVER_SPECIFIER)) {
 // when the lazy Studio module is loaded.
 const studioDirectory = join(app, 'node_modules', 'zmdb', 'dist', 'studio');
 for (const file of javascript(studioDirectory)) {
-  const checked = run('node', ['--check', file]);
+  const checked = run('node', ['--js-explicit-resource-management', '--check', file]);
   if (checked.status !== 0) {
     fail(`plain Node cannot parse ${file.slice(app.length + 1)}: ${checked.stderr?.trim()}`);
   }
