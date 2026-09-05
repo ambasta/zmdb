@@ -51,6 +51,13 @@ getRoutes(UsersController);
 
 The table is computed by reading `context.metadata` — cache it freely; it is stable after class initialization and never re-reflected per request.
 
+## Contract-owned public APIs
+
+For an API that also emits OpenAPI and a typed client, pair the controller with an explicit `@zmdb/web/contract` declaration. The contract owns the public operation ID, parameters, exact responses,
+security, and version; `router.registerContract(...)` binds that compiled operation to the controller instance and refuses disagreement with the decorated runtime route.
+
+The complete declaration-to-runtime-to-OpenAPI-to-client flow is in [Generated HTTP Client](./generated-client.html).
+
 ## Path composition
 
 | `@Controller` prefix | method path | resolved     |
@@ -70,4 +77,5 @@ Duplicate slashes collapse and a trailing slash is stripped (the root `/` stays 
 
 ## Cross-links
 
+- [Generated HTTP Client](./generated-client.html) — bind a controller to one contract and emit both public artifacts
 - [@zmdb/web overview](./web-overview.html) — the Stage-3 baseline & invariants

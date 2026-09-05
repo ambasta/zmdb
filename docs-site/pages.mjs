@@ -46,9 +46,9 @@ export function derivePageGroups(nav, pageMeta) {
   return Object.freeze(Object.fromEntries(ownership));
 }
 
-// #718 will replace the twelve retained GraphQL refusal pages with the canonical
-// `graphql` page and redirects. Until then, preserve those live pages at the
-// frozen GraphQL position without changing their status, content or filenames.
+// #718 is closed wontfix. Preserve the twelve GraphQL refusal pages at the
+// frozen planning position without promising a canonical replacement or
+// redirects.
 export const NAV = PRODUCT_JOURNEY.map(group =>
   Object.freeze({ title: group.title, pages: Object.freeze(livePages(group.pages)) }),
 );
@@ -963,6 +963,10 @@ export const PAGE_META = {
   },
   'web-http-client': {
     title: 'HTTP Client',
+    status: 'supported',
+  },
+  'generated-client': {
+    title: 'Generated HTTP Client',
     status: 'supported',
   },
   'web-file-upload': {

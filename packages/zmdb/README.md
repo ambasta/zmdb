@@ -27,10 +27,12 @@ npx zmdb client generate
 npx zmdb client generate --check
 ```
 
-One contract load feeds the OpenAPI document and generated typed client. `--check` writes nothing and fails when either committed output is stale; `--watch` regenerates when a compiled contract input
-changes.
+One contract load feeds the OpenAPI document and generated typed client as sibling outputs. `--check` writes nothing and fails when either committed output is stale; `--watch` regenerates when a
+compiled contract input changes. Client generation never parses the OpenAPI file.
 
 ## Documentation
+
+Generated-client journey: **https://ambasta.github.io/zmdb/docs/generated-client.html**
 
 Full docs: **https://ambasta.github.io/zmdb/**
 

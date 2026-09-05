@@ -35,8 +35,9 @@ function occurrences(values: readonly string[]): ReadonlyMap<string, number> {
 }
 
 describe('the frozen documentation product journey', () => {
-  // #715 keeps the twelve GraphQL source pages live until #718 replaces them with
-  // `graphql` plus redirects. All 277 current pages still need exactly one owner.
+  // #718 is closed wontfix, so the `graphql` planning position expands to the
+  // twelve retained source pages. #686 adds one supported generated-client page,
+  // so all 278 live pages still need exactly one owner.
   it('assigns every registered page to exactly one product-journey group', () => {
     const liveCounts = occurrences(liveSlugs);
     const problems: string[] = [];
@@ -77,10 +78,10 @@ describe('the frozen documentation product journey', () => {
     expect(retainedLive).toHaveLength(DOCUMENTATION_BASELINE.target.retainedCurrentPages);
   });
 
-  it('freezes 266 unique canonical pages with exactly the two declared additions', () => {
+  it('freezes 267 unique canonical pages with exactly the three declared additions', () => {
     expect(targetSlugs).toHaveLength(DOCUMENTATION_BASELINE.target.canonicalPages);
     expect(new Set(targetSlugs).size).toBe(DOCUMENTATION_BASELINE.target.canonicalPages);
-    expect(sorted(additionSlugs)).toEqual(['graphql', 'package-reference']);
+    expect(sorted(additionSlugs)).toEqual(['generated-client', 'graphql', 'package-reference']);
     expect(targetSlugs.filter(slug => legacySet.has(slug))).toEqual([]);
     expect(legacySlugs).toHaveLength(DOCUMENTATION_BASELINE.target.redirectArtifacts);
     expect(new Set(legacySlugs).size).toBe(DOCUMENTATION_BASELINE.target.redirectArtifacts);
@@ -111,11 +112,12 @@ describe('the frozen documentation product journey', () => {
     );
   });
 
-  it('preserves retained page statuses and makes the consolidated GraphQL decision wontfix', () => {
+  it('preserves retained page statuses and the GraphQL wontfix decision', () => {
     for (const slug of liveSlugs.filter(candidate => !legacySet.has(candidate))) {
       expect(['supported', 'todo', 'wontfix']).toContain(liveMeta[slug]?.status);
     }
     for (const slug of legacySlugs) expect(liveMeta[slug]?.status).toBe('wontfix');
+    expect(CANONICAL_PAGE_ADDITIONS['generated-client'].status).toBe('supported');
     expect(CANONICAL_PAGE_ADDITIONS.graphql.status).toBe('wontfix');
     expect(CANONICAL_PAGE_ADDITIONS['package-reference'].status).toBe('supported');
   });

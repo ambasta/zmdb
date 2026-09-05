@@ -1,5 +1,5 @@
-// Frozen target for issue #713. This file is data, not the navigation
-// implementation: #715 applies it to pages.mjs, manifest.mjs and the renderer.
+// Frozen target for issue #713. The live registry derives from this data;
+// #686 amends it with the generated-client journey.
 
 export const DOCUMENTATION_BASELINE = {
   measuredOn: '2026-09-05',
@@ -25,9 +25,9 @@ export const DOCUMENTATION_BASELINE = {
   },
   target: {
     groups: 10,
-    canonicalPages: 266,
+    canonicalPages: 267,
     retainedCurrentPages: 264,
-    addedCanonicalPages: 2,
+    addedCanonicalPages: 3,
     redirectArtifacts: 12,
   },
 };
@@ -238,6 +238,7 @@ export const PRODUCT_JOURNEY = [
   {
     title: 'Client applications',
     pages: [
+      'generated-client',
       'framework-integrations',
       'web-http-client',
       'web-templates',
@@ -352,6 +353,11 @@ export const PRODUCT_JOURNEY = [
 ];
 
 export const CANONICAL_PAGE_ADDITIONS = {
+  'generated-client': {
+    title: 'Generated HTTP Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
   graphql: {
     title: 'GraphQL',
     group: 'Ecosystem integrations',

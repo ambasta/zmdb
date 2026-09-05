@@ -25,7 +25,7 @@ The schema commands are thin packaged wrappers over the public reflection, snaps
 | `check`                      | snapshot, file-history, and optional live-drift checks  | [check](./cli-check.html)                             |
 | `export`                     | `zmdb export`                                           | [export](./cli-export.html)                           |
 | `pull` / `generate-entities` | protected `zmdb pull` declaration staging               | [pull](./cli-pull.html)                               |
-| `client generate`            | OpenAPI and typed client from configured HTTP contracts | [HTTP client](./web-http-client.html)                 |
+| `client generate`            | OpenAPI and typed client from configured HTTP contracts | [generated client](./generated-client.html)           |
 | `studio`                     | installed read-only loopback browser                    | [studio](./cli-studio.html)                           |
 
 The catalog-backed `pull` is packaged with overwrite protection, dry-run, and check modes. Studio's installed binary is parsed by plain Node and exercised against its loopback index by publish
@@ -91,4 +91,4 @@ Human progress goes to stdout. Under `--json`, stdout is one `CliResult` documen
 
 ---
 
-See also: [Migrations](./migrations.html) · [Config File](./config-file.html) · [generate](./cli-generate.html)
+See also: [Generated HTTP Client](./generated-client.html) · [Migrations](./migrations.html) · [Config File](./config-file.html) · [generate](./cli-generate.html)

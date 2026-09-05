@@ -144,4 +144,5 @@ The generated-document audit is the set of operations carrying `security: []`.
 
 ---
 
-See also: [Guards](./web-middleware.html) · [OpenAPI Generation](./web-openapi.html) · [OpenAPI Operations](./web-openapi-operations.html) · [Authentication](./web-authentication.html)
+See also: [Generated client authentication](./generated-client.html#4-use-the-generated-client) · [Guards](./web-middleware.html) · [OpenAPI Generation](./web-openapi.html) ·
+[OpenAPI Operations](./web-openapi-operations.html) · [Authentication](./web-authentication.html)

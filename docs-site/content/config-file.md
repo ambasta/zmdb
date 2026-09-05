@@ -106,8 +106,8 @@ export default defineConfig({
 Every contract spec requires an export name. Contract files must belong to `project`; duplicate path/export pairs are rejected. The OpenAPI and client outputs must have `.json` and `.ts` extensions,
 respectively, and must resolve to different files. Loading this config does not boot the application, and the config has no base URL, credential, authentication, timeout, retry, or deployment field.
 
-`loadConfig` resolves the contract files and both outputs to absolute paths. `zmdb client generate` then loads the configured exports once and emits both artifacts; use `--check` in CI and `--watch`
-for dependency-aware regeneration.
+`loadConfig` resolves the contract files and both outputs to absolute paths. `zmdb client generate` then loads the configured exports once and emits OpenAPI and the client as sibling artifacts; it
+does not read OpenAPI back as generation input. Use `--check` in CI and `--watch` for dependency-aware regeneration. The complete flow is in [Generated HTTP Client](./generated-client.html).
 
 ## Discovery
 
@@ -186,4 +186,4 @@ keeping one source of connection truth without introducing an implicit initialis
 
 ---
 
-See also: [CLI Overview](./cli-overview.html) · [Configuration](./configuration.html) · [Writing a Driver](./custom-driver.html)
+See also: [Generated HTTP Client](./generated-client.html) · [CLI Overview](./cli-overview.html) · [Configuration](./configuration.html) · [Writing a Driver](./custom-driver.html)

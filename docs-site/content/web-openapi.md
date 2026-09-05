@@ -1,5 +1,5 @@
-Generate an **OpenAPI 3.1** document from the same compiled HTTP contract used by routing and generated clients. `@zmdb/web/openapi` is a pure renderer: it does not inspect controllers, decorators,
-guards, TypeScript types, or `TypeIR`.
+Generate an **OpenAPI 3.1** document from the same compiled HTTP contract used by routing and generated clients. OpenAPI and the client module are sibling outputs; neither is derived from the other.
+`@zmdb/web/openapi` is a pure renderer: it does not inspect controllers, decorators, guards, TypeScript types, or `TypeIR`.
 
 ## Render the shared contract
 
@@ -108,5 +108,5 @@ The returned handler serves the same prebuilt object by identity; it never recom
 
 ## Cross-links
 
-- [HTTP contract declarations](./web-http-client.html) · [OpenAPI Operations](./web-openapi-operations.html) · [Security Schemes](./web-openapi-security.html) · [API Versioning](./web-versioning.html)
-  · [OpenAPI schemas](./openapi.html)
+- [Generated HTTP Client](./generated-client.html) · [HTTP contract declarations](./web-http-client.html) · [OpenAPI Operations](./web-openapi-operations.html) ·
+  [Security Schemes](./web-openapi-security.html) · [API Versioning](./web-versioning.html) · [OpenAPI schemas](./openapi.html)

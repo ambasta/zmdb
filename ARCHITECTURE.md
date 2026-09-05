@@ -279,8 +279,8 @@ package or capability is experimental and documentation must say which evidence 
 ### 3.5 Frozen shared HTTP-contract and generated-client target
 
 Issue #681 ships the inert contract declarations, deterministic compiler and contract-aware router registration shown below. Issue #682 ships the dependency-free `@zmdb/client` execution runtime,
-issue #683 makes OpenAPI a pure emitter over the same `HttpContractIR`, and issue #684 ships deterministic typed operation modules with AOT response validation. Config and CLI generation remain on a
-later migration step.
+issue #683 makes OpenAPI a pure emitter over the same `HttpContractIR`, issue #684 ships deterministic typed operation modules with AOT response validation, and issue #685 ships config-driven
+generation, stale-output checking, dependency-aware watch mode, and packed browser/Node consumers.
 
 ```text
 @zmdb/schema-core/ir
@@ -301,7 +301,8 @@ compilation result without recollecting controllers, parsing OpenAPI, or definin
 `@zmdb/client` owns only a zero-dependency transport/runtime ABI and stable errors. It imports no web, AOT, schema-core, Node built-in, or framework adapter. Generated source contains no controller,
 credential, TypeIR walker, or workspace path. Optional UI adapters remain the separate client-framework layer frozen by #688.
 
-The complete contract is [`packages/web/src/contract/SPEC.md`](./packages/web/src/contract/SPEC.md) and [`packages/client/SPEC.md`](./packages/client/SPEC.md).
+The complete contract is [`packages/web/src/contract/SPEC.md`](./packages/web/src/contract/SPEC.md) and [`packages/client/SPEC.md`](./packages/client/SPEC.md). The user journey is
+[`docs-site/content/generated-client.md`](./docs-site/content/generated-client.md): OpenAPI and generated client code are sibling outputs of the same IR, never inputs to one another.
 
 ### 3.6 Frozen client-framework adapter target
 

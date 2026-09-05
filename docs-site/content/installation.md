@@ -26,6 +26,9 @@ SDK/framework peer.
 
 `zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime export, so those two imports vanish entirely from your build output.
 
+Applications that publish an HTTP API add the independently installable `@zmdb/client` runtime beside their generated module. The [Generated HTTP Client](./generated-client.html) guide shows one
+contract feeding runtime routing, OpenAPI, and browser/Node client output.
+
 ## Prerequisites
 
 - **Node.js** 26.0.0 or later
@@ -190,3 +193,4 @@ If that throws instead of printing, the plugin is not running over this file.
 - [Tag Reference](./tags-reference.html) — the full tag vocabulary
 - [AOT Setup](./aot-setup.html) — configure the transformer
 - [Pure TypeScript](./pure-typescript.html) — what works with no build step
+- [Generated HTTP Client](./generated-client.html) — emit OpenAPI and a typed client from one HTTP contract

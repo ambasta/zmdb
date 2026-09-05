@@ -1,12 +1,14 @@
 # Documentation product journey — frozen specification
 
-> Status: **FROZEN** for GitHub sub-issue #713. This issue changes no navigation, generated prose, sample compiler or redirects. Issues #714–#719 implement and verify this contract.
+> Status: **FROZEN** by GitHub sub-issue #713. Later issue-scoped changes implement the registry and generated sections; #686 amends the Client applications journey with one supported
+> `generated-client` page and executable packed samples.
 
 ## 1. Purpose and boundary
 
 The documentation presents one zmdb product. Package names are useful installation and dependency boundaries, but they are not separate reader journeys.
 
-`navigation-plan.mjs` is the machine-readable target. Until #715 lands, `pages.mjs` remains the live 26-group registry and this file must not be imported by the site build as a compatibility shim.
+`navigation-plan.mjs` owns the machine-readable target. `pages.mjs` derives the live ten-group registry from it, temporarily expanding the canonical GraphQL position to the twelve retained
+compatibility pages.
 
 This specification freezes:
 
@@ -16,7 +18,8 @@ This specification freezes:
 - the structured framework-integration record;
 - the metadata and verification semantics of TypeScript documentation samples.
 
-It does **not** rewrite page prose, implement the ten-group navigation, generate content, compile samples, or emit redirect files.
+The original #713 freeze did **not** rewrite page prose, implement navigation, generate content, compile samples, or emit redirect files. #686 is limited to its generated-client prose, registry entry,
+and executable sample proof.
 
 ## 2. Measured baseline
 
@@ -68,41 +71,31 @@ The plan has these invariants:
 
 - Every canonical slug occurs exactly once.
 - Every current non-GraphQL slug remains unchanged.
-- The twelve `web-graphql*` slugs are redirect artifacts, not canonical pages.
-- `graphql` and `package-reference` are the only new canonical slugs in this epic.
-- The target has 264 retained current pages plus two new pages: **266 canonical pages**.
-- Redirect artifacts do not appear in NAV, `PAGE_META`, search, previous/next order or page counts.
-- `PAGE_META` owns title, status and optional note. NAV owns group and order. After #715, `group` is derived from NAV and is not hand-written a second time in `PAGE_META`.
+- The twelve `web-graphql*` slugs remain live, unchanged pages.
+- `graphql` remains only a planning placeholder for those pages; `package-reference` and the #686 `generated-client` journey are the implemented canonical additions.
+- The target has 264 retained current pages plus three new pages: **267 canonical pages**.
+- No GraphQL redirect artifacts are emitted.
+- `PAGE_META` owns title, status and optional note. NAV owns group and order; `group` is derived from NAV and is not hand-written a second time in `PAGE_META`.
 - A missing, duplicate, unregistered or orphaned slug is a build and verification failure.
-- Page status does not change merely because the page moved. The only status consolidation is twelve GraphQL `wontfix` pages becoming one canonical `graphql` `wontfix` page.
+- Page status does not change merely because the page moved. All twelve retained GraphQL pages remain `wontfix`.
 
 The reading order is intentional: install the product, build with it, learn schema/ORM and contracts, compose the server and clients, select databases, operate the application, opt into integrations,
 then use reference material.
 
-Implementation is staged across the independent children. #715 applies the ten group names and every non-GraphQL page position, but it does not perform #718's GraphQL consolidation. Until #718 lands,
-the `graphql` position expands to the twelve existing `web-graphql*` pages in `LEGACY_REDIRECTS` order. The temporary live registry therefore remains 277 pages, with the same statuses, content slugs
-and output filenames; #718 alone replaces those twelve entries with one canonical page and redirect artifacts.
+The ten group names and every non-GraphQL page position are live. The `graphql` planning position expands to the twelve existing `web-graphql*` pages in `LEGACY_REDIRECTS` order. #718 is closed
+wontfix, so the existing pages remain unchanged and no canonical replacement or redirect set is promised. With #686's supported page, the live registry contains 278 pages.
 
-## 4. GraphQL consolidation and redirects
+## 4. GraphQL remains outside the migration
 
-`LEGACY_REDIRECTS` in `navigation-plan.mjs` is exhaustive. Every listed source resolves to `graphql`.
+`LEGACY_REDIRECTS` is a historical name retained by the frozen navigation data. Its keys now provide only the stable order in which the twelve existing GraphQL pages occupy the `graphql` planning
+position.
 
-The canonical `graphql` page:
+Under the current decision:
 
-- remains `wontfix`;
-- states that an official GraphQL vertical is not planned;
-- preserves the architectural rationale and points to supported HTTP, OpenAPI, generated-client, gateway and SSE alternatives;
-- creates no implementation, compatibility or deprecation promise.
-
-For each legacy slug, #718 emits `site/docs/<legacy>.html` as a redirect artifact containing:
-
-- a canonical link to `./graphql.html`;
-- an immediate HTML refresh for script-free and `file://` use;
-- `location.replace` that preserves the original query string and fragment;
-- a visible fallback link;
-- `noindex`.
-
-Internal Markdown links, upstream coverage mappings and search records point directly to `graphql`. Redirect sources are never treated as content pages and cannot be a sample-compilation input.
+- all twelve `web-graphql*` source pages, slugs, navigation entries, search records, coverage mappings, and sample classifications remain unchanged;
+- no `graphql.md` page or redirect HTML is generated;
+- no internal link is rewritten solely for consolidation; and
+- GraphQL support remains not planned and creates no implementation, compatibility, migration, or deprecation promise.
 
 ## 5. Generated content ownership
 

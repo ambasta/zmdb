@@ -1,7 +1,9 @@
-zmdb has two deliberately separate HTTP client paths:
+zmdb has three deliberately separate HTTP client paths:
 
-- APIs declared with `@zmdb/web/contract` can emit an exact typed client module. The generated module imports only the dependency-free `@zmdb/client` runtime and validates successful JSON responses
-  with precomputed AOT code.
+- APIs declared with `@zmdb/web/contract` use the [generated-client workflow](./generated-client.html). The generated module imports only the dependency-free `@zmdb/client` runtime and validates
+  successful JSON responses with precomputed AOT code.
+- A small hand-authored operation can use `@zmdb/client` directly by providing its low-level `GeneratedOperation` request plan and response reader. That manual path does not generate types or parse
+  OpenAPI.
 - Unrelated third-party APIs have no generic `HttpService`, Axios wrapper, or `HttpModule`. Use `fetch` or a small provider that owns that upstream's policy.
 
 ## Generate OpenAPI and a client from one contract load
@@ -29,9 +31,9 @@ npx zmdb client generate
 npx zmdb client generate --check
 ```
 
-The command opens the configured TypeScript project once, loads each configured contract export once, and feeds the same compiled `HttpContractIR` to OpenAPI and client generation. It verifies exact
-operation-ID parity before writing either file and emits repository-formatter-clean JSON. Equal bytes preserve both mtimes; `--check` writes nothing and exits non-zero when either committed artifact
-is missing or stale.
+The command opens the configured TypeScript project once, loads each configured contract export once, and feeds the same compiled `HttpContractIR` to the OpenAPI and client emitters. OpenAPI is the
+client's sibling output, never its input. The command verifies exact operation-ID parity before writing either file and emits repository-formatter-clean JSON. Equal bytes preserve both mtimes;
+`--check` writes nothing and exits non-zero when either committed artifact is missing or stale.
 
 During development, `npx zmdb client generate --watch` retains the reflection session and regenerates only after a source in the compiled contract's dependency set changes. Base URLs, credentials,
 authentication providers, retries, and timeouts remain runtime values and are not written to project config.
@@ -57,6 +59,9 @@ Generation does not embed the base URL or credentials. Authentication is resolve
 
 Tooling that already owns a compiled `HttpContractIR` can call `generateHttpClient` from `@zmdb/web/contract/compiler` directly. Application projects should prefer the CLI so OpenAPI and client
 artifacts cannot drift into separate generation paths.
+
+The complete contract-to-runtime-to-artifact-to-browser/Node journey, including authentication, status/error handling, cancellation, versions, regeneration, and the manual runtime boundary, is in
+[Generated HTTP Client](./generated-client.html).
 
 ## A typed client for a third-party API
 
@@ -213,4 +218,4 @@ check performed only on the original URL.
 
 ---
 
-See also: [Configuration](./configuration.html) · [Testing Applications](./web-testing.html) · [Query Cancellation](./query-cancellation.html)
+See also: [Generated HTTP Client](./generated-client.html) · [Configuration](./configuration.html) · [Testing Applications](./web-testing.html) · [Query Cancellation](./query-cancellation.html)

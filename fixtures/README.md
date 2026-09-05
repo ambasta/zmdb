@@ -37,7 +37,10 @@ are limited to `@zmdb/web/microservices` and `@zmdb/app/observability`, so the c
 
 `consumer-http-client/` commits OpenAPI and typed-client output generated from one exported HTTP contract. Its verifier checks the committed bytes, builds a real `@zmdb/web` loopback service, and then
 compiles and runs the same generated client as separate browser and Node bundles with only a packed `@zmdb/client` installed. Both consumers cover the ordinary success response, an alternate success
-status, invalid-success-body rejection, and per-call bearer authentication injection.
+status, invalid-success-body rejection, and per-request bearer authentication injection.
+
+The generated-client documentation page is itself executable fixture source: every TypeScript fence names a safe project-relative file. `verify:publish` extracts those exact fence bytes into the
+`consumer-http-client/docs/` project outside the repository and compiles them against declarations from all packed packages, with no `paths` map or skipped library checks.
 
 `client-adapters/` is the private conformance workspace for #689 and #690. One generated client and a settlement-ledger transport drive reusable lifecycle, cancellation, stale-completion, error, retry
 and SSR-isolation assertions for every proposed adapter. Its React, Angular, Vue, Svelte and Solid harnesses execute real framework cleanup primitives, while missing adapter packages remain

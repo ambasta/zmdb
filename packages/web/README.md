@@ -19,7 +19,8 @@ The package root contains the common HTTP APIs. Feature-specific entry points in
 `/openapi`, `/health`, `/upload`, `/static`, `/compression`, `/gateways`, `/testing`, and `/devtools`.
 
 `@zmdb/web/contract` contains inert HTTP declarations and serialisable `HttpContractIR`. The build-time `@zmdb/web/contract/compiler` entry compiles those declarations and emits deterministic typed
-client modules whose runtime imports are limited to `@zmdb/client`.
+client modules whose runtime imports are limited to `@zmdb/client`. `zmdb client generate` projects the same compiled IR into sibling OpenAPI and client artifacts; it does not derive one from the
+other.
 
 During the server-package migration, transport strategies and clients remain at `/microservices`, dedicated Redis, NATS, RabbitMQ, and gRPC adapters retain their named entry points, and queues and
 scheduling retain `/queues` and `/schedule`. Queue backends are published under `/queues/backends`.
@@ -32,6 +33,8 @@ separately to adapt caller-owned `@opentelemetry/api` tracers and meters; web ha
 grpc-js, Redis, NATS, and RabbitMQ clients are optional peers reached only through their named microservices subpaths. Install only the client used by the adapter you import.
 
 ## Documentation
+
+Generated-client journey: **https://ambasta.github.io/zmdb/docs/generated-client.html**
 
 Full docs: **https://ambasta.github.io/zmdb/**
 

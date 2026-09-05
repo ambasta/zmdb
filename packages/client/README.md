@@ -25,7 +25,7 @@ npm add @zmdb/client@alpha
 ## Generated clients
 
 `zmdb client generate` loads configured `@zmdb/web` contract exports once and writes both OpenAPI JSON and a typed TypeScript client. Commit both outputs and use `zmdb client generate --check` in CI
-to reject stale output.
+to reject stale output. OpenAPI is a sibling output, not the input to generation.
 
 The generated module imports only `@zmdb/client`, so the same source can be bundled for a browser or run under Node:
 
@@ -44,9 +44,14 @@ const api = createApiClient({
 The repository's packed-consumer fixture installs only the packed `@zmdb/client` package and exercises the same generated client in browser and Node bundles against a real `@zmdb/web` service,
 including alternate success status, response validation, and authentication injection.
 
+## Manual operations
+
+The package can also execute a hand-authored `GeneratedOperation` directly. That path is intentionally low level: the caller supplies the request plan and response reader, and `@zmdb/client` supplies
+URL assembly, transport injection, authentication patches, limits, cancellation, and stable errors. It does not inspect controllers, infer types, or parse an OpenAPI document.
+
 ## Documentation
 
-Full project documentation is at **https://ambasta.github.io/zmdb/**.
+The complete generated and manual journey is at **https://ambasta.github.io/zmdb/docs/generated-client.html**.
 
 ## License
 

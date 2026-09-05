@@ -78,9 +78,10 @@ const createContext = () => ({
 
 ## Migrating from tRPC to `@zmdb/web`
 
-Procedure-by-procedure. A query becomes a `@Get`, a mutation a `@Post`; `.input()` becomes `assert<T>(ctx.body)`; context becomes an injected field (`@Inject`, never a constructor parameter). The part
-you lose is the inferred client — generate one from [OpenAPI](./openapi.html) instead, which is a build step where tRPC had none. Do not migrate subscriptions; there is nowhere for them to go yet.
+Procedure-by-procedure. A query becomes a `@Get`, a mutation a `@Post`; `.input()` becomes `assert<T>(ctx.body)`; context becomes an injected field (`@Inject`, never a constructor parameter). Replace
+the inferred client by declaring an explicit HTTP contract and emitting the typed client and OpenAPI as sibling outputs from that contract. See [Generated HTTP Client](./generated-client.html). Do not
+migrate subscriptions; there is nowhere for them to go yet.
 
 ---
 
-See also: [OpenAPI Generation](./openapi.html) · [DI Container](./web-di.html) · [Streaming](./streaming.html)
+See also: [Generated HTTP Client](./generated-client.html) · [OpenAPI Generation](./openapi.html) · [DI Container](./web-di.html) · [Streaming](./streaming.html)

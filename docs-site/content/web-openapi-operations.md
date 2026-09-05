@@ -1,4 +1,4 @@
-`toOpenApi(httpContractIR, options)` produces an OpenAPI 3.1 document from explicit operation objects. It is an output backend, not a route collector.
+`toOpenApi(httpContractIR, options)` produces an OpenAPI 3.1 document from explicit operation objects. It is an output backend, not a route collector or a client-generation input.
 
 ## One operation object
 
@@ -119,4 +119,5 @@ application owns it; do not recollect route meaning.
 
 ---
 
-See also: [OpenAPI Generation](./web-openapi.html) · [OpenAPI schemas](./openapi.html) · [OpenAPI Security](./web-openapi-security.html) · [API Versioning](./web-versioning.html)
+See also: [Generated HTTP Client](./generated-client.html) · [OpenAPI Generation](./web-openapi.html) · [OpenAPI schemas](./openapi.html) · [OpenAPI Security](./web-openapi-security.html) ·
+[API Versioning](./web-versioning.html)

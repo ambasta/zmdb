@@ -31,7 +31,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { PACKAGES, ROOT, publishManifest, readManifest } from './lib/publish-manifest.mjs';
 import { inspectProductConsumerFixture } from './verify-product-facade.mjs';
@@ -62,6 +62,9 @@ const PEERS = [
 ];
 const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'web-custom-transport.ts');
 const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
+const HTTP_CLIENT_DOCS_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'docs');
+const HTTP_CLIENT_DOCS_PAGE = join(ROOT, 'docs-site', 'content', 'generated-client.md');
+const HTTP_CLIENT_DOCS_TSCONFIG = join(ROOT, 'fixtures', 'consumer-http-client', 'tsconfig.docs.json');
 const HTTP_CLIENT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'verify-installed.mjs');
 const ADMITTED_PACKAGE_NAMES = new Set(PACKAGES.map(name => readManifest(name).name));
 
@@ -92,6 +95,32 @@ const fail = message => {
 };
 
 const messageOf = error => (error instanceof Error ? error.message : String(error));
+
+function generatedClientExamples() {
+  const lines = readFileSync(HTTP_CLIENT_DOCS_PAGE, 'utf8').split('\n');
+  const examples = [];
+  const files = new Set();
+
+  for (let index = 0; index < lines.length; index++) {
+    if (!/^```(?:ts|typescript)$/.test(lines[index] ?? '')) continue;
+    const code = [];
+    index++;
+    while (index < lines.length && lines[index] !== '```') {
+      code.push(lines[index] ?? '');
+      index++;
+    }
+    const marker = /^\/\/ docs-file: ([A-Za-z0-9._/-]+)$/.exec(code[0] ?? '');
+    if (marker === null) throw new Error('generated-client.md TypeScript fence has no docs-file marker');
+    const file = marker[1];
+    if (file.startsWith('/') || file.split('/').some(segment => ['', '.', '..'].includes(segment))) {
+      throw new Error(`generated-client.md has unsafe docs-file marker ${file}`);
+    }
+    if (files.has(file)) throw new Error(`generated-client.md repeats docs-file marker ${file}`);
+    files.add(file);
+    examples.push({ file, source: `${code.join('\n').trimEnd()}\n` });
+  }
+  return examples;
+}
 
 async function smokeStudio(app, binPath) {
   const configPath = join(app, 'zmdb.config.mjs');
@@ -440,6 +469,32 @@ writeFileSync(
 console.log('Typechecking a consumer against the published declarations...');
 const tsc = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig.json'], { cwd: app, stdio: 'inherit' });
 if (tsc.status !== 0) fail('the published declarations do not typecheck from a consumer project');
+
+// The generated-client page is executable documentation. The focused docs test
+// validates its exact safe file markers; this copy writes those exact fence
+// bytes outside the repository and compiles them against only the declarations
+// extracted from the tarballs above.
+const generatedClientDocs = join(app, 'generated-client-docs');
+cpSync(HTTP_CLIENT_DOCS_FIXTURE, generatedClientDocs, { recursive: true });
+for (const example of generatedClientExamples()) {
+  const target = join(generatedClientDocs, example.file);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, example.source);
+}
+mkdirSync(join(generatedClientDocs, 'generated'), { recursive: true });
+cpSync(
+  join(ROOT, 'fixtures', 'consumer-http-client', 'generated', 'http-client.generated.ts'),
+  join(generatedClientDocs, 'generated', 'http-client.generated.ts'),
+);
+cpSync(HTTP_CLIENT_DOCS_TSCONFIG, join(generatedClientDocs, 'tsconfig.json'));
+console.log('Typechecking every generated-client example against packed declarations...');
+const generatedClientDocsTsc = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig.json'], {
+  cwd: generatedClientDocs,
+  stdio: 'inherit',
+});
+if (generatedClientDocsTsc.status !== 0) {
+  fail('a generated-client documentation example does not typecheck against packed declarations');
+}
 
 // The one-install product fixture remains an expected-failure runtime journey
 // until #620–#623 land, but its external-package boundary is already part of

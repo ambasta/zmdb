@@ -19,8 +19,8 @@ AI and MCP stay outside the umbrella: install provider-neutral `@zmdb/ai`, then 
 
 OpenTelemetry is also opt-in: install `@zmdb/otel` only when adapting caller-owned tracers and meters to the application observability ports.
 
-> The workspace publishes **15 packages** across **122 export-map entry points**. The current suite has **2,917 passing tests** across 261 files, plus **178 expected failures** that describe work
-> still to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 261 supported pages, 3 TODO
+> The workspace publishes **15 packages** across **122 export-map entry points**. The current suite has **2,921 passing tests** across 262 files, plus **178 expected failures** that describe work
+> still to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO
 > pages, and 13 pages for features we do not plan to add.
 
 ## Quick Start
@@ -71,6 +71,14 @@ const page = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
 [AOT setup](https://ambasta.github.io/zmdb/docs/aot-setup.html). Calling untransformed code fails with a clear error instead of returning an empty schema.
 
 You can also install individual packages or subclass `BaseRepository`. The [full quick start](https://ambasta.github.io/zmdb/docs/quick-start.html) covers both approaches.
+
+## One HTTP contract, two public artifacts
+
+An explicit `@zmdb/web/contract` declaration drives runtime routing, OpenAPI, and generated client code. `npx zmdb client generate` emits OpenAPI JSON and a typed TypeScript client as sibling outputs;
+`--check` rejects stale committed bytes and `--watch` follows the compiled contract dependency set.
+
+The generated module imports only the dependency-free `@zmdb/client` runtime, accepts caller-supplied authentication and cancellation, and runs in browser or Node bundles. The
+[generated-client guide](https://ambasta.github.io/zmdb/docs/generated-client.html) covers the complete journey and the separate low-level manual `@zmdb/client` path.
 
 ## Documentation
 
