@@ -66,6 +66,7 @@ function recordingTransaction(): RecordingTransaction {
   const tx: TransactionContext = {
     execute: () => Promise.resolve([]),
     savepoint: fn => fn(tx),
+    repo: RepoClass => new RepoClass({ execute: () => Promise.resolve([]) }),
   };
   return {
     entered: () => entered,
