@@ -90,6 +90,9 @@ describe('WhereDTO + operator set (#179)', () => {
     expect(compileWhere<VectorItem, typeof vectorBuilder>(vectorBuilder, cosineWhere).compile()).toEqual({
       text: 'SELECT * FROM "vector_items" WHERE "embedding" <=> $1',
       parameters: ['[0.1,0.2,0.3]'],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 

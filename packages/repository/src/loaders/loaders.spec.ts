@@ -270,6 +270,9 @@ describe('request-scoped dataloaders (repository/SPEC.md 3d)', () => {
     expect(driver.calls[0]).toEqual({
       text: 'SELECT * FROM "memberships" WHERE "tenantId" = $1 AND "userId" = $2 OR "tenantId" = $3 AND "userId" = $4',
       parameters: ['acme', 1, 'globex', 2],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 

@@ -61,7 +61,7 @@ describe('full-text search compilation', () => {
 
   it('keeps telemetry absent from the default compiled query', () => {
     const q = ftsSelectFrom('customers', 'postgres').whereMatch('company_name', 'ltd').compile();
-    expect(Object.keys(q)).toEqual(['text', 'parameters']);
+    expect(Object.keys(q)).toEqual(['text', 'parameters', 'operation', 'isWrite', 'returnsRows']);
     expect(q.telemetry).toBeUndefined();
   });
 
