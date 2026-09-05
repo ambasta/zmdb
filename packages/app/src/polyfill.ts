@@ -22,3 +22,32 @@ if (carrier.metadata === undefined) {
     configurable: true,
   });
 }
+
+const nodeBuffer = globalThis.Buffer;
+
+if (!('toBase64' in Uint8Array.prototype) && nodeBuffer) {
+  Reflect.defineProperty(Uint8Array.prototype, 'toBase64', {
+    value(this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }) {
+      let result = nodeBuffer
+        .from(this.buffer, this.byteOffset, this.byteLength)
+        .toString(options?.alphabet === 'base64url' ? 'base64url' : 'base64');
+      if (options?.omitPadding) {
+        result = result.replace(/=+$/, '');
+      }
+      return result;
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
+if (!('fromBase64' in Uint8Array) && nodeBuffer) {
+  Reflect.defineProperty(Uint8Array, 'fromBase64', {
+    value(string: string, options?: { alphabet?: string }) {
+      const buf = nodeBuffer.from(string, options?.alphabet === 'base64url' ? 'base64url' : 'base64');
+      return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    },
+    writable: true,
+    configurable: true,
+  });
+}
