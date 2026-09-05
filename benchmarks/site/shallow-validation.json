@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "suite": "@zmdb/aot-validator populated-row shallow validation",
   "publicationStatus": "final",
-  "measuredAt": "2026-09-04T16:50:31.236Z",
-  "baseHead": "0fb44accf620aeff19cc8c14d5d4905b87ff11b5",
+  "measuredAt": "2026-09-05T12:21:44.647Z",
+  "baseHead": "235d4020aed84b0a0151635fc630d00a0bdb766f",
   "dirty": true,
   "inputs": {
     "algorithm": "sha256",
@@ -30,7 +30,7 @@
       },
       {
         "path": "benchmarks/scripts/generate-validation-model.mjs",
-        "sha256": "3e83bd155501f0fa950598c66e8661287b98207e45ecd611f0438b1522196533"
+        "sha256": "c0a46e84f78df6b988f70f2d766daa3b182506c75c974caf30e92d60aabfb092"
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",
@@ -39,18 +39,18 @@
     ]
   },
   "runtime": {
-    "node": "v26.8.1",
+    "node": "v22.22.3",
     "platform": "linux/x64",
-    "host": "lander",
-    "cpu": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
-    "logicalCpus": 16,
-    "totalMemoryBytes": 65044914176,
+    "host": "devbox",
+    "cpu": "Intel(R) Xeon(R) CPU @ 2.30GHz",
+    "logicalCpus": 4,
+    "totalMemoryBytes": 8345444352,
     "loadAverage": [
-      2.53,
-      4.09,
-      3.66
+      0.91,
+      0.4,
+      0.15
     ],
-    "cpuGovernor": "performance"
+    "cpuGovernor": null
   },
   "workload": {
     "row": "PopulatedOrderRow",
@@ -175,17 +175,17 @@
   "warmups": [
     {
       "mode": "full",
-      "iterations": 1050000,
-      "hotLoopMs": 500.8160789999994,
-      "wallMs": 501.103783,
-      "opsPerSec": 2096578.0533575907
+      "iterations": 360000,
+      "hotLoopMs": 510.3200610000001,
+      "wallMs": 511.09431499999994,
+      "opsPerSec": 705439.6397714805
     },
     {
       "mode": "shallow-depth-1",
-      "iterations": 49500000,
-      "hotLoopMs": 500.0875180000014,
-      "wallMs": 500.545029,
-      "opsPerSec": 98982674.46859144
+      "iterations": 12260000,
+      "hotLoopMs": 500.1534199999994,
+      "wallMs": 500.8796830000001,
+      "opsPerSec": 24512478.591069147
     }
   ],
   "samples": [
@@ -193,148 +193,148 @@
       "round": 1,
       "position": 1,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 288.42084,
-      "opsPerSec": 2180750.877779844,
-      "nsPerOp": 458.55765103168017
+      "iterations": 211632,
+      "accepted": 211632,
+      "totalMs": 280.22020499999985,
+      "opsPerSec": 755234.6198590503,
+      "nsPerOp": 1324.0918433885226
     },
     {
       "round": 1,
       "position": 2,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 303.7268980000001,
-      "opsPerSec": 97768104.16046849,
-      "nsPerOp": 10.228284659777003
+      "iterations": 7353744,
+      "accepted": 7353744,
+      "totalMs": 296.708126,
+      "opsPerSec": 24784437.484533202,
+      "nsPerOp": 40.34789979090923
     },
     {
       "round": 2,
       "position": 1,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 295.190116,
-      "opsPerSec": 100595519.26189832,
-      "nsPerOp": 9.940800617535668
+      "iterations": 7353744,
+      "accepted": 7353744,
+      "totalMs": 296.600414,
+      "opsPerSec": 24793438.08333322,
+      "nsPerOp": 40.333252558152694
     },
     {
       "round": 2,
       "position": 2,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 280.14021200000025,
-      "opsPerSec": 2245211.4086356135,
-      "nsPerOp": 445.39235644080713
+      "iterations": 211632,
+      "accepted": 211632,
+      "totalMs": 283.22763999999984,
+      "opsPerSec": 747215.2082332082,
+      "nsPerOp": 1338.3025251379745
     },
     {
       "round": 3,
       "position": 1,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 287.060743,
-      "opsPerSec": 2191083.2997460747,
-      "nsPerOp": 456.3952452724596
+      "iterations": 211632,
+      "accepted": 211632,
+      "totalMs": 280.4977319999998,
+      "opsPerSec": 754487.3838766017,
+      "nsPerOp": 1325.4032093445217
     },
     {
       "round": 3,
       "position": 2,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 296.9604549999999,
-      "opsPerSec": 99995815.94121684,
-      "nsPerOp": 10.000418423385396
+      "iterations": 7353744,
+      "accepted": 7353744,
+      "totalMs": 297.07670499999995,
+      "opsPerSec": 24753687.772321295,
+      "nsPerOp": 40.39802106246831
     },
     {
       "round": 4,
       "position": 1,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 295.98594600000024,
-      "opsPerSec": 100325043.81137061,
-      "nsPerOp": 9.967600930034802
+      "iterations": 7353744,
+      "accepted": 7353744,
+      "totalMs": 297.45016899999973,
+      "opsPerSec": 24722608.24299618,
+      "nsPerOp": 40.44880662149781
     },
     {
       "round": 4,
       "position": 2,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 280.61895400000003,
-      "opsPerSec": 2241381.029451061,
-      "nsPerOp": 446.15350396041816
+      "iterations": 211632,
+      "accepted": 211632,
+      "totalMs": 280.5287559999997,
+      "opsPerSec": 754403.9442430644,
+      "nsPerOp": 1325.5498034323718
     },
     {
       "round": 5,
       "position": 1,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 283.76916500000016,
-      "opsPerSec": 2216498.751723076,
-      "nsPerOp": 451.1619955673846
+      "iterations": 211632,
+      "accepted": 211632,
+      "totalMs": 280.2371699999999,
+      "opsPerSec": 755188.8994596973,
+      "nsPerOp": 1324.172006123837
     },
     {
       "round": 5,
       "position": 2,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 293.8863970000002,
-      "opsPerSec": 101041774.31526366,
-      "nsPerOp": 9.896896672458148
+      "iterations": 7353744,
+      "accepted": 7353744,
+      "totalMs": 298.3684939999998,
+      "opsPerSec": 24646516.46497235,
+      "nsPerOp": 40.57368518675654
     },
     {
       "round": 6,
       "position": 1,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 290.8375769999998,
-      "opsPerSec": 102100984.70184967,
-      "nsPerOp": 9.79422483456111
+      "iterations": 7353744,
+      "accepted": 7353744,
+      "totalMs": 298.52498099999957,
+      "opsPerSec": 24633596.74411975,
+      "nsPerOp": 40.59496509533098
     },
     {
       "round": 6,
       "position": 2,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 279.8847689999993,
-      "opsPerSec": 2247260.550287399,
-      "nsPerOp": 444.9862299554502
+      "iterations": 211632,
+      "accepted": 211632,
+      "totalMs": 278.6307960000004,
+      "opsPerSec": 759542.7463086303,
+      "nsPerOp": 1316.581594465867
     }
   ],
   "summary": [
     {
       "mode": "full",
       "samples": 6,
-      "iterationsPerSample": 628974,
-      "medianNsPerOp": 448.6577497639014,
-      "medianOpsPerSec": 2228870.4486353644,
-      "minNsPerOp": 444.9862299554502,
-      "maxNsPerOp": 458.55765103168017,
-      "spreadMaxOverMin": 1.0304985191959506
+      "iterationsPerSample": 211632,
+      "medianNsPerOp": 1324.7876077341793,
+      "medianOpsPerSec": 754837.978678203,
+      "minNsPerOp": 1316.581594465867,
+      "maxNsPerOp": 1338.3025251379745,
+      "spreadMaxOverMin": 1.0164979753350718
     },
     {
       "mode": "shallow-depth-1",
       "samples": 6,
-      "iterationsPerSample": 29694803,
-      "medianNsPerOp": 9.954200773785235,
-      "medianOpsPerSec": 100460099.48217419,
-      "minNsPerOp": 9.79422483456111,
-      "maxNsPerOp": 10.228284659777003,
-      "spreadMaxOverMin": 1.0443179355740555
+      "iterationsPerSample": 7353744,
+      "medianNsPerOp": 40.42341384198306,
+      "medianOpsPerSec": 24738138.246043365,
+      "minNsPerOp": 40.333252558152694,
+      "maxNsPerOp": 40.59496509533098,
+      "spreadMaxOverMin": 1.0064887535861617
     }
   ],
   "comparison": {
-    "shallowVsFullSpeedup": 45.072202174729945,
-    "shallowTimeReductionPercent": 97.78133760555268
+    "shallowVsFullSpeedup": 32.7727789867732,
+    "shallowTimeReductionPercent": 96.9486872004245
   },
-  "sink": 2769124081
+  "sink": 1178127534
 }
