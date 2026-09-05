@@ -23,11 +23,12 @@ if (carrier.metadata === undefined) {
   });
 }
 
-const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-const BASE64URL_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-
 interface Uint8ArrayWithBase64 {
   toBase64?: (options?: { alphabet?: 'base64' | 'base64url'; omitPadding?: boolean }) => string;
+}
+
+interface Uint8ArrayCtorWithBase64 {
+  fromBase64?: (string: string, options?: { alphabet?: 'base64' | 'base64url' }) => Uint8Array;
 }
 
 const uint8ArrayProto: Uint8ArrayWithBase64 = Uint8Array.prototype;
@@ -37,6 +38,15 @@ if (typeof uint8ArrayProto.toBase64 !== 'function') {
     options?: { alphabet?: 'base64' | 'base64url'; omitPadding?: boolean },
   ): string {
     const alphabet = options?.alphabet === 'base64url' ? 'base64url' : 'base64';
+    if (typeof Buffer !== 'undefined') {
+      let str = Buffer.from(this.buffer, this.byteOffset, this.byteLength).toString(alphabet);
+      if (options?.omitPadding) {
+        str = str.replace(/=+$/, '');
+      }
+      return str;
+    }
+    const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const BASE64URL_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
     const omitPadding = options?.omitPadding ?? false;
     const chars = alphabet === 'base64url' ? BASE64URL_CHARS : BASE64_CHARS;
     let result = '';
@@ -69,5 +79,23 @@ if (typeof uint8ArrayProto.toBase64 !== 'function') {
       }
     }
     return result;
+  };
+}
+
+const uint8ArrayCtor: Uint8ArrayCtorWithBase64 = Uint8Array;
+if (typeof uint8ArrayCtor.fromBase64 !== 'function') {
+  uint8ArrayCtor.fromBase64 = function (string: string, options?: { alphabet?: 'base64' | 'base64url' }): Uint8Array {
+    const alphabet = options?.alphabet === 'base64url' ? 'base64url' : 'base64';
+    if (typeof Buffer !== 'undefined') {
+      const buf = Buffer.from(string, alphabet);
+      return new Uint8Array(buf);
+    }
+    const base64 = alphabet === 'base64url' ? string.replace(/-/g, '+').replace(/_/g, '/') : string;
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
   };
 }

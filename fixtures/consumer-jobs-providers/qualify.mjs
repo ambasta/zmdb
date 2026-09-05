@@ -143,15 +143,16 @@ async function packClosure(roots) {
     const packedInfo = JSON.parse(packedResult.stdout);
     assert.deepEqual(Object.keys(packedInfo), [manifest.name]);
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
-    packageIntegrities.set(
-      manifest.name,
-      `sha512-${new Uint8Array(
-        await globalThis.crypto.subtle.digest(
-          'SHA-512',
-          await readFile(join(tarballs, packedInfo[manifest.name].filename)),
-        ),
-      ).toBase64()}`,
+    const sha512 = new Uint8Array(
+      await globalThis.crypto.subtle.digest(
+        'SHA-512',
+        await readFile(join(tarballs, packedInfo[manifest.name].filename)),
+      ),
     );
+    const b64 = typeof sha512.toBase64 === 'function'
+      ? sha512.toBase64()
+      : globalThis.btoa(Array.from(sha512, b => String.fromCharCode(b)).join(''));
+    packageIntegrities.set(manifest.name, `sha512-${b64}`);
   }
   return packed;
 }
@@ -332,7 +333,12 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => ({
       name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
+      sha256: await (async () => {
+        const bytes = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
+        return typeof bytes.toHex === 'function'
+          ? bytes.toHex()
+          : Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+      })(),
     })),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
