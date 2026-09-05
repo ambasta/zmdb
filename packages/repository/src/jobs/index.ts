@@ -1,4 +1,4 @@
-// Durable row declarations for @zmdb/web/queues.
+// Durable row declarations for @zmdb/jobs.
 //
 // The worker owns the state machine; repository owns the schema vocabulary
 // because table declarations and their generated migrations belong here.

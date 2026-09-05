@@ -1,4 +1,4 @@
-// @zmdb/web/queues/backends/memory — supported ephemeral queue storage for tests.
+// @zmdb/jobs/memory — supported ephemeral queue storage for tests and local execution.
 import { DatabaseSync } from 'node:sqlite';
 
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
@@ -42,8 +42,8 @@ export interface MemoryJobStore extends JobStore, Disposable {
  * Create an ephemeral queue backend with the durable queue schema already installed.
  *
  * The store is intentionally process-local and non-persistent. Use it for tests and
- * local execution; production persistence belongs on a durable JobStore such as the
- * optional `pg` adapter.
+ * local execution; production persistence belongs on a separately installed durable
+ * JobStore implementation.
  */
 export function createMemoryJobStore(): MemoryJobStore {
   const database = new DatabaseSync(':memory:');

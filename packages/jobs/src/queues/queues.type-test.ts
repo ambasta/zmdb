@@ -1,10 +1,7 @@
-// Compile-time half of #587/#588. Assertions stay against the shipped surface.
-import type { Client, Pool, PoolClient } from 'pg';
-
-import { createMemoryJobStore } from './backends/memory.js';
-import { createPgJobStore } from './backends/pg.js';
-import { createQueue } from './index.js';
-import type { AnyJobHandler, Backoff, Clock, JobHandler, JobStore } from './index.js';
+// Compile-time half of #587/#588. Assertions stay against the shipped package boundary.
+import { createQueue } from '@zmdb/jobs';
+import type { AnyJobHandler, Backoff, Clock, JobHandler, JobStore } from '@zmdb/jobs';
+import { createMemoryJobStore } from '@zmdb/jobs/memory';
 
 type Jobs = {
   readonly 'post.notify': { readonly postId: string };
@@ -13,17 +10,9 @@ type Jobs = {
 
 declare const store: JobStore;
 declare const clock: Clock;
-declare const pool: Pool;
-declare const poolClient: PoolClient;
-declare const client: Client;
 const queue = createQueue<Jobs>({ store, clock });
 
 export const memoryStore: JobStore = createMemoryJobStore();
-export const poolStore: JobStore = createPgJobStore(pool);
-export const poolClientStore: JobStore = createPgJobStore(poolClient);
-export const clientStore: JobStore = createPgJobStore(client, { prepared: true, maxCacheSize: 32 });
-// @ts-expect-error - the pg adapter requires a node-postgres client rather than an arbitrary JobStore.
-export const notPg = createPgJobStore(store);
 
 export function disposableMemoryStore(): void {
   using memory = createMemoryJobStore();

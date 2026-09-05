@@ -22,9 +22,9 @@ The package root contains the common HTTP APIs. Feature-specific entry points in
 client modules whose runtime imports are limited to `@zmdb/client`. `zmdb client generate` projects the same compiled IR into sibling OpenAPI and client artifacts; it does not derive one from the
 other.
 
-During the server-package migration, the concrete Redis, NATS, RabbitMQ, and gRPC adapters retain their named `/microservices/*` entry points, while queues and scheduling retain `/queues` and
-`/schedule`. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`; there is no `@zmdb/web/microservices` forwarding entry. Queue backends are
-published under `/queues/backends`.
+During the server-package migration, the concrete Redis, NATS, RabbitMQ, and gRPC adapters retain their named `/microservices/*` entry points. The transport-neutral strategy, dispatcher, decorators,
+and typed clients live at `@zmdb/app/messaging`; there is no `@zmdb/web/microservices` forwarding entry. Queues, workers, scheduling, leases, and the SQLite memory backend live in `@zmdb/jobs`; the
+removed web paths do not forward.
 
 Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install
 `@zmdb/otel` separately to adapt caller-owned `@opentelemetry/api` tracers and meters; web has no OpenTelemetry peer or forwarding subpath.

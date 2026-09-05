@@ -52,10 +52,6 @@
     "./microservices/redis": "./src/microservices/redis/index.ts",
     "./microservices/nats": "./src/microservices/nats/index.ts",
     "./microservices/rabbitmq": "./src/microservices/rabbitmq/index.ts",
-    "./queues": "./src/queues/index.ts",
-    "./queues/backends/memory": "./src/queues/backends/memory.ts",
-    "./queues/backends/pg": "./src/queues/backends/pg.ts",
-    "./schedule": "./src/schedule/index.ts",
     "./testing": "./src/testing/index.ts",
     "./bench": "./src/bench/index.ts",
     "./devtools": "./src/devtools/index.ts"
@@ -72,17 +68,14 @@
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
     "@grpc/grpc-js": "1.14.4",
     "@nats-io/transport-node": "3.4.0",
-    "@types/pg": "^8.23.1",
     "@zmdb/ai": "workspace:^",
     "@zmdb/protobuf": "workspace:^",
     "amqplib": "2.0.1",
-    "pg": "8.23.0",
     "redis": "6.2.1",
     "typescript": "7.0.2"
   },
@@ -90,7 +83,6 @@
     "@grpc/grpc-js": "^1.14.0",
     "@nats-io/transport-node": "^3.4.0",
     "amqplib": "^2.0.1",
-    "pg": "^8.23.0",
     "redis": "^6.2.1",
     "typescript": ">=7.0.0"
   },
@@ -102,9 +94,6 @@
       "optional": true
     },
     "amqplib": {
-      "optional": true
-    },
-    "pg": {
       "optional": true
     },
     "redis": {

@@ -1,4 +1,4 @@
-# `@zmdb/web` — cron and interval scheduling SPEC
+# `@zmdb/jobs/schedule` — cron and interval scheduling SPEC
 
 > A cron dialect whose five-field form means exactly what `crontab` means, a scheduler whose state is an absolute instant so that DST is a conversion rule rather than two special cases, and `runs` as
 > a required per-task decision because no default is safe for both a cache warmer and a billing run (epic #585, sub-issue #586). Frozen before code.
@@ -78,7 +78,7 @@ export interface SchedulerOptions {
 
 export interface Scheduler {
   start(): void;
-  onShutdown(): Promise<void>;
+  onShutdown(options?: { readonly graceMs: number }): Promise<void>;
   /** Fire every task whose instant falls at or before `now`, for tests. §10 item 1. */
   tick(now: number): Promise<void>;
 }
@@ -94,8 +94,8 @@ Everything above compiles under the project's settings, and each negative assert
 the decorator with 2 arguments, but the decorator expects 3"_ — and **TS1270**, _"Decorator function return type 'void | TypedPropertyDescriptor<unknown>' is not assignable to type 'void | (() =>
 Promise<void>)'"_. Both verified by compiling the sketch as written. `emitDecoratorMetadata` is `false` on the line above, so there is no reflection to fall back on either; the seam is §9's.
 
-The stage-3 signature is not merely the one that compiles. `../routing/index.ts:84` types its target as `(...args: never[]) => unknown`, which accepts every function, and it has to — a route handler
-receives a `Ctx`.
+The stage-3 signature is not merely the one that compiles. `../../../web/src/routing/index.ts` types its target as `(...args: never[]) => unknown`, which accepts every function, and it has to — a
+route handler receives a `Ctx`.
 
 **A scheduled method receives nothing**, because there is no caller with anything to pass, so narrowing the target to `ScheduledMethod` makes `@Cron('0 0 3 * * *') nightly(when: Date)` a compile error
 at the application site.
@@ -142,8 +142,8 @@ registration error, exactly as a duplicate route is.
 ### 2.6 `Clock` is declared once, in the queues module
 
 `Clock` (`now()`, `sleep(ms, signal)`) is `../queues/SPEC.md` §2's and is imported here rather than redeclared. Two clock interfaces in one package would be two settable-clock seams for tests to
-install, and a test that advances one while the other reads `Date.now()` is a flake that looks like a scheduling bug. There are currently **zero** uses of `Date.now`, `setTimeout` or `setInterval`
-anywhere in `packages/web/src`, so this introduces the package's first time dependency and it gets exactly one door.
+install, and a test that advances one while the other reads `Date.now()` is a flake that looks like a scheduling bug. Queue polling and scheduler timing therefore enter through the same jobs-owned
+clock seam.
 
 ### 2.7 What the sketch omits
 
@@ -160,7 +160,7 @@ Silence is the default failure mode of this entire module, so the field that bre
 for a billing run. `'once-per-cluster'` is correct for the billing run and wrong for the cache warmer, which must run on every replica because each has its own cache. A framework that guessed would be
 wrong half the time, silently, and in one direction the wrongness is a duplicated charge.
 
-This is `../health/SPEC.md` §4's reasoning applied to a different field: `timeoutMs` is required there because "the correct value is a property of the dependency".
+This is `../../../web/src/health/SPEC.md` §4's reasoning applied to a different field: `timeoutMs` is required there because "the correct value is a property of the dependency".
 
 `../queues/SPEC.md` §2.4 makes the opposite choice for its timeouts. The two rules share one principle: **require a value when no default is safe, and supply a default when omission is itself
 dangerous.** A missing job timeout creates a job that may never drain; a missing `runs` leaves an application decision unmade.
@@ -249,8 +249,8 @@ reconciliation rather than in a log.
 double run, so the framework would be causing, through a timezone rule, the exact failure its coordination advertises protection against. A rule that can only be wrong in one direction should be wrong
 in the direction that fires once.
 
-`@Interval` has no `timeZone`, because a fixed duration has no local wall clock to be ambiguous about. Passing one is a registration error rather than being ignored, on `../versioning/SPEC.md` §8 item
-9's principle: an option that silently does nothing is worse than one that refuses.
+`@Interval` has no `timeZone`, because a fixed duration has no local wall clock to be ambiguous about. Passing one is a registration error rather than being ignored, on
+`../../../web/src/versioning/SPEC.md` §8 item 9's principle: an option that silently does nothing is worse than one that refuses.
 
 ## 6. The timer is never `setInterval`, and the drift is bounded
 
@@ -294,9 +294,9 @@ entire scheduler until the lease expires. Per-task leases spread tasks across re
 The same argument disposes of the page's other rows: a Redis `SETNX` lock is a second datastore for a feature the database can hold, and a "designated leader replica" is a configuration value that is
 wrong during every rolling deploy.
 
-**A `LeaseStore` port, not an import.** Declared structurally so `@zmdb/web` gains no dependency — the construction `../observability/SPEC.md` §2 uses for `Tracer` and `../queues/SPEC.md` §3 uses for
-`JobStore`, and for directive 7. The SQL implementation and its one-row-per-task table land in `@zmdb/repository` for the reason queues §3 gives: DDL and the builders are not in this package, and
-`packages/web/package.json` does not depend on `@zmdb/query-compiler`. **This is a correction to #586's `Files` list**, which names only the two `SPEC.md` files.
+**A `LeaseStore` port, not a backend import.** It is declared structurally for the same reason `../queues/SPEC.md` §3 declares `JobStore` structurally: the scheduler does not select a database client
+or own a durable lease schema. Applications and optional adapters provide the three lease operations, while deterministic tests can provide an in-memory implementation. The queue implementation's
+query-compiler dependency does not create a scheduling-backend dependency.
 
 **The limitation, which the epic asks for by name.** A lease bounds at-most-one _starter_, not at-most-one _runner_. A replica that stalls past its renewal — a long GC pause, a suspended VM — can
 still be inside the task body when another replica acquires the lease and starts it.
@@ -337,9 +337,8 @@ durability question is answered once, in the module that exists to answer it. A 
 
 ## 9. Discovery, registration, and the drain
 
-The metadata seam mirrors `../routing/index.ts` exactly, because a second pattern for the same problem is a second thing to learn: a module-private `SCHEDULES` symbol on `Symbol.metadata`
-(`../routing/index.ts:28-29`), one boundary function that narrows the `unknown` metadata slot in the one enumerated place a cast is allowed under directive 5 (`routingView`, `:45-47`), and a reader
-`schedulesOf` in the shape of `getRoutes` (`:106-122`).
+The metadata seam mirrors `../../../web/src/routing/index.ts`: a module-private `SCHEDULES` symbol on `Symbol.metadata`, one boundary function that narrows the metadata slot, and a `schedulesOf`
+reader in the shape of `getRoutes`.
 
 Registration is `createScheduler({ tasks: [instances] })` — instances the container already built, never a filesystem scan and never a module-load side effect, per the epic's §2.7 constraint that "two
 apps in one process must not share them, and nothing registers itself at module load".
@@ -357,9 +356,9 @@ scheduled during that minute simply does not run — reported as `'missed'` (§8
 
 The release is a best-effort write and a failed one is not an error, because the lease expires anyway.
 
-`graceMs` is a construction option for the reason `../queues/SPEC.md` §9 spells out at length: `../lifecycle.ts:49-54` awaits each `onShutdown` indefinitely and in sequence, and `createApp` invokes it
-from `[Symbol.asyncDispose]()` over its construction ledger, which takes no arguments and so cannot carry a deadline. A scheduler registered as a value provider, or returned by a factory that was
-actually resolved, enters that ledger and is drained; an unresolved factory is never constructed for shutdown.
+`graceMs` remains a construction option for standalone use. `scheduler.onShutdown({ graceMs })` caps it for an owner with a stricter deadline, including zero for immediate abort and lease release. For
+an application, `jobsExtension({ schedulers })` starts explicit scheduler instances after workers and stops them before workers under the one remaining `ApplicationExtension.stop({ graceMs })` budget.
+The extension does not discover scheduled providers from the app graph and does not create a global registry.
 
 ## 10. What #587 has to assert
 
@@ -390,12 +389,10 @@ actually resolved, enters that ledger and is drained; an unresolved factory is n
 ## 11. Follow-ups this issue does not have to make
 
 **No `tests/api-coverage/mapping.mjs` edit is needed.** That file has no cron, schedule or scheduler entries and `tests/api-coverage/inventory.mjs` has no corresponding upstream suite, so there is no
-out-of-scope row this freeze invalidates — unlike `../versioning/SPEC.md` §1, whose freeze does require rewriting a committed argument there. Worth stating because a reader who has been through the
-versioning epic will look for one.
+out-of-scope row this freeze invalidates — unlike `../../../web/src/versioning/SPEC.md` §1, whose freeze does require rewriting a committed argument there. Worth stating because a reader who has been
+through the versioning epic will look for one.
 
-Before #589, `docs-site/pages.mjs` carried `note: 'no @Cron/@Interval decorators or scheduler registry'`. The implementation changes that note to name the shipped surface and #590, with `status`
-unchanged until the epic's docs pass. `web-task-scheduling.md` also contained code the repository's own lint bans — `Buffer.from` and `timingSafeEqual` from the restricted `node:crypto` — and the
-freeze corrected that rather than presenting a lint violation as the pattern to copy.
+Before #589, `docs-site/pages.mjs` carried `note: 'no @Cron/@Interval decorators or scheduler registry'`. The supported page now names the shipped `@zmdb/jobs/schedule` surface and `jobsExtension`.
 
 ## Non-goals (rejected)
 
@@ -421,7 +418,12 @@ freeze corrected that rather than presenting a lint violation as the pattern to 
 
 ## Package ownership amendment (#645)
 
-The complete cron/interval/lease contract moves to `@zmdb/jobs/schedule`. Its shared `Clock` remains the one declared by the jobs root. Scheduler shutdown continues to participate structurally in the
-app lifecycle without creating an `app -> jobs` edge.
+The complete cron/interval/lease contract is owned by `@zmdb/jobs/schedule`. Its shared `Clock` remains the one declared by the jobs root. Scheduler shutdown participates through the jobs-owned app
+extension without creating an `app -> jobs` edge.
 
 The old `@zmdb/web/schedule` entry and source are deleted rather than forwarded.
+
+## Lifecycle amendment (#650)
+
+`Scheduler.onShutdown(options?: { readonly graceMs: number })` uses the smaller of the scheduler's configured grace and the supplied cap. `jobsExtension` is the app-owned start/stop boundary: workers
+start before schedulers, schedulers stop before workers, and one deadline is shared across every participant.

@@ -1,11 +1,10 @@
 import { createToken, Inject } from '@zmdb/app/di';
 import { compileModule, Module } from '@zmdb/app/modules';
+import { createQueue, createWorker, type Clock, type DeadJob, type JobHandler, type WorkerOptions } from '@zmdb/jobs';
+import { createMemoryJobStore, type MemoryJobStore } from '@zmdb/jobs/memory';
 // Runtime contract for #587/#588, against queues/SPEC.md. Every assertion reaches the
 // shipped worker through the supported in-memory backend and fake clock.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { createMemoryJobStore, type MemoryJobStore } from './backends/memory.js';
-import { createQueue, createWorker, type Clock, type DeadJob, type JobHandler, type WorkerOptions } from './index.js';
 
 type Jobs = {
   readonly 'email.send': { readonly id: number };
@@ -425,12 +424,12 @@ describe('queue worker (#587 tests freeze)', () => {
         store,
         clock,
         handler(() => never),
-        { graceMs: 100, leaseMs: 30_000 },
+        { graceMs: 1000, leaseMs: 30_000 },
       ),
     );
     void worker.runOnce();
     await flush();
-    const shutdown = worker.onShutdown();
+    const shutdown = worker.onShutdown({ graceMs: 100 });
     clock.advance(100);
     await shutdown;
     const stored = row(store, 'stuck');

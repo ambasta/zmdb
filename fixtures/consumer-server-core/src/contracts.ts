@@ -10,7 +10,7 @@ import { createMessageDispatcher } from '@zmdb/app/messaging';
 import { Module } from '@zmdb/app/modules';
 import { SpanKind } from '@zmdb/app/observability';
 import { defineState } from '@zmdb/app/state';
-import { createQueue } from '@zmdb/jobs';
+import { createQueue, jobsExtension } from '@zmdb/jobs';
 import { createMemoryJobStore } from '@zmdb/jobs/memory';
 import { createScheduler } from '@zmdb/jobs/schedule';
 import { Controller } from '@zmdb/web';
@@ -96,6 +96,7 @@ void [
   SpanKind,
   defineState,
   createQueue,
+  jobsExtension,
   createMemoryJobStore,
   createScheduler,
   Controller,

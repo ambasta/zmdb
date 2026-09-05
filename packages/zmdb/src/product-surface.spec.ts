@@ -165,8 +165,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
   it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
     const report = await catalogReport();
     expect(report.membershipProblems).toEqual([]);
-    expect(report.rows).toHaveLength(16);
-    expect(report.manifests.size).toBe(16);
+    expect(report.rows).toHaveLength(17);
+    expect(report.manifests.size).toBe(17);
 
     const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
     const staleManifests = new Map(report.manifests);
@@ -202,6 +202,7 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const report = await catalogReport();
     expect(report.generatedProblems).toEqual([]);
     expect(report.packageReferenceBytes).toContain('@zmdb/schema-core');
+    expect(report.packageReferenceBytes).toContain('npm add @zmdb/jobs@1.0.0-alpha.4');
     expect(report.packageReferenceBytes).toMatch(/\|\s+zmdb\s+\|/);
     expect(handwrittenInventoryProblems(ROOT, PRODUCT_CATALOG)).toEqual([]);
 
@@ -224,8 +225,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
 
     expect(report.problems).toEqual([]);
-    expect(report.assignments).toHaveLength(16);
-    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(8);
+    expect(report.assignments).toHaveLength(17);
+    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(9);
     expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(8);
   });
 

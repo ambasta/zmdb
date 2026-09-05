@@ -1,6 +1,7 @@
 # `@zmdb/jobs-postgres` — node-postgres `JobStore` adapter
 
-> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #661 extracts the shipped `@zmdb/web/queues/backends/pg` adapter.
+> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #661 implements the separately installed adapter. Issue #650 removed the former
+> `@zmdb/web/queues/backends/pg` implementation and peer rather than retaining a forwarding bridge.
 
 ## 1. Boundary and exports
 

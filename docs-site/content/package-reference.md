@@ -30,6 +30,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/aot-validator  | 1.0.0-alpha.4 | validator | required                               | `npm add zmdb@1.0.0-alpha.4`               | Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.                                         | aot-setup              |
 | @zmdb/app            | 1.0.0-alpha.4 | app       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.                                          | web-app                |
 | @zmdb/client         | 1.0.0-alpha.4 | client    | integration: generated HTTP clients    | `npm add @zmdb/client@1.0.0-alpha.4`       | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                                                                | web-http-client        |
+| @zmdb/jobs           | 1.0.0-alpha.4 | jobs      | required                               | `npm add @zmdb/jobs@1.0.0-alpha.4`         | Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.                                                                                                    | web-queues             |
 | @zmdb/mcp            | 1.0.0-alpha.4 | mcp       | integration: Model Context Protocol    | `npm add @zmdb/mcp@1.0.0-alpha.4`          | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp                |
 | @zmdb/otel           | 1.0.0-alpha.4 | otel      | integration: OpenTelemetry             | `npm add @zmdb/otel@1.0.0-alpha.4`         | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability      |
 | @zmdb/protobuf       | 1.0.0-alpha.4 | protobuf  | integration: Protocol Buffers          | `npm add @zmdb/protobuf@1.0.0-alpha.4`     | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                           | protobuf-message       |
@@ -215,6 +216,27 @@ Dependency-free HTTP client runtime for generated and manually declared zmdb ope
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-http-client
+
+### `@zmdb/jobs`
+
+Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+  - `./memory` → `./src/queues/backends/memory.ts`
+  - `./schedule` → `./src/schedule/index.ts`
+- **Dependencies:**
+  - `@zmdb/app` → `workspace:^`
+  - `@zmdb/query-compiler` → `workspace:^`
+  - `@zmdb/repository` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:** None.
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/consumer-server-core
 
 ### `@zmdb/mcp`
 
@@ -461,11 +483,7 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
   - `./middleware` → `./src/middleware/index.ts`
   - `./openapi` → `./src/openapi/index.ts`
   - `./pipeline` → `./src/pipeline/index.ts`
-  - `./queues` → `./src/queues/index.ts`
-  - `./queues/backends/memory` → `./src/queues/backends/memory.ts`
-  - `./queues/backends/pg` → `./src/queues/backends/pg.ts`
   - `./routing` → `./src/routing/index.ts`
-  - `./schedule` → `./src/schedule/index.ts`
   - `./static` → `./src/static/index.ts`
   - `./testing` → `./src/testing/index.ts`
   - `./upload` → `./src/upload/index.ts`
@@ -474,14 +492,12 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
   - `@zmdb/aot-validator` → `workspace:^`
   - `@zmdb/app` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
-  - `@zmdb/repository` → `workspace:^`
   - `@zmdb/schema-core` → `workspace:^`
 - **Optional dependencies:** None.
 - **Optional peers:**
   - `@grpc/grpc-js` → `^1.14.0`
   - `@nats-io/transport-node` → `^3.4.0`
   - `amqplib` → `^2.0.1`
-  - `pg` → `^8.23.0`
   - `redis` → `^6.2.1`
   - `typescript` → `>=7.0.0`
 - **Required peers:** None.

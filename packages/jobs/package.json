@@ -1,0 +1,56 @@
+{
+  "name": "@zmdb/jobs",
+  "version": "1.0.0-alpha.4",
+  "description": "Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.",
+  "keywords": [
+    "cron",
+    "jobs",
+    "queue",
+    "scheduler",
+    "typescript",
+    "worker",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/jobs"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./memory": "./src/queues/backends/memory.ts",
+    "./schedule": "./src/schedule/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/app": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/repository": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

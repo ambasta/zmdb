@@ -135,7 +135,7 @@ await driver.execute({ text: `NOTIFY post_published, $1`, parameters: [String(id
 ```
 
 It is still lossy — a listener that is not connected misses it — so use it for invalidation, not for work that must happen. Work that must happen goes in the outbox or in a job row, both of which
-survive a listener being disconnected; the consumer half now ships as `createWorker` in `@zmdb/web/queues`, with its delivery contract recorded in `packages/web/src/queues/SPEC.md`.
+survive a listener being disconnected; the consumer half ships as `createWorker` in `@zmdb/jobs`, with its delivery contract recorded in `packages/jobs/src/queues/SPEC.md`.
 
 ## The shipped contract
 

@@ -190,7 +190,7 @@ function packageManifest(manifests, directory) {
   return manifests.get(directory)?.manifest ?? {};
 }
 
-function installCommand(row, manifest, productVersion) {
+function installCommand(row, manifest, productManifest) {
   const version = typeof manifest.version === 'string' ? manifest.version : 'missing';
   if (row.optionality?.kind === 'tooling') {
     return `npm add --save-dev ${String(manifest.name ?? row.npmName)}@${version}`;
@@ -198,7 +198,12 @@ function installCommand(row, manifest, productVersion) {
   if (row.optionality?.kind === 'integration') {
     return `npm add ${String(manifest.name ?? row.npmName)}@${version}`;
   }
-  return `npm add zmdb@${productVersion}`;
+  const productVersion = typeof productManifest.version === 'string' ? productManifest.version : 'missing';
+  const productDependencies = productManifest.dependencies ?? {};
+  if (row.npmName === 'zmdb' || Object.hasOwn(productDependencies, row.npmName)) {
+    return `npm add zmdb@${productVersion}`;
+  }
+  return `npm add ${String(manifest.name ?? row.npmName)}@${version}`;
 }
 
 export function renderPackageReferenceRows(rows, manifests) {
@@ -206,7 +211,6 @@ export function renderPackageReferenceRows(rows, manifests) {
     manifests,
     rows.find(row => row.npmName === 'zmdb')?.directory ?? 'packages/zmdb',
   );
-  const productVersion = typeof productManifest.version === 'string' ? productManifest.version : 'missing';
   const packages = [...rows]
     .toSorted((left, right) => left.npmName.localeCompare(right.npmName))
     .map(row => ({ row, manifest: packageManifest(manifests, row.directory) }));
@@ -218,7 +222,7 @@ export function renderPackageReferenceRows(rows, manifests) {
       manifest.version ?? 'missing',
       row.role,
       optionalityLabel(row.optionality),
-      `\`${installCommand(row, manifest, productVersion)}\``,
+      `\`${installCommand(row, manifest, productManifest)}\``,
       manifest.description ?? 'missing',
       row.docsOwner,
     ]),

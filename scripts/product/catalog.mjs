@@ -111,6 +111,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-http-client' },
   }),
   productPackage({
+    id: 'jobs',
+    directory: 'packages/jobs',
+    npmName: '@zmdb/jobs',
+    role: 'jobs',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'required' },
+    docsOwner: 'web-queues',
+    consumer: { fixture: 'fixtures/consumer-server-core' },
+  }),
+  productPackage({
     id: 'mcp',
     directory: 'packages/mcp',
     npmName: '@zmdb/mcp',

@@ -993,10 +993,12 @@ export const PAGE_META = {
   'web-task-scheduling': {
     title: 'Task Scheduling',
     status: 'supported',
+    note: 'implemented by @zmdb/jobs/schedule and integrated through jobsExtension',
   },
   'web-queues': {
     title: 'Queues',
     status: 'supported',
+    note: 'implemented by @zmdb/jobs with the built-in SQLite memory backend',
   },
   'web-versioning': {
     title: 'API Versioning',

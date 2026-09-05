@@ -12,6 +12,7 @@ import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURE = join(ROOT, 'fixtures', 'consumer-server-core');
 const PACKAGES_DIR = join(ROOT, 'packages');
+const JOBS_ROOTS = ['@zmdb/jobs'];
 const TARGET_ROOTS = ['@zmdb/app', '@zmdb/jobs', '@zmdb/web', 'zmdb'];
 const OPTIONAL_SERVER_PACKAGES = [
   '@zmdb/jobs-postgres',
@@ -71,6 +72,13 @@ export function inspectServerCoreFixture(fixture = FIXTURE) {
   if (tsconfig.compilerOptions?.skipLibCheck !== false) problems.push('fixture tsconfig must keep skipLibCheck=false');
   if (tsconfig.compilerOptions?.allowImportingTsExtensions !== false) {
     problems.push('fixture tsconfig must keep allowImportingTsExtensions=false');
+  }
+  const jobsTsconfig = JSON.parse(readFileSync(join(fixture, 'tsconfig.jobs.json'), 'utf8'));
+  if (jobsTsconfig.extends !== './tsconfig.consumer.json') {
+    problems.push('jobs fixture must extend tsconfig.consumer.json');
+  }
+  if (JSON.stringify(jobsTsconfig.include) !== JSON.stringify(['src/jobs-contracts.ts'])) {
+    problems.push('jobs fixture must include only src/jobs-contracts.ts');
   }
 
   for (const path of allFiles(fixture)) {
@@ -199,19 +207,54 @@ function installConsumer(tarballs, scratch) {
   return app;
 }
 
-function assertNoOptionalServerPackages(app, workspaceCount) {
+function assertNoOptionalServerPackages(app, workspaceCount, label = 'core') {
   const names = installedPackageNames(join(app, 'node_modules'));
   const forbidden = [...OPTIONAL_SERVER_PACKAGES, ...SERVER_PEERS].filter(name => names.has(name));
   if (forbidden.length > 0) throw new Error(`core install contains optional server packages or peers: ${forbidden}`);
   console.log(
-    `core install: ${String(workspaceCount)} workspace tarballs, ${String(names.size)} installed packages, 0 optional server packages or peers`,
+    `${label} install: ${String(workspaceCount)} workspace tarballs, ${String(names.size)} installed packages, 0 optional server packages or peers`,
   );
+}
+
+function assertWorkspaceClosure(app, expected) {
+  const names = installedPackageNames(join(app, 'node_modules'));
+  const observed = [...names].filter(name => name === 'zmdb' || name.startsWith('@zmdb/')).toSorted();
+  if (JSON.stringify(observed) !== JSON.stringify([...expected].toSorted())) {
+    throw new Error(`installed zmdb packages ${JSON.stringify(observed)}, expected ${JSON.stringify(expected)}`);
+  }
 }
 
 function verifyPlain(packages, scratch) {
   const names = workspaceClosure(packages, ['zmdb']);
   const app = installConsumer(packWorkspace(packages, names, scratch), scratch);
   assertNoOptionalServerPackages(app, names.length);
+}
+
+function verifyJobs(packages, scratch) {
+  const hygiene = inspectServerCoreFixture();
+  if (hygiene.length > 0) throw new Error(`server consumer fixture is invalid: ${hygiene.join('; ')}`);
+
+  const built = run('yarn', ['workspaces', 'foreach', '-R', '-t', '--from', '@zmdb/jobs', 'run', 'build'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  });
+  if (built.status !== 0) throw new Error('jobs dependency closure build failed before installed verification');
+
+  const names = workspaceClosure(packages, JOBS_ROOTS);
+  const app = installConsumer(packWorkspace(packages, names, scratch), scratch);
+  assertNoOptionalServerPackages(app, names.length, 'jobs');
+  assertWorkspaceClosure(app, names);
+
+  const typecheck = run(
+    join(ROOT, 'node_modules', '.bin', 'tsc'),
+    ['--noEmit', '-p', join(app, 'tsconfig.jobs.json'), '--typeRoots', join(ROOT, 'node_modules', '@types')],
+    { cwd: app },
+  );
+  if (typecheck.status !== 0) throw new Error(`installed jobs declarations failed: ${output(typecheck)}`);
+
+  const runtime = run(process.execPath, [join(app, 'src', 'jobs-runtime.mjs')], { cwd: app });
+  if (runtime.status !== 0) throw new Error(`installed jobs runtime failed: ${output(runtime)}`);
+  process.stdout.write(runtime.stdout);
 }
 
 function verifyTarget(packages, scratch) {
@@ -241,13 +284,14 @@ function verifyTarget(packages, scratch) {
 
 function main() {
   const mode = process.argv[2];
-  if (mode !== '--plain' && mode !== '--target') {
-    throw new Error('usage: verify-installed.mjs --plain|--target');
+  if (mode !== '--jobs' && mode !== '--plain' && mode !== '--target') {
+    throw new Error('usage: verify-installed.mjs --jobs|--plain|--target');
   }
   const scratch = mkdtempSync(join(tmpdir(), 'zmdb-server-core-'));
   try {
     const packages = workspacePackages();
-    if (mode === '--plain') verifyPlain(packages, scratch);
+    if (mode === '--jobs') verifyJobs(packages, scratch);
+    else if (mode === '--plain') verifyPlain(packages, scratch);
     else verifyTarget(packages, scratch);
   } finally {
     rmSync(scratch, { recursive: true, force: true });

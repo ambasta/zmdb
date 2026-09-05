@@ -100,7 +100,6 @@ export const CORE_SERVER_PACKAGES = [
     dependencies: {
       '@zmdb/aot-validator': 'workspace:^',
       '@zmdb/app': 'workspace:^',
-      '@zmdb/repository': 'workspace:^',
       '@zmdb/schema-core': 'workspace:^',
     },
     exports: [

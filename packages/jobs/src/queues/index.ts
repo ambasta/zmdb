@@ -1,4 +1,4 @@
-// @zmdb/web/queues — typed SQL-backed jobs, retries, dead letters and bounded drain.
+// @zmdb/jobs — typed SQL-backed jobs, retries, dead letters and bounded drain.
 //
 // The store is structural on purpose: a repository Driver or TransactionContext
 // satisfies it directly. Supported backend adapters live on opt-in subpaths so
@@ -106,7 +106,7 @@ export interface WorkerOptions<M> {
 export interface Worker {
   runOnce(): Promise<RunReport>;
   start(): void;
-  onShutdown(): Promise<void>;
+  onShutdown(options?: { readonly graceMs: number }): Promise<void>;
   listDead(opts: { readonly limit: number; readonly reason?: DeadReason }): Promise<readonly DeadJob[]>;
   replay(jobId: string): Promise<boolean>;
 }
@@ -428,8 +428,12 @@ class SqlWorker<M> implements Worker {
     });
   }
 
-  onShutdown(): Promise<void> {
-    this.#shutdown ??= this.#drain();
+  onShutdown(options?: { readonly graceMs: number }): Promise<void> {
+    if (this.#shutdown !== undefined) return this.#shutdown;
+    const cap = options?.graceMs;
+    if (cap !== undefined) duration('graceMs', cap, true);
+    const graceMs = Math.min(this.#graceMs, cap ?? this.#graceMs);
+    this.#shutdown = this.#drain(graceMs);
     return this.#shutdown;
   }
 
@@ -500,7 +504,7 @@ class SqlWorker<M> implements Worker {
     }
   }
 
-  async #drain(): Promise<void> {
+  async #drain(graceMs: number): Promise<void> {
     this.#stopping = true;
     this.#idleAbort?.abort();
     if (this.#claims.size > 0) {
@@ -511,15 +515,17 @@ class SqlWorker<M> implements Worker {
     const current = [...this.#inFlight.values()];
     if (current.length === 0) return;
 
-    const graceAbort = new AbortController();
-    const settled: Promise<'settled'> = Promise.allSettled(current).then(() => 'settled');
-    const grace: Promise<'elapsed' | 'settled'> = wait(this.#clock, this.#graceMs, graceAbort.signal).then(result =>
-      result === 'elapsed' ? 'elapsed' : 'settled',
-    );
-    const outcome = await Promise.race([settled, grace]);
-    if (outcome === 'settled') {
-      graceAbort.abort();
-      return;
+    if (graceMs > 0) {
+      const graceAbort = new AbortController();
+      const settled: Promise<'settled'> = Promise.allSettled(current).then(() => 'settled');
+      const grace: Promise<'elapsed' | 'settled'> = wait(this.#clock, graceMs, graceAbort.signal).then(result =>
+        result === 'elapsed' ? 'elapsed' : 'settled',
+      );
+      const outcome = await Promise.race([settled, grace]);
+      if (outcome === 'settled') {
+        graceAbort.abort();
+        return;
+      }
     }
 
     const unfinished = [...this.#active.values()];

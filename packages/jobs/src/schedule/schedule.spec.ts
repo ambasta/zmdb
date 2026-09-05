@@ -1,8 +1,4 @@
-// Runtime contract for schedule/SPEC.md. All time is explicit and all replicas
-// share the same controllable LeaseStore.
-import { describe, expect, it } from 'vitest';
-
-import type { Clock } from '../queues/index.js';
+import type { Clock } from '@zmdb/jobs';
 import {
   Cron,
   Interval,
@@ -12,7 +8,10 @@ import {
   type SchedulerOptions,
   type SkippedRun,
   type TaskDecorator,
-} from './index.js';
+} from '@zmdb/jobs/schedule';
+// Runtime contract for schedule/SPEC.md. All time is explicit and all replicas
+// share the same controllable LeaseStore.
+import { describe, expect, it } from 'vitest';
 
 class FakeClock implements Clock {
   #now: number;
@@ -530,12 +529,12 @@ describe('task scheduler (#587 tests freeze)', () => {
         secondRuns += 1;
       }
     }
-    const first = createScheduler(schedulerOptions(clock, [new First()], { leases, leaseMs: 3000, graceMs: 100 }));
+    const first = createScheduler(schedulerOptions(clock, [new First()], { leases, leaseMs: 3000, graceMs: 1000 }));
     const second = createScheduler(schedulerOptions(clock, [new Second()], { leases, leaseMs: 3000 }));
     const running = first.tick(clock.now());
     await flushMicrotasks();
     expect(leases.held.has('drain')).toBe(true);
-    const shutdown = first.onShutdown();
+    const shutdown = first.onShutdown({ graceMs: 100 });
     await flushMicrotasks();
     clock.advance(100);
     await shutdown;

@@ -1,12 +1,11 @@
 // Compile-only freeze for the app/web/jobs package split (#646).
 //
-// The target packages do not exist yet. The local declarations below transcribe
-// the exact shared lifecycle ABI from the #645 SPECs; the expected missing-module
-// diagnostics retire as soon as #647/#650 add the real package entries.
+// The local declarations below transcribe the exact shared lifecycle ABI from
+// the #645 SPECs. The direct app and jobs package imports are live; only #651's
+// product-facade diagnostics remain intentionally unresolved.
 
 import type { Application as AppPackageApplication } from '@zmdb/app';
-// @ts-expect-error #650 supplies the canonical jobs package
-import type { Worker as MissingJobsPackageWorker } from '@zmdb/jobs';
+import type { Worker as JobsPackageWorker } from '@zmdb/jobs';
 import type { Equal, Expect } from '@zmdb/schema-core';
 // @ts-expect-error #651 supplies the application facade
 import type { Application as MissingAppFacadeApplication } from 'zmdb/app';
@@ -108,7 +107,7 @@ export type _CreateAppParameters = Expect<
 export type _CreateAppReturn = Expect<Equal<ReturnType<FrozenCreateApp>, FrozenWebApplication>>;
 export type _MissingPackageRetirementTriggers = [
   AppPackageApplication,
-  MissingJobsPackageWorker,
+  JobsPackageWorker,
   MissingAppFacadeApplication,
   MissingJobsFacadeWorker,
 ];

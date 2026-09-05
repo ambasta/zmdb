@@ -154,7 +154,7 @@ describe('core server package boundaries (#646)', () => {
     expect(coreBoundaries().packageProblems.get('@zmdb/web')).toEqual([]);
   });
 
-  it.fails('keeps @zmdb/jobs free of HTTP and third-party peers', () => {
+  it('keeps @zmdb/jobs free of HTTP and third-party peers', () => {
     expect(coreBoundaries().packageProblems.get('@zmdb/jobs')).toEqual([]);
   });
 
@@ -204,7 +204,6 @@ describe('core server package boundaries (#646)', () => {
         dependencies: {
           '@zmdb/aot-validator': 'workspace:^',
           '@zmdb/app': 'workspace:^',
-          '@zmdb/repository': 'workspace:^',
           '@zmdb/schema-core': 'workspace:^',
         },
         exports: [
@@ -271,7 +270,7 @@ describe('core server package boundaries (#646)', () => {
     expect(result.status, result.stderr).toBe(0);
   });
 
-  it.fails.each([JOBS_SPECIFIER])('imports %s from its dedicated package', specifier => {
+  it.each([JOBS_SPECIFIER])('imports %s from its dedicated package', specifier => {
     const result = spawnSync(
       process.execPath,
       ['--import', TYPESCRIPT_HOOK, '--input-type=module', '--eval', `await import(${JSON.stringify(specifier)})`],

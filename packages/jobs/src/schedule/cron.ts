@@ -1,4 +1,4 @@
-// Cron parsing and zoned next-instant calculation for @zmdb/web/schedule.
+// Cron parsing and zoned next-instant calculation for @zmdb/jobs/schedule.
 //
 // Expressions are parsed once into numeric sets. Runtime state is always an
 // epoch-millisecond instant; local calendar fields exist only while calculating
@@ -131,7 +131,7 @@ export function createCronPlan(expression: string, timeZone: string, taskName: s
     }
 
     throw new RangeError(
-      `@zmdb/web: schedule "${taskName}" has no cron instant within ${String(MAX_SEARCH_DAYS)} days`,
+      `@zmdb/jobs: schedule "${taskName}" has no cron instant within ${String(MAX_SEARCH_DAYS)} days`,
     );
   };
 
@@ -265,7 +265,7 @@ function parseInteger(source: string, spec: FieldSpec, taskName: string, field: 
 }
 
 function cronError(taskName: string, field: string, source: string, detail: string): RangeError {
-  return new RangeError(`@zmdb/web: schedule "${taskName}" has invalid ${field} "${source}": ${detail}`);
+  return new RangeError(`@zmdb/jobs: schedule "${taskName}" has invalid ${field} "${source}": ${detail}`);
 }
 
 function createFormatter(timeZone: string, taskName: string): Intl.DateTimeFormat {
@@ -285,7 +285,7 @@ function createFormatter(timeZone: string, taskName: string): Intl.DateTimeForma
     formatter.formatToParts(new Date(0));
     return formatter;
   } catch {
-    throw new RangeError(`@zmdb/web: schedule "${taskName}" has unknown time zone "${timeZone}"`);
+    throw new RangeError(`@zmdb/jobs: schedule "${taskName}" has unknown time zone "${timeZone}"`);
   }
 }
 
@@ -306,7 +306,7 @@ function localParts(formatter: Intl.DateTimeFormat, instant: number): LocalParts
     else if (part.type === 'second') second = value;
   }
   if ([year, month, day, hour, minute, second].some(value => !Number.isFinite(value))) {
-    throw new Error('@zmdb/web: Intl.DateTimeFormat omitted a required calendar field');
+    throw new Error('@zmdb/jobs: Intl.DateTimeFormat omitted a required calendar field');
   }
   return { year, month, day, hour, minute, second };
 }

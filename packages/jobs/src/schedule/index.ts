@@ -1,4 +1,4 @@
-// @zmdb/web/schedule — app-owned cron and interval scheduling.
+// @zmdb/jobs/schedule — app-owned cron and interval scheduling.
 //
 // Decorators record declarations only. createScheduler receives the instances
 // one application constructed, parses every expression once, and owns all
@@ -58,7 +58,7 @@ export interface SchedulerOptions {
 
 export interface Scheduler {
   start(): void;
-  onShutdown(): Promise<void>;
+  onShutdown(options?: { readonly graceMs: number }): Promise<void>;
   tick(now: number): Promise<void>;
 }
 
@@ -108,7 +108,7 @@ interface ActiveRun {
 
 type InvocationSettlement = { readonly kind: 'resolved' } | { readonly kind: 'rejected'; readonly error: unknown };
 
-const SCHEDULES = Symbol('zmdb.web.schedules');
+const SCHEDULES = Symbol('zmdb.jobs.schedules');
 const DEFAULT_TIME_ZONE = 'UTC';
 const DEFAULT_TIMEOUT_MS = 300_000;
 const DEFAULT_LEASE_MS = 60_000;
@@ -176,7 +176,7 @@ export function Interval(everyMs: number, options: IntervalOptions): TaskDecorat
     const method = String(context.name);
     if ('timeZone' in options) {
       throw new RangeError(
-        `@zmdb/web: interval schedule "${options.name ?? method}" cannot set timeZone; intervals are durations`,
+        `@zmdb/jobs: interval schedule "${options.name ?? method}" cannot set timeZone; intervals are durations`,
       );
     }
     pushSchedule(context.metadata, {
@@ -203,7 +203,7 @@ export function createScheduler(options: SchedulerOptions): Scheduler {
     .filter(task => task.definition.runs === 'once-per-cluster')
     .map(task => task.definition.name);
   if (clusterTasks.length > 0 && options.leases === undefined) {
-    throw new Error(`@zmdb/web: once-per-cluster schedules require leases: ${clusterTasks.join(', ')}`);
+    throw new Error(`@zmdb/jobs: once-per-cluster schedules require leases: ${clusterTasks.join(', ')}`);
   }
   return new AppScheduler(options, tasks, leaseMs, graceMs);
 }
@@ -221,14 +221,14 @@ function normalizedSchedule(schedule: StoredSchedule, className: string): Schedu
   const fallbackClass = className.length === 0 ? '<anonymous>' : className;
   const name = schedule.name ?? `${fallbackClass}.${schedule.method}`;
   if (name.length === 0) {
-    throw new RangeError('@zmdb/web: a scheduled task name cannot be empty');
+    throw new RangeError('@zmdb/jobs: a scheduled task name cannot be empty');
   }
   const timeoutMs = duration(schedule.timeoutMs ?? DEFAULT_TIMEOUT_MS, `${name}.timeoutMs`);
   if (schedule.trigger.kind === 'interval') {
     const everyMs = duration(schedule.trigger.everyMs, `${name}.everyMs`);
     if (everyMs > MAX_TIMER_MS) {
       throw new RangeError(
-        `@zmdb/web: interval schedule "${name}" exceeds ${String(MAX_TIMER_MS)}ms; use @Cron for calendar time`,
+        `@zmdb/jobs: interval schedule "${name}" exceeds ${String(MAX_TIMER_MS)}ms; use @Cron for calendar time`,
       );
     }
     return {
@@ -252,14 +252,21 @@ function normalizedSchedule(schedule: StoredSchedule, className: string): Schedu
 
 function taskRuns(value: TaskRuns, name: string): TaskRuns {
   if (value !== 'once-per-replica' && value !== 'once-per-cluster') {
-    throw new RangeError(`@zmdb/web: schedule "${name}" has invalid runs value "${String(value)}"`);
+    throw new RangeError(`@zmdb/jobs: schedule "${name}" has invalid runs value "${String(value)}"`);
   }
   return value;
 }
 
 function duration(value: number, name: string): number {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new RangeError(`@zmdb/web: ${name} must be a positive integer`);
+    throw new RangeError(`@zmdb/jobs: ${name} must be a positive integer`);
+  }
+  return value;
+}
+
+function shutdownGrace(value: number): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new RangeError('@zmdb/jobs: graceMs must be a non-negative integer');
   }
   return value;
 }
@@ -272,12 +279,12 @@ function runtimeTasks(options: SchedulerOptions): RuntimeTask[] {
   for (const instance of options.tasks) {
     for (const definition of schedulesFor(instance.constructor, instance.constructor.name)) {
       if (names.has(definition.name)) {
-        throw new Error(`@zmdb/web: duplicate scheduled task name "${definition.name}"`);
+        throw new Error(`@zmdb/jobs: duplicate scheduled task name "${definition.name}"`);
       }
       names.add(definition.name);
       const value: unknown = Reflect.get(instance, definition.method);
       if (typeof value !== 'function') {
-        throw new Error(`@zmdb/web: scheduled method "${definition.name}" is not callable on its instance`);
+        throw new Error(`@zmdb/jobs: scheduled method "${definition.name}" is not callable on its instance`);
       }
       const invoke = async (): Promise<void> => {
         await Reflect.apply(value, instance, []);
@@ -349,10 +356,12 @@ class AppScheduler implements Scheduler {
     await Promise.all(this.#tasks.map(task => this.#tickTask(task, now)));
   }
 
-  onShutdown(): Promise<void> {
-    if (this.#shutdown === undefined) {
-      this.#shutdown = this.#stop();
-    }
+  onShutdown(options?: { readonly graceMs: number }): Promise<void> {
+    if (this.#shutdown !== undefined) return this.#shutdown;
+    const cap = options?.graceMs;
+    if (cap !== undefined) shutdownGrace(cap);
+    const graceMs = Math.min(this.#graceMs, cap ?? this.#graceMs);
+    this.#shutdown = this.#stop(graceMs);
     return this.#shutdown;
   }
 
@@ -463,7 +472,7 @@ class AppScheduler implements Scheduler {
             task,
             scheduledFor,
             new Error(
-              `@zmdb/web: scheduled task "${task.definition.name}" exceeded ${String(task.definition.timeoutMs)}ms`,
+              `@zmdb/jobs: scheduled task "${task.definition.name}" exceeded ${String(task.definition.timeoutMs)}ms`,
             ),
           );
         }
@@ -551,7 +560,7 @@ class AppScheduler implements Scheduler {
     this.#sleepController?.abort();
   }
 
-  async #stop(): Promise<void> {
+  async #stop(graceMs: number): Promise<void> {
     this.#stopped = true;
     this.#wake();
     await this.#loop;
@@ -561,20 +570,22 @@ class AppScheduler implements Scheduler {
       return;
     }
 
-    const graceController = new AbortController();
-    const settled = Promise.all(active.map(run => run.completion)).then(() => 'settled' as const);
-    const grace = this.#options.clock.sleep(this.#graceMs, graceController.signal).then(
-      () => 'expired' as const,
-      () => 'cancelled' as const,
-    );
-    const outcome = await Promise.race([settled, grace]);
-    if (outcome === 'settled') {
-      graceController.abort();
-      return;
+    if (graceMs > 0) {
+      const graceController = new AbortController();
+      const settled = Promise.all(active.map(run => run.completion)).then(() => 'settled' as const);
+      const grace = this.#options.clock.sleep(graceMs, graceController.signal).then(
+        () => 'expired' as const,
+        () => 'cancelled' as const,
+      );
+      const outcome = await Promise.race([settled, grace]);
+      if (outcome === 'settled') {
+        graceController.abort();
+        return;
+      }
     }
 
     for (const run of active) {
-      run.controller.abort(new Error('@zmdb/web: scheduler shutdown grace expired'));
+      run.controller.abort(new Error('@zmdb/jobs: scheduler shutdown grace expired'));
       await run.lease?.release();
     }
   }

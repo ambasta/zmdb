@@ -1,5 +1,5 @@
 // Compile-time half of #587, held against the shipped decorator signature.
-import { Cron, Interval } from './index.js';
+import { Cron, Interval } from '@zmdb/jobs/schedule';
 
 class ValidTasks {
   @Cron('0 0 3 * * *', { runs: 'once-per-cluster', timeZone: 'UTC' })

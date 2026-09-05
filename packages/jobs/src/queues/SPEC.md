@@ -1,13 +1,13 @@
-# `@zmdb/web` — job handlers, retry, drain and idempotency SPEC
+# `@zmdb/jobs` — job handlers, retry, drain and idempotency SPEC
 
-> At-least-once delivery with a supported exactly-once-_effect_ mechanism, a jittered backoff whose floor exists because the delay is a lease, a dead-letter path with a closed reason set, and a drain
-> whose bound lives inside `onShutdown` because `runShutdown` has none (epic #585, sub-issue #586). Frozen before code, then reconciled with live #588's explicit backend requirement before that issue
-> landed.
+> At-least-once delivery with a supported exactly-once-_effect_ mechanism, a jittered backoff whose floor exists because the delay is a lease, a dead-letter path with a closed reason set, and bounded
+> drain for both standalone workers and application-owned workers (epic #585, sub-issue #586). Frozen before code, reconciled with #588's explicit backend requirement, then amended for the #650
+> package and lifecycle boundary.
 
 `@Cron` and `@Interval`, the lease that keeps a scheduled task from running once per replica, and the cron dialect are `../schedule/SPEC.md`. The SQL that claims a row under a lease is already frozen
 in `../../../query-compiler/src/outbox/SPEC.md` and is not restated. This file is the worker: the handler contract, what happens on each of the five ways a job can end, and who owns idempotency.
 
-> **Ownership target frozen by #654:** #650 moves this queue/worker contract and the SQLite memory backend to `@zmdb/jobs`. The node-postgres adapter moves to `@zmdb/jobs-postgres`, whose only
+> **Ownership target frozen by #654:** #650 moved this queue/worker contract and the SQLite memory backend to `@zmdb/jobs`. The node-postgres adapter moves to `@zmdb/jobs-postgres`, whose only
 > required peer is `pg@^8.23.0`; it borrows a caller-owned pool/client and never closes it. `@zmdb/web/queues/backends/pg` is removed with no forwarding subpath.
 
 ## 1. Three of the four hard decisions are already frozen, and this file inherits them
@@ -126,7 +126,7 @@ export interface WorkerOptions<M> {
 export interface Worker {
   runOnce(): Promise<RunReport>;
   start(): void;
-  onShutdown(): Promise<void>;
+  onShutdown(options?: { readonly graceMs: number }): Promise<void>;
   listDead(opts: { readonly limit: number; readonly reason?: DeadReason }): Promise<readonly DeadJob[]>;
   replay(jobId: string): Promise<boolean>;
 }
@@ -157,9 +157,9 @@ Verified: a handler literal with `name: 'post.notify'` and `validate: (raw) => (
 each element is a handler for exactly one of them. That is the whole reason `AnyJobHandler` exists rather than being spelled inline, and it is the kind of hole a runtime test cannot find because both
 halves are individually correct.
 
-`validate` returning `M[K]` rather than `unknown` is a second, smaller tightening. `../pipeline/index.ts:39` types the route boundary as `validateBody?: (raw: unknown) => unknown`, which it has to,
-because `Ctx<P, B>`'s `B` is not knowable from a route registration. A job's is: the map says so. So the queue's validator seam is the pipeline's, one degree tighter, and a validator generated for the
-wrong type is a compile error rather than a cast.
+`validate` returning `M[K]` rather than `unknown` is a second, smaller tightening. `../../../web/src/pipeline/index.ts` types the route boundary as `validateBody?: (raw: unknown) => unknown`, which it
+has to, because `Ctx<P, B>`'s `B` is not knowable from a route registration. A job's is: the map says so. So the queue's validator seam is the pipeline's, one degree tighter, and a validator generated
+for the wrong type is a compile error rather than a cast.
 
 ### 2.2 `MethodDecorator` does not exist as a usable type here
 
@@ -172,8 +172,8 @@ but the decorator expects 3"_ and **TS1270**. Both verified. `../schedule/SPEC.m
 The sketch's `retries: { attempts; backoff: 'exponential' | 'fixed'; ceilingMs }` is missing the base delay, so `'exponential'` has no exponent base to multiply, and it carries `ceilingMs` on the
 `'fixed'` arm where there is nothing to cap. It also has no jitter, which step 2 mandates in the same breath.
 
-A discriminated union fixes all three at once and makes the asymmetry a compile error rather than a paragraph — the same move `../versioning/SPEC.md` §2 makes by putting `default` on two arms of
-`VersionStrategy` and not the third. §5 is the policy.
+A discriminated union fixes all three at once and makes the asymmetry a compile error rather than a paragraph — the same move `../../../web/src/versioning/SPEC.md` §2 makes by putting `default` on two
+arms of `VersionStrategy` and not the third. §5 is the policy.
 
 ### 2.4 Required `concurrency`, `timeoutMs` and `retries` contradict the epic's own constraint
 
@@ -184,7 +184,7 @@ cannot both be true. The resolution is that the numbers are **optional on the ha
 The lease must be strictly longer than the worker timeout and every handler override. A lease that expires first makes the same row claimable while its original handler is still within its advertised
 execution window. Equality is also refused because the claim predicate includes an expired lease at the current instant.
 
-This is the opposite of what `../health/SPEC.md` §4 decided for `ReadinessCheck.timeoutMs`, which is required with no default, and the asymmetry is real rather than an inconsistency.
+This is the opposite of what `../../../web/src/health/SPEC.md` §4 decided for `ReadinessCheck.timeoutMs`, which is required with no default, and the asymmetry is real rather than an inconsistency.
 
 A readiness timeout that is wrong in the short direction marks a healthy pod unready and gets it killed, so there is no safe value to guess; a job timeout that is wrong in the long direction only
 delays a drain and holds a slot, and §8 makes even that visible.
@@ -211,24 +211,20 @@ directly.
 
 The enqueue side, the worker loop, `listDead`, `replay` and the clock are absent from the sketch entirely and are §§3-9.
 
-## 3. The store is a port, with a supported memory backend and an optional `pg` adapter
+## 3. The store is a port, with a supported memory backend and an external PostgreSQL owner
 
-`JobStore` is declared locally and structurally, and takes no import. This is the same construction `../observability/SPEC.md` §2 uses for `Tracer` and for the same directive: zero required runtime
-dependencies. It happens to be cheap here because `packages/repository/src/index.ts:135` already types `withTransaction(tx: { execute: Driver['execute'] })` structurally, so a `TransactionContext`
-(`packages/repository/src/transactions/index.ts:8-12`) satisfies `JobStore` with no adapter, and so does a `Driver` (`packages/repository/src/index.ts:51-54`).
+`JobStore` is declared locally and structurally. A `TransactionContext` (`packages/repository/src/transactions/index.ts`) satisfies it with no adapter, and so does a repository `Driver`. The queue
+implementation itself depends on `@zmdb/query-compiler` for dialect-aware placeholders and identifier quoting, but consumers do not have to import or construct a compiler type to pass a store.
 
-The port is not decoration. `@zmdb/web`'s required dependencies are `@zmdb/aot-validator`, `@zmdb/repository` and `@zmdb/schema-core` — **not `@zmdb/query-compiler`** — and `CompiledQuery` is not
-re-exported from `@zmdb/repository`'s index, so naming that type here would mean adding a dependency merely to spell an argument. The structural form lets an existing repository `Driver` or
-transaction pass straight through.
+The port is not decoration. Naming a concrete repository driver would couple the jobs API to one construction path. The structural form lets an existing repository `Driver`, transaction, or a
+purpose-built adapter pass straight through while the package manifest declares only the dependencies the implementation actually loads.
 
 The original freeze then made a wrong inference: it treated that port as satisfying the epic's optional-backend constraint by itself. #588 corrected the shipped web package: its
 `packages/web/src/queues/backends/` had to contain a supported in-memory backend and one real adapter, with the adapter's client as an optional peer. #654 supersedes only that package placement: core
 jobs keeps memory storage and `@zmdb/jobs-postgres` makes `pg` required once that adapter is selected.
 
-The smallest adapter consistent with the SQL-shaped `JobStore` is node-postgres, not Redis. The shipped `createPgJobStore(poolOrClient)` delegates to the repository's measured `pgDriver`, so every
-query remains the same query and `dialect` is `postgres`. `pg` is currently an optional web peer and a type-only import in shipped code: the caller constructs and owns the `Pool`/`Client`, and
-importing `@zmdb/web/queues` neither loads `pg` nor opens a connection. The #654 target moves that behavior to `@zmdb/jobs-postgres`, removes the repository/web ownership edge and makes `pg` the
-selected adapter package's required peer.
+The smallest adapter consistent with the SQL-shaped `JobStore` is node-postgres, not Redis. #650 deletes the former web-owned adapter and its optional peer rather than copying or forwarding them.
+`@zmdb/jobs-postgres` is the separate contract that owns a future node-postgres implementation and makes `pg` the selected adapter package's required peer.
 
 `createMemoryJobStore()` is the other supported backend. It owns one isolated `node:sqlite` `:memory:` database, installs `zmdb_job`, `zmdb_job_done`, the unique enqueue-dedupe constraint and
 `zmdb_job_pending`, and exposes the database for deterministic test setup and assertions. It is explicitly ephemeral; a durable deployment still creates the declared repository rows through its
@@ -385,8 +381,8 @@ them as the thing "every application rewrites".
 
 ## 7. Consume-time validation, and the two version-skew outcomes
 
-The payload is validated **at consume**, per the epic's §2.3 citation, with a validator generated by `@zmdb/aot-validator` — the same `assert<T>`-shaped seam the route boundary uses at
-`../pipeline/index.ts:206-212`, and the reason the map in §2.1 is worth having is that the generated validator's output type is checked against the handler's parameter.
+The payload is validated **at consume**, per the epic's §2.3 citation, with a validator generated by `@zmdb/aot-validator` — the same `assert<T>`-shaped seam the route boundary uses in
+`../../../web/src/pipeline/index.ts`, and the reason the map in §2.1 is worth having is that the generated validator's output type is checked against the handler's parameter.
 
 **A payload that fails validation is `dead` on the first attempt, and no option changes that.** `../../../app/src/messaging/SPEC.md` §4 makes the argument and it transfers without weakening: the
 validator is deterministic and compiled ahead of time, so a payload that failed it will fail it again on every retry, forever. Retrying is not a gamble that might pay off. It is a guaranteed
@@ -420,7 +416,7 @@ So, on timeout, in order: abort `ctx.signal`; record the timeout through `onHand
 settles.**
 
 That last clause is the decision. Freeing the slot immediately is the obvious alternative and it destroys the only bound the worker has: `concurrency` would stop counting the work actually in flight,
-so a wedged dependency would produce an unbounded fan-out of abandoned handlers each holding a connection — the same failure `../health/SPEC.md` §4 fixes with in-flight coalescing.
+so a wedged dependency would produce an unbounded fan-out of abandoned handlers each holding a connection — the same failure `../../../web/src/health/SPEC.md` §4 fixes with in-flight coalescing.
 
 Holding the slot means a wedged handler reduces throughput visibly instead of multiplying load invisibly, and with `concurrency: 1` it stalls the worker, which is the correct and diagnosable failure
 rather than a quiet one.
@@ -434,7 +430,7 @@ exceeding their timeouts.
 
 `timeoutMs: 0` and `timeoutMs: Infinity` are construction-time errors (§2.4). A job with no deadline cannot be drained, so removing the timeout removes §9.
 
-## 9. The drain protocol, and the bound `runShutdown` does not have
+## 9. The drain protocol and the application-wide deadline
 
 Step 5's protocol, with the timing:
 
@@ -446,19 +442,19 @@ Step 5's protocol, with the timing:
 | 4     | write `leaseUntil = now` on every job that did not finish, so a surviving worker claims it immediately |
 | 5     | resolve `onShutdown`, whatever step 4 achieved                                                         |
 
-**The grace period is a construction option, and it has to be, because `runShutdown` has no bound.** `../lifecycle.ts:49-54` is `for (…) { … await instance.onShutdown(); }` — each hook is awaited
-indefinitely and they run in sequence. `createApp` invokes it from `[Symbol.asyncDispose]()` over the construction ledger, and `[Symbol.asyncDispose]()` takes no arguments, so there is no place for a
-caller to pass a deadline even if it wanted to.
+**The worker's configured grace is the standalone bound.** A direct `worker.onShutdown()` uses it because an unbounded wait is a process that does not exit, which under an orchestrator becomes the
+`SIGKILL` and abandoned mid-flight job the wait existed to prevent.
 
 This is the same reasoning `../../../app/src/messaging/SPEC.md` §2 used to give `close(graceMs)` a required parameter, arriving at the opposite mechanics: the bound cannot be an argument here, so it
 is a worker field, and it is required for the same reason — an unbounded wait is a process that does not exit, which under an orchestrator is a `SIGKILL` and precisely the abandoned mid-flight job the
 wait existed to prevent.
 
-Two consequences follow that the docs have to carry. **Grace periods add**, because `runShutdown` is sequential: two workers with `graceMs: 30_000` are a sixty-second shutdown, while a deployment's
-`terminationGracePeriodSeconds` is one number for the whole pod. One worker per process is the recommendation, and where that is impossible the budget is divided rather than repeated.
+**An application-owned worker additionally accepts the app's remaining deadline.** `jobsExtension({ workers })` receives one `ApplicationExtension.stop({ graceMs })` budget, computes one deadline, and
+calls each worker with the milliseconds still remaining. `worker.onShutdown({ graceMs })` uses the smaller of that cap and its configured grace; zero stops intake, aborts active handlers and requeues
+their claims without sleeping. Multiple workers therefore share one budget instead of each refreshing it.
 
-A worker registered as a value provider, or returned by a factory that was actually resolved, enters that ledger and is drained automatically. An unresolved factory does not: shutdown never constructs
-a worker merely to stop it.
+Workers participate only when explicitly supplied to a jobs extension. Container construction is not lifecycle discovery, unresolved factories are not constructed during shutdown, and two applications
+have separate worker lists unless the caller deliberately shares an instance.
 
 **Step 1's abort of the idle sleep is not a nicety.** Outbox §5's poll backs off to `maxIdleMs: 30_000`, and a worker that waits out an idle sleep before noticing shutdown takes up to thirty seconds
 to begin draining — which exceeds the default grace period of most orchestrators before any in-flight job has been waited for. That is the entire reason `Clock.sleep` takes an `AbortSignal` in §2
@@ -494,7 +490,10 @@ a time; refusing the field is what keeps the row above true.
 
 **Registration is by value and explicit.** `createWorker({ handlers: [notify, welcome] })`, never a scan and never a module-load side effect, because the epic's §2.7 citation forbids it: "the
 scheduler registry and worker pool belong to the app. Two apps in one process must not share them, and nothing registers itself at module load." That also means dispatch is a `Map` built once in
-`createWorker` and a `Map.get` per job, which is the §1 cost-model constraint satisfied in the same construction `../pipeline/index.ts:52-61` uses for routes.
+`createWorker` and a `Map.get` per job, which is the §1 cost-model constraint satisfied in the same construction `../../../web/src/pipeline/index.ts:52-61` uses for routes.
+
+For an app-owned lifecycle, the explicit worker instances are passed to `jobsExtension({ workers })`. The extension starts them only after application bootstrap and drains them under the one remaining
+app grace budget. `worker.onShutdown()` remains available for a standalone worker and uses its configured grace; `worker.onShutdown({ graceMs })` caps that grace for an owning extension.
 
 ## 11. What #587 freezes and #588 adds
 
@@ -517,24 +516,21 @@ scheduler registry and worker pool belong to the app. Two apps in one process mu
 11. `onShutdown` resolves within `graceMs` even with a handler that never settles, and every unfinished job is left claimable with `attempts` unchanged.
 12. `onShutdown` resolves promptly while the worker is inside its longest idle sleep, asserted against a `maxIdleMs` much larger than `graceMs`, so an implementation whose sleep is not abortable
     fails.
-13. A worker registered as a constructed provider is drained by `createApp`'s dispose, while an unresolved worker factory is neither constructed nor drained — the pair that pins §9's constructed-only
-    lifecycle rule.
+13. A worker supplied to `jobsExtension` starts after app bootstrap and is drained by application disposal; a worker that is merely constructed but not supplied is neither started nor drained by that
+    extension.
 14. Two workers over one store claim disjoint job sets, with no job run twice, driven by an interleaving rather than by wall-clock luck — the queue's form of outbox §9 item 3.
 15. `timeoutMs: 0`, `timeoutMs: Infinity`, a lease no longer than the effective timeout, and a handler `concurrency` above the worker's are construction errors.
 16. The supported memory backend installs both queue tables, the unique enqueue-dedupe constraint and the pending-claim index, and the runtime suite uses that backend rather than duplicating its own
     schema.
-17. The `pg` adapter accepts node-postgres `Pool`, `PoolClient` and `Client`, preserves the `postgres` dialect and query result, and does not close the supplied object. Today the isolation assertion
-    names web's optional peer; #654 relocates it to a required peer declared only by `@zmdb/jobs-postgres`.
+17. The former web-owned `pg` adapter and its peer are absent from both `@zmdb/web` and `@zmdb/jobs`; adapter behavior and client-ownership assertions belong only to `@zmdb/jobs-postgres`.
 
 ## 12. Follow-ups this issue does not have to make
 
 **No `tests/api-coverage/mapping.mjs` edit is needed, and a reader will expect one.** That file has no queue, worker, processor or scheduler entries and `tests/api-coverage/inventory.mjs` has no
-corresponding upstream suite, so there is no row to move from out-of-scope to covered — unlike `../versioning/SPEC.md` §1, whose freeze does invalidate a committed argument in that file. What #586
-does interact with there is `NO_REQUEST_SCOPE`, and §10 honours it rather than changing it, so no edit is due when #588 lands either.
+corresponding upstream suite, so there is no row to move from out-of-scope to covered — unlike `../../../web/src/versioning/SPEC.md` §1, whose freeze does invalidate a committed argument in that file.
+What #586 does interact with there is `NO_REQUEST_SCOPE`, and §10 honours it rather than changing it, so no edit is due when #588 lands either.
 
-The docs pages that change are `web-queues` and `web-task-scheduling`, whose `pages.mjs` notes (`docs-site/pages.mjs`) become freeze citations in the shape `web-versioning` had before its
-implementation landed, and they stay `status: 'todo'` until the epic closes. Two neighbouring pages need corrections that this freeze creates: `transactional-outbox` and `web-queues` both hand-roll
-the loop this file specifies.
+The supported docs pages are `web-queues` and `web-task-scheduling`; their `pages.mjs` notes name the shipped `@zmdb/jobs` surface and its lifecycle integration.
 
 Two later ownership boundaries are explicit rather than implied. #589 supplies the trigger an application can use for completion-marker cleanup, but no automatic cleanup exists without a retention
 horizon; #594 owns lifecycle discovery for plain providers because its live dispatcher DoD requires participation in the application lifecycle. Neither is silently pulled into #588.
@@ -560,14 +556,19 @@ horizon; #594 owns lifecycle discovery for plain providers because its live disp
 - **A shipped Redis or SQS adapter.** The required real adapter is node-postgres because it already speaks the SQL-shaped `JobStore`; adding a broker protocol would create a second worker state
   machine rather than adapt this one.
 - **A logger, or a `log` on `JobContext`.** `onHandlerError` is the sink, for the reason `../../../app/src/events/SPEC.md` §3 requires `onError`; `web-logging` argues the rest.
-- **Metrics emitted from this module.** `RunReport` is the numbers; a `Meter` is `../observability/SPEC.md`'s and wiring one here would be a second telemetry pipeline.
+- **Metrics emitted from this module.** `RunReport` is the numbers; wiring an observability implementation here would create a second telemetry pipeline instead of using the app-owned port.
 
 ## Package ownership amendment (#645)
 
-The queue, worker, dead-letter and retry surface moves intact to `@zmdb/jobs`. `createMemoryJobStore` and `MemoryJobStore` move to `@zmdb/jobs/memory`; the process-local implementation remains SQLite
+The queue, worker, dead-letter and retry surface is owned by `@zmdb/jobs`. `createMemoryJobStore` and `MemoryJobStore` are owned by `@zmdb/jobs/memory`; the process-local implementation remains SQLite
 `:memory:` via `node:sqlite`.
 
 `createPgJobStore`, `PgJobClient` and `PgJobStoreOptions` move to `@zmdb/jobs-postgres`, the sole owner of the `pg` peer. Core jobs has no third-party peer.
 
 `@zmdb/web/queues`, `@zmdb/web/queues/backends/memory` and `@zmdb/web/queues/backends/pg` are removed with no forwarding modules. The complete package and lifecycle contract is
 `packages/jobs/SPEC.md`.
+
+## Lifecycle amendment (#650)
+
+`Worker.onShutdown(options?: { readonly graceMs: number })` uses the smaller of the worker's configured grace and the supplied cap. A zero cap stops intake, aborts active handlers and requeues their
+claims without waiting. `jobsExtension` is the application integration; structural provider discovery is not a second registration mechanism.

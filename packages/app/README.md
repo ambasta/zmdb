@@ -16,7 +16,7 @@ The package is ESM-only and requires Node.js 26 or later.
 `@zmdb/app`, `@zmdb/app/commands`, `@zmdb/app/cqrs`, `@zmdb/app/data`, `@zmdb/app/di`, `@zmdb/app/events`, `@zmdb/app/health`, `@zmdb/app/lifecycle`, `@zmdb/app/messaging`, `@zmdb/app/modules`,
 `@zmdb/app/observability`, and `@zmdb/app/state`.
 
-HTTP adapters live in `@zmdb/web`. Queues and scheduling will live in `@zmdb/jobs`; concrete broker integrations remain separately installed and implement the public `@zmdb/app/messaging` strategy
+HTTP adapters live in `@zmdb/web`. Queues and scheduling live in `@zmdb/jobs`; concrete broker integrations remain separately installed and implement the public `@zmdb/app/messaging` strategy
 contract.
 
 ## License

@@ -32,15 +32,15 @@ The durable declarations are `JobRow` and `JobDoneRow` from `@zmdb/repository/jo
 `jobPendingIndexDdl(dialect)`. The pending index is partial on the Postgres family, SQLite and SQL Server, and status-leading on the MySQL family. The supported in-memory backend installs the same
 shape automatically because it is ephemeral test storage.
 
-`JobStore` is structural: a zmdb `Driver` satisfies it directly, and a transaction satisfies `enqueueInTransaction`. The package also ships an isolated SQLite memory backend and a node-postgres
-adapter. `pg` is an optional peer, so the core queue entry does not load it.
+`JobStore` is structural: a zmdb `Driver` satisfies it directly, and a transaction satisfies `enqueueInTransaction`. Core jobs ships one isolated SQLite memory backend and no external client or
+runtime peer.
 
 ## Choosing a backend
 
 For tests and local process-only work, the memory backend is ready immediately:
 
 ```ts
-import { createMemoryJobStore } from '@zmdb/web/queues/backends/memory';
+import { createMemoryJobStore } from '@zmdb/jobs/memory';
 
 using store = createMemoryJobStore();
 ```
@@ -48,26 +48,13 @@ using store = createMemoryJobStore();
 It creates `zmdb_job`, `zmdb_job_done`, the unique `dedupe_key` constraint and the pending-claim index in a fresh `node:sqlite` `:memory:` database. `store.database` is exposed for deterministic seed
 and assertion queries. Closing or disposing the store destroys all rows.
 
-For durable Postgres storage, install the optional peer and adapt a caller-owned pool:
-
-```sh
-npm add pg
-```
-
-```ts
-import { Pool } from 'pg';
-import { createPgJobStore } from '@zmdb/web/queues/backends/pg';
-
-const pool = new Pool({ connectionString: env.DATABASE_URL });
-const store = createPgJobStore(pool);
-```
-
-The adapter does not create tables, open a second pool or close the supplied client. Apply the `JobRow`/`JobDoneRow` migration first, and close the pool in the application's normal database lifecycle.
+For durable storage, pass the same structural `Driver` or transaction connection the application already owns. Core jobs does not open, wrap, or close an external database client. Apply the
+`JobRow`/`JobDoneRow` migration first and keep connection lifecycle with the database owner.
 
 ## Registering typed work
 
 ```ts
-import { createQueue, createWorker, type Clock, type JobHandler } from '@zmdb/web/queues';
+import { createQueue, createWorker, jobsExtension, type Clock, type JobHandler } from '@zmdb/jobs';
 
 type Jobs = {
   readonly 'email.send': { readonly userId: number };
@@ -117,15 +104,17 @@ const worker = createWorker<Jobs>({
   onHandlerError: (ctx, error) => logger.error({ jobId: ctx.jobId, error }),
 });
 
-worker.start();
 await queue.enqueue('email.send', { userId: 42 });
+
+const backgroundWork = jobsExtension({ workers: [worker] });
 ```
 
 Registration is explicit and by value. `createWorker` builds one dispatch `Map` at startup; there is no module scan, decorator side effect or process-global registry. Build handlers through the
 container first when they have injected dependencies, then pass those instances in the `handlers` array.
 
-The worker itself implements `onShutdown()`. Register a value instance as a provider, or resolve a factory provider before it is needed, and application disposal drains it automatically. The worker
-has no `onModuleInit`, so start it explicitly during bootstrap. It does not install process signal handlers.
+Pass `backgroundWork` in `createApplication(..., { extensions: [backgroundWork] })` or `createApp(..., { extensions: [backgroundWork] })`. App initialization starts the worker after bootstrap;
+application disposal stops intake and drains it within the remaining app-wide grace budget. Standalone programs may call `worker.start()` and `worker.onShutdown()` directly. No process signal handler
+is installed.
 
 ## Transactions, delay and enqueue deduplication
 
@@ -201,8 +190,8 @@ If the final lease write fails, the original lease still expires and another wor
 
 ## Backend boundary
 
-The worker has one SQL-shaped `JobStore` state machine. The shipped memory backend implements it with `node:sqlite`; the shipped real adapter maps node-postgres `Pool`/`Client` objects through the
-repository's `pgDriver`. Redis, SQS and BullMQ adapters are not hidden dependencies or aliases for this SQL contract.
+The worker has one SQL-shaped `JobStore` state machine. The built-in memory backend implements it with `node:sqlite`. External database and broker integrations are separately installed packages or
+application-owned structural adapters; Redis, SQS and BullMQ are not hidden dependencies or aliases for this SQL contract.
 
 Recurring work remains [Task Scheduling](./web-task-scheduling.html). The scheduler should enqueue short, deduplicated jobs rather than perform durable work in its lease-holding callback.
 

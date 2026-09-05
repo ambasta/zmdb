@@ -36,7 +36,6 @@ const REAL_SERVICE_TITLES = [
   'loses messages published with no connected consumer and delivers live messages',
   'uses a wildcard queue group for concrete event and request subjects',
   'redelivers through the TTL retry queue and dead-letters invalid JSON',
-  'round-trips through a real pg Pool without taking ownership of it',
   'adapts a meter without constructing or requiring a tracer',
   'maps every span kind, remote parent, tracestate and rename through the real SDK',
   'exports driver spans as clients and message spans as consumers with both W3C headers',

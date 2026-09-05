@@ -36,6 +36,7 @@ const PACKAGES = [
   'repository',
   'query-compiler',
   'app',
+  'jobs',
   'otel',
   'web',
   'zmdb',

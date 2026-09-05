@@ -30,8 +30,8 @@ be idempotent.
 The recommended cluster-wide task is short: calculate a stable business-period key and enqueue durable work with that key.
 
 ```ts
-import { Cron } from '@zmdb/web/schedule';
-import type { Clock, Queue } from '@zmdb/web/queues';
+import type { Clock, Queue } from '@zmdb/jobs';
+import { Cron } from '@zmdb/jobs/schedule';
 
 type Jobs = {
   readonly 'billing.run': { readonly runDate: string };
@@ -67,8 +67,8 @@ because enqueue deduplication and at-least-once delivery are separate races.
 `@Cron` and `@Interval` only record declarations. `createScheduler` receives the instances built for one application, so two applications in one process do not share a registry.
 
 ```ts
-import { Cron, Interval, createScheduler, type LeaseStore } from '@zmdb/web/schedule';
-import type { Clock } from '@zmdb/web/queues';
+import { jobsExtension, type Clock } from '@zmdb/jobs';
+import { Cron, Interval, createScheduler, type LeaseStore } from '@zmdb/jobs/schedule';
 
 const clock: Clock = {
   now: () => Date.now(),
@@ -124,11 +124,11 @@ const scheduler = createScheduler({
   },
 });
 
-scheduler.start();
+const backgroundWork = jobsExtension({ schedulers: [scheduler] });
 ```
 
-Call `start()` explicitly during bootstrap, or from an owning provider's `onApplicationBootstrap`. The scheduler implements `onShutdown()`: registering the constructed scheduler as a value provider
-lets application disposal invoke that hook. It installs no process signal handlers.
+Pass `backgroundWork` to the application's `extensions` option. App initialization starts schedulers after every worker in the same jobs extension, and disposal stops schedulers before workers under
+one remaining grace budget. A standalone program may call `scheduler.start()` and `scheduler.onShutdown()` directly. No process signal handler is installed.
 
 Use the same `Clock` instance for queues and schedules. Tests can supply a controllable clock; production can use the system-clock implementation above.
 
@@ -198,8 +198,8 @@ Overlap is always prevented; there is no option to enable it.
 dead-letter path.
 
 `timeoutMs` is an observation deadline, not a way to terminate JavaScript. A scheduled method receives no `AbortSignal`, so a method that does not settle remains the active invocation even after its
-timeout is reported and continues to prevent overlap. Likewise, `onShutdown()` waits up to `graceMs`, releases held leases and then returns, but it cannot forcibly stop application code. A resumed old
-runner can overlap a replacement, so idempotency remains required.
+timeout is reported and continues to prevent overlap. Likewise, `onShutdown()` waits up to its configured grace, while `onShutdown({ graceMs })` applies an owner-supplied cap; both release held leases
+before returning but cannot forcibly stop application code. A resumed old runner can overlap a replacement, so idempotency remains required.
 
 Both observation callbacks are isolated: if logging throws, it does not stop the scheduler or replace the original error.
 

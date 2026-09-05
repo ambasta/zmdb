@@ -5,9 +5,9 @@
 
 ## Position in the architecture
 
-`@zmdb/web` sits **above** `@zmdb/repository` in the dependency DAG (ARCHITECTURE.md §3). It depends on `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler` and `@zmdb/repository`; it
-has **zero required third-party runtime dependencies**. Integrations such as `pg` and `@opentelemetry/api`, broker clients and `@grpc/grpc-js` are optional peers; TypeScript is an optional peer only
-for `./contract/compiler`.
+At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in the dependency DAG (ARCHITECTURE.md §3) and depended on `@zmdb/schema-core`, `@zmdb/aot-validator`,
+`@zmdb/query-compiler` and `@zmdb/repository`. The current manifest no longer declares the repository edge after #650 removed the last shipped import with the queue implementation. Web still has
+**zero required third-party runtime dependencies**. Broker clients and `@grpc/grpc-js` remain optional peers; TypeScript is an optional peer only for `./contract/compiler`.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -24,8 +24,8 @@ for `./contract/compiler`.
 ### Package
 
 - New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
-- `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). No required third-party runtime deps; `pg`, `@opentelemetry/api`, broker
-  clients and `@grpc/grpc-js` are optional peers for their respective integration subpaths, and TypeScript is optional only for `./contract/compiler`.
+- Original `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). The current manifest no longer declares `@zmdb/repository`. There
+  are no required third-party runtime dependencies; broker clients and `@grpc/grpc-js` remain optional peers for their integration subpaths, and TypeScript is optional only for `./contract/compiler`.
 - `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish, exactly like the sibling packages).
 
 ### tsconfig
@@ -78,7 +78,6 @@ Direct runtime dependencies are exactly the following workspace packages:
 ```text
 @zmdb/app
 @zmdb/aot-validator
-@zmdb/repository
 @zmdb/schema-core
 ```
 

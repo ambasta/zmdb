@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.consumer.json",
+  "include": ["src/jobs-contracts.ts"]
+}

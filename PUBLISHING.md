@@ -134,7 +134,7 @@ Release verification reports every problem in deterministic package/path order a
    >
    > packages=(
    >   client react query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel
-   >   mcp protobuf aot-validator repository app otel web zmdb
+   >   mcp protobuf aot-validator repository app jobs otel web zmdb
    > )
    > for p in "${packages[@]}"; do
    >   (cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha)
@@ -209,7 +209,7 @@ npm view @zmdb/repository dependencies
 
 Future releases are fully automated via CI OIDC — no token, no manual build:
 
-1. Bump the version in all fifteen published `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
+1. Bump the version in all seventeen published `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
 2. Tag and push:
    ```bash
    git tag v1.0.0-alpha.N && git push origin v1.0.0-alpha.N

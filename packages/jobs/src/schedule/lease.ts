@@ -1,3 +1,4 @@
+// Renewable per-task leases for @zmdb/jobs/schedule.
 import type { Clock } from '../queues/index.js';
 
 /** A renewable lease over one scheduled task name. */
@@ -27,7 +28,7 @@ export function createLeaseHolder(): string {
   return globalThis.crypto.randomUUID();
 }
 
-/** Coordinate one task run without adding a backend dependency to @zmdb/web. */
+/** Coordinate one task run without adding a backend dependency to @zmdb/jobs. */
 export function createLeaseSession(options: LeaseSessionOptions): LeaseSession {
   const controller = new AbortController();
   let held = false;
@@ -55,13 +56,13 @@ export function createLeaseSession(options: LeaseSessionOptions): LeaseSession {
         onLost(
           error instanceof Error
             ? error
-            : new Error(`@zmdb/web: lease renewal for "${options.key}" failed: ${String(error)}`),
+            : new Error(`@zmdb/jobs: lease renewal for "${options.key}" failed: ${String(error)}`),
         );
         return;
       }
       if (!renewed) {
         held = false;
-        const error = new Error(`@zmdb/web: lease renewal for "${options.key}" was refused`);
+        const error = new Error(`@zmdb/jobs: lease renewal for "${options.key}" was refused`);
         controller.abort(error);
         onLost(error);
         return;
