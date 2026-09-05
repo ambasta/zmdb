@@ -28,11 +28,12 @@ The options parameter and `stream` are both optional. A pre-existing
 checks `signal` before dispatch and again after `execute` settles; active
 server-side cancellation requires driver cooperation.
 
-zmdb never opens a connection, never pools, never retries and never parses a
-connection string. It hands you text and parameters and expects rows back. An
-observability wrapper may opt the compiler into the optional `telemetry` field;
-a normal driver can ignore it because execution still uses only text and bound
-parameters.
+The driver boundary never opens a connection, pools, retries a statement or
+parses a connection string. It hands you text and parameters and expects rows
+back. The transaction helper can re-run an entire callback only when the caller
+opts into a dialect-classified retry policy. An observability wrapper may opt
+the compiler into the optional `telemetry` field; a normal driver can ignore it
+because execution still uses only text and bound parameters.
 
 ## The minimum
 
@@ -112,17 +113,19 @@ listener in `finally`, and reject with the exact `signal.reason`. See
 
 Every capability an ORM usually owns becomes something you can substitute without asking permission — and each of the following is a real page in these docs, implemented entirely in a driver wrapper:
 
-| Concern                   | Where it lives                                           |
-| ------------------------- | -------------------------------------------------------- |
-| Pooling, TLS, DSN parsing | your client                                              |
-| Query logging             | a wrapper — see [Logging](./logging.html)                |
-| Read/write splitting      | [`withReplicas`](./read-replicas.html), itself a wrapper |
-| Statement tagging         | [SQL comments](./sql-comments.html)                      |
-| Cancellation              | [query cancellation](./query-cancellation.html)          |
-| Retries                   | a wrapper — see [Cockroach](./dialect-cockroach.html)    |
-| Type coercion             | this page, below                                         |
+| Concern                   | Where it lives                                                          |
+| ------------------------- | ----------------------------------------------------------------------- |
+| Pooling, TLS, DSN parsing | your client                                                             |
+| Query logging             | a wrapper — see [Logging](./logging.html)                               |
+| Read/write splitting      | [`withReplicas`](./read-replicas.html), itself a wrapper                |
+| Statement tagging         | [SQL comments](./sql-comments.html)                                     |
+| Cancellation              | [query cancellation](./query-cancellation.html)                         |
+| Transaction retries       | explicit transaction policy — see [Cockroach](./dialect-cockroach.html) |
+| Type coercion             | this page, below                                                        |
 
-They compose, because each is `Driver → Driver`.
+The driver wrappers compose as `Driver → Driver`. Transaction retries are the
+exception: only the transaction helper owns the whole callback that must be
+replayed.
 
 ## Type coercion belongs here
 

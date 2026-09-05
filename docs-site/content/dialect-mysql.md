@@ -17,7 +17,7 @@ const userRepo = defineRepository(users, mysqlDriver(pool), { dialect: 'mysql' }
 | `bigint`           | `BIGINT`                                             |
 | `boolean`          | `TINYINT(1)`                                         |
 | `json`             | `JSON`                                               |
-| `timestamp`        | `DATETIME`                                           |
+| `timestamp`        | `DATETIME(3)`                                        |
 | `numeric`          | `DECIMAL`                                            |
 | `ilike`            | falls back to `LIKE`                                 |
 | Materialized views | **not supported** — throws `UnsupportedFeatureError` |

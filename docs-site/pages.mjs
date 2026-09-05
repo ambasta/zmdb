@@ -884,20 +884,17 @@ export const PAGE_META = {
   'dialect-cockroach': {
     title: 'CockroachDB',
     group: 'Dialects',
-    status: 'todo',
-    note: 'dialect, inherited SQL and retry policy ship; live Cockroach qualification and final support docs remain',
+    status: 'supported',
   },
   'dialect-mssql': {
     title: 'SQL Server',
     group: 'Dialects',
-    status: 'todo',
-    note: 'runtime support is implemented; the combined dialect documentation slice remains pending',
+    status: 'supported',
   },
   'dialect-singlestore': {
     title: 'SingleStore',
     group: 'Dialects',
-    status: 'todo',
-    note: 'dialect and distribution/storage DDL ship; a licensed live-server qualification remains',
+    status: 'supported',
   },
   'dialect-gel': {
     title: 'Gel (EdgeDB)',

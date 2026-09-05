@@ -27,9 +27,35 @@ than something you discover in an incident.
 
 `Sql<'bigint'>` maps to a 64-bit integer, which does not fit in a JS `number`. `node-postgres` returns it as a `string` by default rather than lose precision. That is the driver's choice, not zmdb's — decide it in your driver. See [bigint primary keys](./bigint-keys.html).
 
-## `timestamp` has no timezone semantics of its own
+## `timestamp` is an instant, but the driver still owns conversion
 
-`Sql<'timestamp'>` emits the dialect's plain timestamp type — `TIMESTAMP` on Postgres, not `TIMESTAMPTZ`. What comes back depends on the driver and the column's actual type in the database. If you care, use a [custom type](./custom-types.html) with explicit `toDb` / `fromDb` so the conversion is in your code and testable.
+`Sql<'timestamp'>` emits `TIMESTAMPTZ` on Postgres/Cockroach,
+`DATETIME(3)` on MySQL/SingleStore, `DATETIMEOFFSET(3)` on SQL Server and
+`TEXT` on SQLite. The application type is `Date`, but clients still disagree
+about whether they return a `Date` or a string. Decide that conversion in the
+driver, or use a [custom type](./custom-types.html) with explicit `toDb` /
+`fromDb`.
+
+## Dialect support does not imply the same live-server evidence
+
+The six dialect values all have complete golden-SQL matrix entries, including
+explicit refusals. SQLite runs in-process. SQL Server has an opt-in real-server
+suite through `ZMDB_MSSQL_URL`. CockroachDB and SingleStore currently have no
+live-server suite in this repository, so their pages separate supported
+compiler behavior from deployment qualification.
+
+That evidence boundary matters most for the operational differences:
+
+- SQL Server pagination needs `ORDER BY`, and `MERGE … WITH (HOLDLOCK)` can
+  block or deadlock under hot-key contention.
+- Cockroach transaction retries are opt-in and can execute the callback more
+  than once.
+- SingleStore generated tables must declare `ShardKey<…>` or `Rowstore`, and
+  generated foreign keys are refused.
+
+See [SQL Server](./dialect-mssql.html),
+[CockroachDB](./dialect-cockroach.html), and
+[SingleStore](./dialect-singlestore.html).
 
 ## A default value lives in the migration, not in the declaration
 

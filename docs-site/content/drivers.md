@@ -128,12 +128,15 @@ const driver = loggingDriver(cachingDriver(withReplicas({ primary, replicas }), 
 ```
 
 This is the extension point the framework leans on hardest. Logging, tracing,
-metrics, retries, a query budget, replica routing and per-tenant connections are
-all driver wrappers, so each one covers handlers, workers and CLI scripts alike
-rather than just the HTTP path. `tracedDriver` preserves the wrapped dialect,
-sets `queryTelemetry: true`, and accepts an explicit parent span such as
-`ctx.span`; there is no ambient current span. See [Logging](./web-logging.html),
-[Read Replicas](./read-replicas.html) and [Request Context](./web-request-context.html).
+metrics, a query budget, replica routing and per-tenant connections are driver
+wrappers, so each one covers handlers, workers and CLI scripts alike rather
+than just the HTTP path. Retrying a whole transaction is different: the
+transaction helper owns the callback and replays it only after explicit opt-in.
+`tracedDriver` preserves the wrapped dialect, sets `queryTelemetry: true`, and
+accepts an explicit parent span such as `ctx.span`; there is no ambient current
+span. See [Logging](./web-logging.html),
+[Read Replicas](./read-replicas.html), [Transactions](./transactions.html) and
+[Request Context](./web-request-context.html).
 
 ## With a repository
 

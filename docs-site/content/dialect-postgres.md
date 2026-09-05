@@ -20,7 +20,7 @@ const userRepo = defineRepository(users, pgDriver(pool), { dialect: 'postgres' }
 | `bigint`                | `BIGINT`                           |
 | `boolean`               | `BOOLEAN`                          |
 | `json`                  | `JSONB`                            |
-| `timestamp`             | `TIMESTAMP`                        |
+| `timestamp`             | `TIMESTAMPTZ`                      |
 | `numeric`               | `NUMERIC`                          |
 | Case-insensitive `LIKE` | `ILIKE` — the only dialect with it |
 | Materialized views      | supported                          |
@@ -83,7 +83,9 @@ new Pool({
 
 **`numeric` comes back as a string** too, for the same reason. If you are storing money, keeping it a string and doing the arithmetic in the database is the correct answer; parsing it to a float is how you get rounding errors in an invoice.
 
-**`timestamp` versus `timestamptz`.** `Sql<'timestamp'>` emits plain `TIMESTAMP`, which has no timezone. If you want `timestamptz`, that is a hand-written migration and a [custom type](./custom-types.html).
+**`timestamp` means an instant.** `Sql<'timestamp'>` emits `TIMESTAMPTZ`.
+Use a [custom type](./custom-types.html) when the driver representation or
+application wire form needs to differ from `Date`.
 
 ## Connecting
 

@@ -1,18 +1,51 @@
-> **Dialect available; server qualification still TODO.** `'singlestore'` is a
-> `Dialect` variant of MySQL. It inherits MySQL query grammar and adds explicit
-> distribution/storage declarations plus SingleStore-specific refusals.
+Supported dialect variant: `'singlestore'`. It inherits the MySQL query family
+and adds explicit distribution/storage declarations plus SingleStore-specific
+refusals. The repository ships no MySQL-protocol driver and the automated gate
+does not run a licensed SingleStore service, so live-server acceptance remains
+deployment evidence rather than repository evidence.
 
 ## Using it
 
 ```ts
+import type { Driver } from '@zmdb/repository';
+
 const compiler = createQueryCompiler('singlestore');
-const userRepo = defineRepository(users, mysqlDriver(pool), { dialect: 'singlestore' });
+const driver: Driver = {
+  dialect: 'singlestore',
+  async execute(query) {
+    const [result] = await pool.execute(query.text, [...query.parameters]);
+    return Array.isArray(result) ? result : [];
+  },
+};
+const userRepo = defineRepository(users, driver, { dialect: 'singlestore' });
 ```
 
-Connect with a MySQL-protocol client. Everything on the
+Connect with a MySQL-protocol client through the
+[custom-driver boundary](./custom-driver.html). Everything on the
 [MySQL dialect page](./dialect-mysql.html) still applies: backtick quoting, `?`
 placeholders, `TINYINT(1)` booleans, `INSERT IGNORE`,
 `ON DUPLICATE KEY UPDATE`, and no `RETURNING`.
+
+## Divergence and refusal matrix
+
+| Construct                   | Emitted SQL / behavior                              | Caveat or refusal                                               |
+| --------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
+| identifiers / placeholders  | MySQL backticks and `?`                             | supply a MySQL-protocol `Driver`; none is bundled               |
+| upsert                      | `ON DUPLICATE KEY UPDATE`                           | the MySQL family has no conflict-target syntax                  |
+| returning rows              | refused                                             | repository paths do not issue a hidden follow-up read           |
+| `serial`                    | `BIGINT AUTO_INCREMENT`                             | allocation is partitioned; `Serial` is still typed as `number`  |
+| table storage/distribution  | `SHARD KEY`, `SORT KEY`, or `CREATE ROWSTORE TABLE` | every generated table must declare `ShardKey<…>` or `Rowstore`  |
+| table-option change         | refused                                             | create a replacement table and copy the data                    |
+| foreign keys                | refused                                             | enforce referential integrity in the application                |
+| unique column               | emitted only when it includes the whole shard key   | otherwise migration generation refuses it                       |
+| indexes                     | inherited `USING BTREE` / `USING HASH`              | expression indexes and operator classes are refused             |
+| full-text search            | inherited MySQL `MATCH … AGAINST`                   | requires the corresponding live-server index                    |
+| stored-routine calls        | inherited scalar-function and procedure calls       | set-returning functions are not a MySQL-family shape            |
+| `RoutineDef` DDL            | refused                                             | SingleStore declaration grammar is not MySQL's                  |
+| schema introspection        | the MySQL catalog introspector                      | no live SingleStore qualification exists in this repository     |
+| migration transactions      | non-transactional DDL                               | the runner warns because a failed plan can be partially applied |
+| database extensions / types | refused                                             | PostgreSQL-style extension contracts are not assumed            |
+| vector / spatial operators  | refused                                             | the closed pgvector/PostGIS operators are exact-Postgres only   |
 
 ## Declare distribution and storage
 
@@ -74,21 +107,22 @@ in large strides, so an `INT` domain is consumed faster than row count suggests.
 Ids are unique but not globally monotonic; keyset pagination should order by a
 timestamp plus a tie-break rather than assuming a larger id is newer.
 
-## Other inherited and refused grammar
+`Serial` remains a TypeScript `number`. If the generated id can exceed
+`Number.MAX_SAFE_INTEGER`, declare a `bigint & Sql<'bigint'> & PrimaryKey &
+HasDefault` column and use a hand-written migration for its generation rule.
+That keeps the application type honest.
 
-Explicit `USING BTREE` and `USING HASH` indexes inherit the MySQL form.
-Expression indexes retain the MySQL-family refusal and point to a generated
-column instead.
+## Measured coverage
 
-Scalar-function and procedure calls also inherit MySQL quoting and
-placeholders. `RoutineDef` DDL is refused: SingleStore's routine declaration
-grammar is distinct, so create it in a hand-written migration rather than
-emitting a MySQL statement that only looks plausible.
+The automated suite covers every frozen matrix construct for `'singlestore'`,
+the `BIGINT AUTO_INCREMENT` override, shard/sort/rowstore reflection through
+snapshot and DDL, inherited MySQL repository writes, full-text SQL, migration
+ledger behavior, and the table-option, foreign-key, uniqueness, expression
+index, routine-DDL, extension and `RETURNING` refusals.
 
-There is no bundled SingleStore driver or licensed SingleStore service in the
-automated gate. The suite proves the complete SQL matrix and migration
-refusals; accepting the emitted DDL on a live SingleStore server remains a
-deployment qualification step.
+No live SingleStore server is started. In particular, server acceptance of the
+emitted distribution DDL, auto-increment behavior and MySQL-catalog
+introspection remains deployment qualification.
 
 ---
 
