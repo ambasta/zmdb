@@ -6,15 +6,33 @@
 // Ensure Symbol.metadata exists before any decorated class in a consumer module
 // is evaluated (Node 26/V8 lacks it). Side-effect import; safe/no-op if present.
 import '@zmdb/app';
+import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
+
 import type { HttpMethod } from '../contract/index.js';
 
 export type { HttpMethod } from '../contract/index.js';
+
+/** A JSON Schema object (structural; matches @zmdb/schema-core's shape). */
+export type JsonSchema = JsonSchemaObject | Readonly<Record<string, unknown>>;
+
+/** Per-route request/response schemas (from schema-core's toJsonSchema). */
+export interface RouteSchemas {
+  readonly body?: JsonSchema;
+  readonly response?: JsonSchema;
+}
+
+export interface RouteDecoratorOptions {
+  readonly schema?: RouteSchemas;
+  readonly body?: JsonSchema;
+  readonly response?: JsonSchema;
+}
 
 // Raw per-method record written by a verb decorator.
 export interface RouteDefinition {
   readonly method: HttpMethod;
   readonly path: string;
   readonly handlerName: string;
+  readonly schema?: RouteSchemas;
 }
 
 // Prefix-composed route returned by getRoutes.
@@ -22,6 +40,7 @@ export interface ResolvedRoute {
   readonly method: HttpMethod;
   readonly path: string;
   readonly handlerName: string;
+  readonly schema?: RouteSchemas;
 }
 
 // Symbol-keyed metadata slots. Symbols keep our data off the public string
@@ -124,12 +143,43 @@ export function Controller(prefix = '') {
   };
 }
 
+type PathOrOptions = string | RouteDecoratorOptions;
+
 // Build a method decorator for a given HTTP verb.
 function methodDecorator(method: HttpMethod) {
-  return function (path = '') {
+  return function (pathOrOptions?: PathOrOptions, options?: RouteDecoratorOptions) {
+    let path = '';
+    let opts: RouteDecoratorOptions | undefined;
+
+    if (typeof pathOrOptions === 'string') {
+      path = pathOrOptions;
+      opts = options;
+    } else if (typeof pathOrOptions === 'object' && pathOrOptions !== null) {
+      opts = pathOrOptions;
+    }
+
+    let schema: RouteSchemas | undefined;
+    if (opts !== undefined) {
+      const body = opts.body ?? opts.schema?.body;
+      const response = opts.response ?? opts.schema?.response;
+      if (body !== undefined || response !== undefined) {
+        schema = {
+          ...(body !== undefined ? { body } : {}),
+          ...(response !== undefined ? { response } : {}),
+        };
+      } else if (opts.schema !== undefined) {
+        schema = opts.schema;
+      }
+    }
+
     return function (_target: (...args: never[]) => unknown, context: ClassMethodDecoratorContext): void {
       const handlerName = typeof context.name === 'string' ? context.name : context.name.toString();
-      pushRoute(context.metadata, { method, path, handlerName });
+      pushRoute(context.metadata, {
+        method,
+        path,
+        handlerName,
+        ...(schema !== undefined ? { schema } : {}),
+      });
     };
   };
 }
@@ -197,5 +247,6 @@ export function getRoutes(controller: abstract new (...args: never[]) => unknown
     method: route.method,
     path: normalizePath(prefix, route.path),
     handlerName: route.handlerName,
+    ...(route.schema !== undefined ? { schema: route.schema } : {}),
   }));
 }

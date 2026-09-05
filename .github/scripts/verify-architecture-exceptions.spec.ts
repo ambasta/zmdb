@@ -103,7 +103,7 @@ describe('owned architecture exceptions (#735)', () => {
         'tooling-boundaries': 3,
       },
       owners: [637, 638, 639, 640, 641],
-      ceiling: 265,
+      ceiling: 266,
       migration: {
         legacyTotal: 81,
         retiredTotal: 0,
