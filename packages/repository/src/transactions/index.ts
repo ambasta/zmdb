@@ -13,7 +13,7 @@ export interface TransactionContext<State extends string = 'active'> {
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
   savepoint<R>(fn: (tx: TransactionContext<State>) => Promise<R>): Promise<R>;
-  repo?<T>(RepoClass: new (driver: { execute: TransactionContext<State>['execute'] }, dialect?: string) => T): T;
+  repo?<T>(RepoClass: new (driver: { execute: TransactionContext<State>['execute'] }, dialect?: DialectTarget) => T): T;
 }
 
 export type ActiveTransactionContext = TransactionContext<'active'>;
@@ -235,7 +235,9 @@ export function createTransactionalDb(conn: TxConnection): TransactionalDb {
         assertOpen();
         return conn.execute(query, opts);
       },
-      repo: <T>(RepoClass: new (driver: { execute: TransactionContext<State>['execute'] }, dialect?: string) => T) => {
+      repo: <T>(
+        RepoClass: new (driver: { execute: TransactionContext<State>['execute'] }, dialect?: DialectTarget) => T,
+      ) => {
         assertOpen();
         return new RepoClass(
           { execute: (q: CompiledQuery, opts?: ExecuteOptions) => context.execute(q, opts) },
