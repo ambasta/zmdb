@@ -57,8 +57,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string, listener: (arg?: unknown) => void): this;
+  removeListener(event: string, listener: (arg?: unknown) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -66,7 +66,7 @@ interface WritableResponseCall extends ServerCallSurface {
   end(metadata?: Metadata): void;
   destroy(error: Error): void;
   once(event: 'drain', listener: () => void): this;
-  removeListener(event: 'drain', listener: () => void): this;
+  removeListener(event: string, listener: (arg?: unknown) => void): this;
 }
 
 interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
@@ -382,38 +382,73 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
-async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
-  try {
-    for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
-    }
-  } finally {
-    await iterator.return?.();
-  }
+function isDecodedRequest(value: unknown): value is DecodedRequest {
+  return typeof value === 'object' && value !== null && 'ok' in value;
 }
 
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
+async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
+  const queue: DecodedRequest[] = [];
+  let resolveNext: (() => void) | undefined;
+  let ended = false;
+  let err: unknown;
+
+  const onData = (data?: unknown): void => {
+    if (isDecodedRequest(data)) queue.push(data);
+    if (resolveNext) {
+      const resolve = resolveNext;
+      resolveNext = undefined;
+      resolve();
+    }
+  };
+  const onEnd = (): void => {
+    ended = true;
+    if (resolveNext) {
+      const resolve = resolveNext;
+      resolveNext = undefined;
+      resolve();
+    }
+  };
+  const onError = (e: unknown): void => {
+    err = e;
+    if (resolveNext) {
+      const resolve = resolveNext;
+      resolveNext = undefined;
+      resolve();
+    }
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
   try {
-    return await Promise.race([iterator.next(), aborted]);
+    for (;;) {
+      if (scope.signal.aborted) throw scope.reason();
+      if (err !== undefined) throw err;
+      if (queue.length > 0) {
+        const item = queue.shift();
+        if (item !== undefined) yield requestValue(item);
+        continue;
+      }
+      if (ended) return;
+
+      await new Promise<void>((resolve, reject) => {
+        resolveNext = resolve;
+        const onAbort = (): void => {
+          resolveNext = undefined;
+          reject(scope.reason());
+        };
+        if (scope.signal.aborted) {
+          onAbort();
+        } else {
+          scope.signal.addEventListener('abort', onAbort, { once: true });
+        }
+      });
+    }
   } finally {
-    removeAbort();
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
   }
 }
 
@@ -835,7 +870,13 @@ async function pumpRequests(
 ): Promise<void> {
   for await (const request of requests) {
     const valid = method.validateRequest(request);
-    if (!call.write(valid)) await once(call, 'drain');
+    if (!call.write(valid) && !call.writableEnded) {
+      if (call.writableNeedDrain) {
+        await once(call, 'drain');
+      } else {
+        await new Promise<void>(resolve => setImmediate(resolve));
+      }
+    }
   }
   call.end();
 }

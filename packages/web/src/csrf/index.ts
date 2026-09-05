@@ -48,8 +48,33 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const LOOKUP = new Uint8Array(256);
+for (let i = 0; i < CHARS.length; i++) {
+  LOOKUP[CHARS.charCodeAt(i)] = i;
+}
+
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  const toBase64 = Reflect.get(value, 'toBase64');
+  if (typeof toBase64 === 'function') {
+    return toBase64.call(value, { alphabet: 'base64url', omitPadding: true });
+  }
+  let res = '';
+  const len = value.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = value[i] ?? 0;
+    const hasB1 = i + 1 < len;
+    const b1 = hasB1 ? (value[i + 1] ?? 0) : 0;
+    const hasB2 = i + 2 < len;
+    const b2 = hasB2 ? (value[i + 2] ?? 0) : 0;
+
+    const triplet = (b0 << 16) | (b1 << 8) | b2;
+    res += CHARS[(triplet >> 18) & 63] ?? '';
+    res += CHARS[(triplet >> 12) & 63] ?? '';
+    if (hasB1) res += CHARS[(triplet >> 6) & 63] ?? '';
+    if (hasB2) res += CHARS[triplet & 63] ?? '';
+  }
+  return res;
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
@@ -57,8 +82,29 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
-    return encodeBase64Url(decoded) === value ? decoded : undefined;
+    const fromBase64 = Reflect.get(Uint8Array, 'fromBase64');
+    if (typeof fromBase64 === 'function') {
+      const decoded = fromBase64.call(Uint8Array, value, { alphabet: 'base64url' });
+      return encodeBase64Url(decoded) === value ? decoded : undefined;
+    }
+    const len = value.length;
+    const targetLen = Math.floor((len * 3) / 4);
+    const bytes = new Uint8Array(targetLen);
+    let byteIdx = 0;
+    for (let i = 0; i < len; i += 4) {
+      const c0 = LOOKUP[value.charCodeAt(i)] ?? 0;
+      const c1 = LOOKUP[value.charCodeAt(i + 1)] ?? 0;
+      const hasC2 = i + 2 < len;
+      const c2 = hasC2 ? (LOOKUP[value.charCodeAt(i + 2)] ?? 0) : 0;
+      const hasC3 = i + 3 < len;
+      const c3 = hasC3 ? (LOOKUP[value.charCodeAt(i + 3)] ?? 0) : 0;
+
+      const triplet = (c0 << 18) | (c1 << 12) | (c2 << 6) | c3;
+      if (byteIdx < targetLen) bytes[byteIdx++] = (triplet >> 16) & 255;
+      if (hasC2 && byteIdx < targetLen) bytes[byteIdx++] = (triplet >> 8) & 255;
+      if (hasC3 && byteIdx < targetLen) bytes[byteIdx++] = triplet & 255;
+    }
+    return encodeBase64Url(bytes) === value ? bytes : undefined;
   } catch {
     return undefined;
   }
