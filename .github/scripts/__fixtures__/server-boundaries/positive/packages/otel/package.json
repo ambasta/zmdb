@@ -1,0 +1,14 @@
+{
+  "name": "@zmdb/otel",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@zmdb/app": "workspace:^"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.9.0"
+  }
+}

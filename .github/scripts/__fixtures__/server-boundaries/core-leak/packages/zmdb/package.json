@@ -1,0 +1,11 @@
+{
+  "name": "zmdb",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@zmdb/transport-redis": "workspace:^"
+  }
+}

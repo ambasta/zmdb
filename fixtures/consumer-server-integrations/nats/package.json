@@ -1,0 +1,15 @@
+{
+  "name": "@zmdb-fixture/server-nats",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nats-io/transport-node": "3.4.0",
+    "@zmdb/transport-nats": "1.0.0-alpha.4"
+  },
+  "zmdbFixture": {
+    "target": "@zmdb/transport-nats",
+    "links": [
+      "@nats-io/transport-node"
+    ]
+  }
+}

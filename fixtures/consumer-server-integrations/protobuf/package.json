@@ -1,0 +1,12 @@
+{
+  "name": "@zmdb-fixture/server-protobuf",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/protobuf": "1.0.0-alpha.4"
+  },
+  "zmdbFixture": {
+    "target": "@zmdb/protobuf",
+    "links": []
+  }
+}

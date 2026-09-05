@@ -1,0 +1,19 @@
+{
+  "name": "@zmdb-fixture/server-jobs-postgres",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/jobs-postgres": "1.0.0-alpha.4",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  },
+  "zmdbFixture": {
+    "target": "@zmdb/jobs-postgres",
+    "links": [
+      "pg",
+      "@types/pg"
+    ]
+  }
+}

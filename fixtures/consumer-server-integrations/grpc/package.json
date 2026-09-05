@@ -1,0 +1,15 @@
+{
+  "name": "@zmdb-fixture/server-grpc",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@grpc/grpc-js": "1.14.4",
+    "@zmdb/transport-grpc": "1.0.0-alpha.4"
+  },
+  "zmdbFixture": {
+    "target": "@zmdb/transport-grpc",
+    "links": [
+      "@grpc/grpc-js"
+    ]
+  }
+}

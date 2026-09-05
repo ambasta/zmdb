@@ -1,0 +1,15 @@
+{
+  "name": "@zmdb-fixture/server-rabbitmq",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/transport-rabbitmq": "1.0.0-alpha.4",
+    "amqplib": "2.0.1"
+  },
+  "zmdbFixture": {
+    "target": "@zmdb/transport-rabbitmq",
+    "links": [
+      "amqplib"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@zmdb-fixture/server-otel",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/sdk-trace-base": "2.11.0",
+    "@zmdb/otel": "1.0.0-alpha.4"
+  },
+  "zmdbFixture": {
+    "target": "@zmdb/otel",
+    "links": [
+      "@opentelemetry/api",
+      "@opentelemetry/sdk-trace-base"
+    ]
+  }
+}

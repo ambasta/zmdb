@@ -1,0 +1,16 @@
+{
+  "problems": [
+    "@zmdb/aot-validator still publishes old integration subpaths [./protobuf/wire]",
+    "@zmdb/web declares optional server packages or peers [@grpc/grpc-js, @nats-io/transport-node, @opentelemetry/api, amqplib, pg, redis]",
+    "@zmdb/web reaches optional server peers [@grpc/grpc-js, @nats-io/transport-node, @opentelemetry/api, amqplib, pg, redis]",
+    "@zmdb/web still publishes old integration subpaths [./microservices/grpc, ./microservices/nats, ./microservices/rabbitmq, ./microservices/redis, ./otel, ./queues/backends/pg]",
+    "missing package manifest for @zmdb/jobs-postgres: packages/jobs-postgres/package.json",
+    "missing package manifest for @zmdb/otel: packages/otel/package.json",
+    "missing package manifest for @zmdb/protobuf: packages/protobuf/package.json",
+    "missing package manifest for @zmdb/transport-grpc: packages/transport-grpc/package.json",
+    "missing package manifest for @zmdb/transport-nats: packages/transport-nats/package.json",
+    "missing package manifest for @zmdb/transport-rabbitmq: packages/transport-rabbitmq/package.json",
+    "missing package manifest for @zmdb/transport-redis: packages/transport-redis/package.json",
+    "zmdb reaches optional server peers [@grpc/grpc-js]"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@zmdb/transport-grpc",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@zmdb/app": "workspace:^",
+    "@zmdb/protobuf": "workspace:^"
+  },
+  "peerDependencies": {
+    "@grpc/grpc-js": "^1.14.0"
+  },
+  "peerDependenciesMeta": {
+    "@grpc/grpc-js": {
+      "optional": true
+    }
+  }
+}
