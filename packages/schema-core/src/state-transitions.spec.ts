@@ -5,6 +5,7 @@ import {
   defineStateTransitions,
   defineEntityStateMachine,
   createStateUpdatePayload,
+  ValidationError,
   type StateUpdateDTO,
 } from './index.js';
 import type { PrimaryKey, Serial, Sql, Table } from './tags/index.js';
@@ -17,6 +18,12 @@ export interface Article extends Table<'articles'> {
 }
 
 const { Article: ArticleSchema } = schemasFrom<{ Article: Article }>(import.meta.url, ['Article']);
+const titleCol = ArticleSchema.columns.title;
+if (titleCol) {
+  Object.assign(titleCol, {
+    validation: [{ kind: 'minLength', value: 5 }],
+  });
+}
 
 describe('Entity State Transitions & Update Payload Helpers', () => {
   const transitions = defineStateTransitions({
@@ -111,5 +118,42 @@ describe('Entity State Transitions & Update Payload Helpers', () => {
       // @ts-expect-error - 'archived' is invalid from 'draft'
       stateMachine.createUpdatePayload('draft', 'archived'),
     ).toThrow('Invalid state transition from "draft" to "archived" for field "status"');
+  });
+
+  it('rejects state transition payloads violating declared allowedFields (key limits)', () => {
+    const stateMachine = defineEntityStateMachine({
+      schema: ArticleSchema,
+      stateField: 'status',
+      transitions: {
+        draft: ['review'],
+        review: ['published'],
+      } as const,
+      allowedFields: {
+        review: ['status', 'content'],
+      } as const,
+    });
+
+    expect(() =>
+      stateMachine.createUpdatePayload('review', 'published', {
+        title: 'Forbidden title update',
+      } as never),
+    ).toThrow('Field "title" is not allowed to be updated during transition from "review"');
+  });
+
+  it('rejects state transition payloads violating schema column rules', () => {
+    const stateMachine = defineEntityStateMachine({
+      schema: ArticleSchema,
+      stateField: 'status',
+      transitions: {
+        draft: ['review'],
+      } as const,
+    });
+
+    // 'title' minLength is 5, 'abc' has length 3
+    expect(() =>
+      stateMachine.createUpdatePayload('draft', 'review', {
+        title: 'abc',
+      }),
+    ).toThrow(ValidationError);
   });
 });

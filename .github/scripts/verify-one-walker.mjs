@@ -160,6 +160,10 @@ const MAY_READ = new Map([
     'the matched `.flags` is a TypeScript SymbolFlags.Optional check on one HTTP declaration property. ' +
       'Leaf types cross Reflector.typeIR(), and the HTTP-specific checks below forbid a second TypeScript schema walk.',
   ],
+  [
+    'packages/schema-core/src/index.ts',
+    'createStateUpdatePayload validates transition patch payloads against column flags and validation rules.',
+  ],
 ]);
 
 const problems = [];
