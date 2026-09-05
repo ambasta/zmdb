@@ -92,7 +92,8 @@ The following surfaces consume the catalog directly:
 2. **Package reference generator** — emits role, install mode, facade exposure, docs link, and manifest-derived package name/version into `docs-site/content/package-reference.md`.
 3. **Support/integration matrix generator** — combines catalog optionality with each integration's authoritative support record; it does not hand-copy package names.
 4. **Packed-consumer inventory** — discovers each package's fixture or verifies its explicit no-fixture reason.
-5. **Architecture policy** — #724 attaches exactly one zone/ring policy row to each catalog member without recreating membership.
+5. **Architecture policy** — `scripts/architecture/policy.mjs` attaches exactly one zone/ring policy row to each catalog member, while `scripts/architecture/index.mjs` rejects missing or stale rows
+   without recreating membership.
 6. **Release governance** — #728 reads membership only. Versions, changelog, tags, graph-derived order, and publish actions remain outside the catalog.
 
 Generated consumers compare bytes in tests and write only when their explicit generation command is run. Verification is read-only and fails on drift.

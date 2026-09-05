@@ -1,7 +1,8 @@
 # Package architecture and release governance — specification
 
-> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, and the #710 AI ownership cutover. No verifier
-> or release command exists yet. The original measured baseline is commit `5adba11e` on 2026-09-05.
+> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, and the #710 AI ownership cutover. Issue #724
+> implements the canonical policy plus read-only discovery and graph APIs. The four verifier CLIs and release commands remain future slices. The original measured baseline is commit `5adba11e` on
+> 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -63,6 +64,21 @@ Selectors are unique and sorted. Every selector must resolve in the matching com
 
 All arrays and record keys are deterministic, duplicate-free and deeply read-only. Module evaluation performs no filesystem write, network access, subprocess launch, package import or environment
 mutation. Functions that inspect a repository receive its root explicitly.
+
+### 2.1 Read-only discovery and graph API
+
+[`index.mjs`](./index.mjs) exposes the reusable boundary consumed by later verifiers and release planning:
+
+- `loadArchitecture(root)` imports that root's `PRODUCT_CATALOG` and `PACKAGE_POLICY`, rejects missing, stale or directory-mismatched policy rows, and resolves exactly those catalog directories to
+  manifests;
+- `policyMembershipDiagnostics(catalog, policy)` performs the same membership check without filesystem access;
+- `lookupPackage(architecture, identity)` finds a package by catalog id, npm name, repository-relative directory or resolved directory;
+- `lookupExport(architecture, specifier)` resolves an exact public package specifier to its manifest selector and source target;
+- `createDependencyGraph(architecture)` returns catalog ids mapped to the policy's allowed direct workspace dependencies; and
+- `topologicalOrder(graph)` returns dependency-first catalog ids with catalog id as the deterministic tie-breaker and rejects a cycle rather than returning a partial order.
+
+The model never enumerates `packages/*` to create membership and never infers policy from manifests or imports. It does not read versions, changelog content, tags, credentials or publication state.
+Issue #728 may map the returned ids to catalog npm names and combine that order with separate release authorities.
 
 ## 3. Zones, rings and dependency direction
 
@@ -165,7 +181,7 @@ export const PACKAGE_POLICY = {
     directory: 'packages/ai-langchain',
     zone: 'integration',
     ring: 3,
-    allowedWorkspaceDependencies: ['ai', 'schema-core'],
+    allowedWorkspaceDependencies: ['ai'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@langchain/core': ['.'],

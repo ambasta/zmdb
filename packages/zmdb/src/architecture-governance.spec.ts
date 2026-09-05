@@ -5,6 +5,17 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  createDependencyGraph,
+  loadArchitecture,
+  lookupExport,
+  lookupPackage,
+  policyMembershipDiagnostics,
+  topologicalOrder,
+} from '../../../scripts/architecture/index.mjs';
+import type { PackagePolicy } from '../../../scripts/architecture/policy.mjs';
+import { PRODUCT_CATALOG } from '../../../scripts/product/catalog.mjs';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const FIXTURES = join(ROOT, 'scripts', 'architecture', '__fixtures__');
 
@@ -14,8 +25,6 @@ const VERIFIERS = {
   release: join(ROOT, '.github', 'scripts', 'verify-release-governance.mjs'),
   runtime: join(ROOT, '.github', 'scripts', 'verify-runtime-reachability.mjs'),
 } as const;
-
-const RELEASE_PLAN = join(ROOT, 'scripts', 'release', 'plan.mjs');
 
 const FIXTURE_NAMES = [
   'valid',
@@ -63,13 +72,6 @@ interface ProductPackageFixture {
 interface PackageManifestFixture {
   readonly name?: string;
   readonly exports?: Readonly<Record<string, unknown>>;
-}
-
-interface ReleasePlan {
-  readonly version: string;
-  readonly packages: readonly string[];
-  readonly publishOrder: readonly string[];
-  readonly changelogEntry: string;
 }
 
 interface VerifierResult {
@@ -145,7 +147,7 @@ function assertSourceImportsStayInside(root: string, file: string): void {
 
 async function fixtureModules(root: string): Promise<{
   readonly catalog: readonly ProductPackageFixture[];
-  readonly policy: Readonly<Record<string, unknown>>;
+  readonly policy: Readonly<Record<string, PackagePolicy>>;
 }> {
   const catalogModule: unknown = await import(
     `${pathToFileURL(join(root, 'scripts', 'product', 'catalog.mjs')).href}?root=${encodeURIComponent(root)}`
@@ -161,7 +163,7 @@ async function fixtureModules(root: string): Promise<{
   }
   return {
     catalog: catalogModule['PRODUCT_CATALOG'] as readonly ProductPackageFixture[],
-    policy: policyModule['PACKAGE_POLICY'],
+    policy: policyModule['PACKAGE_POLICY'] as Readonly<Record<string, PackagePolicy>>,
   };
 }
 
@@ -242,16 +244,6 @@ function diagnosticLines(result: VerifierResult): readonly string[] {
     .filter(line => line.startsWith('['));
 }
 
-async function releasePlan(root: string): Promise<ReleasePlan> {
-  const module: unknown = await import(`${pathToFileURL(RELEASE_PLAN).href}?root=${encodeURIComponent(root)}`);
-  if (!isRecord(module) || typeof module['releasePlan'] !== 'function') {
-    throw new Error('scripts/release/plan.mjs does not export releasePlan(root)');
-  }
-  const plan: unknown = module['releasePlan'](root);
-  if (!isRecord(plan)) throw new Error('releasePlan(root) did not return an object');
-  return plan as unknown as ReleasePlan;
-}
-
 describe('architecture and release governance fixtures', () => {
   it('keeps every fixture self-contained and limited to its named mutation', async () => {
     for (const name of FIXTURE_NAMES) await assertFixtureSkeleton(name);
@@ -266,21 +258,37 @@ describe('architecture and release governance fixtures', () => {
     }
   });
 
-  // Measured at the #722 baseline: none of the four verifier scripts exists. Calling their final
-  // CLI paths keeps these failures attached to the real future boundary; each `it.fails` retires
-  // itself as soon as that boundary emits the exact frozen result.
-  it.fails('accepts the canonical package graph fixture', () => {
+  it('accepts the canonical package graph fixture', async () => {
     const root = fixtureRoot('valid');
-    for (const script of [VERIFIERS.architecture, VERIFIERS.metadata, VERIFIERS.runtime]) {
-      const result = runVerifier(script, root);
-      expect(result.status, relative(ROOT, script)).toBe(0);
-      expect(result.stderr, relative(ROOT, script)).toBe('');
-    }
-    const release = runVerifier(VERIFIERS.release, root, '--tag', 'v1.0.0-alpha.4');
-    expect(release.status, relative(ROOT, VERIFIERS.release)).toBe(0);
-    expect(release.stderr, relative(ROOT, VERIFIERS.release)).toBe('');
+    const architecture = await loadArchitecture(root);
+    const live = await loadArchitecture(ROOT);
+
+    const liveIds = live.packages.map(packageRecord => packageRecord.id);
+    expect(liveIds).toEqual(PRODUCT_CATALOG.map(row => row.id));
+    expect(Object.keys(createDependencyGraph(live))).toEqual(liveIds);
+
+    const langchain = lookupPackage(live, '@zmdb/ai-langchain');
+    if (langchain === undefined) throw new Error('canonical catalog omitted @zmdb/ai-langchain');
+    expect(langchain.policy.allowedWorkspaceDependencies).toEqual(['ai']);
+    expect(lookupPackage(live, langchain.directory)).toBe(langchain);
+
+    expect(architecture.packages.map(packageRecord => packageRecord.id)).toEqual(['core', 'app']);
+    expect(createDependencyGraph(architecture)).toEqual({
+      core: [],
+      app: ['core'],
+    });
+    expect(lookupExport(architecture, '@fixture/app/cli')).toMatchObject({
+      package: { id: 'app', npmName: '@fixture/app' },
+      selector: './cli',
+      target: './src/cli.ts',
+      path: join(root, 'packages', 'app', 'src', 'cli.ts'),
+    });
+    expect(Object.isFrozen(architecture.packages)).toBe(true);
+    expect(Object.isFrozen(architecture.policy)).toBe(true);
   });
 
+  // The four verifier CLIs remain absent after #724. These expected failures stay attached to
+  // #725-#728 and retire only when their own production boundaries emit the frozen diagnostics.
   it.fails('rejects a workspace dependency cycle and prints the complete cycle', () => {
     const result = runVerifier(VERIFIERS.architecture, fixtureRoot('cycle'));
     expect(result.status).toBe(1);
@@ -298,11 +306,20 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  it.fails('rejects a publishable package missing from policy', () => {
-    const result = runVerifier(VERIFIERS.architecture, fixtureRoot('undeclared-package'));
-    expect(result.status).toBe(1);
-    expect(diagnosticLines(result)).toEqual([
-      '[ARCH_POLICY_MISSING] app (@fixture/app): catalog package packages/app has no PACKAGE_POLICY row. Remediation: add the row under that catalog id.',
+  it('rejects a publishable package missing from policy', async () => {
+    const missing =
+      '[ARCH_POLICY_MISSING] app (@fixture/app): catalog package packages/app has no PACKAGE_POLICY row. Remediation: add the row under that catalog id.';
+    await expect(loadArchitecture(fixtureRoot('undeclared-package'))).rejects.toMatchObject({
+      name: 'ArchitecturePolicyError',
+      diagnostics: [missing],
+      message: missing,
+    });
+
+    const { catalog, policy } = await fixtureModules(fixtureRoot('valid'));
+    const core = policy['core'];
+    if (core === undefined) throw new Error('valid fixture omitted the core policy row');
+    expect(policyMembershipDiagnostics(catalog, Object.freeze({ ...policy, retired: core }))).toEqual([
+      '[ARCH_POLICY_STALE] retired: PACKAGE_POLICY row has no product-catalog member. Remediation: delete it or admit the package in the catalog in the same change.',
     ]);
   });
 
@@ -362,14 +379,20 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  // `scripts/release/plan.mjs` is also absent today. Importing its frozen public module path makes
-  // this expected failure turn green only when the real read-only plan derives the graph order.
-  it.fails('derives topological publish order from the package graph', async () => {
-    await expect(releasePlan(fixtureRoot('valid'))).resolves.toEqual({
-      version: '1.0.0-alpha.4',
-      packages: ['@fixture/core', '@fixture/app'],
-      publishOrder: ['@fixture/core', '@fixture/app'],
-      changelogEntry: '### Added\n\n- **product:** establish the architecture fixture release.',
-    });
+  it('derives topological publish order from the package graph', async () => {
+    const architecture = await loadArchitecture(fixtureRoot('valid'));
+    const order = topologicalOrder(createDependencyGraph(architecture));
+
+    expect(order).toEqual(['core', 'app']);
+    expect(order.map(id => lookupPackage(architecture, id)?.npmName)).toEqual(['@fixture/core', '@fixture/app']);
+    expect(
+      topologicalOrder(
+        Object.freeze({
+          zeta: Object.freeze([]),
+          alpha: Object.freeze([]),
+          middle: Object.freeze(['alpha']),
+        }),
+      ),
+    ).toEqual(['alpha', 'middle', 'zeta']);
   });
 });
