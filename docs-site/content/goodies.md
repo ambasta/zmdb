@@ -100,8 +100,9 @@ See [LLM Function Calling](./llm-function-calling.html).
 
 ````ts
 import { lenientParse } from '@zmdb/ai';
+import { assert } from '@zmdb/aot-validator/utilities';
 
-lenientParse<User>('```json\n{"email":"a@b.c"}\n```');
+lenientParse('```json\n{"email":"a@b.c"}\n```', v => assert<User>(v));
 ````
 
 Strips a leading or trailing code fence before parsing, which is what a model wraps JSON in when you asked for JSON. Prose before the fence is not stripped. See
