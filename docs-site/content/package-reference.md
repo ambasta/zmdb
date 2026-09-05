@@ -30,6 +30,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/angular            | 1.0.0-alpha.4 | integration  | angular         | integration: Angular generated-client bindings | `npm add @zmdb/angular@1.0.0-alpha.4 '@angular/core@>=22.1.5 <23.0.0' 'rxjs@>=7.8.2 <8.0.0'`                     | Angular dependency-injection, signal, lifecycle, and Observable bindings for generated zmdb clients.                                                                           | client-angular               |
 | @zmdb/aot-validator      | 1.0.0-alpha.4 | core         | validator       | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/validate/equals/random, unions, transforms, and generated-code errors.                          | aot-setup                    |
 | @zmdb/app                | 1.0.0-alpha.4 | core         | app             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability. | web-app                      |
+| @zmdb/cli                | 1.0.0-alpha.4 | tooling      | cli             | integration: database management CLI           | `npm add @zmdb/cli@1.0.0-alpha.4`                                                                                | Command-line interface for zmdb schema migrations, diffing, and database management.                                                                                           | cli-overview                 |
 | @zmdb/client             | 1.0.0-alpha.4 | integration  | client          | integration: generated HTTP clients            | `npm add @zmdb/client@1.0.0-alpha.4`                                                                             | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                       | generated-client             |
 | @zmdb/cockroach          | 1.0.0-alpha.4 | integration  | cockroach       | integration: CockroachDB                       | `npm add @zmdb/cockroach@1.0.0-alpha.4 @zmdb/query-compiler@1.0.0-alpha.4 @zmdb/repository@1.0.0-alpha.4`        | CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.                                      | dialect-cockroach            |
 | @zmdb/compiler           | 1.0.0-alpha.4 | tooling      | compiler        | tooling                                        | `npm add --save-dev @zmdb/compiler@1.0.0-alpha.4`                                                                | The single TypeScript front end for zmdb reflection, AOT emission, code generation, build adapters, lint rules, and project configuration.                                     | aot-setup                    |
@@ -252,6 +253,25 @@ Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injec
   - `zmdb/app/observability`
   - `zmdb/app/state`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
+
+### `@zmdb/cli`
+
+Command-line interface for zmdb schema migrations, diffing, and database management.
+
+- **Release unit:** `tooling`
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/migrations` → `workspace:1.0.0-alpha.4`
+  - `@zmdb/sqlite` → `workspace:1.0.0-alpha.4`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:** None.
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/consumer-cli
 
 ### `@zmdb/client`
 
@@ -1071,6 +1091,7 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
 - **Dependencies:**
   - `@zmdb/aot-validator` → `workspace:^`
   - `@zmdb/app` → `workspace:^`
+  - `@zmdb/cli` → `workspace:1.0.0-alpha.4`
   - `@zmdb/compiler` → `workspace:1.0.0-alpha.4`
   - `@zmdb/migrations` → `workspace:1.0.0-alpha.4`
   - `@zmdb/query-compiler` → `workspace:^`

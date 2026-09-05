@@ -241,6 +241,21 @@ function alteredType<Name extends string>(
   })}${nullable ? ' NULL' : ' NOT NULL'}`;
 }
 
+function formatDefault(value: unknown): string {
+  if (value === null) return 'NULL';
+  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  return String(value);
+}
+
+function formatReference(target: string): string {
+  const parts = target.split('.');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return `${quote(parts[0])}(${quote(parts[1])})`;
+  }
+  return quote(target);
+}
+
 function alterPrimaryKey(table: string, from: readonly string[], to: readonly string[]): string {
   const clauses: string[] = [];
   if (from.length > 0) clauses.push('DROP PRIMARY KEY');
@@ -270,13 +285,30 @@ function emitUp<Name extends string>(
           tableLevel: false,
         })
       );
-    case 'drop_column':
-      return `ALTER TABLE ${quote(operation.table)} DROP COLUMN ${quote(operation.column)}`;
+    case 'drop_column': {
+      const columnName = typeof operation.column === 'string' ? operation.column : operation.column.name;
+      return `ALTER TABLE ${quote(operation.table)} DROP COLUMN ${quote(columnName)}`;
+    }
     case 'alter_column_type':
       return (
         `ALTER TABLE ${quote(operation.table)} MODIFY COLUMN ${quote(operation.column)} ` +
         alteredType(name, types, operation, 'up')
       );
+    case 'alter_column_default':
+      if (operation.to !== undefined) {
+        return `ALTER TABLE ${quote(operation.table)} ALTER COLUMN ${quote(operation.column)} SET DEFAULT ${formatDefault(operation.to)}`;
+      }
+      return `ALTER TABLE ${quote(operation.table)} ALTER COLUMN ${quote(operation.column)} DROP DEFAULT`;
+    case 'alter_column_unique':
+      if (operation.to) {
+        return `ALTER TABLE ${quote(operation.table)} ADD CONSTRAINT ${quote(`${operation.table}_${operation.column}_unique`)} UNIQUE (${quote(operation.column)})`;
+      }
+      return `ALTER TABLE ${quote(operation.table)} DROP INDEX ${quote(`${operation.table}_${operation.column}_unique`)}`;
+    case 'alter_column_references':
+      if (operation.to) {
+        return `ALTER TABLE ${quote(operation.table)} ADD CONSTRAINT ${quote(`${operation.table}_${operation.column}_fk`)} FOREIGN KEY (${quote(operation.column)}) REFERENCES ${formatReference(operation.to.target)}`;
+      }
+      return `ALTER TABLE ${quote(operation.table)} DROP FOREIGN KEY ${quote(`${operation.table}_${operation.column}_fk`)}`;
     case 'alter_primary_key':
       return alterPrimaryKey(operation.table, operation.from, operation.to);
     case 'add_foreign_key':
@@ -300,17 +332,34 @@ function emitDown<Name extends string>(name: Name, types: DialectTypeMap, operat
       );
     case 'add_column':
       return `ALTER TABLE ${quote(operation.table)} DROP COLUMN ${quote(operation.column.name)}`;
-    case 'drop_column':
+    case 'drop_column': {
+      const columnName = typeof operation.column === 'string' ? operation.column : operation.column.name;
       throw unsupported(
         name,
-        `recreating dropped column "${operation.table}"."${operation.column}"`,
+        `recreating dropped column "${operation.table}"."${columnName}"`,
         'the drop operation carries no type or nullability; write the down migration explicitly',
       );
+    }
     case 'alter_column_type':
       return (
         `ALTER TABLE ${quote(operation.table)} MODIFY COLUMN ${quote(operation.column)} ` +
         alteredType(name, types, operation, 'down')
       );
+    case 'alter_column_default':
+      if (operation.from !== undefined) {
+        return `ALTER TABLE ${quote(operation.table)} ALTER COLUMN ${quote(operation.column)} SET DEFAULT ${formatDefault(operation.from)}`;
+      }
+      return `ALTER TABLE ${quote(operation.table)} ALTER COLUMN ${quote(operation.column)} DROP DEFAULT`;
+    case 'alter_column_unique':
+      if (operation.from) {
+        return `ALTER TABLE ${quote(operation.table)} ADD CONSTRAINT ${quote(`${operation.table}_${operation.column}_unique`)} UNIQUE (${quote(operation.column)})`;
+      }
+      return `ALTER TABLE ${quote(operation.table)} DROP INDEX ${quote(`${operation.table}_${operation.column}_unique`)}`;
+    case 'alter_column_references':
+      if (operation.from) {
+        return `ALTER TABLE ${quote(operation.table)} ADD CONSTRAINT ${quote(`${operation.table}_${operation.column}_fk`)} FOREIGN KEY (${quote(operation.column)}) REFERENCES ${formatReference(operation.from.target)}`;
+      }
+      return `ALTER TABLE ${quote(operation.table)} DROP FOREIGN KEY ${quote(`${operation.table}_${operation.column}_fk`)}`;
     case 'alter_primary_key':
       return alterPrimaryKey(operation.table, operation.to, operation.from);
     case 'add_foreign_key':

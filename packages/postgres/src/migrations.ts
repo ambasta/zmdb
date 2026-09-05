@@ -388,6 +388,21 @@ function schemaObjectStatements(types: DialectTypeMap, operation: SchemaObjectOp
   }
 }
 
+function formatDefault(value: unknown): string {
+  if (value === null) return 'NULL';
+  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  return String(value);
+}
+
+function formatReference(target: string): string {
+  const parts = target.split('.');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return `${quoteIdentifier(parts[0])}(${quoteIdentifier(parts[1])})`;
+  }
+  return quoteIdentifier(target);
+}
+
 function emitUp(types: DialectTypeMap, operation: ChangeOp): string {
   switch (operation.kind) {
     case 'create_extension':
@@ -398,8 +413,10 @@ function emitUp(types: DialectTypeMap, operation: ChangeOp): string {
       return `DROP TABLE ${quoteIdentifier(operation.table)}`;
     case 'add_column':
       return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD COLUMN ` + columnDdl(types, operation.column);
-    case 'drop_column':
-      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP COLUMN ` + quoteIdentifier(operation.column);
+    case 'drop_column': {
+      const columnName = typeof operation.column === 'string' ? operation.column : operation.column.name;
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP COLUMN ` + quoteIdentifier(columnName);
+    }
     case 'alter_column_type':
       return (
         `ALTER TABLE ${quoteIdentifier(operation.table)} ALTER COLUMN ` +
@@ -411,6 +428,21 @@ function emitUp(types: DialectTypeMap, operation: ChangeOp): string {
           primaryKey: false,
         })
       );
+    case 'alter_column_default':
+      if (operation.to !== undefined) {
+        return `ALTER TABLE ${quoteIdentifier(operation.table)} ALTER COLUMN ${quoteIdentifier(operation.column)} SET DEFAULT ${formatDefault(operation.to)}`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} ALTER COLUMN ${quoteIdentifier(operation.column)} DROP DEFAULT`;
+    case 'alter_column_unique':
+      if (operation.to) {
+        return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD CONSTRAINT ${quoteIdentifier(`${operation.table}_${operation.column}_unique`)} UNIQUE (${quoteIdentifier(operation.column)})`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP CONSTRAINT ${quoteIdentifier(`${operation.table}_${operation.column}_unique`)}`;
+    case 'alter_column_references':
+      if (operation.to) {
+        return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD CONSTRAINT ${quoteIdentifier(`${operation.table}_${operation.column}_fk`)} FOREIGN KEY (${quoteIdentifier(operation.column)}) REFERENCES ${formatReference(operation.to.target)}`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP CONSTRAINT ${quoteIdentifier(`${operation.table}_${operation.column}_fk`)}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(operation.table, operation.from, operation.to);
     case 'add_foreign_key':
@@ -433,7 +465,10 @@ function emitDown(types: DialectTypeMap, operation: ChangeOp): string {
     case 'add_column':
       return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP COLUMN ` + quoteIdentifier(operation.column.name);
     case 'drop_column':
-      return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD COLUMN ` + quoteIdentifier(operation.column);
+      if (typeof operation.column === 'string') {
+        throw new Error(`recreating dropped column without column snapshot in table "${operation.table}"`);
+      }
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD COLUMN ` + columnDdl(types, operation.column);
     case 'alter_column_type':
       return (
         `ALTER TABLE ${quoteIdentifier(operation.table)} ALTER COLUMN ` +
@@ -445,6 +480,21 @@ function emitDown(types: DialectTypeMap, operation: ChangeOp): string {
           primaryKey: false,
         })
       );
+    case 'alter_column_default':
+      if (operation.from !== undefined) {
+        return `ALTER TABLE ${quoteIdentifier(operation.table)} ALTER COLUMN ${quoteIdentifier(operation.column)} SET DEFAULT ${formatDefault(operation.from)}`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} ALTER COLUMN ${quoteIdentifier(operation.column)} DROP DEFAULT`;
+    case 'alter_column_unique':
+      if (operation.from) {
+        return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD CONSTRAINT ${quoteIdentifier(`${operation.table}_${operation.column}_unique`)} UNIQUE (${quoteIdentifier(operation.column)})`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP CONSTRAINT ${quoteIdentifier(`${operation.table}_${operation.column}_unique`)}`;
+    case 'alter_column_references':
+      if (operation.from) {
+        return `ALTER TABLE ${quoteIdentifier(operation.table)} ADD CONSTRAINT ${quoteIdentifier(`${operation.table}_${operation.column}_fk`)} FOREIGN KEY (${quoteIdentifier(operation.column)}) REFERENCES ${formatReference(operation.from.target)}`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(operation.table)} DROP CONSTRAINT ${quoteIdentifier(`${operation.table}_${operation.column}_fk`)}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(operation.table, operation.to, operation.from);
     case 'add_foreign_key':
