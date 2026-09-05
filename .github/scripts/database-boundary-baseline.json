@@ -53,6 +53,7 @@
     "official-name|packages/query-compiler/src/outbox/index.ts|mysql|4",
     "official-name|packages/query-compiler/src/outbox/index.ts|singlestore|1",
     "official-name|packages/query-compiler/src/outbox/index.ts|sqlite|1",
+    "official-name|packages/query-compiler/src/quoting.ts|postgres|1",
     "official-name|packages/query-compiler/src/schema-objects/extensions.ts|postgres|1",
     "official-name|packages/query-compiler/src/schema-objects/index.ts|mssql|7",
     "official-name|packages/query-compiler/src/schema-objects/index.ts|mysql|7",
