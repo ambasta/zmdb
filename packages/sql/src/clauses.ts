@@ -1,4 +1,12 @@
-import type { QueryEffects } from './compiled-query.js';
+import {
+  PRIMARY_READ_EFFECTS,
+  READ_EFFECTS,
+  UNKNOWN_ROW_EFFECTS,
+  UNKNOWN_WRITE_EFFECTS,
+  writeEffects,
+  type QueryEffects,
+  type QueryMetadata,
+} from './compiled-query.js';
 // Clause rendering shared by every builder in this package.
 //
 // SELECT, the join builder, the aggregate builder, FTS, UPDATE and DELETE all
@@ -358,18 +366,191 @@ export function tailClause(dialect: DialectTarget, tail: Tail): string {
   return text;
 }
 
+/** Analyzes query SQL text to infer fallback operation metadata. */
+export function analyzeQuery(text: string): {
+  operation: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other';
+  isWrite: boolean;
+  returnsRows: boolean;
+} {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { operation: 'other', isWrite: false, returnsRows: false };
+  }
+
+  // Detect DDL operations
+  const isDdl = /\b(CREATE|ALTER|DROP|TRUNCATE|REINDEX|VACUUM)\b/i.test(trimmed);
+
+  // Detect DML writes
+  const isDmlWrite = /\b(INSERT|UPDATE|DELETE|M[E]RGE)\b/i.test(trimmed);
+
+  // Detect locking reads (FOR UPDATE, FOR SHARE, etc.)
+  const isLockingRead =
+    /\bFOR\s+(UPDATE|SHARE|KEY\s+SHARE|NO\s+KEY\s+UPDATE)\b/i.test(trimmed) ||
+    /\bLOCK\s+IN\s+SHARE\s+MODE\b/i.test(trimmed);
+
+  const isWrite = isDdl || isDmlWrite || isLockingRead;
+
+  // Detect returning rows
+  const hasReturning = /\b(RETURNING|O[U]TPUT)\b/i.test(trimmed);
+  const isRowReturningCommand = /\b(SELECT|PRAGMA|EXPLAIN|SHOW)\b/i.test(trimmed);
+  const returnsRows = hasReturning || isRowReturningCommand;
+
+  // Determine operation category
+  let operation: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other';
+  if (isDdl) {
+    operation = 'ddl';
+  } else {
+    let normalized = trimmed;
+    while (true) {
+      if (normalized.startsWith('/*')) {
+        const endIdx = normalized.indexOf('*/', 2);
+        if (endIdx === -1) {
+          break;
+        }
+        normalized = normalized.slice(endIdx + 2).trimStart();
+      } else if (normalized.startsWith('--')) {
+        const endIdx = normalized.indexOf('\n', 2);
+        if (endIdx === -1) {
+          normalized = '';
+          break;
+        }
+        normalized = normalized.slice(endIdx + 1).trimStart();
+      } else {
+        break;
+      }
+    }
+    if (/^\s*SELECT/i.test(normalized)) {
+      operation = 'select';
+    } else if (/^\s*INSERT/i.test(normalized) || /^\s*M[E]RGE/i.test(normalized)) {
+      operation = 'insert';
+    } else if (/^\s*UPDATE/i.test(normalized)) {
+      operation = 'update';
+    } else if (/^\s*DELETE/i.test(normalized)) {
+      operation = 'delete';
+    } else if (/^\s*WITH\b/i.test(normalized)) {
+      if (/\bINSERT\b/i.test(normalized)) operation = 'insert';
+      else if (/\bUPDATE\b/i.test(normalized)) operation = 'update';
+      else if (/\bDELETE\b/i.test(normalized)) operation = 'delete';
+      else operation = 'select';
+    } else if (isRowReturningCommand) {
+      operation = 'select';
+    } else {
+      operation = 'other';
+    }
+  }
+
+  return { operation, isWrite, returnsRows };
+}
+
+function isQueryTelemetry(val: unknown): val is QueryTelemetry {
+  return typeof val === 'object' && val !== null && 'system' in val;
+}
+
 /** Every `compile()` in this package returns this shape, frozen at both levels. */
 export function frozenQuery(
   text: string,
   params: readonly unknown[],
-  effects: QueryEffects,
-  telemetry?: QueryTelemetry,
+function isQueryEffects(val: unknown): val is QueryEffects {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    ('requiresPrimary' in val ||
+      ('operation' in val &&
+        typeof (val as any).operation === 'string' &&
+        (val as any).operation === (val as any).operation.toUpperCase()))
+  );
+}
+
+/** Every `compile()` in this package returns this shape, frozen at both levels. */
+export function frozenQuery(
+  text: string,
+  params: readonly unknown[],
+  effectsOrMetaOrTelemetry?: QueryEffects | QueryMetadata | QueryTelemetry,
+  telemetryArg?: QueryTelemetry,
 ): CompiledQuery {
-  const parameters = Object.freeze([...params]);
+  let effects: QueryEffects | undefined;
+  let meta: QueryMetadata | undefined;
+  let telemetry: QueryTelemetry | undefined = telemetryArg;
+
+  if (isQueryTelemetry(effectsOrMetaOrTelemetry)) {
+    telemetry = effectsOrMetaOrTelemetry;
+  } else if (isQueryEffects(effectsOrMetaOrTelemetry)) {
+    effects = effectsOrMetaOrTelemetry;
+  } else if (effectsOrMetaOrTelemetry) {
+    meta = effectsOrMetaOrTelemetry as QueryMetadata;
+  }
+
+  const inferred = analyzeQuery(text);
+
+  let operation: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other';
+  let isWrite: boolean;
+  let returnsRows: boolean;
+
+  if (effects !== undefined) {
+    returnsRows = effects.returnsRows;
+    if (effects.operation === 'SELECT') {
+      operation = 'select';
+      isWrite = effects.requiresPrimary || inferred.isWrite;
+    } else if (effects.operation === 'INSERT') {
+      operation = 'insert';
+      isWrite = true;
+    } else if (effects.operation === 'UPDATE') {
+      operation = 'update';
+      isWrite = true;
+    } else if (effects.operation === 'DELETE') {
+      operation = 'delete';
+      isWrite = true;
+    } else if (effects.operation === 'DDL') {
+      operation = 'ddl';
+      isWrite = true;
+    } else {
+      operation = inferred.operation;
+      isWrite = true;
+    }
+  } else {
+    operation = meta?.operation ?? inferred.operation;
+    isWrite = meta?.isWrite ?? inferred.isWrite;
+    returnsRows = meta?.returnsRows ?? inferred.returnsRows;
+
+    if (operation === 'select' && !isWrite) {
+      effects = READ_EFFECTS;
+    } else if (operation === 'select' && isWrite) {
+      effects = PRIMARY_READ_EFFECTS;
+    } else if (operation === 'insert') {
+      effects = writeEffects('INSERT', returnsRows);
+    } else if (operation === 'update') {
+      effects = writeEffects('UPDATE', returnsRows);
+    } else if (operation === 'delete') {
+      effects = writeEffects('DELETE', returnsRows);
+    } else {
+      effects = returnsRows ? UNKNOWN_ROW_EFFECTS : UNKNOWN_WRITE_EFFECTS;
+    }
+  }
+
   Object.freeze(effects);
-  return telemetry === undefined
-    ? Object.freeze({ text, parameters, effects })
-    : Object.freeze({ text, parameters, effects, telemetry });
+
+  const result: {
+    text: string;
+    parameters: readonly unknown[];
+    effects: QueryEffects;
+    operation: 'select' | 'insert' | 'update' | 'delete' | 'ddl' | 'other';
+    isWrite: boolean;
+    returnsRows: boolean;
+    telemetry?: QueryTelemetry;
+  } = {
+    text,
+    parameters: Object.freeze([...params]),
+    effects,
+    operation,
+    isWrite,
+    returnsRows,
+  };
+
+  if (telemetry !== undefined) {
+    result.telemetry = telemetry;
+  }
+
+  return Object.freeze(result);
 }
 
 /** Compile-known database attributes, absent when telemetry was not requested. */

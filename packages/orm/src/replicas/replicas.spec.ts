@@ -1,5 +1,5 @@
 import { type Driver, type ExecuteOptions, type TransactionalDriver } from '@zmdb/orm';
-import { withReplicas } from '@zmdb/orm/replicas';
+import { isWrite, withReplicas } from '@zmdb/orm/replicas';
 import { createQueryCompiler, trustedTable, type QueryEffects } from '@zmdb/sql';
 import { withComments } from '@zmdb/sql/comments';
 import { setOperation } from '@zmdb/sql/set-ops';
@@ -15,8 +15,69 @@ const write: QueryEffects = { operation: 'INSERT', requiresPrimary: true, return
 const q = (text: string, effects: QueryEffects = read) => ({ text, parameters: [], effects });
 
 describe('read replicas (#128)', () => {
-  it('removes the SQL-text classification entry', async () => {
-    expect(await import('@zmdb/orm/replicas')).not.toHaveProperty('isWrite');
+  it('isWrite detects INSERT/UPDATE/DELETE, write CTEs, DDL, and locking reads', () => {
+    expect(isWrite('INSERT INTO x ...')).toBe(true);
+    expect(isWrite('  update x set ...')).toBe(true);
+    expect(isWrite('SELECT 1')).toBe(false);
+    expect(isWrite('CREATE TABLE users (id INT)')).toBe(true);
+    expect(isWrite('SELECT * FROM users FOR UPDATE')).toBe(true);
+    expect(isWrite('WITH moved AS (DELETE FROM old_users RETURNING *) INSERT INTO new_users SELECT * FROM moved')).toBe(
+      true,
+    );
+    expect(isWrite({ text: 'SELECT * FROM users', parameters: [], isWrite: false })).toBe(false);
+    expect(isWrite({ text: 'SELECT * FROM users', parameters: [], isWrite: true })).toBe(true);
+  });
+
+  it('routes write CTEs, DDL, and locking reads to primary based on metadata or SQL inspection', async () => {
+    const log: string[] = [];
+    const d = withReplicas({
+      primary: tagDriver('P', log),
+      replicas: [tagDriver('R0', log)],
+    });
+
+    const writeCte = {
+      text: 'WITH moved AS (DELETE FROM old_users RETURNING *) INSERT INTO new_users SELECT * FROM moved',
+      parameters: [],
+      isWrite: true,
+      operation: 'insert' as const,
+    };
+    const ddlQuery = {
+      text: 'CREATE TABLE logs (id INT)',
+      parameters: [],
+      isWrite: true,
+      operation: 'ddl' as const,
+    };
+    const lockingQuery = {
+      text: 'SELECT * FROM accounts WHERE id = $1 FOR UPDATE',
+      parameters: [1],
+      isWrite: true,
+      operation: 'select' as const,
+    };
+    const readCte = {
+      text: 'WITH active AS (SELECT * FROM users WHERE active = true) SELECT * FROM active',
+      parameters: [],
+      isWrite: false,
+      operation: 'select' as const,
+    };
+
+    await d.execute(writeCte);
+    await d.execute(ddlQuery);
+    await d.execute(lockingQuery);
+    await d.execute(readCte);
+
+    expect(log).toEqual(['P:WITH m', 'P:CREATE', 'P:SELECT', 'R0:WITH a']);
+  });
+
+  it('preserves primary driver dialect metadata', () => {
+    const primary: Driver = {
+      dialect: postgresDialect,
+      execute: async () => [],
+    };
+    const d = withReplicas({
+      primary,
+      replicas: [{ dialect: postgresDialect, execute: async () => [] }],
+    });
+    expect(d.dialect).toBe(postgresDialect);
   });
 
   it('routes writes to primary, reads to replicas (round-robin)', async () => {

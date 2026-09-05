@@ -301,6 +301,9 @@ it('executes a MySQL repository delete without unsupported RETURNING', async () 
     {
       text: 'DELETE FROM `users` WHERE `id` = ?',
       parameters: [7],
+      operation: 'delete',
+      isWrite: true,
+      returnsRows: false,
     },
   ]);
 });
@@ -321,6 +324,9 @@ it('executes a SingleStore repository delete with inherited MySQL semantics', as
     {
       text: 'DELETE FROM `users` WHERE `id` = ?',
       parameters: [7],
+      operation: 'delete',
+      isWrite: true,
+      returnsRows: false,
     },
   ]);
 });

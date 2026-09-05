@@ -1,5 +1,5 @@
+import { analyzeQuery, type CompiledQuery } from '@zmdb/sql';
 import { type SelectedDriver, type TransactionalDriver } from '@zmdb/orm';
-import type { CompiledQuery } from '@zmdb/sql';
 
 import { sqlite } from './dialect.js';
 
@@ -27,6 +27,7 @@ export interface SqliteOptions {
 
 interface CachedStatement {
   stmt: SqliteStatement;
+  returnsRows: boolean;
   isRead: boolean;
   activeIterators: number;
 }
@@ -51,7 +52,10 @@ interface CachedStatement {
  * was bound for.
  */
 function bindable(value: unknown): unknown {
-  return value instanceof Date ? value.toISOString() : value;
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (value instanceof Date) return value.toISOString();
+  return value;
 }
 
 /** Wrap a node:sqlite DatabaseSync as a zmdb Driver. Zero external deps. */
@@ -60,20 +64,21 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
   const maxCacheSize = opts?.maxCacheSize ?? 1000;
   const cache = new Map<string, CachedStatement>();
 
-  const statementFor = (query: CompiledQuery): CachedStatement => {
-    const { text } = query;
-    let entry = maxCacheSize > 0 ? cache.get(text) : undefined;
+  const statementFor = (q: CompiledQuery): CachedStatement => {
+    let entry = maxCacheSize > 0 ? cache.get(q.text) : undefined;
     if (entry !== undefined && entry.activeIterators === 0) {
-      cache.delete(text);
-      cache.set(text, entry);
+      cache.delete(q.text);
+      cache.set(q.text, entry);
       return entry;
     }
 
-    const stmt = db.prepare(text);
+    const stmt = db.prepare(q.text);
     const columns = stmt.columns?.();
+    const returnsRows = q.returnsRows ?? (columns === undefined ? (q.effects?.returnsRows ?? analyzeQuery(q.text).returnsRows) : columns.length > 0);
     entry = {
       stmt,
-      isRead: columns === undefined ? query.effects.returnsRows : columns.length > 0,
+      returnsRows,
+      isRead: returnsRows,
       activeIterators: 0,
     };
     if (maxCacheSize <= 0) return entry;
@@ -82,7 +87,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
       const evictable = [...cache].find(([, candidate]) => candidate.activeIterators === 0);
       if (evictable !== undefined) cache.delete(evictable[0]);
     }
-    if (cache.size < maxCacheSize) cache.set(text, entry);
+    if (cache.size < maxCacheSize) cache.set(q.text, entry);
     return entry;
   };
 
@@ -93,7 +98,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
       signal?.throwIfAborted();
       const entry = statementFor(q);
       const parameters = q.parameters.map(bindable);
-      if (entry.isRead) {
+      if (entry.returnsRows) {
         // boundary: rows leave the database untyped. `all()` is declared
         // `unknown[]` (the widest shape every @types/node version agrees on);
         // node:sqlite always yields plain row objects for a row-returning
@@ -113,7 +118,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
         async *[Symbol.asyncIterator](): AsyncGenerator<Record<string, unknown>, void, unknown> {
           signal?.throwIfAborted();
           const entry = statementFor(q);
-          if (!entry.isRead) throw new Error('sqliteDriver.stream requires a row-returning statement');
+          if (!entry.returnsRows && !entry.isRead) throw new Error('sqliteDriver.stream requires a row-returning statement');
           const parameters = q.parameters.map(bindable);
           entry.activeIterators++;
           let completed = false;

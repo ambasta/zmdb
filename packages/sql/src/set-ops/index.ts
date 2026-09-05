@@ -1,4 +1,5 @@
 import { READ_EFFECTS, PRIMARY_READ_EFFECTS } from '../compiled-query.js';
+import { frozenQuery } from '../clauses.js';
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
 import type { DialectTarget } from '../dialects/index.js';
 import { type CompiledQuery } from '../index.js';
@@ -32,8 +33,10 @@ export function setOperation(op: SetOp, queries: readonly CompiledQuery[], diale
     return text;
   });
   const text = fragments.join(` ${SET_KEYWORD[op]} `);
-  const effects = queries.some(query => query.effects.requiresPrimary) ? PRIMARY_READ_EFFECTS : READ_EFFECTS;
-  return Object.freeze({ text, parameters: Object.freeze(params), effects });
+  const effects = queries.some(query => query.effects.requiresPrimary || query.isWrite)
+    ? PRIMARY_READ_EFFECTS
+    : READ_EFFECTS;
+  return frozenQuery(text, params, effects);
 }
 
 // ---- Batch (§2) ----

@@ -27,7 +27,11 @@ const RELATIVE_JS = /^\.{1,2}\/.*\.js$/;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (context.parentURL !== undefined && RELATIVE_JS.test(specifier)) {
+    if (
+      context.parentURL !== undefined &&
+      !context.parentURL.includes('/generated-tests/') &&
+      RELATIVE_JS.test(specifier)
+    ) {
       const asJs = new URL(specifier, context.parentURL);
       if (!existsSync(fileURLToPath(asJs))) {
         const asTs = new URL(`${specifier.slice(0, -'.js'.length)}.ts`, context.parentURL);

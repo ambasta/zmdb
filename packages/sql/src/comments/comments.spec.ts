@@ -61,6 +61,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
     expect(remove.text).toBe('DELETE FROM "users" WHERE "id" = $1');
 
     for (const query of [select, insert, update, remove]) {
+      expect(Object.keys(query)).toEqual(['text', 'parameters', 'effects', 'operation', 'isWrite', 'returnsRows']);
       expect(Object.isFrozen(query)).toBe(true);
     }
   });
@@ -248,6 +249,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
     await tagged.execute(query);
 
     expect(query).toEqual(before);
+    expect(Object.keys(query)).toEqual(['text', 'parameters', 'effects', 'operation', 'isWrite', 'returnsRows']);
     expect(query.text).toBe('SELECT "id", "email" FROM "users" WHERE "id" = $1');
     // §6's smaller point: a decorator spreads the driver it wraps, so `dialect` survives.
     // The original docs sketch returned `{ execute }` and dropped the field `Driver`

@@ -25,7 +25,7 @@ export async function pullDeclarations(config: ResolvedConfig, options: PullOpti
   return pullProjectDeclarations(
     migrationProject(config, {
       driver,
-      introspector: configuredIntrospector(driver.dialect),
+      introspector: configuredIntrospector(driver.dialect ?? config.dialect),
     }),
     options,
   );

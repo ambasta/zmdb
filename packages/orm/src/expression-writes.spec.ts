@@ -60,6 +60,9 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       {
         text: 'UPDATE "expression_posts" SET "views" = "views" + $1, "email" = $2 WHERE "id" = $3 RETURNING *',
         parameters: [2, 'ok@example.com', 1],
+        operation: 'update',
+        isWrite: true,
+        returnsRows: true,
       },
     ]);
 
@@ -129,10 +132,16 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
         {
           text: 'UPDATE "expression_posts" SET "views" = "views" + ? WHERE "id" = ? RETURNING *',
           parameters: [1, 1],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: true,
         },
         {
           text: 'UPDATE "expression_posts" SET "views" = "views" + ? WHERE "id" = ? RETURNING *',
           parameters: [1, 1],
+          operation: 'update',
+          isWrite: true,
+          returnsRows: true,
         },
       ]);
       expect(db.prepare('SELECT views FROM expression_posts WHERE id = ?').get(1)).toEqual({ views: 12 });
@@ -201,6 +210,9 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       {
         text: 'UPDATE "expression_posts" SET "views" = "views" + $1 WHERE "id" = $2 RETURNING *',
         parameters: [2, 1],
+        operation: 'update',
+        isWrite: true,
+        returnsRows: true,
       },
     ]);
   });
@@ -222,16 +234,25 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       {
         text: 'UPDATE `expression_posts` SET `views` = `views` + ? WHERE `id` = ?',
         parameters: [1, 1],
+        operation: 'update',
+        isWrite: true,
+        returnsRows: false,
       },
       {
         text: 'UPDATE `expression_posts` SET `views` = `views` + ? WHERE `published` = ?',
         parameters: [2, false],
+        operation: 'update',
+        isWrite: true,
+        returnsRows: false,
       },
       {
         text:
           'INSERT INTO `expression_posts` (`views`, `email`, `published`) VALUES (?, ?, ?) ' +
           'ON DUPLICATE KEY UPDATE `views` = `views` + ?',
         parameters: [1, 'counter@example.com', false, 3],
+        operation: 'insert',
+        isWrite: true,
+        returnsRows: false,
       },
     ]);
   });
@@ -249,6 +270,9 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       {
         text: 'UPDATE "expression_posts" SET "views" = "views" + $1 WHERE "published" = $2 RETURNING "id"',
         parameters: [1, false],
+        operation: 'update',
+        isWrite: true,
+        returnsRows: true,
       },
     ]);
 
@@ -263,6 +287,9 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
           'INSERT INTO "expression_posts" ("views", "email", "published") VALUES ($1, $2, $3) ' +
           'ON CONFLICT ("id") DO UPDATE SET "views" = "views" + $4 RETURNING *',
         parameters: [1, 'counter@example.com', false, 1],
+        operation: 'insert',
+        isWrite: true,
+        returnsRows: true,
       },
     ]);
 

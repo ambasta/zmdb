@@ -102,7 +102,16 @@ export type _PairsValuesAreStrings = Expect<Equal<CommentPairs[CommentKey], stri
 
 // --- §6/§7.7: the comment is rendered, not stored --------------------------
 //
-// Per-request comments remain outside reusable compiled statements.
+// §6: the tag is applied by the driver decorator at execute time and is **not** a field on
+// `CompiledQuery`. `./comments.spec.ts` asserts the runtime half (a tagged execute leaves the
+// compiled query deep-equal to its untagged self). This is the half that survives a
+// well-meaning refactor: the moment `CompiledQuery` grows a `comment` field, the shape every
+// existing `toEqual` in this repository compares has changed, and §6's whole argument —
+// "a compiled query can be cached and reused across requests that would tag it differently" —
+// is gone. `../index.ts:77-80` is the interface; these lines are the fence around it.
+export type _CompiledQueryKeysToday = Expect<
+  Equal<keyof CompiledQuery, 'text' | 'parameters' | 'effects' | 'operation' | 'isWrite' | 'returnsRows' | 'telemetry'>
+>;
 
 declare const today: CompiledQuery;
 

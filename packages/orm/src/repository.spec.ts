@@ -114,6 +114,7 @@ describe('BaseRepository read methods', () => {
 
     expect(driver.calls).toHaveLength(7);
     for (const query of driver.calls) {
+      expect(Object.keys(query)).toEqual(['text', 'parameters', 'effects', 'operation', 'isWrite', 'returnsRows']);
       expect(query.telemetry).toBeUndefined();
     }
   });
@@ -496,16 +497,25 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT "archive_old_orders"($1) AS "result"',
       parameters: [cutoff],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
     expect(mysql.callFunction('archive_old_orders', [cutoff])).toEqual({
       effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT `archive_old_orders`(?) AS `result`',
       parameters: [cutoff],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
     expect(postgres.callFunction('odd"name', [cutoff])).toEqual({
       effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT "odd""name"($1) AS "result"',
       parameters: [cutoff],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -516,11 +526,17 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
       text: 'CALL "rebuild_search_index"($1, $2)',
       parameters: ['tenant-a', 25],
+      operation: 'other',
+      isWrite: false,
+      returnsRows: false,
     });
     expect(mysql.callProcedure('rebuild_search_index', ['tenant-a', 25])).toEqual({
       effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
       text: 'CALL `rebuild_search_index`(?, ?)',
       parameters: ['tenant-a', 25],
+      operation: 'other',
+      isWrite: false,
+      returnsRows: false,
     });
   });
 
@@ -530,6 +546,9 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT * FROM "active_user_ids"($1)',
       parameters: [7n],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
 
     const cockroach = await routineCompiler('cockroach');
@@ -537,6 +556,9 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
       effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
       text: 'SELECT * FROM "active_user_ids"($1)',
       parameters: [7n],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -620,6 +642,9 @@ describe('typed stored routine calls (frozen: repository/SPEC.md 4a)', () => {
         effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: false },
         text: 'CALL "rebuild_search_index"($1)',
         parameters: ['tenant-a'],
+        operation: 'other',
+        isWrite: false,
+        returnsRows: false,
       },
     ]);
   });
@@ -641,6 +666,9 @@ describe('typed stored routine calls (frozen: repository/SPEC.md 4a)', () => {
         effects: { operation: 'UNKNOWN', requiresPrimary: true, returnsRows: true },
         text: 'SELECT "archive_old_orders"($1) AS "result"',
         parameters: [new Date('2026-01-01T00:00:00.000Z')],
+        operation: 'select',
+        isWrite: false,
+        returnsRows: true,
       },
     ]);
   });

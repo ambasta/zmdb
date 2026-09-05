@@ -22,3 +22,56 @@ if (carrier.metadata === undefined) {
     configurable: true,
   });
 }
+
+interface GlobalWithBtoaAtob {
+  btoa?: (data: string) => string;
+  atob?: (data: string) => string;
+}
+
+if (!('toBase64' in Uint8Array.prototype)) {
+  const globalCarrier: GlobalWithBtoaAtob = globalThis;
+  Reflect.defineProperty(Uint8Array.prototype, 'toBase64', {
+    value: function (options?: { alphabet?: string; omitPadding?: boolean }) {
+      let binary = '';
+      const len = this.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(this[i]);
+      }
+      let base64 = typeof globalCarrier.btoa === 'function' ? globalCarrier.btoa(binary) : '';
+      if (options?.alphabet === 'base64url') {
+        base64 = base64.replace(/\+/g, '-').replace(/\//g, '_');
+      }
+      if (options?.omitPadding) {
+        base64 = base64.replace(/=+$/, '');
+      }
+      return base64;
+    },
+    writable: true,
+    enumerable: false,
+    configurable: true,
+  });
+}
+
+if (!('fromBase64' in Uint8Array)) {
+  const globalCarrier: GlobalWithBtoaAtob = globalThis;
+  Reflect.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (base64Text: string, options?: { alphabet?: string }) {
+      let normalised = base64Text;
+      if (options?.alphabet === 'base64url') {
+        normalised = normalised.replace(/-/g, '+').replace(/_/g, '/');
+      }
+      while (normalised.length % 4 !== 0) {
+        normalised += '=';
+      }
+      const binary = typeof globalCarrier.atob === 'function' ? globalCarrier.atob(normalised) : '';
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    },
+    writable: true,
+    enumerable: false,
+    configurable: true,
+  });
+}

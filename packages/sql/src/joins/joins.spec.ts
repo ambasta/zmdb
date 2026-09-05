@@ -75,6 +75,7 @@ describe('JOIN compile-time telemetry', () => {
       .selectFrom(trustedTable('products'))
       .leftJoin(trustedTable('suppliers'), 'suppliers', [{ leftCol: 'suppliers.id', rightCol: 'products.supplier_id' }])
       .compile();
+    expect(Object.keys(q)).toEqual(['text', 'parameters', 'effects', 'operation', 'isWrite', 'returnsRows']);
     expect(q.telemetry).toBeUndefined();
   });
 

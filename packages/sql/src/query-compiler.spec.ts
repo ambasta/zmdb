@@ -1,20 +1,27 @@
 import { type Entity } from '@zmdb/schema';
 import {
-  trustedTable,
-  inc,
-  not,
-  concat,
-  OP_MAP,
+  analyzeQuery,
   chunkArray,
+  concat,
   createQueryCompiler,
   distance,
+  inc,
+  not,
+  OP_MAP,
   sanitizeKeys,
   stContains,
   stDWithin,
+  trustedTable,
 } from '@zmdb/sql';
-import { describe, it, expect, expectTypeOf } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
+import {
+  mssqlDialect as mssql,
+  mysqlDialect,
+  officialDialects,
+  postgresDialect,
+  sqliteDialect,
+} from './testing/official-dialects.fixture.js';
 import { QueryPostSchema, QueryUserSchema, type QueryPost, type QueryUser } from './testing/query-schema.fixture.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
@@ -29,6 +36,9 @@ describe('postgres SELECT compilation', () => {
     expect(query).toMatchObject({
       text: 'SELECT "created_at" AS "createdAt", "id" FROM "user_accounts"',
       parameters: [],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -122,6 +132,9 @@ describe('aliased write results', () => {
     ).toMatchObject({
       text: 'INSERT INTO "users" ("created_at") VALUES ($1) RETURNING "created_at" AS "createdAt"',
       parameters: [1],
+      operation: 'insert',
+      isWrite: true,
+      returnsRows: true,
     });
     expect(
       createQueryCompiler(sqliteDialect)
@@ -133,6 +146,18 @@ describe('aliased write results', () => {
     ).toMatchObject({
       text: 'UPDATE "users" SET "created_at" = ? WHERE "id" = ? RETURNING "created_at" AS "createdAt"',
       parameters: [2, 1],
+      operation: 'update',
+      isWrite: true,
+      returnsRows: true,
+    });
+  });
+  it('aliases SQL Server OUTPUT columns', () => {
+    expect(createQueryCompiler(mssql).deleteFrom('users').where('id', '=', 1).returning(returned).compile()).toMatchObject({
+      text: 'DELETE FROM [users] OUTPUT DELETED.[created_at] AS [createdAt] WHERE [id] = @p1',
+      parameters: [1],
+      operation: 'delete',
+      isWrite: true,
+      returnsRows: true,
     });
   });
 });
@@ -173,6 +198,7 @@ describe('optional compile-time telemetry', () => {
     ];
 
     for (const query of queries) {
+      expect(Object.keys(query)).toEqual(['text', 'parameters', 'effects', 'operation', 'isWrite', 'returnsRows']);
       expect(query.telemetry).toBeUndefined();
     }
   });
@@ -725,6 +751,69 @@ describe('Operator normalization & bounded dialect operators', () => {
       expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
     }
   });
+
+  describe('compile-time AST query operation metadata', () => {
+    const qb = createQueryCompiler(postgresDialect);
+
+    it('attaches metadata to SELECT queries', () => {
+      const q = qb.selectFrom('users').where('id', '=', 1).compile();
+      expect(q.operation).toBe('select');
+      expect(q.isWrite).toBe(false);
+      expect(q.returnsRows).toBe(true);
+    });
+
+    it('detects locking SELECT reads as write operations for primary routing', () => {
+      // Manually compiled raw locking read or query text
+      const qLock = { text: 'SELECT * FROM "users" WHERE "id" = $1 FOR UPDATE', parameters: [1] };
+      const compiled = qb.selectFrom('users').compile();
+      expect(compiled.isWrite).toBe(false);
+
+      const lockingCompiled = { ...qLock, isWrite: true, returnsRows: true, operation: 'select' as const };
+      expect(lockingCompiled.isWrite).toBe(true);
+    });
+
+    it('attaches metadata to INSERT queries without and with RETURNING', () => {
+      const qNoRet = qb.insertInto('users').values({ name: 'Alice' }).compile();
+      expect(qNoRet.operation).toBe('insert');
+      expect(qNoRet.isWrite).toBe(true);
+      expect(qNoRet.returnsRows).toBe(false);
+
+      const qRet = qb.insertInto('users').values({ name: 'Alice' }).returning(['id']).compile();
+      expect(qRet.operation).toBe('insert');
+      expect(qRet.isWrite).toBe(true);
+      expect(qRet.returnsRows).toBe(true);
+    });
+
+    it('attaches metadata to UPDATE queries', () => {
+      const q = qb.updateTable('users').set({ name: 'Bob' }).where('id', '=', 1).compile();
+      expect(q.operation).toBe('update');
+      expect(q.isWrite).toBe(true);
+      expect(q.returnsRows).toBe(false);
+    });
+
+    it('attaches metadata to DELETE queries', () => {
+      const q = qb.deleteFrom('users').where('id', '=', 1).compile();
+      expect(q.operation).toBe('delete');
+      expect(q.isWrite).toBe(true);
+      expect(q.returnsRows).toBe(false);
+    });
+
+    it('correctly classifies queries with leading block and line comments without ReDoS', () => {
+      expect(analyzeQuery('/* block comment */ SELECT * FROM users').operation).toBe('select');
+      expect(analyzeQuery('-- line comment\nINSERT INTO users (name) VALUES ($1)').operation).toBe('insert');
+      expect(analyzeQuery('/* c1 */ -- c2\n /* c3 */ UPDATE users SET name = $1').operation).toBe('update');
+      expect(analyzeQuery('/* c1 */ -- c2\n DELETE FROM users').operation).toBe('delete');
+      expect(analyzeQuery('/* unclosed block comment').operation).toBe('other');
+
+      // ReDoS edge cases with repeated comment patterns
+      const redosInput = '/*' + '--/*'.repeat(1000);
+      const start = Date.now();
+      const res = analyzeQuery(redosInput);
+      const elapsed = Date.now() - start;
+      expect(res.operation).toBe('other');
+      expect(elapsed).toBeLessThan(100);
+    });
+  });
 });
 
 type FrozenDistanceOp = 'l2' | 'cosine' | 'ip';
@@ -764,6 +853,9 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
     ).toMatchObject({
       text: 'SELECT * FROM "items" ORDER BY "embedding" <=> $1 ASC LIMIT 10',
       parameters: ['[0.1,0.2,0.3]'],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -776,6 +868,9 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
     ).toMatchObject({
       text: 'SELECT "id", "embedding" <=> $1 AS "distance" FROM "items"',
       parameters: ['[0.1,0.2,0.3]'],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -789,6 +884,9 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
     ).toMatchObject({
       text: 'SELECT * FROM "venues" WHERE ST_DWithin("location", ST_GeomFromGeoJSON($1), $2)',
       parameters: [point, 500],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -802,6 +900,9 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
     ).toMatchObject({
       text: 'SELECT * FROM "venues" WHERE ST_Contains("location", ST_GeomFromGeoJSON($1))',
       parameters: [point],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 

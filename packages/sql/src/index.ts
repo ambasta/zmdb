@@ -36,7 +36,7 @@ import {
 import { UnsupportedFeatureError } from './errors.js';
 
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
-export type { CompiledQuery, QueryEffects, QueryTelemetry } from './compiled-query.js';
+export type { CompiledQuery, QueryEffects, QueryMetadata, QueryOperation, QueryTelemetry } from './compiled-query.js';
 export {
   defineSqlDialect,
   dialectCapabilities,
@@ -103,7 +103,8 @@ export type {
   CatalogWarning,
 } from './introspect/types.js';
 
-import { frozenQuery, queryTelemetry, whereClause, type Predicate } from './clauses.js';
+import { analyzeQuery, frozenQuery, queryTelemetry, whereClause, type Predicate } from './clauses.js';
+export { analyzeQuery, frozenQuery };
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
@@ -204,6 +205,21 @@ interface RuntimeInsertBuilder {
   values(row: Record<string, unknown>): RuntimeInsertBuilder;
   onConflict(target?: string | readonly string[]): RuntimeOnConflictBuilder;
   returning(cols?: readonly ReturningColumn[]): RuntimeInsertBuilder;
+  compile(): CompiledQuery;
+}
+
+export interface ExecuteOptions {
+  readonly signal?: AbortSignal;
+  /** Rows per round trip. A driver may clamp it; zero or negative is refused. */
+  readonly batchSize?: number;
+}
+
+export interface Driver<Name extends string = string> {
+  readonly dialect?: DialectTarget<Name> | undefined;
+  readonly queryTelemetry?: true;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
+}
   compile(): CompiledQuery;
 }
 interface RuntimeUpdateBuilder {

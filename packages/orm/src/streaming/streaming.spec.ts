@@ -267,6 +267,9 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
         effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
         text: expected[dialect],
         parameters: [7],
+        operation: 'select',
+        isWrite: false,
+        returnsRows: true,
       });
       expect(observedOptions).toEqual({ batchSize: 17 });
     }
@@ -544,6 +547,9 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
           effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
           text: 'SELECT * FROM "stream_records"',
           parameters: [],
+          operation: 'select',
+          isWrite: false,
+          returnsRows: true,
         },
         meta: {
           filters: [],
@@ -555,6 +561,9 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
           effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
           text: 'SELECT * FROM "stream_records"',
           parameters: [],
+          operation: 'select',
+          isWrite: false,
+          returnsRows: true,
         },
         meta: {
           filters: [],
