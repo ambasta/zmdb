@@ -553,6 +553,12 @@ function expressionOperand(expression: ColumnExpr<unknown>): unknown | typeof NO
  * `populate: ['orders']` is checked against `RelationKeys<User>` and the batched select it
  * runs comes from the same tag. `defineRepository` needs no subclass at all.
  */
+function formatValidationDetails(issues: readonly ValidationIssue[]): string {
+  return issues
+    .map(i => (i.message && !i.message.startsWith('expected ') ? `${i.path} (${i.message})` : i.path))
+    .join(', ');
+}
+
 export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly schema: CoreSchema<string>;
   protected driver: Driver;
@@ -2639,8 +2645,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
 
     if (issues.length > 0) {
-      const details = issues.map(i => `${i.path} (${i.message})`).join(', ');
-      throw new ValidationError(`validation failed: ${details}`, issues);
+      throw new ValidationError(`validation failed: ${formatValidationDetails(issues)}`, issues);
     }
 
     return out;
@@ -2745,8 +2750,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       ...this.excessIssues(obj, 'update'),
     ];
     if (issues.length > 0) {
-      const details = issues.map(i => `${i.path} (${i.message})`).join(', ');
-      throw new ValidationError(`validation failed: ${details}`, issues);
+      throw new ValidationError(`validation failed: ${formatValidationDetails(issues)}`, issues);
     }
 
     const out: Record<string, unknown> = {};
