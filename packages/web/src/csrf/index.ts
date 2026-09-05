@@ -48,17 +48,66 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
-function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+const B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const B64LOOKUP = new Uint8Array(256);
+for (let index = 0; index < B64URL.length; index += 1) {
+  B64LOOKUP[B64URL.charCodeAt(index)] = index;
 }
 
+// boundary: Uint8Array base64url encoding fallback when toBase64 is unavailable
+function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
+  const method = Reflect.get(value, 'toBase64');
+  if (typeof method === 'function') {
+    return String(Reflect.apply(method, value, [{ alphabet: 'base64url', omitPadding: true }]));
+  }
+  let result = '';
+  const bytes = new Uint8Array(value);
+  for (let index = 0; index < bytes.length; index += 3) {
+    const b0 = bytes[index] ?? 0;
+    const b1 = index + 1 < bytes.length ? (bytes[index + 1] ?? 0) : 0;
+    const b2 = index + 2 < bytes.length ? (bytes[index + 2] ?? 0) : 0;
+    result += B64URL[b0 >> 2];
+    result += B64URL[((b0 & 3) << 4) | (b1 >> 4)];
+    if (index + 1 < bytes.length) result += B64URL[((b1 & 15) << 2) | (b2 >> 6)];
+    if (index + 2 < bytes.length) result += B64URL[b2 & 63];
+  }
+  return result;
+}
+
+// boundary: Uint8Array base64url decoding fallback when fromBase64 is unavailable
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
   if (value.length === 0 || !BASE64URL.test(value)) {
     return undefined;
   }
   try {
-    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
-    return encodeBase64Url(decoded) === value ? decoded : undefined;
+    const fromBase64 = Reflect.get(Uint8Array, 'fromBase64');
+    if (typeof fromBase64 === 'function') {
+      const decoded = Reflect.apply(fromBase64, Uint8Array, [value, { alphabet: 'base64url' }]);
+      if (decoded instanceof Uint8Array) {
+        return encodeBase64Url(decoded) === value ? decoded : undefined;
+      }
+    }
+    const padding = (4 - (value.length % 4)) % 4;
+    const b64 = value + '==='.slice(0, padding);
+    const output = new Uint8Array(Math.floor((b64.length * 3) / 4) - padding);
+    let pointer = 0;
+    for (let index = 0; index < b64.length; index += 4) {
+      const c0 = B64LOOKUP[b64.charCodeAt(index)] ?? 0;
+      const c1 = B64LOOKUP[b64.charCodeAt(index + 1)] ?? 0;
+      const c2 = B64LOOKUP[b64.charCodeAt(index + 2)] ?? 0;
+      const c3 = B64LOOKUP[b64.charCodeAt(index + 3)] ?? 0;
+      output[pointer] = (c0 << 2) | (c1 >> 4);
+      pointer += 1;
+      if (pointer < output.length) {
+        output[pointer] = ((c1 & 15) << 4) | (c2 >> 2);
+        pointer += 1;
+      }
+      if (pointer < output.length) {
+        output[pointer] = ((c2 & 3) << 6) | c3;
+        pointer += 1;
+      }
+    }
+    return encodeBase64Url(output) === value ? output : undefined;
   } catch {
     return undefined;
   }
