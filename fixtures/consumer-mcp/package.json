@@ -1,0 +1,9 @@
+{
+  "name": "@zmdb-fixture/consumer-mcp",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/ai": "1.0.0-alpha.4",
+    "@zmdb/mcp": "1.0.0-alpha.4"
+  }
+}

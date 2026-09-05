@@ -132,9 +132,9 @@ and plausible.
 ## 6. Target ownership boundary: schema, not AI
 
 Issue #703 freezes the target boundary for epic #702. This section describes the final package graph. At baseline commit `94164c53` on 2026-09-05, `packages/schema-core/src/llm/` contained 32 files.
-After #705 moves the provider-neutral specifications and tests, #706 moves the Anthropic driver, #707 moves the LangChain contract tests, and #708 moves the Vercel adapter and its tests, 17 temporary
-implementation/integration/MCP files remain. The manifest publishes five `./llm*` compatibility entries and declares no provider or framework peer; those peers now belong only to their integration
-packages.
+After #705 moved provider-neutral specifications and tests, #706 moved the Anthropic driver, #707 moved the LangChain contract tests, #708 moved the Vercel adapter and its tests, and #709 moved MCP,
+11 temporary implementation/integration files remain. The manifest publishes four `./llm*` compatibility entries and declares no provider or framework peer; those peers now belong only to their
+integration packages.
 
 The final `@zmdb/schema-core` package owns only the declaration vocabulary and provider-neutral schema products:
 
@@ -152,8 +152,8 @@ It explicitly does **not** own:
 - a dependency on `@zmdb/ai`, any `@zmdb/ai-*` integration package or `@zmdb/mcp`.
 
 The dependency direction is one-way: `@zmdb/ai` depends on `@zmdb/schema-core`. Therefore a compatibility layer in this package must never re-export from `@zmdb/ai`; that would make the packages
-depend on each other. The Vercel leaf moved without a forwarder in #708; the remaining new packages may temporarily forward to old `@zmdb/schema-core/llm*` paths only where sequencing requires it. The
-final ownership cutover removes those forwarders, this package's five remaining LLM exports and the whole `src/llm/` directory.
+depend on each other. The Vercel leaf moved without a forwarder in #708, and MCP moved without a compatibility export in #709. The remaining new packages may temporarily forward to old
+`@zmdb/schema-core/llm*` paths only where sequencing requires it. The final ownership cutover removes those forwarders, this package's four remaining LLM exports, and the whole `src/llm/` directory.
 
 The complete file map, public entry points, peer ranges and migration order are frozen in [`../ai/SPEC.md`](../ai/SPEC.md). The final boundary is mechanically true only when packed-package tests show
 that every remaining `@zmdb/schema-core` export imports without an AI/provider dependency and a repository search finds no `@zmdb/schema-core/llm` consumer.

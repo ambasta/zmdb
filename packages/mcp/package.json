@@ -1,0 +1,54 @@
+{
+  "name": "@zmdb/mcp",
+  "version": "1.0.0-alpha.4",
+  "description": "Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.",
+  "keywords": [
+    "ai",
+    "json-rpc",
+    "llm",
+    "mcp",
+    "model-context-protocol",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/mcp"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/ai": "workspace:^"
+  },
+  "devDependencies": {
+    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/schema-core": "workspace:^",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

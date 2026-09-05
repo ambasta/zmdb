@@ -129,8 +129,13 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
       ┌────────────────┐
       │    @zmdb/ai    │  (also depends directly on schema-core)
       │ (neutral tools)│
-      └───────┬────────┘
-              ▼
+      └───┬────────┬───┘
+          │        ▼
+          │  ┌────────────────┐
+          │  │   @zmdb/mcp    │  (depends only on AI; platform APIs)
+          │  │ (MCP protocol) │
+          │  └────────────────┘
+          ▼
       ┌────────────────┐
       │@zmdb/aot-      │  (also depends directly on schema-core)
       │  validator     │
@@ -156,9 +161,9 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
       └────────────────┘
 ```
 
-`@zmdb/client` and `@zmdb/protobuf` are independent roots. The opt-in `@zmdb/ai-anthropic` package depends inward only on `@zmdb/ai`; the `@zmdb/ai-langchain` migration shell depends on `@zmdb/ai` and
-temporarily on schema-core. Each integration alone declares its SDK/framework peer, and neither integration nor the provider-neutral AI package is re-exported by the umbrella. The temporary
-LangChain-to-schema-core edge disappears with the coordinated AI ownership cutover in #710.
+`@zmdb/client` and `@zmdb/protobuf` are independent roots. The opt-in `@zmdb/ai-anthropic` and `@zmdb/ai-vercel` packages depend inward only on `@zmdb/ai`; the `@zmdb/ai-langchain` migration shell
+depends on `@zmdb/ai` and temporarily on schema-core. Each integration alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. None of these optional packages or the
+provider-neutral AI package is re-exported by the umbrella. The temporary LangChain-to-schema-core edge disappears with the coordinated AI ownership cutover in #710.
 
 **Rules enforced by this DAG:**
 
@@ -167,6 +172,7 @@ LangChain-to-schema-core edge disappears with the coordinated AI ownership cutov
 - **AI depends on schema-core, never the reverse.** Its provider-neutral public names are migration-only forwarders until the coordinated ownership cutover.
 - **AI integrations depend inward on AI.** `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` own their provider/framework adapters; their optional peers do not reach schema-core or
   provider-neutral AI.
+- **MCP depends only on AI.** It owns the transport-neutral MCP client/server protocol, uses only platform APIs, and is not re-exported by the umbrella.
 - **aot-validator depends on schema-core and AI, never the reverse.** Reflection remains above the declaration vocabulary; `toolFor` compilation consumes AI's document boundary.
 - **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and currently owns the driver adapters (built-in `node:sqlite`, structurally injected `pg` and `mssql`).
 - **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, command, event, CQRS, state, health, and observability kernel.
@@ -185,12 +191,13 @@ LangChain-to-schema-core edge disappears with the coordinated AI ownership cutov
 | `@zmdb/ai-anthropic`   | Optional Anthropic Messages API driver over the provider-neutral chat contract                                                                             | ai; `@anthropic-ai/sdk` (optional peer)                          |
 | `@zmdb/ai-langchain`   | Optional LangChain structured-tool contract and the sole `@langchain/core` peer                                                                            | ai, schema-core temporarily; `@langchain/core` (optional peer)   |
 | `@zmdb/ai-vercel`      | Optional Vercel AI SDK tool fields with caller-owned schema branding and validation                                                                        | ai; `ai` (optional peer)                                         |
+| `@zmdb/mcp`            | Transport-neutral MCP client/server protocol handling, authenticated identity injection, validation, and bounded remote calls                              | ai                                                               |
 | `@zmdb/protobuf`       | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                             | none                                                             |
 | `@zmdb/aot-validator`  | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                                  | ai, schema-core                                                  |
 | `@zmdb/repository`     | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and current driver adapters                                      | aot-validator, query-compiler, schema-core                       |
 | `@zmdb/app`            | Protocol-neutral metadata, DI, modules, lifecycle/extensions, commands, events, CQRS, state, health contracts, and observability ports                     | aot-validator, query-compiler, repository, schema-core           |
 | `@zmdb/web`            | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                                | app, aot-validator, query-compiler, repository, schema-core      |
-| `zmdb`                 | Curated product facade and CLI; no AI public re-export                                                                                                     | app, aot-validator, query-compiler, repository, schema-core, web |
+| `zmdb`                 | Curated product facade and CLI; no AI or MCP public re-export                                                                                              | app, aot-validator, query-compiler, repository, schema-core, web |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
 
@@ -314,15 +321,15 @@ consumer must prove the qualifying framework behaviour before the package ships.
 The complete qualification rule, cancellation/state semantics, peer ranges, export map and nine-package matrix are frozen in
 [`packages/zmdb/src/client-integrations/SPEC.md`](./packages/zmdb/src/client-integrations/SPEC.md).
 
-### 3.7 AI integration ownership migration (Issues #703, #705, #706, #707 and #708)
+### 3.7 AI integration ownership migration (Issues #703, #705, #706, #707, #708 and #709)
 
 Issue #705 publishes the provider-neutral `@zmdb/ai` boundary and moves AOT/generated consumers to it. Issue #706 moves the Anthropic driver and its SDK peer to `@zmdb/ai-anthropic`; issue #707
 publishes `@zmdb/ai-langchain`, moves its real-package contract tests and peer, and leaves one temporary new-to-old forwarder; issue #708 physically moves the Vercel adapter, tests, and peer to
-`@zmdb/ai-vercel`. The AI root, chat, HTTP, and compiler entries still forward in the permitted AI-to-schema-core direction, shared tool invocation is physically owned by AI, and schema-core now has
-five temporary `./llm*` exports with no provider/framework peer.
+`@zmdb/ai-vercel`; issue #709 moves the MCP client/server, protocol tests, and public root into `@zmdb/mcp`. The AI root, chat, HTTP, and compiler entries still forward in the permitted
+AI-to-schema-core direction, shared tool invocation is physically owned by AI, and schema-core now has 11 temporary source files, four `./llm*` exports, and no provider/framework peer.
 
 Provider-neutral schema-derived tool documents, parsing, bounded chat orchestration, shared invocation and OpenAPI-derived tools move to `@zmdb/ai`. Anthropic SDK translation, LangChain framing and
-Vercel AI SDK framing each move to one opt-in integration package. The pure MCP client/server moves to `@zmdb/mcp`.
+Vercel AI SDK framing each move to one opt-in integration package. The pure MCP client/server now ships from `@zmdb/mcp`.
 
 ```text
 @zmdb/ai-anthropic ──┐
@@ -341,9 +348,9 @@ APIs and depends only on `@zmdb/ai`.
 `toolFor<T>()` remains an AOT callee; its declared source and generated witness imports are `@zmdb/ai`, and the emitter consumes the shared document producer through `@zmdb/ai/compiler`. Generated
 OpenAPI-tool modules import `OpenApiGeneratedTool` from `@zmdb/ai/http`.
 
-The migration cannot preserve an old path by making schema-core forward to AI, because AI already depends on schema-core. The Anthropic and Vercel implementations are already physically owned by their
-packages; any remaining temporary forwarder points only from a new package to the old owner. The final cutover removes those forwarders, the five remaining old exports, and the whole
-`packages/schema-core/src/llm/` directory.
+The migration cannot preserve an old path by making schema-core forward to AI or MCP, because AI already depends on schema-core and MCP depends on AI. MCP therefore moved without a compatibility
+subpath. The Anthropic and Vercel implementations are already physically owned by their packages; any remaining temporary forwarder points only from a new package to the old owner. The final cutover
+removes those forwarders, the four remaining old exports, and the remaining `packages/schema-core/src/llm/` directory.
 
 The exact 32-file ownership map, public exports, peer matrix, publish order and final-removal checks are frozen in [`packages/ai/SPEC.md`](./packages/ai/SPEC.md). Package-specific boundaries are in
 [`packages/ai-anthropic/SPEC.md`](./packages/ai-anthropic/SPEC.md), [`packages/ai-langchain/SPEC.md`](./packages/ai-langchain/SPEC.md), [`packages/ai-vercel/SPEC.md`](./packages/ai-vercel/SPEC.md) and

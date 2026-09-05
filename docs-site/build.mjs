@@ -457,8 +457,8 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Thirteen published packages</h2>
-  <p class="lead">Composable and ESM-only. Use the cohesive data, app, and HTTP umbrella, provider-neutral AI tools, opt-in provider/framework integrations, or an implementation package on its own.</p>
+  <h2>Fourteen published packages</h2>
+  <p class="lead">Composable and ESM-only. Use the cohesive data, app, and HTTP umbrella, provider-neutral AI tools, opt-in provider/framework integrations, MCP, or an implementation package on its own.</p>
   <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
     <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>
@@ -467,12 +467,13 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/ai-anthropic</code><p>Opt-in Anthropic Messages API driver over the provider-neutral chat contract.</p></div>
     <div class="pkg"><code>@zmdb/ai-langchain</code><p>Opt-in LangChain structured-tool fields, validation dispatch, and result serialization over <code>@zmdb/ai</code>.</p></div>
     <div class="pkg"><code>@zmdb/ai-vercel</code><p>Opt-in Vercel AI SDK tool fields with caller-owned schema branding over <code>@zmdb/ai</code>.</p></div>
+    <div class="pkg"><code>@zmdb/mcp</code><p>Transport-neutral MCP client/server cores with authenticated identity, validation, and call budgets.</p></div>
     <div class="pkg"><code>@zmdb/protobuf</code><p>Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts.</p></div>
     <div class="pkg"><code>@zmdb/aot-validator</code><p>AOT is / assert / validate / equals / random, unions, transforms, and JSON Ser/De — inlined at build time.</p></div>
     <div class="pkg"><code>@zmdb/repository</code><p>Auto-validating CRUD, transactions, populate, read-replicas, lifecycle events, framework adapters.</p></div>
     <div class="pkg"><code>@zmdb/app</code><p>Protocol-neutral metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, and observability ports.</p></div>
     <div class="pkg"><code>@zmdb/web</code><p>HTTP controllers, routing, request pipelines, OpenAPI, gateways, testing, and runtime adapters over <code>@zmdb/app</code>.</p></div>
-    <div class="pkg"><code>zmdb</code><p>The curated data, app, and web umbrella. It contains no implementation logic and does not re-export <code>@zmdb/ai</code>.</p></div>
+    <div class="pkg"><code>zmdb</code><p>The curated data/web umbrella. It contains no implementation logic and does not re-export <code>@zmdb/ai</code> or <code>@zmdb/mcp</code>.</p></div>
   </div>
 </section>
 

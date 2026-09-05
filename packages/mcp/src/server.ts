@@ -1,5 +1,5 @@
-import type { ToolRegistry } from '../chat/index.js';
-import { invokeTool, toolErrorId } from '../tool-runtime.js';
+import type { ToolRegistry } from '@zmdb/ai/chat';
+import { invokeTool } from '@zmdb/ai/tool-runtime';
 
 export const MCP_PROTOCOL_VERSION = '2026-07-28';
 
@@ -14,6 +14,9 @@ const CLIENT_CAPABILITIES_KEY = 'io.modelcontextprotocol/clientCapabilities';
 const SERVER_INFO_KEY = 'io.modelcontextprotocol/serverInfo';
 
 type RequestId = string | number;
+
+const toolErrorId = (): string =>
+  [...globalThis.crypto.getRandomValues(new Uint8Array(4))].map(byte => byte.toString(16).padStart(2, '0')).join('');
 
 interface ParsedRequest {
   readonly kind: 'request';
@@ -43,6 +46,23 @@ export interface McpServerOptions {
   readonly serverInfo: { readonly name: string; readonly version: string };
   readonly identify: (transport: unknown) => Promise<unknown>;
 }
+
+type McpToolHandler = {
+  bivarianceHack(input: unknown, identity?: unknown): unknown | PromiseLike<unknown>;
+}['bivarianceHack'];
+
+interface McpToolEntry {
+  readonly spec: {
+    readonly name: string;
+    readonly description?: string;
+    readonly parameters: unknown;
+  };
+  readonly validate: (args: unknown) => unknown;
+  readonly handler: McpToolHandler;
+  readonly effectful?: boolean;
+}
+
+type McpToolRegistry = Readonly<Record<string, McpToolEntry>>;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -149,7 +169,11 @@ const contentResult = (
     isError,
   });
 
-export function createMcpServer(tools: ToolRegistry, opts: McpServerOptions): McpServer {
+// The public declaration uses the structural subset MCP consumes so the temporary
+// schema-core implementation behind @zmdb/ai/chat cannot leak a provider SDK type.
+// The implementation signature still proves compatibility with AI's ToolRegistry.
+export function createMcpServer(tools: McpToolRegistry, opts: McpServerOptions): McpServer;
+export function createMcpServer(tools: McpToolRegistry | ToolRegistry, opts: McpServerOptions): McpServer {
   const entries = Object.entries(tools);
   for (const [key, entry] of entries) {
     if (entry.spec.name !== key) {

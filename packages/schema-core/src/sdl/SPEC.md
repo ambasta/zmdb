@@ -235,7 +235,7 @@ is broken for the other, and the break is invisible in tests that only use varia
 Frozen: `parseLiteral` converts the node to a JSON value and then calls `parseValue`. One implementation, two entry points, and they cannot disagree.
 
 The conversion handles the node kinds by their `kind` string — `StringValue`, `IntValue`, `FloatValue`, `BooleanValue`, `EnumValue`, `NullValue`, `ListValue`, `ObjectValue`, `Variable` — recorded as
-data with the specification revision they were read from, the same discipline `../llm/SPEC.md` §2.1 sets for provider keyword tables and `../llm/mcp/SPEC.md` §2 for a protocol version.
+data with the specification revision they were read from, the same discipline `../llm/SPEC.md` §2.1 sets for provider keyword tables and `../../../mcp/src/SPEC.md` §2 for a protocol version.
 
 Reading them as strings is also what keeps `graphql`'s `Kind` enum from becoming an import (§1).
 

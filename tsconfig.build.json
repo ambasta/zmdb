@@ -33,6 +33,7 @@
       "@zmdb/ai/tool-runtime": ["./packages/ai/dist/tool-runtime.d.ts"],
       "@zmdb/ai-langchain": ["./packages/ai-langchain/dist/index.d.ts"],
       "@zmdb/ai-vercel": ["./packages/ai-vercel/dist/index.d.ts"],
+      "@zmdb/mcp": ["./packages/mcp/dist/index.d.ts"],
       "@zmdb/schema-core": ["./packages/schema-core/dist/index.d.ts"],
       "@zmdb/schema-core/*": ["./packages/schema-core/dist/*/index.d.ts"],
       "@zmdb/query-compiler": ["./packages/query-compiler/dist/index.d.ts"],

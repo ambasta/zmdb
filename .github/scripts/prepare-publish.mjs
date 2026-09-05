@@ -34,6 +34,11 @@ const META = {
     description: 'Optional Vercel AI SDK tool adapter for provider-neutral zmdb AI tool documents.',
     keywords: ['typescript', 'ai', 'llm', 'vercel', 'function-calling', 'zmdb'],
   },
+  mcp: {
+    description:
+      'Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.',
+    keywords: ['typescript', 'ai', 'llm', 'mcp', 'model-context-protocol', 'json-rpc', 'zmdb'],
+  },
   'query-compiler': {
     description:
       'SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.',

@@ -1,3 +1,4 @@
+// Transport-neutral MCP client owned by @zmdb/mcp.
 import { MCP_PROTOCOL_VERSION } from './server.js';
 
 const PROTOCOL_VERSION_KEY = 'io.modelcontextprotocol/protocolVersion';

@@ -1,5 +1,5 @@
-The temporary `@zmdb/schema-core/llm/mcp` path turns the validator-linked registry from `@zmdb/ai/chat` into a pure MCP server and provides a bounded client for remote MCP tools. The MCP package move
-is a later slice; your application still owns stdio or HTTP framing.
+`@zmdb/mcp` turns the validator-linked registry from `@zmdb/ai/chat` into a pure MCP server and provides a bounded client for remote MCP tools. Install it with `@zmdb/ai`; your application still owns
+stdio or HTTP framing.
 
 ## Trust boundary first
 
@@ -16,7 +16,7 @@ application may trust.
 import { assert } from '@zmdb/aot-validator/utilities';
 import { toolFromSchema } from '@zmdb/ai';
 import { defineTools } from '@zmdb/ai/chat';
-import { createMcpServer } from '@zmdb/schema-core/llm/mcp';
+import { createMcpServer } from '@zmdb/mcp';
 
 const tools = defineTools({
   search_docs: {
@@ -116,7 +116,7 @@ This ordering matters. An anonymous or cross-origin request must not learn wheth
 The client is transport-independent too:
 
 ```ts
-import { createMcpClient } from '@zmdb/schema-core/llm/mcp';
+import { createMcpClient } from '@zmdb/mcp';
 
 const client = createMcpClient(sendJsonRpc, {
   clientInfo: { name: 'my-client', version: '1.0.0' },

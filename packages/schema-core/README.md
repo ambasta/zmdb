@@ -17,10 +17,8 @@ npm add @zmdb/schema-core@alpha
 
 - Core schema APIs: `@zmdb/schema-core`
 - Schema building blocks: `/tags`, `/ir`, `/derive`, `/dto`, `/naming`, `/relations`, `/openapi`, `/custom-types`
-- Temporary compatibility paths: `/llm`, `/llm/chat`, `/llm/http`, `/llm/langchain`, `/llm/mcp`. New provider-neutral code should import `@zmdb/ai`; the Vercel adapter has moved to `@zmdb/ai-vercel`,
-  and the remaining paths stay until their integration and MCP cutovers.
-
-The Anthropic chat driver is no longer on a schema-core path; install and import `@zmdb/ai-anthropic`.
+- Temporary compatibility paths: `/llm`, `/llm/chat`, `/llm/http`, `/llm/langchain`. New provider-neutral code should import `@zmdb/ai`; these paths remain until the coordinated ownership cutover. The
+  Anthropic and Vercel integrations now ship from `@zmdb/ai-anthropic` and `@zmdb/ai-vercel`, while MCP client and server cores ship only from `@zmdb/mcp`.
 
 ## Documentation
 

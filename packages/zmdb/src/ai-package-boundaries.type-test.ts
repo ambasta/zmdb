@@ -57,7 +57,6 @@ import type {
   ToolAdapterOptions,
   ToolInvocation,
 } from '@zmdb/ai/tool-runtime';
-import type { Equal, Expect } from '@zmdb/schema-core';
 import type {
   createMcpClient,
   createMcpServer,
@@ -69,7 +68,8 @@ import type {
   McpServerOptions,
   RemoteTool,
   RemoteToolResult,
-} from '@zmdb/schema-core/llm/mcp';
+} from '@zmdb/mcp';
+import type { Equal, Expect } from '@zmdb/schema-core';
 
 type ExportSet<Values extends string, Types extends string> = {
   readonly values: Values;

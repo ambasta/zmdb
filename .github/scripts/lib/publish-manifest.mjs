@@ -20,6 +20,7 @@ export const PACKAGES = [
   'ai-anthropic',
   'ai-langchain',
   'ai-vercel',
+  'mcp',
   'protobuf',
   'aot-validator',
   'repository',

@@ -109,6 +109,7 @@ const PACKAGES = [
   'ai-anthropic',
   'ai-langchain',
   'ai-vercel',
+  'mcp',
   'aot-validator',
   'protobuf',
   'repository',

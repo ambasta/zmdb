@@ -340,7 +340,7 @@ describe('validation before dispatch — §3, and epic §2.3 at its most load-be
   //
   // JUDGEMENT CALL, recorded in NOTES.md: ./SPEC.md does not cover an unregistered name for
   // the loop at all (§6 covers a throwing tool and a validation failure; §5 covers a declined
-  // one). `../mcp/SPEC.md` §3 answers `-32602` to the *client* for the same event, and states
+  // one). `packages/mcp/src/SPEC.md` §3 answers `-32602` to the *client* for the same event, and states
   // that reporting it as `isError` "tells the model to keep trying a tool that does not exist"
   // — but in the loop there is no client to answer, and throwing would discard the turns
   // already spent, which is the reason §5 gives for not aborting a declined call either. So

@@ -243,8 +243,8 @@ to be an instance of a class only the consumer's copy of the library can constru
 spec's §4.1 defers to a builder, and it is where two `sdlOf` calls that each emitted a shared `Address` meet.
 
 Nothing in this package serves `/graphql`. The transport is a controller the application writes — a `@Post('/graphql')` that parses the request, calls the engine and returns `json(result)` — for the
-reason `packages/schema-core/src/llm/mcp/SPEC.md` §1 gives for MCP: a shipped endpoint would have to invent an authentication model, and here it would additionally have to choose an engine.
-`web-graphql-resolvers.md` already shows the composition, one container behind both surfaces, and it stays the recommended shape.
+reason `packages/mcp/src/SPEC.md` §1 gives for MCP: a shipped endpoint would have to invent an authentication model, and here it would additionally have to choose an engine. `web-graphql-resolvers.md`
+already shows the composition, one container behind both surfaces, and it stays the recommended shape.
 
 ## 7. Errors: a field failure is a field failure
 

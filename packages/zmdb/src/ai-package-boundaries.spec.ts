@@ -22,6 +22,8 @@ const AI = join(PACKAGES, 'ai');
 const AI_ANTHROPIC = join(PACKAGES, 'ai-anthropic');
 const AI_LANGCHAIN = join(PACKAGES, 'ai-langchain');
 const AI_VERCEL = join(PACKAGES, 'ai-vercel');
+const MCP = join(PACKAGES, 'mcp');
+const MCP_SOURCE = join(MCP, 'src');
 const SCHEMA_CORE = join(PACKAGES, 'schema-core');
 const LLM = join(SCHEMA_CORE, 'src', 'llm');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
@@ -75,23 +77,18 @@ const FINAL_OWNER = {
   'index.ts': '@zmdb/ai',
   'llm.spec.ts': '@zmdb/ai',
   'llm.type-test.ts': '@zmdb/ai',
-  'mcp/SPEC.md': '@zmdb/mcp',
-  'mcp/client.ts': '@zmdb/mcp',
-  'mcp/index.ts': '@zmdb/mcp',
-  'mcp/mcp.spec.ts': '@zmdb/mcp',
-  'mcp/mcp.type-test.ts': '@zmdb/mcp',
-  'mcp/server.ts': '@zmdb/mcp',
   'providers.spec.ts': '@zmdb/ai',
   'providers.ts': '@zmdb/ai',
   'tool-runtime.ts': '@zmdb/ai',
 } as const satisfies Readonly<Record<string, AiPackage>>;
+
+const MCP_SOURCE_FILES = ['SPEC.md', 'client.ts', 'index.ts', 'mcp.spec.ts', 'mcp.type-test.ts', 'server.ts'] as const;
 
 const SCHEMA_CORE_PACKED_SUBPATHS = [
   '@zmdb/schema-core/llm',
   '@zmdb/schema-core/llm/chat',
   '@zmdb/schema-core/llm/http',
   '@zmdb/schema-core/llm/langchain',
-  '@zmdb/schema-core/llm/mcp',
 ] as const;
 
 const TARGET_AI_EXPORTS = ['.', './chat', './compiler', './http', './tool-runtime'] as const;
@@ -179,10 +176,6 @@ function importClosure(entries: readonly string[]): ImportReference[] {
   return imports;
 }
 
-function currentOwnership(paths: readonly string[]): readonly { readonly path: string; readonly owner: string }[] {
-  return paths.map(path => ({ path, owner: packageOwner(join(LLM, path)) }));
-}
-
 function implementationFile(path: string, owner: AiPackage): string {
   if (owner === '@zmdb/ai-anthropic' && path === 'chat/drivers/anthropic.ts') {
     return join(AI_ANTHROPIC, 'src', 'index.ts');
@@ -212,12 +205,15 @@ function projectedAiGraph(): string[] {
   const production = Object.entries(FINAL_OWNER)
     .filter(([path]) => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.endsWith('.type-test.ts'))
     .map(([path, owner]) => implementationFile(path, owner));
+  const mcpProduction = MCP_SOURCE_FILES.filter(
+    path => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.endsWith('.type-test.ts'),
+  ).map(path => join(MCP_SOURCE, path));
   const aotSources = [
     join(PACKAGES, 'aot-validator', 'src', 'transformer.ts'),
     join(PACKAGES, 'aot-validator', 'src', 'emit', 'index.ts'),
   ];
 
-  for (const file of [...production, ...aotSources]) {
+  for (const file of [...production, ...mcpProduction, ...aotSources]) {
     const from = projectedOwner(file);
     for (const reference of importsOf(file)) {
       let to: string | null = null;
@@ -362,10 +358,10 @@ afterAll(() => {
   for (const directory of packDirectories) rmSync(directory, { recursive: true, force: true });
 });
 
-describe('AI package ownership and isolation (#704, #705, #706, #707, #708)', () => {
+describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709)', () => {
   it.fails('schema-core exposes no llm subpath or AI peer dependency', () => {
-    // #706-#708 remove all provider/framework peers, but the remaining implementation,
-    // integration and MCP files plus five compatibility exports keep this final-state assertion red.
+    // #706-#708 removed all provider/framework peers and #709 removed MCP, but 11 remaining
+    // implementation/integration files plus four compatibility exports keep this final-state assertion red.
     const manifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
     const llmExports = Object.keys(manifest.exports ?? {}).filter(
       path => path === './llm' || path.startsWith('./llm/'),
@@ -472,25 +468,32 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708)', ()
     expect.soft(aiManifest.peerDependencies ?? {}).not.toHaveProperty('@langchain/core');
   });
 
-  it.fails('MCP imports AI contracts but no schema-core private path', () => {
-    const mcpFiles = Object.entries(FINAL_OWNER)
-      .filter(([, owner]) => owner === '@zmdb/mcp')
-      .map(([path]) => join(LLM, path));
-    const crossOwnerRelatives = mcpFiles
+  it('MCP imports AI contracts but no schema-core private path', () => {
+    const mcpFiles = MCP_SOURCE_FILES.map(path => join(MCP_SOURCE, path));
+    const crossOwnerImports = mcpFiles
       .filter(file => file.endsWith('.ts') && !file.endsWith('.spec.ts') && !file.endsWith('.type-test.ts'))
       .flatMap(importsOf)
-      .filter(reference => reference.resolved !== null && projectedOwner(reference.resolved) !== '@zmdb/mcp')
+      .filter(reference => {
+        const packageName = packageNameFromSpecifier(reference.specifier);
+        return packageName?.startsWith('@zmdb/') === true && packageName !== '@zmdb/mcp';
+      })
       .map(reference => `${relative(ROOT, reference.file)} -> ${reference.specifier}`)
       .toSorted();
+    const manifest = readJson<PackageManifest>(join(MCP, 'package.json'));
+    const schemaManifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
     expect
-      .soft(currentOwnership(mcpFiles.map(file => relative(LLM, file))))
-      .toEqual(mcpFiles.map(file => ({ path: relative(LLM, file), owner: '@zmdb/mcp' })));
+      .soft(mcpFiles.map(file => ({ path: relative(MCP_SOURCE, file), owner: packageOwner(file) })))
+      .toEqual(MCP_SOURCE_FILES.map(path => ({ path, owner: '@zmdb/mcp' })));
     expect
-      .soft(crossOwnerRelatives)
-      .toEqual([
-        'packages/schema-core/src/llm/mcp/server.ts -> @zmdb/ai/chat',
-        'packages/schema-core/src/llm/mcp/server.ts -> @zmdb/ai/tool-runtime',
-      ]);
+      .soft(crossOwnerImports)
+      .toEqual(['packages/mcp/src/server.ts -> @zmdb/ai/chat', 'packages/mcp/src/server.ts -> @zmdb/ai/tool-runtime']);
+    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(manifest.peerDependencies).toBeUndefined();
+    const oldMcpDirectory = join(LLM, 'mcp');
+    expect
+      .soft(existsSync(oldMcpDirectory) ? filesUnder(oldMcpDirectory).map(file => relative(ROOT, file)) : [])
+      .toEqual([]);
+    expect.soft(schemaManifest.exports).not.toHaveProperty('./llm/mcp');
   });
 
   it.fails('the AI package graph is acyclic', () => {

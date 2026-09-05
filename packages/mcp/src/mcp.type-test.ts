@@ -1,6 +1,7 @@
-import type { Equal, Expect, Extends } from '../../index.js';
-import { defineTools, type ToolRegistry } from '../chat/index.js';
-import type { ToolSpec } from '../index.js';
+import type { ToolSpec } from '@zmdb/ai';
+import { defineTools, type ToolRegistry } from '@zmdb/ai/chat';
+import type { Equal, Expect, Extends } from '@zmdb/schema-core';
+
 import {
   createMcpClient,
   createMcpServer,

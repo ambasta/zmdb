@@ -1,7 +1,7 @@
 # Package architecture and release governance — specification
 
-> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, and #708. No verifier or release command exists yet. The
-> original measured baseline is commit `5adba11e` on 2026-09-05.
+> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, and #709. No verifier or release command exists yet.
+> The original measured baseline is commit `5adba11e` on 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -22,9 +22,9 @@ At the measured baseline:
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
-Issues #656, #682, #705, #647, #706, #707, and #708 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel`. The current
-thirteen manifests keep `1.0.0-alpha.4`, declare 26 direct non-dev workspace edges, and retain 11 optional peers after moving the existing Anthropic, LangChain, and Vercel peers from schema-core to
-their integration packages.
+Issues #656, #682, #705, #647, #706, #707, #708, and #709 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, and `@zmdb/mcp`.
+The current fourteen manifests keep `1.0.0-alpha.4`, declare 27 direct non-dev workspace edges, and retain 11 optional peers after moving the existing Anthropic, LangChain, and Vercel peers from
+schema-core to their integration packages.
 
 ## 2. Canonical policy API
 
@@ -104,7 +104,7 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current thirteen catalog members; it does not claim that the later reachability gates already pass every present barrel. Adding, removing or
+The following object is normative. It constrains the current fourteen catalog members; it does not claim that the later reachability gates already pass every present barrel. Adding, removing or
 renaming a catalog member requires the catalog and policy key sets to change atomically.
 
 ```ts
@@ -182,6 +182,16 @@ export const PACKAGE_POLICY = {
     optionalPeerEntries: {
       ai: ['.'],
     },
+    toolingEntries: [],
+    release: 'lockstep',
+  },
+  mcp: {
+    directory: 'packages/mcp',
+    zone: 'integration',
+    ring: 3,
+    allowedWorkspaceDependencies: ['ai'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
     toolingEntries: [],
     release: 'lockstep',
   },

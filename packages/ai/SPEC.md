@@ -1,10 +1,10 @@
 # @zmdb/ai — ownership, dependency and entry-point specification
 
-> **Status:** target-state specification frozen by issue #703 and epic #702, with green migration stages implemented by #705, #706, #707, and #708. `@zmdb/ai` is publishable and independently
-> importable; its root, chat, HTTP, and compiler entries remain migration-only AI-to-schema-core forwarders, while the merged tool runtime, Anthropic integration, and LangChain integration shell are
-> owned by their target packages. The Vercel integration is physically owned by `@zmdb/ai-vercel`; the MCP move precedes the final provider-neutral ownership cutover required by §8.
+> **Status:** target-state specification frozen by issue #703 and epic #702, with green migration stages implemented by #705, #706, #707, #708, and #709. `@zmdb/ai` is publishable and independently
+> importable; its root, chat, HTTP, and compiler entries remain migration-only AI-to-schema-core forwarders, while the merged tool runtime, Anthropic integration, LangChain integration shell, Vercel
+> integration, and MCP runtime are owned by their target packages. The final provider-neutral and LangChain ownership cutover remains in §8.
 
-### Current migration state after #708
+### Current migration state after #709
 
 - `@zmdb/ai`, `/chat`, `/compiler`, `/http`, and `/tool-runtime` are explicit package exports.
 - The package has one runtime dependency, `@zmdb/schema-core`, and no external dependency or peer.
@@ -12,9 +12,12 @@
 - Provider-neutral runtime and type tests execute from `packages/ai/src`.
 - AOT `toolFor` imports and generated OpenAPI modules name the new package.
 - `@zmdb/ai-vercel` now physically owns the AI SDK adapter, tests and peer; schema-core no longer exports `./llm/ai-sdk`.
-- Schema-core does not import or forward to AI; its old implementation remains the temporary source behind the permitted new-to-old forwarders.
 - `@zmdb/ai-langchain` publishes one root, owns the optional `@langchain/core@^1.2.9` peer, and is exercised by the real-package fixture. Its temporary schema-core dependency is removed by #710.
-- Measured after #708, `packages/ai/src` contains 16 files, the temporary `packages/schema-core/src/llm` tree contains 17, and schema-core has no provider or framework peer.
+- `@zmdb/mcp` owns its client, server, protocol specification, runtime tests, and type tests; its sole runtime dependency is `@zmdb/ai`.
+- Schema-core no longer publishes `./llm/mcp`.
+- Schema-core does not import or forward to AI; its old implementation remains the temporary source behind the permitted new-to-old forwarders.
+- Measured after #709, `packages/ai/src` contains 16 files, `packages/mcp/src` contains 7, and the temporary `packages/schema-core/src/llm` tree contains 11 files. Schema-core publishes four `./llm*`
+  compatibility entries and has no provider or framework peer.
 
 ## 1. Measured starting point
 
@@ -160,12 +163,12 @@ contract is incorporated; it does not permit the old path to survive.
 | `index.ts`                       | `@zmdb/ai`           | move to `packages/ai/src/index.ts`; stop star-exporting chat, HTTP and MCP  |
 | `llm.spec.ts`                    | `@zmdb/ai`           | move to `packages/ai/src/index.spec.ts`                                     |
 | `llm.type-test.ts`               | `@zmdb/ai`           | move to `packages/ai/src/index.type-test.ts`                                |
-| `mcp/SPEC.md`                    | `@zmdb/mcp`          | move to `packages/mcp/src/SPEC.md`                                          |
-| `mcp/client.ts`                  | `@zmdb/mcp`          | move to `packages/mcp/src/client.ts`                                        |
-| `mcp/index.ts`                   | `@zmdb/mcp`          | move to `packages/mcp/src/index.ts`                                         |
-| `mcp/mcp.spec.ts`                | `@zmdb/mcp`          | move to `packages/mcp/src/mcp.spec.ts`                                      |
-| `mcp/mcp.type-test.ts`           | `@zmdb/mcp`          | move to `packages/mcp/src/mcp.type-test.ts`                                 |
-| `mcp/server.ts`                  | `@zmdb/mcp`          | move to `packages/mcp/src/server.ts`                                        |
+| `mcp/SPEC.md`                    | `@zmdb/mcp`          | moved by #709 to `packages/mcp/src/SPEC.md`                                 |
+| `mcp/client.ts`                  | `@zmdb/mcp`          | moved by #709 to `packages/mcp/src/client.ts`                               |
+| `mcp/index.ts`                   | `@zmdb/mcp`          | moved by #709 to `packages/mcp/src/index.ts`                                |
+| `mcp/mcp.spec.ts`                | `@zmdb/mcp`          | moved by #709 to `packages/mcp/src/mcp.spec.ts`                             |
+| `mcp/mcp.type-test.ts`           | `@zmdb/mcp`          | moved by #709 to `packages/mcp/src/mcp.type-test.ts`                        |
+| `mcp/server.ts`                  | `@zmdb/mcp`          | moved by #709 to `packages/mcp/src/server.ts`                               |
 | `providers.spec.ts`              | `@zmdb/ai`           | move to `packages/ai/src/providers.spec.ts`                                 |
 | `providers.ts`                   | `@zmdb/ai`           | move to `packages/ai/src/providers.ts`                                      |
 | `tool-runtime.ts`                | `@zmdb/ai`           | merge into `packages/ai/src/tool-runtime.ts`                                |
@@ -222,16 +225,18 @@ The generator, checked-in fixture, deterministic-output assertion, web round-tri
 
 ## 8. Green migration sequence
 
-Backward compatibility is not a final requirement, but intermediate commits must remain buildable and publishable. The only permitted compatibility direction is **new package to old package**:
+Backward compatibility is not a final requirement, but intermediate commits must remain buildable and publishable. The only permitted compatibility direction is **new package to old package**. MCP is
+the deliberate exception to using a forwarder: its implementation moved directly in #709 and the old subpath was removed, because schema-core cannot depend on MCP without creating
+`schema-core -> mcp -> ai -> schema-core`.
 
 1. **Add package shells.** Add the new manifests and explicit forwarding entry points. `@zmdb/ai` forwards its root, chat, HTTP and compiler symbols from the old `@zmdb/schema-core/llm*` paths;
-   `@zmdb/ai-langchain` and `@zmdb/mcp` may temporarily forward only their own symbols. These shells may declare `@zmdb/schema-core`; they must be labeled migration-only in their source and tests.
-   #706 and #708 moved the independent Anthropic and Vercel leaves directly to physical ownership.
+   `@zmdb/ai-langchain` may temporarily forward only its own symbols. These shells may declare `@zmdb/schema-core`; they must be labeled migration-only in their source and tests. #706, #708, and #709
+   moved the independent Anthropic, Vercel, and MCP leaves directly to physical ownership.
 2. **Move consumers to the new names.** Change AOT callee sources and witnesses, repository fixtures, web round-trip tests, the nine LLM docs and every other old import. While the shell forwards,
    behavior remains owned by the old source and each intermediate revision stays green.
-3. **Perform the remaining ownership cutovers.** Move every file still under the old tree according to §4, merge the two tool-runtime files, move the LangChain implementation and MCP, regenerate the
-   OpenAPI-tool fixture and remove every `@zmdb/schema-core` forwarding dependency that the new packages no longer need.
-4. **Delete the old owner in the final cutover.** Remove the five remaining `./llm*` exports and `packages/schema-core/src/llm/`. Do not replace them with schema-core-to-AI forwarding: that would
+3. **Perform the remaining ownership cutover.** Move every file still under the old tree according to §4, move the LangChain implementation, regenerate the OpenAPI-tool fixture, and remove every
+   remaining `@zmdb/schema-core` forwarding dependency from the new packages.
+4. **Delete the old owner in the same cutover.** Remove all four remaining `./llm*` exports and `packages/schema-core/src/llm/`. Do not replace them with schema-core-to-AI forwarding: that would
    create `schema-core <-> ai`.
 5. **Delete every temporary forwarder.** Each new export must resolve to source physically owned by its package. A forwarding module is a migration device, not deprecated API.
 

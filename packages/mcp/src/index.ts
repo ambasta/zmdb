@@ -1,3 +1,4 @@
+// The complete public surface of @zmdb/mcp.
 export { MCP_PROTOCOL_VERSION, createMcpServer, type McpServer, type McpServerOptions } from './server.js';
 export {
   McpProtocolError,

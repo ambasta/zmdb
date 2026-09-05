@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635, amended by #656, #668, #705, #706, #707 and #708
+# Runtime foundation boundary policy — issue #635, amended by #656, #668, #705, #706, #707, #708 and #709
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -18,21 +18,21 @@ exclude them; the ownership map therefore cannot pretend they are not shipped.
 
 Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`. Issue #656 then
 moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`; #705 added the provider-neutral AI edge used by the compiler; #706 and
-#707 moved the Anthropic and LangChain peers; and #708 moved the Vercel adapter, export and peer out of schema-core:
+#707 moved the Anthropic and LangChain peers; #708 moved the Vercel adapter, export and peer out of schema-core; and #709 moved the MCP client/server implementation and export:
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
-| `@zmdb/schema-core`    |                              28 |                 14 |
+| `@zmdb/schema-core`    |                              25 |                 13 |
 | `@zmdb/query-compiler` |                              36 |                 13 |
 | `@zmdb/aot-validator`  |                              54 |                 14 |
 | `@zmdb/repository`     |                              22 |                 11 |
-| **Total**              |                         **140** |             **52** |
+| **Total**              |                         **137** |             **51** |
 
 The four manifests contain 22 dependency entries: 7 `dependencies`, 2 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 140 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
+Every one of the 137 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
 whose declared destination no longer exists in the architecture policy.
 
 ### `@zmdb/ai` — 10
@@ -50,11 +50,9 @@ packages/schema-core/src/llm/providers.ts
 packages/schema-core/src/llm/tool-runtime.ts
 ```
 
-### `@zmdb/ai-anthropic` — 1
+### `@zmdb/ai-anthropic` — 0
 
-```text
-packages/ai-anthropic/src/index.ts
-```
+Issue #706 moved the Anthropic driver directly to `packages/ai-anthropic/src/index.ts`, so no old foundation file remains in this destination.
 
 ### `@zmdb/ai-langchain` — 1
 
@@ -134,13 +132,9 @@ The fixture and `__testing__` paths remain owned by compiler tests but must be e
 packages/repository/src/jobs/index.ts
 ```
 
-### `@zmdb/mcp` — 3
+### `@zmdb/mcp` — 0
 
-```text
-packages/schema-core/src/llm/mcp/client.ts
-packages/schema-core/src/llm/mcp/index.ts
-packages/schema-core/src/llm/mcp/server.ts
-```
+Issue #709 moved the three MCP production files directly to `packages/mcp/src/`, so no old foundation file remains in this destination.
 
 ### `@zmdb/migrations` — 11
 
@@ -299,9 +293,9 @@ No symbol may be temporarily exported from both destinations. A move and its imp
 
 ## 4. Public export map
 
-All 52 current package export entries have one disposition:
+All 51 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
 
-### Current `@zmdb/schema-core` — 14
+### Current `@zmdb/schema-core` — 13
 
 | Old subpath       | Final public owner                                                                  |
 | ----------------- | ----------------------------------------------------------------------------------- |
@@ -318,7 +312,12 @@ All 52 current package export entries have one disposition:
 | `./llm/chat`      | `@zmdb/ai/chat`                                                                     |
 | `./llm/http`      | `@zmdb/ai/http`                                                                     |
 | `./llm/langchain` | `@zmdb/ai-langchain`                                                                |
-| `./llm/mcp`       | `@zmdb/mcp`                                                                         |
+
+### Current `@zmdb/mcp` — 1
+
+| Current subpath | Final public owner |
+| --------------- | ------------------ |
+| `.`             | `@zmdb/mcp`        |
 
 ### Current `@zmdb/query-compiler` — 13
 
@@ -373,8 +372,8 @@ All 52 current package export entries have one disposition:
 | `./drivers/pg`      | `@zmdb/postgres`                                                                    |
 | `./drivers/mssql`   | `@zmdb/mssql`                                                                       |
 
-After cutover, the four old package names and all 52 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
-consumers. There are no forwarding packages and no `exports` aliases.
+After cutover, the four old package names and all 51 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
+consumers. `@zmdb/mcp` remains independently published. There are no forwarding packages and no `exports` aliases.
 
 ## 5. Manifest dependency disposition
 

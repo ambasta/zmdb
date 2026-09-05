@@ -42,4 +42,3 @@ export { toJsonSchema };
 export * from './providers.js';
 export * from './chat/index.js';
 export * from './http/index.js';
-export * from './mcp/index.js';

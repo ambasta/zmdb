@@ -2365,6 +2365,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/mcp@workspace:packages/mcp":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/mcp@workspace:packages/mcp"
+  dependencies:
+    "@zmdb/ai": "workspace:^"
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
+    typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/protobuf@workspace:^, @zmdb/protobuf@workspace:packages/protobuf":
   version: 0.0.0-use.local
   resolution: "@zmdb/protobuf@workspace:packages/protobuf"

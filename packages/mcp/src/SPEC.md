@@ -1,11 +1,11 @@
 # SPEC — MCP tools in both directions
 
-Part of `@zmdb/schema-core`, exported from `./llm` and `./llm/mcp`. The module exposes a validator-linked tool registry as a pure MCP server core and consumes a remote server through a bounded client.
-`packages/ai/src/chat/SPEC.md` owns the registry; this file owns the protocol boundary.
+Part of `@zmdb/mcp`, exported from the package root. The module exposes the validator-linked tool registry from `@zmdb/ai/chat` as a pure MCP server core and consumes a remote server through a bounded
+client. `packages/ai/src/chat/SPEC.md` owns the registry; this file owns the protocol boundary.
 
 ## 1. The protocol core is pure; applications own transports
 
-`@zmdb/schema-core` runs in Node.js, browsers, and React Native, so it does not import `node:process`, open sockets, or mount controllers. Its whole server surface is:
+`@zmdb/mcp` runs in Node.js, browsers, and React Native, so it does not import `node:process`, open sockets, or mount controllers. Its whole server surface is:
 
 ```ts
 export interface McpServer {

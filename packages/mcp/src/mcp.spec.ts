@@ -1,10 +1,10 @@
+import { lenientParse, toolFromSchema } from '@zmdb/ai';
+import { defineTools } from '@zmdb/ai/chat';
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { ValidationError } from '@zmdb/schema-core';
+import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ValidationError } from '../../index.js';
-import type { PrimaryKey, Serial, Sql, Table } from '../../tags/index.js';
-import { defineTools } from '../chat/index.js';
-import { lenientParse, toolFromSchema } from '../index.js';
 import {
   MCP_PROTOCOL_VERSION,
   McpProtocolError,
@@ -576,6 +576,20 @@ describe('./SPEC.md §7 — the client, and the honest limit of typing it', () =
     );
     await expect(protocolError.callTool('no_such_tool', {})).rejects.toBeInstanceOf(McpProtocolError);
 
+    const missingIsError = createMcpClient(() =>
+      Promise.resolve(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          result: { resultType: 'complete', content: [{ type: 'text', text: 'ok' }] },
+        }),
+      ),
+    );
+    const normalised: RemoteToolResult = await missingIsError.callTool('ok', {});
+    expect(normalised.isError).toBe(false);
+  });
+
+  it('enforces call and response-byte budgets', async () => {
     let sends = 0;
     const bounded = createMcpClient(
       message => {
@@ -605,18 +619,6 @@ describe('./SPEC.md §7 — the client, and the honest limit of typing it', () =
       { maxResponseBytes: 64 },
     );
     await expect(oversized.callTool('large', {})).rejects.toThrow('maxResponseBytes');
-
-    const missingIsError = createMcpClient(() =>
-      Promise.resolve(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          result: { resultType: 'complete', content: [{ type: 'text', text: 'ok' }] },
-        }),
-      ),
-    );
-    const normalised: RemoteToolResult = await missingIsError.callTool('ok', {});
-    expect(normalised.isError).toBe(false);
 
     expect(() => createMcpClient(() => Promise.resolve({}), { maxCalls: 0 })).toThrow(RangeError);
     expect(() => createMcpClient(() => Promise.resolve({}), { maxResponseBytes: 0 })).toThrow(RangeError);
