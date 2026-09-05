@@ -998,7 +998,7 @@ export const PAGE_META = {
   'web-queues': {
     title: 'Queues',
     status: 'supported',
-    note: 'implemented by @zmdb/jobs with the built-in SQLite memory backend',
+    note: 'implemented by @zmdb/jobs with SQLite memory and opt-in @zmdb/jobs-postgres storage',
   },
   'web-versioning': {
     title: 'API Versioning',

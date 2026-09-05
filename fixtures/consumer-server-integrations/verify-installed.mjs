@@ -6,8 +6,7 @@
 // one of its peers appears anywhere in that dependency tree.
 //
 // `--integration <package>` packs one implemented target into its clean fixture,
-// while `--integrations` checks the complete target set. The aggregate mode stays
-// intentionally red until the remaining package manifest exists.
+// while `--integrations` checks the complete target set.
 
 import { spawnSync } from 'node:child_process';
 import {

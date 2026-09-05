@@ -61,10 +61,11 @@ repository root explicitly.
 
 ## 3. Measured package inventory
 
-At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #657, #658, #659, and #660 add
-`@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`,
-`@zmdb/sqlite`, `@zmdb/react`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and `@zmdb/transport-redis`. The catalog now accounts for all twenty-two manifest-backed
-packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
+At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #657, #658, #659, #660, and #661
+add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`,
+`@zmdb/sqlite`, `@zmdb/react`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres`. The catalog now accounts for all
+twenty-three manifest-backed packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not
+product membership:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                       |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------- |
@@ -83,6 +84,7 @@ packages exactly once. The separate hard-coded publication sequence remains rele
 | `packages/sqlite`             | `@zmdb/sqlite`             | `sqlite`            | `zmdb/drivers/sqlite` during the facade cutover                |
 | `packages/app`                | `@zmdb/app`                | `app`               | None; the current `zmdb/web` aggregate is owned by web         |
 | `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None until the server facade lands in #651                     |
+| `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL job adapter with no facade export    |
 | `packages/otel`               | `@zmdb/otel`               | `otel`              | None; selected OpenTelemetry integration with no facade export |
 | `packages/transport-grpc`     | `@zmdb/transport-grpc`     | `grpc`              | None; selected gRPC integration with no facade export          |
 | `packages/transport-nats`     | `@zmdb/transport-nats`     | `transport-nats`    | None; selected core NATS integration with no facade export     |
@@ -91,8 +93,8 @@ packages exactly once. The separate hard-coded publication sequence remains rele
 | `packages/web`                | `@zmdb/web`                | `web`               | `zmdb/web`                                                     |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, `config`, `cli`, and the executable          |
 
-This table is review evidence, not the canonical machine source. The twenty-two rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
-the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
+This table is review evidence, not the canonical machine source. The twenty-three rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit
+plus the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers
 

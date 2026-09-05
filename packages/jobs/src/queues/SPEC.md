@@ -7,7 +7,7 @@
 `@Cron` and `@Interval`, the lease that keeps a scheduled task from running once per replica, and the cron dialect are `../schedule/SPEC.md`. The SQL that claims a row under a lease is already frozen
 in `../../../query-compiler/src/outbox/SPEC.md` and is not restated. This file is the worker: the handler contract, what happens on each of the five ways a job can end, and who owns idempotency.
 
-> **Ownership target frozen by #654:** #650 moved this queue/worker contract and the SQLite memory backend to `@zmdb/jobs`. The node-postgres adapter moves to `@zmdb/jobs-postgres`, whose only
+> **Ownership target frozen by #654:** #650 moved this queue/worker contract and the SQLite memory backend to `@zmdb/jobs`. The node-postgres adapter lives in `@zmdb/jobs-postgres`, whose only
 > required peer is `pg@^8.23.0`; it borrows a caller-owned pool/client and never closes it. `@zmdb/web/queues/backends/pg` is removed with no forwarding subpath.
 
 ## 1. Three of the four hard decisions are already frozen, and this file inherits them
@@ -224,7 +224,7 @@ The original freeze then made a wrong inference: it treated that port as satisfy
 jobs keeps memory storage and `@zmdb/jobs-postgres` makes `pg` required once that adapter is selected.
 
 The smallest adapter consistent with the SQL-shaped `JobStore` is node-postgres, not Redis. #650 deletes the former web-owned adapter and its optional peer rather than copying or forwarding them.
-`@zmdb/jobs-postgres` is the separate contract that owns a future node-postgres implementation and makes `pg` the selected adapter package's required peer.
+`@zmdb/jobs-postgres` owns the node-postgres implementation and makes `pg` the selected adapter package's required peer.
 
 `createMemoryJobStore()` is the other supported backend. It owns one isolated `node:sqlite` `:memory:` database, installs `zmdb_job`, `zmdb_job_done`, the unique enqueue-dedupe constraint and
 `zmdb_job_pending`, and exposes the database for deterministic test setup and assertions. It is explicitly ephemeral; a durable deployment still creates the declared repository rows through its
@@ -563,7 +563,7 @@ horizon; #594 owns lifecycle discovery for plain providers because its live disp
 The queue, worker, dead-letter and retry surface is owned by `@zmdb/jobs`. `createMemoryJobStore` and `MemoryJobStore` are owned by `@zmdb/jobs/memory`; the process-local implementation remains SQLite
 `:memory:` via `node:sqlite`.
 
-`createPgJobStore`, `PgJobClient` and `PgJobStoreOptions` move to `@zmdb/jobs-postgres`, the sole owner of the `pg` peer. Core jobs has no third-party peer.
+`createPgJobStore`, `PgJobClient` and `PgJobStoreOptions` live in `@zmdb/jobs-postgres`, the sole owner of the `pg` peer. Core jobs has no third-party peer.
 
 `@zmdb/web/queues`, `@zmdb/web/queues/backends/memory` and `@zmdb/web/queues/backends/pg` are removed with no forwarding modules. The complete package and lifecycle contract is
 `packages/jobs/SPEC.md`.

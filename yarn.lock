@@ -2008,16 +2008,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*":
-  version: 26.4.0
-  resolution: "@types/node@npm:26.4.0"
-  dependencies:
-    undici-types: "npm:~8.3.0"
-  checksum: 10c0/e6fc94ea3b58fb8040b38c465dec1c53c1fd9d2c092c81f699d28799726baf59f12e1600318e79e8e6f985bb919dab6ae820180b942b8e38c51acaad63e8aada
-  languageName: node
-  linkType: hard
-
-"@types/node@npm:>=13.7.0, @types/node@npm:>=22, @types/node@npm:^26.4.1":
+"@types/node@npm:*, @types/node@npm:>=13.7.0, @types/node@npm:>=22, @types/node@npm:^26.4.1":
   version: 26.4.1
   resolution: "@types/node@npm:26.4.1"
   dependencies:
@@ -2546,7 +2537,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/jobs@workspace:packages/jobs":
+"@zmdb/jobs-postgres@workspace:packages/jobs-postgres":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/jobs-postgres@workspace:packages/jobs-postgres"
+  dependencies:
+    "@types/pg": "npm:^8.23.1"
+    "@zmdb/jobs": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    pg: "npm:8.23.0"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    pg: ^8.23.0
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/jobs@workspace:^, @zmdb/jobs@workspace:packages/jobs":
   version: 0.0.0-use.local
   resolution: "@zmdb/jobs@workspace:packages/jobs"
   dependencies:

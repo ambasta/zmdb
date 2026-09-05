@@ -29,6 +29,7 @@ const FORBIDDEN_RUNTIME_PACKAGES = new Set([
   '@zmdb/cli',
   '@zmdb/compiler',
   '@zmdb/jobs',
+  '@zmdb/jobs-postgres',
   '@zmdb/mcp',
   '@zmdb/migrations',
   '@zmdb/mssql',

@@ -1,6 +1,7 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-one packages are published today: twenty focused packages plus the `zmdb` facade. The recommended
-installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider
-integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, and `@zmdb/transport-rabbitmq` remain independently installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-three packages are published today: twenty-two focused packages plus the `zmdb` facade. The
+recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in
+provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently
+installable.
 
 ## Recommended: product plus SQLite
 
@@ -78,6 +79,12 @@ npm install @zmdb/app
 # HTTP framework over the application kernel
 npm install @zmdb/web
 
+# Queues, workers, scheduling, and the SQLite memory backend
+npm install @zmdb/jobs
+
+# Optional PostgreSQL jobs adapter
+npm install @zmdb/jobs-postgres pg
+
 # Dependency-free generated-client runtime
 npm install @zmdb/client
 
@@ -92,6 +99,9 @@ npm install @zmdb/transport-nats @nats-io/transport-node
 
 # RabbitMQ transport strategy
 npm install @zmdb/transport-rabbitmq amqplib
+
+# Redis Pub/Sub transport strategy
+npm install @zmdb/transport-redis redis
 
 # Provider-neutral AI tools + bounded chat
 npm install @zmdb/ai
@@ -191,11 +201,14 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/sqlite`             | SQLite compiler traits, migrations, introspection, embedded runner, and `node:sqlite` driver |
 | `@zmdb/app`                | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health    |
 | `@zmdb/web`                | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters      |
+| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and SQLite memory storage           |
+| `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adapter for caller-owned pools and clients                             |
 | `@zmdb/client`             | Dependency-free HTTP transport, cancellation, authentication, and typed errors               |
 | `@zmdb/protobuf`           | Dependency-free protobuf calls, generated-code wire ABI, and typed gRPC artifacts            |
 | `@zmdb/transport-grpc`     | Typed gRPC servers, clients, streaming, deadlines, metadata, and bounded lifecycle           |
 | `@zmdb/transport-nats`     | Core NATS wildcard, queue-group, event, and request/reply transport strategy                 |
 | `@zmdb/transport-rabbitmq` | RabbitMQ prefetch, confirmed retries, request/reply, and owned dead-letter topology          |
+| `@zmdb/transport-redis`    | Redis Pub/Sub event and request/reply transport strategy                                     |
 | `@zmdb/ai`                 | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools  |
 | `@zmdb/ai-anthropic`       | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                  |
 | `@zmdb/ai-langchain`       | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer             |

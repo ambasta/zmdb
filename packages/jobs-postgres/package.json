@@ -1,0 +1,58 @@
+{
+  "name": "@zmdb/jobs-postgres",
+  "version": "1.0.0-alpha.4",
+  "description": "node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.",
+  "keywords": [
+    "adapter",
+    "jobs",
+    "pg",
+    "postgres",
+    "queue",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/jobs-postgres"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/jobs": "workspace:^",
+    "@zmdb/repository": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "pg": "8.23.0",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "pg": "^8.23.0"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

@@ -10,13 +10,14 @@ const CONSUMER_VERIFIER = join(ROOT, 'fixtures', 'consumer-server-integrations',
 const TYPESCRIPT_HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const IMPLEMENTED_SERVER_PACKAGES = [
   '@zmdb/protobuf',
+  '@zmdb/jobs-postgres',
   '@zmdb/otel',
   '@zmdb/transport-grpc',
   '@zmdb/transport-nats',
   '@zmdb/transport-rabbitmq',
   '@zmdb/transport-redis',
 ] as const;
-const PENDING_SERVER_PACKAGES = ['@zmdb/jobs-postgres'] as const;
+const PENDING_SERVER_PACKAGES = [] as const;
 const REAL_SERVICE_TITLES = [
   'all four call types round-trip against a real gRPC server',
   'one authorisation function written against WithHeaders is callable with a GrpcCall',
@@ -37,6 +38,9 @@ const REAL_SERVICE_TITLES = [
   'loses messages published with no connected consumer and delivers live messages',
   'uses a wildcard queue group for concrete event and request subjects',
   'redelivers through the TTL retry queue and dead-letters invalid JSON',
+  'round-trips through a real pg Pool without taking ownership of it',
+  'keeps pg on an adapter-only optional peer boundary',
+  'lets two workers claim disjoint jobs from one store',
   'adapts a meter without constructing or requiring a tracer',
   'maps every span kind, remote parent, tracestate and rename through the real SDK',
   'exports driver spans as clients and message spans as consumers with both W3C headers',
@@ -85,7 +89,7 @@ describe('optional server package isolation (#655)', () => {
     expect(output).toMatch(/0 optional server packages or peers/);
   }, 180_000);
 
-  it.fails('every integration imports and typechecks from an installed tarball', () => {
+  it('every integration imports and typechecks from an installed tarball', () => {
     execFileSync(process.execPath, [CONSUMER_VERIFIER, '--integrations'], {
       cwd: ROOT,
       encoding: 'utf8',

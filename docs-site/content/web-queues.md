@@ -51,6 +51,26 @@ and assertion queries. Closing or disposing the store destroys all rows.
 For durable storage, pass the same structural `Driver` or transaction connection the application already owns. Core jobs does not open, wrap, or close an external database client. Apply the
 `JobRow`/`JobDoneRow` migration first and keep connection lifecycle with the database owner.
 
+For a caller-owned node-postgres pool, install the dedicated adapter:
+
+```bash
+npm add @zmdb/jobs-postgres pg
+```
+
+```ts
+import { createPgJobStore } from '@zmdb/jobs-postgres';
+import { Pool } from 'pg';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const store = createPgJobStore(pool, {
+  prepared: true,
+  maxCacheSize: 128,
+});
+```
+
+The adapter delegates parameterized and prepared execution to the repository PostgreSQL driver but does not create, end, or release the supplied pool/client. The application remains responsible for
+pool shutdown.
+
 ## Registering typed work
 
 ```ts

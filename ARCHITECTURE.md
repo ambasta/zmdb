@@ -172,9 +172,9 @@ the generic packages.
 ```
 
 `@zmdb/client` and `@zmdb/protobuf` are independent roots. The opt-in `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` packages depend inward only on `@zmdb/ai`; each integration
-alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/otel`, `@zmdb/transport-nats`, and `@zmdb/transport-rabbitmq` each depend only on `@zmdb/app` and declare only
-their selected technology as a required peer; `@zmdb/transport-grpc` depends on `@zmdb/app` and `@zmdb/protobuf`. None of these optional packages or the provider-neutral AI package is re-exported by
-the umbrella.
+alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/otel`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and `@zmdb/transport-redis` each depend only on
+`@zmdb/app` and declare only their selected technology as a required peer; `@zmdb/transport-grpc` depends on `@zmdb/app` and `@zmdb/protobuf`. `@zmdb/jobs-postgres` depends on `@zmdb/jobs` and
+`@zmdb/repository` and alone owns the required `pg` peer for job storage. None of these optional packages or the provider-neutral AI package is re-exported by the umbrella.
 
 `@zmdb/sqlite` depends on query-compiler and repository and owns the complete SQLite dialect, migration, introspection, embedded-runner, and structural-driver slice. During the transition,
 `@zmdb/jobs` depends on it for the in-memory queue backend and `zmdb` depends on it for the retained `zmdb/drivers/sqlite` facade. #675 owns the final product/config/CLI cutover and optional facade
@@ -196,6 +196,8 @@ shape.
 - **NATS depends only on app.** It implements the public transport strategy with a startup-built subject trie and owns only the required NATS client peer.
 - **RabbitMQ depends only on app.** It implements the public transport strategy with bounded prefetch, confirmed delayed retries, and owned dead-letter topology while owning only the required
   `amqplib` peer.
+- **Redis depends only on app.** It implements concrete Pub/Sub channels and process-owned request/reply subscriptions while owning only the required `redis` peer.
+- **PostgreSQL jobs depend only on jobs and repository.** The adapter delegates to the public PostgreSQL driver, borrows caller-owned pools or clients, and alone owns the required `pg` peer.
 - **web sits above app** — controllers can receive repositories through app-owned DI, routes validate via the AOT validator, responses serialize via the AOT serializer, and HTTP composition reuses the
   one app-owned construction and lifecycle graph.
 - **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the default install; the sub-packages remain the tree-shakeable/advanced path.
@@ -219,10 +221,12 @@ shape.
 | `@zmdb/sqlite`             | Complete SQLite traits, DDL/migrations/refusals, introspection, embedded migrations, capabilities, and structural `node:sqlite` driver                | query-compiler, repository                                               |
 | `@zmdb/app`                | Protocol-neutral metadata, DI, modules, lifecycle/extensions, messaging, commands, events, CQRS, state, health contracts, and observability ports     | aot-validator, query-compiler, repository, schema-core                   |
 | `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases and the built-in SQLite memory backend                                                        | app, query-compiler, repository, sqlite                                  |
+| `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adaptation over caller-owned pools and clients                                                                                  | jobs, repository; `pg` (required peer)                                   |
 | `@zmdb/otel`               | OpenTelemetry API adaptation over caller-owned tracers and meters, without provider, SDK, exporter, or ambient-context ownership                      | app; `@opentelemetry/api` (required peer)                                |
 | `@zmdb/transport-grpc`     | Typed grpc-js server/client adaptation over generated protobuf service artifacts, with explicit application lifecycle and caller-owned clients        | app, protobuf; `@grpc/grpc-js` (required peer)                           |
 | `@zmdb/transport-nats`     | Core NATS wildcard and queue-group messaging over the public application transport strategy contract                                                  | app; `@nats-io/transport-node` (required peer)                           |
 | `@zmdb/transport-rabbitmq` | RabbitMQ topic transport with bounded prefetch, confirmed delayed retries, request/reply, and owned dead-letter topology                              | app; `amqplib` (required peer)                                           |
+| `@zmdb/transport-redis`    | Redis Pub/Sub event and request/reply transport over concrete application messaging channels                                                          | app; `redis` (required peer)                                             |
 | `@zmdb/web`                | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                           | app, aot-validator, query-compiler, schema-core                          |
 | `zmdb`                     | Curated product facade and CLI; no AI, MCP, or OTel public re-export                                                                                  | app, aot-validator, query-compiler, repository, schema-core, sqlite, web |
 
@@ -393,20 +397,20 @@ external peers on `@zmdb/web`; and six integration subpaths under web.
 
 Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces; #662 has completed the `@zmdb/otel` row and removed the old web export and peer; #648
 has moved the transport-neutral dispatcher, typed clients, decorators, SPI and adapter kit to `@zmdb/app/messaging`; #657 has moved gRPC to `@zmdb/transport-grpc`; #658 has moved core NATS to
-`@zmdb/transport-nats`; #659 has moved RabbitMQ to `@zmdb/transport-rabbitmq`; and #660 has moved Redis Pub/Sub to `@zmdb/transport-redis`. Only the PostgreSQL jobs package remains a later slice of
-the same target.
+`@zmdb/transport-nats`; #659 has moved RabbitMQ to `@zmdb/transport-rabbitmq`; #660 has moved Redis Pub/Sub to `@zmdb/transport-redis`; and #661 has moved PostgreSQL job storage to
+`@zmdb/jobs-postgres`. Every named optional-server package in this target now has a manifest, implementation, tests, and packed consumer.
 
 The final manifest graph is:
 
-| Package                    | Direct internal dependencies  | Sole external peer               |
-| -------------------------- | ----------------------------- | -------------------------------- |
-| `@zmdb/protobuf`           | none                          | none                             |
-| `@zmdb/transport-grpc`     | `@zmdb/app`, `@zmdb/protobuf` | `@grpc/grpc-js@^1.14.0`          |
-| `@zmdb/transport-nats`     | `@zmdb/app`                   | `@nats-io/transport-node@^3.4.0` |
-| `@zmdb/transport-rabbitmq` | `@zmdb/app`                   | `amqplib@^2.0.1`                 |
-| `@zmdb/transport-redis`    | `@zmdb/app`                   | `redis@^6.2.1`                   |
-| `@zmdb/jobs-postgres`      | `@zmdb/jobs`                  | `pg@^8.23.0`                     |
-| `@zmdb/otel`               | `@zmdb/app`                   | `@opentelemetry/api@^1.9.0`      |
+| Package                    | Direct internal dependencies     | Sole external peer               |
+| -------------------------- | -------------------------------- | -------------------------------- |
+| `@zmdb/protobuf`           | none                             | none                             |
+| `@zmdb/transport-grpc`     | `@zmdb/app`, `@zmdb/protobuf`    | `@grpc/grpc-js@^1.14.0`          |
+| `@zmdb/transport-nats`     | `@zmdb/app`                      | `@nats-io/transport-node@^3.4.0` |
+| `@zmdb/transport-rabbitmq` | `@zmdb/app`                      | `amqplib@^2.0.1`                 |
+| `@zmdb/transport-redis`    | `@zmdb/app`                      | `redis@^6.2.1`                   |
+| `@zmdb/jobs-postgres`      | `@zmdb/jobs`, `@zmdb/repository` | `pg@^8.23.0`                     |
+| `@zmdb/otel`               | `@zmdb/app`                      | `@opentelemetry/api@^1.9.0`      |
 
 The peers are required by the package that selects them, not optional peers of a core package. `@zmdb/app`, `@zmdb/web`, `@zmdb/jobs`, `zmdb`, `@zmdb/protobuf` and `@zmdb/aot-validator` declare none
 of them. The default product therefore remains cohesive without installing every broker, database client or telemetry API.
@@ -476,8 +480,8 @@ The catalog deliberately does not own versions, dependency ranges, changelogs, n
 to architecture-governance EPIC #721 and its release implementation #728; release tooling may read catalog membership only.
 
 The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
-ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the twenty-two-package inventory plus required catalog consumers and rejection rules are frozen in
-[`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
+ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the twenty-three-package inventory plus required catalog consumers and rejection rules are frozen
+in [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
 ### 3.10 Canonical architecture policy and enforcement (#722, #724, #725, #726, #727)
 
@@ -493,7 +497,7 @@ foundation < runtime < application < integration < tooling < facade
 ```
 
 A package may depend only on its own or an inward zone, every direct workspace dependency must also be named explicitly by that package's policy row, and the dependency's numeric ring must be lower
-than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current twenty-two
+than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current twenty-three
 catalog members therefore freeze as:
 
 | Catalog id           | Zone          | Ring | Direct workspace dependencies                                                          |
@@ -513,6 +517,7 @@ catalog members therefore freeze as:
 | `app`                | `application` |    5 | `aot-validator`, `query-compiler`, `repository`, `schema-core`                         |
 | `sqlite`             | `runtime`     |    5 | `query-compiler`, `repository`                                                         |
 | `jobs`               | `application` |    6 | `app`, `query-compiler`, `repository`, `sqlite`                                        |
+| `jobs-postgres`      | `integration` |    7 | `jobs`, `repository`                                                                   |
 | `otel`               | `integration` |    6 | `app`                                                                                  |
 | `transport-grpc`     | `integration` |    6 | `app`, `protobuf`                                                                      |
 | `transport-nats`     | `integration` |    6 | `app`                                                                                  |
@@ -537,7 +542,7 @@ NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 All catalog packages form one lockstep release train. They carry one version, use `workspace:^` for committed internal ranges, derive publish order from the policy DAG, share one root changelog and
 must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
 
-The complete `PackagePolicy` schema, all twenty-two rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
+The complete `PackagePolicy` schema, all twenty-three rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
 [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication ordering remain separately frozen in [PUBLISHING.md](./PUBLISHING.md) for #728.
 
 ### 3.11 Frozen tooling-package target (#626)
@@ -598,18 +603,19 @@ symbols span three independently usable responsibilities and six third-party pee
   |
   +--> optional transports / OpenTelemetry
 
-@zmdb/jobs --> @zmdb/jobs-postgres
+@zmdb/jobs-postgres --> @zmdb/jobs, @zmdb/repository
 zmdb --> @zmdb/app, @zmdb/web and @zmdb/jobs by explicit re-export only
 ```
 
 The exact direct edges are:
 
-| Package      | Allowed direct workspace runtime dependencies                              | Third-party runtime peers |
-| ------------ | -------------------------------------------------------------------------- | ------------------------- |
-| `@zmdb/app`  | aot-validator, query-compiler, repository, schema-core                     | none                      |
-| `@zmdb/web`  | app, aot-validator, schema-core                                            | none                      |
-| `@zmdb/jobs` | app, query-compiler, repository                                            | none                      |
-| `zmdb`       | app, web, jobs plus the existing product packages it explicitly re-exports | none                      |
+| Package               | Allowed direct workspace runtime dependencies                              | Third-party runtime peers |
+| --------------------- | -------------------------------------------------------------------------- | ------------------------- |
+| `@zmdb/app`           | aot-validator, query-compiler, repository, schema-core                     | none                      |
+| `@zmdb/web`           | app, aot-validator, schema-core                                            | none                      |
+| `@zmdb/jobs`          | app, query-compiler, repository, sqlite                                    | none                      |
+| `@zmdb/jobs-postgres` | jobs, repository                                                           | pg (required peer)        |
+| `zmdb`                | app, web, jobs plus the existing product packages it explicitly re-exports | none                      |
 
 `app -> web`, `app -> jobs`, `web -> jobs`, `jobs -> web`, any core-to-optional edge, and any server package importing another package's private source are forbidden. Optional integrations depend
 inward on the one core SPI they adapt; the core never imports back out.
@@ -729,6 +735,6 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the twenty-two-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/ai`, its opt-in integrations,
-`@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
-`@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+the north-star-driven language policy in §4 here, and it records the twenty-three-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/ai`, its opt-in integrations,
+`@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/jobs-postgres`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
+`@zmdb/transport-redis`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

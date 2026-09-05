@@ -87,6 +87,11 @@ const META = {
       'Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.',
     keywords: ['typescript', 'jobs', 'queue', 'worker', 'scheduler', 'cron', 'zmdb'],
   },
+  'jobs-postgres': {
+    description: 'node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.',
+    install: 'npm add @zmdb/jobs-postgres@alpha pg',
+    keywords: ['adapter', 'jobs', 'pg', 'postgres', 'queue', 'typescript', 'zmdb'],
+  },
   otel: {
     description: 'OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.',
     install: 'npm add @zmdb/otel@alpha @opentelemetry/api',

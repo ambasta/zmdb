@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@zmdb/jobs": "1.0.0-alpha.4",
     "@zmdb/jobs-postgres": "1.0.0-alpha.4",
     "pg": "8.23.0"
   },

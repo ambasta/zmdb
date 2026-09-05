@@ -54,7 +54,7 @@ export const SERVER_PACKAGES = [
   {
     name: '@zmdb/jobs-postgres',
     dir: 'jobs-postgres',
-    dependencies: { '@zmdb/jobs': 'workspace:^' },
+    dependencies: { '@zmdb/jobs': 'workspace:^', '@zmdb/repository': 'workspace:^' },
     peer: { name: 'pg', range: '^8.23.0' },
     exports: ['.'],
   },

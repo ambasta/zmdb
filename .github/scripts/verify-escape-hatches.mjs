@@ -118,6 +118,7 @@ const PACKAGES = [
   'sqlite',
   'app',
   'jobs',
+  'jobs-postgres',
   'otel',
   'transport-grpc',
   'transport-nats',

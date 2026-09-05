@@ -69,7 +69,7 @@
     "old import @zmdb/query-compiler/schema-objects remains in [packages/repository/src/index.ts, packages/repository/src/jobs/index.ts, packages/sqlite/src/migrations.ts]",
     "old import @zmdb/repository remains in [packages/app/src/data/index.ts, packages/app/src/health/index.ts, packages/app/src/observability/index.ts, packages/sqlite/src/driver.ts, packages/sqlite/src/index.ts, packages/zmdb/src/cli/commands/migrate.ts, packages/zmdb/src/cli/commands/push.ts, packages/zmdb/src/config/index.ts, packages/zmdb/src/index.ts, packages/zmdb/src/studio/index.ts]",
     "old import @zmdb/repository/drivers/mssql remains in [packages/zmdb/src/drivers-mssql.ts]",
-    "old import @zmdb/repository/drivers/pg remains in [packages/zmdb/src/drivers-pg.ts]",
+    "old import @zmdb/repository/drivers/pg remains in [packages/jobs-postgres/src/index.ts, packages/zmdb/src/drivers-pg.ts]",
     "old import @zmdb/repository/jobs remains in [packages/jobs/src/queues/backends/memory.ts]",
     "old import @zmdb/repository/outbox remains in [packages/app/src/events/index.ts]",
     "old import @zmdb/repository/transactions remains in [packages/app/src/cqrs/index.ts, packages/app/src/events/index.ts]",

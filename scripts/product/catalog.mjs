@@ -121,6 +121,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-server-core' },
   }),
   productPackage({
+    id: 'jobs-postgres',
+    directory: 'packages/jobs-postgres',
+    npmName: '@zmdb/jobs-postgres',
+    role: 'jobs-postgres',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'PostgreSQL job storage' },
+    docsOwner: 'web-queues',
+    consumer: { fixture: 'fixtures/consumer-server-integrations' },
+  }),
+  productPackage({
     id: 'mcp',
     directory: 'packages/mcp',
     npmName: '@zmdb/mcp',

@@ -25,6 +25,7 @@ const PACKAGES = [
   '@zmdb/sqlite',
   '@zmdb/app',
   '@zmdb/jobs',
+  '@zmdb/jobs-postgres',
   '@zmdb/otel',
   '@zmdb/transport-grpc',
   '@zmdb/transport-nats',

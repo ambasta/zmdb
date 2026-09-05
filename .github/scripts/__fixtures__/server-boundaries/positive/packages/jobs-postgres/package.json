@@ -6,7 +6,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@zmdb/jobs": "workspace:^"
+    "@zmdb/jobs": "workspace:^",
+    "@zmdb/repository": "workspace:^"
   },
   "peerDependencies": {
     "pg": "^8.23.0"

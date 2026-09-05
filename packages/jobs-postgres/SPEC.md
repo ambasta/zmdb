@@ -1,7 +1,6 @@
 # `@zmdb/jobs-postgres` — node-postgres `JobStore` adapter
 
-> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #661 implements the separately installed adapter. Issue #650 removed the former
-> `@zmdb/web/queues/backends/pg` implementation and peer rather than retaining a forwarding bridge.
+> Frozen by #654 for epic #653 and implemented by #661. Issue #650 removed the former `@zmdb/web/queues/backends/pg` implementation and peer rather than retaining a forwarding bridge.
 
 ## 1. Boundary and exports
 
@@ -17,9 +16,11 @@ export interface PgJobStoreOptions {
 export function createPgJobStore(client: PgJobClient, options?: PgJobStoreOptions): JobStore;
 ```
 
-The root is the only export. It depends on `@zmdb/jobs` at `workspace:^` and declares one required external peer, `pg@^8.23.0`; release tests use `pg@8.23.0` and `@types/pg@^8.23.1`.
+The root is the only export. It depends on `@zmdb/jobs` and `@zmdb/repository` at `workspace:^` and declares one required external peer, `pg@^8.23.0`; release tests use `pg@8.23.0` and
+`@types/pg@^8.23.1`.
 
-The package implements the structural `JobStore` port. It does not own queue SQL, workers, scheduling, migrations or a second job state machine.
+The package implements the structural `JobStore` port by delegating to the public `@zmdb/repository/drivers/pg` adapter. It does not own queue SQL, workers, scheduling, migrations or a second job
+state machine.
 
 ## 2. Lifecycle
 
@@ -39,7 +40,9 @@ yarn add @zmdb/jobs-postgres pg
 ## 4. Required evidence
 
 1. Type tests accept `Pool`, `PoolClient` and `Client`, reject an arbitrary `JobStore`, and expose the exact return type.
-2. A required release lane connects to the declared PostgreSQL version, executes a parameterized query through the adapter, then proves the same caller-owned pool remains usable. The current
-   warn-and-return path when PostgreSQL is unreachable is local convenience, not release evidence.
-3. A packed external jobs app installs the peer, imports the root and typechecks/runs without repository or web source mappings.
-4. Manifest and graph checks prove that this package alone owns the `pg` peer for jobs and that importing core jobs does not load it.
+2. A required release lane connects to PostgreSQL, executes a parameterized query through the adapter, then proves the same caller-owned pool remains usable. The warn-and-return path when PostgreSQL
+   is unreachable is local convenience, not release evidence.
+3. The real-server lane proves `prepared: true` reuses a stable server-side statement name and `maxCacheSize` evicts the least-recently-used statement.
+4. Two workers sharing one store claim disjoint jobs while their handler executions overlap.
+5. A packed external jobs app installs the peer, imports the root and typechecks/runs without repository or web source mappings.
+6. Manifest and graph checks prove that this package alone owns the `pg` peer for jobs, core packages do not declare it, and no old web backend or forwarding export remains.

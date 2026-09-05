@@ -24,7 +24,7 @@ other.
 
 Typed gRPC servers and clients ship from `@zmdb/transport-grpc`, core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, and Redis Pub/Sub ships from
 `@zmdb/transport-redis`; none of their old web subpaths forwards. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`. Queues, workers, scheduling,
-leases, and the SQLite memory backend live in `@zmdb/jobs`; the removed web paths do not forward.
+leases, and the SQLite memory backend live in `@zmdb/jobs`; the removed web paths do not forward. Install `@zmdb/jobs-postgres` with `pg` when those jobs use a caller-owned PostgreSQL pool or client.
 
 Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install
 `@zmdb/otel` separately to adapt caller-owned `@opentelemetry/api` tracers and meters; web has no OpenTelemetry peer or forwarding subpath.

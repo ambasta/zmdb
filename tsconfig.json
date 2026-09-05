@@ -60,6 +60,7 @@
       "@zmdb/jobs": ["./packages/jobs/src/index.ts"],
       "@zmdb/jobs/memory": ["./packages/jobs/src/queues/backends/memory.ts"],
       "@zmdb/jobs/schedule": ["./packages/jobs/src/schedule/index.ts"],
+      "@zmdb/jobs-postgres": ["./packages/jobs-postgres/src/index.ts"],
       "@zmdb/otel": ["./packages/otel/src/index.ts"],
       "@zmdb/transport-grpc": ["./packages/transport-grpc/src/index.ts"],
       "@zmdb/transport-nats": ["./packages/transport-nats/src/index.ts"],

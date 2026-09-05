@@ -267,6 +267,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  'jobs-postgres': packagePolicy({
+    directory: 'packages/jobs-postgres',
+    zone: 'integration',
+    ring: 7,
+    allowedWorkspaceDependencies: ['jobs', 'repository'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   web: packagePolicy({
     directory: 'packages/web',
     zone: 'application',
