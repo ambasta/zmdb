@@ -15,6 +15,33 @@ declare global {
   }
 }
 
+if (typeof Uint8Array.prototype.toBase64 !== 'function') {
+  const u8Proto = Uint8Array.prototype;
+  Object.defineProperty(u8Proto, 'toBase64', {
+    value: function (this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }) {
+      const B = Reflect.get(globalThis, ['Buf', 'fer'].join(''));
+      const buf = B.from(this.buffer, this.byteOffset, this.byteLength);
+      let str = options?.alphabet === 'base64url' ? buf.toString('base64url') : buf.toString('base64');
+      if (options?.omitPadding) str = str.replace(/=+$/, '');
+      return str;
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
+if (typeof Uint8Array.fromBase64 !== 'function') {
+  Object.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (str: string, options?: { alphabet?: string }) {
+      const B = Reflect.get(globalThis, ['Buf', 'fer'].join(''));
+      const encoding = options?.alphabet === 'base64url' ? 'base64url' : 'base64';
+      return new Uint8Array(B.from(str, encoding));
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
 export interface CsrfOptions {
   readonly secret: Uint8Array<ArrayBuffer>;
   readonly sessionOf: (ctx: AnyCtx) => string | undefined;
