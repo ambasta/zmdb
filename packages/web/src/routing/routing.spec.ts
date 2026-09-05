@@ -1,9 +1,18 @@
+import type { CoreSchema } from '@zmdb/schema-core';
 // Tests (#254) for controllers & routing — RED first (routing exports don't
 // exist yet). Verifies route metadata recording, prefix composition, declaration
 // order, and no-reflection reads. Per packages/web/src/routing/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Controller, Get, Post, Put, Patch, Delete, getRoutes } from './index.js';
+import { Controller, Get, Post, Put, Patch, Delete, RouteSchema, Schema, getRoutes } from './index.js';
+
+const UserSchema = {
+  table: 'users',
+  columns: {
+    id: { type: 'serial', flags: { primaryKey: true } },
+    email: { type: 'text', flags: { nullable: false } },
+  },
+} as unknown as CoreSchema<string>;
 
 describe('@zmdb/web routing: decorators + getRoutes', () => {
   it('records routes with composed paths in declaration order', () => {
@@ -28,6 +37,52 @@ describe('@zmdb/web routing: decorators + getRoutes', () => {
       { method: 'PATCH', path: '/users/:id', handlerName: 'patch' },
       { method: 'DELETE', path: '/users/:id', handlerName: 'remove' },
       { method: 'PUT', path: '/users/:id', handlerName: 'replace' },
+    ]);
+  });
+
+  it('stores route schema metadata on route definitions using @RouteSchema and @Schema', () => {
+    @Controller('/users')
+    class UsersController {
+      @Get()
+      @RouteSchema(UserSchema, 'list')
+      list() {}
+
+      @Post()
+      @Schema(UserSchema, 'create')
+      create() {}
+
+      @Get('/:id')
+      @RouteSchema(UserSchema, { response: 'get' })
+      get() {}
+    }
+
+    const routes = getRoutes(UsersController);
+    expect(routes).toEqual([
+      {
+        method: 'GET',
+        path: '/users',
+        handlerName: 'list',
+        schema: {
+          response: { model: UserSchema, variant: 'list' },
+        },
+      },
+      {
+        method: 'POST',
+        path: '/users',
+        handlerName: 'create',
+        schema: {
+          body: { model: UserSchema, variant: 'create' },
+          response: { model: UserSchema, variant: 'entity' },
+        },
+      },
+      {
+        method: 'GET',
+        path: '/users/:id',
+        handlerName: 'get',
+        schema: {
+          response: { model: UserSchema, variant: 'get' },
+        },
+      },
     ]);
   });
 
