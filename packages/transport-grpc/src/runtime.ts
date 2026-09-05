@@ -57,8 +57,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string, listener: (...args: any[]) => void): this;
+  removeListener(event: string, listener: (...args: any[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -84,6 +84,7 @@ interface ClientSurfaceCall {
   cancel(): void;
   on(event: 'metadata', listener: (metadata: Metadata) => void): this;
   on(event: 'status', listener: (status: StatusObject) => void): this;
+  on(event: 'end' | 'close', listener: () => void): this;
 }
 
 interface RequestPump {
@@ -383,15 +384,68 @@ function requestValue(decoded: DecodedRequest): unknown {
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
+  const queue: DecodedRequest[] = [];
+  let resolveNext: (() => void) | null = null;
+  let ended = false;
+  let streamError: unknown = null;
+
+  const wake = (): void => {
+    if (resolveNext !== null) {
+      const r = resolveNext;
+      resolveNext = null;
+      r();
+    }
+  };
+
+  const onData = (data: DecodedRequest): void => {
+    queue.push(data);
+    wake();
+  };
+
+  const onEnd = (): void => {
+    ended = true;
+    wake();
+  };
+
+  const onError = (err: unknown): void => {
+    streamError = err;
+    wake();
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
   try {
-    for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
+    while (true) {
+      if (scope.signal.aborted) throw scope.reason();
+      if (queue.length > 0) {
+        const item = queue.shift()!;
+        yield requestValue(item);
+        continue;
+      }
+      if (streamError !== null) throw streamError;
+      if (ended) break;
+
+      await new Promise<void>((resolve, reject) => {
+        if (scope.signal.aborted) {
+          reject(scope.reason());
+          return;
+        }
+        const onAbort = (): void => {
+          reject(scope.reason());
+        };
+        scope.signal.addEventListener('abort', onAbort, { once: true });
+        resolveNext = () => {
+          scope.signal.removeEventListener('abort', onAbort);
+          resolve();
+        };
+      });
     }
   } finally {
-    await iterator.return?.();
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
   }
 }
 
@@ -864,10 +918,54 @@ async function* clientResponses(
 ): AsyncIterable<unknown> {
   let completed = false;
   try {
-    for await (const response of call) {
-      observation.throwIfInvalid();
-      yield response;
+    const queue: unknown[] = [];
+    let resolveNext: (() => void) | null = null;
+    let ended = false;
+    let streamError: unknown = null;
+
+    const wake = (): void => {
+      if (resolveNext !== null) {
+        const r = resolveNext;
+        resolveNext = null;
+        r();
+      }
+    };
+
+    call.on('data', (data: unknown) => {
+      queue.push(data);
+      wake();
+    });
+
+    call.on('end', () => {
+      ended = true;
+      wake();
+    });
+
+    call.on('status', () => {
+      ended = true;
+      wake();
+    });
+
+    call.on('error', (err: unknown) => {
+      streamError = err;
+      wake();
+    });
+
+    while (true) {
+      if (queue.length > 0) {
+        const item = queue.shift();
+        observation.throwIfInvalid();
+        yield item;
+        continue;
+      }
+      if (streamError !== null) throw streamError;
+      if (ended) break;
+
+      await new Promise<void>(resolve => {
+        resolveNext = resolve;
+      });
     }
+
     if (pumping !== undefined) {
       await pumping.done;
       throwPumpFailure(pumping);
@@ -910,6 +1008,12 @@ class ClientObservation {
     });
     call.on('status', result => {
       this.#observe(result.metadata, options?.onTrailer);
+      this.#finish();
+    });
+    call.on('end', () => {
+      this.#finish();
+    });
+    call.on('close', () => {
       this.#finish();
     });
   }
