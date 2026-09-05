@@ -9,8 +9,7 @@ import {
   type ReturningStatement,
   type SqlDialect,
 } from './dialects/index.js';
-import { UnsupportedFeatureError } from './errors.js';
-
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export type { CompiledQuery, QueryTelemetry } from './compiled-query.js';
 export {
@@ -62,6 +61,7 @@ export type {
 
 import {
   frozenQuery,
+  isSubqueryTarget,
   queryTelemetry,
   tailClause,
   tailMethods,
@@ -110,6 +110,10 @@ export type Operator =
   | 'in'
   | 'not in'
   | 'nin'
+  | 'is null'
+  | 'is not null'
+  | 'EXISTS'
+  | 'NOT EXISTS'
   | 'exists'
   | 'not exists'
   | 'is null'
@@ -183,6 +187,33 @@ export function chunkArray<T>(array: readonly T[], chunkSize: number): T[][] {
   return chunks;
 }
 
+export const VALID_OPERATORS = new Set([
+  '=',
+  '!=',
+  '<',
+  '<=',
+  '>',
+  '>=',
+  'like',
+  'ilike',
+  'in',
+  'not in',
+  'nin',
+  'is null',
+  'is not null',
+  'exists',
+  'not exists',
+]);
+
+export function validateOperator(opToken: string, value: unknown): void {
+  const lower = opToken.toLowerCase().trim();
+  if (isSubqueryTarget(value)) {
+    return;
+  }
+  if ((lower === 'in' || lower === 'not in' || lower === 'nin') && !Array.isArray(value)) {
+    throw new QueryCompilerError(`operator "${opToken}" requires an array value`);
+  }
+}
 export { appendComment, serializeComment, withComments } from './comments/index.js';
 export type { CommentKey, CommentKeys, CommentPairs } from './comments/index.js';
 
@@ -232,8 +263,10 @@ export interface SelectBuilder<T = unknown> {
 
 function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry: boolean): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
-    next({ wheres: [...state.wheres, { col, op, value, connector }] });
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) => {
+    validateOperator(op, value);
+    return next({ wheres: [...state.wheres, { col, op, value, connector }] });
+  };
   const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
     next({ wheres: [...state.wheres, { ...predicate, connector }] });
   const addGroup = (connector: 'AND' | 'OR', predicates: readonly ComparisonPredicate[]) =>
@@ -672,10 +705,14 @@ function makeUpdate(
 ): UpdateBuilder {
   return {
     set: r => makeUpdate(d, table, r, wheres, ret, telemetry),
-    where: (col, op, value) =>
-      makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry),
-    orWhere: (col, op, value) =>
-      makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry),
+    where: (col, op, value) => {
+      validateOperator(op, value);
+      return makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry);
+    },
+    orWhere: (col, op, value) => {
+      validateOperator(op, value);
+      return makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry);
+    },
     whereGroup: predicates =>
       makeUpdate(d, table, row, [...wheres, { kind: 'group', predicates, connector: 'AND' }], ret, telemetry),
     whereIn: (col, values) =>
@@ -708,8 +745,14 @@ function makeDelete(
   telemetry = false,
 ): DeleteBuilder {
   return {
-    where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry),
-    orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry),
+    where: (col, op, value) => {
+      validateOperator(op, value);
+      return makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry);
+    },
+    orWhere: (col, op, value) => {
+      validateOperator(op, value);
+      return makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry);
+    },
     whereGroup: predicates =>
       makeDelete(d, table, [...wheres, { kind: 'group', predicates, connector: 'AND' }], ret, telemetry),
     whereIn: (col, values) =>

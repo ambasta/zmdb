@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 
-import { OP_MAP, chunkArray, createQueryCompiler, distance, sanitizeKeys, stContains, stDWithin } from './index.js';
+import {
+  OP_MAP,
+  QueryCompilerError,
+  chunkArray,
+  createQueryCompiler,
+  distance,
+  sanitizeKeys,
+  stContains,
+  stDWithin,
+} from './index.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -395,6 +404,13 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
         .onConflict('id')
         .doUpdate([]);
     }).toThrow('Empty updateFields array is not allowed in doUpdate()');
+  });
+});
+
+describe('query compiler validation & guardrails', () => {
+  it('rejects non-array values for in operator', () => {
+    const qb = createQueryCompiler('postgres');
+    expect(() => qb.selectFrom('users').where('id', 'in', 1 as unknown)).toThrow(QueryCompilerError);
   });
 });
 
