@@ -237,7 +237,10 @@ export function createTransactionalDb(conn: TxConnection): TransactionalDb {
       },
       repo: <T>(RepoClass: new (driver: { execute: TransactionContext<State>['execute'] }, dialect?: string) => T) => {
         assertOpen();
-        return new RepoClass({ execute: (q: CompiledQuery, opts?: ExecuteOptions) => context.execute(q, opts) }, conn.dialect ?? 'sqlite');
+        return new RepoClass(
+          { execute: (q: CompiledQuery, opts?: ExecuteOptions) => context.execute(q, opts) },
+          conn.dialect ?? 'sqlite',
+        );
       },
       ...(connectionStream === undefined
         ? {}

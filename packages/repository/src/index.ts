@@ -656,6 +656,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
   }
 
+  protected get driver(): Driver {
+    return this._driver ?? { execute: async () => [] };
+  }
+
+  protected set driver(drv: Driver) {
+    this._driver = drv;
+  }
+
   [LOADER_FOR_SCOPE](scope: object): EntityLoader<T> {
     const existing = this.#entityLoaders.get(scope);
     if (existing) return existing;
@@ -799,7 +807,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const column = routineColumn(definition.name, definition.returns.type);
     const resultType = appTypeOf(column);
     if (definition.returns.setof === true) {
-      const values = rows.map(row => decodeDbValue(column, row[definition.name]));
+      const values = rows.map((row: Record<string, unknown>) => decodeDbValue(column, row[definition.name]));
       return validatedRoutineValue(values, { kind: 'array', element: resultType });
     }
 
@@ -1997,10 +2005,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         : typeof specOrBuild === 'function'
           ? specOrBuild
           : undefined;
-    const opts =
-      typeof maybeBuildOrOptions === 'function'
-        ? options
-        : (maybeBuildOrOptions as ReadOptions | undefined);
+    const opts = typeof maybeBuildOrOptions === 'function' ? options : (maybeBuildOrOptions as ReadOptions | undefined);
 
     if (buildFn) {
       const builder = this.createRepositoryAggregateBuilder(opts, targetFilterNames, targetKnownNames);
@@ -2021,7 +2026,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const applyJoin = (relName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
         if (joinedRelations.has(relName)) return;
         joinedRelations.add(relName);
-        const { targetTable, conditions, filters, knownNames } = this.filteredRelationJoin(relName, options);
+        const { targetTable, conditions, filters, knownNames } = this.filteredRelationJoin(relName, opts);
         for (const name of filters.names) targetFilterNames.add(name);
         for (const name of knownNames) targetKnownNames.add(name);
         const predicates = filtersAsPredicates(filters);
@@ -2111,7 +2116,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (spec.limit !== undefined) builder = builder.limit(spec.limit);
       if (spec.offset !== undefined) builder = builder.offset(spec.offset);
 
-      q = this.compileRead('aggregate', options, () => builder, {
+      q = this.compileRead('aggregate', opts, () => builder, {
         additionalFilterNames: [...targetFilterNames],
         additionalKnownNames: [...targetKnownNames],
       });
@@ -2119,7 +2124,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       throw new Error('aggregate requires a builder callback or AggregateSpec object');
     }
 
-    const rawRows = await this.executeRead(q, options?.signal);
+    const rawRows = await this.executeRead(q, opts?.signal);
 
     const mappedRows = rawRows.map(row => {
       const out: Record<string, unknown> = { ...row };

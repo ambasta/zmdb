@@ -140,7 +140,7 @@ type _ShutdownIsAwaitable = Expect<Equal<ReturnType<OutboxDispatcher['onShutdown
 const structuralDriver: Driver = { execute: () => Promise.resolve([]) };
 void structuralDriver;
 type _DriverKeepsExecuteAsItsOnlyRequiredMethod = Expect<
-  Mutual<keyof Driver, 'dialect' | 'queryTelemetry' | 'execute' | 'stream'>
+  Mutual<keyof Driver, 'dialect' | 'queryTelemetry' | 'execute' | 'stream' | '__isSqlite'>
 >;
 
 // §6's closing claim: a repository joins an outbox transaction with no new
