@@ -60,7 +60,8 @@ There is one generated-code ABI subpath:
 
 ```ts
 // @zmdb/protobuf/wire
-export { ProtoReader, ProtoWriter };
+export class ProtoReader {}
+export class ProtoWriter {}
 ```
 
 `ProtoReader` and `ProtoWriter` remain public only because emitted JavaScript imports them by package name. They are not a descriptor API and are not re-exported from the package root.
