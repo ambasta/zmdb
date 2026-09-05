@@ -133,7 +133,7 @@ and plausible.
 
 Issue #703 freezes the target boundary for epic #702. This section describes the final package graph. At baseline commit `94164c53` on 2026-09-05, `packages/schema-core/src/llm/` contained 32 files.
 After #705 moved provider-neutral specifications and tests, #706 moved the Anthropic driver, #707 moved the LangChain contract tests, #708 moved the Vercel adapter and its tests, and #709 moved MCP,
-11 temporary implementation/integration files remain. The manifest publishes four `./llm*` compatibility entries and declares no provider or framework peer; those peers now belong only to their
+#710 moved the last provider-neutral and LangChain implementations. The old directory and all six historical `./llm*` exports are now absent. Provider and framework peers belong only to their
 integration packages.
 
 The final `@zmdb/schema-core` package owns only the declaration vocabulary and provider-neutral schema products:
@@ -152,16 +152,16 @@ It explicitly does **not** own:
 - a dependency on `@zmdb/ai`, any `@zmdb/ai-*` integration package or `@zmdb/mcp`.
 
 The dependency direction is one-way: `@zmdb/ai` depends on `@zmdb/schema-core`. Therefore a compatibility layer in this package must never re-export from `@zmdb/ai`; that would make the packages
-depend on each other. The Vercel leaf moved without a forwarder in #708, and MCP moved without a compatibility export in #709. The remaining new packages may temporarily forward to old
-`@zmdb/schema-core/llm*` paths only where sequencing requires it. The final ownership cutover removes those forwarders, this package's four remaining LLM exports, and the whole `src/llm/` directory.
+depend on each other. The Vercel leaf moved without a forwarder in #708, MCP moved without a compatibility export in #709, and #710 removed the remaining new-to-old forwarders instead of creating a
+reverse schema-core-to-AI edge.
 
-The complete file map, public entry points, peer ranges and migration order are frozen in [`../ai/SPEC.md`](../ai/SPEC.md). The final boundary is mechanically true only when packed-package tests show
-that every remaining `@zmdb/schema-core` export imports without an AI/provider dependency and a repository search finds no `@zmdb/schema-core/llm` consumer.
+The complete file map, public entry points, peer ranges and migration order are frozen in [`../ai/SPEC.md`](../ai/SPEC.md). Packed-package tests import all nine remaining schema-core entry points
+without an AI/provider peer, and the source boundary test rejects any `@zmdb/schema-core/llm` consumer.
 
 ## 7. Issue #635 hard-cutover ownership
 
-The AI extraction above is an intermediate boundary; this package is still a current-state container rather than the final foundation package. At the measured #635 baseline, its 30 build-included
-TypeScript files divide into 14 schema-owned files and 16 AI/provider/MCP files, and its 15 export-map entries divide according to `.github/scripts/verify-runtime-foundation.SPEC.md` §4.
+The AI extraction above is complete; this package is still a current-state container rather than the final foundation package. It now has 14 build-included TypeScript files and nine export-map
+entries, all assigned by `.github/scripts/verify-runtime-foundation.SPEC.md` §4.
 
 After the AI exit, `@zmdb/schema` keeps declarations, IR, derivation, pure DTO/result shapes, naming, relation metadata, custom types, and OpenAPI/JSON Schema framing. SQL folding and populate
 execution move to `@zmdb/orm`; public validation errors move to `@zmdb/validator`; state-transition/state-machine symbols move to `@zmdb/app`. The old package and every `@zmdb/schema-core/*` import

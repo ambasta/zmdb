@@ -29,8 +29,7 @@ const createUser = new DynamicStructuredTool(
 
 The validator belongs in application code so the AOT transform can resolve its concrete type. The adapter passes zmdb's JSON Schema document through byte-for-byte; do not convert it through Zod.
 
-During the extraction migration this package delegates to the temporary schema-core compatibility implementation. Issue #710 performs the coordinated physical move and removes that temporary
-dependency without introducing a reverse schema-core-to-AI edge.
+The shipped adapter is physically owned by this package and depends at runtime only on `@zmdb/ai`; schema-core has no LangChain compatibility export.
 
 ## Documentation
 

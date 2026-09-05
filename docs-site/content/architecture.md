@@ -24,8 +24,8 @@ The dependency spine is:
                 zmdb
 ```
 
-`@zmdb/ai-anthropic` and `@zmdb/ai-vercel` depend inward only on `@zmdb/ai`; the LangChain migration shell also keeps a temporary schema-core edge until #710. `@zmdb/client` and `@zmdb/protobuf` are
-independent roots. Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
+`@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` depend inward only on `@zmdb/ai`. `@zmdb/client` and `@zmdb/protobuf` are independent roots. Higher packages also keep the direct
+lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
 
 ## What each package owns
 
@@ -42,8 +42,8 @@ no provider or framework SDK dependency or peer.
 **`@zmdb/ai-anthropic`** — the optional Anthropic Messages API translation for `@zmdb/ai/chat`. It depends only on `@zmdb/ai`, keeps the SDK import type-only, and accepts a caller-constructed
 structural client.
 
-**`@zmdb/ai-langchain`** — the optional LangChain structured-tool boundary. It owns the optional `@langchain/core@^1.2.9` peer and exposes only the adapter root. During the coordinated extraction it
-forwards to the old schema-core implementation; #710 removes that temporary edge after the other AI integrations exist.
+**`@zmdb/ai-langchain`** — the optional LangChain structured-tool boundary. It owns the adapter implementation and optional `@langchain/core@^1.2.9` peer, exposes only the adapter root, and depends at
+runtime only on `@zmdb/ai`.
 
 **`@zmdb/ai-vercel`** — the optional Vercel AI SDK tool boundary. It depends only on `@zmdb/ai`, owns the optional `ai@^7.0.83` peer, and receives the installed SDK's branded `jsonSchema` factory
 without importing the SDK in shipped source.

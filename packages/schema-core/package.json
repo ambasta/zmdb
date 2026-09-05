@@ -38,11 +38,7 @@
     "./naming": "./src/naming/index.ts",
     "./relations": "./src/relations/index.ts",
     "./openapi": "./src/openapi/index.ts",
-    "./custom-types": "./src/custom-types/index.ts",
-    "./llm": "./src/llm/index.ts",
-    "./llm/chat": "./src/llm/chat/index.ts",
-    "./llm/http": "./src/llm/http/index.ts",
-    "./llm/langchain": "./src/llm/adapters/langchain.ts"
+    "./custom-types": "./src/custom-types/index.ts"
   },
   "publishConfig": {
     "access": "public",

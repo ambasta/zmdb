@@ -1,4 +1,5 @@
-import type { JsonSchemaObject } from '../../openapi/index.js';
+import type { JsonSchemaObject } from '@zmdb/schema-core/openapi';
+
 import type { ToolSpec } from '../index.js';
 import {
   ToolSpecRefusalError,

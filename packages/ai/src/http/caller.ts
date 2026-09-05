@@ -1,3 +1,4 @@
+// Runtime binding for provider-neutral OpenAPI tools owned by @zmdb/ai.
 import {
   OpenApiHttpError,
   type BoundOpenApiTool,

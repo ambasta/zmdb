@@ -1,3 +1,4 @@
+// Public contracts shared by the @zmdb/ai compiler and HTTP entry points.
 import type { ToolSpec } from '../index.js';
 
 export type ToolProvider = 'openai' | 'openai-strict' | 'anthropic' | 'gemini' | 'json-schema';

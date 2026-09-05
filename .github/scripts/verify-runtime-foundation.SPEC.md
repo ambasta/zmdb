@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635, amended by #656, #668, #705, #706, #707, #708 and #709
+# Runtime foundation boundary policy — issue #635, amended by #656, #668, #705, #706, #707, #708, #709 and #710
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -18,47 +18,35 @@ exclude them; the ownership map therefore cannot pretend they are not shipped.
 
 Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`. Issue #656 then
 moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`; #705 added the provider-neutral AI edge used by the compiler; #706 and
-#707 moved the Anthropic and LangChain peers; #708 moved the Vercel adapter, export and peer out of schema-core; and #709 moved the MCP client/server implementation and export:
+#707 moved the Anthropic and LangChain peers; #708 moved the Vercel adapter, export and peer out of schema-core; #709 moved the MCP client/server implementation and export; and #710 moved the final
+provider-neutral and LangChain implementations out of schema-core and removed its four LLM exports:
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
-| `@zmdb/schema-core`    |                              25 |                 13 |
+| `@zmdb/schema-core`    |                              14 |                  9 |
 | `@zmdb/query-compiler` |                              36 |                 13 |
 | `@zmdb/aot-validator`  |                              54 |                 14 |
 | `@zmdb/repository`     |                              22 |                 11 |
-| **Total**              |                         **137** |             **51** |
+| **Total**              |                         **126** |             **47** |
 
 The four manifests contain 22 dependency entries: 7 `dependencies`, 2 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 137 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
+Every one of the 126 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
 whose declared destination no longer exists in the architecture policy.
 
-### `@zmdb/ai` — 10
+### `@zmdb/ai` — 0
 
-```text
-packages/schema-core/src/llm/adapters/runtime.ts
-packages/schema-core/src/llm/chat/index.ts
-packages/schema-core/src/llm/http/caller.ts
-packages/schema-core/src/llm/http/generate.ts
-packages/schema-core/src/llm/http/index.ts
-packages/schema-core/src/llm/http/parse.ts
-packages/schema-core/src/llm/http/types.ts
-packages/schema-core/src/llm/index.ts
-packages/schema-core/src/llm/providers.ts
-packages/schema-core/src/llm/tool-runtime.ts
-```
+Issue #710 moved the ten remaining provider-neutral production files directly to `packages/ai/src/`, so no old foundation file remains in this destination.
 
 ### `@zmdb/ai-anthropic` — 0
 
 Issue #706 moved the Anthropic driver directly to `packages/ai-anthropic/src/index.ts`, so no old foundation file remains in this destination.
 
-### `@zmdb/ai-langchain` — 1
+### `@zmdb/ai-langchain` — 0
 
-```text
-packages/schema-core/src/llm/adapters/langchain.ts
-```
+Issue #710 moved the LangChain implementation directly to `packages/ai-langchain/src/index.ts`, so no old foundation file remains in this destination.
 
 ### `@zmdb/ai-vercel` — 0
 
@@ -293,25 +281,21 @@ No symbol may be temporarily exported from both destinations. A move and its imp
 
 ## 4. Public export map
 
-All 51 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
+All 47 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
 
-### Current `@zmdb/schema-core` — 13
+### Current `@zmdb/schema-core` — 9
 
-| Old subpath       | Final public owner                                                                  |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `.`               | split by §3 between `@zmdb/schema`, `@zmdb/validator`, `@zmdb/orm`, and `@zmdb/app` |
-| `./tags`          | `@zmdb/schema/tags`                                                                 |
-| `./ir`            | `@zmdb/schema/ir`                                                                   |
-| `./derive`        | `@zmdb/schema/derive`                                                               |
-| `./dto`           | `@zmdb/schema/dto` plus `@zmdb/orm/dto`, by §3                                      |
-| `./naming`        | `@zmdb/schema/naming`                                                               |
-| `./relations`     | `@zmdb/schema/relations` plus `@zmdb/orm/relations`, by §3                          |
-| `./openapi`       | `@zmdb/schema/openapi`                                                              |
-| `./custom-types`  | `@zmdb/schema/custom-types`                                                         |
-| `./llm`           | `@zmdb/ai`                                                                          |
-| `./llm/chat`      | `@zmdb/ai/chat`                                                                     |
-| `./llm/http`      | `@zmdb/ai/http`                                                                     |
-| `./llm/langchain` | `@zmdb/ai-langchain`                                                                |
+| Old subpath      | Final public owner                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------- |
+| `.`              | split by §3 between `@zmdb/schema`, `@zmdb/validator`, `@zmdb/orm`, and `@zmdb/app` |
+| `./tags`         | `@zmdb/schema/tags`                                                                 |
+| `./ir`           | `@zmdb/schema/ir`                                                                   |
+| `./derive`       | `@zmdb/schema/derive`                                                               |
+| `./dto`          | `@zmdb/schema/dto` plus `@zmdb/orm/dto`, by §3                                      |
+| `./naming`       | `@zmdb/schema/naming`                                                               |
+| `./relations`    | `@zmdb/schema/relations` plus `@zmdb/orm/relations`, by §3                          |
+| `./openapi`      | `@zmdb/schema/openapi`                                                              |
+| `./custom-types` | `@zmdb/schema/custom-types`                                                         |
 
 ### Current `@zmdb/mcp` — 1
 
@@ -372,7 +356,7 @@ All 51 current export entries across the four foundation candidates have one dis
 | `./drivers/pg`      | `@zmdb/postgres`                                                                    |
 | `./drivers/mssql`   | `@zmdb/mssql`                                                                       |
 
-After cutover, the four old package names and all 51 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
+After cutover, the four old package names and all 47 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
 consumers. `@zmdb/mcp` remains independently published. There are no forwarding packages and no `exports` aliases.
 
 ## 5. Manifest dependency disposition
@@ -460,24 +444,15 @@ Generated code is part of the runtime graph. These are the required replacements
 | `@zmdb/schema-core`                           | `@zmdb/schema`           |
 | `@zmdb/schema-core/tags`                      | `@zmdb/schema/tags`      |
 | `@zmdb/schema-core/openapi`                   | `@zmdb/schema/openapi`   |
-| `@zmdb/schema-core/llm`                       | `@zmdb/ai`               |
-| `@zmdb/schema-core/llm/http`                  | `@zmdb/ai/http`          |
 | `@zmdb/aot-validator/utilities`               | `@zmdb/validator`        |
 | `@zmdb/aot-validator/errors`                  | `@zmdb/validator/errors` |
 | `@zmdb/aot-validator/protobuf/wire`           | `@zmdb/protobuf/wire`    |
 | `@zmdb/aot-validator` for protobuf/gRPC calls | `@zmdb/protobuf`         |
 | `@zmdb/query-compiler/migrations*`            | `@zmdb/migrations*`      |
 
-At the #636 baseline there were 41 measured fixed old-package specifier occurrences to rewrite. Issue #656 completed the protobuf/gRPC rows above; the runtime-foundation ratchet freezes the remaining
-old-package imports:
-
-- 26 production generator/default sites: 17 `DEFAULT_MODULES` entries, 2 scan/witness fallbacks, 1 CLI-selected error fallback, 2 emitter defaults, 3 OpenAPI-tool imports, and 1 introspection
-  declaration import;
-- 7 generated-test-harness sites: 5 compiler-project path/import templates and 2 instantiation harness imports;
-- 8 imports in the six checked-in `*.zmdb.generated.{js,d.ts}` / `*.zmdb.witness.ts` artifacts.
-
-The verifier checks all 41 plus every dynamically copied source specifier in produced output. A generated comment naming the old compiler is also rewritten, but comments do not satisfy the import
-check.
+At the #636 baseline there were 41 measured fixed old-package specifier occurrences to rewrite. Issue #656 completed the protobuf/gRPC rows, and #710 completed the two LLM rows. The runtime-foundation
+baseline now owns the exact remaining old-package import inventory; the verifier also checks every dynamically copied source specifier in produced output. A generated comment naming an old package
+does not satisfy the import check.
 
 Generation preserves a source import of `zmdb`: a consumer that installed only the facade must not receive a generated deep import it did not install. Defaults are used only when the source module
 cannot be determined.

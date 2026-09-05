@@ -1,3 +1,4 @@
+// Checked-in source generation for the public @zmdb/ai/http boundary.
 import { compileOpenApiTools, type CompiledOpenApiTool } from './parse.js';
 import type { OpenApiToolsOptions } from './types.js';
 

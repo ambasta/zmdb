@@ -1,17 +1,16 @@
-// Migration-only forwarding boundary; see ../index.ts.
+// Public @zmdb/ai/http surface.
+export { bindOpenApiTool } from './caller.js';
+export { generateOpenApiToolsModule } from './generate.js';
+export { toolsFromOpenApi } from './parse.js';
 export {
   OpenApiHttpError,
   ToolSpecRefusalError,
-  bindOpenApiTool,
-  generateOpenApiToolsModule,
-  toolsFromOpenApi,
-} from '@zmdb/schema-core/llm/http';
-export type {
-  BoundOpenApiTool,
-  OpenApiCallerOptions,
-  OpenApiGeneratedTool,
-  OpenApiOperationIdentity,
-  OpenApiToolRequest,
-  OpenApiToolsOptions,
-  ToolSpecRefusal,
-} from '@zmdb/schema-core/llm/http';
+  type BoundOpenApiTool,
+  type OpenApiCallerOptions,
+  type OpenApiGeneratedTool,
+  type OpenApiOperationIdentity,
+  type OpenApiToolRequest,
+  type OpenApiToolsOptions,
+  type ToolProvider,
+  type ToolSpecRefusal,
+} from './types.js';

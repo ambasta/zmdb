@@ -169,8 +169,8 @@ const contentResult = (
     isError,
   });
 
-// The public declaration uses the structural subset MCP consumes so the temporary
-// schema-core implementation behind @zmdb/ai/chat cannot leak a provider SDK type.
+// The public declaration uses the structural subset MCP consumes so the
+// provider-neutral @zmdb/ai/chat implementation cannot leak a provider SDK type.
 // The implementation signature still proves compatibility with AI's ToolRegistry.
 export function createMcpServer(tools: McpToolRegistry, opts: McpServerOptions): McpServer;
 export function createMcpServer(tools: McpToolRegistry | ToolRegistry, opts: McpServerOptions): McpServer {

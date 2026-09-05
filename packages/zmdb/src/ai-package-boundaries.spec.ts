@@ -14,6 +14,14 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { generateOpenApiToolsModule } from '@zmdb/ai/http';
+import { SyntaxKind, type Node } from 'typescript/unstable/ast';
+import {
+  isCallExpression,
+  isExportDeclaration,
+  isImportDeclaration,
+  isStringLiteral,
+} from 'typescript/unstable/ast/is';
+import { API, type Program } from 'typescript/unstable/sync';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -84,13 +92,6 @@ const FINAL_OWNER = {
 
 const MCP_SOURCE_FILES = ['SPEC.md', 'client.ts', 'index.ts', 'mcp.spec.ts', 'mcp.type-test.ts', 'server.ts'] as const;
 
-const SCHEMA_CORE_PACKED_SUBPATHS = [
-  '@zmdb/schema-core/llm',
-  '@zmdb/schema-core/llm/chat',
-  '@zmdb/schema-core/llm/http',
-  '@zmdb/schema-core/llm/langchain',
-] as const;
-
 const TARGET_AI_EXPORTS = ['.', './chat', './compiler', './http', './tool-runtime'] as const;
 const TARGET_ANTHROPIC_EXPORTS = ['.'] as const;
 const AI_PACKED_SUBPATHS = [
@@ -110,6 +111,7 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function filesUnder(directory: string): string[] {
+  if (!existsSync(directory)) return [];
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) return filesUnder(path);
@@ -146,16 +148,36 @@ function resolveSpecifier(file: string, specifier: string): string | null {
 }
 
 function importsOf(file: string): ImportReference[] {
-  const source = readFileSync(file, 'utf8');
   const specifiers: string[] = [];
-  for (const [, specifier] of source.matchAll(/(?:^|[\s;])(?:export|import)\b[^;]*?from\s+['"]([^'"]+)['"]/g)) {
-    specifiers.push(specifier ?? '');
-  }
-  for (const [, specifier] of source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
-    specifiers.push(specifier ?? '');
-  }
-  for (const [, specifier] of source.matchAll(/(?:^|[\s;])import\s+['"]([^'"]+)['"]/g)) {
-    specifiers.push(specifier ?? '');
+  const sourceFile = compilerProgram.getSourceFile(resolve(file));
+  if (sourceFile === undefined) {
+    const source = readFileSync(file, 'utf8');
+    for (const [, fromSpecifier, sideEffectSpecifier] of source.matchAll(
+      /^\s*(?:export|import)\b[^;\n]*?\bfrom\s+['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]/gm,
+    )) {
+      const specifier = fromSpecifier ?? sideEffectSpecifier;
+      if (specifier !== undefined) specifiers.push(specifier);
+    }
+  } else {
+    const visit = (node: Node): undefined => {
+      if (
+        (isImportDeclaration(node) || isExportDeclaration(node)) &&
+        node.moduleSpecifier !== undefined &&
+        isStringLiteral(node.moduleSpecifier)
+      ) {
+        specifiers.push(node.moduleSpecifier.text);
+      } else if (
+        isCallExpression(node) &&
+        node.expression.kind === SyntaxKind.ImportKeyword &&
+        node.arguments.length === 1
+      ) {
+        const [argument] = node.arguments;
+        if (argument !== undefined && isStringLiteral(argument)) specifiers.push(argument.text);
+      }
+      node.forEachChild(visit);
+      return undefined;
+    };
+    sourceFile.forEachChild(visit);
   }
   return specifiers.map(specifier => ({ file, specifier, resolved: resolveSpecifier(file, specifier) }));
 }
@@ -180,10 +202,19 @@ function implementationFile(path: string, owner: AiPackage): string {
   if (owner === '@zmdb/ai-anthropic' && path === 'chat/drivers/anthropic.ts') {
     return join(AI_ANTHROPIC, 'src', 'index.ts');
   }
+  if (owner === '@zmdb/ai-langchain' && path === 'adapters/langchain.ts') {
+    return join(AI_LANGCHAIN, 'src', 'index.ts');
+  }
   if (owner === '@zmdb/ai-vercel' && path === 'adapters/ai-sdk.ts') {
     return join(AI_VERCEL, 'src', 'index.ts');
   }
-  return join(LLM, path);
+  if (owner !== '@zmdb/ai') return join(LLM, path);
+  if (path === 'adapters/runtime.ts' || path === 'tool-runtime.ts') {
+    return join(AI, 'src', 'tool-runtime.ts');
+  }
+  if (path === 'chat/index.ts') return join(AI, 'src', 'chat', 'index.ts');
+  if (path.startsWith('http/')) return join(AI, 'src', path);
+  return join(AI, 'src', path);
 }
 
 function packageNameFromSpecifier(specifier: string): string | null {
@@ -343,25 +374,48 @@ let packedAi: PackedPackage;
 let packedAnthropic: PackedPackage;
 let packedAiLangChain: PackedPackage;
 let packedAiVercel: PackedPackage;
+let packedMcp: PackedPackage;
 let packedSchemaCore: PackedPackage;
+let compilerApi: API;
+let compilerProgram: Program;
 const packDirectories: string[] = [];
 
 beforeAll(() => {
+  const project = join(PACKAGES, 'zmdb', 'tsconfig.json');
+  compilerApi = new API({ cwd: join(PACKAGES, 'zmdb') });
+  const loaded = compilerApi.updateSnapshot({ openProjects: [project] }).getProjects()[0];
+  if (loaded === undefined) throw new Error(`could not load ${relative(ROOT, project)}`);
+  compilerProgram = loaded.program;
+
   packedAi = packWorkspacePackage('ai', AI_PACKED_SUBPATHS, ['schema-core']);
   packedAnthropic = packWorkspacePackage('ai-anthropic', ANTHROPIC_PACKED_SUBPATHS, ['ai', 'schema-core']);
   packedAiLangChain = packWorkspacePackage('ai-langchain', AI_LANGCHAIN_PACKED_SUBPATHS, ['ai', 'schema-core']);
   packedAiVercel = packWorkspacePackage('ai-vercel', ['@zmdb/ai-vercel'], ['ai', 'schema-core', 'query-compiler']);
-  packedSchemaCore = packWorkspacePackage('schema-core', SCHEMA_CORE_PACKED_SUBPATHS, ['query-compiler']);
+  packedMcp = packWorkspacePackage('mcp', ['@zmdb/mcp'], ['ai', 'schema-core']);
+  packedSchemaCore = packWorkspacePackage(
+    'schema-core',
+    [
+      '@zmdb/schema-core',
+      '@zmdb/schema-core/custom-types',
+      '@zmdb/schema-core/derive',
+      '@zmdb/schema-core/dto',
+      '@zmdb/schema-core/ir',
+      '@zmdb/schema-core/naming',
+      '@zmdb/schema-core/openapi',
+      '@zmdb/schema-core/relations',
+      '@zmdb/schema-core/tags',
+    ],
+    ['query-compiler'],
+  );
 }, 60_000);
 
 afterAll(() => {
+  compilerApi.close();
   for (const directory of packDirectories) rmSync(directory, { recursive: true, force: true });
 });
 
-describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709)', () => {
-  it.fails('schema-core exposes no llm subpath or AI peer dependency', () => {
-    // #706-#708 removed all provider/framework peers and #709 removed MCP, but 11 remaining
-    // implementation/integration files plus four compatibility exports keep this final-state assertion red.
+describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709, #710)', () => {
+  it('schema-core exposes no llm subpath or AI peer dependency', () => {
     const manifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
     const llmExports = Object.keys(manifest.exports ?? {}).filter(
       path => path === './llm' || path.startsWith('./llm/'),
@@ -376,6 +430,19 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
       .toEqual([]);
     expect.soft(llmExports).toEqual([]);
     expect.soft(aiPeers).toEqual([]);
+    expect
+      .soft(Object.keys(packedSchemaCore.imported).toSorted())
+      .toEqual([
+        '@zmdb/schema-core',
+        '@zmdb/schema-core/custom-types',
+        '@zmdb/schema-core/derive',
+        '@zmdb/schema-core/dto',
+        '@zmdb/schema-core/ir',
+        '@zmdb/schema-core/naming',
+        '@zmdb/schema-core/openapi',
+        '@zmdb/schema-core/relations',
+        '@zmdb/schema-core/tags',
+      ]);
   });
 
   it('provider-neutral AI imports no provider or framework SDK', () => {
@@ -456,7 +523,6 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect.soft(Object.keys(manifest.exports ?? {})).toEqual(['.']);
     expect.soft(manifest.dependencies).toEqual({
       '@zmdb/ai': 'workspace:^',
-      '@zmdb/schema-core': 'workspace:^',
     });
     expect.soft(manifest.peerDependencies).toEqual({ '@langchain/core': '^1.2.9' });
     expect.soft(manifest.peerDependenciesMeta).toEqual({
@@ -494,9 +560,14 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
       .soft(existsSync(oldMcpDirectory) ? filesUnder(oldMcpDirectory).map(file => relative(ROOT, file)) : [])
       .toEqual([]);
     expect.soft(schemaManifest.exports).not.toHaveProperty('./llm/mcp');
+    expect
+      .soft(packedMcp.imported['@zmdb/mcp'])
+      .toEqual(['MCP_PROTOCOL_VERSION', 'McpProtocolError', 'createMcpClient', 'createMcpServer']);
+    expect.soft(packedMcp.manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(packedMcp.installedPeers).toEqual([]);
   });
 
-  it.fails('the AI package graph is acyclic', () => {
+  it('the AI package graph is acyclic', () => {
     const observed = projectedAiGraph();
     const expected = [
       '@zmdb/ai -> @zmdb/schema-core',
@@ -612,7 +683,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect.soft(generated).not.toContain('@zmdb/schema-core/llm/http');
   });
 
-  it.fails('no source file imports @zmdb/schema-core/llm after migration', () => {
+  it('no source file imports @zmdb/schema-core/llm after migration', () => {
     const stale = filesUnder(PACKAGES)
       .filter(
         file =>
