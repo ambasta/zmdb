@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": false,
+    "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@fixture/app": ["./packages/app/src/index.ts"],
+      "@fixture/core": ["./packages/core/src/index.ts"],
+      "fixture-peer": ["./support/peer.ts"],
+      "fixture-runtime": ["./support/runtime.ts"],
+      "fixture-tool": ["./support/tool.ts"]
+    },
+    "strict": true,
+    "target": "ESNext"
+  }
+}

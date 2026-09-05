@@ -1,0 +1,59 @@
+{
+  "name": "@fixture/app",
+  "version": "1.0.0-alpha.4",
+  "description": "Application package for architecture-governance fixtures.",
+  "keywords": [
+    "application",
+    "fixture",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/app"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts",
+    "./peer": "./src/peer.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fixture/core": "workspace:^",
+    "fixture-tool": "^1.0.0"
+  },
+  "devDependencies": {
+    "fixture-peer": "^1.0.0"
+  },
+  "peerDependencies": {
+    "fixture-peer": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "fixture-peer": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}
