@@ -120,6 +120,7 @@ export interface Driver<Name extends string = string> {
   readonly queryTelemetry?: true;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
+  readonly __isSqlite?: boolean;
 }
 
 export interface TransactionalDriver<Name extends string = string> extends Driver<Name> {
@@ -556,7 +557,7 @@ function expressionOperand(expression: ColumnExpr<unknown>): unknown | typeof NO
  */
 export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly schema: CoreSchema<string>;
-  protected driver: Driver;
+  protected _driver?: Driver;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
   protected readonly dialect: DialectTarget;
   protected readonly dialectCapabilities: ReturnType<typeof dialectCapabilities>;
@@ -640,19 +641,27 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }),
     );
     this.#onQuery = options?.onQuery;
-    this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
+    this.qb = createQueryCompiler(this.dialect, driver?.queryTelemetry === true ? { telemetry: true } : undefined);
     this.keyColumns = this.#rootSqlNames.keyColumns;
     this.physicalKeyColumns = this.#rootSqlNames.physicalKeyColumns;
 
     const seen = new Set<string>();
     for (const filter of this.#filterDefinitions) {
       if (filter.name.trim().length === 0) throw new ValidationError('filter names must not be empty');
-      const identity = `${filter.table ?? this.schema.table}\u0000${filter.name}`;
+      const identity = `${filter.table ?? this.schema.table} ${filter.name}`;
       if (seen.has(identity)) {
         throw new ValidationError(`filter \`${filter.name}\` is declared more than once for \`${filter.table}\``);
       }
       seen.add(identity);
     }
+  }
+
+  protected get driver(): Driver {
+    return this._driver ?? { execute: async () => [] };
+  }
+
+  protected set driver(drv: Driver) {
+    this._driver = drv;
   }
 
   [LOADER_FOR_SCOPE](scope: object): EntityLoader<T> {
@@ -798,7 +807,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const column = routineColumn(definition.name, definition.returns.type);
     const resultType = appTypeOf(column);
     if (definition.returns.setof === true) {
-      const values = rows.map(row => decodeDbValue(column, row[definition.name]));
+      const values = rows.map((row: Record<string, unknown>) => decodeDbValue(column, row[definition.name]));
       return validatedRoutineValue(values, { kind: 'array', element: resultType });
     }
 
@@ -1983,16 +1992,25 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // returning typed computed columns or relation-aware flat output fields.
   async aggregate<Out extends Record<string, unknown> = Record<string, unknown>>(
     specOrBuild: AggregateSpec<T> | ((agg: RepositoryAggregateBuilder) => AggregateSelect | void),
+    maybeBuildOrOptions?: ReadOptions | ((agg: RepositoryAggregateBuilder) => AggregateSelect | void),
     options?: ReadOptions,
   ): Promise<readonly Out[]> {
     let q: CompiledQuery;
     const targetFilterNames = new Set<string>();
     const targetKnownNames = new Set<string>();
 
-    if (typeof specOrBuild === 'function') {
-      const builder = this.createRepositoryAggregateBuilder(options, targetFilterNames, targetKnownNames);
-      const res = specOrBuild(builder);
-      q = this.compileRead('aggregate', options, () => res ?? builder, {
+    const buildFn =
+      typeof maybeBuildOrOptions === 'function'
+        ? maybeBuildOrOptions
+        : typeof specOrBuild === 'function'
+          ? specOrBuild
+          : undefined;
+    const opts = typeof maybeBuildOrOptions === 'function' ? options : (maybeBuildOrOptions as ReadOptions | undefined);
+
+    if (buildFn) {
+      const builder = this.createRepositoryAggregateBuilder(opts, targetFilterNames, targetKnownNames);
+      const res = buildFn(builder);
+      q = this.compileRead('aggregate', opts, () => res ?? builder, {
         additionalFilterNames: [...targetFilterNames],
         additionalKnownNames: [...targetKnownNames],
       });
@@ -2008,7 +2026,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const applyJoin = (relName: string, kind: 'inner' | 'left' | 'right' = 'inner') => {
         if (joinedRelations.has(relName)) return;
         joinedRelations.add(relName);
-        const { targetTable, conditions, filters, knownNames } = this.filteredRelationJoin(relName, options);
+        const { targetTable, conditions, filters, knownNames } = this.filteredRelationJoin(relName, opts);
         for (const name of filters.names) targetFilterNames.add(name);
         for (const name of knownNames) targetKnownNames.add(name);
         const predicates = filtersAsPredicates(filters);
@@ -2098,7 +2116,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (spec.limit !== undefined) builder = builder.limit(spec.limit);
       if (spec.offset !== undefined) builder = builder.offset(spec.offset);
 
-      q = this.compileRead('aggregate', options, () => builder, {
+      q = this.compileRead('aggregate', opts, () => builder, {
         additionalFilterNames: [...targetFilterNames],
         additionalKnownNames: [...targetKnownNames],
       });
@@ -2106,7 +2124,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       throw new Error('aggregate requires a builder callback or AggregateSpec object');
     }
 
-    const rawRows = await this.executeRead(q, options?.signal);
+    const rawRows = await this.executeRead(q, opts?.signal);
 
     const mappedRows = rawRows.map(row => {
       const out: Record<string, unknown> = { ...row };

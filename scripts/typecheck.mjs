@@ -60,7 +60,10 @@ let failed = 0;
 for (const project of projects) {
   const rel = relative(root, project);
   process.stdout.write(`typecheck ${rel}\n`);
-  const res = spawnSync('yarn', ['tsc', '--noEmit', '-p', project], { cwd: root, stdio: 'inherit' });
+  const res = spawnSync('yarn', ['tsc', '--noEmit', '-p', project], {
+    cwd: root,
+    stdio: 'inherit',
+  });
   if (res.status !== 0) failed++;
 }
 
