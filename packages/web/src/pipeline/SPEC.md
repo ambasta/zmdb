@@ -60,10 +60,11 @@ check would silently promote its `status` to an HTTP status. The marker is non-e
 
 ### Adapters (thin, optional, structurally typed — no hard deps)
 
-- **`toNodeHandler(router, options?: { maxBodyBytes: number })`** → an \`(req, res) => void\` compatible with \`node:http\` (reads method/url/headers, buffers the bounded request body, and streams the
-  response with backpressure). Typed structurally so \`node:http\` is not a dependency.
-- **`toFetchHandler(router, options?: { maxBodyBytes: number })`** → a \`(request: Request) => Promise<Response>\` usable by Hono / any Fetch-based runtime. Typed against the global \`Request\`/
-  \`Response\` (Node 26 has them) — no Hono dependency.
+- **`toNodeHandler(router, options?: AdapterOptions)`** → an `(req, res) => void` compatible with `node:http` (reads method/url/headers, buffers the bounded request body, and streams the response with
+  backpressure). Optional `maxBodySize` or `maxBodyBytes` in bytes halts body buffering immediately and yields HTTP 413 (`Payload Too Large` / request body exceeds limit) if exceeded. Typed
+  structurally so `node:http` is not a dependency.
+- **`toFetchHandler(router, options?: AdapterOptions)`** → a `(request: Request) => Promise<Response>` usable by Hono / any Fetch-based runtime. Optional `maxBodySize` or `maxBodyBytes` in bytes
+  checks `Content-Length` headers and streams before consuming body content, yielding HTTP 413 if exceeded. Typed against the global `Request`/`Response` (Node 26 has them) — no Hono dependency.
 
 ## Invariants
 
