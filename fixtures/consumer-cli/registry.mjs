@@ -55,7 +55,14 @@ const groupAlive = pid => {
 };
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  if (encoding === 'base64') {
+    return typeof digest.toBase64 === 'function'
+      ? digest.toBase64()
+      : globalThis.btoa(Array.from(digest, b => String.fromCharCode(b)).join(''));
+  }
+  return typeof digest.toHex === 'function'
+    ? digest.toHex()
+    : Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {
@@ -293,7 +300,7 @@ export async function createFixture() {
       for (const [name, record] of selected) {
         process.stderr.write(`CLI fixture build ${name}\n`);
         const label = name.replaceAll(/[/@]/g, '_');
-        await command(process.execPath, [join(root, 'scripts/build-package.mjs')], {
+        await command(process.execPath, [join(root, 'scripts', 'build-package.mjs')], {
           cwd: record.directory,
           timeout: 600_000,
           expected: 0,
