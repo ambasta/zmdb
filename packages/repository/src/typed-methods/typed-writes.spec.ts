@@ -1,10 +1,11 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { inc, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/query-compiler';
-import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
+import { defineType } from '@zmdb/schema-core';
+import type { CreateDTO, UpdateDTO, TaggedSchema, DeclaredTable } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
-import { BaseRepository, ValidationError, type Driver } from '../index.js';
+import { BaseRepository, ValidationError, type Driver, defineRepository } from '../index.js';
 import { Users, type User } from './fixtures.js';
 
 /** The payload type of the `settings` column, named separately because the tests below
@@ -71,6 +72,176 @@ describe('typed create/update (#206)', () => {
     const query = execute.mock.calls[0]?.[0] as { text: string; parameters: unknown[] } | undefined;
     expect(query?.text).toContain('UPDATE "users" SET "age" = $1 WHERE "id" = $2');
     expect(query?.parameters).toEqual([32, 1]);
+  });
+
+  describe('custom column validation and write transformation', () => {
+    interface Money {
+      amount: number;
+      currency: string;
+    }
+
+    const MoneyType = defineType<string, Money, string>({
+      sqlType: 'VARCHAR(50)',
+      toDb: m => {
+        if (!['USD', 'EUR', 'GBP'].includes(m.currency)) {
+          throw new Error(`unsupported currency: ${m.currency}`);
+        }
+        return `${m.amount}:${m.currency}`;
+      },
+      fromDb: (raw: string) => {
+        const [amount, currency] = raw.split(':');
+        return { amount: Number(amount), currency: currency ?? 'USD' };
+      },
+      toWire: m => `${m.amount}:${m.currency}`,
+      fromWire: (raw: string) => {
+        const [amount, currency] = raw.split(':');
+        return { amount: Number(amount), currency: currency ?? 'USD' };
+      },
+      validate: m => {
+        if (typeof m !== 'object' || m === null) return 'money payload must be an object';
+        const money = m as Partial<Money>;
+        if (typeof money.amount !== 'number' || money.amount <= 0) return 'money amount must be positive';
+        return true;
+      },
+    });
+
+    const OrderSchema = {
+      table: 'orders',
+      columns: {
+        id: { type: 'serial', flags: { nullable: false, autoIncrement: true, hasDefault: true, primaryKey: true } },
+        total: { type: 'text', flags: { nullable: false }, customType: MoneyType },
+        discount: { type: 'text', flags: { nullable: true }, customType: MoneyType },
+      },
+      primaryKey: ['id'],
+      references: [],
+      ir: {
+        table: 'orders',
+        columns: [
+          {
+            name: 'id',
+            physicalName: 'id',
+            sql: 'serial',
+            nullable: false,
+            primaryKey: true,
+            serial: true,
+            unique: false,
+            hasDefault: true,
+            sensitive: false,
+            constraints: {},
+            rules: [],
+          },
+          {
+            name: 'total',
+            physicalName: 'total',
+            sql: 'text',
+            codec: 'Money',
+            payload: { kind: 'unknown' },
+            nullable: false,
+            primaryKey: false,
+            serial: false,
+            unique: false,
+            hasDefault: false,
+            sensitive: false,
+            constraints: {},
+            rules: [],
+          },
+          {
+            name: 'discount',
+            physicalName: 'discount',
+            sql: 'text',
+            codec: 'Money',
+            payload: { kind: 'unknown' },
+            nullable: true,
+            primaryKey: false,
+            serial: false,
+            unique: false,
+            hasDefault: false,
+            sensitive: false,
+            constraints: {},
+            rules: [],
+          },
+        ],
+        primaryKey: ['id'],
+        relations: [],
+      },
+    } as unknown as TaggedSchema<DeclaredTable>;
+
+    it('validates custom-typed domain objects and encodes them prior to SQL compilation', async () => {
+      const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, total: '100:USD', discount: null }]);
+      const repo = defineRepository(OrderSchema, { execute } as Driver);
+
+      await repo.create({
+        total: { amount: 100, currency: 'USD' },
+        discount: null,
+      });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      const query = execute.mock.calls[0]![0];
+      expect(query.parameters).toContain('100:USD');
+      expect(query.text).toContain('INSERT INTO "orders"');
+
+      execute.mockResolvedValueOnce([{ id: 1, total: '100:USD', discount: '10:USD' }] as never);
+      await repo.update(1, {
+        discount: { amount: 10, currency: 'USD' },
+      });
+
+      const updateQuery = execute.mock.calls[1]![0];
+      expect(updateQuery.parameters).toContain('10:USD');
+      expect(updateQuery.text).toContain('UPDATE "orders" SET "discount" = $1');
+    });
+
+    it('rejects custom-typed write payloads that fail custom validation rules', async () => {
+      const execute = vi.fn(async () => []);
+      const repo = defineRepository(OrderSchema, { execute } as Driver);
+
+      // Validation returns error message ("money amount must be positive")
+      await expect(
+        repo.create({
+          total: { amount: -50, currency: 'USD' },
+          discount: null,
+        }),
+      ).rejects.toThrowError(/money amount must be positive/);
+
+      expect(execute).not.toHaveBeenCalled();
+
+      // Non-object payload to custom-typed column
+      await expect(
+        repo.update(1, {
+          total: 'raw-string' as unknown as Money,
+        }),
+      ).rejects.toThrowError(/money payload must be an object/);
+
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects custom-typed write payloads when write encoding (toDb) throws an exception', async () => {
+      const execute = vi.fn(async () => []);
+      const repo = defineRepository(OrderSchema, { execute } as Driver);
+
+      await expect(
+        repo.create({
+          total: { amount: 100, currency: 'CAD' }, // Unsupported currency throws in toDb
+          discount: null,
+        }),
+      ).rejects.toThrowError(/serialization failed for "total": unsupported currency: CAD/);
+
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('enforces nullability rules on custom-typed columns', async () => {
+      const execute = vi.fn(async () => []);
+      const repo = defineRepository(OrderSchema, { execute } as Driver);
+
+      // Non-nullable total column provided null
+      await expect(
+        repo.create({
+          total: null as unknown as Money,
+          discount: null,
+        }),
+      ).rejects.toThrowError(/column "total" is not nullable/);
+
+      expect(execute).not.toHaveBeenCalled();
+    });
   });
 
   describe('json column runtime validation', () => {

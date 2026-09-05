@@ -12,6 +12,7 @@
 // The derived types have one spelling each, and it takes the declared type. See the
 // DTO suite below.
 
+import type { CustomType } from './custom-types/index.js';
 // Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
 // imported at runtime in either direction.
@@ -72,6 +73,7 @@ export interface ColumnMeta {
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
+  readonly customType?: CustomType;
 }
 
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
@@ -303,6 +305,8 @@ export type ExpectNot<T extends false> = T;
 export { compilePopulate, resolveRelation, attachPopulated, aliasRow } from './relations/index.js';
 export type { PopulateDialect, PopulateQuery, ResolvedRelation, JoinRow } from './relations/index.js';
 export type { Populated, PopulatedEntity } from './derive/index.js';
+export { defineType, encodeValue, decodeValue } from './custom-types/index.js';
+export type { CustomType } from './custom-types/index.js';
 
 // ---------------------------------------------------------------------------
 // Entity State Machine & State Transition Helpers
