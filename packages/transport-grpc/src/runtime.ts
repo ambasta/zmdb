@@ -55,8 +55,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -67,7 +67,14 @@ interface WritableResponseCall extends ServerCallSurface {
   removeListener(event: 'drain', listener: () => void): this;
 }
 
-interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
+interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {
+  on(event: 'data', listener: (data: DecodedRequest) => void): this;
+  on(event: 'end', listener: () => void): this;
+  on(event: 'error', listener: (err: unknown) => void): this;
+  removeListener(event: 'data', listener: (data: DecodedRequest) => void): this;
+  removeListener(event: 'end', listener: () => void): this;
+  removeListener(event: 'error', listener: (err: unknown) => void): this;
+}
 
 interface CallScope {
   readonly signal: AbortSignal;
@@ -385,8 +392,8 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   let notify: (() => void) | undefined;
   let error: unknown;
 
-  const onData = (...args: unknown[]): void => {
-    queue.push({ done: false, value: args[0] as DecodedRequest });
+  const onData = (data: DecodedRequest): void => {
+    queue.push({ done: false, value: data });
     if (notify !== undefined) {
       const fn = notify;
       notify = undefined;
@@ -419,7 +426,8 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
       if (scope.signal.aborted) throw scope.reason();
       if (error !== undefined) throw error;
       if (queue.length > 0) {
-        const item = queue.shift()!;
+        const item = queue.shift();
+        if (item === undefined) continue;
         if (item.done) return;
         yield requestValue(item.value);
         continue;
