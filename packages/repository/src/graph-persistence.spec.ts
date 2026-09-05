@@ -2,9 +2,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { OneToMany, OneToOne, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
 
-import { sqliteDriver } from './drivers/sqlite.js';
 import { defineRepository } from './index.js';
 
 // 1. Define Test Table Interfaces
