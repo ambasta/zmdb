@@ -6,9 +6,9 @@ import { schemasFrom } from '@zmdb/aot-validator/testing';
 import type { CreateDTO, TaggedSchema, UpdateDTO, WhereDTO } from '@zmdb/schema-core';
 import { defineType } from '@zmdb/schema-core/custom-types';
 import type { Codec, HasDefault, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
+import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
-import { sqliteDriver } from '@zmdb/sqlite';
 import { BaseRepository, ValidationError, type Driver } from './index.js';
 
 export const customCodec = defineType<string, string[], string>({
