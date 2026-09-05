@@ -39,9 +39,10 @@ are limited to `@zmdb/web/microservices` and `@zmdb/app/observability`, so the c
 compiles and runs the same generated client as separate browser and Node bundles with only a packed `@zmdb/client` installed. Both consumers cover the ordinary success response, an alternate success
 status, invalid-success-body rejection, and per-call bearer authentication injection.
 
-`client-adapters/` is the private tests-freeze workspace for #689. One generated client and controllable transport drive the same lifecycle, cancellation, stale-completion, error, retry and SSR
-isolation assertions for every proposed adapter. Its React, Angular, Vue, Svelte and Solid harnesses execute real framework cleanup primitives, while missing adapter packages remain intentional
-`it.fails` retirement triggers. It is not packed-package qualification evidence; #700 owns the real installed framework applications.
+`client-adapters/` is the private conformance workspace for #689 and #690. One generated client and a settlement-ledger transport drive reusable lifecycle, cancellation, stale-completion, error, retry
+and SSR-isolation assertions for every proposed adapter. Its React, Angular, Vue, Svelte and Solid harnesses execute real framework cleanup primitives, while missing adapter packages remain
+intentional `it.fails` retirement triggers. Reusable manifest/import rules and packed-project orchestration live beside them; the latter installs tarballs rather than workspace sources but is not
+package-qualification evidence by itself. #700 owns the real installed framework applications and bundle checks.
 
 ## Working on them
 

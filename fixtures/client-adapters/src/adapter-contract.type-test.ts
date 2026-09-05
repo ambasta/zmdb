@@ -50,7 +50,9 @@ import type { Readable } from 'svelte/store';
 import type { Ref } from 'vue';
 
 import type {
+  AdapterConformanceBinding,
   ApiClient,
+  GetWidgetInput,
   MutationRunner,
   MutationSnapshot,
   QueryLoader,
@@ -216,6 +218,26 @@ function solidInference(bindings: SolidBindings<ApiClient>): void {
   mutation.mutate satisfies (input: RenameWidgetInput) => Promise<Widget>;
 }
 
+function conformanceBindingInference(binding: AdapterConformanceBinding<ApiClient>, client: ApiClient): void {
+  const query = binding.prepareQuery({
+    client,
+    input: { id: 'one' },
+    load: (api, input, signal) => api.getWidget(input, { signal }),
+  });
+  query.snapshot().data satisfies Widget | undefined;
+  query.update satisfies (input: GetWidgetInput) => Promise<void>;
+  query.refresh satisfies () => Promise<void>;
+  query.dispose satisfies () => Promise<void>;
+
+  const mutation = binding.prepareMutation({
+    client,
+    run: (api, input: RenameWidgetInput, signal) => api.renameWidget(input, { signal }),
+  });
+  mutation.snapshot().pending satisfies boolean;
+  mutation.mutate satisfies (input: RenameWidgetInput) => Promise<Widget>;
+  mutation.dispose satisfies () => Promise<void>;
+}
+
 type NativeBindingsByPackage = {
   readonly '@zmdb/react': ReactBindings<ApiClient>;
   readonly '@zmdb/angular': AngularBindings<ApiClient>;
@@ -271,3 +293,4 @@ void angularInference;
 void vueInference;
 void svelteInference;
 void solidInference;
+void conformanceBindingInference;
