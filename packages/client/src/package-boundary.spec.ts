@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 const ROOT = process.cwd();
 const MANIFEST = fileURLToPath(new URL('../package.json', import.meta.url));
@@ -16,6 +16,12 @@ const REGENERATED = fileURLToPath(
 );
 
 describe('@zmdb/client installed package boundary', () => {
+  let consumer: ReturnType<typeof spawnSync>;
+
+  beforeAll(() => {
+    consumer = spawnSync(process.execPath, [CONSUMER], { cwd: ROOT, encoding: 'utf8', timeout: 120_000 });
+  }, 120_000);
+
   it('has no dependency or peer dependency', () => {
     const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8'));
     expect(manifest.name).toBe('@zmdb/client');
@@ -32,9 +38,14 @@ describe('@zmdb/client installed package boundary', () => {
     expect(result.status, result.stderr).toBe(0);
   });
 
-  it('imports with no installed package except @zmdb/client', () => {
-    const result = spawnSync(process.execPath, [CONSUMER], { cwd: ROOT, encoding: 'utf8' });
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    expect(result.stdout).toContain('only @zmdb/client installed');
-  }, 120_000);
+  it('packed browser fixture performs a typed request', () => {
+    expect(consumer.status, `${consumer.stdout}\n${consumer.stderr}`).toBe(0);
+    expect(consumer.stdout).toContain('browser-packed-client-ok');
+  });
+
+  it('packed Node fixture performs the same request', () => {
+    expect(consumer.status, `${consumer.stdout}\n${consumer.stderr}`).toBe(0);
+    expect(consumer.stdout).toContain('node-packed-client-ok');
+    expect(consumer.stdout).toContain('only @zmdb/client installed');
+  });
 });

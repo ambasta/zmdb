@@ -116,6 +116,97 @@ export default {
     expect(loaded.outDir).toBe(join(fixture.root, 'migrations'));
   });
 
+  it('resolves explicit HTTP contract and artifact paths through the configured project', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  project: './tsconfig.json',
+  http: {
+    contracts: './src/schema.ts#HTTP_CONTRACT',
+    openApi: { out: './generated/openapi.json' },
+    client: { out: './generated/http-client.generated.ts' },
+  },
+};
+`);
+    const loaded = await loadConfig({ cwd: fixture.root });
+
+    expect(loaded.http).toEqual({
+      contracts: [{ file: fixture.schema, exportName: 'HTTP_CONTRACT' }],
+      openApiOut: join(fixture.root, 'generated', 'openapi.json'),
+      clientOut: join(fixture.root, 'generated', 'http-client.generated.ts'),
+    });
+  });
+
+  it('rejects invalid HTTP contract and artifact configuration', async () => {
+    const empty = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  http: {
+    contracts: [],
+    openApi: { out: './openapi.json' },
+    client: { out: './client.ts' },
+  },
+};
+`);
+    await expect(loadConfig({ cwd: empty.root })).rejects.toThrow(/at least one path#export/);
+
+    const missingExport = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  http: {
+    contracts: './src/schema.ts',
+    openApi: { out: './openapi.json' },
+    client: { out: './client.ts' },
+  },
+};
+`);
+    await expect(loadConfig({ cwd: missingExport.root })).rejects.toThrow(/must be <path>#<export>/);
+
+    const duplicate = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  http: {
+    contracts: ['./src/schema.ts#HTTP_CONTRACT', './src/schema.ts#HTTP_CONTRACT'],
+    openApi: { out: './openapi.json' },
+    client: { out: './client.ts' },
+  },
+};
+`);
+    await expect(loadConfig({ cwd: duplicate.root })).rejects.toThrow(/appears more than once/);
+
+    const external = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  http: {
+    contracts: './outside.ts#HTTP_CONTRACT',
+    openApi: { out: './openapi.json' },
+    client: { out: './client.ts' },
+  },
+};
+`);
+    const outside = join(external.root, 'outside.ts');
+    write(outside, 'export const HTTP_CONTRACT = {};\n');
+    await expect(loadConfig({ cwd: external.root })).rejects.toThrow(/not included by/);
+
+    const wrongOutput = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  http: {
+    contracts: './src/schema.ts#HTTP_CONTRACT',
+    openApi: { out: './openapi.json' },
+    client: { out: './client.js' },
+  },
+};
+`);
+    await expect(loadConfig({ cwd: wrongOutput.root })).rejects.toThrow(/http\.client\.out must end in \.ts/);
+  });
+
   it('reports a config that fails to load, including the underlying error', async () => {
     const fixture = project(`throw new Error('fixture config exploded');\n`);
     await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(

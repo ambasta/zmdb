@@ -1,24 +1,24 @@
 # Tooling ownership policy — verifier contract
 
 > Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, remeasured for #681, amended by #656 after the protobuf runtime/public-owner
-> extraction, and remeasured for #668 after the generic dialect protocol/type split.
+> extraction, remeasured for #668 after the generic dialect protocol/type split, and amended by #685 for the generated-client command and its CLI fixtures.
 
 ## 1. Extraction rule and totals
 
 The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
 and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **143 paths**, each exactly once:
+The inventory has **151 paths**, each exactly once:
 
 ```json
 {
   "compiler": 30,
   "migrations": 20,
-  "cli": 20,
+  "cli": 21,
   "runtime": 28,
   "facade": 12,
   "optional-integration": 4,
-  "test-only": 28,
+  "test-only": 35,
   "obsolete": 1
 }
 ```
@@ -83,6 +83,7 @@ migrations	packages/zmdb/src/cli/migration-files.ts
 cli	packages/zmdb/src/cli/args.ts
 cli	packages/zmdb/src/cli/atomic.ts
 cli	packages/zmdb/src/cli/bin.ts
+cli	packages/zmdb/src/cli/commands/client.ts
 cli	packages/zmdb/src/cli/commands/new.ts
 cli	packages/zmdb/src/cli/commands/studio.ts
 cli	packages/zmdb/src/cli/config.ts
@@ -168,6 +169,13 @@ test-only	packages/query-compiler/src/introspect/__fixtures__/mysql-8.4.11.json
 test-only	packages/query-compiler/src/testing/capability-matrix.ts
 test-only	packages/query-compiler/src/testing/database-vertical.ts
 test-only	packages/query-compiler/src/testing/external-dialect.fixture.ts
+test-only	packages/zmdb/src/cli/__fixtures__/http-client/package.json
+test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/contract.ts
+test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/models.ts
+test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/schema.ts
+test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/unrelated.ts
+test-only	packages/zmdb/src/cli/__fixtures__/http-client/tsconfig.json
+test-only	packages/zmdb/src/cli/__fixtures__/http-client/zmdb.config.ts
 test-only	packages/zmdb/src/cli/__fixtures__/project/package.json
 test-only	packages/zmdb/src/cli/__fixtures__/project/src/schema.ts
 test-only	packages/zmdb/src/cli/__fixtures__/project/tsconfig.json

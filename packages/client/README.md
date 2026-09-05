@@ -22,6 +22,28 @@ npm add @zmdb/client@alpha
 - `@zmdb/client/url` — RFC 3986 component, path, query, and base-URL helpers.
 - `@zmdb/client/testing` — deterministic held-request transport.
 
+## Generated clients
+
+`zmdb client generate` loads configured `@zmdb/web` contract exports once and writes both OpenAPI JSON and a typed TypeScript client. Commit both outputs and use `zmdb client generate --check` in CI
+to reject stale output.
+
+The generated module imports only `@zmdb/client`, so the same source can be bundled for a browser or run under Node:
+
+```ts
+import { createApiClient } from './generated/http-client.generated.js';
+
+const api = createApiClient({
+  baseUrl: 'https://api.example.com',
+  authentication: () => ({
+    requirement: 0,
+    headers: { authorization: 'Bearer token' },
+  }),
+});
+```
+
+The repository's packed-consumer fixture installs only the packed `@zmdb/client` package and exercises the same generated client in browser and Node bundles against a real `@zmdb/web` service,
+including alternate success status, response validation, and authentication injection.
+
 ## Documentation
 
 Full project documentation is at **https://ambasta.github.io/zmdb/**.

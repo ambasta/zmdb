@@ -18,6 +18,9 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const httpClientFixtureProjects = ['generate', 'server', 'browser', 'node'].map(name =>
+  join(root, 'fixtures', 'consumer-http-client', `tsconfig.${name}.json`),
+);
 
 const projects = [
   ...readdirSync(join(root, 'packages'), { withFileTypes: true })
@@ -47,6 +50,10 @@ const projects = [
   ...readdirSync(join(root, 'fixtures'), { withFileTypes: true })
     .filter(e => e.isDirectory())
     .map(e => join(root, 'fixtures', e.name, 'tsconfig.json')),
+  // The generated HTTP client fixture has four deliberately separate projects:
+  // reflection input, the real @zmdb/web service, and packed Node/browser consumers.
+  // Their names encode those boundaries, so there is no root tsconfig.json to discover.
+  ...httpClientFixtureProjects,
 ].filter(existsSync);
 
 let failed = 0;

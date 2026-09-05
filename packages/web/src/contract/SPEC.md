@@ -488,6 +488,10 @@ The build result contains:
 4. diagnostics, all fatal to generation; and
 5. dependency provenance for watch invalidation.
 
+`CompiledHttpContract.dependencies` is the sorted absolute set of non-declaration project source files in the transitive static import closure of the configured contract modules. It includes each
+contract module itself and imported controller/type modules, excludes package/lib declarations, and is not serialized into either public artifact. Watch mode filters filesystem events through this
+set, recomputes it after a relevant change, and therefore does not regenerate for an unrelated project file.
+
 Generated client source:
 
 - is stable for byte-identical IR and generator version;
@@ -498,7 +502,8 @@ Generated client source:
 - imports runtime values only from `@zmdb/client`; and
 - emits no file change when bytes are already current.
 
-`--check` compares bytes and writes nothing. Watch mode invalidates a contract when its declaration file or any file used by reflection changes; changing an unrelated file does not regenerate it.
+The canonical generation command projects OpenAPI and the typed client from the same `HttpContractIR` object, then compares their exact ordered operation-ID lists before writing. `--check` compares
+both artifact byte streams and writes nothing. Watch mode invalidates a contract when its declaration file or any dependency above changes; changing an unrelated file does not regenerate it.
 
 ## 13. Migration sequence
 

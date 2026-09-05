@@ -62,6 +62,7 @@ const PEERS = [
 ];
 const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'web-custom-transport.ts');
 const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
+const HTTP_CLIENT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'verify-installed.mjs');
 const ADMITTED_PACKAGE_NAMES = new Set(PACKAGES.map(name => readManifest(name).name));
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
@@ -245,6 +246,7 @@ for (const peer of PEERS) {
 // 2. Pack each package from a staged copy carrying the *publish* manifest, so `npm pack`
 //    applies the real `files` list and `.npmignore` rather than the dev ones.
 const specifiers = [];
+const packedTarballs = new Map();
 let studioBin;
 for (const name of PACKAGES) {
   const pkg = publishManifest(readManifest(name));
@@ -270,6 +272,7 @@ for (const name of PACKAGES) {
   // npm 11. Take the one entry either way rather than pinning a shape.
   const report = JSON.parse(packed.stdout);
   const { filename } = Array.isArray(report) ? report[0] : Object.values(report)[0];
+  packedTarballs.set(pkg.name, join(tmp, filename));
   const into = join(app, 'node_modules', pkg.name);
   mkdirSync(into, { recursive: true });
   // The tarball's single root directory is always `package/`.
@@ -496,6 +499,18 @@ const metroTsc = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig
   stdio: 'inherit',
 });
 if (metroTsc.status !== 0) fail('the published Metro wrapper does not typecheck from a consumer project');
+
+const clientTarball = packedTarballs.get('@zmdb/client');
+if (clientTarball === undefined) {
+  fail('publish verification produced no @zmdb/client tarball for the generated-client consumer');
+} else {
+  console.log('Running packed generated clients against the real @zmdb/web fixture...');
+  const clientConsumer = run(process.execPath, [HTTP_CLIENT_CONSUMER_FIXTURE, '--client-tarball', clientTarball], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  });
+  if (clientConsumer.status !== 0) fail('the packed generated-client consumers failed');
+}
 
 if (errors > 0) {
   console.error(`\nPublish verification failed with ${errors} error(s). Tree kept at ${tmp}`);

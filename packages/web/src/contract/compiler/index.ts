@@ -190,7 +190,62 @@ export function compileHttpContracts(
     operations: sortedOperations.map(binding => binding.operation),
     securitySchemes,
   };
-  return deepFreeze({ ir, operations: sortedOperations });
+  return deepFreeze({
+    ir,
+    operations: sortedOperations,
+    dependencies: contractDependencies(sortedSources, options.session),
+  });
+}
+
+function contractDependencies(sources: readonly HttpContractSource[], session: ReflectSession): readonly string[] {
+  const pending = sources.map(source => sourcePath(source.file));
+  const dependencies = new Set<string>();
+
+  while (pending.length > 0) {
+    const path = pending.pop();
+    if (path === undefined || dependencies.has(path)) continue;
+    const source = session.sourceFile(path);
+    if (source === undefined || source.isDeclarationFile) continue;
+    const metadata = session.program.getSourceFileMetadata(path);
+    if (metadata?.isDefaultLibrary === true || metadata?.isFromExternalLibrary === true) continue;
+
+    dependencies.add(path);
+    for (const imported of source.imports) {
+      if (!isRelativeModuleSpecifier(imported)) continue;
+      const symbol = session.checker.getSymbolAtLocation(imported);
+      for (const declaration of symbol?.declarations ?? []) {
+        const importedPath = declarationSourcePath(declaration);
+        if (importedPath !== undefined && !dependencies.has(importedPath)) pending.push(importedPath);
+      }
+    }
+  }
+
+  return [...dependencies].toSorted();
+}
+
+function isRelativeModuleSpecifier(node: unknown): boolean {
+  const value = objectValue(node);
+  if (value === undefined) return false;
+  const text = Reflect.get(value, 'text');
+  return typeof text === 'string' && /^\.{1,2}\//u.test(text);
+}
+
+function declarationSourcePath(node: unknown): string | undefined {
+  const seen = new Set<object>();
+  let current = objectValue(node);
+  while (current !== undefined && !seen.has(current)) {
+    seen.add(current);
+    const fileName = Reflect.get(current, 'fileName');
+    if (typeof fileName === 'string') return resolve(fileName);
+    const path = Reflect.get(current, 'path');
+    if (typeof path === 'string') return resolve(path);
+    current = objectValue(Reflect.get(current, 'parent'));
+  }
+  return undefined;
+}
+
+function objectValue(value: unknown): object | undefined {
+  return (typeof value === 'object' && value !== null) || typeof value === 'function' ? value : undefined;
 }
 
 function assertCompatibleVersionStrategies(operations: readonly CompiledHttpOperation[]): void {

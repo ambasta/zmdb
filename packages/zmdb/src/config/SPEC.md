@@ -206,7 +206,11 @@ connection. `check` runs its file and snapshot checks without one and reports li
 readonly http?: {
   /** Exact `<path>#<export>` specs, resolved against this config file. */
   readonly contracts: string | readonly string[];
-  readonly client?: {
+  readonly openApi: {
+    /** One generated OpenAPI 3.1 JSON file, resolved against this config file. */
+    readonly out: string;
+  };
+  readonly client: {
     /** One generated `.ts` file, resolved against this config file. */
     readonly out: string;
   };
@@ -214,8 +218,9 @@ readonly http?: {
 ```
 
 The export name is mandatory; no default export or directory scan is guessed. Each path must be included by `project`; duplicate resolved path/export pairs are errors. `ResolvedConfig.http.contracts`
-contains absolute paths plus export names in declaration order, and `ResolvedConfig.http.clientOut` is absolute. The compiler reads modules through the configured project and does not execute the
-application.
+contains absolute paths plus export names in declaration order, and `ResolvedConfig.http.openApiOut` and `ResolvedConfig.http.clientOut` are absolute. `openApi.out` must end in `.json`, `client.out`
+must end in `.ts`, and the two resolved outputs must be different files. The compiler reads modules through the configured project and imports each inert contract export once per generation; it does
+not boot the application.
 
 Base URLs, credentials, authentication providers, timeouts, retries, and deployment environments are runtime values and are refused in project config.
 

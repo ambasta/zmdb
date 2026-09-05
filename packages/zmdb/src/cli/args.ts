@@ -152,6 +152,21 @@ const DATABASE_COMMANDS: Readonly<Record<string, CommandDefinition>> = {
 };
 
 const APPLICATION_COMMANDS: Readonly<Record<string, CommandDefinition>> = {
+  client: {
+    usage: 'zmdb client generate [--check] [--watch]',
+    summary: 'Generate OpenAPI and a typed HTTP client from configured contracts.',
+    options: {
+      check: {
+        type: 'boolean',
+        description: 'Write nothing and fail when either generated artifact is stale.',
+      },
+      watch: {
+        type: 'boolean',
+        description: 'Regenerate after an input in the compiled contract dependency set changes.',
+      },
+    },
+    maximumPositionals: 1,
+  },
   new: {
     usage: 'zmdb new <project|schema|controller|module|repository|command> <name> [--package <pkg>]',
     summary: 'Create a formatter-clean project or application component.',

@@ -261,4 +261,6 @@ export interface CompiledHttpOperation {
 export interface CompiledHttpContract {
   readonly ir: HttpContractIR;
   readonly operations: readonly CompiledHttpOperation[];
+  /** Project-source inputs whose changes can alter this compilation. */
+  readonly dependencies: readonly string[];
 }

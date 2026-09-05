@@ -16,6 +16,11 @@ import { describeGraph, renderDot, renderTree, type GraphFilter } from '@zmdb/we
 
 import { commandHelp, globalHelp, parseCommand, type ParsedCommand } from './args.js';
 import { checkProject, type CheckResult } from './commands/check.js';
+import type {
+  GenerateHttpArtifactsOptions,
+  HttpArtifactGeneration,
+  WatchHttpArtifactsOptions,
+} from './commands/client.js';
 import { embedMigrations, type EmbedOptions, type EmbedResult } from './commands/embed.js';
 import { exportSchema, type ExportResult } from './commands/export.js';
 import { generateMigration, type GenerateOptions, type GenerateResult } from './commands/generate.js';
@@ -42,8 +47,10 @@ export type {
   EmbedOptions,
   EmbedResult,
   ExportResult,
+  GenerateHttpArtifactsOptions,
   GenerateOptions,
   GenerateResult,
+  HttpArtifactGeneration,
   MigrateResult,
   PullOptions,
   PullResult,
@@ -51,7 +58,27 @@ export type {
   RollbackResult,
   StatusResult,
   UpgradeResult,
+  WatchHttpArtifactsOptions,
 };
+export type { ClientGenerateResult } from './commands/client.js';
+
+/** Programmatic generation stays on the same lazy boundary as the CLI command. */
+export async function generateHttpArtifacts(
+  config: ResolvedConfig,
+  options: GenerateHttpArtifactsOptions = {},
+): Promise<HttpArtifactGeneration> {
+  const command = await import('./commands/client.js');
+  return command.generateHttpArtifacts(config, options);
+}
+
+/** Programmatic watch mode retains the same lazy build-time dependency boundary. */
+export async function watchHttpArtifacts(
+  config: ResolvedConfig,
+  options: WatchHttpArtifactsOptions = {},
+): Promise<HttpArtifactGeneration> {
+  const command = await import('./commands/client.js');
+  return command.watchHttpArtifacts(config, options);
+}
 
 export interface CliEnvironment {
   readonly cwd?: string;
@@ -146,7 +173,48 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
   if (command === 'studio') return runStudioCommand(parsed, io);
   if (command === 'modules') return runModules(parsed, io);
   if (command === 'repl') return runRepl(parsed, io);
+  if (command === 'client') return runClientCommand(parsed, io);
   return runDatabaseCommand(parsed, io);
+}
+
+async function runClientCommand(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<number> {
+  const pendingOutput = new CliOutput('client generate', parsed.config, parsed.json, io);
+  if (parsed.positionals[0] !== 'generate') {
+    return pendingOutput.failure('expected the subcommand `generate`', 2);
+  }
+  if (parsed.values.check === true && parsed.values.watch === true) {
+    return pendingOutput.failure('--check and --watch ask for opposite things', 2);
+  }
+  if (parsed.json && parsed.values.watch === true) {
+    return pendingOutput.failure('--json is unavailable because a watch session is not one JSON document', 2);
+  }
+
+  let config: ResolvedConfig;
+  try {
+    config = await loadCommandConfig(parsed, io.cwd);
+  } catch (error) {
+    return pendingOutput.failure(errorMessage(error), 2, parsed.config);
+  }
+  const output = pendingOutput.withConfig(config.configPath);
+
+  try {
+    const command = await import('./commands/client.js');
+    if (parsed.values.watch === true) {
+      await command.watchHttpArtifacts(config, {
+        log: generation => {
+          output.progress(renderClientGeneration(config.configPath, generation));
+        },
+      });
+      return 0;
+    }
+
+    const check = parsed.values.check === true;
+    const generation = await command.generateHttpArtifacts(config, check ? { check: true } : {});
+    const exitCode = parsed.values.check === true && generation.stale.length > 0 ? 1 : 0;
+    return output.result(generation.result, renderClientGeneration(config.configPath, generation, check), exitCode);
+  } catch (error) {
+    return output.failure(errorMessage(error), error instanceof CliInvocationError ? 2 : 1);
+  }
 }
 
 async function runStudioCommand(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<number> {
@@ -367,9 +435,25 @@ function authorConfig(config: ResolvedConfig, project: string): ZmdbConfig {
     ...(config.naming === undefined ? {} : { naming: config.naming }),
     ...(config.migrations === undefined ? {} : { migrations: config.migrations }),
     ...(config.introspect === undefined ? {} : { introspect: config.introspect }),
+    ...(config.http === undefined
+      ? {}
+      : {
+          http: {
+            contracts: config.http.contracts.map(contract => `${contract.file}#${contract.exportName}`),
+            openApi: { out: config.http.openApiOut },
+            client: { out: config.http.clientOut },
+          },
+        }),
     ...(config.driver === undefined ? {} : { driver: config.driver }),
     ...(config.namingStrategy === undefined ? {} : { namingStrategy: config.namingStrategy }),
   };
+}
+
+function renderClientGeneration(configPath: string, generation: HttpArtifactGeneration, check = false): string {
+  if (!generation.result.changed) return `${configPath}\nHTTP client artifacts are current\n`;
+  const lines = [configPath];
+  for (const path of generation.stale) lines.push(`${check ? 'stale' : 'generated'} ${path}`);
+  return `${lines.join('\n')}\n`;
 }
 
 async function runModules(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<number> {

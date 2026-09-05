@@ -4,24 +4,40 @@ zmdb has two deliberately separate HTTP client paths:
   with precomputed AOT code.
 - Unrelated third-party APIs have no generic `HttpService`, Axios wrapper, or `HttpModule`. Use `fetch` or a small provider that owns that upstream's policy.
 
-## Generate a client from `HttpContractIR`
+## Generate OpenAPI and a client from one contract load
 
-The current generation boundary is a build-tool API:
+Point `http.contracts` at the exported contract object the router registers, then name both committed outputs:
 
 ```ts
-import { writeFile } from 'node:fs/promises';
+// zmdb.config.ts
+import { defineConfig } from 'zmdb/config';
 
-import type { HttpContractIR } from '@zmdb/web/contract';
-import { generateHttpClient } from '@zmdb/web/contract/compiler';
-
-export async function writeHttpClient(contract: HttpContractIR): Promise<void> {
-  const generated = generateHttpClient(contract);
-  await Promise.all([writeFile('src/http-client.generated.ts', generated.source), writeFile('src/http-client.generated.ts.map', generated.sourceMap)]);
-}
+export default defineConfig({
+  schema: './src/schema.ts',
+  dialect: 'postgres',
+  project: './tsconfig.json',
+  http: {
+    contracts: './src/account.contract.ts#ACCOUNT_HTTP_CONTRACT',
+    openApi: { out: './generated/openapi.json' },
+    client: { out: './generated/http-client.generated.ts' },
+  },
+});
 ```
 
-The result is stable for the same contract and generator version. Each operation gets an exact input type, exact successful-status result type, typed documented errors, request encoding, response
-dispatch, and straight-line validation. Unsupported contract or `TypeIR` shapes fail generation instead of widening to `unknown`.
+```bash
+npx zmdb client generate
+npx zmdb client generate --check
+```
+
+The command opens the configured TypeScript project once, loads each configured contract export once, and feeds the same compiled `HttpContractIR` to OpenAPI and client generation. It verifies exact
+operation-ID parity before writing either file and emits repository-formatter-clean JSON. Equal bytes preserve both mtimes; `--check` writes nothing and exits non-zero when either committed artifact
+is missing or stale.
+
+During development, `npx zmdb client generate --watch` retains the reflection session and regenerates only after a source in the compiled contract's dependency set changes. Base URLs, credentials,
+authentication providers, retries, and timeouts remain runtime values and are not written to project config.
+
+The generated result is stable for the same contract and generator version. Each operation gets an exact input type, exact successful-status result type, typed documented errors, request encoding,
+response dispatch, and straight-line validation. Unsupported contract or `TypeIR` shapes fail generation instead of widening to `unknown`.
 
 Use the generated factory with an injected transport or the default Fetch transport:
 
@@ -38,6 +54,9 @@ const api = createApiClient({
 ```
 
 Generation does not embed the base URL or credentials. Authentication is resolved for each call by `@zmdb/client`.
+
+Tooling that already owns a compiled `HttpContractIR` can call `generateHttpClient` from `@zmdb/web/contract/compiler` directly. Application projects should prefer the CLI so OpenAPI and client
+artifacts cannot drift into separate generation paths.
 
 ## A typed client for a third-party API
 

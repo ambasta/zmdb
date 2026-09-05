@@ -33,8 +33,9 @@ The issue's list also omits two verbs whose implementations already ship as libr
 `migrate`, `rollback` and `status` are thin dispatch over `up`, `down` and `status` in the shipped runner. They are the only three commands that need no new engine work, and saying so here is what
 keeps them from being redesigned.
 
-Two more verbs are frozen further down and are not about the schema at all: `new` writes files (§13) and `studio` serves a page (§14). The amendments add `modules` and `repl`, making fourteen visible
-commands in three groups: ten read or write a database or the tree that describes it, two are a code generator and a viewer, and two describe or inhabit an application's object graph.
+Two more verbs are frozen further down and are not about the schema at all: `new` writes files (§13) and `studio` serves a page (§14). The amendments add `modules`, `repl`, and `client`, making
+fifteen visible commands in three groups: ten read or write a database or the tree that describes it, three scaffold, generate, or view developer artifacts, and two describe or inhabit an
+application's object graph.
 
 `embed` belongs to the first group because it reads the migration files, though it is the only verb there that neither connects nor writes into the schema tree. Its output is a module an application
 bundle imports, and the format belongs to `@zmdb/query-compiler` — see §4.1.
@@ -433,8 +434,9 @@ second one out of a server (epic #598, sub-issue #599). The description's shape 
 | `modules` | application declarations | stdout            | no        |
 | `repl`    | application declarations | whatever you type | yes (§R4) |
 
-§1's "Twelve in total, and the count is not the interesting number — the division is" paragraph becomes fourteen, with a **third** division, and the new sentence is the load-bearing part: ten verbs
-read or write a database or the tree that describes it, two are a code generator and a viewer, and two describe or inhabit an application's own object graph.
+At this amendment, §1's "Twelve in total, and the count is not the interesting number — the division is" paragraph becomes fourteen, with a **third** division, and the new sentence is the load-bearing
+part: ten verbs read or write a database or the tree that describes it, two are a code generator and a viewer, and two describe or inhabit an application's own object graph. The later generated-HTTP
+amendment adds the fifteenth command.
 
 The third division is the first thing in this CLI that reads the application packages — `@zmdb/app` plus the HTTP-aware `@zmdb/web/devtools` inspector — rather than the schema packages, and saying so
 is what keeps a future contributor from adding `--migrate` to `zmdb modules`.
@@ -658,17 +660,24 @@ the statements.
 zmdb client generate [--check] [--watch]
 ```
 
-The command loads `http.contracts` and `http.client.out`, opens the configured project once, compiles `HttpContractIR`, and renders one generated TypeScript module. It neither boots the web
-application nor parses OpenAPI; generated relative imports use `.js`.
+The command loads `http.contracts`, `http.openApi.out`, and `http.client.out`, opens the configured project once, compiles `HttpContractIR`, and renders one OpenAPI document plus one generated
+TypeScript module. It neither boots the web application nor parses OpenAPI; generated relative imports use `.js`.
 
-- Normal mode atomically replaces the file only when bytes differ.
-- `--check` writes nothing; current bytes exit 0 and missing/stale bytes exit 1.
-- `--watch` retains one reflection session and regenerates only for contract/reflection dependencies.
+- The command requires `http.openApi.out` and `http.client.out`. One contract-module load and one `compileHttpContracts` call feed both `toOpenApi(compiled.ir)` and `generateHttpClient(compiled.ir)`.
+- OpenAPI is written as deterministic, repository-formatter-clean JSON with one trailing newline. The client output is the generated TypeScript source; neither artifact contains a source or workspace
+  path.
+- Before materialising either artifact, the command compares the exact operation-ID list in OpenAPI with the generated client's operation metadata. A mismatch is an exit-1 generation failure and
+  writes nothing.
+- Normal mode atomically replaces only files whose bytes differ. A byte-identical run preserves both mtimes.
+- `--check` writes nothing; current bytes exit 0 and any missing/stale artifact exits 1, naming each affected output.
+- `--watch` retains one reflection session and regenerates only when a contract module or a transitive project source used by that contract changes. An unrelated project file does not trigger a
+  generation.
 - `--check --watch` and `--json --watch` exit 2.
 - Missing HTTP config or invalid flags exit 2; contract/reflection diagnostics exit 1.
 
-Finite `--json` output is `{ out, operations, changed, contractFormat, generatorVersion }` inside §3's `CliResult`. There is no base-URL, credential, authentication, timeout, retry, or framework flag.
-The generated file is committed and CI runs `zmdb client generate --check`.
+Finite `--json` output is `{ out: { openApi, client }, operations, changed, contractFormat, generatorVersion }` inside §3's `CliResult`, and its `command` is `"client generate"`. `changed` means at
+least one output was missing or byte-different before the command. There is no base-URL, credential, authentication, timeout, retry, or framework flag. Both generated files are committed and CI runs
+`zmdb client generate --check`.
 
 ## Amendment: package owner and lazy command graph (#626)
 

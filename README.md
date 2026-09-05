@@ -29,7 +29,7 @@
 
 > Status legend: ✅ complete. 🚧 in progress. 🔜 planned.
 >
-> The workspace publishes **14 packages** across **126 export-map entry points**. The current suite has **2,852 passing tests** across 259 files, plus **84 expected failures** that describe work still
+> The workspace publishes **14 packages** across **126 export-map entry points**. The current suite has **2,862 passing tests** across 260 files, plus **84 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 261 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

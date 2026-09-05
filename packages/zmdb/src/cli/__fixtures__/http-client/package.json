@@ -1,0 +1,5 @@
+{
+  "name": "zmdb-http-client-cli-fixture",
+  "private": true,
+  "type": "module"
+}

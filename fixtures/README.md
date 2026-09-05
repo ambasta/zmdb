@@ -1,6 +1,6 @@
 # Consumer fixtures
 
-Six projects use zmdb the way somebody who installed it would, kept here so that CI builds or explicitly freezes them rather than trusting that they still work.
+Consumer projects use zmdb the way somebody who installed it would, kept here so that CI builds or explicitly freezes them rather than trusting that they still work.
 
 `consumer-cli/` and `consumer-plugin/` contain the **same program**, declared the same way, and reach the compiled validator by the two supported routes:
 
@@ -35,6 +35,10 @@ route.
 `web-custom-transport.ts` is a single external consumer rather than a project. The web suite executes it, and `verify:publish` copies it beside the packed packages and compiles it there. Its imports
 are limited to `@zmdb/web/microservices` and `@zmdb/app/observability`, so the custom strategy contract is checked from the same side of the package boundary as an installed application.
 
+`consumer-http-client/` commits OpenAPI and typed-client output generated from one exported HTTP contract. Its verifier checks the committed bytes, builds a real `@zmdb/web` loopback service, and then
+compiles and runs the same generated client as separate browser and Node bundles with only a packed `@zmdb/client` installed. Both consumers cover the ordinary success response, an alternate success
+status, invalid-success-body rejection, and per-call bearer authentication injection.
+
 ## Working on them
 
 `consumer-plugin/` is the one to edit. `consumer-cli/` is derived:
@@ -45,3 +49,12 @@ node --import ./scripts/ts-specifier-hook.mjs packages/aot-validator/src/cli/bin
 ```
 
 Copy the source change into `consumer-cli/src/` first, then run that. CI runs the same command with `--check`, which writes nothing and fails if the committed output is stale.
+
+Regenerate the HTTP artifacts with:
+
+```sh
+node --import ./scripts/ts-specifier-hook.mjs packages/zmdb/src/cli/bin.ts \
+  client generate --config fixtures/consumer-http-client/zmdb.config.ts
+```
+
+The publish verifier passes its already packed client tarball to `consumer-http-client/verify-installed.mjs`; running that verifier directly builds a temporary tarball itself.

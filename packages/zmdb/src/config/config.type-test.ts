@@ -14,6 +14,11 @@ const config = defineConfig({
   project: './tsconfig.json',
   out: './migrations',
   naming: 'snake_case_plural',
+  http: {
+    contracts: ['./src/http-contract.ts#HTTP_CONTRACT'],
+    openApi: { out: './generated/openapi.json' },
+    client: { out: './generated/http-client.generated.ts' },
+  },
   driver: async () => ({ execute: async () => [] }),
   namingStrategy: {
     table: name => name.toLowerCase(),
@@ -28,6 +33,9 @@ void accepted;
 const loaded: Promise<ResolvedConfig> = loadConfig({ cwd: '/tmp/project', path: './zmdb.config.ts' });
 void loaded;
 void (await loaded).resolvedNaming;
+void (await loaded).http?.contracts[0]?.exportName;
+void (await loaded).http?.openApiOut;
+void (await loaded).http?.clientOut;
 
 const optional: Promise<ResolvedConfig | undefined> = loadConfig({ cwd: '/tmp/project', optional: true });
 void optional;
@@ -50,5 +58,18 @@ defineConfig({
   namingStrategy: {
     // @ts-expect-error — naming hooks return physical names, not numbers.
     table: () => 17,
+  },
+});
+
+defineConfig({
+  schema: 'src/**/*.ts',
+  dialect: 'sqlite',
+  http: {
+    contracts: './src/http-contract.ts#HTTP_CONTRACT',
+    openApi: { out: './openapi.json' },
+    client: {
+      // @ts-expect-error — generated client output is a path string.
+      out: 17,
+    },
   },
 });

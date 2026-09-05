@@ -20,6 +20,27 @@ export interface IntrospectOptions {
   readonly exclude?: readonly string[];
 }
 
+export interface HttpGenerationConfig {
+  readonly contracts: string | readonly string[];
+  readonly openApi: {
+    readonly out: string;
+  };
+  readonly client: {
+    readonly out: string;
+  };
+}
+
+export interface ResolvedHttpContractSource {
+  readonly file: string;
+  readonly exportName: string;
+}
+
+export interface ResolvedHttpGenerationConfig {
+  readonly contracts: readonly ResolvedHttpContractSource[];
+  readonly openApiOut: string;
+  readonly clientOut: string;
+}
+
 export type { NamingStrategy } from '@zmdb/schema-core/naming';
 
 /** The plain-data half of a config, validated by the generated AOT checker. */
@@ -34,6 +55,7 @@ export interface ZmdbConfigData {
     readonly schema?: string;
   };
   readonly introspect?: IntrospectOptions;
+  readonly http?: HttpGenerationConfig;
 }
 
 /** The complete author-facing config, including the two callable boundaries. */
@@ -43,15 +65,16 @@ export interface ZmdbConfig extends ZmdbConfigData {
 }
 
 /** The concrete paths every command receives after discovery and validation. */
-export interface ResolvedConfig extends ZmdbConfig {
+export type ResolvedConfig = Omit<ZmdbConfig, 'http'> & {
   readonly configPath: string;
   readonly project: string;
   readonly out: string;
   readonly schemaFiles: readonly string[];
   readonly outDir: string;
+  readonly http?: ResolvedHttpGenerationConfig;
   /** The custom or named strategy, resolved once for every reflection route. */
   readonly resolvedNaming: NamingStrategy;
-}
+};
 
 export interface LoadConfigOptions {
   /** Directory discovery starts from. Defaults to `process.cwd()`. */
@@ -195,6 +218,7 @@ function validateConfig(input: unknown, configPath: string): ZmdbConfig {
 }
 
 async function resolveValidatedConfig(config: ZmdbConfig, configPath: string): Promise<ResolvedConfig> {
+  const { http: configuredHttp, ...configWithoutHttp } = config;
   const directory = dirname(configPath);
   const project = resolve(directory, config.project ?? 'tsconfig.json');
   const outDir = resolve(directory, config.out ?? 'migrations');
@@ -219,15 +243,81 @@ async function resolveValidatedConfig(config: ZmdbConfig, configPath: string): P
   }
 
   const schemaFiles = await expandSchemaFiles(config.schema, directory, project, projectFiles, configPath);
+  const http =
+    configuredHttp === undefined
+      ? undefined
+      : await resolveHttpGenerationConfig(configuredHttp, directory, project, projectFiles, configPath);
   return {
-    ...config,
+    ...configWithoutHttp,
     project,
     out: outDir,
     configPath,
     schemaFiles,
     outDir,
+    ...(http === undefined ? {} : { http }),
     resolvedNaming,
   };
+}
+
+async function resolveHttpGenerationConfig(
+  configured: HttpGenerationConfig,
+  directory: string,
+  project: string,
+  projectFiles: readonly string[],
+  configPath: string,
+): Promise<ResolvedHttpGenerationConfig> {
+  const specifications = typeof configured.contracts === 'string' ? [configured.contracts] : configured.contracts;
+  if (specifications.length === 0) {
+    throw new Error(`Invalid config ${configPath}: http.contracts must contain at least one path#export`);
+  }
+
+  const included = new Set(projectFiles.map(pathKey));
+  const seen = new Set<string>();
+  const contracts: ResolvedHttpContractSource[] = [];
+  for (const specification of specifications) {
+    const hash = specification.lastIndexOf('#');
+    if (hash <= 0 || hash === specification.length - 1) {
+      throw new Error(
+        `Invalid config ${configPath}: HTTP contract ${JSON.stringify(specification)} must be <path>#<export>`,
+      );
+    }
+    const namedPath = specification.slice(0, hash);
+    const exportName = specification.slice(hash + 1);
+    if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(exportName)) {
+      throw new Error(
+        `Invalid config ${configPath}: HTTP contract export ${JSON.stringify(exportName)} is not an identifier`,
+      );
+    }
+
+    const file = normalize(resolve(directory, namedPath));
+    if (!(await isFile(file))) {
+      throw new Error(`Invalid config ${configPath}: HTTP contract file ${file} does not exist`);
+    }
+    if (!included.has(pathKey(file))) {
+      throw new Error(`HTTP contract file ${file} is not included by ${project}`);
+    }
+
+    const key = `${pathKey(file)}\u0000${exportName}`;
+    if (seen.has(key)) {
+      throw new Error(`Invalid config ${configPath}: HTTP contract ${file}#${exportName} appears more than once`);
+    }
+    seen.add(key);
+    contracts.push({ file, exportName });
+  }
+
+  const openApiOut = normalize(resolve(directory, configured.openApi.out));
+  const clientOut = normalize(resolve(directory, configured.client.out));
+  if (!openApiOut.endsWith('.json')) {
+    throw new Error(`Invalid config ${configPath}: http.openApi.out must end in .json, received ${openApiOut}`);
+  }
+  if (!clientOut.endsWith('.ts')) {
+    throw new Error(`Invalid config ${configPath}: http.client.out must end in .ts, received ${clientOut}`);
+  }
+  if (pathKey(openApiOut) === pathKey(clientOut)) {
+    throw new Error(`Invalid config ${configPath}: http.openApi.out and http.client.out must be different files`);
+  }
+
+  return { contracts, openApiOut, clientOut };
 }
 
 async function expandSchemaFiles(

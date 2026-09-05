@@ -156,4 +156,14 @@ describe('@zmdb/web deterministic HTTP contract collection', () => {
       expect(type.openApi).toEqual(jsonSchemaFromTypeIR(type.type));
     }
   });
+
+  it('reports only the transitive project sources used by the contract', () => {
+    const dependencies = compileConvergence().dependencies;
+
+    expect(dependencies).toContain(fileURLToPath(FIXTURE));
+    expect(dependencies).toContain(fileURLToPath(new URL('../../routing/index.ts', import.meta.url)));
+    expect(dependencies).toContain(fileURLToPath(new URL('../../versioning/index.ts', import.meta.url)));
+    expect(dependencies).not.toContain(fileURLToPath(new URL('../../static/index.ts', import.meta.url)));
+    expect(dependencies).toEqual([...dependencies].toSorted());
+  });
 });

@@ -14,5 +14,5 @@
     "types": [],
     "verbatimModuleSyntax": true
   },
-  "include": ["node-contracts.ts"]
+  "include": ["consumer.ts", "generated/http-client.generated.ts"]
 }

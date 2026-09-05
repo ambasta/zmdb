@@ -18,6 +18,18 @@ npm add zmdb@alpha
 - Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/drivers/mssql`
 - Application tooling: `zmdb/web`, `zmdb/web/contract`, `zmdb/web/contract/compiler`, `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
 
+## Generate HTTP artifacts
+
+Configure exported HTTP contracts and both output files in `zmdb.config.ts`, then run:
+
+```bash
+npx zmdb client generate
+npx zmdb client generate --check
+```
+
+One contract load feeds the OpenAPI document and generated typed client. `--check` writes nothing and fails when either committed output is stale; `--watch` regenerates when a compiled contract input
+changes.
+
 ## Documentation
 
 Full docs: **https://ambasta.github.io/zmdb/**

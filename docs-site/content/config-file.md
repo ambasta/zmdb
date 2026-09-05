@@ -28,8 +28,8 @@ config.schemaFiles; // absolute files, expanded eagerly
 config.outDir; // absolute migration output directory
 ```
 
-The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, and `pull` commands consume this loader. `up` is deliberately refused because it is ambiguous
-between migration application and snapshot upgrade.
+The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, and `client generate` commands consume this loader. `up` is deliberately refused because
+it is ambiguous between migration application and snapshot upgrade.
 
 ## The resolved path is observable
 
@@ -57,6 +57,9 @@ Under `--json`, the same path is the top-level `config` value. An explicit `--co
 | `migrations.table`  | `string`                              | `_zmdb_migrations` | —                                     |
 | `migrations.schema` | `string`                              | dialect default    | PostgreSQL family only                |
 | `introspect`        | `{ schemas?, include?, exclude? }`    | command-specific   | names/globs, not filesystem paths     |
+| `http.contracts`    | `string \| readonly string[]`         | absent             | `<path>#<export>` from the project    |
+| `http.openApi.out`  | `string`                              | required with HTTP | generated `.json`, relative to config |
+| `http.client.out`   | `string`                              | required with HTTP | generated `.ts`, relative to config   |
 
 `loadConfig` also returns `resolvedNaming`: the selected built-in singleton, the custom `namingStrategy` by identity, or an empty identity strategy. Every database command passes that object into
 schema reflection. `zmdb-codegen` and `zmdb/unplugin` discover the same config and pass the same value to the lower-level AOT APIs; the committed consumer fixtures exercise both routes against
@@ -82,6 +85,29 @@ export default defineConfig({
 ```
 
 `migrations.schema` is available to the Postgres family and is refused for the MySQL family, SQLite and SQL Server. It is never ignored.
+
+## HTTP artifact generation
+
+HTTP generation is explicit and inert:
+
+```ts
+export default defineConfig({
+  schema: './src/schema.ts',
+  dialect: 'postgres',
+  project: './tsconfig.json',
+  http: {
+    contracts: ['./src/accounts.contract.ts#ACCOUNTS_HTTP_CONTRACT', './src/billing.contract.ts#BILLING_HTTP_CONTRACT'],
+    openApi: { out: './generated/openapi.json' },
+    client: { out: './generated/http-client.generated.ts' },
+  },
+});
+```
+
+Every contract spec requires an export name. Contract files must belong to `project`; duplicate path/export pairs are rejected. The OpenAPI and client outputs must have `.json` and `.ts` extensions,
+respectively, and must resolve to different files. Loading this config does not boot the application, and the config has no base URL, credential, authentication, timeout, retry, or deployment field.
+
+`loadConfig` resolves the contract files and both outputs to absolute paths. `zmdb client generate` then loads the configured exports once and emits both artifacts; use `--check` in CI and `--watch`
+for dependency-aware regeneration.
 
 ## Discovery
 

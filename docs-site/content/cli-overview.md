@@ -15,17 +15,18 @@ The schema commands are thin packaged wrappers over the public reflection, snaps
 
 ## The commands, and where each stands
 
-| drizzle-kit / mikro-orm      | zmdb today                                             | Page                                                  |
-| ---------------------------- | ------------------------------------------------------ | ----------------------------------------------------- |
-| `new`                        | project and application-component scaffolds            | [scaffolding](./web-cli.html)                         |
-| `generate`                   | `zmdb generate`                                        | [generate](./cli-generate.html)                       |
-| `embed`                      | bundle-resident SQLite migration module                | [web/mobile migrations](./migrations-web-mobile.html) |
-| `migrate` / `up`             | `zmdb migrate`; `up` is deliberately refused           | [migrate](./cli-migrate.html) · [up](./cli-up.html)   |
-| `push`                       | live-catalog diff with a destructive SQL guard         | [push](./cli-push.html)                               |
-| `check`                      | snapshot, file-history, and optional live-drift checks | [check](./cli-check.html)                             |
-| `export`                     | `zmdb export`                                          | [export](./cli-export.html)                           |
-| `pull` / `generate-entities` | protected `zmdb pull` declaration staging              | [pull](./cli-pull.html)                               |
-| `studio`                     | installed read-only loopback browser                   | [studio](./cli-studio.html)                           |
+| drizzle-kit / mikro-orm      | zmdb today                                              | Page                                                  |
+| ---------------------------- | ------------------------------------------------------- | ----------------------------------------------------- |
+| `new`                        | project and application-component scaffolds             | [scaffolding](./web-cli.html)                         |
+| `generate`                   | `zmdb generate`                                         | [generate](./cli-generate.html)                       |
+| `embed`                      | bundle-resident SQLite migration module                 | [web/mobile migrations](./migrations-web-mobile.html) |
+| `migrate` / `up`             | `zmdb migrate`; `up` is deliberately refused            | [migrate](./cli-migrate.html) · [up](./cli-up.html)   |
+| `push`                       | live-catalog diff with a destructive SQL guard          | [push](./cli-push.html)                               |
+| `check`                      | snapshot, file-history, and optional live-drift checks  | [check](./cli-check.html)                             |
+| `export`                     | `zmdb export`                                           | [export](./cli-export.html)                           |
+| `pull` / `generate-entities` | protected `zmdb pull` declaration staging               | [pull](./cli-pull.html)                               |
+| `client generate`            | OpenAPI and typed client from configured HTTP contracts | [HTTP client](./web-http-client.html)                 |
+| `studio`                     | installed read-only loopback browser                    | [studio](./cli-studio.html)                           |
 
 The catalog-backed `pull` is packaged with overwrite protection, dry-run, and check modes. Studio's installed binary is parsed by plain Node and exercised against its loopback index by publish
 verification.
@@ -52,6 +53,7 @@ Commands:
   upgrade    Upgrade the stored snapshot format without touching a database.
   export     Print the declaration set as dialect DDL.
   pull       Write declarations from a live database catalogue.
+  client     Generate OpenAPI and a typed HTTP client from configured contracts.
   new        Create a formatter-clean project or application component.
   modules    Describe application declarations without constructing providers.
   repl       Boot an application into a local interactive session.
@@ -69,11 +71,13 @@ npx zmdb migrate
 npx zmdb check --json
 npx zmdb export > schema.sql
 npx zmdb pull --dry-run
+npx zmdb client generate --check
 npx zmdb new controller posts
 ```
 
-The schema commands accept `--config <path>` and `--project <tsconfig>`. Scaffolding instead accepts `--package <name-or-path>` and `--dry-run` and does not load database config. Add `--json` when a
-script needs the stable `CliResult` envelope instead of human output.
+The schema and HTTP-generation commands accept `--config <path>` and `--project <tsconfig>`. `client generate` writes both configured artifacts, `--check` reports stale output without writing, and
+`--watch` regenerates from the compiled contract dependency set. Scaffolding instead accepts `--package <name-or-path>` and `--dry-run` and does not load database config. Add `--json` when a script
+needs the stable `CliResult` envelope instead of human output; watch mode is deliberately not JSON.
 
 ## Exit codes and streams
 

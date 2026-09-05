@@ -11,8 +11,8 @@
     "skipLibCheck": false,
     "strict": true,
     "target": "ESNext",
-    "types": [],
+    "types": ["node"],
     "verbatimModuleSyntax": true
   },
-  "include": ["consumer.ts", "generated/http-client.generated.ts"]
+  "include": ["contract.ts", "metadata.ts", "models.ts", "server.ts"]
 }
