@@ -103,6 +103,7 @@ import {
 } from './loaders/index.js';
 import { type JoinRow } from './relations/index.js';
 import { createRepositoryStream } from './streaming/index.js';
+import { compileSchemaValidator, type CompiledValidator } from './validator.js';
 
 export interface ExecuteOptions {
   readonly signal?: AbortSignal;
@@ -622,6 +623,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   /** Loader state is keyed by the explicit request-scope token, never globally. */
   readonly #entityLoaders = new WeakMap<object, EntityLoader<T>>();
   readonly #relationLoaders = new WeakMap<object, RelationLoaderMap<T>>();
+  private compiledValidator?: CompiledValidator;
 
   constructor(driver: Driver, dialect: DialectTarget | undefined = driver.dialect, options?: RepositoryOptions) {
     if (dialect === undefined) {
@@ -696,6 +698,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
       seen.add(identity);
     }
+  }
+
+  private get validator(): CompiledValidator {
+    if (!this.compiledValidator) {
+      this.compiledValidator = compileSchemaValidator(this.schema);
+    }
+    return this.compiledValidator;
   }
 
   [LOADER_FOR_SCOPE](scope: object): EntityLoader<T> {
@@ -2706,11 +2715,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    * A key the variant does not accept is an issue, not something to drop — see
    * `excessIssues`.
    */
+  // Pre-compiled validation against schema metadata using straight-line closure functions.
   private validatePayload(payload: unknown, variant: 'create' | 'update'): Record<string, unknown> {
-    const obj = this.sanitizePayload(payload);
-    const { shape, type } = this.payloadShape(variant);
-    const issues = [...issuesFor(obj, type), ...this.excessIssues(obj, variant)];
-    return this.validatedColumns(obj, shape, issues);
+    return variant === 'create' ? this.validator.validateCreate(payload) : this.validator.validateUpdate(payload);
   }
 
   /**
