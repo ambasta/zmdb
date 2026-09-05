@@ -124,9 +124,22 @@ export function evalRule(rule: Rule, value: unknown): boolean {
 
 export const coerce = {
   number(expr: unknown): number {
-    const n = Number(expr);
-    if (Number.isNaN(n)) throw new TypeError(`cannot coerce to number: ${String(expr)}`);
-    return n;
+    if (typeof expr === 'boolean' || expr === null || expr === undefined || Array.isArray(expr)) {
+      throw new TypeError(`cannot coerce ${Array.isArray(expr) ? 'array' : String(expr)} to number`);
+    }
+    if (typeof expr === 'number') {
+      if (Number.isNaN(expr)) throw new TypeError(`cannot coerce NaN to number`);
+      return expr;
+    }
+    if (typeof expr === 'string') {
+      if (expr.trim() === '') {
+        throw new TypeError(`cannot coerce empty string to number`);
+      }
+      const n = Number(expr);
+      if (Number.isNaN(n)) throw new TypeError(`cannot coerce to number: ${expr}`);
+      return n;
+    }
+    throw new TypeError(`cannot coerce ${typeof expr} to number`);
   },
 } as const;
 

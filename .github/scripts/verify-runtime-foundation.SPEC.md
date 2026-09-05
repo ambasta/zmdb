@@ -26,15 +26,15 @@ provider-neutral and LangChain implementations out of schema-core and removed it
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              14 |                  9 |
 | `@zmdb/query-compiler` |                              35 |                 14 |
-| `@zmdb/aot-validator`  |                              54 |                 14 |
+| `@zmdb/aot-validator`  |                              55 |                 14 |
 | `@zmdb/repository`     |                              21 |                 10 |
-| **Total**              |                         **124** |             **47** |
+| **Total**              |                         **125** |             **47** |
 
 The four manifests contain 22 dependency entries: 7 `dependencies`, 2 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 124 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
+Every one of the 125 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
 path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite` section also records its seven package-owned production files outside that legacy input
 inventory.
 
@@ -248,9 +248,10 @@ packages/sqlite/src/migrations.ts
 packages/sqlite/src/node.ts
 ```
 
-### `@zmdb/validator` — 6
+### `@zmdb/validator` — 7
 
 ```text
+packages/aot-validator/src/advanced/ast.ts
 packages/aot-validator/src/advanced/index.ts
 packages/aot-validator/src/errors.ts
 packages/aot-validator/src/index.ts

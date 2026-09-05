@@ -525,33 +525,123 @@ export class Rewriter {
 // The no-checker path: `validate(tags.X, expr)`
 // ---------------------------------------------------------------------------
 
-function splitTopLevelComma(s: string): [string, string] {
-  let depth = 0;
-  for (let k = 0; k < s.length; k++) {
-    const ch = s[k] ?? '';
-    if (ch === '(' || ch === '[') depth++;
-    else if (ch === ')' || ch === ']') depth--;
-    else if (ch === ',' && depth === 0) return [s.slice(0, k), s.slice(k + 1)];
+export function splitTopLevelComma(s: string): [string, string] {
+  const parts = splitLexical(s, 1);
+  if (parts.length >= 2) {
+    return [parts[0] ?? '', parts.slice(1).join(',')];
   }
   return [s, ''];
 }
 
-function splitArgs(s: string): string[] {
+export function splitArgs(s: string): string[] {
+  return splitLexical(s, Infinity);
+}
+
+function splitLexical(s: string, maxSplits: number): string[] {
   const parts: string[] = [];
-  let depth = 0;
   let cur = '';
-  for (const ch of s) {
-    if (ch === '(' || ch === '[') depth++;
-    else if (ch === ')' || ch === ']') depth--;
-    if (ch === ',' && depth === 0) {
+  let depth = 0;
+  let inString: string | null = null;
+  let isEscaped = false;
+  let inComment: 'line' | 'block' | null = null;
+
+  for (let k = 0; k < s.length; k++) {
+    const ch = s.charAt(k);
+    const next = s[k + 1];
+
+    if (inComment === 'line') {
+      cur += ch;
+      if (ch === '\n') inComment = null;
+      continue;
+    }
+
+    if (inComment === 'block') {
+      cur += ch;
+      if (ch === '*' && next === '/') {
+        cur += next;
+        k++;
+        inComment = null;
+      }
+      continue;
+    }
+
+    if (inString !== null) {
+      cur += ch;
+      if (isEscaped) {
+        isEscaped = false;
+      } else if (ch === '\\') {
+        isEscaped = true;
+      } else if (ch === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (ch === '/' && next === '/') {
+      inComment = 'line';
+      cur += '//';
+      k++;
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      inComment = 'block';
+      cur += '/*';
+      k++;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === '`') {
+      inString = ch;
+      cur += ch;
+      continue;
+    }
+
+    if (ch === '(' || ch === '[' || ch === '{') {
+      depth++;
+      cur += ch;
+      continue;
+    }
+
+    if (ch === ')' || ch === ']' || ch === '}') {
+      if (depth > 0) depth--;
+      cur += ch;
+      continue;
+    }
+
+    if (ch === ',' && depth === 0 && parts.length < maxSplits) {
       parts.push(cur.trim());
       cur = '';
-    } else cur += ch;
+      continue;
+    }
+
+    cur += ch;
   }
-  if (cur.trim()) parts.push(cur.trim());
+
+  if (cur.trim() || parts.length > 0) {
+    parts.push(cur.trim());
+  }
+
   return parts;
 }
 
+function unquoteString(s: string): string {
+  const str = s.trim();
+  if (
+    (str.startsWith('"') && str.endsWith('"')) ||
+    (str.startsWith("'") && str.endsWith("'")) ||
+    (str.startsWith('`') && str.endsWith('`'))
+  ) {
+    const inner = str.slice(1, -1);
+    return inner.replace(/\\(["'`\\nrt])/g, (_, g) => {
+      if (g === 'n') return '\n';
+      if (g === 'r') return '\r';
+      if (g === 't') return '\t';
+      return g;
+    });
+  }
+  return str;
+}
 function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => void): string {
   const m = /^tags\.(\w+)\((.*)\)$/s.exec(ruleSrc);
   if (!m) return `validate(${ruleSrc}, ${expr})`;
@@ -582,7 +672,7 @@ function inlineCheck(ruleSrc: string, expr: string, ensureRegexCache?: () => voi
         return `(typeof ${expr} === "string" && new RegExp(${raw}).test(${expr}))`;
       }
 
-      raw = raw.slice(1, -1);
+      raw = unquoteString(raw);
       const re = escapePattern(raw);
       validatePatternComplexity(re);
       return `(typeof ${expr} === "string" && /${re}/.test(${expr}))`;

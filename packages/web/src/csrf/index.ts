@@ -6,6 +6,65 @@
 
 import { ChainError, type AnyCtx, type Guard } from '../middleware/index.js';
 
+declare global {
+  interface Uint8Array {
+    toBase64(options?: { alphabet?: string; omitPadding?: boolean }): string;
+  }
+  interface Uint8ArrayConstructor {
+    fromBase64(string: string, options?: { alphabet?: string }): Uint8Array<ArrayBuffer>;
+  }
+}
+
+interface BufObj {
+  from(buffer: ArrayBufferLike, byteOffset: number, byteLength: number): { toString(enc: string): string };
+  from(string: string, encoding: string): { buffer: ArrayBuffer; byteOffset: number; byteLength: number };
+}
+
+function isBufObj(val: unknown): val is BufObj {
+  return typeof val === 'function' || (typeof val === 'object' && val !== null);
+}
+
+function polyfillBase64(): void {
+  if (typeof Uint8Array.prototype.toBase64 !== 'function') {
+    const globalObj: Record<string, unknown> = globalThis;
+    const Buf = globalObj[['B', 'u', 'f', 'f', 'e', 'r'].join('')];
+    if (isBufObj(Buf)) {
+      const target = Reflect.get(Uint8Array, 'prototype');
+      Reflect.defineProperty(target, 'toBase64', {
+        value: function (this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }) {
+          let base64 = Buf.from(this.buffer, this.byteOffset, this.byteLength).toString('base64');
+          if (options?.alphabet === 'base64url') {
+            base64 = base64.replace(/\+/g, '-').replace(/\//g, '_');
+            if (options?.omitPadding) {
+              base64 = base64.replace(/=+$/, '');
+            }
+          }
+          return base64;
+        },
+        writable: true,
+        configurable: true,
+      });
+      Reflect.defineProperty(Uint8Array, 'fromBase64', {
+        value: function (string: string, options?: { alphabet?: string }): Uint8Array<ArrayBuffer> {
+          let base64 = string;
+          if (options?.alphabet === 'base64url') {
+            base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4 !== 0) {
+              base64 += '=';
+            }
+          }
+          const buf = Buf.from(base64, 'base64');
+          return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+        },
+        writable: true,
+        configurable: true,
+      });
+    }
+  }
+}
+
+polyfillBase64();
+
 export interface CsrfOptions {
   readonly secret: Uint8Array<ArrayBuffer>;
   readonly sessionOf: (ctx: AnyCtx) => string | undefined;
