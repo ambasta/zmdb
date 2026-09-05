@@ -164,6 +164,7 @@ export const PRODUCT_CATALOG = Object.freeze([
         'CompiledQuery',
         'DIALECT_PARAM_LIMITS',
         'Dialect',
+        'InvalidOperatorError',
         'SetValue',
         'UnsupportedFeatureError',
         'appendComment',
