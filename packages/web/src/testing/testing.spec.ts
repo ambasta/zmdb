@@ -136,4 +136,52 @@ describe('@zmdb/web testing: createTestApp', () => {
     }
     expect(calls).toEqual(['provider:init', 'provider:bootstrap', 'provider:shutdown']);
   });
+
+  it('runs lifecycle hooks on non-controller providers and overridden providers', async () => {
+    const realCalls: string[] = [];
+    const stubCalls: string[] = [];
+
+    class RealService {
+      onModuleInit() {
+        realCalls.push('real:init');
+      }
+      onApplicationBootstrap() {
+        realCalls.push('real:bootstrap');
+      }
+      onShutdown() {
+        realCalls.push('real:shutdown');
+      }
+    }
+
+    class StubService {
+      onModuleInit() {
+        stubCalls.push('stub:init');
+      }
+      onApplicationBootstrap() {
+        stubCalls.push('stub:bootstrap');
+      }
+      onShutdown() {
+        stubCalls.push('stub:shutdown');
+      }
+    }
+
+    const ServiceToken = createToken<unknown>('ServiceToken');
+
+    @Module({
+      providers: [{ token: ServiceToken, useValue: new RealService() }],
+    })
+    class FeatureModule {}
+
+    {
+      const stub = new StubService();
+      await using app = createTestApp(FeatureModule, {
+        overrides: [{ token: ServiceToken, useValue: stub }],
+      });
+      await app.init();
+      expect(realCalls).toEqual([]); // Real service ignored when overridden
+      expect(stubCalls).toEqual(['stub:init', 'stub:bootstrap']);
+    }
+    expect(stubCalls).toEqual(['stub:init', 'stub:bootstrap', 'stub:shutdown']);
+    expect(realCalls).toEqual([]);
+  });
 });
