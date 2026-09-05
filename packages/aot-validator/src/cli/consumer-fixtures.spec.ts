@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import { transformSync } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { opsPerSecond } from '../plugin/inline-bench.js';
+import { threadCpuOpsPerSecond } from '../plugin/inline-bench.js';
 
 const ROOT = new URL('../../../../', import.meta.url).pathname;
 const CLI = join(ROOT, 'fixtures', 'consumer-cli');
@@ -223,15 +223,16 @@ describe('the emitted checks (REQ-AV-1)', () => {
     const at = (index: number): unknown => good[index & 1];
 
     const N = 200_000;
-    const cliOps = opsPerSecond(index => viaCli.accepts(at(index)), N);
-    const pluginOps = opsPerSecond(index => bundled.accepts(at(index)), N);
+    const cliOps = threadCpuOpsPerSecond(index => viaCli.accepts(at(index)), N);
+    const pluginOps = threadCpuOpsPerSecond(index => bundled.accepts(at(index)), N);
     console.log(
-      `consumer fixtures, is<Order>: cli ${cliOps.toLocaleString()} ops/s, plugin ${pluginOps.toLocaleString()} ops/s`,
+      `consumer fixtures, is<Order>: cli ${cliOps.toLocaleString()} CPU ops/s, plugin ${pluginOps.toLocaleString()} CPU ops/s`,
     );
 
-    // A floor rather than a ratio. Two million a second is far below what either route reads
-    // and far above what walking a descriptor achieves, so this fails if — and only if — one
-    // of them stopped being the compiled path.
+    // A floor rather than a ratio, measured in current-thread CPU time so other vitest workers
+    // cannot turn scheduler contention into a validator regression. Two million a second is
+    // far below what either route reads and far above what walking a descriptor achieves, so
+    // this fails if — and only if — one of them stopped being the compiled path.
     expect(cliOps).toBeGreaterThan(2_000_000);
     expect(pluginOps).toBeGreaterThan(2_000_000);
   }, 60_000);

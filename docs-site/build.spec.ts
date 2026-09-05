@@ -7,6 +7,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 const ROOT = process.cwd();
 const SITE_DIR = join(ROOT, 'site');
 const DASH_DIR = join(ROOT, 'benchmarks', 'site');
+/** These assertions invoke a real docs build, so leave headroom for a saturated CI host. */
+const BUILD_TIMEOUT = 30_000;
 
 function build() {
   // `--import`: the generator imports the packages' sources, which name their siblings as
@@ -29,11 +31,11 @@ function embeddedData(html: string): Record<string, unknown> {
   return JSON.parse((match as RegExpExecArray)[1].replace(/\\u003c/g, '<')) as Record<string, unknown>;
 }
 
-describe('docs site generator', () => {
+describe('docs site generator', { timeout: BUILD_TIMEOUT }, () => {
   afterAll(() => {
     // Leave the tree in a built state; other checks and the pages workflow expect it.
     build();
-  });
+  }, BUILD_TIMEOUT);
 
   it('emits the landing page, every docs page, the benchmarks dashboard and the OpenAPI spec', () => {
     rmSync(SITE_DIR, { recursive: true, force: true });

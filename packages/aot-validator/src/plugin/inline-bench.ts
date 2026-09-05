@@ -23,7 +23,26 @@
 // read afterwards. The input is also rotated, so the checked object is not a constant the
 // optimizer can fold the property loads out of.
 
+import { threadCpuUsage } from 'node:process';
+
 declare const performance: { now(): number };
+
+function measuredOpsPerSecond(
+  fn: (index: number) => unknown,
+  n: number,
+  now: () => number,
+  ticksPerSecond: number,
+): number {
+  let sink = 0;
+  for (let i = 0; i < 10_000; i++) if (fn(i)) sink++;
+  const start = now();
+  for (let i = 0; i < n; i++) if (fn(i)) sink++;
+  const elapsed = now() - start;
+  // Reading `sink` is what keeps the calls that produced it alive. Without a use, the whole
+  // loop is dead code and a sufficiently good optimizer is entitled to say so.
+  if (sink < 0) throw new Error('unreachable, and here to make the measured work observable');
+  return Math.round((n / elapsed) * ticksPerSecond);
+}
 
 /**
  * Ops/sec for `fn` over `n` iterations, after a 10k-iteration warm-up.
@@ -32,15 +51,26 @@ declare const performance: { now(): number };
  * halves matter — see the file header.
  */
 export function opsPerSecond(fn: (index: number) => unknown, n: number): number {
-  let sink = 0;
-  for (let i = 0; i < 10_000; i++) if (fn(i)) sink++;
-  const start = performance.now();
-  for (let i = 0; i < n; i++) if (fn(i)) sink++;
-  const elapsed = performance.now() - start;
-  // Reading `sink` is what keeps the calls that produced it alive. Without a use, the whole
-  // loop is dead code and a sufficiently good optimizer is entitled to say so.
-  if (sink < 0) throw new Error('unreachable, and here to make the measured work observable');
-  return Math.round((n / elapsed) * 1000);
+  return measuredOpsPerSecond(fn, n, () => performance.now(), 1000);
+}
+
+/**
+ * Ops per current-thread CPU second for an absolute performance floor.
+ *
+ * Unlike wall time, this clock does not advance while another test worker has descheduled the
+ * current one. The measured work remains synchronous JavaScript on this thread, so CPU time
+ * preserves the cost distinction while removing suite contention from the result.
+ */
+export function threadCpuOpsPerSecond(fn: (index: number) => unknown, n: number): number {
+  return measuredOpsPerSecond(
+    fn,
+    n,
+    () => {
+      const usage = threadCpuUsage();
+      return usage.user + usage.system;
+    },
+    1_000_000,
+  );
 }
 
 /**
