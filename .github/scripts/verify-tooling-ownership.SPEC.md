@@ -8,7 +8,7 @@
 The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
 and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **151 paths**, each exactly once:
+The inventory has **161 paths**, each exactly once:
 
 ```json
 {
@@ -16,7 +16,7 @@ The inventory has **151 paths**, each exactly once:
   "migrations": 20,
   "cli": 21,
   "runtime": 28,
-  "facade": 12,
+  "facade": 22,
   "optional-integration": 4,
   "test-only": 35,
   "obsolete": 1
@@ -129,15 +129,25 @@ runtime	packages/query-compiler/src/schema-objects/extensions.ts
 runtime	packages/query-compiler/src/schema-objects/index.ts
 runtime	packages/query-compiler/src/schema-objects/types.ts
 runtime	packages/query-compiler/src/set-ops/index.ts
+facade	packages/zmdb/src/custom-types.ts
 facade	packages/zmdb/src/derive.ts
 facade	packages/zmdb/src/drivers-mssql.ts
 facade	packages/zmdb/src/drivers-pg.ts
 facade	packages/zmdb/src/drivers-sqlite.ts
 facade	packages/zmdb/src/dto.ts
+facade	packages/zmdb/src/entity-modeling.ts
 facade	packages/zmdb/src/index.ts
+facade	packages/zmdb/src/integrations.ts
 facade	packages/zmdb/src/ir.ts
+facade	packages/zmdb/src/llm.ts
+facade	packages/zmdb/src/openapi.ts
+facade	packages/zmdb/src/query.ts
 facade	packages/zmdb/src/relations.ts
+facade	packages/zmdb/src/replicas.ts
+facade	packages/zmdb/src/seeding.ts
 facade	packages/zmdb/src/tags.ts
+facade	packages/zmdb/src/transactions.ts
+facade	packages/zmdb/src/validator.ts
 facade	packages/zmdb/src/web-contract-compiler.ts
 facade	packages/zmdb/src/web-contract.ts
 facade	packages/zmdb/src/web.ts
