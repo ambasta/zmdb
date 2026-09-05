@@ -35,6 +35,7 @@ const BIN = join(ROOT, 'packages', 'zmdb', 'src', 'cli', 'bin.ts');
 const DEFAULT_FIXTURE = join(dirname(fileURLToPath(import.meta.url)), '__fixtures__', 'project');
 const FIXTURE = process.env.ZMDB_CLI_E2E_FIXTURE ?? DEFAULT_FIXTURE;
 const COMMANDS = ['generate', 'migrate', 'rollback', 'status', 'push', 'check', 'upgrade', 'export', 'pull'] as const;
+const CLI_PROCESS_TEST_TIMEOUT = 30_000;
 const directories: string[] = [];
 
 interface Project {
@@ -223,7 +224,7 @@ afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
-describe('the zmdb database CLI in a temporary consumer project', () => {
+describe('the zmdb database CLI in a temporary consumer project', { timeout: CLI_PROCESS_TEST_TIMEOUT }, () => {
   // Every recognized database verb reaches the shared config boundary before its
   // command implementation, so even future verbs keep the machine API stable.
   // This exact title carries MikroORM's `cli` API-coverage row.
@@ -240,7 +241,7 @@ describe('the zmdb database CLI in a temporary consumer project', () => {
       expect(body.config, command).toBe(missing);
       expect(list(body.errors, `${command} errors`).length, command).toBeGreaterThan(0);
     }
-  }, 30_000);
+  });
 
   // A bad invocation is exit 2, names the attempted config, and never writes a
   // human progress line to stdout.
@@ -253,7 +254,7 @@ describe('the zmdb database CLI in a temporary consumer project', () => {
       expect(invocation.stdout, command).toBe('');
       expect(invocation.stderr, command).toContain(missing);
     }
-  }, 30_000);
+  });
 
   it('generates a migration and a snapshot from declarations', () => {
     const project = copyProject();
