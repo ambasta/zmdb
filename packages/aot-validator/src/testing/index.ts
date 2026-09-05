@@ -150,13 +150,11 @@ export function schemasFromFiles(
       const broken = session.diagnostics(file);
       if (broken.length > 0) {
         throw new Error(
-          `${file} does not compile, so its table declarations cannot be read (${broken.length} diagnostic(s)):
-` +
+          `${file} does not compile, so its table declarations cannot be read (${broken.length} diagnostic(s)):\n` +
             broken
               .slice(0, 5)
               .map(one => `  TS${String(one.code)}: ${one.text}`)
-              .join('
-'),
+              .join('\n'),
         );
       }
 
@@ -189,10 +187,8 @@ export function schemasFromFiles(
       if (options.onDiagnostics) options.onDiagnostics(diagnostics);
       else {
         throw new Error(
-          `the reflection refused ${diagnostics.length} thing(s) in the configured schema files:
-` +
-            diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('
-'),
+          `the reflection refused ${diagnostics.length} thing(s) in the configured schema files:\n` +
+            diagnostics.map(one => `  ${one.path ? `${one.path}: ` : ''}${one.reason}`).join('\n'),
         );
       }
     }
