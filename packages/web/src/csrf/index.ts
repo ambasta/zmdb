@@ -48,6 +48,66 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+declare global {
+  interface Uint8Array {
+    toBase64(options?: { alphabet?: string; omitPadding?: boolean }): string;
+  }
+  interface Uint8ArrayConstructor {
+    fromBase64(str: string, options?: { alphabet?: string }): Uint8Array<ArrayBuffer>;
+  }
+}
+
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const B64_MAP = new Int8Array(256).fill(-1);
+for (let i = 0; i < B64_CHARS.length; i++) B64_MAP[B64_CHARS.charCodeAt(i)] = i;
+B64_MAP[43] = 62;
+B64_MAP[47] = 63;
+
+function uint8ArrayToBase64Url(this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }): string {
+  let result = '';
+  const len = this.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = this[i] ?? 0;
+    const b1 = i + 1 < len ? (this[i + 1] ?? 0) : 0;
+    const b2 = i + 2 < len ? (this[i + 2] ?? 0) : 0;
+    const triplet = (b0 << 16) | (b1 << 8) | b2;
+    result += B64_CHARS.charAt((triplet >> 18) & 63);
+    result += B64_CHARS.charAt((triplet >> 12) & 63);
+    if (i + 1 < len) result += B64_CHARS.charAt((triplet >> 6) & 63);
+    else if (!options?.omitPadding) result += '=';
+    if (i + 2 < len) result += B64_CHARS.charAt(triplet & 63);
+    else if (!options?.omitPadding) result += '=';
+  }
+  return result;
+}
+
+function base64UrlToUint8Array(str: string): Uint8Array<ArrayBuffer> {
+  const clean = str.replace(/=+$/, '');
+  const len = clean.length;
+  const outLen = Math.floor((len * 3) / 4);
+  const out = new Uint8Array(outLen);
+  let outIdx = 0;
+  for (let i = 0; i < len; i += 4) {
+    const c0 = B64_MAP[clean.charCodeAt(i)] ?? 0;
+    const c1 = i + 1 < len ? (B64_MAP[clean.charCodeAt(i + 1)] ?? 0) : 0;
+    const c2 = i + 2 < len ? (B64_MAP[clean.charCodeAt(i + 2)] ?? 0) : 0;
+    const c3 = i + 3 < len ? (B64_MAP[clean.charCodeAt(i + 3)] ?? 0) : 0;
+    const triplet = (c0 << 18) | (c1 << 12) | (c2 << 6) | c3;
+    if (outIdx < outLen) out[outIdx++] = (triplet >> 16) & 255;
+    if (outIdx < outLen) out[outIdx++] = (triplet >> 8) & 255;
+    if (outIdx < outLen) out[outIdx++] = triplet & 255;
+  }
+  return out;
+}
+
+if (typeof Uint8Array.prototype.toBase64 !== 'function') {
+  Object.assign(Uint8Array.prototype, { toBase64: uint8ArrayToBase64Url });
+}
+
+if (typeof Uint8Array.fromBase64 !== 'function') {
+  Object.assign(Uint8Array, { fromBase64: base64UrlToUint8Array });
+}
+
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
   return value.toBase64({ alphabet: 'base64url', omitPadding: true });
 }

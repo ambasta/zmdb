@@ -4,6 +4,7 @@ import { zmdbAot as createAotPlugin, type UnpluginLike, type ZmdbAotOptions } fr
 
 import { loadConfig } from './config/index.js';
 
+export { transformCode, transformTypeChecks } from '@zmdb/aot-validator/unplugin';
 export type { UnpluginLike, ZmdbAotOptions } from '@zmdb/aot-validator/unplugin';
 
 export interface ConfiguredZmdbAotOptions extends ZmdbAotOptions {

@@ -37,9 +37,19 @@
     "./derive": "./src/derive.ts",
     "./dto": "./src/dto.ts",
     "./relations": "./src/relations.ts",
+    "./openapi": "./src/openapi.ts",
+    "./seeding": "./src/seeding.ts",
+    "./custom-types": "./src/custom-types.ts",
+    "./llm": "./src/llm.ts",
     "./drivers/sqlite": "./src/drivers-sqlite.ts",
     "./drivers/pg": "./src/drivers-pg.ts",
     "./drivers/mssql": "./src/drivers-mssql.ts",
+    "./transactions": "./src/transactions.ts",
+    "./replicas": "./src/replicas.ts",
+    "./integrations": "./src/integrations.ts",
+    "./entity-modeling": "./src/entity-modeling.ts",
+    "./query": "./src/query.ts",
+    "./validator": "./src/validator.ts",
     "./web": "./src/web.ts",
     "./web/contract": "./src/web-contract.ts",
     "./web/contract/compiler": "./src/web-contract-compiler.ts",
@@ -56,6 +66,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@zmdb/ai": "workspace:^",
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
@@ -67,7 +78,6 @@
     "oxfmt": "0.66.0"
   },
   "devDependencies": {
-    "@zmdb/ai": "workspace:^",
     "typescript": "7.0.2"
   },
   "engines": {

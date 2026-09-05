@@ -292,8 +292,9 @@ export const PACKAGE_POLICY = Object.freeze({
     zone: 'facade',
     ring: 7,
     allowedWorkspaceDependencies: [
-      'app',
+      'ai',
       'aot-validator',
+      'app',
       'query-compiler',
       'repository',
       'schema-core',
