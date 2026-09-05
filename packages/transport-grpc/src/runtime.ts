@@ -69,7 +69,12 @@ interface WritableResponseCall extends ServerCallSurface {
   removeListener(event: 'drain', listener: () => void): this;
 }
 
-interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
+interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {
+  on(event: 'data', listener: (data: DecodedRequest) => void): this;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  removeListener(event: 'data', listener: (data: DecodedRequest) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
+}
 
 interface CallScope {
   readonly signal: AbortSignal;
@@ -382,14 +387,15 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
+// boundary: gRPC-js emits decoded request payloads on 'data' events for the readable call stream.
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
   const queue: DecodedRequest[] = [];
   let resolveNext: (() => void) | undefined;
   let ended = false;
   let streamError: unknown;
 
-  const onData = (data: unknown): void => {
-    queue.push(data as DecodedRequest);
+  const onData = (data: DecodedRequest): void => {
+    queue.push(data);
     if (resolveNext !== undefined) {
       const resolve = resolveNext;
       resolveNext = undefined;
@@ -422,7 +428,10 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   try {
     while (!scope.signal.aborted) {
       if (queue.length > 0) {
-        yield requestValue(queue.shift()!);
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield requestValue(item);
+        }
         continue;
       }
       if (streamError !== undefined) throw streamError;
