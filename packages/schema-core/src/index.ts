@@ -16,6 +16,7 @@
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
 // imported at runtime in either direction.
 import type { DeclaredTable, UpdateDTO } from './derive/index.js';
+import type { WhereDTO, UnknownRow } from './dto/index.js';
 import type { ExtensionType, SchemaIR } from './ir/index.js';
 
 export type SqlType =
@@ -76,6 +77,34 @@ export interface ColumnMeta {
 
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
 
+export interface SoftDeleteOptions {
+  readonly column?: string | undefined;
+  readonly deletedValue?: unknown | (() => unknown) | undefined;
+  readonly activeValue?: unknown | undefined;
+}
+
+export interface SoftDeleteConfig {
+  readonly enabled: boolean;
+  readonly column: string;
+  readonly deletedValue: unknown | (() => unknown);
+  readonly activeValue?: unknown | undefined;
+}
+
+export type GlobalFilterFn<T extends DeclaredTable = UnknownRow> = (ctx?: unknown) => WhereDTO<T>;
+export type GlobalFilterItem<T extends DeclaredTable = UnknownRow> = WhereDTO<T> | GlobalFilterFn<T>;
+export type GlobalFiltersMap<T extends DeclaredTable = UnknownRow> = Record<string, GlobalFilterItem<T>>;
+
+export interface SchemaOptions<T extends DeclaredTable = DeclaredTable> {
+  readonly ftsTable?: string | boolean | undefined;
+  readonly softDelete?: boolean | SoftDeleteOptions | undefined;
+  readonly globalFilters?: GlobalFiltersMap<T> | ReadonlyArray<GlobalFilterItem<T>> | WhereDTO<T> | undefined;
+}
+
+export interface QueryFilterOptions {
+  readonly withDeleted?: boolean | undefined;
+  readonly bypassFilters?: boolean | readonly string[] | undefined;
+  readonly filterContext?: unknown | undefined;
+}
 /**
  * A schema value: a table described in physical SQL names, for the code that runs.
  *
@@ -92,6 +121,8 @@ export interface CoreSchema<T extends string = string> {
   readonly primaryKey: readonly string[];
   readonly references: readonly { readonly column: string; readonly target: string }[];
   readonly ftsTable?: string | boolean | undefined;
+  readonly softDelete?: SoftDeleteConfig | undefined;
+  readonly globalFilters?: GlobalFiltersMap | undefined;
   /**
    * The IR this value was built from, carried rather than recomputed.
    *
@@ -215,16 +246,6 @@ export function claimsValidationIssues(error: unknown): boolean {
   return error !== null && typeof error === 'object' && 'issues' in error;
 }
 
-/**
- * The issues on a thrown error, or `undefined` if it carries none worth reporting.
- *
- * Every entry is checked rather than asserted. These end up in a 400 body that a client
- * reads, and "it has an `issues` property" is no evidence that the property holds issues —
- * an error whose `issues` was a string used to be serialized into the response as though it
- * were the list. An entry missing a `path` or a `message` is dropped rather than passed on
- * half-formed; a `ValidationError` with an empty list still answers with the empty list,
- * which is what tells a caller "validation, and it declined to say more".
- */
 export function validationIssuesOf(error: unknown): readonly ValidationIssue[] | undefined {
   if (error === null || typeof error !== 'object' || !('issues' in error)) return undefined;
   const issues: unknown = error.issues;
@@ -238,6 +259,106 @@ export function validationIssuesOf(error: unknown): readonly ValidationIssue[] |
       'message' in issue &&
       typeof issue.message === 'string',
   );
+}
+
+export function normalizeSoftDeleteConfig(
+  options: boolean | SoftDeleteOptions | undefined,
+): SoftDeleteConfig | undefined {
+  if (!options) return undefined;
+  if (typeof options === 'boolean') {
+    return Object.freeze({
+      enabled: true,
+      column: 'deletedAt',
+      deletedValue: () => new Date(),
+    });
+  }
+  return Object.freeze({
+    enabled: true,
+    column: options.column ?? 'deletedAt',
+    deletedValue: options.deletedValue !== undefined ? options.deletedValue : () => new Date(),
+    ...(options.activeValue !== undefined ? { activeValue: options.activeValue } : {}),
+  });
+}
+
+export function normalizeGlobalFilters(
+  filters: GlobalFiltersMap | ReadonlyArray<GlobalFilterItem> | GlobalFilterItem | undefined,
+): GlobalFiltersMap | undefined {
+  if (!filters) return undefined;
+  if (typeof filters === 'function') {
+    return { default: filters };
+  }
+  if (Array.isArray(filters)) {
+    const map: GlobalFiltersMap = {};
+    for (let idx = 0; idx < filters.length; idx++) {
+      const item = filters[idx];
+      if (typeof item === 'function' || isRecord(item)) {
+        map[`filter_${idx}`] = item;
+      }
+    }
+    return map;
+  }
+  if (isRecord(filters)) {
+    const entries = Object.entries(filters);
+    if (entries.length === 0) return undefined;
+    const hasPrimitiveValues = entries.some(([key, val]) => {
+      if (val === null || val === undefined) return false;
+      if (key === 'and' || key === 'or' || key === 'exists' || key === 'notExists') return true;
+      return typeof val !== 'object' && typeof val !== 'function';
+    });
+    if (hasPrimitiveValues) {
+      return { default: filters };
+    }
+    const map: GlobalFiltersMap = {};
+    for (const [key, val] of entries) {
+      if (typeof val === 'function' || isRecord(val)) {
+        map[key] = val;
+      }
+    }
+    return map;
+  }
+  return undefined;
+}
+
+export function getSchemaFilterWhere(schema: CoreSchema, opts?: QueryFilterOptions): WhereDTO<DeclaredTable>[] {
+  const result: WhereDTO<DeclaredTable>[] = [];
+
+  if (schema.softDelete?.enabled && !opts?.withDeleted) {
+    const sd = schema.softDelete;
+    if (sd.activeValue !== undefined) {
+      result.push({ [sd.column]: sd.activeValue });
+    } else {
+      result.push({ [sd.column]: { isNull: true } });
+    }
+  }
+
+  if (schema.globalFilters && opts?.bypassFilters !== true) {
+    const bypassSet = Array.isArray(opts?.bypassFilters) ? new Set(opts.bypassFilters) : null;
+    for (const [filterName, filterItem] of Object.entries(schema.globalFilters)) {
+      if (bypassSet && bypassSet.has(filterName)) {
+        continue;
+      }
+      const condition = typeof filterItem === 'function' ? filterItem(opts?.filterContext) : filterItem;
+      if (condition && isRecord(condition) && Object.keys(condition).length > 0) {
+        result.push(condition);
+      }
+    }
+  }
+
+  return result;
+}
+
+const SCHEMA_REGISTRY = new Map<string, CoreSchema>();
+
+export function registerSchema(schema: CoreSchema): void {
+  SCHEMA_REGISTRY.set(schema.table, schema);
+}
+
+export function getSchemaByTable(table: string): CoreSchema | undefined {
+  return SCHEMA_REGISTRY.get(table);
+}
+
+export function getRegisteredSchemas(): readonly CoreSchema[] {
+  return [...SCHEMA_REGISTRY.values()];
 }
 
 /**
@@ -457,5 +578,13 @@ export function defineEntityStateMachine<
   };
 }
 
-export type { WhereDTO, ListDTO, ListResult, OrderByDTO, OrderTarget, PaginationDTO } from './dto/index.js';
+export type {
+  WhereDTO,
+  ListDTO,
+  ListResult,
+  OrderByDTO,
+  OrderTarget,
+  PaginationDTO,
+  WhereTarget,
+} from './dto/index.js';
 export { compileWhere, applyOrderBy, applyPagination, buildListResult } from './dto/index.js';

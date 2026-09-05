@@ -437,7 +437,7 @@ class BranchTarget implements WhereTarget {
   where(col: string, op: string, value: unknown): this {
     if (this.firstCallInBranch) {
       this.firstCallInBranch = false;
-      this.b = this.b.orWhere(col, op, value);
+      this.b = this.b.orWhere ? this.b.orWhere(col, op, value) : this.b.where(col, op, value);
     } else {
       this.b = this.b.where(col, op, value);
     }
