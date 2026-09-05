@@ -60,6 +60,24 @@ describe('@zmdb/web routing: decorators + getRoutes', () => {
     class Empty {}
     expect(getRoutes(Empty)).toEqual([]);
   });
+
+  it('captures co-located route schemas attached to route decorators', () => {
+    const bodySchema = { type: 'object', properties: { name: { type: 'string' } } };
+    const responseSchema = { type: 'object', properties: { id: { type: 'number' } } };
+
+    @Controller('/items')
+    class ItemsController {
+      @Post({ body: bodySchema, response: responseSchema })
+      create() {}
+
+      @Get('/:id', { schema: { response: responseSchema } })
+      getOne() {}
+    }
+
+    const routes = getRoutes(ItemsController);
+    expect(routes[0]?.schema).toEqual({ body: bodySchema, response: responseSchema });
+    expect(routes[1]?.schema).toEqual({ response: responseSchema });
+  });
 });
 
 // #607. A subclass's metadata record has the base's as its prototype, so a writer
