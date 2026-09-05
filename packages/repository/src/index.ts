@@ -642,7 +642,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     );
     this.#onQuery = options?.onQuery;
     this.qb = createQueryCompiler(this.dialect, driver?.queryTelemetry === true ? { telemetry: true } : undefined);
-    this.keyColumns = Object.freeze([...(this.schema?.primaryKey ?? [])]);
+    this.keyColumns = this.#rootSqlNames.keyColumns;
     this.physicalKeyColumns = this.#rootSqlNames.physicalKeyColumns;
 
     const seen = new Set<string>();

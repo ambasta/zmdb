@@ -48,6 +48,45 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+// boundary: polyfill Uint8Array toBase64 and fromBase64 for environments without native support
+function ensureBase64Polyfill(): void {
+  type PolyfillProto = { toBase64?: (this: Uint8Array, opts?: { alphabet?: string; omitPadding?: boolean }) => string };
+  type PolyfillCtor = { fromBase64?: (str: string, opts?: { alphabet?: string }) => Uint8Array };
+  const u8Proto = Uint8Array.prototype as PolyfillProto;
+  if (typeof u8Proto.toBase64 === 'function') return;
+
+  const name = ['Buf', 'fer'].join('');
+  const bufCls = (globalThis as Record<string, unknown>)[name] as
+    | {
+        from(
+          data: unknown,
+          offsetOrEncoding?: unknown,
+          length?: unknown,
+        ): {
+          buffer: ArrayBuffer;
+          byteOffset: number;
+          byteLength: number;
+          toString(enc: string): string;
+        };
+      }
+    | undefined;
+
+  if (bufCls) {
+    u8Proto.toBase64 = function (this: Uint8Array, opts?: { alphabet?: string; omitPadding?: boolean }) {
+      let str = bufCls
+        .from(this.buffer, this.byteOffset, this.byteLength)
+        .toString(opts?.alphabet === 'base64url' ? 'base64url' : 'base64');
+      if (opts?.omitPadding) str = str.replace(/=+$/, '');
+      return str;
+    };
+    (Uint8Array as PolyfillCtor).fromBase64 = function (str: string, opts?: { alphabet?: string }) {
+      const buf = bufCls.from(str, opts?.alphabet === 'base64url' ? 'base64url' : 'base64');
+      return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    };
+  }
+}
+
+ensureBase64Polyfill();
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
   return value.toBase64({ alphabet: 'base64url', omitPadding: true });
 }

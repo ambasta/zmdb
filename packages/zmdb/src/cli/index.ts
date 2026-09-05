@@ -602,6 +602,7 @@ async function installApplicationLoader(): Promise<void> {
   await applicationLoader;
 }
 
+// boundary: REPL session explicit disposal
 async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<number> {
   const output = new CliOutput('repl', parsed.config, parsed.json, io);
   if (parsed.json) {
@@ -636,10 +637,12 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
       await session.closed;
       return 0;
     } finally {
-      if (Symbol.asyncDispose in session) {
-        await (session as unknown as { [Symbol.asyncDispose](): Promise<void> })[Symbol.asyncDispose]();
-      } else if (Symbol.dispose in session) {
-        (session as unknown as { [Symbol.dispose](): void })[Symbol.dispose]();
+      type DisposableSession = { [Symbol.asyncDispose]?: () => PromiseLike<void>; [Symbol.dispose]?: () => void };
+      const disposable = session as DisposableSession;
+      if (Symbol.asyncDispose in session && typeof disposable[Symbol.asyncDispose] === 'function') {
+        await disposable[Symbol.asyncDispose]!();
+      } else if (Symbol.dispose in session && typeof disposable[Symbol.dispose] === 'function') {
+        disposable[Symbol.dispose]!();
       }
     }
   } catch (error) {

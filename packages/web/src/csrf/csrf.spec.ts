@@ -523,37 +523,7 @@ describe('the platform under these tests', () => {
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
     expect(mac.length).toBe(32);
-    const toBase64 = (arr: Uint8Array) => {
-      const target = arr as unknown as { toBase64?: (opts?: unknown) => string };
-      if (typeof target.toBase64 === 'function') {
-        return target.toBase64({ alphabet: 'base64url', omitPadding: true });
-      }
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-      let res = '';
-      let i = 0;
-      for (; i + 2 < arr.length; i += 3) {
-        const b0 = arr[i]!;
-        const b1 = arr[i + 1]!;
-        const b2 = arr[i + 2]!;
-        res += chars[b0 >> 2];
-        res += chars[((b0 & 3) << 4) | (b1 >> 4)];
-        res += chars[((b1 & 15) << 2) | (b2 >> 6)];
-        res += chars[b2 & 63];
-      }
-      if (i < arr.length) {
-        const b0 = arr[i]!;
-        res += chars[b0 >> 2];
-        if (i + 1 < arr.length) {
-          const b1 = arr[i + 1]!;
-          res += chars[((b0 & 3) << 4) | (b1 >> 4)];
-          res += chars[(b1 & 15) << 2];
-        } else {
-          res += chars[(b0 & 3) << 4];
-        }
-      }
-      return res;
-    };
-    const encoded = toBase64(mac);
+    const encoded = mac.toBase64({ alphabet: 'base64url', omitPadding: true });
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(encoded).not.toContain('=');
     // Deterministic under the same key and message, which is what makes double-HMAC a comparison
@@ -561,7 +531,7 @@ describe('the platform under these tests', () => {
     const again = new Uint8Array(
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
-    expect(toBase64(again)).toBe(encoded);
+    expect(again.toBase64({ alphabet: 'base64url', omitPadding: true })).toBe(encoded);
     // And the nonce source §3 needs, with no `node:crypto`.
     expect(globalThis.crypto.getRandomValues(new Uint8Array(16)).length).toBe(16);
     expect(typeof globalThis.crypto.randomUUID()).toBe('string');

@@ -382,6 +382,7 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
+// boundary: gRPC request stream event listener casts
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
   const queue: DecodedRequest[] = [];
   let resolver: (() => void) | undefined;
@@ -419,9 +420,11 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     for (;;) {
       if (scope.signal.aborted) throw scope.reason();
       if (queue.length > 0) {
-        const decoded = queue.shift()!;
-        yield requestValue(decoded);
-        continue;
+        const decoded = queue.shift();
+        if (decoded !== undefined) {
+          yield requestValue(decoded);
+          continue;
+        }
       }
       if (streamError) {
         throw streamError;
@@ -455,6 +458,7 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   }
 }
 
+// boundary: gRPC call write stream with callback
 async function writeResponses(
   call: WritableResponseCall,
   responses: AsyncIterable<unknown>,
@@ -465,7 +469,7 @@ async function writeResponses(
     if (scope.signal.aborted) throw scope.reason();
     const valid = method.validateResponse(response);
     await new Promise<void>((resolve, reject) => {
-      (call as unknown as { write(chunk: unknown, cb: (err?: Error | null) => void): boolean }).write(valid, error => {
+      (call as { write(chunk: unknown, cb: (err?: Error | null) => void): boolean }).write(valid, error => {
         if (error) reject(error);
         else resolve();
       });
@@ -853,6 +857,7 @@ function callDeadline(defaultMs: number, options?: GrpcClientCallOptions): numbe
   return value;
 }
 
+// boundary: gRPC stream drain and resume method assertions
 async function pumpRequests(
   call: ClientWritableStream<unknown> | ClientDuplexStream<unknown, unknown>,
   requests: AsyncIterable<unknown>,
@@ -861,7 +866,8 @@ async function pumpRequests(
   for await (const request of requests) {
     const valid = method.validateRequest(request);
     if (!call.write(valid)) {
-      const state = (call as unknown as { _writableState?: { needDrain?: boolean; length?: number } })._writableState;
+      type StreamWithWritableState = { _writableState?: { needDrain?: boolean; length?: number } };
+      const state = (call as StreamWithWritableState)._writableState;
       if (state?.needDrain && (state.length ?? 0) > 0) {
         await Promise.race([once(call, 'drain'), new Promise<void>(r => setImmediate(r))]);
       }
@@ -982,6 +988,7 @@ function throwPumpFailure(pumping: RequestPump): void {
   if (failure.failed) throw failure.error;
 }
 
+// boundary: gRPC call stream resume method assertion
 class ClientObservation {
   error: unknown;
   readonly finished: Promise<void>;

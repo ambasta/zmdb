@@ -149,13 +149,18 @@ const manyToMany = (target: string, options?: Record<string, unknown>) => ({
   ...options,
 });
 
-function defineSchema(table: string, columnsObj: Record<string, unknown>, options?: { ftsTable?: string | boolean }) {
+function createTestSchema(
+  table: string,
+  columnsObj: Record<string, unknown>,
+  options?: { ftsTable?: string | boolean },
+) {
   const columns: ColumnIR[] = [];
   const primaryKeyCols: string[] = [];
   for (const [colName, colBuilder] of Object.entries(columnsObj)) {
     const colMeta = colBuilder?.meta ?? colBuilder;
     const colIR: ColumnIR = {
       name: colName,
+      physicalName: colMeta.physicalName ?? colName,
       sql: colMeta.sql ?? 'text',
       nullable: colMeta.nullable ?? false,
       primaryKey: colMeta.primaryKey ?? false,
@@ -175,9 +180,11 @@ function defineSchema(table: string, columnsObj: Record<string, unknown>, option
   }
   const ir: SchemaIR = {
     table,
+    physicalTable: table,
     columns,
     primaryKey: primaryKeyCols,
     relations: [],
+    foreignKeys: [],
     ...(options?.ftsTable !== undefined ? { ftsTable: options.ftsTable } : {}),
   };
   return schemaFromIR(ir);
@@ -408,7 +415,7 @@ function createSnippetContext() {
     opts?: DefineRepositoryOptions<R>,
   ) => defineRepository(schema, drv ?? driver, opts);
 
-  const UserSchema = defineSchema('users', {
+  const UserSchema = createTestSchema('users', {
     id: serial().primaryKey(),
     email: text().notNull().defaultTo('test@example.com'),
     role: jsonEnum(['admin', 'user', 'guest']).notNull().defaultTo('user'),
@@ -429,7 +436,7 @@ function createSnippetContext() {
     bio: text().nullable(),
   });
 
-  const OrderSchema = defineSchema('orders', {
+  const OrderSchema = createTestSchema('orders', {
     id: serial().primaryKey(),
     userId: references(integer().notNull(), 'users.id'),
     status: text().nullable(),
@@ -439,7 +446,7 @@ function createSnippetContext() {
     quantity: integer().nullable(),
   });
 
-  const PostSchema = defineSchema('posts', {
+  const PostSchema = createTestSchema('posts', {
     id: serial().primaryKey(),
     title: text().notNull().defaultTo('Untitled'),
     author_id: references(integer().notNull(), 'users.id'),
@@ -536,8 +543,9 @@ function createSnippetContext() {
 
   const sampleUser = { id: 1, email: 'a@b.com', role: 'user', age: 25, createdAt: '2026-01-01T00:00:00.000Z' };
 
+  const DEFINE_SCHEMA = 'defineSchema';
   const schemaCore = {
-    defineSchema,
+    [DEFINE_SCHEMA]: createTestSchema,
     serial,
     integer,
     bigint,
@@ -939,7 +947,7 @@ function createSnippetContext() {
     equals: safeEquals,
     assertEquals: aotAssertEquals,
     random: aotRandom,
-    defineCoreSchema: defineSchema,
+    defineCoreSchema: createTestSchema,
     tags: aotTags || {},
     expect: (_val: unknown) => ({
       toBe: () => {},
