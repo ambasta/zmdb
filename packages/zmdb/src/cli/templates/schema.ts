@@ -25,10 +25,14 @@ class ${name.pascal}SchemaTestModule {}
 
 describe('${name.pascal} schema', () => {
   it('emits the table declaration and validates through the transformer', async () => {
-    await using app = createTestApp(${name.pascal}SchemaTestModule);
+    const app = createTestApp(${name.pascal}SchemaTestModule);
     await app.init();
-    expect(schemaOf<${name.pascal}>().table).toBe('${name.table}');
-    expect(is<{ id: number }>({ id: 'x' })).toBe(false);
+    try {
+      expect(schemaOf<${name.pascal}>().table).toBe('${name.table}');
+      expect(is<{ id: number }>({ id: 'x' })).toBe(false);
+    } finally {
+      await app.close();
+    }
   });
 });
 `,

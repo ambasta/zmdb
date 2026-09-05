@@ -232,13 +232,17 @@ import { AppModule } from './app.module.js';
 
 describe('generated project', () => {
   it('serves health and opens its sqlite database', async () => {
-    await using app = createTestApp(AppModule);
-    const response = await app.request({ method: 'GET', path: '/health', headers: {} });
-    expect(response.status).toBe(200);
-    expect(JSON.parse(await bodyText(response))).toEqual({ ok: true });
+    const app = createTestApp(AppModule);
+    try {
+      const response = await app.request({ method: 'GET', path: '/health', headers: {} });
+      expect(response.status).toBe(200);
+      expect(JSON.parse(await bodyText(response))).toEqual({ ok: true });
 
-    const rows = await config.driver().execute({ text: 'SELECT 1 AS ok', parameters: [] });
-    expect(Reflect.get(rows[0] ?? {}, 'ok')).toBe(1);
+      const rows = await config.driver().execute({ text: 'SELECT 1 AS ok', parameters: [] });
+      expect(Reflect.get(rows[0] ?? {}, 'ok')).toBe(1);
+    } finally {
+      await app.close();
+    }
   });
 });
 `,
