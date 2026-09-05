@@ -18,7 +18,7 @@
       },
       {
         "path": "yarn.lock",
-        "sha256": "99b85c69d0a8927bc90cc287140b746b96033832f0e2fb6fb256f7b1b1d9a48a"
+        "sha256": "3d98f82e1d044a12597fb2c9e9056394080f039054055544341d8993b66e3cb0"
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",
@@ -42,7 +42,7 @@
       },
       {
         "path": "packages/web/package.json",
-        "sha256": "5c2270cf5dcde3d86f469c1ee121415ffbe5fd920b0c7c790538f155317f579f"
+        "sha256": "f1217a40d807ae59b89338119a543cc6352b28e8457a6ff39437ec05c9c1d003"
       },
       {
         "path": "packages/web/src/bench/index.ts",
@@ -50,7 +50,7 @@
       },
       {
         "path": "packages/web/src/context/index.ts",
-        "sha256": "9ac9bf7d9d19c11d0a3613fafb51d0fc93a1d076c47b123474661e558286b4ea"
+        "sha256": "4e07369ac6366529b504e7cd7cbb0127b8d8a36b3215b7619047198811507f2e"
       },
       {
         "path": "packages/web/src/observability/index.ts",
@@ -74,7 +74,7 @@
       },
       {
         "path": "packages/web/src/pipeline/index.ts",
-        "sha256": "4fb48a6428017d0d24e76a6bfaaa9751553bcbee7abd97d38fb97e519823d9c0"
+        "sha256": "56a7061d145722d0ca84421554b93b73343538e8fb15d6caf82357cb0094e49b"
       },
       {
         "path": "packages/web/src/polyfill.ts",

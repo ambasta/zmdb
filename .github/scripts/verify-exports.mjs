@@ -1,12 +1,26 @@
 // Verification script for package export manifests.
 // Confirms that all declared package exports resolve to valid files.
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { verifyRuntimeReachability } from './verify-runtime-reachability.mjs';
 import { TARGET_TOOLING_BIN, TARGET_TOOLING_EXPORTS } from './verify-tooling-boundaries.mjs';
+
+if (process.version.startsWith('v22.') && !process.execArgv.includes('--js-explicit-resource-management')) {
+  try {
+    execFileSync(
+      process.execPath,
+      ['--js-explicit-resource-management', ...process.execArgv, ...process.argv.slice(1)],
+      { stdio: 'inherit' },
+    );
+    process.exit(0);
+  } catch (err) {
+    process.exit(err.status ?? 1);
+  }
+}
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PACKAGES_DIR = join(ROOT, 'packages');
