@@ -152,6 +152,109 @@ describe('typed create/update (#206)', () => {
       );
     });
   });
+
+  describe('strict payload deserialization failure cases', () => {
+    it('rejects unknown keys with specific error path and message', async () => {
+      const execute = vi.fn(async () => []);
+      const repo = new Users({ execute } as Driver);
+
+      try {
+        await repo.create({ email: 'a@b.com', age: 30, unknownKey: 'foo' } as unknown as CreateDTO<User>);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ValidationError);
+        const valErr = err as ValidationError;
+        expect(valErr.issues).toEqual([
+          {
+            path: 'input.unknownKey',
+            message: '"unknownKey" is not a column of "users"',
+            expected: 'no excess properties',
+            value: 'foo',
+          },
+        ]);
+      }
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects wrong primitive types with specific error path and message', async () => {
+      const execute = vi.fn(async () => []);
+      const repo = new Users({ execute } as Driver);
+
+      try {
+        await repo.create({ email: 'a@b.com', age: 'thirty' as unknown as number } as CreateDTO<User>);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ValidationError);
+        const valErr = err as ValidationError;
+        expect(valErr.issues).toEqual([
+          { path: 'input.age', message: 'expected integer', expected: 'integer', value: 'thirty' },
+        ]);
+      }
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects null into non-nullable column with specific error path and message', async () => {
+      const execute = vi.fn(async () => []);
+      const repo = new Users({ execute } as Driver);
+
+      try {
+        await repo.create({ email: null as unknown as string, age: 30 } as CreateDTO<User>);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ValidationError);
+        const valErr = err as ValidationError;
+        expect(valErr.issues).toEqual([
+          {
+            path: 'input.email',
+            message: 'expected string',
+            expected: 'string',
+            value: null,
+          },
+        ]);
+      }
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects prototype-polluting keys like __proto__ and constructor with specific error path and message', async () => {
+      const execute = vi.fn(async () => []);
+      const repo = new Users({ execute } as Driver);
+
+      const protoPayload = JSON.parse('{"email":"a@b.com","age":30,"__proto__":{"admin":true}}');
+      try {
+        await repo.create(protoPayload as CreateDTO<User>);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ValidationError);
+        const valErr = err as ValidationError;
+        expect(valErr.issues).toEqual([
+          {
+            path: 'input.__proto__',
+            message: 'disallowed property "__proto__"',
+            expected: 'no excess properties',
+            value: { admin: true },
+          },
+        ]);
+      }
+
+      const ctorPayload = JSON.parse('{"email":"a@b.com","age":30,"constructor":{"admin":true}}');
+      try {
+        await repo.create(ctorPayload as CreateDTO<User>);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ValidationError);
+        const valErr = err as ValidationError;
+        expect(valErr.issues).toEqual([
+          {
+            path: 'input.constructor',
+            message: 'disallowed property "constructor"',
+            expected: 'no excess properties',
+            value: { admin: true },
+          },
+        ]);
+      }
+      expect(execute).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('typed single-record upsert', () => {

@@ -636,6 +636,16 @@ export function is<T = unknown>(input: unknown, schema?: TypeIR): input is T {
 }
 
 export function assert<T = unknown>(input: unknown, schema?: TypeIR): T {
+  if (!schema) {
+    failWith([
+      {
+        path: 'descriptor',
+        expected: 'TypeDescriptor',
+        value: schema,
+        message: 'missing schema type descriptor',
+      },
+    ]);
+  }
   const node = required(schema);
   const refs = refsOf(node);
   // Two passes, as the emitted form does it: the allocation-free check first, and the
@@ -649,6 +659,19 @@ export function assert<T = unknown>(input: unknown, schema?: TypeIR): T {
 }
 
 export function validate<T = unknown>(input: unknown, schema?: TypeIR): ValidateResult<T> {
+  if (!schema) {
+    return {
+      success: false,
+      errors: [
+        {
+          path: 'descriptor',
+          expected: 'TypeDescriptor',
+          value: schema,
+          message: 'missing schema type descriptor',
+        },
+      ],
+    };
+  }
   const node = required(schema);
   const refs = refsOf(node);
   if (matches(input, node, refs)) return { success: true, data: certified<T>(input) };
