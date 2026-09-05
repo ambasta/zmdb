@@ -41,6 +41,11 @@ export class CliOutput {
     this.#streams.stderr(text);
   }
 
+  progress(text: string): void {
+    if (this.#json) this.writeStderr(text);
+    else this.writeStdout(text);
+  }
+
   result<T>(value: T, human: string, exitCode = 0): number {
     if (this.#json) {
       const body: CliResult<T> = {

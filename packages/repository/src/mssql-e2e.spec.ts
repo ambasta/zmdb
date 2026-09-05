@@ -193,6 +193,27 @@ describe.skipIf(mssql.kind === 'unreachable')('repository against reachable real
     expect(deleted).toEqual([{ email: 'b@c.com' }]);
   });
 
+  it('rolls back every request created inside one node-mssql transaction', async () => {
+    const live = reachableMssql();
+    const driver = mssqlDriver(live.pool);
+    const compiler = createQueryCompiler('mssql');
+    const email = `rollback-${String(process.pid)}@example.com`;
+    const at = new Date('2026-09-05T00:00:00.000Z');
+
+    await expect(
+      driver.transaction(async transaction => {
+        await transaction.execute(
+          compiler.insertInto(table).values({ email, role: 'probe', visits: 1, active: true, at }).compile(),
+        );
+        throw new Error('force rollback');
+      }),
+    ).rejects.toThrow('force rollback');
+
+    await expect(
+      driver.execute(compiler.selectFrom(table).select(['email']).where('email', '=', email).compile()),
+    ).resolves.toEqual([]);
+  });
+
   it('executes generated SQL Server add, alter and drop column migrations without losing nullability', async () => {
     const live = reachableMssql();
     await live.pool.request().query(

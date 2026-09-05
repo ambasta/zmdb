@@ -1,115 +1,66 @@
-The migration CLI runs migration scripts against your database. It wraps the core migration runner and provides a simple command-line interface for applying, rolling back, and checking migration status.
+The packaged migration commands and the public runner use the same ledger and
+ordering rules.
 
-## Running Migrations
+## Packaged commands
+
+With migrations in the configured output directory:
+
+```bash
+npx zmdb migrate
+npx zmdb status
+npx zmdb rollback
+```
+
+The executable loads `zmdb.config.ts`, opens its `driver`, parses each
+`<YYYYMMDDHHMMSS>_<name>.sql` file, and delegates to the runner. It prints the
+resolved config and SQL before database mutation.
+
+## Library runner
+
+Applications that already have migration data can call the same boundary:
 
 ```ts
-import { runCli, type Migration } from '@zmdb/query-compiler/migrations/runner';
-import { MyMigrationConnection } from './connection';
+import { driverMigrationConnection, status, up, type Migration } from '@zmdb/query-compiler/migrations/runner';
 
 const migrations: readonly Migration[] = [
   {
-    version: 1,
-    name: 'create_users_table',
-    up: `CREATE TABLE "users" ("id" SERIAL PRIMARY KEY, "name" TEXT NOT NULL)`,
-    down: `DROP TABLE "users"`,
-  },
-  {
-    version: 2,
-    name: 'add_email_column',
-    up: `ALTER TABLE "users" ADD COLUMN "email" TEXT`,
-    down: `ALTER TABLE "users" DROP COLUMN "email"`,
+    version: 20260904010101,
+    name: 'create_users',
+    up: 'CREATE TABLE users (id INTEGER PRIMARY KEY)',
+    down: 'DROP TABLE users',
   },
 ];
 
-const conn = new MyMigrationConnection();
-
-// Apply pending migrations
-const output = runCli('up', conn, migrations);
-// output => "applied: 1, 2"
+const connection = driverMigrationConnection(driver, 'sqlite');
+await up(connection, migrations);
+console.log(await status(connection, migrations));
 ```
 
-## Rollback
+`driverMigrationConnection` owns the ledger SQL. It creates or upgrades the
+table, stores a SHA-256 checksum for new rows, and refuses an edited applied
+migration before running pending SQL.
 
-Roll back the most recent migration:
+## Transaction guarantees
 
-```ts
-const output = runCli('down', conn, migrations);
-// output => "reverted: 2"
-```
+Postgres, SQLite and SQL Server run each migration body and its ledger insert
+in one driver-pinned transaction. The failing migration rolls back without a
+ledger row; migrations committed earlier in the batch remain applied.
 
-Each `down` migration is the inverse of `up` — manually authored to undo the change.
+MySQL DDL is not transactional. The runner exposes a warning callback and the
+packaged command prints that warning before execution. Its ledger remains
+honest after a failure, but the schema can be partially changed.
 
-## Check Status
+## Custom connections
 
-View the status of all migrations:
+`MigrationConnection` remains a structural boundary for runtimes that do not
+use a repository `Driver`. Its original four methods still work. Implement the
+optional `appliedMigrations`, `checksum`, `ensureVersionTable`, and `transaction`
+members to provide checksum verification, custom ledger DDL, and atomic
+migration-plus-row behavior equivalent to the driver adapter.
 
-```ts
-const output = runCli('status', conn, migrations);
-// Output:
-// [x] 1 create_users_table
-// [x] 2 add_email_column
-```
-
-> [!NOTE]
-> The CLI is a thin wrapper around the runner. You need to provide a `MigrationConnection` implementation that matches your database driver.
-
-## MigrationConnection Interface
-
-Implement this interface for your database:
-
-```ts
-export interface MigrationConnection {
-  exec(sql: string): void;
-  appliedVersions(): readonly number[];
-  recordApplied(version: number, name: string): void;
-  recordReverted(version: number): void;
-}
-```
-
-For SQLite (node:sqlite):
-
-```ts
-class SqliteMigrationConnection implements MigrationConnection {
-  constructor(private db: Database) {}
-
-  exec(sql: string): void {
-    this.db.exec(sql);
-  }
-
-  appliedVersions(): readonly number[] {
-    const rows = this.db.prepare('SELECT version FROM _zmdb_migrations').all();
-    return rows.map(r => Number(r.version));
-  }
-
-  recordApplied(version: number, name: string): void {
-    this.db
-      .prepare('INSERT INTO _zmdb_migrations (version, name, applied_at) VALUES (?, ?, ?)')
-      .run(version, name, Date.now());
-  }
-
-  recordReverted(version: number): void {
-    this.db.prepare('DELETE FROM _zmdb_migrations WHERE version = ?').run(version);
-  }
-}
-```
-
-## CLI Usage
-
-Use the runner in your npm scripts:
-
-```json
-{
-  "scripts": {
-    "migrate": "node -e \"require('./migrations/cli').run('up')\"",
-    "rollback": "node -e \"require('./migrations/cli').run('down')\"",
-    "status": "node -e \"require('./migrations/cli').run('status')\""
-  }
-}
-```
-
-> [!TIP]
-> Keep migrations small and focused. One logical change per migration makes rollback safer.
+Rows with a null checksum are intentionally accepted as legacy history. They
+cannot be verified retroactively, and the runner does not pretend otherwise.
 
 ---
 
-See also: [Migrations](./migrations.html) · [Drivers](./drivers.html) · [Query Compiler](./select.html)
+See also: [Migrations](./migrations.html) · [migrate](./cli-migrate.html) · [Writing a Driver](./custom-driver.html)

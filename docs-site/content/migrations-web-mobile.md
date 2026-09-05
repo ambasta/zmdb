@@ -17,14 +17,20 @@ What does not transfer is the last inch: something that takes `{ text, parameter
 
 ## Implementing the connection
 
-`MigrationConnection` is four methods, and that is the whole contract:
+`MigrationConnection` has four required methods. The optional members below add
+checksum verification and a transaction around each migration plus its ledger
+row:
 
 ```ts
 interface MigrationConnection {
   exec(sql: string): Promise<void>;
   appliedVersions(): Promise<readonly number[]>;
-  recordApplied(version: number, name: string): Promise<void>;
+  appliedMigrations?(): Promise<readonly { version: number; name: string; checksum: string | null }[]>;
+  recordApplied(version: number, name: string, checksum?: string): Promise<void>;
   recordReverted(version: number): Promise<void>;
+  ensureVersionTable?(): Promise<void>;
+  checksum?(sql: string): Promise<string>;
+  transaction?<T>(run: (connection?: MigrationConnection) => Promise<T>): Promise<T>;
 }
 ```
 
@@ -45,25 +51,44 @@ export const conn: MigrationConnection = {
     return rows.map(r => r.version);
   },
 
-  async recordApplied(version, name) {
+  async appliedMigrations() {
+    return db.getAllAsync<{ version: number; name: string; checksum: string | null }>(
+      `SELECT version, name, checksum FROM "_zmdb_migrations" ORDER BY version`,
+    );
+  },
+
+  async recordApplied(version, name, checksum) {
     await db.runAsync(
-      `INSERT INTO "_zmdb_migrations" ("version", "name", "applied_at") VALUES (?, ?, ?)`,
+      `INSERT INTO "_zmdb_migrations" ("version", "name", "applied_at", "checksum") VALUES (?, ?, ?, ?)`,
       version,
       name,
       Date.now(),
+      checksum ?? null,
     );
   },
 
   async recordReverted(version) {
     await db.runAsync(`DELETE FROM "_zmdb_migrations" WHERE "version" = ?`, version);
   },
+
+  async transaction(run) {
+    await db.execAsync('BEGIN');
+    try {
+      const result = await run();
+      await db.execAsync('COMMIT');
+      return result;
+    } catch (error) {
+      await db.execAsync('ROLLBACK');
+      throw error;
+    }
+  },
 };
 ```
 
-The table name and its three columns are not yours to choose: the runner creates
-`_zmdb_migrations(version, name, applied_at)` itself before it reads anything, so a connection that keeps
-its own ledger under another name leaves two tables and an `applied_at` that is `NOT NULL` with nothing
-written to it.
+The default table is
+`_zmdb_migrations(version, name, applied_at, checksum)`. The runner creates it
+before reading, so a connection that keeps its own ledger under another name
+leaves two unrelated histories.
 
 Then, at startup:
 
@@ -73,7 +98,9 @@ import { runCli } from '@zmdb/query-compiler/migrations/runner';
 await runCli('up', conn, migrations);
 ```
 
-For the browser with `wa-sqlite` over OPFS the shape is identical — open the database, implement four methods.
+For the browser with `wa-sqlite` over OPFS the shape is identical — open the
+database, implement the four required methods, and add the optional checksum and
+transaction methods when the binding can support them.
 
 ## The constraints that make client-side migrations different
 

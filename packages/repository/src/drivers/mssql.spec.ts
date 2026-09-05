@@ -2,7 +2,7 @@ import { createQueryCompiler } from '@zmdb/query-compiler';
 import { describe, expect, it } from 'vitest';
 
 import { Users } from '../typed-methods/fixtures.js';
-import { mssqlDriver, type MssqlPool, type MssqlRequest } from './mssql.js';
+import { mssqlDriver, type MssqlPool, type MssqlRequest, type MssqlTransaction } from './mssql.js';
 
 class RecordingRequest implements MssqlRequest {
   readonly inputs: { readonly name: string; readonly value: unknown }[] = [];
@@ -21,8 +21,39 @@ class RecordingRequest implements MssqlRequest {
 
 class RecordingPool implements MssqlPool {
   readonly requests: RecordingRequest[] = [];
+  readonly transactions: RecordingTransaction[] = [];
 
   request(): RecordingRequest {
+    const request = new RecordingRequest();
+    this.requests.push(request);
+    return request;
+  }
+
+  transaction(): RecordingTransaction {
+    const transaction = new RecordingTransaction();
+    this.transactions.push(transaction);
+    return transaction;
+  }
+}
+
+class RecordingTransaction implements MssqlTransaction {
+  readonly events: string[] = [];
+  readonly requests: RecordingRequest[] = [];
+
+  async begin(): Promise<void> {
+    this.events.push('begin');
+  }
+
+  async commit(): Promise<void> {
+    this.events.push('commit');
+  }
+
+  async rollback(): Promise<void> {
+    this.events.push('rollback');
+  }
+
+  request(): RecordingRequest {
+    this.events.push('request');
     const request = new RecordingRequest();
     this.requests.push(request);
     return request;
@@ -56,9 +87,43 @@ describe('mssqlDriver (#508)', () => {
       input: () => request,
       query: async () => ({}),
     };
-    const driver = mssqlDriver({ request: () => request });
+    const transaction = new RecordingTransaction();
+    const driver = mssqlDriver({ request: () => request, transaction: () => transaction });
 
     await expect(driver.execute({ text: 'UPDATE [users] SET [active] = 1', parameters: [] })).resolves.toEqual([]);
+  });
+
+  it('pins every transaction query to one node-mssql transaction and rolls back on failure', async () => {
+    const pool = new RecordingPool();
+    const driver = mssqlDriver(pool);
+
+    await expect(
+      driver.transaction(async transaction => {
+        await transaction.execute({ text: 'CREATE TABLE [probe] ([id] INT)', parameters: [] });
+        await transaction.execute({ text: 'INSERT INTO [probe] ([id]) VALUES (@p1)', parameters: [1] });
+        throw new Error('stop');
+      }),
+    ).rejects.toThrow('stop');
+
+    const transaction = pool.transactions[0];
+    expect(pool.requests).toEqual([]);
+    expect(transaction?.events).toEqual(['begin', 'request', 'request', 'rollback']);
+    expect(transaction?.requests.map(request => request.text)).toEqual([
+      'CREATE TABLE [probe] ([id] INT)',
+      'INSERT INTO [probe] ([id]) VALUES (@p1)',
+    ]);
+    expect(transaction?.requests[1]?.inputs).toEqual([{ name: 'p1', value: 1 }]);
+  });
+
+  it('commits a successful node-mssql transaction', async () => {
+    const pool = new RecordingPool();
+    const driver = mssqlDriver(pool);
+
+    await driver.transaction(async transaction => {
+      await transaction.execute({ text: 'SELECT @p1 AS [value]', parameters: [7] });
+    });
+
+    expect(pool.transactions[0]?.events).toEqual(['begin', 'request', 'commit']);
   });
 
   it('orders repository first-row reads before SQL Server OFFSET/FETCH', async () => {

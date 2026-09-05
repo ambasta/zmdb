@@ -1,79 +1,56 @@
-> **ToDo / feature gap.** There is no `zmdb up` executable. `runCli` is the
-> command, complete and public; only the wrapper is missing.
+> **ToDo / documentation gap.** `up` is deliberately not an executable command.
+> `migrate` applies database migrations; `upgrade` handles the stored snapshot
+> format. The documentation slice still owes the final upgrade transcript.
 
-## Running it
+## Applying migrations
 
-```ts
-import { runCli } from '@zmdb/query-compiler/migrations/runner';
-import { conn, migrations } from './db-config.js';
+Use the packaged command:
 
-await runCli('up', conn, migrations);
+```bash
+npx zmdb migrate
 ```
 
-What happens, in order:
-
-1. `conn.appliedVersions()` — which versions the database says it has
-2. filter `migrations` to those not applied, sorted by `version`
-3. for each: `conn.exec(m.up)`, then `conn.recordApplied(m.version, m.name)`
-
-Idempotent, because step 1 is a query rather than an assumption. `runCli('down', …)` reverses the most recent applied migration and calls `recordReverted`.
-
-## `up` versus `migrate`
-
-They are the same operation. Drizzle and MikroORM both ship two names for it — `migrate` from the SQL-file world, `up` from the umzug world — and zmdb's runner takes `'up'` and `'down'`. See [migrate](./cli-migrate.html) for deployment, locking and rolling-deploy ordering, which is where the real content is.
-
-## The connection
-
-`MigrationConnection` is four methods and you implement it once:
+The public runner keeps `up` as its library verb:
 
 ```ts
-export const conn: MigrationConnection = {
-  async exec(sql) {
-    await client.query('BEGIN');
-    try {
-      await client.query(sql);
-      await client.query('COMMIT');
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    }
-  },
-  async appliedVersions() {
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS "_migrations" ("version" BIGINT PRIMARY KEY, "name" TEXT NOT NULL,
-        "applied_at" TIMESTAMP NOT NULL DEFAULT now())`,
-    );
-    const r = await client.query(`SELECT version FROM "_migrations" ORDER BY version`);
-    return r.rows.map(row => Number(row.version));
-  },
-  async recordApplied(version, name) {
-    await client.query(`INSERT INTO "_migrations" ("version","name") VALUES ($1,$2)`, [version, name]);
-  },
-  async recordReverted(version) {
-    await client.query(`DELETE FROM "_migrations" WHERE "version" = $1`, [version]);
-  },
-};
+import { driverMigrationConnection, up } from '@zmdb/query-compiler/migrations/runner';
+
+const connection = driverMigrationConnection(driver, 'sqlite');
+await up(connection, migrations);
 ```
 
-The `CREATE TABLE IF NOT EXISTS` inside `appliedVersions` is deliberate: it makes a fresh database work with no bootstrap step. See [Migration Runner](./migrations-cli.html).
+It reads the checksum-aware ledger, verifies every applied migration it can
+verify, and applies pending versions in ascending order. The driver adapter
+keeps each Postgres or SQLite migration body and ledger write in one
+transaction.
 
-## Applying only some of them
+`zmdb up` exits 2 and names both alternatives. Reusing the word for snapshot
+rewrites would make a typo choose between filesystem and database mutation.
 
-`runCli` applies everything pending. To stop at a version, filter the array — the runner takes the migrations as an argument, so this needs no feature:
+## Rollback and status
 
-```ts
-await runCli(
-  'up',
-  conn,
-  migrations.filter(m => m.version <= target),
-);
+The executable exposes the other two runner operations under explicit names:
+
+```bash
+npx zmdb status
+npx zmdb rollback
+npx zmdb rollback --to 20260904010101
 ```
 
-Which is also how you write a test that exercises the state between two migrations.
+`rollback` without `--to` reverts the highest applied version. With `--to`, it
+reverts every newer version and leaves the target applied.
 
-## What a real `up` would add
+## Upgrading a stored snapshot
 
-`--to <version>`, `--step <n>`, `--dry-run` printing the SQL, and a `status` subcommand listing applied and pending versions. Each is a few lines over `appliedVersions()` and the array; `status` is the one worth writing first, because "which migrations has production actually run" is a question you ask under pressure.
+```bash
+npx zmdb upgrade
+```
+
+Snapshot format version 1 is the only format this build knows. Running
+`upgrade` against it returns `changed: false` and does not touch the file's
+mtime. A snapshot from a newer build is an invocation error rather than an
+attempted downgrade. No older snapshot shape is frozen yet, so this build does
+not invent a conversion for one.
 
 ---
 

@@ -8,12 +8,16 @@ dependency-injected wrappers — the repository still never opens connections it
 ## API
 
 ```ts
+interface TransactionalDriver extends Driver {
+  transaction<T>(run: (driver: Driver) => Promise<T>): Promise<T>;
+}
+
 // node:sqlite (built-in, zero external deps)
 import { DatabaseSync } from 'node:sqlite';
 interface SqliteOptions {
   maxCacheSize?: number;
 }
-function sqliteDriver(db: DatabaseSync, opts?: SqliteOptions): Driver;
+function sqliteDriver(db: DatabaseSync, opts?: SqliteOptions): TransactionalDriver;
 
 // pg (node-postgres) — pass a Pool or Client
 import type { Pool, Client } from 'pg';
@@ -21,17 +25,24 @@ interface PgOptions {
   prepared?: boolean;
   maxCacheSize?: number;
 } // opt-in server-side prepared stmts
-function pgDriver(client: Pool | Client, opts?: PgOptions): Driver;
+function pgDriver(client: Pool | Client, opts?: PgOptions): TransactionalDriver;
 
 // mssql — pass an already-connected node-mssql pool
 interface MssqlRequest {
   input(name: string, value: unknown): MssqlRequest;
   query(text: string): Promise<{ recordset?: readonly Record<string, unknown>[] }>;
 }
-interface MssqlPool {
+interface MssqlTransaction {
+  begin(): Promise<unknown>;
+  commit(): Promise<unknown>;
+  rollback(): Promise<unknown>;
   request(): MssqlRequest;
 }
-function mssqlDriver(pool: MssqlPool): Driver;
+interface MssqlPool {
+  request(): MssqlRequest;
+  transaction(): MssqlTransaction;
+}
+function mssqlDriver(pool: MssqlPool): TransactionalDriver;
 ```
 
 ## Frozen behaviour
@@ -58,13 +69,21 @@ function mssqlDriver(pool: MssqlPool): Driver;
 - The db→app direction is the repository's, in one place for every driver
   (`decodeDbValue`), because it reads the form that arrived rather than the dialect that
   produced it. See `../../SPEC.md` §3a.
+- All three return a `TransactionalDriver` for the migration runner. SQLite
+  issues `BEGIN` / `COMMIT` / `ROLLBACK` on its database handle. Postgres pins
+  the callback to one client; when given a pool it checks that client out and
+  releases it in `finally`. SQL Server creates one node-mssql `Transaction` and
+  every callback request comes from that transaction until commit or rollback.
 
 ### pgDriver (#213)
 
 - `execute(q)`: `client.query(q.text, q.parameters)` → return `result.rows`.
 - With `opts.prepared === true`, use a stable statement `name` derived from the SQL text so Postgres caches the plan (server-side prepared statement). Kept opt-in to preserve the zero-state default (see the benchmarks tail trade-off).
 - Internal statement name cache is LRU-bounded (default 1000 entries); evicting a statement issues `DEALLOCATE <name>` to clean up server-side state.
-- Never mutates the pool/client; no connection lifecycle management.
+- Ordinary `execute` never manages connection lifecycle. `transaction` is the
+  explicit exception: a pool client is acquired for the callback and released
+  afterwards so `BEGIN`, the work, and `COMMIT` or `ROLLBACK` cannot hop
+  connections.
 
 ### mssqlDriver (#508)
 
@@ -74,6 +93,9 @@ function mssqlDriver(pool: MssqlPool): Driver;
 - Returns `result.recordset`, or `[]` when node-mssql reports no recordset.
 - The compiler emits `@p1…@pn`; node-mssql's `input()` receives the same names
   without the leading `@`.
+- `transaction(run)` begins one node-mssql transaction, creates every callback
+  request from it, commits on success and rolls back on failure. Root-pool
+  requests are never used inside the callback.
 - The adapter is structural and imports no node-mssql runtime. The application
   owns pool construction, connection, configuration and shutdown.
 
@@ -135,10 +157,13 @@ half-applying it.
 ## Acceptance
 
 - sqlite driver: E2E against an in-memory `node:sqlite` DB — create/find/list/
-  update/delete round-trips (always runs, no external service).
+  update/delete round-trips plus a real rollback (always runs, no external
+  service).
 - pg driver: unit test with a fake `query` recorder asserts it calls
-  `query(text, params)` and returns `.rows`; prepared mode passes a stable `name`.
-  (Live-PG E2E self-skips when unreachable.)
-- mssql driver: unit test records the `p1…pn` bindings and recordset return. A
-  real suite runs DDL and CRUD through SQL Server when `ZMDB_MSSQL_URL` is
-  reachable, and emits a visible `[skip] SQL Server E2E: …` reason otherwise.
+  `query(text, params)` and returns `.rows`; prepared mode passes a stable `name`;
+  a pool transaction uses only its acquired client and releases it after
+  rollback. (Live-PG E2E self-skips when unreachable.)
+- mssql driver: unit tests record the `p1…pn` bindings, recordset return and
+  transaction-owned requests. A real suite runs DDL, CRUD and transactional
+  rollback through SQL Server when `ZMDB_MSSQL_URL` is reachable, and emits a
+  visible `[skip] SQL Server E2E: …` reason otherwise.

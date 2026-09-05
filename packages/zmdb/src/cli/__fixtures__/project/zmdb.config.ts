@@ -24,7 +24,7 @@ export default {
   out: './migrations',
   driver: () => {
     const database = new DatabaseSync(databasePath);
-    return {
+    const driver = {
       dialect: 'sqlite' as const,
       async execute(query: { readonly text: string; readonly parameters: readonly unknown[] }) {
         const read = /^\s*(?:PRAGMA|SELECT|WITH)\b/i.test(query.text) || /\bRETURNING\b/i.test(query.text);
@@ -35,6 +35,20 @@ export default {
         }
         const statement = database.prepare(query.text);
         return read ? statement.all(...parameters) : (statement.run(...parameters), []);
+      },
+    };
+    return {
+      ...driver,
+      async transaction<Result>(run: (transaction: typeof driver) => Promise<Result>): Promise<Result> {
+        database.exec('BEGIN');
+        try {
+          const result = await run(driver);
+          database.exec('COMMIT');
+          return result;
+        } catch (error) {
+          database.exec('ROLLBACK');
+          throw error;
+        }
       },
     };
   },

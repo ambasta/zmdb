@@ -497,16 +497,24 @@ auto-increment values there are allocated per partition in large strides.
 
 ## 4. Migration lifecycle + version tracking
 
-- Version table `_zmdb_migrations(version INTEGER PRIMARY KEY, name TEXT, applied_at)`.
+- Version table `_zmdb_migrations(version, name, applied_at, checksum)`. The
+  version is `BIGINT` on Postgres/MySQL and SQLite's 64-bit `INTEGER`; checksum
+  is nullable so rows written by older runners remain applied but unverifiable.
 - Runner verbs: `up`, `down`, `status`, where `up` applies every pending migration.
+- The driver adapter owns the ledger DDL and records SHA-256 over the exact
+  `up` section. An applied non-null checksum mismatch refuses before new SQL.
+- Postgres, SQLite and SQL Server run each migration body and ledger write in
+  one pinned transaction. A driver for one of those dialects that cannot pin
+  callback queries is refused instead of receiving a misleading `BEGIN`.
+  MySQL warns before the first pending migration because its DDL auto-commits.
 
 `up`/`down`/`status` are the _library_ verbs, and they are not the command names. The executable spells
 them `migrate`, `rollback` and `status`, and deliberately has no `up` command at all — the reasoning, and
 the nine-command surface these three dispatch into, are frozen in `zmdb`'s `src/cli/SPEC.md` §1.
 
-That spec also requires a change here: a generated version is a 14-digit `YYYYMMDDHHMMSS` stamp, which does
-not fit the `INTEGER` in the `CREATE TABLE IF NOT EXISTS` above on Postgres or MySQL, so the column becomes
-`BIGINT` on those two dialects. SQLite's `INTEGER` is already 64-bit and existing 32-bit rows still fit.
+A generated version is a 14-digit `YYYYMMDDHHMMSS` stamp. The adapter widens an
+existing Postgres/MySQL version column before reading the ledger, while
+SQLite's `INTEGER` already has the required range.
 
 ## 5. Embedded migrations, for a bundle with no filesystem (frozen — epic "React Native")
 

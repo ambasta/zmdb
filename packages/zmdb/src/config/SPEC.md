@@ -186,10 +186,9 @@ already been paid for, once, deliberately, and it is not a runtime one.
 either dialect the field is an exit-2 usage error naming the dialect. Silently ignoring it is how a
 consumer ends up believing the ledger lives somewhere it does not.
 
-`migrations.table` defaults to `_zmdb_migrations`, which is currently a constant inlined into a
-`CREATE TABLE IF NOT EXISTS` template in `@zmdb/query-compiler`'s migration runner. Making it
-configurable is a change to that package, not to this one, and `../cli/SPEC.md` §4 records the other
-change the same table needs — its `version` column is too narrow for the versions the CLI generates.
+`migrations.table` defaults to `_zmdb_migrations`. The migration runner's
+driver adapter quotes the configured table and optional Postgres schema, creates
+the checksum-aware ledger, and uses a 64-bit version column.
 
 ## 7. The application does not read this file
 
@@ -213,9 +212,9 @@ export default defineConfig({
 ```
 
 That is one source of connection truth with a four-line adapter, and it is the
-shape the config reference recommends. `driver` stays optional:
-`generate`, `check`, `upgrade` and `export` never open a connection, and requiring one would make a
-schema-only workflow need a database.
+shape the config reference recommends. `driver` stays optional: `generate`,
+`upgrade` and `export` never open a connection. `check` runs its file and
+snapshot checks without one and reports live drift as skipped.
 
 ## 8. Non-goals (rejected)
 

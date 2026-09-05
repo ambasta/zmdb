@@ -1,11 +1,11 @@
 > **ToDo / documentation gap.** The published `zmdb` executable exposes
-> `generate`, `export`, `modules`, `repl`, `studio`, and `new` scaffolding. The
-> remaining database commands are still implementation gaps; the final full CLI
-> reference and command transcript remain for the documentation slice.
+> `generate`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`,
+> `export`, `modules`, `repl`, and `new` scaffolding. The read-only Studio
+> implementation has landed, but its installed binary path still needs a
+> packaging correction. `pull` and the final command transcripts remain.
 
-`generate` and `export` are thin packaged wrappers over the public reflection,
-snapshot, diff, and DDL APIs. The same library entry points remain available for
-the commands whose executable dispatch has not landed.
+The schema commands are thin packaged wrappers over the public reflection,
+snapshot, diff, introspection, DDL, and migration-runner APIs.
 
 ## The pieces
 
@@ -21,22 +21,20 @@ the commands whose executable dispatch has not landed.
 
 ## The commands, and where each stands
 
-| drizzle-kit / mikro-orm      | zmdb today                                         | Page                                                |
-| ---------------------------- | -------------------------------------------------- | --------------------------------------------------- |
-| `new`                        | project and application-component scaffolds        | [scaffolding](./web-cli.html)                       |
-| `generate`                   | `zmdb generate`                                    | [generate](./cli-generate.html)                     |
-| `migrate` / `up`             | `migrate` is pending; `up` is deliberately refused | [migrate](./cli-migrate.html) · [up](./cli-up.html) |
-| `push`                       | recognized, not implemented                        | [push](./cli-push.html)                             |
-| `check`                      | recognized, not implemented                        | [check](./cli-check.html)                           |
-| `export`                     | `zmdb export`                                      | [export](./cli-export.html)                         |
-| `pull` / `generate-entities` | reader + declaration-emitter APIs; CLI pending     | [pull](./cli-pull.html)                             |
-| `studio`                     | read-only loopback browser over configured tables  | [studio](./cli-studio.html)                         |
+| drizzle-kit / mikro-orm      | zmdb today                                             | Page                                                |
+| ---------------------------- | ------------------------------------------------------ | --------------------------------------------------- |
+| `new`                        | project and application-component scaffolds            | [scaffolding](./web-cli.html)                       |
+| `generate`                   | `zmdb generate`                                        | [generate](./cli-generate.html)                     |
+| `migrate` / `up`             | `zmdb migrate`; `up` is deliberately refused           | [migrate](./cli-migrate.html) · [up](./cli-up.html) |
+| `push`                       | live-catalog diff with a destructive SQL guard         | [push](./cli-push.html)                             |
+| `check`                      | snapshot, file-history, and optional live-drift checks | [check](./cli-check.html)                           |
+| `export`                     | `zmdb export`                                          | [export](./cli-export.html)                         |
+| `pull` / `generate-entities` | reader + declaration-emitter APIs; CLI pending         | [pull](./cli-pull.html)                             |
+| `studio`                     | read-only browser; installed binary fix pending        | [studio](./cli-studio.html)                         |
 
-Two offline schema commands, the config-independent scaffold command, and the
-local Studio are packaged. The remaining database verbs are recognized so
-their help, config errors, JSON envelope, and exit codes stay uniform while
-their scoped implementations land. `pull` has its catalog reader and
-declaration emitter as library APIs but still needs executable dispatch.
+`pull` has its catalog reader and declaration emitter as library APIs but still
+needs executable dispatch. Studio's source behavior is implemented and tested,
+but the emitted package still contains syntax that plain Node cannot execute.
 
 ## A single entry point
 
@@ -45,30 +43,23 @@ separation, and exit codes:
 
 ```bash
 npx zmdb generate --name add_slug
+npx zmdb migrate
+npx zmdb check --json
 npx zmdb export > schema.sql
 npx zmdb new controller posts
-npx zmdb studio
 ```
 
 The schema commands accept `--config <path>` and `--project <tsconfig>`.
 Scaffolding instead accepts `--package <name-or-path>` and `--dry-run` and does
 not load database config. Add `--json` when a script needs the stable
-`CliResult` envelope instead of human output. Until the remaining dispatch
-lands, use the linked library APIs for migration application and checks rather
-than creating a second argument parser.
+`CliResult` envelope instead of human output.
 
-## What the schema CLI still needs
+## What remains
 
-The remaining gaps are command implementations rather than a second CLI shell:
-
-- **Migration application, rollback, and status** wired to the shipped runner.
-- **Push and check plans** with the command-specific result payloads.
-- **A confirmation prompt** before a destructive operation. `diff()` happily emits `DROP COLUMN`; a CLI should make you type the table name.
-- **Snapshot upgrade** for `upgrade`, plus executable driver/config/output wiring for `pull`.
-
-The config loader, declaration reflection, migration generation, and full-schema
-export have landed. The remaining database command set reuses the same parser,
-output writer, and resolved config.
+- **`pull` dispatch** over the shipped catalogue reader and declaration emitter.
+- **The installed Studio path**, whose source implementation is complete but
+  whose emitted package still needs its decorator syntax lowered.
+- **The final documentation transcripts** for the commands that now ship.
 
 ---
 

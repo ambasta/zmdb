@@ -55,15 +55,23 @@ export const conn: MigrationConnection = {
     await db.sql(sql);
   },
   async appliedVersions() {
-    await db.sql(`CREATE TABLE IF NOT EXISTS "_migrations" ("version" INTEGER PRIMARY KEY, "name" TEXT NOT NULL)`);
-    const rows = await db.sql(`SELECT version FROM "_migrations"`);
+    const rows = await db.sql(`SELECT version FROM "_zmdb_migrations"`);
     return (rows as { version: number }[]).map(r => r.version);
   },
-  async recordApplied(version, name) {
-    await db.sql(`INSERT INTO "_migrations" VALUES (?, ?)`, version, name);
+  async appliedMigrations() {
+    return db.sql(`SELECT version, name, checksum FROM "_zmdb_migrations" ORDER BY version`);
+  },
+  async recordApplied(version, name, checksum) {
+    await db.sql(
+      `INSERT INTO "_zmdb_migrations" (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)`,
+      version,
+      name,
+      Date.now(),
+      checksum ?? null,
+    );
   },
   async recordReverted(version) {
-    await db.sql(`DELETE FROM "_migrations" WHERE version = ?`, version);
+    await db.sql(`DELETE FROM "_zmdb_migrations" WHERE version = ?`, version);
   },
 };
 ```

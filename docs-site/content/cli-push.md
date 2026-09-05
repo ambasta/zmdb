@@ -1,77 +1,61 @@
-> **ToDo / feature gap.** There is no `zmdb push`. The DDL emitters are public
-> API, so pushing the current schema straight at a database is a short script —
-> and the example below deliberately targets an empty database. Catalog readers
-> now exist, but there is no complete live-drift policy or supported incremental
-> `push` workflow yet.
+> **ToDo / documentation gap.** `push` ships with live-catalog diffing and a
+> destructive SQL guard. The documentation slice still owes the final command
+> transcript.
 
-## What push means here, and what it cannot mean
+## What push does
 
-`drizzle-kit push` diffs your schema against the _live_ database and applies the difference. zmdb can read a live catalog into a snapshot, but its current diff does not yet compare every recovered key, foreign-key and index fact, and there is no reviewed apply workflow around that result. What is supported here is emitting the full DDL for your schema objects and applying it to an empty database:
-
-```ts
-// scripts/push.ts — creates everything from scratch
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
-import * as schemas from '../src/schema.js';
-import { driver } from '../src/config.js';
-
-const all = Object.values(schemas).filter(s => typeof s === 'object' && s !== null && 'table' in s);
-
-for (const op of diff({ version: 1, tables: [], extensions: [] }, snapshot(all))) {
-  const sql = emitUp(op, 'postgres');
-  console.log(sql);
-  await driver.execute({ text: sql, parameters: [] });
-}
-```
-
-Diffing against an empty snapshot gives you "create all of it", which is exactly what you want against a fresh database.
-
-> [!WARNING]
-> This is create-only. Against a database that already has the tables, every
-> statement fails on "already exists". It is not an incremental sync, and calling
-> it `push` invites treating it like one.
-
-## Where it is genuinely useful
-
-**Tests.** The fastest way to a schema-shaped SQLite database, with no migration files involved:
-
-```ts
-import { DatabaseSync } from 'node:sqlite';
-
-export function freshDb() {
-  const db = new DatabaseSync(':memory:');
-  for (const op of diff({ version: 1, tables: [], extensions: [] }, snapshot(all))) {
-    db.exec(emitUp(op, 'sqlite'));
-  }
-  return db;
-}
-```
-
-Per-test isolation, sub-millisecond, and the schema is the one your application uses rather than a fixture that drifts. See [Testing](./testing.html).
-
-**Local iteration.** Drop and recreate while a schema is still moving:
+`zmdb push` reflects the configured declarations, introspects the live database,
+diffs the two snapshots, and prints the actual SQL before executing any of it:
 
 ```bash
-dropdb app_dev && createdb app_dev && node --experimental-strip-types scripts/push.ts
+npx zmdb push
 ```
 
-**Ephemeral preview environments**, where the database is created per branch and thrown away.
+It is an incremental development workflow, not a full-schema create script.
+When there is no difference it exits successfully and applies nothing.
 
-## Where it is not
+## Destructive changes
 
-Anywhere with data you care about. There is no `--force`, no diff to review, no `down`, and no record in the migrations table — so a database created by push is in an unknown state as far as [the runner](./cli-migrate.html) is concerned. If you push in development and migrate in production, the two schemas can differ and nothing will tell you. Pick one per environment and write down which.
+Dropping a table or column and a known narrowing type change require explicit
+permission:
 
-The safer local workflow is `generate` then `up`: it is two commands instead of one, and it exercises the same path production will.
-
-## Marking a pushed database as migrated
-
-If you do push locally and want the runner to consider itself up to date:
-
-```ts
-for (const m of migrations) await conn.recordApplied(m.version, m.name);
+```bash
+npx zmdb push --force --yes
 ```
 
-This only works if the pushed schema really equals the migrated one. `diff(snapshot(all), snapshotAfterMigrations)` being empty is the check — which is what [check](./cli-check.html) does.
+`--force` permits the destructive plan. `--yes` declines the confirmation
+prompt. They are separate flags: in a non-TTY process, a destructive push with
+only one of them refuses instead of hanging or guessing.
+
+The refusal prints every destructive SQL statement. A rename is represented by
+the migration diff as a drop plus an add, so it is destructive unless you write
+the safer multi-step migration yourself.
+
+Known widening conversions do not require `--force`. Unrecognised type pairs
+do, because treating an unknown conversion as safe would be the guess this
+guard exists to prevent.
+
+## Transaction behavior
+
+Postgres, SQLite and SQL Server execute the printed plan in a transaction
+pinned by the migration connection adapter. MySQL warns before execution
+because its DDL auto-commits and can leave a partial plan behind.
+
+## Where to use it
+
+`push` is useful for local databases, disposable test databases, and ephemeral
+preview environments. It never writes the migration ledger. A database built
+with `push` therefore has no migration history, and running `migrate` against it
+later starts from migration one.
+
+For an environment with data you care about, generate and review a migration,
+then run `migrate`. That path records checksums and gives every change an
+explicit rollback section.
+
+One current migration-engine limit also applies here: a length-only
+`varchar(n)` change does not yet produce a `ChangeOp`, so `push` cannot apply or
+classify it.
 
 ---
 
-See also: [check](./cli-check.html) · [generate](./cli-generate.html) · [Testing](./testing.html)
+See also: [check](./cli-check.html) · [generate](./cli-generate.html) · [Migrations](./migrations.html)

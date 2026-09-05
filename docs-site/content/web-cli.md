@@ -1,8 +1,8 @@
 > **ToDo / documentation gap.** The `zmdb` executable ships `generate`,
-> `export`, `modules`, `repl`, the read-only `studio`, and formatter-backed
-> `new` scaffolding for projects, schemas, controllers, modules, repositories,
-> and commands. The remaining database commands and the full CLI reference
-> still need their final implementation and documentation passes.
+> `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`,
+> `modules`, `repl`, and formatter-backed `new` scaffolding. The read-only
+> Studio source implementation has landed, but its installed binary still
+> needs a packaging fix. `pull` and the final command transcripts remain.
 
 ## Scaffolding that ships
 
@@ -33,9 +33,19 @@ replace an existing path, and prints the module wiring instead of editing a
 barrel or application module. Use `--dry-run` to inspect the complete formatted
 output without writing files.
 
-## Operational commands still available as library APIs
+## Operational commands
 
-**A migration runner you invoke from your own script.** This is real and supported:
+The packaged database commands use the same runner described in the CLI guide:
+
+```bash
+npx zmdb migrate
+npx zmdb status
+npx zmdb rollback
+npx zmdb check
+```
+
+The library boundary remains available when an application already owns the
+migration array:
 
 ```ts
 // scripts/migrate.ts
@@ -58,7 +68,9 @@ yarn migrate up
 yarn migrate status
 ```
 
-`runCli(command, connection, migrations)` handles `up`, `down` and `status` against a `MigrationConnection` you supply. See [Migration Runner](./migrations-cli.html).
+`runCli(command, connection, migrations)` handles `up`, `down` and `status`
+against a `MigrationConnection` you supply. See [Migration
+Runner](./migrations-cli.html).
 
 **Ordinary Node scripts over the module graph.** Because `createApp` needs no server, any operational task is a script with full access to your services:
 
@@ -75,9 +87,11 @@ for (const row of (await posts.list({ page: { limit: 1000 } })).items) {
 
 `await using` disposes the app, closing the pool so the process exits. See [Standalone Applications](./web-standalone.html).
 
-**A local read-only data browser.** `zmdb studio` serves the tables declared by
-the active config on `127.0.0.1`. It accepts no SQL or write method, omits
-`Sensitive` columns, and caps pages at 50 rows. See [studio](./cli-studio.html).
+**A local read-only data browser.** The Studio implementation serves the tables
+declared by the active config on `127.0.0.1`. It accepts no SQL or write method,
+omits `Sensitive` columns, and caps pages at 50 rows. The installed command is
+still blocked on lowering decorator syntax in the emitted package. See
+[studio](./cli-studio.html).
 
 ## Why scaffolding stays deliberately small
 
@@ -145,13 +159,12 @@ A `--dry-run` that logs instead of writing is worth building into anything that 
 ## What it would take
 
 The `new` dispatch, templates, workspace targeting, formatter integration, and
-generated-code gates have landed. The migration commands already exist as
-library calls, so their remaining work is executable config, driver, policy,
-and output wiring.
+generated-code gates have landed. The migration, push, check, and upgrade
+commands now own their executable config, driver, policy, and output wiring.
 
 The commands worth building are the ones that still own operational policy:
-`db pull` around the shipped reader/emitter, a complete diff against a live
-database, and a repeatable seed runner.
+`db pull` around the shipped reader/emitter and a repeatable seed runner. The
+Studio command separately needs its emitted package made executable.
 
 ---
 

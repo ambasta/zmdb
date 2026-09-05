@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { schemasFromFiles } from '@zmdb/aot-validator/testing';
@@ -14,14 +15,37 @@ import { describeGraph, renderDot, renderTree, type GraphFilter } from '@zmdb/we
 import type { ModuleClass } from '@zmdb/web/modules';
 
 import { commandHelp, globalHelp, parseCommand, type ParsedCommand } from './args.js';
+import { checkProject, type CheckResult } from './commands/check.js';
 import { exportSchema, type ExportResult } from './commands/export.js';
 import { generateMigration, type GenerateOptions, type GenerateResult } from './commands/generate.js';
+import {
+  migrate,
+  migrationStatus,
+  rollback,
+  type MigrateResult,
+  type RollbackResult,
+  type StatusResult,
+} from './commands/migrate.js';
+import { applyPush, planPush, type PushResult } from './commands/push.js';
+import { upgradeSnapshot, type UpgradeResult } from './commands/upgrade.js';
 import { loadConfig, resolveConfig, type ResolvedConfig, type ZmdbConfig } from './config.js';
+import { CliInvocationError } from './errors.js';
 import { CliOutput, type CliResult } from './output.js';
 import { createReplSession, replHistoryPath } from './repl.js';
 
 export { exportSchema, generateMigration };
-export type { CliResult, ExportResult, GenerateOptions, GenerateResult };
+export type {
+  CheckResult,
+  CliResult,
+  ExportResult,
+  GenerateOptions,
+  GenerateResult,
+  MigrateResult,
+  PushResult,
+  RollbackResult,
+  StatusResult,
+  UpgradeResult,
+};
 
 export interface CliEnvironment {
   readonly cwd?: string;
@@ -191,9 +215,103 @@ async function runDatabaseCommand(parsed: ParsedCommand, io: RuntimeEnvironment)
       const sql = result.statements.length === 0 ? '' : `${result.statements.join(';\n')};\n`;
       return output.result(result, `-- zmdb config: ${config.configPath}\n${sql}`);
     }
+    if (parsed.command === 'migrate') {
+      output.progress(`${config.configPath}\n`);
+      const result = await migrate(config, { progress: text => output.progress(text) });
+      return output.result(
+        result,
+        result.applied.length === 0
+          ? 'nothing to apply; 0 pending migrations\n'
+          : `applied ${result.applied.map(item => String(item.version)).join(', ')}\n`,
+      );
+    }
+    if (parsed.command === 'rollback') {
+      output.progress(`${config.configPath}\n`);
+      const target = rollbackTarget(parsed.values.to);
+      const result = await rollback(config, target, { progress: text => output.progress(text) });
+      return output.result(
+        result,
+        result.versions.length === 0
+          ? 'nothing to roll back\n'
+          : `reverted ${result.versions.map(item => String(item.version)).join(', ')}\n`,
+      );
+    }
+    if (parsed.command === 'status') {
+      output.progress(`${config.configPath}\n`);
+      const result = await migrationStatus(config);
+      const human = result.migrations
+        .map(item => `${item.applied ? '[x]' : '[ ]'} ${String(item.version)} ${item.name}`)
+        .join('\n');
+      return output.result(result, human.length === 0 ? 'no migrations\n' : `${human}\n`);
+    }
+    if (parsed.command === 'push') {
+      output.progress(`${config.configPath}\n`);
+      const plan = await planPush(config);
+      for (const statement of plan.statements) output.progress(`${statement};\n`);
+      if (plan.destructive.length > 0 && parsed.values.force !== true) {
+        return output.failure(`--force is required for destructive SQL:\n${plan.destructive.join(';\n')};`, 2);
+      }
+      if (plan.destructive.length > 0 && parsed.values.yes !== true && (parsed.json || !io.stdinIsTTY)) {
+        return output.failure('--yes is required for a destructive push when no TTY prompt is available', 2);
+      }
+      if (
+        plan.destructive.length > 0 &&
+        parsed.values.yes !== true &&
+        !(await confirmPush(io, plan.destructive.length))
+      ) {
+        return output.failure('push cancelled before executing SQL', 1);
+      }
+      const result = await applyPush(plan, warning => output.progress(`warning: ${warning}\n`));
+      return output.result(
+        result,
+        result.applied ? `applied ${String(result.statements.length)} statements\n` : 'no changes\n',
+      );
+    }
+    if (parsed.command === 'check') {
+      output.progress(`${config.configPath}\n`);
+      const result = await checkProject(config);
+      const findings = result.findings.map(finding => `${finding.kind}: ${finding.message} (${finding.subject})`);
+      const skipped = result.skipped.map(item => `skipped ${item.kind}: ${item.reason}`);
+      const human = [...findings, ...skipped];
+      return output.result(result, `${human.join('\n') || 'check passed'}\n`, result.findings.length === 0 ? 0 : 1);
+    }
+    if (parsed.command === 'upgrade') {
+      output.progress(`${config.configPath}\n`);
+      const result = await upgradeSnapshot(config);
+      return output.result(
+        result,
+        result.changed
+          ? `upgraded snapshot ${String(result.from)} -> ${String(result.to)}; backup ${result.backup ?? ''}\n`
+          : `snapshot is already at version ${String(result.to)}\n`,
+      );
+    }
     return output.failure(`command "${parsed.command}" is not implemented yet`, 2);
   } catch (error) {
-    return output.failure(errorMessage(error), 1);
+    return output.failure(errorMessage(error), error instanceof CliInvocationError ? 2 : 1);
+  }
+}
+
+function rollbackTarget(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    throw new CliInvocationError(`--to needs a decimal migration version, received "${String(value)}"`);
+  }
+  const version = Number(value);
+  if (!Number.isSafeInteger(version)) {
+    throw new CliInvocationError(`--to migration version ${value} is not a safe integer`);
+  }
+  return version;
+}
+
+async function confirmPush(io: RuntimeEnvironment, destructiveCount: number): Promise<boolean> {
+  const prompt = createInterface({ input: io.input, output: io.output, terminal: true });
+  try {
+    const answer = await prompt.question(
+      `Apply ${String(destructiveCount)} destructive statement${destructiveCount === 1 ? '' : 's'}? [y/N] `,
+    );
+    return /^y(?:es)?$/i.test(answer.trim());
+  } finally {
+    prompt.close();
   }
 }
 

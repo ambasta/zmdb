@@ -353,9 +353,7 @@ export interface Item extends Table<'items'> {
     expect(existsSync(project.migrations)).toBe(false);
   });
 
-  // Current actual: exit 2 after config loading, naming the implementation gap;
-  // neither the user table nor the ledger is touched.
-  it.fails('applies migrations to a real sqlite database and records them in the ledger', () => {
+  it('applies migrations to a real sqlite database and records them in the ledger', () => {
     const project = copyProject();
     const version = 20260904010101;
     writeMigration(
@@ -377,9 +375,7 @@ export interface Item extends Table<'items'> {
     expect(second.stdout).toMatch(/(?:none|nothing|0)/i);
   });
 
-  // Current actual: exit 2 before any SQL because `migrate` remains for #494;
-  // the assertions freeze the stronger transactional rule.
-  it.fails('stops and reports when a migration fails, leaving the ledger honest', () => {
+  it('stops and reports when a migration fails, leaving the ledger honest', () => {
     const project = copyProject();
     const version = 20260904010202;
     writeMigration(
@@ -401,9 +397,7 @@ THIS IS NOT SQL;
     expect(ledgerVersions(project)).toEqual([]);
   });
 
-  // Current actual: exit 2 because `push` remains for #494; no plan is emitted
-  // and the existing column is unchanged.
-  it.fails('refuses a destructive push without --force, printing what it would drop', () => {
+  it('refuses a destructive push without --force, printing what it would drop', () => {
     const project = copyProject();
     withDatabase(project, database => {
       database.exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL, legacy TEXT);');
@@ -416,8 +410,7 @@ THIS IS NOT SQL;
     expect(columns(project, 'users')).toContain('legacy');
   });
 
-  // Current actual: exit 2 because `push` remains for #494, so `legacy` remains.
-  it.fails('applies a destructive push with --force', () => {
+  it('applies a destructive push with --force', () => {
     const project = copyProject();
     withDatabase(project, database => {
       database.exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL, legacy TEXT);');
@@ -428,9 +421,7 @@ THIS IS NOT SQL;
     expect(columns(project, 'users')).toEqual(['id', 'email']);
   });
 
-  // Current actual: exit 2 for the unimplemented `push` command rather than the
-  // frozen non-TTY refusal.
-  it.fails('does not prompt when stdin is not a TTY', () => {
+  it('does not prompt when stdin is not a TTY', () => {
     const project = copyProject();
     withDatabase(project, database => {
       database.exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL, legacy TEXT);');
@@ -443,22 +434,21 @@ THIS IS NOT SQL;
     expect(columns(project, 'users')).toContain('legacy');
   });
 
-  // Current actual: exit 2 with an implementation-gap JSON error and no finding.
-  it.fails('detects a snapshot that does not match its migration history', () => {
+  it('detects a snapshot that does not match its migration history', () => {
     const project = copyProject();
     writeSnapshot(project, { version: 1, tables: [], extensions: [] });
 
     const invocation = run(project, 'check', '--json');
     expect(invocation.status).toBe(1);
-    const findings = list(resultOf(json(invocation)).findings, 'check findings').map(value =>
-      record(value, 'check finding'),
-    );
+    const body = json(invocation);
+    expect(body.errors, JSON.stringify(body)).toBeUndefined();
+    const findings = list(resultOf(body).findings, 'check findings').map(value => record(value, 'check finding'));
     expect(findings.map(finding => finding.kind)).toContain('uncommitted-schema');
   });
 
-  // The issue body said “same parent”, but the frozen SPEC has no lineage field: its exact
-  // check is duplicate-version. Current actual is the #494 implementation-gap exit.
-  it.fails('detects two migrations generated from the same parent', () => {
+  // The issue body said “same parent”, but the frozen SPEC has no lineage field:
+  // its exact check is duplicate-version.
+  it('detects two migrations generated from the same parent', () => {
     const project = copyProject();
     writeSnapshot(project, usersSnapshot());
     writeMigration(project, 20260904010505, 'left', 'SELECT 1;', 'SELECT 1;');
@@ -466,16 +456,29 @@ THIS IS NOT SQL;
 
     const invocation = run(project, 'check', '--json');
     expect(invocation.status).toBe(1);
-    const findings = list(resultOf(json(invocation)).findings, 'check findings').map(value =>
-      record(value, 'check finding'),
-    );
+    const body = json(invocation);
+    expect(body.errors, JSON.stringify(body)).toBeUndefined();
+    const findings = list(resultOf(body).findings, 'check findings').map(value => record(value, 'check finding'));
     expect(findings.map(finding => finding.kind)).toContain('duplicate-version');
   });
 
+  it('distinguishes check findings by exit code', () => {
+    const findingProject = copyProject();
+    writeSnapshot(findingProject, { version: 1, tables: [], extensions: [] });
+    const finding = run(findingProject, 'check', '--json');
+
+    const invalidProject = copyProject();
+    const missing = join(invalidProject.root, 'missing.config.ts');
+    const invalid = run(invalidProject, 'check', '--config', missing, '--json');
+
+    expect([finding.status, invalid.status]).toEqual([1, 2]);
+    expect(list(resultOf(json(finding)).findings, 'check findings')).not.toHaveLength(0);
+    expect(list(json(invalid).errors, 'check errors')).not.toHaveLength(0);
+  });
+
   // No prior snapshot shape is frozen, so this asserts the implementable half of §8:
-  // current-version idempotence and no mtime write. Current actual is the #494
-  // implementation-gap exit.
-  it.fails('upgrades a stored snapshot format idempotently', () => {
+  // current-version idempotence and no mtime write.
+  it('upgrades a stored snapshot format idempotently', () => {
     const project = copyProject();
     const snapshot = writeSnapshot(project, usersSnapshot());
     const beforeText = readFileSync(snapshot, 'utf8');

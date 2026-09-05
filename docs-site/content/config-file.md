@@ -32,9 +32,9 @@ config.schemaFiles; // absolute files, expanded eagerly
 config.outDir; // absolute migration output directory
 ```
 
-The shipped `generate` and `export` commands consume this loader. `migrate`,
-`rollback`, `status`, `push`, `check`, `upgrade`, and `pull` are recognized but
-remain implementation gaps; `up` is deliberately refused because it is
+The shipped `generate`, `migrate`, `rollback`, `status`, `push`, `check`,
+`upgrade`, and `export` commands consume this loader. `pull` is recognized but
+remains an implementation gap; `up` is deliberately refused because it is
 ambiguous between migration application and snapshot upgrade.
 
 ## Fields
@@ -145,7 +145,8 @@ export default defineConfig({
 ```
 
 The driver is a thunk so the CLI can avoid opening a database for commands that
-only inspect declarations.
+only inspect declarations. `check` opens it only for the live-drift check; with
+no driver configured, that check is reported as skipped.
 
 ## Process-local cache
 

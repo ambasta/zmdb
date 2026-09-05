@@ -123,11 +123,10 @@ File name: `<YYYYMMDDHHMMSS>_<slug>.sql` in UTC, where the fourteen digits are t
 comes from `--name` or is derived from the ops. Sortable lexically and numerically at once, which is the
 only property that matters.
 
-**That version overflows the shipped ledger.** `_zmdb_migrations` is created with `version INTEGER PRIMARY KEY`, and `20260903120000` is far above Postgres's `INTEGER` maximum of 2 147 483 647. SQLite's `INTEGER` is already 64-bit; Postgres and MySQL are not.
-
-So **the ledger column becomes `BIGINT`** on those two dialects, which is a change to the `CREATE TABLE IF NOT EXISTS` template in `@zmdb/query-compiler`'s runner and not to this package.
-
-Existing ledgers need no data migration — every 32-bit value still fits — but they do need the `ALTER`, and `migrate` must not be the thing that discovers this at 3am against a production database.
+The previous runner used `INTEGER`, but `20260903120000` is above Postgres's
+32-bit limit. The driver adapter now creates `BIGINT` on Postgres and MySQL,
+widens an existing ledger before reading it, and keeps SQLite's already-64-bit
+`INTEGER`.
 
 One file, not a pair. It carries both directions, separated by a single sentinel line:
 
@@ -239,15 +238,21 @@ ledger, nothing written to disk, so it composes: `zmdb export | psql`.
 The classification covers every current `ChangeOp` kind rather than a subset, so a new kind fails a test
 instead of defaulting to permitted:
 
-| `ChangeOp`                         | Destructive | Why                                                                     |
-| ---------------------------------- | ----------- | ----------------------------------------------------------------------- |
-| `create_extension`, `create_table` | no          | Adds a capability or a new empty table.                                 |
-| `add_column`                       | no          | An added nullable column loses nothing.                                 |
-| `drop_table`, `drop_column`        | yes         | Deletes rows or a column's values.                                      |
-| `alter_column_type`                | sometimes   | Destructive when the new type is narrower.                              |
-| `alter_primary_key`                | no          | Reindexes existing rows; duplicates can fail it, but no row is deleted. |
+| `ChangeOp`                            | Destructive | Why                                                                     |
+| ------------------------------------- | ----------- | ----------------------------------------------------------------------- |
+| `create_extension`, `create_table`    | no          | Adds a capability or a new empty table.                                 |
+| `add_column`                          | no          | An added nullable column loses nothing.                                 |
+| `drop_table`, `drop_column`           | yes         | Deletes rows or a column's values.                                      |
+| `alter_column_type`                   | sometimes   | Destructive when the new type is narrower.                              |
+| `alter_primary_key`                   | no          | Reindexes existing rows; duplicates can fail it, but no row is deleted. |
+| `add_foreign_key`, `drop_foreign_key` | no          | Changes enforcement without deleting an existing value.                 |
 
-Narrowing is read off the `from`/`to` pair the op already carries — both are abstract types, so this is a table lookup and not a guess: `varchar(n)` → `varchar(m)` with `m < n`, `text` → `varchar`, `bigint` → `integer`, `numeric` → `integer`, `timestamp` → `date`.
+Narrowing is read off the `from`/`to` pair the op already carries — both are
+abstract types, so this is a table lookup rather than a database guess:
+`text` → `varchar`, `bigint` → `integer`, `numeric` → `integer`, and
+`timestamp` → `date`. Known widening pairs are permitted. A length-only
+`varchar(n)` change is not currently a `ChangeOp` at all, so the push planner
+cannot pretend to classify one; the migration diff spec records that limitation.
 
 Anything else, **including a pair this build does not recognise**, is destructive. `ddlType` passes an unknown abstract type through unchanged, so an unrecognised pair is exactly the case where nobody has reasoned about the conversion, and the default has to fall on the side that asks a question.
 

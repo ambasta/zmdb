@@ -165,6 +165,98 @@ describe('migration runner E2E (real SQLite connection)', () => {
     expect(await conn.appliedVersions()).toEqual([1, 2]);
   });
 
+  it('refuses to run when a previously applied migration file has changed', async () => {
+    const database = new DatabaseSync(':memory:');
+    const adapter = driverMigrationConnection(sqliteDriver(database), 'sqlite');
+    const original: Migration = {
+      version: 20260904010101,
+      name: 'create_audit',
+      up: 'CREATE TABLE audit (id INTEGER PRIMARY KEY)',
+      down: 'DROP TABLE audit',
+    };
+
+    await expect(up(adapter, [original])).resolves.toEqual([original.version]);
+    const ledger = database.prepare('SELECT version, checksum FROM _zmdb_migrations').get() as {
+      version: number;
+      checksum: string;
+    };
+    expect(ledger.version).toBe(original.version);
+    expect(ledger.checksum).toMatch(/^sha256:[0-9a-f]{64}$/);
+
+    await expect(
+      up(adapter, [{ ...original, up: 'CREATE TABLE audit (id INTEGER PRIMARY KEY, note TEXT)' }]),
+    ).rejects.toThrow(/edited after it was applied.*ledger has sha256:.*file has sha256:/);
+  });
+
+  it('warns before running on a dialect without transactional DDL', async () => {
+    const events: string[] = [];
+    const mysql: MigrationConnection = {
+      dialect: 'mysql',
+      transactionalDdl: false,
+      exec: sql => {
+        events.push(`exec:${sql}`);
+      },
+      appliedVersions: () => [],
+      recordApplied: version => {
+        events.push(`record:${String(version)}`);
+      },
+      recordReverted: () => undefined,
+      ensureVersionTable: () => {
+        events.push('ensure');
+      },
+    };
+
+    await expect(
+      up(mysql, [migrations[0] as Migration], {
+        onWarning: warning => events.push(`warning:${warning}`),
+      }),
+    ).resolves.toEqual([1]);
+    expect(events[0]).toBe('ensure');
+    expect(events[1]).toMatch(/^warning:mysql does not support transactional DDL/);
+    expect(events[2]).toMatch(/^exec:CREATE TABLE users/);
+    expect(events[3]).toBe('record:1');
+  });
+
+  it('adds checksums to a ledger created by an older runner', async () => {
+    const database = new DatabaseSync(':memory:');
+    database.exec(`
+      CREATE TABLE _zmdb_migrations (
+        version INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        applied_at INTEGER NOT NULL
+      )
+    `);
+    const adapter = driverMigrationConnection(sqliteDriver(database), 'sqlite');
+
+    await ensureVersionTable(adapter);
+
+    const columns = database
+      .prepare("SELECT name FROM pragma_table_info('_zmdb_migrations')")
+      .all()
+      .map(row => Reflect.get(row, 'name'));
+    expect(columns).toContain('checksum');
+  });
+
+  it('uses the configured ledger table for apply and rollback', async () => {
+    const database = new DatabaseSync(':memory:');
+    const adapter = driverMigrationConnection(sqliteDriver(database), 'sqlite', { table: 'migration_history' });
+    const migration: Migration = {
+      version: 20260905010101,
+      name: 'create_notes',
+      up: 'CREATE TABLE notes (id INTEGER PRIMARY KEY)',
+      down: 'DROP TABLE notes',
+    };
+
+    await expect(up(adapter, [migration])).resolves.toEqual([migration.version]);
+    expect(database.prepare('SELECT version FROM migration_history').all()).toEqual([{ version: migration.version }]);
+    expect(
+      database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_zmdb_migrations'").get(),
+    ).toBeUndefined();
+
+    await expect(down(adapter, [migration])).resolves.toBe(migration.version);
+    expect(database.prepare('SELECT version FROM migration_history').all()).toEqual([]);
+  });
+
   it('CLI dispatch: up → status → down', async () => {
     expect(await runCli('up', conn, migrations)).toBe('applied: 1, 2');
     expect(await runCli('status', conn, migrations)).toContain('[x] 1 create_users');
@@ -201,7 +293,7 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
 
   it('executes schema migrations asynchronously using PostgreSQL driver instance', async () => {
     const executedQueries: { text: string; params?: readonly unknown[] }[] = [];
-    const migrationsTable: { version: number; name: string; applied_at: number }[] = [];
+    const migrationsTable: { version: number; name: string; applied_at: number; checksum: string | null }[] = [];
 
     const mockPgClient: PgQueryable = {
       async query(arg1: string | { text: string; values?: readonly unknown[] }, arg2?: readonly unknown[]) {
@@ -213,7 +305,7 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
           executedQueries.push({ text });
         }
 
-        if (/SELECT "version" FROM "_zmdb_migrations"/i.test(text)) {
+        if (/SELECT version, name, checksum FROM "_zmdb_migrations"/i.test(text)) {
           return { rows: migrationsTable.toSorted((a, b) => a.version - b.version) };
         }
         if (/INSERT INTO "_zmdb_migrations"/i.test(text) && params) {
@@ -221,6 +313,7 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
             version: params[0] as number,
             name: params[1] as string,
             applied_at: params[2] as number,
+            checksum: params[3] as string | null,
           });
           return { rows: [] };
         }
@@ -252,6 +345,12 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
     expect(insertQuery?.text).toContain('$1');
     expect(insertQuery?.text).toContain('$2');
     expect(insertQuery?.text).toContain('$3');
+    expect(executedQueries.findIndex(q => q.text === 'BEGIN')).toBeLessThan(
+      executedQueries.findIndex(q => q.text.includes('CREATE TABLE users')),
+    );
+    expect(executedQueries.findIndex(q => q.text.includes('INSERT INTO "_zmdb_migrations"'))).toBeLessThan(
+      executedQueries.findIndex(q => q.text === 'COMMIT'),
+    );
 
     // Down
     const reverted = await down(adapterConn, migrations);
@@ -260,5 +359,50 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
     const deleteQuery = executedQueries.find(q => q.text.includes('DELETE FROM "_zmdb_migrations"'));
     expect(deleteQuery).toBeDefined();
     expect(deleteQuery?.text).toContain('$1');
+  });
+
+  it('uses SQL Server ledger DDL and requires a transaction-pinning driver', async () => {
+    const executed: string[] = [];
+    const driver = {
+      dialect: 'mssql' as const,
+      async execute(query: { readonly text: string }): Promise<readonly Record<string, unknown>[]> {
+        executed.push(query.text);
+        return [];
+      },
+    };
+    const adapter = driverMigrationConnection(driver, 'mssql', {
+      schema: "audit's",
+      table: 'migration]history',
+    });
+
+    await ensureVersionTable(adapter);
+
+    expect(executed).toEqual([
+      "IF OBJECT_ID(N'audit''s.migration]history', N'U') IS NULL " +
+        "CREATE TABLE [audit's].[migration]]history] (" +
+        '[version] BIGINT PRIMARY KEY, [name] NVARCHAR(MAX) NOT NULL, ' +
+        '[applied_at] BIGINT NOT NULL, [checksum] NVARCHAR(MAX))',
+      "SELECT [checksum] FROM [audit's].[migration]]history] WHERE 1 = 0",
+    ]);
+    await expect(adapter.transaction?.(async () => undefined)).rejects.toThrow(
+      'mssql migrations require a transactional driver',
+    );
+    expect(executed).toHaveLength(2);
+  });
+
+  it('uses SQL Server syntax when adding checksum to an older ledger', async () => {
+    const executed: string[] = [];
+    const driver = {
+      dialect: 'mssql' as const,
+      async execute(query: { readonly text: string }): Promise<readonly Record<string, unknown>[]> {
+        executed.push(query.text);
+        if (query.text.startsWith('SELECT [checksum]')) throw new Error('invalid column');
+        return [];
+      },
+    };
+
+    await ensureVersionTable(driverMigrationConnection(driver, 'mssql'));
+
+    expect(executed.at(-1)).toBe('ALTER TABLE [_zmdb_migrations] ADD [checksum] NVARCHAR(MAX)');
   });
 });

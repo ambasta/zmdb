@@ -1,5 +1,6 @@
 // pg (node-postgres) driver adapter — see ../drivers/SPEC.md.
 import type { Driver } from '../index.js';
+import type { TransactionalDriver } from './transactional.js';
 
 // Minimal structural type so we don't hard-depend on `pg`'s types at build time.
 export interface PgQueryable {
@@ -15,10 +16,20 @@ export interface PgOptions {
   maxCacheSize?: number;
 }
 
+interface PgPoolClient extends PgQueryable {
+  release(): void;
+}
+
+interface PgPoolQueryable extends PgQueryable {
+  readonly totalCount: number;
+  readonly idleCount: number;
+  connect(): Promise<PgPoolClient>;
+}
+
 /** Wrap a pg Pool/Client as a zmdb Driver. `prepared: true` opts into server-side
  * prepared statements (stable statement name per SQL). Kept opt-in to preserve
  * the zero-state default (see the benchmarks tail trade-off). */
-export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
+export function pgDriver(client: PgQueryable, opts?: PgOptions): TransactionalDriver {
   const prepared = opts?.prepared ?? false;
   const maxCacheSize = opts?.maxCacheSize ?? 1000;
   const names = new Map<string, string>();
@@ -46,7 +57,7 @@ export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
     }
     return n;
   };
-  return {
+  const driver: TransactionalDriver = {
     dialect: 'postgres',
     async execute(q) {
       const params = q.parameters;
@@ -55,5 +66,43 @@ export function pgDriver(client: PgQueryable, opts?: PgOptions): Driver {
         : await client.query(q.text, params);
       return res.rows;
     },
+    async transaction<Result>(run: (driver: Driver) => Promise<Result>): Promise<Result> {
+      if (!isPool(client)) return runTransaction(client, opts, run);
+      const connection = await client.connect();
+      try {
+        return await runTransaction(connection, opts, run);
+      } finally {
+        connection.release();
+      }
+    },
   };
+  return driver;
+}
+
+async function runTransaction<Result>(
+  connection: PgQueryable,
+  options: PgOptions | undefined,
+  run: (driver: Driver) => Promise<Result>,
+): Promise<Result> {
+  const transactionDriver = pgDriver(connection, options);
+  await connection.query('BEGIN');
+  try {
+    const result = await run(transactionDriver);
+    await connection.query('COMMIT');
+    return result;
+  } catch (error) {
+    await connection.query('ROLLBACK');
+    throw error;
+  }
+}
+
+function isPool(client: PgQueryable): client is PgPoolQueryable {
+  return (
+    'connect' in client &&
+    typeof client.connect === 'function' &&
+    'totalCount' in client &&
+    typeof client.totalCount === 'number' &&
+    'idleCount' in client &&
+    typeof client.idleCount === 'number'
+  );
 }

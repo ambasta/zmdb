@@ -107,6 +107,21 @@ describe('sqliteDriver (#211)', () => {
     await d.execute({ text: 'SELECT 2', parameters: [] });
     expect(prepareSpy).toHaveBeenCalledTimes(4);
   });
+
+  it('keeps a transaction callback on the database and rolls its writes back together', async () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec('CREATE TABLE events (id INTEGER PRIMARY KEY)');
+    const driver = sqliteDriver(db);
+
+    await expect(
+      driver.transaction(async transaction => {
+        await transaction.execute({ text: 'INSERT INTO events (id) VALUES (?)', parameters: [1] });
+        throw new Error('stop');
+      }),
+    ).rejects.toThrow('stop');
+
+    expect(db.prepare('SELECT id FROM events').all()).toEqual([]);
+  });
 });
 
 describe('pgDriver (#211)', () => {
@@ -204,6 +219,39 @@ describe('pgDriver (#211)', () => {
     await d.execute({ text: 'SELECT 2', parameters: [] });
     const name2_new = (calls[calls.length - 1] as { name?: string }).name;
     expect(name2_new).not.toBe(name2_orig);
+  });
+
+  it('pins a pool transaction to one acquired client and releases it after rollback', async () => {
+    const calls: string[] = [];
+    const release = vi.fn();
+    const client = {
+      release,
+      async query(arg: string | { text: string }) {
+        calls.push(typeof arg === 'string' ? arg : arg.text);
+        return { rows: [] };
+      },
+    };
+    const rootQuery = vi.fn(async () => ({ rows: [] }));
+    const connect = vi.fn(async () => client);
+    const pool = {
+      totalCount: 1,
+      idleCount: 1,
+      connect,
+      query: rootQuery,
+    };
+    const driver = pgDriver(pool);
+
+    await expect(
+      driver.transaction(async transaction => {
+        await transaction.execute({ text: 'CREATE TABLE probe (id INTEGER)', parameters: [] });
+        throw new Error('stop');
+      }),
+    ).rejects.toThrow('stop');
+
+    expect(calls).toEqual(['BEGIN', 'CREATE TABLE probe (id INTEGER)', 'ROLLBACK']);
+    expect(rootQuery).not.toHaveBeenCalled();
+    expect(connect).toHaveBeenCalledOnce();
+    expect(release).toHaveBeenCalledOnce();
   });
 });
 

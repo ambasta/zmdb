@@ -819,7 +819,7 @@ export const PAGE_META = {
     title: 'CLI Overview',
     group: 'CLI',
     status: 'todo',
-    note: 'generate, export, modules, repl and studio ship; the remaining database commands and final reference pass are open',
+    note: 'database commands through upgrade ship; pull, the Studio packaging fix and final transcripts remain',
   },
   'config-file': {
     title: 'Config File',
@@ -841,13 +841,13 @@ export const PAGE_META = {
     title: 'migrate',
     group: 'CLI',
     status: 'todo',
-    note: 'no CLI wrapper around the migration runner',
+    note: 'migrate, rollback and status ship; the final command transcript remains for the documentation slice',
   },
   'cli-push': {
     title: 'push',
     group: 'CLI',
     status: 'todo',
-    note: 'no CLI wrapper around direct DDL application',
+    note: 'push ships with live diffing and destructive guards; the final command transcript remains',
   },
   'cli-pull': {
     title: 'pull (introspect)',
@@ -859,13 +859,13 @@ export const PAGE_META = {
     title: 'check',
     group: 'CLI',
     status: 'todo',
-    note: 'no CLI wrapper around snapshot conflict detection',
+    note: 'check ships; the final CI transcript and embedded-migration coverage remain',
   },
   'cli-up': {
     title: 'up',
     group: 'CLI',
     status: 'todo',
-    note: 'no snapshot format upgrader',
+    note: 'upgrade ships and up is deliberately refused; the final snapshot-upgrade transcript remains',
   },
   'cli-export': {
     title: 'export',
@@ -1711,7 +1711,7 @@ export const PAGE_META = {
     title: 'CLI & Scaffolding',
     group: 'Web Framework — CLI',
     status: 'todo',
-    note: 'scaffolding and studio ship; the final CLI docs pass waits on remaining database commands',
+    note: 'scaffolding and database commands through upgrade ship; pull, the Studio packaging fix and final transcripts remain',
   },
   'web-cli-monorepo': {
     title: 'Monorepos & Libraries',

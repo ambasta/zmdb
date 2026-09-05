@@ -1,5 +1,6 @@
 // node:sqlite driver adapter — see ../drivers/SPEC.md.
 import type { Driver } from '../index.js';
+import type { TransactionalDriver } from './transactional.js';
 
 // Minimal structural types, for the same reason as `PgQueryable` in ./pg.ts: the
 // adapter must not hard-depend on `@types/node` at build time (a repo that only
@@ -50,12 +51,12 @@ function bindable(value: unknown): unknown {
 }
 
 /** Wrap a node:sqlite DatabaseSync as a zmdb Driver. Zero external deps. */
-export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Driver {
+export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): TransactionalDriver {
   db.exec('PRAGMA foreign_keys = ON');
   const maxCacheSize = opts?.maxCacheSize ?? 1000;
   const cache = new Map<string, CachedStatement>();
 
-  return {
+  const driver: TransactionalDriver = {
     dialect: 'sqlite',
     async execute(q) {
       let entry = maxCacheSize > 0 ? cache.get(q.text) : undefined;
@@ -88,5 +89,17 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Driver {
       entry.stmt.run(...parameters);
       return [];
     },
+    async transaction<Result>(run: (driver: Driver) => Promise<Result>): Promise<Result> {
+      db.exec('BEGIN');
+      try {
+        const result = await run(driver);
+        db.exec('COMMIT');
+        return result;
+      } catch (error) {
+        db.exec('ROLLBACK');
+        throw error;
+      }
+    },
   };
+  return driver;
 }

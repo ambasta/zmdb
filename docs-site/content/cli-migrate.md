@@ -1,99 +1,93 @@
-> **ToDo / feature gap.** There is no `zmdb migrate` executable. The runner
-> itself is public API and complete — `runCli(cmd, conn, migrations)` — so this is
-> a five-line script.
+> **ToDo / documentation gap.** `migrate`, `rollback`, and `status` ship. The
+> documentation slice still owes final packaged-command transcripts.
 
 ## Applying migrations
 
-```ts
-// scripts/migrate.ts
-import { runCli } from '@zmdb/query-compiler/migrations/runner';
-import { conn, migrations } from './db-config.js';
-
-await runCli(process.argv[2] ?? 'up', conn, migrations);
-```
-
 ```bash
-node --experimental-strip-types scripts/migrate.ts up
-node --experimental-strip-types scripts/migrate.ts down
+npx zmdb migrate
+npx zmdb status
+npx zmdb rollback
+npx zmdb rollback --to 20260904010101
 ```
 
-The runner reads applied versions, applies the pending ones in order, and records each. Running it twice is a no-op. See [up](./cli-up.html) for what `up` does in detail and [Migration Runner](./migrations-cli.html) for the `MigrationConnection` you implement.
+Each command loads `zmdb.config.ts`, opens its `driver` thunk, and reads the
+single-file migrations in the configured output directory. A file carries both
+directions:
 
-## Loading migrations from files
-
-If [generate](./cli-generate.html) writes `.sql` files, assemble the array from the directory:
-
-```ts
-import { readdirSync, readFileSync } from 'node:fs';
-
-const files = readdirSync('migrations')
-  .filter(f => f.endsWith('.up.sql'))
-  .sort();
-
-export const migrations = files.map(f => {
-  const [version, ...rest] = f.replace('.up.sql', '').split('_');
-  return {
-    version: Number(version),
-    name: rest.join('_'),
-    up: readFileSync(`migrations/${f}`, 'utf8'),
-    down: readFileSync(`migrations/${f.replace('.up.sql', '.down.sql')}`, 'utf8'),
-  };
-});
+```sql
+-- zmdb:up
+ALTER TABLE orders ADD COLUMN shipped_at TIMESTAMPTZ;
+-- zmdb:down
+ALTER TABLE orders DROP COLUMN shipped_at;
 ```
 
-`.sort()` on the filename works because the version prefix is fixed-width and zero-padded — the reason to use `20260831142530` rather than `4`. See [Working in a Team](./migrations-teams.html).
+The fourteen-digit filename prefix is the ledger version:
 
-## Where to run it
+```text
+migrations/20260904010101_add_shipped_at.sql
+```
 
-**A release step, before the new code starts.** The default answer, and the only one that gets the ordering right for a rolling deploy:
+`migrate` prints the resolved config path and each pending migration's SQL
+before executing it. A second run is a successful no-op.
 
-```yaml
+## Ledger integrity
+
+The runner stores the version, name, application time, and a SHA-256 checksum
+of the exact `up` section. If an applied migration file changes, the next
+`migrate`, `rollback`, or `status` refuses before applying new SQL and reports
+both checksums.
+
+Rows written by an older runner have a null checksum. They remain applied but
+unverifiable; the runner adds the checksum column without pretending it knows
+what those old files contained.
+
+Versions use `BIGINT` on Postgres, MySQL and SQL Server. SQLite's `INTEGER` is
+already 64-bit, so the timestamp-shaped version fits there without another
+type.
+
+## Transaction boundary
+
+On Postgres, SQLite and SQL Server, each migration body and its ledger insert
+run in one driver-pinned transaction. If the body fails, that migration is
+rolled back and no ledger row is written. Migrations completed earlier in the
+run stay committed.
+
+MySQL DDL auto-commits. The command warns before the first pending migration;
+after a failure, the absent ledger row is honest but the schema may need manual
+repair.
+
+## Deployment ordering
+
+Run migrations in a release step before the new application version starts:
+
+```toml
 # fly.toml
 [deploy]
-  release_command = "node --experimental-strip-types scripts/migrate.ts up"
+  release_command = "npx zmdb migrate"
 ```
 
-**Not at application boot.** Two instances starting together both run the runner, and the second may apply a migration the first is midway through. If you have no release step, take a lock:
+During a rolling deploy, old code runs briefly against the new schema. Additive
+changes are the easy case. A column removal normally takes two releases: first
+stop reading it, then drop it after the old version is gone.
+
+The runner does not take a distributed lock. If two deploy processes can race,
+take the database's advisory lock around the command or ensure the platform
+runs one release task.
+
+## Library use
+
+The executable delegates to the public runner:
 
 ```ts
-await driver.execute({ text: 'SELECT pg_advisory_lock($1)', parameters: [4711] });
-try {
-  await runCli('up', conn, migrations);
-} finally {
-  await driver.execute({ text: 'SELECT pg_advisory_unlock($1)', parameters: [4711] });
-}
+import { driverMigrationConnection, up } from '@zmdb/query-compiler/migrations/runner';
+
+const connection = driverMigrationConnection(driver, 'postgres');
+await up(connection, migrations);
 ```
 
-The second instance waits instead of racing. MySQL has `GET_LOCK`; SQLite is single-writer already.
-
-## Backward compatibility for one deploy
-
-During a rolling deploy the _old_ code runs against the _new_ schema. So:
-
-- Adding a nullable column is safe.
-- Adding a `NOT NULL` column with a default is safe.
-- Dropping a column the running version still selects breaks it — deploy the code that stops selecting it first, then drop in the next release.
-- Renaming is two releases: add, backfill and dual-write, then remove.
-
-A correct migration deployed in the wrong order is the most common way to take down a service that has no bugs.
-
-## Failure
-
-The runner records a version only after the statement succeeds, so a failed migration leaves it unapplied and re-running retries it. What it does _not_ do is roll back a partially-applied multi-statement `up` unless your `MigrationConnection.exec` wraps the string in a transaction — which is worth doing:
-
-```ts
-async exec(sql) {
-  await client.query('BEGIN');
-  try { await client.query(sql); await client.query('COMMIT'); }
-  catch (e) { await client.query('ROLLBACK'); throw e; }
-}
-```
-
-> [!NOTE]
-> Postgres runs DDL transactionally, so this genuinely gives you all-or-nothing.
-> MySQL does not — DDL there is auto-committing, and a two-statement `up` can
-> leave the first applied. On MySQL, one statement per migration.
+Use the executable when migrations live on disk; use the library boundary when
+the application already owns the migration array.
 
 ---
 
-See also: [Migration Runner](./migrations-cli.html) · [up](./cli-up.html) · [Working in a Team](./migrations-teams.html)
+See also: [Migration Runner](./migrations-cli.html) · [up and upgrade](./cli-up.html) · [Working in a Team](./migrations-teams.html)
