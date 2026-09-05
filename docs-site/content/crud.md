@@ -84,7 +84,9 @@ await users.update(1, { role: 'admin' }); // ✅ Explicit update required
 Remove a row by ID. Returns `true` if a row was deleted, `false` if the ID didn't exist.
 On a table declared with `SoftDelete<'deletedAt'>`, this is a guarded `UPDATE`
 that records a Node `Date`; use `hardDelete(id)` for a deliberate physical delete
-and `restore(id)` to clear the managed timestamp.
+and `restore(id)` to clear the managed timestamp. The
+[Entity Filters](./entity-filters.html) guide covers visibility escapes, write
+filters, relation targets, and unique-index behavior.
 
 ```ts
 const deleted = await users.delete(1);
@@ -134,6 +136,7 @@ await users.create({}); // email is required
 ## Cross-links
 
 - [Repository](./repository.html) — full repository API
+- [Entity Filters](./entity-filters.html) — tenant predicates and soft delete
 - [Read DTOs](./read-dtos.html) — typed query helpers
 - [Inert Rows](./inert-rows.html) — why rows don't auto-persist
 - [Validation](./validators-is.html) — AOT validation details

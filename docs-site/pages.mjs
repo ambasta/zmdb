@@ -643,8 +643,7 @@ export const PAGE_META = {
   'entity-filters': {
     title: 'Entity Filters (soft delete)',
     group: 'Data Access',
-    status: 'todo',
-    note: 'runtime support ships; the final documentation pass remains',
+    status: 'supported',
   },
   pagination: {
     title: 'Ordering & Pagination',

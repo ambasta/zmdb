@@ -27,7 +27,7 @@
 > The current suite has **2,562 passing tests** across 223 files, plus **27
 > expected failures** that describe work still to be done. The compatibility
 > inventory covers 504 of 742 upstream API suites and explains why the other 238
-> are out of scope. The documentation site contains 244 supported pages, 19 TODO
+> are out of scope. The documentation site contains 245 supported pages, 18 TODO
 > pages, and 13 pages for features we do not plan to add.
 
 ## Quick Start
