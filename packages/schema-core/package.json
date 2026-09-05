@@ -63,13 +63,9 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@langchain/core": "^1.2.9",
     "ai": "^7.0.83"
   },
   "peerDependenciesMeta": {
-    "@langchain/core": {
-      "optional": true
-    },
     "ai": {
       "optional": true
     }

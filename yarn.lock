@@ -2204,6 +2204,7 @@ __metadata:
   resolution: "@zmdb-fixture/llm-adapters@workspace:fixtures/llm-adapters"
   dependencies:
     "@langchain/core": "npm:1.2.9"
+    "@zmdb/ai-langchain": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     ai: "npm:7.0.92"
     zod: "npm:4.5.4"
@@ -2221,6 +2222,24 @@ __metadata:
     "@anthropic-ai/sdk": 0.123.0
   peerDependenciesMeta:
     "@anthropic-ai/sdk":
+      optional: true
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/ai-langchain@workspace:^, @zmdb/ai-langchain@workspace:packages/ai-langchain":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/ai-langchain@workspace:packages/ai-langchain"
+  dependencies:
+    "@langchain/core": "npm:1.2.9"
+    "@zmdb/ai": "workspace:^"
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
+    oxfmt: "npm:0.66.0"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    "@langchain/core": ^1.2.9
+  peerDependenciesMeta:
+    "@langchain/core":
       optional: true
   languageName: unknown
   linkType: soft
@@ -2331,11 +2350,8 @@ __metadata:
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
   peerDependencies:
-    "@langchain/core": ^1.2.9
     ai: ^7.0.83
   peerDependenciesMeta:
-    "@langchain/core":
-      optional: true
     ai:
       optional: true
   languageName: unknown

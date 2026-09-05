@@ -10,11 +10,18 @@
 import { execFileSync } from 'node:child_process';
 
 const PACKAGES = [
-  '@zmdb/schema-core',
+  '@zmdb/client',
   '@zmdb/query-compiler',
+  '@zmdb/schema-core',
+  '@zmdb/ai',
+  '@zmdb/ai-anthropic',
+  '@zmdb/ai-langchain',
   '@zmdb/protobuf',
   '@zmdb/aot-validator',
   '@zmdb/repository',
+  '@zmdb/app',
+  '@zmdb/web',
+  'zmdb',
 ];
 const DRY = process.argv.includes('--dry-run');
 

@@ -25,7 +25,7 @@ into a temp directory, runs `--check` over the committed one, and then asserts t
 source still makes, that both print the same bytes, and that both compile to the same check — measuring each, since by then they are known to be the same code.
 
 `llm-adapters/` is compile-only and independent of that pair. It pins the real `@langchain/core` and `ai` packages, then checks the frozen plain-object adapter shapes against their constructors. The
-framework dependencies belong to that private consumer fixture; neither becomes a dependency or peer of `@zmdb/schema-core`.
+framework dependencies belong to that private consumer fixture. LangChain is an optional peer only of `@zmdb/ai-langchain`; neither framework reaches the provider-neutral `@zmdb/ai` manifest.
 
 `consumer-compiler/` and `consumer-migrations/` freeze the standalone package contracts selected by #626. Their manifests use versioned dependencies, their configs have no `paths` map or
 `skipLibCheck`, and #627 typechecks them against tarballs under the future package names. Those typechecks are expected failures until the extraction issues create the packages and every frozen

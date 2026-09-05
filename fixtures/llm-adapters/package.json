@@ -5,6 +5,7 @@
   "type": "module",
   "devDependencies": {
     "@langchain/core": "1.2.9",
+    "@zmdb/ai-langchain": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
     "ai": "7.0.92",
     "zod": "4.5.4"

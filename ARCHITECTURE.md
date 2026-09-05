@@ -156,15 +156,17 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
       └────────────────┘
 ```
 
-`@zmdb/client` and `@zmdb/protobuf` are independent roots. The opt-in `@zmdb/ai-anthropic` package depends inward only on `@zmdb/ai`; neither it nor the provider-neutral AI package is re-exported by
-the umbrella.
+`@zmdb/client` and `@zmdb/protobuf` are independent roots. The opt-in `@zmdb/ai-anthropic` package depends inward only on `@zmdb/ai`; the `@zmdb/ai-langchain` migration shell depends on `@zmdb/ai` and
+temporarily on schema-core. Each integration alone declares its SDK/framework peer, and neither integration nor the provider-neutral AI package is re-exported by the umbrella. The temporary
+LangChain-to-schema-core edge disappears with the coordinated AI ownership cutover in #710.
 
 **Rules enforced by this DAG:**
 
 - **query-compiler is the lower-level SQL/tooling package.** Its declaration emitter is the only framework path that requires `oxfmt`; ordinary query compilation does not invoke it.
 - **schema-core is the semantic Single Source of Truth.** It reuses lower-level compiler query, quoting, and naming utilities but must not import validator, repository, or web.
 - **AI depends on schema-core, never the reverse.** Its provider-neutral public names are migration-only forwarders until the coordinated ownership cutover.
-- **AI integrations depend inward on AI.** `@zmdb/ai-anthropic` owns the SDK-specific translation and optional peer; schema-core and provider-neutral AI do not.
+- **AI integrations depend inward on AI.** `@zmdb/ai-anthropic` owns the SDK-specific translation, while `@zmdb/ai-langchain` owns the framework adapter; their optional peers do not reach schema-core
+  or provider-neutral AI.
 - **aot-validator depends on schema-core and AI, never the reverse.** Reflection remains above the declaration vocabulary; `toolFor` compilation consumes AI's document boundary.
 - **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and currently owns the driver adapters (built-in `node:sqlite`, structurally injected `pg` and `mssql`).
 - **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, command, event, CQRS, state, health, and observability kernel.
@@ -181,6 +183,7 @@ the umbrella.
 | `@zmdb/schema-core`    | Tags, `TypeIR`, derived DTOs, relations, JSON Schema, seeding, and custom types. The old `./llm*` paths remain temporary implementation during extraction. | query-compiler                                                   |
 | `@zmdb/ai`             | Provider-neutral tool documents and dialects, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools                    | schema-core                                                      |
 | `@zmdb/ai-anthropic`   | Optional Anthropic Messages API driver over the provider-neutral chat contract                                                                             | ai; `@anthropic-ai/sdk` (optional peer)                          |
+| `@zmdb/ai-langchain`   | Optional LangChain structured-tool contract and the sole `@langchain/core` peer                                                                            | ai, schema-core temporarily; `@langchain/core` (optional peer)   |
 | `@zmdb/protobuf`       | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                             | none                                                             |
 | `@zmdb/aot-validator`  | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                                  | ai, schema-core                                                  |
 | `@zmdb/repository`     | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and current driver adapters                                      | aot-validator, query-compiler, schema-core                       |
@@ -310,11 +313,12 @@ consumer must prove the qualifying framework behaviour before the package ships.
 The complete qualification rule, cancellation/state semantics, peer ranges, export map and nine-package matrix are frozen in
 [`packages/zmdb/src/client-integrations/SPEC.md`](./packages/zmdb/src/client-integrations/SPEC.md).
 
-### 3.7 AI integration ownership migration (Issues #703, #705 and #706)
+### 3.7 AI integration ownership migration (Issues #703, #705, #706 and #707)
 
-Issue #705 publishes the provider-neutral `@zmdb/ai` boundary and moves AOT/generated consumers to it. Issue #706 moves the Anthropic driver and its SDK peer to `@zmdb/ai-anthropic`. The AI root,
-chat, HTTP, and compiler entries still forward in the permitted AI-to-schema-core direction; shared tool invocation is physically owned by AI. The old six `./llm*` exports and the LangChain and Vercel
-peers remain until the integration/MCP ownership cutover.
+Issue #705 publishes the provider-neutral `@zmdb/ai` boundary and moves AOT/generated consumers to it. Issue #706 moves the Anthropic driver and its SDK peer to `@zmdb/ai-anthropic`; issue #707
+publishes `@zmdb/ai-langchain`, moves the real LangChain contract tests and consumer import to it, and relocates the `@langchain/core@^1.2.9` peer. The AI root, chat, HTTP, and compiler entries still
+forward in the permitted AI-to-schema-core direction, shared tool invocation is physically owned by AI, and only the Vercel AI SDK peer remains in schema-core until the integration/MCP ownership
+cutover.
 
 Provider-neutral schema-derived tool documents, parsing, bounded chat orchestration, shared invocation and OpenAPI-derived tools move to `@zmdb/ai`. Anthropic SDK translation, LangChain framing and
 Vercel AI SDK framing each move to one opt-in integration package. The pure MCP client/server moves to `@zmdb/mcp`.
@@ -661,5 +665,5 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the ten implementation-package reality (including `@zmdb/client`, `@zmdb/ai`, `@zmdb/ai-anthropic`, `@zmdb/protobuf`, `@zmdb/app`, and
-`@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+the north-star-driven language policy in §4 here, and it records the eleven implementation-package reality (including `@zmdb/client`, `@zmdb/ai`, both opt-in AI integrations, `@zmdb/protobuf`,
+`@zmdb/app`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

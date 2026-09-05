@@ -18,6 +18,7 @@ export const PACKAGES = [
   'schema-core',
   'ai',
   'ai-anthropic',
+  'ai-langchain',
   'protobuf',
   'aot-validator',
   'repository',

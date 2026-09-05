@@ -1,10 +1,10 @@
 # @zmdb/ai — ownership, dependency and entry-point specification
 
-> **Status:** target-state specification frozen by issue #703 and epic #702, with green migration stages implemented by #705 and #706. `@zmdb/ai` is publishable and independently importable; its root,
-> chat, HTTP, and compiler entries remain migration-only AI-to-schema-core forwarders, while the merged tool runtime and the separate Anthropic integration are physically owned by their target
-> packages. The remaining integration and MCP moves precede the final provider-neutral ownership cutover required by §8.
+> **Status:** target-state specification frozen by issue #703 and epic #702, with green migration stages implemented by #705, #706, and #707. `@zmdb/ai` is publishable and independently importable;
+> its root, chat, HTTP, and compiler entries remain migration-only AI-to-schema-core forwarders, while the merged tool runtime, Anthropic integration, and LangChain integration shell are owned by
+> their target packages. The remaining integration and MCP moves precede the final provider-neutral ownership cutover required by §8.
 
-### Current migration state after #706
+### Current migration state after #707
 
 - `@zmdb/ai`, `/chat`, `/compiler`, `/http`, and `/tool-runtime` are explicit package exports.
 - The package has one runtime dependency, `@zmdb/schema-core`, and no external dependency or peer.
@@ -12,7 +12,8 @@
 - Provider-neutral runtime and type tests execute from `packages/ai/src`.
 - AOT `toolFor` imports and generated OpenAPI modules name the new package.
 - Schema-core does not import or forward to AI; its old implementation remains the temporary source behind the permitted new-to-old forwarders.
-- Measured in the #706 worktree, the temporary `packages/schema-core/src/llm` tree contains 20 files and its manifest retains only the LangChain and Vercel AI SDK peers.
+- `@zmdb/ai-langchain` publishes one root, owns the optional `@langchain/core@^1.2.9` peer, and is exercised by the real-package fixture. Its temporary schema-core dependency is removed by #710.
+- Measured after #707, `packages/ai/src` contains 16 files, the temporary `packages/schema-core/src/llm` tree contains 19, and schema-core retains only the Vercel AI SDK peer.
 
 ## 1. Measured starting point
 
@@ -181,12 +182,13 @@ The external peer table is final:
 | Package              | Sole external peer  | Final peer range | Optional | Versions the consumer tests must install                             |
 | -------------------- | ------------------- | ---------------- | -------- | -------------------------------------------------------------------- |
 | `@zmdb/ai-anthropic` | `@anthropic-ai/sdk` | `0.123.0`        | yes      | `0.123.0`                                                            |
-| `@zmdb/ai-langchain` | `@langchain/core`   | `^1.2.9`         | no       | lower bound and current measured version, both presently `1.2.9`     |
+| `@zmdb/ai-langchain` | `@langchain/core`   | `^1.2.9`         | yes      | lower bound and current measured version, both presently `1.2.9`     |
 | `@zmdb/ai-vercel`    | `ai`                | `^7.0.83`        | no       | lower bound `7.0.83` and current measured installed version `7.0.92` |
 
 Issue #706 makes the Anthropic peer optional because the shipped implementation imports only SDK types and accepts a structural client; real-SDK conformance is compiled through the matching
-development dependency. The LangChain and Vercel rows remain required-peer targets until their implementation issues measure and, if necessary, amend those contracts. Exact tested versions are
-development/fixture dependencies, never runtime dependencies.
+development dependency. Issue #707 likewise makes the LangChain peer optional because the structural adapter imports no LangChain runtime; the real-package fixture proves compatibility at `1.2.9`. The
+Vercel row remains a required-peer target until its implementation issue measures and, if necessary, amends that contract. Exact tested versions are development/fixture dependencies, never runtime
+dependencies.
 
 A claimed peer range ships only after packed-consumer tests pass at both its lower bound and the repository's current pinned version. If the Vercel lower-bound fixture cannot pass, the manifest
 narrows to `^7.0.92`; the docs may not call `7.0.83` supported based only on the old declaration.
@@ -228,8 +230,8 @@ Backward compatibility is not a final requirement, but intermediate commits must
    behavior remains owned by the old source and each intermediate revision stays green.
 3. **Perform the remaining ownership cutover.** Move the remaining files according to §4, finish the provider-neutral implementation, split the LangChain and Vercel integrations, move MCP, relocate
    the remaining peers, regenerate the OpenAPI-tool fixture and remove every `@zmdb/schema-core` forwarding dependency that the new packages no longer need.
-4. **Delete the old owner in the same cutover.** Remove all six `./llm*` exports, the remaining two provider peers and `packages/schema-core/src/llm/`. Do not replace them with schema-core-to-AI
-   forwarding: that would create `schema-core <-> ai`.
+4. **Delete the old owner in the same cutover.** Remove all six `./llm*` exports, the remaining Vercel peer and `packages/schema-core/src/llm/`. Do not replace them with schema-core-to-AI forwarding:
+   that would create `schema-core <-> ai`.
 5. **Delete every temporary forwarder.** Each new export must resolve to source physically owned by its package. A forwarding module is a migration device, not deprecated API.
 
 The final repository must satisfy all of these searches:

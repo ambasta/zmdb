@@ -1,5 +1,5 @@
-> **Tool integration only.** Install `@langchain/core` in the application. `@zmdb/schema-core/llm/langchain` is tested against `1.2.9` and declares the optional peer range `^1.2.9`. Retrievers, vector
-> stores and chat-memory backends remain application code.
+> **Tool integration only.** Install `@zmdb/ai`, `@zmdb/ai-langchain` and `@langchain/core@^1.2.9` in the application. The integration package is tested against `1.2.9` and declares the optional peer
+> range `^1.2.9`. Retrievers, vector stores and chat-memory backends remain application code.
 
 ## Know the boundary
 
@@ -7,7 +7,7 @@
 - A plain `json` column is still `{}` and constrains nothing. The required `validate` function closes that gap before `execute`.
 - LangChain may reject a shape against the JSON Schema before `func` runs. If input reaches the adapter and validation fails, the adapter returns value-free error text to the model. Handler and
   infrastructure errors still throw.
-- The shipped adapter graph imports neither LangChain nor a runtime schema library. The peer is loaded only by the application importing it.
+- The shipped adapter graph imports neither LangChain nor a runtime schema library. The optional peer is loaded only by the application importing it.
 
 ## Tools from schema objects
 
@@ -15,9 +15,9 @@
 
 ```ts
 import { DynamicStructuredTool } from '@langchain/core/tools';
+import { langchainTool } from '@zmdb/ai-langchain';
 import { assert } from '@zmdb/aot-validator/utilities';
 import { schemaOf, type CreateDTO } from '@zmdb/schema-core';
-import { langchainTool } from '@zmdb/schema-core/llm/langchain';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 interface User extends Table<'users'> {

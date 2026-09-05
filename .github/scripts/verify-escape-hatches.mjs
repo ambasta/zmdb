@@ -107,6 +107,7 @@ const PACKAGES = [
   'schema-core',
   'ai',
   'ai-anthropic',
+  'ai-langchain',
   'aot-validator',
   'protobuf',
   'repository',

@@ -51,6 +51,7 @@ const PEERS = [
   '@types/node',
   '@types/pg',
   '@anthropic-ai/sdk',
+  '@langchain/core',
   '@grpc/grpc-js',
   '@opentelemetry/api',
   'metro',

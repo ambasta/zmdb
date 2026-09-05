@@ -1,0 +1,63 @@
+{
+  "name": "@zmdb/ai-langchain",
+  "version": "1.0.0-alpha.4",
+  "description": "Optional LangChain structured-tool adapter for provider-neutral zmdb AI tool documents.",
+  "keywords": [
+    "ai",
+    "json-schema",
+    "langchain",
+    "llm",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/ai-langchain"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/ai": "workspace:^",
+    "@zmdb/schema-core": "workspace:^"
+  },
+  "devDependencies": {
+    "@langchain/core": "1.2.9",
+    "@zmdb/aot-validator": "workspace:^",
+    "oxfmt": "0.66.0",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@langchain/core": "^1.2.9"
+  },
+  "peerDependenciesMeta": {
+    "@langchain/core": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

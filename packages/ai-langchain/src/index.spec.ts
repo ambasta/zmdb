@@ -2,15 +2,14 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { toolFromSchema } from '@zmdb/ai';
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { ValidationError } from '@zmdb/schema-core';
+import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ValidationError } from '../../index.js';
-import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '../../tags/index.js';
-import { toolFromSchema } from '../index.js';
-import { langchainTool, type LangChainToolFields } from './langchain.js';
-
-// Implementation suite for packages/ai-langchain/SPEC.md (#528, epic #524).
+import { langchainTool, type LangChainToolFields } from './index.js';
 
 interface Money {
   readonly cents: number;
@@ -53,12 +52,12 @@ const decodePayment = (value: unknown): PaymentInput => {
   return { amount: { cents: Math.round(Number(amount) * 100) }, memo };
 };
 
-const invokeStubbedModel = (fields: LangChainToolFields, args: unknown): Promise<string> => fields.func(args);
+const invokeAdapter = (fields: LangChainToolFields, args: unknown): Promise<string> => fields.func(args);
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const ADAPTER_ENTRIES = [
-  join(ROOT, 'packages/schema-core/src/llm/adapters/langchain.ts'),
-  join(ROOT, 'packages/schema-core/src/llm/adapters/ai-sdk.ts'),
+  join(ROOT, 'packages/ai-langchain/src/index.ts'),
+  join(ROOT, 'packages/ai/src/tool-runtime.ts'),
 ];
 
 const resolveSource = (from: string, specifier: string): string | undefined => {
@@ -109,28 +108,33 @@ const externalImportsFrom = (entry: string): ReadonlySet<string> => {
   return external;
 };
 
-const dependencyNames = (manifest: unknown, field: string): readonly string[] => {
+const readManifest = (name: string): unknown =>
+  JSON.parse(readFileSync(join(ROOT, 'packages', name, 'package.json'), 'utf8'));
+
+const manifestField = (manifest: unknown, field: string): Readonly<Record<string, unknown>> => {
   const value: unknown = Reflect.get(Object(manifest), field);
-  return value !== null && typeof value === 'object' ? Object.keys(value) : [];
+  return value !== null && typeof value === 'object' ? Object(value) : {};
 };
 
-describe('LangChain tool adapter (#528)', () => {
+describe('@zmdb/ai-langchain', () => {
   it('validates model arguments before the handler runs', async () => {
     const order: string[] = [];
     const handler = vi.fn((_input: PaymentInput): string => {
       order.push('handler');
       return 'created';
     });
-    const tool = langchainTool('create_payment', PaymentSchema, {
-      description: 'Create a payment',
-      validate(value) {
-        order.push('validate');
-        return decodePayment(value);
-      },
-      execute: handler,
-    });
+    const tool = new DynamicStructuredTool(
+      langchainTool('create_payment', PaymentSchema, {
+        description: 'Create a payment',
+        validate(value) {
+          order.push('validate');
+          return decodePayment(value);
+        },
+        execute: handler,
+      }),
+    );
 
-    const content = await invokeStubbedModel(tool, { amount: 42, memo: 'invoice' });
+    const content = await tool.invoke({ amount: 'not-money', memo: 'invoice' });
 
     expect(order).toStrictEqual(['validate']);
     expect(handler).not.toHaveBeenCalled();
@@ -145,7 +149,7 @@ describe('LangChain tool adapter (#528)', () => {
       execute: handler,
     });
 
-    const content = await invokeStubbedModel(tool, {
+    const content = await invokeAdapter(tool, {
       amount: 'ORCHID-991403',
       memo: 'invoice',
     });
@@ -155,32 +159,6 @@ describe('LangChain tool adapter (#528)', () => {
     expect(content).not.toContain('ORCHID-991403');
     expect(content.toLowerCase()).not.toContain('orchid');
     expect(handler).not.toHaveBeenCalled();
-  });
-
-  it('returns a non-string handler result as JSON text', async () => {
-    const tool = langchainTool('create_payment', PaymentSchema, {
-      description: 'Create a payment',
-      validate: decodePayment,
-      execute: input => ({ cents: input.amount.cents, memo: input.memo }),
-    });
-
-    await expect(invokeStubbedModel(tool, { amount: '19.99', memo: 'invoice' })).resolves.toBe(
-      '{"cents":1999,"memo":"invoice"}',
-    );
-  });
-
-  it('rethrows a non-validation handler error unchanged', async () => {
-    class RepositoryFailure extends Error {}
-    const failure = new RepositoryFailure('database unavailable');
-    const tool = langchainTool('create_payment', PaymentSchema, {
-      description: 'Create a payment',
-      validate: decodePayment,
-      execute() {
-        throw failure;
-      },
-    });
-
-    await expect(invokeStubbedModel(tool, { amount: '19.99', memo: 'invoice' })).rejects.toBe(failure);
   });
 
   it('uses the byte-identical json-schema document without a second producer', () => {
@@ -207,23 +185,67 @@ describe('LangChain tool adapter (#528)', () => {
       'joi',
       '@sinclair/typebox',
     ]) {
-      expect(imported.has(forbidden), `${forbidden} is reachable from the shipped llm entry`).toBe(false);
+      expect(imported.has(forbidden), `${forbidden} is reachable from the shipped adapter`).toBe(false);
     }
   });
 
-  it('keeps framework packages optional and out of schema-core dependencies', () => {
-    const manifest: unknown = JSON.parse(readFileSync(join(ROOT, 'packages/schema-core/package.json'), 'utf8'));
-    const dependencies = new Set(dependencyNames(manifest, 'dependencies'));
-    const peers: unknown = Reflect.get(Object(manifest), 'peerDependencies');
-    const peerMeta: unknown = Reflect.get(Object(manifest), 'peerDependenciesMeta');
+  it('real DynamicStructuredTool construction accepts the returned fields', async () => {
+    const fields = langchainTool('create_payment', PaymentSchema, {
+      description: 'Create a payment',
+      validate: decodePayment,
+      execute: input => ({ cents: input.amount.cents, memo: input.memo }),
+    });
+    const tool = new DynamicStructuredTool(fields);
 
-    expect(dependencies.has('@langchain/core')).toBe(false);
-    expect(dependencies.has('ai')).toBe(false);
-    expect(dependencies.has('zod')).toBe(false);
-    expect(dependencies.has('json-schema-to-zod')).toBe(false);
-    expect(Reflect.get(Object(peers), '@langchain/core')).toBe('^1.2.9');
-    expect(Reflect.get(Object(peers), 'ai')).toBe('^7.0.83');
-    expect(Reflect.get(Object(Reflect.get(Object(peerMeta), '@langchain/core')), 'optional')).toBe(true);
-    expect(Reflect.get(Object(Reflect.get(Object(peerMeta), 'ai')), 'optional')).toBe(true);
+    expect(tool.name).toBe('create_payment');
+    expect(tool.schema).toBe(fields.schema);
+    await expect(tool.invoke({ amount: '19.99', memo: 'invoice' })).resolves.toBe('{"cents":1999,"memo":"invoice"}');
+  });
+
+  it('returns a non-string handler result as JSON text exactly once', async () => {
+    const tool = langchainTool('create_payment', PaymentSchema, {
+      description: 'Create a payment',
+      validate: decodePayment,
+      execute: input => ({ nested: JSON.stringify({ cents: input.amount.cents }) }),
+    });
+
+    await expect(invokeAdapter(tool, { amount: '19.99', memo: 'invoice' })).resolves.toBe(
+      '{"nested":"{\\"cents\\":1999}"}',
+    );
+  });
+
+  it('rethrows a non-validation handler error unchanged', async () => {
+    class RepositoryFailure extends Error {}
+    const failure = new RepositoryFailure('database unavailable');
+    const tool = langchainTool('create_payment', PaymentSchema, {
+      description: 'Create a payment',
+      validate: decodePayment,
+      execute() {
+        throw failure;
+      },
+    });
+
+    await expect(invokeAdapter(tool, { amount: '19.99', memo: 'invoice' })).rejects.toBe(failure);
+  });
+
+  it('moves the LangChain peer out of schema-core and AI core manifests', () => {
+    const schemaCore = readManifest('schema-core');
+    const ai = readManifest('ai');
+    const integration = readManifest('ai-langchain');
+
+    for (const manifest of [schemaCore, ai]) {
+      expect(manifestField(manifest, 'dependencies')).not.toHaveProperty('@langchain/core');
+      expect(manifestField(manifest, 'peerDependencies')).not.toHaveProperty('@langchain/core');
+      expect(manifestField(manifest, 'peerDependenciesMeta')).not.toHaveProperty('@langchain/core');
+    }
+
+    expect(manifestField(integration, 'dependencies')).toEqual({
+      '@zmdb/ai': 'workspace:^',
+      '@zmdb/schema-core': 'workspace:^',
+    });
+    expect(manifestField(integration, 'peerDependencies')).toEqual({ '@langchain/core': '^1.2.9' });
+    expect(manifestField(integration, 'devDependencies')).toMatchObject({ '@langchain/core': '1.2.9' });
+    expect(manifestField(integration, 'dependencies')).not.toHaveProperty('zod');
+    expect(manifestField(integration, 'peerDependencies')).not.toHaveProperty('zod');
   });
 });

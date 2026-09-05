@@ -132,8 +132,8 @@ and plausible.
 ## 6. Target ownership boundary: schema, not AI
 
 Issue #703 freezes the target boundary for epic #702. This section describes the final package graph. At baseline commit `94164c53` on 2026-09-05, `packages/schema-core/src/llm/` contained 32 files.
-After #705 moves the provider-neutral specifications and tests and #706 moves the Anthropic driver, 20 temporary implementation/integration/MCP files remain. The manifest still publishes six `./llm*`
-compatibility entries and declares the LangChain and Vercel AI SDK peers; the Anthropic peer is now owned only by `@zmdb/ai-anthropic`.
+After #705 moves the provider-neutral specifications and tests, #706 moves the Anthropic driver, and #707 moves the LangChain contract tests, 19 temporary implementation/integration/MCP files remain.
+The manifest still publishes six `./llm*` compatibility entries and declares only the Vercel AI SDK peer; the Anthropic and LangChain peers are now owned only by their integration packages.
 
 The final `@zmdb/schema-core` package owns only the declaration vocabulary and provider-neutral schema products:
 
@@ -152,7 +152,7 @@ It explicitly does **not** own:
 
 The dependency direction is one-way: `@zmdb/ai` depends on `@zmdb/schema-core`. Therefore a compatibility layer in this package must never re-export from `@zmdb/ai`; that would make the packages
 depend on each other. During migration, the remaining new packages may temporarily forward to the old `@zmdb/schema-core/llm*` paths. The final ownership cutover removes those forwarders, this
-package's six LLM exports, the remaining two provider peers and the whole `src/llm/` directory in the same green revision.
+package's six LLM exports, the remaining provider peer and the whole `src/llm/` directory in the same green revision.
 
 The complete file map, public entry points, peer ranges and migration order are frozen in [`../ai/SPEC.md`](../ai/SPEC.md). The final boundary is mechanically true only when packed-package tests show
 that every remaining `@zmdb/schema-core` export imports without an AI/provider dependency and a repository search finds no `@zmdb/schema-core/llm` consumer.

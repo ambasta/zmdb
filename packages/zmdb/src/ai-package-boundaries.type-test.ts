@@ -14,6 +14,11 @@ import type {
 } from '@zmdb/ai';
 import type { anthropicDriver, AnthropicDriverOptions, AnthropicMessagesClient } from '@zmdb/ai-anthropic';
 import type {
+  langchainTool,
+  LangChainToolFields,
+  ToolAdapterOptions as LangChainToolAdapterOptions,
+} from '@zmdb/ai-langchain';
+import type {
   defineTools,
   ChatDriver,
   ChatMessage,
@@ -53,11 +58,6 @@ import type {
   AiSdkToolOptions,
   ToolAdapterOptions as AiSdkToolAdapterOptions,
 } from '@zmdb/schema-core/llm/ai-sdk';
-import type {
-  langchainTool,
-  LangChainToolFields,
-  ToolAdapterOptions as LangChainToolAdapterOptions,
-} from '@zmdb/schema-core/llm/langchain';
 import type {
   createMcpClient,
   createMcpServer,
