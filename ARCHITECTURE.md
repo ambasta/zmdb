@@ -286,6 +286,37 @@ consumer must prove the qualifying framework behaviour before the package ships.
 The complete qualification rule, cancellation/state semantics, peer ranges, export map and nine-package matrix are frozen in
 [`packages/zmdb/src/client-integrations/SPEC.md`](./packages/zmdb/src/client-integrations/SPEC.md).
 
+### 3.7 Frozen AI integration ownership target (Issue #703)
+
+This is a target-state architecture, not a claim about the current tree. The measured starting point still has 32 LLM files, six `./llm*` exports and all three provider/framework peers inside
+`@zmdb/schema-core`.
+
+Provider-neutral schema-derived tool documents, parsing, bounded chat orchestration, shared invocation and OpenAPI-derived tools move to `@zmdb/ai`. Anthropic SDK translation, LangChain framing and
+Vercel AI SDK framing each move to one opt-in integration package. The pure MCP client/server moves to `@zmdb/mcp`.
+
+```text
+@zmdb/ai-anthropic ──┐
+@zmdb/ai-langchain ──┼──> @zmdb/ai ──> @zmdb/schema-core
+@zmdb/ai-vercel ─────┤         ▲
+@zmdb/mcp ───────────┘         │
+                               │
+@zmdb/aot-validator ───────────┘
+         └────────────────────> @zmdb/schema-core
+```
+
+Arrows point from consumer to direct dependency. `@zmdb/schema-core` has no reverse AI edge, no LLM export and no provider peer in the final graph. Integration SDKs are required peers of only their
+own opt-in package; installing the provider-neutral packages does not install or resolve them. `@zmdb/mcp` uses platform APIs and depends only on `@zmdb/ai`.
+
+`toolFor<T>()` remains an AOT callee, but its declared source and generated witness imports become `@zmdb/ai`; the emitter consumes the shared document producer through `@zmdb/ai/compiler`. Generated
+OpenAPI-tool modules import `OpenApiGeneratedTool` from `@zmdb/ai/http`.
+
+The migration cannot preserve the old path by making schema-core forward to AI, because AI already depends on schema-core. New packages temporarily forward to the old implementation; after consumers
+move, one ownership cutover removes every forwarder, the six old exports, the three old peers and the whole `packages/schema-core/src/llm/` directory.
+
+The exact 32-file ownership map, public exports, peer matrix, publish order and final-removal checks are frozen in [`packages/ai/SPEC.md`](./packages/ai/SPEC.md). Package-specific boundaries are in
+[`packages/ai-anthropic/SPEC.md`](./packages/ai-anthropic/SPEC.md), [`packages/ai-langchain/SPEC.md`](./packages/ai-langchain/SPEC.md), [`packages/ai-vercel/SPEC.md`](./packages/ai-vercel/SPEC.md) and
+[`packages/mcp/SPEC.md`](./packages/mcp/SPEC.md).
+
 ---
 
 ## 4. Implementation-language policy

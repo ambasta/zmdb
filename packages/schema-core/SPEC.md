@@ -128,3 +128,30 @@ and plausible.
 
 - No runtime reflection, no proxies, no decorators-required API.
 - No mutation of column objects after creation (immutability enforced by `Object.freeze`).
+
+## 6. Target ownership boundary: schema, not AI
+
+Issue #703 freezes the target boundary for epic #702. This section describes the final package graph; it is not a claim about the tree before the implementation issues land. On 2026-09-05,
+`packages/schema-core/src/llm/` still contains 32 files, `packages/schema-core/package.json` still publishes six `./llm*` entries, and the package still declares three provider/framework peers.
+
+The final `@zmdb/schema-core` package owns only the declaration vocabulary and provider-neutral schema products:
+
+- tags, schema values, IR and type derivation;
+- DTO, naming, relation and custom-type contracts;
+- the JSON Schema and OpenAPI document types derived from schema IR; and
+- validation issue shapes used by higher layers without importing a validation engine.
+
+It explicitly does **not** own:
+
+- an `src/llm/` directory or any provider, chat, tool-runtime or MCP implementation;
+- an `./llm`, `./llm/chat`, `./llm/http`, `./llm/mcp`, `./llm/langchain` or `./llm/ai-sdk` export;
+- `toolFor`, `toolFromSchema`, `lenientParse`, chat-loop, OpenAPI-tool or MCP public symbols;
+- a peer or development dependency on `@anthropic-ai/sdk`, `@langchain/core`, `ai` or an MCP SDK; or
+- a dependency on `@zmdb/ai`, any `@zmdb/ai-*` integration package or `@zmdb/mcp`.
+
+The dependency direction is one-way: `@zmdb/ai` depends on `@zmdb/schema-core`. Therefore a compatibility layer in this package must never re-export from `@zmdb/ai`; that would make the packages
+depend on each other. During migration, the new packages may temporarily forward to the old `@zmdb/schema-core/llm*` paths. The final ownership cutover removes those forwarders, this package's six LLM
+exports, all three provider peers and the whole `src/llm/` directory in the same green revision.
+
+The complete file map, public entry points, peer ranges and migration order are frozen in [`../ai/SPEC.md`](../ai/SPEC.md). The final boundary is mechanically true only when packed-package tests show
+that every remaining `@zmdb/schema-core` export imports without an AI/provider dependency and a repository search finds no `@zmdb/schema-core/llm` consumer.
