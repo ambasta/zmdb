@@ -53,7 +53,7 @@ function createFixture(): string {
   const fixture = mkdtempSync(join(tmpdir(), 'zmdb-docs-generated-'));
   cpSync(join(ROOT, 'docs-site'), join(fixture, 'docs-site'), { recursive: true });
 
-  for (const directory of ['benchmarks', 'packages', 'scripts', 'node_modules']) {
+  for (const directory of ['.github', 'benchmarks', 'fixtures', 'packages', 'scripts', 'node_modules']) {
     symlinkSync(join(ROOT, directory), join(fixture, directory), 'dir');
   }
   for (const file of ['package.json', 'yarn.lock', 'tsconfig.json', '.yarnrc.yml']) {
@@ -159,10 +159,7 @@ function materializePackageManifests(fixture: string): void {
 }
 
 describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
-  // Measured today: #618 has added the package-reference marker and TODO prose, but
-  // build.mjs still has no product-catalog generator. The fixture replaces the
-  // marker body with a sentinel; the real build leaves it unchanged.
-  it.fails('generates package names, versions, exports, peers and engines from manifests', () => {
+  it('generates package names, versions, exports, peers and engines from manifests', () => {
     withFixture(fixture => {
       const target = join(fixture, PACKAGE_REFERENCE);
       writeFileSync(target, markerDocument(PACKAGE_MARKER));
@@ -194,15 +191,14 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
         }
       }
 
-      const positions = manifests.map(manifest => generated.indexOf(manifest.name));
+      const positions = manifests.map(manifest => generated.indexOf(`| ${manifest.name}`));
+      expect(positions.every(position => position >= 0)).toBe(true);
       expect(positions).toEqual([...positions].toSorted((left, right) => left - right));
       expect(generated).toMatch(/\bnpm (?:install|add)\b/);
     });
   });
 
-  // Measured today: framework-integrations.md is authored prose with no marker,
-  // integrations.mjs does not exist, and no row names repository evidence.
-  it.fails('generates every integration row from evidence-bearing data', () => {
+  it('generates every integration row from evidence-bearing data', () => {
     withFixture(fixture => {
       const target = join(fixture, FRAMEWORK_INTEGRATIONS);
       writeFileSync(target, markerDocument(INTEGRATION_MARKER));
@@ -218,7 +214,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('leaves generated content byte-identical on a second run', () => {
+  it('leaves generated content byte-identical on a second run', () => {
     withFixture(fixture => {
       const packageReference = join(fixture, PACKAGE_REFERENCE);
       const integrations = join(fixture, FRAMEWORK_INTEGRATIONS);
@@ -242,9 +238,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  // The four fixtures are all accepted today because the verification command does
-  // not exist. Each must become a marker error at the production check boundary.
-  it.fails('rejects missing, duplicated, nested and reversed generated markers', () => {
+  it('rejects missing, duplicated, nested and reversed generated markers', () => {
     const cases = [
       ['missing close', `<!-- generated: ${INTEGRATION_MARKER} -->\nstale\n`],
       ['duplicated pair', `${markerDocument(INTEGRATION_MARKER)}\n${markerDocument(INTEGRATION_MARKER)}`],
@@ -282,7 +276,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     expect(problems).toEqual([]);
   });
 
-  it.fails('checks generated content without modifying the working tree', () => {
+  it('checks generated content without modifying the working tree', () => {
     withFixture(fixture => {
       const packageReference = join(fixture, PACKAGE_REFERENCE);
       const integrations = join(fixture, FRAMEWORK_INTEGRATIONS);
@@ -299,7 +293,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('rejects stale, unregistered and manifest-mismatched catalog ownership', () => {
+  it('rejects stale, unregistered and manifest-mismatched catalog ownership', () => {
     const cases = [
       {
         label: 'stale row',
@@ -350,7 +344,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     expect(problems).toEqual([]);
   });
 
-  it.fails('validates integration status, package, peer, docs and evidence ownership', async () => {
+  it('validates integration status, package, peer, docs and evidence ownership', async () => {
     const modulePath = join(ROOT, 'docs-site', 'integrations.mjs');
     const module = (await import(`${pathToFileURL(modulePath).href}?freeze=714`)) as object;
     const records = integrationRecords(module);

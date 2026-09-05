@@ -11,12 +11,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { benchmarkHighlights, buildBenchmarksPage } from './benchmarks.mjs';
+import { generateDocumentation } from './generated.mjs';
 import { highlight } from './highlight.mjs';
-import { NAV, PAGES } from './manifest.mjs';
 import { generateOpenApiSpec } from './openapi-spec.mjs';
 import { PALETTE_HTML, SHELL_CSS, THEME_BOOT, searchIndexScript, shellJs, topbarHtml } from './shell.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
+generateDocumentation(join(here, '..'));
+const { NAV, PAGES } = await import('./manifest.mjs');
 const OUT = join(here, '..', 'site');
 const DASH = join(here, '..', 'benchmarks', 'site'); // existing benchmarks dashboard
 

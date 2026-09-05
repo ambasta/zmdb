@@ -173,6 +173,9 @@ jobs:
       - name: Verify competitor docs coverage
         run: yarn verify:docs-coverage
 
+      - name: Verify generated package and integration docs
+        run: yarn verify:docs-generated
+
       - name: Build docs site
         run: yarn build:docs
 

@@ -34,7 +34,7 @@ let site = '';
 function createFixture(): string {
   const root = mkdtempSync(join(tmpdir(), 'zmdb-docs-redirects-'));
   cpSync(join(ROOT, 'docs-site'), join(root, 'docs-site'), { recursive: true });
-  for (const directory of ['benchmarks', 'packages', 'scripts', 'node_modules']) {
+  for (const directory of ['benchmarks', 'fixtures', 'packages', 'scripts', 'node_modules']) {
     symlinkSync(join(ROOT, directory), join(root, directory), 'dir');
   }
   for (const file of ['package.json', 'yarn.lock', 'tsconfig.json', '.yarnrc.yml']) {

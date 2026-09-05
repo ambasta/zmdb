@@ -39,6 +39,7 @@
     "verify:database-boundaries": "node .github/scripts/verify-database-boundaries.mjs && node .github/scripts/verify-database-boundaries.mjs --self-test",
     "verify:devtools-boundary": "node .github/scripts/verify-devtools-boundary.mjs",
     "verify:docs-coverage": "node .github/scripts/verify-docs-coverage.mjs",
+    "verify:docs-generated": "node .github/scripts/verify-docs-generated.mjs",
     "verify:escape-hatches": "node .github/scripts/verify-escape-hatches.mjs",
     "verify:exports": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-exports.mjs",
     "verify:fixtures": "node --import ./scripts/ts-specifier-hook.mjs packages/aot-validator/src/cli/bin.ts --project fixtures/consumer-cli/tsconfig.json --check && vitest run packages/aot-validator/src/cli/consumer-fixtures.spec.ts packages/aot-validator/src/plugin/metro.spec.ts && node fixtures/consumer-mcp/verify-installed.mjs",

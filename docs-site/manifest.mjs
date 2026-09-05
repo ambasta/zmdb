@@ -6,6 +6,9 @@
 // Splitting metadata from prose is what makes a manual this size reviewable: a
 // nav change is a diff in pages.mjs, a wording change is a diff in one .md file,
 // and neither can silently move the other.
+// build.mjs materializes catalog and integration marker regions through
+// generated.mjs before this module reads page content; direct manifest imports
+// remain read-only.
 //
 //   status:'supported' → the API is real (see the package SPECs / COOKBOOK)
 //   status:'todo'      → a legitimate capability that is not built yet. This is
