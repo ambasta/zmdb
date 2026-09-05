@@ -220,7 +220,7 @@ function isRecordObject(value: unknown): value is Record<string, unknown> {
  */
 export function sanitizeExpression(
   rawExpr: string,
-  dialect: Dialect = 'postgres',
+  dialect: DialectTarget = 'postgres',
   params?: readonly unknown[] | Record<string, unknown>,
   startingParamIndex: number = 0,
 ): SanitizedExpression {
