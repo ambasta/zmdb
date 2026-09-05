@@ -556,11 +556,9 @@ function sample(node: TypeIR, path: string): unknown {
       // terminates on `null`. A union of nothing but refs cannot terminate at all.
       const usable = node.members.filter(member => member.kind !== 'ref');
       if (usable.length === 0) throw refusal(path, 'a union of nothing but back-references cannot be sampled');
-      // boundary: `usable` is non-empty — the line above throws otherwise — and the index is
-      // drawn from `0 … length - 1`, so both reads are in bounds. The `??` is there for the
-      // same reason the cast is: `noUncheckedIndexedAccess` types an in-bounds read as
-      // possibly `undefined`, and there is no run of this branch that produces one.
+      // boundary: usable[0] is guaranteed non-empty and is a valid TypeIR member
       const chosen = usable[randomInt(0, usable.length - 1)] ?? usable[0];
+      // boundary: chosen is non-undefined TypeIR
       return sample(chosen as TypeIR, path);
     }
     case 'ref':

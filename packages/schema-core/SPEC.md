@@ -13,7 +13,7 @@ derivations read off it.
 ```ts
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'varchar'> & Length<255> & Unique;
+  email: string & Sql<'text'>;
 }
 
 const users = defineRepository(schemaOf<User>(), driver);
@@ -32,16 +32,7 @@ divergence is silent. `git log` has the surface if you need it; the codemod at `
 ```ts
 interface ColumnMeta {
   readonly type: SqlType | ExtensionType;
-  readonly flags: {
-    readonly nullable: boolean; // required: every column is one or the other
-    readonly primaryKey?: boolean;
-    readonly unique?: boolean;
-    readonly autoIncrement?: boolean;
-    readonly hasDefault?: boolean;
-    readonly length?: number; // varchar only
-    readonly enum?: readonly string[]; // jsonEnum only
-    readonly sensitive?: boolean;
-  };
+  readonly flags: ColumnFlags;
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
@@ -73,10 +64,9 @@ interface CoreSchema<T extends string = string> {
 `schemaOf<T>()` is the only way to get one. It has no runtime implementation and cannot have one — the answer is a function of a type argument — so `@zmdb/aot-validator` replaces the call with a
 frozen literal at build time, and an untransformed build throws a message saying exactly that rather than returning a plausible empty schema.
 
-`ir` is required, and that is the whole design. `columns` is the lossy SQL-facing projection §2 describes: its keys, `table`, `primaryKey` and local reference columns are physical identifiers. `ir` is
-the complete declaration-facing form and carries both declared and physical names. SQL back-ends read the physical projection; validators, derived documents and DTOs read declared names from the IR.
-`schemaFromIR(schema.ir)` reproduces `schema` exactly (asserted in `src/ir/ir.spec.ts`). A `CoreSchema` that had to reconstruct the IR from its own columns is what the deleted `irFromSchema` did, and
-it guessed a default for each of the five facts §2 lists.
+`ir` is required, and that is the whole design. `columns` is the lossy projection §2 describes; `ir` is the complete one. Every back-end reads the IR — DDL, validator, JSON Schema, seeder — so they
+cannot disagree about a column, and `schemaFromIR(schema.ir)` reproduces `schema` exactly (asserted in `src/ir/ir.spec.ts`). A `CoreSchema` that had to reconstruct the IR from its own columns is what
+the deleted `irFromSchema` did, and it guessed a default for each of the five facts §2 lists.
 
 `src/ir/SPEC.md` is the long version: the `TypeIR`/`SchemaIR` shapes, the `ShapeIR` every back-end reads, the JSON Schema and validator-type emitters, and the three functions that cross between a
 column's wire, app and db renderings.

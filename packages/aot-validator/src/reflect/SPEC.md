@@ -150,9 +150,8 @@ export interface ReflectOptions {
   readonly naming?: NamingStrategy;
 }
 
-// Canonical public type: @zmdb/schema-core/naming
 export interface NamingStrategy {
-  readonly column?: (property: string, context: { table: string }) => string;
+  readonly column?: (property: string, context: { readonly table: string }) => string;
   readonly table?: (declared: string) => string;
   readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
 }
@@ -163,14 +162,10 @@ column, writes the results into `physicalTable` and `physicalName`, and nothing 
 
 The alternative — a hook in the query compiler, where names become SQL — is where every other ORM put it, and it is a function call per column per row for the lifetime of the project.
 
-Having it here also satisfies §2.9: one IR records both vocabularies once. SQL consumers read the physical fields while the emitted validator reads declared property names; neither resolves a strategy
-again or agrees with another pass by luck.
+Having it here also satisfies §2.9: the DDL and the emitted validator read one set of physical names rather than resolving names twice and agreeing by luck.
 
 The order for one column is: read the tags, then take `Physical<'…'>` if the declaration carries one, else `naming.column(property, …)` if configured, else the property name. Explicit beats strategy,
 and the strategy is never consulted for a column that already answered the question.
-
-`Physical` is a type-only export from both `@zmdb/schema-core/tags` and `zmdb/tags`. The same optional unique-symbol slot is read in two positions: directly on the interface for `physicalTable`, and
-from a property's intersection members for `physicalName`.
 
 `context.table` is the **declared** table name, not the physical one. A user function that special-cases a table wants the string the author wrote, and passing the declared name means that function
 reads the same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently changes which branch a `column` strategy takes.
@@ -187,11 +182,11 @@ transformer collects diagnostics per call site, so throwing would abort a whole 
 It is a schema-level diagnostic rather than an `unsupported` node, because there is no single property to blame and neither of the two colliding columns may be dropped or quietly renamed. The message
 names both property names; the known defect in `EmitDiagnostic.path` (it carries an emitted-source expression rather than a property chain) must not be extended into this one.
 
-Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved from `loadConfig` in `zmdb/src/config`, so the reflector receives one strategy object and never
-discovers or evaluates project configuration itself.
+Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved, from `loadConfig` in `zmdb/src/config` — sub-issue #492 in the CLI epic, which the naming epic's
+implementation slice is blocked on for exactly this reason.
 
-Both AOT routes have to resolve the same config: the `zmdb/unplugin` transformer entry and `zmdb-codegen` each receive the `resolvedNaming` produced by `loadConfig`, and `yarn verify:fixtures` is the
-gate that proves the two routes emit the same physical names. The consumer pair declares `Table<'order'>` with a `shipTo` property and both routes emit `orders.ship_to`.
+Both AOT routes have to resolve the same config: the unplugin transformer and `zmdb-codegen` each read it and hand it over, and `yarn verify:fixtures` is the gate that proves the two routes emit the
+same physical names, because `fixtures/consumer-plugin` and `fixtures/consumer-cli` declare the same tables.
 
 ## 8. What a declaration says and a schema value cannot
 

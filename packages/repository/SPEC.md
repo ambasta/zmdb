@@ -175,13 +175,13 @@ abstract class BaseRepository<T extends DeclaredTable> {
   findById(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
   findOne(where: WhereDTO<T>): Promise<Entity<T> | undefined>;
   findAll(): Promise<readonly Entity<T>[]>;
-  create(payload: unknown): Promise<Entity<T>>; // validates CreateDTO<T>
-  update(id: PrimaryKeyOf<T>, payload: unknown): Promise<Entity<T> | undefined>; // UpdatePatch<T>
-  updateMany(where: WhereDTO<T>, payload: unknown): Promise<number | undefined>;
-  delete(id: unknown): Promise<boolean>;
-  deleteMany(where: WhereDTO<T>): Promise<number | undefined>;
-  hardDelete(id: unknown): Promise<boolean>;
-  restore(id: unknown): Promise<boolean>;
+  create(dto: CreateDTO<T>, options?: CacheInvalidationOptions): Promise<Entity<T>>;
+  update(id: PrimaryKeyOf<T>, patch: UpdatePatch<T>, options?: WriteOptions): Promise<Entity<T> | undefined>;
+  updateMany(where: WhereDTO<T>, patch: UpdatePatch<T>, options?: WriteOptions): Promise<number | undefined>;
+  delete(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean>;
+  deleteMany(where: WhereDTO<T>, options?: WriteOptions): Promise<number | undefined>;
+  hardDelete(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean>;
+  restore(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean>;
 }
 ```
 

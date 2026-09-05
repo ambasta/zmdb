@@ -173,7 +173,7 @@ Every first-party package root exports one `DatabaseVertical` object, its dialec
 
 ```ts
 export const sqlite: SqlDialect<'sqlite'>;
-export const sqliteDriver: (database: SqliteDatabase, options?: SqliteOptions) => TransactionalDriver<'sqlite'>;
+export function sqliteDriver(database: SqliteDatabase, options?: SqliteOptions): TransactionalDriver<'sqlite'>;
 export const sqliteIntrospector: Introspector<'sqlite'>;
 export const sqliteVertical: DatabaseVertical<'sqlite', SqliteDatabase, SqliteOptions>;
 
