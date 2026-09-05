@@ -1,6 +1,6 @@
-> **ToDo / partial support.** One application can now own HTTP routing and any
-> custom or packaged Redis, NATS and RabbitMQ `TransportStrategy`, plus typed
-> gRPC bindings. `createApp` still does not open an HTTP listening socket.
+One application can own HTTP routing, custom or packaged Redis, NATS and
+RabbitMQ strategies, and typed gRPC bindings. They share one container and one
+bounded lifecycle; the host still owns the HTTP listening socket.
 
 ## One application, two transport surfaces
 
@@ -131,8 +131,8 @@ await reports.sendDigests();
 ```
 
 External workers must still expose a stop function that awaits in-flight work.
-Only `TransportStrategy` instances supplied in `AppOptions` participate in the
-application's automatic bounded shutdown.
+Only `TransportStrategy` instances and gRPC bindings supplied in `AppOptions`
+participate in the application's automatic bounded shutdown.
 
 ---
 

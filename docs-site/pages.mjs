@@ -1633,8 +1633,7 @@ export const PAGE_META = {
   'web-hybrid-application': {
     title: 'Hybrid Applications',
     group: 'Web Framework — Techniques',
-    status: 'todo',
-    note: 'HTTP, custom and packaged broker transports, and typed gRPC share one app lifecycle; final docs pass remains',
+    status: 'supported',
   },
   'web-serverless': {
     title: 'Serverless',
@@ -1704,26 +1703,22 @@ export const PAGE_META = {
   'web-microservices': {
     title: 'Microservices',
     group: 'Web Framework — Microservices',
-    status: 'todo',
-    note: 'strategy, clients, lifecycle, Redis / NATS / RabbitMQ and typed gRPC ship; final docs pass remains',
+    status: 'supported',
   },
   'web-microservices-transports': {
     title: 'Broker Transports',
     group: 'Web Framework — Microservices',
-    status: 'todo',
-    note: 'Redis Pub/Sub, core NATS and RabbitMQ strategies ship; final epic docs pass remains',
+    status: 'supported',
   },
   'web-microservices-grpc': {
     title: 'gRPC',
     group: 'Web Framework — Microservices',
-    status: 'todo',
-    note: 'typed services, all four call types and clients ship; final epic docs pass remains',
+    status: 'supported',
   },
   'web-microservices-custom-transport': {
     title: 'Custom Transports',
     group: 'Web Framework — Microservices',
-    status: 'todo',
-    note: 'public custom strategy, packaged brokers and typed gRPC ship; final epic docs pass remains',
+    status: 'supported',
   },
   'web-graphql': {
     title: 'GraphQL',

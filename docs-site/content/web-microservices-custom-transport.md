@@ -1,7 +1,8 @@
-> **ToDo / partial support.** The public custom-transport contract ships and is
-> usable today, and Redis, NATS and RabbitMQ demonstrate that contract. gRPC
-> ships through a separate typed binding rather than `TransportStrategy`; the
-> final supported-page pass remains pending.
+The public custom-transport contract is exercised from outside
+`packages/web` by `fixtures/web-custom-transport.ts`. The publish gate compiles
+that fixture against packed packages, and the runtime suite proves dispatch,
+stopped intake, bounded drain and connection close through the same public
+surface shown here.
 
 ## Implementing the public contract
 
@@ -65,8 +66,11 @@ export class AcmeTransport implements TransportStrategy {
 
 The undefined `wire` helpers above are the broker-specific part: framing,
 authentication, subscription tokens, reply destinations and connection
-draining. The framework owns declaration lookup, payload validation, handler
-invocation, retry policy and typed client validation.
+draining. As in the tested fixture, `stopAndDrain` must stop intake first,
+track every dispatch already accepted, wait no longer than `graceMs`, close the
+connection even when the bound expires, and reject so shutdown cannot report a
+clean drain. The framework owns declaration lookup, payload validation,
+handler invocation, retry policy and typed client validation.
 
 ## Inbound deliveries
 

@@ -1,6 +1,7 @@
-> **ToDo / partial support.** The transport-neutral layer plus Redis Pub/Sub,
-> core NATS, RabbitMQ and the separate typed gRPC surface ship. The epic-wide
-> final docs pass remains pending, so this page stays marked `todo`.
+`@zmdb/web` ships a transport-neutral message layer, typed request and event
+clients, Redis Pub/Sub, core NATS, RabbitMQ and a separate typed gRPC surface.
+Applications own those transports through the same module graph and bounded
+lifecycle as HTTP.
 
 ## The public seam
 
@@ -74,11 +75,21 @@ Handlers never call `ack()` or `nack()`. The dispatcher returns a
 The strategy applies the settlement while it still owns the broker delivery
 token.
 
+The decorators are separate because success and failure mean different things:
+
+| Declaration       | Success                                  | Handler failure                                     |
+| ----------------- | ---------------------------------------- | --------------------------------------------------- |
+| `@MessagePattern` | acknowledge and publish the typed result | acknowledge and publish a generic correlated error  |
+| `@EventPattern`   | acknowledge                              | retry with delay, then dead-letter at `maxAttempts` |
+
+A request is not redelivered after its caller has received an error: doing so
+could perform the same command twice. An event has no waiting caller, so a
+transient failure can be retried.
+
 - Unknown patterns are acknowledged and reported to `onUnhandled`.
 - Parse and validation failures settle `dead` and reach `onInvalidPayload`.
-- A request-handler failure is acknowledged and returns a generic error reply;
-  private error detail goes to `onHandlerError`.
-- An event-handler failure retries until `maxAttempts`, then settles `dead`.
+- Private handler error detail goes to `onHandlerError`; it never enters a
+  correlated reply.
 - `retry` always carries a positive delay. The default is exponential from one
   second, capped at 30 seconds.
 - A strategy that cannot redeliver or dead-letter requires an

@@ -1,7 +1,6 @@
-> **ToDo / partial support.** Redis Pub/Sub, core NATS and RabbitMQ strategies
-> ship behind optional subpaths, alongside the separate typed gRPC subpath.
-> This page remains `todo` until the microservices epic completes its final
-> documentation slice.
+Redis Pub/Sub, core NATS and RabbitMQ implement one public strategy contract,
+but they do not pretend to offer equivalent durability. Choose from the
+settlement matrix below before choosing from familiarity.
 
 ## The strategy boundary
 
@@ -34,6 +33,22 @@ All three packaged strategies use a versioned JSON envelope and reject an
 `onInvalidPayload`. `traceparent` / `tracestate` travel in the envelope;
 correlation and reply destinations use either envelope fields or native broker
 metadata.
+
+## Settlement matrix
+
+| Outcome                         | Redis Pub/Sub               | Core NATS                   | RabbitMQ                                                |
+| ------------------------------- | --------------------------- | --------------------------- | ------------------------------------------------------- |
+| handler returned                | no-op                       | no-op                       | confirm reply, then `basic.ack`                         |
+| retry requested                 | dropped → `onUndeliverable` | dropped → `onUndeliverable` | confirm TTL retry copy, then `basic.ack`                |
+| dead or invalid payload         | dropped → `onUndeliverable` | dropped → `onUndeliverable` | `basic.nack(requeue: false)` into the owned DLQ         |
+| no handler                      | no-op                       | no-op                       | `basic.ack`                                             |
+| consumer disappears mid-handler | lost                        | lost                        | unacked delivery is redelivered when the channel closes |
+| `deliveryAttempt`               | always `1`                  | always `1`                  | `x-death` count, or `2` for a broker-marked redelivery  |
+| capability flags                | `false / false / true`      | `false / false / true`      | `true / true / true`                                    |
+
+Capability order is `redelivery / deadLetter / requestResponse`. Redis and
+core NATS therefore require `dispatcher.onUndeliverable`; RabbitMQ owns the
+retry and dead-letter topology described below.
 
 ## Install only the selected client
 
@@ -125,20 +140,7 @@ configured DLQ. There is deliberately no `nack(requeue: true)`: immediate
 head-of-queue requeue turns deterministic failures into a tight poison-message
 loop.
 
-## Settlement table
-
-| Outcome                         | Redis Pub/Sub               | Core NATS                   | RabbitMQ                                                |
-| ------------------------------- | --------------------------- | --------------------------- | ------------------------------------------------------- |
-| handler returned                | no-op                       | no-op                       | confirm reply, then `basic.ack`                         |
-| retry requested                 | dropped → `onUndeliverable` | dropped → `onUndeliverable` | confirm TTL retry copy, then `basic.ack`                |
-| dead or invalid payload         | dropped → `onUndeliverable` | dropped → `onUndeliverable` | `basic.nack(requeue: false)` into the owned DLQ         |
-| no handler                      | no-op                       | no-op                       | `basic.ack`                                             |
-| consumer disappears mid-handler | lost                        | lost                        | unacked delivery is redelivered when the channel closes |
-| `deliveryAttempt`               | always `1`                  | always `1`                  | `x-death` count, or `2` for a broker-marked redelivery  |
-| capability flags                | `false / false / true`      | `false / false / true`      | `true / true / true`                                    |
-
-Capability order is `redelivery / deadLetter / requestResponse`. Broker
-delivery is never a substitute for an application transaction. Use the
+Broker delivery is never a substitute for an application transaction. Use the
 [transactional outbox](./transactional-outbox.html) when a database write and
 event publication must not become a dual write.
 

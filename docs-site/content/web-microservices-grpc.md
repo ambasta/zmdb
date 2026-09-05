@@ -1,6 +1,6 @@
-> **Implemented; final docs audit pending.** Typed gRPC service binding and
-> clients now ship. This page remains marked `todo` until the microservices
-> epic's final documentation pass.
+Typed gRPC services, exhaustive bindings and clients ship through
+`@zmdb/web/microservices/grpc`. The declaration selects unary, client-streaming,
+server-streaming or bidirectional calls without loading a `.proto` at runtime.
 
 ## One TypeScript contract, including the wire format
 
@@ -203,12 +203,22 @@ effective budget through:
 Propagate the remaining budget to nested work:
 
 ```ts
-get: async call =>
-  inventory.get(
-    { id: call.payload.id },
-    { deadlineMs: call.remainingMs(), signal: call.signal },
-  ),
+get: async call => {
+  try {
+    return await inventory.get(
+      { id: call.payload.id },
+      { deadlineMs: call.remainingMs(), signal: call.signal },
+    );
+  } finally {
+    audit.finished(call.method);
+  }
+},
 ```
+
+The service example above sets `maxDurationMs`, so the forwarded budget is
+finite even when an external caller omits a deadline. When the caller's
+deadline expires, the adapter aborts `call.signal`; the nested operation is
+cancelled and the handler's `finally` runs.
 
 An external client may omit a deadline. Such a call is served and
 `remainingMs()` returns `Number.POSITIVE_INFINITY` unless `maxDurationMs`
