@@ -398,11 +398,7 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
 
   function where(predicate: SpatialPredicate): SelectBuilder<T>;
   function where(col: string | ProjectionItem, op: Operator, value: unknown): SelectBuilder<T>;
-  function where(
-    first: string | ProjectionItem | SpatialPredicate,
-    op?: Operator,
-    value?: unknown,
-  ): SelectBuilder<T> {
+  function where(first: string | ProjectionItem | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
     if (op === undefined) throw new TypeError('where(column, operator, value) requires an operator');
     return addWhere('AND', first, op, value);
@@ -504,7 +500,7 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
             throw new QueryCompilerError(`Invalid subquery provided for CTE "${cte.name}"`);
           }
 
-          const renumberedText = renumberPlaceholders(sub.text, params.length);
+          const renumberedText = renumberPlaceholders(sub.text, params.length, d);
           params.push(...sub.parameters);
           cteParts.push(`${quoteIdentifier(d, cte.name)} AS (${renumberedText})`);
         }
