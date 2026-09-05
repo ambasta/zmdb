@@ -17,9 +17,12 @@ const DEPENDENCIES = {
   '@zmdb/orm': ['@zmdb/schema', '@zmdb/sql', '@zmdb/validator'],
 };
 const TYPES = { typescript: '7.0.2', '@types/node': '26.4.1' };
+const toHex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+// eslint-disable-next-line no-restricted-globals
+const toBase64 = bytes => globalThis.btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'hex' ? digest.toHex() : digest.toBase64();
+  return encoding === 'hex' ? toHex(digest) : toBase64(digest);
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

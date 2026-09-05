@@ -28,9 +28,12 @@ function packageName(directory) {
   return JSON.parse(readFileSync(join(PACKAGES, directory, 'package.json'), 'utf8')).name;
 }
 
+const toHex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+// eslint-disable-next-line no-restricted-globals
+const toBase64 = bytes => globalThis.btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
 async function digest(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const hash = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hash.toBase64() : hash.toHex();
+  return encoding === 'base64' ? toBase64(hash) : toHex(hash);
 }
 
 const temporary = mkdtempSync(join(tmpdir(), 'zmdb-mcp-consumer-'));
