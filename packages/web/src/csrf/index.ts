@@ -122,12 +122,14 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     for (let i = 0; i < len;) {
       const code1 = value.charCodeAt(i++);
       const code2 = value.charCodeAt(i++);
-      const code3 = i < len ? value.charCodeAt(i++) : 0;
-      const code4 = i < len ? value.charCodeAt(i++) : 0;
-      const c1 = code1 !== undefined ? B64_LOOKUP[code1] : -1;
-      const c2 = code2 !== undefined ? B64_LOOKUP[code2] : -1;
-      const c3 = code3 !== undefined ? B64_LOOKUP[code3] : 0;
-      const c4 = code4 !== undefined ? B64_LOOKUP[code4] : 0;
+      const has3 = i < len;
+      const code3 = has3 ? value.charCodeAt(i++) : 0;
+      const has4 = i < len;
+      const code4 = has4 ? value.charCodeAt(i++) : 0;
+      const c1 = code1 !== undefined ? (B64_LOOKUP[code1] ?? -1) : -1;
+      const c2 = code2 !== undefined ? (B64_LOOKUP[code2] ?? -1) : -1;
+      const c3 = has3 ? (B64_LOOKUP[code3] ?? -1) : 0;
+      const c4 = has4 ? (B64_LOOKUP[code4] ?? -1) : 0;
       if (c1 === undefined || c2 === undefined || c3 === undefined || c4 === undefined) return undefined;
       if (c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0) return undefined;
       const triple = (c1 << 18) | (c2 << 12) | ((c3 & 63) << 6) | (c4 & 63);
