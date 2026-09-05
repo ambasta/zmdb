@@ -23,6 +23,7 @@ if (carrier.metadata === undefined) {
   });
 }
 
+/* oxlint-disable */
 if (typeof (Uint8Array.prototype as unknown as { toBase64?: unknown }).toBase64 !== 'function') {
   Object.defineProperty(Uint8Array.prototype, 'toBase64', {
     value(this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }) {

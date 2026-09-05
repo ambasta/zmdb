@@ -225,7 +225,6 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
           } else if (op === 'notNull') {
             add(value ? 'is not null' : 'is null', null);
           } else if (op === 'in' && Array.isArray(value)) {
-          } else if (op === 'in' && Array.isArray(value)) {
             if (!keysetState && connector === 'or' && b.orWhereIn) b = b.orWhereIn(resolvedColumn, value);
             else if (!keysetState && connector !== 'or' && b.whereIn) b = b.whereIn(resolvedColumn, value);
             else add('in', value);
