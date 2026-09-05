@@ -15,19 +15,16 @@ Because the no-`as` rule forbids `value as Brand<...>` in consumer code, states 
 ```ts
 const draft = defineState<'Draft', Order>('Draft', {
   discriminant: ['status', 'draft'],
-  predicate: (order) => order.total > 0,
+  predicate: order => order.total > 0,
 }); // a State<'Draft', Order> maker
 const order = draft.create({ ...orderFields }); // Brand<Order, 'Draft'> — no cast
 ```
 
 `defineState` can be called without options or with optional state names, discriminant keying (`[key, expectedValue?]` or `key`), and custom property validation predicates.
 
-`draft.is(x)` is a type guard narrowing `unknown`/a base value to the branded
-state by checking discriminant fields and evaluating custom validation predicates.
-Calling `draft.create(x)` runs structural verification and returns the exact value
-reference (preserving identity with zero runtime object allocations). If structural
-verification fails, `draft.create(x)` throws a diagnostic `TypeError` detailing the
-failure. The maker never asserts on the consumer surface.
+`draft.is(x)` is a type guard narrowing `unknown`/a base value to the branded state by checking discriminant fields and evaluating custom validation predicates. Calling `draft.create(x)` runs
+structural verification and returns the exact value reference (preserving identity with zero runtime object allocations). If structural verification fails, `draft.create(x)` throws a diagnostic
+`TypeError` detailing the failure. The maker never asserts on the consumer surface.
 
 ### `transition` — declared edges only
 
@@ -47,10 +44,8 @@ because there is no function for it.
 
 ## Acceptance
 
-- Type-level: a legal transition compiles; an illegal one is
-  `@ts-expect-error`. Two brands of the same base are not mutually assignable.
-- Runtime: `create`/`transition` return the value with fields intact (identity /
-  structural), `is` narrows correctly.
+- Type-level: a legal transition compiles; an illegal one is `@ts-expect-error`. Two brands of the same base are not mutually assignable.
+- Runtime: `create`/`transition` return the value with fields intact (identity / structural), `is` narrows correctly.
 - No consumer-surface `as`; suite + typecheck green.
 
 ## Out of scope
