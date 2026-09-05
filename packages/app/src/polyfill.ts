@@ -24,7 +24,8 @@ if (carrier.metadata === undefined) {
   });
 }
 
-if (typeof (Uint8Array.prototype as { toBase64?: unknown }).toBase64 !== 'function') {
+// boundary: Uint8Array polyfills for toBase64 and fromBase64 check Reflect property existence dynamically.
+if (typeof Reflect.get(Uint8Array.prototype, 'toBase64') !== 'function') {
   Object.defineProperty(Uint8Array.prototype, 'toBase64', {
     value: function (this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }): string {
       let b64 = Buffer.from(this).toString('base64url');
@@ -38,7 +39,7 @@ if (typeof (Uint8Array.prototype as { toBase64?: unknown }).toBase64 !== 'functi
   });
 }
 
-if (typeof (Uint8Array as { fromBase64?: unknown }).fromBase64 !== 'function') {
+if (typeof Reflect.get(Uint8Array, 'fromBase64') !== 'function') {
   Object.defineProperty(Uint8Array, 'fromBase64', {
     value: function (string: string): Uint8Array {
       return new Uint8Array(Buffer.from(string, 'base64url'));

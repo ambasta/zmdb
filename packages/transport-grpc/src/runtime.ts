@@ -60,14 +60,19 @@ interface ServerCallSurface {
 }
 
 interface WritableResponseCall extends ServerCallSurface {
-  write(value: unknown): boolean;
+  write(value: unknown, cb?: (err?: Error | null) => void): boolean;
   end(metadata?: Metadata): void;
   destroy(error: Error): void;
   once(event: 'drain', listener: () => void): this;
   removeListener(event: 'drain', listener: () => void): this;
 }
 
-interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
+interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {
+  on(event: 'data', listener: (chunk: DecodedRequest) => void): this;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  removeListener(event: 'data', listener: (chunk: DecodedRequest) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
+}
 
 interface CallScope {
   readonly signal: AbortSignal;
@@ -380,14 +385,15 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
+// boundary: gRPC server call data event emits DecodedRequest chunks and queue shifts safely.
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
   const queue: DecodedRequest[] = [];
   let notify = () => {};
   let done = false;
   let streamError: unknown;
 
-  const onData = (chunk: unknown) => {
-    queue.push(chunk as DecodedRequest);
+  const onData = (chunk: DecodedRequest) => {
+    queue.push(chunk);
     notify();
   };
   const onEnd = () => {
@@ -405,8 +411,9 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
 
   try {
     for (;;) {
-      if (queue.length > 0) {
-        yield requestValue(queue.shift()!);
+      const next = queue.shift();
+      if (next !== undefined) {
+        yield requestValue(next);
         continue;
       }
       if (done) return;
@@ -448,13 +455,10 @@ async function writeResponses(
     if (scope.signal.aborted) throw scope.reason();
     const valid = method.validateResponse(response);
     await new Promise<void>((resolve, reject) => {
-      (call as unknown as { write(v: unknown, cb: (err?: Error | null) => void): boolean }).write(
-        valid,
-        (error?: Error | null) => {
-          if (error) reject(error);
-          else resolve();
-        },
-      );
+      call.write(valid, (error?: Error | null) => {
+        if (error) reject(error);
+        else resolve();
+      });
     });
   }
 }
