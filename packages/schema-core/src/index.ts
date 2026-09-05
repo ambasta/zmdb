@@ -15,7 +15,7 @@
 // Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
 // imported at runtime in either direction.
-import type { DeclaredTable, UpdateDTO } from './derive/index.js';
+import type { CreateDTO, DeclaredTable, Entity, UpdateDTO } from './derive/index.js';
 import type { ExtensionType, SchemaIR } from './ir/index.js';
 
 export type SqlType =
@@ -459,3 +459,38 @@ export function defineEntityStateMachine<
 
 export type { WhereDTO, ListDTO, ListResult, OrderByDTO, OrderTarget, PaginationDTO } from './dto/index.js';
 export { compileWhere, applyOrderBy, applyPagination, buildListResult } from './dto/index.js';
+
+import type { SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder, Dialect } from '@zmdb/query-compiler';
+import { createQueryCompiler as createUnboundedQueryCompiler } from '@zmdb/query-compiler';
+
+export type SchemaSelectBuilder<S> = SelectBuilder<S extends DeclaredTable ? Entity<S> : S>;
+export type SchemaInsertBuilder<S> = InsertBuilder<
+  S extends DeclaredTable ? Entity<S> : S,
+  S extends DeclaredTable ? CreateDTO<S> : S
+>;
+export type SchemaUpdateBuilder<S> = UpdateBuilder<
+  S extends DeclaredTable ? Entity<S> : S,
+  S extends DeclaredTable ? UpdateDTO<S> : S
+>;
+export type SchemaDeleteBuilder<S> = DeleteBuilder<S extends DeclaredTable ? Entity<S> : S>;
+
+export interface SchemaQueryCompiler<S> {
+  selectFrom<T = S>(table: string): SelectBuilder<T extends DeclaredTable ? Entity<T> : T>;
+  insertInto<T = S>(
+    table: string,
+  ): InsertBuilder<T extends DeclaredTable ? Entity<T> : T, T extends DeclaredTable ? CreateDTO<T> : T>;
+  updateTable<T = S>(
+    table: string,
+  ): UpdateBuilder<T extends DeclaredTable ? Entity<T> : T, T extends DeclaredTable ? UpdateDTO<T> : T>;
+  deleteFrom<T = S>(table: string): DeleteBuilder<T extends DeclaredTable ? Entity<T> : T>;
+}
+
+export function createSchemaQueryCompiler<S>(dialect: Dialect = 'postgres'): SchemaQueryCompiler<S> {
+  const qc = createUnboundedQueryCompiler(dialect);
+  return {
+    selectFrom: table => qc.selectFrom(table),
+    insertInto: table => qc.insertInto(table),
+    updateTable: table => qc.updateTable(table),
+    deleteFrom: table => qc.deleteFrom(table),
+  };
+}
