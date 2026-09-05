@@ -29,7 +29,6 @@ import {
   isPrefixUnaryExpression,
   isStringLiteral,
 } from 'typescript/unstable/ast/is';
-import { visitEachChild } from 'typescript/unstable/ast/visitor';
 import type { Type } from 'typescript/unstable/sync';
 
 import { Emitter, escapePattern, type EmitOptions } from './emit/index.js';

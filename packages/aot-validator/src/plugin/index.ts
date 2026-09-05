@@ -11,6 +11,7 @@
 // file would make the AOT path cost more than the runtime walker it replaces.
 
 import path from 'node:path';
+
 import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
 
 import type { EmitOptions } from '../emit/index.js';
