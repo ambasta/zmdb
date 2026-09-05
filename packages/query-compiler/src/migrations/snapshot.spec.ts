@@ -35,6 +35,53 @@ describe('snapshot serializer', () => {
     expect(cols).toContainEqual({ name: 'email', type: 'text', nullable: false, primaryKey: false });
   });
 
+  it('captures column defaults, foreign key references, and unique constraint flags', () => {
+    const OrderSchema = {
+      table: 'orders',
+      primaryKey: ['id'],
+      columns: {
+        id: { type: 'serial', flags: { nullable: false, primaryKey: true } },
+        userId: {
+          type: 'integer',
+          flags: { nullable: false },
+          references: { target: 'users.id' },
+        },
+        status: {
+          type: 'text',
+          flags: { nullable: false },
+          default: 'pending',
+        },
+        trackingCode: {
+          type: 'varchar',
+          flags: { nullable: false, unique: true },
+        },
+      },
+    };
+    const snap = snapshot([OrderSchema]);
+    const cols = snap.tables[0]?.columns ?? [];
+    expect(cols).toContainEqual({
+      name: 'userId',
+      type: 'integer',
+      nullable: false,
+      primaryKey: false,
+      references: { target: 'users.id' },
+    });
+    expect(cols).toContainEqual({
+      name: 'status',
+      type: 'text',
+      nullable: false,
+      primaryKey: false,
+      default: 'pending',
+    });
+    expect(cols).toContainEqual({
+      name: 'trackingCode',
+      type: 'varchar',
+      nullable: false,
+      primaryKey: false,
+      unique: true,
+    });
+  });
+
   it('is deterministic: serializing twice yields identical JSON', () => {
     expect(JSON.stringify(snapshot([UserSchema]))).toBe(JSON.stringify(snapshot([UserSchema])));
   });

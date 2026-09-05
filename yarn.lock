@@ -2538,6 +2538,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/cli@workspace:^, @zmdb/cli@workspace:packages/cli":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/cli@workspace:packages/cli"
+  dependencies:
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
+    typescript: "npm:7.0.2"
+  bin:
+    zmdb: ./src/bin.ts
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/client@workspace:^, @zmdb/client@workspace:packages/client":
   version: 0.0.0-use.local
   resolution: "@zmdb/client@workspace:packages/client"
@@ -5997,6 +6009,7 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
+    "@zmdb/cli": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"

@@ -265,7 +265,14 @@ describe.skipIf(mssql.kind === 'unreachable')('repository against reachable real
       { name: 'role', nullable: 'NO' },
       { name: 'scratch', nullable: 'YES' },
     ]);
-    await live.pool.request().query(emitUp({ kind: 'drop_column', table, column: 'scratch' }, 'mssql'));
+    await live.pool
+      .request()
+      .query(
+        emitUp(
+          { kind: 'drop_column', table, column: { name: 'scratch', type: 'text', nullable: true, primaryKey: false } },
+          'mssql',
+        ),
+      );
   });
 
   it('executes SQL Server schemas, keys, filtered indexes, sequences and persisted computed columns', async () => {

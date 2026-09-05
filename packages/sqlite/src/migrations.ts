@@ -169,11 +169,12 @@ function refuseRecreateDroppedTable(table: string): never {
   );
 }
 
-function refuseRecreateDroppedColumn(table: string, column: string): never {
+function refuseRecreateDroppedColumn(table: string, column: string | ColumnSnapshot): never {
+  const columnName = typeof column === 'string' ? column : column.name;
   throw new UnsupportedFeatureError(
-    `recreating dropped column "${table}"."${column}"`,
+    `recreating dropped column "${table}"."${columnName}"`,
     'sqlite',
-    `sqlite cannot recreate dropped column "${table}"."${column}" because the drop operation carries no type, ` +
+    `sqlite cannot recreate dropped column "${table}"."${columnName}" because the drop operation carries no type, ` +
       'nullability, key, or default metadata; write the down migration by hand',
   );
 }
@@ -251,13 +252,18 @@ function emitUp(operation: ChangeOp): string {
         inline: false,
         tableLevel: false,
       })}`;
-    case 'drop_column':
-      return `ALTER TABLE ${q(operation.table)} DROP COLUMN ${q(operation.column)}`;
+    case 'drop_column': {
+      const columnName = typeof operation.column === 'string' ? operation.column : operation.column.name;
+      return `ALTER TABLE ${q(operation.table)} DROP COLUMN ${q(columnName)}`;
+    }
     case 'alter_column_type':
+    case 'alter_column_default':
+    case 'alter_column_unique':
+    case 'alter_column_references':
       throw new UnsupportedFeatureError(
-        'alter column type',
+        operation.kind.replaceAll('_', ' '),
         'sqlite',
-        'sqlite cannot alter a column type in place; use a hand-written table rebuild',
+        `sqlite cannot ${operation.kind.replaceAll('_', ' ')} in place; use a hand-written table rebuild`,
       );
     case 'alter_primary_key':
       return refuseAlterPrimaryKey(operation.table, operation.from, operation.to);
@@ -285,10 +291,13 @@ function emitDown(operation: ChangeOp): string {
     case 'drop_column':
       return refuseRecreateDroppedColumn(operation.table, operation.column);
     case 'alter_column_type':
+    case 'alter_column_default':
+    case 'alter_column_unique':
+    case 'alter_column_references':
       throw new UnsupportedFeatureError(
-        'alter column type',
+        operation.kind.replaceAll('_', ' '),
         'sqlite',
-        'sqlite cannot alter a column type in place; use a hand-written table rebuild',
+        `sqlite cannot ${operation.kind.replaceAll('_', ' ')} in place; use a hand-written table rebuild`,
       );
     case 'alter_primary_key':
       return refuseAlterPrimaryKey(operation.table, operation.to, operation.from);

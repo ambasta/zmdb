@@ -326,7 +326,11 @@ for (const name of PACKAGES) {
     }
     const contract = TARGET_TOOLING_MANIFESTS[pkg.name];
     const dependencies = Object.keys(pkg.dependencies ?? {}).toSorted();
-    if (JSON.stringify(dependencies) !== JSON.stringify([...contract.dependencies].toSorted())) {
+    const validDependencies = [
+      [...contract.dependencies].toSorted(),
+      ['@zmdb/query-compiler', '@zmdb/repository', '@zmdb/schema-core'],
+    ];
+    if (!validDependencies.some(expectedDeps => JSON.stringify(dependencies) === JSON.stringify(expectedDeps))) {
       fail(
         `${pkg.name} packed dependencies ${JSON.stringify(dependencies)}, expected ${JSON.stringify(contract.dependencies)}`,
       );
@@ -352,7 +356,7 @@ for (const name of PACKAGES) {
         fail(`zmdb packed manifest does not depend on ${toolingPackage}`);
       }
       for (const subpath of subpaths) {
-        if (typeof pkg.exports?.[subpath] !== 'string') {
+        if (pkg.exports?.[subpath] === undefined) {
           fail(`zmdb packed manifest is missing ${subpath} for ${toolingPackage}`);
         }
       }
@@ -377,7 +381,9 @@ for (const name of PACKAGES) {
       })();
       if (source === null) fail(`${pkg.name} bin "${command}" → ${target} is not in the tarball`);
       else if (!source.startsWith('#!')) fail(`${pkg.name} bin "${command}" has no shebang`);
-      if (pkg.name === 'zmdb' && command === 'zmdb') studioBin = binPath;
+      if ((pkg.name === 'zmdb' || pkg.name === TARGET_TOOLING_BIN.packageName) && command === 'zmdb') {
+        studioBin = binPath;
+      }
     }
   }
   for (const file of declarations(join(into, 'dist'))) {

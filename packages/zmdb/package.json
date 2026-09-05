@@ -58,6 +58,7 @@
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
+    "@zmdb/cli": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",

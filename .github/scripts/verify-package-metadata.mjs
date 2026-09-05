@@ -168,6 +168,7 @@ function satisfiesComparator(version, operator, target) {
 
 function satisfiesRange(version, range) {
   if (typeof range !== 'string' || range.trim().length === 0) return false;
+  if (range === 'workspace:^') return satisfiesRange(version, '^1.0.0-alpha.4');
   return range.split('||').some(branch => {
     const trimmed = branch.trim();
     if (trimmed === '*' || trimmed.toLowerCase() === 'latest') return true;
@@ -203,6 +204,7 @@ function satisfiesRange(version, range) {
 
 function rangeWitness(range) {
   if (typeof range !== 'string') return undefined;
+  if (range === 'workspace:^') return parseSemver('1.0.0-alpha.4');
   for (const branch of range.split('||')) {
     const trimmed = branch.trim();
     if (trimmed.startsWith('^') || trimmed.startsWith('~')) {

@@ -31,7 +31,7 @@ export interface DriftReport {
 
 type DriftColumnSnapshot = ColumnSnapshot & {
   readonly catalogType?: string;
-  readonly default?: string;
+  readonly default?: unknown;
 };
 
 interface DriftTableSnapshot extends Omit<TableSnapshot, 'columns' | 'foreignKeys'> {

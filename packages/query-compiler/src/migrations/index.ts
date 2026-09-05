@@ -12,6 +12,7 @@ import {
   type SchemaObjectOperation,
 } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
+export type { Dialect };
 import { quoteIdentifier } from '../quoting.js';
 import { createExtensionDdl } from '../schema-objects/extensions.js';
 import type {
@@ -59,7 +60,6 @@ function isMigrationDialect(value: unknown): value is MigrationDialect {
 export function emitSchemaObject(migrations: MigrationDialect, operation: SchemaObjectOperation): readonly string[] {
   return migrations.emitSchemaObject(operation);
 }
-
 /**
  * The slice of a schema a snapshot reads.
  *
@@ -82,8 +82,10 @@ export interface SnapshotableSchema {
           readonly primaryKey?: boolean | undefined;
           readonly length?: number | undefined;
           readonly unique?: boolean | undefined;
+          readonly hasDefault?: boolean | undefined;
         };
-        readonly references?: { readonly target: string };
+        readonly default?: unknown;
+        readonly references?: { readonly target: string } | undefined;
       }
     >
   >;
@@ -184,6 +186,8 @@ export function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot
             // acquire a meaningless field in the version-1 snapshot.
             ...(meta.flags.length === undefined ? {} : { length: meta.flags.length }),
             ...(meta.flags.unique === true ? { unique: true } : {}),
+            ...(meta.default !== undefined ? { default: meta.default } : {}),
+            ...(meta.references ? { references: { target: meta.references.target } } : {}),
           };
         })
         .toSorted((a, b) => a.name.localeCompare(b.name));
@@ -248,7 +252,7 @@ export const CHANGE_PHASES = [
   ['drop_foreign_key'],
   ['drop_table'],
   ['create_table', 'add_column'],
-  ['alter_column_type', 'alter_primary_key'],
+  ['alter_column_type', 'alter_column_default', 'alter_column_unique', 'alter_column_references', 'alter_primary_key'],
   ['drop_column'],
   ['add_foreign_key'],
 ] as const satisfies readonly (readonly ChangeOp['kind'][])[];
@@ -430,7 +434,9 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
 
   // Dropped tables.
   for (const t of prev.tables) {
-    if (!nextTables.has(t.name)) ops.push({ kind: 'drop_table', table: t.name });
+    if (!nextTables.has(t.name)) {
+      ops.push({ kind: 'drop_table', table: t.name, columns: t.columns });
+    }
   }
   // Column-level and foreign-key diffs on tables that already exist.
   for (const t of next.tables) {
@@ -447,22 +453,41 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
     const beforeCols = new Map(before.columns.map(c => [c.name, c]));
     const afterCols = new Map(t.columns.map(c => [c.name, c]));
     for (const c of before.columns) {
-      if (!afterCols.has(c.name)) ops.push({ kind: 'drop_column', table: t.name, column: c.name });
+      if (!afterCols.has(c.name)) {
+        ops.push({ kind: 'drop_column', table: t.name, column: c });
+      }
     }
     for (const c of t.columns) {
       const bc = beforeCols.get(c.name);
       if (!bc) {
         ops.push({ kind: 'add_column', table: t.name, column: c });
-      } else if (!sameType(bc.type, c.type)) {
-        ops.push({
-          kind: 'alter_column_type',
-          table: t.name,
-          column: c.name,
-          from: bc.type,
-          to: c.type,
-          fromNullable: bc.nullable,
-          toNullable: c.nullable,
-        });
+      } else {
+        if (!sameType(bc.type, c.type)) {
+          ops.push({
+            kind: 'alter_column_type',
+            table: t.name,
+            column: c.name,
+            from: bc.type,
+            to: c.type,
+            fromNullable: bc.nullable,
+            toNullable: c.nullable,
+          });
+        }
+        if (bc.default !== c.default) {
+          ops.push({ kind: 'alter_column_default', table: t.name, column: c.name, from: bc.default, to: c.default });
+        }
+        if (Boolean(bc.unique) !== Boolean(c.unique)) {
+          ops.push({ kind: 'alter_column_unique', table: t.name, column: c.name, from: bc.unique, to: c.unique });
+        }
+        if (bc.references?.target !== c.references?.target) {
+          ops.push({
+            kind: 'alter_column_references',
+            table: t.name,
+            column: c.name,
+            from: bc.references,
+            to: c.references,
+          });
+        }
       }
     }
     if (!sameSequence(before.primaryKey, t.primaryKey)) {
@@ -616,10 +641,25 @@ export function ddlType(
   return mapped;
 }
 
+function formatDefault(value: unknown): string {
+  if (value === null) return 'NULL';
+  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  return String(value);
+}
+
+function formatReference(d: Dialect, target: string): string {
+  const parts = target.split('.');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return `${quoteIdentifier(d, parts[0])}(${quoteIdentifier(d, parts[1])})`;
+  }
+  return quoteIdentifier(d, target);
+}
+
 function columnDdl(
   d: Dialect,
   col: ColumnSnapshot,
-  table: string,
+  table?: string,
   key: { readonly inline: boolean; readonly tableLevel: boolean } = {
     inline: col.primaryKey,
     tableLevel: false,
@@ -628,6 +668,9 @@ function columnDdl(
   // PRIMARY KEY implies NOT NULL, so we don't emit both.
   const pk = key.inline ? ' PRIMARY KEY' : '';
   const nn = !key.inline && (!col.nullable || key.tableLevel) ? ' NOT NULL' : '';
+  const unq = col.unique ? ' UNIQUE' : '';
+  const def = col.default !== undefined ? ` DEFAULT ${formatDefault(col.default)}` : '';
+  const ref = col.references ? ` REFERENCES ${formatReference(d, col.references.target)}` : '';
   const type =
     typeof col.type === 'string'
       ? ddlType(d, col)
@@ -636,7 +679,7 @@ function columnDdl(
         : (() => {
             throw unsupportedExtensionType(d, col.type, col.name, table);
           })();
-  return `${quoteIdentifier(d, col.name)} ${type}${pk}${nn}`;
+  return `${quoteIdentifier(d, col.name)} ${type}${pk}${nn}${unq}${def}${ref}`;
 }
 
 function primaryKeyDdl(dialect: Dialect, columns: readonly string[]): string {
@@ -909,7 +952,7 @@ export function emitUp(
         `${dialect === 'mssql' ? 'ADD' : 'ADD COLUMN'} ${columnDdl(dialect, op.column, op.table)}`
       );
     case 'drop_column':
-      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column)}`;
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, typeof op.column === 'string' ? op.column : op.column.name)}`;
     case 'alter_column_type':
       if (dialect === 'sqlite') {
         throw new UnsupportedFeatureError(
@@ -921,6 +964,21 @@ export function emitUp(
       return TRAITS[dialect].family === 'mysql'
         ? `ALTER TABLE ${quoteIdentifier(dialect, op.table)} MODIFY COLUMN ${quoteIdentifier(dialect, op.column)} ${alteredType(dialect, op.table, op.column, op.to)}`
         : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)}${dialect === 'mssql' ? '' : ' TYPE'} ${alteredType(dialect, op.table, op.column, op.to)}${dialect === 'mssql' ? mssqlAlterNullability(op, 'up') : ''}`;
+    case 'alter_column_default':
+      if (op.to !== undefined) {
+        return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} SET DEFAULT ${formatDefault(op.to)}`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} DROP DEFAULT`;
+    case 'alter_column_unique':
+      if (op.to) {
+        return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD CONSTRAINT ${quoteIdentifier(dialect, `${op.table}_${op.column}_unique`)} UNIQUE (${quoteIdentifier(dialect, op.column)})`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP CONSTRAINT ${quoteIdentifier(dialect, `${op.table}_${op.column}_unique`)}`;
+    case 'alter_column_references':
+      if (op.to) {
+        return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD CONSTRAINT ${quoteIdentifier(dialect, `${op.table}_${op.column}_fk`)} FOREIGN KEY (${quoteIdentifier(dialect, op.column)}) REFERENCES ${formatReference(dialect, op.to.target)}`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP CONSTRAINT ${quoteIdentifier(dialect, `${op.table}_${op.column}_fk`)}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(op.table, op.from, op.to, dialect);
     case 'add_foreign_key':
@@ -955,19 +1013,17 @@ export function emitDown(
     case 'create_table':
       return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'drop_table':
-      if (dialect === 'mssql') {
-        throw new UnsupportedFeatureError(
-          `recreating dropped table "${op.table}"`,
-          dialect,
-          `mssql cannot recreate dropped table "${op.table}" because the drop operation carries no columns; ` +
-            'write the down migration by hand',
-        );
+      if (op.columns === undefined) {
+        throw new UnsupportedFeatureError('recreating dropped table without column snapshots', dialect);
       }
-      return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} ()`;
+      return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} (${op.columns.map(c => columnDdl(dialect, c)).join(', ')})`;
     case 'add_column':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column.name)}`;
     case 'drop_column':
-      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${quoteIdentifier(dialect, op.column)}`;
+      if (typeof op.column === 'string') {
+        throw new UnsupportedFeatureError('recreating dropped column without column snapshot', dialect);
+      }
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${columnDdl(dialect, op.column, op.table)}`;
     case 'alter_column_type':
       if (dialect === 'sqlite') {
         throw new UnsupportedFeatureError(
@@ -979,6 +1035,21 @@ export function emitDown(
       return TRAITS[dialect].family === 'mysql'
         ? `ALTER TABLE ${quoteIdentifier(dialect, op.table)} MODIFY COLUMN ${quoteIdentifier(dialect, op.column)} ${alteredType(dialect, op.table, op.column, op.from)}`
         : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)}${dialect === 'mssql' ? '' : ' TYPE'} ${alteredType(dialect, op.table, op.column, op.from)}${dialect === 'mssql' ? mssqlAlterNullability(op, 'down') : ''}`;
+    case 'alter_column_default':
+      if (op.from !== undefined) {
+        return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} SET DEFAULT ${formatDefault(op.from)}`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} DROP DEFAULT`;
+    case 'alter_column_unique':
+      if (op.from) {
+        return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD CONSTRAINT ${quoteIdentifier(dialect, `${op.table}_${op.column}_unique`)} UNIQUE (${quoteIdentifier(dialect, op.column)})`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP CONSTRAINT ${quoteIdentifier(dialect, `${op.table}_${op.column}_unique`)}`;
+    case 'alter_column_references':
+      if (op.from) {
+        return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD CONSTRAINT ${quoteIdentifier(dialect, `${op.table}_${op.column}_fk`)} FOREIGN KEY (${quoteIdentifier(dialect, op.column)}) REFERENCES ${formatReference(dialect, op.from.target)}`;
+      }
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP CONSTRAINT ${quoteIdentifier(dialect, `${op.table}_${op.column}_fk`)}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(op.table, op.to, op.from, dialect);
     case 'add_foreign_key':
