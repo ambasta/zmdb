@@ -116,7 +116,6 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
   }),
 );
 
-
 export interface SubqueryTarget {
   compile(): CompiledQuery;
   readonly dialect?: DialectTarget | undefined;
@@ -151,10 +150,7 @@ export function sqlOperator(op: Operator | UnsafeOperator | string, dialect: Dia
  * parameter merging, and positional parameter offset calculation.
  */
 export function processSubquery(parentDialect: DialectTarget, target: SubqueryTarget, params: unknown[]): string {
-  if (
-    target.dialect !== undefined &&
-    dialectName(target.dialect) !== dialectName(parentDialect)
-  ) {
+  if (target.dialect !== undefined && dialectName(target.dialect) !== dialectName(parentDialect)) {
     throw new QueryCompilerError(
       `Subquery dialect "${dialectName(target.dialect)}" does not match parent query dialect "${dialectName(parentDialect)}"`,
     );
