@@ -32,10 +32,8 @@ function lenientParse<T>(text: string, coerce: (v: unknown) => T): ParseResult<T
 
 ## Frozen behavior
 
-- `toolFromSchema(name, schema)` returns `{ name, description?, parameters }`
-  where `parameters` is the schema's `create`-variant JSON Schema (input shape).
-- `toolFor<T>(provider, name)` is compiled to the provider-framed tool and its frozen
-  create document. The schema-value overload is the source-mode/runtime equivalent.
+- `toolFromSchema(name, schema)` returns `{ name, description?, parameters }` where `parameters` is the schema's `create`-variant JSON Schema (input shape).
+- `toolFor<T>(provider, name)` is compiled to the provider-framed tool and its frozen create document. The schema-value overload is the source-mode/runtime equivalent.
 - `lenientParse`:
   - strips Markdown code fences (`json … `) before parsing,
   - tolerates trailing commas is **not** attempted; only fence-stripping + a plain `JSON.parse`,
