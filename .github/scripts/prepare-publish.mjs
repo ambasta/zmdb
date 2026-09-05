@@ -22,6 +22,10 @@ const META = {
       'Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, and OpenAPI-derived tools for zmdb.',
     keywords: ['typescript', 'ai', 'llm', 'function-calling', 'json-schema', 'openapi', 'zmdb'],
   },
+  'ai-anthropic': {
+    description: 'Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.',
+    keywords: ['typescript', 'ai', 'anthropic', 'chat', 'llm', 'zmdb'],
+  },
   'query-compiler': {
     description:
       'SQL-first, dialect-aware query compiler: SELECT/INSERT/UPDATE/DELETE, joins, aggregations, full-text search, set operations, schema-object DDL, and migration diffing.',

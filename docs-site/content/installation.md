@@ -1,5 +1,6 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Ten packages are published today: nine focused implementation packages plus the `zmdb` umbrella. The easiest
-way to install the cohesive data, application, and HTTP stack is the umbrella; `@zmdb/client`, `@zmdb/protobuf`, and provider-neutral `@zmdb/ai` remain independently installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Eleven packages are published today: ten focused packages plus the `zmdb` umbrella. The easiest way to
+install the cohesive data, application, and HTTP stack is the umbrella; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, and opt-in provider integrations remain independently
+installable.
 
 ## Recommended: one install
 
@@ -19,6 +20,8 @@ The `zmdb` package re-exports the curated public API of its six runtime dependen
 `zmdb/web`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, …). The `zmdb/web` facade combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
 
 `@zmdb/ai` is independently installable and is not re-exported by the umbrella root.
+
+`@zmdb/ai-anthropic` is an optional integration package. It depends on `@zmdb/ai` and accepts an injected Anthropic client; it is not re-exported by the umbrella.
 
 `zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime export, so those two imports vanish entirely from your build output.
 
@@ -76,6 +79,9 @@ npm install @zmdb/protobuf
 
 # Provider-neutral AI tools + bounded chat
 npm install @zmdb/ai
+
+# Optional Anthropic chat driver
+npm install @zmdb/ai-anthropic @anthropic-ai/sdk@0.123.0
 ```
 
 > [!NOTE] Workspace packages declare their direct `@zmdb/*` runtime dependencies. Provider and framework SDKs remain opt-in at their integration boundaries.
@@ -158,6 +164,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/client`         | Dependency-free HTTP transport, cancellation, authentication, and typed errors               |
 | `@zmdb/protobuf`       | Dependency-free protobuf calls, generated-code wire ABI, and typed gRPC artifacts            |
 | `@zmdb/ai`             | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools  |
+| `@zmdb/ai-anthropic`   | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                  |
 
 ## Next Steps
 

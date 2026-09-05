@@ -457,13 +457,14 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Ten published packages</h2>
-  <p class="lead">Composable and ESM-only. Use the cohesive umbrella, the app and HTTP layers, provider-neutral AI tools, or an implementation package on its own.</p>
+  <h2>Eleven published packages</h2>
+  <p class="lead">Composable and ESM-only. Use the cohesive data, app, and HTTP umbrella, provider-neutral AI tools, an opt-in provider driver, or an implementation package on its own.</p>
   <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
     <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>
     <div class="pkg"><code>@zmdb/schema-core</code><p>Schema DSL + type derivation (Entity / Create / Update / read DTOs), relations, OpenAPI, seeding, custom types.</p></div>
     <div class="pkg"><code>@zmdb/ai</code><p>Provider-neutral tool documents, bounded chat orchestration, shared invocation, and OpenAPI-derived tools.</p></div>
+    <div class="pkg"><code>@zmdb/ai-anthropic</code><p>Opt-in Anthropic Messages API driver over the provider-neutral chat contract.</p></div>
     <div class="pkg"><code>@zmdb/protobuf</code><p>Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts.</p></div>
     <div class="pkg"><code>@zmdb/aot-validator</code><p>AOT is / assert / validate / equals / random, unions, transforms, and JSON Ser/De — inlined at build time.</p></div>
     <div class="pkg"><code>@zmdb/repository</code><p>Auto-validating CRUD, transactions, populate, read-replicas, lifecycle events, framework adapters.</p></div>

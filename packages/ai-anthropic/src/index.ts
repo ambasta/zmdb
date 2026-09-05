@@ -1,7 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-
-import { isRecord } from '../../../index.js';
-import type { ChatDriver, ChatMessage, ProviderPassthrough } from '../index.js';
+import type { ChatDriver, ChatMessage } from '@zmdb/ai/chat';
 
 export interface AnthropicMessagesClient {
   readonly messages: {
@@ -14,6 +12,12 @@ export interface AnthropicDriverOptions {
   readonly model: string;
   readonly maxOutputTokens: number;
 }
+
+type AssistantMessage = Extract<ChatMessage, { readonly role: 'assistant' }>;
+type ProviderPassthrough = NonNullable<AssistantMessage['provider']>[number];
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 // A named provider discriminator keeps verify-one-walker's SQL-type heuristic from
 // misclassifying this content-block comparison as a second read of column metadata.
@@ -34,9 +38,7 @@ const providerBlock = (block: ProviderPassthrough): Anthropic.ContentBlockParam 
   throw new Error(`anthropic driver cannot carry provider block ${block.kind}`);
 };
 
-const assistantContent = (
-  message: Extract<ChatMessage, { readonly role: 'assistant' }>,
-): Anthropic.ContentBlockParam[] => {
+const assistantContent = (message: AssistantMessage): Anthropic.ContentBlockParam[] => {
   const content: Anthropic.ContentBlockParam[] = [];
   for (const block of message.provider ?? []) content.push(providerBlock(block));
   if (message.content.length > 0) content.push({ type: 'text', text: message.content });

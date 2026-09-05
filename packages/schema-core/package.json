@@ -58,20 +58,15 @@
     "@zmdb/query-compiler": "workspace:^"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "0.123.0",
     "@zmdb/aot-validator": "workspace:^",
     "oxfmt": "0.66.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "0.123.0",
     "@langchain/core": "^1.2.9",
     "ai": "^7.0.83"
   },
   "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": {
-      "optional": true
-    },
     "@langchain/core": {
       "optional": true
     },

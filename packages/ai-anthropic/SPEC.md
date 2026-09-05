@@ -1,11 +1,11 @@
 # @zmdb/ai-anthropic — Anthropic SDK integration specification
 
-> **Status:** target package boundary frozen by issue #703. Runtime source and a manifest are added by later implementation issues.
+> **Status:** implemented by issue #706 after the target package boundary was frozen by issue #703.
 
 ## 1. Responsibility
 
-This package owns exactly the Anthropic SDK translation currently implemented by `packages/schema-core/src/llm/chat/drivers/anthropic.ts` and its tests. It turns the provider-neutral `@zmdb/ai/chat`
-contract into one injected Anthropic Messages API call and translates the response back.
+This package owns the Anthropic SDK translation that previously lived at `packages/schema-core/src/llm/chat/drivers/anthropic.ts` and its tests. It turns the provider-neutral `@zmdb/ai/chat` contract
+into one injected Anthropic Messages API call and translates the response back.
 
 Provider document dialects, `toolFor('anthropic', ...)`, the bounded chat loop, tool invocation, approval and redaction remain in `@zmdb/ai`. This package does not own OpenAI, Gemini, raw `fetch`,
 fallback, retries, streaming, model discovery, persistence or secret loading.
@@ -42,12 +42,12 @@ The caller constructs and injects the client. Importing this package reads no en
 ## 3. Dependencies and peer
 
 - Direct workspace dependency: `@zmdb/ai` at `workspace:^`.
-- Sole external peer: `@anthropic-ai/sdk` at exactly `0.123.0`.
+- Sole external peer: optional `@anthropic-ai/sdk` at exactly `0.123.0`.
 - Exact development/fixture version: `0.123.0`, which is both declared and resolved in the measured starting tree.
 - No direct dependency on `@zmdb/schema-core`, `@zmdb/aot-validator` or another integration package.
 
-The SDK peer is required for an installed integration package, though shipped runtime code keeps the import type-only and receives a structural client. Applications that do not install
-`@zmdb/ai-anthropic` receive no Anthropic peer.
+The SDK peer is optional because shipped runtime code keeps the import type-only and receives a structural client. The real SDK remains a development dependency so its request and response types are
+compiled. Applications that do not install `@zmdb/ai-anthropic` receive no Anthropic peer.
 
 ## 4. Migration and qualification
 
@@ -64,12 +64,12 @@ Qualification must use the real installed SDK types without network I/O and prov
 - supported text, tool-use and passthrough blocks round-trip;
 - an unknown passthrough block is refused before `client.messages.create` is called;
 - the provider-neutral package entry points do not reach `@anthropic-ai/sdk`; and
-- a packed consumer importing this root succeeds with `0.123.0` and fails clearly when the required peer is absent.
+- a packed consumer imports this root without resolving the optional peer, while its declarations typecheck with `0.123.0` installed.
 
 ## 5. README and non-goals
 
-The package README states `yarn add @zmdb/ai @zmdb/ai-anthropic @anthropic-ai/sdk@0.123.0`, shows client injection, and links to the provider-neutral chat contract. It must not suggest that API keys
-are read automatically.
+The package README states `npm add @zmdb/ai-anthropic@alpha @anthropic-ai/sdk@0.123.0`, shows client injection, and links to the provider-neutral chat contract. It must not suggest that API keys are
+read automatically.
 
 This package does not expose a generic provider abstraction, HTTP retry policy, streaming driver, model registry, cost table or environment helper.
 

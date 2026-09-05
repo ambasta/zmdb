@@ -17,6 +17,7 @@ export const PACKAGES = [
   'query-compiler',
   'schema-core',
   'ai',
+  'ai-anthropic',
   'protobuf',
   'aot-validator',
   'repository',

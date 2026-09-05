@@ -197,6 +197,3 @@ export async function run<const I extends ToolInputs, R extends LinkedRegistry<I
 
   return finish(state, 'max-turns', budget);
 }
-
-export { anthropicDriver } from './drivers/anthropic.js';
-export type { AnthropicDriverOptions, AnthropicMessagesClient } from './drivers/anthropic.js';

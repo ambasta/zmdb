@@ -1,8 +1,8 @@
 import type Anthropic from '@anthropic-ai/sdk';
+import type { ToolSpec } from '@zmdb/ai';
 import { describe, expect, it } from 'vitest';
 
-import type { ToolSpec } from '../../index.js';
-import { anthropicDriver, type AnthropicMessagesClient } from './anthropic.js';
+import { anthropicDriver, type AnthropicMessagesClient } from './index.js';
 
 const tool: ToolSpec = {
   name: 'search_docs',

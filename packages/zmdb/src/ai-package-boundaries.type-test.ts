@@ -12,6 +12,7 @@ import type {
   ToolSpec,
   ToolSpecFor,
 } from '@zmdb/ai';
+import type { anthropicDriver, AnthropicDriverOptions, AnthropicMessagesClient } from '@zmdb/ai-anthropic';
 import type {
   defineTools,
   ChatDriver,
@@ -69,12 +70,6 @@ import type {
   RemoteTool,
   RemoteToolResult,
 } from '@zmdb/schema-core/llm/mcp';
-
-import type {
-  anthropicDriver,
-  AnthropicDriverOptions,
-  AnthropicMessagesClient,
-} from '../../schema-core/src/llm/chat/drivers/anthropic.js';
 
 type ExportSet<Values extends string, Types extends string> = {
   readonly values: Values;

@@ -63,7 +63,7 @@ The library gives you the things that are reusable without choosing application 
 - **`lenientParse<T>(text)`** — recovery from the specific ways model output deviates from strict JSON
 - **`defineTools(registry)`** — a registry that requires a validator and links each handler to that validator's output
 - **`run(driver, messages, tools, opts)`** — a provider-independent loop with explicit turn and per-turn tool-call bounds
-- **`anthropicDriver(opts)`** — a thin adapter over an injected optional Anthropic SDK client
+- **`anthropicDriver(opts)` from `@zmdb/ai-anthropic`** — a thin adapter over an injected optional Anthropic SDK client
 
 Plus the validators, which are the part that actually matters: `assert<CreateDTO<Order>>(toolInput)` before any write.
 

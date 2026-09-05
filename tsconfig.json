@@ -32,6 +32,7 @@
       "@zmdb/client": ["./packages/client/src/index.ts"],
       "@zmdb/client/*": ["./packages/client/src/*/index.ts"],
       "@zmdb/ai": ["./packages/ai/src/index.ts"],
+      "@zmdb/ai-anthropic": ["./packages/ai-anthropic/src/index.ts"],
       "@zmdb/ai/chat": ["./packages/ai/src/chat/index.ts"],
       "@zmdb/ai/compiler": ["./packages/ai/src/compiler.ts"],
       "@zmdb/ai/http": ["./packages/ai/src/http/index.ts"],

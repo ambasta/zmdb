@@ -106,6 +106,7 @@ const PACKAGES = [
   'client',
   'schema-core',
   'ai',
+  'ai-anthropic',
   'aot-validator',
   'protobuf',
   'repository',

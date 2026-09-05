@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const PACKAGES = join(ROOT, 'packages');
 const AI = join(PACKAGES, 'ai');
+const AI_ANTHROPIC = join(PACKAGES, 'ai-anthropic');
 const SCHEMA_CORE = join(PACKAGES, 'schema-core');
 const LLM = join(SCHEMA_CORE, 'src', 'llm');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
@@ -29,6 +30,7 @@ interface PackageManifest {
   readonly name?: string;
   readonly exports?: Readonly<Record<string, unknown>>;
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly devDependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
   readonly peerDependenciesMeta?: Readonly<Record<string, unknown>>;
 }
@@ -92,6 +94,7 @@ const SCHEMA_CORE_PACKED_SUBPATHS = [
 ] as const;
 
 const TARGET_AI_EXPORTS = ['.', './chat', './compiler', './http', './tool-runtime'] as const;
+const TARGET_ANTHROPIC_EXPORTS = ['.'] as const;
 const AI_PACKED_SUBPATHS = [
   '@zmdb/ai',
   '@zmdb/ai/chat',
@@ -99,6 +102,7 @@ const AI_PACKED_SUBPATHS = [
   '@zmdb/ai/http',
   '@zmdb/ai/tool-runtime',
 ] as const;
+const ANTHROPIC_PACKED_SUBPATHS = ['@zmdb/ai-anthropic'] as const;
 const AI_SDK_PEERS = ['@anthropic-ai/sdk', '@langchain/core', 'ai'] as const;
 
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
@@ -193,9 +197,9 @@ function projectedOwner(file: string): string {
 
 function projectedAiGraph(): string[] {
   const edges = new Set<string>();
-  const production = Object.keys(FINAL_OWNER)
-    .filter(path => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.endsWith('.type-test.ts'))
-    .map(path => join(LLM, path));
+  const production = Object.entries(FINAL_OWNER)
+    .filter(([path]) => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.endsWith('.type-test.ts'))
+    .map(([path, owner]) => (owner === '@zmdb/ai-anthropic' ? join(AI_ANTHROPIC, 'src', 'index.ts') : join(LLM, path)));
   const aotSources = [
     join(PACKAGES, 'aot-validator', 'src', 'transformer.ts'),
     join(PACKAGES, 'aot-validator', 'src', 'emit', 'index.ts'),
@@ -328,11 +332,13 @@ process.stdout.write(JSON.stringify(out));
 const readJsonFromText = <T>(text: string): T => JSON.parse(text) as T;
 
 let packedAi: PackedPackage;
+let packedAnthropic: PackedPackage;
 let packedSchemaCore: PackedPackage;
 const packDirectories: string[] = [];
 
 beforeAll(() => {
   packedAi = packWorkspacePackage('ai', AI_PACKED_SUBPATHS, ['schema-core']);
+  packedAnthropic = packWorkspacePackage('ai-anthropic', ANTHROPIC_PACKED_SUBPATHS, ['ai', 'schema-core']);
   packedSchemaCore = packWorkspacePackage('schema-core', SCHEMA_CORE_PACKED_SUBPATHS, ['query-compiler']);
 }, 60_000);
 
@@ -340,10 +346,10 @@ afterAll(() => {
   for (const directory of packDirectories) rmSync(directory, { recursive: true, force: true });
 });
 
-describe('AI package ownership and isolation (#704, #705)', () => {
+describe('AI package ownership and isolation (#704, #705, #706)', () => {
   it.fails('schema-core exposes no llm subpath or AI peer dependency', () => {
-    // Measured at #703: 32 files, six export-map entries and three optional peers still belong
-    // to schema-core. Each assertion names the real old owner rather than a future empty package.
+    // #706 removes the Anthropic pair and peer, but the remaining integrations and
+    // provider-neutral forwarders keep this final-state assertion red.
     const manifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
     const llmExports = Object.keys(manifest.exports ?? {}).filter(
       path => path === './llm' || path.startsWith('./llm/'),
@@ -380,14 +386,42 @@ describe('AI package ownership and isolation (#704, #705)', () => {
     expect.soft(AI_SDK_PEERS.filter(peer => manifest.dependencies?.[peer] !== undefined)).toEqual([]);
   });
 
-  it.fails('each optional AI integration reaches exactly its declared peer', () => {
+  it('@zmdb/ai-anthropic reaches only @anthropic-ai/sdk among third-party peers', () => {
+    const entry = join(AI_ANTHROPIC, 'src', 'index.ts');
+    const manifest = readJson<PackageManifest>(join(AI_ANTHROPIC, 'package.json'));
+    const aiManifest = readJson<PackageManifest>(join(AI, 'package.json'));
+    const schemaManifest = readJson<PackageManifest>(join(SCHEMA_CORE, 'package.json'));
+    const external = [
+      ...new Set(
+        importClosure([entry])
+          .map(reference => packageNameFromSpecifier(reference.specifier))
+          .filter((name): name is string => name !== null),
+      ),
+    ].toSorted();
+
+    expect.soft(packageOwner(entry)).toBe('@zmdb/ai-anthropic');
+    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(manifest.peerDependencies).toEqual({ '@anthropic-ai/sdk': '0.123.0' });
+    expect.soft(manifest.devDependencies?.['@anthropic-ai/sdk']).toBe('0.123.0');
+    expect.soft(manifest.peerDependenciesMeta).toEqual({
+      '@anthropic-ai/sdk': { optional: true },
+    });
+    expect.soft(external).toEqual(['@anthropic-ai/sdk', '@zmdb/ai']);
+    expect.soft(external.filter(name => !name.startsWith('@zmdb/'))).toEqual(['@anthropic-ai/sdk']);
+    expect.soft(aiManifest.peerDependencies).toBeUndefined();
+    expect.soft(aiManifest.dependencies?.['@anthropic-ai/sdk']).toBeUndefined();
+    expect.soft(schemaManifest.devDependencies?.['@anthropic-ai/sdk']).toBeUndefined();
+    expect.soft(schemaManifest.peerDependencies?.['@anthropic-ai/sdk']).toBeUndefined();
+    expect.soft(schemaManifest.peerDependenciesMeta).not.toHaveProperty('@anthropic-ai/sdk');
+    expect.soft(Object.keys(packedAnthropic.imported)).toEqual([...ANTHROPIC_PACKED_SUBPATHS]);
+    expect.soft(packedAnthropic.imported['@zmdb/ai-anthropic']).toEqual(['anthropicDriver']);
+    expect.soft(packedAnthropic.installedPeers).toEqual([]);
+    expect.soft(packedAnthropic.files).toContain('src/index.ts');
+    expect.soft(Object.keys(packedAnthropic.manifest.exports ?? {})).toEqual([...TARGET_ANTHROPIC_EXPORTS]);
+  });
+
+  it.fails('remaining optional AI integrations reach exactly their declared peer', () => {
     const integrations = [
-      {
-        owner: '@zmdb/ai-anthropic',
-        source: 'chat/drivers/anthropic.ts',
-        peer: '@anthropic-ai/sdk',
-        range: '0.123.0',
-      },
       {
         owner: '@zmdb/ai-langchain',
         source: 'adapters/langchain.ts',
@@ -494,8 +528,8 @@ describe('AI package ownership and isolation (#704, #705)', () => {
 
   it.fails('installing @zmdb/schema-core alone installs no AI SDK peer', () => {
     // The consumer contains only the packed schema-core package and none of the SDKs. The
-    // remaining failure is its real packed peer contract, which still assigns all three SDK
-    // edges to schema-core.
+    // remaining failure is its real packed peer contract, which still assigns the LangChain
+    // and Vercel SDK edges to schema-core.
     expect(packedSchemaCore.installedPeers).toEqual([]);
     expect
       .soft(AI_SDK_PEERS.filter(peer => packedSchemaCore.manifest.peerDependencies?.[peer] !== undefined))

@@ -1,0 +1,60 @@
+{
+  "name": "@zmdb/ai-anthropic",
+  "version": "1.0.0-alpha.4",
+  "description": "Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.",
+  "keywords": [
+    "ai",
+    "anthropic",
+    "chat",
+    "llm",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/ai-anthropic"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/ai": "workspace:^"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "0.123.0",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "0.123.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

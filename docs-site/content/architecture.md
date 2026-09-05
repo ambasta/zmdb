@@ -1,5 +1,5 @@
-zmdb currently publishes nine implementation packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side roots,
-while `@zmdb/ai` is independently installable and is not re-exported by the umbrella.
+zmdb currently publishes ten focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side roots, while
+`@zmdb/ai` and the opt-in `@zmdb/ai-anthropic` integration are independently installable and are not re-exported by the umbrella.
 
 The dependency spine is:
 
@@ -24,7 +24,8 @@ The dependency spine is:
          zmdb
 ```
 
-Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
+`@zmdb/ai-anthropic` depends inward on `@zmdb/ai`. `@zmdb/client` and `@zmdb/protobuf` are independent roots. Higher packages also keep the direct lower-level dependencies listed in their manifests;
+the spine shows the required acyclic order rather than every shortcut edge.
 
 ## What each package owns
 
@@ -37,6 +38,9 @@ seeding. It does not import `typescript`, which is why reflection lives in `@zmd
 
 **`@zmdb/ai`** — provider-neutral tool documents, provider-dialect framing, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools. It depends on schema-core and has
 no provider or framework SDK dependency or peer.
+
+**`@zmdb/ai-anthropic`** — the optional Anthropic Messages API translation for `@zmdb/ai/chat`. It depends only on `@zmdb/ai`, keeps the SDK import type-only, and accepts a caller-constructed
+structural client.
 
 **`@zmdb/query-compiler`** — turns builder calls into `{ text, parameters }` for an injected `SqlDialect` object or a temporary built-in `Dialect` name (`'postgres'`, `'mysql'`, `'sqlite'`, `'mssql'`,
 `'cockroach'`, `'singlestore'`). The object carries resolved traits, capabilities, migrations and introspection without registering globally. When constructed with `{ telemetry: true }`, the compiler
@@ -105,8 +109,8 @@ they never ask the runtime what type a parameter has, because at runtime that in
 
 ## Provider-neutral dependency boundary
 
-`@zmdb/ai` has one runtime workspace dependency, `@zmdb/schema-core`, and no external dependency or peer. Provider and framework SDKs remain behind their opt-in integration paths, so importing the AI
-root, chat, HTTP, compiler, or tool-runtime entry does not install an SDK.
+`@zmdb/ai` has one runtime workspace dependency, `@zmdb/schema-core`, and no external dependency or peer. `@zmdb/ai-anthropic` is a separate opt-in package with one optional SDK peer. Importing the
+provider-neutral root, chat, HTTP, compiler, or tool-runtime entry does not install or resolve that SDK.
 
 ## Assertion discipline
 

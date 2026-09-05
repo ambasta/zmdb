@@ -2210,6 +2210,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/ai-anthropic@workspace:packages/ai-anthropic":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/ai-anthropic@workspace:packages/ai-anthropic"
+  dependencies:
+    "@anthropic-ai/sdk": "npm:0.123.0"
+    "@zmdb/ai": "workspace:^"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    "@anthropic-ai/sdk": 0.123.0
+  peerDependenciesMeta:
+    "@anthropic-ai/sdk":
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/ai@workspace:^, @zmdb/ai@workspace:packages/ai":
   version: 0.0.0-use.local
   resolution: "@zmdb/ai@workspace:packages/ai"
@@ -2311,18 +2326,14 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/schema-core@workspace:packages/schema-core"
   dependencies:
-    "@anthropic-ai/sdk": "npm:0.123.0"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
   peerDependencies:
-    "@anthropic-ai/sdk": 0.123.0
     "@langchain/core": ^1.2.9
     ai: ^7.0.83
   peerDependenciesMeta:
-    "@anthropic-ai/sdk":
-      optional: true
     "@langchain/core":
       optional: true
     ai:

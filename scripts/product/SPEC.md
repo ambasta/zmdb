@@ -60,20 +60,24 @@ repository root explicitly.
 
 ## 3. Measured package inventory
 
-At the #618 baseline, six directories under `packages/` contained publishable manifests. Issue #705 adds the seventh admitted package, `@zmdb/ai`, and the hard-coded publication array now repeats all
-seven until the catalog replaces it:
+At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, and #706 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, and the
+independently selected `@zmdb/ai-anthropic` integration. The hard-coded publication array now repeats all eleven admitted catalog packages until the catalog replaces it:
 
 | Directory                 | npm name               | Frozen product role | Current facade ownership                                      |
 | ------------------------- | ---------------------- | ------------------- | ------------------------------------------------------------- |
+| `packages/client`         | `@zmdb/client`         | `client`            | None; generated clients import it directly                    |
 | `packages/schema-core`    | `@zmdb/schema-core`    | `schema`            | Root schema names; `tags`, `derive`, `dto`, `relations`, `ir` |
 | `packages/query-compiler` | `@zmdb/query-compiler` | `sql`               | Root SQL names and the root `migrations` namespace            |
 | `packages/ai`             | `@zmdb/ai`             | `ai`                | None; installed and imported independently                    |
+| `packages/ai-anthropic`   | `@zmdb/ai-anthropic`   | `anthropic`         | None; selected integration with no facade export              |
+| `packages/protobuf`       | `@zmdb/protobuf`       | `protobuf`          | None; installed and imported independently                    |
 | `packages/aot-validator`  | `@zmdb/aot-validator`  | `validator`         | Root validator names and `unplugin`                           |
 | `packages/repository`     | `@zmdb/repository`     | `orm`               | Root ORM names and database-driver subpaths                   |
+| `packages/app`            | `@zmdb/app`            | `app`               | Protocol-neutral application names through `zmdb/web`         |
 | `packages/web`            | `@zmdb/web`            | `web`               | `zmdb/web`                                                    |
 | `packages/zmdb`           | `zmdb`                 | `product`           | Root composition, `config`, `cli`, and the executable         |
 
-This table is review evidence, not the canonical machine source. #622 creates the seven catalog rows, assigns `docsOwner` and `consumer`, and makes later package additions or renames single catalog
+This table is review evidence, not the canonical machine source. #622 creates the eleven catalog rows, assigns `docsOwner` and `consumer`, and makes later package additions or renames single catalog
 edits. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers

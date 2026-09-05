@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635, amended by #656 and #668
+# Runtime foundation boundary policy — issue #635, amended by #656, #668 and #706
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -21,17 +21,17 @@ moved the protobuf/gRPC public calls and wire runtime out of the foundation cand
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
-| `@zmdb/schema-core`    |                              30 |                 15 |
+| `@zmdb/schema-core`    |                              29 |                 15 |
 | `@zmdb/query-compiler` |                              36 |                 13 |
 | `@zmdb/aot-validator`  |                              54 |                 14 |
 | `@zmdb/repository`     |                              22 |                 11 |
-| **Total**              |                         **142** |             **53** |
+| **Total**              |                         **141** |             **53** |
 
-The four manifests contain 25 dependency entries: 6 `dependencies`, 5 `peerDependencies`, and 14 `devDependencies`. They contain no `optionalDependencies`.
+The four manifests contain 24 dependency entries: 7 `dependencies`, 4 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 142 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
+Every one of the 141 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
 whose declared destination no longer exists in the architecture policy.
 
 ### `@zmdb/ai` — 10
@@ -52,7 +52,7 @@ packages/schema-core/src/llm/tool-runtime.ts
 ### `@zmdb/ai-anthropic` — 1
 
 ```text
-packages/schema-core/src/llm/chat/drivers/anthropic.ts
+packages/ai-anthropic/src/index.ts
 ```
 
 ### `@zmdb/ai-langchain` — 1

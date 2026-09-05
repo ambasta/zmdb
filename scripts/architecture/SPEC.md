@@ -1,7 +1,7 @@
 # Package architecture and release governance — specification
 
-> **Status:** target contract frozen by issue #722 for epic #721 and amended for the package admitted by #705. No verifier or release command exists yet. The original measured baseline is commit
-> `5adba11e` on 2026-09-05.
+> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, and #706. No verifier or release command exists yet. The original
+> measured baseline is commit `5adba11e` on 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -22,8 +22,8 @@ At the measured baseline:
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
-Issue #705 adds the seventh manifest, `@zmdb/ai`, keeps the common version at `1.0.0-alpha.4`, and raises the direct non-dev workspace-edge count from 14 to 17. The new package has no peer; the seven
-manifests therefore still declare 11 optional peers in total.
+Issues #656, #682, #705, #647, and #706 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, and `@zmdb/ai-anthropic`. The current eleven manifests keep `1.0.0-alpha.4`, declare 23 direct
+non-dev workspace edges, and retain 11 optional peers after moving the existing Anthropic peer from schema-core to the integration package.
 
 ## 2. Canonical policy API
 
@@ -103,11 +103,21 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current seven catalog members; it does not claim that the later reachability gates already pass every present barrel. Adding, removing or renaming
+The following object is normative. It constrains the current eleven catalog members; it does not claim that the later reachability gates already pass every present barrel. Adding, removing or renaming
 a catalog member requires the catalog and policy key sets to change atomically.
 
 ```ts
 export const PACKAGE_POLICY = {
+  client: {
+    directory: 'packages/client',
+    zone: 'foundation',
+    ring: 0,
+    allowedWorkspaceDependencies: [],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: ['./testing'],
+    release: 'lockstep',
+  },
   'query-compiler': {
     directory: 'packages/query-compiler',
     zone: 'foundation',
@@ -125,7 +135,6 @@ export const PACKAGE_POLICY = {
     allowedWorkspaceDependencies: ['query-compiler'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
-      '@anthropic-ai/sdk': ['./llm', './llm/chat'],
       '@langchain/core': ['./llm/langchain'],
       ai: ['./llm/ai-sdk'],
     },
@@ -140,6 +149,28 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: ['./compiler'],
+    release: 'lockstep',
+  },
+  'ai-anthropic': {
+    directory: 'packages/ai-anthropic',
+    zone: 'integration',
+    ring: 3,
+    allowedWorkspaceDependencies: ['ai'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {
+      '@anthropic-ai/sdk': ['.'],
+    },
+    toolingEntries: [],
+    release: 'lockstep',
+  },
+  protobuf: {
+    directory: 'packages/protobuf',
+    zone: 'foundation',
+    ring: 0,
+    allowedWorkspaceDependencies: [],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
     release: 'lockstep',
   },
   'aot-validator': {
@@ -165,11 +196,21 @@ export const PACKAGE_POLICY = {
     toolingEntries: [],
     release: 'lockstep',
   },
+  app: {
+    directory: 'packages/app',
+    zone: 'application',
+    ring: 5,
+    allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'repository', 'schema-core'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+    release: 'lockstep',
+  },
   web: {
     directory: 'packages/web',
     zone: 'application',
-    ring: 5,
-    allowedWorkspaceDependencies: ['ai', 'aot-validator', 'query-compiler', 'repository', 'schema-core'],
+    ring: 6,
+    allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'repository', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@grpc/grpc-js': ['./microservices/grpc'],
@@ -179,14 +220,14 @@ export const PACKAGE_POLICY = {
       pg: ['./queues/backends/pg'],
       redis: ['./microservices/redis'],
     },
-    toolingEntries: ['./bench', './cli', './devtools', './testing'],
+    toolingEntries: ['./bench', './contract/compiler', './devtools', './testing'],
     release: 'lockstep',
   },
   zmdb: {
     directory: 'packages/zmdb',
     zone: 'facade',
-    ring: 6,
-    allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'repository', 'schema-core', 'web'],
+    ring: 7,
+    allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'repository', 'schema-core', 'web'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: ['./cli', './config', './unplugin', 'bin:zmdb'],

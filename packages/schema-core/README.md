@@ -20,6 +20,8 @@ npm add @zmdb/schema-core@alpha
 - Temporary compatibility paths: `/llm`, `/llm/ai-sdk`, `/llm/chat`, `/llm/http`, `/llm/langchain`, `/llm/mcp`. New provider-neutral code should import `@zmdb/ai`; these paths remain until the
   coordinated integration and MCP cutover.
 
+The Anthropic chat driver is no longer on a schema-core path; install and import `@zmdb/ai-anthropic`.
+
 ## Documentation
 
 Full docs: **https://ambasta.github.io/zmdb/**
