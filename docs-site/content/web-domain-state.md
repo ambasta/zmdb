@@ -39,7 +39,8 @@ const order = Draft.create({ id: 1, status: 'draft', total: 10 }); // DraftOrder
 Draft.is(order); // type guard → narrows to DraftOrder
 ```
 
-Calling `create` runs structural verification against configured discriminant properties and predicates. If verification fails, `create` throws a detailed `TypeError` (identifying the state name and failure cause). On success, it preserves object identity with zero runtime object allocations.
+Calling `create` runs structural verification against configured discriminant properties and predicates. If verification fails, `create` throws a detailed `TypeError` (identifying the state name and
+failure cause). On success, it preserves object identity with zero runtime object allocations.
 
 ## Declaring transitions
 
@@ -58,7 +59,8 @@ This makes "pay an already-paid order" or "ship an unpaid order" **unrepresentab
 
 ## Design notes
 
-- **Compile-time branding with structural verification.** Brands are phantom; `create` validates structural requirements and preserves object identity, so a state machine adds **0 bytes** and **0 ns object allocation cost** to valid payloads.
+- **Compile-time branding with structural verification.** Brands are phantom; `create` validates structural requirements and preserves object identity, so a state machine adds **0 bytes** and **0 ns
+  object allocation cost** to valid payloads.
 - **No `as` on the consumer surface** — construction goes through `create`. (The framework contains one isolated, documented brand-attach boundary internally.)
 - Granular import: `import { defineState } from '@zmdb/app/state'`.
 
