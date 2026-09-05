@@ -116,6 +116,7 @@ export function normalizeType(typeStr) {
   // Standardize spaces around symbols
   cleaned = cleaned
     .replace(/\s*([:,;{}()<>|=&])\s*/g, '$1')
+    .replace(/,([)><}])/g, '$1')
     .replace(/;}/g, '}')
     .replace(/;,/g, ';');
 
