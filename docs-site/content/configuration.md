@@ -10,7 +10,7 @@ createQueryCompiler(dialect)                          // SqlDialect object or te
 schemaOf<T>()                                         // the declaration; compiled away at build time
 defineRepository(schema, driver, { dialect?, schemas? })
 createApp(rootModule)
-toOpenApi(controllers, { info?, schemas? })
+toOpenApi(httpContractIR, { info? })
 ```
 
 That is the complete runtime surface. There is no `reflect-metadata`, boot-time metadata scan, or ambient config read. `zmdb.config.ts` is an explicit tooling boundary for schema files, dialect and

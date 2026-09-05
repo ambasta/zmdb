@@ -5,15 +5,15 @@
 
 ## 1. Measured baseline at `94164c53`
 
-The target below is a migration, not a claim that it ships today. The present tree was measured before this spec was written:
+The target below records a migration from this historical baseline. These bullets describe commit `94164c53`, not the current tree:
 
 - `ResolvedRoute` contains only `method`, `path`, and `handlerName`; `getRoutes` reads those values from Stage-3 decorator metadata.
 - `RouteSchemas` contains only `body?` and `response?`, and `OpenApiOptions.schemas` is keyed by path rather than by method plus path.
 - A focused probe with `GET /users` and `POST /users` showed one `schemas['/users']` entry attaching the same request body and response schema to both operations.
 - The same probe showed both operations exposing only status `200`, a Fetch request for `/users?tag=a&tag=b` reaching its handler with `ctx.query === {}`, and no `signal` property on `Ctx`.
-- `toOpenApi` currently calls `getRoutes`, `versionsOf`, `isPublic`, and guard resolution directly. OpenAPI is therefore a route collector today, not yet a pure emitter.
-- `@zmdb/aot-validator` currently recognises 17 generic callees. Its `ReflectSession` is the one compiler session and `TypeIR` is the serialisable schema representation.
-- The repository currently has six package directories and no `packages/client`, `@zmdb/client` manifest reference, or lockfile entry.
+- `toOpenApi` called `getRoutes`, `versionsOf`, `isPublic`, and guard resolution directly. OpenAPI was therefore a route collector rather than a pure emitter.
+- `@zmdb/aot-validator` recognised 17 generic callees. Its `ReflectSession` was the one compiler session and `TypeIR` was the serialisable schema representation.
+- The repository had six package directories and no `packages/client`, `@zmdb/client` manifest reference, or lockfile entry.
 
 These facts define the migration starting point. They are not retained as compatibility constraints.
 
@@ -113,8 +113,8 @@ The exact utility types may be factored for readability, but the observable cont
 5. The declaration is inert. Constructing it performs no I/O, route registration, network request, or global registration.
 6. A build refuses a dynamic operation ID, method, path, handler name, status, media type, or version declaration. Generated artifact identity cannot depend on executing application code.
 
-The runtime route table consumes compiled contracts through `registerContract`. Verb and controller decorators remain migration inputs checked for exact agreement; they are not a second final source,
-and #683 removes the remaining direct OpenAPI collection.
+The runtime route table consumes compiled contracts through `registerContract`. Verb and controller decorators remain migration inputs checked for exact agreement; they are not a second final source.
+OpenAPI now consumes only the compiled `HttpContractIR`; #683 removed its direct route, guard, version and schema collection.
 
 ## 4. The serialisable IR
 
@@ -508,12 +508,12 @@ Implementation follows this order so every intermediate state is measurable:
 2. #681 adds declaration helpers and the web contract compiler, initially comparing each compiled operation with the existing decorator route and `RouteOptions` metadata.
 3. The router gains contract registration and consumes the compiled operation plan. A dual-declared route must agree exactly; disagreement is a startup/build error.
 4. Each route moves method, path, body, status, security, version, and deprecation ownership into the contract. Its old decorator/schema/options declaration is then removed rather than forwarded.
-5. #683 changes OpenAPI to accept only `HttpContractIR` and deletes `RouteSchemas`, `VersionSchemas`, and direct route collection.
+5. #683 changed OpenAPI to accept only `HttpContractIR` and deleted `RouteSchemas`, `VersionSchemas`, operation-ID derivation, and direct route collection.
 6. #682 and #684 land the independent client runtime and generated module.
 7. #685 wires config/CLI generation and packed browser/Node consumers.
 8. #686 updates public documentation only after the final imports and commands exist.
 
-There is no compatibility requirement to preserve `toOpenApi(controllers, options.schemas)` or path-keyed schemas after step 5.
+There is no compatibility overload for `toOpenApi(controllers, options.schemas)` or path-keyed schemas after step 5.
 
 ## 14. Acceptance owned by #680
 

@@ -83,10 +83,10 @@ These are not preferences; they are invariants. A change that violates one is re
 
 > The public API is assertion-free. Framework internals use a documented exception list for places where runtime data crosses into a TypeScript type.
 >
-> As of 2026-09-04, the 176 shipped files under `packages/*/src` contain 55 assertions and 55 matching `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`, and
-> one lint suppression. The consumer documentation contains no required casts.
+> As of 2026-09-05, the 222 shipped files under `packages/*/src` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`, and one lint
+> suppression. The consumer documentation contains no required casts.
 >
-> The count rose from 28 during the type-first work. Of the 55 current assertions, 26 are in `aot-validator`, mainly around checker values, parsed JSON, and validated return values. Each comment
+> The count rose from 28 during the type-first work. Of the 53 current assertions, 26 are in `aot-validator`, mainly around checker values, parsed JSON, and validated return values. Each assertion
 > records the runtime guarantee behind its assertion.
 >
 > `yarn verify:escape-hatches` enforces both the comments and a per-package count ceiling. It fails when a count rises, when an assertion lacks its boundary comment, or when a ceiling can be lowered.
@@ -243,8 +243,8 @@ package or capability is experimental and documentation must say which evidence 
 
 ### 3.5 Frozen shared HTTP-contract and generated-client target
 
-Issue #681 now ships the inert contract declarations, deterministic compiler and contract-aware router registration shown below. Issue #682 ships the dependency-free `@zmdb/client` execution runtime,
-while OpenAPI and generated operation modules remain on their later migration steps.
+Issue #681 ships the inert contract declarations, deterministic compiler and contract-aware router registration shown below. Issue #682 ships the dependency-free `@zmdb/client` execution runtime, and
+issue #683 makes OpenAPI a pure emitter over the same `HttpContractIR`. Generated operation modules and their end-to-end build workflow remain on the later migration steps.
 
 ```text
 @zmdb/schema-core/ir

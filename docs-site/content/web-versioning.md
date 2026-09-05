@@ -1,5 +1,5 @@
-`@zmdb/web` supports one finite API-version strategy per router: path, request header or the `Accept` media type. The route table is built at registration, and the same `VersionStrategy` value is
-passed to `toOpenApi` so runtime routing and generated clients describe the same contract.
+`@zmdb/web` supports one finite API-version strategy per router: path, request header or the `Accept` media type. The route table is built at registration, and each compiled `HttpOperationIR` carries
+the same version decision consumed by routing, OpenAPI, and generated clients.
 
 There is deliberately no precedence rule between strategies because two strategies cannot be configured at once. A request such as `/v1/users` with an `accept-version: 2` header is therefore not an
 ambiguous state the framework has to resolve. Mount a second router when migrating between strategies.
@@ -18,7 +18,8 @@ request shapes, because runtime reads `Accept` and never request `Content-Type`.
 ## Declare versions
 
 ```ts
-import { toOpenApi, type VersionSchemas } from '@zmdb/web/openapi';
+import { httpOperation } from '@zmdb/web/contract';
+import { toOpenApi } from '@zmdb/web/openapi';
 import { createRouter, type RouteOptions } from '@zmdb/web/pipeline';
 import { Controller, Get } from '@zmdb/web/routing';
 import { Version, VersionNeutral } from '@zmdb/web/versioning';
@@ -71,16 +72,21 @@ router.register(new UsersController());
 `@Version('1', '2')` on `/users` registers `/v1/users` and `/v2/users` at startup. Request handling then uses the ordinary method/path table: there is no version extraction or version-table lookup on
 the request path.
 
-Each expanded path is an independent OpenAPI operation and may carry independent schemas:
+The final contract declares one operation per expanded path, with its own explicit operation ID and schemas:
 
 ```ts
-const document = toOpenApi([UsersController], {
-  versioning,
-  schemas: {
-    '/v1/users': { response: { type: 'array' } },
-    '/v2/users': { response: { type: 'object' } },
-  },
-});
+listUsersV1: httpOperation<ListUsersV1>({
+  // ...
+  path: '/v1/users',
+  version: { kind: 'path', value: '1' },
+}),
+listUsersV2: httpOperation<ListUsersV2>({
+  // ...
+  path: '/v2/users',
+  version: { kind: 'path', value: '2' },
+}),
+
+const document = toOpenApi(compiled.ir);
 ```
 
 Relevant generated fragment:
@@ -131,20 +137,20 @@ A missing header selects the required `default`. An unsupported value on a match
 
 An unknown path remains the ordinary `404`, even when the header names an unknown version, so unrelated routes do not leak their version inventory.
 
-Header versions share one OpenAPI operation and must use identical request and response schemas:
+Header versions share one contract operation and therefore one request/response shape:
 
 ```ts
-const versionSchemas = {
-  '/users': {
-    '1': { response: { type: 'array' } },
-    '2': { response: { type: 'array' } },
+listUsers: httpOperation<ListUsers>({
+  // ...
+  version: {
+    kind: 'header',
+    name: 'accept-version',
+    values: ['1', '2'],
+    default: '1',
   },
-} satisfies VersionSchemas;
-
-const document = toOpenApi([UsersController], {
-  versioning,
-  versionSchemas,
 });
+
+const document = toOpenApi(compiled.ir);
 ```
 
 Generated parameter:
@@ -154,15 +160,18 @@ Generated parameter:
   "name": "accept-version",
   "in": "header",
   "required": false,
+  "style": "simple",
+  "explode": false,
   "schema": {
+    "type": "string",
     "enum": ["1", "2"],
     "default": "1"
   }
 }
 ```
 
-Generation refuses a default the operation does not serve. It also refuses different request or response schemas and names path versioning as the fix: OpenAPI has no operation-schema dimension keyed
-by a header value.
+Contract compilation refuses a default the operation does not serve. Different shapes require separate path-versioned operations because OpenAPI has no operation-schema dimension keyed by a header
+value.
 
 ## Media-type versioning
 
@@ -180,26 +189,30 @@ router.register(new UsersController());
 The version is read from `Accept`, never request `Content-Type`. Several media ranges are ordered by `q`; `q=0` prohibits that version. If none names a supported acceptable version, runtime returns
 `406` with the versions served by that route. A missing version parameter selects `default`.
 
-Request schemas must be identical because request `Content-Type` is not the version source. Response schemas may differ:
+Request schemas are shared because request `Content-Type` is not the version source. A response may provide one body projection per accepted version:
 
 ```ts
-const versionSchemas = {
-  '/users': {
-    '1': {
-      body: { type: 'object' },
-      response: { type: 'array' },
-    },
-    '2': {
-      body: { type: 'object' },
-      response: { type: 'object' },
+listUsers: httpOperation<ListUsers>({
+  // ...
+  version: {
+    kind: 'media-type',
+    key: 'version',
+    values: ['1', '2'],
+    default: '1',
+  },
+  responses: {
+    200: {
+      description: 'OK',
+      body: { kind: 'json', mediaType: 'application/json' },
+      versions: {
+        '1': { kind: 'json', mediaType: 'application/json' },
+        '2': { kind: 'json', mediaType: 'application/json' },
+      },
     },
   },
-} satisfies VersionSchemas;
-
-const document = toOpenApi([UsersController], {
-  versioning,
-  versionSchemas,
 });
+
+const document = toOpenApi(compiled.ir);
 ```
 
 Relevant generated fragment:
@@ -233,7 +246,8 @@ For a JSON handler response, runtime sets the selected content type too: `applic
 
 ## Deprecating a versioned route
 
-`RouteOptions.deprecated: true` emits `deprecated: true` on that operation. Use separate handlers when only one path version is deprecated:
+`HttpOperationIR.deprecated: true` emits `deprecated: true`. During decorator migration, `RouteOptions.deprecated` must agree at contract registration. Use separate operations when only one path
+version is deprecated:
 
 ```ts
 @Controller('/users')
@@ -259,8 +273,7 @@ const ROUTES = {
 } satisfies Record<string, Record<string, RouteOptions>>;
 ```
 
-One handler declared for several versions has one route-options record, so its deprecation and security metadata applies to every one. Header and media-type versions also share one OpenAPI operation;
-generation refuses versions whose security or deprecation metadata differs.
+Each path-version operation declares its own `deprecated` value. Header and media-type versions share one contract operation, so they also share security and deprecation.
 
 The marker changes documentation only. It does not emit `Sunset` or `Deprecation` response headers.
 
@@ -272,8 +285,8 @@ version, and a version-specific route shadows a neutral route at the same method
 The media parser matches known versions through a startup-built trie without `split`, `slice`, lower-casing or substring allocation on the successful known version path. Unsupported-version error
 bodies still allocate normally.
 
-OpenAPI cannot represent a neutral and a version-specific handler sharing one method/path as one operation, so document generation refuses that shadowing. Use distinct public paths when both handlers
-must appear in one document.
+OpenAPI cannot represent a neutral and a version-specific handler sharing one method/path as one operation, so contract compilation and rendering refuse that collision. Use distinct public paths when
+both handlers must appear in one document.
 
 Custom extractor callbacks are not supported. A callback can produce an application-defined value or preference list with no finite generated document shape; mount a separately configured router
 instead.

@@ -1,27 +1,27 @@
-// A route's request and response documents, asked for by type.
+// One operation's request and response documents, asked for by type.
 //
-// This is the shape a controller's OpenAPI input takes once `toJsonSchema<T>()` exists:
-// no schema value, no variant string, no `as`. `generated-schemas.spec.ts` runs the build
-// transform over this file and feeds the result to `toOpenApi`, which is the whole claim —
-// `RouteSchemas` accepts a generated literal directly.
+// `generated-schemas.spec.ts` runs the build transform over this file and puts the
+// resulting documents into one method-specific HttpContractIR operation. The OpenAPI
+// renderer receives only that IR; it never sees this declaration or reflects the types.
 //
-// `routes` is declared rather than defined so the assignability to `RouteSchemas` is
-// checked by the compiler while the *value* stays available to the spec, which supplies
-// the function when it evaluates the emitted module.
+// `documents` is declared rather than defined so assignability is checked while the
+// emitted values stay available to the spec, which supplies the function at evaluation.
 
 import type { CreateDTO, ReadDTO } from '@zmdb/schema-core/derive';
-import { toJsonSchema } from '@zmdb/schema-core/openapi';
+import { toJsonSchema, type JsonSchemaObject } from '@zmdb/schema-core/openapi';
 
-import type { RouteSchemas } from '../index.js';
 import type { User } from './entities.js';
 
-declare function routes(schemas: Readonly<Record<string, RouteSchemas>>): void;
+interface GeneratedDocuments {
+  readonly body: JsonSchemaObject;
+  readonly response: JsonSchemaObject;
+}
 
-routes({
-  '/users': {
-    // The create body: no `id`, because the database makes it, and `createdAt` optional,
-    // because it has a default. Both facts come from the type.
-    body: toJsonSchema<CreateDTO<User>>(),
-    response: toJsonSchema<ReadDTO<User>>(),
-  },
+declare function documents(value: GeneratedDocuments): void;
+
+documents({
+  // The create body: no `id`, because the database makes it, and `createdAt` optional,
+  // because it has a default. Both facts come from the type.
+  body: toJsonSchema<CreateDTO<User>>(),
+  response: toJsonSchema<ReadDTO<User>>(),
 });

@@ -251,7 +251,7 @@ WithHeaders
 
 <!-- #645-ownership:end -->
 
-#### HTTP web — 127
+#### HTTP web — 124
 
 <!-- #645-ownership:web -->
 
@@ -325,8 +325,7 @@ multipartPipe
 OAuthFlow
 OAuthFlows
 OpenApiDocument
-OpenApiOptions
-operationIdForRoute
+OpenApiRenderOptions
 parseMultipart
 PasswordFlow
 Patch
@@ -348,7 +347,6 @@ RouteNode
 RouteOptions
 Router
 RouterOptions
-RouteSchemas
 runChain
 SecurityAwareGuard
 SecurityRequirement
@@ -376,7 +374,6 @@ validateWith
 validationPipe
 Version
 VersionNeutral
-VersionSchemas
 versionsOf
 VersionStrategy
 WebRequest

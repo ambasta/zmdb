@@ -1081,7 +1081,7 @@ export const typia = {
   'reflect.name': 'names the helper after the type, so generated code is readable',
   'json.schema': 'describes the create body the type describes',
   'json.schemas': 'embeds the documents in the OpenAPI document',
-  'json.application': 'emits a 3.1 doc with paths and converted path params',
+  'json.application': 'emits a 3.1 doc from HttpContractIR with converted path params',
   'json.stringify': 'produces a response JSON.stringify can actually serialize',
   'json.assertStringify': 'encodes a row back to the forms the published document describes',
   'json.validateStringify': 'encodes a list, because a findMany result is one',

@@ -2,7 +2,7 @@
 // caller in ./SPEC.md §§4–7. Documents are literals and the only HTTP call uses an injected fake.
 //
 // WHAT IS *NOT* IN THIS FILE, AND WHY. ./SPEC.md §7.7 asks for the round trip against
-// `toOpenApi([...controllers])` for `packages/web/src/openapi/__fixtures__/route-schemas.ts`.
+// `toOpenApi(httpContractIR)` for `packages/web/src/openapi/__fixtures__/route-schemas.ts`.
 // `toOpenApi` lives in `@zmdb/web`, and `ARCHITECTURE.md` §3.2 says "schema-core is the root and
 // depends on nothing … It must never import a sibling" — `packages/schema-core/package.json`
 // lists only `@zmdb/query-compiler`, and `@zmdb/web` is not a devDependency either. So that

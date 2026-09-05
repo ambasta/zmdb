@@ -273,15 +273,13 @@ export { parseMultipart, UPLOAD_DEFAULTS, type Multipart, type UploadLimits, typ
 // Stateless, session-bound CSRF protection. See ./csrf.
 export { createCsrf, type Csrf, type CsrfOptions } from './csrf/index.js';
 
-// OpenAPI 3.1 generation from routes + schemas. See ./openapi.
+// OpenAPI 3.1 projection from the shared HTTP contract IR. See ./openapi.
 export {
   toOpenApi,
   serveOpenApi,
-  type OpenApiDocument,
-  type OpenApiOptions,
-  type RouteSchemas,
-  type VersionSchemas,
   type JsonSchema,
+  type OpenApiDocument,
+  type OpenApiRenderOptions,
 } from './openapi/index.js';
 
 // WebSocket & SSE gateways. See ./gateways.

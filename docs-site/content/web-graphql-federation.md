@@ -23,7 +23,7 @@ Split when you have a boundary across which you genuinely never need a transacti
 visible in review:
 
 ```ts
-const doc = toOpenApi(CONTROLLERS, { info: { title: 'Orders', version: '1.0.0' } });
+const doc = toOpenApi(compiled.ir, { info: { title: 'Orders', version: '1.0.0' } });
 ```
 
 See [OpenAPI Operations](./web-openapi-operations.html).

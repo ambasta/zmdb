@@ -141,18 +141,18 @@ generator that makes a network call at build time against a document that may be
 
 ## 5. `operationId`, and the round trip through zmdb's own document
 
-Step 9 asks that zmdb's own generated document round-trip into tools that match the controllers' inputs. `toOpenApi` now emits a deterministic `operationId` from the lowercased method and public route
-path. It refuses duplicate method/path pairs and any second route that would derive the same identifier instead of silently overwriting one operation. `toolsFromOpenApi` therefore requires the field
-and refuses a third-party document that omits it, naming the method and path. It never invents a fallback name from a document it does not own.
+Step 9 asks that zmdb's own generated document round-trip into tools that match the shared HTTP contract. `toOpenApi` copies the explicit `HttpOperationIR.operationId`; it does not derive another name
+from a controller or route. It refuses duplicate operation IDs and duplicate final method/path pairs instead of silently overwriting one operation. `toolsFromOpenApi` therefore requires the field and
+refuses a third-party document that omits it, naming the method and path. It never invents a fallback name from a document it does not own.
 
-The rest of the generated document remains deliberately narrow:
+The generated document carries every parameter location, exact status, security requirement and version from `HttpContractIR`. Request and response schemas come from each operation's referenced
+`HttpTypeIR.openApi` projection, so `GET /users` and `POST /users` can share one public path without sharing a request body.
 
-- it emits no query or header parameters; route parameters are `in: 'path'`, required strings,
-- request and response schemas still come from `options.schemas`, keyed by route path, so two methods on one path share one body schema,
-- every route becomes exactly one tool, path parameters stay required strings, and body properties appear exactly when the published document carries them.
+Every contract operation becomes exactly one tool. Path parameters stay required strings, query parameters retain their schemas, headers and cookies remain deliberately excluded from model input, and
+body properties appear exactly when that operation declares a JSON request body.
 
-Path parameters being strings is not a mismatch to repair: `Ctx.params` is `Record<string, string>` at the controller boundary too. The round trip recovers the wire document, not a lost application
-type such as `Date`.
+Path parameters being strings is not a mismatch to repair: the shared wire contract declares their schema before routing, OpenAPI or tool generation sees them. The round trip recovers the wire
+document, not a lost application type such as `Date`.
 
 ## 6. Build time, and what is _not_ generated
 
@@ -185,8 +185,8 @@ segments are refused before `URL` resolution can normalize them outside the inte
 
 1. `toolsFromOpenApi` over a fixture document covers every row of §4's table, including that a header parameter does not appear in any tool's properties.
 2. Each refusal in §4, by operation name: missing name, provider-rejected name, duplicate name, non-JSON body, unresolvable `$ref`, `$ref` cycle, external `$ref`, parameter/body name collision.
-3. The round trip of §5 against `toOpenApi([...controllers])` for the existing `openapi/__fixtures__/route-schemas.ts` controllers — the tools are compared to the routes, not to a snapshot, so a new
-   route cannot pass by being added to both sides.
+3. The round trip of §5 against `toOpenApi(httpContractIR)` for the existing generated-schema fixture — tools are compared to the explicit IR operations, including two methods on one path, so no
+   controller or path-keyed schema collector can reappear.
 4. The generated module is deterministic, is already formatter-clean, is checked in, and its `assert<T>` calls are compiled by the existing AOT emitter.
 5. The caller refuses a base URL outside the exact allowlist and constructs the path, query and JSON body only from the validated argument object. Its `fetch` is injected, so no test makes a network
    call.

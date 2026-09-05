@@ -574,7 +574,7 @@ existing tag-call inlining (`tags.Min(…)`), which needs no types.
 - `toJsonSchemaWithRelations`, `toOpenApiComponents`, `toListSchema`, `toSearchSchema`, `toolFromSchema` re-pointed at IR; **output contracts unchanged**. `toJsonSchemaWithRelations` loses its middle
   argument — the relations are in the IR, so a document can no longer name a relation the table does not have.
 - `Variant` as a type argument: `toJsonSchema<CreateDTO<User>>()`.
-- `web`'s `RouteSchemas` / `toOpenApi` fed from the generated literals.
+- `web`'s HTTP contract compiler stores generated schema literals by operation/type ID; `toOpenApi` reads only that `HttpContractIR`.
 
 **Tests**
 

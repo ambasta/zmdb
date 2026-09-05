@@ -1,78 +1,32 @@
 import { describe, expect, it } from 'vitest';
 
 import { toOpenApi, type OpenApiDocument } from '../openapi/index.js';
-import { Controller, Patch } from '../routing/index.js';
-import { Version } from '../versioning/index.js';
-import {
-  HTTP_CONVERGENCE_FIXTURE,
-  REQUEST_BODY_SCHEMA,
-  SUCCESS_BODY_SCHEMA,
-  type FrozenHttpContract,
-} from './__fixtures__/http-convergence.js';
+import { HTTP_CONVERGENCE_FIXTURE, type FrozenHttpContract } from './__fixtures__/http-convergence.js';
+import type { HttpContractIR } from './index.js';
 
 // Tests freeze for #680 against packages/web/src/contract/SPEC.md §14 and
 // packages/client/SPEC.md §§10-12. #681 supplies the contract compiler and
-// contract-aware router; the pure IR OpenAPI projection, client generator and
-// client runtime remain absent. Those missing calls go through one documented
-// frozen boundary and remain `it.fails`; the green controls exercise the legacy
-// OpenAPI emitter that #683 will replace.
+// contract-aware router; #683 supplies the pure IR OpenAPI projection. Client
+// generation and the client runtime remain absent, so only those calls stay
+// behind the documented frozen boundary and remain `it.fails`.
 
 function unimplemented(what: string): never {
   throw new Error(`${what} has no production implementation`);
 }
 
-interface ContractInput {
-  readonly format: 1;
-  readonly operations: readonly {
-    readonly operationId: string;
-    readonly path: string;
-  }[];
-}
+type GenerateClient = (contract: HttpContractIR) => string;
 
-type ProjectOpenApi = (contract: ContractInput) => OpenApiDocument;
-type GenerateClient = (contract: ContractInput) => string;
-
-const projectOpenApi: ProjectOpenApi = _contract => unimplemented('HttpContractIR to OpenAPI projection');
+const projectOpenApi = toOpenApi;
 const generateClient: GenerateClient = _contract => unimplemented('@zmdb/client generator');
-
-@Version('1', '2')
-@Controller('/accounts')
-class AccountsController {
-  @Patch('/:accountId')
-  update() {}
-}
-
-function legacyOpenApi(): OpenApiDocument {
-  const schemas = { body: REQUEST_BODY_SCHEMA, response: SUCCESS_BODY_SCHEMA };
-  return toOpenApi([AccountsController], {
-    info: { title: 'Account API', version: '1.0.0' },
-    versioning: { kind: 'header', name: 'accept-version', default: '1' },
-    versionSchemas: {
-      '/accounts/:accountId': {
-        '1': schemas,
-        '2': schemas,
-      },
-    },
-    routes: {
-      AccountsController: {
-        update: {
-          security: HTTP_CONVERGENCE_FIXTURE.contract.operations[0].security,
-          deprecated: true,
-        },
-      },
-    },
-    securitySchemes: HTTP_CONVERGENCE_FIXTURE.contract.securitySchemes,
-    strictSecurity: false,
-  });
-}
 
 function operationFrom(document: OpenApiDocument): Record<string, unknown> {
   return Object(document.paths['/accounts/{accountId}']?.patch);
 }
 
-function withPath(contract: FrozenHttpContract, path: string): ContractInput {
+function withPath(contract: FrozenHttpContract, path: string): HttpContractIR {
   const operation = contract.operations[0];
   return {
+    ...contract,
     format: contract.format,
     operations: [{ ...operation, path }],
   };
@@ -107,8 +61,12 @@ describe('the shared HTTP contract convergence fixture', () => {
     ]);
   });
 
-  it("records today's real path-keyed OpenAPI projection before convergence", () => {
-    const operation = operationFrom(legacyOpenApi());
+  it('projects every operation dimension from the shared contract', () => {
+    const operation = operationFrom(
+      projectOpenApi(HTTP_CONVERGENCE_FIXTURE.contract, {
+        info: { title: 'Account API', version: '1.0.0' },
+      }),
+    );
     const parameters = Array.isArray(operation.parameters) ? operation.parameters : [];
     expect(operation.operationId).toBe('patch_accounts_accountId');
     expect(
@@ -116,19 +74,22 @@ describe('the shared HTTP contract convergence fixture', () => {
         const record = Object(parameter);
         return `${String(record.in)}:${String(record.name)}`;
       }),
-    ).toEqual(['path:accountId', 'header:accept-version']);
-    expect(Object.keys(Object(operation.responses))).toEqual(['200']);
-    expect(Object(operation.requestBody)).toEqual({
-      content: { 'application/json': { schema: REQUEST_BODY_SCHEMA } },
-    });
+    ).toEqual([
+      'path:accountId',
+      'query:include',
+      'query:dry-run',
+      'header:x-request-id',
+      'cookie:session',
+      'header:accept-version',
+    ]);
+    expect(Object.keys(Object(operation.responses))).toEqual(['200', '202', '204', '404']);
+    expect(Object(operation.requestBody)).toHaveProperty('required', true);
     expect(operation.security).toEqual([{ bearerAuth: [] }, { apiKeyAuth: [] }]);
     expect(operation.deprecated).toBe(true);
   });
 
-  // Current measured state: the legacy projection above still consumes controller
-  // metadata plus path-keyed schemas; pure IR OpenAPI and client generation are absent.
+  // OpenAPI now consumes the shared object; client generation remains absent.
   it.fails('OpenAPI and client generation read the same operation object', () => {
-    expect(operationFrom(legacyOpenApi()).operationId).toBe('patch_accounts_accountId');
     const openApi = projectOpenApi(HTTP_CONVERGENCE_FIXTURE.contract);
     const clientSource = generateClient(HTTP_CONVERGENCE_FIXTURE.contract);
     expect(operationFrom(openApi).operationId).toBe(HTTP_CONVERGENCE_FIXTURE.contract.operations[0].operationId);
@@ -149,7 +110,7 @@ describe('the shared HTTP contract convergence fixture', () => {
   // it exercises the untyped JavaScript boundary without weakening the frozen
   // TypeScript signature merely to make an invalid call compile.
   it.fails('cannot generate a client from an OpenAPI document', () => {
-    const document = legacyOpenApi();
+    const document = projectOpenApi(HTTP_CONVERGENCE_FIXTURE.contract);
     expect(() => Reflect.apply(generateClient, undefined, [document])).toThrow(/HttpContractIR/);
   });
 

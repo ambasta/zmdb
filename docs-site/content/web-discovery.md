@@ -44,7 +44,8 @@ for (const C of CONTROLLERS) {
 
 Note you supply the list. `App` does not expose its controllers — `createApp` keeps them internal — so keep the array in a module and use it for both `@Module({ controllers })` and the table.
 
-This is also how [OpenAPI generation](./openapi.html) works: `toOpenApi(controllers, options)` takes the same list and reads routes from it.
+OpenAPI deliberately does **not** use this discovery list. Define an explicit HTTP contract, compile it once, and pass its serialisable IR to `toOpenApi(compiled.ir, options)`. Routing checks the
+compiled controller binding; the renderer never reads controller metadata.
 
 ## Finding your schemas
 

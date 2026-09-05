@@ -7,27 +7,15 @@ type OpenApiNoArguments = {
   readonly __openApiNoArguments?: string;
 };
 
-export type GetUsersArguments = {
-  readonly createdAt?: string;
-  readonly email: string & MaxLength<255>;
-};
+export type ListUsersArguments = Readonly<Record<never, never>>;
 
-export const getUsersTool: OpenApiGeneratedTool<GetUsersArguments> = {
+export const listUsersTool: OpenApiGeneratedTool<ListUsersArguments> = {
   spec: {
-    name: 'get_users',
+    name: 'list_users',
     parameters: {
       type: 'object',
-      properties: {
-        createdAt: {
-          format: 'date-time',
-          type: 'string',
-        },
-        email: {
-          maxLength: 255,
-          type: 'string',
-        },
-      },
-      required: ['email'],
+      properties: {},
+      required: [],
     },
   },
   request: {
@@ -35,10 +23,10 @@ export const getUsersTool: OpenApiGeneratedTool<GetUsersArguments> = {
     path: '/users',
     pathParameters: [],
     queryParameters: [],
-    bodyParameters: ['createdAt', 'email'],
-    hasBody: true,
+    bodyParameters: [],
+    hasBody: false,
   },
-  validate: (input: unknown): GetUsersArguments => assert<GetUsersArguments>(input),
+  validate: (input: unknown): ListUsersArguments => assert<OpenApiNoArguments>(input),
 };
 
 export type PostUsersArguments = {
@@ -214,7 +202,7 @@ export const putUsersIdRolesRoleIdTool: OpenApiGeneratedTool<PutUsersIdRolesRole
 };
 
 export const openApiTools = {
-  get_users: getUsersTool,
+  list_users: listUsersTool,
   post_users: postUsersTool,
   get_users_health: getUsersHealthTool,
   delete_users_id: deleteUsersIdTool,

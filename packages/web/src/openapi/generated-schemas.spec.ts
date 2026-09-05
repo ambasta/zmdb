@@ -1,37 +1,29 @@
-// `toOpenApi` fed from generated literals (`PLAN-type-first.md` Phase 6).
+// AOT-generated JSON Schemas entering OpenAPI through HttpContractIR.
 //
-// The other openapi specs hand `toOpenApi` documents written by hand. This one runs the
-// zmdb build plugin over `__fixtures__/route-schemas.ts`, where the documents are asked
-// for by type — `toJsonSchema<CreateDTO<User>>()` — and then feeds what the plugin
-// produced into `toOpenApi`. So the assertions cover the join between the two packages:
-// the emitted literal is a `RouteSchemas` without a cast, and it says what the type said.
+// The plugin still owns TypeScript-to-schema projection. This suite proves the
+// resulting documents can be attached to method-specific type IDs and that the
+// OpenAPI backend copies those documents without another schema walk.
 
 import { readFileSync } from 'node:fs';
 
 import { zmdbAot } from '@zmdb/aot-validator/plugin';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { Controller, Get, Post } from '../routing/index.js';
-import { toOpenApi, type RouteSchemas } from './index.js';
+import type { HttpContractIR, HttpTypeIR } from '../contract/index.js';
+import { toOpenApi, type JsonSchema } from './index.js';
 
 const FIXTURES = new URL('./__fixtures__/', import.meta.url).pathname;
 const FILE = `${FIXTURES}route-schemas.ts`;
 
-@Controller('/users')
-class UsersController {
-  @Get('/:id')
-  get() {}
-  @Post()
-  create() {}
+interface GeneratedDocuments {
+  readonly body: JsonSchema;
+  readonly response: JsonSchema;
 }
 
-let schemas: Record<string, RouteSchemas> = {};
+let documents: GeneratedDocuments | undefined;
 let emitted = '';
 
 beforeAll(() => {
-  // The real plugin, with its real default `onDiagnostic` — which throws. A refused call
-  // site here would mean `toJsonSchema<T>()` silently survived into the bundle, where it
-  // throws on first use, and that must fail the test rather than be worked around.
   const plugin = zmdbAot({ project: `${FIXTURES}tsconfig.json`, cwd: FIXTURES });
   const source = readFileSync(FILE, 'utf8');
   const result = plugin.transform(source, FILE);
@@ -39,16 +31,68 @@ beforeAll(() => {
   if (!result) throw new Error('the plugin declined to transform the fixture');
   emitted = result.code;
 
-  // `new Function` has no module scope and does not parse TypeScript, so the imports and
-  // the `declare` come out. Every other line is a call, and all of them were rewritten.
-  const body = emitted.replace(/^import\b[^;]*;\s*$/gm, '').replace(/^declare\b.*$/gm, '');
-  const run = new Function('routes', body) as (fn: (s: Record<string, RouteSchemas>) => void) => void;
-  run(collected => {
-    schemas = collected;
+  const body = emitted
+    .replace(/^import\b[^;]*;\s*$/gm, '')
+    .replace(/^interface\b[\s\S]*?^}\s*$/gm, '')
+    .replace(/^declare\b.*$/gm, '');
+  const run = new Function('documents', body) as (fn: (value: GeneratedDocuments) => void) => void;
+  run(value => {
+    documents = value;
   });
 });
 
-/** The emitted module's code lines, comments dropped. */
+function generated(): GeneratedDocuments {
+  if (documents === undefined) throw new Error('the generated schema fixture did not run');
+  return documents;
+}
+
+function type(openApi: JsonSchema): HttpTypeIR {
+  return { type: { kind: 'scalar', scalar: 'string' }, openApi };
+}
+
+function generatedContract(): HttpContractIR {
+  const schemas = generated();
+  return {
+    format: 1,
+    types: {
+      'createUser/request/body': type(schemas.body),
+      'createUser/response/201/body': type(schemas.response),
+    },
+    operations: [
+      {
+        operationId: 'createUser',
+        controller: 'UsersController',
+        handler: 'create',
+        method: 'POST',
+        path: '/users',
+        parameters: [],
+        requestBody: {
+          kind: 'json',
+          mediaType: 'application/json',
+          typeId: 'createUser/request/body',
+          required: true,
+        },
+        responses: [
+          {
+            status: 201,
+            description: 'Created',
+            headers: [],
+            body: {
+              kind: 'json',
+              mediaType: 'application/json',
+              typeId: 'createUser/response/201/body',
+            },
+          },
+        ],
+        security: [],
+        version: { kind: 'none' },
+        deprecated: false,
+      },
+    ],
+    securitySchemes: {},
+  };
+}
+
 function code(): string[] {
   return emitted
     .split('\n')
@@ -56,49 +100,44 @@ function code(): string[] {
     .filter(line => line.length > 0 && !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('/*'));
 }
 
-describe('toOpenApi fed from a generated document', () => {
-  it('takes the emitted literal as RouteSchemas with no cast at the boundary', () => {
-    // The cast-free part is the compiler's job and it happens at the fixture's `routes(…)`
-    // call; what is left to assert at runtime is that the plugin produced the documents at
-    // all rather than leaving the calls alone.
-    expect(Object.keys(schemas)).toEqual(['/users']);
-    expect(schemas['/users']?.body).toBeDefined();
-    // Both properties are now references to hoisted literals. The only `toJsonSchema` left
-    // outside the fixture's comments is an import nothing uses.
+describe('toOpenApi fed from generated HttpContractIR schemas', () => {
+  it('produces both schema documents through the real AOT transform', () => {
+    expect(generated().body).toBeDefined();
+    expect(generated().response).toBeDefined();
     expect(code().filter(line => line.includes('toJsonSchema'))).toEqual([
-      "import { toJsonSchema } from '@zmdb/schema-core/openapi';",
+      "import { toJsonSchema, type JsonSchemaObject } from '@zmdb/schema-core/openapi';",
     ]);
   });
 
   it('describes the create body the type describes', () => {
-    expect(schemas['/users']?.body).toEqual({
+    expect(generated().body).toEqual({
       type: 'object',
       properties: {
         createdAt: { type: 'string', format: 'date-time' },
         email: { type: 'string', maxLength: 255 },
       },
-      // `id` is absent entirely (the database generates it) and `createdAt` is present but
-      // not required (it has a default). That distinction is why `Serial` and `HasDefault`
-      // are two tags.
       required: ['email'],
     });
   });
 
   it('never publishes a sensitive column, in the body or the response', () => {
-    for (const document of [schemas['/users']?.body, schemas['/users']?.response]) {
-      expect(Object.keys((document as { properties: object }).properties)).not.toContain('passwordHash');
+    for (const document of [generated().body, generated().response]) {
+      expect(Object.keys(Object(document.properties))).not.toContain('passwordHash');
     }
     expect(emitted).not.toContain('passwordHash');
   });
 
   it('embeds the documents in the OpenAPI document', () => {
-    const doc = toOpenApi([UsersController], { info: { title: 'Users', version: '1.0.0' }, schemas });
-    const post = doc.paths['/users']?.post;
-    expect(post?.requestBody?.content['application/json']?.schema).toBe(schemas['/users']?.body);
-    expect(post?.responses['200']?.content?.['application/json']?.schema).toBe(schemas['/users']?.response);
+    const schemas = generated();
+    const operation = toOpenApi(generatedContract(), {
+      info: { title: 'Users', version: '1.0.0' },
+    }).paths['/users']?.post;
+
+    expect(operation?.requestBody?.content['application/json']?.schema).toBe(schemas.body);
+    expect(operation?.responses['201']?.content?.['application/json']?.schema).toBe(schemas.response);
   });
 
-  it('hands out a frozen document, because every route shares one copy of it', () => {
-    expect(Object.isFrozen(schemas['/users']?.body)).toBe(true);
+  it('hands out the frozen compiler projection rather than rebuilding it', () => {
+    expect(Object.isFrozen(generated().body)).toBe(true);
   });
 });

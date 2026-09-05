@@ -198,17 +198,17 @@ snippet buffers a streamed response; use `toNodeHandler(router)` when the route 
 ## 8. OpenAPI, derived
 
 ```ts
-import { toOpenApiComponents } from '@zmdb/schema-core/openapi';
+import { compileHttpContracts } from '@zmdb/web/contract/compiler';
 import { toOpenApi } from '@zmdb/web/openapi';
-import { schemaOf } from 'zmdb';
-import type { Author, Post } from './schema.ts';
-import { PostsController } from './posts.controller.ts';
 
-const { schemas } = toOpenApiComponents([schemaOf<Author>(), schemaOf<Post>()]);
-const doc = toOpenApi([PostsController], { info: { title: 'Blog', version: '1.0.0' }, schemas });
+import { HTTP_CONTRACT } from './http-contract.ts';
+
+const compiled = compileHttpContracts([{ file: new URL('./http-contract.ts', import.meta.url), exportName: 'HTTP_CONTRACT', contract: HTTP_CONTRACT }], { session });
+const doc = toOpenApi(compiled.ir, { info: { title: 'Blog', version: '1.0.0' } });
 ```
 
-The response schema for `GET /posts` is the `list` variant of `Post`, generated from the same declaration that produced the table. See [OpenAPI Generation](./web-openapi.html).
+The contract's `GET /posts` response schema is reflected once during compilation, then shared by routing, OpenAPI, and generated clients. `session` is the build's caller-owned `ReflectSession`. See
+[OpenAPI Generation](./web-openapi.html).
 
 ## 9. Tests
 
