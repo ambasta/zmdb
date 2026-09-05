@@ -2693,6 +2693,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/transport-redis@workspace:packages/transport-redis":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/transport-redis@workspace:packages/transport-redis"
+  dependencies:
+    "@zmdb/app": "workspace:^"
+    redis: "npm:6.2.1"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    redis: ^6.2.1
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/web@workspace:^, @zmdb/web@workspace:packages/web":
   version: 0.0.0-use.local
   resolution: "@zmdb/web@workspace:packages/web"
@@ -2702,14 +2714,10 @@ __metadata:
     "@zmdb/app": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
-    redis: "npm:6.2.1"
     typescript: "npm:7.0.2"
   peerDependencies:
-    redis: ^6.2.1
     typescript: ">=7.0.0"
   peerDependenciesMeta:
-    redis:
-      optional: true
     typescript:
       optional: true
   languageName: unknown

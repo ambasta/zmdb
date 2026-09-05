@@ -393,7 +393,8 @@ external peers on `@zmdb/web`; and six integration subpaths under web.
 
 Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces; #662 has completed the `@zmdb/otel` row and removed the old web export and peer; #648
 has moved the transport-neutral dispatcher, typed clients, decorators, SPI and adapter kit to `@zmdb/app/messaging`; #657 has moved gRPC to `@zmdb/transport-grpc`; #658 has moved core NATS to
-`@zmdb/transport-nats`; and #659 has moved RabbitMQ to `@zmdb/transport-rabbitmq`. Two broker/jobs packages remain later slices of the same target.
+`@zmdb/transport-nats`; #659 has moved RabbitMQ to `@zmdb/transport-rabbitmq`; and #660 has moved Redis Pub/Sub to `@zmdb/transport-redis`. Only the PostgreSQL jobs package remains a later slice of
+the same target.
 
 The final manifest graph is:
 
@@ -475,7 +476,7 @@ The catalog deliberately does not own versions, dependency ranges, changelogs, n
 to architecture-governance EPIC #721 and its release implementation #728; release tooling may read catalog membership only.
 
 The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
-ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the twenty-one-package inventory plus required catalog consumers and rejection rules are frozen in
+ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the twenty-two-package inventory plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
 ### 3.10 Canonical architecture policy and enforcement (#722, #724, #725, #726, #727)
@@ -492,7 +493,7 @@ foundation < runtime < application < integration < tooling < facade
 ```
 
 A package may depend only on its own or an inward zone, every direct workspace dependency must also be named explicitly by that package's policy row, and the dependency's numeric ring must be lower
-than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current twenty-one
+than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current twenty-two
 catalog members therefore freeze as:
 
 | Catalog id           | Zone          | Ring | Direct workspace dependencies                                                          |
@@ -516,6 +517,7 @@ catalog members therefore freeze as:
 | `transport-grpc`     | `integration` |    6 | `app`, `protobuf`                                                                      |
 | `transport-nats`     | `integration` |    6 | `app`                                                                                  |
 | `transport-rabbitmq` | `integration` |    6 | `app`                                                                                  |
+| `transport-redis`    | `integration` |    6 | `app`                                                                                  |
 | `web`                | `application` |    6 | `app`, `aot-validator`, `query-compiler`, `schema-core`                                |
 | `zmdb`               | `facade`      |    7 | `app`, `aot-validator`, `query-compiler`, `repository`, `schema-core`, `sqlite`, `web` |
 
@@ -535,7 +537,7 @@ NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 All catalog packages form one lockstep release train. They carry one version, use `workspace:^` for committed internal ranges, derive publish order from the policy DAG, share one root changelog and
 must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
 
-The complete `PackagePolicy` schema, all twenty-one rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
+The complete `PackagePolicy` schema, all twenty-two rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
 [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication ordering remain separately frozen in [PUBLISHING.md](./PUBLISHING.md) for #728.
 
 ### 3.11 Frozen tooling-package target (#626)
@@ -727,6 +729,6 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the twenty-one-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/ai`, its opt-in integrations,
-`@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and `@zmdb/web`) rather than the
-original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+the north-star-driven language policy in §4 here, and it records the twenty-two-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/ai`, its opt-in integrations,
+`@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
+`@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

@@ -48,7 +48,6 @@
     "./versioning": "./src/versioning/index.ts",
     "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
-    "./microservices/redis": "./src/microservices/redis/index.ts",
     "./testing": "./src/testing/index.ts",
     "./bench": "./src/bench/index.ts",
     "./devtools": "./src/devtools/index.ts"
@@ -69,17 +68,12 @@
   },
   "devDependencies": {
     "@zmdb/ai": "workspace:^",
-    "redis": "6.2.1",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "redis": "^6.2.1",
     "typescript": ">=7.0.0"
   },
   "peerDependenciesMeta": {
-    "redis": {
-      "optional": true
-    },
     "typescript": {
       "optional": true
     }

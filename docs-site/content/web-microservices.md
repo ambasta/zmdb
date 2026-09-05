@@ -1,6 +1,5 @@
-`@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. Core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, and
-temporary web integration subpaths still provide Redis Pub/Sub. Typed gRPC ships from `@zmdb/transport-grpc`. Applications own those transports through the same module graph and bounded lifecycle as
-HTTP.
+`@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. Core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, Redis
+Pub/Sub ships from `@zmdb/transport-redis`, and typed gRPC ships from `@zmdb/transport-grpc`. Applications own those transports through the same module graph and bounded lifecycle as HTTP.
 
 ## The public seam
 
@@ -136,17 +135,17 @@ refusing strategy and every earlier strategy in reverse order. Disposal closes t
 Install only the client used by the selected strategy:
 
 ```bash
-npm add @zmdb/web redis
+npm add @zmdb/transport-redis redis
 npm add @zmdb/transport-nats @nats-io/transport-node
 npm add @zmdb/transport-rabbitmq amqplib
 ```
 
-Import the adapter through its own optional subpath:
+Import each adapter from its dedicated package:
 
 ```ts
-import { createRedisStrategy } from '@zmdb/web/microservices/redis';
 import { createNatsStrategy } from '@zmdb/transport-nats';
 import { createRabbitMqStrategy } from '@zmdb/transport-rabbitmq';
+import { createRedisStrategy } from '@zmdb/transport-redis';
 ```
 
 | Strategy      | Redelivery | Dead letter | Request/reply | Delivery warning                                      |

@@ -61,10 +61,10 @@ repository root explicitly.
 
 ## 3. Measured package inventory
 
-At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #657, #658, and #659 add
+At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #657, #658, #659, and #660 add
 `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`,
-`@zmdb/sqlite`, `@zmdb/react`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, and `@zmdb/transport-rabbitmq`. The catalog now accounts for all twenty-one manifest-backed packages exactly once. The
-separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
+`@zmdb/sqlite`, `@zmdb/react`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and `@zmdb/transport-redis`. The catalog now accounts for all twenty-two manifest-backed
+packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                       |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------- |
@@ -87,10 +87,11 @@ separate hard-coded publication sequence remains release-governance state until 
 | `packages/transport-grpc`     | `@zmdb/transport-grpc`     | `grpc`              | None; selected gRPC integration with no facade export          |
 | `packages/transport-nats`     | `@zmdb/transport-nats`     | `transport-nats`    | None; selected core NATS integration with no facade export     |
 | `packages/transport-rabbitmq` | `@zmdb/transport-rabbitmq` | `rabbitmq`          | None; selected RabbitMQ integration with no facade export      |
+| `packages/transport-redis`    | `@zmdb/transport-redis`    | `transport-redis`   | None; selected Redis Pub/Sub transport with no facade export   |
 | `packages/web`                | `@zmdb/web`                | `web`               | `zmdb/web`                                                     |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, `config`, `cli`, and the executable          |
 
-This table is review evidence, not the canonical machine source. The twenty-one rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
+This table is review evidence, not the canonical machine source. The twenty-two rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
 the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers

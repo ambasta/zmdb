@@ -302,6 +302,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-server-integrations' },
   }),
   productPackage({
+    id: 'transport-redis',
+    directory: 'packages/transport-redis',
+    npmName: '@zmdb/transport-redis',
+    role: 'transport-redis',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'Redis Pub/Sub' },
+    docsOwner: 'web-microservices-transports',
+    consumer: { fixture: 'fixtures/consumer-server-integrations' },
+  }),
+  productPackage({
     id: 'web',
     directory: 'packages/web',
     npmName: '@zmdb/web',

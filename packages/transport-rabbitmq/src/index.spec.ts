@@ -179,9 +179,10 @@ function rawRabbitMessage(
   payload: string,
   properties: FakeRabbitMessage['properties'] = {},
 ): FakeRabbitMessage {
+  const fields: FakeRabbitFields = { redelivered: false, routingKey };
   return {
     content: globalThis.Buffer.from(payload),
-    fields: { redelivered: false, routingKey },
+    fields,
     properties,
   };
 }

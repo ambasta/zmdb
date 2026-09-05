@@ -2,7 +2,7 @@ import { encodeDelivery } from '@zmdb/app/messaging';
 import { createClient } from 'redis';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createRedisStrategy } from '../redis/index.js';
+import { createRedisStrategy } from './index.js';
 
 const REDIS_URL = process.env.ZMDB_REDIS_URL;
 
@@ -13,7 +13,7 @@ function required(value: string | undefined, name: string): string {
   return value;
 }
 
-describe.skipIf(REDIS_URL === undefined)('Redis Pub/Sub integration (#560)', () => {
+describe.skipIf(REDIS_URL === undefined)('Redis Pub/Sub integration (#560, #660)', () => {
   it('loses messages published with no connected consumer and delivers live messages', async () => {
     const url = required(REDIS_URL, 'ZMDB_REDIS_URL');
     const channel = `zmdb.test.${globalThis.crypto.randomUUID()}`;

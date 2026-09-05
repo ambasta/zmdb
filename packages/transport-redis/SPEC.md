@@ -1,6 +1,6 @@
 # `@zmdb/transport-redis` — Redis Pub/Sub transport strategy
 
-> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #660 extracts the shipped web strategy.
+> Frozen by #654 for epic #653 and implemented by #660. The package now owns the Redis strategy, tests, peer, lifecycle, and installed-consumer evidence described below.
 
 ## 1. Boundary and exports
 

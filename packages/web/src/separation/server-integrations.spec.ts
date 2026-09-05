@@ -14,8 +14,9 @@ const IMPLEMENTED_SERVER_PACKAGES = [
   '@zmdb/transport-grpc',
   '@zmdb/transport-nats',
   '@zmdb/transport-rabbitmq',
+  '@zmdb/transport-redis',
 ] as const;
-const PENDING_SERVER_PACKAGES = ['@zmdb/transport-redis', '@zmdb/jobs-postgres'] as const;
+const PENDING_SERVER_PACKAGES = ['@zmdb/jobs-postgres'] as const;
 const REAL_SERVICE_TITLES = [
   'all four call types round-trip against a real gRPC server',
   'one authorisation function written against WithHeaders is callable with a GrpcCall',
