@@ -373,6 +373,10 @@ async function runBidi<S extends GrpcServiceDef>(
   }
 }
 
+function isDecodedRequest(val: unknown): val is DecodedRequest {
+  return typeof val === 'object' && val !== null && 'ok' in val;
+}
+
 function requestValue(decoded: DecodedRequest): unknown {
   if (!decoded.ok) {
     throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
@@ -387,7 +391,9 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   let error: unknown;
 
   const onData = (item: unknown): void => {
-    queue.push(item as DecodedRequest);
+    if (isDecodedRequest(item)) {
+      queue.push(item);
+    }
     resolveNext?.();
   };
   const onEnd = (): void => {
@@ -407,8 +413,8 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     for (;;) {
       if (scope.signal.aborted) throw scope.reason();
       if (error !== undefined) throw error;
-      if (queue.length > 0) {
-        const item = queue.shift()!;
+      const item = queue.shift();
+      if (item !== undefined) {
         yield requestValue(item);
         continue;
       }
@@ -883,8 +889,8 @@ async function* clientResponses(
     for (;;) {
       observation.throwIfInvalid();
       if (streamError !== undefined) throw streamError;
-      if (queue.length > 0) {
-        const response = queue.shift()!;
+      const response = queue.shift();
+      if (response !== undefined) {
         yield response;
         continue;
       }
