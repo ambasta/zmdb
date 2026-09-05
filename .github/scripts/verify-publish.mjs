@@ -17,16 +17,18 @@
 // deliberately does the boring, expensive thing: `npm pack`, extract, resolve from a
 // directory that is not this one.
 //
-// It checks two surfaces, because they fail independently:
+// It checks three surfaces, because they fail independently:
 //   * runtime — `import(specifier)` in a child process whose cwd is the temp project.
 //   * types — a generated consumer module that imports every subpath's types, compiled
 //     by `tsc` with no `paths` mapping and no `skipLibCheck`, so a declaration that
 //     cannot resolve its own neighbours is an error rather than a surprise later.
+//   * executable — the installed `zmdb` bin starts Studio on loopback and serves a
+//     declared table, catching lazy syntax that importing `zmdb/cli` never reaches.
 //
 // Plus one thing neither surface reports: a `.d.ts` whose relative specifiers still end
 // in `.ts`. `tsc` substitutes the extension and resolves it anyway, which is why this is
 // asserted directly instead of being left to the typecheck to notice.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -60,11 +62,143 @@ function declarations(dir) {
   });
 }
 
+/** Every `.js` under `dir`, recursively. */
+function javascript(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return javascript(path);
+    return entry.isFile() && entry.name.endsWith('.js') ? [path] : [];
+  });
+}
+
 let errors = 0;
 const fail = message => {
   console.error(`[ERROR] ${message}`);
   errors++;
 };
+
+const messageOf = error => (error instanceof Error ? error.message : String(error));
+
+async function smokeStudio(app, binPath) {
+  const configPath = join(app, 'zmdb.config.mjs');
+  writeFileSync(
+    configPath,
+    `export default {
+  schema: './schema.ts',
+  dialect: 'sqlite',
+  project: './tsconfig.json',
+  driver: () => ({
+    dialect: 'sqlite',
+    execute: () => Promise.resolve([]),
+  }),
+};
+`,
+  );
+  writeFileSync(
+    join(app, 'schema.ts'),
+    `import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+
+export interface Widget extends Table<'widgets'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+}
+`,
+  );
+  writeFileSync(
+    join(app, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          target: 'ESNext',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          strict: true,
+          noEmit: true,
+        },
+        include: ['schema.ts'],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const child = spawn(process.execPath, [binPath, 'studio', '--config', configPath, '--port', '0'], {
+    cwd: app,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', chunk => {
+    stdout += chunk;
+  });
+  child.stderr.on('data', chunk => {
+    stderr += chunk;
+  });
+  const exited = new Promise(resolveExit => {
+    child.once('exit', (code, signal) => {
+      resolveExit({ code, signal });
+    });
+  });
+
+  try {
+    const url = await new Promise((resolveUrl, rejectUrl) => {
+      const timeout = setTimeout(() => {
+        rejectUrl(new Error(`timed out waiting for the Studio URL; stdout=${stdout.trim()} stderr=${stderr.trim()}`));
+      }, 30_000);
+      const finish = action => {
+        clearTimeout(timeout);
+        child.stdout.off('data', inspect);
+        child.off('error', onError);
+        child.off('exit', onExit);
+        action();
+      };
+      const inspect = () => {
+        const line = stdout.split(/\r?\n/).find(candidate => /^http:\/\/127\.0\.0\.1:\d+\/?$/.test(candidate));
+        if (line !== undefined) finish(() => resolveUrl(line));
+      };
+      const onError = error => {
+        finish(() => rejectUrl(error));
+      };
+      const onExit = (code, signal) => {
+        finish(() =>
+          rejectUrl(
+            new Error(
+              `Studio exited before listening (code=${String(code)}, signal=${String(signal)}): ${stderr.trim()}`,
+            ),
+          ),
+        );
+      };
+      child.stdout.on('data', inspect);
+      child.once('error', onError);
+      child.once('exit', onExit);
+      inspect();
+    });
+
+    const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    const html = await response.text();
+    if (response.status !== 200) throw new Error(`GET ${url} returned ${String(response.status)}`);
+    if (!/local raw-data viewer/i.test(html)) throw new Error('Studio index omitted its read-only warning');
+    if (!html.includes('widgets')) throw new Error('Studio index omitted the declared widgets table');
+
+    child.kill('SIGTERM');
+    const result = await new Promise((resolveExit, rejectExit) => {
+      const timeout = setTimeout(() => rejectExit(new Error('Studio did not stop after SIGTERM')), 10_000);
+      void exited.then(value => {
+        clearTimeout(timeout);
+        resolveExit(value);
+      });
+    });
+    if (result.code !== 0) {
+      throw new Error(
+        `Studio stopped with code=${String(result.code)}, signal=${String(result.signal)}: ${stderr.trim()}`,
+      );
+    }
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  }
+}
 
 // 1. Build. The gate is self-contained on purpose: a stale `dist` would make this pass
 //    against output nobody has any more.
@@ -98,6 +232,7 @@ for (const peer of PEERS) {
 // 2. Pack each package from a staged copy carrying the *publish* manifest, so `npm pack`
 //    applies the real `files` list and `.npmignore` rather than the dev ones.
 const specifiers = [];
+let studioBin;
 for (const name of PACKAGES) {
   const pkg = publishManifest(readManifest(name));
   const src = join(ROOT, 'packages', name);
@@ -147,6 +282,7 @@ for (const name of PACKAGES) {
       })();
       if (source === null) fail(`${pkg.name} bin "${command}" → ${target} is not in the tarball`);
       else if (!source.startsWith('#!')) fail(`${pkg.name} bin "${command}" has no shebang`);
+      if (pkg.name === 'zmdb' && command === 'zmdb') studioBin = binPath;
     }
   }
   for (const file of declarations(join(into, 'dist'))) {
@@ -180,7 +316,28 @@ if (run('node', ['smoke.mjs'], { cwd: app, stdio: 'inherit' }).status !== 0) {
   fail('at least one subpath does not import from an installed tree');
 }
 
-// 4. Typecheck a consumer against the published declarations.
+// 4. Parse and execute the installed Studio path. Importing `zmdb/cli` is not
+// enough: ESNext emit can preserve decorator syntax that plain Node rejects only
+// when the lazy Studio module is loaded.
+const studioDirectory = join(app, 'node_modules', 'zmdb', 'dist', 'studio');
+for (const file of javascript(studioDirectory)) {
+  const checked = run('node', ['--check', file]);
+  if (checked.status !== 0) {
+    fail(`plain Node cannot parse ${file.slice(app.length + 1)}: ${checked.stderr?.trim()}`);
+  }
+}
+if (studioBin === undefined) {
+  fail('the installed zmdb package did not expose its canonical bin');
+} else {
+  try {
+    await smokeStudio(app, studioBin);
+    console.log('  executed installed zmdb Studio bin and fetched its loopback index');
+  } catch (error) {
+    fail(`installed "zmdb studio --port 0" smoke failed: ${messageOf(error)}`);
+  }
+}
+
+// 5. Typecheck a consumer against the published declarations.
 writeFileSync(
   join(app, 'consumer.ts'),
   `${[

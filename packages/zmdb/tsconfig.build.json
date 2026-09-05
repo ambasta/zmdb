@@ -4,7 +4,11 @@
   "extends": "../../tsconfig.build.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    // Node 26 does not parse Stage-3 decorator syntax. The source-side CLI
+    // loader lowers decorators in user applications; the published Studio path
+    // needs the compiler to do the same before its JavaScript enters dist.
+    "target": "ES2022"
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.spec.ts", "src/**/*.type-test.ts", "dist"]

@@ -1,8 +1,7 @@
 > **ToDo / documentation gap.** The published `zmdb` executable exposes
 > `generate`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`,
-> `export`, `modules`, `repl`, and `new` scaffolding. The read-only Studio
-> implementation has landed, but its installed binary path still needs a
-> packaging correction. `pull` and the final command transcripts remain.
+> `export`, `modules`, `repl`, `studio`, and `new` scaffolding. `pull` and the
+> final command transcripts remain.
 
 The schema commands are thin packaged wrappers over the public reflection,
 snapshot, diff, introspection, DDL, and migration-runner APIs.
@@ -30,11 +29,11 @@ snapshot, diff, introspection, DDL, and migration-runner APIs.
 | `check`                      | snapshot, file-history, and optional live-drift checks | [check](./cli-check.html)                           |
 | `export`                     | `zmdb export`                                          | [export](./cli-export.html)                         |
 | `pull` / `generate-entities` | reader + declaration-emitter APIs; CLI pending         | [pull](./cli-pull.html)                             |
-| `studio`                     | read-only browser; installed binary fix pending        | [studio](./cli-studio.html)                         |
+| `studio`                     | installed read-only loopback browser                   | [studio](./cli-studio.html)                         |
 
 `pull` has its catalog reader and declaration emitter as library APIs but still
-needs executable dispatch. Studio's source behavior is implemented and tested,
-but the emitted package still contains syntax that plain Node cannot execute.
+needs executable dispatch. Studio's installed binary is parsed by plain Node
+and exercised against its loopback index by publish verification.
 
 ## A single entry point
 
@@ -57,8 +56,6 @@ not load database config. Add `--json` when a script needs the stable
 ## What remains
 
 - **`pull` dispatch** over the shipped catalogue reader and declaration emitter.
-- **The installed Studio path**, whose source implementation is complete but
-  whose emitted package still needs its decorator syntax lowered.
 - **The final documentation transcripts** for the commands that now ship.
 
 ---

@@ -1,8 +1,7 @@
 > **ToDo / documentation gap.** The `zmdb` executable ships `generate`,
 > `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`,
-> `modules`, `repl`, and formatter-backed `new` scaffolding. The read-only
-> Studio source implementation has landed, but its installed binary still
-> needs a packaging fix. `pull` and the final command transcripts remain.
+> `modules`, `repl`, `studio`, and formatter-backed `new` scaffolding. `pull`
+> and the final command transcripts remain.
 
 ## Scaffolding that ships
 
@@ -89,9 +88,9 @@ for (const row of (await posts.list({ page: { limit: 1000 } })).items) {
 
 **A local read-only data browser.** The Studio implementation serves the tables
 declared by the active config on `127.0.0.1`. It accepts no SQL or write method,
-omits `Sensitive` columns, and caps pages at 50 rows. The installed command is
-still blocked on lowering decorator syntax in the emitted package. See
-[studio](./cli-studio.html).
+omits `Sensitive` columns, and caps pages at 50 rows. Publish verification
+executes the installed command, waits for its loopback URL, and fetches that
+declared-table index. See [studio](./cli-studio.html).
 
 ## Why scaffolding stays deliberately small
 
@@ -163,8 +162,7 @@ generated-code gates have landed. The migration, push, check, and upgrade
 commands now own their executable config, driver, policy, and output wiring.
 
 The commands worth building are the ones that still own operational policy:
-`db pull` around the shipped reader/emitter and a repeatable seed runner. The
-Studio command separately needs its emitted package made executable.
+`db pull` around the shipped reader/emitter and a repeatable seed runner.
 
 ---
 
