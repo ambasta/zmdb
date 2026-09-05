@@ -1,26 +1,17 @@
 // @zmdb/web — HTTP application composition over the protocol-neutral kernel.
 // One @zmdb/app graph owns construction, lazy loading and lifecycle; this file
-// adds one startup-built router and the still-web-owned transport integrations.
+// adds one startup-built router and the still-web-owned typed gRPC integration.
 
 import {
   createApplication,
   type Application,
   type ApplicationExtension,
-  type ApplicationExtensionContext,
   type ApplicationOptions,
   type ModuleClass,
 } from '@zmdb/app';
 
 import { openBoundGrpcServer, type OpenedGrpcServer } from '../microservices/grpc/bridge.js';
-import {
-  createMessageDispatcher,
-  getMessagePatterns,
-  type AppOptions,
-  type DispatcherOptions,
-  type RawMessage,
-  type Settlement,
-  type TransportStrategy,
-} from '../microservices/index.js';
+import type { GrpcServerOptions } from '../microservices/grpc/types.js';
 import {
   createRouter,
   toFetchHandler,
@@ -34,16 +25,15 @@ import type { VersionStrategy } from '../versioning/index.js';
 import { applicationControllersOf, type CompiledController } from './bridge.js';
 
 export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '@zmdb/app/lifecycle';
-export type { AppOptions } from '../microservices/index.js';
 
 /**
- * Transitional web options retain the current broker/gRPC fields until #648
- * moves them behind public app extensions. The application, HTTP and lifecycle
- * fields already have their final owners.
+ * Transitional web options retain the typed gRPC field until #649 removes it.
+ * Broker strategies attach through `ApplicationOptions.extensions`.
  */
-export interface WebApplicationOptions extends AppOptions, ApplicationOptions {
+export interface WebApplicationOptions extends ApplicationOptions {
   readonly guardRegistry?: GuardRegistry;
   readonly versioning?: VersionStrategy;
+  readonly grpc?: GrpcServerOptions;
 }
 
 /** A protocol-neutral application with one HTTP router attached. */
@@ -61,16 +51,15 @@ export type App = WebApplication;
  * identity; no second lifecycle or construction ledger exists here.
  */
 export function createApp(rootModule: ModuleClass, options: WebApplicationOptions = {}): WebApplication {
-  let controllerBindings: readonly CompiledController[] = [];
-  const legacyExtension = legacyTransportExtension(options, () => controllerBindings);
-  const extensions = [...(options.extensions ?? []), ...(legacyExtension === undefined ? [] : [legacyExtension])];
+  const grpc = grpcExtension(options.grpc);
+  const extensions = [...(options.extensions ?? []), ...(grpc === undefined ? [] : [grpc])];
   const applicationOptions: ApplicationOptions = {
     ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
     ...(options.observability === undefined ? {} : { observability: options.observability }),
     ...(extensions.length === 0 ? {} : { extensions }),
   };
   const application = createApplication(rootModule, applicationOptions);
-  controllerBindings = applicationControllersOf(application);
+  const controllerBindings: readonly CompiledController[] = applicationControllersOf(application);
 
   const router: Router = createRouter(routerOptions(options));
   for (const binding of controllerBindings) {
@@ -101,133 +90,23 @@ function routerOptions(options: WebApplicationOptions): RouterOptions {
   };
 }
 
-function legacyTransportExtension(
-  options: WebApplicationOptions,
-  controllers: () => readonly CompiledController[],
-): ApplicationExtension | undefined {
-  const transports = [...(options.transports ?? [])];
-  if (transports.length === 0 && options.grpc === undefined) {
+function grpcExtension(options: GrpcServerOptions | undefined): ApplicationExtension | undefined {
+  if (options === undefined) {
     return undefined;
   }
 
-  let opened: TransportStrategy[] = [];
   let openedGrpc: OpenedGrpcServer | undefined;
   return {
-    name: '@zmdb/web:legacy-transports',
-    async start(context) {
-      const dispatcherOptions = options.dispatcher;
-      if (transports.length > 0 && dispatcherOptions === undefined) {
-        throw new Error('@zmdb/web: transports require dispatcher observation sinks');
-      }
-      if (dispatcherOptions !== undefined) {
-        validateTransportNames(transports);
-        validateLazyConsumers(controllers());
-        for (const transport of transports) {
-          validateUndeliverableSink(transport, dispatcherOptions);
-        }
-        await startTransports(transports, dispatcherOptions, context, opened);
-      }
-      if (options.grpc !== undefined) {
-        openedGrpc = await openBoundGrpcServer(options.grpc);
-      }
+    name: '@zmdb/web:grpc',
+    async start() {
+      openedGrpc = await openBoundGrpcServer(options);
     },
     async stop({ graceMs }) {
-      const errors: unknown[] = [];
       try {
         await openedGrpc?.close(graceMs);
-      } catch (error) {
-        errors.push(error);
       } finally {
         openedGrpc = undefined;
       }
-      for (let index = opened.length - 1; index >= 0; index -= 1) {
-        try {
-          await opened[index]?.close(graceMs);
-        } catch (error) {
-          errors.push(error);
-        }
-      }
-      opened = [];
-      throwObserved(errors);
     },
   };
-}
-
-async function startTransports(
-  transports: readonly TransportStrategy[],
-  options: DispatcherOptions,
-  context: ApplicationExtensionContext,
-  opened: TransportStrategy[],
-): Promise<void> {
-  const dispatcher = createMessageDispatcher(context.controllers, {
-    ...options,
-    observability: context.observability,
-  });
-  for (const transport of transports) {
-    await transport.listen(async message => {
-      const outcome = await dispatcher.dispatch(message, transport.name);
-      reportUndeliverable(transport, options, message, outcome.settlement);
-      return outcome;
-    });
-    opened.push(transport);
-  }
-}
-
-function validateTransportNames(transports: readonly TransportStrategy[]): void {
-  const names = new Set<string>();
-  for (const transport of transports) {
-    if (transport.name.length === 0) {
-      throw new RangeError('@zmdb/web: a transport name cannot be empty');
-    }
-    if (names.has(transport.name)) {
-      throw new Error(`@zmdb/web: duplicate transport name "${transport.name}"`);
-    }
-    names.add(transport.name);
-  }
-}
-
-function validateLazyConsumers(controllers: readonly CompiledController[]): void {
-  for (const binding of controllers) {
-    if (binding.kind === 'deferred' && getMessagePatterns(binding.controller).length > 0) {
-      throw new Error(
-        `@zmdb/web: lazy controller "${binding.controller.name}" declares message patterns; ` +
-          'message consumers must be eager',
-      );
-    }
-  }
-}
-
-function validateUndeliverableSink(transport: TransportStrategy, options: DispatcherOptions): void {
-  if (
-    (!transport.capabilities.redelivery || !transport.capabilities.deadLetter) &&
-    options.onUndeliverable === undefined
-  ) {
-    throw new Error(`@zmdb/web: transport "${transport.name}" requires onUndeliverable`);
-  }
-}
-
-function reportUndeliverable(
-  transport: TransportStrategy,
-  options: DispatcherOptions,
-  message: RawMessage,
-  settlement: Settlement,
-): void {
-  const dropped =
-    (settlement.kind === 'retry' && !transport.capabilities.redelivery) ||
-    (settlement.kind === 'dead' && !transport.capabilities.deadLetter);
-  if (!dropped || options.onUndeliverable === undefined) {
-    return;
-  }
-  try {
-    void Promise.resolve(options.onUndeliverable(message, settlement)).catch(() => undefined);
-  } catch {
-    // Observation cannot replace the settlement the strategy must apply.
-  }
-}
-
-function throwObserved(errors: readonly unknown[]): void {
-  if (errors.length === 0) return;
-  const first = errors[0];
-  if (errors.length === 1 && first !== undefined) throw first;
-  throw new AggregateError(errors, '@zmdb/web: transport shutdown failed');
 }

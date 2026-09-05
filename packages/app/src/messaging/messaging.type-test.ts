@@ -1,19 +1,25 @@
-import type { Observability, Span, TraceCarrier } from '@zmdb/app/observability';
-import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
+import type { Equal, Expect, Extends } from '@zmdb/schema-core';
 
-import type { createApp, WebApplicationOptions } from '../app/index.js';
-import type { Ctx, QueryValues } from '../context/index.js';
-import type { Guard } from '../middleware/index.js';
-import type { GrpcServerOptions } from './grpc/index.js';
+import type { ApplicationExtension } from '../application.js';
+import type { Observability, Span, TraceCarrier } from '../observability/index.js';
 import {
   EventPattern,
   MessagePattern,
+  type abortError,
   type createEventPublisher,
   type createMessageClient,
   type createMessageDispatcher,
+  type decodeDelivery,
+  type decodeReply,
+  type encodeDelivery,
+  type encodeReply,
   type getMessagePatterns,
-  type AppOptions,
+  type InFlight,
+  type reportTransportError,
+  type transportExtension,
+  type withinGrace,
   type ClientPatterns,
+  type DeliveryMetadata,
   type DispatchOutcome,
   type DispatcherOptions,
   type EventPatterns,
@@ -27,6 +33,7 @@ import {
   type ResolvedMessagePattern,
   type Settlement,
   type TransportCapabilities,
+  type TransportErrorSink,
   type TransportRequest,
   type TransportStrategy,
   type WithHeaders,
@@ -148,14 +155,7 @@ export type ResolvedPatternShape = Expect<Equal<ResolvedMessagePattern, FrozenRe
 export type DispatcherOptionsShape = Expect<Equal<DispatcherOptions, FrozenDispatcherOptions>>;
 export type DispatcherShape = Expect<Equal<MessageDispatcher, FrozenMessageDispatcher>>;
 
-type HttpContext = Ctx<Record<string, string>, unknown, QueryValues>;
-type GuardContext = Parameters<Guard['canActivate']>[0];
-
-export type GuardStillTakesHttpContext = Expect<Equal<GuardContext, HttpContext>>;
-export type HttpContextSharesHeaders = Expect<Extends<HttpContext, WithHeaders>>;
 export type MessageContextSharesHeaders = Expect<Extends<MessageContext<unknown>, WithHeaders>>;
-export type MessageContextIsNotHttpContext = ExpectNot<Extends<MessageContext<unknown>, HttpContext>>;
-export type HttpContextIsNotMessageContext = ExpectNot<Extends<HttpContext, MessageContext<unknown>>>;
 
 type FrozenMessagePattern = <T, R>(
   pattern: string,
@@ -274,13 +274,42 @@ publisher['sku.seen']({ sku: 'A' }, span);
 // @ts-expect-error - event payloads are checked by pattern.
 publisher['sku.seen']({ id: '1' });
 
-interface FrozenAppOptions {
-  readonly transports?: readonly TransportStrategy[];
-  readonly dispatcher?: DispatcherOptions;
-  readonly graceMs?: number;
-  readonly observability?: Observability;
-  readonly grpc?: GrpcServerOptions;
+type FrozenTransportExtension = (options: {
+  readonly transports: readonly TransportStrategy[];
+  readonly dispatcher: DispatcherOptions;
+}) => ApplicationExtension;
+
+interface FrozenDeliveryMetadata {
+  readonly correlationId?: string;
+  readonly replyTo?: string;
 }
 
-export type AppOptionsShape = Expect<Equal<AppOptions, FrozenAppOptions>>;
-export type CreateAppTakesOptions = Expect<Equal<Parameters<typeof createApp>[1], WebApplicationOptions | undefined>>;
+type FrozenTransportErrorSink = (error: unknown) => void;
+type FrozenEncodeDelivery = (
+  payload: unknown,
+  carrier: TraceCarrier | undefined,
+  metadata?: DeliveryMetadata,
+) => string;
+type FrozenDecodeDelivery = (
+  pattern: string,
+  text: string,
+  deliveryAttempt: number,
+  metadata?: DeliveryMetadata,
+) => RawMessage;
+type FrozenEncodeReply = (reply: MessageReply) => string;
+type FrozenDecodeReply = (text: string) => MessageReply;
+type FrozenReportTransportError = (sink: TransportErrorSink, error: unknown) => void;
+type FrozenWithinGrace = (action: Promise<void>, graceMs: number) => Promise<boolean>;
+type FrozenAbortError = (signal: AbortSignal) => unknown;
+
+export type TransportExtensionSignature = Expect<Equal<typeof transportExtension, FrozenTransportExtension>>;
+export type DeliveryMetadataShape = Expect<Equal<DeliveryMetadata, FrozenDeliveryMetadata>>;
+export type TransportErrorSinkShape = Expect<Equal<TransportErrorSink, FrozenTransportErrorSink>>;
+export type EncodeDeliverySignature = Expect<Equal<typeof encodeDelivery, FrozenEncodeDelivery>>;
+export type DecodeDeliverySignature = Expect<Equal<typeof decodeDelivery, FrozenDecodeDelivery>>;
+export type EncodeReplySignature = Expect<Equal<typeof encodeReply, FrozenEncodeReply>>;
+export type DecodeReplySignature = Expect<Equal<typeof decodeReply, FrozenDecodeReply>>;
+export type ReportTransportErrorSignature = Expect<Equal<typeof reportTransportError, FrozenReportTransportError>>;
+export type InFlightKeys = Expect<Equal<keyof InFlight, 'run' | 'settled' | 'stop'>>;
+export type WithinGraceSignature = Expect<Equal<typeof withinGrace, FrozenWithinGrace>>;
+export type AbortErrorSignature = Expect<Equal<typeof abortError, FrozenAbortError>>;

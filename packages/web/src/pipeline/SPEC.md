@@ -143,8 +143,8 @@ return { kind: 'stream', value, length: stat.isFile() ? stat.size : undefined };
 // TS2322 with length?: number — "Consider adding 'undefined' to the target"
 ```
 
-— and the workaround is a conditional spread at every construction site. Required and explicitly nullable is the same choice `RawMessage.correlationId` made in `../microservices/SPEC.md` §2 for the
-same reason.
+— and the workaround is a conditional spread at every construction site. Required and explicitly nullable is the same choice `RawMessage.correlationId` made in `../../../app/src/messaging/SPEC.md` §2
+for the same reason.
 
 **The allocation, stated rather than waved at.** Epic #564's cost constraint says streaming must not add per-response allocation to the small-JSON path, and a wrapper object is exactly that: one extra
 two-field object per response. It is kept anyway, and the accounting is the argument. `json(value)` already allocates the response record, the `JSON.stringify` result, and — whenever headers are
@@ -191,8 +191,8 @@ Putting it on the response also keeps the promise in §A1 — streaming does not
 observes the failure, the report happens once, in the same place, on both adapters. `file()` is `stream()` over a file descriptor (see `../static/SPEC.md` §4) and is async because it stats and opens
 before it can answer.
 
-No logger is acquired anywhere in this package to serve this, for the reason `../microservices/SPEC.md` §5 gives: a required sink is testable and a logger at the least testable point in the process is
-not.
+No logger is acquired anywhere in this package to serve this, for the reason `../../../app/src/messaging/SPEC.md` §5 gives: a required sink is testable and a logger at the least testable point in the
+process is not.
 
 ### A3. The Node adapter contract
 

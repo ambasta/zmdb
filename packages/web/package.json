@@ -48,7 +48,6 @@
     "./versioning": "./src/versioning/index.ts",
     "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
-    "./microservices": "./src/microservices/index.ts",
     "./microservices/grpc": "./src/microservices/grpc/index.ts",
     "./microservices/redis": "./src/microservices/redis/index.ts",
     "./microservices/nats": "./src/microservices/nats/index.ts",

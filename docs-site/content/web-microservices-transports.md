@@ -7,7 +7,7 @@ A strategy owns broker framing, subscriptions, replies and settlement. The appli
 
 ```ts
 import type { TraceCarrier } from '@zmdb/app/observability';
-import type { DispatchOutcome, MessageReply, RawMessage, TransportCapabilities, TransportRequest } from '@zmdb/web/microservices';
+import type { DispatchOutcome, MessageReply, RawMessage, TransportCapabilities, TransportRequest } from '@zmdb/app/messaging';
 
 export interface TransportStrategy {
   readonly name: string;
@@ -38,7 +38,7 @@ Capability order is `redelivery / deadLetter / requestResponse`. Redis and core 
 
 ## Install only the selected client
 
-The neutral package and microservices entry point import no broker client. Install the optional peer alongside the adapter you use:
+The neutral `@zmdb/app/messaging` entry imports no broker client. Install the optional peer alongside the adapter you use:
 
 ```bash
 npm add @zmdb/web redis
@@ -64,7 +64,7 @@ const redis = createRedisStrategy({
 ```
 
 This is Redis Pub/Sub, not Streams. A message published while no matching subscriber is connected is lost. There is no acknowledgement, redelivery or dead-letter destination, so `deliveryAttempt` is
-always `1` and `createApp({ transports: [redis] })` requires `dispatcher.onUndeliverable`.
+always `1` and `transportExtension({ transports: [redis], dispatcher })` requires `dispatcher.onUndeliverable`.
 
 Exact and glob subscriptions dispatch the concrete channel. Request/reply uses a process-owned reply-channel prefix and still requires the caller's explicit deadline.
 
@@ -116,8 +116,8 @@ write.
 
 ## Lifecycle and security
 
-Attach strategies through `createApp`. They open after application bootstrap, stop intake before dependencies are disposed, drain in-flight dispatch under `graceMs` and close in reverse declaration
-order.
+Attach strategies through `transportExtension` in `createApp({ extensions })`. They open after application bootstrap, stop intake before dependencies are disposed, drain in-flight dispatch under
+`graceMs` and close in reverse declaration order.
 
 Connection authentication, TLS and credential rotation are broker-client configuration. Do not trust identity claims carried in the payload, and do not put secrets in retained or dead-lettered
 messages. Handler effects must remain idempotent because RabbitMQ can redeliver an unacknowledged message.

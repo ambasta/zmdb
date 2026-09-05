@@ -178,7 +178,7 @@ packages or the provider-neutral AI package is re-exported by the umbrella.
 - **MCP depends only on AI.** It owns the transport-neutral MCP client/server protocol, uses only platform APIs, and is not re-exported by the umbrella.
 - **aot-validator depends on schema-core and AI, never the reverse.** Reflection remains above the declaration vocabulary; `toolFor` compilation consumes AI's document boundary.
 - **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and currently owns the driver adapters (built-in `node:sqlite`, structurally injected `pg` and `mssql`).
-- **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, command, event, CQRS, state, health, and observability kernel.
+- **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, messaging, command, event, CQRS, state, health, and observability kernel.
 - **OTel depends only on app.** It adapts caller-owned API objects to the app ports and owns no provider, SDK, exporter, ambient context, or web edge.
 - **web sits above app and repository** — controllers inject repositories, routes validate via the AOT validator, responses serialize via the AOT serializer, and HTTP composition reuses the one
   app-owned construction and lifecycle graph.
@@ -199,7 +199,7 @@ packages or the provider-neutral AI package is re-exported by the umbrella.
 | `@zmdb/protobuf`       | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                         | none                                                             |
 | `@zmdb/aot-validator`  | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                              | ai, schema-core                                                  |
 | `@zmdb/repository`     | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and current driver adapters                                  | aot-validator, query-compiler, schema-core                       |
-| `@zmdb/app`            | Protocol-neutral metadata, DI, modules, lifecycle/extensions, commands, events, CQRS, state, health contracts, and observability ports                 | aot-validator, query-compiler, repository, schema-core           |
+| `@zmdb/app`            | Protocol-neutral metadata, DI, modules, lifecycle/extensions, messaging, commands, events, CQRS, state, health contracts, and observability ports      | aot-validator, query-compiler, repository, schema-core           |
 | `@zmdb/otel`           | OpenTelemetry API adaptation over caller-owned tracers and meters, without provider, SDK, exporter, or ambient-context ownership                       | app; `@opentelemetry/api` (required peer)                        |
 | `@zmdb/web`            | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                            | app, aot-validator, query-compiler, repository, schema-core      |
 | `zmdb`                 | Curated product facade and CLI; no AI, MCP, or OTel public re-export                                                                                   | app, aot-validator, query-compiler, repository, schema-core, web |
@@ -368,8 +368,9 @@ The exact 32-file ownership map, public exports, peer matrix, publish order and 
 This section is the target frozen for epic #653, not a claim about the current tree. The measured starting point has protobuf calls, service artifacts and wire primitives in `@zmdb/aot-validator`; six
 external peers on `@zmdb/web`; and six integration subpaths under web.
 
-Implementation status: #656 has completed the `@zmdb/protobuf` row, and #662 has completed the `@zmdb/otel` row and removed the old web export and peer. Five transport/jobs packages remain later
-slices of the same target.
+Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces; #662 has completed the `@zmdb/otel` row and removed the old web export and peer; and
+#648 has moved the transport-neutral dispatcher, typed clients, decorators, SPI and adapter kit to `@zmdb/app/messaging` and removed `@zmdb/web/microservices`. Five transport/jobs packages remain
+later slices of the same target.
 
 The final manifest graph is:
 

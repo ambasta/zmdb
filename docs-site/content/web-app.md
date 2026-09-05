@@ -1,6 +1,6 @@
 `createApp` bootstraps an application from a root [module](./web-modules.html): it compiles the DI graph, builds the [router](./web-pipeline.html), and registers every controller's routes — **once**.
-It exposes lifecycle hooks and `await using` graceful shutdown. Its optional second argument attaches [message transports](./web-microservices.html) and typed
-[gRPC bindings](./web-microservices-grpc.html) to the same lifecycle.
+It exposes lifecycle hooks and `await using` graceful shutdown. Its optional second argument accepts protocol-neutral application extensions, including the
+[`transportExtension`](./web-microservices.html), plus the temporary typed [gRPC bindings](./web-microservices-grpc.html) field.
 
 ## Bootstrapping
 
@@ -36,11 +36,11 @@ class Db implements OnModuleInit, OnShutdown {
 }
 ```
 
-| phase     | order                                                                                                                  |
-| --------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `init()`  | eager instances: `onModuleInit` → `onApplicationBootstrap` → message map → transport `listen` → gRPC bind              |
-| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass                                           |
-| shutdown  | gRPC closes → transports close in reverse declaration order → instances `onShutdown` in **reverse construction order** |
+| phase     | order                                                                                                     |
+| --------- | --------------------------------------------------------------------------------------------------------- |
+| `init()`  | eager instances: `onModuleInit` → `onApplicationBootstrap` → configured extensions in order → gRPC bind   |
+| lazy load | that subtree's constructed providers/controllers: init pass → bootstrap pass                              |
+| shutdown  | gRPC closes → extensions stop in reverse order → instances `onShutdown` in **reverse construction order** |
 
 “All” means every constructed object provider and controller. Value providers enter the ledger when registered; factory providers enter only when resolved. A factory first resolved after `init()` is
 still shut down, without retroactive init hooks, and an unresolved factory is never constructed for lifecycle.

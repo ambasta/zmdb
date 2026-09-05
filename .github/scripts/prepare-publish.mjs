@@ -65,8 +65,17 @@ const META = {
   },
   app: {
     description:
-      'Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.',
-    keywords: ['typescript', 'application-framework', 'decorators', 'stage-3', 'dependency-injection', 'cqrs', 'zmdb'],
+      'Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.',
+    keywords: [
+      'typescript',
+      'application-framework',
+      'decorators',
+      'stage-3',
+      'dependency-injection',
+      'messaging',
+      'cqrs',
+      'zmdb',
+    ],
   },
   otel: {
     description: 'OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.',

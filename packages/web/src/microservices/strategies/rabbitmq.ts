@@ -1,4 +1,18 @@
 import {
+  abortError,
+  decodeDelivery,
+  decodeReply,
+  encodeDelivery,
+  encodeReply,
+  InFlight,
+  MessageTimeoutError,
+  reportTransportError,
+  withinGrace,
+  type MessageReply,
+  type TransportErrorSink,
+  type TransportStrategy,
+} from '@zmdb/app/messaging';
+import {
   connect,
   type Channel,
   type ChannelModel,
@@ -7,10 +21,6 @@ import {
   type Options,
   type SocketOptions,
 } from 'amqplib';
-
-import { MessageTimeoutError, type MessageReply, type TransportStrategy } from '../index.js';
-import { decodeDelivery, decodeReply, encodeDelivery, encodeReply } from './codec.js';
-import { abortError, InFlight, reportTransportError, type TransportErrorSink, withinGrace } from './drain.js';
 
 export interface RabbitMqDeadLetterOptions {
   readonly exchange: string;

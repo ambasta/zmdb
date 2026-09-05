@@ -32,8 +32,8 @@ framework dependencies belong to that private consumer fixture. LangChain is an 
 subpath. `consumer-cli/tsconfig.installed.json` does the same for the future installed `@zmdb/cli` boundary while the existing files in that directory continue to prove today's no-bundler codegen
 route.
 
-`web-custom-transport.ts` is a single external consumer rather than a project. The web suite executes it, and `verify:publish` copies it beside the packed packages and compiles it there. Its imports
-are limited to `@zmdb/web/microservices` and `@zmdb/app/observability`, so the custom strategy contract is checked from the same side of the package boundary as an installed application.
+`app-custom-transport.ts` is a single external consumer rather than a project. The app suite executes it, and `verify:publish` copies it beside the packed packages and compiles it there. Its imports
+are limited to `@zmdb/app/messaging` and `@zmdb/app/observability`, so the custom strategy contract is checked from the same side of the package boundary as an installed application.
 
 `consumer-http-client/` commits OpenAPI and typed-client output generated from one exported HTTP contract. Its verifier checks the committed bytes, builds a real `@zmdb/web` loopback service, and then
 compiles and runs the same generated client as separate browser and Node bundles with only a packed `@zmdb/client` installed. Both consumers cover the ordinary success response, an alternate success

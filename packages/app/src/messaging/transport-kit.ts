@@ -1,6 +1,5 @@
-import type { TraceCarrier } from '@zmdb/app/observability';
-
-import type { MessageReply, RawMessage } from '../index.js';
+import type { TraceCarrier } from '../observability/index.js';
+import type { MessageReply, RawMessage } from './index.js';
 
 interface WireEnvelope extends TraceCarrier {
   readonly version: 1;
@@ -42,10 +41,10 @@ function encode(value: unknown, description: string): string {
   try {
     encoded = JSON.stringify(value);
   } catch (error) {
-    throw new TypeError(`@zmdb/web: ${description} is not JSON-serializable`, { cause: error });
+    throw new TypeError(`@zmdb/app: ${description} is not JSON-serializable`, { cause: error });
   }
   if (encoded === undefined) {
-    throw new TypeError(`@zmdb/web: ${description} is not JSON-serializable`);
+    throw new TypeError(`@zmdb/app: ${description} is not JSON-serializable`);
   }
   return encoded;
 }
@@ -56,7 +55,7 @@ export function encodeDelivery(
   metadata: DeliveryMetadata = {},
 ): string {
   if (payload === undefined) {
-    throw new TypeError('@zmdb/web: broker payloads cannot be undefined');
+    throw new TypeError('@zmdb/app: broker payloads cannot be undefined');
   }
   const envelope: WireEnvelope = {
     version: 1,
@@ -106,7 +105,7 @@ export function decodeDelivery(
       pattern,
       parsed,
       deliveryAttempt,
-      new TypeError('@zmdb/web: broker envelope must be an object'),
+      new TypeError('@zmdb/app: broker envelope must be an object'),
       metadata,
     );
   }
@@ -129,7 +128,7 @@ export function decodeDelivery(
       pattern,
       Object.hasOwn(parsed, 'payload') ? parsed.payload : parsed,
       deliveryAttempt,
-      new TypeError('@zmdb/web: invalid broker envelope'),
+      new TypeError('@zmdb/app: invalid broker envelope'),
       metadata,
     );
   }
@@ -155,10 +154,10 @@ export function decodeReply(text: string): MessageReply {
   try {
     parsed = JSON.parse(text);
   } catch (error) {
-    throw new TypeError('@zmdb/web: broker reply is not valid JSON', { cause: error });
+    throw new TypeError('@zmdb/app: broker reply is not valid JSON', { cause: error });
   }
   if (!isRecord(parsed) || typeof parsed.correlationId !== 'string') {
-    throw new TypeError('@zmdb/web: invalid broker reply envelope');
+    throw new TypeError('@zmdb/app: invalid broker reply envelope');
   }
   if (parsed.kind === 'result' && Object.hasOwn(parsed, 'payload')) {
     return { kind: 'result', correlationId: parsed.correlationId, payload: parsed.payload };
@@ -166,9 +165,70 @@ export function decodeReply(text: string): MessageReply {
   if (parsed.kind === 'error' && typeof parsed.message === 'string') {
     return { kind: 'error', correlationId: parsed.correlationId, message: parsed.message };
   }
-  throw new TypeError('@zmdb/web: invalid broker reply envelope');
+  throw new TypeError('@zmdb/app: invalid broker reply envelope');
 }
 
-export function bytes(text: string): Uint8Array {
-  return new TextEncoder().encode(text);
+export type TransportErrorSink = (error: unknown) => void;
+
+export function reportTransportError(sink: TransportErrorSink, error: unknown): void {
+  try {
+    sink(error);
+  } catch {
+    // A diagnostic sink cannot replace transport settlement or shutdown.
+  }
+}
+
+export class InFlight {
+  readonly #tasks = new Set<Promise<void>>();
+  readonly #onError: TransportErrorSink;
+  #accepting = true;
+
+  constructor(onError: TransportErrorSink) {
+    this.#onError = onError;
+  }
+
+  run(action: () => Promise<void>): Promise<void> {
+    if (!this.#accepting) {
+      return Promise.resolve();
+    }
+    let task: Promise<void>;
+    task = Promise.resolve()
+      .then(action)
+      .catch(error => {
+        reportTransportError(this.#onError, error);
+      })
+      .finally(() => {
+        this.#tasks.delete(task);
+      });
+    this.#tasks.add(task);
+    return task;
+  }
+
+  stop(): void {
+    this.#accepting = false;
+  }
+
+  async settled(): Promise<void> {
+    await Promise.all(this.#tasks);
+  }
+}
+
+export async function withinGrace(action: Promise<void>, graceMs: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      action.then(() => true),
+      new Promise<false>(resolve => {
+        timer = setTimeout(() => resolve(false), graceMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+export function abortError(signal: AbortSignal): unknown {
+  return signal.reason ?? new Error('@zmdb/app: broker request aborted');
 }

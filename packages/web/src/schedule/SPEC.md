@@ -149,8 +149,8 @@ anywhere in `packages/web/src`, so this introduces the package's first time depe
 
 No missed-run behaviour (§8), no coordination mechanism (§7), no cron dialect (§4), no timezone semantics (§5), no drain (§9), and no error sink.
 
-The sinks are **required**, in the shape `../microservices/SPEC.md` §5 requires its three: a task that throws inside a timer with no sink is a rejected promise nobody observes, and a scheduled task's
-failure is by construction unwitnessed — nobody is waiting for a response.
+The sinks are **required**, in the shape `../../../app/src/messaging/SPEC.md` §5 requires its three: a task that throws inside a timer with no sink is a rejected promise nobody observes, and a
+scheduled task's failure is by construction unwitnessed — nobody is waiting for a response.
 
 Silence is the default failure mode of this entire module, so the field that breaks the silence cannot be optional.
 

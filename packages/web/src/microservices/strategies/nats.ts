@@ -5,11 +5,26 @@ import {
   type NodeConnectionOptions,
   type Subscription,
 } from '@nats-io/transport-node';
+import {
+  abortError,
+  decodeDelivery,
+  decodeReply,
+  encodeDelivery,
+  encodeReply,
+  InFlight,
+  MessageTimeoutError,
+  reportTransportError,
+  withinGrace,
+  type MessageReply,
+  type TransportErrorSink,
+  type TransportStrategy,
+} from '@zmdb/app/messaging';
 
-import { MessageTimeoutError, type MessageReply, type TransportStrategy } from '../index.js';
-import { bytes, decodeDelivery, decodeReply, encodeDelivery, encodeReply } from './codec.js';
-import { abortError, InFlight, reportTransportError, type TransportErrorSink, withinGrace } from './drain.js';
 import { createNatsSubjectMatcher } from './nats-matcher.js';
+
+function bytes(text: string): Uint8Array {
+  return new TextEncoder().encode(text);
+}
 
 export interface NatsSubscription {
   /** NATS subject; `*` and a final `>` use native NATS token semantics. */

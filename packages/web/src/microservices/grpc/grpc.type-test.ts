@@ -1,8 +1,8 @@
-import type { Observability } from '@zmdb/app/observability';
+import type { WithHeaders } from '@zmdb/app/messaging';
 import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
 import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 
-import type { AppOptions, DispatcherOptions, TransportStrategy, WithHeaders } from '../index.js';
+import type { WebApplicationOptions } from '../../app/index.js';
 import type {
   GrpcBinding,
   GrpcCall,
@@ -214,13 +214,7 @@ client.watch(chunks);
 // @ts-expect-error - bidirectional methods require an async iterable.
 client.chat({ text: 'wrong' });
 
-interface FrozenAppOptions {
-  readonly transports?: readonly TransportStrategy[];
-  readonly dispatcher?: DispatcherOptions;
-  readonly graceMs?: number;
-  readonly observability?: Observability;
-  readonly grpc?: GrpcServerOptions;
-}
-
-export type AppOptionsGainsGrpc = Expect<Equal<Extract<keyof AppOptions, 'grpc'>, 'grpc'>>;
-export type AppOptionsShape = Expect<Equal<AppOptions, FrozenAppOptions>>;
+export type WebOptionsRetainGrpc = Expect<Equal<Extract<keyof WebApplicationOptions, 'grpc'>, 'grpc'>>;
+export type WebOptionsDropNeutralTransportFields = Expect<
+  Equal<Extract<keyof WebApplicationOptions, 'dispatcher' | 'transports'>, never>
+>;

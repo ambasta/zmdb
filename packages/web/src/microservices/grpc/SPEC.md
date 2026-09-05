@@ -1,6 +1,7 @@
 # SPEC — gRPC: the service declaration, four call types, and one source of truth (frozen)
 
-Part of `@zmdb/web`, a new `./microservices/grpc` subpath. `../SPEC.md` owns brokers; this file owns gRPC, and §1 is why those are two files rather than two sections.
+Part of `@zmdb/web`, a temporary `./microservices/grpc` subpath. `../../../../app/src/messaging/SPEC.md` owns transport-neutral broker messaging; this file owns gRPC, and §1 is why those are two files
+rather than two sections.
 
 `@grpc/grpc-js` is an **optional peer dependency**, per `#556`'s constraint that installing `@zmdb/web` must not pull in five brokers. The adapter neither imports nor directly declares
 `@grpc/proto-loader`; grpc-js carries it transitively for its own optional facilities, and §3 explains why this surface never invokes it.
@@ -9,30 +10,29 @@ Part of `@zmdb/web`, a new `./microservices/grpc` subpath. `../SPEC.md` owns bro
 > the `@zmdb/app` lifecycle. Generated service calls and `GrpcLoaded*`/`Grpc*Def` types move to `@zmdb/protobuf` and are not re-exported by the transport. `@zmdb/web/microservices/grpc` is removed
 > with no forwarding subpath. #656 has completed the artifact move; until #657 lands, the paragraphs below continue to describe adapter behavior at the old location.
 
-## 1. gRPC is not a broker, so almost nothing in `../SPEC.md` applies
+## 1. gRPC is not a broker, so almost nothing in `../../../../app/src/messaging/SPEC.md` applies
 
 Everything the sibling file decides is about a message whose sender has already gone away: who acknowledges, what a retry delay is, where a poisoned message goes. gRPC has none of those problems,
 because a gRPC call is a **synchronous request over an open HTTP/2 stream with a caller waiting on the other end**.
 
-| `../SPEC.md` decision                  | gRPC                                                                  |
-| -------------------------------------- | --------------------------------------------------------------------- |
-| `Settlement` — ack / retry / dead      | not applicable; the reply _is_ the acknowledgement                    |
-| redelivery and `deliveryAttempt`       | not applicable; a failed call is the caller's to retry                |
-| invalid payload is `dead` (§6.1 there) | invalid payload is `INVALID_ARGUMENT` back to the caller, immediately |
-| `retry.afterMs`                        | not applicable; the client owns backoff                               |
-| correlation ids (§8 there)             | not needed; the HTTP/2 stream _is_ the correlation                    |
-| required request timeout (§7 there)    | the caller's deadline, propagated in metadata (§6)                    |
-| `TransportStrategy`                    | not used; gRPC has its own typed binding                              |
+| app messaging decision               | gRPC                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `Settlement` — ack / retry / dead    | not applicable; the reply _is_ the acknowledgement                    |
+| redelivery and `deliveryAttempt`     | not applicable; a failed call is the caller's to retry                |
+| invalid payload is `dead` (§4 there) | invalid payload is `INVALID_ARGUMENT` back to the caller, immediately |
+| `retry.afterMs`                      | not applicable; the client owns backoff                               |
+| correlation ids (§6 there)           | not needed; the HTTP/2 stream _is_ the correlation                    |
+| required request timeout (§6 there)  | the caller's deadline, propagated in metadata (§6)                    |
+| `TransportStrategy`                  | not used; gRPC has its own typed binding                              |
 
-That last row is the decision to defend. It is tempting to make gRPC one more strategy, so `AppOptions.transports` covers it and there is a single startup path. It is refused because
-`TransportStrategy.listen(dispatch)` maps a pattern string to a handler and gRPC does not have patterns — it has a service with a fixed method set, a declared type per direction per method, and a
-streaming flag on each side.
+That last row is the decision to defend. It is tempting to make gRPC one more strategy so the app messaging extension covers it. It is refused because `TransportStrategy.listen(dispatch)` maps a
+pattern string to a handler and gRPC does not have patterns — it has a service with a fixed method set, a declared type per direction per method, and a streaming flag on each side.
 
 Forcing it through `RawMessage` would mean discarding every one of those and re-deriving them inside the gRPC layer from data it just erased. Two narrow contracts beat one contract that fits neither,
 which is `ARCHITECTURE.md` §2.6 applied to the shape of the abstraction rather than to the count of its methods.
 
-What gRPC does share is the lifecycle: it is started by `createApp`'s `init()` and closed before the shutdown hooks run, exactly as a transport is (`../SPEC.md` §10), and `AppOptions` gains one member
-for it (§9).
+What gRPC does share is the lifecycle: it is started by `createApp`'s `init()` and closed before the shutdown hooks run, exactly as a transport is (`../../../../app/src/messaging/SPEC.md` §7). The
+temporary `WebApplicationOptions` surface retains one gRPC member until #649 (§9).
 
 ## 2. TypeScript is the source of truth — the direction `#557` has backwards
 
@@ -115,7 +115,7 @@ method must not compile — and a decorator cannot have it.
 A decorated class missing a method is a class, and the omission surfaces as `UNIMPLEMENTED` at the caller.
 
 `GrpcHandlers<S>` has it: omitting one method from a four-method service is `TS2741` naming that missing property; omitting two or more is `TS2739`. Brokers keep decorators for the mirror-image reason
-(`../SPEC.md` §4): a pattern set is open-ended, so there is nothing to be exhaustive against.
+(`../../../../app/src/messaging/SPEC.md` §3): a pattern set is open-ended, so there is nothing to be exhaustive against.
 
 **`requestStream` and `responseStream` are `?: true`, never `boolean`.** Under `exactOptionalPropertyTypes` a `?: false` member is a value nobody can usefully write — `false` and absent mean the same
 thing, so the option is dead weight that two people will spell differently. Present-or-absent is one spelling for one fact, and it is what makes §5's conditional type readable.
@@ -124,7 +124,8 @@ thing, so the option is dead weight that two people will spell differently. Pres
 not write. An `interface` has no implicit index signature, so `GrpcHandlers<OrdersInterface>` fails with `TS2344` — "Index signature for type 'string' is missing".
 
 Adding `extends GrpcServiceDef` to fix that makes it worse: the inherited index signature appears in `keyof`, so the mapped type acquires a `string` member whose handler type is
-`(call: GrpcCall<unknown>) => Promise<unknown>`, and every correct method now fails against it. The same rule governs `ClientPatterns` (`../SPEC.md` §2.4) and is stated in both places.
+`(call: GrpcCall<unknown>) => Promise<unknown>`, and every correct method now fails against it. The same rule governs `ClientPatterns` (`../../../../app/src/messaging/SPEC.md` §6) and is stated in
+both places.
 
 ```ts
 type Orders = {
@@ -194,16 +195,16 @@ A gRPC client sends `grpc-timeout` as metadata on every call that has a deadline
 **Propagation is the point of `remainingMs()`, and not propagating is the failure it prevents.** A handler that calls another service must pass the remaining budget rather than that service's own
 default. Otherwise three services each with a 5-second deadline take 15 seconds while the original caller left after 5, and every one of the three logs a success.
 
-So an outbound call inside a handler uses `remainingMs()` as its timeout, and a `MessageClient` (`../SPEC.md` §2.4) invoked from a gRPC handler should be constructed per call with that value rather
-than at startup with a constant.
+So an outbound call inside a handler uses `remainingMs()` as its timeout, and a `MessageClient` (`../../../../app/src/messaging/SPEC.md` §6) invoked from a gRPC handler should be constructed per call
+with that value rather than at startup with a constant.
 
 A call with **no** deadline is served, and `remainingMs()` returns `Number.POSITIVE_INFINITY`. It is the caller's right to omit one and not this server's business to invent one — but `GrpcServiceSpec`
 may carry a `maxDurationMs` that aborts `signal` regardless, because a server that can be pinned open by a client that never hangs up has an availability problem rather than a politeness problem.
 
 ## 7. Metadata, trailers, and the binary keys
 
-`headers` is `Readonly<Record<string, string>>` — the same type as `Ctx.headers` and `MessageContext.headers`, character for character, so a `GrpcCall` satisfies `WithHeaders` (`../SPEC.md` §3.1) and
-one authorisation function serves HTTP, GraphQL, messages and gRPC. That is the payoff for having spelled the shared portion structurally instead of nominally.
+`headers` is `Readonly<Record<string, string>>` — the same type as `Ctx.headers` and `MessageContext.headers`, character for character, so a `GrpcCall` satisfies `WithHeaders`
+(`../../../../app/src/messaging/SPEC.md` §1) and one authorisation function serves HTTP, messages and gRPC. That is the payoff for having spelled the shared portion structurally instead of nominally.
 
 Binary metadata — gRPC's `-bin`-suffixed keys — is a **separate member**, `binaryHeaders`, typed `Readonly<Record<string, Uint8Array>>`. Two candidate alternatives were both rejected. Folding it into
 `headers` base64-encoded means one map whose values are sometimes text and sometimes an encoding, decided by a suffix, and a reader who forgets the suffix rule gets a plausible-looking wrong string.
@@ -275,16 +276,17 @@ export interface GrpcServerOptions {
 }
 ```
 
-`AppOptions` (`../SPEC.md` §10) gains `readonly grpc?: GrpcServerOptions`, and everything else follows that file's ordering with no exception: the server binds in `init()` after
-`runInit(lifecycleInstances)`, a failed bind rejects `init()` and closes what was already opened, and the server shuts down before the shutdown hooks run so no handler outlives the repository it uses.
+`WebApplicationOptions` (`../../app/SPEC.md`) temporarily retains `readonly grpc?: GrpcServerOptions`, and everything else follows that file's ordering with no exception: the server binds in `init()`
+after `runInit(lifecycleInstances)`, a failed bind rejects `init()` and closes what was already opened, and the server shuts down before the shutdown hooks run so no handler outlives the repository it
+uses.
 
 The application root stays importable without grpc-js and performs no global registration. A binding returned by the explicit `@zmdb/web/microservices/grpc` subpath carries a private-symbol server
 opener. `createApp` obtains the opener from the supplied bindings through a peer-free bridge; an empty or hand-built binding list is rejected instead of dynamically importing the optional peer from
 the package root.
 
 `credentials` is **required and has no default.** `createInsecure()` as a default is how a service ends up serving plaintext in production with credentials in metadata — `web-microservices-grpc.md`
-names it — and `'insecure'` as an explicit, greppable string is the difference between a decision and an omission. It is the same rule `../SPEC.md` applies to `timeoutMs` and `close(graceMs)`: the
-value that matters is stated by whoever knows the deployment.
+names it — and `'insecure'` as an explicit, greppable string is the difference between a decision and an omission. It is the same rule `../../../../app/src/messaging/SPEC.md` applies to `timeoutMs`
+and `close(graceMs)`: the value that matters is stated by whoever knows the deployment.
 
 Graceful shutdown calls `tryShutdown` and, after the app's `graceMs`, `forceShutdown`. An unbounded `tryShutdown` waits for the longest open stream, and a bidirectional stream is open until the client
 says otherwise — so the bound is not a nicety, it is the difference between a rolling deploy and a stuck pod.
@@ -313,8 +315,8 @@ export interface GrpcClientOptions<S extends GrpcServiceDef> {
 `#556` DoD 5 requires typed clients. The same mapped type, from the same declaration, so a client and a server built from one `type Orders` cannot disagree — which is the property protobuf's
 generators provide by generating both, achieved here by not generating either.
 
-`deadlineMs` is required, for `../SPEC.md` §7's reason. A `GrpcCaller` accepts a per-call override so `remainingMs()` (§6) can be threaded through, and that override is the propagation mechanism
-rather than a convenience.
+`deadlineMs` is required, for `../../../../app/src/messaging/SPEC.md` §6's reason. A `GrpcCaller` accepts a per-call override so `remainingMs()` (§6) can be threaded through, and that override is the
+propagation mechanism rather than a convenience.
 
 `credentials` is required here too. A client defaulting to insecure is worse than a server doing it, because the server at least fails visibly when a TLS client connects.
 
@@ -363,8 +365,8 @@ Everything else in this epic — `TransportStrategy`, the dispatcher, the broker
 12. `a malformed frame is INVALID_ARGUMENT, not INTERNAL` — §8.
 13. `binary metadata arrives as Uint8Array on binaryHeaders and never on headers` — §7.
 14. `setTrailer after the first yield is delivered` — §7, the case that distinguishes a trailer from a header.
-15. `one authorisation function written against WithHeaders is callable with a GrpcCall` — §7, the fourth context in `../SPEC.md` §3.1's list.
-16. `a failed bind rejects init and closes what was already opened` — §9, shared with `../SPEC.md` §10.
+15. `one authorisation function written against WithHeaders is callable with a GrpcCall` — §7, the third context built on `../../../../app/src/messaging/SPEC.md` §1's structural contract.
+16. `a failed bind rejects init and closes what was already opened` — §9, shared with `../../../../app/src/messaging/SPEC.md` §7.
 17. `shutdown force-closes after graceMs with a stream still open` — §9, the assertion that a bounded shutdown actually is bounded.
 
 ## Non-goals (rejected)

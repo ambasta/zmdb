@@ -1,4 +1,4 @@
-The public custom-transport contract is exercised from outside `packages/web` by `fixtures/web-custom-transport.ts`. The publish gate compiles that fixture against packed packages, and the runtime
+The public custom-transport contract is exercised from outside `packages/app` by `fixtures/app-custom-transport.ts`. The publish gate compiles that fixture against packed packages, and the runtime
 suite proves dispatch, stopped intake, bounded drain and connection close through the same public surface shown here.
 
 ## Implementing the public contract
@@ -7,7 +7,7 @@ Use only the public microservices and observability entry points:
 
 ```ts
 import type { TraceCarrier } from '@zmdb/app/observability';
-import type { DispatchOutcome, MessageReply, RawMessage, TransportRequest, TransportStrategy } from '@zmdb/web/microservices';
+import type { DispatchOutcome, MessageReply, RawMessage, TransportRequest, TransportStrategy } from '@zmdb/app/messaging';
 
 type Dispatch = (message: RawMessage) => Promise<DispatchOutcome>;
 
@@ -59,6 +59,9 @@ The undefined `wire` helpers above are the broker-specific part: framing, authen
 stop intake first, track every dispatch already accepted, wait no longer than `graceMs`, close the connection even when the bound expires, and reject so shutdown cannot report a clean drain. The
 framework owns declaration lookup, payload validation, handler invocation, retry policy and typed client validation.
 
+`@zmdb/app/messaging` also exports the broker-free adapter kit used by the packaged strategies: versioned JSON `encodeDelivery`/`decodeDelivery` and reply codecs, `InFlight`, `reportTransportError`,
+`withinGrace`, and `abortError`. A custom protocol may use those helpers without importing web or a broker client.
+
 ## Inbound deliveries
 
 Decode the broker envelope before constructing `RawMessage`:
@@ -109,21 +112,27 @@ readonly capabilities = {
 };
 ```
 
-With either delivery capability absent, `createApp` requires an `onUndeliverable` sink. With request/reply absent, `createMessageClient` rejects before calling `send`.
+With either delivery capability absent, `transportExtension` requires an `onUndeliverable` sink. With request/reply absent, `createMessageClient` rejects before calling `send`.
 
 ## Application-owned lifecycle
 
 Attach the strategy when creating the application:
 
 ```ts
+import { transportExtension } from '@zmdb/app/messaging';
+
 await using app = createApp(AppModule, {
-  transports: [new AcmeTransport()],
-  dispatcher: {
-    onUnhandled,
-    onInvalidPayload,
-    onHandlerError,
-    onUndeliverable,
-  },
+  extensions: [
+    transportExtension({
+      transports: [new AcmeTransport()],
+      dispatcher: {
+        onUnhandled,
+        onInvalidPayload,
+        onHandlerError,
+        onUndeliverable,
+      },
+    }),
+  ],
   graceMs: 5_000,
 });
 

@@ -23,7 +23,8 @@ const observability = fromOpenTelemetry({
 await using app = createApp(AppModule, { observability });
 ```
 
-If you construct the router directly, pass the same object to `createRouter(observability)`. The app forwards it to both the HTTP router and its message dispatcher.
+If you construct the router directly, pass the same object to `createRouter(observability)`. The app forwards it to the HTTP router and every extension context; `transportExtension` supplies that same
+object to its message dispatcher.
 
 OpenTelemetry's Node auto-instrumentation remains an alternative for patching `node:http`, database clients and `fetch`. Enabling its HTTP or database instrumentation alongside zmdb's corresponding
 spans can produce two spans for one operation, so choose deliberately.

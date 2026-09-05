@@ -6,6 +6,7 @@ import { runtimeOf, type CompiledController } from './modules/runtime.js';
 import type { Observability } from './observability/types.js';
 
 const APPLICATION_BRIDGE = Symbol.for('@zmdb/app.application-bridge');
+const APPLICATION_EXTENSION_BRIDGE = Symbol('@zmdb/app.application-extension-bridge');
 const COMPILED_APPLICATION = Symbol.for('@zmdb/app.compiled-application');
 const DEFAULT_GRACE_MS = 5_000;
 const EMPTY_OBSERVABILITY: Observability = Object.freeze({});
@@ -22,6 +23,14 @@ export interface ApplicationBridge {
 
 interface BridgedApplication extends Application {
   readonly [APPLICATION_BRIDGE]?: ApplicationBridge;
+}
+
+interface ApplicationExtensionBridge {
+  readonly controllers: readonly CompiledController[];
+}
+
+interface BridgedApplicationExtensionContext extends ApplicationExtensionContext {
+  readonly [APPLICATION_EXTENSION_BRIDGE]?: ApplicationExtensionBridge;
 }
 
 export interface ApplicationExtensionContext {
@@ -63,12 +72,19 @@ export function createApplication(rootModule: ModuleClass, options: ApplicationO
   const runtime = runtimeOf(compiled);
   const instances = lifecycleInstances(compiled.container);
   const observability = options.observability ?? EMPTY_OBSERVABILITY;
-  const context: ApplicationExtensionContext = Object.freeze({
+  const controllerBindings = Object.freeze([
+    ...(runtime?.controllers ?? compiled.controllers.map(controller => ({ kind: 'eager' as const, controller }))),
+  ]);
+  const extensionContext: ApplicationExtensionContext = {
     container: compiled.container,
     controllers: Object.freeze([...compiled.controllers]),
     commands: Object.freeze([...compiled.commands]),
     observability,
+  };
+  Object.defineProperty(extensionContext, APPLICATION_EXTENSION_BRIDGE, {
+    value: Object.freeze({ controllers: controllerBindings }),
   });
+  const context = Object.freeze(extensionContext);
   const entered: ApplicationExtension[] = [];
   let state: 'created' | 'starting' | 'running' | 'stopping' | 'stopped' | 'failed-cleaned' = 'created';
   let initPromise: Promise<void> | undefined;
@@ -158,12 +174,19 @@ export function createApplication(rootModule: ModuleClass, options: ApplicationO
   Object.defineProperty(application, APPLICATION_BRIDGE, {
     value: Object.freeze({
       compiled,
-      controllers:
-        runtime?.controllers ??
-        Object.freeze(compiled.controllers.map(controller => ({ kind: 'eager' as const, controller }))),
+      controllers: controllerBindings,
     }),
   });
   return application;
+}
+
+/** Package-private controller declarations for extensions with eager-only rules. */
+export function applicationExtensionControllersOf(context: ApplicationExtensionContext): readonly CompiledController[] {
+  const carrier: BridgedApplicationExtensionContext = context;
+  return (
+    carrier[APPLICATION_EXTENSION_BRIDGE]?.controllers ??
+    Object.freeze(context.controllers.map(controller => ({ kind: 'eager' as const, controller })))
+  );
 }
 
 /** Package-private access for command applications. */

@@ -1,3 +1,4 @@
+import { encodeDelivery } from '@zmdb/app/messaging';
 import { connect as connectRabbit } from 'amqplib';
 import { createClient } from 'redis';
 import { describe, expect, it, vi } from 'vitest';
@@ -5,7 +6,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { createNatsStrategy } from '../nats/index.js';
 import { createRabbitMqStrategy } from '../rabbitmq/index.js';
 import { createRedisStrategy } from '../redis/index.js';
-import { encodeDelivery } from '../strategies/codec.js';
 
 const REDIS_URL = process.env.ZMDB_REDIS_URL;
 const NATS_URL = process.env.ZMDB_NATS_URL;

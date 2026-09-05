@@ -161,8 +161,8 @@ The surface makes a pointless installation awkward on purpose. `sessionOf` is re
 a function that answers "which cookie session is this", discovers there isn't one, and gets `undefined`. `issue` and `verify` both **throw** when `sessionOf` returns `undefined`, rather than issuing
 an unbound token or passing the request.
 
-A required argument that cannot be answered is a better warning than a paragraph in the documentation, and it is the same technique `../microservices/SPEC.md` §2.3 uses to make an undeliverable
-message impossible to configure by accident.
+A required argument that cannot be answered is a better warning than a paragraph in the documentation, and it is the same technique `../../../app/src/messaging/SPEC.md` §5 uses to make an
+undeliverable message impossible to configure by accident.
 
 ## 8. What #566 has to assert
 

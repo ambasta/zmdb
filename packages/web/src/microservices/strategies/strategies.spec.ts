@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 
+import { encodeDelivery, encodeReply, type Settlement } from '@zmdb/app/messaging';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const brokerFactories = vi.hoisted(() => ({
@@ -27,11 +28,9 @@ vi.mock('amqplib', () => ({
   connect: (connection: unknown, socketOptions?: unknown): unknown => brokerFactories.amqp(connection, socketOptions),
 }));
 
-import type { Settlement } from '../index.js';
 import { createNatsStrategy } from '../nats/index.js';
 import { createRabbitMqStrategy } from '../rabbitmq/index.js';
 import { createRedisStrategy } from '../redis/index.js';
-import { encodeDelivery, encodeReply } from './codec.js';
 import { createNatsSubjectMatcher } from './nats-matcher.js';
 
 type RedisListener = (message: string, channel: string) => void;

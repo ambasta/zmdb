@@ -289,7 +289,7 @@ export declare function toTraceHeaders(span: Span): {
 and the caller writes those headers. Patching a global is what a no-dependency package should be least willing to do, the auto-instrumentation on `web-tracing.md` already patches `fetch` for anyone
 who wants that, and two things patching the same global is a debugging session nobody enjoys.
 
-**Message transports.** `../microservices` crosses a process boundary, so the same `traceparent`/`tracestate` carrier travels on its request and event envelopes and is validated on the way in. The
+**Message transports.** `@zmdb/app/messaging` crosses a process boundary, so the same `traceparent`/`tracestate` carrier travels on its request and event envelopes and is validated on the way in. The
 application event registry and command bus are in-process calls, not transports, so they carry no wire header. A consumer that runs synchronously with its producer — a request/reply call — starts a
 **child** span.
 

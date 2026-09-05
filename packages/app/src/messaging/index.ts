@@ -1,12 +1,23 @@
-// @zmdb/web — transport-neutral message dispatch and hybrid-app lifecycle
+// @zmdb/app — transport-neutral message dispatch and application-extension
 // contracts. Strategies own broker framing and settlement; the framework owns
 // validation, handler dispatch, request correlation and bounded client waits.
 
-import '@zmdb/app';
-import { consumerSpan, toTraceHeaders } from '@zmdb/app/observability';
-import type { Observability, Span, TraceCarrier } from '@zmdb/app/observability';
+import { applicationExtensionControllersOf, type ApplicationExtension } from '../application.js';
+import type { CompiledController } from '../modules/runtime.js';
+import { consumerSpan, toTraceHeaders } from '../observability/index.js';
+import type { Observability, Span, TraceCarrier } from '../observability/index.js';
 
-import type { GrpcServerOptions } from './grpc/types.js';
+export {
+  abortError,
+  decodeDelivery,
+  decodeReply,
+  encodeDelivery,
+  encodeReply,
+  InFlight,
+  reportTransportError,
+  withinGrace,
+} from './transport-kit.js';
+export type { DeliveryMetadata, TransportErrorSink } from './transport-kit.js';
 
 /** A parsed delivery constructed by a transport strategy. */
 export interface RawMessage extends TraceCarrier {
@@ -102,15 +113,6 @@ export interface DispatcherOptions {
 export interface MessageDispatcher {
   dispatch(message: RawMessage, transport: string): Promise<DispatchOutcome>;
   readonly patterns: readonly string[];
-}
-
-/** Hybrid application options consumed by `createApp`. */
-export interface AppOptions {
-  readonly transports?: readonly TransportStrategy[];
-  readonly dispatcher?: DispatcherOptions;
-  readonly graceMs?: number;
-  readonly observability?: Observability;
-  readonly grpc?: GrpcServerOptions;
 }
 
 /** Pattern map for a request/response client. Declare concrete maps as type aliases. */
@@ -210,7 +212,7 @@ interface BoundMessagePattern extends StoredMessagePattern {
   invoke(ctx: MessageContext<unknown>): Promise<unknown>;
 }
 
-const MESSAGE_PATTERNS = Symbol('zmdb.web.microservices.patterns');
+const MESSAGE_PATTERNS = Symbol('zmdb.app.messaging.patterns');
 const DEFAULT_MAX_ATTEMPTS = 5;
 const MAX_RETRY_MS = 30_000;
 
@@ -295,7 +297,7 @@ export function getMessagePatterns(cls: abstract new (...args: never[]) => unkno
 function constructorOf(instance: object): Function {
   const ctor = instance.constructor;
   if (typeof ctor !== 'function') {
-    throw new Error('@zmdb/web: message consumer has no constructor');
+    throw new Error('@zmdb/app: message consumer has no constructor');
   }
   return ctor;
 }
@@ -304,7 +306,7 @@ function boundPatterns(instance: object): readonly BoundMessagePattern[] {
   return storedPatterns(constructorOf(instance)).map(pattern => {
     const value: unknown = Reflect.get(instance, pattern.handlerName);
     if (typeof value !== 'function') {
-      throw new Error(`@zmdb/web: message handler "${pattern.handlerName}" is not callable`);
+      throw new Error(`@zmdb/app: message handler "${pattern.handlerName}" is not callable`);
     }
     return {
       ...pattern,
@@ -317,7 +319,7 @@ function boundPatterns(instance: object): readonly BoundMessagePattern[] {
 
 function positiveInteger(value: number, name: string): number {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new RangeError(`@zmdb/web: ${name} must be a positive integer`);
+    throw new RangeError(`@zmdb/app: ${name} must be a positive integer`);
   }
   return value;
 }
@@ -357,10 +359,10 @@ export function createMessageDispatcher(consumers: readonly object[], options: D
   for (const consumer of consumers) {
     for (const pattern of boundPatterns(consumer)) {
       if (pattern.pattern.length === 0) {
-        throw new RangeError('@zmdb/web: a message pattern cannot be empty');
+        throw new RangeError('@zmdb/app: a message pattern cannot be empty');
       }
       if (byPattern.has(pattern.pattern)) {
-        throw new Error(`@zmdb/web: duplicate message pattern "${pattern.pattern}"`);
+        throw new Error(`@zmdb/app: duplicate message pattern "${pattern.pattern}"`);
       }
       byPattern.set(pattern.pattern, pattern);
     }
@@ -454,6 +456,117 @@ export function createMessageDispatcher(consumers: readonly object[], options: D
   };
 }
 
+/**
+ * Attach transport strategies to the protocol-neutral application lifecycle.
+ *
+ * The strategy snapshot and exact-pattern dispatcher are application-owned;
+ * concrete broker clients remain outside this package.
+ */
+export function transportExtension(options: {
+  readonly transports: readonly TransportStrategy[];
+  readonly dispatcher: DispatcherOptions;
+}): ApplicationExtension {
+  const transports = Object.freeze([...options.transports]);
+  const dispatcherOptions = options.dispatcher;
+  let entered: TransportStrategy[] = [];
+
+  return {
+    name: '@zmdb/app:messaging',
+
+    async start(context) {
+      validateTransportNames(transports);
+      validateLazyConsumers(applicationExtensionControllersOf(context));
+      for (const transport of transports) {
+        validateUndeliverableSink(transport, dispatcherOptions);
+      }
+
+      const dispatcher = createMessageDispatcher(context.controllers, {
+        ...dispatcherOptions,
+        observability: context.observability,
+      });
+      for (const transport of transports) {
+        entered.push(transport);
+        await transport.listen(async message => {
+          const outcome = await dispatcher.dispatch(message, transport.name);
+          reportUndeliverable(transport, dispatcherOptions, message, outcome.settlement);
+          return outcome;
+        });
+      }
+    },
+
+    async stop({ graceMs }) {
+      const errors: unknown[] = [];
+      const deadline = Date.now() + graceMs;
+      for (let index = entered.length - 1; index >= 0; index -= 1) {
+        const transport = entered[index];
+        if (transport === undefined) continue;
+        try {
+          await transport.close(Math.max(0, deadline - Date.now()));
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+      entered = [];
+      throwTransportErrors(errors);
+    },
+  };
+}
+
+function validateTransportNames(transports: readonly TransportStrategy[]): void {
+  const names = new Set<string>();
+  for (const transport of transports) {
+    if (transport.name.length === 0) {
+      throw new RangeError('@zmdb/app: a transport name cannot be empty');
+    }
+    if (names.has(transport.name)) {
+      throw new Error(`@zmdb/app: duplicate transport name "${transport.name}"`);
+    }
+    names.add(transport.name);
+  }
+}
+
+function validateLazyConsumers(controllers: readonly CompiledController[]): void {
+  for (const binding of controllers) {
+    if (binding.kind === 'deferred' && getMessagePatterns(binding.controller).length > 0) {
+      throw new Error(
+        `@zmdb/app: lazy controller "${binding.controller.name}" declares message patterns; ` +
+          'message consumers must be eager',
+      );
+    }
+  }
+}
+
+function validateUndeliverableSink(transport: TransportStrategy, options: DispatcherOptions): void {
+  if (
+    (!transport.capabilities.redelivery || !transport.capabilities.deadLetter) &&
+    options.onUndeliverable === undefined
+  ) {
+    throw new Error(`@zmdb/app: transport "${transport.name}" requires onUndeliverable`);
+  }
+}
+
+function reportUndeliverable(
+  transport: TransportStrategy,
+  options: DispatcherOptions,
+  message: RawMessage,
+  settlement: Settlement,
+): void {
+  const dropped =
+    (settlement.kind === 'retry' && !transport.capabilities.redelivery) ||
+    (settlement.kind === 'dead' && !transport.capabilities.deadLetter);
+  if (!dropped || options.onUndeliverable === undefined) {
+    return;
+  }
+  observe(() => options.onUndeliverable?.(message, settlement));
+}
+
+function throwTransportErrors(errors: readonly unknown[]): void {
+  if (errors.length === 0) return;
+  const first = errors[0];
+  if (errors.length === 1 && first !== undefined) throw first;
+  throw new AggregateError(errors, '@zmdb/app: transport shutdown failed');
+}
+
 function requestMethod(
   transport: TransportStrategy,
   pattern: string,
@@ -513,11 +626,11 @@ export function createMessageClient<P extends ClientPatterns>(
   for (const pattern of Object.keys(options.validate)) {
     const validator: unknown = Reflect.get(options.validate, pattern);
     if (typeof validator !== 'function') {
-      throw new Error(`@zmdb/web: message pattern "${pattern}" has no response validator`);
+      throw new Error(`@zmdb/app: message pattern "${pattern}" has no response validator`);
     }
     const installed = Reflect.set(client, pattern, requestMethod(transport, pattern, timeoutMs, validator));
     if (!installed) {
-      throw new Error(`@zmdb/web: could not install message client pattern "${pattern}"`);
+      throw new Error(`@zmdb/app: could not install message client pattern "${pattern}"`);
     }
   }
   return client;

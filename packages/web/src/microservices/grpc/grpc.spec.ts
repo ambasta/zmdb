@@ -1,12 +1,18 @@
 import { readFileSync } from 'node:fs';
 
 import { Client, Metadata, credentials, status, type ClientWritableStream } from '@grpc/grpc-js';
+import {
+  transportExtension,
+  type DispatcherOptions,
+  type TransportRequest,
+  type TransportStrategy,
+  type WithHeaders,
+} from '@zmdb/app/messaging';
 import { Module } from '@zmdb/app/modules';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../app/index.js';
 import type { Ctx, QueryValues } from '../../context/index.js';
-import type { DispatcherOptions, TransportRequest, TransportStrategy, WithHeaders } from '../index.js';
 import {
   ordersService,
   type Chunk,
@@ -575,8 +581,7 @@ describe('application lifecycle', () => {
       standardHandlers(),
     );
     const app = createApp(RootModule, {
-      transports: [transport],
-      dispatcher,
+      extensions: [transportExtension({ transports: [transport], dispatcher })],
       grpc: {
         address: occupied.address,
         bindings: [binding],

@@ -146,7 +146,7 @@ function coreBoundaries(): ReturnType<typeof analyzeCoreServerBoundaries> {
 }
 
 describe('core server package boundaries (#646)', () => {
-  it.fails('keeps @zmdb/app free of HTTP and job exports', () => {
+  it('keeps @zmdb/app free of HTTP and job exports', () => {
     expect(coreBoundaries().packageProblems.get('@zmdb/app')).toEqual([]);
   });
 

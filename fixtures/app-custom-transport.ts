@@ -1,4 +1,3 @@
-import type { TraceCarrier } from '@zmdb/app/observability';
 import {
   MessageCorrelationError,
   MessageRemoteError,
@@ -11,7 +10,8 @@ import {
   type TransportCapabilities,
   type TransportRequest,
   type TransportStrategy,
-} from '@zmdb/web/microservices';
+} from '@zmdb/app/messaging';
+import type { TraceCarrier } from '@zmdb/app/observability';
 
 type Dispatch = (message: RawMessage) => Promise<DispatchOutcome>;
 
@@ -22,7 +22,7 @@ const CAPABILITIES: TransportCapabilities = {
 };
 
 /**
- * Consumer-owned strategy used from outside `packages/web`.
+ * Consumer-owned strategy used from outside `packages/app`.
  *
  * It imports only published entry points. `verify:publish` copies this file
  * beside the packed packages and compiles it there, where a private relative
@@ -91,8 +91,8 @@ export class PublicCustomTransport implements TransportStrategy {
     if (!this.#connectionOpen) {
       return;
     }
-    if (!Number.isInteger(graceMs) || graceMs <= 0) {
-      throw new RangeError('public custom transport graceMs must be a positive integer');
+    if (!Number.isInteger(graceMs) || graceMs < 0) {
+      throw new RangeError('public custom transport graceMs must be a non-negative integer');
     }
 
     this.#accepting = false;

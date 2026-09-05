@@ -1,12 +1,11 @@
-# `@zmdb/web/microservices` — transport strategy and message dispatch SPEC
+# `@zmdb/app/messaging` — transport strategy and message dispatch SPEC
 
-This is the transport-neutral broker layer of epic #556, implemented by #559. Redis, core NATS and RabbitMQ adapters are implemented by #560. The shipped gRPC surface remains a separate typed contract
-under `./grpc/SPEC.md`; it is not a `TransportStrategy`. The layer here owns validation, exact-pattern dispatch, typed request clients, correlation, deadlines and application lifecycle. A strategy
-owns broker framing, subscriptions, replies and applying settlements.
+This is the application-owned, transport-neutral broker layer of epic #556, implemented by #559 and moved by #648. It owns validation, exact-pattern dispatch, typed request clients, correlation,
+deadlines, tracing propagation and the public transport strategy SPI. A strategy owns broker framing, subscriptions, replies and applying settlements. Typed gRPC remains a separate contract because it
+is not a `TransportStrategy`.
 
-> **Ownership target frozen by #654:** #648 moves this transport-neutral contract to `@zmdb/app`. The three concrete strategies then live only in `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq` and
-> `@zmdb/transport-redis`. Their old web subpaths are removed rather than forwarded; each package imports only the public app SPI and declares only its own required peer. This notice changes
-> ownership, not the settlement, framing, correlation or drain semantics below.
+The old `@zmdb/web/microservices` entry is removed rather than forwarded. The concrete Redis, core NATS and RabbitMQ adapters remain temporary web-owned integrations until #658, #659 and #660 move
+them to their dedicated packages; from #648 onward they import only this public app contract and its broker-free transport kit.
 
 ## 1. A message is not an HTTP request
 
@@ -180,9 +179,10 @@ An unknown pattern is acknowledged so a message nobody handles does not loop. Wh
 The default event retry curve is one second doubling to a 30-second ceiling. `maxAttempts` and every produced delay must be positive integers. An invalid custom delay is reported and settles dead
 rather than leaving a delivery unsettled.
 
-## 5. Capability enforcement belongs at the app binding
+## 5. Capability enforcement belongs at the transport extension
 
-`createMessageDispatcher(consumers, options)` is transport-neutral, so it cannot inspect a strategy's capabilities. `createApp` owns both objects and binds them.
+`createMessageDispatcher(consumers, options)` is transport-neutral, so it cannot inspect a strategy's capabilities. `transportExtension` owns both objects and binds them through the application
+extension lifecycle.
 
 Before opening a transport, the app requires `onUndeliverable` whenever either `redelivery` or `deadLetter` is false. After dispatch:
 
@@ -232,34 +232,40 @@ The caller cannot supply a correlation id. A payload property with that name is 
 `createEventPublisher<E>(transport)` exposes one typed property per event pattern and delegates to `emit`. Methods are cached per publisher; the publisher and its cache are application-owned, not
 global. The proxy never synthesizes `then`, so ordinary promise resolution cannot assimilate it as a thenable.
 
-## 7. Hybrid lifecycle
+## 7. Application-extension lifecycle
 
 ```ts
-export interface AppOptions {
-  readonly transports?: readonly TransportStrategy[];
-  readonly dispatcher?: DispatcherOptions;
-  readonly graceMs?: number; // 5_000
-}
-
-createApp(rootModule, options?)
+export function transportExtension(options: { readonly transports: readonly TransportStrategy[]; readonly dispatcher: DispatcherOptions }): ApplicationExtension;
 ```
 
-With transports configured, `init()` is idempotent and runs:
+The extension is supplied through the ordinary protocol-neutral application options:
+
+```ts
+createApplication(rootModule, {
+  extensions: [transportExtension({ transports, dispatcher })],
+});
+```
+
+`createApp` accepts the same extension through `WebApplicationOptions.extensions`; it has no transport-specific option. With the extension configured, application `init()` remains idempotent and runs:
 
 1. all `onModuleInit` hooks;
 2. all `onApplicationBootstrap` hooks;
-3. dispatcher construction and configuration validation;
+3. dispatcher construction and configuration validation in `transportExtension.start`;
 4. each `listen` in declaration order.
 
-If a `listen` rejects, `init()` rejects and transports that previously opened are closed in reverse order. The refusing transport is not assumed to have opened successfully.
+Each strategy enters the extension's close ledger immediately before its `listen` call. If `listen` rejects after partially opening broker resources, application startup rejects and extension rollback
+calls `close` on that strategy and every earlier strategy in reverse order. `close` must therefore tolerate a partially completed `listen`.
 
-Disposal first prevents new lazy loads and waits for in-flight loads, then closes opened transports in reverse declaration order, then runs ordinary shutdown hooks in reverse construction order. A
-close failure does not skip later closes or lifecycle hooks. One shutdown error is reported by identity; multiple transport/lifecycle failures are reported in an `AggregateError` in observation order.
-Once disposal begins, a later `init()` rejects rather than opening a transport that the memoized disposal can no longer close.
+Disposal first prevents new lazy loads and waits for in-flight loads, then stops extensions in reverse declaration order, then runs ordinary shutdown hooks in reverse construction order.
+`transportExtension.stop` closes its opened transports in reverse declaration order. It receives the milliseconds remaining in the one application grace budget, records one deadline, and passes each
+transport the non-negative time remaining when its close begins. `close(0)` means stop intake and force-close without waiting. A close failure does not skip later closes or lifecycle hooks. One
+shutdown error is reported by identity; multiple transport/lifecycle failures are reported in an `AggregateError` in observation order. Once disposal begins, a later `init()` rejects rather than
+opening a transport that the memoized disposal can no longer close.
 
 Transport names must be non-empty and unique because the name is copied into every `MessageContext`.
 
-`App` gains no `connectMicroservice` or `startAllMicroservices`. `init()` is the single startup boundary, so an application cannot serve HTTP while silently forgetting to start its consumers.
+Message consumers remain eager. The application keeps deferred controller declarations behind a private bridge so `transportExtension` can reject a decorated lazy controller before opening a transport
+without widening `ApplicationExtensionContext` or importing HTTP. The dispatch map itself is built only from the immutable eager controller snapshot.
 
 ## 8. Custom transport stability
 
@@ -274,18 +280,31 @@ The app supplies the dispatch callback; a strategy does not construct `MessageCo
 Within a major release, new required members are not added to `TransportStrategy`, and new settlement arms are not added. Optional diagnostic members may be added to `RawMessage` because existing
 strategies can omit them.
 
+### 8.1 Broker-free transport kit
+
+The same `@zmdb/app/messaging` entry publishes the minimum shared adapter machinery used by the concrete transports:
+
+- `DeliveryMetadata`, `encodeDelivery`, `decodeDelivery`, `encodeReply` and `decodeReply` for the version-1 JSON envelope;
+- `TransportErrorSink` and `reportTransportError` for non-replacing diagnostics;
+- `InFlight` for stopping intake and awaiting accepted dispatch callbacks;
+- `withinGrace` for one bounded wait; and
+- `abortError` for preserving an `AbortSignal` reason.
+
+The kit imports no broker client, does not open resources and owns no process-global registry. Broker-specific authentication, subscriptions, delivery tokens, acknowledgements, reply destinations and
+connection closing remain in the adapter.
+
 ## 9. Broker strategies
 
-The current implementation keeps the three clients as optional peers behind separate web subpaths:
+Until their dedicated extraction issues land, the three concrete clients remain optional peers behind separate web integration subpaths:
 
 - `@zmdb/web/microservices/redis` uses Redis Pub/Sub;
 - `@zmdb/web/microservices/nats` uses core NATS;
 - `@zmdb/web/microservices/rabbitmq` uses a RabbitMQ topic exchange.
 
-Importing `@zmdb/web` or `@zmdb/web/microservices` reaches none of those clients. A plain production install therefore contains no broker client.
+Importing `@zmdb/app` or `@zmdb/app/messaging` reaches none of those clients. The old neutral web entry no longer exists. A plain app install therefore contains no broker client.
 
-The #654 target removes those three subpaths and all three peers from web. The corresponding dedicated package roots preserve the behavior below; selecting one package makes its one broker peer
-required there. There is no forwarding layer.
+The #654 target removes the three remaining adapter subpaths and all three peers from web. The corresponding dedicated package roots preserve the behavior below; selecting one package makes its one
+broker peer required there. There is no forwarding layer.
 
 All three adapters use the same versioned JSON envelope. Payloads must be JSON-serializable and cannot be `undefined`. The envelope carries W3C trace propagation; correlation and reply destinations
 use either envelope fields or the broker's native metadata. Parsing remains the strategy's responsibility: malformed JSON becomes `RawMessage.parseError` with the original text retained in `payload`.
@@ -344,24 +363,25 @@ The implementation tests prove:
 - no default request timeout;
 - no module-scope connection or registry;
 - no GraphQL integration;
-- no broker client reachable from the package root or transport-neutral microservices entry point;
+- no broker client reachable from the app root or transport-neutral messaging entry point;
 - no grpc-js import from the core app root or transport-neutral messaging entry point; the target reaches its required peer only through the selected `@zmdb/transport-grpc` package.
 
-## Package ownership amendment (#645)
+## Package ownership state after #648
 
-The transport-neutral dispatcher, decorators, client/publisher builders, errors, settlement model and `TransportStrategy` SPI move to `@zmdb/app/messaging`. The contract remains broker-neutral and the
-app package declares no broker peer.
+The transport-neutral dispatcher, decorators, client/publisher builders, errors, settlement model, reusable transport kit and `TransportStrategy` SPI live at `@zmdb/app/messaging`. The contract
+remains broker-neutral and the app package declares no broker peer.
 
-`AppOptions` is removed. Application lifecycle accepts `ApplicationExtension[]`; transport packages adapt their strategy/server to that lifecycle without adding technology fields to core options.
+`AppOptions` is removed. Application lifecycle accepts `ApplicationExtension[]`; `transportExtension` adapts strategies to that lifecycle without adding technology fields to core options.
 
-The concrete destinations are:
+The ownership sequence is:
 
-| Current entry                      | Target package                            |
-| ---------------------------------- | ----------------------------------------- |
-| `@zmdb/web/microservices`          | `@zmdb/app/messaging`                     |
-| `@zmdb/web/microservices/grpc`     | `@zmdb/protobuf` + `@zmdb/transport-grpc` |
-| `@zmdb/web/microservices/nats`     | `@zmdb/transport-nats`                    |
-| `@zmdb/web/microservices/rabbitmq` | `@zmdb/transport-rabbitmq`                |
-| `@zmdb/web/microservices/redis`    | `@zmdb/transport-redis`                   |
+| Removed or temporary entry         | Owner                                     | Issue |
+| ---------------------------------- | ----------------------------------------- | ----- |
+| `@zmdb/web/microservices`          | `@zmdb/app/messaging`                     | #648  |
+| `@zmdb/web/microservices/grpc`     | `@zmdb/transport-grpc` + `@zmdb/protobuf` | #657  |
+| `@zmdb/web/microservices/nats`     | `@zmdb/transport-nats`                    | #658  |
+| `@zmdb/web/microservices/rabbitmq` | `@zmdb/transport-rabbitmq`                | #659  |
+| `@zmdb/web/microservices/redis`    | `@zmdb/transport-redis`                   | #660  |
 
-All old entries are deleted without forwarders. The optional-package peer and generated-code details remain frozen by #654; the app-owned SPI here is the only inward dependency they share.
+The neutral web entry is deleted without a forwarder in #648. The remaining concrete adapter entries are not neutral-core compatibility layers; their later extraction issues delete them without
+forwarders. The app-owned SPI and kit here are the only inward messaging dependency they share.

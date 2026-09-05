@@ -62,7 +62,7 @@ const PEERS = [
   'redis',
   'react',
 ];
-const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'web-custom-transport.ts');
+const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'app-custom-transport.ts');
 const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
 const HTTP_CLIENT_DOCS_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'docs');
 const HTTP_CLIENT_DOCS_PAGE = join(ROOT, 'docs-site', 'content', 'generated-client.md');
@@ -448,7 +448,7 @@ writeFileSync(
 // This is deliberately copied outside the repository before compilation. It
 // implements the custom transport contract using only published subpaths, so a
 // private relative import or a source-only named export cannot pass here.
-cpSync(CUSTOM_TRANSPORT_FIXTURE, join(app, 'web-custom-transport.ts'));
+cpSync(CUSTOM_TRANSPORT_FIXTURE, join(app, 'app-custom-transport.ts'));
 writeFileSync(
   join(app, 'tsconfig.json'),
   `${JSON.stringify(
@@ -462,7 +462,7 @@ writeFileSync(
         noEmit: true,
         types: ['node'],
       },
-      include: ['consumer.ts', 'web-custom-transport.ts'],
+      include: ['consumer.ts', 'app-custom-transport.ts'],
     },
     null,
     2,

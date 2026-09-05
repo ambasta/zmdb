@@ -11,7 +11,7 @@
 - dependency injection, modules, lazy module construction and the construction ledger;
 - application lifecycle and extension orchestration;
 - command applications, application events, CQRS and domain state machines;
-- transport-neutral message dispatch, clients, publishers and the transport strategy SPI;
+- transport-neutral message dispatch, clients, publishers, the transport strategy SPI and its broker-free framing/drain kit;
 - narrow observability ports, W3C propagation, message spans and driver instrumentation;
 - protocol-neutral liveness/readiness checks and repository injection tokens.
 
@@ -164,7 +164,7 @@ The 105 current names assigned to this package are frozen in `packages/web/SPEC.
 | `di`, `modules`, lifecycle and state                 | matching `@zmdb/app/*`      |
 | command applications                                 | `@zmdb/app/commands`        |
 | application events and CQRS                          | `@zmdb/app/events`, `/cqrs` |
-| message dispatcher, clients and transport SPI        | `@zmdb/app/messaging`       |
+| message dispatcher, clients, transport SPI and kit   | `@zmdb/app/messaging`       |
 | observability ports, propagation and instrumentation | `@zmdb/app/observability`   |
 | protocol-neutral health checks                       | `@zmdb/app/health`          |
 | `repositoryToken`                                    | `@zmdb/app/data`            |

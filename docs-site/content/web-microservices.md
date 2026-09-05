@@ -1,12 +1,12 @@
-`@zmdb/web` ships a transport-neutral message layer, typed request and event clients, Redis Pub/Sub, core NATS, RabbitMQ and a separate typed gRPC surface. Applications own those transports through
-the same module graph and bounded lifecycle as HTTP.
+`@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. The temporary web integration subpaths provide Redis Pub/Sub, core NATS, RabbitMQ and a separate
+typed gRPC surface. Applications own those transports through the same module graph and bounded lifecycle as HTTP.
 
 ## The public seam
 
-Import the broker-neutral API from `@zmdb/web/microservices`:
+Import the broker-neutral API from `@zmdb/app/messaging`:
 
 ```ts
-import { EventPattern, MessagePattern, createMessageClient, type MessageContext, type TransportStrategy } from '@zmdb/web/microservices';
+import { EventPattern, MessagePattern, createMessageClient, transportExtension, type MessageContext, type TransportStrategy } from '@zmdb/app/messaging';
 ```
 
 A broker delivery is not an HTTP request. `MessageContext<T>` is therefore a sibling of `Ctx`, not a subtype: it has no invented method or path. The reusable part is structural:
@@ -106,25 +106,29 @@ For one-way events, `createEventPublisher<EventMap>(transport)` exposes one type
 
 ## Application ownership
 
-Pass strategies to `createApp` rather than starting them beside the app:
+Attach strategies through the public application extension rather than starting them beside the app:
 
 ```ts
 await using app = createApp(AppModule, {
-  transports: [transport],
-  dispatcher: {
-    onUnhandled: message => audit.unhandled(message),
-    onInvalidPayload: (message, error) => audit.invalid(message, error),
-    onHandlerError: (message, error) => audit.failed(message, error),
-    onUndeliverable: (message, settlement) => audit.dropped(message, settlement),
-  },
+  extensions: [
+    transportExtension({
+      transports: [transport],
+      dispatcher: {
+        onUnhandled: message => audit.unhandled(message),
+        onInvalidPayload: (message, error) => audit.invalid(message, error),
+        onHandlerError: (message, error) => audit.failed(message, error),
+        onUndeliverable: (message, settlement) => audit.dropped(message, settlement),
+      },
+    }),
+  ],
   graceMs: 5_000,
 });
 
 await app.init();
 ```
 
-Initialization runs module hooks, builds the dispatcher, then calls `transport.listen` in declaration order. A partial startup closes the strategies that already opened and rejects. Disposal closes
-transports in reverse order before provider/controller shutdown hooks, so no message handler outlives its dependencies.
+Initialization runs module hooks, builds the dispatcher, then calls `transport.listen` in declaration order. A strategy enters the close ledger before `listen`, so a partial startup closes the
+refusing strategy and every earlier strategy in reverse order. Disposal closes transports in reverse order before provider/controller shutdown hooks, so no message handler outlives its dependencies.
 
 ## Packaged broker strategies
 

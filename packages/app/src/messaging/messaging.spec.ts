@@ -1,17 +1,13 @@
-import { lazy, Module } from '@zmdb/app/modules';
-import { toTraceHeaders, type Span, type SpanContext, type TraceCarrier, type Tracer } from '@zmdb/app/observability';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   PUBLIC_CLIENT_ERRORS,
   PublicCustomTransport,
   settlementKind,
-} from '../../../../fixtures/web-custom-transport.js';
-import { createApp, type App } from '../app/index.js';
-import { countMetadataReads } from '../bench/index.js';
-import type { Ctx, QueryValues } from '../context/index.js';
-import type { Guard } from '../middleware/index.js';
-import { Controller, Get } from '../routing/index.js';
+} from '../../../../fixtures/app-custom-transport.js';
+import { createApplication, type Application } from '../application.js';
+import { lazy, Module, type ModuleClass } from '../modules/index.js';
+import { toTraceHeaders, type Span, type SpanContext, type TraceCarrier, type Tracer } from '../observability/index.js';
 import {
   createEventPublisher,
   createMessageClient,
@@ -22,6 +18,7 @@ import {
   MessagePattern,
   MessageRemoteError,
   MessageTimeoutError,
+  transportExtension,
   TransportUnsupportedError,
   type DispatchOutcome,
   type DispatcherOptions,
@@ -31,7 +28,6 @@ import {
   type TransportCapabilities,
   type TransportRequest,
   type TransportStrategy,
-  type WithHeaders,
 } from './index.js';
 
 const ALL_TRUE: TransportCapabilities = { redelivery: true, deadLetter: true, requestResponse: true };
@@ -50,7 +46,7 @@ interface FakeTransport extends TransportStrategy {
 
 interface FakeOptions {
   readonly capabilities?: TransportCapabilities;
-  readonly close?: Error;
+  readonly close?: Error | ((graceMs: number) => Promise<void>);
   readonly listen?: 'resolve' | 'reject';
   readonly send?: (request: TransportRequest) => Promise<MessageReply>;
 }
@@ -94,10 +90,27 @@ function fakeTransport(name: string, log: string[] = [], options: FakeOptions = 
     },
     close(graceMs) {
       log.push(`close:${name}:${String(graceMs)}`);
-      return options.close === undefined ? Promise.resolve() : Promise.reject(options.close);
+      if (options.close === undefined) {
+        return Promise.resolve();
+      }
+      if (options.close instanceof Error) {
+        return Promise.reject(options.close);
+      }
+      return options.close(graceMs);
     },
   };
   return transport;
+}
+
+function normalizedLifecycleLog(log: readonly string[]): readonly string[] {
+  return log.map(entry => entry.replace(/^(close:[^:]+|stop:intake):\d+$/, '$1:<grace>'));
+}
+
+function lifecycleGraceValues(log: readonly string[]): readonly number[] {
+  return log.flatMap(entry => {
+    const match = /^(?:close:[^:]+|stop:intake):(\d+)$/.exec(entry);
+    return match?.[1] === undefined ? [] : [Number(match[1])];
+  });
 }
 
 interface DeliveryOptions {
@@ -225,24 +238,64 @@ function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value
   return { promise, resolve };
 }
 
-async function outcomeOf(app: App): Promise<'init resolved' | 'init rejected'> {
+function createMessagingApplication(
+  root: ModuleClass,
+  options: {
+    readonly transports: readonly TransportStrategy[];
+    readonly dispatcher: DispatcherOptions;
+    readonly graceMs?: number;
+  },
+): Application {
+  return createApplication(root, {
+    extensions: [
+      transportExtension({
+        transports: options.transports,
+        dispatcher: options.dispatcher,
+      }),
+    ],
+    ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
+  });
+}
+
+function countMetadataReads(target: object): {
+  readonly count: () => number;
+  readonly restore: () => void;
+} {
+  const original = Object.getOwnPropertyDescriptor(target, Symbol.metadata);
+  const stored = original?.value;
+  let reads = 0;
+  Object.defineProperty(target, Symbol.metadata, {
+    configurable: true,
+    enumerable: original?.enumerable ?? false,
+    get(): unknown {
+      reads += 1;
+      return stored;
+    },
+  });
+  return {
+    count: () => reads,
+    restore: () => {
+      if (original === undefined) {
+        Reflect.deleteProperty(target, Symbol.metadata);
+      } else {
+        Object.defineProperty(target, Symbol.metadata, original);
+      }
+    },
+  };
+}
+
+async function outcomeOf(app: Application): Promise<'init resolved' | 'init rejected'> {
   return app.init().then(
     () => 'init resolved' as const,
     () => 'init rejected' as const,
   );
 }
 
-describe('microservice hybrid lifecycle (#559)', () => {
+describe('application messaging lifecycle (#648)', () => {
   it('listen is called after onApplicationBootstrap', async () => {
     const log: string[] = [];
 
-    @Controller('/orders')
     class Consumer {
-      @Get('/')
-      list(): string {
-        return 'ok';
-      }
-
       onModuleInit(): void {
         log.push('onModuleInit:Consumer');
       }
@@ -255,7 +308,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     @Module({ controllers: [Consumer] })
     class Root {}
 
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [fakeTransport('a', log)],
       dispatcher: sinks(log),
     });
@@ -270,25 +323,20 @@ describe('microservice hybrid lifecycle (#559)', () => {
     @Module({ controllers: [] })
     class Root {}
 
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [fakeTransport('a', log), fakeTransport('b', log, { listen: 'reject' })],
       dispatcher: sinks(log),
     });
 
     await expect(app.init()).rejects.toThrow('b refused the connection');
-    expect(log).toEqual(['listen:a', 'listen:b', 'close:a:5000']);
+    expect(normalizedLifecycleLog(log)).toEqual(['listen:a', 'listen:b', 'close:b:<grace>', 'close:a:<grace>']);
+    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 5_000)).toBe(true);
   });
 
   it('dispose closes transports before running shutdown hooks', async () => {
     const log: string[] = [];
 
-    @Controller('/orders')
     class Consumer {
-      @Get('/')
-      list(): string {
-        return 'ok';
-      }
-
       onShutdown(): void {
         log.push('onShutdown:Consumer');
       }
@@ -297,7 +345,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     @Module({ controllers: [Consumer] })
     class Root {}
 
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [fakeTransport('a', log), fakeTransport('b', log)],
       dispatcher: sinks(log),
     });
@@ -305,7 +353,8 @@ describe('microservice hybrid lifecycle (#559)', () => {
     log.length = 0;
     await app[Symbol.asyncDispose]();
 
-    expect(log).toEqual(['close:b:5000', 'close:a:5000', 'onShutdown:Consumer']);
+    expect(normalizedLifecycleLog(log)).toEqual(['close:b:<grace>', 'close:a:<grace>', 'onShutdown:Consumer']);
+    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 5_000)).toBe(true);
   });
 
   it('a close failure does not skip remaining transports or shutdown hooks', async () => {
@@ -313,7 +362,6 @@ describe('microservice hybrid lifecycle (#559)', () => {
     const closeError = new Error('b could not close');
     const shutdownError = new Error('consumer could not shut down');
 
-    @Controller('/consumer')
     class Consumer {
       onShutdown(): void {
         log.push('onShutdown:Consumer');
@@ -324,7 +372,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     @Module({ controllers: [Consumer] })
     class Root {}
 
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [fakeTransport('a', log), fakeTransport('b', log, { close: closeError })],
       dispatcher: sinks(log),
     });
@@ -342,7 +390,8 @@ describe('microservice hybrid lifecycle (#559)', () => {
       throw new Error('application shutdown did not aggregate transport and lifecycle failures');
     }
     expect(disposalError.errors).toEqual([closeError, shutdownError]);
-    expect(log).toEqual(['close:b:5000', 'close:a:5000', 'onShutdown:Consumer']);
+    expect(normalizedLifecycleLog(log)).toEqual(['close:b:<grace>', 'close:a:<grace>', 'onShutdown:Consumer']);
+    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 5_000)).toBe(true);
   });
 
   it('init after disposal rejects without opening a transport', async () => {
@@ -351,7 +400,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     @Module({ controllers: [] })
     class Root {}
 
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [fakeTransport('a', log)],
       dispatcher: sinks(log),
     });
@@ -361,14 +410,24 @@ describe('microservice hybrid lifecycle (#559)', () => {
     expect(log).toEqual([]);
   });
 
-  it('the app grace bound is the number passed to every close', async () => {
+  it('all transport closes consume one application grace budget', async () => {
     const log: string[] = [];
+    let now = 1_000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
 
     @Module({ controllers: [] })
     class Root {}
 
-    const app = createApp(Root, {
-      transports: [fakeTransport('a', log), fakeTransport('b', log)],
+    const app = createMessagingApplication(Root, {
+      transports: [
+        fakeTransport('a', log),
+        fakeTransport('b', log, {
+          close: () => {
+            now += 50;
+            return Promise.resolve();
+          },
+        }),
+      ],
       dispatcher: sinks(log),
       graceMs: 250,
     });
@@ -376,63 +435,18 @@ describe('microservice hybrid lifecycle (#559)', () => {
     log.length = 0;
     await app[Symbol.asyncDispose]();
 
-    expect(log).toEqual(['close:b:250', 'close:a:250']);
+    expect(log).toEqual(['close:b:250', 'close:a:200']);
+    clock.mockRestore();
   });
 
-  it('App gains no connectMicroservice and no startAllMicroservices', () => {
+  it('Application gains no connectMicroservice and no startAllMicroservices', () => {
     @Module({ controllers: [] })
     class Root {}
 
-    const app = createApp(Root, { transports: [], dispatcher: sinks([]) });
+    const app = createMessagingApplication(Root, { transports: [], dispatcher: sinks([]) });
 
-    expect(Object.keys(app).toSorted()).toEqual(['container', 'fetch', 'handle', 'init', 'lazy']);
+    expect(Object.keys(app).toSorted()).toEqual(['container', 'init', 'lazy']);
     expect(typeof app[Symbol.asyncDispose]).toBe('function');
-  });
-
-  it('serves HTTP and a transport from one process sharing one container', async () => {
-    const seen: object[] = [];
-
-    @Controller('/orders')
-    class Consumer {
-      @Get('/')
-      list(): string {
-        seen.push(this);
-        return 'ok';
-      }
-
-      @MessagePattern('orders.get', orderRequest)
-      get(ctx: MessageContext<OrderRequest>): { readonly id: number } {
-        seen.push(this);
-        return { id: ctx.payload.id };
-      }
-    }
-
-    @Module({ controllers: [Consumer] })
-    class Root {}
-
-    const transport = fakeTransport('a');
-    const app = createApp(Root, {
-      transports: [transport],
-      dispatcher: sinks([]),
-    });
-    await app.init();
-    const response = await app.handle({ method: 'GET', path: '/orders', headers: {} });
-    const result = await transport.dispatch?.(
-      delivery('orders.get', { id: 7 }, { correlationId: 'c1', replyTo: 'reply:a' }),
-    );
-
-    expect({
-      http: response.status,
-      sameInstance: seen.length === 2 && seen[0] === seen[1],
-      result,
-    }).toEqual({
-      http: 200,
-      sameInstance: true,
-      result: {
-        settlement: { kind: 'ack' },
-        reply: { kind: 'result', correlationId: 'c1', payload: { id: 7 } },
-      },
-    });
   });
 
   it('drains in-flight handlers within the grace period and then closes connections', async () => {
@@ -458,7 +472,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     class Root {}
 
     const transport = new PublicCustomTransport(log);
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [transport],
       dispatcher: sinks(log),
       graceMs: 5_000,
@@ -476,14 +490,15 @@ describe('microservice hybrid lifecycle (#559)', () => {
     await dispatch;
     await disposal;
 
-    expect(log).toEqual([
+    expect(normalizedLifecycleLog(log)).toEqual([
       'listen:public-custom',
       'handler:start',
-      'stop:intake:5000',
+      'stop:intake:<grace>',
       'handler:finish',
       'close:connection',
       'onShutdown:Consumer',
     ]);
+    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 5_000)).toBe(true);
   });
 
   it('closes a custom transport when its bounded drain expires', async () => {
@@ -509,7 +524,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     class Root {}
 
     const transport = new PublicCustomTransport(log);
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [transport],
       dispatcher: sinks(log),
       graceMs: 5,
@@ -518,15 +533,16 @@ describe('microservice hybrid lifecycle (#559)', () => {
     const dispatch = transport.deliver(delivery('orders.hung'));
     await started.promise;
 
-    await expect(app[Symbol.asyncDispose]()).rejects.toThrow('did not drain within 5ms');
+    await expect(app[Symbol.asyncDispose]()).rejects.toThrow(/did not drain within \d+ms/);
     expect(transport.connectionOpen).toBe(false);
-    expect(log).toEqual([
+    expect(normalizedLifecycleLog(log)).toEqual([
       'listen:public-custom',
       'handler:start',
-      'stop:intake:5',
+      'stop:intake:<grace>',
       'close:connection',
       'onShutdown:Consumer',
     ]);
+    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 5)).toBe(true);
 
     release.resolve();
     await dispatch;
@@ -538,7 +554,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     @Module({ controllers: [] })
     class Root {}
 
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [fakeTransport('a', log)],
       dispatcher: sinks(log),
     });
@@ -559,7 +575,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     @Module({ imports: [lazy(LazyModule)] })
     class Root {}
 
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [fakeTransport('a')],
       dispatcher: sinks([]),
     });
@@ -614,7 +630,7 @@ describe('message dispatcher (#559)', () => {
     class Root {}
 
     const transport = fakeTransport('redis-pubsub', [], { capabilities: NO_REDELIVERY });
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [transport],
       dispatcher: sinks([]),
     });
@@ -860,7 +876,7 @@ describe('message dispatcher (#559)', () => {
 
     const log: string[] = [];
     const transport = fakeTransport('redis', log, { capabilities: NO_REDELIVERY });
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [transport],
       dispatcher: {
         ...sinks(log),
@@ -1239,35 +1255,6 @@ describe('typed message clients (#559)', () => {
 });
 
 describe('shared context and custom transport seam (#559)', () => {
-  it('one authorisation function written against WithHeaders serves an HTTP guard and a message handler', async () => {
-    const requiresApiKey = (ctx: WithHeaders): boolean => ctx.headers['x-api-key'] === 'secret';
-    const httpGuard: Guard = { canActivate: ctx => requiresApiKey(ctx) };
-    const messageChecks: boolean[] = [];
-
-    class Consumer {
-      @EventPattern('orders.secured', orderRequest)
-      secured(ctx: MessageContext<OrderRequest>): void {
-        messageChecks.push(requiresApiKey(ctx));
-      }
-    }
-
-    const dispatcher = createMessageDispatcher([new Consumer()], sinks([]));
-    const httpCtx: Ctx<Record<string, string>, unknown, QueryValues> = {
-      params: {},
-      body: undefined,
-      query: {},
-      headers: { 'x-api-key': 'secret' },
-      method: 'GET',
-      path: '/orders',
-    };
-
-    expect(await httpGuard.canActivate(httpCtx)).toBe(true);
-    expect(await httpGuard.canActivate({ ...httpCtx, headers: {} })).toBe(false);
-    await dispatcher.dispatch(delivery('orders.secured', { id: 1 }, { headers: { 'x-api-key': 'secret' } }), 'memory');
-    await dispatcher.dispatch(delivery('orders.secured', { id: 2 }), 'memory');
-    expect(messageChecks).toEqual([true, false]);
-  });
-
   it('a third-party strategy written only against public exports dispatches messages', async () => {
     const seen: number[] = [];
 
@@ -1282,7 +1269,7 @@ describe('shared context and custom transport seam (#559)', () => {
     class Root {}
 
     const transport = new PublicCustomTransport();
-    const app = createApp(Root, {
+    const app = createMessagingApplication(Root, {
       transports: [transport],
       dispatcher: sinks([]),
     });

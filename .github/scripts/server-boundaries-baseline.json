@@ -1,14 +1,13 @@
 {
   "problems": [
-    "@zmdb/app core exports [., ./commands, ./cqrs, ./data, ./di, ./events, ./health, ./lifecycle, ./modules, ./observability, ./state], expected [., ./commands, ./cqrs, ./data, ./di, ./events, ./health, ./lifecycle, ./messaging, ./modules, ./observability, ./state]",
     "@zmdb/web core dependencies {\"@zmdb/aot-validator\":\"workspace:^\",\"@zmdb/app\":\"workspace:^\",\"@zmdb/query-compiler\":\"workspace:^\",\"@zmdb/repository\":\"workspace:^\",\"@zmdb/schema-core\":\"workspace:^\"}, expected {\"@zmdb/aot-validator\":\"workspace:^\",\"@zmdb/app\":\"workspace:^\",\"@zmdb/repository\":\"workspace:^\",\"@zmdb/schema-core\":\"workspace:^\"}",
-    "@zmdb/web core exports [., ./app, ./bench, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./microservices, ./microservices/grpc, ./microservices/nats, ./microservices/rabbitmq, ./microservices/redis, ./middleware, ./openapi, ./pipeline, ./queues, ./queues/backends/memory, ./queues/backends/pg, ./routing, ./schedule, ./static, ./testing, ./upload, ./versioning], expected [., ./app, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./middleware, ./openapi, ./pipeline, ./routing, ./static, ./testing, ./upload, ./versioning]",
+    "@zmdb/web core exports [., ./app, ./bench, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./microservices/grpc, ./microservices/nats, ./microservices/rabbitmq, ./microservices/redis, ./middleware, ./openapi, ./pipeline, ./queues, ./queues/backends/memory, ./queues/backends/pg, ./routing, ./schedule, ./static, ./testing, ./upload, ./versioning], expected [., ./app, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./middleware, ./openapi, ./pipeline, ./routing, ./static, ./testing, ./upload, ./versioning]",
     "@zmdb/web core peerDependencies [@grpc/grpc-js, @nats-io/transport-node, amqplib, pg, redis, typescript], expected []",
     "@zmdb/web declares optional server packages or peers [@grpc/grpc-js, @nats-io/transport-node, amqplib, pg, redis]",
     "@zmdb/web imports packages outside its direct edge contract [@zmdb/query-compiler]",
     "@zmdb/web reaches forbidden server/reflection peers [@grpc/grpc-js, @nats-io/transport-node, amqplib, pg, redis]",
     "@zmdb/web reaches optional server peers [@grpc/grpc-js, @nats-io/transport-node, amqplib, pg, redis]",
-    "@zmdb/web still publishes moved core subpaths [./microservices, ./queues, ./queues/backends/memory, ./schedule]",
+    "@zmdb/web still publishes moved core subpaths [./queues, ./queues/backends/memory, ./schedule]",
     "@zmdb/web still publishes old integration subpaths [./microservices/grpc, ./microservices/nats, ./microservices/rabbitmq, ./microservices/redis, ./queues/backends/pg]",
     "missing core package manifest for @zmdb/jobs: packages/jobs/package.json",
     "missing package manifest for @zmdb/jobs-postgres: packages/jobs-postgres/package.json",

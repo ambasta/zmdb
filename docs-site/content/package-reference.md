@@ -28,7 +28,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/ai-langchain   | 1.0.0-alpha.4 | langchain | integration: LangChain                 | `npm add @zmdb/ai-langchain@1.0.0-alpha.4` | Optional LangChain structured-tool adapter for provider-neutral zmdb AI tool documents.                                                                                                                                 | llm-langchain          |
 | @zmdb/ai-vercel      | 1.0.0-alpha.4 | vercel-ai | integration: Vercel AI SDK             | `npm add @zmdb/ai-vercel@1.0.0-alpha.4`    | Vercel AI SDK tool integration for provider-neutral zmdb AI contracts.                                                                                                                                                  | llm-vercel-ai-sdk      |
 | @zmdb/aot-validator  | 1.0.0-alpha.4 | validator | required                               | `npm add zmdb@1.0.0-alpha.4`               | Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.                                         | aot-setup              |
-| @zmdb/app            | 1.0.0-alpha.4 | app       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.                                                     | web-app                |
+| @zmdb/app            | 1.0.0-alpha.4 | app       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.                                          | web-app                |
 | @zmdb/client         | 1.0.0-alpha.4 | client    | integration: generated HTTP clients    | `npm add @zmdb/client@1.0.0-alpha.4`       | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                                                                | web-http-client        |
 | @zmdb/mcp            | 1.0.0-alpha.4 | mcp       | integration: Model Context Protocol    | `npm add @zmdb/mcp@1.0.0-alpha.4`          | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp                |
 | @zmdb/otel           | 1.0.0-alpha.4 | otel      | integration: OpenTelemetry             | `npm add @zmdb/otel@1.0.0-alpha.4`         | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability      |
@@ -165,7 +165,7 @@ Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/ran
 
 ### `@zmdb/app`
 
-Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.
+Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.
 
 - **Exports:**
   - `.` → `./src/index.ts`
@@ -176,6 +176,7 @@ Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injec
   - `./events` → `./src/events/index.ts`
   - `./health` → `./src/health/index.ts`
   - `./lifecycle` → `./src/lifecycle.ts`
+  - `./messaging` → `./src/messaging/index.ts`
   - `./modules` → `./src/modules/index.ts`
   - `./observability` → `./src/observability/index.ts`
   - `./state` → `./src/state/index.ts`
@@ -453,7 +454,6 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
   - `./dto-pipes` → `./src/dto-pipes/index.ts`
   - `./gateways` → `./src/gateways/index.ts`
   - `./health` → `./src/health/index.ts`
-  - `./microservices` → `./src/microservices/index.ts`
   - `./microservices/grpc` → `./src/microservices/grpc/index.ts`
   - `./microservices/nats` → `./src/microservices/nats/index.ts`
   - `./microservices/rabbitmq` → `./src/microservices/rabbitmq/index.ts`

@@ -202,6 +202,7 @@ export const APP_KERNEL_EXPORTS = [
   './events',
   './health',
   './lifecycle',
+  './messaging',
   './modules',
   './observability',
   './state',
@@ -221,6 +222,9 @@ const APP_KERNEL_MOVES = [
   ['packages/web/src/observability/index.ts', 'packages/app/src/observability/index.ts'],
   ['packages/web/src/observability/propagation.ts', 'packages/app/src/observability/propagation.ts'],
   ['packages/web/src/observability/types.ts', 'packages/app/src/observability/types.ts'],
+  ['packages/web/src/microservices/index.ts', 'packages/app/src/messaging/index.ts'],
+  ['packages/web/src/microservices/strategies/codec.ts', 'packages/app/src/messaging/transport-kit.ts'],
+  ['packages/web/src/microservices/strategies/drain.ts', 'packages/app/src/messaging/transport-kit.ts'],
 ];
 
 const SERVER_PEERS = new Set(SERVER_PACKAGES.flatMap(pkg => (pkg.peer === undefined ? [] : [pkg.peer.name])));

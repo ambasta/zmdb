@@ -3,17 +3,23 @@ listening socket.
 
 ## One application, two transport surfaces
 
-Pass message transports at application construction:
+Attach message transports through the public app extension:
 
 ```ts
+import { transportExtension } from '@zmdb/app/messaging';
+
 await using app = createApp(AppModule, {
-  transports: [ordersTransport],
-  dispatcher: {
-    onUnhandled: message => audit.unhandled(message),
-    onInvalidPayload: (message, error) => audit.invalid(message, error),
-    onHandlerError: (message, error) => audit.failed(message, error),
-    onUndeliverable: (message, settlement) => audit.dropped(message, settlement),
-  },
+  extensions: [
+    transportExtension({
+      transports: [ordersTransport],
+      dispatcher: {
+        onUnhandled: message => audit.unhandled(message),
+        onInvalidPayload: (message, error) => audit.invalid(message, error),
+        onHandlerError: (message, error) => audit.failed(message, error),
+        onUndeliverable: (message, settlement) => audit.dropped(message, settlement),
+      },
+    }),
+  ],
   graceMs: 5_000,
 });
 
@@ -24,8 +30,7 @@ Add gRPC through its separate binding contract rather than the broker strategy a
 
 ```ts
 await using app = createApp(AppModule, {
-  transports: [ordersTransport],
-  dispatcher,
+  extensions: [transportExtension({ transports: [ordersTransport], dispatcher })],
   grpc: {
     address: '0.0.0.0:50051',
     bindings: [ordersGrpcBinding],
@@ -50,7 +55,7 @@ Initialization is ordered:
 4. call `transport.listen` in declaration order;
 5. bind the optional gRPC server.
 
-A rejecting `listen` or gRPC bind closes transports opened earlier and rejects `init()`. Start the external HTTP server only after `init()` resolves.
+A rejecting `listen` or gRPC bind closes entered transports in reverse order and rejects `init()`. Start the external HTTP server only after `init()` resolves.
 
 Disposal mirrors the dependency direction:
 
@@ -80,12 +85,11 @@ The host still owns its listening socket and must close it as part of process sh
 
 ## Several transports
 
-Strategies are independent entries in `AppOptions`:
+Strategies are independent entries in one `transportExtension`:
 
 ```ts
 const app = createApp(AppModule, {
-  transports: [commands, notifications],
-  dispatcher,
+  extensions: [transportExtension({ transports: [commands, notifications], dispatcher })],
   graceMs: 10_000,
 });
 ```
@@ -111,8 +115,8 @@ const reports = app.container.resolve(REPORTS);
 await reports.sendDigests();
 ```
 
-External workers must still expose a stop function that awaits in-flight work. Only `TransportStrategy` instances and gRPC bindings supplied in `AppOptions` participate in the application's automatic
-bounded shutdown.
+External workers must still expose a stop function that awaits in-flight work. Only configured `ApplicationExtension` instances and the temporary gRPC binding field participate in the application's
+automatic bounded shutdown.
 
 ---
 
