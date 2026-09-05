@@ -8,7 +8,7 @@ import {
 } from '../clauses.js';
 import { dialectName, dialectTraits, type DialectTarget } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
-import type { CompiledQuery, QueryCompilerOptions } from '../index.js';
+import type { CompiledQuery, Operator, QueryCompilerOptions } from '../index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export { UnsupportedFeatureError };
@@ -38,12 +38,9 @@ export interface FtsTableOptions {
 
 export interface FtsOptions extends FtsTableOptions, QueryCompilerOptions {}
 
-interface Predicate {
-  kind: 'match' | 'cmp';
-  col: string;
-  op?: string | undefined;
-  value: unknown;
-}
+type Predicate =
+  | { kind: 'match'; col: string; value: unknown }
+  | { kind: 'cmp'; col: string; op: Operator; value: unknown };
 interface State {
   table: string;
   preds: Array<Predicate | PredicateGroup>;
@@ -53,8 +50,8 @@ interface State {
 }
 
 export interface FtsSelect {
-  whereMatch(column: string, term: string, options?: FtsTableOptions | string | boolean): FtsSelect;
-  where(col: string, op: string, value: unknown): FtsSelect;
+  whereMatch(column: string, term: string, options?: FtsOptions | string | boolean): FtsSelect;
+  where(col: string, op: Operator, value: unknown): FtsSelect;
   whereGroup(predicates: readonly ComparisonPredicate[]): FtsSelect;
   limit(n: number): FtsSelect;
   offset(n: number): FtsSelect;
