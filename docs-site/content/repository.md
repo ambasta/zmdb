@@ -64,6 +64,13 @@ const affected = await users.updateMany({ role: 'guest' }, { role: 'user' });
 // DELETE — returns boolean indicating if a row was deleted
 const deleted = await users.delete(created.id);
 // deleted: boolean
+
+// DELETE MANY — physical delete, or a soft update on SoftDelete tables
+const deletedCount = await users.deleteMany({ role: 'guest' });
+
+// Explicit physical delete and soft-delete restoration
+await users.hardDelete(created.id);
+await users.restore(created.id);
 ```
 
 For a numeric column, `repo.increment(id, column, by?)` is the typed atomic
@@ -130,7 +137,7 @@ class UserRepository extends BaseRepository<User> {
   }
 
   protected preDelete(id: unknown): void {
-    // Soft-delete check, cascade cleanup
+    // Runs once for both soft delete and hardDelete.
   }
 
   protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
@@ -142,7 +149,8 @@ class UserRepository extends BaseRepository<User> {
 
 `preUpdate` runs for `update`, `updateMany`, and `increment`. `upsert` runs
 `preInsert` for its create payload; its conflict-update object does not also run
-`preUpdate`.
+`preUpdate`. A soft delete emits SQL `UPDATE`, but follows delete semantics:
+`preDelete` runs and `preUpdate` does not.
 
 ## Transactions
 

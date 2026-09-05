@@ -30,6 +30,24 @@ DELETE FROM [users] OUTPUT DELETED.[id] WHERE [role] = @p1
 
 MySQL refuses `returning()` rather than emitting unsupported SQL.
 
+## Repository soft delete
+
+A repository whose table extends `SoftDelete<'deletedAt'>` changes the meaning of
+`delete(id)` without hiding the SQL:
+
+```sql
+UPDATE "users"
+SET "deletedAt" = $1
+WHERE "id" = $2 AND "deletedAt" IS NULL
+RETURNING "id"
+```
+
+The parameter is a Node `Date`. `hardDelete(id)` always compiles a physical
+`DELETE`; `restore(id)` sets the managed column back to `NULL`; and
+`deleteMany(where)` uses the same soft-update rule for bulk deletion. All remain
+subject to write filters, except that `restore` necessarily disables the built-in
+soft-delete predicate while retaining the others.
+
 > [!WARNING]
 > As with UPDATE, a DELETE without a `where` clause removes **every row**. Prefer
 > the repository's `delete(id)` for single-row deletes, or wrap bulk deletes in a

@@ -46,9 +46,10 @@ const summary = await summaryRepo.findOne({ accountId }, { cache: { ttlMs: 30_00
 await userRepo.update(userId, { email: nextEmail }, { invalidateTags: [tag] });
 ```
 
-`create`, `upsert`, `update`, `updateMany`, `increment` and `delete` accept
-`invalidateTags` in their write options. The repository invalidates its table
-tag plus those caller tags. It does not infer cross-table dependencies.
+`create`, `upsert`, `update`, `updateMany`, `increment`, `delete`, `deleteMany`,
+`hardDelete`, and `restore` accept `invalidateTags` in their write options. The
+repository invalidates its table tag plus those caller tags. It does not infer
+cross-table dependencies.
 
 ## What invalidation cannot see
 

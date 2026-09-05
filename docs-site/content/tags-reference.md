@@ -19,16 +19,22 @@ The module has **zero runtime exports**. There is nothing to import at runtime, 
 
 Applied with `extends`, not intersected.
 
-| Tag                 | Payload               | Means                                                     |
-| ------------------- | --------------------- | --------------------------------------------------------- |
-| `Table<Name>`       | `string`              | This interface is a table, and `Name` is its name.        |
-| `Fts<Name>`         | `string \| true`      | Backing [full-text-search](./full-text-search.html) table |
-| `ShardKey<Columns>` | tuple of column names | SingleStore distribution key                              |
-| `SortKey<Columns>`  | tuple of column names | SingleStore columnstore sort key                          |
-| `Rowstore`          | —                     | SingleStore row-oriented storage                          |
+| Tag                  | Payload               | Means                                                                         |
+| -------------------- | --------------------- | ----------------------------------------------------------------------------- |
+| `Table<Name>`        | `string`              | This interface is a table, and `Name` is its name.                            |
+| `Fts<Name>`          | `string \| true`      | Backing [full-text-search](./full-text-search.html) table                     |
+| `ShardKey<Columns>`  | tuple of column names | SingleStore distribution key                                                  |
+| `SortKey<Columns>`   | tuple of column names | SingleStore columnstore sort key                                              |
+| `Rowstore`           | —                     | SingleStore row-oriented storage                                              |
+| `SoftDelete<Column>` | `string`              | Nullable timestamp managed by repository soft delete, hard delete and restore |
 
 ```ts
 interface Article extends Table<'articles'>, Fts<'articles_fts'> {}
+
+interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  deletedAt: (Date & Sql<'timestamp'>) | null;
+}
 ```
 
 ```ts
@@ -37,6 +43,12 @@ interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['cre
 
 Shard and sort tuples must be non-empty, name each column once, and refer to
 columns declared by the interface.
+
+`SoftDelete<Column>` must name an existing nullable `Sql<'timestamp'>` column.
+Reflection rejects any other declaration. The column is returned on entities but
+is absent from create and update DTOs because repository methods own it. `delete`
+writes the current `Date`, `restore` writes `NULL`, and `hardDelete` deliberately
+uses physical `DELETE`. See [Entity Filters](./entity-filters.html).
 
 ## Structural
 

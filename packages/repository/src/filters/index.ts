@@ -250,7 +250,7 @@ export function applyResolvedFilters<B extends FilterTarget>(builder: B, resolve
   for (const group of resolved.groups) {
     if (needsGrouping(group.predicates)) {
       if (filtered.whereGroup === undefined) {
-        throw new ValidationError('this read builder cannot represent a grouped filter predicate');
+        throw new ValidationError('this statement builder cannot represent a grouped filter predicate');
       }
       filtered = filtered.whereGroup(group.predicates);
       continue;

@@ -11,6 +11,7 @@ import {
   DIALECT_PARAM_LIMITS,
   EXPR,
   inc,
+  proposed,
   sanitizeKeys,
   TRAITS,
 } from '@zmdb/query-compiler';
@@ -117,6 +118,12 @@ export interface ReadOptions<Defs extends readonly FilterDef<unknown>[] = readon
   readonly filters?: FilterOverrides<Defs>;
 }
 
+export interface WriteOptions<
+  Defs extends readonly FilterDef<unknown>[] = readonly FilterDef<unknown>[],
+> extends CacheInvalidationOptions {
+  readonly filters?: FilterOverrides<Defs>;
+}
+
 type PopulateReadOptions<K extends string> = ReadOptions & {
   readonly populate: readonly K[];
 };
@@ -138,6 +145,14 @@ interface ReadCompileSettings {
   readonly additionalFilterNames?: readonly string[];
   readonly additionalKnownNames?: readonly string[];
   readonly resolvedFilters?: ResolvedFilters;
+}
+
+interface WriteBuilder extends FilterTarget {
+  compile(): CompiledQuery;
+}
+
+interface WriteCompileSettings {
+  readonly excludedFilterNames?: readonly string[];
 }
 
 function parseTableSpec(spec: string): { readonly table: string; readonly reference: string } {
@@ -185,12 +200,14 @@ export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateS
 
 export { ValidationError, type ValidationIssue };
 
+type KeyedMethod = 'findById' | 'update' | 'delete' | 'hardDelete' | 'restore';
+
 /** A composite key omitted one or more required own properties. */
 export class IncompleteKeyError extends ValidationError {
   readonly table: string;
   readonly missing: readonly string[];
 
-  constructor(table: string, method: 'findById' | 'update' | 'delete', missing: readonly string[]) {
+  constructor(table: string, method: KeyedMethod, missing: readonly string[]) {
     const orderedMissing = Object.freeze([...missing]);
     super(`${table}.${method} requires every key column; missing: ${orderedMissing.join(', ')}`);
     this.name = 'IncompleteKeyError';
@@ -231,6 +248,10 @@ type UpsertUpdateFields<T extends DeclaredTable> = [T] extends [never]
 export interface UpsertOptions<T extends DeclaredTable = never> extends CacheInvalidationOptions {
   readonly target?: string | readonly string[] | undefined;
   readonly updateFields?: UpsertUpdateFields<T> | undefined;
+}
+
+function isUpdateFieldList(value: readonly string[] | Record<string, unknown> | undefined): value is readonly string[] {
+  return Array.isArray(value);
 }
 
 type RoutineType = RoutineDef['params'][number]['type'];
@@ -764,6 +785,41 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return query;
   }
 
+  private resolveWriteFilters(
+    method: string,
+    options: WriteOptions | undefined,
+    excludedFilterNames: readonly string[] = [],
+  ): ResolvedFilters {
+    const allDefinitions = this.filterDefinitionsFor(this.tableName, this.schema);
+    const excluded = new Set(excludedFilterNames);
+    const definitions = allDefinitions.filter(filter => filter.appliesToWrites !== false && !excluded.has(filter.name));
+    return resolveFilters(definitions, options?.filters, {
+      method,
+      table: this.tableName,
+      schema: this.schema,
+      knownNames: this.knownFilterNames(allDefinitions),
+    });
+  }
+
+  /**
+   * The only place a repository UPDATE or DELETE becomes a CompiledQuery.
+   *
+   * Write filters default on, are resolved before compilation, and are reported
+   * through the same query-observation hook as reads.
+   */
+  private compileWrite<B extends WriteBuilder>(
+    method: string,
+    options: WriteOptions | undefined,
+    build: (filters: ResolvedFilters) => B,
+    settings: WriteCompileSettings = {},
+  ): CompiledQuery {
+    const resolved = this.resolveWriteFilters(method, options, settings.excludedFilterNames);
+    const query = applyResolvedFilters(build(resolved), resolved).compile();
+    this.#queryFilters.set(query, resolved.names);
+    this.#onQuery?.(query, { filters: resolved.names });
+    return query;
+  }
+
   private resolvePopulateFilters(
     names: readonly string[] | undefined,
     options: ReadOptions | undefined,
@@ -888,7 +944,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.#decoded;
   }
 
-  private keyValues(id: PrimaryKeyOf<T>, method: 'findById' | 'update' | 'delete'): readonly unknown[] {
+  private keyValues(id: PrimaryKeyOf<T>, method: KeyedMethod): readonly unknown[] {
     const keyColumns = this.requiredKeyColumns();
 
     if (keyColumns.length === 1) {
@@ -918,11 +974,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return keyColumns.map(column => id[column]);
   }
 
-  private keyWhere<B extends WhereTarget>(
-    builder: B,
-    id: PrimaryKeyOf<T>,
-    method: 'findById' | 'update' | 'delete',
-  ): B {
+  private keyWhere<B extends WhereTarget>(builder: B, id: PrimaryKeyOf<T>, method: KeyedMethod): B {
     const values = this.keyValues(id, method);
     let keyed = builder;
     for (let index = 0; index < this.keyColumns.length; index++) {
@@ -1748,15 +1800,16 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const target = opts?.target ?? this.requiredKeyColumns();
     const requestedUpdateFields = opts?.updateFields;
     const updateFields =
-      requestedUpdateFields !== undefined && !Array.isArray(requestedUpdateFields)
+      requestedUpdateFields !== undefined && !isUpdateFieldList(requestedUpdateFields)
         ? this.validateUpdatePatch(requestedUpdateFields)
         : requestedUpdateFields;
-    const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(updateFields);
+    const resolvedUpdateFields = this.softDeleteUpsertFields(clean, target, updateFields);
+    const ib = this.qb.insertInto(this.tableName).values(clean).onConflict(target).doUpdate(resolvedUpdateFields);
     if (
       TRAITS[this.dialect].family === 'mysql' &&
-      updateFields !== undefined &&
-      !Array.isArray(updateFields) &&
-      this.hasColumnExpression(updateFields)
+      resolvedUpdateFields !== undefined &&
+      !isUpdateFieldList(resolvedUpdateFields) &&
+      this.hasColumnExpression(resolvedUpdateFields)
     ) {
       await this.driver.execute(ib.compile());
       await this.invalidateCache(opts);
@@ -1772,30 +1825,27 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return row;
   }
 
-  async update(
-    id: PrimaryKeyOf<T>,
-    patch: UpdatePatch<T>,
-    options?: CacheInvalidationOptions,
-  ): Promise<Entity<T> | undefined> {
+  async update(id: PrimaryKeyOf<T>, patch: UpdatePatch<T>, options?: WriteOptions): Promise<Entity<T> | undefined> {
     return this.updateOne(id, patch, options);
   }
 
-  async updateMany(
-    where: WhereDTO<T>,
-    patch: UpdatePatch<T>,
-    options?: CacheInvalidationOptions,
-  ): Promise<number | undefined> {
+  async updateMany(where: WhereDTO<T>, patch: UpdatePatch<T>, options?: WriteOptions): Promise<number | undefined> {
     const clean = this.validateUpdatePatch(patch);
     this.preUpdate(clean);
-    if (Object.keys(clean).length === 0) return 0;
-    const builder = compileWhere(this.qb.updateTable(this.tableName).set(clean), where);
+    if (Object.keys(clean).length === 0) {
+      this.resolveWriteFilters('updateMany', options);
+      return 0;
+    }
+    const build = () => compileWhere(this.qb.updateTable(this.tableName).set(clean), where);
     if (TRAITS[this.dialect].family === 'mysql') {
-      await this.driver.execute(builder.compile());
+      await this.driver.execute(this.compileWrite('updateMany', options, build));
       await this.invalidateCache(options);
       return undefined;
     }
     const returning = this.schema.primaryKey.length > 0 ? this.schema.primaryKey : ['*'];
-    const updated = (await this.driver.execute(builder.returning(returning).compile())).length;
+    const updated = (
+      await this.driver.execute(this.compileWrite('updateMany', options, () => build().returning(returning)))
+    ).length;
     await this.invalidateCache(options);
     return updated;
   }
@@ -1804,13 +1854,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     id: PrimaryKeyOf<T>,
     column: K,
     by?: NumericOperandOf<T, K>,
-    options?: CacheInvalidationOptions,
+    options?: WriteOptions,
   ): Promise<Entity<T> | undefined>;
   async increment(
     id: PrimaryKeyOf<T>,
     column: string,
     by?: number | bigint,
-    options?: CacheInvalidationOptions,
+    options?: WriteOptions,
   ): Promise<Entity<T> | undefined> {
     const irColumn = this.payloadShape('update').columns.get(column);
     if (
@@ -1831,27 +1881,30 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.updateOne(id, { [column]: inc(operand) }, options);
   }
 
-  private async updateOne(
-    id: PrimaryKeyOf<T>,
-    patch: unknown,
-    options?: CacheInvalidationOptions,
-  ): Promise<Entity<T> | undefined> {
+  private async updateOne(id: PrimaryKeyOf<T>, patch: unknown, options?: WriteOptions): Promise<Entity<T> | undefined> {
     const clean = this.validateUpdatePatch(patch);
     this.preUpdate(clean);
     // Built before the empty-patch shortcut so that a bad key is reported as `update` rather
     // than as the `findById` it would otherwise delegate to (§2.1: "the method in the message
     // is the method the caller actually called").
     if (Object.keys(clean).length === 0) {
-      const query = this.limitOne(this.keyWhere(this.qb.selectFrom(this.tableName), id, 'update')).compile();
+      const query = this.compileWrite('update', options, () =>
+        this.limitOne(this.keyWhere(this.qb.selectFrom(this.tableName), id, 'update')),
+      );
       return this.firstResult(query);
     }
-    const builder = this.keyWhere(this.qb.updateTable(this.tableName).set(clean), id, 'update');
+    const build = () => this.keyWhere(this.qb.updateTable(this.tableName).set(clean), id, 'update');
     if (TRAITS[this.dialect].family === 'mysql' && this.hasColumnExpression(clean)) {
-      await this.driver.execute(this.assertKeyed(builder.compile(), 'update'));
+      await this.driver.execute(this.assertKeyed(this.compileWrite('update', options, build), 'update'));
       await this.invalidateCache(options);
       return undefined;
     }
-    const rows = await this.rows<EntityRow<T>>(this.assertKeyed(builder.returning(['*']).compile(), 'update'));
+    const rows = await this.rows<EntityRow<T>>(
+      this.assertKeyed(
+        this.compileWrite('update', options, () => build().returning(['*'])),
+        'update',
+      ),
+    );
     await this.invalidateCache(options);
     return rows[0];
   }
@@ -1865,7 +1918,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    * of being wrong is the whole table, and it survives a new operator, a new caller, or
    * a fourth way of folding a spec down to nothing (#608).
    */
-  private assertKeyed(query: CompiledQuery, operation: 'update' | 'delete'): CompiledQuery {
+  private assertKeyed(query: CompiledQuery, operation: Exclude<KeyedMethod, 'findById'>): CompiledQuery {
     if (!/\sWHERE\s/i.test(query.text)) {
       throw new ValidationError(
         `refusing to ${operation} every row of ${this.tableName}: the compiled statement has no WHERE clause`,
@@ -1875,18 +1928,103 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   // #28 — delete + lifecycle hooks.
-  async delete(id: PrimaryKeyOf<T>, options?: CacheInvalidationOptions): Promise<boolean> {
+  async delete(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean> {
     this.preDelete(id);
-    const builder = this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete');
     const mysqlFamily = TRAITS[this.dialect].family === 'mysql';
-    const query = mysqlFamily ? builder.compile() : builder.returning(this.keyColumns).compile();
+    const softDelete = this.schema.ir.softDelete;
+    const build =
+      softDelete === undefined
+        ? () => this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete')
+        : () =>
+            this.keyWhere(this.qb.updateTable(this.tableName).set({ [softDelete.column]: new Date() }), id, 'delete');
+    const query = mysqlFamily
+      ? this.compileWrite('delete', options, build)
+      : this.compileWrite('delete', options, () => build().returning(this.keyColumns));
     const rows = await this.driver.execute(this.assertKeyed(query, 'delete'));
     await this.invalidateCache(options);
-    if (mysqlFamily) {
+    return this.writeMatched(rows);
+  }
+
+  async deleteMany(where: WhereDTO<T>, options?: WriteOptions): Promise<number | undefined> {
+    const softDelete = this.schema.ir.softDelete;
+    const build =
+      softDelete === undefined
+        ? () => compileWhere(this.qb.deleteFrom(this.tableName), where)
+        : () => compileWhere(this.qb.updateTable(this.tableName).set({ [softDelete.column]: new Date() }), where);
+    if (TRAITS[this.dialect].family === 'mysql') {
+      await this.driver.execute(this.compileWrite('deleteMany', options, build));
+      await this.invalidateCache(options);
+      return undefined;
+    }
+    const returning = this.schema.primaryKey.length > 0 ? this.schema.primaryKey : ['*'];
+    const affected = (
+      await this.driver.execute(this.compileWrite('deleteMany', options, () => build().returning(returning)))
+    ).length;
+    await this.invalidateCache(options);
+    return affected;
+  }
+
+  async hardDelete(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean> {
+    this.preDelete(id);
+    const build = () => this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'hardDelete');
+    const query =
+      TRAITS[this.dialect].family === 'mysql'
+        ? this.compileWrite('hardDelete', options, build)
+        : this.compileWrite('hardDelete', options, () => build().returning(this.keyColumns));
+    const rows = await this.driver.execute(this.assertKeyed(query, 'hardDelete'));
+    await this.invalidateCache(options);
+    return this.writeMatched(rows);
+  }
+
+  async restore(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean> {
+    const softDelete = this.schema.ir.softDelete;
+    if (softDelete === undefined) {
+      throw new ValidationError(`${this.tableName}.restore requires a SoftDelete<'column'> declaration`);
+    }
+    const build = () =>
+      this.keyWhere(this.qb.updateTable(this.tableName).set({ [softDelete.column]: null }), id, 'restore');
+    const query =
+      TRAITS[this.dialect].family === 'mysql'
+        ? this.compileWrite('restore', options, build, { excludedFilterNames: ['softDelete'] })
+        : this.compileWrite('restore', options, () => build().returning(this.keyColumns), {
+            excludedFilterNames: ['softDelete'],
+          });
+    const rows = await this.driver.execute(this.assertKeyed(query, 'restore'));
+    await this.invalidateCache(options);
+    return this.writeMatched(rows);
+  }
+
+  private writeMatched(rows: readonly Record<string, unknown>[]): boolean {
+    if (TRAITS[this.dialect].family === 'mysql') {
       const affectedRows = rows[0]?.['affectedRows'];
       if (typeof affectedRows === 'number') return affectedRows > 0;
     }
     return rows.length > 0;
+  }
+
+  private softDeleteUpsertFields(
+    clean: Record<string, unknown>,
+    target: string | readonly string[],
+    updateFields: readonly string[] | Record<string, unknown> | undefined,
+  ): readonly string[] | Record<string, unknown> | undefined {
+    const softDelete = this.schema.ir.softDelete;
+    if (softDelete === undefined) return updateFields;
+
+    const restored: Record<string, unknown> = {};
+    if (isUpdateFieldList(updateFields)) {
+      for (const column of updateFields) {
+        if (column !== softDelete.column) restored[column] = proposed();
+      }
+    } else if (updateFields !== undefined) {
+      Object.assign(restored, updateFields);
+    } else {
+      const targetColumns = new Set(typeof target === 'string' ? [target] : target);
+      const nonTarget = Object.keys(clean).filter(column => !targetColumns.has(column));
+      const columns = nonTarget.length > 0 ? nonTarget : Object.keys(clean);
+      for (const column of columns) restored[column] = proposed();
+    }
+    restored[softDelete.column] = null;
+    return restored;
   }
 
   // Explicit, synchronous lifecycle hooks. No hidden change tracking — these

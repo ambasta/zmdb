@@ -16,6 +16,7 @@ import type {
   PrimaryKey,
   Sensitive,
   Serial,
+  SoftDelete,
   Sql,
   Table,
   Unique,
@@ -54,7 +55,8 @@ export type DeclaredTable = Table<string>;
 // examined under `exactOptionalPropertyTypes`.
 //
 // Symbol keys are filtered out everywhere below: entity-level tags (`Table`,
-// `Fts`) arrive through `extends` and would otherwise show up in `keyof`.
+// `Fts`, `SoftDelete`, `ForeignKey`) arrive through `extends` and would
+// otherwise show up in `keyof`.
 
 export type KeysCarrying<T, Tag> = {
   [K in keyof T]-?: NonNullable<T[K]> extends Tag ? (K extends string ? K : never) : never;
@@ -67,6 +69,8 @@ export type DefaultKeys<T> = KeysCarrying<T, HasDefault>;
 export type PrimaryKeyKeys<T> = KeysCarrying<T, PrimaryKey>;
 export type SensitiveKeys<T> = KeysCarrying<T, Sensitive>;
 export type UniqueKeys<T> = KeysCarrying<T, Unique>;
+/** The entity-level soft-delete tag names one managed column. */
+export type SoftDeleteKeys<T> = T extends SoftDelete<infer Column> ? Extract<Column, ColumnKeys<T>> : never;
 /** Columns whose declared type admits `null`. Native, not a tag. */
 export type NullableKeys<T> = { [K in keyof T]-?: null extends T[K] ? (K extends string ? K : never) : never }[keyof T];
 
@@ -133,11 +137,18 @@ type AsColumns<T extends DeclaredTable, K> = K & keyof Entity<T>;
  * rejected, which is the disagreement this phase exists to remove. It stays *present* and
  * optional rather than absent, because passing `null` explicitly is legitimate.
  */
-export type CreateDTO<T extends DeclaredTable> = Omit<Entity<T>, SerialKeys<T> | DefaultKeys<T> | NullableKeys<T>> &
-  Partial<Pick<Entity<T>, AsColumns<T, DefaultKeys<T> | NullableKeys<T>>>>;
+type OptionalCreateKeys<T extends DeclaredTable> = Exclude<DefaultKeys<T> | NullableKeys<T>, SoftDeleteKeys<T>>;
 
-/** Patch shape: identity columns dropped, everything else optional. */
-export type UpdateDTO<T extends DeclaredTable> = Partial<Omit<Entity<T>, SerialKeys<T> | PrimaryKeyKeys<T>>>;
+export type CreateDTO<T extends DeclaredTable> = Omit<
+  Entity<T>,
+  SerialKeys<T> | DefaultKeys<T> | NullableKeys<T> | SoftDeleteKeys<T>
+> &
+  Partial<Pick<Entity<T>, AsColumns<T, OptionalCreateKeys<T>>>>;
+
+/** Patch shape: identity and framework-managed columns dropped, everything else optional. */
+export type UpdateDTO<T extends DeclaredTable> = Partial<
+  Omit<Entity<T>, SerialKeys<T> | PrimaryKeyKeys<T> | SoftDeleteKeys<T>>
+>;
 
 /**
  * What a read endpoint may return. `Sensitive` columns are removed from the

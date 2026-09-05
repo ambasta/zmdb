@@ -394,6 +394,8 @@ export class Reflector {
     const shardKey = this.#tableColumnList('ShardKey', tags.get('shardKey'));
     const sortKey = this.#tableColumnList('SortKey', tags.get('sortKey'));
     const rowstore = tags.has('rowstore');
+    const softDeleteTag = this.#nonNullable(tags.get('softDelete'));
+    const softDeleteName = literalOf(softDeleteTag);
     const primaryKey = columns.filter(c => c.primaryKey).map(c => c.name);
     if (primaryKey.length > 1) {
       const serialKey = columns.find(column => column.primaryKey && column.serial);
@@ -453,6 +455,33 @@ export class Reflector {
             ...(sortKey === undefined ? {} : { sortKey }),
             ...(rowstore ? { rowstore: true } : {}),
           };
+    let softDelete: SchemaIR['softDelete'];
+    if (softDeleteTag !== undefined) {
+      if (typeof softDeleteName !== 'string') {
+        this.#refuse(tableName, "SoftDelete<'column'> needs a string literal column name");
+      } else {
+        const column = columns.find(candidate => candidate.name === softDeleteName);
+        if (column === undefined) {
+          this.#refuse(tableName, `SoftDelete<'${softDeleteName}'> names a column that does not exist on ${tableName}`);
+        } else {
+          if (!column.nullable) {
+            this.#refuse(
+              tableName,
+              `${tableName}: SoftDelete<'${softDeleteName}'> names a non-nullable column; ` +
+                'a soft-delete column must be nullable because IS NULL is what "live" means',
+            );
+          }
+          if (column.sql !== 'timestamp') {
+            this.#refuse(
+              tableName,
+              `${tableName}: SoftDelete<'${softDeleteName}'> names a ${String(column.sql)} column; ` +
+                "a soft-delete column must use Sql<'timestamp'>",
+            );
+          }
+          if (column.nullable && column.sql === 'timestamp') softDelete = { column: softDeleteName };
+        }
+      }
+    }
 
     return {
       table: tableName,
@@ -463,6 +492,7 @@ export class Reflector {
       foreignKeys,
       ...(typeof fts === 'string' || fts === true ? { ftsTable: fts } : {}),
       ...(tableOptions === undefined ? {} : { tableOptions }),
+      ...(softDelete === undefined ? {} : { softDelete }),
     };
   }
 

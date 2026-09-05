@@ -1,6 +1,6 @@
 import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
 
-import type { FilterDef, FilterOverrides, FilterParams, ReadOptions } from '../index.js';
+import type { FilterDef, FilterOverrides, FilterParams, ReadOptions, WriteOptions } from '../index.js';
 
 const tenantFilter = {
   name: 'tenant',
@@ -21,10 +21,13 @@ type _ActiveParamsStayVoid = Expect<Equal<FilterParams<typeof activeFilter>, voi
 type _OverridesHaveOnlyDeclaredNames = Expect<Mutual<keyof FilterOverrides<typeof filters>, 'tenant' | 'active'>>;
 
 function acceptsReadOptions(_options: ReadOptions<typeof filters>): void {}
+function acceptsWriteOptions(_options: WriteOptions<typeof filters>): void {}
 
 acceptsReadOptions({ filters: { tenant: { tenantId: 7 } } });
 acceptsReadOptions({ filters: { tenant: false, active: false } });
 acceptsReadOptions({});
+acceptsWriteOptions({ filters: { tenant: { tenantId: 7 }, active: false } });
+acceptsWriteOptions({ invalidateTags: ['users'], filters: { tenant: false } });
 
 // @ts-expect-error - a filter name is closed over the repository's declared tuple.
 acceptsReadOptions({ filters: { tenent: { tenantId: 7 } } });

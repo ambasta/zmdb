@@ -55,14 +55,20 @@ tags: `Nullable<string>` is exactly `string | null`.
 
 ### Entity-level (applied via `extends`)
 
-| Tag                                | Meaning                                                                                        |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `Table<Name>`                      | The table the entity maps to.                                                                  |
-| `Fts<Name>`                        | Backing full-text-search table. `Fts<'users_fts'>` names it; `Fts<true>` asks the back-end to. |
-| `ShardKey<Columns>`                | SingleStore shard-key columns, as a non-empty tuple in declaration order.                      |
-| `SortKey<Columns>`                 | SingleStore columnstore sort-key columns, as a non-empty tuple in declaration order.           |
-| `Rowstore`                         | Select SingleStore's row-oriented storage instead of its default columnstore.                  |
-| `ForeignKey<Local, Table, Target>` | Composite foreign key; comma-separated local and target columns are paired positionally.       |
+| Tag                                | Meaning                                                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `Table<Name>`                      | The table the entity maps to.                                                                   |
+| `Fts<Name>`                        | Backing full-text-search table. `Fts<'users_fts'>` names it; `Fts<true>` asks the back-end to.  |
+| `ShardKey<Columns>`                | SingleStore shard-key columns, as a non-empty tuple in declaration order.                       |
+| `SortKey<Columns>`                 | SingleStore columnstore sort-key columns, as a non-empty tuple in declaration order.            |
+| `Rowstore`                         | Select SingleStore's row-oriented storage instead of its default columnstore.                   |
+| `SoftDelete<Column>`               | Nullable timestamp managed by repository `delete`, `hardDelete`, `restore`, and read filtering. |
+| `ForeignKey<Local, Table, Target>` | Composite foreign key; comma-separated local and target columns are paired positionally.        |
+
+`SoftDelete<Column>` names an existing nullable `Sql<'timestamp'>` column. The
+reflector refuses a missing, non-nullable, or non-timestamp column. The managed
+column remains on `Entity<T>` and read documents, but is absent from `CreateDTO<T>`
+and `UpdateDTO<T>`; repository methods write it.
 
 ### Column-level, structural
 
@@ -166,6 +172,7 @@ exact identity for that reason.
 - [x] The duplicate-install failure mode is asserted exactly, with `Equal` rather than assignability.
 
 - [x] Two copies reaching one file are refused by the reflection, with both escaped names in the message.
+- [x] `SoftDelete<Column>` is reflected only for an existing nullable timestamp and its managed column is absent from write DTOs.
 
 ## 8. Non-goals (rejected)
 

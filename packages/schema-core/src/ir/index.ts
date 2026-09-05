@@ -255,7 +255,7 @@ export interface SchemaIR {
   readonly relations: readonly RelationIR[];
   readonly foreignKeys: readonly ForeignKeyIR[];
   readonly ftsTable?: string | boolean;
-  /** Read-side soft-delete predicate; the public declaration tag lands in #451. */
+  /** The nullable timestamp column managed by soft delete. */
   readonly softDelete?: { readonly column: string };
   readonly tableOptions?: TableOptions;
 }
@@ -305,6 +305,7 @@ export const TAG_NAMES = {
   shardKey: 'zmdbShardKey',
   sortKey: 'zmdbSortKey',
   rowstore: 'zmdbRowstore',
+  softDelete: 'zmdbSoftDelete',
   sql: 'zmdbSqlType',
   extension: 'zmdbExt',
   primaryKey: 'zmdbPrimaryKey',
@@ -829,7 +830,7 @@ export type ShapeIR = readonly ShapeColumnIR[];
 export function shapeOfVariant(ir: SchemaIR, variant: Variant): ShapeIR {
   const isResponse = variant === 'entity' || variant === 'get' || variant === 'list' || variant === 'search';
   return ir.columns
-    .filter(col => isResponse || !col.serial)
+    .filter(col => isResponse || (!col.serial && col.name !== ir.softDelete?.column))
     .filter(col => variant !== 'update' || !col.primaryKey)
     .map(col => ({
       column: col,

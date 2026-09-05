@@ -644,7 +644,7 @@ export const PAGE_META = {
     title: 'Entity Filters (soft delete)',
     group: 'Data Access',
     status: 'todo',
-    note: 'read filters ship; write filtering, the SoftDelete tag, and delete/restore behavior remain',
+    note: 'runtime support ships; the final documentation pass remains',
   },
   pagination: {
     title: 'Ordering & Pagination',

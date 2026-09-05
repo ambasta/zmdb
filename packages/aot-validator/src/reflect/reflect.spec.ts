@@ -875,6 +875,10 @@ describe('what only a tagged declaration can say', () => {
     ]);
   });
 
+  it('carries the managed soft-delete timestamp into the schema IR', () => {
+    expect(taggedOnly('soft-delete').softDelete).toEqual({ column: 'deletedAt' });
+  });
+
   it('carries numeric precision, which ColumnFlags has no field for', () => {
     expect(invoice().columns.find(c => c.name === 'amount')?.precision).toEqual([12, 2]);
   });

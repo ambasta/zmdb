@@ -356,7 +356,7 @@ there is no equivalent, and storing it as TEXT would produce an embedding no que
 Mapping to `TEXT` is the tempting fallback and it is a data-loss bug wearing a green test suite: the
 inserts succeed, the reads round-trip, and every similarity query silently returns nothing useful.
 
-### 4.4 Soft delete in the IR — and why general filters are not (frozen — epic "Entity filters")
+### 4.4 Soft delete in the IR — and why general filters are not (implemented)
 
 ```ts
 interface SchemaIR {
@@ -380,8 +380,8 @@ The tag is validated at reflection, not at query time, and refuses rather than w
   that a row was deleted and not when, and the answer to "when" is the reason anybody keeps the row.
 
 ```
-users: SoftDelete<'deletedAt'> names a column that is not NOT NULL-able; a soft-delete column must be
-nullable, because IS NULL is what "live" means
+users: SoftDelete<'deletedAt'> names a non-nullable column; a soft-delete column must be nullable because
+IS NULL is what "live" means
 ```
 
 The column is dropped from `CreateDTO` and `UpdateDTO` — it is managed, like a serial key — and kept in

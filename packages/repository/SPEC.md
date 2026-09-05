@@ -197,7 +197,11 @@ abstract class BaseRepository<T extends DeclaredTable> {
   findAll(): Promise<readonly Entity<T>[]>;
   create(payload: unknown): Promise<Entity<T>>; // validates CreateDTO<T>
   update(id: PrimaryKeyOf<T>, payload: unknown): Promise<Entity<T> | undefined>; // UpdatePatch<T>
+  updateMany(where: WhereDTO<T>, payload: unknown): Promise<number | undefined>;
   delete(id: unknown): Promise<boolean>;
+  deleteMany(where: WhereDTO<T>): Promise<number | undefined>;
+  hardDelete(id: unknown): Promise<boolean>;
+  restore(id: unknown): Promise<boolean>;
 }
 ```
 
@@ -223,9 +227,11 @@ it looks like a hit.
 findById(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
 update(id: PrimaryKeyOf<T>, payload: unknown): Promise<Entity<T> | undefined>;
 delete(id: PrimaryKeyOf<T>): Promise<boolean>;
+hardDelete(id: PrimaryKeyOf<T>): Promise<boolean>;
+restore(id: PrimaryKeyOf<T>): Promise<boolean>;
 ```
 
-All three build their `WHERE` from `schema.primaryKey` — the ordered list, never
+All five build their `WHERE` from `schema.primaryKey` — the ordered list, never
 `primaryKey[0]`. `pkColumn` (the private getter that returns `primaryKey[0]`) is the shape
 this replaces: it is correct for a one-column key and quietly wrong for every other, and it
 must not survive as a fallback.
@@ -233,7 +239,7 @@ must not survive as a fallback.
 The rules, in the order they are checked:
 
 - **No key at all** (`primaryKey` is `[]`) — throws, naming the table. A keyless table is a
-  legal schema (see `schema-core/src/ir/SPEC.md` §4.1) and these three methods simply do not
+  legal schema (see `schema-core/src/ir/SPEC.md` §4.1) and these five methods simply do not
   apply to it.
 - **One column** — the argument is the value, and it is used as-is. `{ id: 1 }` is _not_
   accepted as a courtesy: a one-column key that takes both forms is how code that will break
@@ -397,12 +403,11 @@ resolve to `undefined`. There is no hidden follow-up `SELECT`. This is
 deliberately narrow: ordinary keyed updates and other pre-existing
 MySQL-family write-returning paths are outside this expression-write contract.
 
-## 3c. Entity filters and soft delete (frozen — epic "Entity filters and soft delete")
+## 3c. Entity filters and soft delete (implemented)
 
 A filter is a predicate the repository conjoins into **every read** it compiles. That makes it the
-highest-leverage piece of SQL in the system, so the shape is constrained before the behaviour. The
-read rule and join placement below are implemented; the write rule and public soft-delete tag remain
-frozen requirements for the next sub-issue.
+highest-leverage piece of SQL in the system, so the shape is constrained before the behaviour. Reads and
+writes each pass through one compiler boundary, and both apply the same validated predicate definitions.
 
 ```ts
 export interface FilterDef<P = void> {
@@ -523,6 +528,25 @@ Two more methods, and their existence is the point:
 
 An `update` against a soft-deleted row matches nothing and returns `undefined`, by the read rule.
 
+`delete` and `hardDelete` each run `preDelete(id)` exactly once. A soft delete does **not** run
+`preUpdate`, even though its SQL statement is an `UPDATE`: the caller invoked delete semantics, and hook
+selection follows the repository operation rather than the SQL verb.
+
+### Unique constraints and upsert
+
+A full unique index still contains a soft-deleted row. `create({ email })` therefore receives the
+database's ordinary unique-constraint error when a deleted row already owns that email. Applications
+that want a new live row instead need a partial unique index such as
+`CREATE UNIQUE INDEX users_email_live ON users(email) WHERE deleted_at IS NULL`; `IndexDef.where`
+represents that schema.
+
+Repository `upsert` makes the other policy explicit: when its conflict target finds a soft-deleted row,
+the conflict update sets the managed column back to `NULL`, restoring that row while applying the
+requested update fields. It does not return a still-hidden row. A partial-index conflict target has a
+different result—the deleted row is outside the index, so the statement inserts—but the portable builder
+cannot spell a target predicate. PostgreSQL callers that need `ON CONFLICT (email) WHERE deleted_at IS
+NULL` use raw SQL until that target shape has a typed API.
+
 ### Missing parameters
 
 A filter declared with parameters and invoked without them **throws**, before any SQL is compiled:
@@ -615,10 +639,15 @@ export interface CacheOptions {
 
 export interface ReadOptions {
   readonly cache?: CacheOptions | false;
+  readonly filters?: FilterOverrides;
 }
 
 export interface CacheInvalidationOptions {
   readonly invalidateTags?: readonly string[];
+}
+
+export interface WriteOptions extends CacheInvalidationOptions {
+  readonly filters?: FilterOverrides;
 }
 
 export interface RepositoryOptions {

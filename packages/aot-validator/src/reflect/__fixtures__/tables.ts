@@ -49,6 +49,7 @@ import type {
   Sensitive,
   Serial,
   ShardKey,
+  SoftDelete,
   Sql,
   SortKey,
   Table,
@@ -144,6 +145,12 @@ export interface ReferentialFixture
   userId: (number & Sql<'integer'> & References<'users.id'> & OnDelete<'set null'> & OnUpdate<'cascade'>) | null;
 }
 taggedOnly<ReferentialFixture>('referential-actions');
+
+export interface SoftDeleteFixture extends Table<'soft_delete_fixtures'>, SoftDelete<'deletedAt'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  deletedAt: (Date & Sql<'timestamp'>) | null;
+}
+taggedOnly<SoftDeleteFixture>('soft-delete');
 
 export interface GeoJsonPoint {
   readonly type: 'Point';

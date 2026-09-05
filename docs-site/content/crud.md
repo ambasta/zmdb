@@ -82,6 +82,9 @@ await users.update(1, { role: 'admin' }); // ✅ Explicit update required
 ## Delete
 
 Remove a row by ID. Returns `true` if a row was deleted, `false` if the ID didn't exist.
+On a table declared with `SoftDelete<'deletedAt'>`, this is a guarded `UPDATE`
+that records a Node `Date`; use `hardDelete(id)` for a deliberate physical delete
+and `restore(id)` to clear the managed timestamp.
 
 ```ts
 const deleted = await users.delete(1);
@@ -93,6 +96,14 @@ const deleted = await users.delete(1);
 ```sql
 DELETE FROM "users" WHERE "id" = $1 RETURNING "id"
 -- parameters: [1]
+```
+
+For a soft-deletable table the emitted statement is instead:
+
+```sql
+UPDATE "users" SET "deletedAt" = $1
+WHERE "id" = $2 AND "deletedAt" IS NULL
+RETURNING "id"
 ```
 
 ## Validation Semantics

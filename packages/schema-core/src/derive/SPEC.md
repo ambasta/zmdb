@@ -33,6 +33,7 @@ type KeysCarrying<T, Tag> = {
 | `PrimaryKeyKeys<T>` | `PrimaryKey`                                |
 | `SensitiveKeys<T>`  | `Sensitive`                                 |
 | `UniqueKeys<T>`     | `Unique`                                    |
+| `SoftDeleteKeys<T>` | column named by the entity's `SoftDelete`   |
 | `NullableKeys<T>`   | `null extends T[K]` — native, not a tag     |
 | `RelationKeys<T>`   | `AnyRelation` — a join target, not a column |
 | `ColumnKeys<T>`     | every string key that is **not** a relation |
@@ -45,8 +46,8 @@ Three details are load-bearing:
   what makes such a column optional on insert instead of required.
 - **`-?` on the probe**, so an already-optional property is still examined under
   `exactOptionalPropertyTypes`.
-- **`K extends string`**, so entity-level tags (`Table`, `Fts`) arriving through
-  `extends` never show up in `keyof`.
+- **`K extends string`**, so entity-level tags (`Table`, `Fts`, `SoftDelete`,
+  `ForeignKey`) arriving through `extends` never show up in `keyof`.
 
 `ColumnKeys<T>` is written out as its own projection rather than as
 `Exclude<AllKeys<T>, RelationKeys<T>>`, which does not compile. For an unresolved `T`
@@ -63,13 +64,13 @@ than proved. Nothing changes for a concrete type.
 
 ## 3. The DTO suite
 
-| Type              | Shape                                                                    |
-| ----------------- | ------------------------------------------------------------------------ |
-| `Entity<T>`       | Every column, required, sensitive included, tags preserved.              |
-| `CreateDTO<T>`    | `Serial` columns **absent**; `HasDefault` and nullable columns optional. |
-| `UpdateDTO<T>`    | `Serial` and `PrimaryKey` dropped; everything else optional.             |
-| `ReadDTO<T>`      | `Sensitive` columns removed.                                             |
-| `PrimaryKeyOf<T>` | Scalar for one key, object map for a composite, `unknown` for none.      |
+| Type              | Shape                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `Entity<T>`       | Every column, required, sensitive included, tags preserved.                        |
+| `CreateDTO<T>`    | `Serial` and soft-delete columns absent; defaults and nullable columns optional.   |
+| `UpdateDTO<T>`    | `Serial`, `PrimaryKey`, and soft-delete columns dropped; everything else optional. |
+| `ReadDTO<T>`      | `Sensitive` columns removed.                                                       |
+| `PrimaryKeyOf<T>` | Scalar for one key, object map for a composite, `unknown` for none.                |
 
 `CreateDTO` omits a generated column rather than making it optional. Supplying a
 defaulted column is legitimate; supplying a generated one is a mistake, so the two
@@ -81,6 +82,11 @@ document has never listed a nullable column as required, and the repository has 
 demanded it at runtime, so requiring it in the type meant a client that followed the
 published contract wrote a payload the type rejected. It stays present-and-optional
 rather than absent, because passing `null` explicitly is legitimate.
+
+The nullable timestamp named by `SoftDelete<Column>` is the exception: it is
+absent from both write DTOs because repository `delete` and `restore` own it.
+It remains in `Entity<T>` so a caller who explicitly includes deleted rows can
+observe the deletion time.
 
 Tags survive every derivation. If a derivation dropped one, the AOT would emit a
 weaker check for the update path than for the insert path, silently (REQ-TF-5). The
@@ -154,8 +160,9 @@ trap as `_D6_asserts_nothing` so nobody lays it again.
 
 ## 6. Verified
 
-- [x] All six key filters return the exact expected key union, and `never` where nothing matches.
+- [x] All seven key filters return the exact expected key union, and `never` where nothing matches.
 - [x] Entity-level tags do not leak into `keyof Entity<T>`.
+- [x] The soft-delete column is present in `Entity<T>` and absent from both write DTOs.
 - [x] A nullable defaulted column is optional on insert, not required.
 - [x] A nullable column with **no** default is optional on insert too, and the `create` document agrees (`../ir/ir.spec.ts`).
 - [x] `id` is absent from `CreateDTO`; supplying it is a compile error (`@ts-expect-error`).

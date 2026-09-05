@@ -169,9 +169,9 @@ The tempting shape is a `beforeDelete` subscriber that updates `deletedAt` and t
 A soft delete is a column and a predicate:
 
 ```ts
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from 'zmdb/tags';
 
-export interface User extends Table<'users'> {
+export interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'text'>;
   deletedAt: (Date & Sql<'timestamp'>) | null;
@@ -185,26 +185,29 @@ timestamp column. The other order is the trap: `(Date | null) & Unique` distribu
 `(Date & Unique) | (null & Unique)`, and `null & Unique` is `never`, so the column stops
 being nullable. See [Tag Reference](./tags-reference.html).
 
+The tag makes `deletedAt` framework-managed: it remains visible on returned
+entities but is absent from create and update DTOs. `delete(id)` sets it to a
+Node `Date`; reads add `deletedAt IS NULL`; `restore(id)` clears it; and
+`hardDelete(id)` is the deliberate physical-delete spelling.
+
+The protected hook still follows the caller's operation rather than the emitted SQL:
+
 ```ts
 class UserRepository extends BaseRepository<User> {
   static override readonly schema = userSchema;
 
-  async softDelete(id: number) {
-    return this.update(id, { deletedAt: new Date() });
+  protected override preDelete(id: number): void {
+    audit('delete', id);
   }
 
-  async findLive() {
-    return this.find({ deletedAt: { isNull: true } });
+  protected override preUpdate(): void {
+    // Not called by soft delete.
   }
 }
 ```
 
-Explicit method, explicit predicate, and the type checks — no `as any`, because `deletedAt` is a real nullable column on the declaration.
-
-> **Partial support.** Named [entity filters](./entity-filters.html) now apply the
-> read predicate across every repository read path. The public `SoftDelete` schema
-> tag and delete-as-update mutation are not built, so the explicit `softDelete`
-> method above remains necessary.
+Both `delete` and `hardDelete` invoke `preDelete` once. A soft delete emits an
+`UPDATE`, but does not invoke `preUpdate`.
 
 ## Timestamps: prefer a default
 

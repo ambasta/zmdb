@@ -297,6 +297,7 @@ export interface UpdateBuilder {
   set(row: Record<string, unknown>): UpdateBuilder;
   where(col: string, op: Operator, value: unknown): UpdateBuilder;
   orWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
+  whereGroup(predicates: readonly ComparisonPredicate[]): UpdateBuilder;
   whereIn(col: string, values: readonly unknown[]): UpdateBuilder;
   whereNotIn(col: string, values: readonly unknown[]): UpdateBuilder;
   returning(cols?: readonly string[]): UpdateBuilder;
@@ -305,6 +306,7 @@ export interface UpdateBuilder {
 export interface DeleteBuilder {
   where(col: string, op: Operator, value: unknown): DeleteBuilder;
   orWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
+  whereGroup(predicates: readonly ComparisonPredicate[]): DeleteBuilder;
   whereIn(col: string, values: readonly unknown[]): DeleteBuilder;
   whereNotIn(col: string, values: readonly unknown[]): DeleteBuilder;
   returning(cols?: readonly string[]): DeleteBuilder;
@@ -593,7 +595,7 @@ function makeUpdate(
   d: Dialect,
   table: string,
   row?: Record<string, unknown>,
-  wheres: readonly ComparisonPredicate[] = [],
+  wheres: readonly Predicate[] = [],
   ret?: readonly string[],
   telemetry = false,
 ): UpdateBuilder {
@@ -603,6 +605,8 @@ function makeUpdate(
       makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry),
     orWhere: (col, op, value) =>
       makeUpdate(d, table, row, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry),
+    whereGroup: predicates =>
+      makeUpdate(d, table, row, [...wheres, { kind: 'group', predicates, connector: 'AND' }], ret, telemetry),
     whereIn: (col, values) =>
       makeUpdate(d, table, row, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret, telemetry),
     whereNotIn: (col, values) =>
@@ -627,13 +631,15 @@ function makeUpdate(
 function makeDelete(
   d: Dialect,
   table: string,
-  wheres: readonly ComparisonPredicate[] = [],
+  wheres: readonly Predicate[] = [],
   ret?: readonly string[],
   telemetry = false,
 ): DeleteBuilder {
   return {
     where: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'AND' }], ret, telemetry),
     orWhere: (col, op, value) => makeDelete(d, table, [...wheres, { col, op, value, connector: 'OR' }], ret, telemetry),
+    whereGroup: predicates =>
+      makeDelete(d, table, [...wheres, { kind: 'group', predicates, connector: 'AND' }], ret, telemetry),
     whereIn: (col, values) =>
       makeDelete(d, table, [...wheres, { col, op: 'in', value: values, connector: 'AND' }], ret, telemetry),
     whereNotIn: (col, values) =>

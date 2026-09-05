@@ -58,6 +58,7 @@ declare const zmdbFts: unique symbol;
 declare const zmdbShardKey: unique symbol;
 declare const zmdbSortKey: unique symbol;
 declare const zmdbRowstore: unique symbol;
+declare const zmdbSoftDelete: unique symbol;
 declare const zmdbSqlType: unique symbol;
 declare const zmdbPrimaryKey: unique symbol;
 declare const zmdbSerial: unique symbol;
@@ -100,6 +101,9 @@ export type SortKey<Columns extends readonly string[]> = { readonly [zmdbSortKey
 
 /** Select SingleStore's row-oriented table storage instead of its columnstore default. */
 export type Rowstore = { readonly [zmdbRowstore]?: true };
+
+/** The nullable timestamp column managed by repository soft delete. */
+export type SoftDelete<Column extends string> = { readonly [zmdbSoftDelete]?: Column };
 
 // ---------------------------------------------------------------------------
 // Column-level structural tags — facts the SQL layer needs that TypeScript

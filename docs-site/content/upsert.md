@@ -173,7 +173,25 @@ await driver.execute(q);
 
 Going through the compiler skips the DTO validation `repo.upsert` performs, so validate the payload yourself or route it through `repo` and accept the update.
 
-## Partial-index targets
+## Soft-deleted conflicts and partial-index targets
+
+On a table declared with `SoftDelete<'deletedAt'>`, a full unique index still
+contains deleted rows. `create({ email })` therefore gets the database's normal
+unique-constraint error when a deleted row owns that email.
+
+Repository `upsert` chooses a deliberate result for the same collision: its
+conflict update sets `deletedAt` back to `NULL`, restoring the existing row while
+applying `updateFields`. It never returns a row that remains hidden by the
+soft-delete filter.
+
+If the application should create a replacement row instead, define a partial
+unique index over live rows:
+
+```sql
+CREATE UNIQUE INDEX users_email_live
+ON users (email)
+WHERE deleted_at IS NULL;
+```
 
 Postgres allows a conflict target with a predicate (`ON CONFLICT (email) WHERE deleted_at IS NULL`). The builder takes column names only, so a partial-index target still needs [raw SQL](./raw-sql.html). This is the one upsert shape that has no builder spelling.
 

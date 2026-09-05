@@ -27,6 +27,7 @@ import type {
   References,
   Sensitive,
   Serial,
+  SoftDelete,
   Sql,
   Table,
   Unique,
@@ -52,6 +53,7 @@ import type {
   SensitiveKeys,
   SerialKeys,
   UniqueKeys,
+  SoftDeleteKeys,
   UpdateDTO,
   Wire,
   WireCreateDTO,
@@ -77,6 +79,12 @@ interface Membership extends Table<'memberships'> {
   role: ('admin' | 'viewer') & Sql<'jsonEnum'>;
 }
 
+interface SoftDeleteUser extends Table<'soft_delete_users'>, SoftDelete<'deletedAt'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  deletedAt: (Date & Sql<'timestamp'>) | null;
+}
+
 // --- key filters -----------------------------------------------------------
 export type _K1 = Expect<Equal<SerialKeys<User>, 'id'>>;
 export type _K2 = Expect<Equal<DefaultKeys<User>, 'nickname' | 'createdAt'>>;
@@ -90,6 +98,7 @@ export type _K7 = Expect<Equal<PrimaryKeyKeys<Membership>, 'tenantId' | 'userId'
 // four of them and is none of these.
 export type _K8 = Expect<Equal<SerialKeys<Membership>, never>>;
 export type _K9 = Expect<Equal<SensitiveKeys<Membership>, never>>;
+export type _K9a = Expect<Equal<SoftDeleteKeys<SoftDeleteUser>, 'deletedAt'>>;
 
 // Entity-level tags arrive via `extends` and must not leak into `keyof`.
 export type _K10 = Expect<
@@ -112,6 +121,7 @@ export const _C4: CreateDTO<User> = {
 };
 // @ts-expect-error a database-generated column cannot be supplied on insert
 export const _C5: CreateDTO<User> = { id: 1, email: 'a@b.co', age: 30, passwordHash: 'h', active: true };
+export type _C6 = Expect<Equal<keyof CreateDTO<SoftDeleteUser>, 'email'>>;
 
 // --- constraints survive Omit / Pick / Partial (REQ-TF-5) ------------------
 //
@@ -134,6 +144,7 @@ export const _S4: WhereDTO<User> = { age: { gte: 18, lt: 65 }, or: [{ active: tr
 export type _U1 = Expect<Equal<'id' extends keyof UpdateDTO<User> ? true : false, false>>;
 export const _U2: UpdateDTO<User> = {};
 export const _U3: UpdateDTO<User> = { nickname: null };
+export type _U4 = Expect<Equal<keyof UpdateDTO<SoftDeleteUser>, 'email'>>;
 
 // --- ReadDTO: sensitive columns are not nameable (REQ-TF-6) ----------------
 export type _R1 = Expect<Equal<'passwordHash' extends keyof ReadDTO<User> ? true : false, false>>;

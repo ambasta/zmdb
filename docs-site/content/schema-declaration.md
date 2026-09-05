@@ -77,6 +77,27 @@ await users.create({ email: 'a@b.com' }); // validated before any SQL is sent
 
 See [Type Derivation](./type-derivation.html) for the full family, including the read and query DTOs.
 
+## Managed soft-delete timestamp
+
+Soft delete is an entity-level declaration because it changes repository behavior
+for the whole table:
+
+```ts
+import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from 'zmdb/tags';
+
+export interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  email: string & Sql<'text'>;
+  deletedAt: (Date & Sql<'timestamp'>) | null;
+}
+```
+
+The named column must exist, be nullable, and use `Sql<'timestamp'>`. It remains
+part of the entity returned from reads, with an ISO `date-time` wire form, but is
+absent from `CreateDTO<User>` and `UpdateDTO<User>` because `delete`, `restore`,
+and `hardDelete` own the state transition. See [Entity Filters](./entity-filters.html)
+for read/write filtering, hooks, and unique/upsert behavior.
+
 ## `schemaOf<T>()` needs a build step
 
 `schemaOf<User>()` is a **compile-time** call. It has no runtime implementation and cannot have one: the answer is a function of a type argument, and type arguments do not exist at runtime. The zmdb transform replaces the call with a frozen object literal.
