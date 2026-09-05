@@ -81,7 +81,6 @@ if (!('toBase64' in proto)) {
     configurable: true,
   });
 }
-
 const BASE64_LOOKUP = new Uint8Array(256);
 for (let i = 0; i < BASE64_CHARS.length; i += 1) {
   BASE64_LOOKUP[BASE64_CHARS.charCodeAt(i)] = i;
