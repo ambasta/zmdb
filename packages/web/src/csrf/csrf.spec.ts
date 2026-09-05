@@ -515,6 +515,28 @@ describe('the platform under these tests', () => {
   // `node:crypto` can be banned and `timingSafeEqual` declined. Run here rather than trusted, and
   // in the shape §5 writes it, so a runtime that lacks any part of it fails in this file rather
   // than in an implementation slice that has to redesign around it.
+  function toBase64Url(value: Uint8Array): string {
+    const custom = value as unknown as { toBase64?: (opts: { alphabet: string; omitPadding: boolean }) => string };
+    if (typeof custom.toBase64 === 'function') {
+      return custom.toBase64({ alphabet: 'base64url', omitPadding: true });
+    }
+    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    let res = '';
+    const len = value.length;
+    let i = 0;
+    while (i < len) {
+      const b0 = value[i++]!;
+      const b1 = i < len ? value[i++]! : 0;
+      const b2 = i < len ? value[i++]! : 0;
+      const triplet = (b0 << 16) | (b1 << 8) | b2;
+      res += CHARS[(triplet >> 18) & 63]!;
+      res += CHARS[(triplet >> 12) & 63]!;
+      if (i - 1 < len) res += CHARS[(triplet >> 6) & 63]!;
+      if (i < len) res += CHARS[triplet & 63]!;
+    }
+    return res;
+  }
+
   it('has HMAC-SHA256 and base64url without node:crypto', async () => {
     const key = await globalThis.crypto.subtle.importKey('raw', SECRET, { name: 'HMAC', hash: 'SHA-256' }, false, [
       'sign',
@@ -523,7 +545,7 @@ describe('the platform under these tests', () => {
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
     expect(mac.length).toBe(32);
-    const encoded = mac.toBase64({ alphabet: 'base64url', omitPadding: true });
+    const encoded = toBase64Url(mac);
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(encoded).not.toContain('=');
     // Deterministic under the same key and message, which is what makes double-HMAC a comparison
@@ -531,7 +553,7 @@ describe('the platform under these tests', () => {
     const again = new Uint8Array(
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
-    expect(again.toBase64({ alphabet: 'base64url', omitPadding: true })).toBe(encoded);
+    expect(toBase64Url(again)).toBe(encoded);
     // And the nonce source §3 needs, with no `node:crypto`.
     expect(globalThis.crypto.getRandomValues(new Uint8Array(16)).length).toBe(16);
     expect(typeof globalThis.crypto.randomUUID()).toBe('string');
