@@ -74,7 +74,7 @@
       },
       {
         "path": "packages/web/src/pipeline/index.ts",
-        "sha256": "4fb48a6428017d0d24e76a6bfaaa9751553bcbee7abd97d38fb97e519823d9c0"
+        "sha256": "56a7061d145722d0ca84421554b93b73343538e8fb15d6caf82357cb0094e49b"
       },
       {
         "path": "packages/web/src/polyfill.ts",
