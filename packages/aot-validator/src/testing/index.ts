@@ -52,7 +52,7 @@ import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
 import type { NamingStrategy } from '@zmdb/schema-core/naming';
 
 import { schemaIrFromType, type ReflectDiagnostic, type ReflectOptions } from '../reflect/index.js';
-import { ReflectSession, withSession } from '../reflect/session.js';
+import { withSession } from '../reflect/session.js';
 
 export interface SchemasFromOptions {
   /**
