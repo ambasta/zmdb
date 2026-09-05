@@ -26,7 +26,7 @@ import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const _ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkgDir = process.cwd();
 const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
 

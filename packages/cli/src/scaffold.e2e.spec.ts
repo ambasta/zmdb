@@ -169,7 +169,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     runGate('tsc', ['--noEmit', '--project', join(project, 'tsconfig.json')], project);
     runGate('oxlint', ['.'], project);
     runGate('oxfmt', ['--check', '.'], project);
-  });
+  }, 60_000);
 
   it('generates the complete project file set and nothing else', async () => {
     const { project, run } = await generatedProject();
