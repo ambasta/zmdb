@@ -30,7 +30,7 @@
       },
       {
         "path": "benchmarks/scripts/generate-validation-model.mjs",
-        "sha256": "3e83bd155501f0fa950598c66e8661287b98207e45ecd611f0438b1522196533"
+        "sha256": "be470579f5e1aa6bc37c1548524844d41c723e0101bf573bfb5cda2cccf7e5f5"
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",

@@ -4,7 +4,6 @@
 // signing secret. Tokens are stateless: this module keeps no session or token
 // store, and two instances using the same secret can verify each other's tokens.
 
-import '../polyfill.js';
 import { ChainError, type AnyCtx, type Guard } from '../middleware/index.js';
 
 export interface CsrfOptions {
