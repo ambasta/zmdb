@@ -197,13 +197,22 @@ describe('the length check (relations/SPEC.md 2.1)', () => {
   // `ManyToMany` still throws, for the reason it already did — two hops are not one `IN`. Green
   // today and §2.1 keeps it, so it is pinned here against a rewrite that makes every relation go
   // through the new length check and loses the more specific message.
-  it('still refuses many-to-many for its own reason', () => {
+  it('resolves many-to-many through its join table', () => {
     const withM2M: SchemaIR = {
       ...users,
       relations: [{ name: 'tags', relation: 'manyToMany', target: 'tags', via: 'user_tags' }],
     };
-    expect(() => resolveRelation(withM2M, 'tags')).toThrow(/many-to-many through "user_tags"/);
-    expect(() => resolveRelation(withM2M, 'tags')).toThrow(/join the two tables explicitly/);
+    expect(resolveRelation(withM2M, 'tags')).toEqual({
+      name: 'tags',
+      isManyToMany: true,
+      targetTable: 'tags',
+      parentKey: ['tenantId', 'id'],
+      targetKey: ['id'],
+      toMany: true,
+      through: 'user_tags',
+      baseFk: 'userId',
+      targetFk: 'tagId',
+    });
   });
 });
 

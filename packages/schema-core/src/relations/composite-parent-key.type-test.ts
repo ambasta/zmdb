@@ -25,5 +25,8 @@ export type _NameUnchanged = Expect<Equal<ResolvedRelation['name'], string>>;
 export type _TargetTableUnchanged = Expect<Equal<ResolvedRelation['targetTable'], string>>;
 export type _ToManyUnchanged = Expect<Equal<ResolvedRelation['toMany'], boolean>>;
 export type _NoNewMembers = Expect<
-  Equal<keyof ResolvedRelation, 'name' | 'targetTable' | 'parentKey' | 'targetKey' | 'toMany'>
+  Equal<
+    keyof ResolvedRelation,
+    'name' | 'targetTable' | 'parentKey' | 'targetKey' | 'toMany' | 'isManyToMany' | 'through' | 'baseFk' | 'targetFk'
+  >
 >;
