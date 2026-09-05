@@ -1,14 +1,47 @@
 import { UnsupportedFeatureError } from '../errors.js';
 import { MSSQL_TYPES, mssqlPaginate } from './mssql.js';
+import {
+  type DatabaseCapabilities,
+  type DialectSqlType,
+  type DialectTypeMap,
+  type PaginationTail,
+  type PlaceholderStyle,
+  type ResolvedDialectTraits,
+  type ReturningCapability,
+  type ReturningStatement,
+  type ReturningStyle,
+  type SqlDialect,
+} from './protocol.js';
+
+export { defineSqlDialect, DIALECT_SQL_TYPES, extendSqlDialect, isSqlDialect } from './protocol.js';
+export type {
+  AppliedMigration,
+  DatabaseCapabilities,
+  DialectSqlType,
+  DialectTypeMap,
+  IntrospectionDriver,
+  Introspector,
+  IntrospectOptions,
+  MigrationConnection,
+  MigrationDialect,
+  MigrationDriver,
+  MigrationPlan,
+  MigrationTableOptions,
+  PaginationTail,
+  PlaceholderStyle,
+  ResolvedDialectTraits,
+  ReturningCapability,
+  ReturningStatement,
+  ReturningStyle,
+  SchemaObjectOperation,
+  SqlDialect,
+  SqlDialectDefinition,
+  SqlDialectExtension,
+} from './protocol.js';
 
 export const DIALECT_NAMES = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const;
 export type Dialect = (typeof DIALECT_NAMES)[number];
 export type DialectFamily = Exclude<Dialect, 'cockroach' | 'singlestore'>;
-
-export type PlaceholderStyle = 'numbered' | 'positional' | 'named';
-export type ReturningStatement = 'insert' | 'upsert' | 'update' | 'delete';
-export type ReturningStyle = 'suffix' | 'output' | 'none';
-export type ReturningCapability = Readonly<Record<ReturningStatement, ReturningStyle>>;
 
 export type DialectFeature =
   | 'materializedView'
@@ -20,40 +53,8 @@ export type DialectFeature =
   | 'transactionalDdl'
   | 'foreignKeys';
 
-export const DIALECT_SQL_TYPES = [
-  'serial',
-  'integer',
-  'bigint',
-  'numeric',
-  'text',
-  'varchar',
-  'boolean',
-  'timestamp',
-  'json',
-  'jsonEnum',
-] as const;
-export type DialectSqlType = (typeof DIALECT_SQL_TYPES)[number];
-export type DialectTypeMap = Readonly<Record<DialectSqlType, string>>;
-
-export interface PaginationTail {
-  readonly limit?: number;
-  readonly offset?: number;
-  readonly ordered: boolean;
-}
-
-interface RequiredDialectTraits {
-  readonly placeholder: PlaceholderStyle;
-  readonly quote: readonly [open: string, close: string];
-  readonly paginate: (tail: PaginationTail) => string;
-  readonly returning: ReturningCapability;
-  readonly upsert: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
-  readonly fts: 'tsvector' | 'match' | 'companionTable' | 'none';
-  readonly concat: 'operator' | 'function';
-  readonly booleanNot: 'not' | 'bitwise';
-  readonly types: DialectTypeMap;
+interface RequiredDialectTraits extends ResolvedDialectTraits {
   readonly features: Readonly<Record<DialectFeature, boolean>>;
-  readonly paramLimit: number;
-  readonly retryableCodes: readonly string[];
 }
 
 interface DialectTraitOverrides {
@@ -69,6 +70,12 @@ interface DialectTraitOverrides {
   readonly features?: Readonly<Partial<Record<DialectFeature, boolean>>>;
   readonly paramLimit?: number;
   readonly retryableCodes?: readonly string[];
+  readonly acceptsOperator?: (operator: string) => boolean;
+  readonly functions?: boolean;
+  readonly procedures?: boolean;
+  readonly tableFunctions?: boolean;
+  readonly vectorDistance?: boolean;
+  readonly spatialPredicates?: boolean;
 }
 
 export type DialectTraits =
@@ -83,6 +90,9 @@ export type ResolvedTraits = RequiredDialectTraits & {
   /** The root dialect after the parent chain is resolved. */
   readonly family: DialectFamily;
 };
+
+/** Object-first target plus the temporary six-name compatibility surface removed by #675. */
+export type DialectTarget<Name extends string = string> = SqlDialect<Name> | Dialect;
 
 function standardPaginate({ limit, offset }: PaginationTail): string {
   let text = '';
@@ -113,6 +123,18 @@ function sqlitePaginate({ limit, offset }: PaginationTail): string {
 
 function quotePair(open: string, close: string): readonly [open: string, close: string] {
   return Object.freeze([open, close]);
+}
+
+const UNMAPPED_OPERATOR_TOKEN = /^(?!.*--)[A-Za-z@<>=!~*&|?-]{1,4}$/;
+
+function operatorAcceptance(placeholder: PlaceholderStyle, hashOperators: boolean): (operator: string) => boolean {
+  return (operator: string): boolean => {
+    if (operator === '#>' || operator === '#>>') return hashOperators;
+    if (!UNMAPPED_OPERATOR_TOKEN.test(operator)) return false;
+    if (placeholder === 'positional' && operator.includes('?')) return false;
+    if (placeholder === 'named' && operator.includes('@')) return false;
+    return true;
+  };
 }
 
 const POSTGRES_TYPES = Object.freeze({
@@ -190,6 +212,12 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     }),
     paramLimit: 60000,
     retryableCodes: Object.freeze(['40001', '40P01']),
+    acceptsOperator: operatorAcceptance('numbered', true),
+    functions: true,
+    procedures: true,
+    tableFunctions: true,
+    vectorDistance: true,
+    spatialPredicates: true,
   }),
   mysql: Object.freeze({
     placeholder: 'positional',
@@ -213,6 +241,12 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     }),
     paramLimit: 60000,
     retryableCodes: Object.freeze([]),
+    acceptsOperator: operatorAcceptance('positional', false),
+    functions: true,
+    procedures: true,
+    tableFunctions: false,
+    vectorDistance: false,
+    spatialPredicates: false,
   }),
   sqlite: Object.freeze({
     placeholder: 'positional',
@@ -236,6 +270,12 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     }),
     paramLimit: 30000,
     retryableCodes: Object.freeze([]),
+    acceptsOperator: operatorAcceptance('positional', false),
+    functions: false,
+    procedures: false,
+    tableFunctions: false,
+    vectorDistance: false,
+    spatialPredicates: false,
   }),
   mssql: Object.freeze({
     placeholder: 'named',
@@ -259,6 +299,12 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     }),
     paramLimit: 2000,
     retryableCodes: Object.freeze(['1205']),
+    acceptsOperator: operatorAcceptance('named', false),
+    functions: false,
+    procedures: false,
+    tableFunctions: false,
+    vectorDistance: false,
+    spatialPredicates: false,
   }),
   cockroach: Object.freeze({
     parent: 'postgres',
@@ -270,6 +316,8 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     features: Object.freeze({
       rowLevelSecurity: false,
     }),
+    vectorDistance: false,
+    spatialPredicates: false,
     retryableCodes: Object.freeze(['40001']),
   }),
   singlestore: Object.freeze({
@@ -393,6 +441,12 @@ function resolveOne(
     }),
     paramLimit: inherited(dialect, 'paramLimit', definition.paramLimit, parent?.paramLimit),
     retryableCodes: Object.freeze([...inheritedRetryableCodes]),
+    acceptsOperator: inherited(dialect, 'acceptsOperator', definition.acceptsOperator, parent?.acceptsOperator),
+    functions: inherited(dialect, 'functions', definition.functions, parent?.functions),
+    procedures: inherited(dialect, 'procedures', definition.procedures, parent?.procedures),
+    tableFunctions: inherited(dialect, 'tableFunctions', definition.tableFunctions, parent?.tableFunctions),
+    vectorDistance: inherited(dialect, 'vectorDistance', definition.vectorDistance, parent?.vectorDistance),
+    spatialPredicates: inherited(dialect, 'spatialPredicates', definition.spatialPredicates, parent?.spatialPredicates),
   } satisfies ResolvedTraits);
 
   resolving.delete(dialect);
@@ -428,8 +482,68 @@ export function dialectTraitResolutionCount(): number {
   return productionResolutionCount;
 }
 
-export function requireDialectFeature(dialect: Dialect, feature: DialectFeature, errorFeature: string): void {
-  if (!TRAITS[dialect].features[feature]) {
-    throw new UnsupportedFeatureError(errorFeature, dialect);
+export function dialectName(dialect: DialectTarget): string {
+  return typeof dialect === 'string' ? dialect : dialect.name;
+}
+
+export function dialectFamily(dialect: DialectTarget): string {
+  return typeof dialect === 'string' ? TRAITS[dialect].family : dialect.family;
+}
+
+export function dialectTraits(dialect: DialectTarget): ResolvedDialectTraits {
+  return typeof dialect === 'string' ? TRAITS[dialect] : dialect.traits;
+}
+
+export function dialectCapabilities(dialect: DialectTarget): DatabaseCapabilities {
+  if (typeof dialect !== 'string') return dialect.capabilities;
+  const traits = TRAITS[dialect];
+  return Object.freeze({
+    returning: Object.freeze({
+      insert: traits.returning.insert !== 'none',
+      upsert: traits.returning.upsert !== 'none',
+      update: traits.returning.update !== 'none',
+      delete: traits.returning.delete !== 'none',
+    }),
+    transactionalDdl: traits.features.transactionalDdl,
+    schemas: traits.features.schemas,
+    sequences: traits.features.sequences,
+    generatedColumns: traits.features.generatedColumns,
+    partialIndexes: traits.features.partialIndex,
+    foreignKeys: traits.features.foreignKeys,
+    rowLevelSecurity: traits.features.rowLevelSecurity,
+    streaming: false,
+    cancellation: false,
+  });
+}
+
+export function dialectSupportsReturning(dialect: DialectTarget, statement: ReturningStatement): boolean {
+  return dialectCapabilities(dialect).returning[statement];
+}
+
+function objectFeature(dialect: SqlDialect, feature: DialectFeature): boolean {
+  switch (feature) {
+    case 'rowLevelSecurity':
+      return dialect.capabilities.rowLevelSecurity;
+    case 'sequences':
+      return dialect.capabilities.sequences;
+    case 'schemas':
+      return dialect.capabilities.schemas;
+    case 'partialIndex':
+      return dialect.capabilities.partialIndexes;
+    case 'generatedColumns':
+      return dialect.capabilities.generatedColumns;
+    case 'transactionalDdl':
+      return dialect.capabilities.transactionalDdl;
+    case 'foreignKeys':
+      return dialect.capabilities.foreignKeys;
+    case 'materializedView':
+      return false;
+  }
+}
+
+export function requireDialectFeature(dialect: DialectTarget, feature: DialectFeature, errorFeature: string): void {
+  const supported = typeof dialect === 'string' ? TRAITS[dialect].features[feature] : objectFeature(dialect, feature);
+  if (!supported) {
+    throw new UnsupportedFeatureError(errorFeature, dialectName(dialect));
   }
 }

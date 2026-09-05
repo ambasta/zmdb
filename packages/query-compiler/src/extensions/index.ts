@@ -1,5 +1,5 @@
+import { dialectName, dialectTraits, type DialectTarget } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
-import type { Dialect } from '../index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier } from '../quoting.js';
 
 export type DistanceOp = 'l2' | 'cosine' | 'ip';
@@ -183,17 +183,17 @@ export function isDistanceOp(operator: string): operator is DistanceOp {
   return Object.hasOwn(DISTANCE_OPERATORS, operator);
 }
 
-function requirePostgres(feature: string, dialect: Dialect): void {
-  if (dialect !== 'postgres') throw new UnsupportedFeatureError(feature, dialect);
+function requireExtensionFeature(feature: string, supported: boolean, dialect: DialectTarget): void {
+  if (!supported) throw new UnsupportedFeatureError(feature, dialectName(dialect));
 }
 
 /** Render a compiler-owned distance expression and append its bound vector. */
 export function renderDistanceExpression(
-  dialect: Dialect,
+  dialect: DialectTarget,
   expression: DistanceExpression,
   parameters: unknown[],
 ): string {
-  requirePostgres(expression.operator, dialect);
+  requireExtensionFeature(expression.operator, dialectTraits(dialect).vectorDistance, dialect);
   parameters.push(encodePgVector(expression.query));
   return `${quoteColumn(dialect, expression.column)} ${DISTANCE_OPERATORS[expression.operator]} ${formatPlaceholder(
     dialect,
@@ -203,7 +203,7 @@ export function renderDistanceExpression(
 
 /** Render a selected distance expression with its compiler-quoted alias. */
 export function renderAliasedDistanceExpression(
-  dialect: Dialect,
+  dialect: DialectTarget,
   expression: AliasedDistanceExpression,
   parameters: unknown[],
 ): string {
@@ -215,14 +215,14 @@ export function renderAliasedDistanceExpression(
 
 /** Render one of the closed PostGIS predicate nodes, binding every value operand. */
 export function renderSpatialPredicate(
-  dialect: Dialect,
+  dialect: DialectTarget,
   predicate: SpatialPredicateNode,
   parameters: unknown[],
 ): string {
   if (!Object.hasOwn(SPATIAL_FUNCTIONS, predicate.fn)) {
     throw new TypeError(`unknown spatial predicate ${JSON.stringify(predicate.fn)}`);
   }
-  requirePostgres(predicate.fn, dialect);
+  requireExtensionFeature(predicate.fn, dialectTraits(dialect).spatialPredicates, dialect);
 
   parameters.push(predicate.value);
   const geometry = `ST_GeomFromGeoJSON(${formatPlaceholder(dialect, parameters.length)})`;

@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635, amended by #656
+# Runtime foundation boundary policy — issue #635, amended by #656 and #668
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -22,16 +22,16 @@ moved the protobuf/gRPC public calls and wire runtime out of the foundation cand
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              30 |                 15 |
-| `@zmdb/query-compiler` |                              31 |                 13 |
+| `@zmdb/query-compiler` |                              36 |                 13 |
 | `@zmdb/aot-validator`  |                              54 |                 14 |
 | `@zmdb/repository`     |                              22 |                 11 |
-| **Total**              |                         **137** |             **53** |
+| **Total**              |                         **142** |             **53** |
 
 The four manifests contain 25 dependency entries: 6 `dependencies`, 5 `peerDependencies`, and 14 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 137 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
+Every one of the 142 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
 whose declared destination no longer exists in the architecture policy.
 
 ### `@zmdb/ai` — 10
@@ -224,23 +224,28 @@ packages/schema-core/src/tags/index.ts
 The three fixture/`__testing__` files remain schema-test-owned and must stop being published. `dto/index.ts`, `relations/index.ts`, and the current root are mixed files; §3 assigns every exported
 member before those files are split.
 
-### `@zmdb/sql` — 18
+### `@zmdb/sql` — 23
 
 ```text
 packages/query-compiler/src/aggregations/index.ts
 packages/query-compiler/src/clauses.ts
 packages/query-compiler/src/comments/index.ts
+packages/query-compiler/src/compiled-query.ts
 packages/query-compiler/src/dialects/index.ts
 packages/query-compiler/src/dialects/mssql.ts
+packages/query-compiler/src/dialects/protocol.ts
 packages/query-compiler/src/errors.ts
 packages/query-compiler/src/expressions/index.ts
 packages/query-compiler/src/extensions/index.ts
 packages/query-compiler/src/fts/index.ts
 packages/query-compiler/src/index.ts
+packages/query-compiler/src/introspect/types.ts
 packages/query-compiler/src/joins/index.ts
+packages/query-compiler/src/migrations/types.ts
 packages/query-compiler/src/quoting.ts
 packages/query-compiler/src/schema-objects/extensions.ts
 packages/query-compiler/src/schema-objects/index.ts
+packages/query-compiler/src/schema-objects/types.ts
 packages/query-compiler/src/set-ops/index.ts
 packages/query-compiler/src/testing/capability-matrix.ts
 packages/query-compiler/src/testing/database-vertical.ts
@@ -285,7 +290,8 @@ A file-level map is insufficient where one current barrel or module exports two 
 | `schema-core/src/index.ts`                   | schema declarations, schema values, derivation types, `isRecord`, type-test helpers                                     | `ValidationIssue`, `ValidationError`, `claimsValidationIssues`, and `validationIssuesOf` → `@zmdb/validator`; SQL/populate and SQL/DTO root re-exports → `@zmdb/orm`; state-transition/state-machine symbols → `@zmdb/app` |
 | `schema-core/src/dto/index.ts`               | DTO/result types, cursor encoding, projection, `getResult`, `buildListResult`, `buildSearchResult`, `describeAggregate` | `WhereTarget`, `OrderTarget`, `compileWhere`, `applyOrderBy`, `applyKeysetFilter`, and `applyPagination` → `@zmdb/orm/dto`                                                                                                 |
 | `schema-core/src/relations/index.ts`         | `ResolvedRelation` and `resolveRelation`                                                                                | `PopulateDialect`, `PopulateQuery`, `compilePopulate`, `attachPopulated`, `JoinRow`, and `aliasRow` → `@zmdb/orm/relations`                                                                                                |
-| `query-compiler/src/dialects/index.ts`       | dialect protocol/types, registry-composition algorithm, capability refusal helper                                       | official dialect records and name dispatch → database packages when #665 lands                                                                                                                                             |
+| `query-compiler/src/dialects/index.ts`       | temporary six-dialect registry composition, compatibility name dispatch, and capability refusal helper                  | official dialect records and name dispatch → database packages when #665 lands                                                                                                                                             |
+| `query-compiler/src/dialects/protocol.ts`    | generic dialect protocol/types and construction validation                                                              | none; this zero-vendor-name protocol stays in `@zmdb/sql`                                                                                                                                                                  |
 | `query-compiler/src/schema-objects/index.ts` | runtime schema-object SQL                                                                                               | snapshot/diff ordering and lifecycle planning stay in `@zmdb/migrations`; `ddlType` is injected so SQL does not import migrations                                                                                          |
 | `aot-validator/src/index.ts`                 | rule runtime and validator helpers                                                                                      | protobuf/gRPC public calls moved to `@zmdb/protobuf` in #656; compiler-only emit/reflection code leaves through its own files                                                                                              |
 | `repository/src/entity-modeling/index.ts`    | lifecycle events, subscribers, and `EventBus` → `@zmdb/orm/entity-modeling`                                             | embeddable flatten/lift and single-table-inheritance helpers → `@zmdb/schema/entity-modeling`                                                                                                                              |

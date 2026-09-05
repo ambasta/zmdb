@@ -4,7 +4,7 @@
 // The package extraction itself belongs to #628-#630, so this gate has two jobs
 // before those packages exist:
 //
-// 1. turn #626's ownership policy, amended to 138 paths after #667, #681, and #656, into an executable,
+// 1. turn #626's ownership policy, amended to 143 paths after #667, #681, #656, and #668, into an executable,
 //    bijective inventory; and
 // 2. prevent the known runtime/generated-import violations from growing while
 //    the expected-failure tests freeze the zero-violation target.
@@ -80,7 +80,7 @@ const EXPECTED_OWNER_COUNTS = Object.freeze({
   compiler: 30,
   migrations: 20,
   cli: 20,
-  runtime: 23,
+  runtime: 28,
   facade: 12,
   'optional-integration': 4,
   'test-only': 28,

@@ -6,7 +6,7 @@ Build tools and the schema-command CLI have a separate [`zmdb.config.ts`](./conf
 ## What each layer takes
 
 ```ts
-createQueryCompiler(dialect)                          // Dialect: six current SQL variants
+createQueryCompiler(dialect)                          // SqlDialect object or temporary built-in name
 schemaOf<T>()                                         // the declaration; compiled away at build time
 defineRepository(schema, driver, { dialect?, schemas? })
 createApp(rootModule)
@@ -36,7 +36,8 @@ The useful pattern is one module that reads the environment and exports typed va
 // src/config.ts
 import { Pool } from 'pg';
 import { assert } from '@zmdb/aot-validator/utilities';
-import type { Driver, Dialect } from '@zmdb/query-compiler';
+import type { Dialect } from '@zmdb/query-compiler';
+import type { Driver } from '@zmdb/repository';
 
 interface Env {
   DATABASE_URL: string;
@@ -126,7 +127,7 @@ Log a redacted projection instead, or mark the column [`Sensitive`](./tags-refer
 
 ## Dialect at build time versus runtime
 
-`dialect` is a value, so it can come from the environment — which is how one codebase targets SQLite in tests and Postgres in production:
+A built-in `Dialect` name is a value, so it can come from the environment — which is how one codebase targets SQLite in tests and Postgres in production:
 
 ```ts
 export const dialect = (process.env.DB_DIALECT ?? 'postgres') as Dialect;
@@ -134,6 +135,9 @@ export const dialect = (process.env.DB_DIALECT ?? 'postgres') as Dialect;
 
 The cost is that dialect differences become runtime differences. `ILIKE`, `RETURNING`, `ON CONFLICT` and transactional DDL all vary — see [Dialect: SQLite](./dialect-sqlite.html). Fine for a test
 suite; think carefully before shipping two dialects to production.
+
+A third-party database instead exports a frozen `SqlDialect` object. Pass that same object to `createQueryCompiler` and attach it to the driver; the repository then consumes its already-resolved
+traits, capabilities, migration implementation and introspector without a global registry. The tooling config and CLI still use built-in names until the database-package extraction completes.
 
 ---
 

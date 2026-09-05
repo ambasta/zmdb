@@ -1,12 +1,9 @@
 import { UnsupportedFeatureError } from '../errors.js';
 import type { Dialect } from '../index.js';
 import { quoteIdentifier } from '../quoting.js';
+import type { ExtensionDef } from './types.js';
 
-export interface ExtensionDef {
-  readonly name: string;
-  readonly schema?: string;
-  readonly version?: string;
-}
+export type { ExtensionDef } from './types.js';
 
 function quoteLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;

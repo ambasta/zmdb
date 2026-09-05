@@ -789,10 +789,11 @@ evidence.
 - **`Partial<Record<Dialect, …>>` for any dialect table, including test expectation tables.** §1.1, §6, §7 — it is the only compile-time guarantee in the package.
 - **Claiming CI coverage for `singlestore`.** §8.
 
-## 11. Database vertical extraction target (issue #666)
+## 11. Database vertical extraction contract (issues #666 and #668)
 
-This section freezes the target owned by epic #665. Sections 1–10 remain the measured history and current six-name implementation until the extraction issues land; where they prescribe a global
-`Dialect` union, `DIALECTS`, `TRAITS`, module-load resolution, or string dispatch, this section supersedes them for the target architecture. Issue #666 changes specifications only.
+Issue #666 froze the target owned by epic #665. Issue #668 implements its vendor-neutral object seam while preserving the six-name compatibility implementation. Sections 1–10 remain the measured
+history and the built-in compatibility contract; where they prescribe a global `Dialect` union, `DIALECTS`, `TRAITS`, module-load resolution, or string-only dispatch, this section supersedes them for
+the injected path and final architecture.
 
 ### 11.1 Measured starting point
 
@@ -801,6 +802,11 @@ carry optional string names, and config/CLI surfaces pass those strings through.
 `postgres`, `mysql`), no MySQL driver, and no SQL Server catalog reader. Cockroach and SingleStore inherit central records and delegate catalog work to their parents.
 
 Those facts describe the migration source, not the support state promised by the target packages.
+
+Issue #668 adds a registry-free `dialects/protocol.ts` containing `SqlDialect`, its total traits and capabilities, migration and introspection protocols, and `defineSqlDialect` / `extendSqlDialect`.
+The compiler and helpers accept that object, migration wrappers and the runner delegate through its migration implementation, callers use its introspector directly, and the repository derives and
+caches the same object's behavior. The legacy six-name definitions, factory switches, string overloads, config values and bundled adapters remain until the later extraction children move their
+ownership.
 
 ### 11.2 Generic public contract
 
@@ -836,7 +842,11 @@ export interface ResolvedDialectTraits {
   readonly paramLimit: number;
   readonly retryableCodes: readonly string[];
   readonly acceptsOperator: (operator: string) => boolean;
+  readonly functions: boolean;
+  readonly procedures: boolean;
   readonly tableFunctions: boolean;
+  readonly vectorDistance: boolean;
+  readonly spatialPredicates: boolean;
 }
 
 export interface SqlDialect<Name extends string> {
@@ -888,8 +898,9 @@ import { createQueryCompiler } from '@zmdb/query-compiler';
 const sql = createQueryCompiler(postgres);
 ```
 
-There is no official-name union in a generic runtime package, no `Record<OfficialDatabase, …>`, no `registerDialect`, no mutable registry, no import-for-side-effect convention and no discovery by
-package name. Importing a database package may construct and freeze its own constants; it must not mutate process-global state.
+The injected protocol module has no official-name union, no `Record<OfficialDatabase, …>`, no `registerDialect`, no mutable registry, no import-for-side-effect convention and no discovery by package
+name. The temporary compatibility module still owns the six built-in records until extraction. Importing an external dialect can construct and freeze its own constants, but must not mutate
+process-global state.
 
 Only two database-package dependency edges exist:
 
@@ -901,18 +912,18 @@ private path, copy a parent implementation, mutate a parent object, or defer tra
 
 ### 11.4 String-to-object migration
 
-The cut-over issue must make these changes as one coherent boundary:
+Issue #668 lands the object column while retaining a measured compatibility column for the extraction sequence:
 
-| Surface          | Current input                                                                                              | Frozen target                                                                                                                                   |
-| ---------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Compiler         | `createQueryCompiler(name?: Dialect)` with implicit Postgres                                               | `createQueryCompiler(dialect: SqlDialect<Name>)`; no default                                                                                    |
-| Compiler helpers | `Dialect` strings accepted by quoting, clauses, FTS, expressions, joins, set operations and schema objects | the selected `SqlDialect` or its already-resolved strategy object                                                                               |
-| Migrations       | `diff`, `ddlType`, `emitUp`, `emitDown` and runner adapters receive a string                               | generic algorithms receive the selected object's `migrations` implementation                                                                    |
-| Introspection    | `createIntrospector(name)` central switch                                                                  | `dialect.introspector`; the factory and switch disappear                                                                                        |
-| Repository       | optional `Driver.dialect` plus a separate constructor/options string                                       | every `Driver<Name>` has one required `SqlDialect<Name>`; repositories derive compiler, limits, retries and returning behavior from it          |
-| Config           | AOT-validated dialect string                                                                               | an explicitly imported `SqlDialect`; the callable object is checked structurally outside the plain-data validator                               |
-| CLI              | forwards the config string and contains SQLite/name branches                                               | consumes `config.dialect`, `config.dialect.migrations` and `config.dialect.introspector`; generated projects import one chosen database package |
-| Facade           | old driver-only subpaths                                                                                   | optional identity re-exports for complete database verticals; no root eager selection and no bundled database clients                           |
+| Surface          | Shipped after #668                                                                                                                                      | Extraction completion target                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Compiler         | accepts `SqlDialect<Name>`; temporary name overload and implicit Postgres default remain                                                                | object required; no default                                                                                           |
+| Compiler helpers | accept the selected object or a temporary built-in name; object calls read its resolved strategies                                                      | object or already-resolved strategy only                                                                              |
+| Migrations       | wrappers accept `MigrationDialect`; the driver adapter delegates an object to `dialect.migrations.connection`; legacy string emitters/adapters remain   | generic algorithms receive only the selected object's migration implementation                                        |
+| Introspection    | object consumers call `dialect.introspector`; the central six-name factory remains for compatibility                                                    | factory and switch disappear                                                                                          |
+| Repository       | `Driver.dialect` may be an object or built-in name; repository derives it before the Postgres fallback and caches limits, retries and returning support | every `Driver<Name>` has one required object; no separate dialect argument                                            |
+| Config           | AOT-validated dialect string                                                                                                                            | explicitly imported object, structurally checked outside the plain-data validator                                     |
+| CLI              | forwards the config string and contains SQLite/name branches                                                                                            | consumes `config.dialect`, `.migrations` and `.introspector`; generated projects import one selected database package |
+| Facade           | old driver-only subpaths                                                                                                                                | optional identity re-exports for complete database verticals; no root eager selection and no bundled database clients |
 
 Temporary string overloads may exist only inside the implementation cut-over and must be gone before #675 completes. They are not a compatibility promise.
 

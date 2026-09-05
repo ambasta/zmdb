@@ -1,4 +1,4 @@
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import { dialectName, type CompiledQuery, type DialectTarget } from '@zmdb/query-compiler';
 import { isRecord } from '@zmdb/schema-core';
 import type { SchemaIR } from '@zmdb/schema-core/ir';
 
@@ -160,7 +160,7 @@ function segment(name: string, value: unknown): string {
 }
 
 export function resultCacheKey(input: {
-  readonly dialect: Dialect;
+  readonly dialect: DialectTarget;
   readonly schema: SchemaIR;
   readonly table: string;
   readonly filters?: readonly string[];
@@ -168,7 +168,7 @@ export function resultCacheKey(input: {
 }): string {
   return [
     'z1',
-    segment('dialect', input.dialect),
+    segment('dialect', dialectName(input.dialect)),
     segment('fingerprint', input.schema),
     segment('table', input.table),
     segment('filters', input.filters ?? []),

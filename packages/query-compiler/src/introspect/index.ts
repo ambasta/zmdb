@@ -1,9 +1,10 @@
+import type { Dialect, Introspector } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
-import type { CompiledQuery, Dialect } from '../index.js';
-import type { CatalogSchemaSnapshot } from './common.js';
 import { mysqlIntrospector } from './mysql.js';
 import { postgresIntrospector } from './postgres.js';
 import { sqliteIntrospector } from './sqlite.js';
+
+export type { IntrospectionDriver, Introspector, IntrospectOptions } from '../dialects/index.js';
 
 export {
   emitDeclarations,
@@ -24,31 +25,30 @@ export {
   type ReferentialAction,
 } from './common.js';
 
-export interface IntrospectionDriver {
-  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+export interface LegacyIntrospector<Name extends string = string> extends Introspector<Name> {
+  readonly dialect: Name;
 }
 
-export interface IntrospectOptions {
-  readonly schemas?: readonly string[];
-  readonly include?: readonly string[];
-  readonly exclude?: readonly string[];
+function inheritedIntrospector<Name extends string>(name: Name, source: Introspector): LegacyIntrospector<Name> {
+  return {
+    name,
+    dialect: name,
+    snapshot: (driver, options) => source.snapshot(driver, options),
+    normalizeForDrift: (snapshot, role) => source.normalizeForDrift(snapshot, role),
+  };
 }
 
-export interface Introspector {
-  readonly dialect: Dialect;
-  snapshot(driver: IntrospectionDriver, options?: IntrospectOptions): Promise<CatalogSchemaSnapshot>;
-}
-
-export function createIntrospector(dialect: Dialect): Introspector {
+/** Temporary six-name adapter. Object consumers use `dialect.introspector` directly. */
+export function createIntrospector(dialect: Dialect): LegacyIntrospector<Dialect> {
   switch (dialect) {
     case 'postgres':
       return postgresIntrospector;
     case 'cockroach':
-      return { dialect, snapshot: (driver, options) => postgresIntrospector.snapshot(driver, options) };
+      return inheritedIntrospector(dialect, postgresIntrospector);
     case 'mysql':
       return mysqlIntrospector;
     case 'singlestore':
-      return { dialect, snapshot: (driver, options) => mysqlIntrospector.snapshot(driver, options) };
+      return inheritedIntrospector(dialect, mysqlIntrospector);
     case 'sqlite':
       return sqliteIntrospector;
     case 'mssql':

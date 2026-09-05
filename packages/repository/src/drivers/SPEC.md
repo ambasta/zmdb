@@ -6,7 +6,7 @@
 acceptance fixtures move with them. ORM does not import, probe, register, or re-export a concrete adapter.
 
 Epic #209. Ships official `Driver` implementations so users don't hand-write one. The `Driver` interface itself is `../../SPEC.md` §1 — one required method, `execute`, plus an optional `dialect` and
-an optional `stream` (§1a there). Adapters are thin, dependency-injected wrappers — the repository still never opens connections itself.
+or temporary built-in name and an optional `stream` (§1a there). Adapters are thin, dependency-injected wrappers — the repository still never opens connections itself.
 
 ## API
 
@@ -143,8 +143,8 @@ rather than half-applying it.
 
 ## Database vertical target (issue #666)
 
-The sections above describe the current repository-owned adapters. Epic #665 moves each adapter into the package that owns the complete database vertical. This section supersedes the optional string
-`Driver.dialect` contract for that target; it makes no runtime change in #666.
+The sections above describe the current repository-owned adapters. Epic #665 moves each adapter into the package that owns the complete database vertical. Issue #668 implements the runtime object seam
+while preserving optional built-in names and the separate dialect argument for compatibility. This section describes the stricter contract after extraction.
 
 ### Generic repository protocol
 
@@ -184,8 +184,9 @@ sqlite.introspector === sqliteIntrospector;
 The other packages use the same naming pattern: `postgres` / `postgresDriver` / `postgresIntrospector` / `postgresVertical`, and correspondingly for MySQL, MSSQL, Cockroach and SingleStore. The short
 package-named value is the normal compiler/config import; the `*Vertical` value proves the complete package contract and supports advanced composition.
 
-A repository constructor receives a `Driver<Name>` and no separate dialect argument. It constructs its compiler from `driver.dialect`, reads limits/retries/returning support from that same frozen
-object, and preserves the object by identity across `withTransaction`, replicas, streams, loaders and caches. A transactional callback driver cannot change the dialect.
+At extraction completion, a repository constructor receives a `Driver<Name>` and no separate dialect argument. The #668 object path already constructs its compiler from the selected driver object,
+reads limits/retries/returning support from that same frozen object, and preserves it across `withTransaction`, loaders and caches. The separate argument, built-in names and Postgres fallback remain
+temporary compatibility surfaces. A transactional callback driver cannot change the selected dialect.
 
 ### Adapter ownership and dependencies
 

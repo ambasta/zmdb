@@ -1,8 +1,11 @@
+import { readFile } from 'node:fs/promises';
+
 import { describe, expect, it } from 'vitest';
 
 import { detectDrift } from '../introspect/index.js';
 import type { ColumnSnapshot } from '../migrations/index.js';
-import { ddlType } from '../migrations/index.js';
+import { ddlType, emitUp } from '../migrations/index.js';
+import { driverMigrationConnection } from '../migrations/runner.js';
 import {
   DATABASE_CAPABILITY_MATRIX,
   DATABASE_CAPABILITY_KEYS,
@@ -73,10 +76,8 @@ function childIntrospector<Name extends string>(source: FrozenIntrospector, name
   return Object.freeze({ ...source, name });
 }
 
-describe('database vertical conformance (#667)', () => {
-  // Current measured behavior: the object reaches TRAITS as a property key and compilation
-  // throws `TypeError: Cannot read properties of undefined (reading 'quote')`.
-  it.fails('accepts a third-party dialect without editing a generic package', () => {
+describe('database vertical conformance (#668)', () => {
+  it('compiles with a synthetic external dialect', () => {
     const dialect = makeSyntheticDialect();
     const compiler = externalCompiler(dialect);
     const selectFrom: unknown = Reflect.get(compiler, 'selectFrom');
@@ -108,6 +109,17 @@ describe('database vertical conformance (#667)', () => {
     expect(Reflect.get(dialectApi, 'registerDialect')).toBeUndefined();
   });
 
+  it('loads no official database package from query-compiler', async () => {
+    const manifest: { readonly dependencies?: Readonly<Record<string, string>> } = JSON.parse(
+      await readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+    );
+    const dependencies = Object.keys(manifest.dependencies ?? {});
+
+    expect(
+      dependencies.filter(name => /^@zmdb\/(sqlite|postgres|mysql|mssql|cockroach|singlestore)$/.test(name)),
+    ).toEqual([]);
+  });
+
   it('requires every SQL type and statement capability', () => {
     const dialect = makeSyntheticDialect();
 
@@ -117,8 +129,7 @@ describe('database vertical conformance (#667)', () => {
     expect(Object.keys(dialect.capabilities.returning).toSorted()).toEqual(['delete', 'insert', 'update', 'upsert']);
   });
 
-  // Current measured behavior: `defineSqlDialect` is not exported.
-  it.fails('requires a migration implementation and introspector', () => {
+  it('requires a migration implementation and introspector', () => {
     const dialect = makeSyntheticDialect();
     const defineSqlDialect = exportedFunction(dialectApi, 'defineSqlDialect');
     const defined = objectValue(defineSqlDialect(dialect), 'defined dialect');
@@ -127,9 +138,7 @@ describe('database vertical conformance (#667)', () => {
     expect(Reflect.get(defined, 'introspector')).toBe(dialect.introspector);
   });
 
-  // Current measured behavior: ddlType treats the injected object as a registry key and throws
-  // `TypeError: Cannot read properties of undefined (reading 'types')`.
-  it.fails('runs migration emission through the selected external dialect', () => {
+  it('emits migrations through an injected migration dialect', async () => {
     const dialect = makeSyntheticDialect();
     const column: ColumnSnapshot = {
       name: 'id',
@@ -143,6 +152,21 @@ describe('database vertical conformance (#667)', () => {
     ) => string;
 
     expect(injectedDdlType(dialect.migrations, column)).toBe('INTEGER');
+    expect(emitUp(dialect.migrations, { kind: 'drop_table', table: 'widgets' })).toBe('ACME UP drop_table');
+
+    const queries: string[] = [];
+    const connection = driverMigrationConnection(
+      {
+        dialect,
+        execute: query => {
+          queries.push(query.text);
+          return Promise.resolve([]);
+        },
+      },
+      dialect,
+    );
+    await connection.ensureVersionTable?.();
+    expect(queries).toEqual(['CREATE TABLE IF NOT EXISTS <_zmdb_migrations> (<version> INTEGER)']);
   });
 
   it('runs an external introspector through generic drift detection', async () => {
@@ -164,15 +188,21 @@ describe('database vertical conformance (#667)', () => {
     });
   });
 
-  // Current measured behavior: `extendSqlDialect` is not exported.
-  it.fails('a family extension cannot mutate its parent traits', () => {
+  it('resolves inherited traits once', () => {
     const parent = makeSyntheticDialect();
     const parentTypes = parent.traits.types;
     const parentSerial = parentTypes.serial;
     const childParts = makeSyntheticDialect();
+    let traitReads = 0;
     const extension: FrozenSqlDialectExtension<'acme-cloud'> = {
       name: 'acme-cloud',
-      traits: { types: { serial: 'CLOUD SERIAL' } },
+      traits: {
+        types: { serial: 'CLOUD SERIAL' },
+        get paramLimit() {
+          traitReads++;
+          return 321;
+        },
+      },
       migrations: childMigrationDialect(childParts.migrations, 'acme-cloud'),
       introspector: childIntrospector(childParts.introspector, 'acme-cloud'),
     };
@@ -187,6 +217,21 @@ describe('database vertical conformance (#667)', () => {
     expect(Reflect.get(childTypes, 'serial')).toBe('CLOUD SERIAL');
     expect(Object.isFrozen(childTraits)).toBe(true);
     expect(Object.isFrozen(childTypes)).toBe(true);
+    expect(traitReads).toBe(1);
+
+    const compiler = externalCompiler(child as FrozenSqlDialect);
+    for (const id of [1, 2, 3]) {
+      const selectFrom = Reflect.get(compiler, 'selectFrom');
+      if (typeof selectFrom !== 'function') throw new TypeError('compiler has no selectFrom');
+      const select = objectValue(Reflect.apply(selectFrom, compiler, ['widgets']), 'select builder');
+      const where = Reflect.get(select, 'where');
+      if (typeof where !== 'function') throw new TypeError('select builder has no where');
+      const filtered = objectValue(Reflect.apply(where, select, ['id', '=', id]), 'filtered select builder');
+      const compile = Reflect.get(filtered, 'compile');
+      if (typeof compile !== 'function') throw new TypeError('select builder has no compile');
+      compiledQuery(Reflect.apply(compile, filtered, []));
+    }
+    expect(traitReads).toBe(1);
   });
 
   it('adding a capability requires an expectation or refusal from every database', () => {

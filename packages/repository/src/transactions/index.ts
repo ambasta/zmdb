@@ -1,7 +1,7 @@
 // Transactions — implementation (#36 transaction context primitive).
 // createTransactionalDb.transaction() issues BEGIN/COMMIT/ROLLBACK and
 // tx.savepoint() issues SAVEPOINT / RELEASE / ROLLBACK TO SAVEPOINT.
-import { TRAITS, type CompiledQuery, type Dialect } from '@zmdb/query-compiler';
+import { dialectTraits, type CompiledQuery, type DialectTarget } from '@zmdb/query-compiler';
 
 import type { ExecuteOptions } from '../index.js';
 
@@ -9,7 +9,7 @@ export type TransactionState = 'active' | 'closed' | 'committed' | 'rolled_back'
 
 export interface TransactionContext<State extends string = 'active'> {
   readonly _state?: State | undefined;
-  readonly dialect?: Dialect;
+  readonly dialect?: DialectTarget;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
   savepoint<R>(fn: (tx: TransactionContext<State>) => Promise<R>): Promise<R>;
@@ -37,7 +37,7 @@ export function markTransactionClosed<State extends string = 'active'>(
 }
 
 export interface TxConnection {
-  readonly dialect?: Dialect;
+  readonly dialect?: DialectTarget;
   raw(sql: string): Promise<void>;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
@@ -91,14 +91,14 @@ function errorCode(error: unknown): string | undefined {
 }
 
 function canRetry(
-  dialect: Dialect | undefined,
+  retryableCodes: readonly string[] | undefined,
   error: unknown,
   retries: number,
   policy: Required<TransactionRetryPolicy> | undefined,
 ): policy is Required<TransactionRetryPolicy> {
-  if (dialect === undefined || policy === undefined || retries >= policy.maxRetries) return false;
+  if (retryableCodes === undefined || policy === undefined || retries >= policy.maxRetries) return false;
   const code = errorCode(error);
-  return code !== undefined && TRAITS[dialect].retryableCodes.includes(code);
+  return code !== undefined && retryableCodes.includes(code);
 }
 
 function backoff(policy: Required<TransactionRetryPolicy>, retry: number): number {
@@ -197,6 +197,7 @@ function trackedTransactionStream(
 
 export function createTransactionalDb(conn: TxConnection): TransactionalDb {
   let savepointSeq = 0;
+  const retryableCodes = conn.dialect === undefined ? undefined : dialectTraits(conn.dialect).retryableCodes;
 
   const makeContext = <State extends string = 'active'>(): {
     readonly context: TransactionContext<State>;
@@ -290,7 +291,7 @@ export function createTransactionalDb(conn: TxConnection): TransactionalDb {
             failure = closeError;
           }
           await conn.raw('ROLLBACK');
-          if (!canRetry(conn.dialect, failure, retries, policy)) throw failure;
+          if (!canRetry(retryableCodes, failure, retries, policy)) throw failure;
           retries++;
           await wait(backoff(policy, retries));
         }

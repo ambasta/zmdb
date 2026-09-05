@@ -1,5 +1,5 @@
 import { TRAITS } from '../dialects/index.js';
-import { createQueryCompiler, type CompiledQuery, type Dialect } from '../index.js';
+import { createQueryCompiler, type CompiledQuery, type Dialect, type DialectTarget } from '../index.js';
 import type { Migration } from '../migrations/runner.js';
 import { quoteIdentifier } from '../quoting.js';
 import { createIndexDdl } from '../schema-objects/index.js';
@@ -88,7 +88,7 @@ export function outboxMigration(version: number, dialect: Dialect): Migration {
 }
 
 export function outboxCandidatesQuery(
-  dialect: Dialect,
+  dialect: DialectTarget,
   args: { readonly now: Date; readonly batch: number },
 ): CompiledQuery {
   return createQueryCompiler(dialect)
@@ -102,7 +102,7 @@ export function outboxCandidatesQuery(
 }
 
 export function outboxClaimQuery(
-  dialect: Dialect,
+  dialect: DialectTarget,
   args: {
     readonly now: Date;
     readonly token: string;
@@ -119,7 +119,7 @@ export function outboxClaimQuery(
     .compile();
 }
 
-export function outboxReadBackQuery(dialect: Dialect, args: { readonly token: string }): CompiledQuery {
+export function outboxReadBackQuery(dialect: DialectTarget, args: { readonly token: string }): CompiledQuery {
   return createQueryCompiler(dialect)
     .selectFrom(OUTBOX_TABLE)
     .select(['id', 'topic', 'payload', 'attempts'])
@@ -128,7 +128,7 @@ export function outboxReadBackQuery(dialect: Dialect, args: { readonly token: st
 }
 
 export function outboxMarkDeliveredQuery(
-  dialect: Dialect,
+  dialect: DialectTarget,
   args: {
     readonly id: string;
     readonly token: string;
@@ -145,7 +145,7 @@ export function outboxMarkDeliveredQuery(
 }
 
 export function outboxMarkRetryQuery(
-  dialect: Dialect,
+  dialect: DialectTarget,
   args: {
     readonly id: string;
     readonly token: string;
@@ -163,7 +163,7 @@ export function outboxMarkRetryQuery(
 }
 
 export function outboxMarkDeadQuery(
-  dialect: Dialect,
+  dialect: DialectTarget,
   args: {
     readonly id: string;
     readonly token: string;

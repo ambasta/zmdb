@@ -33,12 +33,15 @@ export interface IntrospectionDriver {
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
 
-export interface Introspector {
-  readonly dialect: Dialect;
+export interface Introspector<Name extends string = string> {
+  readonly name: Name;
+  /** Temporary compatibility alias used by the six-name factory. */
+  readonly dialect?: Name;
   snapshot(driver: IntrospectionDriver, opts?: IntrospectOptions): Promise<CatalogSchemaSnapshot>;
+  normalizeForDrift(snapshot: CatalogSchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot;
 }
 
-export declare function createIntrospector(dialect: Dialect): Introspector;
+export declare function createIntrospector(dialect: Dialect): Introspector<Dialect>;
 
 export interface IntrospectOptions {
   readonly schemas?: readonly string[]; // default: the dialect's default schema
@@ -78,9 +81,9 @@ export declare function detectDrift(live: SchemaSnapshot, declared: SchemaSnapsh
 epics. At this base those migration implementations have not landed, so the richer exported type is the explicit bridge rather than making this reader slice implement their diff and DDL work.
 
 `IntrospectionDriver` is the structural slice of the driver the repository already injects: `execute(query: CompiledQuery)`. It is declared here because `@zmdb/query-compiler` sits below
-`@zmdb/repository` and cannot import its `Driver` without reversing the package graph. `createIntrospector` is the one dialect dispatch; there is no second per-reader construction API. Catalog queries
-are ordinary `CompiledQuery` values with parameters, never concatenated strings: the schema list and the globs are caller input, and this is a module whose entire job is to send SQL naming things the
-caller chose.
+`@zmdb/repository` and cannot import its `Driver` without reversing the package graph. An injected `SqlDialect` carries its introspector directly. `createIntrospector` remains the temporary six-name
+adapter for built-in callers; external object consumers do not register with or pass through it. Catalog queries are ordinary `CompiledQuery` values with parameters, never concatenated strings: the
+schema list and the globs are caller input, and this is a module whose entire job is to send SQL naming things the caller chose.
 
 The package DAG keeps `@zmdb/query-compiler` below `@zmdb/schema-core` and alongside `@zmdb/aot-validator`. Catalog rows are therefore validated here by explicit field validators rather than asserted
 or imported through a forbidden upward or sibling edge. Declaration formatting is the one runtime dependency in this package: `oxfmt`, invoked on generated source so checked-in output follows the
@@ -352,7 +355,8 @@ resolved config (#492). Neither side keeps a private copy of the catalog SQL.
 
 ## 11. Database-package boundary (issue #666)
 
-This section supersedes the central `createIntrospector(dialect: Dialect)` dispatch for the epic #665 target. The current dispatch remains shipped behavior until the implementation children land.
+This section supersedes the central `createIntrospector(dialect: Dialect)` dispatch for the epic #665 target. Issue #668 implements direct object consumption through `dialect.introspector`; the
+central dispatch remains only as six-name compatibility until the database readers move.
 
 ### 11.1 Vendor-neutral protocol
 
@@ -377,11 +381,12 @@ export interface Introspector<Name extends string = string> {
 }
 ```
 
-The selected `SqlDialect<Name>` carries one `Introspector<Name>`. Callers use `dialect.introspector.snapshot(...)`; there is no factory, registry, string switch, dynamic package lookup or
-import-side-effect registration. `normalizeForDrift` owns catalog noise that only one database can identify. `detectDrift` remains generic and compares the two normalized snapshots.
+The selected `SqlDialect<Name>` carries one `Introspector<Name>`. Object callers use `dialect.introspector.snapshot(...)`; that path has no factory, registry, string switch, dynamic package lookup or
+import-side-effect registration. `normalizeForDrift` owns catalog noise that only one database can identify. `detectDrift` remains generic and compares the two normalized snapshots. The temporary
+factory still switches among the built-in readers for string callers.
 
-`emitDeclarations` receives the selected `SqlDialect` rather than a string. It uses `dialect.name` only in generated provenance and consumes already-normalized catalog facts; it does not dispatch
-catalog parsing or reverse type maps.
+At extraction completion, `emitDeclarations` receives the selected `SqlDialect` rather than a string. Issue #668 leaves its built-in string option intact because config and CLI selection have not
+moved yet. The final object path uses `dialect.name` only in generated provenance and consumes already-normalized catalog facts; it does not dispatch catalog parsing or reverse type maps.
 
 ### 11.2 One owner for every current catalog path
 

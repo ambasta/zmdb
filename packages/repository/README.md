@@ -3,6 +3,9 @@
 `@zmdb/repository` provides typed CRUD over a zmdb schema. It includes transactions, relation loading, read replicas, result caching, streaming, seeding, lifecycle hooks, and a transactional outbox.
 Rows stay plain objects; there are no proxies or identity map.
 
+When a driver declares its dialect, repositories derive compilation, parameter limits, retry codes, and returning behavior from that same injected object. Temporary built-in string dialects remain
+accepted while the database packages are extracted.
+
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
 ## Install

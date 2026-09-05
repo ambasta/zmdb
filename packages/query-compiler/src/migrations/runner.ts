@@ -4,12 +4,17 @@
 
 import {
   createQueryCompiler,
+  dialectCapabilities,
+  dialectFamily,
+  dialectName,
+  isSqlDialect,
   formatPlaceholder,
   quoteIdentifier,
   quoteTable,
-  TRAITS,
   type CompiledQuery,
-  type Dialect,
+  type DialectTarget,
+  type MigrationDriver as DialectMigrationDriver,
+  type SqlDialect,
 } from '../index.js';
 
 export interface Migration {
@@ -28,7 +33,7 @@ export interface AppliedMigration {
 
 // Minimal async-compatible connection the runner needs.
 export interface MigrationConnection {
-  readonly dialect?: Dialect;
+  readonly dialect?: string | SqlDialect;
   /** False when DDL commits independently of BEGIN/ROLLBACK, as it does on MySQL. */
   readonly transactionalDdl?: boolean;
   exec(sql: string): Promise<void> | void;
@@ -43,7 +48,7 @@ export interface MigrationConnection {
 
 // Interface matching any runtime database driver (e.g. from @zmdb/repository).
 export interface MigrationDriver {
-  readonly dialect?: Dialect;
+  readonly dialect?: DialectTarget;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
   transaction?<T>(run: (driver: MigrationDriver) => Promise<T>): Promise<T>;
 }
@@ -70,9 +75,28 @@ const DEFAULT_VERSION_TABLE = `CREATE TABLE IF NOT EXISTS _zmdb_migrations (
   checksum TEXT
 )`;
 
-function nonTransactionalDdlWarning(dialect: Dialect | undefined): string {
-  const database = dialect ?? 'the configured database';
+function nonTransactionalDdlWarning(dialect: string | SqlDialect | undefined): string {
+  const database =
+    dialect === undefined ? 'the configured database' : typeof dialect === 'string' ? dialect : dialectName(dialect);
   return `${database} does not support transactional DDL; a failed migration may leave its schema changes partially applied even though its ledger row is absent`;
+}
+
+function dialectMigrationDriver<Name extends string>(
+  dialect: SqlDialect<Name>,
+  driver: MigrationDriver,
+): DialectMigrationDriver<Name> {
+  const transaction = driver.transaction;
+  return {
+    dialect,
+    execute: query => driver.execute(query),
+    ...(transaction === undefined
+      ? {}
+      : {
+          transaction: <Result>(
+            run: (transactionDriver: DialectMigrationDriver<Name>) => Promise<Result>,
+          ): Promise<Result> => transaction(nested => run(dialectMigrationDriver(dialect, nested))),
+        }),
+  };
 }
 
 /**
@@ -81,11 +105,15 @@ function nonTransactionalDdlWarning(dialect: Dialect | undefined): string {
  */
 export function driverMigrationConnection(
   driver: MigrationDriver,
-  dialect: Dialect = driver.dialect ?? 'postgres',
+  dialect: DialectTarget = driver.dialect ?? 'postgres',
   options: MigrationTableOptions = {},
 ): MigrationConnection {
+  if (isSqlDialect(dialect)) {
+    return dialect.migrations.connection(dialectMigrationDriver(dialect, driver), options);
+  }
   const qb = createQueryCompiler(dialect);
-  const traits = TRAITS[dialect];
+  const capabilities = dialectCapabilities(dialect);
+  const selectedName = dialectName(dialect);
   const tableName = options.table ?? '_zmdb_migrations';
   const qualifiedTableName = options.schema === undefined ? tableName : `${options.schema}.${tableName}`;
   const table = quoteTable(dialect, qualifiedTableName);
@@ -102,11 +130,11 @@ export function driverMigrationConnection(
     const rows = await execute(`SELECT version, name, checksum FROM ${table} ORDER BY version`);
     return rows.map((row, index) => {
       const version = row.version;
-      const name = row.name;
+      const migrationName = row.name;
       const checksum = row.checksum;
       if (
         (typeof version !== 'number' && typeof version !== 'bigint' && typeof version !== 'string') ||
-        typeof name !== 'string' ||
+        typeof migrationName !== 'string' ||
         (checksum !== null && typeof checksum !== 'string')
       ) {
         throw new TypeError(`migration ledger row ${String(index)} has an invalid version, name or checksum`);
@@ -115,26 +143,26 @@ export function driverMigrationConnection(
       if (!Number.isSafeInteger(numericVersion)) {
         throw new TypeError(`migration ledger row ${String(index)} version is not a safe integer`);
       }
-      return { version: numericVersion, name, checksum };
+      return { version: numericVersion, name: migrationName, checksum };
     });
   }
 
   async function transaction<T>(run: (connection?: MigrationConnection) => Promise<T>): Promise<T> {
-    if (!traits.features.transactionalDdl) return run();
+    if (!capabilities.transactionalDdl) return run();
     if (driver.transaction !== undefined) {
       return driver.transaction(transactionDriver =>
         run(driverMigrationConnection(transactionDriver, dialect, options)),
       );
     }
     throw new Error(
-      `${dialect} migrations require a transactional driver; ` +
+      `${selectedName} migrations require a transactional driver; ` +
         'the driver must pin every callback query to one database transaction',
     );
   }
 
   return {
     dialect,
-    transactionalDdl: traits.features.transactionalDdl,
+    transactionalDdl: capabilities.transactionalDdl,
     async exec(sql: string): Promise<void> {
       await execute(sql);
     },
@@ -142,11 +170,11 @@ export function driverMigrationConnection(
       return (await appliedMigrations()).map(row => row.version);
     },
     appliedMigrations,
-    async recordApplied(version: number, name: string, checksum?: string): Promise<void> {
+    async recordApplied(version: number, migrationName: string, checksum?: string): Promise<void> {
       await execute(
         `INSERT INTO ${table} (version, name, applied_at, checksum) VALUES (` +
           `${placeholder(1)}, ${placeholder(2)}, ${placeholder(3)}, ${placeholder(4)})`,
-        [version, name, Date.now(), checksum ?? null],
+        [version, migrationName, Date.now(), checksum ?? null],
       );
     },
     async recordReverted(version: number): Promise<void> {
@@ -154,7 +182,7 @@ export function driverMigrationConnection(
       await driver.execute(query.compile());
     },
     async ensureVersionTable(): Promise<void> {
-      if (dialect === 'mssql') {
+      if (selectedName === 'mssql') {
         const objectName = qualifiedTableName.replaceAll("'", "''");
         await execute(
           `IF OBJECT_ID(N'${objectName}', N'U') IS NULL ` +
@@ -171,15 +199,15 @@ export function driverMigrationConnection(
         }
         return;
       }
-      const versionType = dialect === 'sqlite' ? 'INTEGER' : 'BIGINT';
+      const versionType = selectedName === 'sqlite' ? 'INTEGER' : 'BIGINT';
       await execute(
         `CREATE TABLE IF NOT EXISTS ${table} (` +
           `version ${versionType} PRIMARY KEY, ` +
           'name TEXT NOT NULL, applied_at BIGINT NOT NULL, checksum TEXT)',
       );
-      if (traits.family === 'postgres') {
+      if (dialectFamily(dialect) === 'postgres') {
         await execute(`ALTER TABLE ${table} ALTER COLUMN version TYPE BIGINT`);
-      } else if (traits.family === 'mysql') {
+      } else if (dialectFamily(dialect) === 'mysql') {
         await execute(`ALTER TABLE ${table} MODIFY COLUMN version BIGINT NOT NULL`);
       }
       try {

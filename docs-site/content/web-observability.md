@@ -116,12 +116,12 @@ disabled.
 
 | workload | configuration      | median ns/op | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       333.10 |        baseline |                 0 |         1.090x |
-| request  | API no-op          |      1377.90 |         +313.7% |                 0 |         1.044x |
-| request  | recording exporter |      7181.08 |        +2055.9% |                 3 |         1.178x |
-| query    | off                |        75.56 |        baseline |                 0 |         1.099x |
-| query    | API no-op          |       314.93 |         +316.8% |                 0 |         1.668x |
-| query    | recording exporter |      2749.11 |        +3538.5% |                 1 |         1.393x |
+| request  | off                |       354.67 |        baseline |                 0 |         1.052x |
+| request  | API no-op          |      1305.48 |         +268.1% |                 0 |         1.080x |
+| request  | recording exporter |      6834.88 |        +1827.1% |                 3 |         1.022x |
+| query    | off                |        76.97 |        baseline |                 0 |         1.115x |
+| query    | API no-op          |       311.29 |         +304.4% |                 0 |         1.118x |
+| query    | recording exporter |      2591.42 |        +3266.7% |                 1 |         1.090x |
 
 The request workload is one matched `GET`; the query workload is one compiled `SELECT` through `tracedDriver`. These are nanosecond-scale framework microbenchmarks, not end-to-end service latency. The
 raw 36 samples, runtime provenance, input hashes and median operations per second are published in `benchmarks/site/observability.json` and summarised on

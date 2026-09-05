@@ -83,14 +83,14 @@ establishes the handler → query edge.
 
 The database-span table is likewise the complete emitted set:
 
-| attribute                 | when present                               | value                                            |
-| ------------------------- | ------------------------------------------ | ------------------------------------------------ |
-| `db.system.name`          | compile-time query telemetry is available  | `postgresql`, `mysql`, `sqlite` or `mssql`       |
-| `db.operation.name`       | compile-time query telemetry is available  | `SELECT`, `INSERT`, `UPDATE` or `DELETE`         |
-| `db.collection.name`      | compile-time query telemetry is available  | primary table                                    |
-| `db.query.text`           | every traced execution                     | placeholder-only SQL before any sqlcommenter tag |
-| `db.response.status_code` | a failed driver call exposes an error code | dialect error code                               |
-| `zmdb.db.parameter_count` | every traced execution                     | `CompiledQuery.parameters.length`                |
+| attribute                 | when present                               | value                                                            |
+| ------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
+| `db.system.name`          | compile-time query telemetry is available  | resolved family; built-in Postgres is normalized to `postgresql` |
+| `db.operation.name`       | compile-time query telemetry is available  | `SELECT`, `INSERT`, `UPDATE` or `DELETE`                         |
+| `db.collection.name`      | compile-time query telemetry is available  | primary table                                                    |
+| `db.query.text`           | every traced execution                     | placeholder-only SQL before any sqlcommenter tag                 |
+| `db.response.status_code` | a failed driver call exposes an error code | dialect error code                                               |
+| `zmdb.db.parameter_count` | every traced execution                     | `CompiledQuery.parameters.length`                                |
 
 > [!WARNING] `db.query.text` is safe because zmdb's compiled SQL contains **placeholders**, not values — that is the point of `CompiledQuery`. Never record the parameters. Traces are retained, widely
 > readable inside an organisation, and parameters are user data: emails, tokens, personal detail. Record the _count_, as above.

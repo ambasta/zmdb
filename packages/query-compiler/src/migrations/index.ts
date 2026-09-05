@@ -1,105 +1,64 @@
 // Migrations (#41–#44): snapshot a set of schemas, diff two snapshots into
 // change ops, and emit up/down DDL per dialect. Deterministic throughout —
 // tables and columns are sorted by name so a snapshot is byte-stable.
-export * from './runner.js';
-import { TRAITS, type Dialect, type DialectSqlType, type DialectTypeMap } from '../dialects/index.js';
+export { down, downTo, driverMigrationConnection, ensureVersionTable, runCli, status, up } from './runner.js';
+export type { Migration, MigrationRunOptions, MigrationStatus } from './runner.js';
+import {
+  TRAITS,
+  type Dialect,
+  type DialectSqlType,
+  type DialectTypeMap,
+  type MigrationDialect,
+  type SchemaObjectOperation,
+} from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 import { quoteIdentifier } from '../quoting.js';
 import { createExtensionDdl } from '../schema-objects/extensions.js';
+import type {
+  ChangeOp,
+  ColumnSnapshot,
+  ExtensionSnapshot,
+  ExtensionType,
+  ForeignKeySnapshot,
+  ReferentialAction,
+  SchemaSnapshot,
+  TableOptions,
+  TableSnapshot,
+} from './types.js';
 
-export interface ExtensionType {
-  readonly extension: string;
-  readonly name: string;
-  readonly args?: readonly (string | number)[];
+export type {
+  ChangeOp,
+  ColumnSnapshot,
+  ExtensionSnapshot,
+  ExtensionType,
+  ForeignKeySnapshot,
+  ReferentialAction,
+  SchemaSnapshot,
+  TableOptions,
+  TableSnapshot,
+} from './types.js';
+export type {
+  MigrationConnection,
+  MigrationDialect,
+  MigrationDriver,
+  MigrationPlan,
+  MigrationTableOptions,
+  SchemaObjectOperation,
+} from '../dialects/index.js';
+
+function isMigrationDialect(value: unknown): value is MigrationDialect {
+  if (value === null || typeof value !== 'object') return false;
+  return (
+    typeof Reflect.get(value, 'name') === 'string' &&
+    typeof Reflect.get(value, 'ddlType') === 'function' &&
+    typeof Reflect.get(value, 'emitUp') === 'function' &&
+    typeof Reflect.get(value, 'emitDown') === 'function'
+  );
 }
 
-export interface ColumnSnapshot {
-  readonly name: string;
-  /**
-   * The **abstract** column type — `'timestamp'`, not `'TIMESTAMPTZ'`.
-   *
-   * A snapshot is a record of what the schema says, so it must not name a dialect: the
-   * same snapshot is diffed and then emitted for Postgres, MySQL and SQLite. `ddlType`
-   * below is where it becomes a real one.
-   */
-  readonly type: string | ExtensionType;
-  readonly nullable: boolean;
-  readonly primaryKey: boolean;
-  /** `varchar(255)` → `255`. MySQL rejects a `VARCHAR` with no length. */
-  readonly length?: number | undefined;
-  /** Carried so dialect-specific DDL can validate or emit the declaration. */
-  readonly unique?: boolean;
+export function emitSchemaObject(migrations: MigrationDialect, operation: SchemaObjectOperation): readonly string[] {
+  return migrations.emitSchemaObject(operation);
 }
-
-export interface TableOptions {
-  readonly shardKey?: readonly string[];
-  readonly sortKey?: readonly string[];
-  readonly rowstore?: true;
-}
-
-export type ReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
-
-export interface ForeignKeySnapshot {
-  readonly name: string;
-  readonly columns: readonly string[];
-  readonly targetTable: string;
-  readonly targetColumns: readonly string[];
-  readonly onDelete: ReferentialAction;
-  readonly onUpdate: ReferentialAction;
-}
-
-export interface TableSnapshot {
-  readonly name: string;
-  readonly columns: readonly ColumnSnapshot[];
-  /** Ordered by declaration, independently of the deterministically sorted columns. */
-  readonly primaryKey: readonly string[];
-  readonly foreignKeys: readonly ForeignKeySnapshot[];
-  readonly tableOptions?: TableOptions;
-}
-
-export interface SchemaSnapshot {
-  readonly version: 1;
-  readonly tables: readonly TableSnapshot[];
-  readonly extensions: readonly ExtensionSnapshot[];
-}
-
-export interface ExtensionSnapshot {
-  readonly name: string;
-  readonly schema?: string;
-}
-
-export type ChangeOp =
-  | { readonly kind: 'create_extension'; readonly name: string; readonly schema?: string }
-  | {
-      readonly kind: 'create_table';
-      readonly table: string;
-      readonly columns: readonly ColumnSnapshot[];
-      readonly primaryKey: readonly string[];
-      readonly foreignKeys: readonly ForeignKeySnapshot[];
-      readonly tableOptions?: TableOptions;
-    }
-  | { readonly kind: 'drop_table'; readonly table: string }
-  | { readonly kind: 'add_column'; readonly table: string; readonly column: ColumnSnapshot }
-  | { readonly kind: 'drop_column'; readonly table: string; readonly column: string }
-  | {
-      readonly kind: 'alter_column_type';
-      readonly table: string;
-      readonly column: string;
-      readonly from: string | ExtensionType;
-      readonly to: string | ExtensionType;
-      /** Required by dialects whose ALTER COLUMN restates nullability. */
-      readonly fromNullable?: boolean;
-      /** Required by dialects whose ALTER COLUMN restates nullability. */
-      readonly toNullable?: boolean;
-    }
-  | {
-      readonly kind: 'alter_primary_key';
-      readonly table: string;
-      readonly from: readonly string[];
-      readonly to: readonly string[];
-    }
-  | { readonly kind: 'add_foreign_key'; readonly table: string; readonly fk: ForeignKeySnapshot }
-  | { readonly kind: 'drop_foreign_key'; readonly table: string; readonly name: string };
 
 /**
  * The slice of a schema a snapshot reads.
@@ -611,9 +570,20 @@ function unsupportedExtensionType(
  * Exported because a migration written by hand is still a migration, and the answer to
  * "what does this dialect call a `timestamp`" should have exactly one implementation.
  */
+export function ddlType(migrations: MigrationDialect, column: ColumnSnapshot): string;
 export function ddlType(dialect: Dialect, type: string): string;
 export function ddlType(dialect: Dialect, column: ColumnSnapshot): string;
-export function ddlType(dialect: Dialect, typeOrColumn: string | ColumnSnapshot): string {
+export function ddlType(
+  dialectOrMigrations: Dialect | MigrationDialect,
+  typeOrColumn: string | ColumnSnapshot,
+): string {
+  if (isMigrationDialect(dialectOrMigrations)) {
+    if (typeof typeOrColumn === 'string') {
+      throw new TypeError('an injected migration dialect requires a complete ColumnSnapshot');
+    }
+    return dialectOrMigrations.ddlType(typeOrColumn);
+  }
+  const dialect = dialectOrMigrations;
   const isColumn = typeof typeOrColumn !== 'string';
   const column = isColumn ? typeOrColumn : undefined;
   const type = isColumn ? typeOrColumn.type : typeOrColumn === 'serial' ? 'integer' : typeOrColumn;
@@ -909,7 +879,23 @@ function mssqlAlterNullability(
   return nullable ? ' NULL' : ' NOT NULL';
 }
 
-export function emitUp(op: ChangeOp, dialect: Dialect): string {
+export function emitUp(migrations: MigrationDialect, operation: ChangeOp): string;
+export function emitUp(operation: ChangeOp, dialect: Dialect): string;
+export function emitUp(
+  operationOrMigrations: ChangeOp | MigrationDialect,
+  dialectOrOperation: Dialect | ChangeOp,
+): string {
+  if (isMigrationDialect(operationOrMigrations)) {
+    if (typeof dialectOrOperation === 'string') {
+      throw new TypeError('an injected migration dialect requires a ChangeOp');
+    }
+    return operationOrMigrations.emitUp(dialectOrOperation);
+  }
+  if (typeof dialectOrOperation !== 'string') {
+    throw new TypeError('legacy migration emission requires a dialect name');
+  }
+  const op = operationOrMigrations;
+  const dialect = dialectOrOperation;
   switch (op.kind) {
     case 'create_extension':
       return createExtensionDdl(op, dialect);
@@ -944,7 +930,23 @@ export function emitUp(op: ChangeOp, dialect: Dialect): string {
   }
 }
 
-export function emitDown(op: ChangeOp, dialect: Dialect): string {
+export function emitDown(migrations: MigrationDialect, operation: ChangeOp): string;
+export function emitDown(operation: ChangeOp, dialect: Dialect): string;
+export function emitDown(
+  operationOrMigrations: ChangeOp | MigrationDialect,
+  dialectOrOperation: Dialect | ChangeOp,
+): string {
+  if (isMigrationDialect(operationOrMigrations)) {
+    if (typeof dialectOrOperation === 'string') {
+      throw new TypeError('an injected migration dialect requires a ChangeOp');
+    }
+    return operationOrMigrations.emitDown(dialectOrOperation);
+  }
+  if (typeof dialectOrOperation !== 'string') {
+    throw new TypeError('legacy migration emission requires a dialect name');
+  }
+  const op = operationOrMigrations;
+  const dialect = dialectOrOperation;
   switch (op.kind) {
     case 'create_extension':
       throw new Error(

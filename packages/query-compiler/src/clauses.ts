@@ -10,7 +10,7 @@
 //
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
-import { TRAITS } from './dialects/index.js';
+import { dialectFamily, dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
 import { UnsupportedFeatureError } from './errors.js';
 import {
   DISTANCE_OPERATORS,
@@ -19,7 +19,7 @@ import {
   renderSpatialPredicate,
   type SpatialPredicateNode,
 } from './extensions/index.js';
-import type { CompiledQuery, Dialect, QueryTelemetry } from './index.js';
+import type { CompiledQuery, QueryTelemetry } from './index.js';
 import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders, unaliasedTable } from './quoting.js';
 
 export type JoinKind = 'inner' | 'left' | 'right';
@@ -110,9 +110,10 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
  */
 const UNMAPPED_OPERATOR_TOKEN = /^(?!.*--)[A-Za-z@<>=!~*&|?-]{1,4}$/;
 
-function isUnmappedOperatorToken(op: string, dialect: Dialect): boolean {
-  const traits = TRAITS[dialect];
-  if (op === '#>' || op === '#>>') return traits.family === 'postgres';
+function isUnmappedOperatorToken(op: string, dialect: DialectTarget): boolean {
+  const traits = dialectTraits(dialect);
+  if (typeof dialect !== 'string') return traits.acceptsOperator(op);
+  if (op === '#>' || op === '#>>') return dialectFamily(dialect) === 'postgres';
   if (!UNMAPPED_OPERATOR_TOKEN.test(op)) return false;
   if (traits.placeholder === 'positional' && op.includes('?')) return false;
   if (traits.placeholder === 'named' && op.includes('@')) return false;
@@ -140,10 +141,10 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
  * Normalizes known operators to canonical SQL keywords and admits an unmapped
  * operator only when it is one bounded SQL token.
  */
-export function sqlOperator(op: string, dialect: Dialect = 'postgres'): string {
+export function sqlOperator(op: string, dialect: DialectTarget = 'postgres'): string {
   const normalized = op.toLowerCase().trim();
-  if (isDistanceOp(normalized) && dialect !== 'postgres') {
-    throw new UnsupportedFeatureError(normalized, dialect);
+  if (isDistanceOp(normalized) && !dialectTraits(dialect).vectorDistance) {
+    throw new UnsupportedFeatureError(normalized, dialectName(dialect));
   }
   // A plain index read, and no own-property guard: `OP_MAP` has a null prototype, so
   // `OP_MAP['constructor']` is already `undefined` rather than a function off
@@ -152,8 +153,9 @@ export function sqlOperator(op: string, dialect: Dialect = 'postgres'): string {
   const mapped = OP_MAP[normalized];
   if (mapped !== undefined) return mapped;
   if (!isUnmappedOperatorToken(op, dialect)) {
+    const name = dialectName(dialect);
     throw new TypeError(
-      `invalid unmapped SQL operator ${JSON.stringify(op)} for dialect ${JSON.stringify(dialect)}; expected ` +
+      `invalid unmapped SQL operator ${JSON.stringify(op)} for dialect ${JSON.stringify(name)}; expected ` +
         'one non-comment operator token that does not conflict with the dialect placeholder syntax',
     );
   }
@@ -161,7 +163,7 @@ export function sqlOperator(op: string, dialect: Dialect = 'postgres'): string {
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
-export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[]): string {
+export function renderPredicate(dialect: DialectTarget, p: Predicate, params: unknown[]): string {
   if (p.kind === 'group') {
     if (p.predicates.length === 0) throw new TypeError('predicate groups must not be empty');
     return `(${predicateList(dialect, p.predicates, params)})`;
@@ -217,7 +219,7 @@ export function renderPredicate(dialect: Dialect, p: Predicate, params: unknown[
   return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
 }
 
-function predicateList(dialect: Dialect, preds: readonly Predicate[], params: unknown[]): string {
+function predicateList(dialect: DialectTarget, preds: readonly Predicate[], params: unknown[]): string {
   return preds
     .map((p, i) => {
       const cond = renderPredicate(dialect, p, params);
@@ -227,19 +229,19 @@ function predicateList(dialect: Dialect, preds: readonly Predicate[], params: un
 }
 
 /** ` WHERE …`, appending each predicate's parameters to `params` in order. */
-export function whereClause(dialect: Dialect, preds: readonly Predicate[], params: unknown[]): string {
+export function whereClause(dialect: DialectTarget, preds: readonly Predicate[], params: unknown[]): string {
   if (preds.length === 0) return '';
   return ` WHERE ${predicateList(dialect, preds, params)}`;
 }
 
 /** ` HAVING …` — same rendering as WHERE, which is why they share a code path. */
-export function havingClause(dialect: Dialect, preds: readonly Predicate[], params: unknown[]): string {
+export function havingClause(dialect: DialectTarget, preds: readonly Predicate[], params: unknown[]): string {
   if (preds.length === 0) return '';
   return ` HAVING ${predicateList(dialect, preds, params)}`;
 }
 
 /** ` INNER JOIN … ON … = … [AND … = …] [AND …]` for each join, in order. */
-export function joinClauses(dialect: Dialect, joins: readonly JoinSpec[], params: unknown[] = []): string {
+export function joinClauses(dialect: DialectTarget, joins: readonly JoinSpec[], params: unknown[] = []): string {
   return joins
     .map(j => {
       const conditions = j.conditions
@@ -268,7 +270,7 @@ export function joinClauses(dialect: Dialect, joins: readonly JoinSpec[], params
  * parameterized because they are numbers this package produced, never caller
  * strings — the builders' `limit`/`offset` take `number`.
  */
-export function tailClause(dialect: Dialect, tail: Tail): string {
+export function tailClause(dialect: DialectTarget, tail: Tail): string {
   let text = '';
   const rendersOrderBy = tail.orderBys !== undefined && tail.orderBys.length > 0;
   const ordered = tail.ordered ?? rendersOrderBy;
@@ -276,7 +278,7 @@ export function tailClause(dialect: Dialect, tail: Tail): string {
     const ob = tail.orderBys.map(o => `${quoteColumn(dialect, o.col)} ${o.dir.toUpperCase()}`).join(', ');
     text += ` ORDER BY ${ob}`;
   }
-  text += TRAITS[dialect].paginate({
+  text += dialectTraits(dialect).paginate({
     ...(tail.limitN === undefined ? {} : { limit: tail.limitN }),
     ...(tail.offsetN === undefined ? {} : { offset: tail.offsetN }),
     ordered,
@@ -292,13 +294,13 @@ export function frozenQuery(text: string, params: readonly unknown[], telemetry?
 
 /** Compile-known database attributes, absent when telemetry was not requested. */
 export function queryTelemetry(
-  dialect: Dialect,
+  dialect: DialectTarget,
   operation: QueryTelemetry['operation'],
   collection: string,
   enabled: boolean,
 ): QueryTelemetry | undefined {
   if (!enabled) return undefined;
-  const family = TRAITS[dialect].family;
+  const family = dialectFamily(dialect);
   return Object.freeze({
     system: family === 'postgres' ? 'postgresql' : family,
     operation,

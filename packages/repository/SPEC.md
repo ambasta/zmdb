@@ -13,8 +13,8 @@ every `@zmdb/repository/*` import are deleted rather than forwarded.
 ## 1. Driver interface (injected)
 
 ```ts
-interface Driver {
-  readonly dialect?: Dialect;
+interface Driver<Name extends string = string> {
+  readonly dialect?: SqlDialect<Name> | Dialect;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
@@ -22,8 +22,9 @@ interface Driver {
 
 The repository never opens connections itself; a `Driver` is injected. Results are plain objects — **no proxies, no identity map**.
 
-`dialect` lets an adapter declare what it wraps, so a repository constructed without an explicit dialect can take the driver's. `opts` and `stream` are §1a. This is the one interface third parties
-implement, so both additions are optional and neither breaks an existing implementation.
+`dialect` lets an adapter declare what it wraps, so a repository constructed without an explicit dialect takes the driver's value before the temporary Postgres default. A third-party driver can
+provide one frozen `SqlDialect<Name>`; built-in string names remain accepted during extraction. The repository gives that same object to the compiler and caches its limits, retry codes, capabilities
+and returning behavior once. `opts` and `stream` are §1a. This is the one interface third parties implement, so the additions remain optional and do not break an existing implementation.
 
 ## 1a. Streaming and cancellation (frozen — epic "Streaming reads and query cancellation")
 

@@ -1,4 +1,4 @@
-import { TRAITS, type Dialect } from './dialects/index.js';
+import { dialectTraits, type DialectTarget } from './dialects/index.js';
 
 /**
  * Safely quote a single SQL identifier (table name, column name, alias, etc.)
@@ -7,8 +7,8 @@ import { TRAITS, type Dialect } from './dialects/index.js';
  * PostgreSQL & SQLite: double quotes (`"`), escaping internal double quotes as `""`.
  * MySQL: backticks (`` ` ``), escaping internal backticks as ``` `` ```.
  */
-export function quoteIdentifier(dialect: Dialect, identifier: string): string {
-  const [open, close] = TRAITS[dialect].quote;
+export function quoteIdentifier(dialect: DialectTarget, identifier: string): string {
+  const [open, close] = dialectTraits(dialect).quote;
   const escaped = identifier.replaceAll(close, close + close);
   return `${open}${escaped}${close}`;
 }
@@ -17,7 +17,7 @@ export function quoteIdentifier(dialect: Dialect, identifier: string): string {
  * Safely quote a column reference that may be dot-qualified (e.g. `schema.table.column` or `table.*`).
  * Each identifier segment is quoted individually, while wildcard `*` segments remain unquoted.
  */
-export function quoteColumn(dialect: Dialect, col: string): string {
+export function quoteColumn(dialect: DialectTarget, col: string): string {
   return col
     .split('.')
     .map(segment => (segment === '*' ? '*' : quoteIdentifier(dialect, segment)))
@@ -69,7 +69,7 @@ export function unaliasedTable(tableSpec: string): string {
  * Uses manual scanning for `AS` boundaries to avoid polynomial regex backtracking (ReDoS)
  * on arbitrary table specification inputs.
  */
-export function quoteTable(dialect: Dialect, tableSpec: string): string {
+export function quoteTable(dialect: DialectTarget, tableSpec: string): string {
   const { table, alias } = splitTableSpec(tableSpec);
   const tablePart = quoteColumn(dialect, table);
   return alias === undefined ? tablePart : `${tablePart} AS ${quoteIdentifier(dialect, alias)}`;
@@ -80,8 +80,8 @@ export function quoteTable(dialect: Dialect, tableSpec: string): string {
  * - PostgreSQL uses numbered sequential indices (`$1`, `$2`, ...)
  * - MySQL and SQLite use positional tokens (`?`)
  */
-export function formatPlaceholder(dialect: Dialect, index: number): string {
-  switch (TRAITS[dialect].placeholder) {
+export function formatPlaceholder(dialect: DialectTarget, index: number): string {
+  switch (dialectTraits(dialect).placeholder) {
     case 'numbered':
       return `$${index}`;
     case 'positional':
@@ -99,8 +99,8 @@ export function formatPlaceholder(dialect: Dialect, index: number): string {
  * parameterized into placeholders. Does not parse raw SQL string literals or comments
  * where a generated placeholder pattern might appear as literal text.
  */
-export function renumberPlaceholders(text: string, offset: number, dialect: Dialect): string {
-  switch (TRAITS[dialect].placeholder) {
+export function renumberPlaceholders(text: string, offset: number, dialect: DialectTarget): string {
+  switch (dialectTraits(dialect).placeholder) {
     case 'numbered':
       return text.replace(/\$(\d+)/g, (_match, n: string) => `$${offset + Number(n)}`);
     case 'named':

@@ -18,9 +18,10 @@ zmdb is five packages with a strict dependency order. Nothing depends on anythin
 exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission,
 seeding, and LLM tool specs. It knows nothing about SQL text or about a database — and it does not import `typescript`, which is why reflection lives in `@zmdb/aot-validator` instead.
 
-**`@zmdb/query-compiler`** — turns builder calls into `{ text, parameters }` for a `Dialect` (`'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore'`). When constructed with
-`{ telemetry: true }`, it also attaches the compile-known database system, operation and collection for an execution wrapper to consume. Also owns joins, aggregations, full-text search, set
-operations, DDL for schema objects (indexes, views, sequences, generated columns, namespaces, RLS), and the migration snapshot/diff engine. It never opens a connection.
+**`@zmdb/query-compiler`** — turns builder calls into `{ text, parameters }` for an injected `SqlDialect` object or a temporary built-in `Dialect` name (`'postgres'`, `'mysql'`, `'sqlite'`, `'mssql'`,
+`'cockroach'`, `'singlestore'`). The object carries resolved traits, capabilities, migrations and introspection without registering globally. When constructed with `{ telemetry: true }`, the compiler
+also attaches the compile-known database system, operation and collection for an execution wrapper to consume. The package owns joins, aggregations, full-text search, set operations, DDL for schema
+objects, and the migration snapshot/diff engine. It never opens a connection.
 
 **`@zmdb/aot-validator`** — the TypeScript transformer plus the runtime helpers it emits calls to (`is`, `assert`, `validate`, `stringify`, `parse`, `random`). The transformer runs during your build
 and replaces a generic call with a specialised checker derived from the checker's view of `T`.
@@ -54,14 +55,15 @@ into it. Every query can still be asserted without a database, and the compiler 
 ### 2. The driver has one required method
 
 ```ts
-export interface Driver {
+export interface Driver<Name extends string = string> {
+  readonly dialect?: SqlDialect<Name> | Dialect;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 ```
 
 Everything database-specific lives on your side of that line — pooling, retries, TLS, serverless HTTP transports. That is why [connecting](./drivers.html) to Neon, D1, Turso or PlanetScale is a page
-of documentation rather than a package: they are all "implement `execute`".
+of documentation rather than a package: they are all "implement `execute`". A driver that supplies a dialect lets the repository derive compilation and capabilities from that same value.
 
 ## No runtime code generation
 

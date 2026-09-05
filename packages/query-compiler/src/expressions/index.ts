@@ -1,4 +1,4 @@
-import { TRAITS, type Dialect } from '../dialects/index.js';
+import { dialectTraits, type DialectTarget } from '../dialects/index.js';
 import { formatPlaceholder, quoteIdentifier } from '../quoting.js';
 
 /** Runtime brand for compiler-owned column expressions. */
@@ -72,7 +72,7 @@ interface EmittedExpr {
 }
 
 interface EmitColumnExprOptions {
-  readonly dialect: Dialect;
+  readonly dialect: DialectTarget;
   readonly table: string;
   readonly column: string;
   readonly parameterIndex: number;
@@ -84,7 +84,7 @@ interface EmitColumnExprOptions {
 /** Emit one expression and only the parameters contributed by that expression. */
 export function emitColumnExpr(expression: ColumnExpr<unknown>, options: EmitColumnExprOptions): EmittedExpr {
   const { dialect, table, column, parameterIndex, scope } = options;
-  const traits = TRAITS[dialect];
+  const traits = dialectTraits(dialect);
   const quotedColumn = options.currentReference ?? quoteIdentifier(dialect, column);
   const placeholder = formatPlaceholder(dialect, parameterIndex);
 

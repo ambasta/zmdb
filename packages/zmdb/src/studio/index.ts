@@ -1,4 +1,4 @@
-import { createQueryCompiler, type Dialect, type SelectBuilder } from '@zmdb/query-compiler';
+import { createQueryCompiler, type DialectTarget, type SelectBuilder } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import type { Driver } from '@zmdb/repository';
 import { isRecord, type CoreSchema } from '@zmdb/schema-core';
@@ -21,7 +21,7 @@ const PAGE_QUERY_KEYS = new Set(['page', 'pageSize', 'orderBy', 'direction']);
 export interface StudioInput {
   readonly schemas: readonly CoreSchema<string>[];
   readonly driver: Driver;
-  readonly dialect?: Dialect;
+  readonly dialect?: DialectTarget;
 }
 
 export interface StudioApp extends AsyncDisposable {
@@ -65,7 +65,7 @@ class StudioRequestError extends Error {
 
 class Studio {
   readonly #driver: Driver;
-  readonly #dialect: Dialect;
+  readonly #dialect: DialectTarget;
   readonly #tables: readonly StudioTable[];
   readonly #tablesByName: ReadonlyMap<string, StudioTable>;
 

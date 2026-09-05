@@ -182,22 +182,21 @@ export const attrsNested: Attributes = { 'http.request.header': { host: 'example
 // @ts-expect-error — and no arrays, which is the other thing a header value arrives as.
 export const attrsArray: Attributes = { 'http.request.header.host': ['a', 'b'] };
 
-// --- §5: `QueryTelemetry.system` is semconv's spelling, not `Dialect`'s ---------
+// --- §5: built-ins use semconv spelling; injected dialects keep the field open ---
 //
 // This is the one rename in the epic that a runtime test cannot catch by inspection,
-// because both strings are plausible: `Dialect` in `@zmdb/query-compiler` is
-// `'postgres' | 'mysql' | 'sqlite' | 'mssql'` and semconv's `db.system.name` value is `postgresql`.
-// The mapping is one `===` in #582 and the type is what makes forgetting it a build failure.
+// because both strings are plausible: built-in `postgres` maps to semconv's `postgresql`.
+// Runtime compiler tests pin that mapping. The type is open because a third-party
+// `SqlDialect` carries a family that the six-name union cannot enumerate.
 export const telemetryPg: QueryTelemetry = { system: 'postgresql', operation: 'SELECT', collection: 'users' };
-// @ts-expect-error — `postgres` is `Dialect`'s spelling; `db.system.name` is `postgresql` (§5, semconv v1.30.0).
-export const telemetryPgSpelling: QueryTelemetry = { system: 'postgres', operation: 'SELECT', collection: 'users' };
+export const telemetryExternal: QueryTelemetry = { system: 'acme', operation: 'SELECT', collection: 'users' };
 // @ts-expect-error — the operation is one of four verbs, uppercase: not the regex's `'other'` fallback (§5).
 export const telemetryOther: QueryTelemetry = { system: 'sqlite', operation: 'other', collection: 'users' };
 // @ts-expect-error — nor lowercase, which is what `/^\s*(\w+)/` returns before `.toUpperCase()` (§5).
 export const telemetryLowercase: QueryTelemetry = { system: 'sqlite', operation: 'select', collection: 'users' };
 // @ts-expect-error — `collection` is required: a span with no `db.collection.name` is a span nobody can group by (§5).
 export const telemetryNoCollection: QueryTelemetry = { system: 'mysql', operation: 'DELETE' };
-export type _SystemIsSemconv = Expect<Equal<QueryTelemetry['system'], 'postgresql' | 'mysql' | 'sqlite' | 'mssql'>>;
+export type _SystemAcceptsExternalDialect = Expect<Equal<QueryTelemetry['system'], string>>;
 export type _TelemetryKeys = Expect<Equal<keyof QueryTelemetry, 'system' | 'operation' | 'collection'>>;
 
 // §6 refuses parameter values under any setting, and §5 emits `parameters.length` instead.

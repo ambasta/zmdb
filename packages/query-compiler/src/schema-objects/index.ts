@@ -4,29 +4,34 @@ import { UnsupportedFeatureError } from '../errors.js';
 import type { Dialect } from '../index.js';
 import { ddlType } from '../migrations/index.js';
 import { quoteIdentifier } from '../quoting.js';
+import type {
+  GeneratedColumn,
+  IndexColumn,
+  IndexDef,
+  IndexMethod,
+  RlsPolicy,
+  RoutineDef,
+  RoutineSqlType,
+  SequenceDef,
+  ViewDef,
+} from './types.js';
 
 export { UnsupportedFeatureError };
 export { createExtensionDdl, type ExtensionDef } from './extensions.js';
+export type {
+  GeneratedColumn,
+  IndexColumn,
+  IndexDef,
+  IndexMethod,
+  RlsPolicy,
+  RoutineDef,
+  RoutineSqlType,
+  SequenceDef,
+  ViewDef,
+} from './types.js';
 
 export function quoteId(dialect: Dialect, id: string): string {
   return quoteIdentifier(dialect, id);
-}
-
-// §1 indexes & constraints
-export type IndexMethod = 'btree' | 'hash' | 'gin' | 'gist' | 'brin' | 'ivfflat' | 'hnsw';
-export type IndexColumn =
-  | string
-  | { readonly column: string; readonly opclass?: string }
-  | { readonly expr: string; readonly opclass?: string };
-
-export interface IndexDef {
-  name: string;
-  table: string;
-  columns: readonly IndexColumn[];
-  unique?: boolean;
-  where?: string;
-  method?: IndexMethod;
-  with?: Readonly<Record<string, number>>;
 }
 
 const INDEX_OPTIONS = {
@@ -160,12 +165,6 @@ export function checkConstraintDdl(table: string, name: string, expr: string, di
   return `ALTER TABLE ${quoteId(dialect, table)} ADD CONSTRAINT ${quoteId(dialect, name)} CHECK (${expr})`;
 }
 
-// §2 views
-export interface ViewDef {
-  name: string;
-  select: string;
-  materialized?: boolean;
-}
 export function createViewDdl(def: ViewDef, dialect: Dialect): string {
   if (def.materialized) requireDialectFeature(dialect, 'materializedView', 'materialized views');
   const mat = def.materialized ? 'MATERIALIZED ' : '';
@@ -177,12 +176,6 @@ export function dropViewDdl(name: string, dialect: Dialect, materialized?: boole
   return `DROP ${mat}VIEW IF EXISTS ${quoteId(dialect, name)}`;
 }
 
-// §3 sequences
-export interface SequenceDef {
-  name: string;
-  start?: number;
-  increment?: number;
-}
 export function createSequenceDdl(def: SequenceDef, dialect: Dialect): string {
   requireDialectFeature(dialect, 'sequences', 'sequences');
   let ddl = `CREATE SEQUENCE ${quoteId(dialect, def.name)}`;
@@ -193,13 +186,6 @@ export function createSequenceDdl(def: SequenceDef, dialect: Dialect): string {
   return ddl;
 }
 
-// §4 generated columns
-export interface GeneratedColumn {
-  name: string;
-  type: string;
-  expression: string;
-  stored?: boolean;
-}
 export function generatedColumnDdl(col: GeneratedColumn, dialect: Dialect): string {
   requireDialectFeature(dialect, 'generatedColumns', 'generated columns');
   if (dialect === 'mssql') {
@@ -218,13 +204,6 @@ export function qualify(schema: string, object: string, dialect: Dialect): strin
   return `${quoteId(dialect, schema)}.${quoteId(dialect, object)}`;
 }
 
-// §6 RLS
-export interface RlsPolicy {
-  name: string;
-  table: string;
-  using: string;
-  command?: 'ALL' | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
-}
 export function enableRlsDdl(table: string, dialect: Dialect): string {
   requireDialectFeature(dialect, 'rowLevelSecurity', 'row-level security');
   return `ALTER TABLE ${quoteId(dialect, table)} ENABLE ROW LEVEL SECURITY`;
@@ -233,33 +212,6 @@ export function createPolicyDdl(p: RlsPolicy, dialect: Dialect): string {
   requireDialectFeature(dialect, 'rowLevelSecurity', 'row-level security');
   const cmd = p.command ?? 'ALL';
   return `CREATE POLICY ${quoteId(dialect, p.name)} ON ${quoteId(dialect, p.table)} FOR ${cmd} USING (${p.using})`;
-}
-
-// §8 stored routines
-export type RoutineSqlType =
-  | 'serial'
-  | 'integer'
-  | 'bigint'
-  | 'numeric'
-  | 'text'
-  | 'varchar'
-  | 'boolean'
-  | 'timestamp'
-  | 'json'
-  | 'jsonEnum';
-
-export interface RoutineDef {
-  readonly kind: 'function' | 'procedure';
-  readonly name: string;
-  readonly params: readonly {
-    readonly name: string;
-    readonly type: RoutineSqlType;
-    readonly mode?: 'in' | 'out' | 'inout';
-  }[];
-  readonly returns?: { readonly type: RoutineSqlType | 'void'; readonly setof?: boolean };
-  readonly language?: string;
-  readonly deterministic?: boolean;
-  readonly body: string;
 }
 
 function routineLabel(def: RoutineDef, dialect: Dialect): string {

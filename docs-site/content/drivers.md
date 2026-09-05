@@ -2,11 +2,10 @@ A `Driver` is the whole database abstraction: one required method that runs a co
 transactions, replicas, logging, caching and observability — composes around that boundary.
 
 ```ts
-import type { CompiledQuery } from '@zmdb/query-compiler';
-import type { Dialect } from '@zmdb/query-compiler';
+import type { CompiledQuery, Dialect, SqlDialect } from '@zmdb/query-compiler';
 
-export interface Driver {
-  readonly dialect?: Dialect;
+export interface Driver<Name extends string = string> {
+  readonly dialect?: SqlDialect<Name> | Dialect;
   readonly queryTelemetry?: true;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
@@ -25,7 +24,7 @@ import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import { defineRepository } from '@zmdb/repository';
 
 const db = new DatabaseSync('app.db');
-const users = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
+const users = defineRepository(UserSchema, sqliteDriver(db));
 ```
 
 ```ts
@@ -34,7 +33,7 @@ import { Pool } from 'pg';
 import { pgDriver } from '@zmdb/repository/drivers/pg';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const users = defineRepository(UserSchema, pgDriver(pool), { dialect: 'postgres' });
+const users = defineRepository(UserSchema, pgDriver(pool));
 
 // opt-in server-side prepared statements (caches the plan per SQL text)
 const fast = pgDriver(pool, { prepared: true });
@@ -49,14 +48,14 @@ import sql from 'mssql';
 import { mssqlDriver } from '@zmdb/repository/drivers/mssql';
 
 const pool = await sql.connect(process.env.DATABASE_URL!);
-const users = defineRepository(UserSchema, mssqlDriver(pool), { dialect: 'mssql' });
+const users = defineRepository(UserSchema, mssqlDriver(pool));
 ```
 
 All three accept **structural** types — `SqliteDatabase` is `{ prepare(sql) }`, `PgQueryable` is `{ query(…) }`, and `MssqlPool` is `{ request() }` — so the real client objects are assignable without
 an adapter package becoming a hard runtime dependency of `@zmdb/repository`. `node:sqlite` is built in; install `pg` or `mssql` in the application that uses that client.
 
-> [!NOTE] `sqliteDriver` sets `dialect: 'sqlite'` on the driver it returns, but `defineRepository` reads the dialect from its **options**, defaulting to `'postgres'`. Passing a sqlite driver without
-> `{ dialect: 'sqlite' }` compiles Postgres SQL against SQLite — `$1` placeholders and all. Pass the dialect explicitly; the mismatch is a runtime syntax error, not a type error.
+> [!NOTE] All bundled drivers declare their built-in dialect name. `defineRepository` uses an explicit option first, then `driver.dialect`, then the temporary `'postgres'` fallback. Driver wrappers
+> must preserve the wrapped dialect. A third-party driver can attach a frozen `SqlDialect` object, and the repository uses that same object for compilation, limits, retries and returning behavior.
 
 The SQLite and Postgres drivers cache prepared statements keyed by SQL text, LRU-evicting at `maxCacheSize` (1000 by default). Since the compiler emits one text per query shape and parameterises the
 values, that cache has a bounded number of entries — unless you build SQL by string concatenation, which you should not be doing.
@@ -116,6 +115,12 @@ Either form works. `defineRepository` recovers the declared type from the schema
 const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
 ```
 
+When `driver.dialect` is present, the explicit option is unnecessary:
+
+```ts
+const users = defineRepository(UserSchema, driver);
+```
+
 Or a subclass, when you want to add methods or [lifecycle hooks](./lifecycle-hooks.html):
 
 ```ts
@@ -125,10 +130,11 @@ class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
 }
 
-const users = new UserRepository(driver, 'sqlite'); // (driver, dialect?)
+const users = new UserRepository(driver); // derives driver.dialect
 ```
 
-The constructor is `(driver: Driver, dialect: Dialect = 'postgres')`. Same default, same trap as above.
+The compatibility constructor is `(driver: Driver, dialect: DialectTarget = driver.dialect ?? 'postgres')`. Database-package extraction will make the object on `driver.dialect` required and remove the
+separate argument.
 
 ## Transactions
 
@@ -187,7 +193,7 @@ A driver is a function, so a fake is three lines:
 const calls: CompiledQuery[] = [];
 const spy: Driver = { dialect: 'postgres', execute: async q => (calls.push(q), []) };
 
-await defineRepository(users, spy, { dialect: 'postgres' }).findAll();
+await defineRepository(users, spy).findAll();
 expect(calls[0]?.text).toContain('SELECT');
 ```
 

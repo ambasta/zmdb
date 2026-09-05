@@ -11,7 +11,8 @@ import {
   tailMethods,
   whereClause,
 } from '../clauses.js';
-import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
+import type { DialectTarget } from '../dialects/index.js';
+import type { CompiledQuery, QueryCompilerOptions } from '../index.js';
 import { quoteTable } from '../quoting.js';
 
 export type { JoinCondition, JoinKind } from '../clauses.js';
@@ -40,7 +41,7 @@ export interface JoinableSelect {
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State, telemetry: boolean): JoinableSelect {
+function make(d: DialectTarget, s: State, telemetry: boolean): JoinableSelect {
   const next = (patch: Partial<State>): JoinableSelect => make(d, { ...s, ...patch }, telemetry);
   return {
     ...joinMethods(s.joins, next),
@@ -61,7 +62,7 @@ function make(d: Dialect, s: State, telemetry: boolean): JoinableSelect {
 
 export function joinableSelectFrom(
   table: string,
-  dialect: Dialect = 'postgres',
+  dialect: DialectTarget = 'postgres',
   options?: QueryCompilerOptions,
 ): JoinableSelect {
   return make(dialect, { table, joins: [], wheres: [], orderBys: [] }, options?.telemetry === true);

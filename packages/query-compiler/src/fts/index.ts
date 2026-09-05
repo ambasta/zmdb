@@ -6,9 +6,9 @@ import {
   type ComparisonPredicate,
   type PredicateGroup,
 } from '../clauses.js';
-import { TRAITS } from '../dialects/index.js';
+import { dialectName, dialectTraits, type DialectTarget } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
-import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
+import type { CompiledQuery, QueryCompilerOptions } from '../index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export { UnsupportedFeatureError };
@@ -61,7 +61,7 @@ export interface FtsSelect {
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
+function make(d: DialectTarget, s: State, telemetry: boolean): FtsSelect {
   const next = (p: Partial<State>): FtsSelect => make(d, { ...s, ...p }, telemetry);
   return {
     whereMatch: (column, term, options) => {
@@ -76,7 +76,7 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
     compile: () => {
       const params: unknown[] = [];
       let text = '';
-      const fts = TRAITS[d].fts;
+      const fts = dialectTraits(d).fts;
 
       if (fts === 'companionTable') {
         const { baseName, alias } = parseTableSpec(s.table);
@@ -86,7 +86,7 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
         const hasMatch = s.preds.some(p => p.kind === 'match');
         if (hasMatch) {
           if (!s.ftsTable) {
-            throw new UnsupportedFeatureError('full-text search', 'sqlite');
+            throw new UnsupportedFeatureError('full-text search', dialectName(d));
           }
           const ftsTableName = typeof s.ftsTable === 'string' ? s.ftsTable : `${baseName}_fts`;
           const ftsAlias = alias ? `${alias}_fts` : undefined;
@@ -131,7 +131,7 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
             if (fts === 'match') {
               return `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
             }
-            throw new UnsupportedFeatureError('full-text search', d);
+            throw new UnsupportedFeatureError('full-text search', dialectName(d));
           });
           text += ` WHERE ${parts.join(' AND ')}`;
         }
@@ -145,7 +145,7 @@ function make(d: Dialect, s: State, telemetry: boolean): FtsSelect {
 
 export function ftsSelectFrom(
   table: string,
-  dialect: Dialect = 'postgres',
+  dialect: DialectTarget = 'postgres',
   options?: FtsOptions | string | boolean,
 ): FtsSelect {
   const ftsTable = typeof options === 'string' || typeof options === 'boolean' ? options : options?.ftsTable;

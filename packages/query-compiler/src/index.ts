@@ -1,22 +1,59 @@
+import type { CompiledQuery } from './compiled-query.js';
 // @zmdb/query-compiler — implementation.
-import { TRAITS, type Dialect, type ReturningStatement } from './dialects/index.js';
+import {
+  TRAITS,
+  dialectName,
+  dialectTraits,
+  type Dialect,
+  type DialectTarget,
+  type ReturningStatement,
+  type SqlDialect,
+} from './dialects/index.js';
 import { UnsupportedFeatureError } from './errors.js';
 
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
-export { DIALECTS, TRAITS } from './dialects/index.js';
+export type { CompiledQuery, QueryTelemetry } from './compiled-query.js';
+export {
+  DIALECTS,
+  TRAITS,
+  defineSqlDialect,
+  dialectCapabilities,
+  dialectFamily,
+  dialectName,
+  dialectSupportsReturning,
+  dialectTraits,
+  extendSqlDialect,
+  isSqlDialect,
+} from './dialects/index.js';
 export type {
+  AppliedMigration,
+  DatabaseCapabilities,
   Dialect,
   DialectFamily,
   DialectFeature,
   DialectSqlType,
+  DialectTarget,
   DialectTraits,
   DialectTypeMap,
+  IntrospectionDriver,
+  Introspector,
+  IntrospectOptions,
+  MigrationConnection,
+  MigrationDialect,
+  MigrationDriver,
+  MigrationPlan,
+  MigrationTableOptions,
   PaginationTail,
   PlaceholderStyle,
+  ResolvedDialectTraits,
   ResolvedTraits,
   ReturningCapability,
   ReturningStatement,
   ReturningStyle,
+  SchemaObjectOperation,
+  SqlDialect,
+  SqlDialectDefinition,
+  SqlDialectExtension,
 } from './dialects/index.js';
 
 // #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
@@ -146,19 +183,6 @@ export function chunkArray<T>(array: readonly T[], chunkSize: number): T[][] {
   return chunks;
 }
 
-export interface CompiledQuery {
-  readonly text: string;
-  readonly parameters: readonly unknown[];
-  readonly telemetry?: QueryTelemetry;
-}
-
-/** Compile-time database attributes consumed by tracing and metrics. */
-export interface QueryTelemetry {
-  readonly system: 'postgresql' | 'mysql' | 'sqlite' | 'mssql';
-  readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
-  readonly collection: string;
-}
-
 export { appendComment, serializeComment, withComments } from './comments/index.js';
 export type { CommentKey, CommentKeys, CommentPairs } from './comments/index.js';
 
@@ -202,11 +226,11 @@ export interface SelectBuilder<T = unknown> {
   limit(n: number): SelectBuilder<T>;
   offset(n: number): SelectBuilder<T>;
   compile(): CompiledQuery;
-  readonly dialect: Dialect;
+  readonly dialect: DialectTarget;
   readonly _type?: T;
 }
 
-function makeSelect<T = unknown>(d: Dialect, state: SelectState, telemetry: boolean): SelectBuilder<T> {
+function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry: boolean): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
   const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
@@ -342,16 +366,17 @@ export interface QueryCompiler {
 }
 
 function routineCall(
-  dialect: Dialect,
+  dialect: DialectTarget,
   name: string,
   args: readonly unknown[],
   kind: 'function' | 'table-function' | 'procedure',
 ): CompiledQuery {
-  if (dialect === 'sqlite' || dialect === 'mssql') {
-    throw new UnsupportedFeatureError(`stored routine "${name}"`, dialect);
-  }
-  if (kind === 'table-function' && TRAITS[dialect].family !== 'postgres') {
-    throw new UnsupportedFeatureError(`set-returning function "${name}"`, dialect);
+  const nameOfDialect = dialectName(dialect);
+  const traits = dialectTraits(dialect);
+  const supported =
+    kind === 'function' ? traits.functions : kind === 'procedure' ? traits.procedures : traits.tableFunctions;
+  if (!supported) {
+    throw new UnsupportedFeatureError(`stored routine "${name}"`, nameOfDialect);
   }
 
   const placeholders = args.map((_, index) => formatPlaceholder(dialect, index + 1)).join(', ');
@@ -365,12 +390,12 @@ function routineCall(
   return frozenQuery(text, args);
 }
 
-function returningColumn(d: Dialect, column: ReturningColumn): string {
+function returningColumn(d: DialectTarget, column: ReturningColumn): string {
   if (typeof column === 'string') return column === '*' ? '*' : quoteColumn(d, column);
   return `${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`;
 }
 
-function outputColumn(d: Dialect, pseudoTable: 'INSERTED' | 'DELETED', column: ReturningColumn): string {
+function outputColumn(d: DialectTarget, pseudoTable: 'INSERTED' | 'DELETED', column: ReturningColumn): string {
   if (typeof column === 'string')
     return column === '*' ? `${pseudoTable}.*` : `${pseudoTable}.${quoteColumn(d, column)}`;
   return `${pseudoTable}.${quoteColumn(d, column.column)} AS ${quoteIdentifier(d, column.alias)}`;
@@ -384,18 +409,19 @@ interface ReturningSql {
 const NO_RETURNING_SQL: ReturningSql = Object.freeze({ output: '', suffix: '' });
 
 function returningSql(
-  d: Dialect,
+  d: DialectTarget,
   statement: ReturningStatement,
   pseudoTable: 'INSERTED' | 'DELETED',
   cols?: readonly ReturningColumn[],
 ): ReturningSql {
   if (!cols || cols.length === 0) return NO_RETURNING_SQL;
-  const style = TRAITS[d].returning[statement];
+  const style = dialectTraits(d).returning[statement];
   if (style === 'none') {
+    const name = dialectName(d);
     throw new UnsupportedFeatureError(
       'returning',
-      d,
-      `returning is not supported for ${statement.toUpperCase()} on dialect "${d}"; ` +
+      name,
+      `returning is not supported for ${statement.toUpperCase()} on dialect "${name}"; ` +
         'omit returning() and perform an explicit read',
     );
   }
@@ -428,7 +454,7 @@ function normalizeTarget(target?: string | readonly string[]): readonly string[]
 }
 
 /** ` (a, b)` for an explicit conflict target; '' when the server infers it. */
-function conflictTarget(d: Dialect, target?: readonly string[]): string {
+function conflictTarget(d: DialectTarget, target?: readonly string[]): string {
   if (!target || target.length === 0) return '';
   return ` (${target.map(t => quoteIdentifier(d, t)).join(', ')})`;
 }
@@ -439,14 +465,14 @@ function conflictTarget(d: Dialect, target?: readonly string[]): string {
  * deprecated in MySQL 8.0.20+ in favour of a row alias (`AS new`), but keeping
  * it means servers older than that still work.
  */
-function upsertSetSql(d: Dialect, cols: readonly string[], upsert: 'onConflict' | 'onDuplicateKey'): string {
+function upsertSetSql(d: DialectTarget, cols: readonly string[], upsert: 'onConflict' | 'onDuplicateKey'): string {
   const value = (c: string) =>
     upsert === 'onDuplicateKey' ? `VALUES(${quoteIdentifier(d, c)})` : `EXCLUDED.${quoteIdentifier(d, c)}`;
   return cols.map(c => `${quoteIdentifier(d, c)} = ${value(c)}`).join(', ');
 }
 
 function setValueSql(
-  d: Dialect,
+  d: DialectTarget,
   table: string,
   column: string,
   value: unknown,
@@ -480,7 +506,7 @@ function setValueSql(
 }
 
 function mssqlMergeSql(
-  d: Dialect,
+  d: DialectTarget,
   table: string,
   keys: readonly string[],
   placeholders: string,
@@ -492,7 +518,7 @@ function mssqlMergeSql(
   if (!target || target.length === 0) {
     throw new UnsupportedFeatureError(
       'upsert without a conflict target',
-      d,
+      dialectName(d),
       'MERGE needs an explicit join predicate; pass the conflicting column(s) to onConflict(...).',
     );
   }
@@ -558,7 +584,7 @@ function mssqlMergeSql(
 }
 
 function makeInsert(
-  d: Dialect,
+  d: DialectTarget,
   table: string,
   row?: Record<string, unknown>,
   ret?: readonly ReturningColumn[],
@@ -596,8 +622,8 @@ function makeInsert(
       if (!conflict) {
         text = insert;
       } else {
-        const upsert = TRAITS[d].upsert;
-        if (upsert === 'none') throw new UnsupportedFeatureError('upsert', d);
+        const upsert = dialectTraits(d).upsert;
+        if (upsert === 'none') throw new UnsupportedFeatureError('upsert', dialectName(d));
         if (upsert === 'merge') {
           text = mssqlMergeSql(d, table, keys, placeholders, params, conflict, returning);
         } else if (conflict.action === 'ignore') {
@@ -637,7 +663,7 @@ function makeInsert(
 }
 
 function makeUpdate(
-  d: Dialect,
+  d: DialectTarget,
   table: string,
   row?: Record<string, unknown>,
   wheres: readonly Predicate[] = [],
@@ -675,7 +701,7 @@ function makeUpdate(
 }
 
 function makeDelete(
-  d: Dialect,
+  d: DialectTarget,
   table: string,
   wheres: readonly Predicate[] = [],
   ret?: readonly ReturningColumn[],
@@ -701,7 +727,16 @@ function makeDelete(
   };
 }
 
-export function createQueryCompiler(dialect: Dialect = 'postgres', options?: QueryCompilerOptions): QueryCompiler {
+export function createQueryCompiler<Name extends string>(
+  dialect: SqlDialect<Name>,
+  options?: QueryCompilerOptions,
+): QueryCompiler;
+export function createQueryCompiler(dialect?: Dialect, options?: QueryCompilerOptions): QueryCompiler;
+export function createQueryCompiler(dialect: DialectTarget, options?: QueryCompilerOptions): QueryCompiler;
+export function createQueryCompiler(
+  dialect: DialectTarget = 'postgres',
+  options?: QueryCompilerOptions,
+): QueryCompiler {
   const telemetry = options?.telemetry === true;
   return {
     selectFrom: table => makeSelect(dialect, { table, wheres: [], orderBys: [] }, telemetry),

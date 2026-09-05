@@ -18,7 +18,8 @@ import {
   type CatalogTableSnapshot,
   type CatalogWarning,
 } from './common.js';
-import type { IntrospectionDriver, IntrospectOptions, Introspector } from './index.js';
+import { normalizeDriftSnapshot } from './drift.js';
+import type { IntrospectionDriver, IntrospectOptions, LegacyIntrospector } from './index.js';
 
 interface MySqlColumn {
   readonly table: string;
@@ -382,7 +383,11 @@ async function mysqlSnapshot(
   };
 }
 
-export const mysqlIntrospector: Introspector = {
-  dialect: 'mysql',
+const databaseName = 'mysql' as const;
+
+export const mysqlIntrospector: LegacyIntrospector<typeof databaseName> = {
+  name: databaseName,
+  dialect: databaseName,
   snapshot: mysqlSnapshot,
+  normalizeForDrift: (snapshot, role) => normalizeDriftSnapshot(snapshot, role, { dialect: databaseName }),
 };

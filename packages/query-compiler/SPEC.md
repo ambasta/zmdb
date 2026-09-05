@@ -43,7 +43,7 @@ Builders are immutable: each method returns a new builder.
 
 `returning()` is dispatched through one total statement capability with separate `insert`, `upsert`, `update`, and `delete` entries. The Postgres family and SQLite emit a suffix, SQL Server emits
 `OUTPUT` in the statement-specific position, and the MySQL family refuses before returning a `CompiledQuery`. A child dialect can override one statement without claiming the others; in particular, the
-shape can represent MariaDB-style INSERT-only support without adding MariaDB to `Dialect`.
+shape can represent MariaDB-style INSERT-only support without adding MariaDB to the temporary built-in `Dialect` union.
 
 ## 3. Placeholder policy (per dialect)
 
@@ -54,8 +54,9 @@ shape can represent MariaDB-style INSERT-only support without adding MariaDB to 
 | sqlite             | `?`           | `"ident"`        |
 | mssql              | `@p1, @p2, …` | `[ident]`        |
 
-`createQueryCompiler(dialect?: Dialect)` — default `postgres`. Cockroach and SingleStore inherit the Postgres and MySQL placeholder/quoting rows; SQL Server uses its dedicated row above. The six
-shipped members are `'postgres'`, `'mysql'`, `'sqlite'`, `'mssql'`, `'cockroach'` and `'singlestore'`.
+`createQueryCompiler(dialect: SqlDialect<Name>)` accepts an injected, already-resolved dialect object. The temporary `createQueryCompiler(dialect?: Dialect)` compatibility overload still defaults to
+`postgres`. Cockroach and SingleStore inherit the Postgres and MySQL placeholder/quoting rows; SQL Server uses its dedicated row above. The six shipped compatibility names are `'postgres'`, `'mysql'`,
+`'sqlite'`, `'mssql'`, `'cockroach'` and `'singlestore'`.
 
 ## 4. Golden SQL fixtures (postgres)
 
@@ -366,10 +367,10 @@ Streaming does not want a rewritten query either. No implicit `ORDER BY` is adde
 an ordering would change results silently and defeat any index the author chose. No implicit `LIMIT`, for the same reason — bounding a stream is what `batchSize` is for, and it bounds memory rather
 than the result.
 
-## 5e. The dialect mechanism (frozen — epic "The SQL dialect matrix")
+## 5e. The built-in dialect mechanism and injected seam (frozen — epic "The SQL dialect matrix")
 
-`Dialect` has the frozen six-member set: `'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore'`. The per-dialect divergences, construct by construct with the SQL written out, are in
-`src/dialects/SPEC.md`. What belongs here is the mechanism, because it changes how every section above is implemented.
+The temporary built-in `Dialect` compatibility union has the frozen six-member set: `'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore'`. The per-dialect divergences, construct by
+construct with the SQL written out, are in `src/dialects/SPEC.md`. What belongs here is the mechanism, because it changes how every section above is implemented.
 
 **A traits record per dialect, with an optional `parent`, merged once at module load.** Not a flat union with more comparisons. The pre-mechanism measurement that decided it, preserved in
 `src/dialects/SPEC.md` §1, found no `switch (dialect)`: fourteen inline comparisons across seven files, two `Record<Dialect, …>` tables, and eight emitters that produced one dialect's grammar with no
@@ -390,8 +391,9 @@ Three things this mechanism does **not** change:
 - **§1's contract.** A compiled query is still `{ text, parameters }`, still frozen, still a pure function of builder state. `parameters` stays positional and in placeholder order even where the
   dialect binds by name — the `mssql` driver adapter maps the array onto `@p1…@pn`, which is exactly what that ordering is for.
 - **§3's table**, which describes the four root dialect rows. Cockroach and SingleStore inherit the Postgres and MySQL placeholder/quoting rows through resolved traits.
-- **Dispatch timing.** `TRAITS` is resolved once when the module is evaluated and indexed thereafter, never walked per statement. It is a module-level record rather than per-compiler state because
-  `quoteIdentifier`, `ddlType`, `emitUp`, `setOperation` and half a dozen more are exported functions taking a `Dialect` string, and `@zmdb/repository` calls them that way.
+- **Dispatch timing.** Built-in `TRAITS` is resolved once when the compatibility module is evaluated. An injected `SqlDialect` is validated, resolved and frozen once when it is defined or extended;
+  compiler helpers read its completed `traits` object and never walk a parent per statement. Exported helpers accept the object alongside temporary built-in names, and repositories cache the selected
+  traits and capabilities at construction.
 
 **One narrowing to §5d.** That section froze "`text` is exactly one statement, and carries no trailing semicolon" as load-bearing, because the streaming driver embeds `text` in
 `DECLARE <name> CURSOR FOR <text>`. SQL Server's upsert is a `MERGE`, and `MERGE` requires a terminating semicolon. The invariant is therefore narrowed rather than broken: it holds for every `SELECT`,

@@ -647,8 +647,9 @@ records the remaining platform boundary as an application-selected SQLite bindin
 
 ## 7. Injected migration dialect (issue #666)
 
-This section freezes the epic #665 target. The snapshot shape, deterministic `diff`, migration ordering, checksums and ledger state machine remain generic. Database SQL, validation, schema-object
-grammar and connection adaptation do not.
+This section froze the epic #665 target. Issue #668 now ships the object seam: migration helpers delegate to an injected `MigrationDialect`, and the driver adapter delegates an injected `SqlDialect`
+to `dialect.migrations.connection`. The snapshot shape, deterministic `diff`, migration ordering, checksums and ledger state machine remain generic. Database SQL, validation, schema-object grammar and
+connection adaptation do not. Temporary six-name emitters and connection adaptation remain as the extraction source for the built-in dialects.
 
 ### 7.1 Protocol
 
@@ -723,8 +724,9 @@ emitDown(dialect.migrations, operation);
 emitSchemaObject(dialect.migrations, operation);
 ```
 
-No generic migration file may inspect `dialect.name`, `dialect.family`, an official package, or a database client. A missing hook is a construction error. An unsupported operation throws
-`UnsupportedFeatureError` during validation or emission, before any call to `exec` or `execute`.
+On the injected path, generic migration code delegates without inspecting `dialect.name`, `dialect.family`, an official package, or a database client. A missing hook is a construction error. An
+unsupported operation throws `UnsupportedFeatureError` during validation or emission, before any call to `exec` or `execute`. The temporary string path still contains the built-in SQL and name
+branches that later extraction issues move.
 
 ### 7.2 Ownership after extraction
 
@@ -750,7 +752,8 @@ database-specific refusal, transactional-DDL expectation and connection-adapter 
 
 ### 7.3 Connection and transaction rules
 
-`MigrationDialect.connection` is the sole place that knows ledger DDL, placeholder spelling, quoted table names and whether DDL can roll back. The generic runner:
+For an injected object, `MigrationDialect.connection` is the sole place that knows ledger DDL, placeholder spelling, quoted table names and whether DDL can roll back. The legacy six-name adapter still
+owns those decisions until extraction. The generic runner:
 
 - trusts the connection's required `transactionalDdl` boolean instead of looking up a name;
 - warns before applying a non-transactional plan;

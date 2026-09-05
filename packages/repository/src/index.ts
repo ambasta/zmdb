@@ -9,20 +9,22 @@ import type {
   ColumnExpr,
   ComparisonPredicate,
   CompiledQuery,
-  Dialect,
+  DialectTarget,
   Predicate,
   SelectBuilder,
   SetValue,
+  SqlDialect,
 } from '@zmdb/query-compiler';
 import {
   chunkArray,
   createQueryCompiler,
-  DIALECT_PARAM_LIMITS,
+  dialectCapabilities,
+  dialectName,
+  dialectTraits,
   EXPR,
   inc,
   proposed,
   sanitizeKeys,
-  TRAITS,
 } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
@@ -112,12 +114,21 @@ export interface ExecuteOptions {
   readonly batchSize?: number;
 }
 
-export interface Driver {
-  readonly dialect?: Dialect;
+export interface Driver<Name extends string = string> {
+  readonly dialect?: DialectTarget<Name>;
   /** Enables compile-time query attributes when an execution wrapper consumes them. */
   readonly queryTelemetry?: true;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
+}
+
+export interface TransactionalDriver<Name extends string = string> extends Driver<Name> {
+  transaction<Result>(run: (driver: Driver<Name>) => Promise<Result>): Promise<Result>;
+}
+
+export interface DatabaseVertical<Name extends string, Connection, Options = undefined> {
+  readonly dialect: SqlDialect<Name>;
+  driver(connection: Connection, options?: Options): TransactionalDriver<Name>;
 }
 
 export interface QueryMeta {
@@ -547,7 +558,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly schema: CoreSchema<string>;
   protected driver: Driver;
   protected readonly qb: ReturnType<typeof createQueryCompiler>;
-  protected readonly dialect: Dialect;
+  protected readonly dialect: DialectTarget;
+  protected readonly dialectCapabilities: ReturnType<typeof dialectCapabilities>;
+  protected readonly dialectTraits: ReturnType<typeof dialectTraits>;
   /** Ordered primary-key columns, resolved once because a repository's schema cannot change. */
   private readonly keyColumns: readonly string[];
   private readonly physicalKeyColumns: readonly string[];
@@ -570,9 +583,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   readonly #entityLoaders = new WeakMap<object, EntityLoader<T>>();
   readonly #relationLoaders = new WeakMap<object, RelationLoaderMap<T>>();
 
-  constructor(driver: Driver, dialect: Dialect = 'postgres', options?: RepositoryOptions) {
+  constructor(driver: Driver, dialect: DialectTarget = driver.dialect ?? 'postgres', options?: RepositoryOptions) {
     this.driver = driver;
     this.dialect = dialect;
+    this.dialectCapabilities = dialectCapabilities(dialect);
+    this.dialectTraits = dialectTraits(dialect);
     this.#cacheStore = options?.cacheStore;
     this.#optionFilters = Object.freeze([...(options?.filters ?? [])]);
     const staticFilters = staticFiltersFor(this.constructor);
@@ -681,6 +696,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   withTransaction(tx: Pick<Driver, 'execute' | 'stream'>): this {
     const txStream = typeof tx.stream === 'function' ? tx.stream : undefined;
     const txDriver: Driver = {
+      dialect: this.dialect,
       ...(this.driver.queryTelemetry === true ? { queryTelemetry: true as const } : {}),
       execute: (query, opts) => tx.execute(query, opts),
       ...(txStream === undefined
@@ -689,7 +705,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
             stream: (query: CompiledQuery, opts?: ExecuteOptions) => txStream.call(tx, query, opts),
           }),
     };
-    const ctor = this.constructor as new (driver: Driver, dialect?: Dialect, options?: RepositoryOptions) => this;
+    const ctor = this.constructor as new (driver: Driver, dialect?: DialectTarget, options?: RepositoryOptions) => this;
     const options: RepositoryOptions = {
       ...(this.#cacheStore === undefined ? {} : { cacheStore: this.#cacheStore }),
       ...(this.#optionFilters.length === 0 ? {} : { filters: this.#optionFilters }),
@@ -1227,7 +1243,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    * when present, otherwise the declaration's first column.
    */
   private limitOne(builder: SelectBuilder): SelectBuilder {
-    if (this.dialect !== 'mssql') return builder.limit(1);
+    if (dialectName(this.dialect) !== 'mssql') return builder.limit(1);
 
     const fallback = this.schema.ir.columns[0]?.physicalName;
     const order =
@@ -1260,7 +1276,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     if (unique.length === 0) return [];
 
     const columns = this.requiredKeyColumns();
-    const parameterLimit = DIALECT_PARAM_LIMITS[this.dialect];
+    const parameterLimit = this.dialectTraits.paramLimit;
     const chunkSize = Math.max(1, Math.floor(parameterLimit / columns.length));
     const found = new Map<string, Entity<T>>();
     const filters = this.resolveReadFilters('loader.load', undefined, this.tableName, this.schema, false);
@@ -1368,7 +1384,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
     const ids = [...unique.values()];
     if (ids.length === 0) return new Map();
-    const limit = DIALECT_PARAM_LIMITS[this.dialect];
+    const limit = this.dialectTraits.paramLimit;
     const chunks = chunkArray(ids, Math.max(1, Math.floor(limit / childKeys.length)));
     const children: Record<string, unknown>[] = [];
     const physicalTable = names?.schema.table ?? childTable;
@@ -2214,7 +2230,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       .onConflict(physicalTarget)
       .doUpdate(physicalUpdateFields);
     if (
-      TRAITS[this.dialect].family === 'mysql' &&
+      !this.dialectCapabilities.returning.upsert &&
       physicalUpdateFields !== undefined &&
       !isUpdateFieldList(physicalUpdateFields) &&
       this.hasColumnExpression(physicalUpdateFields)
@@ -2247,7 +2263,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const physical = this.physicalRecord(clean);
     const build = () =>
       compileWhere(this.qb.updateTable(this.tableName).set(physical), where, column => this.physicalColumn(column));
-    if (TRAITS[this.dialect].family === 'mysql') {
+    if (!this.dialectCapabilities.returning.update) {
       await this.driver.execute(this.compileWrite('updateMany', options, build));
       await this.invalidateCache(options);
       return undefined;
@@ -2305,7 +2321,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
     const physical = this.physicalRecord(clean);
     const build = () => this.keyWhere(this.qb.updateTable(this.tableName).set(physical), id, 'update');
-    if (TRAITS[this.dialect].family === 'mysql' && this.hasColumnExpression(physical)) {
+    if (!this.dialectCapabilities.returning.update && this.hasColumnExpression(physical)) {
       await this.driver.execute(this.assertKeyed(this.compileWrite('update', options, build), 'update'));
       await this.invalidateCache(options);
       return undefined;
@@ -2341,7 +2357,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // #28 — delete + lifecycle hooks.
   async delete(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean> {
     this.preDelete(id);
-    const mysqlFamily = TRAITS[this.dialect].family === 'mysql';
     const softDelete = this.schema.ir.softDelete;
     const build =
       softDelete === undefined
@@ -2352,12 +2367,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
               id,
               'delete',
             );
-    const query = mysqlFamily
+    const statement = softDelete === undefined ? 'delete' : 'update';
+    const query = !this.dialectCapabilities.returning[statement]
       ? this.compileWrite('delete', options, build)
       : this.compileWrite('delete', options, () => build().returning(this.physicalKeyColumns));
     const rows = await this.driver.execute(this.assertKeyed(query, 'delete'));
     await this.invalidateCache(options);
-    return this.writeMatched(rows);
+    return this.writeMatched(rows, statement);
   }
 
   async deleteMany(where: WhereDTO<T>, options?: WriteOptions): Promise<number | undefined> {
@@ -2371,7 +2387,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
               where,
               column => this.physicalColumn(column),
             );
-    if (TRAITS[this.dialect].family === 'mysql') {
+    const statement = softDelete === undefined ? 'delete' : 'update';
+    if (!this.dialectCapabilities.returning[statement]) {
       await this.driver.execute(this.compileWrite('deleteMany', options, build));
       await this.invalidateCache(options);
       return undefined;
@@ -2387,13 +2404,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async hardDelete(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean> {
     this.preDelete(id);
     const build = () => this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'hardDelete');
-    const query =
-      TRAITS[this.dialect].family === 'mysql'
-        ? this.compileWrite('hardDelete', options, build)
-        : this.compileWrite('hardDelete', options, () => build().returning(this.physicalKeyColumns));
+    const query = !this.dialectCapabilities.returning.delete
+      ? this.compileWrite('hardDelete', options, build)
+      : this.compileWrite('hardDelete', options, () => build().returning(this.physicalKeyColumns));
     const rows = await this.driver.execute(this.assertKeyed(query, 'hardDelete'));
     await this.invalidateCache(options);
-    return this.writeMatched(rows);
+    return this.writeMatched(rows, 'delete');
   }
 
   async restore(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean> {
@@ -2407,19 +2423,18 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         id,
         'restore',
       );
-    const query =
-      TRAITS[this.dialect].family === 'mysql'
-        ? this.compileWrite('restore', options, build, { excludedFilterNames: ['softDelete'] })
-        : this.compileWrite('restore', options, () => build().returning(this.physicalKeyColumns), {
-            excludedFilterNames: ['softDelete'],
-          });
+    const query = !this.dialectCapabilities.returning.update
+      ? this.compileWrite('restore', options, build, { excludedFilterNames: ['softDelete'] })
+      : this.compileWrite('restore', options, () => build().returning(this.physicalKeyColumns), {
+          excludedFilterNames: ['softDelete'],
+        });
     const rows = await this.driver.execute(this.assertKeyed(query, 'restore'));
     await this.invalidateCache(options);
-    return this.writeMatched(rows);
+    return this.writeMatched(rows, 'update');
   }
 
-  private writeMatched(rows: readonly Record<string, unknown>[]): boolean {
-    if (TRAITS[this.dialect].family === 'mysql') {
+  private writeMatched(rows: readonly Record<string, unknown>[], statement: 'update' | 'delete'): boolean {
+    if (!this.dialectCapabilities.returning[statement]) {
       const affectedRows = rows[0]?.['affectedRows'];
       if (typeof affectedRows === 'number') return affectedRows > 0;
     }
@@ -2618,7 +2633,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 // relations are on `T`, which `schema` carries, so passing them again was the second
 // spelling this design exists to remove.
 export interface DefineRepositoryOptions extends RepositoryOptions {
-  dialect?: Dialect;
+  dialect?: DialectTarget;
 }
 export function defineRepository<T extends DeclaredTable>(
   schema: TaggedSchema<T>,
@@ -2630,7 +2645,7 @@ export function defineRepository<T extends DeclaredTable>(
   class Repo extends BaseRepository<T> {
     static override readonly schema = schema;
   }
-  return new Repo(driver, opts?.dialect ?? 'postgres', opts);
+  return new Repo(driver, opts?.dialect ?? driver.dialect ?? 'postgres', opts);
 }
 
 export { memoryStore, type CacheInvalidationOptions, type CacheOptions, type CacheStore } from './cache/index.js';

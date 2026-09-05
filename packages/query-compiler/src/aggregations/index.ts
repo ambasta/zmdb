@@ -12,7 +12,8 @@ import {
   tailMethods,
   whereClause,
 } from '../clauses.js';
-import type { CompiledQuery, Dialect, QueryCompilerOptions } from '../index.js';
+import type { DialectTarget } from '../dialects/index.js';
+import type { CompiledQuery, QueryCompilerOptions } from '../index.js';
 import { quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export type { JoinCondition, JoinKind } from '../clauses.js';
@@ -66,7 +67,7 @@ export interface AggregateSelect {
   compile(): CompiledQuery;
 }
 
-function make(d: Dialect, s: State, telemetry: boolean): AggregateSelect {
+function make(d: DialectTarget, s: State, telemetry: boolean): AggregateSelect {
   const next = (p: Partial<State>): AggregateSelect => make(d, { ...s, ...p }, telemetry);
   const agg = (fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX', col: string, alias: string) =>
     next({ items: [...s.items, { kind: 'agg', fn, col, alias }] });
@@ -115,7 +116,7 @@ function make(d: Dialect, s: State, telemetry: boolean): AggregateSelect {
 
 export function aggregateSelectFrom(
   table: string,
-  dialect: Dialect = 'postgres',
+  dialect: DialectTarget = 'postgres',
   options?: QueryCompilerOptions,
 ): AggregateSelect {
   return make(

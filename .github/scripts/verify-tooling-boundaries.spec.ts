@@ -18,12 +18,12 @@ describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
     const result = analyseToolingBoundaries();
     expect(result.problems).toEqual([]);
-    expect(result.inventory.actualCount).toBe(138);
+    expect(result.inventory.actualCount).toBe(143);
     expect(result.inventory.ownerCounts).toEqual({
       compiler: 30,
       migrations: 20,
       cli: 20,
-      runtime: 23,
+      runtime: 28,
       facade: 12,
       'optional-integration': 4,
       'test-only': 28,

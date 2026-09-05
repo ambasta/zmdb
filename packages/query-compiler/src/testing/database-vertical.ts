@@ -1,3 +1,4 @@
+import { defineSqlDialect } from '../dialects/index.js';
 import type { CompiledQuery, PaginationTail } from '../index.js';
 import type { CatalogSchemaSnapshot, IntrospectOptions, IntrospectionDriver } from '../introspect/index.js';
 import type { ChangeOp, ColumnSnapshot, SchemaSnapshot } from '../migrations/index.js';
@@ -40,7 +41,11 @@ export interface FrozenResolvedDialectTraits {
   readonly paramLimit: number;
   readonly retryableCodes: readonly string[];
   readonly acceptsOperator: (operator: string) => boolean;
+  readonly functions: boolean;
+  readonly procedures: boolean;
   readonly tableFunctions: boolean;
+  readonly vectorDistance: boolean;
+  readonly spatialPredicates: boolean;
 }
 
 export interface FrozenIntrospector<Name extends string = string> {
@@ -146,18 +151,21 @@ function renderedType(type: ColumnSnapshot['type']): string {
   return args === undefined || args.length === 0 ? type.name : `${type.name}(${args})`;
 }
 
-function migrationConnection(driver: FrozenMigrationDriver<'acme'>): FrozenMigrationConnection<'acme'> {
+function migrationConnection<Name extends string>(
+  dialectName: Name,
+  driver: FrozenMigrationDriver<Name>,
+): FrozenMigrationConnection<Name> {
   const applied: AppliedMigration[] = [];
   return {
-    name: 'acme',
+    name: dialectName,
     transactionalDdl: true,
     exec: async sql => {
       await driver.execute({ text: sql, parameters: [] });
     },
     appliedVersions: () => applied.map(migration => migration.version),
     appliedMigrations: () => applied,
-    recordApplied: (version, name, checksum = '') => {
-      applied.push({ version, name, checksum });
+    recordApplied: (version, migrationName, checksum = '') => {
+      applied.push({ version, name: migrationName, checksum });
     },
     recordReverted: version => {
       const index = applied.findIndex(migration => migration.version === version);
@@ -174,9 +182,14 @@ function migrationConnection(driver: FrozenMigrationDriver<'acme'>): FrozenMigra
   };
 }
 
-export function makeSyntheticDialect(): FrozenSqlDialect<'acme'> {
-  const introspector: FrozenIntrospector<'acme'> = Object.freeze({
-    name: 'acme',
+export function makeSyntheticDialect(): FrozenSqlDialect<'acme'>;
+export function makeSyntheticDialect<Name extends string>(
+  name: Name,
+  options?: { readonly paramLimit?: number },
+): FrozenSqlDialect<Name>;
+export function makeSyntheticDialect(name = 'acme', options: { readonly paramLimit?: number } = {}): FrozenSqlDialect {
+  const introspector: FrozenIntrospector = Object.freeze({
+    name,
     snapshot: async (driver: IntrospectionDriver) => {
       await driver.execute({
         text: 'SELECT * FROM <acme_catalog>',
@@ -191,19 +204,19 @@ export function makeSyntheticDialect(): FrozenSqlDialect<'acme'> {
     }),
   });
 
-  const migrations: FrozenMigrationDialect<'acme'> = Object.freeze({
-    name: 'acme',
+  const migrations: FrozenMigrationDialect = Object.freeze({
+    name,
     validateSnapshot: () => undefined,
     validatePlan: () => undefined,
     ddlType: (column: ColumnSnapshot) => renderedType(column.type),
     emitUp: (operation: ChangeOp) => `ACME UP ${operation.kind}`,
     emitDown: (operation: ChangeOp) => `ACME DOWN ${operation.kind}`,
     emitSchemaObject: (operation: { readonly kind: string }) => [`ACME OBJECT ${operation.kind}`],
-    connection: (driver: FrozenMigrationDriver<'acme'>) => migrationConnection(driver),
+    connection: (driver: FrozenMigrationDriver) => migrationConnection(name, driver),
   });
 
-  return Object.freeze({
-    name: 'acme',
+  const definition: FrozenSqlDialect = {
+    name,
     family: 'acme',
     traits: Object.freeze({
       placeholder: 'numbered',
@@ -234,10 +247,14 @@ export function makeSyntheticDialect(): FrozenSqlDialect<'acme'> {
         json: 'JSON',
         jsonEnum: 'TEXT',
       }),
-      paramLimit: 999,
+      paramLimit: options.paramLimit ?? 999,
       retryableCodes: Object.freeze([]),
       acceptsOperator: (operator: string) => ['=', '!=', '<', '<=', '>', '>='].includes(operator),
+      functions: true,
+      procedures: true,
       tableFunctions: false,
+      vectorDistance: false,
+      spatialPredicates: false,
     }),
     capabilities: Object.freeze({
       returning: Object.freeze({
@@ -258,7 +275,9 @@ export function makeSyntheticDialect(): FrozenSqlDialect<'acme'> {
     }),
     migrations,
     introspector,
-  });
+  };
+  defineSqlDialect(definition);
+  return definition;
 }
 
 function keys(value: object): readonly string[] {

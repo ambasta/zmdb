@@ -1,21 +1,21 @@
 # Tooling ownership policy — verifier contract
 
-> Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, remeasured for #681, and amended by #656 after the protobuf runtime/public-owner
-> extraction.
+> Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, remeasured for #681, amended by #656 after the protobuf runtime/public-owner
+> extraction, and remeasured for #668 after the generic dialect protocol/type split.
 
 ## 1. Extraction rule and totals
 
 The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
 and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **138 paths**, each exactly once:
+The inventory has **143 paths**, each exactly once:
 
 ```json
 {
   "compiler": 30,
   "migrations": 20,
   "cli": 20,
-  "runtime": 23,
+  "runtime": 28,
   "facade": 12,
   "optional-integration": 4,
   "test-only": 28,
@@ -109,19 +109,24 @@ runtime	packages/aot-validator/src/utilities/index.ts
 runtime	packages/query-compiler/src/aggregations/index.ts
 runtime	packages/query-compiler/src/clauses.ts
 runtime	packages/query-compiler/src/comments/index.ts
+runtime	packages/query-compiler/src/compiled-query.ts
 runtime	packages/query-compiler/src/dialects/index.ts
 runtime	packages/query-compiler/src/dialects/mssql.ts
+runtime	packages/query-compiler/src/dialects/protocol.ts
 runtime	packages/query-compiler/src/errors.ts
 runtime	packages/query-compiler/src/expressions/index.ts
 runtime	packages/query-compiler/src/extensions/index.ts
 runtime	packages/query-compiler/src/fts/index.ts
 runtime	packages/query-compiler/src/index.ts
+runtime	packages/query-compiler/src/introspect/types.ts
 runtime	packages/query-compiler/src/joins/index.ts
+runtime	packages/query-compiler/src/migrations/types.ts
 runtime	packages/query-compiler/src/naming/index.ts
 runtime	packages/query-compiler/src/outbox/index.ts
 runtime	packages/query-compiler/src/quoting.ts
 runtime	packages/query-compiler/src/schema-objects/extensions.ts
 runtime	packages/query-compiler/src/schema-objects/index.ts
+runtime	packages/query-compiler/src/schema-objects/types.ts
 runtime	packages/query-compiler/src/set-ops/index.ts
 facade	packages/zmdb/src/derive.ts
 facade	packages/zmdb/src/drivers-mssql.ts

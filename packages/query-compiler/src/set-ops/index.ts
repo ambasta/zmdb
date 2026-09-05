@@ -1,5 +1,6 @@
 // Set operations (UNION/INTERSECT/EXCEPT) + Batch — see ./SPEC.md.
-import type { CompiledQuery, Dialect } from '../index.js';
+import type { DialectTarget } from '../dialects/index.js';
+import type { CompiledQuery } from '../index.js';
 import { renumberPlaceholders } from '../quoting.js';
 
 export type SetOp = 'union' | 'unionAll' | 'intersect' | 'except';
@@ -16,7 +17,7 @@ export const SET_KEYWORD: Record<SetOp, string> = {
  * continue across fragments; positional `?` placeholders keep parameter-array order.
  * Single query ⇒ passthrough; empty ⇒ throw.
  */
-export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: Dialect): CompiledQuery {
+export function setOperation(op: SetOp, queries: readonly CompiledQuery[], dialect: DialectTarget): CompiledQuery {
   const [first] = queries;
   if (!first) throw new Error('setOperation requires at least one query');
   if (queries.length === 1) return first;

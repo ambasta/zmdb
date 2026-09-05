@@ -1,3 +1,11 @@
+import {
+  createQueryCompiler,
+  defineSqlDialect,
+  type Introspector,
+  type MigrationDialect,
+  type MigrationDriver,
+  type SqlDialect,
+} from '../index.js';
 import type {
   DATABASE_CAPABILITY_MATRIX,
   DatabaseCapabilityKey,
@@ -6,7 +14,12 @@ import type {
   SqlTypeKey,
   VerticalContractKey,
 } from './capability-matrix.js';
-import type { FrozenDatabaseCapabilities, FrozenDriver, FrozenSqlDialect } from './database-vertical.js';
+import {
+  makeSyntheticDialect,
+  type FrozenDatabaseCapabilities,
+  type FrozenDriver,
+  type FrozenSqlDialect,
+} from './database-vertical.js';
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
@@ -31,3 +44,15 @@ export type _DialectNameFlowsIntoDriver = Expect<
 export type _ReturningCapabilitiesAreTotal = Expect<
   Equal<keyof FrozenDatabaseCapabilities['returning'], 'insert' | 'upsert' | 'update' | 'delete'>
 >;
+export type _FrozenDialectSatisfiesProductionProtocol = Expect<
+  FrozenSqlDialect<'third-party'> extends SqlDialect<'third-party'> ? true : false
+>;
+export type _ProductionMigrationCarriesName = Expect<Equal<MigrationDialect<'third-party'>['name'], 'third-party'>>;
+export type _ProductionIntrospectorCarriesName = Expect<Equal<Introspector<'third-party'>['name'], 'third-party'>>;
+export type _ProductionMigrationDriverCarriesDialect = Expect<
+  Equal<MigrationDriver<'third-party'>['dialect'], SqlDialect<'third-party'>>
+>;
+
+const externalDialect = defineSqlDialect(makeSyntheticDialect());
+const externalCompiler = createQueryCompiler(externalDialect);
+externalCompiler.selectFrom('widgets').where('id', '=', 7).compile();

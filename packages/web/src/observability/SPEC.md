@@ -164,14 +164,14 @@ rejected.
 
 Database span, one per `Driver.execute`:
 
-| attribute                 | source       | note                                                                        |
-| ------------------------- | ------------ | --------------------------------------------------------------------------- |
-| `db.system.name`          | compile time | from the resolved dialect family — `postgresql`, `mysql`, `sqlite`, `mssql` |
-| `db.operation.name`       | compile time | `SELECT`, `INSERT`, `UPDATE`, `DELETE`                                      |
-| `db.collection.name`      | compile time | the primary table                                                           |
-| `db.query.text`           | compile time | the placeholder-only SQL — §6                                               |
-| `db.response.status_code` | runtime      | the dialect's own error code on failure                                     |
-| `zmdb.db.parameter_count` | runtime      | `parameters.length` — §6                                                    |
+| attribute                 | source       | note                                                                              |
+| ------------------------- | ------------ | --------------------------------------------------------------------------------- |
+| `db.system.name`          | compile time | from the resolved dialect family; built-in Postgres is normalized to `postgresql` |
+| `db.operation.name`       | compile time | `SELECT`, `INSERT`, `UPDATE`, `DELETE`                                            |
+| `db.collection.name`      | compile time | the primary table                                                                 |
+| `db.query.text`           | compile time | the placeholder-only SQL — §6                                                     |
+| `db.response.status_code` | runtime      | the dialect's own error code on failure                                           |
+| `zmdb.db.parameter_count` | runtime      | `parameters.length` — §6                                                          |
 
 **All four of #579's database attribute names are the deprecated spellings** and are corrected here, which is the concrete reason step 5 asks for a pinned version:
 
@@ -189,7 +189,7 @@ corrected with this freeze.
 
 ```ts
 export interface QueryTelemetry {
-  readonly system: 'postgresql' | 'mysql' | 'sqlite' | 'mssql';
+  readonly system: string;
   readonly operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
   readonly collection: string;
 }
@@ -207,7 +207,8 @@ which is a parse of SQL that the compiler generated moments earlier and had exac
 It reads `WITH` for a CTE that ends in an `INSERT`, and it returns `other` for any statement with a leading comment — which is to say that turning on §11 of the comment spec, in its leading form,
 would silently degrade every database metric label in the application.
 
-The compiler knows the dialect, the verb and the table without a regular expression, so it says so once.
+The compiler knows the dialect, the verb and the table without a regular expression, so it says so once. The four built-in root families emit `postgresql`, `mysql`, `sqlite` and `mssql`; the `string`
+type also carries an injected third-party dialect family without adding it to a central union.
 
 `telemetry` is optional and populated only when the compiler is built with it enabled. Not for backwards compatibility, but because a field nothing reads is a field that changes the shape every
 existing `toEqual` compares for no benefit; when a tracer or a meter exists, something reads it.

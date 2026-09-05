@@ -19,7 +19,8 @@ import {
   type CatalogTableSnapshot,
   type CatalogWarning,
 } from './common.js';
-import type { IntrospectionDriver, IntrospectOptions, Introspector } from './index.js';
+import { normalizeDriftSnapshot } from './drift.js';
+import type { IntrospectionDriver, IntrospectOptions, LegacyIntrospector } from './index.js';
 
 interface SqliteTable {
   readonly schema: string;
@@ -448,7 +449,11 @@ async function sqliteSnapshot(
   };
 }
 
-export const sqliteIntrospector: Introspector = {
-  dialect: 'sqlite',
+const databaseName = 'sqlite' as const;
+
+export const sqliteIntrospector: LegacyIntrospector<typeof databaseName> = {
+  name: databaseName,
+  dialect: databaseName,
   snapshot: sqliteSnapshot,
+  normalizeForDrift: (snapshot, role) => normalizeDriftSnapshot(snapshot, role),
 };

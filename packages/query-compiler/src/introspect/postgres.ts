@@ -19,7 +19,8 @@ import {
   type CatalogTableSnapshot,
   type CatalogWarning,
 } from './common.js';
-import type { IntrospectionDriver, IntrospectOptions, Introspector } from './index.js';
+import { normalizeDriftSnapshot } from './drift.js';
+import type { IntrospectionDriver, IntrospectOptions, LegacyIntrospector } from './index.js';
 
 interface PostgresColumn {
   readonly table: string;
@@ -488,7 +489,11 @@ async function postgresSnapshot(
   };
 }
 
-export const postgresIntrospector: Introspector = {
-  dialect: 'postgres',
+const databaseName = 'postgres' as const;
+
+export const postgresIntrospector: LegacyIntrospector<typeof databaseName> = {
+  name: databaseName,
+  dialect: databaseName,
   snapshot: postgresSnapshot,
+  normalizeForDrift: (snapshot, role) => normalizeDriftSnapshot(snapshot, role),
 };
