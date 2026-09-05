@@ -5,18 +5,21 @@
 ## 1. Refinements
 
 ```ts
-refine(predicateSource: string, message: string): Rule
+refine(predicate: (value: unknown) => boolean, message: string): RefineRule
 ```
 
-Emitted inline: the predicate expression is inlined verbatim against the value; on failure a structured error carrying `message` is produced. Predicates MUST be pure and synchronous.
+The predicate is a function value, never source text. TypeScript rejects string arguments, and the runtime constructor rejects non-functions so plain JavaScript cannot bypass that boundary. The rule
+records the intrinsic `Function.prototype.toString` result for inspection, but the current type-first emitter does not consume advanced rules. `validateObject` invokes the supplied predicate
+synchronously and reports `message` on failure.
 
 ## 2. Transforms
 
 ```ts
-transform(fnSource: string): Rule   // pure, runs AFTER validation passes
+transform(apply: (value: unknown) => unknown): TransformRule
 ```
 
-Emitted inline as a direct conversion; output type is reflected at compile time.
+The conversion is also a function value and the constructor rejects source strings through both the TypeScript and JavaScript surfaces. The returned rule exposes `apply` and records its intrinsic
+source. No current validator or emitter path applies the rule, so callers that invoke `apply` do so explicitly.
 
 ## 3. Unions / discriminated unions
 

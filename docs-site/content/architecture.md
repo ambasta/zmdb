@@ -66,7 +66,7 @@ of documentation rather than a package: they are all "implement `execute`".
 ## No runtime code generation
 
 There is no `new Function` and no `eval` anywhere in `packages/*/src`. Validators are emitted as source by the transformer during your build, so what runs in production is code that `tsc` type-checked
-and that you can read in the output bundle. This is enforced by a grep in CI, not by convention.
+and that you can read in the output bundle. CI checks the parsed call sites, the public `refine`/`transform` signatures, and reachability from both emitter paths rather than trusting a text grep.
 
 ## No runtime reflection
 

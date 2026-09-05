@@ -3,8 +3,8 @@ import type { ValidationIssue } from '@zmdb/schema-core';
 // Advanced validation — implementation.
 // #46 refinement compilation (refine + refinement-aware validateObject with
 // exact error paths). Coercion + object strictness (#49) are co-implemented
-// because the same validateObject drives them. #47 transform and #48 union
-// have no runtime-fallback tests in this suite and are left as thin stubs.
+// because the same validateObject drives them. #47 transform remains a rule
+// constructor only; no validator path applies it.
 import type { Rule } from '../index.js';
 
 export type { ValidationIssue };
@@ -24,14 +24,14 @@ export type RefinePredicate = (v: unknown) => boolean;
 export type TransformFn = (v: unknown) => unknown;
 
 /**
- * A refinement rule: a real predicate plus its source text for AOT inlining.
+ * A refinement rule: a real predicate plus its intrinsic source text for inspection.
  *
  * The predicate is passed in as a *function value*, not a source string that we
- * `new Function()` at import time. Two reasons: (1) the string form needs
- * `unsafe-eval`, which contradicts the whole point of ahead-of-time emission —
- * see PRD §9.5; (2) a function is typechecked at the call site, whereas a string
- * predicate can only fail at runtime. `source` is recovered from
- * `Function.prototype.toString`, so the transformer can still inline the body.
+ * compile or interpret at import time. A string form creates a second executable
+ * language whose property and call reachability must be secured; a function is
+ * instead typechecked at the call site. `source` records the function's intrinsic
+ * text for inspection; the current emitter does not consume advanced-rule source
+ * (PRD §9.5).
  */
 export interface RefineRule extends Rule {
   readonly kind: 'refine';
@@ -56,7 +56,10 @@ export interface DiscriminatedRule extends Rule {
 }
 
 export function refine(predicate: RefinePredicate, message: string): RefineRule {
-  const source = predicate.toString();
+  if (typeof predicate !== 'function') {
+    throw new TypeError('refine() requires a function value; source strings are not supported');
+  }
+  const source = Function.prototype.toString.call(predicate);
   return Object.freeze({
     kind: 'refine',
     args: Object.freeze([source, message]),
@@ -67,7 +70,10 @@ export function refine(predicate: RefinePredicate, message: string): RefineRule 
 }
 
 export function transform(apply: TransformFn): TransformRule {
-  const source = apply.toString();
+  if (typeof apply !== 'function') {
+    throw new TypeError('transform() requires a function value; source strings are not supported');
+  }
+  const source = Function.prototype.toString.call(apply);
   return Object.freeze({
     kind: 'transform',
     args: Object.freeze([source]),
@@ -102,7 +108,7 @@ function isDiscriminated(rule: Rule): rule is DiscriminatedRule {
   return rule.kind === 'discriminated' && 'key' in rule && typeof rule.key === 'string' && 'map' in rule;
 }
 
-// Runtime evaluator (the fallback the transformer's inline emission mirrors).
+// Runtime evaluator for the rule-value API. The type-first emitter is a separate path.
 export function evalRule(rule: Rule, value: unknown): boolean {
   if (isUnion(rule)) return rule.branches.some(b => evalRule(b, value));
   if (isDiscriminated(rule)) {

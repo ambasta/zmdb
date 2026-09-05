@@ -33,3 +33,22 @@ describe('structured error paths', () => {
     expect(r.issues[0]?.message).toBe('must be >= 0');
   });
 });
+
+describe('string-source guard', () => {
+  it('rejects JavaScript callers before a refine source can become a rule', () => {
+    const sources = [
+      "v.constructor.constructor('return process.env.HOME')()",
+      "v['constructor']['constructor']('return process.env.HOME')()",
+      "v.__proto__.constructor.constructor('return process.env.HOME')()",
+      "v['__proto__']['constructor']['constructor']('return process.env.HOME')()",
+      "v.constructor.prototype.constructor.constructor('return process.env.HOME')()",
+      "v['constructor']['prototype']['constructor']['constructor']('return process.env.HOME')()",
+    ];
+
+    for (const source of sources) {
+      expect(() => Reflect.apply(refine, undefined, [source, 'must be safe'])).toThrow(
+        'refine() requires a function value; source strings are not supported',
+      );
+    }
+  });
+});

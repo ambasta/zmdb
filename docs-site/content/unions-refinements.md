@@ -118,8 +118,9 @@ validateObject({ age: 17 }, { age: adult }, 'strict');
 //                             message: 'must be at least 18', value: 17 }] }
 ```
 
-`refine` takes a **function**, not a source string. The string form would need `unsafe-eval`, which contradicts the entire point of ahead-of-time emission, and a function is typechecked at the call
-site where a string predicate can only fail at runtime. The source text is recovered from `Function.prototype.toString`, so inlining is still possible without it.
+`refine` takes a **function**, not a source string. The string form would need either runtime code generation or a second expression interpreter, and a function is typechecked at the call site where a
+string predicate can only fail at runtime. The constructor also checks at runtime, so plain JavaScript cannot smuggle a string past the TypeScript signature. The rule records the intrinsic
+`Function.prototype.toString` result for inspection; the current emitter does not consume advanced-rule source.
 
 What that module does not do:
 

@@ -18,8 +18,11 @@
 //     comment saying why the assertion is sound. An assertion in a function that has no
 //     such comment fails even when the total did not move, because otherwise the ratchet
 //     rewards deleting one assertion and adding an undocumented one.
-//   - **`new Function` and `eval` stay gone** (§9.5). A count of zero is the only count
-//     worth having here, so it is a presence check with the call site named.
+//   - **Runtime code generation stays gone** (§9.5). A count of zero is the only count
+//     worth having here, so direct `Function` construction and `eval` are presence
+//     checks with the call site named. The refine/transform guard below is deliberately
+//     stronger than a token check: it verifies their public signatures, JavaScript
+//     boundary and separation from both validator-emission paths.
 //
 // ---------------------------------------------------------------------------
 // Why the compiler and not a grep
@@ -52,11 +55,13 @@
 // `__fixtures__/` are the same argument for directories. Shipped code is what this guards.
 
 import { existsSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { SyntaxKind } from 'typescript/unstable/ast';
-import { API } from 'typescript/unstable/sync';
+import { API, SignatureKind, TypeFlags } from 'typescript/unstable/sync';
+
+import { createImportGraph } from './lib/import-graph.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -89,7 +94,7 @@ const BUDGET = {
   assertions: { limit: 55, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
   nonNull: { limit: 0, what: 'non-null assertions (`!`)' },
   lintDisables: { limit: 1, what: '`eslint-disable` / `oxlint-disable`' },
-  dynamicCode: { limit: 0, what: '`new Function` / `eval` call sites' },
+  dynamicCode: { limit: 0, what: '`Function` constructor / `eval` call sites' },
 };
 
 /** Reported, not capped: `// boundary:` comments. The grep pass counted 37. */
@@ -141,14 +146,167 @@ function isDoubleCast(node) {
   return inner?.kind === SyntaxKind.AsExpression && inner.type?.kind === SyntaxKind.UnknownKeyword;
 }
 
-/** `new Function(…)` or `eval(…)`, by callee name. */
+/** Direct `Function(…)`, `new Function(…)` or `eval(…)`, by callee name. */
 function dynamicCodeName(node) {
   const callee =
     node.kind === SyntaxKind.NewExpression || node.kind === SyntaxKind.CallExpression ? node.expression : undefined;
   if (callee?.kind !== SyntaxKind.Identifier) return undefined;
-  if (node.kind === SyntaxKind.NewExpression && callee.text === 'Function') return 'new Function';
+  if (callee.text === 'Function') return node.kind === SyntaxKind.NewExpression ? 'new Function' : 'Function';
   if (node.kind === SyntaxKind.CallExpression && callee.text === 'eval') return 'eval';
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// String-source validator guard
+// ---------------------------------------------------------------------------
+
+const STRING_SOURCE_APIS = ['refine', 'transform'];
+const STRING_SOURCE_PAYLOADS = [
+  "typeof v === 'string'",
+  "v.constructor.constructor('return process.env.HOME')()",
+  "v['constructor']['constructor']('return process.env.HOME')()",
+  "v.__proto__.constructor.constructor('return process.env.HOME')()",
+  "v['__proto__']['constructor']['constructor']('return process.env.HOME')()",
+  "v.constructor.prototype.constructor.constructor('return process.env.HOME')()",
+  "v['constructor']['prototype']['constructor']['constructor']('return process.env.HOME')()",
+];
+
+/** True when `file` is `root` or below it. */
+function isWithin(root, file) {
+  const path = relative(root, file);
+  return path === '' || (!path.startsWith('..') && !isAbsolute(path));
+}
+
+/**
+ * Whether a parameter type admits source text in any form.
+ *
+ * `checker.isTypeAssignableTo(string, type)` catches the ordinary `string` widening,
+ * but not a string-literal overload. Looking through unions, intersections and type
+ * parameters closes that gap without keying the check to the spelling of today's
+ * `RefinePredicate` and `TransformFn` aliases.
+ */
+function admitsString(type, checker, seen = new Set()) {
+  if (seen.has(type.id)) return false;
+  seen.add(type.id);
+
+  if ((type.flags & (TypeFlags.AnyOrUnknown | TypeFlags.StringLike)) !== 0) return true;
+  if (type.isUnionType() || type.isIntersectionType()) {
+    return type.getTypes().some(member => admitsString(member, checker, seen));
+  }
+  if ((type.flags & TypeFlags.TypeParameter) !== 0) {
+    const constraint = checker.getBaseConstraintOfType(type);
+    return constraint === undefined || admitsString(constraint, checker, seen);
+  }
+  return checker.isTypeAssignableTo(checker.getStringType(), type);
+}
+
+/** Public refine/transform signatures must remain callable-only and string-free. */
+function auditStringSourceSignatures(program, checker) {
+  const problems = [];
+  const file = resolve(ROOT, 'packages/aot-validator/src/advanced/index.ts');
+  const sourceFile = program.getSourceFile(file);
+  if (!sourceFile) return [`could not load ${relative(ROOT, file)} for the string-source guard.`];
+
+  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+  if (!moduleSymbol) return [`${relative(ROOT, file)} has no module symbol for the string-source guard.`];
+  const exported = new Map(checker.getExportsOfModule(moduleSymbol).map(symbol => [symbol.name, symbol]));
+
+  for (const name of STRING_SOURCE_APIS) {
+    const symbol = exported.get(name);
+    if (!symbol) {
+      problems.push(`${relative(ROOT, file)} no longer exports \`${name}\`; update the guard with the API change.`);
+      continue;
+    }
+
+    const type = checker.getTypeOfSymbolAtLocation(symbol, sourceFile);
+    const signatures = checker.getSignaturesOfType(type, SignatureKind.Call);
+    if (signatures.length === 0) {
+      problems.push(`\`${name}\` is exported but has no callable signature.`);
+      continue;
+    }
+
+    for (const [index, signature] of signatures.entries()) {
+      const parameter = signature.getParameters()[0];
+      if (!parameter) {
+        problems.push(`\`${name}\` signature ${index + 1} accepts no function value.`);
+        continue;
+      }
+      const parameterType = checker.getTypeOfSymbolAtLocation(parameter, sourceFile);
+      if (checker.getSignaturesOfType(parameterType, SignatureKind.Call).length === 0) {
+        problems.push(
+          `\`${name}\` signature ${index + 1} first parameter is not callable: ${checker.typeToString(parameterType)}.`,
+        );
+      }
+      if (admitsString(parameterType, checker)) {
+        problems.push(`\`${name}\` signature ${index + 1} admits source text: ${checker.typeToString(parameterType)}.`);
+      }
+    }
+  }
+
+  return problems;
+}
+
+/**
+ * The advanced rule module is a runtime fallback, not input to either emitter.
+ *
+ * The checker-driven path is protected by `CALLEES`; the no-checker path is probed
+ * byte-for-byte with both ordinary source strings and the prototype-chain payloads
+ * that evade a `new Function` grep. Import reachability is checked separately so a
+ * shared interpreter cannot quietly appear below either emission entry point.
+ */
+async function auditStringSourceEmission() {
+  const problems = [];
+  const advanced = resolve(ROOT, 'packages/aot-validator/src/advanced');
+  const entries = [
+    resolve(ROOT, 'packages/aot-validator/src/transformer.ts'),
+    resolve(ROOT, 'packages/aot-validator/src/emit/index.ts'),
+  ];
+  const graph = createImportGraph(ROOT);
+
+  for (const entry of entries) {
+    const chain = graph.findImportPath(
+      entry,
+      imported => imported.resolved !== null && isWithin(advanced, imported.resolved),
+    );
+    if (chain !== null) {
+      const trail = chain.map((part, index) => (index === chain.length - 1 ? part : relative(ROOT, part))).join(' -> ');
+      problems.push(`${relative(ROOT, entry)} reaches the advanced rule surface through ${trail}.`);
+    }
+  }
+
+  await import(pathToFileURL(resolve(ROOT, 'scripts/ts-specifier-hook.mjs')).href);
+  const { CALLEES, transformCode } = await import(
+    pathToFileURL(resolve(ROOT, 'packages/aot-validator/src/transformer.ts')).href
+  );
+
+  for (const name of STRING_SOURCE_APIS) {
+    if (CALLEES.has(name)) {
+      problems.push(
+        `the checker-driven emitter recognises \`${name}\`; advanced rule source must stay out of CALLEES.`,
+      );
+    }
+  }
+
+  for (const payload of STRING_SOURCE_PAYLOADS) {
+    const sources = [
+      `const ok = validate(refine(${JSON.stringify(payload)}, "message"), input);`,
+      `const out = validate(transform(${JSON.stringify(payload)}), input);`,
+    ];
+    for (const source of sources) {
+      try {
+        const output = transformCode(source);
+        if (output !== source) {
+          problems.push(`the no-checker emitter interpreted a refine/transform source: ${JSON.stringify(payload)}.`);
+        }
+      } catch (error) {
+        problems.push(
+          `the no-checker emitter tried to parse a refine/transform source (${JSON.stringify(payload)}): ${String(error)}.`,
+        );
+      }
+    }
+  }
+
+  return problems;
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +468,7 @@ const totals = Object.fromEntries(Object.keys(BUDGET).map(key => [key, 0]));
 const perPackage = [];
 const findings = [];
 const undocumented = [];
+const contractProblems = [];
 let boundaries = 0;
 let files = 0;
 
@@ -320,8 +479,9 @@ for (const name of PACKAGES) {
 
   const api = new API({ cwd: packageRoot });
   try {
-    const program = api.updateSnapshot({ openProjects: [project] }).getProjects()[0]?.program;
-    if (!program) throw new Error(`could not load ${relative(ROOT, project)}`);
+    const loaded = api.updateSnapshot({ openProjects: [project] }).getProjects()[0];
+    if (!loaded) throw new Error(`could not load ${relative(ROOT, project)}`);
+    const { checker, program } = loaded;
     let assertions = 0;
     let boundaryComments = 0;
     for (const fileName of program.getSourceFileNames()) {
@@ -337,10 +497,19 @@ for (const name of PACKAGES) {
       findings.push(...audit.findings);
       undocumented.push(...audit.undocumented);
     }
+    if (name === 'aot-validator') {
+      contractProblems.push(...auditStringSourceSignatures(program, checker));
+    }
     perPackage.push({ name, assertions, boundaryComments });
   } finally {
     api.close();
   }
+}
+
+try {
+  contractProblems.push(...(await auditStringSourceEmission()));
+} catch (error) {
+  contractProblems.push(`could not audit the emitted-validator string-source boundary: ${String(error)}.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -359,8 +528,9 @@ console.log('\n  package                 assertions  boundary comments');
 for (const row of perPackage) {
   console.log(`  ${row.name.padEnd(22)} ${pad(row.assertions, 10)} ${pad(row.boundaryComments, 18)}`);
 }
+console.log(`\n  refine/transform string-source boundary: ${contractProblems.length === 0 ? 'OK' : 'FAIL'}`);
 
-const problems = [];
+const problems = [...contractProblems];
 for (const [key, { limit, what }] of Object.entries(BUDGET)) {
   if (totals[key] > limit) {
     problems.push(
