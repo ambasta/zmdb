@@ -527,7 +527,7 @@ describe('application messaging lifecycle (#648)', () => {
     const app = createMessagingApplication(Root, {
       transports: [transport],
       dispatcher: sinks(log),
-      graceMs: 5,
+      graceMs: 50,
     });
     await app.init();
     const dispatch = transport.deliver(delivery('orders.hung'));
