@@ -676,10 +676,22 @@ export const mikroOrm = {
   collection: 'attaches child orders to each user, as plain rows (no shared refs)',
   'non-pk-relation-target': 'a read that does not populate attaches nothing',
   'composite-keys': [
+    'emits one table-level PRIMARY KEY for a two-column key',
     'findById compiles parameterized multi-column SQL predicates',
+    'update compiles complete compound key predicates for composite key entities',
+    'delete compiles complete compound key predicates for composite key entities',
+    'uses every composite key column as the default upsert conflict target',
     'throws ValidationError at runtime when composite key is missing fields or non-object',
+    'orders and cursors by every key column, so no row is skipped between pages',
+    'batches composite primary keys without crossing tuple boundaries',
+    'keeps composite parent relations separated by every key column',
   ],
-  'sharing-column-in-composite-fk': 'update compiles complete compound key predicates for composite key entities',
+  'sharing-column-in-composite-fk': [
+    'emits a composite foreign key referencing a composite key',
+    'update compiles complete compound key predicates for composite key entities',
+    'joins a relation on every column of a composite parent key',
+    'keeps composite parent relations separated by every key column',
+  ],
   'custom-types': [
     'round-trips',
     'flatten prefixes each field with the column prefix',

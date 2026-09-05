@@ -52,13 +52,13 @@ uses physical `DELETE`. See [Entity Filters](./entity-filters.html).
 
 ## Structural
 
-| Tag                  | Payload          | Emits                                                     |
+| Tag                  | Payload          | Effect                                                    |
 | -------------------- | ---------------- | --------------------------------------------------------- |
 | `Sql<T>`             | a SQL type name  | the column's DDL type                                     |
 | `Ext<E, N, A>`       | three type args  | extension installation and the supplied column type       |
 | `PrimaryKey`         | —                | `PRIMARY KEY`; two columns → composite                    |
 | `Serial`             | —                | auto-increment, **and** `hasDefault`                      |
-| `Unique`             | —                | `UNIQUE`                                                  |
+| `Unique`             | —                | records unique intent in the IR                           |
 | `HasDefault`         | —                | optional in `CreateDTO`; drops the column from `required` |
 | `Sensitive`          | —                | never serialised; `ReadDTO<T>` cannot name it             |
 | `References<Target>` | `'table.column'` | `FOREIGN KEY`                                             |
@@ -66,6 +66,11 @@ uses physical `DELETE`. See [Entity Filters](./entity-filters.html).
 | `Numeric<P, S>`      | two `number`s    | `numeric(P, S)`                                           |
 | `Codec<Name>`        | `string`         | names a [custom type](./custom-types.html) codec          |
 | `WireAs<W>`          | **a type**       | what the column looks like over the wire                  |
+
+`Unique` is carried through reflection and migration snapshots. SingleStore
+uses it to validate and emit shard-compatible uniqueness; the ordinary
+generated migration path for the root dialects still needs an explicit unique
+index from `createIndexDdl`.
 
 `Serial` and `HasDefault` are distinct on purpose. Supplying a defaulted column is legitimate, so it is _optional_ on insert; supplying a database-generated one is a mistake, so it is _absent_ from the insert type entirely.
 

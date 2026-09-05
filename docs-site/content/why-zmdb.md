@@ -27,10 +27,12 @@ export interface User extends Table<'users'> {
 }
 ```
 
-There is no schema _object_ to write. The table name, the column types, the key and the
-constraints are all on the type, carried by intersection tags that erase to nothing at
-runtime — `zmdb/tags` has no runtime exports at all, so that import disappears from your
-build output.
+There is no column-map schema _object_ to write. The table name, column types,
+key and constraint intent are all on the type, carried by intersection tags
+that erase to nothing at runtime — `zmdb/tags` has no runtime exports at all,
+so that import disappears from your build output. Schema objects that have no
+type-level shape, such as a standalone or expression index, stay in explicit
+migrations.
 
 From that one declaration you get, with no second declaration and no runtime reflection:
 

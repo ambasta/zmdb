@@ -92,7 +92,7 @@ export interface UserTag extends Table<'user_tags'> {
 }
 ```
 
-If you ever filter, group or count by tag, this is the right model — it indexes, it joins, and it does not need JSON operators. Two `PrimaryKey` tags say composite, which is what stops the same tag being attached twice — though the DDL emitter does not yet write that as one table constraint, so this table wants a [hand-written migration](./migrations-custom.html); see [Composite Keys](./composite-keys.html). Keep `json` for opaque blobs you read whole, like `prefs`.
+If you ever filter, group or count by tag, this is the right model — it indexes, it joins, and it does not need JSON operators. Two `PrimaryKey` tags say composite, and generated DDL emits one ordered table-level key, so the same tag cannot be attached twice for one user. See [Composite Keys](./composite-keys.html). Keep `json` for opaque blobs you read whole, like `prefs`.
 
 ## Enum-valued columns
 

@@ -526,8 +526,7 @@ export const PAGE_META = {
   'composite-keys': {
     title: 'Composite Primary Keys',
     group: 'Schema',
-    status: 'todo',
-    note: 'snapshots, DDL, repository methods and pagination preserve the whole key; composite-parent relations remain',
+    status: 'supported',
   },
   'bigint-keys': {
     title: 'bigint Primary Keys',

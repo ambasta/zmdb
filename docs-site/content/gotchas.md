@@ -98,7 +98,11 @@ A `Sensitive` column is still selected and still comes back from the driver. Wha
 
 ## Property order matters for composite operations
 
-Column iteration order is the order the properties appear on the interface, and DDL emission follows it. Reordering them produces a migration diff even though nothing semantically changed.
+Snapshot columns are sorted by name, so reordering ordinary properties does not
+produce a migration. Primary-key order is different: it follows the order of
+the `PrimaryKey` properties in the interface because `(tenantId, id)` and
+`(id, tenantId)` are different indexes. Reordering those properties produces an
+`alter_primary_key` migration.
 
 ## `UpdateBuilder.set()` expressions reference only their own column
 

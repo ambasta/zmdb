@@ -1,18 +1,21 @@
-> **Supported.** `IndexDef.columns` accepts a tagged expression, so PostgreSQL and
-> SQLite can emit a unique index on `lower(email)`. MySQL and SQL Server use the
-> generated-column form below. The `Unique` tag itself remains case-**sensitive**.
+> **Supported.** `createIndexDdl` emits a functional unique index on the
+> PostgreSQL family and SQLite. The MySQL family and SQL Server use a generated
+> lowercase column plus an ordinary unique index.
 
-## The problem
+Case sensitivity is a database property, not a property of the TypeScript
+string. A plain unique index follows its column's type and collation: PostgreSQL
+`text` is case-sensitive, MySQL's usual `utf8mb4_0900_ai_ci` collation is not,
+and SQL Server follows the collation you selected. If account identity must be
+case-insensitive, make that contract explicit rather than inheriting a server
+default.
 
-```ts
-email: string & Sql<'varchar'> & Length<255> & Unique;
-```
-
-`Alice@example.com` and `alice@example.com` are two different values, so both rows insert. Then your login query with one casing finds nothing, and support has two accounts to merge.
+The `Unique` tag records uniqueness in the schema IR, but the ordinary generated
+migration path does not create a standalone unique constraint for the root
+dialects. Every recipe below therefore creates the unique index explicitly.
 
 ## Expression unique index
 
-For PostgreSQL and SQLite, emit the index from a [custom migration](./migrations-custom.html):
+PostgreSQL, Cockroach and SQLite accept the tagged expression form:
 
 ```ts
 import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
@@ -27,14 +30,14 @@ const ddl = createIndexDdl(
   'postgres',
 );
 
-await exec(ddl);
+await driver.execute({ text: ddl, parameters: [] });
 ```
 
 ```sql
 CREATE UNIQUE INDEX "users_email_lower" ON "users" (lower("email"))
 ```
 
-Then query through the same expression, or the index is not used:
+Query through the same expression:
 
 ```ts
 await driver.execute({
@@ -43,84 +46,117 @@ await driver.execute({
 });
 ```
 
-Both sides matter. `WHERE email = $1` will not use `lower(email)`, and `WHERE lower(email) = $1` with an unnormalised parameter misses rows.
+Both sides matter. `WHERE email = $1` does not match the indexed expression,
+and `WHERE lower(email) = $1` with an unnormalised parameter misses rows.
+Repository filters take column names, so this expression query is deliberately
+raw SQL at the driver boundary.
 
-The expression is emitted verbatim. Quote identifiers inside it yourself and never interpolate
-request data. MySQL and SQL Server are deliberately refused because their
-expression-index shapes differ; use the generated column below. SQLite supports
-expression indexes since 3.9.
+The expression is emitted verbatim and compared byte-for-byte in migration
+snapshots. Quote identifiers inside it, never interpolate request data, and
+expect a whitespace or casing change to recreate the index. A bare string is a
+column name: `columns: ['lower(email)']` produces an index on a column literally
+named `lower(email)`.
 
-## Generated column
+MySQL, SingleStore and SQL Server throw `UnsupportedFeatureError` for the
+expression form because their grammar differs. The error names the index,
+table, expression and generated-column alternative.
 
-Portable to MySQL and SQL Server, and it makes the normalised value queryable through the typed API:
+## Generated column for the MySQL family and SQL Server
 
-```ts
-import { generatedColumnDdl, createIndexDdl } from '@zmdb/query-compiler/schema-objects';
-
-const col = generatedColumnDdl(
-  { name: 'email_lower', type: 'text', expression: 'lower(email)', stored: true },
-  'postgres',
-);
-// '"email_lower" text GENERATED ALWAYS AS (lower(email)) STORED'
-await exec(`ALTER TABLE "users" ADD COLUMN ${col}`);
-await exec(
-  createIndexDdl({ name: 'users_email_lower', table: 'users', columns: ['email_lower'], unique: true }, 'postgres'),
-);
-```
-
-`generatedColumnDdl` takes the column and a dialect — it emits a column _fragment_, not a statement, because the same text belongs in a `CREATE TABLE` body and in an `ALTER TABLE … ADD COLUMN`. The table name is yours to write.
-
-Declare it on the interface as a plain column so you can filter on it, and mark it `HasDefault` so `CreateDTO` does not ask for a value the database computes:
+`generatedColumnDdl` emits a column fragment, and `createIndexDdl` emits the
+ordinary unique index over it:
 
 ```ts
-emailLower: string & Sql<'text'> & HasDefault; // maintained by the database; never write to it
+import { createIndexDdl, generatedColumnDdl } from '@zmdb/query-compiler/schema-objects';
+
+const column = generatedColumnDdl(
+  {
+    name: 'email_lower',
+    type: 'VARCHAR(255)',
+    expression: 'lower(`email`)',
+    stored: true,
+  },
+  'mysql',
+);
+const index = createIndexDdl(
+  {
+    name: 'users_email_lower',
+    table: 'users',
+    columns: ['email_lower'],
+    unique: true,
+  },
+  'mysql',
+);
+
+await driver.execute({
+  text: `ALTER TABLE \`users\` ADD COLUMN ${column}`,
+  parameters: [],
+});
+await driver.execute({ text: index, parameters: [] });
 ```
 
-`HasDefault` is the closest tag to "the database supplies this" — it makes the property optional in `CreateDTO<User>`. It does not stop you from _passing_ a value, which a generated column will reject at the database. The alternative is to leave the column off the interface entirely and reach it through the query builder. That loses the derived type, but it also keeps generated values out of the repository write path.
+The measured MySQL output is:
 
-## Workaround 3 — normalise in the application
+```sql
+`email_lower` VARCHAR(255) GENERATED ALWAYS AS (lower(`email`)) STORED
+CREATE UNIQUE INDEX `users_email_lower` ON `users` (`email_lower`)
+```
+
+For SQL Server the same two functions emit:
+
+```sql
+[email_lower] AS (LOWER([email])) PERSISTED
+CREATE UNIQUE INDEX [users_email_lower] ON [users] ([email_lower])
+```
+
+SingleStore inherits the MySQL spelling. Its unique index must also include the
+whole shard key, so a tenant-sharded table normally indexes
+`['tenantId', 'email_lower']`, not `email_lower` alone.
+
+Leave the generated column out of the table interface. `HasDefault` only makes a
+property optional on create; it does not make the property read-only, so a
+repository write could still target the generated column and the database would
+reject it. If you need a typed read of the generated value, expose a view with a
+separate interface. See [Generated Columns](./generated-columns.html).
+
+## Application normalisation
+
+Normalising before every repository write lets an ordinary unique index enforce
+the stored lowercase value:
 
 ```ts
 class UserRepository extends BaseRepository<User> {
   protected override preInsert(row: Record<string, unknown>): void {
     if (typeof row.email === 'string') row.email = row.email.toLowerCase();
   }
+
   protected override preUpdate(patch: Record<string, unknown>): void {
     if (typeof patch.email === 'string') patch.email = patch.email.toLowerCase();
   }
 }
 ```
 
-Both hooks return `void` and take `Record<string, unknown>`. `preInsert` receives
-the validated create payload; `preUpdate` receives the validated,
-`undefined`-stripped update patch in schema order. Both are passed _by
-reference_, so you normalise in place rather than returning a new object. A
-returned value is discarded. `upsert` goes through `preInsert`; its
-conflict-update object does not also run `preUpdate`.
+Both hooks receive the validated object by reference and return `void`.
+`preUpdate` gets the `undefined`-stripped patch in schema order. `upsert` runs
+`preInsert` for its create payload; its conflict-update object does not also run
+`preUpdate`.
 
-They run **after** validation, so a `Pattern` or `MaxLength` check sees what the
-caller actually sent. Hook mutations are not validated a second time: keep this
-normalisation constraint-preserving, and remember that Unicode lowercasing can
-expand a string.
+Hooks run after validation, and their mutations are not validated a second
+time. Keep the change constraint-preserving, then create an explicit unique
+index on `email` with `createIndexDdl`.
 
-Store lowercase, so the plain `Unique` constraint is now case-insensitive in effect.
-
-This is the simplest option and it has a real hole: any writer that is not this repository — a migration, a data fix, another service — can insert mixed case, and the constraint will not stop it. Belt and braces is a `CHECK (email = lower(email))` in a migration.
+This approach has a real hole: a migration, data fix or another service can
+write mixed case without passing through the hooks. A database `CHECK (email =
+lower(email))` closes that hole.
 
 > [!WARNING]
-> `toLowerCase()` is not the same as Unicode case folding. `'İ'.toLowerCase()` is
-> two code points in some locales, and `ß` versus `SS` differs again. For email
-> addresses this rarely matters; for usernames it is a real
-> account-confusion vector. Postgres `lower()` and JavaScript `toLowerCase()` can
-> also disagree, so applications that combine both approaches need tests for
-> their supported character sets.
+> `toLowerCase()` is not Unicode case folding. JavaScript and the database can
+> also produce different results for the same non-ASCII input. Test the
+> character set your identity contract accepts.
 
-Also note: the local part of an email address is technically case-sensitive per RFC 5321. In practice every mail provider treats it as insensitive, and treating it otherwise creates duplicate accounts — so lowercase it, but understand that you are choosing a convention.
+## Postgres `citext`
 
-## `citext`
-
-Postgres has a case-insensitive text type in the `citext` extension. Declare the
-storage type directly:
+`citext` makes ordinary equality case-insensitive for every writer:
 
 ```ts
 import type { Ext, Table } from 'zmdb/tags';
@@ -130,17 +166,32 @@ interface User extends Table<'users'> {
 }
 ```
 
-The generated migration installs `citext` before creating the table. Comparisons
-and a unique index on that column are then case-insensitive with no query
-changes. This is the cleanest option if you are Postgres-only, and it applies to
-every writer. See [Database Extensions](./db-extensions.html).
+The generated migration installs the extension before creating the table. Add
+the unique index explicitly:
+
+```ts
+createIndexDdl(
+  {
+    name: 'users_email_unique',
+    table: 'users',
+    columns: ['email'],
+    unique: true,
+  },
+  'postgres',
+);
+```
+
+This is the cleanest Postgres-only option when the column's semantics are
+case-insensitive, not merely one lookup. See [Database
+Extensions](./db-extensions.html).
 
 ## Declaration boundary
 
-`IndexDef` emits the functional index, but the type-level `Unique` tag carries no arguments and
-therefore cannot derive it from the interface. Keep the index declaration beside the schema in a
-migration. Its expression is raw DDL and needs the same care as [raw SQL](./raw-sql.html).
+The type-level `Unique` tag carries no expression, so it cannot derive
+`lower(email)` from the interface. Keep the explicit index beside the schema in
+a reviewed migration. Its expression is raw DDL and needs the same care as [raw
+SQL](./raw-sql.html).
 
 ---
 
-See also: [Indexes & Constraints](./indexes-constraints.html) · [Database Extensions](./db-extensions.html) · [Custom Migrations](./migrations-custom.html)
+See also: [Indexes & Constraints](./indexes-constraints.html) · [Generated Columns](./generated-columns.html) · [Database Extensions](./db-extensions.html) · [Custom Migrations](./migrations-custom.html)

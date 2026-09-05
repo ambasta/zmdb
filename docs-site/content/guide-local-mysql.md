@@ -28,7 +28,7 @@ The `command` block is the important part, and it is not optional.
 
 **`STRICT_TRANS_TABLES`.** Without it MySQL truncates an over-long string, turns an invalid date into `0000-00-00` and stores `0` for a bad number — all with a warning, not an error. Strict mode is the default in 8.x, but stating it means a change of image cannot quietly remove it.
 
-**Collation.** `utf8mb4_0900_ai_ci` is accent- and case-**insensitive**, which is MySQL's default and means `Unique` on a `varchar` column is already case-insensitive — the opposite of Postgres. Worth knowing before you [work around it](./guide-case-insensitive-unique.html). Use `utf8mb4_0900_as_cs` if you want case-sensitive comparisons.
+**Collation.** `utf8mb4_0900_ai_ci` is accent- and case-**insensitive**, which is MySQL's default and means a unique index on a `varchar` column is already case-insensitive — the opposite of Postgres. Account for that before choosing a [portable uniqueness strategy](./guide-case-insensitive-unique.html). Use `utf8mb4_0900_as_cs` if you want case-sensitive comparisons.
 
 ## Connecting
 

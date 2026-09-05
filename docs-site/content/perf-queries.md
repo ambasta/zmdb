@@ -81,8 +81,9 @@ Functional indexes use the tagged expression form:
 createIndexDdl({ name: 'users_email_lower', table: 'users', columns: [{ expr: 'lower("email")' }] }, 'postgres');
 ```
 
-The expression is schema-authored DDL and is emitted verbatim. MySQL and SQL
-Server need a generated column instead.
+The expression is schema-authored DDL and is emitted verbatim. PostgreSQL,
+Cockroach and SQLite accept it; MySQL, SingleStore and SQL Server need a
+generated column instead.
 
 ## Read the plan
 

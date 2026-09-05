@@ -335,11 +335,12 @@ driver has a type parser registered:
   `decodeDbValue` sees JSON text and nothing dialect-specific. A geometry column reached by a bare
   `SELECT *` is therefore a bug in the projection, not something the decoder papers over.
 
-`citext` needs no conversion, and it overlaps with the expression-index recipe on purpose:
-`{ expr: 'lower(email)' }` plus `Unique` gets case-insensitive uniqueness on every dialect, and a
-`citext` column gets it on Postgres only, in exchange for every comparison being case-insensitive rather
-than just the index. Prefer the expression index unless the column's _semantics_ are
-case-insensitive.
+`citext` needs no conversion, and it overlaps with the expression-index recipe on purpose.
+An explicit unique expression index on `lower(email)` works on the PostgreSQL family and SQLite.
+The MySQL family and SQL Server use a generated lowercase column plus an ordinary unique index
+because `createIndexDdl` refuses their different expression-index grammar. A `citext` column is
+Postgres-only and makes every comparison case-insensitive rather than just the indexed lookup.
+Prefer the expression index unless the column's _semantics_ are case-insensitive.
 
 **Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse an extension
 type, and there is no fallback.** The refusal is an

@@ -12,7 +12,10 @@ export interface User extends Table<'users'> {
 }
 ```
 
-That is the whole schema. There is no second place to keep it in sync with.
+That is the whole column declaration. There is no second property map to keep
+in sync with it. `Unique` is carried into the IR, but the root dialects still
+need an explicit standalone unique index in a schema-object migration; see
+[Indexes & Constraints](./indexes-constraints.html).
 
 > [!IMPORTANT]
 > This replaced a builder DSL — `defineSchema('users', { id: serial().primaryKey() })` — which no longer exists. If you have a codebase full of those calls, the [codemod](./codemod.html) converts them, and it tells you about anything it could not read rather than guessing.

@@ -131,17 +131,20 @@ Set an absolute expiry as well as an idle one. A session that refreshes forever 
 If you already have Postgres, you do not need Redis:
 
 ```ts
-import type { PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Session extends Table<'sessions'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
-  token_hash: string & Sql<'text'> & Unique;
+  token_hash: string & Sql<'text'>;
   user_id: number & Sql<'integer'> & References<'users.id'>;
   expires_at: Date & Sql<'timestamp'>;
 }
 ```
 
-Index `token_hash` (the `Unique` tag gives you one) and delete expired rows on a schedule — see [Task Scheduling](./web-task-scheduling.html). One fewer system to run, one more query per request.
+Create an explicit unique index on `token_hash` with `createIndexDdl`, then
+delete expired rows on a schedule — see [Indexes & Constraints](./indexes-constraints.html)
+and [Task Scheduling](./web-task-scheduling.html). One fewer system to run, one
+more query per request.
 
 ---
 

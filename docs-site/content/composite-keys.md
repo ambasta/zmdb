@@ -1,15 +1,15 @@
-> `PrimaryKey` is a per-column tag, and the reflector turns two of them into one ordered key.
+> **Supported.** `PrimaryKey` is a per-column tag, and the reflector turns two of them into one ordered key.
 > Snapshots, migration diffs, generated DDL, repository keyed methods, pagination and relations
 > all preserve that whole key.
 
 ## What the declaration says
 
 ```ts
-import type { PrimaryKey, References, Sql, Table } from 'zmdb/tags';
+import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 
 export interface Membership extends Table<'memberships'> {
-  orgId: number & Sql<'integer'> & References<'orgs.id'> & PrimaryKey;
-  userId: number & Sql<'integer'> & References<'users.id'> & PrimaryKey;
+  orgId: number & Sql<'integer'> & PrimaryKey;
+  userId: number & Sql<'integer'> & PrimaryKey;
   role: string & Sql<'text'>;
 }
 ```
@@ -33,10 +33,10 @@ CREATE TABLE "memberships" (
 ```
 
 The four root dialects and Cockroach use that same table-level shape with their
-own identifier quoting and integer spelling. SingleStore adds its required
-shard or rowstore declaration to the same `CREATE TABLE`. A one-column key
-keeps the existing inline form, including SQLite's `INTEGER PRIMARY KEY` rowid
-alias.
+own identifier quoting and integer spelling. SingleStore does too after the
+table declares its required `ShardKey<…>` or `Rowstore`; without one it refuses
+the table rather than choosing a distribution layout. A one-column key keeps
+the existing inline form, including SQLite's `INTEGER PRIMARY KEY` rowid alias.
 
 Changing the key produces one reversible `alter_primary_key` operation. Postgres and MySQL emit
 one `ALTER TABLE` statement that drops the old key and adds the new one. SQLite has no key-alter
@@ -45,11 +45,18 @@ hand-written table rebuild. SQL Server also refuses the generated operation beca
 does not carry the existing primary-key constraint name needed for `DROP CONSTRAINT`.
 
 > [!NOTE]
-> The two `References<…>` tags above emit two independent single-column foreign
-> keys. They are never grouped merely because both columns belong to one primary
-> key. When one constraint must pair several local and target columns, declare it
-> explicitly with
-> `ForeignKey<'tenantId,userId', 'users', 'tenantId,id'>`.
+> Two `References<…>` tags emit two independent single-column foreign keys. They
+> are never grouped merely because both columns belong to one primary key. When
+> one constraint must pair several local and target columns, declare it
+> explicitly on the table:
+>
+> ```ts
+> import type { ForeignKey, Table } from 'zmdb/tags';
+>
+> interface Membership extends Table<'memberships'>, ForeignKey<'orgId,userId', 'users', 'orgId,id'> {
+>   // columns
+> }
+> ```
 
 ## What does work today
 
@@ -66,6 +73,8 @@ await repo.find({ orgId: { eq: 1 } });
 the three keyed methods take it directly:
 
 ```ts
+import type { PrimaryKeyOf } from '@zmdb/schema-core';
+
 const key: PrimaryKeyOf<Membership> = { orgId: 1, userId: 7 };
 
 await repo.findById(key);
@@ -76,16 +85,24 @@ await repo.delete(key);
 // DELETE FROM "memberships" WHERE "orgId" = $1 AND "userId" = $2 RETURNING "orgId", "userId"
 ```
 
-A key that is missing a column is refused before any SQL is compiled. `IncompleteKeyError`
-extends `ValidationError`, names the table, method and every missing column in key order, and
-exposes the table and missing columns as fields:
+A typed key missing `userId` does not compile. The same value arriving through
+an untyped boundary is refused before any SQL is compiled. `IncompleteKeyError`
+extends `ValidationError`, names the table, method and every missing column in
+key order, and exposes the table and missing columns as fields:
+
+```text
+memberships.findById requires every key column; missing: userId
+```
+
+Passing `{}` lists both columns in key order:
 
 ```text
 memberships.findById requires every key column; missing: orgId, userId
 ```
 
 Only own properties count. A `userId` inherited from the key object's prototype is still
-reported missing, so a prototype cannot silently complete a partial key.
+reported missing, so a prototype cannot silently complete a partial key. A scalar is also
+refused with the expected object shape rather than being bound as one parameter.
 
 Extra keys are ignored, so you can pass a whole row you already have:
 

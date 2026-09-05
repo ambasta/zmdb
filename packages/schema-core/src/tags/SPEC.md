@@ -77,7 +77,7 @@ and `UpdateDTO<T>`; repository methods write it.
 | `Sql<T>`             | Abstract SQL type. Required: `integer`/`bigint`/`numeric` are all `number` in TS. |
 | `PrimaryKey`         | Part of the primary key. Several columns → composite.                             |
 | `Serial`             | Database-generated. **Absent** from `CreateDTO`, not optional in it.              |
-| `Unique`             | Unique constraint.                                                                |
+| `Unique`             | Unique intent carried in the IR; migration consumers decide how it is enforced.   |
 | `HasDefault`         | Has a database default, so **optional** on insert.                                |
 | `Sensitive`          | Never serialised. `ReadDTO<T>` cannot name it.                                    |
 | `References<Target>` | Foreign key target.                                                               |
