@@ -20,7 +20,6 @@ import {
   type QueryValues,
 } from '../context/index.js';
 import type { CompiledHttpContract, HttpOperationIR, SecurityRequirement } from '../contract/index.js';
-import { BoundaryStatusError } from '../middleware/errors.js';
 import {
   getChain,
   runChain,

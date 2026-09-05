@@ -85,6 +85,14 @@
       "rules": {
         "zmdb/no-unbounded-find": "off"
       }
+    },
+    {
+      // Polyfill module providing Uint8Array base64 compatibility across Node and browser runtimes.
+      "files": ["packages/app/src/polyfill.ts"],
+      "rules": {
+        "no-restricted-globals": "off",
+        "no-restricted-properties": "off"
+      }
     }
   ],
   "rules": {
