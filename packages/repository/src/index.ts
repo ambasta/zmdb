@@ -2557,8 +2557,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
             const childRow = inserted[0];
             if (childRow) {
               const resRel = this.relation(rel.name);
-              const parentFk = resRel.parentKey;
-              const targetKey = resRel.targetKey;
+              const parentFk = resRel.parentKey[0] ?? 'id';
+              const targetKey = resRel.targetKey[0] ?? 'id';
               parentData[parentFk] = childRow[targetKey] ?? childRow.id;
             }
           }
@@ -2580,8 +2580,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         if (rel.relation === 'oneToMany' || rel.relation === 'oneToOne') {
           const resRel = this.relation(rel.name);
           const childTable = resRel.targetTable;
-          const childFk = resRel.targetKey;
-          const parentKey = resRel.parentKey;
+          const childFk = resRel.targetKey[0] ?? 'id';
+          const parentKey = resRel.parentKey[0] ?? 'id';
           const parentId = rootRec[parentKey] ?? rootPkVal;
 
           if (rel.relation === 'oneToMany') {
@@ -2688,8 +2688,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         if (rel.relation === 'oneToMany' || rel.relation === 'oneToOne') {
           const resRel = this.relation(rel.name);
           const childTable = resRel.targetTable;
-          const childFk = resRel.targetKey;
-          const parentKey = resRel.parentKey;
+          const childFk = resRel.targetKey[0] ?? 'id';
+          const parentKey = resRel.parentKey[0] ?? 'id';
           const parentId = existingRec[parentKey] ?? id;
 
           if (rel.relation === 'oneToMany') {
@@ -2801,8 +2801,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         if (rel.relation === 'oneToMany' || rel.relation === 'oneToOne') {
           const resRel = this.relation(rel.name);
           const childTable = resRel.targetTable;
-          const childFk = resRel.targetKey;
-          const parentKey = resRel.parentKey;
+          const childFk = resRel.targetKey[0] ?? 'id';
+          const parentKey = resRel.parentKey[0] ?? 'id';
           const parentId = existingRec[parentKey] ?? id;
 
           if (childTable && childFk) {
