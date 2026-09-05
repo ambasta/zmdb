@@ -106,6 +106,7 @@ import {
   type RelationValueOf,
 } from './loaders/index.js';
 import { createRepositoryStream } from './streaming/index.js';
+import { compileSchemaValidator, type CompiledValidator } from './validator.js';
 
 export interface ExecuteOptions {
   readonly signal?: AbortSignal;
@@ -583,6 +584,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   /** Loader state is keyed by the explicit request-scope token, never globally. */
   readonly #entityLoaders = new WeakMap<object, EntityLoader<T>>();
   readonly #relationLoaders = new WeakMap<object, RelationLoaderMap<T>>();
+  private compiledValidator?: CompiledValidator;
 
   constructor(driver: Driver, dialect: DialectTarget | undefined = driver.dialect, options?: RepositoryOptions) {
     if (dialect === undefined) {
@@ -657,6 +659,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
       seen.add(identity);
     }
+  }
+
+  private get validator(): CompiledValidator {
+    if (!this.compiledValidator) {
+      this.compiledValidator = compileSchemaValidator(this.schema);
+    }
+    return this.compiledValidator;
   }
 
   [LOADER_FOR_SCOPE](scope: object): EntityLoader<T> {
@@ -2557,25 +2566,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    * A key the variant does not accept is an issue, not something to drop — see
    * `excessIssues`.
    */
+  // Pre-compiled validation against schema metadata using straight-line closure functions.
   private validatePayload(payload: unknown, variant: 'create' | 'update'): Record<string, unknown> {
-    if (!isRecord(payload)) {
-      throw new ValidationError('payload must be an object', [
-        { path: 'input', message: 'expected object', expected: 'object', value: payload },
-      ]);
-    }
-    const obj = this.sanitizePayload(payload);
-    const { shape, type } = this.payloadShape(variant);
-    const issues = [...issuesFor(obj, type), ...this.excessIssues(obj, variant)];
-
-    if (issues.length > 0) {
-      throw new ValidationError(`validation failed: ${issues.map(i => i.path).join(', ')}`, issues);
-    }
-
-    const out: Record<string, unknown> = {};
-    for (const { column } of shape) {
-      if (column.name in obj) out[column.name] = obj[column.name];
-    }
-    return out;
+    return variant === 'create' ? this.validator.validateCreate(payload) : this.validator.validateUpdate(payload);
   }
 
   /**
