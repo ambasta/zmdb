@@ -103,7 +103,6 @@ const BUDGET = {
   snapshotUpdates: { limit: 3, exact: false, what: 'snapshot updates for the whole build' },
 };
 
-
 // ---------------------------------------------------------------------------
 // The project
 // ---------------------------------------------------------------------------
