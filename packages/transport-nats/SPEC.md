@@ -15,7 +15,7 @@ export interface NatsSubscription {
 export interface NatsStrategyOptions {
   readonly connection?: NodeConnectionOptions;
   readonly name?: string;
-  readonly onError: (error: unknown) => void;
+  readonly onError: TransportErrorSink;
   readonly subscriptions: readonly NatsSubscription[];
 }
 
