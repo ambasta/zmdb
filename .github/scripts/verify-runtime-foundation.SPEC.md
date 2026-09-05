@@ -27,10 +27,10 @@ generic lifecycle/introspection implementations into `@zmdb/migrations` while re
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              16 |                  9 |
-| `@zmdb/query-compiler` |                              24 |                  9 |
+| `@zmdb/query-compiler` |                              25 |                  9 |
 | `@zmdb/aot-validator`  |                               6 |                  5 |
 | `@zmdb/repository`     |                              18 |                  8 |
-| **Total**              |                          **64** |             **31** |
+| **Total**              |                          **65** |             **31** |
 
 The four manifests contain 17 dependency entries: 5 `dependencies` and 12 `devDependencies`. They contain no `peerDependencies` or `optionalDependencies`.
 
@@ -40,7 +40,7 @@ owned exception records until the coordinated foundation and final database purg
 
 ## 2. Exact file ownership
 
-Every one of the 64 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
+Every one of the 65 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
 path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql` sections also record their package-owned production
 files outside that legacy input inventory.
 
@@ -142,7 +142,7 @@ packages/schema-core/src/tags/index.ts
 The three fixture/`__testing__` files remain schema-test-owned and must stop being published. `dto/index.ts`, `relations/index.ts`, and the current root are mixed files; §3 assigns every exported
 member before those files are split.
 
-### `@zmdb/sql` — 23
+### `@zmdb/sql` — 24
 
 ```text
 packages/query-compiler/src/aggregations/index.ts
@@ -156,6 +156,7 @@ packages/query-compiler/src/expressions/index.ts
 packages/query-compiler/src/extensions/index.ts
 packages/query-compiler/src/fts/index.ts
 packages/query-compiler/src/index.ts
+packages/query-compiler/src/internals.ts
 packages/query-compiler/src/introspect/types.ts
 packages/query-compiler/src/joins/index.ts
 packages/query-compiler/src/migrations/types.ts
