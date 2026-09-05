@@ -197,6 +197,10 @@ export function renderPredicate(dialect: DialectTarget, p: Predicate, params: un
     return `${quoteColumn(dialect, p.col)} ${sqlOp} (${text})`;
   }
 
+  if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
+    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
+  }
+
   if (sqlOp === 'IN' || sqlOp === 'NOT IN') {
     const isNotIn = sqlOp === 'NOT IN';
     let arr = Array.isArray(p.value) ? p.value : [p.value];
