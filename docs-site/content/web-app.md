@@ -1,6 +1,6 @@
 `createApp` bootstraps an application from a root [module](./web-modules.html): it compiles the DI graph, builds the [router](./web-pipeline.html), and registers every controller's routes — **once**.
 It exposes lifecycle hooks and `await using` graceful shutdown. Its optional second argument accepts protocol-neutral application extensions, including the
-[`transportExtension`](./web-microservices.html), plus the temporary typed [gRPC bindings](./web-microservices-grpc.html) field.
+[`transportExtension`](./web-microservices.html) and the typed [`grpcExtension`](./web-microservices-grpc.html).
 
 ## Bootstrapping
 

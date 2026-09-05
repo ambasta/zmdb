@@ -1,6 +1,6 @@
 # Package architecture and release governance — specification
 
-> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, and the #710 AI
+> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #657, and the #710 AI
 > ownership cutover. Issue #724 implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements
 > package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime, tooling and optional-peer reachability; only the release verifier remains a later slice. The original
 > measured baseline is commit `5adba11e` on 2026-09-05.
@@ -24,9 +24,10 @@ At the measured baseline:
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
-Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, and #691 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/ai-anthropic`,
-`@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, and `@zmdb/react`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current eighteen manifests
-keep `1.0.0-alpha.4`, declare 34 direct non-dev workspace edges, and retain 12 optional peers. OpenTelemetry and React are required peers only of their selected integration packages.
+Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, and #657 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/ai-anthropic`,
+`@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/react`, and `@zmdb/transport-grpc`. Issue #710 removed the temporary LangChain-to-schema-core edge. The
+current nineteen manifests keep `1.0.0-alpha.4`, declare 36 direct non-dev workspace edges, and declare 14 peer dependencies: 11 optional peers plus required OpenTelemetry, React, and grpc-js peers
+confined to their selected integration packages.
 
 ## 2. Canonical policy API
 
@@ -121,7 +122,7 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current eighteen catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
+The following object is normative. It constrains the current nineteen catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
 renaming a catalog member requires the catalog and policy key sets to change atomically.
 
 ```ts
@@ -297,6 +298,16 @@ export const PACKAGE_POLICY = {
     toolingEntries: [],
     release: 'lockstep',
   },
+  'transport-grpc': {
+    directory: 'packages/transport-grpc',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['app', 'protobuf'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+    release: 'lockstep',
+  },
   web: {
     directory: 'packages/web',
     zone: 'application',
@@ -304,7 +315,6 @@ export const PACKAGE_POLICY = {
     allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
-      '@grpc/grpc-js': ['./microservices/grpc'],
       '@nats-io/transport-node': ['./microservices/nats'],
       amqplib: ['./microservices/rabbitmq'],
       redis: ['./microservices/redis'],

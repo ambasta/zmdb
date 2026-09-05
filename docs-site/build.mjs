@@ -459,10 +459,11 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Sixteen published packages</h2>
-  <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in provider/framework integrations, MCP, OpenTelemetry adaptation, or an implementation package on its own.</p>
+  <h2>Nineteen published packages</h2>
+  <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in client/framework, gRPC, MCP, OpenTelemetry, or another implementation package on its own.</p>
   <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
+    <div class="pkg"><code>@zmdb/react</code><p>React context, query, and mutation lifecycle bindings for generated HTTP clients.</p></div>
     <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>
     <div class="pkg"><code>@zmdb/schema-core</code><p>Schema DSL + type derivation (Entity / Create / Update / read DTOs), relations, OpenAPI, seeding, custom types.</p></div>
     <div class="pkg"><code>@zmdb/ai</code><p>Provider-neutral tool documents, bounded chat orchestration, shared invocation, and OpenAPI-derived tools.</p></div>
@@ -476,8 +477,9 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/sqlite</code><p>Complete SQLite dialect, migrations, introspection, embedded runner, and structural <code>node:sqlite</code> driver.</p></div>
     <div class="pkg"><code>@zmdb/app</code><p>Protocol-neutral metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, and observability ports.</p></div>
     <div class="pkg"><code>@zmdb/otel</code><p>OpenTelemetry API adaptation over caller-owned tracers and meters, with no SDK, exporter, or ambient global context.</p></div>
+    <div class="pkg"><code>@zmdb/transport-grpc</code><p>Typed grpc-js servers and clients over generated protobuf artifacts, with streaming, deadlines, metadata, and bounded shutdown.</p></div>
     <div class="pkg"><code>@zmdb/web</code><p>HTTP controllers, routing, request pipelines, OpenAPI, gateways, testing, and runtime adapters over <code>@zmdb/app</code>.</p></div>
-    <div class="pkg"><code>zmdb</code><p>The curated data/web umbrella. It contains no implementation logic and does not re-export <code>@zmdb/ai</code>, <code>@zmdb/mcp</code>, or <code>@zmdb/otel</code>.</p></div>
+    <div class="pkg"><code>zmdb</code><p>The curated data/web umbrella. It contains no implementation logic and does not re-export opt-in AI, MCP, OpenTelemetry, frontend, or gRPC packages.</p></div>
   </div>
 </section>
 

@@ -1,18 +1,11 @@
 import { readFileSync } from 'node:fs';
 
 import { Client, Metadata, credentials, status, type ClientWritableStream } from '@grpc/grpc-js';
-import {
-  transportExtension,
-  type DispatcherOptions,
-  type TransportRequest,
-  type TransportStrategy,
-  type WithHeaders,
-} from '@zmdb/app/messaging';
+import { createApplication, type ApplicationExtension } from '@zmdb/app';
+import type { WithHeaders } from '@zmdb/app/messaging';
 import { Module } from '@zmdb/app/modules';
 import { describe, expect, it } from 'vitest';
 
-import { createApp } from '../../app/index.js';
-import type { Ctx, QueryValues } from '../../context/index.js';
 import {
   ordersService,
   type Chunk,
@@ -25,6 +18,7 @@ import {
   GrpcError,
   bindGrpcService,
   createGrpcClient,
+  grpcExtension,
   type GrpcClient,
   type GrpcFailure,
   type GrpcHandlers,
@@ -196,9 +190,9 @@ async function malformedGet(address: string): Promise<void> {
 
 describe('the protobuf boundary', () => {
   it('grpcDescriptor is owned by @zmdb/protobuf while emission stays in @zmdb/aot-validator', () => {
-    const protobuf = readFileSync(new URL('../../../../protobuf/src/index.ts', import.meta.url), 'utf8');
-    const aotRoot = readFileSync(new URL('../../../../aot-validator/src/index.ts', import.meta.url), 'utf8');
-    const emit = readFileSync(new URL('../../../../aot-validator/src/emit/index.ts', import.meta.url), 'utf8');
+    const protobuf = readFileSync(new URL('../../protobuf/src/index.ts', import.meta.url), 'utf8');
+    const aotRoot = readFileSync(new URL('../../aot-validator/src/index.ts', import.meta.url), 'utf8');
+    const emit = readFileSync(new URL('../../aot-validator/src/emit/index.ts', import.meta.url), 'utf8');
     const wanted = ['protoEncode', 'protoDecode', 'protoDescriptor', 'grpcDescriptor', 'loadGrpcService'];
     expect(wanted.every(name => protobuf.includes(`function ${name}`))).toBe(true);
     expect(wanted.every(name => !aotRoot.includes(`function ${name}`))).toBe(true);
@@ -206,14 +200,18 @@ describe('the protobuf boundary', () => {
   });
 
   it('@grpc/proto-loader is not a direct dependency', () => {
-    const root = readFileSync(new URL('../../../../../package.json', import.meta.url), 'utf8');
-    const web = readFileSync(new URL('../../../package.json', import.meta.url), 'utf8');
-    expect([root.includes('"@grpc/proto-loader"'), web.includes('"@grpc/proto-loader"')]).toEqual([false, false]);
+    const root = readFileSync(new URL('../../../package.json', import.meta.url), 'utf8');
+    const transport = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
+    expect([root.includes('"@grpc/proto-loader"'), transport.includes('"@grpc/proto-loader"')]).toEqual([false, false]);
   });
 
-  it('the gRPC surface is a published subpath of @zmdb/web', () => {
-    const web = readFileSync(new URL('../../../package.json', import.meta.url), 'utf8');
-    expect(web).toContain('"./microservices/grpc": "./src/microservices/grpc/index.ts"');
+  it('the gRPC surface is the sole root export of @zmdb/transport-grpc', () => {
+    const transport = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+      readonly exports?: unknown;
+    };
+    const web = readFileSync(new URL('../../web/package.json', import.meta.url), 'utf8');
+    expect(transport.exports).toEqual({ '.': './src/index.ts' });
+    expect(web).not.toContain('./microservices/grpc');
   });
 });
 
@@ -289,18 +287,9 @@ describe('typed server and client calls', () => {
         return { id: call.payload.id, total: 1 };
       },
     });
-    const httpCtx: Ctx<Record<string, string>, unknown, QueryValues> = {
-      params: {},
-      body: undefined,
-      query: {},
-      headers: { 'x-api-key': 'secret' },
-      method: 'GET',
-      path: '/orders',
-    };
-
     await harness.client.get({ id: 'o1' }, { metadata: grpcMetadata({ 'x-api-key': 'secret' }) });
 
-    expect([requiresApiKey(httpCtx), grpcAuthorised]).toEqual([true, true]);
+    expect(grpcAuthorised).toBe(true);
   });
 
   it('serves an external call with no deadline and reports an infinite budget', async () => {
@@ -553,24 +542,14 @@ describe('application lifecycle', () => {
   it('a failed bind rejects init and closes what was already opened', async () => {
     await using occupied = await start(standardHandlers());
     const events: string[] = [];
-    const transport: TransportStrategy = {
+    const transport: ApplicationExtension = {
       name: 'scripted',
-      capabilities: { redelivery: true, deadLetter: true, requestResponse: true },
-      listen: async _dispatch => {
+      start: async () => {
         events.push('transport:open');
       },
-      send: async (_request: TransportRequest) => {
-        throw new Error('unused');
-      },
-      emit: async () => undefined,
-      close: async () => {
+      stop: async () => {
         events.push('transport:close');
       },
-    };
-    const dispatcher: DispatcherOptions = {
-      onUnhandled: () => undefined,
-      onInvalidPayload: () => undefined,
-      onHandlerError: () => undefined,
     };
     const binding = bindGrpcService(
       {
@@ -580,13 +559,15 @@ describe('application lifecycle', () => {
       },
       standardHandlers(),
     );
-    const app = createApp(RootModule, {
-      extensions: [transportExtension({ transports: [transport], dispatcher })],
-      grpc: {
-        address: occupied.address,
-        bindings: [binding],
-        credentials: 'insecure',
-      },
+    const app = createApplication(RootModule, {
+      extensions: [
+        transport,
+        grpcExtension({
+          address: occupied.address,
+          bindings: [binding],
+          credentials: 'insecure',
+        }),
+      ],
     });
 
     await expect(app.init()).rejects.toThrow();

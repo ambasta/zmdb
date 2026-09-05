@@ -1,5 +1,9 @@
-Typed gRPC services, exhaustive bindings and clients ship through `@zmdb/web/microservices/grpc`. The declaration selects unary, client-streaming, server-streaming or bidirectional calls without
-loading a `.proto` at runtime.
+Typed gRPC services, exhaustive bindings and clients ship through `@zmdb/transport-grpc`. The declaration selects unary, client-streaming, server-streaming or bidirectional calls without loading a
+`.proto` at runtime.
+
+```bash
+npm add @zmdb/protobuf @zmdb/transport-grpc @grpc/grpc-js
+```
 
 ## One TypeScript contract, including the wire format
 
@@ -59,10 +63,10 @@ Use `grpcDescriptor<Orders>('Orders', 'orders')` when another language needs the
 
 ## Bind all four call types
 
-Import the runtime surface from its optional subpath:
+Import the runtime surface from its dedicated package:
 
 ```ts
-import { bindGrpcService, type GrpcMetadata } from '@zmdb/web/microservices/grpc';
+import { bindGrpcService, type GrpcMetadata } from '@zmdb/transport-grpc';
 
 function validateMetadata(metadata: GrpcMetadata): GrpcMetadata {
   if (metadata.headers.authorization === undefined) {
@@ -119,16 +123,20 @@ The four declaration shapes select four distinct APIs:
 
 ## Application lifecycle
 
-Pass bindings to `createApp`. Broker transports start first, then gRPC binds. A failed bind closes transports that already opened. Disposal closes gRPC and broker transports before application
-shutdown hooks:
+Attach the gRPC server as an explicit application extension. Extensions start in declaration order and stop in reverse order, so a failed bind rolls back extensions that already opened and disposal
+closes gRPC before earlier transport extensions and application shutdown hooks:
 
 ```ts
+import { grpcExtension } from '@zmdb/transport-grpc';
+
 await using app = createApp(AppModule, {
-  grpc: {
-    address: '0.0.0.0:50051',
-    bindings: [ordersBinding],
-    credentials: 'insecure',
-  },
+  extensions: [
+    grpcExtension({
+      address: '0.0.0.0:50051',
+      bindings: [ordersBinding],
+      credentials: 'insecure',
+    }),
+  ],
   graceMs: 5_000,
 });
 
@@ -144,7 +152,7 @@ Graceful shutdown calls grpc-js `tryShutdown`; when `graceMs` expires it calls `
 The client uses the same generated artifact and therefore the same request, response and streaming declarations:
 
 ```ts
-import { createGrpcClient } from '@zmdb/web/microservices/grpc';
+import { createGrpcClient } from '@zmdb/transport-grpc';
 
 using client = createGrpcClient({
   definition: ordersService,

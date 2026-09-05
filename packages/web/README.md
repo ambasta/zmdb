@@ -22,16 +22,17 @@ The package root contains the common HTTP APIs. Feature-specific entry points in
 client modules whose runtime imports are limited to `@zmdb/client`. `zmdb client generate` projects the same compiled IR into sibling OpenAPI and client artifacts; it does not derive one from the
 other.
 
-During the server-package migration, the concrete Redis, NATS, RabbitMQ, and gRPC adapters retain their named `/microservices/*` entry points. The transport-neutral strategy, dispatcher, decorators,
-and typed clients live at `@zmdb/app/messaging`; there is no `@zmdb/web/microservices` forwarding entry. Queues, workers, scheduling, leases, and the SQLite memory backend live in `@zmdb/jobs`; the
-removed web paths do not forward.
+During the server-package migration, the concrete Redis, NATS, and RabbitMQ adapters retain their named `/microservices/*` entry points. Typed gRPC servers and clients now ship from
+`@zmdb/transport-grpc`. The transport-neutral strategy, dispatcher, decorators, and typed clients live at `@zmdb/app/messaging`; there is no `@zmdb/web/microservices` forwarding entry. Queues,
+workers, scheduling, leases, and the SQLite memory backend live in `@zmdb/jobs`; the removed web paths do not forward.
 
 Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install
 `@zmdb/otel` separately to adapt caller-owned `@opentelemetry/api` tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
 
 `@zmdb/web/versioning` provides version decorators and the path, header, and media-type strategies used by the router and OpenAPI generator.
 
-grpc-js, Redis, NATS, and RabbitMQ clients are optional peers reached only through their named microservices subpaths. Install only the client used by the adapter you import.
+Redis, NATS and RabbitMQ clients are optional peers reached only through their named microservices subpaths. Install `@zmdb/transport-grpc` with its required grpc-js peer when the application selects
+gRPC.
 
 ## Documentation
 

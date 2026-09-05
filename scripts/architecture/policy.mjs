@@ -231,6 +231,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  'transport-grpc': packagePolicy({
+    directory: 'packages/transport-grpc',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['app', 'protobuf'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   web: packagePolicy({
     directory: 'packages/web',
     zone: 'application',
@@ -238,7 +247,6 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
-      '@grpc/grpc-js': ['./microservices/grpc'],
       '@nats-io/transport-node': ['./microservices/nats'],
       amqplib: ['./microservices/rabbitmq'],
       redis: ['./microservices/redis'],

@@ -8,9 +8,8 @@ const ROOT = process.cwd();
 const BOUNDARY_VERIFIER = join(ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs');
 const CONSUMER_VERIFIER = join(ROOT, 'fixtures', 'consumer-server-integrations', 'verify-installed.mjs');
 const TYPESCRIPT_HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
-const IMPLEMENTED_SERVER_PACKAGES = ['@zmdb/protobuf', '@zmdb/otel'] as const;
+const IMPLEMENTED_SERVER_PACKAGES = ['@zmdb/protobuf', '@zmdb/otel', '@zmdb/transport-grpc'] as const;
 const PENDING_SERVER_PACKAGES = [
-  '@zmdb/transport-grpc',
   '@zmdb/transport-nats',
   '@zmdb/transport-rabbitmq',
   '@zmdb/transport-redis',

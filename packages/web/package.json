@@ -48,7 +48,6 @@
     "./versioning": "./src/versioning/index.ts",
     "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
-    "./microservices/grpc": "./src/microservices/grpc/index.ts",
     "./microservices/redis": "./src/microservices/redis/index.ts",
     "./microservices/nats": "./src/microservices/nats/index.ts",
     "./microservices/rabbitmq": "./src/microservices/rabbitmq/index.ts",
@@ -71,25 +70,19 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
-    "@grpc/grpc-js": "1.14.4",
     "@nats-io/transport-node": "3.4.0",
     "@zmdb/ai": "workspace:^",
-    "@zmdb/protobuf": "workspace:^",
     "amqplib": "2.0.1",
     "redis": "6.2.1",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@grpc/grpc-js": "^1.14.0",
     "@nats-io/transport-node": "^3.4.0",
     "amqplib": "^2.0.1",
     "redis": "^6.2.1",
     "typescript": ">=7.0.0"
   },
   "peerDependenciesMeta": {
-    "@grpc/grpc-js": {
-      "optional": true
-    },
     "@nats-io/transport-node": {
       "optional": true
     },

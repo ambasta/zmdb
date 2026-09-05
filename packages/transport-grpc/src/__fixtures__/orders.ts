@@ -1,3 +1,4 @@
+import type { GrpcLoadedService } from '@zmdb/protobuf';
 import type { MinLength, Proto, ProtoField } from '@zmdb/schema-core/tags';
 
 import { zmdbLoadGrpcServiceOrdersOrdersOrders } from './orders.zmdb.generated.js';
@@ -39,4 +40,4 @@ export type Orders = {
   };
 };
 
-export const ordersService = zmdbLoadGrpcServiceOrdersOrdersOrders();
+export const ordersService: GrpcLoadedService<Orders> = zmdbLoadGrpcServiceOrdersOrdersOrders();

@@ -1,3 +1,4 @@
+import type { ApplicationExtension } from '@zmdb/app';
 import {
   GrpcError,
   bindGrpcService,
@@ -12,17 +13,17 @@ import {
   type GrpcStatus,
 } from '@zmdb/transport-grpc';
 
-interface Orders {
+type Orders = {
   readonly get: {
     readonly request: { readonly id: string };
     readonly response: { readonly id: string };
   };
-}
+};
 
 const bind: (service: GrpcServiceSpec<Orders>, handlers: GrpcHandlers<Orders>) => GrpcBinding = bindGrpcService;
 const client: (options: GrpcClientOptions<Orders>) => GrpcClient<Orders> = createGrpcClient;
-const extension: (options: GrpcServerOptions) => ReturnType<typeof grpcExtension> = grpcExtension;
-const status: GrpcStatus = 13;
+const extension: (options: GrpcServerOptions) => ApplicationExtension = grpcExtension;
+const status: GrpcStatus = 'INTERNAL';
 const error: GrpcError = new GrpcError(status, 'safe');
 
 void [bind, client, extension, error];

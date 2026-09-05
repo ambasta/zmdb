@@ -7,6 +7,7 @@ Attach message transports through the public app extension:
 
 ```ts
 import { transportExtension } from '@zmdb/app/messaging';
+import { grpcExtension } from '@zmdb/transport-grpc';
 
 await using app = createApp(AppModule, {
   extensions: [
@@ -30,12 +31,14 @@ Add gRPC through its separate binding contract rather than the broker strategy a
 
 ```ts
 await using app = createApp(AppModule, {
-  extensions: [transportExtension({ transports: [ordersTransport], dispatcher })],
-  grpc: {
-    address: '0.0.0.0:50051',
-    bindings: [ordersGrpcBinding],
-    credentials: 'insecure',
-  },
+  extensions: [
+    transportExtension({ transports: [ordersTransport], dispatcher }),
+    grpcExtension({
+      address: '0.0.0.0:50051',
+      bindings: [ordersGrpcBinding],
+      credentials: 'insecure',
+    }),
+  ],
   graceMs: 5_000,
 });
 ```
@@ -53,15 +56,15 @@ Initialization is ordered:
 2. run `onApplicationBootstrap`;
 3. build the exact message-pattern map once;
 4. call `transport.listen` in declaration order;
-5. bind the optional gRPC server.
+5. start the following declared extension, including the gRPC server.
 
 A rejecting `listen` or gRPC bind closes entered transports in reverse order and rejects `init()`. Start the external HTTP server only after `init()` resolves.
 
 Disposal mirrors the dependency direction:
 
 1. stop lazy module loading and await in-flight loads;
-2. close gRPC under `graceMs`;
-3. close transports in reverse declaration order;
+2. close extensions in reverse declaration order, so gRPC closes before the earlier message transport;
+3. apply the one remaining `graceMs` budget across those closes;
 4. run `onShutdown` in reverse construction order.
 
 Intake stops before repositories and other handler dependencies are disposed. Every configured transport is asked to close even when an earlier close rejects.
@@ -115,8 +118,7 @@ const reports = app.container.resolve(REPORTS);
 await reports.sendDigests();
 ```
 
-External workers must still expose a stop function that awaits in-flight work. Only configured `ApplicationExtension` instances and the temporary gRPC binding field participate in the application's
-automatic bounded shutdown.
+External workers must still expose a stop function that awaits in-flight work. Only configured `ApplicationExtension` instances participate in the application's automatic bounded shutdown.
 
 ---
 

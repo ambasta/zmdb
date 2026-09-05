@@ -1,8 +1,8 @@
+import type { ApplicationExtension } from '@zmdb/app';
 import type { WithHeaders } from '@zmdb/app/messaging';
 import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
 import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 
-import type { WebApplicationOptions } from '../../app/index.js';
 import type {
   GrpcBinding,
   GrpcCall,
@@ -20,6 +20,7 @@ import type {
   GrpcStatus,
   bindGrpcService,
   createGrpcClient,
+  grpcExtension,
 } from './index.js';
 
 interface GetOrder {
@@ -184,6 +185,9 @@ type FrozenCreateClient = <S extends GrpcServiceDef>(options: GrpcClientOptions<
 
 export type BindSignature = Expect<Equal<typeof bindGrpcService, FrozenBind>>;
 export type ClientSignature = Expect<Equal<typeof createGrpcClient, FrozenCreateClient>>;
+export type ExtensionSignature = Expect<
+  Equal<typeof grpcExtension, (options: GrpcServerOptions) => ApplicationExtension>
+>;
 
 type UnaryCaller = (payload: GetOrder, options?: GrpcClientCallOptions) => Promise<Order>;
 type ClientStreamCaller = (payload: AsyncIterable<Chunk>, options?: GrpcClientCallOptions) => Promise<UploadAck>;
@@ -213,8 +217,3 @@ client.upload({ text: 'wrong' });
 client.watch(chunks);
 // @ts-expect-error - bidirectional methods require an async iterable.
 client.chat({ text: 'wrong' });
-
-export type WebOptionsRetainGrpc = Expect<Equal<Extract<keyof WebApplicationOptions, 'grpc'>, 'grpc'>>;
-export type WebOptionsDropNeutralTransportFields = Expect<
-  Equal<Extract<keyof WebApplicationOptions, 'dispatcher' | 'transports'>, never>
->;

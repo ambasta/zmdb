@@ -57,6 +57,7 @@
       "@zmdb/app/lifecycle": ["./packages/app/dist/lifecycle.d.ts"],
       "@zmdb/app/*": ["./packages/app/dist/*/index.d.ts"],
       "@zmdb/otel": ["./packages/otel/dist/index.d.ts"],
+      "@zmdb/transport-grpc": ["./packages/transport-grpc/dist/index.d.ts"],
       "@zmdb/web": ["./packages/web/dist/index.d.ts"],
       "@zmdb/web/*": ["./packages/web/dist/*/index.d.ts"]
     }

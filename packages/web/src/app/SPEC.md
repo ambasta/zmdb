@@ -15,8 +15,8 @@
   - **`init(): Promise<void>`** — delegate to the app-owned lifecycle, which invokes hooks and explicit application extensions. Repeated calls share one initialization.
   - **`[Symbol.asyncDispose](): Promise<void>`** — delegate to the app-owned bounded extension shutdown and reverse construction-order hooks.
 
-`WebApplicationOptions` extends `ApplicationOptions` with the router's guard registry and versioning strategy. After #648, message transports are attached explicitly with `transportExtension(...)`
-from `@zmdb/app/messaging`; there are no `transports` or `dispatcher` fields on web options. The temporary gRPC field remains until #649 removes optional integrations from web.
+`WebApplicationOptions` extends `ApplicationOptions` only with the router's guard registry and versioning strategy. Message transports attach with `transportExtension(...)` from `@zmdb/app/messaging`;
+gRPC attaches with `grpcExtension(...)` from `@zmdb/transport-grpc`. Web options contain no protocol-specific transport fields.
 
 ### Lifecycle hook interfaces
 
@@ -28,11 +28,11 @@ from `@zmdb/app/messaging`; there are no `transports` or `dispatcher` fields on 
 
 - A `useValue` provider enters the lifecycle ledger when it is registered. A `useFactory` provider enters only after its factory actually returns, and a controller or command enters after
   construction. Object identity is recorded once.
-- `init()`: `onModuleInit` (all constructed instances, deps-first), then `onApplicationBootstrap` (all), explicit application extensions in declaration order, then the temporary optional gRPC bind.
-- A rejected extension start or gRPC bind rejects initialization and rolls back entered extensions. No HTTP-only degraded mode is invented.
+- `init()`: `onModuleInit` (all constructed instances, deps-first), then `onApplicationBootstrap` (all), then explicit application extensions in declaration order.
+- A rejected extension start rejects initialization and rolls back entered extensions. No HTTP-only degraded mode is invented.
 - A factory first resolved after `init()` does not receive retroactive init hooks, but it does enter the ledger and receives shutdown. An unresolved factory is never constructed merely to run a hook.
-- shutdown: stop new lazy loads, await in-flight loads, close gRPC, stop explicit extensions in reverse declaration order, then run `onShutdown` in **reverse construction order**, so no handler
-  outlives a dependency it resolved.
+- shutdown: stop new lazy loads, await in-flight loads, stop explicit extensions in reverse declaration order, then run `onShutdown` in **reverse construction order**, so no handler outlives a
+  dependency it resolved.
 - Once shutdown begins, a later `init()` rejects instead of opening resources after the memoized disposal has finished.
 
 ## Invariants
@@ -62,12 +62,12 @@ The lifecycle above splits without changing its observable ordering:
 - graph compilation, constructed-instance hooks, extension startup/rollback/shutdown and the total grace budget move to `@zmdb/app/lifecycle`;
 - `createApplication` returns the protocol-neutral `Application`;
 - HTTP route registration, `handle`, `fetch` and the name `createApp` remain in `@zmdb/web/app`;
-- broker startup is supplied as an `ApplicationExtension` value by `@zmdb/app/messaging`; the temporary web-owned gRPC field remains until #649.
+- broker startup and gRPC startup are supplied as `ApplicationExtension` values by their owning packages.
 
 `WebApplication` is the public shape. `AppOptions` is deleted in favour of `ApplicationOptions` and `WebApplicationOptions`; the temporary `App` compatibility name remains until #649.
 
 `createApp` composes one router over one `Application`. Its `container`, `lazy`, `init` and async-dispose members are the same members by identity, and it cannot run a second hook/extension ledger.
 The complete lifecycle state machine, rollback and error precedence are frozen in `packages/app/SPEC.md`.
 
-The #647 extraction is the independently usable first slice. #648 removes `AppOptions` and the broker fields in favour of `transportExtension`; the temporary `App` name and gRPC field remain until
-#649 completes the HTTP-only surface. Those transitional names delegate to `createApplication`; they do not retain a second lifecycle implementation.
+The #647 extraction is the independently usable first slice. #648 removes `AppOptions` and the broker fields in favour of `transportExtension`; #657 removes the gRPC field in favour of
+`grpcExtension`. The temporary `App` name delegates to `createApplication`; it does not retain a second lifecycle implementation.

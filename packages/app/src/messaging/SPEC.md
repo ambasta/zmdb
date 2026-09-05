@@ -383,5 +383,5 @@ The ownership sequence is:
 | `@zmdb/web/microservices/rabbitmq` | `@zmdb/transport-rabbitmq`                | #659  |
 | `@zmdb/web/microservices/redis`    | `@zmdb/transport-redis`                   | #660  |
 
-The neutral web entry is deleted without a forwarder in #648. The remaining concrete adapter entries are not neutral-core compatibility layers; their later extraction issues delete them without
-forwarders. The app-owned SPI and kit here are the only inward messaging dependency they share.
+The neutral web entry is deleted without a forwarder in #648, and #657 likewise removes the old gRPC subpath after moving its adapter to `@zmdb/transport-grpc`. The remaining concrete broker entries
+are not neutral-core compatibility layers; their later extraction issues delete them without forwarders. The app-owned SPI and kit here are the only inward messaging dependency they share.

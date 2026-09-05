@@ -7,7 +7,8 @@
 
 At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in the dependency DAG (ARCHITECTURE.md §3) and depended on `@zmdb/schema-core`, `@zmdb/aot-validator`,
 `@zmdb/query-compiler` and `@zmdb/repository`. The current manifest no longer declares the repository edge after #650 removed the last shipped import with the queue implementation. Web still has
-**zero required third-party runtime dependencies**. Broker clients and `@grpc/grpc-js` remain optional peers; TypeScript is an optional peer only for `./contract/compiler`.
+**zero required third-party runtime dependencies**. Broker clients remain optional peers; TypeScript is an optional peer only for `./contract/compiler`. grpc-js is owned solely by
+`@zmdb/transport-grpc`.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -25,7 +26,8 @@ At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in t
 
 - New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
 - Original `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). The current manifest no longer declares `@zmdb/repository`. There
-  are no required third-party runtime dependencies; broker clients and `@grpc/grpc-js` remain optional peers for their integration subpaths, and TypeScript is optional only for `./contract/compiler`.
+  are no required third-party runtime dependencies; broker clients remain optional peers for their integration subpaths, TypeScript is optional only for `./contract/compiler`, and grpc-js is owned
+  solely by `@zmdb/transport-grpc`.
 - `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish, exactly like the sibling packages).
 
 ### tsconfig

@@ -1,4 +1,4 @@
-import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from './artifact.js';
+import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
 
 /** Text and binary gRPC metadata are kept in separate maps. */
 export interface GrpcMetadata {

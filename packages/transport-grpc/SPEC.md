@@ -1,6 +1,6 @@
 # `@zmdb/transport-grpc` — gRPC server and typed-client integration
 
-> Frozen by #654 for epic #653. This directory intentionally contains only this specification until #657 extracts the shipped `@zmdb/web/microservices/grpc` implementation.
+> Frozen by #654 for epic #653 and implemented by #657. The detailed call, deadline, metadata, error and lifecycle contract lives in [`src/SPEC.md`](./src/SPEC.md).
 
 ## 1. Package boundary
 
@@ -33,8 +33,8 @@ The root also exports the current application-facing types unchanged: `GrpcBindi
 `GrpcFailure`, `GrpcHandler`, `GrpcHandlers`, `GrpcKeyCertPair`, `GrpcMetadata`, `GrpcMetadataValidator`, `GrpcServerOptions`, `GrpcServerTlsOptions`, `GrpcServiceSpec`, `GrpcStatus` and
 `GrpcTlsOptions`.
 
-Their exact shapes and the four streaming combinations remain normative in `../web/src/microservices/grpc/SPEC.md`. The service artifact calls and `GrpcLoaded*`/`Grpc*Def` types are **not**
-re-exported: their single owner is `@zmdb/protobuf`.
+Their exact shapes and the four streaming combinations remain normative in [`src/SPEC.md`](./src/SPEC.md). The service artifact calls and `GrpcLoaded*`/`Grpc*Def` types are **not** re-exported: their
+single owner is `@zmdb/protobuf`.
 
 ## 3. Lifecycle and ownership
 

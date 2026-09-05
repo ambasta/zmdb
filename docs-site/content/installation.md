@@ -84,6 +84,9 @@ npm install @zmdb/client
 # Dependency-free protobuf and typed gRPC artifacts
 npm install @zmdb/protobuf
 
+# Typed gRPC server and client adapter
+npm install @zmdb/transport-grpc @grpc/grpc-js
+
 # Provider-neutral AI tools + bounded chat
 npm install @zmdb/ai
 
@@ -184,6 +187,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/web`            | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters      |
 | `@zmdb/client`         | Dependency-free HTTP transport, cancellation, authentication, and typed errors               |
 | `@zmdb/protobuf`       | Dependency-free protobuf calls, generated-code wire ABI, and typed gRPC artifacts            |
+| `@zmdb/transport-grpc` | Typed gRPC servers, clients, streaming, deadlines, metadata, and bounded lifecycle           |
 | `@zmdb/ai`             | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools  |
 | `@zmdb/ai-anthropic`   | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                  |
 | `@zmdb/ai-langchain`   | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer             |

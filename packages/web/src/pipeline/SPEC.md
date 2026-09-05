@@ -326,7 +326,7 @@ Epic #564's item 7 allows a view-engine integration to ship _or_ be explicitly d
    convenience is one line deep.
 2. A seam that resolves templates **by name** introduces a string key with no type behind it — a template renamed, a variable misspelled and a missing partial are all runtime failures in a project
    whose entire argument is that those are compile failures. This is the same objection that rejected a two-meaning `zmdb graph` verb in `../cli/SPEC.md` §1 and `.proto` parsing in
-   `../microservices/grpc/SPEC.md` §3.
+   `../../../transport-grpc/src/SPEC.md` §3.
 3. Compilation caching, partial resolution and hot reload are the engine's job and every engine already does them better than a seam could.
 4. The real risk in server-rendered HTML is contextual escaping, and a seam does not improve it by a single character.
 

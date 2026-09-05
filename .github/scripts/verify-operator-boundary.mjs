@@ -39,6 +39,7 @@ const PACKAGES = [
   'app',
   'jobs',
   'otel',
+  'transport-grpc',
   'web',
   'zmdb',
 ];

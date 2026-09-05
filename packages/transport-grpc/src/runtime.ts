@@ -23,9 +23,9 @@ import {
   type UntypedServiceImplementation,
   type sendUnaryData,
 } from '@grpc/grpc-js';
+import type { ApplicationExtension } from '@zmdb/app';
+import type { GrpcLoadedMethod, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
 
-import type { GrpcLoadedMethod, GrpcMethodDef, GrpcServiceDef } from './artifact.js';
-import { GRPC_SERVER_OPENER, type GrpcServerOpener, type OpenedGrpcServer } from './bridge.js';
 import {
   GrpcError,
   type GrpcBinding,
@@ -43,7 +43,10 @@ import {
   type GrpcStatus,
 } from './types.js';
 
-export type { OpenedGrpcServer } from './bridge.js';
+export interface OpenedGrpcServer {
+  readonly port: number;
+  close(graceMs: number): Promise<void>;
+}
 
 type RuntimeMethod = GrpcLoadedMethod<GrpcMethodDef>;
 
@@ -101,10 +104,6 @@ class BoundGrpcService<S extends GrpcServiceDef> implements GrpcBinding {
     this.methods = Object.freeze(Object.keys(spec.definition.methods));
   }
 
-  get [GRPC_SERVER_OPENER](): GrpcServerOpener {
-    return openGrpcServer;
-  }
-
   register(server: Server): void {
     const definition: Record<string, MethodDefinition<DecodedRequest, unknown>> = Object.create(null);
     const implementation: UntypedServiceImplementation = Object.create(null);
@@ -136,6 +135,24 @@ export function bindGrpcService<S extends GrpcServiceDef>(
   return new BoundGrpcService(service, handlers);
 }
 
+/** Attach one gRPC server to the protocol-neutral application lifecycle. */
+export function grpcExtension(options: GrpcServerOptions): ApplicationExtension {
+  let opened: OpenedGrpcServer | undefined;
+  return {
+    name: '@zmdb/transport-grpc',
+    async start() {
+      opened = await openGrpcServer(options);
+    },
+    async stop({ graceMs }) {
+      try {
+        await opened?.close(graceMs);
+      } finally {
+        opened = undefined;
+      }
+    },
+  };
+}
+
 /** Create a typed client from the same generated service artifact used by the server. */
 export function createGrpcClient<S extends GrpcServiceDef>(options: GrpcClientOptions<S>): GrpcClient<S> {
   validatePositiveDuration(options.deadlineMs, 'deadlineMs');
@@ -145,7 +162,9 @@ export function createGrpcClient<S extends GrpcServiceDef>(options: GrpcClientOp
   for (const [name, method] of methodEntries(options.definition.methods)) {
     if (name === 'close') {
       channel.close();
-      throw new Error('@zmdb/web: a gRPC method cannot be named "close" because the typed client owns that member');
+      throw new Error(
+        '@zmdb/transport-grpc: a gRPC method cannot be named "close" because the typed client owns that member',
+      );
     }
     Object.defineProperty(client, name, {
       configurable: false,
@@ -168,17 +187,17 @@ export function createGrpcClient<S extends GrpcServiceDef>(options: GrpcClientOp
 /** Start all bound services. Kept internal to the application lifecycle. */
 export async function openGrpcServer(options: GrpcServerOptions): Promise<OpenedGrpcServer> {
   if (options.address.length === 0) {
-    throw new RangeError('@zmdb/web: a gRPC server address cannot be empty');
+    throw new RangeError('@zmdb/transport-grpc: a gRPC server address cannot be empty');
   }
   if (options.bindings.length === 0) {
-    throw new RangeError('@zmdb/web: a gRPC server requires at least one binding');
+    throw new RangeError('@zmdb/transport-grpc: a gRPC server requires at least one binding');
   }
 
   const server = new Server();
   try {
     for (const binding of options.bindings) {
       if (!(binding instanceof BoundGrpcService)) {
-        throw new TypeError('@zmdb/web: gRPC bindings must be created by bindGrpcService');
+        throw new TypeError('@zmdb/transport-grpc: gRPC bindings must be created by bindGrpcService');
       }
       binding.register(server);
     }
@@ -205,10 +224,10 @@ function methodEntries(
 
 function validateServiceSpec<S extends GrpcServiceDef>(service: GrpcServiceSpec<S>): void {
   if (service.definition.name.length === 0) {
-    throw new RangeError('@zmdb/web: a gRPC service name cannot be empty');
+    throw new RangeError('@zmdb/transport-grpc: a gRPC service name cannot be empty');
   }
   if (Object.keys(service.definition.methods).length === 0) {
-    throw new RangeError(`@zmdb/web: gRPC service "${service.definition.name}" has no methods`);
+    throw new RangeError(`@zmdb/transport-grpc: gRPC service "${service.definition.name}" has no methods`);
   }
   if (service.maxDurationMs !== undefined) {
     validatePositiveDuration(service.maxDurationMs, 'maxDurationMs');
@@ -217,7 +236,7 @@ function validateServiceSpec<S extends GrpcServiceDef>(service: GrpcServiceSpec<
 
 function validatePositiveDuration(value: number, name: string): void {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`@zmdb/web: ${name} must be a positive finite number`);
+    throw new RangeError(`@zmdb/transport-grpc: ${name} must be a positive finite number`);
   }
 }
 
@@ -626,7 +645,7 @@ function clientCredentials(options: 'insecure' | GrpcClientTlsOptions): ReturnTy
   const hasPrivateKey = options.privateKey !== undefined;
   const hasCertificate = options.certificateChain !== undefined;
   if (hasPrivateKey !== hasCertificate) {
-    throw new Error('@zmdb/web: gRPC client privateKey and certificateChain must be supplied together');
+    throw new Error('@zmdb/transport-grpc: gRPC client privateKey and certificateChain must be supplied together');
   }
   return credentials.createSsl(
     options.rootCertificates === undefined ? null : grpcBytes(options.rootCertificates),
@@ -645,7 +664,13 @@ function bindServer(server: Server, address: string, creds: ServerCredentials): 
 }
 
 function closeServer(server: Server, graceMs: number): Promise<void> {
-  validatePositiveDuration(graceMs, 'graceMs');
+  if (!Number.isFinite(graceMs) || graceMs < 0) {
+    throw new RangeError('@zmdb/transport-grpc: graceMs must be a non-negative finite number');
+  }
+  if (graceMs === 0) {
+    server.forceShutdown();
+    return Promise.resolve();
+  }
   return new Promise<void>((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => {

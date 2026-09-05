@@ -210,6 +210,7 @@ shape.
 | `@zmdb/app`            | Protocol-neutral metadata, DI, modules, lifecycle/extensions, messaging, commands, events, CQRS, state, health contracts, and observability ports     | aot-validator, query-compiler, repository, schema-core                   |
 | `@zmdb/jobs`           | Typed queues, workers, dead letters, scheduling, leases and the built-in SQLite memory backend                                                        | app, query-compiler, repository, sqlite                                  |
 | `@zmdb/otel`           | OpenTelemetry API adaptation over caller-owned tracers and meters, without provider, SDK, exporter, or ambient-context ownership                      | app; `@opentelemetry/api` (required peer)                                |
+| `@zmdb/transport-grpc` | Typed grpc-js server/client adaptation over generated protobuf service artifacts, with explicit application lifecycle and caller-owned clients        | app, protobuf; `@grpc/grpc-js` (required peer)                           |
 | `@zmdb/web`            | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                           | app, aot-validator, query-compiler, schema-core                          |
 | `zmdb`                 | Curated product facade and CLI; no AI, MCP, or OTel public re-export                                                                                  | app, aot-validator, query-compiler, repository, schema-core, sqlite, web |
 
@@ -378,8 +379,8 @@ The exact 32-file ownership map, public exports, peer matrix, publish order and 
 This section is the target frozen for epic #653, not a claim about the current tree. The measured starting point has protobuf calls, service artifacts and wire primitives in `@zmdb/aot-validator`; six
 external peers on `@zmdb/web`; and six integration subpaths under web.
 
-Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces; #662 has completed the `@zmdb/otel` row and removed the old web export and peer; and
-#648 has moved the transport-neutral dispatcher, typed clients, decorators, SPI and adapter kit to `@zmdb/app/messaging` and removed `@zmdb/web/microservices`. Five transport/jobs packages remain
+Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces; #662 has completed the `@zmdb/otel` row and removed the old web export and peer; #648
+has moved the transport-neutral dispatcher, typed clients, decorators, SPI and adapter kit to `@zmdb/app/messaging`; and #657 has moved gRPC to `@zmdb/transport-grpc`. Four broker/jobs packages remain
 later slices of the same target.
 
 The final manifest graph is:
@@ -462,7 +463,7 @@ The catalog deliberately does not own versions, dependency ranges, changelogs, n
 to architecture-governance EPIC #721 and its release implementation #728; release tooling may read catalog membership only.
 
 The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
-ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the eighteen-package inventory plus required catalog consumers and rejection rules are frozen in
+ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the nineteen-package inventory plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
 ### 3.10 Canonical architecture policy and enforcement (#722, #724, #725, #726, #727)
@@ -479,7 +480,7 @@ foundation < runtime < application < integration < tooling < facade
 ```
 
 A package may depend only on its own or an inward zone, every direct workspace dependency must also be named explicitly by that package's policy row, and the dependency's numeric ring must be lower
-than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current eighteen
+than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current nineteen
 catalog members therefore freeze as:
 
 | Catalog id       | Zone          | Ring | Direct workspace dependencies                                                          |
@@ -500,6 +501,7 @@ catalog members therefore freeze as:
 | `sqlite`         | `runtime`     |    5 | `query-compiler`, `repository`                                                         |
 | `jobs`           | `application` |    6 | `app`, `query-compiler`, `repository`, `sqlite`                                        |
 | `otel`           | `integration` |    6 | `app`                                                                                  |
+| `transport-grpc` | `integration` |    6 | `app`, `protobuf`                                                                      |
 | `web`            | `application` |    6 | `app`, `aot-validator`, `query-compiler`, `schema-core`                                |
 | `zmdb`           | `facade`      |    7 | `app`, `aot-validator`, `query-compiler`, `repository`, `schema-core`, `sqlite`, `web` |
 
@@ -519,7 +521,7 @@ NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 All catalog packages form one lockstep release train. They carry one version, use `workspace:^` for committed internal ranges, derive publish order from the policy DAG, share one root changelog and
 must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
 
-The complete `PackagePolicy` schema, all eighteen rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
+The complete `PackagePolicy` schema, all nineteen rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
 [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication ordering remain separately frozen in [PUBLISHING.md](./PUBLISHING.md) for #728.
 
 ### 3.11 Frozen tooling-package target (#626)
@@ -711,6 +713,6 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the eighteen-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/ai`, its opt-in integrations, `@zmdb/mcp`,
-`@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/sqlite`, `@zmdb/otel`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each
-package's `SPEC.md` and the docs site.
+the north-star-driven language policy in §4 here, and it records the nineteen-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/ai`, its opt-in integrations, `@zmdb/mcp`,
+`@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain
+accurate now live in each package's `SPEC.md` and the docs site.

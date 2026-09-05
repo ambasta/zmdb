@@ -1,4 +1,4 @@
-export { bindGrpcService, createGrpcClient } from './runtime.js';
+export { bindGrpcService, createGrpcClient, grpcExtension } from './runtime.js';
 export {
   GrpcError,
   type GrpcBinding,

@@ -92,6 +92,12 @@ const META = {
     install: 'npm add @zmdb/otel@alpha @opentelemetry/api',
     keywords: ['adapter', 'observability', 'opentelemetry', 'telemetry', 'typescript', 'zmdb'],
   },
+  'transport-grpc': {
+    description:
+      'Typed gRPC server and client integration for generated @zmdb/protobuf service artifacts and the @zmdb/app lifecycle.',
+    install: 'npm add @zmdb/transport-grpc@alpha @grpc/grpc-js',
+    keywords: ['grpc', 'http2', 'protobuf', 'transport', 'typescript', 'zmdb'],
+  },
   web: {
     description:
       'HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.',

@@ -2654,30 +2654,40 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/transport-grpc@workspace:packages/transport-grpc":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/transport-grpc@workspace:packages/transport-grpc"
+  dependencies:
+    "@grpc/grpc-js": "npm:1.14.4"
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/app": "workspace:^"
+    "@zmdb/protobuf": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    "@grpc/grpc-js": ^1.14.0
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/web@workspace:^, @zmdb/web@workspace:packages/web":
   version: 0.0.0-use.local
   resolution: "@zmdb/web@workspace:packages/web"
   dependencies:
-    "@grpc/grpc-js": "npm:1.14.4"
     "@nats-io/transport-node": "npm:3.4.0"
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
-    "@zmdb/protobuf": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     amqplib: "npm:2.0.1"
     redis: "npm:6.2.1"
     typescript: "npm:7.0.2"
   peerDependencies:
-    "@grpc/grpc-js": ^1.14.0
     "@nats-io/transport-node": ^3.4.0
     amqplib: ^2.0.1
     redis: ^6.2.1
     typescript: ">=7.0.0"
   peerDependenciesMeta:
-    "@grpc/grpc-js":
-      optional: true
     "@nats-io/transport-node":
       optional: true
     amqplib:

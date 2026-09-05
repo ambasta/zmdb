@@ -272,6 +272,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/database-sqlite' },
   }),
   productPackage({
+    id: 'transport-grpc',
+    directory: 'packages/transport-grpc',
+    npmName: '@zmdb/transport-grpc',
+    role: 'grpc',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'gRPC' },
+    docsOwner: 'web-microservices-grpc',
+    consumer: { fixture: 'fixtures/consumer-server-integrations' },
+  }),
+  productPackage({
     id: 'web',
     directory: 'packages/web',
     npmName: '@zmdb/web',
