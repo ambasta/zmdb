@@ -1,4 +1,4 @@
-import '../polyfill.js';
+import '@zmdb/app';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
