@@ -920,9 +920,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   private filterDefinitionsFor(table: string, schema?: CoreSchema<string>): readonly FilterDef<unknown>[] {
     const definitions = this.#filterDefinitions.filter(filter => filter.table === table);
-    const softDelete =
-      (schema === undefined ? this.sqlNamesForTable(table) : this.sqlNamesForTable(schema.table))?.ir.softDelete ??
-      schema?.ir.softDelete;
+    const sqlNames =
+      this.sqlNamesForTable(table) ?? (schema === undefined ? undefined : this.sqlNamesForTable(schema.table));
+    const softDelete = sqlNames !== undefined ? sqlNames.ir.softDelete : schema?.ir.softDelete;
     if (softDelete === undefined || definitions.some(filter => filter.name === 'softDelete')) {
       return definitions;
     }
@@ -1197,21 +1197,34 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     irColsMap?: Map<string, ColumnIR>,
   ): readonly Record<string, unknown>[] {
     if (rows.length === 0) return rows;
-    const targetSchema = schema ?? (irColsMap ? undefined : this.schema);
+    const targetSchema = schema ?? (irColsMap ? undefined : this.#rootSqlNames.schema);
     const irCols = irColsMap ?? new Map(targetSchema?.ir?.columns?.map(c => [c.name, c]) ?? []);
-    return rows.map(row => {
-      const out: Record<string, unknown> = { ...row };
-      for (const [key, val] of Object.entries(out)) {
+    if (irCols.size === 0) return rows;
+    let modified = false;
+    const result = rows.map(row => {
+      let rowCopied = false;
+      let out: Record<string, unknown> = row;
+      for (const [key, val] of Object.entries(row)) {
         if (val === null || val === undefined) continue;
         const colIR = irCols.get(key);
+        let decoded: unknown = val;
         if (colIR) {
-          out[key] = this.decodeValueForColumn(val, colIR);
+          decoded = this.decodeValueForColumn(val, colIR);
         } else if (typeof val === 'bigint' && Number.isSafeInteger(Number(val))) {
-          out[key] = Number(val);
+          decoded = Number(val);
+        }
+        if (decoded !== val) {
+          if (!rowCopied) {
+            out = { ...row };
+            rowCopied = true;
+            modified = true;
+          }
+          out[key] = decoded;
         }
       }
       return out;
     });
+    return modified ? result : rows;
   }
 
   protected decodeValueForColumn(raw: unknown, col: ColumnIR): unknown {
@@ -1747,7 +1760,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       reportBuffered ? { buffered: true } : {},
     );
     const targetSchema = this.schema;
-    const irCols = new Map(targetSchema?.ir?.columns?.map(c => [c.name, c]) ?? []);
+    const irCols = new Map(targetSchema.ir.columns.map(c => [c.name, c]));
     const signal = options?.signal;
 
     const open =
@@ -2435,8 +2448,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
     switch (col.sql) {
       case 'timestamp':
-        if (val instanceof Date) return val.toISOString();
-        if (typeof val === 'number') return new Date(val).toISOString();
+        if (val instanceof Date) return val;
+        if (typeof val === 'number') return new Date(val);
         return val;
       case 'json':
         if (typeof val === 'string') return val;
