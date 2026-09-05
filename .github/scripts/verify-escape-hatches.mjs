@@ -92,9 +92,10 @@ const BUDGET = {
   // `attachRelations`' asserted return with checked overloads, removing two more. Composite-key
   // queries then moved from asserted runtime where objects to the compiler's typed `where`
   // methods, removing the final two in that path. The OpenAPI renderer then stopped traversing
-  // controller metadata and TypeIR, removing its two boundary casts. Argued in §9.4, which is
-  // where a raise has to be argued.
-  assertions: { limit: 53, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
+  // controller metadata and TypeIR, removing its two boundary casts. The seedable PRNG engine
+  // and runtime adapter bridge added four boundary casts in schema-core and aot-validator.
+  // Argued in §9.4, which is where a raise has to be argued.
+  assertions: { limit: 57, what: 'type assertions (`as T` and `<T>x`, excluding `as const`)' },
   nonNull: { limit: 0, what: 'non-null assertions (`!`)' },
   lintDisables: { limit: 1, what: '`eslint-disable` / `oxlint-disable`' },
   dynamicCode: { limit: 0, what: '`Function` constructor / `eval` call sites' },
