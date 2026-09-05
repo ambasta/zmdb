@@ -382,6 +382,10 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
+function isDecodedRequest(data: unknown): data is DecodedRequest {
+  return typeof data === 'object' && data !== null && 'ok' in data;
+}
+
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
   const queue: DecodedRequest[] = [];
   let resolver: (() => void) | undefined;
@@ -389,7 +393,9 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   let streamError: unknown = undefined;
 
   const onData = (data: unknown) => {
-    queue.push(data as DecodedRequest);
+    if (isDecodedRequest(data)) {
+      queue.push(data);
+    }
     if (resolver !== undefined) {
       const wake = resolver;
       resolver = undefined;
@@ -421,8 +427,8 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     for (;;) {
       if (scope.signal.aborted) throw scope.reason();
       if (streamError !== undefined) throw streamError;
-      if (queue.length > 0) {
-        const item = queue.shift()!;
+      const item = queue.shift();
+      if (item !== undefined) {
         yield requestValue(item);
         continue;
       }
