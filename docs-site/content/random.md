@@ -6,34 +6,14 @@ literal unions — are honoured because the value is assembled _from_ them rathe
 
 ## Basic Usage
 
-```ts
-import { random, is } from '@zmdb/aot-validator/utilities';
-
-interface Account {
-  name: string;
-  age: number;
-  active: boolean;
-}
-
-const sample = random<Account>();
-// { name: 'k3f9qz', age: 417, active: true }
-
-is<Account>(sample); // true
-```
+<!-- snippet: random.ts#snippet-1 -->
 
 The type argument is the whole input. The transformer turns `random<Account>()` into a call carrying `Account`'s IR, which is also why the constraints in the type reach the generator at all — there is
 no second argument to keep in step with the first.
 
 ## Primitives
 
-```ts
-random<boolean>(); // true or false
-random<number>(); // 0 … 1000
-random<Date>(); // an arbitrary instant, epoch to roughly 2024
-random<bigint>(); // 417n
-random<'admin' | 'user' | 'guest'>(); // 'user' — one member, at random
-random<null>(); // null
-```
+<!-- snippet: random.ts#snippet-2 -->
 
 A literal type samples to itself, which makes a discriminated union work the way you would hope: `random<{ kind: 'circle'; r: number }>()` always has `kind: 'circle'`.
 
@@ -41,12 +21,7 @@ A literal type samples to itself, which makes a discriminated union work the way
 
 Constraints narrow the range rather than being validated after the fact:
 
-```ts
-import type { Max, MaxLength, Min, MinLength } from 'zmdb/tags';
-
-random<number & Min<100> & Max<200>>(); // 100 … 200
-random<string & MinLength<8> & MaxLength<8>>(); // exactly eight characters
-```
+<!-- snippet: random.ts#snippet-3 -->
 
 An impossible bound is a thrown refusal rather than a wrong value:
 
@@ -56,15 +31,7 @@ cannot sample: a bound with minimum 200 above maximum 100
 
 ## Complex structures
 
-```ts
-interface Order {
-  id: number;
-  items: { productId: number; quantity: number & Min<1> }[];
-}
-
-const order = random<Order>();
-// { id: 88, items: [{ productId: 3, quantity: 12 }, { productId: 91, quantity: 7 }] }
-```
+<!-- snippet: random.ts#snippet-4 -->
 
 Arrays get 1–3 elements, or `MinLength`/`MaxLength` if the type says so. Tuples get exactly their arity. Objects get every property, including optional ones.
 
@@ -90,9 +57,7 @@ The path is in the message — ``cannot sample `.shipTo.postcode`: …`` — so 
 
 If a type you want to sample carries a `Pattern`, drop that property and supply it yourself:
 
-```ts
-const input = { ...random<Omit<CreateDTO<User>, 'email'>>(), email: 'a@b.test' };
-```
+<!-- snippet: random.ts#snippet-5 -->
 
 Recursion through a union terminates, because a back-reference member is dropped rather than followed: `interface Node { next: Node | null }` samples to `{ next: null }` or `{ next: { next: null } }`.
 Only a reference with no non-recursive arm beside it is refused.
@@ -101,21 +66,7 @@ Only a reference with no non-recursive arm beside it is refused.
 
 `random<T>()` takes the type, so a table's own declaration is the fixture generator:
 
-```ts
-import { random } from '@zmdb/aot-validator/utilities';
-import type { CreateDTO } from 'zmdb/derive';
-import type { Max, MaxLength, Min, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-
-export interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  name: string & Sql<'text'> & MaxLength<100>;
-  email: string & Sql<'text'>;
-  age: (number & Sql<'integer'> & Min<0> & Max<120>) | null;
-}
-
-const sampleUser = random<CreateDTO<User>>();
-// { name: 'k3f9qz', email: 'p2m8t1x', age: 25 }
-```
+<!-- snippet: random.ts#snippet-6 -->
 
 `CreateDTO<User>` rather than `User` is what makes this useful for an insert: `id` is `Serial`, so it is absent, and there is no generated id to collide with the one the database is about to assign.
 
@@ -124,29 +75,7 @@ Either keep the pattern and use the `Omit` form above, or keep it off the column
 
 ## Integration with Testing
 
-```ts
-import { random, is, assertEquals } from '@zmdb/aot-validator/utilities';
-
-describe('UserRepository', () => {
-  it('creates valid users', async () => {
-    const input = random<CreateDTO<User>>();
-
-    // Generated data is guaranteed valid
-    is<CreateDTO<User>>(input); // true
-
-    const created = await repo.create(input);
-
-    // The row that came back is exactly an entity — no extra keys, none missing
-    assertEquals<Entity<User>>(created);
-  });
-
-  it('rejects invalid input', async () => {
-    const invalid = { email: 'not-email', name: 'x'.repeat(101), age: 15 };
-
-    await expect(repo.create(invalid)).rejects.toThrow();
-  });
-});
-```
+<!-- snippet: random.ts#snippet-7 -->
 
 ## Generated value ranges
 
@@ -168,19 +97,7 @@ describe('UserRepository', () => {
 
 ## Random for fuzzing
 
-```ts
-import { random, validate } from '@zmdb/aot-validator/utilities';
-
-for (let i = 0; i < 1000; i++) {
-  const input = random<CreateDTO<User>>();
-
-  // Should always pass — `random` builds the value from the same IR `validate` checks
-  const result = validate<CreateDTO<User>>(input);
-  if (!result.success) {
-    console.error('Generated invalid input:', input, result.errors);
-  }
-}
-```
+<!-- snippet: random.ts#snippet-8 -->
 
 That loop is a property test of the validator, not of your code: a failure means the generator and the checker disagree about the same IR. It is worth running once after a change to either.
 

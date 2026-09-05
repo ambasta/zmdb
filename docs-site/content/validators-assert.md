@@ -5,26 +5,7 @@ Reach for it where a failure means something upstream is broken. Where a failure
 
 ## Basic Usage
 
-```ts
-import { assert } from '@zmdb/aot-validator/utilities';
-import type { MaxLength, Min } from 'zmdb/tags';
-
-interface Player {
-  username: string & MaxLength<20>;
-  score: number & Min<0>;
-}
-
-// Success — returns the value, typed
-const player = assert<Player>(await req.json());
-player.score; // number
-
-// Failure — throws
-try {
-  assert<Player>({ username: 'thisusernameistoolong', score: -5 });
-} catch (e) {
-  // e instanceof AssertError, and e.issues has both failures
-}
-```
+<!-- snippet: validators-assert.ts#snippet-1 -->
 
 The type argument is the schema. `assert<Player>(x)` is a complete call — there is no descriptor to write beside the type and no way for the two to disagree.
 
@@ -32,19 +13,7 @@ The type argument is the schema. `assert<Player>(x)` is a complete call — ther
 
 ## AssertError Shape
 
-```ts
-class AssertError extends Error {
-  readonly name = 'AssertError';
-  readonly issues: readonly ValidationIssue[];
-}
-
-interface ValidationIssue {
-  readonly path: string; // 'input.score'
-  readonly message: string; // 'expected minimum 0'
-  readonly expected?: string; // 'minimum 0'
-  readonly value?: unknown; // -5
-}
-```
+<!-- snippet: validators-assert.ts#snippet-2 -->
 
 For the failing call above:
 
@@ -61,15 +30,7 @@ a wrong type reads the type (`number`, `string`, `Date`, `"draft" | "published"`
 
 ## Asserting a table's write shape
 
-```ts
-import type { CreateDTO, Entity } from 'zmdb/derive';
-
-app.post('/users', async (req, reply) => {
-  const dto = assert<CreateDTO<User>>(await req.body); // throws on a bad body
-  const row: Entity<User> = await users.create(dto);
-  return reply.send(row);
-});
-```
+<!-- snippet: validators-assert.ts#snippet-3 -->
 
 `CreateDTO<User>` and not `User`: a `Serial` primary key is absent from the insert shape, so a client that sends an `id` gets an issue rather than a surprise. See [DTO Helpers](./read-dtos.html).
 
@@ -77,18 +38,7 @@ app.post('/users', async (req, reply) => {
 
 `assertEquals<T>()` is the strict form: it additionally rejects properties `T` does not declare.
 
-```ts
-import { assertEquals } from '@zmdb/aot-validator/utilities';
-
-interface Item {
-  id: number;
-  name: string;
-}
-
-assertEquals<Item>({ id: 1, name: 'test' }); // OK
-assertEquals<Item>({ id: 1, name: 'test', extra: 'oops' }); // throws
-// issues: [{ path: 'input', expected: 'no excess properties', … }]
-```
+<!-- snippet: validators-assert.ts#snippet-4 -->
 
 > [!NOTE] `assertEquals<T>(input)` takes **one** value. It is not a two-value comparison — the name is about exactness against the type, not equality between two objects. `equals<T>(input)` is the
 > boolean form.
@@ -100,13 +50,7 @@ wrong — "you also passed `extra`" is noise next to "`name` is not a string".
 
 The tags from `zmdb/tags` are what the checks come from, on a bare type argument as much as on a table:
 
-```ts
-import type { Pattern } from 'zmdb/tags';
-
-type Email = string & Pattern<'^[^@]+@[^@]+$'>;
-
-const email = assert<Email>(input); // string, and it matched
-```
+<!-- snippet: validators-assert.ts#snippet-5 -->
 
 See [Tag Reference](./tags-reference.html) for the full vocabulary and [validators-tags](./validators-tags.html) for the difference between these type-level tags and the runtime `tags.Min(18)` rule
 values.
@@ -115,10 +59,7 @@ values.
 
 With the transformer enabled, an `assert` call becomes straight-line JavaScript. The gate is the allocation-free boolean check, and the issue walk only runs once a throw is already certain:
 
-```ts
-// authored
-const n = assert<number & Min<0>>(value);
-```
+<!-- snippet: validators-assert.ts#snippet-6 -->
 
 ```text
 // emitted, in outline

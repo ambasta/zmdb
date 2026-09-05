@@ -8,12 +8,7 @@ integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transpor
 npm add zmdb@alpha @zmdb/sqlite@alpha
 ```
 
-```ts
-import { schemaOf, defineRepository, is } from 'zmdb';
-import { sqlite, sqliteDriver } from '@zmdb/sqlite';
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-import type { CreateDTO, Entity } from 'zmdb/derive';
-```
+<!-- snippet: installation.ts#snippet-1 -->
 
 The `zmdb` package re-exports the curated public API of its six runtime dependencies, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, `zmdb/relations`,
 `zmdb/web`, `zmdb/drivers/pg`, …). Database selection is explicit: `@zmdb/sqlite` owns SQLite compilation traits, migrations, introspection, and the driver. The temporary `zmdb/drivers/sqlite`
@@ -136,14 +131,7 @@ Ensure your `tsconfig.json` targets modern features:
 zmdb declares tables as **types**, and a type does not exist at runtime. The transformer is what closes that gap: it reads the declaration from the type checker and replaces each `schemaOf<T>()`,
 `assert<T>()`, `is<T>()`, `validate<T>()`, `equals<T>()`, `assertEquals<T>()`, `random<T>()` and `toJsonSchema<T>()` call with the reflected result.
 
-```ts
-// vite.config.ts / rollup / esbuild / webpack — unplugin, so one factory for all
-import { zmdbAot } from '@zmdb/aot-validator/unplugin';
-
-export default {
-  plugins: [zmdbAot({ project: new URL('./tsconfig.json', import.meta.url).pathname })],
-};
-```
+<!-- snippet: installation.ts#snippet-2 -->
 
 > [!IMPORTANT] Without `project` (or an already-open `session`) the plugin cannot ask the checker what a type is, so it leaves every `f<T>(…)` call alone — and an untransformed `schemaOf<T>()` throws
 > when called. A refused call site is a build error by default, not a silent fallback. See [AOT Setup](./aot-setup.html).
@@ -154,29 +142,11 @@ For a project that only needs the query compiler, there is no build step at all 
 
 The query compiler is plain runtime code, so it verifies the install without the transformer in the way:
 
-```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
-import { sqlite } from '@zmdb/sqlite';
-
-const q = createQueryCompiler(sqlite).selectFrom('users').select(['id']).compile();
-console.log(q.text); // SELECT "id" FROM "users"
-```
+<!-- snippet: installation.ts#snippet-3 -->
 
 Then verify the transformer is wired, which is the part that actually goes wrong:
 
-```ts
-import { schemaOf } from '@zmdb/schema-core';
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-
-interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'>;
-}
-
-const userSchema = schemaOf<User>();
-console.log(userSchema.table); // 'users'
-console.log(userSchema.columns.email.type); // 'text'
-```
+<!-- snippet: installation.ts#snippet-4 -->
 
 If that throws instead of printing, the plugin is not running over this file.
 

@@ -4,19 +4,7 @@ Populate loads related entities for to-one and to-many relations. Unlike lazy-lo
 
 Declare the relation on the type — see [Relations](./relations.html) — then ask for it by key. The result is a parent **typed** with its nested relation(s).
 
-```ts
-interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  orders?: Order[] & OneToMany<'orders', 'userId'>;
-}
-
-class UserRepository extends BaseRepository<User> {
-  static override readonly schema = UserSchema;
-}
-
-const user = await users.findById(1, { populate: ['orders'] });
-// user.orders: readonly Entity<Order>[]   — to-one relations come back as Entity<Child> | null
-```
+<!-- snippet: populate-results.ts#snippet-1 -->
 
 `populate` accepts the relation keys of `User`, so `['ordres']` does not compile. There is no static `relations` map: it used to sit beside `static schema`, restating the target table, the foreign key
 and the cardinality that the declaration above already carries.
@@ -35,15 +23,7 @@ SELECT * FROM "orders" WHERE "userId" = $1   -- batched across all parents
 
 Use `findJoined` to fetch a parent with its related entity via JOIN.
 
-```ts
-// Given `user?: User & ManyToOne<'users', 'userId'>` on Order
-const orders = await ordersRepo.findJoined({ target: 'users', leftCol: 'userId', rightCol: 'id', kind: 'left' }, { col: 'status', op: '=', value: 'pending' });
-
-// Each order now has user data attached (flat object)
-for (const order of orders) {
-  console.log(order.userId, order.user?.email);
-}
-```
+<!-- snippet: populate-results.ts#snippet-2 -->
 
 **SQL emitted:**
 
@@ -57,17 +37,7 @@ WHERE "orders"."status" = $1
 
 Use `findAllWithMany` to batch-load children for all parents.
 
-```ts
-// Find all users, then batch-load their orders
-const usersWithOrders = await usersRepo.findAllWithMany(
-  'orders', // relation name on User
-  'orders', // child table
-  'userId', // foreign key on orders
-  'id', // parent key (default: 'id')
-);
-
-// usersWithOrders[0].orders = all orders where userId = user.id
-```
+<!-- snippet: populate-results.ts#snippet-3 -->
 
 **SQL emitted (2 queries):**
 
@@ -85,23 +55,13 @@ SELECT * FROM "orders" WHERE "userId" IN ($1, $2, $3, ...)
 
 Pass `populate` in the GetOptions to type-narrow the result:
 
-```ts
-import type { GetDTO } from '@zmdb/schema-core/dto';
-import type { Populated } from '@zmdb/schema-core/derive';
-
-const result = await users.findById(1, { populate: ['orders'] });
-// result: Populated<User, 'orders'> | undefined
-// result.orders: readonly Entity<Order>[]
-```
+<!-- snippet: populate-results.ts#snippet-4 -->
 
 ## No Lazy Loading
 
 There are no lazy-loading proxies. If you don't call a populate method, relations are simply absent from the result:
 
-```ts
-const user = await users.findById(1);
-// 'orders' in user === false — absent, not `undefined`, and not a key of the result type
-```
+<!-- snippet: populate-results.ts#snippet-5 -->
 
 > [!TIP] Always consider which relations you need. Load only what's necessary to avoid unnecessary queries.
 

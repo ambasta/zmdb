@@ -1,6 +1,29 @@
 {
-  "//": "The program `openapi-model.ts` is read in. One file, because the rest of the docs build is `.mjs` and has nothing for a compiler to check; this exists so the four interfaces the published OpenAPI document is derived from are typechecked like any other declaration, and so `schemasFrom` has a project to open.",
   "extends": "../tsconfig.json",
-  "compilerOptions": {},
-  "files": ["openapi-model.ts"]
+  "compilerOptions": {
+    "paths": {
+      "zmdb": ["../packages/zmdb/src/index.ts"],
+      "zmdb/tags": ["../packages/schema-core/src/tags/index.ts"],
+      "zmdb/derive": ["../packages/schema-core/src/derive/index.ts"],
+      "zmdb/ir": ["../packages/schema-core/src/ir/index.ts"],
+      "zmdb/dto": ["../packages/schema-core/src/dto/index.ts"],
+      "zmdb/relations": ["../packages/schema-core/src/relations/index.ts"],
+      "@zmdb/schema-core": ["../packages/schema-core/src/index.ts"],
+      "@zmdb/schema-core/*": ["../packages/schema-core/src/*"],
+      "@zmdb/repository": ["../packages/repository/src/index.ts"],
+      "@zmdb/repository/*": ["../packages/repository/src/*"],
+      "@zmdb/query-compiler": ["../packages/query-compiler/src/index.ts"],
+      "@zmdb/query-compiler/*": ["../packages/query-compiler/src/*"],
+      "@zmdb/aot-validator": ["../packages/aot-validator/src/index.ts"],
+      "@zmdb/aot-validator/*": ["../packages/aot-validator/src/*"]
+    }
+  },
+  "include": [
+    "openapi-model.ts",
+    "snippets/quick-start.ts",
+    "snippets/read-dtos.ts",
+    "snippets/relations.ts",
+    "snippets/schema-declaration.ts",
+    "snippets/type-derivation.ts"
+  ]
 }
