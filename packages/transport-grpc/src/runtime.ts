@@ -57,8 +57,8 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string | symbol, listener: (...args: unknown[]) => void): this;
+  removeListener(event: string | symbol, listener: (...args: unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
@@ -382,14 +382,20 @@ function requestValue(decoded: DecodedRequest): unknown {
   return decoded.value;
 }
 
+function isDecodedRequest(data: unknown): data is DecodedRequest {
+  return typeof data === 'object' && data !== null && 'ok' in data;
+}
+
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
   const queue: DecodedRequest[] = [];
   let signalResolve: (() => void) | undefined;
   let ended = false;
   let streamError: unknown = undefined;
 
-  const onData = (data: DecodedRequest): void => {
-    queue.push(data);
+  const onData = (data: unknown): void => {
+    if (isDecodedRequest(data)) {
+      queue.push(data);
+    }
     signalResolve?.();
   };
   const onEnd = (): void => {
@@ -401,18 +407,20 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     signalResolve?.();
   };
 
-  call.on('data', onData as (...args: unknown[]) => void);
+  call.on('data', onData);
   call.on('end', onEnd);
-  call.on('error', onError as (...args: unknown[]) => void);
+  call.on('error', onError);
 
   try {
     for (;;) {
       if (scope.signal.aborted) throw scope.reason();
       if (streamError !== undefined) throw streamError;
       if (queue.length > 0) {
-        const item = queue.shift()!;
-        yield requestValue(item);
-        continue;
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield requestValue(item);
+          continue;
+        }
       }
       if (ended) return;
 
@@ -427,9 +435,9 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
       signalResolve = undefined;
     }
   } finally {
-    call.removeListener('data', onData as (...args: unknown[]) => void);
+    call.removeListener('data', onData);
     call.removeListener('end', onEnd);
-    call.removeListener('error', onError as (...args: unknown[]) => void);
+    call.removeListener('error', onError);
   }
 }
 
