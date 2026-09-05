@@ -104,6 +104,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@zmdb/ai": "workspace:^",
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
     "@zmdb/compiler": "workspace:1.0.0-alpha.4",
@@ -116,7 +117,6 @@
     "oxfmt": "0.66.0"
   },
   "devDependencies": {
-    "@zmdb/ai": "workspace:^",
     "@zmdb/cockroach": "workspace:^",
     "@zmdb/mssql": "workspace:^",
     "@zmdb/mysql": "workspace:^",
