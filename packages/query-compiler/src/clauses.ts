@@ -160,7 +160,14 @@ export function sqlOperator(op: Operator | UnsafeOperator | string, dialect: Dia
   if (mapped !== undefined) {
     return mapped;
   }
-  throw new QueryCompilerError(`Invalid query operator "${op}"`);
+  if (!isUnmappedOperatorToken(opStr, dialect)) {
+    const name = dialectName(dialect);
+    throw new TypeError(
+      `invalid unmapped SQL operator ${JSON.stringify(opStr)} for dialect ${JSON.stringify(name)}; expected ` +
+        'one non-comment operator token that does not conflict with the dialect placeholder syntax',
+    );
+  }
+  return opStr;
 }
 
 /**
