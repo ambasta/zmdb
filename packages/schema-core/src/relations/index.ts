@@ -26,7 +26,7 @@ import {
 } from '@zmdb/query-compiler';
 
 import type { SchemaIR } from '../ir/index.js';
-import { singularizeWord } from '../openapi/index.js';
+import { singularizeWord } from '../naming/index.js';
 
 export function inferFkName(tableName: string): string {
   const tableParts = tableName.split('.');
