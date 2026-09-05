@@ -173,6 +173,50 @@ describe('@zmdb/web pipeline: fetch adapter', () => {
     expect(response.headers.get('x-trace')).toBe('abc');
     expect(await response.text()).toBe('plain');
   });
+
+  it('accepts payload within maxBodySize limit', async () => {
+    const handler = toFetchHandler(makeRouter(), { maxBodySize: 100 });
+    const response = await handler(
+      new Request('http://x/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'ada' }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ created: 'ada' });
+  });
+
+  it('rejects payload exceeding maxBodySize via Content-Length header (413)', async () => {
+    const handler = toFetchHandler(makeRouter(), { maxBodySize: 20 });
+    const payload = JSON.stringify({ name: 'a very long name exceeding the byte limit' });
+    const response = await handler(
+      new Request('http://x/users', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(payload.length),
+        },
+        body: payload,
+      }),
+    );
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ error: 'Payload Too Large' });
+  });
+
+  it('rejects payload exceeding maxBodySize during body read when Content-Length is missing (413)', async () => {
+    const handler = toFetchHandler(makeRouter(), { maxBodySize: 15 });
+    const payload = JSON.stringify({ name: 'a very long name exceeding limit' });
+    const response = await handler(
+      new Request('http://x/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: payload,
+      }),
+    );
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ error: 'Payload Too Large' });
+  });
 });
 
 // Response control (json/text/respond). The pipeline used to wrap every handler
@@ -492,5 +536,134 @@ describe('@zmdb/web pipeline: node adapter', () => {
     await state.done;
     expect(state.statusCode).toBe(500);
     expect(JSON.parse(state.body ?? '')).toEqual({ error: 'boom' });
+  });
+});
+
+describe('@zmdb/web pipeline: node adapter maxBodySize', () => {
+  function createMockNodeReqRes(opts: {
+    method?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    chunks?: string[];
+  }) {
+    const listeners: Record<string, ((chunk?: unknown) => void)[]> = {};
+    let destroyed = false;
+    let paused = false;
+
+    const req = {
+      method: opts.method ?? 'POST',
+      url: opts.url ?? '/users',
+      headers: opts.headers ?? { 'transfer-encoding': 'chunked' },
+      on(event: string, listener: (chunk?: unknown) => void) {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(listener);
+      },
+      destroy() {
+        destroyed = true;
+      },
+      pause() {
+        paused = true;
+      },
+    };
+
+    let statusCode = 200;
+    const responseHeaders: Record<string, string> = {};
+    let responseBody = '';
+
+    const res = {
+      get statusCode() {
+        return statusCode;
+      },
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      setHeader(name: string, value: string) {
+        responseHeaders[name.toLowerCase()] = value;
+      },
+      end(body?: string | Uint8Array<ArrayBuffer>) {
+        if (typeof body === 'string') {
+          responseBody = body;
+        } else if (body instanceof Uint8Array) {
+          responseBody = new TextDecoder().decode(body);
+        }
+      },
+      write() {
+        return true;
+      },
+      once() {},
+      destroy() {
+        destroyed = true;
+      },
+    };
+
+    const emit = async () => {
+      for (const chunk of opts.chunks ?? []) {
+        if (destroyed) break;
+        for (const fn of listeners['data'] ?? []) {
+          fn(chunk);
+        }
+      }
+      if (!destroyed) {
+        for (const fn of listeners['end'] ?? []) {
+          fn();
+        }
+      }
+      await new Promise(r => setTimeout(r, 10));
+    };
+
+    return {
+      req,
+      res,
+      emit,
+      get destroyed() {
+        return destroyed;
+      },
+      get paused() {
+        return paused;
+      },
+      get statusCode() {
+        return statusCode;
+      },
+      get body() {
+        return responseBody;
+      },
+    };
+  }
+
+  it('buffers and processes payload when maxBodySize is unconfigured', async () => {
+    const handler = toNodeHandler(makeRouter());
+    const mock = createMockNodeReqRes({
+      chunks: [JSON.stringify({ name: 'ada' })],
+    });
+    handler(mock.req, mock.res);
+    await mock.emit();
+
+    expect(mock.statusCode).toBe(200);
+    expect(JSON.parse(mock.body)).toEqual({ created: 'ada' });
+  });
+
+  it('buffers and processes payload below maxBodySize', async () => {
+    const handler = toNodeHandler(makeRouter(), { maxBodySize: 100 });
+    const mock = createMockNodeReqRes({
+      chunks: [JSON.stringify({ name: 'ada' })],
+    });
+    handler(mock.req, mock.res);
+    await mock.emit();
+
+    expect(mock.statusCode).toBe(200);
+    expect(JSON.parse(mock.body)).toEqual({ created: 'ada' });
+  });
+
+  it('halts body buffering and returns 413 as soon as incoming chunks exceed maxBodySize', async () => {
+    const handler = toNodeHandler(makeRouter(), { maxBodySize: 15 });
+    const mock = createMockNodeReqRes({
+      chunks: ['{"name":"', 'a very long name exceeding maxBodySize limit"}'],
+    });
+    handler(mock.req, mock.res);
+    await mock.emit();
+
+    expect(mock.statusCode).toBe(413);
+    expect(JSON.parse(mock.body)).toEqual({ error: 'Payload Too Large' });
+    expect(mock.destroyed).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ import { createApplication, type Application, type ApplicationOptions, type Modu
 import {
   createRouter,
   toFetchHandler,
+  type AdapterOptions,
   type GuardRegistry,
   type Router,
   type RouterOptions,
@@ -21,7 +22,7 @@ export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '@zmdb/app
 /**
  * Protocol integrations attach through `ApplicationOptions.extensions`.
  */
-export interface WebApplicationOptions extends ApplicationOptions {
+export interface WebApplicationOptions extends ApplicationOptions, AdapterOptions {
   readonly guardRegistry?: GuardRegistry;
   readonly versioning?: VersionStrategy;
 }
@@ -57,7 +58,7 @@ export function createApp(rootModule: ModuleClass, options: WebApplicationOption
       router.registerDeferred(binding.controller, binding.instance);
     }
   }
-  const fetchHandler = toFetchHandler(router);
+  const fetchHandler = toFetchHandler(router, options);
 
   return {
     container: application.container,
