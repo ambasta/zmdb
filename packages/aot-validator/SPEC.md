@@ -114,3 +114,14 @@ machine that cannot hold N loaded projects.
 - **No text parsing of types.** §2. This is the reversal of the original spec's "no reflection", and the reason is recorded there rather than quietly dropped.
 - **No `typescript` as a hard dependency.** §4.
 - **No compiler session per call site.** §6.
+
+## Amendment: shared HTTP contract compilation (#679)
+
+`@zmdb/web/contract/compiler` is a build-time consumer of the existing `./reflect` and `./emit` entries. Ownership does not move here, and `@zmdb/aot-validator` never imports `@zmdb/web`, including a
+type-only edge.
+
+The web-owned collector receives one caller-owned `ReflectSession`, reflects each declared operation through the existing serialisable `TypeIR`, and uses existing emit/JSON-Schema back-ends for
+request codecs, response validators, and the precomputed OpenAPI projection. It refuses every `unsupported` node. It adds neither an eighteenth generic runtime callee nor another TypeScript program or
+type-semantics walk.
+
+Functions remain in generated server/client plans and data in `HttpContractIR`; runtime code receives no compiler session and never walks TypeIR. A supplied session is never closed here.

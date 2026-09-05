@@ -237,6 +237,32 @@ package only after it satisfies the same criteria with behavior that cannot live
 A local run may report that an optional service is unavailable, but a release-qualification lane assigned to that database must fail rather than silently skip. Until all evidence above exists, the
 package or capability is experimental and documentation must say which evidence is missing.
 
+### 3.5 Frozen shared HTTP-contract and generated-client target
+
+Issue #679 freezes a target, not current-tree behaviour: OpenAPI still collects decorator routes and path-keyed schemas, the adapters do not populate query parameters or cancellation, and no
+`@zmdb/client` package exists.
+
+```text
+@zmdb/schema-core/ir
+          │
+          ▼
+@zmdb/aot-validator/{reflect,emit}
+          │
+          ▼
+@zmdb/web/contract/compiler ──> emitted HttpContractIR
+                                      ├──> @zmdb/web runtime
+                                      ├──> @zmdb/web/openapi
+                                      └──> generated application client ──> @zmdb/client
+```
+
+`@zmdb/web/contract` owns HTTP declarations and serialisable IR. Its compiler reuses one AOT reflection session; AOT never imports web. Routing, OpenAPI, and generated clients consume the same
+compilation result without recollecting controllers, parsing OpenAPI, or defining another type walk.
+
+`@zmdb/client` owns only a zero-dependency transport/runtime ABI and stable errors. It imports no web, AOT, schema-core, Node built-in, or framework adapter. Generated source contains no controller,
+credential, TypeIR walker, or workspace path. Optional UI adapters remain the separate client-framework layer frozen by #688.
+
+The complete contract is [`packages/web/src/contract/SPEC.md`](./packages/web/src/contract/SPEC.md) and [`packages/client/SPEC.md`](./packages/client/SPEC.md).
+
 ---
 
 ## 4. Implementation-language policy

@@ -650,3 +650,21 @@ the statements.
 - **`$(Controller)`** (§R6) — the container is keyed by `Token`, not by class.
 - **Any write verb inside the REPL beyond what the application's own providers expose** — the session is the application, and a CLI-level `--write` flag would be a second permission model on top of
   §10's.
+
+## Amendment: generated HTTP client command (#679)
+
+```text
+zmdb client generate [--check] [--watch]
+```
+
+The command loads `http.contracts` and `http.client.out`, opens the configured project once, compiles `HttpContractIR`, and renders one generated TypeScript module. It neither boots the web
+application nor parses OpenAPI; generated relative imports use `.js`.
+
+- Normal mode atomically replaces the file only when bytes differ.
+- `--check` writes nothing; current bytes exit 0 and missing/stale bytes exit 1.
+- `--watch` retains one reflection session and regenerates only for contract/reflection dependencies.
+- `--check --watch` and `--json --watch` exit 2.
+- Missing HTTP config or invalid flags exit 2; contract/reflection diagnostics exit 1.
+
+Finite `--json` output is `{ out, operations, changed, contractFormat, generatorVersion }` inside §3's `CliResult`. There is no base-URL, credential, authentication, timeout, retry, or framework flag.
+The generated file is committed and CI runs `zmdb client generate --check`.

@@ -406,3 +406,62 @@ this epic.
 - **Emitting `tags`** — still not emitted, and still worth doing; it is grouping metadata with no relationship to this amendment.
 - **A `Sunset` header, or any runtime behaviour for `deprecated`** (S8).
 - **Deriving security from a handler's parameter list or its name.** Reflection, and a naming convention is not a control.
+
+## Amendment: the final shared-contract emitter (#679)
+
+The sections above describe the API that exists before epic #678. They remain the migration baseline until #683, but they are not the final ownership model. The final public API is:
+
+```ts
+export interface OpenApiRenderOptions {
+  readonly info?: { readonly title: string; readonly version: string };
+}
+
+export function toOpenApi(contract: HttpContractIR, options?: OpenApiRenderOptions): OpenApiDocument;
+```
+
+The omitted `info` default remains `{ title: '@zmdb/web API', version: '0.0.0' }`. `serveOpenApi` continues to serve a prebuilt document and does not collect or compile a contract.
+
+`HttpContractIR` and its security types are owned by `../contract/SPEC.md`. During migration this module may re-export those types, but it does not keep a structurally separate copy. The following
+inputs are deleted when #683 switches the implementation: controllers, `schemas`, `versionSchemas`, `versioning`, `routes`, `guardRegistry`, and `strictSecurity`. `RouteSchemas`, `VersionSchemas`, and
+`operationIdForRoute` are migration-only exports and have no final replacement because their information is already explicit in the contract.
+
+### O1. Pure projection, with no schema or route collection
+
+`toOpenApi` is a deterministic pure projection. It does not call `getRoutes`, `versionsOf`, `isPublic`, guard resolution, the TypeScript compiler, the AOT reflector, or a TypeIR-to-schema function.
+For every `typeId`, it copies the compiler-produced `HttpTypeIR.openApi` value. It never parses a generated client or an OpenAPI document and never executes a controller.
+
+An unknown `contract.format`, a missing `typeId`, or an internally inconsistent IR is an error naming the operation and field. These should already have been refused by the contract compiler, but a
+public emitter does not trust hand-constructed data enough to produce a partial document.
+
+### O2. Exact OpenAPI mapping
+
+- `openapi` is `3.1.0`; `info` is the supplied/default value.
+- Operations are sorted by OpenAPI path, lowercase method, then explicit `operationId`. The emitted `operationId` is copied, never derived.
+- A colon path slot becomes one `{name}` slot. The matching path parameter is `required: true`, `style: simple`, `explode: false`, and `allowReserved: false`.
+- Query parameters use `style: form`, `explode: true`, and `allowReserved: false`; this is the repeated-key array spelling frozen by the contract. Header parameters use `style: simple`,
+  `explode: false`; cookie parameters use `style: form`, `explode: true`.
+- Parameter `required` and schema come from the IR. A missing optional parameter has no OpenAPI default unless its reflected schema explicitly has one.
+- A request body uses its exact media type and `required` flag. JSON uses its `typeId` projection; text is `{ type: 'string' }`; bytes and stream are `{ type: 'string', format: 'binary' }`. An absent
+  request body emits no `requestBody`.
+- Every exact response status becomes one decimal response key with its declared description. There is no `default`, status range, inferred `200`, or undocumented fallback.
+- Response headers use their exact wire names, required schemas, and descriptions when the contract supplies one. An `empty` response has no `content`; other fixed body kinds map as request bodies do.
+- Security schemes are copied to `components.securitySchemes`, omitted only when the map is empty. Every operation emits its explicit `security`, including `security: []` for a public operation.
+- `deprecated: true` is emitted only when true; false is omitted.
+
+Inline schemas remain the final representation for #678. Component-schema naming and `$ref` deduplication are a separate change because they do not alter the shared HTTP contract.
+
+### O3. Versions
+
+- Path-versioned operations already have distinct expanded paths and explicit operation IDs in the IR; the emitter performs no expansion.
+- Header versioning adds one optional header parameter whose enum preserves the contract value order and whose default is the contract default. The operation's request and response shapes are shared.
+- Media-type versioning leaves the request media type unversioned and emits each response version under its exact `application/json; <key>=<value>` content key. Statuses, response-header sets,
+  security, and deprecation are identical across versions; only response body schemas may differ.
+- Neutral and unversioned operations emit no version parameter or versioned media type.
+
+### O4. Migration and acceptance
+
+#681 first produces `HttpContractIR` beside the current metadata and proves equality for dual-declared routes. #683 then changes this function to the signature above and deletes direct collection in
+the same issue. There is no permanent overload accepting both sources: a dual-source emitter would make disagreement representable again.
+
+Focused tests for #683 must prove every parameter location/style, all five body kinds, every exact status, public/protected security, all three version strategies, explicit operation IDs, and
+byte-identical output from the same IR. They must also plant a `getRoutes`/reflector call that throws and show final `toOpenApi` never reaches it.

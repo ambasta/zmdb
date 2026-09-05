@@ -183,6 +183,27 @@ export default defineConfig({
 That is one source of connection truth with a four-line adapter, and it is the shape the config reference recommends. `driver` stays optional: `generate`, `upgrade` and `export` never open a
 connection. `check` runs its file and snapshot checks without one and reports live drift as skipped.
 
+## 7a. HTTP contracts and generated-client output (#679)
+
+#685 adds this plain-data field to `ZmdbConfigData`:
+
+```ts
+readonly http?: {
+  /** Exact `<path>#<export>` specs, resolved against this config file. */
+  readonly contracts: string | readonly string[];
+  readonly client?: {
+    /** One generated `.ts` file, resolved against this config file. */
+    readonly out: string;
+  };
+};
+```
+
+The export name is mandatory; no default export or directory scan is guessed. Each path must be included by `project`; duplicate resolved path/export pairs are errors. `ResolvedConfig.http.contracts`
+contains absolute paths plus export names in declaration order, and `ResolvedConfig.http.clientOut` is absolute. The compiler reads modules through the configured project and does not execute the
+application.
+
+Base URLs, credentials, authentication providers, timeouts, retries, and deployment environments are runtime values and are refused in project config.
+
 ## 8. Non-goals (rejected)
 
 - **One `ZmdbConfig` validated whole.** §1 — the validator refuses callable properties, and pretending otherwise would ship an `assert` that cannot be emitted.

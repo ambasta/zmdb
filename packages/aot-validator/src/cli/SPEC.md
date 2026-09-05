@@ -87,3 +87,11 @@ A stale tree is reported as a sentence, not a bare exit code: it is an error in 
 - **Generating into a build directory.** The output is checked in on purpose; a `dist` nobody reads cannot be reviewed and cannot make a fresh clone fast.
 - **Keeping the original call alongside the rewritten one.** Two spellings of the same check is the drift this package exists to remove.
 - **Parsing type arguments without the compiler.** `../../SPEC.md` §2 records what that cost the first time.
+
+## Amendment: HTTP-contract orchestration (#679)
+
+`zmdb-codegen` remains the validator-rewrite binary and its scanner remains the 17-call list in §2. It does not rewrite `httpOperation<T>()`, generate an HTTP client, read OpenAPI, or gain a static
+dependency on `zmdb`/`@zmdb/web`.
+
+The existing programmatic codegen boundary and the web contract compiler both accept a caller-owned `ReflectSession`. `zmdb client generate` owns orchestration and passes one session to each
+build-time consumer it invokes; supplied sessions remain open. HTTP declarations remain intact source, and validator witnesses and generated clients neither scan nor rewrite one another.
