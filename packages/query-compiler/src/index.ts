@@ -660,7 +660,8 @@ function makeInsert<S = unknown, I = S>(
           return setConflict({
             action: 'update',
             target: normTarget,
-            updateFields: updateFields as unknown as readonly string[] | Record<string, unknown>,
+            // boundary: type-bounded query builder options bridge
+            updateFields: updateFields as readonly string[] | Record<string, unknown> | undefined,
           });
         },
         doNothing: () => setConflict({ action: 'ignore', target: normTarget }),
@@ -668,8 +669,10 @@ function makeInsert<S = unknown, I = S>(
     },
     compile: () => {
       if (!row) throw new Error('insertInto requires values()');
-      const keys = Object.keys(row);
-      const params = keys.map(k => (row as Record<string, unknown>)[k]);
+      // boundary: type-bounded insert row object keys
+      const rowObj = row as Record<string, unknown>;
+      const keys = Object.keys(rowObj);
+      const params = keys.map(k => rowObj[k]);
       const cols = keys.map(k => quoteIdentifier(d, k)).join(', ');
       const placeholders = keys.map((_, i) => formatPlaceholder(d, i + 1)).join(', ');
       const returning = returningSql(d, conflict === undefined ? 'insert' : 'upsert', 'INSERTED', ret);
@@ -694,6 +697,7 @@ function makeInsert<S = unknown, I = S>(
           if (Array.isArray(conflict.updateFields)) {
             setSql = upsertSetSql(d, conflict.updateFields, upsert);
           } else if (conflict.updateFields) {
+            // boundary: type-bounded conflict update fields
             setSql = Object.entries(conflict.updateFields as Record<string, unknown>)
               .map(([k, val]) => `${quoteIdentifier(d, k)} = ${setValueSql(d, table, k, val, params, 'upsert')}`)
               .join(', ');
@@ -750,6 +754,7 @@ function makeUpdate<S = unknown, U = S>(
     compile: () => {
       if (!row) throw new Error('updateTable requires set()');
       const params: unknown[] = [];
+      // boundary: type-bounded update row object keys
       const rowObj = row as Record<string, unknown>;
       const sets = Object.keys(rowObj)
         .map(k => `${quoteIdentifier(d, k)} = ${setValueSql(d, table, k, rowObj[k], params, 'update')}`)
@@ -798,10 +803,7 @@ export function createQueryCompiler<Name extends string, S = unknown>(
   dialect: SqlDialect<Name>,
   options?: QueryCompilerOptions,
 ): QueryCompiler<S>;
-export function createQueryCompiler<S = unknown>(
-  dialect?: Dialect,
-  options?: QueryCompilerOptions,
-): QueryCompiler<S>;
+export function createQueryCompiler<S = unknown>(dialect?: Dialect, options?: QueryCompilerOptions): QueryCompiler<S>;
 export function createQueryCompiler<S = unknown>(
   dialect: DialectTarget,
   options?: QueryCompilerOptions,
