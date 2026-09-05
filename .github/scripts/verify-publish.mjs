@@ -50,6 +50,7 @@ const PEERS = [
   'amqplib',
   'redis',
 ];
+const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'web-custom-transport.ts');
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
 
@@ -348,6 +349,10 @@ writeFileSync(
     `export type Surface = [${specifiers.map((_, i) => `typeof ns${i}`).join(', ')}];`,
   ].join('\n')}\n`,
 );
+// This is deliberately copied outside the repository before compilation. It
+// implements the custom transport contract using only published subpaths, so a
+// private relative import or a source-only named export cannot pass here.
+cpSync(CUSTOM_TRANSPORT_FIXTURE, join(app, 'web-custom-transport.ts'));
 writeFileSync(
   join(app, 'tsconfig.json'),
   `${JSON.stringify(
@@ -361,7 +366,7 @@ writeFileSync(
         noEmit: true,
         types: ['node'],
       },
-      include: ['consumer.ts'],
+      include: ['consumer.ts', 'web-custom-transport.ts'],
     },
     null,
     2,

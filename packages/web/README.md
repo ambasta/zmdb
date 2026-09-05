@@ -26,8 +26,9 @@ points include `/routing`, `/versioning`, `/context`, `/di`, `/state`,
 `/static`, `/compression`, `/events`, `/cqrs`, `/queues`, `/schedule`,
 `/observability`, `/microservices/grpc`, `/testing`, and `/devtools`.
 
-Transport adapters live under `/microservices`, with dedicated Redis, NATS, and
-RabbitMQ entry points. Queue backends are published under `/queues/backends`.
+The transport-neutral strategy and client contract lives at `/microservices`.
+Dedicated Redis, NATS, and RabbitMQ adapters have their own entry points. Queue
+backends are published under `/queues/backends`.
 
 `@zmdb/web/observability` contains dependency-free instrumentation interfaces.
 `@zmdb/web/otel` connects them to the optional `@opentelemetry/api` peer. It

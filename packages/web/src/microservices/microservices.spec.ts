@@ -1,7 +1,10 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it, vi } from 'vitest';
 
+import {
+  PUBLIC_CLIENT_ERRORS,
+  PublicCustomTransport,
+  settlementKind,
+} from '../../../../fixtures/web-custom-transport.js';
 import { createApp, type App } from '../app/index.js';
 import { countMetadataReads } from '../bench/index.js';
 import type { Ctx, QueryValues } from '../context/index.js';
@@ -261,7 +264,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     expect(log).toEqual(['onModuleInit:Consumer', 'onApplicationBootstrap:Consumer', 'listen:a']);
   });
 
-  it('a rejecting listen rejects init and closes the transports already opened', async () => {
+  it('behaves as specified when the broker connection fails at startup', async () => {
     const log: string[] = [];
 
     @Module({ controllers: [] })
@@ -272,10 +275,8 @@ describe('microservice hybrid lifecycle (#559)', () => {
       dispatcher: sinks(log),
     });
 
-    expect({ outcome: await outcomeOf(app), log }).toEqual({
-      outcome: 'init rejected',
-      log: ['listen:a', 'listen:b', 'close:a:5000'],
-    });
+    await expect(app.init()).rejects.toThrow('b refused the connection');
+    expect(log).toEqual(['listen:a', 'listen:b', 'close:a:5000']);
   });
 
   it('dispose closes transports before running shutdown hooks', async () => {
@@ -422,6 +423,103 @@ describe('microservice hybrid lifecycle (#559)', () => {
         reply: { kind: 'result', correlationId: 'c1', payload: { id: 7 } },
       },
     });
+  });
+
+  it('drains in-flight handlers within the grace period and then closes connections', async () => {
+    const log: string[] = [];
+    const started = deferred<void>();
+    const release = deferred<void>();
+
+    class Consumer {
+      @EventPattern('orders.drain', orderRequest)
+      async drain(_ctx: MessageContext<OrderRequest>): Promise<void> {
+        log.push('handler:start');
+        started.resolve();
+        await release.promise;
+        log.push('handler:finish');
+      }
+
+      onShutdown(): void {
+        log.push('onShutdown:Consumer');
+      }
+    }
+
+    @Module({ controllers: [Consumer] })
+    class Root {}
+
+    const transport = new PublicCustomTransport(log);
+    const app = createApp(Root, {
+      transports: [transport],
+      dispatcher: sinks(log),
+      graceMs: 5_000,
+    });
+    await app.init();
+    const dispatch = transport.deliver(delivery('orders.drain'));
+    await started.promise;
+
+    const disposal = app[Symbol.asyncDispose]();
+    await vi.waitFor(() => expect(transport.accepting).toBe(false));
+    expect(transport.connectionOpen).toBe(true);
+    await expect(transport.deliver(delivery('orders.drain'))).rejects.toThrow('not accepting deliveries');
+
+    release.resolve();
+    await dispatch;
+    await disposal;
+
+    expect(log).toEqual([
+      'listen:public-custom',
+      'handler:start',
+      'stop:intake:5000',
+      'handler:finish',
+      'close:connection',
+      'onShutdown:Consumer',
+    ]);
+  });
+
+  it('closes a custom transport when its bounded drain expires', async () => {
+    const log: string[] = [];
+    const started = deferred<void>();
+    const release = deferred<void>();
+
+    class Consumer {
+      @EventPattern('orders.hung', orderRequest)
+      async hung(_ctx: MessageContext<OrderRequest>): Promise<void> {
+        log.push('handler:start');
+        started.resolve();
+        await release.promise;
+        log.push('handler:finish');
+      }
+
+      onShutdown(): void {
+        log.push('onShutdown:Consumer');
+      }
+    }
+
+    @Module({ controllers: [Consumer] })
+    class Root {}
+
+    const transport = new PublicCustomTransport(log);
+    const app = createApp(Root, {
+      transports: [transport],
+      dispatcher: sinks(log),
+      graceMs: 5,
+    });
+    await app.init();
+    const dispatch = transport.deliver(delivery('orders.hung'));
+    await started.promise;
+
+    await expect(app[Symbol.asyncDispose]()).rejects.toThrow('did not drain within 5ms');
+    expect(transport.connectionOpen).toBe(false);
+    expect(log).toEqual([
+      'listen:public-custom',
+      'handler:start',
+      'stop:intake:5',
+      'close:connection',
+      'onShutdown:Consumer',
+    ]);
+
+    release.resolve();
+    await dispatch;
   });
 
   it('init is idempotent and opens each transport once', async () => {
@@ -1161,25 +1259,35 @@ describe('shared context and custom transport seam (#559)', () => {
   });
 
   it('a third-party strategy written only against public exports dispatches messages', async () => {
-    const pkg = readFileSync(new URL('../../package.json', import.meta.url), 'utf8');
+    const seen: number[] = [];
 
-    @Module({ controllers: [] })
+    class Consumer {
+      @EventPattern('third.party', orderRequest)
+      consume(ctx: MessageContext<OrderRequest>): void {
+        seen.push(ctx.payload.id);
+      }
+    }
+
+    @Module({ controllers: [Consumer] })
     class Root {}
 
-    const transport = fakeTransport('third-party');
+    const transport = new PublicCustomTransport();
     const app = createApp(Root, {
       transports: [transport],
       dispatcher: sinks([]),
     });
     await app.init();
-    const outcome = await transport.dispatch?.(delivery('third.party'));
+    const outcome = await transport.deliver(delivery('third.party', { id: 9 }));
+    await app[Symbol.asyncDispose]();
 
     expect({
-      subpath: pkg.includes('"./microservices":') ? 'exported' : 'absent',
-      outcome,
+      errors: PUBLIC_CLIENT_ERRORS.map(error => error.name),
+      settlement: settlementKind(outcome.settlement),
+      seen,
     }).toEqual({
-      subpath: 'exported',
-      outcome: { settlement: { kind: 'ack' } },
+      errors: ['MessageCorrelationError', 'MessageRemoteError', 'MessageTimeoutError', 'TransportUnsupportedError'],
+      settlement: 'ack',
+      seen: [9],
     });
   });
 });

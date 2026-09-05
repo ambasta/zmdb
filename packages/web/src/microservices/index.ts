@@ -56,9 +56,11 @@ export interface TransportRequest extends TraceCarrier {
 export interface TransportStrategy {
   readonly name: string;
   readonly capabilities: TransportCapabilities;
+  /** Open intake and hand each decoded delivery to the application dispatcher. */
   listen(dispatch: (message: RawMessage) => Promise<DispatchOutcome>): Promise<void>;
   send(request: TransportRequest): Promise<MessageReply>;
   emit(pattern: string, payload: unknown, carrier?: TraceCarrier): Promise<void>;
+  /** Stop intake, drain in-flight dispatches under `graceMs`, then close connections. */
   close(graceMs: number): Promise<void>;
 }
 

@@ -36,6 +36,13 @@ the same check — measuring each, since by then they are known to be the same c
 shapes against their constructors. The framework dependencies belong to that private
 consumer fixture; neither becomes a dependency or peer of `@zmdb/schema-core`.
 
+`web-custom-transport.ts` is a single external consumer rather than a project.
+The web suite executes it, and `verify:publish` copies it beside the packed
+packages and compiles it there. Its imports are limited to
+`@zmdb/web/microservices` and `@zmdb/web/observability`, so the custom strategy
+contract is checked from the same side of the package boundary as an installed
+application.
+
 ## Working on them
 
 `consumer-plugin/` is the one to edit. `consumer-cli/` is derived:

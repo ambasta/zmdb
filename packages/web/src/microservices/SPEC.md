@@ -122,6 +122,11 @@ because a deterministic failure would then be delivered in a tight loop.
 `close(graceMs)` has a required bound. `AsyncDisposable` cannot carry that
 number and is not the application shutdown contract.
 
+Calling `close` first stops new deliveries, then waits for dispatches already
+accepted, and only then closes the underlying connection. If the grace bound
+expires, the connection still closes and `close` rejects so shutdown cannot
+silently report a clean drain.
+
 ## 3. Handler declarations and startup resolution
 
 ```ts
@@ -400,8 +405,11 @@ The implementation tests prove:
 - required deadlines abort transport work and leave no timer behind;
 - metadata is read at construction and never during dispatch;
 - HTTP and message handlers share one controller instance;
-- startup, partial failure and reverse shutdown ordering;
-- a strategy written only against the public subpath can participate.
+- startup failure rejects observably and closes transports already opened;
+- bounded reverse shutdown stops intake, drains accepted work and closes
+  connections before application hooks;
+- a strategy outside the package, written only against published subpaths, can
+  participate.
 
 ## Non-goals
 

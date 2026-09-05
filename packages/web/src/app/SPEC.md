@@ -76,6 +76,8 @@ optional positive `graceMs` whose default is 5,000 milliseconds.
   neither constructed nor shut down.
 - Transport startup follows bootstrap hooks; partial startup closes what
   opened, and disposal closes transports before lifecycle hooks.
+- A public-only custom strategy stops intake, drains work accepted before
+  shutdown under `graceMs`, and closes its connection before lifecycle hooks.
 - No consumer-surface `as`; suite + typecheck green.
 
 ## Out of scope
