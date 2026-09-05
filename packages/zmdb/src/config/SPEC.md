@@ -231,3 +231,18 @@ Base URLs, credentials, authentication providers, timeouts, retries, and deploym
 - **A zmdb-implemented alias resolver.** §4 — it would disagree with the consumer's editor.
 - **Silently skipping a glob miss.** §5.
 - **The application reading the config.** §7.
+
+## 9. Canonical owner after tooling extraction (#626)
+
+This behavioral contract's filesystem-backed implementation moves to `@zmdb/compiler/config`. The loader, generated validator pair and witness move together; there is one
+discovery/cache/validation/path-resolution boundary.
+
+`zmdb/config` remains public as a direct identity re-export, so the default product import stays:
+
+```ts
+import { defineConfig } from 'zmdb/config';
+```
+
+Advanced tooling imports `@zmdb/compiler/config`. `@zmdb/cli` uses that subpath directly and does not publish another config API. The `zmdb` root may re-export only the dependency-free authoring
+contract described in §0; it must not reach the compiler loader. The config's driver contract is structural, avoiding a compiler dependency on `@zmdb/repository`; application runtimes still never
+evaluate the config.

@@ -206,3 +206,12 @@ and EAS Build all run the same Metro pipeline and need nothing further.
 - **No dev-mode flag that skips the transform.** The device path has no runtime fallback to skip to (§6.4).
 - **No Expo config plugin.** §6.5 — it runs at prebuild and cannot reach the Metro config.
 - **No claim of one compiler session per build under Metro.** §6.2 — the pipe is synchronous and process-owned, so the valid number is one per worker.
+
+## 8. Package owner after tooling extraction (#626)
+
+The unplugin implementation, inline benchmark and Metro adapter move to `@zmdb/compiler`. Canonical implementation entries are `@zmdb/compiler/unplugin` and `@zmdb/compiler/metro`, exposed to product
+users through `zmdb/compiler`. The old `@zmdb/aot-validator/plugin`, `/unplugin` and `/metro` entries have no permanent forwarding owner. `zmdb/unplugin` is only a release-governed compatibility alias
+for the stable product surface.
+
+Both adapters load project configuration from `@zmdb/compiler/config` and reuse `@zmdb/compiler/reflect`, `/emit` and `/transform`. The package move does not create an adapter-specific type walk or
+emitter. Runtime validator roots cannot reach either adapter.

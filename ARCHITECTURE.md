@@ -443,6 +443,43 @@ must agree with an exact `v<version>` release tag. Product membership, architect
 The complete `PackagePolicy` schema, all six rows, reachability rules, fixture-root contract and exact violation/remediation semantics are frozen in
 [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication ordering are frozen in [PUBLISHING.md](./PUBLISHING.md).
 
+### 3.11 Frozen tooling-package target (#626)
+
+Issue #626 freezes the implementation-package boundary beneath the one-product facade in §3.9. It is a target, not a claim about the current tree: compiler logic still lives in `@zmdb/aot-validator`,
+migration/introspection logic still lives in `@zmdb/query-compiler`, and the executable implementation still lives in `zmdb`.
+
+```text
+query/schema/validator protocols ──> @zmdb/compiler
+query/database protocols ──────────> @zmdb/migrations
+@zmdb/compiler ─┐
+@zmdb/migrations├──────────────────> @zmdb/cli
+@zmdb/web ──────┘ optional, verb-selected only
+
+@zmdb/compiler ───> zmdb/compiler + zmdb/config
+@zmdb/migrations ─> zmdb/migrations
+@zmdb/cli ─────────> zmdb/cli + the sole "zmdb" executable
+```
+
+The three implementation packages are independently callable:
+
+- `@zmdb/compiler` owns the one TypeScript front end, `TypeIR` production, AOT emitters, transforms, unplugin/Metro adapters, lint integration, compiler testing utilities and the canonical
+  filesystem-backed config implementation.
+- `@zmdb/migrations` owns snapshots, diffs, DDL plans, migration files, ledger and embedded runners, generic catalog introspection, drift checks and declaration emission. Database packages inject
+  database-specific DDL, catalog and connection behavior, and the SQL hot path keeps no formatter dependency.
+- `@zmdb/cli` owns argument/config/output orchestration and the only executable. Every command delegates to a public library operation; application/web commands load optional public dependencies only
+  after their verb is selected.
+
+This extraction does not create three products. `zmdb/compiler`, `zmdb/migrations`, `zmdb/cli` and `zmdb/config` remain the stable product vocabulary frozen by #618 and are identity facade modules,
+not duplicated implementations. The root does not eagerly import them. The old `zmdb/unplugin` spelling is governed as a compatibility alias by #721/#728 rather than by this ownership move.
+
+Runtime package roots never reach the tooling packages. Generated application code may call the runtime validator ABI, but it never imports `@zmdb/compiler`. The measured move policy is
+[`verify-tooling-ownership.SPEC.md`](./.github/scripts/verify-tooling-ownership.SPEC.md): 135 current shipped/build-input paths, 41 current export keys, two current binaries, 16 current manifest edges
+and 12 checked-in generated artifacts are each assigned exactly once.
+
+The package contracts are [`packages/compiler/SPEC.md`](./packages/compiler/SPEC.md), [`packages/migrations/SPEC.md`](./packages/migrations/SPEC.md) and
+[`packages/cli/SPEC.md`](./packages/cli/SPEC.md). Until their manifests exist they remain roadmap-only directories under §3.10. Their manifests, product-catalog rows and architecture-policy rows must
+be admitted atomically; release membership and deterministic publish order then come only from the catalog and policy DAG, never from a second tooling-package list.
+
 ---
 
 ## 4. Implementation-language policy

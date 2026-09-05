@@ -419,3 +419,19 @@ Nesting the whole predicate tree remains the fix and a precondition for any non-
 - No runtime type resolution (no reliance on schema types at runtime).
 - No retained per-query metadata objects beyond the returned CompiledQuery.
 - No implicit query building (`.where({obj})` object sugar) — explicit args only.
+
+## 7. Tooling extraction (#626)
+
+Schema lifecycle tooling moves to [`../migrations/SPEC.md`](../migrations/SPEC.md). The measured current move is 20 shipped/build-input files: the eight non-fixture files under `src/introspect`, the
+three files under `src/migrations`, and nine reusable command/migration-file modules currently under `packages/zmdb/src/cli`.
+
+This package retains 17 runtime SQL files and the generic database protocols frozen by the database vertical epic. It loses:
+
+- `./introspect`;
+- `./migrations`;
+- `./migrations/runner`;
+- `./migrations/embedded`; and
+- the required `oxfmt` dependency.
+
+There are no permanent forwarding owners. `@zmdb/migrations` depends on this package for query, quoting and database protocols; this package never depends on migrations, compiler or CLI. The SQL root,
+builders and database-protocol subpaths therefore remain formatter-, filesystem- and compiler-free. #721/#728 own any temporary compatibility interval.

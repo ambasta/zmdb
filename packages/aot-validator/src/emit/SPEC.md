@@ -386,3 +386,11 @@ An unparseable `pattern` is refused at emit time rather than trusted, because th
 - **Binding every argument.** §6.
 - **A heap-delta measurement for REQ-AV-7.** Young-generation GC makes `heapUsed` deltas both noisy and potentially vacuous. The `push` counter is deterministic, and the gap it cannot see is covered
   structurally.
+
+## 11. Package owner and generated ABI after tooling extraction (#626)
+
+`index.ts`, `shape.ts` and the compiler project helper move to `@zmdb/compiler/emit`. The emitted algorithm and differential contract stay unchanged. `@zmdb/aot-validator/emit` has no permanent
+forwarding owner; release governance chooses its removal version.
+
+The package move does not move the runtime error class: emitted application JavaScript continues to import `AssertError` from `@zmdb/aot-validator/errors`. No generated JavaScript, declaration or
+witness imports `@zmdb/compiler`; the compiler is the producer, never part of the produced runtime graph.

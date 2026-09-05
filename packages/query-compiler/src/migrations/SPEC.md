@@ -723,25 +723,25 @@ No generic migration file may inspect `dialect.name`, `dialect.family`, an offic
 
 ### 7.2 Ownership after extraction
 
-| Current unit                                                                               | Generic owner           | Database owner                                                                        |
-| ------------------------------------------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------- |
-| Snapshot types, physical-name projection, deterministic sorting                            | `@zmdb/query-compiler`  | none                                                                                  |
-| Structural `diff`, operation ordering and reversible payloads                              | `@zmdb/query-compiler`  | package validation may refuse but may not rewrite the generic operation list silently |
-| `DDL_TYPES`, `ddlType`, column definitions, table/key/FK/ALTER SQL                         | protocol/wrappers only  | each package owns its own mappings and emitters                                       |
-| SQLite FK/key alteration refusals and inline FK table creation                             | none                    | `@zmdb/sqlite`                                                                        |
-| PostgreSQL extensions, key constraint naming and ALTER forms                               | none                    | `@zmdb/postgres`; Cockroach owns only its overrides                                   |
-| MySQL support indexes, `MODIFY`, non-transactional DDL and referential-action restrictions | none                    | `@zmdb/mysql`; SingleStore owns only its overrides                                    |
-| SQL Server `ADD`, nullability restatement, types and ledger DDL                            | none                    | `@zmdb/mssql`                                                                         |
-| SingleStore shard/sort/rowstore validation and foreign-key refusal                         | none                    | `@zmdb/singlestore`                                                                   |
-| Ledger ordering, checksum, duplicate/downgrade checks, up/down/status                      | `@zmdb/query-compiler`  | none                                                                                  |
-| Ledger table SQL, placeholder/quoting and transaction adaptation in `runner.ts`            | runner calls a protocol | selected package's `connection`                                                       |
-| Embedded migration data type and checksum comparison                                       | `@zmdb/query-compiler`  | none                                                                                  |
-| SQLite-specific embedded ledger probe and runner                                           | none                    | `@zmdb/sqlite` browser-safe embedded subpath                                          |
-| Schema-object operation types and delegation wrappers                                      | `@zmdb/query-compiler`  | none                                                                                  |
-| Index/view/sequence/generated/schema/RLS/extension/routine SQL and refusals                | none                    | each package's `emitSchemaObject`                                                     |
+| Current unit                                                                               | Generic owner               | Database owner                                                                        |
+| ------------------------------------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------- |
+| Snapshot types, physical-name projection, deterministic sorting                            | `@zmdb/migrations`          | none                                                                                  |
+| Structural `diff`, operation ordering and reversible payloads                              | `@zmdb/migrations`          | package validation may refuse but may not rewrite the generic operation list silently |
+| `DDL_TYPES`, `ddlType`, column definitions, table/key/FK/ALTER SQL                         | protocol/wrappers only      | each package owns its own mappings and emitters                                       |
+| SQLite FK/key alteration refusals and inline FK table creation                             | none                        | `@zmdb/sqlite`                                                                        |
+| PostgreSQL extensions, key constraint naming and ALTER forms                               | none                        | `@zmdb/postgres`; Cockroach owns only its overrides                                   |
+| MySQL support indexes, `MODIFY`, non-transactional DDL and referential-action restrictions | none                        | `@zmdb/mysql`; SingleStore owns only its overrides                                    |
+| SQL Server `ADD`, nullability restatement, types and ledger DDL                            | none                        | `@zmdb/mssql`                                                                         |
+| SingleStore shard/sort/rowstore validation and foreign-key refusal                         | none                        | `@zmdb/singlestore`                                                                   |
+| Ledger ordering, checksum, duplicate/downgrade checks, up/down/status                      | `@zmdb/migrations/runner`   | none                                                                                  |
+| Ledger table SQL, placeholder/quoting and transaction adaptation in `runner.ts`            | runner calls a protocol     | selected package's `connection`                                                       |
+| Embedded migration data type, ordering and checksum comparison                             | `@zmdb/migrations/embedded` | none                                                                                  |
+| SQLite-specific embedded connection and ledger statements                                  | protocol only               | `@zmdb/sqlite` browser-safe embedded subpath                                          |
+| Schema-object operation types and delegation wrappers                                      | `@zmdb/migrations`          | none                                                                                  |
+| Index/view/sequence/generated/schema/RLS/extension/routine SQL and refusals                | none                        | each package's `emitSchemaObject`                                                     |
 
-The current `migrations/*.spec.ts` files split on the same line. Snapshot serialization, operation ordering, checksum and generic runner state tests stay here. Every SQL golden, database-specific
-refusal, transactional-DDL expectation and connection-adapter test moves to the package whose `MigrationDialect` produced it.
+The current `migrations/*.spec.ts` files split on the same line. Snapshot serialization, operation ordering, checksum and generic runner state tests move with `@zmdb/migrations`. Every SQL golden,
+database-specific refusal, transactional-DDL expectation and connection-adapter test moves to the package whose `MigrationDialect` produced it.
 
 ### 7.3 Connection and transaction rules
 
@@ -766,3 +766,16 @@ Each database package must prove, from its packed artifact and required server:
 5. an absent required service fails the qualification lane rather than converting it to a skip.
 
 Golden SQL alone is necessary but cannot establish server acceptance, transactional behavior or catalog round-trip.
+
+## 8. Generic tooling owner after extraction (#626)
+
+Every `@zmdb/query-compiler` generic-owner cell in §7.2 becomes `@zmdb/migrations`. Database-owner cells remain unchanged. In particular:
+
+- snapshots, structural diff, operation ordering and migration plans move to the migrations root;
+- ledger ordering, checksums, status and rollback move to `@zmdb/migrations/runner`;
+- embedded migration data and the generic application/checksum algorithm move to `@zmdb/migrations/embedded`;
+- database packages supply database-specific DDL, catalog and embedded-connection behavior through public protocols; and
+- schema-object migration operation types move with the migration plan, while ordinary query schema-object helpers stay in `@zmdb/query-compiler/schema-objects`.
+
+The embedded entry remains filesystem-free and does not import another migrations barrel. The old `@zmdb/query-compiler/migrations`, `/runner` and `/embedded` subpaths have no permanent forwarding
+owner, and the query-compiler manifest loses `oxfmt`; release governance chooses their removal version.

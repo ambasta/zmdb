@@ -248,3 +248,10 @@ that sub-issue still owns the complete setup and rule reference, including these
 - **A separate `@zmdb/eslint-plugin` package.** §7.
 - **Rules encoding this repository's own discipline** — no `any`, no `as`, no suppressions, no `new Function`. That is library discipline, as the docs page already says, and shipping it as a consumer
   recommendation would be the fastest way onto an ignore list.
+
+## 10. Package owner after tooling extraction (#626)
+
+The earlier rejection of a separate lint package remains valid; the changed boundary is the broader compiler package. The rules, host types and fixtures move together to `@zmdb/compiler/lint`.
+
+This is not `@zmdb/eslint-plugin`, and it does not add a second rule implementation. Oxlint remains the first host and ESLint-shaped configs remain adapters over the same rules. The old
+`@zmdb/aot-validator/lint` subpath has no permanent forwarding owner; release governance chooses its removal version.

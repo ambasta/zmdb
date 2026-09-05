@@ -668,3 +668,14 @@ application nor parses OpenAPI; generated relative imports use `.js`.
 
 Finite `--json` output is `{ out, operations, changed, contractFormat, generatorVersion }` inside §3's `CliResult`. There is no base-URL, credential, authentication, timeout, retry, or framework flag.
 The generated file is committed and CI runs `zmdb client generate --check`.
+
+## Amendment: package owner and lazy command graph (#626)
+
+This CLI contract moves to [`../../../cli/SPEC.md`](../../../cli/SPEC.md). `@zmdb/cli` owns `runCli`, argument parsing, output, prompts, scaffolding and the one `zmdb` binary. The facade's own bin and
+implementation are deleted, while `zmdb/cli` remains the stable identity product entry.
+
+Database verbs delegate to `@zmdb/migrations`; `codegen` delegates to `@zmdb/compiler`. `new`, `modules`, `repl`, `studio` and `client generate` are selected through literal lazy loaders, so help and
+database/compiler commands do not import web, application loaders, REPL, Studio or optional client-generation code. A missing optional command dependency is an exit-2 diagnostic naming the command and
+package.
+
+No command implementation is registered by import side effect, and no compatibility route invokes `zmdb-codegen`.

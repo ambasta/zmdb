@@ -382,9 +382,9 @@ catalog parsing or reverse type maps.
 
 | Current unit                                                         | Future owner                                                                                              |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `common.ts` catalog snapshots, errors and strict row helpers         | `@zmdb/query-compiler`                                                                                    |
-| `emit.ts` and `tagged-property.ts` deterministic TypeScript emission | `@zmdb/query-compiler`                                                                                    |
-| `drift.ts` generic exclusion and comparison                          | `@zmdb/query-compiler`                                                                                    |
+| `common.ts` catalog snapshots, errors and strict row helpers         | `@zmdb/migrations/introspect`                                                                             |
+| `emit.ts` and `tagged-property.ts` deterministic TypeScript emission | `@zmdb/migrations/declarations`                                                                           |
+| `drift.ts` generic exclusion and comparison                          | `@zmdb/migrations/introspect`                                                                             |
 | `drift.ts` MySQL implicit foreign-key support-index removal          | `@zmdb/mysql` via `normalizeForDrift`                                                                     |
 | `postgres.ts` and its parser/catalog tests                           | `@zmdb/postgres`                                                                                          |
 | `mysql.ts` and `__fixtures__/mysql-8.4.11.json`                      | `@zmdb/mysql`                                                                                             |
@@ -392,10 +392,10 @@ catalog parsing or reverse type maps.
 | `index.ts` Cockroach wrapper over the PostgreSQL reader              | `@zmdb/cockroach`, implemented by composing the public PostgreSQL reader and explicit Cockroach overrides |
 | `index.ts` SingleStore wrapper over the MySQL reader                 | `@zmdb/singlestore`, implemented by composing the public MySQL reader and explicit SingleStore overrides  |
 | `index.ts` SQL Server unsupported branch                             | replaced by `@zmdb/mssql` catalog implementation                                                          |
-| `index.ts` public result/protocol exports                            | `@zmdb/query-compiler`                                                                                    |
+| `index.ts` public result/protocol exports                            | `@zmdb/migrations/introspect`                                                                             |
 
-`introspect.spec.ts` is split by assertion ownership: common malformed-row, deterministic-filtering and generic result-shape tests stay here; SQLite and MySQL expectation rows move to those packages.
-`postgres.spec.ts` moves in full. `emit.spec.ts` stays except for any database-specific normalization fixture, which moves to that database package.
+`introspect.spec.ts` is split by assertion ownership: common malformed-row, deterministic-filtering and generic result-shape tests move with `@zmdb/migrations`; SQLite and MySQL expectation rows move
+to those packages. `postgres.spec.ts` moves in full. `emit.spec.ts` moves to the declarations subpath except for any database-specific normalization fixture, which moves to that database package.
 
 ### 11.3 Package requirements
 
@@ -430,3 +430,11 @@ Every package's required server lane must:
 5. run from the packed package in an external consumer.
 
 A required lane fails if its service is absent. An optional developer invocation may report a visible skip, but that result is not support evidence.
+
+## 12. Generic tooling owner after extraction (#626)
+
+The generic catalog protocols, common row validation, drift operation, selection rules and declaration emitter move to `@zmdb/migrations/introspect` and `@zmdb/migrations/declarations`.
+Database-specific readers still move to the database packages frozen in §11.
+
+Accordingly, §11.2's `index.ts` public result/protocol owner is `@zmdb/migrations/introspect`, not `@zmdb/query-compiler`. `emit.ts` and `tagged-property.ts` move to the declarations subpath, which
+owns the sole `oxfmt` edge. The old query-compiler introspection subpath has no permanent forwarding owner; release governance chooses its removal version.

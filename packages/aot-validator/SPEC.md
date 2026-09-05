@@ -137,3 +137,21 @@ request codecs, response validators, and the precomputed OpenAPI projection. It 
 type-semantics walk.
 
 Functions remain in generated server/client plans and data in `HttpContractIR`; runtime code receives no compiler session and never walks TypeIR. A supplied session is never closed here.
+
+## Amendment: compiler extraction (#626)
+
+The build-time half above moves to [`../compiler/SPEC.md`](../compiler/SPEC.md). This package becomes the runtime validator owner; it does not keep compiler forwarding subpaths.
+
+Measured current ownership is:
+
+- 30 shipped/build-input files move to `@zmdb/compiler`, including reflection, emission, transforms, code generation, plugins, lint, testing utilities and canonical config;
+- six runtime files stay here: `advanced/index.ts`, `errors.ts`, `index.ts`, `regex-complexity.ts`, `serialization/index.ts` and `utilities/index.ts`;
+- six protobuf/gRPC files remain optional-integration work owned by their separate epic;
+- 20 internal fixture/support files remain test-only and follow the concern they test; and
+- `src/cli/bin.ts` is deleted when `zmdb codegen` replaces `zmdb-codegen`.
+
+The old `./emit`, `./lint`, `./metro`, `./plugin`, `./reflect`, `./testing`, `./codegen`, `./transformer` and `./unplugin` exports leave this package after their `@zmdb/compiler` replacements are
+published and release governance schedules removal. None remains a permanent owner or receives new behavior. `./errors` remains here because emitted application JavaScript imports the runtime
+`AssertError`; generated code never imports a compiler package.
+
+After extraction this package has no TypeScript or Oxlint peer and no compiler/build-plugin source. Its package root, runtime subpaths and dependants cannot reach `@zmdb/compiler` transitively.

@@ -143,3 +143,22 @@ CLI are product-owned capabilities, but they are not facade modules and remain b
 - #623 proves the packed one-install SQLite HTTP journey.
 - #624 rewrites beginner documentation from that measured fixture.
 - #721/#728 exclusively own versioning, changelog, tags, publish order, compatibility/deprecation timing, and partial-release behavior.
+
+## 7. Tooling implementation-package extraction (#626)
+
+Issue #626 refines the implementation ownership under the stable product surface above; it does not supersede the one-product facade.
+
+`@zmdb/cli` owns the sole `zmdb` executable and command implementation, `@zmdb/compiler` owns the TypeScript/config implementation, and `@zmdb/migrations` owns generic schema-lifecycle tooling. The
+product package:
+
+- depends on all three tooling packages but keeps their modules unreachable from the root;
+- exposes `zmdb/cli`, `zmdb/compiler`, `zmdb/migrations` and `zmdb/config` as identity concern facades;
+- removes its own CLI, config-loader, compiler, migration, Studio and scaffolding implementations;
+- removes the root `migrations` namespace rather than making tooling eagerly reachable; and
+- preserves a dependency-free root `defineConfig` contract without loading filesystem-backed config code.
+
+The package manifest no longer owns a bin target: depending on `@zmdb/cli` is what links the one installed `zmdb` executable. Advanced implementation-package imports remain available, but normal
+product documentation teaches the stable `zmdb/*` vocabulary.
+
+`zmdb/unplugin` is not a second compiler owner. Its compatibility lifetime, and the removal timing of old AOT/query-compiler tooling subpaths and `zmdb-codegen`, are release-governance decisions under
+#721/#728. The target contains no permanent implementation forwarders; stable product facade modules are part of the product contract rather than compatibility shims.

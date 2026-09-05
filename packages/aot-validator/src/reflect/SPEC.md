@@ -247,3 +247,10 @@ because recording `string` as the payload would throw away the constraint the de
   Baking it in here would make the IR a plan rather than a description.
 - **A separate error channel for budget overruns.** See rule 3.
 - **Defaulting an unresolvable type to `unknown`.** Plan D4: it is a build error.
+
+## 11. Package owner after tooling extraction (#626)
+
+This complete module, including `callsites.ts`, `index.ts`, `session.ts` and its non-protobuf fixtures, moves to `@zmdb/compiler/reflect`. The APIs and one-session rules above do not change.
+
+Config arrives from `@zmdb/compiler/config`; neither reflection nor an adapter discovers config. The unplugin, Metro, testing and CLI routes all import this public compiler subpath. The target has no
+permanent `@zmdb/aot-validator/reflect` forwarder, and runtime validator imports cannot reach the reflection session.
