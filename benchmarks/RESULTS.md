@@ -15,12 +15,12 @@ workload/mode. The runner uses all six mode permutations, placing every mode twi
 
 | workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       320.78 |      3117383 |        baseline |                 0 |         1.107x |
-| request  | API no-op          |      1285.72 |       777774 |         +300.8% |                 0 |         1.098x |
-| request  | recording exporter |      7255.01 |       137836 |        +2161.7% |                 3 |         1.057x |
-| query    | off                |        72.79 |     13737740 |        baseline |                 0 |         1.073x |
-| query    | API no-op          |       307.73 |      3249630 |         +322.7% |                 0 |         1.103x |
-| query    | recording exporter |      2640.91 |       378657 |        +3528.0% |                 1 |         1.158x |
+| request  | off                |       302.67 |      3303875 |        baseline |                 0 |         1.034x |
+| request  | API no-op          |      1180.47 |       847122 |         +290.0% |                 0 |         1.030x |
+| request  | recording exporter |      6164.85 |       162210 |        +1936.8% |                 3 |         1.022x |
+| query    | off                |        67.93 |     14721097 |        baseline |                 0 |         1.073x |
+| query    | API no-op          |       280.31 |      3567430 |         +312.7% |                 0 |         1.033x |
+| query    | recording exporter |      2296.12 |       435518 |        +3280.1% |                 1 |         1.013x |
 
 The request workload consumes one matched `GET` response and exports the server, route and handler spans. The query workload consumes one compiled `SELECT` result through `tracedDriver` and exports
 one client span. The recording case is a real `BasicTracerProvider` plus `SimpleSpanProcessor` and a bounded exporter; exporter flush/reset are outside the timed interval, and metrics are disabled in
