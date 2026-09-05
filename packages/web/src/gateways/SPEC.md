@@ -20,6 +20,9 @@
 
 - **`sseStream(source)`** → a helper turning an async iterable of `{ event?; data }` into a `ReadableStream<Uint8Array>` of SSE frames (`event: <e>\\ndata: <json>\\n\\n`), usable in a Fetch `Response`
   — no ws dependency, works on Node 26 stream/TextEncoder primitives.
+- Cancelling the stream calls and awaits the source iterator's optional `return(reason)`. An async generator's `finally` therefore completes before cancellation resolves; an iterator with no `return`
+  still cancels successfully. A rejecting `return` is awaited but does not reject cancellation: disconnect is normal teardown, and this helper has no error-reporting callback. Natural completion and
+  cancellation share one terminal state, so cleanup is not requested twice.
 
 ## Invariants
 
@@ -30,21 +33,22 @@
 
 - A `@Gateway`/`@Subscribe` class's subscriptions are recoverable; the dispatcher routes an event to its handler with a typed message ctx; unknown event → undefined.
 - `sseStream` emits correctly-framed SSE bytes for an async iterable (in-process read).
+- Cancelling `sseStream` awaits one source cleanup, including while a pull is in flight; a cleanup rejection does not surface as a stream error, and natural completion does not call `return`.
 - No consumer-surface `as`; suite + typecheck green.
 
 ## Out of scope
 
 A concrete WebSocket server binding (adapter left to the consumer); auth (guards, epic #287).
 
-## Amendments (GraphQL subscriptions, #551)
+## Amendments recorded for GraphQL subscriptions (#551, wontfix)
 
-`../graphql/subscriptions/SPEC.md` builds on this seam, and two things here have to change for it.
+`../graphql/subscriptions/SPEC.md` described a design that is no longer being implemented. The naming change below remains unshipped; the SSE cancellation defect was independent of GraphQL and was
+fixed for the existing gateway API in #610.
 
-- **`Subscription` is renamed `EventBinding`.** It is `{ event; handlerName }` — a handler bound to an event name, not a subscription to anything — and the root barrel cannot re-export two different
-  `Subscription`s. `@Subscribe` and `getSubscriptions` keep their names: they are about events, and "subscribe to an event" reads correctly. `#552` asserts the old name is gone rather than deprecated.
-- **`sseStream` must release its source on cancellation.** The underlying source has a `pull` and no `cancel`, so when a client disconnects the stream is cancelled and `iterator.return()` is never
-  called — the source async iterable is never told, and keeps running. That is a leak on the exact path a subscription uses, and no cleanup guarantee in the subscriptions spec is true while it is
-  there. `cancel` calls `iterator.return?.()`; `#552` asserts it with a source that records whether it was closed.
+- **`Subscription` would have been renamed `EventBinding`.** It is `{ event; handlerName }` — a handler bound to an event name, not a subscription to anything — and the proposed root barrel could not
+  re-export two different `Subscription`s. That GraphQL-driven rename remains unshipped.
+- **`sseStream` releases its source on cancellation.** Its `cancel(reason)` calls and awaits `iterator.return?.(reason)`, then resolves even if that cleanup rejects so a normal disconnect is not
+  reported as a server failure. The #610 gateway tests cover this independently; no GraphQL surface was added.
 
 The concrete WebSocket binding stays out of scope, and the subscriptions spec keeps it that way: it specifies the `graphql-transport-ws` protocol state machine and the socket remains the
 application's.

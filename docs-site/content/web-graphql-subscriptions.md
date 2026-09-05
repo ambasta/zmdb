@@ -140,8 +140,8 @@ control no new field can be added without.
 the WebSocket server left where [the WebSocket adapter](./web-ws-adapter.html) already puts it, for the same reason nothing serves `POST /graphql`. Since none of that is being built, the state machine
 is yours too if you want that protocol; the handshake was to be one callback, with `connection_init`'s payload becoming the `RequestFacts` every guard reads.
 
-The SSE pattern above is the one that matters now, because it needs no protocol beyond HTTP — and it carries a leak that was going to be fixed as part of this freeze and now needs its own fix:
-`sseStream`'s stream has no `cancel`, so a disconnecting client never closes the source iterable.
+The SSE pattern above is the one that matters now, because it needs no protocol beyond HTTP. The shipped `sseStream` helper now closes its source on disconnect: cancellation calls and awaits the
+iterator's optional `return(reason)`, then resolves even if cleanup rejects so a normal disconnect does not surface as a server error. That fix adds no GraphQL protocol or subscription surface.
 
 ---
 

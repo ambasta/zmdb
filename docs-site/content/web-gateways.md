@@ -52,6 +52,10 @@ return new Response(sseStream(ticks()), {
 // data: {"n":2}\n\n
 ```
 
+When the response body is cancelled, `sseStream` calls and awaits the source iterator's optional `return(reason)`. Put resource release in an async generator's `finally`; cancellation does not resolve
+until that cleanup settles. An iterator without `return` still cancels normally, and a rejecting cleanup does not turn a client disconnect into a stream error. Report cleanup failures inside the
+source when they need operational visibility.
+
 ## Design notes
 
 - **Stage-3 metadata**, no `reflect-metadata`, no runtime reflection.

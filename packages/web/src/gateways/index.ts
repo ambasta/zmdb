@@ -123,15 +123,58 @@ export interface SseFrame<T = unknown> {
 export function sseStream(source: AsyncIterable<SseFrame>): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const iterator = source[Symbol.asyncIterator]();
+  let state: 'open' | 'cancelling' | 'closed' = 'open';
+  let cancellation: Promise<void> | undefined;
+
+  const cancel = (reason: unknown): Promise<void> => {
+    if (state === 'closed') {
+      return Promise.resolve();
+    }
+    if (cancellation !== undefined) {
+      return cancellation;
+    }
+    state = 'cancelling';
+    cancellation = (async () => {
+      try {
+        await iterator.return?.(reason);
+      } catch {
+        // A client disconnect is normal teardown. This helper has no error
+        // reporter, so a cleanup rejection must not become a server failure;
+        // sources that need reporting own it inside return/finally.
+      } finally {
+        state = 'closed';
+      }
+    })();
+    return cancellation;
+  };
+
   return new ReadableStream<Uint8Array>({
     async pull(controller): Promise<void> {
-      const { value, done } = await iterator.next();
+      if (state !== 'open') {
+        return;
+      }
+      let next: IteratorResult<SseFrame>;
+      try {
+        next = await iterator.next();
+      } catch (error) {
+        if (state !== 'open') {
+          return;
+        }
+        state = 'closed';
+        throw error;
+      }
+      if (state !== 'open') {
+        return;
+      }
+      const { value, done } = next;
       if (done) {
+        state = 'closed';
         controller.close();
         return;
       }
       const prefix = value.event === undefined ? '' : `event: ${value.event}\n`;
       controller.enqueue(encoder.encode(`${prefix}data: ${JSON.stringify(value.data)}\n\n`));
     },
+    cancel,
   });
 }

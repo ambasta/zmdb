@@ -194,13 +194,11 @@ export interface SubscriptionRegistry {
 
 `#552` asserts **zero** from both after each of the four triggers, and after `app.dispose()` with connections still open. A count that is merely small is a leak with a slower clock.
 
-### 6.1 `sseStream` leaks today, and it has to stop
+### 6.1 `sseStream` cancellation was fixed independently
 
-`sseStream` (`gateways/index.ts:123-137`) builds a `ReadableStream` whose underlying source has a `pull` and **no `cancel`**. When a client disconnects the stream is cancelled, and nothing calls
-`iterator.return()` — so the source async iterable is never told, keeps running, and keeps whatever it holds.
-
-That is a real leak in shipped code, on the exact path a subscription would use, and no cleanup guarantee in this file is true while it is there. `#552` covers it: `cancel(reason)` calls
-`iterator.return?.()`, asserted with a source that records whether it was closed.
+GraphQL subscriptions remain wontfix, but the leak this design found was in the already-shipped gateway helper. #610 added `cancel(reason)` to `sseStream`; it calls and awaits
+`iterator.return?.(reason)`, so a disconnect closes an async generator and waits for its `finally` cleanup. A rejecting cleanup is absorbed rather than turning a normal disconnect into a server error.
+The gateway tests cover that behavior without adding any GraphQL surface.
 
 ## 7. Backpressure: a bounded buffer per subscriber, and overflow closes the operation
 
@@ -312,7 +310,7 @@ protect.
 6. `terminates a subscriber that exceeds the buffer bound` — a consumer that never pulls, 65 publishes, `SUBSCRIPTION_OVERFLOW`, and the publisher's `publish` resolving promptly throughout (the
    head-of-line property, asserted as a completed promise rather than as a duration).
 7. Four cleanup tests, one per §6 row, each asserting `subscriberCount() === 0` and `connectionCount() === 0` afterwards — including `app.dispose()` with a live connection.
-8. `sseStream closes its source when the stream is cancelled` — §6.1, the shipped leak.
+8. `sseStream closes its source when the stream is cancelled` — §6.1, now covered independently by the #610 gateway tests rather than this wontfix GraphQL work.
 9. `two apps in one process do not share subscribers` — publish on app A, assert nothing arrives on app B (ARCHITECTURE.md §2.7).
 10. `refuses a connection whose init payload does not authenticate` — close code 4403, and no `connection_ack`.
 11. `closes an uninitialised connection after initTimeoutMs` — 4408, with fake timers.

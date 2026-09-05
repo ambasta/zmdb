@@ -112,10 +112,11 @@ Remove sockets on `close` **and** on `error`, or the set grows forever and you b
 ## Server-sent events
 
 The response layer can now carry an SSE stream, but the existing `sseStream` helper has not earned direct `stream(sseStream(...))` wiring. Its public byte type is still `Uint8Array<ArrayBufferLike>`,
-while `stream()` deliberately requires `Uint8Array<ArrayBuffer>`, and its source has no `cancel` hook to call `iterator.return()` when a client disconnects.
+while `stream()` deliberately requires `Uint8Array<ArrayBuffer>`.
 
-Use `stream()` with an application-owned SSE `ReadableStream` that implements `cancel`, or adapt a provider stream that already propagates cancellation. Do not put a long-lived iterator or cursor
-behind the current helper and assume a disconnect releases it.
+For a Fetch `Response`, `sseStream` now propagates cancellation: it calls and awaits the source iterator's optional `return(reason)`, so an async generator's `finally` completes before a disconnect
+settles. A rejection from that cleanup is absorbed because disconnect is normal teardown; report it inside the source if needed. Use `stream()` with an application-owned SSE stream until the byte
+types agree; that stream must provide its own cancellation and reporting policy.
 
 Send a comment line (`: ping\n\n`) every 20–30 seconds or proxies will close an idle stream. See [Streaming](./streaming.html).
 

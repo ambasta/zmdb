@@ -197,8 +197,8 @@ Storing `tokens` on the row is what makes this exact rather than a guess — and
 `WebResponse.body` can carry a stream. The shipped `ChatDriver.next` contract still returns one complete assistant message, so token streaming needs a provider-specific stream at the route:
 
 - Adapt a provider SDK's native `Response.body` directly with `stream()`.
-- For SSE, build an application-owned stream whose `cancel` closes the provider iterator. The existing `sseStream` helper still lacks that cancellation contract — see
-  [WebSockets & SSE](./web-ws-adapter.html).
+- For SSE in a Fetch `Response`, `sseStream` now awaits the provider iterator's optional `return(reason)` on cancellation. If the provider requires an `AbortSignal` instead, build an application-owned
+  stream that aborts it — see [WebSockets & SSE](./web-ws-adapter.html).
 
 See [Streaming Files](./web-streaming-files.html) for cancellation and error semantics.
 

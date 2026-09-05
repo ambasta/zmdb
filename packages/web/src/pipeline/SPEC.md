@@ -279,8 +279,8 @@ A no-body status cancels a stream and passes `null` to `Response`, because the p
 encoded bytes so the platform does not invent `text/plain`; `respond()` therefore keeps its no-assumed-content-type contract.
 
 Two consequences worth being explicit about. Cancellation reaches the application only if the stream's underlying source implements `cancel`, so a source that only has `pull` leaks on every
-disconnect; `../gateways/SPEC.md`'s amendment already records that `sseStream` is such a source and assigns the fix to #552, which makes #552 a prerequisite in fact for anything that streams SSE
-through this adapter.
+disconnect. `../gateways/SPEC.md`'s `sseStream` now implements that hook and awaits the source iterator's optional `return(reason)`. It absorbs a cleanup rejection because a disconnect is not a
+response error and `sseStream` has no reporting callback; an unrelated application-owned stream still has to provide its own cleanup and error-reporting policy.
 
 And the runtime does not hand a mid-stream error back, which is precisely why §A2 puts the reporting wrapper inside `stream()` instead of in either adapter.
 
