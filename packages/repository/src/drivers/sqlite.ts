@@ -50,6 +50,7 @@ interface CachedStatement {
  * was bound for.
  */
 function bindable(value: unknown): unknown {
+  if (typeof value === 'boolean') return value ? 1 : 0;
   return value instanceof Date ? value.toISOString() : value;
 }
 
