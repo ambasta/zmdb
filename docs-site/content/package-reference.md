@@ -162,6 +162,7 @@ Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/ran
   - `equals`
   - `is`
   - `isShallow`
+  - `makeRng`
   - `random`
   - `tags`
   - `validate`
@@ -441,6 +442,7 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `ColumnMeta`
   - `CoreSchema`
   - `CreateDTO`
+  - `CustomType`
   - `Entity`
   - `EntityStateMachine`
   - `EntityStateMachineOptions`
@@ -452,8 +454,11 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `UpdateDTO`
   - `ValidationIssue`
   - `createStateUpdatePayload`
+  - `decodeValue`
   - `defineEntityStateMachine`
   - `defineStateTransitions`
+  - `defineType`
+  - `encodeValue`
   - `schemaOf`
   - `toJsonSchema`
   - `zmdb/derive`
