@@ -605,10 +605,10 @@ the format cannot detect and the CLI can, since it knows which dialect it emitte
 Browser SQLite differs from a device in exactly two ways, and neither reaches the runner: OPFS storage can be evicted, which is the empty-ledger path (§5.3), and `sql.js` is in-memory unless the page
 persists it, which means every load is a fresh install. Both are already normal states.
 
-### 5.7 What the two pages have to change
+### 5.7 What the two supported pages document
 
-`docs-site/content/migrations-web-mobile.md` and `connect-react-native.md` are both `status: 'todo'` and stay that way until the epic closes; the corrections below belong to the docs slice, except
-those marked _done_, which were present-tense claims or code a reader would have copied.
+`docs-site/content/migrations-web-mobile.md` and `connect-react-native.md` became supported in #523 after the Metro wrapper and embedded runner shipped. The docs slice completed the audit below and
+records the remaining platform boundary as an application-selected SQLite binding, not as a missing migration or transform path.
 
 1. _Done._ The startup example imported `@zmdb/query-compiler/migration-runner`, which is not a subpath this package has. It is `@zmdb/query-compiler/migrations/runner`.
 2. _Done._ The hand-written connection kept its ledger in `_migrations` while `ensureVersionTable` creates `_zmdb_migrations`, so the example left two tables and inserted no `applied_at` — a
@@ -619,11 +619,15 @@ those marked _done_, which were present-tense claims or code a reader would have
    distinguishable from the text. They are, for routing; they are not, for whether a statement returns rows.
 5. _Done._ The `MigrationConnection` quoted on the page declared every member as returning `Promise<void>`. The real one accepts a synchronous return as well, which is what makes a
    `better-sqlite3`-shaped binding usable without wrapping every call.
-6. "The device only ever imports the finished array, so no diffing code ships in the bundle" is true of the embedded subpath and false of the other two: via `./migrations` the bundle gets the
-   snapshotter, the diff engine, the DDL emitter and the whole query compiler (§5.5).
+6. _Done._ "The device only ever imports the finished array, so no diffing code ships in the bundle" is scoped to the embedded subpath; the page names the singleton import-graph test that enforces it
+   (§5.5).
 7. _Done._ The React Native page's two transformer workarounds are replaced by `withZmdb` (`../../../aot-validator/src/plugin/SPEC.md` §6), and its unconfigured path says the generic calls throw
    rather than silently accepting input (§6.4 there).
 8. _Done._ The React Native page names the dev-server staleness window and the `--reset-cache` / `expo start --clear` remedy (§6.3 there).
+9. _Done._ The cache guidance says a manual reset is exceptional: a new build's project fingerprint handles ordinary invalidation, while an already-running server cannot see a cross-file type
+   dependency.
+10. _Done._ The migrations page names `EmbeddedMigrationError`'s `ledger-ahead` downgrade refusal and the only safe recovery: discard a fully synchronized cache or require the newer app.
+11. _Done._ Browser SQLite uses the same three-method connection and is backed by the permanent browser-shaped async test rather than a second runner.
 
 ## 6. Non-goals (rejected)
 

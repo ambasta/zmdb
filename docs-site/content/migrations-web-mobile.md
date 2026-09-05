@@ -1,5 +1,5 @@
-> **ToDo / integration gap.** `zmdb embed` and the filesystem-free embedded runner ship. What is still missing is a first-party `Driver` adapter for `wa-sqlite`, `sql.js`, OPFS, `expo-sqlite` or
-> `op-sqlite`. `node:sqlite` remains a Node-only binding. See also [React Native](./connect-react-native.html).
+> [!NOTE] Bundle-resident SQLite migrations are supported through `zmdb embed` and the filesystem-free embedded runner. Choose the browser or mobile SQLite binding and map its three operations to
+> `EmbeddedConnection`; no Node API or zmdb-owned platform package is required at runtime.
 
 ## What actually transfers
 
@@ -10,7 +10,7 @@ Most of zmdb does, because most of it is types and string manipulation:
 - `snapshot()`, `diff()`, `emitUp()` — pure functions over plain objects
 - the AOT validators — generated code, no platform dependency
 
-What does not transfer is the last inch: something that takes `{ text, parameters }` and runs it.
+The platform-specific part is the last inch: something that takes `{ text, parameters }` and runs it.
 
 ## The embedded connection
 
@@ -60,7 +60,8 @@ import { migrations } from './generated/migrations.js';
 await runEmbedded(conn, migrations);
 ```
 
-For the browser with `wa-sqlite` over OPFS the shape is identical — open the database and map its multi-statement execute, parameterized write, and row-query calls onto the same three methods.
+For a browser binding such as `wa-sqlite` over OPFS, the shape is identical: map its multi-statement execute, parameterized write, and row-query calls onto the same three methods. The permanent
+browser-shaped test exercises that asynchronous boundary without importing a Node API; only the binding-specific method names change.
 
 ## The constraints that make client-side migrations different
 
@@ -75,6 +76,15 @@ eager one.
 **`down` is close to useless.** Rolling back an app version does not roll back the database, and a user who downgrades through TestFlight will run old code against a new schema. Make schema changes
 additive so old code keeps working, and treat `down` as a development convenience.
 
+## What happens on an app downgrade
+
+If the ledger contains a version that is absent from the bundled array, `runEmbedded` throws an `EmbeddedMigrationError` with `kind: 'ledger-ahead'` before applying anything. The message names the
+unknown ledger version and the newest migration in the bundle. That is an older app opening a database created by a newer one; continuing would let old code write through a schema it does not
+understand.
+
+Do not suppress that refusal. If the local database is a disposable, fully synchronized cache, the application may delete it and rebuild from version 0. If it contains unsynchronized user data, keep
+the database and require the newer application instead.
+
 ## Generating migrations for the client
 
 Generation happens on your machine, in Node, at build time — not on the device:
@@ -86,12 +96,17 @@ npx zmdb embed --out src/generated/migrations.ts
 The command reads the configured migration directory in version order, copies each `-- zmdb:up` section verbatim, computes its SHA-256 checksum in Node, and writes a formatter-clean TypeScript array.
 Without `--out`, it writes `embedded.ts` beside the SQL files. `--with-down` includes down sections for a development harness; the device runner does not use them.
 
-The device imports only the finished array and `@zmdb/query-compiler/migrations/embedded`. That leaf entry imports nothing, so the diff engine and DDL emitter do not enter the bundle.
+Commit the generated module and run `npx zmdb check` in CI. It reports `stale-embedded` when the configured migration files and the module no longer match.
 
-## What it would take
+The device imports only the finished array and `@zmdb/query-compiler/migrations/embedded`. That leaf entry imports nothing, so the diff engine and DDL emitter do not enter the bundle. This is enforced
+structurally, not left to tree-shaking: the permanent `does not pull the diff engine into the embedded runner's import graph` test resolves the public subpath and requires its graph to contain exactly
+that one source file.
 
-Two thin adapters — `@zmdb/repository/expo-sqlite` and something over `wa-sqlite` — each implementing `Driver`. The embedded migration side needs only the three-method connection above. The peer
-dependencies on platform packages are the remaining integration cost. See [Writing a Driver](./custom-driver.html) if you need one before then.
+## Platform adapter boundary
+
+The embedded runner needs only the three methods above. Application queries use the separate structural `Driver` boundary shown on [React Native](./connect-react-native.html) or
+[Writing a Driver](./custom-driver.html). First-party wrappers around `expo-sqlite` or `wa-sqlite` would reduce adapter boilerplate, but they are not required for either migration execution or
+repository queries.
 
 ---
 

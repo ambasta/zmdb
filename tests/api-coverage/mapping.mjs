@@ -356,11 +356,11 @@ export const kysely = {
   'migration > migrateTo > *': 'executes migrations in ascending version order regardless of input array ordering',
   'migration > getMigrations': 'status reflects applied vs pending asynchronously',
   'file-migration-provider > *': oos(
-    'FileMigrationProvider reads migrations off disk by directory convention. zmdb takes an array ' +
-      "of migrations, so where they came from is the application's decision — a glob import, a " +
-      'generated index, or a literal list. The ordering and failure semantics that actually matter ' +
-      'are tested against that array, and a filesystem walk would only test the filesystem.',
-    'migrations',
+    'Kysely dynamically imports JavaScript and TypeScript migration modules by file extension. zmdb uses ' +
+      'reviewed SQL files on the server and `zmdb embed` generates a typed migration array for bundles. ' +
+      'The ordering, checksum and failure semantics are tested against those arrays; a dynamic module ' +
+      'directory loader would test a different file format and runtime rather than the migration contract.',
+    'migrations-web-mobile',
   ),
 
   // --- execution, transactions --------------------------------------------

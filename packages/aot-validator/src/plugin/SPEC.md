@@ -172,7 +172,7 @@ The alternative is a bundle that ships a call the transform declined, and on thi
 design, and `is<T>(x)` with no witness throws `runtime type witness required in test/fallback mode`.
 
 Neither silently accepts anything, which is the epic's third architecture constraint holding by construction rather than by a new check. `docs-site/content/connect-react-native.md` used to claim the
-opposite ("validators silently accept everything"); #520 corrects that present-tense statement while leaving the setup rewrite to #523.
+opposite ("validators silently accept everything"); #520 corrected that present-tense statement, and #523 documents the shipped setup and its cache boundary.
 
 ### 6.5 Expo has no config-plugin form of this, and the page must not offer one
 

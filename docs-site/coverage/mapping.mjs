@@ -128,6 +128,9 @@ export const DRIZZLE = {
 
   // Connections. One page per platform, not per package: Turso publishes four
   // client packages against one service, and Drizzle documents each separately.
+  // The three React Native entries share one supported page because zmdb's
+  // public boundary is the Metro wrapper plus a structural SQLite Driver; the
+  // application still chooses its native binding.
   'connect-overview': 'drivers',
   'connect-neon': 'connect-neon',
   'connect-netlify-db': 'connect-neon',

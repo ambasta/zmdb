@@ -797,8 +797,7 @@ export const PAGE_META = {
   'migrations-web-mobile': {
     title: 'Migrations on Web & Mobile',
     group: 'Migrations',
-    status: 'todo',
-    note: 'embedded runner and Metro transform ship; first-party browser/mobile drivers remain',
+    status: 'supported',
   },
   seeding: {
     title: 'Seeding',
@@ -1010,8 +1009,7 @@ export const PAGE_META = {
   'connect-react-native': {
     title: 'React Native & Expo',
     group: 'Connecting',
-    status: 'todo',
-    note: 'the Metro transform ships; no first-party React Native SQLite Driver adapter',
+    status: 'supported',
   },
   'validators-is': {
     title: 'is()',

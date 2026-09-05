@@ -29,6 +29,22 @@ export default defineConfig({
 });
 ```
 
+## Metro for React Native and Expo
+
+Metro uses a Babel-transformer seam rather than an unplugin. Wrap the default config selected by the application:
+
+```js
+// Bare React Native: require('@react-native/metro-config')
+// Expo: require('expo/metro-config')
+const { getDefaultConfig } = require('expo/metro-config');
+const { withZmdb } = require('@zmdb/aot-validator/metro');
+
+module.exports = withZmdb(getDefaultConfig(__dirname));
+```
+
+The supported range is Metro `>=0.87.0 <0.88.0`. `withZmdb` keeps Expo's or the application's existing Babel transformer and delegates to it after the shared zmdb transform. See
+[React Native & Expo](./connect-react-native.html) for the bare-RN form, worker-memory tuning, the cache key, and the one dev-server case that needs a reset.
+
 ## ts-patch Alternative
 
 For TypeScript project references or direct ts-patch usage:
@@ -43,8 +59,8 @@ For TypeScript project references or direct ts-patch usage:
 
 ## Prove the transform is installed
 
-No lint rule can prove that a transform runs. A project may wire zmdb through Vite, esbuild, Webpack, Rollup, ts-patch or `zmdb-codegen`, and a linter looking at one source file cannot distinguish
-those working configurations from a missing one without false positives.
+No lint rule can prove that a transform runs. A project may wire zmdb through Vite, esbuild, Webpack, Rollup, Metro, ts-patch or `zmdb-codegen`, and a linter looking at one source file cannot
+distinguish those working configurations from a missing one without false positives.
 
 Add a build-path smoke test instead:
 

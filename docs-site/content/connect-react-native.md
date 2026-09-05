@@ -1,5 +1,5 @@
-> **ToDo / feature gap.** There is no React Native adapter. `node:sqlite` is a Node built-in and does not exist on device, and nothing in zmdb ships a `Driver` over `expo-sqlite` or `op-sqlite`. The
-> driver below is fifteen lines, so this is a missing adapter rather than a missing capability.
+> [!NOTE] React Native and Expo are supported through the Metro transform and a structural SQLite adapter. `node:sqlite` does not exist on device, and zmdb deliberately does not make `expo-sqlite` or
+> `op-sqlite` a peer dependency. Choose the binding for the app and map it to the small `Driver` below.
 
 ## What runs on device unchanged
 
@@ -10,7 +10,7 @@ Most of zmdb, because most of it has no I/O:
 - `snapshot()`, `diff()`, `emitUp()` — pure functions
 - the AOT validators, `toJsonSchema` — generated code
 
-What is missing is the last inch: something that runs `{ text, parameters }`.
+The platform-specific part is the last inch: something that runs `{ text, parameters }`.
 
 ## Over `expo-sqlite`
 
@@ -78,14 +78,20 @@ module.exports = withZmdb(getDefaultConfig(__dirname));
 `withZmdb` preserves the existing `babelTransformerPath`, including Expo's or an app-supplied transformer, and delegates to it after applying the same transform as the unplugin and `zmdb-codegen`.
 There is no Expo config plugin; config plugins run at prebuild and cannot configure the later Metro process.
 
+This is the configuration exercised by `fixtures/consumer-metro`: a real Metro 0.87 bundle with an existing custom transformer. The fixture asserts that the schema is inlined, no runtime `schemaOf`
+call survives, and the Metro, plugin, and CLI routes emit the same check.
+
 If loading the TypeScript project in every Metro worker uses too much memory, lower the pool explicitly:
 
 ```js
 module.exports = withZmdb(getDefaultConfig(__dirname), { workerCount: 2 });
 ```
 
-The cache key includes the zmdb version, transformer options, `tsconfig.json`, and the path, size and mtime of each project source. A running dev server still cannot know that changing a type in one
-file invalidates generated code cached for another file. After that kind of edit, restart with `--reset-cache`; for Expo use `expo start --clear`.
+You should not normally clear Metro's cache. The cache key includes the zmdb version, transformer options, `tsconfig.json`, and the path, size and mtime of each project source, so a new build
+invalidates stale output after any of those changes.
+
+The exception is an already-running dev server after a cross-file type change: Metro re-runs the file that changed, but it does not know which other files generated checks from that type. Restart with
+`--reset-cache`; for Expo use `expo start --clear`. An ordinary edit to the transformed file itself needs no manual reset.
 
 An unconfigured `schemaOf<T>()` or generic validator call still throws its [untransformed-build error](./gotchas.html). Keep a canary against the real bundle:
 
@@ -111,10 +117,11 @@ Run `zmdb embed` during the build, map the same SQLite handle onto the three-met
 **Sync is your problem.** zmdb has no sync engine. Either write one over your API — see [HTTP Proxy](./connect-http-proxy.html) for the transport shape — or use a sync-first backend and zmdb only for
 local reads.
 
-## What it would take
+## Why the SQLite adapter stays in the app
 
-An `@zmdb/repository/expo-sqlite` entry point with the driver and migration connection above. It adds a peer dependency on a platform package, which is the reason it is not there rather than a design
-problem.
+The `Driver` and `EmbeddedConnection` boundaries are structural, while the native binding is an application choice: Expo's binding, `op-sqlite`, SQLCipher, or a future platform package. Keeping the
+adapter here avoids making every repository consumer install a mobile peer dependency. A first-party `@zmdb/repository/expo-sqlite` package would be a convenience wrapper, not a missing execution
+path.
 
 ---
 
