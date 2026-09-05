@@ -12,11 +12,15 @@ REQ-AV-3 says the compiled path may not be a reward for choosing a particular bu
 all in the way.
 
 ```
-zmdb-codegen [--project <tsconfig.json>] [--check] [--watch]
+zmdb-codegen [--config <zmdb.config.ts>] [--project <tsconfig.json>] [--check] [--watch]
 ```
 
-`--project` defaults to `./tsconfig.json`. Exit codes: `0` clean, `1` a real problem or a stale tree under `--check`, `2` a usage error. `--check` and `--watch` together are refused rather than
-resolved — they ask for opposite things.
+When the consumer installs the `zmdb` umbrella package, the binary discovers `zmdb.config.ts` and uses its resolved `project` and naming strategy. `--config` selects an explicit file, and `--project`
+overrides only its project path. A standalone `@zmdb/aot-validator` install with no umbrella package keeps the original `./tsconfig.json` default and identity naming. Exit codes: `0` clean, `1` a real
+problem or a stale tree under `--check`, `2` a usage or config error. `--check` and `--watch` together are refused rather than resolved — they ask for opposite things.
+
+The programmatic `codegen` / `watchCodegen` boundary accepts `naming?: NamingStrategy | 'snake_case' | 'snake_case_plural'`. It resolves that value once and passes the resulting strategy to every
+`transformFile` call. The executable resolves `zmdb/config` from the consumer project, so `@zmdb/aot-validator` does not acquire a static dependency on the umbrella package that already depends on it.
 
 ## 2. What it rewrites
 
@@ -74,6 +78,7 @@ A stale tree is reported as a sentence, not a bare exit code: it is an error in 
 - [x] The rewritten source, the witness, the `.js` and the `.d.ts` are asserted as text, not as shapes.
 - [x] `fixtures/consumer-cli/` compiles its generated output under `strict: true` in its own project (`node scripts/typecheck.mjs`), so the `.js`/`.d.ts` split is checked rather than argued.
 - [x] The CLI route and the plugin route print byte-identical output, and the CLI route runs under plain `node` with no build tool present.
+- [x] Both routes consume the same loaded `snake_case_plural` config and emit the same physical table and column names.
 - [x] The snapshot update log is identical at 8 modules and at 64, so the project is opened once however large the project is (`yarn verify:build-budget`).
 - [x] The quote style of the source file is preserved in the import the rewrite adds.
 

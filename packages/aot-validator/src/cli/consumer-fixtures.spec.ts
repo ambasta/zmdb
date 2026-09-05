@@ -27,11 +27,11 @@ import { transformSync } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { opsPerSecond } from '../plugin/inline-bench.js';
-import { codegen } from './index.js';
 
 const ROOT = new URL('../../../../', import.meta.url).pathname;
 const CLI = join(ROOT, 'fixtures', 'consumer-cli');
 const PLUGIN = join(ROOT, 'fixtures', 'consumer-plugin');
+const CODEGEN = join(ROOT, 'packages', 'aot-validator', 'src', 'cli', 'bin.ts');
 
 const read = (path: string): string => readFileSync(path, 'utf8');
 
@@ -51,6 +51,10 @@ let bundle: string;
 let bundled: {
   accepts(value: unknown): boolean;
   acceptsPoint(value: unknown): boolean;
+  schema(): {
+    readonly table: string;
+    readonly columns: Readonly<Record<string, unknown>>;
+  };
 };
 
 beforeAll(async () => {
@@ -68,11 +72,11 @@ afterAll(() => {
 // -----------------------------------------------------------------------------
 
 describe('the fixtures are the same program', () => {
-  for (const name of ['model.ts', 'probe.ts']) {
+  for (const name of ['src/model.ts', 'src/probe.ts', 'zmdb.config.ts']) {
     it(`${name} is byte-identical in both`, () => {
       // Neither of these contains a validation call, so neither is rewritten, so there is no
       // reason for the two copies to differ and a diff means somebody edited one of them.
-      expect(read(join(CLI, 'src', name))).toBe(read(join(PLUGIN, 'src', name)));
+      expect(read(join(CLI, name))).toBe(read(join(PLUGIN, name)));
     });
   }
 
@@ -112,13 +116,15 @@ describe('the CLI fixture is committed in the state the CLI produces', () => {
   it(
     'passes --check, which is what CI runs',
     () => {
-      // The same call the `zmdb-codegen --check` step in CI makes, in-process so that a failure
-      // names the file. Nothing is written: a stale witness is caught by comparing text, and
-      // the compiled pair is derived from files already on disk.
-      const result = codegen({ project: join(CLI, 'tsconfig.json'), check: true });
-      expect(result.problems).toEqual([]);
-      expect([...result.written, ...result.deleted]).toEqual([]);
-      expect(result.ok).toBe(true);
+      // Exercise the published executable boundary, including config discovery and naming.
+      // Nothing is written: a stale witness is caught by comparing text, and the compiled
+      // pair is derived from files already on disk.
+      expect(
+        execFileSync('node', [HOOK, CODEGEN, '--check'], {
+          cwd: CLI,
+          encoding: 'utf8',
+        }),
+      ).toBe('');
     },
     BUILD_TIMEOUT,
   );
@@ -141,6 +147,8 @@ describe('both routes produce the same program', () => {
       expect(viaPlugin).toBe(viaCli);
       expect(viaCli).toContain('accepts(good): true');
       expect(viaCli).toContain('accepts(badConstraint): false');
+      expect(bundled.schema().table).toBe('orders');
+      expect(Object.keys(bundled.schema().columns)).toContain('ship_to');
     },
     BUILD_TIMEOUT,
   );

@@ -69,10 +69,9 @@ import { build } from 'esbuild';
 import { zmdbAot } from 'zmdb/unplugin';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const project = join(root, 'tsconfig.json');
 
-function aotPlugin() {
-  const plugin = zmdbAot({ project, cwd: root });
+async function aotPlugin() {
+  const plugin = await zmdbAot({ cwd: root });
   return {
     name: plugin.name,
     setup(esbuild) {
@@ -100,7 +99,7 @@ if (mode === 'app') {
     ...common,
     entryPoints: [join(root, 'src', 'main.ts')],
     outfile: join(root, 'dist', 'main.mjs'),
-    plugins: [aotPlugin()],
+    plugins: [await aotPlugin()],
   });
 } else if (mode === 'test') {
   const entryPoints = [];
@@ -115,7 +114,7 @@ if (mode === 'app') {
     outbase: join(root, 'src'),
     outdir,
     outExtension: { '.js': '.mjs' },
-    plugins: [aotPlugin()],
+    plugins: [await aotPlugin()],
   });
 } else {
   throw new Error('usage: node scripts/build.mjs <app|test>');

@@ -9,9 +9,9 @@ yarn add zmdb
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite';
-import zmdb from 'zmdb/unplugin';
+import { zmdbAot } from 'zmdb/unplugin';
 
-export default defineConfig({ plugins: [zmdb.vite()] });
+export default defineConfig({ plugins: [await zmdbAot()] });
 ```
 
 See [AOT Setup](./aot-setup.html) for tsc, tsup, esbuild and webpack.

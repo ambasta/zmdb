@@ -41,6 +41,7 @@ line('document()', document());
 line('schema().table', schema().table);
 line('schema().primaryKey', schema().primaryKey);
 line('schema().columns.total', schema().columns['total']);
+line('schema().columns.ship_to', schema().columns['ship_to']);
 
 try {
   insist(badConstraint);

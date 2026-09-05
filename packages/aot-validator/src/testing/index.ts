@@ -49,13 +49,9 @@ import { fileURLToPath } from 'node:url';
 
 import type { CoreSchema, TaggedSchema } from '@zmdb/schema-core';
 import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
+import type { NamingStrategy } from '@zmdb/schema-core/naming';
 
-import {
-  schemaIrFromType,
-  type NamingStrategy,
-  type ReflectDiagnostic,
-  type ReflectOptions,
-} from '../reflect/index.js';
+import { schemaIrFromType, type ReflectDiagnostic, type ReflectOptions } from '../reflect/index.js';
 import { ReflectSession } from '../reflect/session.js';
 
 export interface SchemasFromOptions {

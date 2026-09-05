@@ -70,8 +70,21 @@ function exported(module: Readonly<Record<string, unknown>>, name: 'defineConfig
   return value;
 }
 
-async function loadConfig(opts?: { readonly cwd?: string; readonly path?: string }): Promise<Record<string, unknown>> {
+interface TestLoadConfigOptions {
+  readonly cwd?: string;
+  readonly path?: string;
+  readonly optional?: boolean;
+}
+
+async function loadConfig(
+  opts: TestLoadConfigOptions & { readonly optional: true },
+): Promise<Record<string, unknown> | undefined>;
+async function loadConfig(
+  opts?: TestLoadConfigOptions & { readonly optional?: false },
+): Promise<Record<string, unknown>>;
+async function loadConfig(opts?: TestLoadConfigOptions): Promise<Record<string, unknown> | undefined> {
   const loaded = await exported(await configModule(), 'loadConfig')(opts);
+  if (loaded === undefined) return undefined;
   return Object.fromEntries(Object.entries(Object(loaded)));
 }
 
@@ -252,6 +265,14 @@ export default {
     );
   });
 
+  it('returns undefined for optional discovery, but not for an explicit missing path', async () => {
+    const root = temporaryDirectory('zmdb-config-optional-');
+    write(join(root, 'package.json'), '{"private":true,"type":"module"}\n');
+
+    await expect(loadConfig({ cwd: root, optional: true })).resolves.toBeUndefined();
+    await expect(loadConfig({ cwd: root, path: './missing.ts', optional: true })).rejects.toThrow(/missing\.ts/i);
+  });
+
   it('loads two different configs in one process without cross-talk', async () => {
     const first = project(`
 export default { schema: 'src/*.ts', dialect: 'sqlite', out: './first' };
@@ -359,6 +380,21 @@ export default {
     const loaded = await loadConfig({ cwd: fixture.root });
     expect(typeof loaded.driver).toBe('function');
     expect(typeof Object(loaded.namingStrategy).table).toBe('function');
+    expect(loaded.resolvedNaming).toBe(loaded.namingStrategy);
+  });
+
+  it('resolves a built-in naming strategy while loading the config', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+  naming: 'snake_case_plural',
+};
+`);
+    const loaded = await loadConfig({ cwd: fixture.root });
+    const naming = Object(loaded.resolvedNaming);
+    expect(naming.table('userAccount')).toBe('user_accounts');
+    expect(naming.column('createdAt', { table: 'userAccount' })).toBe('created_at');
   });
 
   it('rejects a non-callable driver', async () => {

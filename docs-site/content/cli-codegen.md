@@ -1,10 +1,13 @@
 `zmdb-codegen` compiles zmdb's validators and schemas ahead of time **without a bundler**, by writing the result down next to your source and committing it.
 
 ```bash
-npx zmdb-codegen --project tsconfig.json
+npx zmdb-codegen
 ```
 
 It is `@zmdb/aot-validator`'s executable, which the `zmdb` umbrella depends on — so if you installed `zmdb`, you already have it.
+
+When `zmdb` is installed, the executable discovers `zmdb.config.ts` and uses both its TypeScript project and its resolved naming strategy. `--config <path>` selects a particular config, while
+`--project <path>` overrides only the project. A standalone `@zmdb/aot-validator` install with no umbrella package keeps the `./tsconfig.json` and identity-naming defaults.
 
 The [unplugin](./aot-setup.html) gets type information for free: a bundler hands it a module, it asks the compiler about the type arguments in it, and it hands back rewritten source that only the
 bundler ever sees. A project built by plain `tsc`, or run straight off `node --strip-types`, has nowhere to put that step. The compiled path is not a reward for choosing a particular bundler, so this
@@ -56,12 +59,13 @@ That split pays for itself twice: there is not one cast anywhere in the generate
 
 ## Flags
 
-| Flag               | Effect                                                   |
-| ------------------ | -------------------------------------------------------- |
-| `--project <path>` | the project to generate for. Default `./tsconfig.json`   |
-| `--check`          | write nothing; exit 1 if anything on disk is out of date |
-| `--watch`          | regenerate on every save, on one compiler session        |
-| `--help`, `-h`     | usage                                                    |
+| Flag               | Effect                                                                 |
+| ------------------ | ---------------------------------------------------------------------- |
+| `--config <path>`  | use this config instead of discovery                                   |
+| `--project <path>` | override the config project; without a config, default `tsconfig.json` |
+| `--check`          | write nothing; exit 1 if anything on disk is out of date               |
+| `--watch`          | regenerate on every save, on one compiler session                      |
+| `--help`, `-h`     | usage                                                                  |
 
 `--check` and `--watch` ask for opposite things and are rejected together. Exit codes: `0` clean, `1` a generation problem or a stale tree, `2` a bad invocation.
 

@@ -12,7 +12,14 @@ import { apiInstanceCount, ReflectSession } from '../reflect/session.js';
 import { transformTypeChecks, zmdbAot, type UnpluginLike } from './index.js';
 
 const project = FixtureProject.open({
-  declarations: '  interface User { id: number & Min<1>; email: string }',
+  declarations: `
+  interface User { id: number & Min<1>; email: string }
+  interface UserAccount extends ZmdbTags.Table<'userAccount'> {
+    id: number & ZmdbTags.Sql<'integer'> & ZmdbTags.PrimaryKey;
+    createdAt: Date & ZmdbTags.Sql<'timestamp'>;
+  }
+  function schemaOf<T>(): unknown;
+`,
 });
 afterAll(() => project.close());
 
@@ -101,6 +108,13 @@ describe('with a project', () => {
 
   it('passes emit options through', () => {
     expect(apply(plugin({ emit: { prefix: '$aot' } }), 'const a = is<User>(input);\n')).toContain('$aotCheckUser');
+  });
+
+  it('resolves a named naming strategy before reflection', () => {
+    const code = apply(plugin({ naming: 'snake_case_plural' }), 'const schema = schemaOf<UserAccount>();\n');
+    expect(code).toContain('"table":"user_accounts"');
+    expect(code).toContain('"created_at"');
+    expect(code).toContain('"table":"userAccount","physicalTable":"user_accounts"');
   });
 });
 

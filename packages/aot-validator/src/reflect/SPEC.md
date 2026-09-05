@@ -145,6 +145,7 @@ export interface ReflectOptions {
   readonly naming?: NamingStrategy;
 }
 
+// Canonical public type: @zmdb/schema-core/naming
 export interface NamingStrategy {
   readonly column?: (property: string, context: { table: string }) => string;
   readonly table?: (declared: string) => string;
@@ -178,11 +179,11 @@ transformer collects diagnostics per call site, so throwing would abort a whole 
 It is a schema-level diagnostic rather than an `unsupported` node, because there is no single property to blame and neither of the two colliding columns may be dropped or quietly renamed. The message
 names both property names; the known defect in `EmitDiagnostic.path` (it carries an emitted-source expression rather than a property chain) must not be extended into this one.
 
-Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved, from `loadConfig` in `zmdb/src/config` — sub-issue #492 in the CLI epic, which the naming epic's
-implementation slice is blocked on for exactly this reason.
+Config loading is not this module's job and must not be reinvented here. `naming` arrives resolved from `loadConfig` in `zmdb/src/config`, so the reflector receives one strategy object and never
+discovers or evaluates project configuration itself.
 
-Both AOT routes have to resolve the same config: the unplugin transformer and `zmdb-codegen` each read it and hand it over, and `yarn verify:fixtures` is the gate that proves the two routes emit the
-same physical names, because `fixtures/consumer-plugin` and `fixtures/consumer-cli` declare the same tables.
+Both AOT routes have to resolve the same config: the `zmdb/unplugin` transformer entry and `zmdb-codegen` each receive the `resolvedNaming` produced by `loadConfig`, and `yarn verify:fixtures` is the
+gate that proves the two routes emit the same physical names. The consumer pair declares `Table<'order'>` with a `shipTo` property and both routes emit `orders.ship_to`.
 
 ## 8. What a declaration says and a schema value cannot
 

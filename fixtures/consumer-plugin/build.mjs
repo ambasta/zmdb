@@ -17,13 +17,12 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { zmdbAot } from '@zmdb/aot-validator/unplugin';
 import { build } from 'esbuild';
+import { zmdbAot } from 'zmdb/unplugin';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outdir = process.argv[2] ?? join(here, 'dist');
-
-const plugin = zmdbAot({ project: join(here, 'tsconfig.json'), cwd: here });
+const plugin = await zmdbAot({ cwd: here });
 
 /** `plugin.transform` as an esbuild plugin. The whole adapter. */
 const asEsbuildPlugin = unplugin => ({

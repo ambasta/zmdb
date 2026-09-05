@@ -10,6 +10,8 @@
 // the project is the expensive half; a checker call is a cheap round-trip. A session per
 // file would make the AOT path cost more than the runtime walker it replaces.
 
+import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
+
 import type { EmitOptions } from '../emit/index.js';
 import { ReflectSession } from '../reflect/session.js';
 import { transformCode, transformFile, type TransformDiagnostic } from '../transformer.js';
@@ -54,6 +56,8 @@ export interface ZmdbAotOptions {
   /** An already-open session. The caller keeps ownership, including closing it. */
   readonly session?: ReflectSession;
   readonly emit?: EmitOptions;
+  /** A named or custom build-time strategy, resolved once for this plugin instance. */
+  readonly naming?: NamingStrategyConfig;
   /**
    * Called for each refused call site. The default throws, because a type the emitter
    * could not model means the call falls back to a runtime walker that has no
@@ -67,6 +71,7 @@ const SOURCE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs)$/;
 
 export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
   let session: ReflectSession | undefined = options.session;
+  const reflect = { naming: resolveNaming(options.naming) } as const;
   /** Whether this plugin opened the session, and therefore has to close it. */
   let owned = false;
   /** Files already refreshed after a text mismatch, so the retry happens at most once. */
@@ -96,7 +101,11 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
         return out === code ? null : { code: out };
       }
 
-      let result = transformFile(id, code, { session: open, ...(options.emit ? { emit: options.emit } : {}) });
+      let result = transformFile(id, code, {
+        session: open,
+        reflect,
+        ...(options.emit ? { emit: options.emit } : {}),
+      });
 
       // A stale program is the likely cause of a text mismatch, and it is cheap to rule
       // out: re-check this one file and try again. Once per file — if the text still
@@ -107,7 +116,11 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
         // file it does not know about "changed" is a no-op.
         if (open.sourceFile(id)) open.refresh([id]);
         else open.created([id]);
-        result = transformFile(id, code, { session: open, ...(options.emit ? { emit: options.emit } : {}) });
+        result = transformFile(id, code, {
+          session: open,
+          reflect,
+          ...(options.emit ? { emit: options.emit } : {}),
+        });
       }
 
       const refusals = result.diagnostics.filter(diagnostic => diagnostic.position !== undefined);

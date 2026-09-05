@@ -178,7 +178,10 @@ async function runStudioCommand(parsed: ParsedCommand, io: RuntimeEnvironment): 
   }
 
   try {
-    const schemas = schemasFromFiles(config.schemaFiles, { project: config.project });
+    const schemas = schemasFromFiles(config.schemaFiles, {
+      project: config.project,
+      naming: config.resolvedNaming,
+    });
     const [driver, { runStudio }] = await Promise.all([config.driver(), import('./commands/studio.js')]);
     return runStudio(
       { schemas, driver, dialect: config.dialect },

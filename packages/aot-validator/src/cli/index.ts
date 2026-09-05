@@ -29,6 +29,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
+import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
+
 import { ReflectSession, type SourceFileHandle } from '../reflect/session.js';
 import { CALLEES, transformFile } from '../transformer.js';
 import { scan, type Entry, type SiteEntry, type TypeImport } from './scan.js';
@@ -60,6 +62,8 @@ export interface CodegenOptions {
    * project is opened once.
    */
   readonly session?: ReflectSession | undefined;
+  /** A named or custom build-time strategy, resolved once for this run. */
+  readonly naming?: NamingStrategyConfig;
 }
 
 export interface CodegenResult {
@@ -110,6 +114,7 @@ function run(session: ReflectSession, project: string, options: CodegenOptions):
   const root = dirname(project);
   const log = options.log ?? (() => undefined);
   const check = options.check === true;
+  const reflect = { naming: resolveNaming(options.naming) } as const;
   const problems: string[] = [];
   const written: string[] = [];
   const deleted: string[] = [];
@@ -252,7 +257,11 @@ function run(session: ReflectSession, project: string, options: CodegenOptions):
       candidate.calleeSources.get('assertShallow') ??
       candidate.calleeSources.get('assertEquals') ??
       '@zmdb/aot-validator/utilities';
-    const transformed = transformFile(candidate.paths.witness, candidate.witness, { session, emit: { errorModule } });
+    const transformed = transformFile(candidate.paths.witness, candidate.witness, {
+      session,
+      reflect,
+      emit: { errorModule },
+    });
     if (transformed.diagnostics.length > 0) {
       for (const diagnostic of transformed.diagnostics) {
         const where = diagnostic.path ? ` at \`${diagnostic.path}\`` : '';

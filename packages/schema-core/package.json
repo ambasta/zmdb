@@ -35,6 +35,7 @@
     "./ir": "./src/ir/index.ts",
     "./derive": "./src/derive/index.ts",
     "./dto": "./src/dto/index.ts",
+    "./naming": "./src/naming/index.ts",
     "./relations": "./src/relations/index.ts",
     "./openapi": "./src/openapi/index.ts",
     "./custom-types": "./src/custom-types/index.ts",

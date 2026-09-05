@@ -19,6 +19,10 @@ void accepted;
 
 const loaded: Promise<ResolvedConfig> = loadConfig({ cwd: '/tmp/project', path: './zmdb.config.ts' });
 void loaded;
+void (await loaded).resolvedNaming;
+
+const optional: Promise<ResolvedConfig | undefined> = loadConfig({ cwd: '/tmp/project', optional: true });
+void optional;
 
 const resolved: Promise<ResolvedConfig> = resolveConfig(config, '/tmp/project/zmdb.config.ts');
 void resolved;

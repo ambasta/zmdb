@@ -55,6 +55,7 @@ import {
   type TableOptions,
   type TypeIR,
 } from '@zmdb/schema-core/ir';
+import type { NamingStrategy } from '@zmdb/schema-core/naming';
 import type { Node } from 'typescript/unstable/ast';
 import { SignatureKind, SymbolFlags } from 'typescript/unstable/sync';
 import type { Checker, IntersectionType, Symbol as TsSymbol, Type, TypeReference } from 'typescript/unstable/sync';
@@ -101,11 +102,7 @@ export interface ReflectOptions {
   readonly naming?: NamingStrategy;
 }
 
-export interface NamingStrategy {
-  readonly column?: (property: string, context: { readonly table: string }) => string;
-  readonly table?: (declared: string) => string;
-  readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
-}
+export type { NamingStrategy } from '@zmdb/schema-core/naming';
 
 // ---------------------------------------------------------------------------
 // Tag reading

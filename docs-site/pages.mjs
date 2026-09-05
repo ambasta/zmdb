@@ -542,7 +542,7 @@ export const PAGE_META = {
     title: 'Naming Strategy',
     group: 'Schema',
     status: 'todo',
-    note: 'table and column names are used verbatim; there is no pluralisation / snake_case strategy hook',
+    note: 'built-in and custom strategies ship; the public per-table/per-column Physical tag is still missing',
   },
   'json-properties': {
     title: 'JSON Properties',

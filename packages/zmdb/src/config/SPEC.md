@@ -49,19 +49,25 @@ export interface ResolvedConfig extends ZmdbConfig {
   readonly schemaFiles: readonly string[];
   /** Absolute output directory, resolved against the config file. */
   readonly outDir: string;
+  /** The named or custom strategy resolved once for every reflection route. */
+  readonly resolvedNaming: NamingStrategy;
 }
 
 export declare function defineConfig(config: ZmdbConfig): ZmdbConfig;
-export declare function loadConfig(opts?: {
+interface LoadConfigOptions {
   /** Directory discovery starts from. Defaults to `process.cwd()`. */
   readonly cwd?: string;
   /** Explicit config path, resolved against `cwd`; equivalent to `--config`. */
   readonly path?: string;
-}): Promise<ResolvedConfig>;
+  readonly optional?: boolean;
+}
+export declare function loadConfig(opts: LoadConfigOptions & { readonly optional: true }): Promise<ResolvedConfig | undefined>;
+export declare function loadConfig(opts?: LoadConfigOptions & { readonly optional?: false }): Promise<ResolvedConfig>;
 ```
 
 `naming` takes the two named strategies and nothing else; a custom one gets its own key. That is not cosmetic tidying — a `string | object` union where the object arm carries functions has no
-validatable spelling, and collapsing it into one key would have forced the whole config out of the validator.
+validatable spelling, and collapsing it into one key would have forced the whole config out of the validator. `resolvedNaming` is always an object: the selected built-in singleton, the custom
+`namingStrategy` by identity, or the empty identity strategy. When both author-facing fields are present, the custom strategy wins.
 
 The loader splits the two callable keys off, runs `assert<ZmdbConfigData>` over what is left, and checks each callable with `typeof`. Two consequences follow:
 
@@ -75,7 +81,11 @@ their build for a file only the CLI reads, and the CLI has to handle a config th
 not two.
 
 `loadConfig` is that one discovery, execution, validation and path-resolution boundary. Its `path` option is the programmatic form of `--config`: it resolves against `cwd`, while every path inside the
-selected module resolves against `configPath`'s directory. The returned `schemaFiles`, `outDir` and `configPath` are absolute, so commands do not repeat or disagree about resolution.
+selected module resolves against `configPath`'s directory. The returned `schemaFiles`, `outDir` and `configPath` are absolute, and `resolvedNaming` is already ready for reflection, so commands and
+build adapters do not repeat or disagree about resolution.
+
+Build adapters that preserve a no-config fallback call `loadConfig({ optional: true })`, which returns `undefined` only when ordinary discovery reaches a package boundary or filesystem root. An
+explicit `path` remains an error when it cannot be loaded.
 
 ## 2. Discovery walks up, and every command says where it stopped
 

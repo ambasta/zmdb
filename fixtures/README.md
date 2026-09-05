@@ -4,11 +4,14 @@ Four projects use zmdb the way somebody who installed it would, kept here so tha
 
 `consumer-cli/` and `consumer-plugin/` contain the **same program**, declared the same way, and reach the compiled validator by the two supported routes:
 
-|                   | `consumer-cli/`                                        | `consumer-plugin/`               |
-| ----------------- | ------------------------------------------------------ | -------------------------------- |
-| build step        | `zmdb-codegen`                                         | a bundler with `zmdbAot()` in it |
-| what is committed | the generated `.js`/`.d.ts`/witness, beside the source | nothing generated                |
-| what runs it      | `node src/probe.ts`, no tooling at all                 | the bundle esbuild wrote         |
+|                   | `consumer-cli/`                                        | `consumer-plugin/`                      |
+| ----------------- | ------------------------------------------------------ | --------------------------------------- |
+| build step        | config-aware `zmdb-codegen`                            | a bundler with config-aware `zmdbAot()` |
+| what is committed | the generated `.js`/`.d.ts`/witness, beside the source | nothing generated                       |
+| what runs it      | `node src/probe.ts`, no tooling at all                 | the bundle esbuild wrote                |
+
+Both routes discover their byte-identical `zmdb.config.ts`, resolve `snake_case_plural` once and hand that same strategy shape to reflection. The fixture declares `Table<'order'>` with a `shipTo`
+property and observes the physical `orders.ship_to` schema from both routes.
 
 The split is the point. A bundler plugin can rewrite a module on its way into a bundle, and that is the fastest route when there is a bundler; a library, a `tsc` build or a `node --strip-types` script
 has nowhere to put that step, and REQ-AV-3 says the compiled path may not be a reward for choosing a particular toolchain. So one fixture proves the plugin route and the other proves there is a route
@@ -32,7 +35,8 @@ are limited to `@zmdb/web/microservices` and `@zmdb/web/observability`, so the c
 `consumer-plugin/` is the one to edit. `consumer-cli/` is derived:
 
 ```sh
-node packages/aot-validator/src/cli/bin.ts --project fixtures/consumer-cli/tsconfig.json
+node --import ./scripts/ts-specifier-hook.mjs packages/aot-validator/src/cli/bin.ts \
+  --config fixtures/consumer-cli/zmdb.config.ts
 ```
 
 Copy the source change into `consumer-cli/src/` first, then run that. CI runs the same command with `--check`, which writes nothing and fails if the committed output is stale.

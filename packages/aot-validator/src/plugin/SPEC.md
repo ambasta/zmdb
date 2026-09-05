@@ -17,6 +17,9 @@ import { zmdbAot } from '@zmdb/aot-validator/unplugin';
 
 `createTransformer(program: ts.Program): ts.TransformerFactory<ts.SourceFile>` is the core; the packaging wrappers adapt it.
 
+The lower-level `zmdbAot({ naming })` accepts the same named or custom strategy as `codegen({ naming })`, resolves it once when the plugin is created, and passes it into reflection. The
+`zmdb/unplugin` umbrella entry discovers `zmdb.config.ts` asynchronously and supplies its project and `resolvedNaming`, avoiding a static dependency cycle from this package back to `zmdb`.
+
 ## 2. Intercepted calls
 
 The transformer recognizes the seventeen generic calls in `CALLEES`: `is<T>(x)`, `isShallow<T, D>(x)`, `assert<T>(x)`, `assertShallow<T, D>(x)`, `validate<T>(x)`, `validateShallow<T, D>(x)`,

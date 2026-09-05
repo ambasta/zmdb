@@ -17,7 +17,7 @@ export interface Address {
   readonly postcode: string;
 }
 
-export interface Order extends Table<'orders'> {
+export interface Order extends Table<'order'> {
   readonly id: number & Sql<'integer'> & Serial & PrimaryKey;
   readonly reference: string & Sql<'varchar'> & Length<32> & MinLength<6> & Unique;
   readonly total: number & Sql<'integer'> & Min<0>;

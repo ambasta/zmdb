@@ -29,8 +29,8 @@ Differences that matter:
 - **It is a type, not a value.** There is no `pgTable` call and nothing to construct — `schemaOf<User>()` produces the value the query compiler reads, at build time.
 - No dialect-specific import. One declaration supplies the shared shape; you pick the dialect when you build a compiler or repository. SingleStore tables additionally declare `ShardKey<…>` or
   `Rowstore` because distribution/storage cannot be inferred safely.
-- Columns currently take no public name argument. With identity naming, the property key is also the SQL column name. The physical-name execution boundary exists, but project-configured strategies and
-  the explicit-name tag are still tracked on [Naming Strategy](./naming-strategy.html).
+- Columns currently take no public name argument. With identity naming, the property key is also the SQL column name. A project can now configure `snake_case`, `snake_case_plural`, or a custom
+  build-time strategy; the explicit-name tag remains tracked on [Naming Strategy](./naming-strategy.html).
 - Nullability is `| null`, not `.notNull()` — the default is non-null, and TypeScript already has a way to say the other thing. Write `(T & Tags) | null`, tags inside.
 - `HasDefault` rather than `.default(true)`: it says the column _has_ a default, not which one. The value goes in the migration, because a type cannot hold a runtime value. This is the one thing
   Drizzle expresses that a declaration cannot.

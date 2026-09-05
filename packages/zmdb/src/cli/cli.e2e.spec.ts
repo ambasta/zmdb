@@ -295,6 +295,45 @@ describe('the zmdb database CLI in a temporary consumer project', { timeout: CLI
     });
   });
 
+  it('applies the configured naming strategy before migration reflection', () => {
+    const project = copyProject();
+    write(
+      join(project.root, 'src', 'schema.ts'),
+      `import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
+
+export interface UserAccount extends Table<'userAccount'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  createdAt: Date & Sql<'timestamp'>;
+}
+`,
+    );
+    write(
+      project.config,
+      `export default {
+  schema: 'src/**/*.ts',
+  dialect: 'sqlite',
+  project: './tsconfig.json',
+  out: './migrations',
+  naming: 'snake_case_plural',
+};
+`,
+    );
+
+    const invocation = run(project, 'generate', '--name', 'named');
+    expect(invocation.status).toBe(0);
+    expect(invocation.stderr).toBe('');
+    const migration = readdirSync(project.migrations).find(file => /^\d{14}_named\.sql$/.test(file));
+    expect(migration).toBeDefined();
+    if (migration === undefined) throw new Error('generate wrote no named migration');
+
+    const sql = readFileSync(join(project.migrations, migration), 'utf8');
+    expect(sql).toContain('CREATE TABLE "user_accounts"');
+    expect(sql).toContain('"created_at" TEXT NOT NULL');
+    expect(JSON.parse(readFileSync(join(project.migrations, 'snapshot.json'), 'utf8'))).toMatchObject({
+      tables: [{ name: 'user_accounts', columns: [{ name: 'created_at' }, { name: 'id' }] }],
+    });
+  });
+
   it('generates extension DDL before its table without an automatic extension drop', () => {
     const project = copyProject();
     write(

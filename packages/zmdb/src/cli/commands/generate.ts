@@ -28,7 +28,10 @@ export async function generateMigration(
   config: ResolvedConfig,
   options: GenerateOptions = {},
 ): Promise<GenerateResult> {
-  const schemas = schemasFromFiles(config.schemaFiles, { project: config.project });
+  const schemas = schemasFromFiles(config.schemaFiles, {
+    project: config.project,
+    naming: config.resolvedNaming,
+  });
   const next = snapshot(schemas);
   const snapshotPath = join(config.outDir, 'snapshot.json');
   const previous = await readSnapshot(snapshotPath);

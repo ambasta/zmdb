@@ -7,6 +7,7 @@ import { AssertError } from '@zmdb/aot-validator/utilities';
 import { TRAITS, type Dialect } from '@zmdb/query-compiler';
 import type { Driver } from '@zmdb/repository';
 import { isRecord } from '@zmdb/schema-core';
+import { resolveNaming, type NamingStrategy } from '@zmdb/schema-core/naming';
 
 import { zmdbAssertZmdbConfigData } from './index.zmdb.generated.js';
 
@@ -19,11 +20,7 @@ export interface IntrospectOptions {
   readonly exclude?: readonly string[];
 }
 
-export interface NamingStrategy {
-  readonly column?: (property: string, context: { readonly table: string }) => string;
-  readonly table?: (declared: string) => string;
-  readonly index?: (table: string, columns: readonly string[], unique: boolean) => string;
-}
+export type { NamingStrategy } from '@zmdb/schema-core/naming';
 
 /** The plain-data half of a config, validated by the generated AOT checker. */
 export interface ZmdbConfigData {
@@ -52,6 +49,8 @@ export interface ResolvedConfig extends ZmdbConfig {
   readonly out: string;
   readonly schemaFiles: readonly string[];
   readonly outDir: string;
+  /** The custom or named strategy, resolved once for every reflection route. */
+  readonly resolvedNaming: NamingStrategy;
 }
 
 export interface LoadConfigOptions {
@@ -59,6 +58,8 @@ export interface LoadConfigOptions {
   readonly cwd?: string;
   /** Explicit config path, resolved against `cwd`; equivalent to `--config`. */
   readonly path?: string;
+  /** Return `undefined` when discovery finds no config. An explicit missing path still fails. */
+  readonly optional?: boolean;
 }
 
 /** Identity helper for inference and editor completion; loading owns validation. */
@@ -72,9 +73,14 @@ export function defineConfig<const T extends ZmdbConfig>(config: T): T {
  * The cache is process-local and keyed by the selected absolute config path, so
  * separate packages in a monorepo cannot leak resolved paths into one another.
  */
-export async function loadConfig(options: LoadConfigOptions = {}): Promise<ResolvedConfig> {
+export function loadConfig(
+  options: LoadConfigOptions & { readonly optional: true },
+): Promise<ResolvedConfig | undefined>;
+export function loadConfig(options?: LoadConfigOptions & { readonly optional?: false }): Promise<ResolvedConfig>;
+export async function loadConfig(options: LoadConfigOptions = {}): Promise<ResolvedConfig | undefined> {
   const cwd = resolve(options.cwd ?? process.cwd());
-  const configPath = await discoverConfig(cwd, options.path);
+  const configPath = await discoverConfig(cwd, options.path, options.optional === true);
+  if (configPath === undefined) return undefined;
   const cached = CONFIG_CACHE.get(configPath);
   if (cached !== undefined) return cached;
 
@@ -104,7 +110,11 @@ async function loadAndResolve(configPath: string): Promise<ResolvedConfig> {
   return resolveValidatedConfig(config, configPath);
 }
 
-async function discoverConfig(cwd: string, explicit: string | undefined): Promise<string> {
+async function discoverConfig(
+  cwd: string,
+  explicit: string | undefined,
+  optional: boolean,
+): Promise<string | undefined> {
   if (explicit !== undefined) return resolve(cwd, explicit);
 
   let directory = cwd;
@@ -115,11 +125,13 @@ async function discoverConfig(cwd: string, explicit: string | undefined): Promis
     }
 
     if (await isFile(join(directory, 'package.json'))) {
+      if (optional) return undefined;
       throw new Error(`No zmdb config found from ${cwd}; discovery stopped at package boundary ${directory}`);
     }
 
     const parent = dirname(directory);
     if (parent === directory) {
+      if (optional) return undefined;
       throw new Error(`No zmdb config found from ${cwd}; discovery reached filesystem root ${directory}`);
     }
     directory = parent;
@@ -186,6 +198,7 @@ async function resolveValidatedConfig(config: ZmdbConfig, configPath: string): P
   const directory = dirname(configPath);
   const project = resolve(directory, config.project ?? 'tsconfig.json');
   const outDir = resolve(directory, config.out ?? 'migrations');
+  const resolvedNaming = resolveNaming(config.namingStrategy ?? config.naming);
 
   if (config.migrations?.schema !== undefined && TRAITS[config.dialect].family !== 'postgres') {
     throw new Error(
@@ -213,6 +226,7 @@ async function resolveValidatedConfig(config: ZmdbConfig, configPath: string): P
     configPath,
     schemaFiles,
     outDir,
+    resolvedNaming,
   };
 }
 

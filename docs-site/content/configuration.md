@@ -1,7 +1,7 @@
 Application configuration has no implicit initialisation step. Everything the runtime needs is still a function argument, which means a wrong repository or web configuration is usually a compile error
 rather than a filesystem surprise.
 
-Build tools and the planned schema-command CLI have a separate [`zmdb.config.ts`](./config-file.html) loader. Applications do not read it automatically.
+Build tools and the schema-command CLI have a separate [`zmdb.config.ts`](./config-file.html) loader. Applications do not read it automatically.
 
 ## What each layer takes
 
@@ -16,14 +16,17 @@ toOpenApi(controllers, { info?, schemas? })
 That is the complete runtime surface. There is no `reflect-metadata`, boot-time metadata scan, or ambient config read. `zmdb.config.ts` is an explicit tooling boundary for schema files, dialect and
 migration paths; it does not change how an application constructs a driver or repository.
 
-The one thing that _is_ configured outside a function argument is the build plugin, because it has to find your `tsconfig.json`:
+The one thing that _is_ configured outside a function argument is the build plugin, because it has to find your `tsconfig.json`. The umbrella entry discovers `zmdb.config.ts` and passes its resolved
+project and naming strategy to the transformer:
 
 ```ts
 // vite.config.ts / rollup.config.js / esbuild plugin list
-zmdbAot({ project: new URL('./tsconfig.json', import.meta.url).pathname });
+import { zmdbAot } from 'zmdb/unplugin';
+
+const plugin = await zmdbAot();
 ```
 
-`schemaOf<T>()` and the seven validator calls are replaced there. See [AOT Setup](./aot-setup.html).
+`schemaOf<T>()` and the other generic AOT calls are replaced there. See [AOT Setup](./aot-setup.html).
 
 ## A configuration module
 

@@ -45,7 +45,12 @@ export async function checkProject(config: ResolvedConfig): Promise<CheckResult>
   const skipped: { readonly kind: 'drift'; readonly reason: string }[] = [];
   const snapshotPath = join(config.outDir, 'snapshot.json');
   const stored = await storedSnapshot(snapshotPath);
-  const declared = snapshot(schemasFromFiles(config.schemaFiles, { project: config.project }));
+  const declared = snapshot(
+    schemasFromFiles(config.schemaFiles, {
+      project: config.project,
+      naming: config.resolvedNaming,
+    }),
+  );
 
   if ('newerVersion' in stored) {
     findings.push({

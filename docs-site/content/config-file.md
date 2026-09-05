@@ -51,15 +51,16 @@ Under `--json`, the same path is the top-level `config` value. An explicit `--co
 | `dialect`           | `Dialect`                             | required           | six current SQL dialects              |
 | `project`           | `string`                              | `./tsconfig.json`  | relative to the config file           |
 | `out`               | `string`                              | `./migrations`     | relative to the config file           |
-| `naming`            | `'snake_case' \| 'snake_case_plural'` | absent             | —                                     |
-| `namingStrategy`    | `NamingStrategy`                      | absent             | callable boundary, checked separately |
+| `naming`            | `'snake_case' \| 'snake_case_plural'` | absent             | resolved once for reflection          |
+| `namingStrategy`    | `NamingStrategy`                      | absent             | custom strategy; wins over `naming`   |
 | `driver`            | `() => Driver \| Promise<Driver>`     | absent             | callable boundary, checked separately |
 | `migrations.table`  | `string`                              | `_zmdb_migrations` | —                                     |
 | `migrations.schema` | `string`                              | dialect default    | PostgreSQL family only                |
 | `introspect`        | `{ schemas?, include?, exclude? }`    | command-specific   | names/globs, not filesystem paths     |
 
-> **Naming status.** `loadConfig` validates and returns `naming` and `namingStrategy`, but the CLI schema-reflection calls do not pass either field to the reflector yet. Commands therefore continue to
-> produce identity names. A config that loads successfully is not evidence that DDL, snapshots or repository SQL have adopted the configured strategy.
+`loadConfig` also returns `resolvedNaming`: the selected built-in singleton, the custom `namingStrategy` by identity, or an empty identity strategy. Every database command passes that object into
+schema reflection. `zmdb-codegen` and `zmdb/unplugin` discover the same config and pass the same value to the lower-level AOT APIs; the committed consumer fixtures exercise both routes against
+byte-identical config files.
 
 Every glob must match at least one file, and every matched file must belong to the configured TypeScript project. A match outside the project is an error rather than a silently omitted table.
 
@@ -128,7 +129,7 @@ Functions cannot be validated as data. The loader therefore separates the two ca
 - `driver` must be a function;
 - each present `namingStrategy.column`, `.table`, and `.index` member must be a function.
 
-The following example demonstrates that callable-boundary validation. The strategy is preserved in the loaded config, but is not yet applied by CLI reflection:
+The following example demonstrates callable-boundary validation and the custom strategy path:
 
 ```ts
 export default defineConfig({
@@ -141,6 +142,8 @@ export default defineConfig({
   },
 });
 ```
+
+When both `naming` and `namingStrategy` are present, the custom object wins. That choice is made while loading the config, not once per table or query.
 
 The driver is a thunk so the CLI can avoid opening a database for commands that only inspect declarations. `check` opens it only for the live-drift check; with no driver configured, that check is
 reported as skipped.

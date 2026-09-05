@@ -126,6 +126,7 @@ describe('zmdb umbrella re-exports (#227)', () => {
   it('re-exports unplugin zmdbAot via zmdb/unplugin', async () => {
     const unplugin = await import('./unplugin.js');
     expect(typeof unplugin.zmdbAot).toBe('function');
+    await expect(unplugin.zmdbAot()).resolves.toMatchObject({ name: 'zmdb-aot', enforce: 'pre' });
   });
 
   it('re-exports migration runner under migrations namespace', () => {

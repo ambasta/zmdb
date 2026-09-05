@@ -10,6 +10,7 @@
 // same way, and this says what the right answer is.
 
 import type { ColumnIR, SchemaIR, TypeIR } from '@zmdb/schema-core/ir';
+import type { NamingStrategy } from '@zmdb/schema-core/naming';
 import { isStringLiteral } from 'typescript/unstable/ast/is';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -19,7 +20,6 @@ import {
   irFromType,
   Reflector,
   schemaIrFromType,
-  type NamingStrategy,
   type ReflectDiagnostic,
   type ReflectOptions,
 } from './index.js';

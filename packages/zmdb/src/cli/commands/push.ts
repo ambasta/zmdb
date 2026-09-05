@@ -97,5 +97,10 @@ const KNOWN_WIDENINGS = new Set([
 ]);
 
 function declaredSnapshot(config: ResolvedConfig): SchemaSnapshot {
-  return snapshot(schemasFromFiles(config.schemaFiles, { project: config.project }));
+  return snapshot(
+    schemasFromFiles(config.schemaFiles, {
+      project: config.project,
+      naming: config.resolvedNaming,
+    }),
+  );
 }

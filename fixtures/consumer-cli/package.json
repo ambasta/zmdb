@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node ../../packages/aot-validator/src/cli/bin.ts --project tsconfig.json",
+    "build": "node --import ../../scripts/ts-specifier-hook.mjs ../../packages/aot-validator/src/cli/bin.ts",
+    "check": "node --import ../../scripts/ts-specifier-hook.mjs ../../packages/aot-validator/src/cli/bin.ts --check",
     "start": "node src/probe.ts"
   }
 }
