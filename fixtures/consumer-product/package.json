@@ -1,0 +1,8 @@
+{
+  "name": "zmdb-consumer-product",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "zmdb": "1.0.0-alpha.4"
+  }
+}

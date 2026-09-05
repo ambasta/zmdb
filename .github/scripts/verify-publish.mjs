@@ -34,6 +34,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { PACKAGES, ROOT, publishManifest, readManifest } from './lib/publish-manifest.mjs';
+import { inspectProductConsumerFixture } from './verify-product-facade.mjs';
 
 // Build-time and optional integration subpaths reach their peers on purpose (see
 // `verify-exports.mjs`), so the temp project needs what a consumer of every advertised
@@ -53,6 +54,7 @@ const PEERS = [
   'redis',
 ];
 const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'web-custom-transport.ts');
+const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
 
@@ -379,6 +381,25 @@ writeFileSync(
 console.log('Typechecking a consumer against the published declarations...');
 const tsc = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig.json'], { cwd: app, stdio: 'inherit' });
 if (tsc.status !== 0) fail('the published declarations do not typecheck from a consumer project');
+
+// The one-install product fixture remains an expected-failure runtime journey
+// until #620–#623 land, but its external-package boundary is already part of
+// publish verification: one registry dependency, no workspace paths, no
+// internal imports, no skipLibCheck, and a strict compile against the packed
+// declarations rather than workspace sources.
+for (const problem of inspectProductConsumerFixture(PRODUCT_CONSUMER_FIXTURE)) {
+  fail(problem);
+}
+const productConsumer = join(app, 'product-consumer');
+cpSync(PRODUCT_CONSUMER_FIXTURE, productConsumer, { recursive: true });
+console.log('Typechecking the one-install product fixture against packed declarations...');
+const productTsc = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig.consumer.json'], {
+  cwd: productConsumer,
+  stdio: 'inherit',
+});
+if (productTsc.status !== 0) {
+  fail('the one-install product fixture does not typecheck against packed declarations');
+}
 
 // Metro 0.87's own declarations reference four modules kept only in its
 // devDependencies. Keep skipLibCheck scoped to that upstream tree, while compiling a

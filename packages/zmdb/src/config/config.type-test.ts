@@ -1,4 +1,12 @@
+import type { loadConfig as loadCliConfig, ResolvedConfig as CliResolvedConfig } from '../cli/config.js';
+import { zmdbAot } from '../unplugin.js';
 import { defineConfig, loadConfig, resolveConfig, type ResolvedConfig, type ZmdbConfig } from './index.js';
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type Expect<T extends true> = T;
+
+export type _CliUsesTheCanonicalLoader = Expect<Equal<typeof loadCliConfig, typeof loadConfig>>;
+export type _CliUsesTheCanonicalResolvedConfig = Expect<Equal<CliResolvedConfig, ResolvedConfig>>;
 
 const config = defineConfig({
   schema: ['src/**/*.schema.ts'],
@@ -26,6 +34,9 @@ void optional;
 
 const resolved: Promise<ResolvedConfig> = resolveConfig(config, '/tmp/project/zmdb.config.ts');
 void resolved;
+
+const configuredCompiler = zmdbAot({ cwd: '/tmp/project', config: './zmdb.config.ts' });
+void configuredCompiler;
 
 defineConfig({
   schema: 'src/**/*.ts',

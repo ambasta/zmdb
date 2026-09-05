@@ -6,6 +6,10 @@ import { pathToFileURL } from 'node:url';
 import { codegen } from '@zmdb/aot-validator/codegen';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { loadConfig as cliLoadConfig } from '../cli/config.js';
+import { zmdbAot } from '../unplugin.js';
+import { loadConfig as canonicalLoadConfig } from './index.js';
+
 // The five load-bearing titles frozen in #491 stay exact. #492 promotes them
 // from expected failures and adds the boundary cases the loader now owns.
 
@@ -174,6 +178,36 @@ export default {
     const defineConfig = exported(await configModule(), 'defineConfig');
     expect(defineConfig(value)).toBe(value);
   });
+
+  it('loads one config through the CLI and compiler with identical resolved paths and naming', async () => {
+    const fixture = join(ROOT, 'fixtures', 'consumer-plugin');
+    const model = join(fixture, 'src', 'model.ts');
+    const orders = join(fixture, 'src', 'orders.ts');
+    const loaded = await cliLoadConfig({ cwd: fixture });
+
+    expect(cliLoadConfig).toBe(canonicalLoadConfig);
+    expect(loaded.configPath).toBe(join(fixture, 'zmdb.config.ts'));
+    expect(loaded.project).toBe(join(fixture, 'tsconfig.json'));
+    expect(loaded.schemaFiles).toEqual([model]);
+
+    const plugin = await zmdbAot({ cwd: fixture });
+    try {
+      const transformed = plugin.transform(readFileSync(orders, 'utf8'), orders);
+      expect(transformed).not.toBeNull();
+      const code = transformed?.code ?? '';
+      const tableName = loaded.resolvedNaming.table;
+      const columnName = loaded.resolvedNaming.column;
+      if (tableName === undefined || columnName === undefined) {
+        throw new Error('resolved naming must provide table and column hooks');
+      }
+      const table = tableName('order');
+      const column = columnName('shipTo', { table: 'order' });
+      expect(code).toContain(`"table":"${table}"`);
+      expect(code).toContain(`"physicalName":"${column}"`);
+    } finally {
+      plugin.buildEnd?.();
+    }
+  }, 60_000);
 
   it('keeps the generated config validator current', () => {
     const result = codegen({
