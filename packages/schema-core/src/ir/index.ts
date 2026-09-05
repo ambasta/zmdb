@@ -355,7 +355,6 @@ export const PROTO_SCALARS = [
 ] as const;
 
 export type ProtoScalar = (typeof PROTO_SCALARS)[number];
-
 // ---------------------------------------------------------------------------
 // Back-end: IR → schema value (REQ-TF-10)
 // ---------------------------------------------------------------------------
@@ -536,6 +535,7 @@ function appBaseOf(col: ColumnIR): TypeIR {
   // Sql<'integer'> & Codec<'Money'>` is an integer in the database and a `Money` in the
   // app, and a validator that checked `integer` here would reject every valid value.
   if (col.payload !== undefined) return col.payload;
+  if (col.codec === 'custom') return { kind: 'unknown' };
 
   switch (col.sql) {
     case 'serial':
@@ -1101,12 +1101,16 @@ export function decodeDbValue(col: ColumnIR, value: unknown): unknown {
     if (typeof value === 'number') return Number.isSafeInteger(value) ? BigInt(value) : value;
     return asBigInt(value);
   }
+  if (col.sql === 'integer' || col.sql === 'serial' || col.sql === 'numeric') {
+    if (typeof value === 'bigint') return Number(value);
+  }
   return value;
 }
 
 /** Which columns `decodeDbValue` can change — so a read path can skip the walk entirely. */
 export function dbDecodedColumns(ir: SchemaIR): readonly ColumnIR[] {
   return ir.columns.filter(col => {
+    if (col.codec !== undefined) return true;
     if (typeof col.sql === 'string') return col.sql === 'timestamp' || col.sql === 'bigint';
     return col.sql.name === 'vector';
   });

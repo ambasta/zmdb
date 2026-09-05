@@ -90,7 +90,7 @@ const common = {
   format: 'esm',
   packages: 'external',
   platform: 'node',
-  target: 'node26',
+  target: 'node22',
 };
 
 const mode = process.argv[2];
@@ -239,7 +239,7 @@ describe('generated project', () => {
     expect(JSON.parse(await bodyText(response))).toEqual({ ok: true });
 
     const rows = await config.driver().execute({ text: 'SELECT 1 AS ok', parameters: [] });
-    expect(Reflect.get(rows[0] ?? {}, 'ok')).toBe(1);
+    expect(Number(Reflect.get(rows[0] ?? {}, 'ok'))).toBe(1);
   });
 });
 `,

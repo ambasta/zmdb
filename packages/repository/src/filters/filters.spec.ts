@@ -915,7 +915,7 @@ describe('soft delete against real SQLite', () => {
 
       const restored = await repo.upsert({ tenantId: 9, role: 'same', active: false }, { target: 'role' });
 
-      expect(restored).toMatchObject({ id: 1, tenantId: 9, role: 'same', active: 0, deletedAt: null });
+      expect(restored).toMatchObject({ id: 1, tenantId: 9, role: 'same', active: false, deletedAt: null });
       expect(calls[0]).toEqual({
         text:
           'INSERT INTO "users" ("tenantId", "role", "active") VALUES (?, ?, ?) ' +
@@ -949,7 +949,7 @@ describe('soft delete against real SQLite', () => {
         },
       ]);
       expect(hidden).toBeUndefined();
-      expect(visible).toMatchObject({ id: 1, tenantId: 7, role: 'user', active: 1 });
+      expect(visible).toMatchObject({ id: 1, tenantId: 7, role: 'user', active: true });
       expect(visible?.deletedAt).toBeInstanceOf(Date);
     } finally {
       db.close();

@@ -2625,6 +2625,7 @@ __metadata:
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
     mssql: "npm:12.7.0"
     pg: "npm:8.23.0"
     typescript: "npm:7.0.2"
