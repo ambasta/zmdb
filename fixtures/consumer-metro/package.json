@@ -2,5 +2,9 @@
   "name": "@zmdb-fixture/consumer-metro",
   "version": "0.0.0",
   "private": true,
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@babel/preset-typescript": "7.29.7"
+  }
 }

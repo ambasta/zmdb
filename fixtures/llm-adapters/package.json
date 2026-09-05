@@ -6,7 +6,7 @@
   "devDependencies": {
     "@langchain/core": "1.2.9",
     "@zmdb/schema-core": "workspace:^",
-    "ai": "7.0.83",
-    "zod": "4.1.12"
+    "ai": "7.0.92",
+    "zod": "4.5.4"
   }
 }

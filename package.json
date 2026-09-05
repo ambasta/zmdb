@@ -4,6 +4,7 @@
   "workspaces": [
     "packages/*",
     "benchmarks",
+    "fixtures/consumer-metro",
     "fixtures/llm-adapters"
   ],
   "type": "module",
@@ -47,8 +48,8 @@
     "verify:tf-coverage": "node .github/scripts/verify-tf-coverage.mjs"
   },
   "devDependencies": {
-    "@babel/core": "7.29.7",
-    "@babel/preset-typescript": "7.29.7",
+    "@babel/core": "8.0.1",
+    "@babel/preset-typescript": "8.0.1",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/sdk-trace-base": "2.11.0",
     "@seriousme/openapi-schema-validator": "2.9.1",
