@@ -257,6 +257,9 @@ describe('runtime foundation package cutover (#636)', () => {
       ).toEqual({
         text: expected[dialect],
         parameters: ['a@example.test'],
+        operation: 'select',
+        isWrite: false,
+        returnsRows: true,
       });
     }
   });
@@ -358,10 +361,16 @@ describe('runtime foundation package cutover (#636)', () => {
       {
         text: 'INSERT INTO "users" ("email") VALUES (?) RETURNING *',
         parameters: ['a@example.test'],
+        operation: 'insert',
+        isWrite: true,
+        returnsRows: true,
       },
       {
         text: 'SELECT * FROM "users" WHERE "id" = ? LIMIT 1',
         parameters: [1],
+        operation: 'select',
+        isWrite: false,
+        returnsRows: true,
       },
     ]);
   });

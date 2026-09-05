@@ -104,7 +104,7 @@ describe('aggregate compilation (postgres golden)', () => {
 describe('aggregate compile-time telemetry', () => {
   it('keeps telemetry absent from the default compiled query', () => {
     const q = aggregateSelectFrom('orders', postgresDialect).count('id', 'count').compile();
-    expect(Object.keys(q)).toEqual(['text', 'parameters']);
+    expect(Object.keys(q)).toEqual(['text', 'parameters', 'operation', 'isWrite', 'returnsRows']);
     expect(q.telemetry).toBeUndefined();
   });
 

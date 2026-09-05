@@ -65,7 +65,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
     // than `toEqual`, because `toEqual` ignores an added `undefined`-valued key and this
     // assertion is precisely about the key set the repository's existing `toEqual`s compare.
     for (const query of [select, insert, update, remove]) {
-      expect(Object.keys(query)).toEqual(['text', 'parameters']);
+      expect(Object.keys(query)).toEqual(['text', 'parameters', 'operation', 'isWrite', 'returnsRows']);
       expect(Object.isFrozen(query)).toBe(true);
     }
   });
@@ -246,14 +246,14 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
   // enabled.
   it('leaves the compiled query deep-equal to its untagged self after a tagged execute', async () => {
     const query = selectUsers();
-    const before = { text: query.text, parameters: [...query.parameters] };
+    const before = { ...query };
     const driver = recordingDriver();
     const tagged = withComments(driver, () => FULL_PAIRS);
 
     await tagged.execute(query);
 
     expect(query).toEqual(before);
-    expect(Object.keys(query)).toEqual(['text', 'parameters']);
+    expect(Object.keys(query)).toEqual(['text', 'parameters', 'operation', 'isWrite', 'returnsRows']);
     expect(query.text).toBe('SELECT "id", "email" FROM "users" WHERE "id" = $1');
     // §6's smaller point: a decorator spreads the driver it wraps, so `dialect` survives.
     // The original docs sketch returned `{ execute }` and dropped the field `Driver`

@@ -11,7 +11,7 @@ import {
 import { UnsupportedFeatureError } from './errors.js';
 
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
-export type { CompiledQuery, QueryTelemetry } from './compiled-query.js';
+export type { CompiledQuery, QueryMetadata, QueryOperation, QueryTelemetry } from './compiled-query.js';
 export {
   defineSqlDialect,
   dialectCapabilities,
@@ -83,6 +83,7 @@ export type {
 // (#18 INSERT/UPDATE/DELETE) remain unimplemented; their tests stay red.
 
 import {
+  analyzeQuery,
   frozenQuery,
   queryTelemetry,
   tailClause,
@@ -92,6 +93,7 @@ import {
   type Predicate,
   type PredicateGroup,
 } from './clauses.js';
+export { analyzeQuery, frozenQuery };
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
 import {
   isAliasedDistanceExpression,
@@ -195,6 +197,19 @@ export type { CommentKey, CommentKeys, CommentPairs } from './comments/index.js'
 /** Optional compiler features that would otherwise change every query shape. */
 export interface QueryCompilerOptions {
   readonly telemetry?: true;
+}
+
+export interface ExecuteOptions {
+  readonly signal?: AbortSignal;
+  /** Rows per round trip. A driver may clamp it; zero or negative is refused. */
+  readonly batchSize?: number;
+}
+
+export interface Driver<Name extends string = string> {
+  readonly dialect?: DialectTarget<Name> | undefined;
+  readonly queryTelemetry?: true;
+  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
+  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 
 interface SelectState {
@@ -325,7 +340,15 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
           offsetN: state.offsetN,
           ordered: state.orderBys.length > 0,
         });
-      return frozenQuery(text, params, queryTelemetry(d, 'SELECT', state.table, telemetry));
+      const isWrite =
+        /\bFOR\s+(UPDATE|SHARE|KEY\s+SHARE|NO\s+KEY\s+UPDATE)\b/i.test(text) ||
+        /\bLOCK\s+IN\s+SHARE\s+MODE\b/i.test(text);
+      return frozenQuery(
+        text,
+        params,
+        { operation: 'select', isWrite, returnsRows: true },
+        queryTelemetry(d, 'SELECT', state.table, telemetry),
+      );
     },
   };
 }
@@ -597,7 +620,16 @@ function makeInsert(
       }
 
       text += returning.suffix;
-      return frozenQuery(text, params, queryTelemetry(d, 'INSERT', table, telemetry));
+      return frozenQuery(
+        text,
+        params,
+        {
+          operation: 'insert',
+          isWrite: true,
+          returnsRows: Boolean(ret && ret.length > 0),
+        },
+        queryTelemetry(d, 'INSERT', table, telemetry),
+      );
     },
   };
 }
@@ -635,7 +667,16 @@ function makeUpdate(
         returning.inline +
         whereClause(d, wheres, params) +
         returning.suffix;
-      return frozenQuery(text, params, queryTelemetry(d, 'UPDATE', table, telemetry));
+      return frozenQuery(
+        text,
+        params,
+        {
+          operation: 'update',
+          isWrite: true,
+          returnsRows: Boolean(ret && ret.length > 0),
+        },
+        queryTelemetry(d, 'UPDATE', table, telemetry),
+      );
     },
   };
 }
@@ -662,7 +703,16 @@ function makeDelete(
       const returning = returningSql(d, 'delete', 'old', ret);
       const text =
         `DELETE FROM ${quoteTable(d, table)}` + returning.inline + whereClause(d, wheres, params) + returning.suffix;
-      return frozenQuery(text, params, queryTelemetry(d, 'DELETE', table, telemetry));
+      return frozenQuery(
+        text,
+        params,
+        {
+          operation: 'delete',
+          isWrite: true,
+          returnsRows: Boolean(ret && ret.length > 0),
+        },
+        queryTelemetry(d, 'DELETE', table, telemetry),
+      );
     },
   };
 }

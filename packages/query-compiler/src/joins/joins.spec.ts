@@ -64,7 +64,7 @@ describe('JOIN compile-time telemetry', () => {
     const q = joinableSelectFrom('products', postgresDialect)
       .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
       .compile();
-    expect(Object.keys(q)).toEqual(['text', 'parameters']);
+    expect(Object.keys(q)).toEqual(['text', 'parameters', 'operation', 'isWrite', 'returnsRows']);
     expect(q.telemetry).toBeUndefined();
   });
 

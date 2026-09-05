@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { cockroachDialect } from '../testing/official-dialects.fixture.js';
+import { cockroachDialect, postgresDialect } from '../testing/official-dialects.fixture.js';
 import { createTransactionalDb } from './index.js';
 import { recordingConn } from './recording-conn.js';
 
@@ -96,6 +96,17 @@ describe('transaction lifecycle', () => {
 
     expect(attempts).toBe(1);
     expect(conn.log).toEqual(['BEGIN', 'ROLLBACK']);
+  });
+
+  it('propagates dialect metadata across transaction contexts', async () => {
+    const conn = { ...recordingConn(), dialect: postgresDialect };
+    const db = createTransactionalDb(conn);
+    await db.transaction(async tx => {
+      expect(tx.dialect).toBe(postgresDialect);
+      await tx.savepoint(async inner => {
+        expect(inner.dialect).toBe(postgresDialect);
+      });
+    });
   });
 
   // Rolling an inner savepoint back while the outer transaction still commits is
