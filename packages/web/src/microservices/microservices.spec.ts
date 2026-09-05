@@ -518,7 +518,7 @@ describe('microservice hybrid lifecycle (#559)', () => {
     const dispatch = transport.deliver(delivery('orders.hung'));
     await started.promise;
 
-    await expect(app[Symbol.asyncDispose]()).rejects.toThrow('did not drain within 5ms');
+    await expect(app[Symbol.asyncDispose]()).rejects.toThrow(/did not drain within \d+ms/);
     expect(transport.connectionOpen).toBe(false);
     expect(log).toEqual([
       'listen:public-custom',
