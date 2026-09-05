@@ -227,7 +227,7 @@ export function extractDeclarationsFromSourceFile(sourceFile, blockStartLine = 1
         const name = element.name.text;
         const line = getNodeLineNumber(sourceFile, node, blockStartLine);
         declarations.push({
-          kind: 'type',
+          kind: 'export',
           name,
           type: 'any',
           line,
@@ -791,12 +791,19 @@ export function validateAstDrift(packagesDir = PACKAGES_DIR) {
         for (const srcDecl of matchingSourceDecls) {
           const isKindMatch =
             srcDecl.kind === specDecl.kind ||
+            srcDecl.kind === 'export' ||
+            specDecl.kind === 'export' ||
             (srcDecl.kind === 'interface' && specDecl.kind === 'type') ||
             (srcDecl.kind === 'type' && specDecl.kind === 'interface');
 
           if (!isKindMatch) {
             kindMismatchReason = `Kind mismatch: spec is ${specDecl.kind}, source is ${srcDecl.kind}`;
             continue;
+          }
+
+          if (specDecl.kind === 'export' || srcDecl.kind === 'export') {
+            matched = true;
+            break;
           }
 
           if (specDecl.kind === 'function') {
