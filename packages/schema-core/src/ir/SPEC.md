@@ -174,7 +174,7 @@ per build; see `aot-validator/src/reflect/SPEC.md` §7a for where.
 `ir` it carries is entirely in declaration vocabulary. Every existing consumer is already on the correct side of that line by accident of what it reads: the DDL emitter and `snapshot` take the value,
 the derived types and the validator take the IR.
 
-**Explicit beats strategy**, through one new tag:
+**Explicit beats strategy**, through the public `Physical<Name>` tag:
 
 ```ts
 interface User extends Table<'users'>, Physical<'user_accounts'> {

@@ -25,6 +25,7 @@ export type {
   OneToMany,
   OneToOne,
   Pattern,
+  Physical,
   PrimaryKey,
   Proto,
   ProtoField,

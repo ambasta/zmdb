@@ -54,6 +54,7 @@ import type { SqlType } from '../index.js';
 import type { ProtoScalar, ReferentialAction, RelationKind } from '../ir/index.js';
 
 declare const zmdbTable: unique symbol;
+declare const zmdbPhysical: unique symbol;
 declare const zmdbFts: unique symbol;
 declare const zmdbShardKey: unique symbol;
 declare const zmdbSortKey: unique symbol;
@@ -89,6 +90,15 @@ declare const zmdbProtoScalar: unique symbol;
 
 /** The table an entity maps to. `interface User extends Table<'users'>`. */
 export type Table<Name extends string> = { readonly [zmdbTable]?: Name };
+
+/**
+ * The physical SQL identifier when it must override the configured naming strategy.
+ *
+ * In interface position it names the table; in a property intersection it names the
+ * column. The reflector decides which from the position, so one zero-runtime tag covers
+ * both without changing the declaration's TypeScript-facing name.
+ */
+export type Physical<Name extends string> = { readonly [zmdbPhysical]?: Name };
 
 /** The full-text-search table backing this entity (`CoreSchema.ftsTable`). */
 export type Fts<Name extends string | true> = { readonly [zmdbFts]?: Name };

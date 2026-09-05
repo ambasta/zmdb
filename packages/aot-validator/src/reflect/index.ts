@@ -884,7 +884,7 @@ export class Reflector {
     return found;
   }
 
-  /** The internal frozen `Physical<Name>` tag, until its public surface lands with config wiring. */
+  /** The public `Physical<Name>` tag's dedicated table-or-column reader. */
   #physicalNameOf(type: Type): string | undefined {
     for (const symbol of this.#checker.getPropertiesOfType(type)) {
       const tag = recognizedTag(symbol);

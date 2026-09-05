@@ -33,12 +33,12 @@ export const DEFAULT_AGE = 18;
 `;
 
   const tagged = `
-import type { HasDefault, Length, Min, PrimaryKey, Serial, Sql, Table, Unique } from './index.js';
+import type { HasDefault, Length, Min, Physical, PrimaryKey, Serial, Sql, Table, Unique } from './index.js';
 
-export interface User extends Table<'users'> {
+export interface User extends Table<'users'>, Physical<'user_accounts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<255> & Unique;
-  age: number & Sql<'integer'> & Min<18> & HasDefault;
+  age: number & Sql<'integer'> & Min<18> & HasDefault & Physical<'user_age'>;
 }
 ${runtime}`;
 
@@ -59,7 +59,18 @@ ${runtime}`;
 
   it('and emits no reference to a tag', async () => {
     const { code } = await transform(tagged, { loader: 'ts', format: 'esm', target: 'es2023' });
-    for (const name of ['Table', 'Sql', 'Serial', 'PrimaryKey', 'Unique', 'Length', 'Min', 'HasDefault', 'zmdb']) {
+    for (const name of [
+      'Table',
+      'Physical',
+      'Sql',
+      'Serial',
+      'PrimaryKey',
+      'Unique',
+      'Length',
+      'Min',
+      'HasDefault',
+      'zmdb',
+    ]) {
       expect(code).not.toContain(name);
     }
   });

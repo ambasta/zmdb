@@ -1,5 +1,5 @@
-> **Implemented core, one public override still missing.** Named and custom strategies now resolve from `zmdb.config.ts`, both AOT routes emit the same physical names, and every SQL path consumes
-> those names. The public per-table/per-column `Physical<'…'>` tag is not exported yet, so this page remains a feature-gap page until that explicit override is available.
+> **Implementation complete; documentation tracking remains open.** Named and custom strategies resolve from `zmdb.config.ts`, both AOT routes emit the same physical names, every SQL path consumes
+> those names, and `Physical<'…'>` supplies per-table or per-column overrides. This page remains marked ToDo until the naming documentation issue is closed.
 
 ## The build-time boundary
 
@@ -99,6 +99,22 @@ const plugin = await zmdbAot();
 The lower-level `@zmdb/aot-validator` APIs still accept an explicit `naming` option for tools that own config loading. The committed plugin and codegen consumer fixtures load byte-identical configs
 and both emit `orders.ship_to` from `Table<'order'>` with a `shipTo` property.
 
+## Explicit overrides
+
+Import `Physical` from either documented tag subpath:
+
+```ts
+import type { Physical, PrimaryKey, Sql, Table } from 'zmdb/tags';
+
+export interface User extends Table<'userAccount'>, Physical<'legacy_users'> {
+  id: number & Sql<'integer'> & PrimaryKey;
+  createdAt: Date & Sql<'timestamp'> & Physical<'created_ts'>;
+}
+```
+
+The interface-level tag fixes the SQL table name at `legacy_users`; the property intersection fixes the SQL column at `created_ts`. Each explicit name is resolved before the configured strategy, so
+the corresponding strategy callback is not invoked. The declared table identity remains `userAccount`, and the returned entity property remains `createdAt`.
+
 ## Sharp edges
 
 A collision is a build diagnostic, not a query-time surprise. For example, `createdAt` and `created_at` both become `created_at` under `snake_case`, so the diagnostic names both properties and the
@@ -108,9 +124,6 @@ Raw SQL is never rewritten. A partial-index predicate written as `createdAt IS N
 
 Turning on or changing a strategy under an existing database changes snapshot names. A diff cannot safely guess whether `createdAt → created_at` is a rename or a drop plus add, so review and author
 the rename migration explicitly.
-
-The remaining gap is the public explicit-name tag promised by the IR spec. Until it ships, a declaration cannot override the configured strategy for one table or column through the public tag
-vocabulary.
 
 ---
 

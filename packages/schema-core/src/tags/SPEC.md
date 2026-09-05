@@ -51,6 +51,7 @@ reflection reads them off the type directly (REQ-TF-2). A second spelling would 
 | Tag                                | Meaning                                                                                         |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `Table<Name>`                      | The table the entity maps to.                                                                   |
+| `Physical<Name>`                   | Physical table name; overrides the configured naming strategy.                                  |
 | `Fts<Name>`                        | Backing full-text-search table. `Fts<'users_fts'>` names it; `Fts<true>` asks the back-end to.  |
 | `ShardKey<Columns>`                | SingleStore shard-key columns, as a non-empty tuple in declaration order.                       |
 | `SortKey<Columns>`                 | SingleStore columnstore sort-key columns, as a non-empty tuple in declaration order.            |
@@ -66,6 +67,7 @@ documents, but is absent from `CreateDTO<T>` and `UpdateDTO<T>`; repository meth
 | Tag                  | Meaning                                                                           |
 | -------------------- | --------------------------------------------------------------------------------- |
 | `Sql<T>`             | Abstract SQL type. Required: `integer`/`bigint`/`numeric` are all `number` in TS. |
+| `Physical<Name>`     | Physical column name; overrides the configured naming strategy.                   |
 | `PrimaryKey`         | Part of the primary key. Several columns → composite.                             |
 | `Serial`             | Database-generated. **Absent** from `CreateDTO`, not optional in it.              |
 | `Unique`             | Unique intent carried in the IR; migration consumers decide how it is enforced.   |
@@ -85,6 +87,10 @@ form follows from the SQL type.
 
 `Serial` and `HasDefault` are distinct on purpose: supplying a defaulted column is legitimate, supplying a generated one is a mistake, so one is optional and the other does not exist in the insert
 type.
+
+`Physical<Name>` is one tag in two unambiguous positions. In `interface User extends Table<'users'>, Physical<'user_accounts'>` it names the table; in
+`createdAt: Date & Sql<'timestamp'> & Physical<'created_ts'>` it names the column. It changes neither the table's declared identity nor the property key, and the reflector consults it before a
+configured naming strategy.
 
 ### Relations
 
@@ -116,6 +122,9 @@ The IR field keeps the JSON Schema keyword, because that is what it emits.
 `../ir/vocabulary.type-test.ts` asserts, at compile time, that every `SqlType`, every `ColumnFlags` member and every interpreted constraint kind has a tag and an IR field. Adding a flag without
 deciding how a tagged declaration expresses it fails to compile.
 
+`Physical<Name>` is the one positional exception to the normal `TAG_NAMES` bijection: one marker feeds `SchemaIR.physicalTable` and `ColumnIR.physicalName` through the reflector's dedicated reader.
+`verify-tf-coverage.mjs` names that marker, exported tag, constant and table/column call path exactly; it does not admit a general list of tags the normal reflection may ignore.
+
 ## 6. Duplicate installs (plan D5)
 
 `unique symbol` identity is nominal, so two copies of this module produce two non-matching tags even though the source text is identical. The consequence is not a type error at the tag or at the
@@ -138,6 +147,7 @@ everything. Every assertion about a tagged derivation uses exact identity for th
 - [x] The module has zero runtime exports (`erasure.spec.ts`).
 - [x] A tagged declaration and its untagged twin emit byte-identical JavaScript.
 - [x] No emitted byte mentions a tag name.
+- [x] `Physical<Name>` is exported from schema-core and the `zmdb/tags` umbrella with no runtime surface.
 - [x] Vocabulary parity with `SqlType`, `ColumnFlags` and the constraint kinds is a compile-time gate.
 - [x] The duplicate-install failure mode is asserted exactly, with `Equal` rather than assignability.
 

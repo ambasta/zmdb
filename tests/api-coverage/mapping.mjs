@@ -725,6 +725,7 @@ export const mikroOrm = {
   naming: [
     'applies the column strategy once, into the IR',
     'leaves physicalName equal to name when no strategy is configured',
+    'lets an explicit table name beat the strategy',
     'lets an explicit column name beat the strategy',
     'fails the build when two properties collide on one physical name, naming both',
     'emits DDL with physical names and derives Entity with property names',

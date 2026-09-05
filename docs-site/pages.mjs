@@ -542,7 +542,7 @@ export const PAGE_META = {
     title: 'Naming Strategy',
     group: 'Schema',
     status: 'todo',
-    note: 'built-in and custom strategies ship; the public per-table/per-column Physical tag is still missing',
+    note: 'implementation ships, including explicit Physical overrides; final documentation acceptance remains open',
   },
   'json-properties': {
     title: 'JSON Properties',

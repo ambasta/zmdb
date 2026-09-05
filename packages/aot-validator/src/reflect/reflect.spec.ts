@@ -711,6 +711,23 @@ describe('build-time naming strategy (frozen: reflect/SPEC.md 7a)', () => {
     expect(result.ir.columns.map(column => column.physicalName)).toEqual(result.ir.columns.map(column => column.name));
   });
 
+  it('lets an explicit table name beat the strategy', () => {
+    const calls: string[] = [];
+    const result = reflectNamingCase('explicit-table', {
+      naming: {
+        table(declared) {
+          calls.push(declared);
+          return `strategy_${declared}`;
+        },
+      },
+    });
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir.table).toBe('userAccount');
+    expect(result.ir.physicalTable).toBe('legacy_users');
+    expect(calls).toEqual([]);
+  });
+
   // An explicit name is resolved before the strategy and therefore does not
   // invoke the strategy callback for that property.
   it('lets an explicit column name beat the strategy', () => {

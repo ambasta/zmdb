@@ -14,8 +14,11 @@
 //      dead weight nobody can see, and one the tags stopped using compiles forever.
 //   2. **A marker missing from `TAG_NAMES`, or named twice.** The type test checks the shape
 //      of the values (`zmdb${string}`), not that they name real declarations. A tag whose
-//      marker is not in `TAG_NAMES` is a tag the reflection cannot see: the declaration
-//      compiles, the derived types honour it, and the emitted validator quietly does not.
+//      marker is not in `TAG_NAMES` is normally a tag the reflection cannot see: the
+//      declaration compiles, the derived types honour it, and the emitted validator quietly
+//      does not. `Physical<Name>` is the one deliberate exception: one positional tag feeds
+//      `SchemaIR.physicalTable` and `ColumnIR.physicalName` through a dedicated reader, and
+//      this script traces that exact named path instead of allowing invisible tags.
 //   3. **A `TagField` the reflection never reads.** `TAG_NAMES` is a promise that a tag
 //      reaches the IR. The reflection keeps it by asking for each field by name —
 //      `tags.get('serial')` — so an entry nobody asks for is a promise nothing keeps.
@@ -63,6 +66,26 @@ const REFLECT = 'packages/aot-validator/src/reflect/index.ts';
 const FIXTURES = 'packages/aot-validator/src/reflect/__fixtures__/';
 const RUNTIME = 'packages/aot-validator/src/index.ts';
 const INLINER = 'packages/aot-validator/src/transformer.ts';
+
+/**
+ * The one tag that deliberately does not participate in the TagField ↔ marker bijection.
+ *
+ * `Physical` means `physicalTable` in interface position and `physicalName` in a property
+ * intersection. Adding either field to `TAG_NAMES` would claim one slot sets one TagField,
+ * which is not its contract; allowing an arbitrary omitted marker would make the normal
+ * bijection meaningless. The run below therefore verifies this one marker, spelling and
+ * reader chain by name.
+ */
+const PHYSICAL_TAG = Object.freeze({
+  marker: 'zmdbPhysical',
+  tag: 'Physical',
+  markerConstant: 'PHYSICAL_TAG_NAME',
+  directReader: '#physicalNameOf',
+  intersectionReader: '#physicalNameFrom',
+  tableOwner: 'schemaIR',
+  columnOwner: '#column',
+  irFields: ['physicalTable', 'physicalName'],
+});
 
 /**
  * Types that declare *some* of `Constraints`' five fields on purpose.
@@ -154,6 +177,49 @@ function declaredMembers(node) {
     if (member.name?.kind === SyntaxKind.Identifier) names.push(member.name.text);
   }
   return names;
+}
+
+/** A top-level `const NAME = 'literal'`, if the file declares one. */
+function stringConstant(sourceFile, name) {
+  for (const statement of sourceFile.statements) {
+    if (statement.kind !== SyntaxKind.VariableStatement) continue;
+    for (const declaration of statement.declarationList?.declarations ?? []) {
+      if (declaration.name?.kind !== SyntaxKind.Identifier || declaration.name.text !== name) continue;
+      const value = declaration.initializer;
+      if (value?.kind === SyntaxKind.StringLiteral || value?.kind === SyntaxKind.NoSubstitutionTemplateLiteral) {
+        return value.text;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** The one method declaration with this public/private name, plus calls made inside it. */
+function methodCoverage(sourceFile, methodName) {
+  const matches = [];
+  walk(sourceFile, node => {
+    if (node.kind === SyntaxKind.MethodDeclaration && node.name?.text === methodName) matches.push(node);
+  });
+  const [method] = matches;
+  const calls = new Set();
+  const identifiers = new Set();
+  if (method !== undefined) {
+    walk(method, node => {
+      if (node.kind === SyntaxKind.Identifier) identifiers.add(node.text);
+      if (node.kind !== SyntaxKind.CallExpression) return;
+      const callee = node.expression;
+      if (callee?.kind === SyntaxKind.Identifier) {
+        calls.add(callee.text);
+      } else if (
+        callee?.kind === SyntaxKind.PropertyAccessExpression &&
+        callee.expression?.kind === SyntaxKind.ThisKeyword
+      ) {
+        const name = callee.name?.text;
+        if (name !== undefined) calls.add(name);
+      }
+    });
+  }
+  return { count: matches.length, calls, identifiers };
 }
 
 // ---------------------------------------------------------------------------
@@ -461,7 +527,7 @@ try {
     }
   }
 
-  // --- 2. markers and TAG_NAMES are a bijection ------------------------------
+  // --- 2. markers and TAG_NAMES are a bijection, with one exact positional tag ---
   const namedBy = new Map();
   for (const [field, symbolName] of Object.entries(TAG_NAMES)) {
     const already = namedBy.get(symbolName);
@@ -469,7 +535,7 @@ try {
   }
   for (const [slot, line] of slots) {
     const fields = namedBy.get(slot);
-    if (fields === undefined) {
+    if (fields === undefined && slot !== PHYSICAL_TAG.marker) {
       problems.push(
         `${TAGS}:${line}: \`${slot}\` has no \`TAG_NAMES\` entry, so the reflection cannot see it. ` +
           `The declaration would compile and the emitted validator would quietly ignore the tag.`,
@@ -482,6 +548,69 @@ try {
     }
   }
 
+  const physicalSpellings = [...tags].filter(([, used]) => used.has(PHYSICAL_TAG.marker)).map(([tag]) => tag);
+  if (physicalSpellings.length !== 1 || physicalSpellings[0] !== PHYSICAL_TAG.tag) {
+    problems.push(
+      `${TAGS}: the dedicated \`${PHYSICAL_TAG.marker}\` marker must be spelled only by ` +
+        `\`${PHYSICAL_TAG.tag}<Name>\`; found ${physicalSpellings.join(', ') || 'none'}.`,
+    );
+  }
+  if (namedBy.has(PHYSICAL_TAG.marker)) {
+    problems.push(
+      `TAG_NAMES must not name \`${PHYSICAL_TAG.marker}\`: \`${PHYSICAL_TAG.tag}<Name>\` feeds ` +
+        `${PHYSICAL_TAG.irFields.join(' and ')} by position through its dedicated reader.`,
+    );
+  }
+
+  const reflectFile = file(validator.program, REFLECT);
+  const markerValue = stringConstant(reflectFile, PHYSICAL_TAG.markerConstant);
+  if (markerValue !== PHYSICAL_TAG.marker) {
+    problems.push(
+      `${REFLECT}: \`${PHYSICAL_TAG.markerConstant}\` must be the literal \`${PHYSICAL_TAG.marker}\`; ` +
+        `found ${markerValue === undefined ? 'no literal declaration' : `\`${markerValue}\``}.`,
+    );
+  }
+
+  const physicalReaders = new Map(
+    [PHYSICAL_TAG.directReader, PHYSICAL_TAG.intersectionReader, PHYSICAL_TAG.tableOwner, PHYSICAL_TAG.columnOwner].map(
+      name => [name, methodCoverage(reflectFile, name)],
+    ),
+  );
+  for (const [name, coverage] of physicalReaders) {
+    if (coverage.count !== 1) {
+      problems.push(`${REFLECT}: expected exactly one \`${name}\` method for the dedicated Physical tag path.`);
+    }
+  }
+
+  const direct = physicalReaders.get(PHYSICAL_TAG.directReader);
+  const intersection = physicalReaders.get(PHYSICAL_TAG.intersectionReader);
+  const tableOwnerCoverage = physicalReaders.get(PHYSICAL_TAG.tableOwner);
+  const columnOwnerCoverage = physicalReaders.get(PHYSICAL_TAG.columnOwner);
+  if (direct?.calls.has('recognizedTag') !== true || direct?.identifiers.has(PHYSICAL_TAG.markerConstant) !== true) {
+    problems.push(
+      `${REFLECT}: \`${PHYSICAL_TAG.directReader}\` must read \`${PHYSICAL_TAG.markerConstant}\` ` +
+        'through `recognizedTag`.',
+    );
+  }
+  if (intersection?.calls.has(PHYSICAL_TAG.directReader) !== true) {
+    problems.push(
+      `${REFLECT}: \`${PHYSICAL_TAG.intersectionReader}\` must call \`${PHYSICAL_TAG.directReader}\` ` +
+        `for a property intersection's ${PHYSICAL_TAG.irFields[1]}.`,
+    );
+  }
+  if (tableOwnerCoverage?.calls.has(PHYSICAL_TAG.directReader) !== true) {
+    problems.push(
+      `${REFLECT}: \`${PHYSICAL_TAG.tableOwner}\` must call \`${PHYSICAL_TAG.directReader}\` ` +
+        `for ${PHYSICAL_TAG.irFields[0]}.`,
+    );
+  }
+  if (columnOwnerCoverage?.calls.has(PHYSICAL_TAG.intersectionReader) !== true) {
+    problems.push(
+      `${REFLECT}: \`${PHYSICAL_TAG.columnOwner}\` must call \`${PHYSICAL_TAG.intersectionReader}\` ` +
+        `for ${PHYSICAL_TAG.irFields[1]}.`,
+    );
+  }
+
   // Two IR fields sharing a slot is normal — the four relation tags are one slot — but two
   // *tag fields* sharing one where the reflection reads both is not, so it is reported.
   for (const [symbolName, fields] of namedBy) {
@@ -489,7 +618,7 @@ try {
   }
 
   // --- 3. the reflection reads every field ----------------------------------
-  const { read, unresolved } = fieldsReadBy(file(validator.program, REFLECT));
+  const { read, unresolved } = fieldsReadBy(reflectFile);
   for (const { line, variable } of unresolved) {
     problems.push(
       `${REFLECT}:${line}: a tag is read through \`${variable}\`, and this cannot tell which fields that ` +
@@ -655,12 +784,13 @@ try {
   // --- the report -----------------------------------------------------------
   console.log(
     `tag vocabulary: ${slots.size - structural.size} symbol slot(s), ${structural.size} structural marker(s), ` +
-      `${tags.size} exported tag(s), ${TAG_FIELDS.length} IR field(s)\n`,
+      `${tags.size} exported tag(s), ${TAG_FIELDS.length} TAG_NAMES field(s), ` +
+      `${PHYSICAL_TAG.irFields.length} dedicated Physical field(s)\n`,
   );
   const pad = (text, width) => String(text).padEnd(width);
   console.log('  marker                 IR field(s)                tag(s)');
   for (const [slot] of slots) {
-    const fields = (namedBy.get(slot) ?? ['—']).join(', ');
+    const fields = (namedBy.get(slot) ?? (slot === PHYSICAL_TAG.marker ? PHYSICAL_TAG.irFields : ['—'])).join(', ');
     const spellings = [...tags]
       .filter(([, used]) => used.has(slot))
       .map(([tag]) => tag)
@@ -673,6 +803,10 @@ try {
       `\n  constraint kinds:       ${KNOWN_CONSTRAINT_KINDS.join(', ')}`,
   );
   for (const note of notes) console.log(`  note: ${note}`);
+  console.log(
+    `  note: \`${PHYSICAL_TAG.marker}\` carries ${PHYSICAL_TAG.irFields.join(', ')} through ` +
+      `${PHYSICAL_TAG.directReader}`,
+  );
 } finally {
   core.api.close();
   validator.api.close();

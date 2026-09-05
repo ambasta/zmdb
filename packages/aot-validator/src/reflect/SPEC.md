@@ -164,6 +164,9 @@ again or agrees with another pass by luck.
 The order for one column is: read the tags, then take `Physical<'…'>` if the declaration carries one, else `naming.column(property, …)` if configured, else the property name. Explicit beats strategy,
 and the strategy is never consulted for a column that already answered the question.
 
+`Physical` is a type-only export from both `@zmdb/schema-core/tags` and `zmdb/tags`. The same optional unique-symbol slot is read in two positions: directly on the interface for `physicalTable`, and
+from a property's intersection members for `physicalName`.
+
 `context.table` is the **declared** table name, not the physical one. A user function that special-cases a table wants the string the author wrote, and passing the declared name means that function
 reads the same whether or not a `table` strategy is also configured — otherwise turning on pluralisation silently changes which branch a `column` strategy takes.
 
