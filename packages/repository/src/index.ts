@@ -251,15 +251,14 @@ interface SchemaSqlNames {
 
 function schemaSqlNames(schema: CoreSchema<string>): SchemaSqlNames {
   const ir = schema.ir;
-  const columns = new Map(ir.columns.map(column => [column.name, column.physicalName]));
-  const renamed = ir.columns.some(column => column.name !== column.physicalName);
+  const columns = new Map(ir.columns.map(column => [column.name, column.physicalName ?? column.name]));
+  const renamed = ir.columns.some(column => column.physicalName !== undefined && column.name !== column.physicalName);
   const entityProjection = renamed
     ? Object.freeze(
-        ir.columns.map(column =>
-          column.name === column.physicalName
-            ? column.physicalName
-            : { column: column.physicalName, alias: column.name },
-        ),
+        ir.columns.map(column => {
+          const physical = column.physicalName ?? column.name;
+          return column.name === physical ? physical : { column: physical, alias: column.name };
+        }),
       )
     : undefined;
   const keyColumns = Object.freeze([...ir.primaryKey]);

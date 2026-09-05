@@ -120,6 +120,7 @@ describe('typed create/update (#206)', () => {
         columns: [
           {
             name: 'id',
+            physicalName: 'id',
             sql: 'serial',
             nullable: false,
             primaryKey: true,
@@ -132,6 +133,7 @@ describe('typed create/update (#206)', () => {
           },
           {
             name: 'total',
+            physicalName: 'total',
             sql: 'text',
             codec: 'Money',
             payload: { kind: 'unknown' },
@@ -146,6 +148,7 @@ describe('typed create/update (#206)', () => {
           },
           {
             name: 'discount',
+            physicalName: 'discount',
             sql: 'text',
             codec: 'Money',
             payload: { kind: 'unknown' },
