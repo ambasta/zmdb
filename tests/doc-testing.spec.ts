@@ -28,7 +28,6 @@ import { avg, count, max, min, sum } from '../packages/query-compiler/src/aggreg
 import { createQueryCompiler as createCompiler } from '../packages/query-compiler/src/index.ts';
 import { batch as setOpsBatch } from '../packages/query-compiler/src/set-ops/index.ts';
 import { pgDriver } from '../packages/repository/src/drivers/pg.ts';
-import { sqliteDriver } from '../packages/repository/src/drivers/sqlite.ts';
 import {
   discriminatorFor,
   flattenEmbeddable,
@@ -55,6 +54,7 @@ import {
 } from '../packages/schema-core/src/dto/index.ts';
 import { getRegisteredSchema, isRecord, registeredSchemas, SchemaError } from '../packages/schema-core/src/index.ts';
 import { schemaFromIR, type ColumnIR, type SchemaIR } from '../packages/schema-core/src/ir/index.ts';
+import { sqliteDriver } from '../packages/sqlite/src/driver.ts';
 
 class LegacyColumnBuilder {
   meta: Record<string, unknown>;
