@@ -1,15 +1,14 @@
 {
   "problems": [
     "@zmdb/web core dependencies {\"@zmdb/aot-validator\":\"workspace:^\",\"@zmdb/app\":\"workspace:^\",\"@zmdb/query-compiler\":\"workspace:^\",\"@zmdb/schema-core\":\"workspace:^\"}, expected {\"@zmdb/aot-validator\":\"workspace:^\",\"@zmdb/app\":\"workspace:^\",\"@zmdb/schema-core\":\"workspace:^\"}",
-    "@zmdb/web core exports [., ./app, ./bench, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./microservices/rabbitmq, ./microservices/redis, ./middleware, ./openapi, ./pipeline, ./routing, ./static, ./testing, ./upload, ./versioning], expected [., ./app, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./middleware, ./openapi, ./pipeline, ./routing, ./static, ./testing, ./upload, ./versioning]",
-    "@zmdb/web core peerDependencies [amqplib, redis, typescript], expected []",
-    "@zmdb/web declares optional server packages or peers [amqplib, redis]",
+    "@zmdb/web core exports [., ./app, ./bench, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./microservices/redis, ./middleware, ./openapi, ./pipeline, ./routing, ./static, ./testing, ./upload, ./versioning], expected [., ./app, ./compression, ./context, ./contract, ./contract/compiler, ./csrf, ./data, ./devtools, ./dto-pipes, ./gateways, ./health, ./middleware, ./openapi, ./pipeline, ./routing, ./static, ./testing, ./upload, ./versioning]",
+    "@zmdb/web core peerDependencies [redis, typescript], expected []",
+    "@zmdb/web declares optional server packages or peers [redis]",
     "@zmdb/web imports packages outside its direct edge contract [@zmdb/query-compiler]",
-    "@zmdb/web reaches forbidden server/reflection peers [amqplib, redis]",
-    "@zmdb/web reaches optional server peers [amqplib, redis]",
-    "@zmdb/web still publishes old integration subpaths [./microservices/rabbitmq, ./microservices/redis]",
+    "@zmdb/web reaches forbidden server/reflection peers [redis]",
+    "@zmdb/web reaches optional server peers [redis]",
+    "@zmdb/web still publishes old integration subpaths [./microservices/redis]",
     "missing package manifest for @zmdb/jobs-postgres: packages/jobs-postgres/package.json",
-    "missing package manifest for @zmdb/transport-rabbitmq: packages/transport-rabbitmq/package.json",
     "missing package manifest for @zmdb/transport-redis: packages/transport-redis/package.json",
     "zmdb is missing core server dependencies [@zmdb/jobs]",
     "zmdb is missing core server facade subpaths [./app, ./app/commands, ./app/cqrs, ./app/data, ./app/di, ./app/events, ./app/health, ./app/lifecycle, ./app/messaging, ./app/modules, ./app/observability, ./app/state, ./jobs, ./jobs/memory, ./jobs/schedule, ./web/app, ./web/compression, ./web/context, ./web/csrf, ./web/data, ./web/devtools, ./web/dto-pipes, ./web/gateways, ./web/health, ./web/middleware, ./web/openapi, ./web/pipeline, ./web/routing, ./web/static, ./web/testing, ./web/upload, ./web/versioning]"

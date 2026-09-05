@@ -43,13 +43,13 @@ The neutral `@zmdb/app/messaging` entry imports no broker client. Install the op
 ```bash
 npm add @zmdb/web redis
 npm add @zmdb/transport-nats @nats-io/transport-node
-npm add @zmdb/web amqplib
+npm add @zmdb/transport-rabbitmq amqplib
 ```
 
 ```ts
 import { createRedisStrategy } from '@zmdb/web/microservices/redis';
 import { createNatsStrategy } from '@zmdb/transport-nats';
-import { createRabbitMqStrategy } from '@zmdb/web/microservices/rabbitmq';
+import { createRabbitMqStrategy } from '@zmdb/transport-rabbitmq';
 ```
 
 ## Redis Pub/Sub

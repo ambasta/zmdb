@@ -292,6 +292,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-server-integrations' },
   }),
   productPackage({
+    id: 'transport-rabbitmq',
+    directory: 'packages/transport-rabbitmq',
+    npmName: '@zmdb/transport-rabbitmq',
+    role: 'rabbitmq',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'RabbitMQ' },
+    docsOwner: 'web-microservices-transports',
+    consumer: { fixture: 'fixtures/consumer-server-integrations' },
+  }),
+  productPackage({
     id: 'web',
     directory: 'packages/web',
     npmName: '@zmdb/web',

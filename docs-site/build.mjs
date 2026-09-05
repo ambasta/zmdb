@@ -459,8 +459,8 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Twenty published packages</h2>
-  <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in client/framework, gRPC, NATS, MCP, OpenTelemetry, or another implementation package on its own.</p>
+  <h2>Twenty-one published packages</h2>
+  <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in client/framework, gRPC, NATS, RabbitMQ, MCP, OpenTelemetry, or another implementation package on its own.</p>
   <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
     <div class="pkg"><code>@zmdb/react</code><p>React context, query, and mutation lifecycle bindings for generated HTTP clients.</p></div>
@@ -479,6 +479,7 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/otel</code><p>OpenTelemetry API adaptation over caller-owned tracers and meters, with no SDK, exporter, or ambient global context.</p></div>
     <div class="pkg"><code>@zmdb/transport-grpc</code><p>Typed grpc-js servers and clients over generated protobuf artifacts, with streaming, deadlines, metadata, and bounded shutdown.</p></div>
     <div class="pkg"><code>@zmdb/transport-nats</code><p>Core NATS wildcard and queue-group messaging over the public application transport strategy contract.</p></div>
+    <div class="pkg"><code>@zmdb/transport-rabbitmq</code><p>RabbitMQ topic transport with positive prefetch, confirmed delayed retries, and owned dead-letter topology.</p></div>
     <div class="pkg"><code>@zmdb/web</code><p>HTTP controllers, routing, request pipelines, OpenAPI, gateways, testing, and runtime adapters over <code>@zmdb/app</code>.</p></div>
     <div class="pkg"><code>zmdb</code><p>The curated data/web umbrella. It contains no implementation logic and does not re-export opt-in AI, MCP, OpenTelemetry, frontend, or transport packages.</p></div>
   </div>

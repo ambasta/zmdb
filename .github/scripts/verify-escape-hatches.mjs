@@ -121,6 +121,7 @@ const PACKAGES = [
   'otel',
   'transport-grpc',
   'transport-nats',
+  'transport-rabbitmq',
   'web',
   'zmdb',
 ];

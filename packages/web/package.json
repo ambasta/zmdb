@@ -49,7 +49,6 @@
     "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
     "./microservices/redis": "./src/microservices/redis/index.ts",
-    "./microservices/rabbitmq": "./src/microservices/rabbitmq/index.ts",
     "./testing": "./src/testing/index.ts",
     "./bench": "./src/bench/index.ts",
     "./devtools": "./src/devtools/index.ts"
@@ -70,19 +69,14 @@
   },
   "devDependencies": {
     "@zmdb/ai": "workspace:^",
-    "amqplib": "2.0.1",
     "redis": "6.2.1",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "amqplib": "^2.0.1",
     "redis": "^6.2.1",
     "typescript": ">=7.0.0"
   },
   "peerDependenciesMeta": {
-    "amqplib": {
-      "optional": true
-    },
     "redis": {
       "optional": true
     },
