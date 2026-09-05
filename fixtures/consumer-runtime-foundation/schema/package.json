@@ -1,0 +1,8 @@
+{
+  "name": "@zmdb-fixture/runtime-schema",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/schema": "1.0.0-alpha.4"
+  }
+}

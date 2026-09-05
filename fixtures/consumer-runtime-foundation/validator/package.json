@@ -1,0 +1,9 @@
+{
+  "name": "@zmdb-fixture/runtime-validator",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/schema": "1.0.0-alpha.4",
+    "@zmdb/validator": "1.0.0-alpha.4"
+  }
+}

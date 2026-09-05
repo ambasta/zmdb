@@ -1,0 +1,11 @@
+{
+  "name": "@zmdb-fixture/runtime-orm",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/orm": "1.0.0-alpha.4",
+    "@zmdb/schema": "1.0.0-alpha.4",
+    "@zmdb/sql": "1.0.0-alpha.4",
+    "@zmdb/validator": "1.0.0-alpha.4"
+  }
+}

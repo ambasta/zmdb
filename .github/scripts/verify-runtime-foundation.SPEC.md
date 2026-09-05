@@ -16,21 +16,22 @@ find packages/schema-core/src packages/query-compiler/src \
 Those are exactly the TypeScript files included by the four current `tsconfig.build.json` files. Fixtures and `__testing__` helpers are included because the build configuration does not currently
 exclude them; the ownership map therefore cannot pretend they are not shipped.
 
-Measured at `e0ff1592c9cf64cd70678c9fbfc61d24cba82a11`:
+Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`; the earlier
+136-file count predated them even though this specification landed later:
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              30 |                 15 |
-| `@zmdb/query-compiler` |                              28 |                 13 |
+| `@zmdb/query-compiler` |                              31 |                 13 |
 | `@zmdb/aot-validator`  |                              56 |                 15 |
 | `@zmdb/repository`     |                              22 |                 11 |
-| **Total**              |                         **136** |             **54** |
+| **Total**              |                         **139** |             **54** |
 
 The four manifests contain 24 dependency entries: 6 `dependencies`, 5 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 136 files appears exactly once below. A future verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
+Every one of the 139 files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate path, or a path
 whose declared destination no longer exists in the architecture policy.
 
 ### `@zmdb/ai` — 10
@@ -223,7 +224,7 @@ packages/schema-core/src/tags/index.ts
 The three fixture/`__testing__` files remain schema-test-owned and must stop being published. `dto/index.ts`, `relations/index.ts`, and the current root are mixed files; §3 assigns every exported
 member before those files are split.
 
-### `@zmdb/sql` — 15
+### `@zmdb/sql` — 18
 
 ```text
 packages/query-compiler/src/aggregations/index.ts
@@ -241,10 +242,13 @@ packages/query-compiler/src/quoting.ts
 packages/query-compiler/src/schema-objects/extensions.ts
 packages/query-compiler/src/schema-objects/index.ts
 packages/query-compiler/src/set-ops/index.ts
+packages/query-compiler/src/testing/capability-matrix.ts
+packages/query-compiler/src/testing/database-vertical.ts
+packages/query-compiler/src/testing/external-dialect.fixture.ts
 ```
 
 The generic package owns the injected dialect protocol and algorithms. Official vendor values may move to database verticals only by extracting them from these files; the generic definitions may not
-be duplicated.
+be duplicated. The three `testing/` files freeze that protocol for #667; they remain SQL-test-owned and must be excluded from the published build after the move.
 
 ### `@zmdb/sqlite` — 1
 
