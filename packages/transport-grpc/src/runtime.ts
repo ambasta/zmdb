@@ -52,6 +52,10 @@ type RuntimeMethod = GrpcLoadedMethod<GrpcMethodDef>;
 
 type DecodedRequest = { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: unknown };
 
+function isDecodedRequest(data: unknown): data is DecodedRequest {
+  return typeof data === 'object' && data !== null && 'ok' in data;
+}
+
 interface ServerCallSurface {
   readonly cancelled: boolean;
   readonly metadata: Metadata;
@@ -390,7 +394,7 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
 
   const onData = (data: unknown): void => {
     // boundary: gRPC request stream emits DecodedRequest objects
-    queue.push(data as DecodedRequest);
+    if (isDecodedRequest(data)) queue.push(data);
     resolveNext?.();
   };
   const onEnd = (): void => {
