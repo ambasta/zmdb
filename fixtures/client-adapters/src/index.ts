@@ -13,6 +13,7 @@ export {
   type HeldAdapterRequest,
   type HeldAdapterRequestState,
 } from './controllable-transport.js';
+export { createAngularConformanceBinding } from './angular-binding.js';
 export {
   bindPreparedAdapterSubject,
   unavailableAdapterSubject,

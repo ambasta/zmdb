@@ -1,7 +1,7 @@
 # Package architecture and release governance — specification
 
-> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #657, #658, #659,
-> #660, #661, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge
+> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #692, #657, #658,
+> #659, #660, #661, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge
 > enforcement; and #727 implements package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime, tooling and optional-peer reachability; only the release verifier remains
 > a later slice. The original measured baseline is commit `5adba11e` on 2026-09-05.
 
@@ -24,11 +24,11 @@ At the measured baseline:
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
-Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #657, #658, #659, #660, and #661 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`,
-`@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/react`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and
-`@zmdb/transport-redis`, and `@zmdb/jobs-postgres`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current twenty-three manifests keep `1.0.0-alpha.4`, declare 41 direct non-dev
-workspace edges, and declare 15 peer dependencies: 8 optional peers plus required OpenTelemetry, React, grpc-js, NATS, RabbitMQ, Redis, and PostgreSQL peers confined to their selected integration
-packages.
+Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #692, #657, #658, #659, #660, and #661 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`,
+`@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,
+`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current twenty-four manifests keep `1.0.0-alpha.4`,
+declare 41 direct non-dev workspace edges, and declare 17 peer dependencies: 8 optional peers plus required OpenTelemetry, React, Angular, RxJS, grpc-js, NATS, RabbitMQ, Redis, and PostgreSQL peers
+confined to their selected integration packages.
 
 ## 2. Canonical policy API
 
@@ -123,8 +123,8 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current twenty-three catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing
-or renaming a catalog member requires the catalog and policy key sets to change atomically.
+The following object is normative. It constrains the current twenty-four catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
+renaming a catalog member requires the catalog and policy key sets to change atomically.
 
 ```ts
 export const PACKAGE_POLICY = {
@@ -143,6 +143,16 @@ export const PACKAGE_POLICY = {
     zone: 'integration',
     ring: 1,
     allowedWorkspaceDependencies: ['client'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+    release: 'lockstep',
+  },
+  angular: {
+    directory: 'packages/angular',
+    zone: 'integration',
+    ring: 0,
+    allowedWorkspaceDependencies: [],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -379,8 +389,8 @@ The empty `allowedRuntimeDependencies` arrays are deliberate. Current ordinary t
 - `@zmdb/query-compiler#./introspect` reaches `oxfmt` only through declaration emission; and
 - `zmdb#./cli` and `bin:zmdb` reach `esbuild` and `oxfmt` for scaffolding, embedding and application loading.
 
-`@zmdb/react`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` reach their required peers under §5.4, so
-they do not use an ordinary-runtime dependency allowance.
+`@zmdb/react`, `@zmdb/angular`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` reach their required peers
+under §5.4, so they do not use an ordinary-runtime dependency allowance.
 
 Every tooling selector carries an adjacent implementation comment explaining its purpose. A later package split moves the selector and dependency together; it does not leave a compatibility exemption
 in the former owner.

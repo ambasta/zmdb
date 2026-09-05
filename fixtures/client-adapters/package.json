@@ -11,6 +11,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@types/react-test-renderer": "19.1.0",
+    "@zmdb/angular": "workspace:^",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-test-renderer": "19.2.8",

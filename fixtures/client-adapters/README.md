@@ -32,6 +32,9 @@ remaining missing adapters still use the bridge as retirement triggers. No imple
 - `ssr.ts` starts two concurrent authenticated requests and compares the credentials and results by request URL.
 - `package-rules.ts` enforces the package matrix, framework peers, import purity, and the absence of server, ORM, database, or competing HTTP dependencies.
 
+Import purity is measured after loading the adapter's required framework peers. This separates effects owned by a framework runtime—Angular core itself installs `ngDevMode` and devtools globals—from
+network or global registration added by an adapter package.
+
 ## Packed projects
 
 `runPackedProject` copies publish-ready package trees to a temporary staging area, runs `npm pack`, installs only the resulting tarballs into a clean application, verifies that installed packages are
@@ -39,4 +42,6 @@ not workspace symlinks, and then runs the supplied framework build/runtime comma
 ranges.
 
 This helper is orchestration, not qualification evidence by itself. Issue #691 combines it with the real `@zmdb/react` package, React lifecycle binding, published manifests, external typecheck, and
-the common runtime cases. Issue #700 remains responsible for the cross-adapter qualification that cannot be earned by the React slice alone.
+the common runtime cases. Issue #692 adds `angular/verify-packed.mjs`, which packs `@zmdb/client` and `@zmdb/angular`, typechecks the installed declarations, bundles the Angular entry for a browser
+without `HttpClient`, runs the common conformance cases, and executes two concurrent request-local SSR injectors. Issue #700 remains responsible for cross-adapter qualification that neither
+framework-specific slice can earn alone.

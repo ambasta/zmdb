@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 const PACKAGES = [
   '@zmdb/client',
   '@zmdb/react',
+  '@zmdb/angular',
   '@zmdb/query-compiler',
   '@zmdb/schema-core',
   '@zmdb/ai',

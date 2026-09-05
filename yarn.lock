@@ -2379,6 +2379,7 @@ __metadata:
     "@types/react": "npm:19.2.18"
     "@types/react-dom": "npm:19.2.7"
     "@types/react-test-renderer": "npm:19.1.0"
+    "@zmdb/angular": "workspace:^"
     "@zmdb/client": "workspace:^"
     "@zmdb/react": "workspace:^"
     react: "npm:19.2.8"
@@ -2472,6 +2473,19 @@ __metadata:
     "@zmdb/schema-core": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/angular@workspace:^, @zmdb/angular@workspace:packages/angular":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/angular@workspace:packages/angular"
+  dependencies:
+    "@angular/core": "npm:22.1.5"
+    rxjs: "npm:7.8.2"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    "@angular/core": ">=22.1.0 <23.0.0"
+    rxjs: ">=7.4.0 <8.0.0"
   languageName: unknown
   linkType: soft
 

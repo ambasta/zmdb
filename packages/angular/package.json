@@ -1,0 +1,55 @@
+{
+  "name": "@zmdb/angular",
+  "version": "1.0.0-alpha.4",
+  "description": "Angular dependency-injection, signal, lifecycle, and Observable bindings for generated zmdb clients.",
+  "keywords": [
+    "angular",
+    "client",
+    "dependency-injection",
+    "rxjs",
+    "signals",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/angular"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@angular/core": "22.1.5",
+    "rxjs": "7.8.2",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@angular/core": ">=22.1.0 <23.0.0",
+    "rxjs": ">=7.4.0 <8.0.0"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

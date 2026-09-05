@@ -144,7 +144,7 @@ describe('the one-product facade and catalog (#619, #622)', () => {
         capability: 'React',
         package: '@zmdb/react',
         status: 'optional',
-        peer: 'react',
+        peers: ['react'],
         docs: 'react',
         evidence: ['fixtures/react'],
       },
@@ -165,8 +165,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
   it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
     const report = await catalogReport();
     expect(report.membershipProblems).toEqual([]);
-    expect(report.rows).toHaveLength(23);
-    expect(report.manifests.size).toBe(23);
+    expect(report.rows).toHaveLength(24);
+    expect(report.manifests.size).toBe(24);
 
     const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
     const staleManifests = new Map(report.manifests);
@@ -211,7 +211,7 @@ describe('the one-product facade and catalog (#619, #622)', () => {
         capability: 'Vercel AI SDK',
         package: '@zmdb/ai-vercel',
         status: 'optional',
-        peer: 'ai',
+        peers: ['ai'],
         docs: 'llm-vercel-ai-sdk',
         evidence: ['fixtures/llm-adapters'],
       },
@@ -225,8 +225,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
 
     expect(report.problems).toEqual([]);
-    expect(report.assignments).toHaveLength(23);
-    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(15);
+    expect(report.assignments).toHaveLength(24);
+    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(16);
     expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(8);
   });
 

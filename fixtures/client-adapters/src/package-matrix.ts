@@ -35,7 +35,7 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     name: '@zmdb/angular',
     directory: 'angular',
     lifecycle: 'angular',
-    dependencies: { '@zmdb/client': 'workspace:^' },
+    dependencies: {},
     peerDependencies: {
       '@angular/core': '>=22.1.0 <23.0.0',
       rxjs: '>=7.4.0 <8.0.0',

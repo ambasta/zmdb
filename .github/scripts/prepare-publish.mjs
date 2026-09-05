@@ -16,6 +16,10 @@ const META = {
     description: 'React context, query, and mutation lifecycle bindings for generated zmdb clients.',
     keywords: ['client', 'react', 'typescript', 'zmdb'],
   },
+  angular: {
+    description: 'Angular dependency-injection, signal, lifecycle, and Observable bindings for generated zmdb clients.',
+    keywords: ['typescript', 'angular', 'client', 'dependency-injection', 'signals', 'rxjs', 'zmdb'],
+  },
   'schema-core': {
     description:
       'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, and custom types — the single source of truth for a zmdb data layer.',

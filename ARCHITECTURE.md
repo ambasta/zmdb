@@ -171,10 +171,12 @@ the generic packages.
       └────────────────┘
 ```
 
-`@zmdb/client` and `@zmdb/protobuf` are independent roots. The opt-in `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` packages depend inward only on `@zmdb/ai`; each integration
-alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/otel`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and `@zmdb/transport-redis` each depend only on
-`@zmdb/app` and declare only their selected technology as a required peer; `@zmdb/transport-grpc` depends on `@zmdb/app` and `@zmdb/protobuf`. `@zmdb/jobs-postgres` depends on `@zmdb/jobs` and
-`@zmdb/repository` and alone owns the required `pg` peer for job storage. None of these optional packages or the provider-neutral AI package is re-exported by the umbrella.
+`@zmdb/client`, `@zmdb/angular`, and `@zmdb/protobuf` are independent roots. Angular applications install the client runtime for generated code, while `@zmdb/angular` accepts that generated client's
+public method shape without a workspace import and declares Angular/RxJS as its required peers. The opt-in `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` packages depend inward only
+on `@zmdb/ai`; each integration alone declares its SDK/framework peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/otel`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and
+`@zmdb/transport-redis` each depend only on `@zmdb/app` and declare only their selected technology as a required peer; `@zmdb/transport-grpc` depends on `@zmdb/app` and `@zmdb/protobuf`.
+`@zmdb/jobs-postgres` depends on `@zmdb/jobs` and `@zmdb/repository` and alone owns the required `pg` peer for job storage. None of these optional packages or the provider-neutral AI package is
+re-exported by the umbrella.
 
 `@zmdb/sqlite` depends on query-compiler and repository and owns the complete SQLite dialect, migration, introspection, embedded-runner, and structural-driver slice. During the transition,
 `@zmdb/jobs` depends on it for the in-memory queue backend and `zmdb` depends on it for the retained `zmdb/drivers/sqlite` facade. #675 owns the final product/config/CLI cutover and optional facade
@@ -187,6 +189,8 @@ shape.
 - **AI depends on schema-core, never the reverse.** Its provider-neutral implementations and public names are physically owned by `@zmdb/ai`.
 - **AI integrations depend inward on AI.** `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` own their provider/framework adapters; their optional peers do not reach schema-core or
   provider-neutral AI.
+- **Angular binds the generated client structurally.** It owns DI, signals, `DestroyRef`, Observable cancellation, and request-local SSR state without importing client, web, schema, compiler, or ORM
+  packages.
 - **MCP depends only on AI.** It owns the transport-neutral MCP client/server protocol, uses only platform APIs, and is not re-exported by the umbrella.
 - **aot-validator depends on schema-core and AI, never the reverse.** Reflection remains above the declaration vocabulary; `toolFor` compilation consumes AI's document boundary.
 - **repository is the composition layer** — it wires schema + compiler + validator into CRUD and temporarily retains the structurally injected PostgreSQL and SQL Server compatibility adapters.
@@ -207,6 +211,7 @@ shape.
 | Package                    | Responsibility                                                                                                                                        | Runtime deps                                                             |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `@zmdb/client`             | Dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors | none                                                                     |
+| `@zmdb/angular`            | Angular DI, signal, `DestroyRef`, Observable cancellation, and request-local generated-client ownership                                               | `@angular/core`, `rxjs` (required peers)                                 |
 | `@zmdb/react`              | Optional React context, hooks and component-lifecycle ownership for generated clients                                                                 | client; `react` (required peer)                                          |
 | `@zmdb/query-compiler`     | SQL-first compiler, generic DDL/migrations and introspection protocols, declaration emission, and remaining built-in dialect definitions              | oxfmt                                                                    |
 | `@zmdb/schema-core`        | Tags, `TypeIR`, derived DTOs, relations, JSON Schema, seeding, and custom types; no AI source, export, or peer                                        | query-compiler                                                           |
@@ -481,8 +486,8 @@ The catalog deliberately does not own versions, dependency ranges, changelogs, n
 to architecture-governance EPIC #721 and its release implementation #728; release tooling may read catalog membership only.
 
 The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
-ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the twenty-three-package inventory plus required catalog consumers and rejection rules are frozen
-in [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
+ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the twenty-four-package inventory plus required catalog consumers and rejection rules are frozen in
+[`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
 ### 3.10 Canonical architecture policy and enforcement (#722, #724, #725, #726, #727)
 
@@ -498,12 +503,13 @@ foundation < runtime < application < integration < tooling < facade
 ```
 
 A package may depend only on its own or an inward zone, every direct workspace dependency must also be named explicitly by that package's policy row, and the dependency's numeric ring must be lower
-than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current twenty-three
+than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current twenty-four
 catalog members therefore freeze as:
 
 | Catalog id           | Zone          | Ring | Direct workspace dependencies                                                          |
 | -------------------- | ------------- | ---: | -------------------------------------------------------------------------------------- |
 | `client`             | `foundation`  |    0 | none                                                                                   |
+| `angular`            | `integration` |    0 | none                                                                                   |
 | `react`              | `integration` |    1 | `client`                                                                               |
 | `protobuf`           | `foundation`  |    0 | none                                                                                   |
 | `query-compiler`     | `foundation`  |    0 | none                                                                                   |
@@ -543,7 +549,7 @@ NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 All catalog packages form one lockstep release train. They carry one version, use `workspace:^` for committed internal ranges, derive publish order from the policy DAG, share one root changelog and
 must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
 
-The complete `PackagePolicy` schema, all twenty-three rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
+The complete `PackagePolicy` schema, all twenty-four rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
 [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication ordering remain separately frozen in [PUBLISHING.md](./PUBLISHING.md) for #728.
 
 ### 3.11 Frozen tooling-package target (#626)
@@ -736,6 +742,6 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the twenty-three-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/ai`, its opt-in integrations,
-`@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/jobs-postgres`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
+the north-star-driven language policy in §4 here, and it records the twenty-four-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/ai`, its opt-in
+integrations, `@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/jobs-postgres`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
 `@zmdb/transport-redis`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

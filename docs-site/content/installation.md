@@ -1,4 +1,4 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-three packages are published today: twenty-two focused packages plus the `zmdb` facade. The
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-four packages are published today: twenty-three focused packages plus the `zmdb` facade. The
 recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in
 provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently
 installable.

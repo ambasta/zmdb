@@ -100,7 +100,8 @@ An integration earns a package only when every statement below is true:
 1. **Native ownership.** It owns behaviour implemented through a framework primitive that the neutral client cannot provide: DI/context, reactive lifetime, subscription cleanup, owner disposal,
    request-local SSR transport, hydration, or an enforced server/browser boundary.
 2. **More than construction.** Removing the package would require applications to reproduce a stateful lifecycle protocol, not merely call `createApiClient()` or pass `fetch`.
-3. **One inward edge.** It depends only on `@zmdb/client`, its named base adapter where applicable, and required framework peers. It introduces no reverse edge or cycle.
+3. **No outward edge.** It may depend on `@zmdb/client`, its named base adapter where applicable, and required framework peers, but introduces no reverse edge or cycle. A structurally generic adapter
+   may omit the client dependency when its production source imports no client symbol.
 4. **Real qualification evidence.** A packed minimal application exercises the native behaviour through the real framework. A type-only shape or mocked lifecycle is insufficient.
 5. **No duplicated client.** Its shipped source contains no URL construction, request serialization, authentication policy, status dispatch or response validation.
 6. **No import effect.** Importing the package and creating its binding namespace performs no request, installs no global client and registers no process-global state.
@@ -264,7 +265,7 @@ Every package is ESM-only, has `sideEffects: false`, performs no global registra
 | Package              | Workspace dependencies         | Required framework peers                      | Public exports              |
 | -------------------- | ------------------------------ | --------------------------------------------- | --------------------------- |
 | `@zmdb/react`        | `@zmdb/client`                 | `react`; optional `@types/react`              | `.`                         |
-| `@zmdb/angular`      | `@zmdb/client`                 | `@angular/core`, `rxjs`                       | `.`                         |
+| `@zmdb/angular`      | none                           | `@angular/core`, `rxjs`                       | `.`                         |
 | `@zmdb/vue`          | `@zmdb/client`                 | `vue`                                         | `.`                         |
 | `@zmdb/svelte`       | `@zmdb/client`                 | `svelte`                                      | `.`                         |
 | `@zmdb/solid`        | `@zmdb/client`                 | `solid-js`                                    | `.`                         |
@@ -280,12 +281,13 @@ The dependency arrows are:
 ├── @zmdb/react
 │   ├── @zmdb/react-native
 │   └── @zmdb/next
-├── @zmdb/angular
 ├── @zmdb/vue
 │   └── @zmdb/nuxt
 ├── @zmdb/svelte
 │   └── @zmdb/sveltekit
 └── @zmdb/solid
+
+@zmdb/angular (structural generated-client binding; no workspace edge)
 ```
 
 No arrow points from a base adapter to a meta-framework adapter, from `@zmdb/client` to an adapter, or from any adapter to `@zmdb/web`, the ORM, schema packages, compiler or validator.
@@ -339,8 +341,9 @@ name the binding and explain that its provider is absent. StrictMode leaves at m
 
 ### 6.2 Angular
 
-The binding factory owns a typed `InjectionToken<Client>`. Providers respect injector hierarchy. Queries expose Angular signals and bind controllers to `DestroyRef`. The RxJS bridge aborts on final
-unsubscribe. The package does not require `HttpClient`; applications that want it adapt its fetch shape outside the package.
+The binding factory owns a typed `InjectionToken<ZmdbClientRef<Client>>`. Angular 22.1.5 probes resolved provider values for `ngOnDestroy`, so the token carries a frozen one-property holder rather
+than letting that framework probe touch the opaque generated client. `injectZmdbClient()` returns the original client by identity. Providers respect injector hierarchy. Queries expose Angular signals
+and bind controllers to `DestroyRef`. The RxJS bridge aborts on final unsubscribe. The package does not require `HttpClient`; applications that want it adapt its fetch shape outside the package.
 
 ### 6.3 Vue
 

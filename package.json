@@ -32,6 +32,7 @@
     "test:watch": "vitest",
     "typecheck": "node scripts/typecheck.mjs",
     "validate:spec": "node .github/scripts/validate-specs.mjs",
+    "verify:angular-adapter": "node --import ./scripts/ts-specifier-hook.mjs fixtures/client-adapters/angular/verify-packed.mjs",
     "verify:api-coverage": "node .github/scripts/verify-api-coverage.mjs",
     "verify:architecture-zones": "node .github/scripts/verify-architecture-zones.mjs",
     "verify:bench": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-bench-results.mjs",

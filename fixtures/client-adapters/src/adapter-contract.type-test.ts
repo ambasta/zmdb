@@ -1,14 +1,13 @@
 // Compile-only framework inference freeze for #689.
 //
-// React now uses its real public types. The remaining namespace imports are
+// React and Angular now use their real public types. The remaining namespace imports are
 // retirement triggers: each implementation issue makes its directive unused,
 // at which point that package's native bridge below must be replaced by the
 // real public types rather than leaving a structural stand-in behind.
 
-import type { Signal } from '@angular/core';
-// @ts-expect-error #692 supplies the Angular adapter package
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #692
-import type * as MissingAngularAdapter from '@zmdb/angular';
+import type { InjectionToken } from '@angular/core';
+import { createZmdbAngular } from '@zmdb/angular';
+import type { ZmdbAngularBindings, ZmdbClientRef } from '@zmdb/angular';
 // @ts-expect-error #697 supplies the Next client entry
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #697
 import type * as MissingNextClientAdapter from '@zmdb/next/client';
@@ -44,6 +43,7 @@ import type * as MissingSvelteKitServerAdapter from '@zmdb/sveltekit/server';
 // @ts-expect-error #693 supplies the Vue adapter package
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #693
 import type * as MissingVueAdapter from '@zmdb/vue';
+import type { Observable } from 'rxjs';
 import type { Accessor } from 'solid-js';
 import type { Readable } from 'svelte/store';
 import type { Ref } from 'vue';
@@ -65,24 +65,6 @@ type Equal<Left, Right> =
 type Expect<Value extends true> = Value;
 
 type ReactBindings<Client extends object> = ZmdbReactBindings<Client>;
-
-interface AngularQuery<Output> {
-  readonly data: Signal<Output | undefined>;
-  readonly error: Signal<unknown>;
-  readonly loading: Signal<boolean>;
-  refresh(): Promise<void>;
-}
-
-interface AngularMutation<Input, Output> {
-  readonly error: Signal<unknown>;
-  readonly pending: Signal<boolean>;
-  mutate(input: Input): Promise<Output>;
-}
-
-interface AngularBindings<Client> {
-  query<Input, Output>(input: Input, load: QueryLoader<Client, Input, Output>): AngularQuery<Output>;
-  mutation<Input, Output>(run: MutationRunner<Client, Input, Output>): AngularMutation<Input, Output>;
-}
 
 interface VueQuery<Output> {
   readonly data: Readonly<Ref<Output | undefined>>;
@@ -152,17 +134,27 @@ function reactInference(bindings: ReactBindings<ApiClient>): void {
   void mutation.mutate({ id: 'one' });
 }
 
-function angularInference(bindings: AngularBindings<ApiClient>): void {
-  const query = bindings.query({ id: 'one' }, (client, input, signal) => client.getWidget(input, { signal }));
+function angularInference(bindings: ZmdbAngularBindings<ApiClient>): void {
+  const query = bindings.zmdbQuery({ id: 'one' }, (client, input, signal) => client.getWidget(input, { signal }));
   query.data() satisfies Widget | undefined;
   query.error() satisfies unknown;
   query.loading() satisfies boolean;
+  query.setInput satisfies (input: GetWidgetInput) => void;
+  query.refresh satisfies () => Promise<void>;
 
-  const mutation = bindings.mutation((client, input: RenameWidgetInput, signal) =>
+  const mutation = bindings.zmdbMutation((client, input: RenameWidgetInput, signal) =>
     client.renameWidget(input, { signal }),
   );
   mutation.pending() satisfies boolean;
   mutation.mutate satisfies (input: RenameWidgetInput) => Promise<Widget>;
+
+  const observable = bindings.zmdbObservable({ id: 'one' }, (client, input, signal) =>
+    client.getWidget(input, { signal }),
+  );
+  observable satisfies Observable<Widget>;
+  bindings.provideZmdbClient satisfies (client: ApiClient) => unknown;
+  bindings.injectZmdbClient satisfies () => ApiClient;
+  bindings.ZMDB_CLIENT satisfies InjectionToken<ZmdbClientRef<ApiClient>>;
 }
 
 function vueInference(bindings: VueBindings<ApiClient>): void {
@@ -231,7 +223,7 @@ function conformanceBindingInference(binding: AdapterConformanceBinding<ApiClien
 
 type NativeBindingsByPackage = {
   readonly '@zmdb/react': ReactBindings<ApiClient>;
-  readonly '@zmdb/angular': AngularBindings<ApiClient>;
+  readonly '@zmdb/angular': ZmdbAngularBindings<ApiClient>;
   readonly '@zmdb/vue': VueBindings<ApiClient>;
   readonly '@zmdb/svelte': SvelteBindings<ApiClient>;
   readonly '@zmdb/solid': SolidBindings<ApiClient>;
@@ -264,7 +256,6 @@ export type _MetaFrameworksReuseNativeBaseShapes = [
 ];
 
 export type _MissingPackageRetirementTriggers = [
-  keyof typeof MissingAngularAdapter,
   keyof typeof MissingNextClientAdapter,
   keyof typeof MissingNextServerAdapter,
   keyof typeof MissingNuxtAdapter,
@@ -281,6 +272,7 @@ export type _MissingPackageRetirementTriggers = [
 createZmdbReact<ApiClient>() satisfies ReactBindings<ApiClient>;
 void reactInference;
 void angularInference;
+void createZmdbAngular<ApiClient>;
 void vueInference;
 void svelteInference;
 void solidInference;

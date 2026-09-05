@@ -257,12 +257,12 @@ export function renderIntegrationRows(records) {
       record.capability,
       record.status,
       record.package ?? '—',
-      record.peer ?? '—',
+      (record.peers ?? []).join('<br>') || '—',
       `[${record.docs}](./${record.docs}.html)`,
       (record.evidence ?? []).map(path => `\`${path}\``).join('<br>'),
     ]);
   return renderMarkdownTable(
-    ['Framework', 'Status', 'Public package', 'Framework peer', 'Documentation', 'Repository evidence'],
+    ['Framework', 'Status', 'Public package', 'Framework peers', 'Documentation', 'Repository evidence'],
     rows,
   );
 }
@@ -297,21 +297,35 @@ export function verifyIntegrationRecords(rows, records, options = {}) {
     if (record.status !== 'not-planned' && record.package === null) {
       problems.push(`${record.status} integration ${record.capability} must name a package`);
     }
-    if (record.peer !== undefined) {
+    if (record.peers !== undefined) {
       const owner = record.package === null ? undefined : packages.get(record.package);
       if (record.status !== 'optional') {
-        problems.push(`integration ${record.capability} names a peer outside optional status`);
+        problems.push(`integration ${record.capability} names peers outside optional status`);
       } else if (owner?.optionality?.kind !== 'integration') {
-        problems.push(`integration ${record.capability} names peer ${record.peer} on a non-integration package`);
+        problems.push(`integration ${record.capability} names peers on a non-integration package`);
       }
-      if (manifests !== undefined && record.package !== null) {
-        const manifest = packageManifest(manifests, owner?.directory ?? '');
-        if (manifest.peerDependencies?.[record.peer] === undefined) {
-          problems.push(`integration ${record.capability} peer ${record.peer} is absent from ${record.package}`);
+      if (
+        !Array.isArray(record.peers) ||
+        record.peers.length === 0 ||
+        record.peers.some(peer => typeof peer !== 'string' || peer.length === 0)
+      ) {
+        problems.push(`integration ${record.capability} peers must be a non-empty string array`);
+      } else {
+        const duplicates = record.peers.filter((peer, index) => record.peers.indexOf(peer) !== index);
+        if (duplicates.length > 0) {
+          problems.push(`integration ${record.capability} repeats peers ${[...new Set(duplicates)].join(', ')}`);
+        }
+        if (manifests !== undefined && record.package !== null) {
+          const manifest = packageManifest(manifests, owner?.directory ?? '');
+          for (const peer of record.peers) {
+            if (manifest.peerDependencies?.[peer] === undefined) {
+              problems.push(`integration ${record.capability} peer ${peer} is absent from ${record.package}`);
+            }
+          }
         }
       }
     } else if (record.status === 'optional') {
-      problems.push(`optional integration ${record.capability} must name its peer`);
+      problems.push(`optional integration ${record.capability} must name its framework peers`);
     }
     if (pageSlugs !== undefined && !pageSlugs.has(record.docs)) {
       problems.push(`integration ${record.capability} docs owner ${record.docs} is not a canonical page`);

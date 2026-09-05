@@ -46,6 +46,7 @@ import {
 // `verify-exports.mjs`), so the temp project needs what a consumer of every advertised
 // subpath would already have.
 const PEERS = [
+  '@angular/core',
   'typescript',
   'pg',
   '@types/node',
@@ -61,6 +62,7 @@ const PEERS = [
   'amqplib',
   'redis',
   'react',
+  'rxjs',
 ];
 const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'app-custom-transport.ts');
 const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
@@ -448,6 +450,9 @@ writeFileSync(
 // This is deliberately copied outside the repository before compilation. It
 // implements the custom transport contract using only published subpaths, so a
 // private relative import or a source-only named export cannot pass here.
+// The all-subpath consumer also installs each required framework peer. Angular's
+// public declarations use browser globals, so the consumer includes the same DOM
+// libraries as a real Angular application without weakening declaration checking.
 cpSync(CUSTOM_TRANSPORT_FIXTURE, join(app, 'app-custom-transport.ts'));
 writeFileSync(
   join(app, 'tsconfig.json'),
@@ -455,7 +460,7 @@ writeFileSync(
     {
       compilerOptions: {
         target: 'ESNext',
-        lib: ['ESNext'],
+        lib: ['ESNext', 'DOM', 'DOM.Iterable'],
         module: 'NodeNext',
         moduleResolution: 'NodeNext',
         strict: true,

@@ -105,6 +105,7 @@ const BOUNDARIES_AT_AUDIT = 37;
 const PACKAGES = [
   'client',
   'react',
+  'angular',
   'schema-core',
   'ai',
   'ai-anthropic',

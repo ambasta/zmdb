@@ -2,12 +2,12 @@
 // the generated framework integration matrix; package membership and manifest
 // facts remain owned by scripts/product/catalog.mjs and package.json files.
 
-const integration = ({ capability, package: packageName, status, peer, docs, evidence }) =>
+const integration = ({ capability, package: packageName, status, peers, docs, evidence }) =>
   Object.freeze({
     capability,
     package: packageName,
     status,
-    ...(peer === undefined ? {} : { peer }),
+    ...(peers === undefined ? {} : { peers: Object.freeze([...peers]) }),
     docs,
     evidence: Object.freeze([...evidence]),
   });
@@ -15,10 +15,15 @@ const integration = ({ capability, package: packageName, status, peer, docs, evi
 export const INTEGRATIONS = Object.freeze([
   integration({
     capability: 'Angular',
-    package: null,
-    status: 'not-planned',
+    package: '@zmdb/angular',
+    status: 'optional',
+    peers: ['@angular/core', 'rxjs'],
     docs: 'framework-integrations',
-    evidence: ['packages/zmdb/src/client-integrations/SPEC.md'],
+    evidence: [
+      'packages/angular/src/index.spec.ts',
+      'packages/angular/src/index.type-test.ts',
+      'fixtures/client-adapters/angular',
+    ],
   }),
   integration({
     capability: 'Next.js',
@@ -38,7 +43,7 @@ export const INTEGRATIONS = Object.freeze([
     capability: 'React',
     package: '@zmdb/react',
     status: 'optional',
-    peer: 'react',
+    peers: ['react'],
     docs: 'framework-integrations',
     evidence: ['packages/react/src/react.spec.ts', 'fixtures/client-adapters'],
   }),

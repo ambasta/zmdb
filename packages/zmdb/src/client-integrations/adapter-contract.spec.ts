@@ -24,6 +24,7 @@ import {
   assertStaleResultSuppression,
   assertValidationErrorIdentity,
   bindPreparedAdapterSubject,
+  createAngularConformanceBinding,
   createAdapterClientFixture,
   createApiClient,
   createControllableAdapterTransport,
@@ -51,7 +52,50 @@ function expectationFor(name: AdapterPackageExpectation['name']): AdapterPackage
   return expectation;
 }
 
-const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(expectation => expectation.name !== '@zmdb/react');
+type ContractCase = (title: string, run: () => void | Promise<void>) => void;
+
+function registerExecutableAdapterContract(
+  contract: ContractCase,
+  binding: AdapterConformanceBinding<ApiClient>,
+): void {
+  contract('does not request before the framework primitive activates', () => assertNoRequestBeforeMount(binding));
+
+  contract('publishes pending and success through the framework primitive', () => assertPendingAndSuccess(binding));
+
+  contract('cancels when the owning scope is disposed', () => assertDisposalCancellation(binding));
+
+  contract('ignores a stale response after inputs change', () => assertStaleResultSuppression(binding));
+
+  contract('preserves ClientResponseError identity', () => assertClientResponseErrorIdentity(binding));
+
+  contract('preserves protocol errors from the generated client', () => assertProtocolErrorIdentity(binding));
+
+  contract('preserves response validation errors from the generated client', () =>
+    assertValidationErrorIdentity(binding),
+  );
+
+  contract('does not retry without explicit policy', () => assertNoImplicitRetry(binding));
+
+  contract('accepts a generated client without inspecting its contract', () => assertOpaqueGeneratedClient(binding));
+
+  contract('keeps concurrent mutation promises independent and only the newest error visible', () =>
+    assertIndependentMutations(binding),
+  );
+
+  contract('does not share request state across SSR requests', () => assertSsrCredentialIsolation(binding));
+
+  contract('imports without executing network I/O', () => {
+    assertAdapterImportsWithoutEffects(ROOT, binding.package);
+  });
+
+  contract('framework package has only expected peers', () => {
+    assertAdapterPackageManifest(binding.package, readAdapterPackageManifest(ROOT, binding.package));
+  });
+}
+
+const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(
+  expectation => expectation.name !== '@zmdb/react' && expectation.name !== '@zmdb/angular',
+);
 
 describe('the shared generated adapter fixture (#689, #690)', () => {
   it('the generated fixture client runs through the fake transport', async () => {
@@ -265,39 +309,11 @@ describe.each(Object.values(FRAMEWORK_LIFECYCLES))('the real $name lifecycle fix
 });
 
 describe('@zmdb/react executable adapter contract', () => {
-  const expectation = expectationFor('@zmdb/react');
-  const binding = createReactConformanceBinding<ApiClient>();
+  registerExecutableAdapterContract(it, createReactConformanceBinding<ApiClient>());
+});
 
-  it('does not request before the framework primitive activates', () => assertNoRequestBeforeMount(binding));
-
-  it('publishes pending and success through the framework primitive', () => assertPendingAndSuccess(binding));
-
-  it('cancels when the owning scope is disposed', () => assertDisposalCancellation(binding));
-
-  it('ignores a stale response after inputs change', () => assertStaleResultSuppression(binding));
-
-  it('preserves ClientResponseError identity', () => assertClientResponseErrorIdentity(binding));
-
-  it('preserves protocol errors from the generated client', () => assertProtocolErrorIdentity(binding));
-
-  it('preserves response validation errors from the generated client', () => assertValidationErrorIdentity(binding));
-
-  it('does not retry without explicit policy', () => assertNoImplicitRetry(binding));
-
-  it('accepts a generated client without inspecting its contract', () => assertOpaqueGeneratedClient(binding));
-
-  it('keeps concurrent mutation promises independent and only the newest error visible', () =>
-    assertIndependentMutations(binding));
-
-  it('does not share request state across SSR requests', () => assertSsrCredentialIsolation(binding));
-
-  it('imports without executing network I/O', () => {
-    assertAdapterImportsWithoutEffects(ROOT, expectation);
-  });
-
-  it('framework package has only expected peers', () => {
-    assertAdapterPackageManifest(expectation, readAdapterPackageManifest(ROOT, expectation));
-  });
+describe('@zmdb/angular executable adapter contract', () => {
+  registerExecutableAdapterContract(it, createAngularConformanceBinding<ApiClient>(expectationFor('@zmdb/angular')));
 });
 
 describe.each(UNAVAILABLE_ADAPTER_PACKAGES)('$name executable adapter contract', expectation => {
@@ -306,51 +322,7 @@ describe.each(UNAVAILABLE_ADAPTER_PACKAGES)('$name executable adapter contract',
     unavailableAdapterSubject<ApiClient>(expectation),
     lifecycle,
   );
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('does not request before the framework primitive activates', () => assertNoRequestBeforeMount(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('publishes pending and success through the framework primitive', () => assertPendingAndSuccess(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('cancels when the owning scope is disposed', () => assertDisposalCancellation(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('ignores a stale response after inputs change', () => assertStaleResultSuppression(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('preserves ClientResponseError identity', () => assertClientResponseErrorIdentity(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('preserves protocol errors from the generated client', () => assertProtocolErrorIdentity(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('preserves response validation errors from the generated client', () =>
-    assertValidationErrorIdentity(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('does not retry without explicit policy', () => assertNoImplicitRetry(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no query primitive implementation".
-  it.fails('accepts a generated client without inspecting its contract', () => assertOpaqueGeneratedClient(binding));
-
-  // Measured at 4c58e7b0: activation throws "<package> has no mutation primitive implementation".
-  it.fails('keeps concurrent mutation promises independent and only the newest error visible', () =>
-    assertIndependentMutations(binding));
-
-  // Measured at 4c58e7b0: the subject rejects with "<package> has no request-scoped SSR implementation".
-  it.fails('does not share request state across SSR requests', () => assertSsrCredentialIsolation(binding));
-
-  // Measured at 4c58e7b0: every adapter specifier rejects with ERR_MODULE_NOT_FOUND.
-  it.fails('imports without executing network I/O', () => {
-    assertAdapterImportsWithoutEffects(ROOT, expectation);
-  });
-
-  // Measured at 4c58e7b0: packages/<adapter>/package.json is absent for all nine adapters.
-  it.fails('framework package has only expected peers', () => {
-    assertAdapterPackageManifest(expectation, readAdapterPackageManifest(ROOT, expectation));
-  });
+  registerExecutableAdapterContract(it.fails, binding);
 });
 
 describe('adapter package qualification design (#689, #690)', () => {

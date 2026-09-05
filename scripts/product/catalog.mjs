@@ -65,6 +65,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/llm-adapters' },
   }),
   productPackage({
+    id: 'angular',
+    directory: 'packages/angular',
+    npmName: '@zmdb/angular',
+    role: 'angular',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'Angular generated-client bindings' },
+    docsOwner: 'framework-integrations',
+    consumer: { fixture: 'fixtures/client-adapters' },
+  }),
+  productPackage({
     id: 'aot-validator',
     directory: 'packages/aot-validator',
     npmName: '@zmdb/aot-validator',

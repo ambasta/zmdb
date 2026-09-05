@@ -183,7 +183,18 @@ export function probeAdapterImports(
   root: string,
   expectation: AdapterPackageExpectation,
 ): ReturnType<typeof spawnSync> {
+  const requiredPeers = Object.keys(expectation.peerDependencies)
+    .filter(name => !expectation.optionalPeers.includes(name))
+    .toSorted();
   const source = `
+for (const specifier of ${JSON.stringify(requiredPeers)}) {
+  try {
+    import.meta.resolve(specifier);
+    await import(specifier);
+  } catch (error) {
+    if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+  }
+}
 const before = new Set(Reflect.ownKeys(globalThis));
 let requests = 0;
 Object.defineProperty(globalThis, 'fetch', {

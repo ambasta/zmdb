@@ -44,7 +44,7 @@ interface IntegrationRecord {
   readonly capability: string;
   readonly package: string | null;
   readonly status: 'built-in' | 'optional' | 'documented' | 'not-planned';
-  readonly peer?: string;
+  readonly peers?: readonly string[];
   readonly docs: string;
   readonly evidence: readonly string[];
 }
@@ -365,20 +365,19 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
 
       if (record.status === 'not-planned') {
         expect(record.package, record.capability).toBeNull();
-        expect(record.peer, record.capability).toBeUndefined();
+        expect(record.peers, record.capability).toBeUndefined();
         continue;
       }
 
       expect(record.package, record.capability).not.toBeNull();
       expect(manifests.has(record.package ?? ''), record.capability).toBe(true);
       if (record.status === 'optional') {
-        expect(record.peer, record.capability).toBeDefined();
-        expect(
-          manifests.get(record.package ?? '')?.peerDependencies?.[record.peer ?? ''],
-          record.capability,
-        ).toBeDefined();
+        expect(record.peers?.length, record.capability).toBeGreaterThan(0);
+        for (const peer of record.peers ?? []) {
+          expect(manifests.get(record.package ?? '')?.peerDependencies?.[peer], record.capability).toBeDefined();
+        }
       } else {
-        expect(record.peer, record.capability).toBeUndefined();
+        expect(record.peers, record.capability).toBeUndefined();
       }
     }
   });

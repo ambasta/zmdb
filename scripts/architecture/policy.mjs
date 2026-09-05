@@ -58,6 +58,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  angular: packagePolicy({
+    directory: 'packages/angular',
+    zone: 'integration',
+    ring: 0,
+    allowedWorkspaceDependencies: [],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   'query-compiler': packagePolicy({
     directory: 'packages/query-compiler',
     zone: 'foundation',
