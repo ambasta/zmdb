@@ -36,6 +36,7 @@ import { exportSchema, generateMigration } from './index.js';
 const ROOT = process.cwd();
 const CLI_DIR = join(ROOT, 'packages', 'zmdb', 'src', 'cli');
 const BIN = join(CLI_DIR, 'bin.ts');
+const CLI_PROCESS_TEST_TIMEOUT = 30_000;
 
 /** The fixture root `zmdb modules` is pointed at, in §R2's `path#export` form. */
 const WIDE_APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#WideAppModule';
@@ -138,13 +139,17 @@ describe('the zmdb CLI boundary', () => {
   // where spawning a process is the assertion rather than a heavy way to reach a function. §R7.7's
   // `--json` refusal shares the table because it shares the exit code and the entry point; a
   // partial implementation shows up in the diff as the row that is wrong.
-  it('refuses zmdb repl without a TTY and refuses zmdb repl --json', () => {
-    const piped = zmdb('repl');
-    const json = zmdb('repl', '--json');
-    expect([piped.status, json.status]).toEqual([2, 2]);
-    expect(piped.stderr).toMatch(/stdin must be a TTY/);
-    expect(json.stderr).toMatch(/--json is unavailable/);
-  });
+  it(
+    'refuses zmdb repl without a TTY and refuses zmdb repl --json',
+    () => {
+      const piped = zmdb('repl');
+      const json = zmdb('repl', '--json');
+      expect([piped.status, json.status]).toEqual([2, 2]);
+      expect(piped.stderr).toMatch(/stdin must be a TTY/);
+      expect(json.stderr).toMatch(/--json is unavailable/);
+    },
+    CLI_PROCESS_TEST_TIMEOUT,
+  );
 
   // §R7.4 and §R7.5 — `zmdb modules`'s three exit-2 cases and the one that exits 0.
   //
@@ -153,70 +158,93 @@ describe('the zmdb CLI boundary', () => {
   // is what stops the threshold refusal from being implemented as a blanket refusal. The fixture is
   // the sixty-provider root the graph tests already use, so the threshold case is provoked by real
   // data rather than by a flag that says "pretend there are sixty".
-  it('exits 2 for colliding flags, an unresolvable spec and an unfiltered wide graph', () => {
-    expect([
-      exitRow('modules', WIDE_APP, '--json', '--format', 'dot'),
-      exitRow('modules', 'packages/web/src/modules/__fixtures__/large-graph.ts#NoSuchModule'),
-      exitRow('modules', WIDE_APP, '--providers'),
-      exitRow('modules', WIDE_APP, '--providers', '--module', 'WideModule'),
-    ]).toEqual([
-      `modules ${WIDE_APP} --json --format dot -> 2`,
-      'modules packages/web/src/modules/__fixtures__/large-graph.ts#NoSuchModule -> 2',
-      `modules ${WIDE_APP} --providers -> 2`,
-      `modules ${WIDE_APP} --providers --module WideModule -> 0`,
-    ]);
-  });
+  it(
+    'exits 2 for colliding flags, an unresolvable spec and an unfiltered wide graph',
+    () => {
+      expect([
+        exitRow('modules', WIDE_APP, '--json', '--format', 'dot'),
+        exitRow('modules', 'packages/web/src/modules/__fixtures__/large-graph.ts#NoSuchModule'),
+        exitRow('modules', WIDE_APP, '--providers'),
+        exitRow('modules', WIDE_APP, '--providers', '--module', 'WideModule'),
+      ]).toEqual([
+        `modules ${WIDE_APP} --json --format dot -> 2`,
+        'modules packages/web/src/modules/__fixtures__/large-graph.ts#NoSuchModule -> 2',
+        `modules ${WIDE_APP} --providers -> 2`,
+        `modules ${WIDE_APP} --providers --module WideModule -> 0`,
+      ]);
+    },
+    CLI_PROCESS_TEST_TIMEOUT,
+  );
 
-  it('emits one JSON document equal to describeGraph for the same root module', () => {
-    const result = zmdb('modules', APP, '--json');
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe('');
-    expect(result.stdout.trim().split('\n')).toHaveLength(1);
-    const parsed: unknown = JSON.parse(result.stdout);
-    const record: { ok?: unknown; command?: unknown; result?: unknown } = Object(parsed);
-    expect({ ok: record.ok, command: record.command, result: record.result }).toEqual({
-      ok: true,
-      command: 'modules',
-      result: describeGraph(AppModule),
-    });
-  });
+  it(
+    'emits one JSON document equal to describeGraph for the same root module',
+    () => {
+      const result = zmdb('modules', APP, '--json');
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout.trim().split('\n')).toHaveLength(1);
+      const parsed: unknown = JSON.parse(result.stdout);
+      const record: { ok?: unknown; command?: unknown; result?: unknown } = Object(parsed);
+      expect({ ok: record.ok, command: record.command, result: record.result }).toEqual({
+        ok: true,
+        command: 'modules',
+        result: describeGraph(AppModule),
+      });
+    },
+    CLI_PROCESS_TEST_TIMEOUT,
+  );
 
-  it('returns complete descriptions and finding-derived exit codes for invalid graphs', () => {
-    const cycle = zmdb('modules', CYCLE_APP, '--json');
-    expect(cycle.status).toBe(1);
-    const parsed: unknown = JSON.parse(cycle.stdout);
-    const envelope: { result?: unknown } = Object(parsed);
-    const graph: { modules?: unknown[]; findings?: { kind?: unknown; path?: unknown }[] } = Object(envelope.result);
-    expect(graph.modules).toHaveLength(3);
-    expect(graph.findings?.[0]).toMatchObject({
-      kind: 'cycle',
-      path: ['module:CycleAppModule', 'module:CycleBillingModule', 'module:CycleUsersModule', 'module:CycleAppModule'],
-    });
+  it(
+    'returns complete descriptions and finding-derived exit codes for invalid graphs',
+    () => {
+      const cycle = zmdb('modules', CYCLE_APP, '--json');
+      expect(cycle.status).toBe(1);
+      const parsed: unknown = JSON.parse(cycle.stdout);
+      const envelope: { result?: unknown } = Object(parsed);
+      const graph: { modules?: unknown[]; findings?: { kind?: unknown; path?: unknown }[] } = Object(envelope.result);
+      expect(graph.modules).toHaveLength(3);
+      expect(graph.findings?.[0]).toMatchObject({
+        kind: 'cycle',
+        path: [
+          'module:CycleAppModule',
+          'module:CycleBillingModule',
+          'module:CycleUsersModule',
+          'module:CycleAppModule',
+        ],
+      });
 
-    const shadowed = zmdb('modules', SHADOWED_APP);
-    const duplicate = zmdb('modules', DUPLICATE_APP);
-    const ambiguous = zmdb('modules', AMBIGUOUS_APP);
-    expect([shadowed.status, duplicate.status, ambiguous.status]).toEqual([1, 1, 0]);
-    expect(shadowed.stdout).toContain('ERROR shadowed-route');
-    expect(duplicate.stdout).toContain('ERROR duplicate-provider');
-    expect(ambiguous.stdout).toContain('WARNING duplicate-token-description');
-    expect(describeGraph(ShadowedRouteAppModule).findings[0]?.kind).toBe('shadowed-route');
-    expect(describeGraph(DuplicateProviderAppModule).findings[0]?.kind).toBe('duplicate-provider');
-    expect(describeGraph(AmbiguousTokenAppModule).findings.every(finding => finding.severity === 'warning')).toBe(true);
-    expect(describeGraph(CycleAppModule).modules).toHaveLength(3);
-  });
+      const shadowed = zmdb('modules', SHADOWED_APP);
+      const duplicate = zmdb('modules', DUPLICATE_APP);
+      const ambiguous = zmdb('modules', AMBIGUOUS_APP);
+      expect([shadowed.status, duplicate.status, ambiguous.status]).toEqual([1, 1, 0]);
+      expect(shadowed.stdout).toContain('ERROR shadowed-route');
+      expect(duplicate.stdout).toContain('ERROR duplicate-provider');
+      expect(ambiguous.stdout).toContain('WARNING duplicate-token-description');
+      expect(describeGraph(ShadowedRouteAppModule).findings[0]?.kind).toBe('shadowed-route');
+      expect(describeGraph(DuplicateProviderAppModule).findings[0]?.kind).toBe('duplicate-provider');
+      expect(describeGraph(AmbiguousTokenAppModule).findings.every(finding => finding.severity === 'warning')).toBe(
+        true,
+      );
+      expect(describeGraph(CycleAppModule).modules).toHaveLength(3);
+    },
+    CLI_PROCESS_TEST_TIMEOUT,
+  );
 
-  it('names both halves of a bad module spec and the filter for a wide graph', () => {
-    const missing = zmdb('modules', 'packages/web/src/modules/__fixtures__/large-graph.ts#NoSuchModule');
-    expect(missing.status).toBe(2);
-    expect(missing.stderr).toContain('packages/web/src/modules/__fixtures__/large-graph.ts');
-    expect(missing.stderr).toContain('NoSuchModule');
+  it(
+    'names both halves of a bad module spec and the filter for a wide graph',
+    () => {
+      const missing = zmdb('modules', 'packages/web/src/modules/__fixtures__/large-graph.ts#NoSuchModule');
+      expect(missing.status).toBe(2);
+      expect(missing.stderr).toContain('packages/web/src/modules/__fixtures__/large-graph.ts');
+      expect(missing.stderr).toContain('NoSuchModule');
 
-    const wide = zmdb('modules', WIDE_APP, '--providers');
-    expect(wide.status).toBe(2);
-    expect(wide.stderr).toContain('66 provider nodes');
-    expect(wide.stderr).toContain('WideModule');
-  });
+      const wide = zmdb('modules', WIDE_APP, '--providers');
+      expect(wide.status).toBe(2);
+      expect(wide.stderr).toContain('66 provider nodes');
+      expect(wide.stderr).toContain('WideModule');
+    },
+    CLI_PROCESS_TEST_TIMEOUT,
+  );
 
   // §R7.14. The inspector, lazy and REPL rows all cite live tests.
   //
