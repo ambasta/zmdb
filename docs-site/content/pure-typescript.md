@@ -68,9 +68,9 @@ describe, so it drifts silently the moment the interface is edited.
 
 Where the IR comes from is the catch: reflecting it from a type is what the build step does. Writing one by hand is reasonable for a scalar and unreasonable for a table.
 
-**Everything that is not the validator.** The query compiler, the repository, `WhereDTO`/`ListDTO` handling, the migration engine, `@zmdb/web`'s routing and DI, and all of the derived DTO _types_ are
-plain TypeScript and plain functions. They need no plugin. The one exception inside that list is `schemaOf<T>()`, which is how a declaration becomes a runtime schema object — so the value you pass to
-`defineRepository` comes from the build step even though the repository itself does not.
+**Everything that is not the validator.** The query compiler, the repository, `WhereDTO`/`ListDTO` handling, the migration engine, `@zmdb/web` routing, `@zmdb/app` DI, and all of the derived DTO
+_types_ are plain TypeScript and plain functions. They need no plugin. The one exception inside that list is `schemaOf<T>()`, which is how a declaration becomes a runtime schema object — so the value
+you pass to `defineRepository` comes from the build step even though the repository itself does not.
 
 ## Comparison
 

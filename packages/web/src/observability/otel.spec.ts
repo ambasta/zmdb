@@ -7,12 +7,19 @@ import {
   type SpanOptions as OpenTelemetrySpanOptions,
 } from '@opentelemetry/api';
 import { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import {
+  consumerSpan,
+  fromTraceContext,
+  SpanKind,
+  toTraceHeaders,
+  tracedDriver,
+  type Observability,
+  type Span,
+  type SpanContext,
+} from '@zmdb/app/observability';
 import { describe, expect, it } from 'vitest';
 
-import { consumerSpan, tracedDriver } from './index.js';
 import { fromOpenTelemetry } from './otel.js';
-import { fromTraceContext, toTraceHeaders } from './propagation.js';
-import { SpanKind, type Observability, type Span, type SpanContext } from './types.js';
 
 const TRACEPARENT = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
 const TRACESTATE = 'rojo=00f067aa0ba902b7,congo=t61rcWkgMzE';

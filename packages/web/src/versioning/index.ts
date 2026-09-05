@@ -2,7 +2,7 @@
 // Stage-3 class/method decorators write one private metadata value; the router
 // reads it once at registration. No reflect-metadata and no runtime reflection.
 
-import '../polyfill.js';
+import '@zmdb/app';
 
 /** The one version source configured for a router. */
 export type VersionStrategy =

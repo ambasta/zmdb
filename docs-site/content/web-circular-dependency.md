@@ -12,7 +12,7 @@ class AModule {}
 class BModule {}
 
 createApp(AModule);
-// Error: @zmdb/web: import cycle in the module graph: AModule -> BModule -> AModule
+// Error: @zmdb/app: import cycle in the module graph: AModule -> BModule -> AModule
 ```
 
 Deterministic, names the cycle path, and runs at startup rather than on a request. Lazy import edges are included in the same validation.

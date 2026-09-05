@@ -1,6 +1,6 @@
+import type { Span, SpanContext } from '@zmdb/app/observability';
 import { describe, expect, it } from 'vitest';
 
-import type { Span, SpanContext } from '../observability/index.js';
 import { bodyText, createRouter, type Router } from '../pipeline/index.js';
 import { Controller, Get, getRoutes } from '../routing/index.js';
 import { Version, VersionNeutral } from './index.js';

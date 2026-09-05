@@ -1,4 +1,4 @@
-`@zmdb/web/cqrs` ships one deliberately narrow CQRS primitive: a typed command boundary. It does not ship a query bus, event sourcing, handler decorators or sagas; those are explicit decisions rather
+`@zmdb/app/cqrs` ships one deliberately narrow CQRS primitive: a typed command boundary. It does not ship a query bus, event sourcing, handler decorators or sagas; those are explicit decisions rather
 than unfinished arms of the API.
 
 ## What the command boundary earns
@@ -8,8 +8,8 @@ string-keyed `dispatch(name, unknown)` API would give up the input and result ty
 
 ```ts
 import { createTransactionalDb } from '@zmdb/repository/transactions';
-import { createCommandBus, type CommandBus, type CommandHandlers } from '@zmdb/web/cqrs';
-import { createToken } from '@zmdb/web/di';
+import { createCommandBus, type CommandBus, type CommandHandlers } from '@zmdb/app/cqrs';
+import { createToken } from '@zmdb/app/di';
 
 type Commands = {
   publishPost: {
@@ -82,11 +82,11 @@ The bus is an ordinary app-owned value, not a container-owned singleton. Build o
 
 ## Events
 
-[`@zmdb/web/events`](./web-events.html) ships a typed, app-owned in-process emitter. It isolates handler failures and makes waiting explicit with `emit` versus `emitAndWait`; it deliberately does not
+[`@zmdb/app/events`](./web-events.html) ships a typed, app-owned in-process emitter. It isolates handler failures and makes waiting explicit with `emit` versus `emitAndWait`; it deliberately does not
 turn application events into a CQRS command bus:
 
 ```ts
-import { createEvents } from '@zmdb/web/events';
+import { createEvents } from '@zmdb/app/events';
 
 type AppEvents = {
   'post.published': { id: number };

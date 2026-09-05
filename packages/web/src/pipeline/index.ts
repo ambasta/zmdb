@@ -3,9 +3,12 @@
 // body → invoke handler → serialize. Thin, structurally-typed node:http + Fetch
 // adapters (no hard deps). No reflection; no `as` on the consumer surface.
 
-import '../polyfill.js';
+import '@zmdb/app';
 import type { FileHandle } from 'node:fs/promises';
 
+import type { Constructor } from '@zmdb/app/di';
+import { fromTraceContext } from '@zmdb/app/observability';
+import type { Observability, Span, Tracer } from '@zmdb/app/observability';
 import { claimsValidationIssues, ValidationError, validationIssuesOf } from '@zmdb/schema-core';
 
 import {
@@ -17,11 +20,8 @@ import {
   type QueryValues,
 } from '../context/index.js';
 import type { CompiledHttpContract, HttpOperationIR, SecurityRequirement } from '../contract/index.js';
-import type { Constructor } from '../di/index.js';
 import { BoundaryStatusError } from '../middleware/errors.js';
 import type { Guard, SecurityAwareGuard } from '../middleware/index.js';
-import { fromTraceContext } from '../observability/propagation.js';
-import type { Observability, Span, Tracer } from '../observability/types.js';
 import { getRoutes, isPublic, type ResolvedRoute } from '../routing/index.js';
 import { versionsOf, type VersionStrategy } from '../versioning/index.js';
 import { jsonMediaTypeForVersion, pathForVersion } from '../versioning/runtime.js';

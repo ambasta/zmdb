@@ -1,8 +1,9 @@
+import type { Scope } from '@zmdb/app/di';
+import { compileModule, type ModuleClass } from '@zmdb/app/modules';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../app/index.js';
 import { countMetadataReads } from '../bench/index.js';
-import type { Scope } from '../di/index.js';
 import {
   AmbiguousTokenAppModule,
   AppModule,
@@ -16,7 +17,6 @@ import {
   UnresolvedTokenAppModule,
   WideAppModule,
 } from '../modules/__fixtures__/large-graph.js';
-import { compileModule, type ModuleClass } from '../modules/index.js';
 import type { HttpMethod } from '../routing/index.js';
 
 // The graph description tests for epic #598. The frozen contract is

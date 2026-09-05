@@ -1,8 +1,9 @@
 > **Supported.** A configured `Meter` receives the HTTP request-duration and database operation-duration histograms. There is still no Prometheus client, exporter, backend, `@Metric` decorator or
 > built-in `/metrics` endpoint.
 >
-> The metric names and units, and which attributes come from compile time rather than runtime, are frozen in `packages/web/src/observability/SPEC.md` against semantic conventions **v1.30.0**. The
-> registry below remains a dependency-free alternative; values exported through the framework `Meter` use the conventional names and seconds units documented below.
+> The metric names and units, and which attributes come from compile time rather than runtime, are frozen in `packages/web/src/observability/SPEC.md` against semantic conventions **v1.30.0**. Its #647
+> ownership amendment assigns the generic ports and database instrumentation to `@zmdb/app/observability`; HTTP spans remain web-owned. The registry below remains a dependency-free alternative; values
+> exported through the framework `Meter` use the conventional names and seconds units documented below.
 
 ## The four things worth measuring
 
@@ -82,6 +83,7 @@ twice.
 
 ```ts
 import { metrics, trace } from '@opentelemetry/api';
+import { tracedDriver } from '@zmdb/app/observability';
 import { createApp } from '@zmdb/web';
 import { fromOpenTelemetry } from '@zmdb/web/otel';
 
@@ -93,7 +95,7 @@ const observability = fromOpenTelemetry({
 await using app = createApp(AppModule, { observability });
 ```
 
-`@opentelemetry/api` is an optional peer used only by `@zmdb/web/otel`. The core package does not choose an exporter or metrics backend.
+`@opentelemetry/api` is an optional peer used only by `@zmdb/web/otel`. Neither the app kernel nor the HTTP core chooses an exporter or metrics backend.
 
 Queries use `tracedDriver`. Passing `ctx.span` is what parents a query span to the handler; metrics work without a tracer:
 

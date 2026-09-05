@@ -1,25 +1,13 @@
-// @zmdb/web — zmdb data-layer integration (epic #277, spec ./SPEC.md).
-// Typed DI token for a repository + an adapter turning a validator into the
-// pipeline's validateBody hook. No consumer `as`, no runtime parser.
+// @zmdb/web — HTTP data-boundary adapters (epic #277, spec ./SPEC.md).
+// Repository injection is app-owned; this module converts wire values and
+// adapts validators for the request pipeline.
 //
 // "No runtime parser" still holds with `wireDecoder` here: it converts the two column
 // types JSON cannot carry (a `timestamp`, a `bigint`) into the values the app layer holds,
 // and it accepts and rejects nothing. Validation remains the consumer's AOT `assert`.
 
-import type { BaseRepository } from '@zmdb/repository';
-import type { CoreSchema, DeclaredTable } from '@zmdb/schema-core';
+import type { CoreSchema } from '@zmdb/schema-core';
 import { decodeWire, encodeWire, type CodecRegistry, type Variant } from '@zmdb/schema-core/ir';
-
-import { createToken, type Token } from '../di/index.js';
-
-/**
- * A typed DI token for a repository over the entity `T`. Register a
- * `defineRepository(TSchema, ...)` instance under it and `@Inject` it into a
- * controller — the injected field is typed `BaseRepository<T>`, no `as`.
- */
-export function repositoryToken<T extends DeclaredTable>(name: string): Token<BaseRepository<T>> {
-  return createToken<BaseRepository<T>>(name);
-}
 
 /**
  * Adapt a validator into a pipeline `validateBody` hook. Pass any function that

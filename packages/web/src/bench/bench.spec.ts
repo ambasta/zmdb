@@ -1,10 +1,10 @@
+import { Module } from '@zmdb/app/modules';
+import type { Observability, Span, SpanContext } from '@zmdb/app/observability';
 // Tests (#319) for router benchmark & perf verification — RED first (bench
 // exports absent). Init-time-resolution regression guard + microbench smoke.
 // Per packages/web/src/bench/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Module } from '../modules/index.js';
-import type { Observability, Span, SpanContext } from '../observability/index.js';
 import { createRouter } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 import { benchmarkAppStartup, benchmarkObservability, benchmarkRouter, countMetadataReads } from './index.js';

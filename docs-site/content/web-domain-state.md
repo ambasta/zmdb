@@ -1,10 +1,10 @@
-Model domain state so that **illegal transitions fail to compile**. `@zmdb/web` uses branded (phantom) types: a `DraftOrder` and a `PaidOrder` are distinct types even though both are just `Order` at
+Model domain state so that **illegal transitions fail to compile**. `@zmdb/app` uses branded (phantom) types: a `DraftOrder` and a `PaidOrder` are distinct types even though both are just `Order` at
 runtime. Branding erases completely — **zero runtime cost** beyond the value itself — and you never write an `as` cast.
 
 ## Branded states
 
 ```ts
-import { defineState, transition, type Brand } from '@zmdb/web';
+import { defineState, transition, type Brand } from '@zmdb/app/state';
 
 interface Order {
   id: number;
@@ -46,7 +46,7 @@ This makes "pay an already-paid order" or "ship an unpaid order" **unrepresentab
 
 - **Compile-time only.** Brands are phantom; `create` is an identity at runtime, so a state machine adds **0 bytes** to your objects.
 - **No `as` on the consumer surface** — construction goes through `create`. (The framework contains one isolated, documented brand-attach boundary internally.)
-- Granular import: `import { defineState } from '@zmdb/web/state'`.
+- Granular import: `import { defineState } from '@zmdb/app/state'`.
 
 ## Cross-links
 

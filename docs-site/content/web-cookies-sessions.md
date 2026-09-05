@@ -84,7 +84,7 @@ escalation. If you must, sign it and verify the signature with `timingSafeEqual`
 ## A session store as a provider
 
 ```ts
-import { createToken } from '@zmdb/web/di';
+import { createToken } from '@zmdb/app/di';
 
 export interface SessionStore {
   load(sid: string): Promise<Session | undefined>;

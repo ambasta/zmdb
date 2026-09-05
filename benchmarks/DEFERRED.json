@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "epic": 644,
+  "issue": 730,
+  "blockedBy": 652,
+  "suites": ["app-startup", "observability"],
+  "reason": "Measure the completed app, HTTP, and jobs split only after every non-benchmark child of EPIC #644 has landed."
+}

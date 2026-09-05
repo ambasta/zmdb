@@ -1,5 +1,5 @@
-zmdb is an ESM-only TypeScript data layer framework targeting Node.js 26+ and TypeScript 7.0+. The easiest way to install the data/web stack is the single umbrella package. Its five implementation
-packages are also published individually, and the provider-neutral `@zmdb/ai` package is installed separately when an application needs AI tooling.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Ten packages are published today: nine focused implementation packages plus the `zmdb` umbrella. The easiest
+way to install the cohesive data, application, and HTTP stack is the umbrella; `@zmdb/client`, `@zmdb/protobuf`, and provider-neutral `@zmdb/ai` remain independently installable.
 
 ## Recommended: one install
 
@@ -15,8 +15,8 @@ import type { CreateDTO, Entity } from 'zmdb/derive';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
 ```
 
-The `zmdb` package re-exports the curated public API of its five implementation packages, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, `zmdb/relations`,
-`zmdb/web`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, …).
+The `zmdb` package re-exports the curated public API of its six runtime dependencies, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, `zmdb/relations`,
+`zmdb/web`, `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, …). The `zmdb/web` facade combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
 
 `@zmdb/ai` is independently installable and is not re-exported by the umbrella root.
 
@@ -42,7 +42,7 @@ The `zmdb` package re-exports the curated public API of its five implementation 
 Prefer to depend only on the pieces you use (better tree-shaking):
 
 ```bash
-npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository @zmdb/web
+npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository @zmdb/app @zmdb/web
 ```
 
 ## Install Individual Packages
@@ -61,6 +61,18 @@ npm install @zmdb/aot-validator
 
 # Repository with CRUD + transactions
 npm install @zmdb/repository
+
+# Protocol-neutral application kernel
+npm install @zmdb/app
+
+# HTTP framework over the application kernel
+npm install @zmdb/web
+
+# Dependency-free generated-client runtime
+npm install @zmdb/client
+
+# Dependency-free protobuf and typed gRPC artifacts
+npm install @zmdb/protobuf
 
 # Provider-neutral AI tools + bounded chat
 npm install @zmdb/ai
@@ -141,7 +153,10 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/query-compiler` | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                  |
 | `@zmdb/aot-validator`  | Type reflection, full/shallow is/assert/validate, equals/random, serialization               |
 | `@zmdb/repository`     | Auto-validating CRUD, hooks, transactions, populate                                          |
-| `@zmdb/web`            | Controllers, routing, dependency injection, middleware, transports, and jobs                 |
+| `@zmdb/app`            | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health    |
+| `@zmdb/web`            | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters      |
+| `@zmdb/client`         | Dependency-free HTTP transport, cancellation, authentication, and typed errors               |
+| `@zmdb/protobuf`       | Dependency-free protobuf calls, generated-code wire ABI, and typed gRPC artifacts            |
 | `@zmdb/ai`             | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools  |
 
 ## Next Steps

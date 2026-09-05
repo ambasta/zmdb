@@ -2,7 +2,7 @@
 // (epic #257, spec ./SPEC.md). Pure types + one small runtime helper. No `as`,
 // no reflection.
 
-import type { Span } from '../observability/types.js';
+import type { Span } from '@zmdb/app/observability';
 
 /**
  * Derive a params object from a route path string. Each `:name` segment becomes

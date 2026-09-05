@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
+import { metadataOf } from '@zmdb/app';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -11,7 +12,6 @@ import {
 } from '../../../../.github/scripts/verify-server-boundaries.mjs';
 import { inspectServerCoreFixture } from '../../../../fixtures/consumer-server-core/verify-installed.mjs';
 import { metadataOf as facadeMetadataOf } from '../../../zmdb/src/web.js';
-import { metadataOf } from '../index.js';
 
 const ROOT = process.cwd();
 const CONSUMER = join(ROOT, 'fixtures', 'consumer-server-core', 'verify-installed.mjs');
@@ -262,7 +262,16 @@ describe('core server package boundaries (#646)', () => {
     expect(new Set(PRODUCT_SERVER_EXPORTS).size).toBe(35);
   });
 
-  it.fails.each([APP_SPECIFIER, JOBS_SPECIFIER])('imports %s from its dedicated package', specifier => {
+  it.each([APP_SPECIFIER])('imports %s from its dedicated package', specifier => {
+    const result = spawnSync(
+      process.execPath,
+      ['--import', TYPESCRIPT_HOOK, '--input-type=module', '--eval', `await import(${JSON.stringify(specifier)})`],
+      { cwd: ROOT, encoding: 'utf8' },
+    );
+    expect(result.status, result.stderr).toBe(0);
+  });
+
+  it.fails.each([JOBS_SPECIFIER])('imports %s from its dedicated package', specifier => {
     const result = spawnSync(
       process.execPath,
       ['--import', TYPESCRIPT_HOOK, '--input-type=module', '--eval', `await import(${JSON.stringify(specifier)})`],
@@ -293,7 +302,7 @@ describe('core server package boundaries (#646)', () => {
 });
 
 describe('@zmdb/app deterministic lifecycle (#646)', () => {
-  it.fails('starts hooks and extensions in order, then stops them in reverse order', async () => {
+  it('starts hooks and extensions in order, then stops them in reverse order', async () => {
     const api = await loadAppApi();
     const log: string[] = [];
     const contexts: ApplicationExtensionContext[] = [];
@@ -345,7 +354,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     expect(log.slice(-4)).toEqual(['stop:b', 'stop:a', 'shutdown:second', 'shutdown:first']);
   });
 
-  it.fails('returns one promise to concurrent init and dispose callers', async () => {
+  it('returns one promise to concurrent init and dispose callers', async () => {
     const api = await loadAppApi();
     @api.Module({ controllers: [] })
     class Root {}
@@ -360,7 +369,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     await firstDispose;
   });
 
-  it.fails('rolls back the partially started extension itself and preserves the startup error', async () => {
+  it('rolls back the partially started extension itself and preserves the startup error', async () => {
     const api = await loadAppApi();
     const log: string[] = [];
     const startupError = new Error('extension b failed');
@@ -394,7 +403,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     expect(log).toEqual(['start:a', 'start:b', 'stop:b', 'stop:a']);
   });
 
-  it.fails('orders startup and cleanup failures in one AggregateError', async () => {
+  it('orders startup and cleanup failures in one AggregateError', async () => {
     const api = await loadAppApi();
     const startupError = new Error('startup');
     const stopB = new Error('stop b');
@@ -435,7 +444,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     expect(error.errors).toEqual([startupError, stopB, stopA, shutdown]);
   });
 
-  it.fails('preserves one shutdown error while still attempting every eligible hook', async () => {
+  it('preserves one shutdown error while still attempting every eligible hook', async () => {
     const api = await loadAppApi();
     const log: string[] = [];
     const stopError = new Error('stop b');
@@ -471,7 +480,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     expect(log).toEqual(['stop:b', 'stop:a', 'shutdown']);
   });
 
-  it.fails('orders multiple shutdown failures by reverse extension then reverse construction order', async () => {
+  it('orders multiple shutdown failures by reverse extension then reverse construction order', async () => {
     const api = await loadAppApi();
     const stopA = new Error('stop a');
     const stopB = new Error('stop b');
@@ -503,7 +512,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     expect(error.errors).toEqual([stopB, stopA, shutdownB, shutdownA]);
   });
 
-  it.fails('shares one application-wide grace deadline across extension stops', async () => {
+  it('shares one application-wide grace deadline across extension stops', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-05T00:00:00.000Z'));
     try {
@@ -542,7 +551,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     }
   });
 
-  it.fails('disposes constructed instances without starting extensions when init never ran', async () => {
+  it('disposes constructed instances without starting extensions when init never ran', async () => {
     const api = await loadAppApi();
     const log: string[] = [];
     class Provider {
@@ -570,7 +579,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     expect(log).toEqual(['shutdown']);
   });
 
-  it.fails('waits for startup before one disposal path completes', async () => {
+  it('waits for startup before one disposal path completes', async () => {
     const api = await loadAppApi();
     const started = deferred();
     const release = deferred();
@@ -609,7 +618,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     expect(log).toEqual(['start', 'started', 'stop', 'shutdown']);
   });
 
-  it.fails('keeps failed initialization terminal and never reopens an extension', async () => {
+  it('keeps failed initialization terminal and never reopens an extension', async () => {
     const api = await loadAppApi();
     const startupError = new Error('terminal startup');
     let starts = 0;
@@ -635,7 +644,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     expect(starts).toBe(1);
   });
 
-  it.fails('rejects invalid grace and extension names synchronously before construction hooks', async () => {
+  it('rejects invalid grace and extension names synchronously before construction hooks', async () => {
     const api = await loadAppApi();
     @api.Module({ controllers: [] })
     class Root {}
@@ -654,7 +663,7 @@ describe('@zmdb/app deterministic lifecycle (#646)', () => {
     ).toThrow('@zmdb/app: duplicate extension name "duplicate"');
   });
 
-  it.fails('rejects init after shutdown begins with the app-owned error prefix', async () => {
+  it('rejects init after shutdown begins with the app-owned error prefix', async () => {
     const api = await loadAppApi();
     @api.Module({ controllers: [] })
     class Root {}
@@ -698,7 +707,7 @@ describe('server facade and reflection identity (#646)', () => {
     }
   });
 
-  it.fails('keeps extension dispatch off the HTTP request hot path and shares controller identity', async () => {
+  it('keeps extension dispatch off the HTTP request hot path and shares controller identity', async () => {
     const [appApi, webApi] = await Promise.all([loadAppApi(), loadWebApi()]);
     const log: string[] = [];
     const handled: object[] = [];

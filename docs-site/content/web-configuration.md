@@ -4,8 +4,8 @@ misconfigured process dies at startup instead of at 3am on a live request.
 ## A typed config provider
 
 ```ts
-import { createToken } from '@zmdb/web/di';
-import { Module } from '@zmdb/web/modules';
+import { createToken } from '@zmdb/app/di';
+import { Module } from '@zmdb/app/modules';
 import { assert } from '@zmdb/aot-validator/utilities';
 
 interface Config {
@@ -34,7 +34,7 @@ export function loadConfig(): Config {
 }
 ```
 
-`createToken` comes from `@zmdb/web/di`, not from `@zmdb/web/modules` — the modules entry point exports `Module`, `compileModule` and the provider types only.
+`createToken` comes from `@zmdb/app/di`, not from `@zmdb/app/modules` — the modules entry point exports `Module`, `compileModule` and the provider types only.
 
 ## Registering it
 
@@ -127,7 +127,7 @@ Overrides are registered before any controller is built, so the controller under
 
 - One `Token<Config>` keeps the type flowing with no `as` at any call site.
 - No namespaced registry and no `configService.get('a.b.c')` string paths — a dotted string is an unchecked path, and a field access is a checked one.
-- Granular imports: `@zmdb/web/di`, `@zmdb/web/modules`.
+- Granular imports: `@zmdb/app/di`, `@zmdb/app/modules`.
 
 ---
 

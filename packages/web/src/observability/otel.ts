@@ -9,7 +9,6 @@ import {
   type SpanContext as OpenTelemetrySpanContext,
   type Tracer as OpenTelemetryTracer,
 } from '@opentelemetry/api';
-
 import {
   SpanKind as FrameworkSpanKind,
   type Meter,
@@ -17,7 +16,7 @@ import {
   type Span,
   type SpanContext,
   type Tracer,
-} from './types.js';
+} from '@zmdb/app/observability';
 
 const SPAN_KINDS: Readonly<Record<FrameworkSpanKind, OpenTelemetrySpanKind>> = {
   [FrameworkSpanKind.INTERNAL]: OpenTelemetrySpanKind.INTERNAL,
@@ -35,7 +34,7 @@ export interface OpenTelemetryOptions {
 
 /**
  * Adapt OpenTelemetry API objects without making them a dependency of the core
- * @zmdb/web entry point. Parent context stays explicit; ambient context is not
+ * @zmdb/app or @zmdb/web entry points. Parent context stays explicit; ambient context is not
  * consulted by the adapter.
  */
 export function fromOpenTelemetry(options: OpenTelemetryOptions): Observability {

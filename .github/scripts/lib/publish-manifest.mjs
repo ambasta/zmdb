@@ -20,6 +20,7 @@ export const PACKAGES = [
   'protobuf',
   'aot-validator',
   'repository',
+  'app',
   'web',
   'zmdb',
 ];

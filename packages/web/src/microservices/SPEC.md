@@ -254,8 +254,8 @@ With transports configured, `init()` is idempotent and runs:
 If a `listen` rejects, `init()` rejects and transports that previously opened are closed in reverse order. The refusing transport is not assumed to have opened successfully.
 
 Disposal first prevents new lazy loads and waits for in-flight loads, then closes opened transports in reverse declaration order, then runs ordinary shutdown hooks in reverse construction order. A
-close failure does not skip later closes or lifecycle hooks; the first close error is reported afterwards. Once disposal begins, a later `init()` rejects rather than opening a transport that the
-memoized disposal can no longer close.
+close failure does not skip later closes or lifecycle hooks. One shutdown error is reported by identity; multiple transport/lifecycle failures are reported in an `AggregateError` in observation order.
+Once disposal begins, a later `init()` rejects rather than opening a transport that the memoized disposal can no longer close.
 
 Transport names must be non-empty and unique because the name is copied into every `MessageContext`.
 

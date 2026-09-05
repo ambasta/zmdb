@@ -70,3 +70,6 @@ The lifecycle above splits without changing its observable ordering:
 
 `createApp` composes one router over one `Application`. Its `container`, `lazy`, `init` and async-dispose members are the same members by identity, and it cannot run a second hook/extension ledger.
 The complete lifecycle state machine, rollback and error precedence are frozen in `packages/app/SPEC.md`.
+
+The #647 extraction is the independently usable first slice: it retains the `App` compatibility type and the broker/gRPC fields inherited from `AppOptions` until #648 and #649 move those integrations
+and complete the HTTP-only surface. Those transitional names delegate to `createApplication`; they do not retain a second lifecycle implementation.

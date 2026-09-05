@@ -19,6 +19,8 @@
 //     from changed input bytes, uses different dependencies, or is inconsistent
 //   - the shallow-validation result is missing, unstable, measured from changed
 //     input bytes, semantically incomplete, or inconsistent with RESULTS.md
+//   - --strict-deferred is used while benchmarks/DEFERRED.json still records a
+//     benchmark slice intentionally postponed until its parent EPIC closes
 //
 // The last two are the interesting ones: bumping an upstream submodule silently
 // invalidates every number measured against the old one. Reading the gitlink
@@ -33,6 +35,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const BENCH = join(ROOT, 'benchmarks');
+const STRICT_DEFERRED = process.argv.includes('--strict-deferred');
 
 const { parseResultsFile } = await import(join(BENCH, 'src', 'guardrail.ts'));
 const { assertNoSilentSkips } = await import(join(BENCH, 'src', 'report.ts'));
@@ -63,19 +66,38 @@ const OBSERVABILITY_INPUTS = [
   'packages/query-compiler/src/index.ts',
   'packages/repository/package.json',
   'packages/repository/src/index.ts',
+  'packages/app/package.json',
+  'packages/app/src/index.ts',
+  'packages/app/src/application.ts',
+  'packages/app/src/di/index.ts',
+  'packages/app/src/lifecycle.ts',
+  'packages/app/src/modules/index.ts',
+  'packages/app/src/modules/lifecycle-instances.ts',
+  'packages/app/src/modules/runtime.ts',
+  'packages/app/src/observability/index.ts',
+  'packages/app/src/observability/propagation.ts',
+  'packages/app/src/observability/types.ts',
+  'packages/app/src/polyfill.ts',
   'packages/web/package.json',
+  'packages/web/src/app/bridge.ts',
+  'packages/web/src/app/index.ts',
   'packages/web/src/bench/index.ts',
   'packages/web/src/context/index.ts',
-  'packages/web/src/observability/index.ts',
   'packages/web/src/observability/otel.ts',
-  'packages/web/src/observability/propagation.ts',
-  'packages/web/src/observability/types.ts',
   'packages/web/src/pipeline/guards.ts',
   'packages/web/src/pipeline/index.ts',
-  'packages/web/src/polyfill.ts',
   'packages/web/src/routing/index.ts',
 ];
 const OBSERVABILITY_PUBLICATIONS = ['benchmarks/RESULTS.md', 'docs-site/content/web-benchmarks.md'];
+const APP_STARTUP_ORDERS = [
+  ['before', 'after'],
+  ['after', 'before'],
+  ['before', 'after'],
+  ['after', 'before'],
+  ['before', 'after'],
+  ['after', 'before'],
+  ['before', 'after'],
+];
 const SHALLOW_VALIDATION_MODES = ['full', 'shallow-depth-1'];
 const SHALLOW_VALIDATION_PERMUTATIONS = [
   ['full', 'shallow-depth-1'],
@@ -97,6 +119,14 @@ const SHALLOW_VALIDATION_INPUTS = [
 
 const errors = [];
 const fail = msg => errors.push(msg);
+const deferred = readDeferredBenchmarks();
+const deferredSuites = new Set(deferred?.suites ?? []);
+if (deferred !== undefined && STRICT_DEFERRED) {
+  fail(
+    `benchmarks/DEFERRED.json still defers ${deferred.suites.join(', ')} to #${String(deferred.issue)}; ` +
+      `EPIC #${String(deferred.epic)} cannot close`,
+  );
+}
 
 // --- the pinned upstream commits, straight out of the tree -------------------
 
@@ -183,10 +213,25 @@ for (const panel of PANELS) {
 // --- local observability overhead -------------------------------------------
 
 const observabilityPath = join(BENCH, 'site', 'observability.json');
-if (!existsSync(observabilityPath)) {
+if (deferredSuites.has('observability')) {
+  console.log(
+    `benchmarks/site/observability.json: re-measurement deferred to #${String(deferred?.issue)} after #${String(deferred?.blockedBy)}`,
+  );
+} else if (!existsSync(observabilityPath)) {
   console.log('benchmarks/site/observability.json: not published yet');
 } else {
   await verifyObservabilityResult(observabilityPath);
+}
+
+const appStartupPath = join(BENCH, 'site', 'app-startup-647.json');
+if (deferredSuites.has('app-startup')) {
+  console.log(
+    `benchmarks/site/app-startup-647.json: measurement deferred to #${String(deferred?.issue)} after #${String(deferred?.blockedBy)}`,
+  );
+} else if (!existsSync(appStartupPath)) {
+  fail('benchmarks/site/app-startup-647.json is missing — retain the #647 interleaved before/after samples');
+} else {
+  verifyAppStartupResult(appStartupPath);
 }
 
 const shallowValidationPath = join(BENCH, 'site', 'shallow-validation.json');
@@ -209,7 +254,50 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('\ncommitted benchmark results are complete and match the pinned upstreams');
+if (deferred === undefined) {
+  console.log('\ncommitted benchmark results are complete and match the pinned upstreams');
+} else {
+  console.log(
+    `\nall non-deferred benchmark results are complete; #${String(deferred.issue)} remains the EPIC-only measurement gate`,
+  );
+}
+
+function readDeferredBenchmarks() {
+  const path = join(BENCH, 'DEFERRED.json');
+  if (!existsSync(path)) return undefined;
+
+  let data;
+  try {
+    data = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    fail(`benchmarks/DEFERRED.json is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  }
+
+  if (
+    data.schemaVersion !== 1 ||
+    !positive(data.epic) ||
+    !positive(data.issue) ||
+    !positive(data.blockedBy) ||
+    typeof data.reason !== 'string' ||
+    data.reason.length === 0
+  ) {
+    fail('benchmarks/DEFERRED.json has incomplete EPIC, issue, blocker, or reason metadata');
+  }
+
+  const allowed = new Set(['app-startup', 'framework', 'observability']);
+  if (
+    !Array.isArray(data.suites) ||
+    data.suites.length === 0 ||
+    new Set(data.suites).size !== data.suites.length ||
+    data.suites.some(suite => typeof suite !== 'string' || !allowed.has(suite))
+  ) {
+    fail('benchmarks/DEFERRED.json suites must be unique app-startup, framework, or observability names');
+    return undefined;
+  }
+
+  return data;
+}
 
 async function verifyObservabilityResult(path) {
   const rel = 'benchmarks/site/observability.json';
@@ -322,6 +410,99 @@ async function verifyObservabilityResult(path) {
 
   if (!errors.some(error => error.startsWith(rel))) {
     console.log(`${rel}: 36 raw samples, six balanced mode orders, provenance verified`);
+  }
+}
+
+function verifyAppStartupResult(path) {
+  const rel = 'benchmarks/site/app-startup-647.json';
+  let data;
+  try {
+    data = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (err) {
+    fail(`${rel} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+
+  if (data.schemaVersion !== 1 || data.issue !== 647) fail(`${rel} must identify the #647 schema`);
+  if (data.suite !== '@zmdb/app extraction startup comparison') fail(`${rel} has the wrong suite label`);
+  if (typeof data.measuredAt !== 'string' || !Number.isFinite(Date.parse(data.measuredAt))) {
+    fail(`${rel} has no valid measuredAt timestamp`);
+  }
+  if (
+    typeof data.beforeCommit !== 'string' ||
+    !/^[0-9a-f]{40}$/.test(data.beforeCommit) ||
+    typeof data.afterCommit !== 'string' ||
+    !/^[0-9a-f]{40}$/.test(data.afterCommit) ||
+    data.beforeCommit === data.afterCommit
+  ) {
+    fail(`${rel} must record distinct full beforeCommit and afterCommit revisions`);
+  }
+  if (
+    typeof data.runtime?.node !== 'string' ||
+    typeof data.runtime?.platform !== 'string' ||
+    typeof data.runtime?.cpu !== 'string'
+  ) {
+    fail(`${rel} has incomplete runtime provenance`);
+  }
+
+  const methodology = data.methodology;
+  if (
+    methodology?.surface !== 'packages/web/src/bench/index.ts#benchmarkAppStartup' ||
+    methodology?.warmupIterationsPerProcess !== 2000 ||
+    methodology?.measuredIterationsPerSample !== 20000 ||
+    methodology?.rounds !== APP_STARTUP_ORDERS.length ||
+    JSON.stringify(methodology?.order) !== JSON.stringify(APP_STARTUP_ORDERS)
+  ) {
+    fail(`${rel} does not record the required seven-round interleaved methodology`);
+  }
+
+  const samples = data.samples;
+  if (!Array.isArray(samples) || samples.length !== APP_STARTUP_ORDERS.length * 2) {
+    fail(`${rel} must contain 14 raw samples`);
+    return;
+  }
+  for (let round = 1; round <= APP_STARTUP_ORDERS.length; round += 1) {
+    const order = samples.filter(sample => sample.round === round).map(sample => sample.variant);
+    if (JSON.stringify(order) !== JSON.stringify(APP_STARTUP_ORDERS[round - 1])) {
+      fail(`${rel} round ${round} does not match the declared interleaved order`);
+    }
+  }
+  for (const sample of samples) {
+    if (!positive(sample.round) || !['before', 'after'].includes(sample.variant) || !positive(sample.totalMs)) {
+      fail(`${rel} has an invalid raw sample`);
+      continue;
+    }
+    const expectedOps = (methodology.measuredIterationsPerSample / sample.totalMs) * 1000;
+    if (!approximately(sample.opsPerSec, expectedOps)) {
+      fail(`${rel} ${sample.variant} round ${String(sample.round)} opsPerSec does not match totalMs`);
+    }
+  }
+
+  const before = samples.filter(sample => sample.variant === 'before').map(sample => sample.totalMs);
+  const after = samples.filter(sample => sample.variant === 'after').map(sample => sample.totalMs);
+  if (before.length !== 7 || after.length !== 7) fail(`${rel} must contain seven samples per variant`);
+  const beforeMedian = median(before);
+  const afterMedian = median(after);
+  const regression = (afterMedian / beforeMedian - 1) * 100;
+  if (!approximately(data.summary?.beforeMedianMs, beforeMedian)) {
+    fail(`${rel} before median does not match the raw samples`);
+  }
+  if (!approximately(data.summary?.afterMedianMs, afterMedian)) {
+    fail(`${rel} after median does not match the raw samples`);
+  }
+  if (!approximately(data.summary?.regressionPercent, regression)) {
+    fail(`${rel} regression does not match the raw medians`);
+  }
+  if (data.summary?.thresholdPercent !== 5 || data.summary?.withinThreshold !== regression <= 5) {
+    fail(`${rel} does not apply the frozen 5% regression threshold`);
+  }
+  if (regression > 5) fail(`${rel} median startup regression ${regression.toFixed(2)}% exceeds 5%`);
+
+  if (!errors.some(error => error.startsWith(rel))) {
+    console.log(
+      `${rel}: 14 interleaved raw samples, ${beforeMedian.toFixed(3)}ms before / ` +
+        `${afterMedian.toFixed(3)}ms after (${regression.toFixed(2)}%), threshold verified`,
+    );
   }
 }
 

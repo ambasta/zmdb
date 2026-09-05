@@ -33,6 +33,7 @@
     "validate:spec": "node .github/scripts/validate-specs.mjs",
     "verify:api-coverage": "node .github/scripts/verify-api-coverage.mjs",
     "verify:bench": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-bench-results.mjs",
+    "verify:bench:epic": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-bench-results.mjs --strict-deferred",
     "verify:build-budget": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-build-budget.mjs",
     "verify:database-boundaries": "node .github/scripts/verify-database-boundaries.mjs && node .github/scripts/verify-database-boundaries.mjs --self-test",
     "verify:devtools-boundary": "node .github/scripts/verify-devtools-boundary.mjs",

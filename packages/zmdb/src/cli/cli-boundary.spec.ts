@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { Container, createToken } from '@zmdb/app/di';
 import { describeGraph } from '@zmdb/web/devtools';
-import { Container, createToken } from '@zmdb/web/di';
 import { createTestApp } from '@zmdb/web/testing';
 import { describe, expect, it } from 'vitest';
 

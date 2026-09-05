@@ -32,7 +32,7 @@ The container has no registration for that token. Three usual causes:
 
 The error names the token's description, which is why a meaningful description pays off — `createToken<Repo>('token')` produces an unhelpful message.
 
-## `@zmdb/web: import cycle in the module graph: AModule -> BModule -> AModule`
+## `@zmdb/app: import cycle in the module graph: AModule -> BModule -> AModule`
 
 Two modules import each other. The message names the full cycle path, including an edge declared with `lazy()`.
 

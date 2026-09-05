@@ -1,48 +1,17 @@
-// @zmdb/web — app-owned liveness and readiness aggregation (#581, epic #578).
+// @zmdb/web — HTTP liveness and readiness routes (#581, epic #578).
 // Liveness is synchronous by type. Readiness is concurrent, bounded, success-cached,
 // and coalesced while a probe invocation is still waiting.
 
-import type { Driver } from '@zmdb/repository';
+import type { CheckResult, DetailedCheck, HealthChecks, LivenessCheck, ReadinessCheck } from '@zmdb/app/health';
 
 import { json, type WebResponse } from '../pipeline/index.js';
 
 const DEFAULT_CACHE_MS = 1000;
 const DEADLINE_GRACE_MS = 50;
 
-/** The process is not wedged. Synchronous, and that is the structural boundary. */
-export interface LivenessCheck {
-  readonly name: string;
-  run(): boolean;
-}
-
-export interface CheckResult {
-  readonly ok: boolean;
-  readonly detail?: string;
-}
-
-/** The process can serve traffic. Dependencies are asked with an explicit deadline. */
-export interface ReadinessCheck {
-  readonly name: string;
-  readonly timeoutMs: number;
-  readonly cacheMs?: number;
-  run(signal: AbortSignal): Promise<CheckResult>;
-}
-
-export interface HealthChecks {
-  readonly liveness?: readonly LivenessCheck[];
-  readonly readiness?: readonly ReadinessCheck[];
-}
-
 export interface HealthProbes {
   readonly live: () => WebResponse;
   readonly ready: () => Promise<WebResponse>;
-}
-
-export interface DetailedCheck {
-  readonly name: string;
-  readonly ok: boolean;
-  readonly detail?: string;
-  readonly durationMs?: number;
 }
 
 export interface DetailedBody {
@@ -225,32 +194,5 @@ export function detailedReadyRoute(checks: HealthChecks): () => Promise<WebRespo
     const results = await readiness.run();
     const ok = results.every(result => result.ok);
     return json({ status: ok ? 'ok' : 'error', checks: results }, ok ? {} : { status: 503 });
-  };
-}
-
-export interface DatabaseReadinessOptions {
-  readonly name?: string;
-  readonly timeoutMs: number;
-  readonly cacheMs?: number;
-}
-
-/**
- * A readiness check for a required database.
- *
- * `SELECT 1` is deliberately trivial. Database reachability affects whether this process
- * can serve traffic, but never whether the process itself should be restarted.
- */
-export function databaseReadinessCheck(
-  driver: Pick<Driver, 'execute'>,
-  options: DatabaseReadinessOptions,
-): ReadinessCheck {
-  return {
-    name: options.name ?? 'database',
-    timeoutMs: options.timeoutMs,
-    ...(options.cacheMs === undefined ? {} : { cacheMs: options.cacheMs }),
-    async run(signal) {
-      await driver.execute({ text: 'SELECT 1', parameters: [] }, { signal });
-      return { ok: true };
-    },
   };
 }

@@ -122,7 +122,7 @@ That is the entire database integration. See [Writing a Driver](./custom-driver.
 ```ts
 // src/posts.controller.ts
 import { Controller, Get, Post as HttpPost } from '@zmdb/web/routing';
-import { Inject } from '@zmdb/web/di';
+import { Inject } from '@zmdb/app/di';
 import type { Ctx } from '@zmdb/web/context';
 import { assert } from '@zmdb/aot-validator/utilities';
 import type { PostRepo } from './repositories.ts';
@@ -168,7 +168,7 @@ export class PostsController {
 ```ts
 // src/app.ts
 import { createServer } from 'node:http';
-import { Module } from '@zmdb/web/modules';
+import { Module } from '@zmdb/app/modules';
 import { createApp } from '@zmdb/web/app';
 import { bodyText, toNodeHandler, createRouter } from '@zmdb/web/pipeline';
 import { PostsController } from './posts.controller.ts';

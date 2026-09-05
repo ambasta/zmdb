@@ -1,4 +1,5 @@
-import type { TraceCarrier } from '../../observability/index.js';
+import type { TraceCarrier } from '@zmdb/app/observability';
+
 import type { MessageReply, RawMessage } from '../index.js';
 
 interface WireEnvelope extends TraceCarrier {

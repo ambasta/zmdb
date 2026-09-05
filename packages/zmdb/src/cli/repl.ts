@@ -4,10 +4,10 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { start, type REPLServer } from 'node:repl';
 
+import type { Token } from '@zmdb/app/di';
+import { moduleDefOf, type ModuleClass } from '@zmdb/app/modules';
 import { createApp, type App } from '@zmdb/web/app';
 import { describeGraph, renderTree, type GraphDescription } from '@zmdb/web/devtools';
-import type { Token } from '@zmdb/web/di';
-import { moduleDefOf, type ModuleClass } from '@zmdb/web/modules';
 import type { WebRequest, WebResponse } from '@zmdb/web/pipeline';
 
 export interface ReplGet {

@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { createToken, Inject } from '@zmdb/web/di';
-import { lazy, Module } from '@zmdb/web/modules';
+import { createToken, Inject } from '@zmdb/app/di';
+import { lazy, Module } from '@zmdb/app/modules';
 import { Controller, Get } from '@zmdb/web/routing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

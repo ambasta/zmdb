@@ -3,7 +3,7 @@
 // a typed message ctx; sseStream frames an async iterable as SSE. No ws
 // dependency, no reflection, no `as` on the consumer surface.
 
-import '../polyfill.js';
+import '@zmdb/app';
 
 /** The context a subscribed handler receives. */
 export interface MessageCtx<T = unknown> {

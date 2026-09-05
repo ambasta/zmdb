@@ -1,16 +1,16 @@
-`@zmdb/web` is a **Stage-3 decorator web framework** for the zmdb ecosystem — controllers, a typed request context, compile-time dependency injection and compile-time domain state machines, with
-**zero `reflect-metadata` and zero runtime reflection**. It sits above [`@zmdb/repository`](./repository.html) in the architecture: controllers inject repositories, routes validate request bodies via
-the [AOT validator](./aot-setup.html), and responses serialize through the same zero-overhead path as the rest of zmdb.
+`@zmdb/web` is the **Stage-3 HTTP framework** for the zmdb ecosystem — controllers, typed request context, middleware, OpenAPI, gateways, and testing over the protocol-neutral `@zmdb/app` kernel, with
+**zero `reflect-metadata` and zero runtime type reflection**. Controllers inject app-owned services, routes validate request bodies via the [AOT validator](./aot-setup.html), and responses serialize
+through the same zero-overhead path as the rest of zmdb.
 
-> [!NOTE] `@zmdb/web` is in **early alpha**. This page documents the shipped **package baseline**; controllers/routing, the typed `Ctx`, DI, domain state machines, the request pipeline and the full
-> NestJS-parity layers are being built out issue-by-issue (spec → tests → implementation → docs).
+> [!NOTE] `@zmdb/web` and `@zmdb/app` are in **early alpha**. The package boundary is intentional: app owns metadata, DI, modules, lifecycle, commands, events, CQRS, state, health contracts, and
+> observability ports; web owns HTTP-facing composition.
 
 ## Install
 
 ```bash
 npm add @zmdb/web@alpha
 # or via the umbrella:
-npm add zmdb@alpha   # then: import { metadataOf } from 'zmdb/web';
+npm add zmdb@alpha
 ```
 
 > Requires **Node.js 26+**, **TypeScript 7+**, and is **ESM-only**. Uses **Stage 3** standard decorators — set `"experimentalDecorators": false` (the default under a modern `tsconfig`). No
@@ -29,7 +29,7 @@ NestJS-style frameworks rely on `experimentalDecorators` + `emitDecoratorMetadat
 Every decorator in the framework builds on one primitive — reading the Stage-3 metadata a decorator wrote:
 
 ```ts
-import { metadataOf } from '@zmdb/web';
+import { metadataOf } from '@zmdb/app';
 
 function Tagged(value: string) {
   return function <T extends abstract new (...args: never[]) => unknown>(_target: T, context: ClassDecoratorContext<T>): void {
@@ -46,8 +46,8 @@ metadataOf(UsersController).tag; // 'users'
 `metadataOf(target)` reads the well-known `Symbol.metadata` record off a decorated class behind a runtime type-guard — **no `as`, no `reflect-metadata`**. For an undecorated class it returns a frozen
 empty record (never `undefined`), so callers can read slots unconditionally.
 
-> [!NOTE] Node 26 / V8 does not yet expose `Symbol.metadata`. `@zmdb/web` ships a zero-dependency polyfill that installs the well-known symbol when absent (a no-op once a runtime ships it natively);
-> it assigns only `Symbol.metadata` and mutates no other global.
+> [!NOTE] Node 26 / V8 does not yet expose `Symbol.metadata`. `@zmdb/app` ships the one zero-dependency polyfill that installs the well-known symbol when absent (a no-op once a runtime ships it
+> natively); it assigns only `Symbol.metadata` and mutates no other global.
 
 ## Design invariants
 
@@ -58,7 +58,6 @@ empty record (never `undefined`), so callers can read slots unconditionally.
 
 See the project [ARCHITECTURE](https://github.com/ambasta/zmdb/blob/main/ARCHITECTURE.md) for where `@zmdb/web` fits in the package DAG and the language/perf policy.
 
-## Roadmap
+## Package boundary
 
-Controllers & routing · typed `Ctx<Params, Body, Query>` with path-param derivation · compile-time DI (`@Inject`) · domain state machines · request pipeline + adapters · repository integration — then
-full NestJS parity (modules, guards/pipes/interceptors/filters, app bootstrap & lifecycle, OpenAPI, WS/SSE, testing utilities).
+Use `@zmdb/app` for protocol-neutral application code and `@zmdb/web` for HTTP declarations and adapters. The `zmdb/web` umbrella remains a curated combined surface during the package migration.

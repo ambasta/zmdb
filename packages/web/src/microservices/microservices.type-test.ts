@@ -1,9 +1,9 @@
+import type { Observability, Span, TraceCarrier } from '@zmdb/app/observability';
 import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 
-import type { createApp } from '../app/index.js';
+import type { createApp, WebApplicationOptions } from '../app/index.js';
 import type { Ctx, QueryValues } from '../context/index.js';
 import type { Guard } from '../middleware/index.js';
-import type { Observability, Span, TraceCarrier } from '../observability/index.js';
 import type { GrpcServerOptions } from './grpc/index.js';
 import {
   EventPattern,
@@ -283,4 +283,4 @@ interface FrozenAppOptions {
 }
 
 export type AppOptionsShape = Expect<Equal<AppOptions, FrozenAppOptions>>;
-export type CreateAppTakesOptions = Expect<Equal<Parameters<typeof createApp>[1], AppOptions | undefined>>;
+export type CreateAppTakesOptions = Expect<Equal<Parameters<typeof createApp>[1], WebApplicationOptions | undefined>>;

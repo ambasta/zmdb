@@ -1,6 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { repositoryToken } from '@zmdb/app/data';
+import { Container, Inject } from '@zmdb/app/di';
 import { defineRepository, type BaseRepository } from '@zmdb/repository';
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
@@ -9,10 +11,9 @@ import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 // validated before persist, typed response. Per packages/web/src/data/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
-import { Container, Inject } from '../di/index.js';
 import { bodyText, createRouter, type Ctx } from '../pipeline/index.js';
 import { Controller, Get, Post } from '../routing/index.js';
-import { repositoryToken, validateWith, wireDecoder, wireEncoder } from './index.js';
+import { validateWith, wireDecoder, wireEncoder } from './index.js';
 
 export interface Order extends Table<'orders'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

@@ -19,7 +19,7 @@ export interface Subscriber {
  *
  * A failure intentionally stops the remaining subscribers and rejects the
  * write, so this is not the application-event emitter. Use `createEvents` from
- * `@zmdb/web/events` when handlers must run concurrently with isolated errors.
+ * `@zmdb/app/events` when handlers must run concurrently with isolated errors.
  */
 export class EventBus {
   private subs: Subscriber[] = [];

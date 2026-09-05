@@ -2,13 +2,13 @@
 // An honest microbench + an init-time-resolution probe proving route resolution
 // does not re-read metadata per request. No `as` on the consumer surface.
 
-import '../polyfill.js';
+import '@zmdb/app';
+import type { ModuleClass } from '@zmdb/app/modules';
+import { tracedDriver } from '@zmdb/app/observability';
+import type { Observability } from '@zmdb/app/observability';
 import type { CompiledQuery } from '@zmdb/query-compiler';
 
 import { createApp } from '../app/index.js';
-import type { ModuleClass } from '../modules/index.js';
-import { tracedDriver } from '../observability/index.js';
-import type { Observability } from '../observability/types.js';
 import { createRouter, type ResponseBody } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 import { Version, type VersionStrategy } from '../versioning/index.js';

@@ -10,21 +10,22 @@
 
 ## Packages
 
-| Package                                             | Status | What it provides                                                                   |
-| --------------------------------------------------- | ------ | ---------------------------------------------------------------------------------- |
-| [`@zmdb/client`](./packages/client)                 | ✅     | Dependency-free HTTP transport, cancellation, authentication, and typed errors     |
-| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SQL compilation, dialect support, introspection, DDL, and migrations               |
-| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | Schema tags, the shared IR, derived DTOs, relations, and OpenAPI                   |
-| [`@zmdb/ai`](./packages/ai)                         | ✅     | Provider-neutral tool documents, bounded chat, invocation, and OpenAPI tools       |
-| [`@zmdb/protobuf`](./packages/protobuf)             | ✅     | Zero-dependency protobuf calls, typed gRPC artifacts, and generated-code wire ABI  |
-| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | Build-time validation, serialization, reflection, and artifact emission            |
-| [`@zmdb/repository`](./packages/repository)         | ✅     | Typed CRUD, transactions, relations, loaders, caching, and streaming               |
-| [`@zmdb/web`](./packages/web)                       | ✅     | Controllers, DI, middleware, OpenAPI, transports, typed gRPC, jobs, and scheduling |
-| [`zmdb`](./packages/zmdb)                           | ✅     | The curated one-install product facade and CLI                                     |
+| Package                                             | Status | What it provides                                                                  |
+| --------------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| [`@zmdb/client`](./packages/client)                 | ✅     | Dependency-free HTTP transport, cancellation, authentication, and typed errors    |
+| [`@zmdb/query-compiler`](./packages/query-compiler) | ✅     | SQL compilation, dialect support, introspection, DDL, and migrations              |
+| [`@zmdb/schema-core`](./packages/schema-core)       | ✅     | Schema tags, the shared IR, derived DTOs, relations, and OpenAPI                  |
+| [`@zmdb/ai`](./packages/ai)                         | ✅     | Provider-neutral tool documents, bounded chat, invocation, and OpenAPI tools      |
+| [`@zmdb/protobuf`](./packages/protobuf)             | ✅     | Zero-dependency protobuf calls, typed gRPC artifacts, and generated-code wire ABI |
+| [`@zmdb/aot-validator`](./packages/aot-validator)   | ✅     | Build-time validation, serialization, reflection, and artifact emission           |
+| [`@zmdb/repository`](./packages/repository)         | ✅     | Typed CRUD, transactions, relations, loaders, caching, and streaming              |
+| [`@zmdb/app`](./packages/app)                       | ✅     | Protocol-neutral metadata, DI, modules, lifecycle, commands, events, and CQRS     |
+| [`@zmdb/web`](./packages/web)                       | ✅     | HTTP controllers, middleware, OpenAPI, gateways, testing, and runtime adapters    |
+| [`zmdb`](./packages/zmdb)                           | ✅     | The curated one-install product facade and CLI                                    |
 
 > Status legend: ✅ complete. 🚧 in progress. 🔜 planned.
 >
-> The current suite has **2,792 passing tests** across 256 files, plus **115 expected failures** that describe work still to be done. The compatibility inventory covers 504 of 742 upstream API suites
+> The current suite has **2,809 passing tests** across 257 files, plus **101 expected failures** that describe work still to be done. The compatibility inventory covers 504 of 742 upstream API suites
 > and explains why the other 238 are out of scope. The documentation site contains 261 supported pages, 3 TODO pages, and 13 pages for features we do not plan to add.
 
 ## Quick Start

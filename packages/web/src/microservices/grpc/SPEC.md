@@ -108,9 +108,9 @@ export interface GrpcServiceSpec<S extends GrpcServiceDef> {
 }
 ```
 
-**A mapped type, and there is no `@GrpcMethod` decorator.** `#557`'s API surface proposes one; it is refused for the reason `../cqrs/SPEC.md` §3 refuses `@CommandHandler`, plus one that is decisive
-here and nowhere else: a gRPC service is a **closed contract shared with another language**, so the property worth paying for is exhaustiveness — a service with an unimplemented method must not
-compile — and a decorator cannot have it.
+**A mapped type, and there is no `@GrpcMethod` decorator.** `#557`'s API surface proposes one; it is refused for the reason `../../../../app/src/cqrs/SPEC.md` §3 refuses `@CommandHandler`, plus one
+that is decisive here and nowhere else: a gRPC service is a **closed contract shared with another language**, so the property worth paying for is exhaustiveness — a service with an unimplemented
+method must not compile — and a decorator cannot have it.
 
 A decorated class missing a method is a class, and the omission surfaces as `UNIMPLEMENTED` at the caller.
 
@@ -251,8 +251,8 @@ A thrown `GrpcError` is sent as its `status` and its `details`. **Anything else 
 already states the reason — "a gRPC error message propagates to the caller, and a database error string discloses schema and topology" — and making it the default rather than the advice is the
 difference between a documented practice and a property.
 
-`onError` is required on `GrpcServiceSpec`, the same requirement and the same argument as `../events/SPEC.md` §3: the alternatives are silence, which loses every internal failure, and `console.error`,
-which invents a logger this project has never had.
+`onError` is required on `GrpcServiceSpec`, the same requirement and the same argument as `../../../../app/src/events/SPEC.md` §3: the alternatives are silence, which loses every internal failure, and
+`console.error`, which invents a logger this project has never had.
 
 A malformed frame that `protoDecode` rejects is `INVALID_ARGUMENT`, not `INTERNAL`. Protobuf decoding is not a complete application validator: implicit absence fills scalar zero values, an
 incompatible wire form is skipped, and validation tags such as bounds or patterns are outside the codec. A binding that promises those constraints must run the emitted `assert<T>` after decoding.

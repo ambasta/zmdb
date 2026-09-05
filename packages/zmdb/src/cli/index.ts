@@ -11,8 +11,8 @@ import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { schemasFromFiles } from '@zmdb/aot-validator/testing';
+import type { ModuleClass } from '@zmdb/app/modules';
 import { describeGraph, renderDot, renderTree, type GraphFilter } from '@zmdb/web/devtools';
-import type { ModuleClass } from '@zmdb/web/modules';
 
 import { commandHelp, globalHelp, parseCommand, type ParsedCommand } from './args.js';
 import { checkProject, type CheckResult } from './commands/check.js';

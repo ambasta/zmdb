@@ -10,7 +10,9 @@ import { assert } from '@zmdb/aot-validator/utilities';
 import { defineRepository, type BaseRepository } from '@zmdb/repository';
 import type { CreateDTO } from 'zmdb/derive';
 import { sqliteDriver } from '@zmdb/repository/drivers/sqlite';
-import { Container, Inject, Controller, Get, Post, createRouter, repositoryToken, validateWith } from '@zmdb/web';
+import { repositoryToken } from '@zmdb/app/data';
+import { Container, Inject } from '@zmdb/app/di';
+import { Controller, Get, Post, createRouter, validateWith } from '@zmdb/web';
 import type { Ctx } from '@zmdb/web';
 import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 

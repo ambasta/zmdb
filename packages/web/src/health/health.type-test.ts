@@ -1,3 +1,4 @@
+import type { CheckResult, LivenessCheck, ReadinessCheck, databaseReadinessCheck } from '@zmdb/app/health';
 // Type-level tests for the health-check surface frozen in ./SPEC.md §2 (#580, epic #578).
 // No runtime code: a *compilation* gate run by `node scripts/typecheck.mjs`, and therefore
 // by CI. `packages/web/tsconfig.json` includes `src/**/*.ts`, so this file is compiled.
@@ -9,7 +10,7 @@ import type { Driver } from '@zmdb/repository';
 import type { Equal, Expect } from '@zmdb/schema-core';
 
 import type { WebResponse } from '../pipeline/index.js';
-import type { CheckResult, LivenessCheck, ReadinessCheck, databaseReadinessCheck, healthRoutes } from './index.js';
+import type { healthRoutes } from './index.js';
 
 type HealthRoutes = typeof healthRoutes;
 declare const readinessRun: (signal: AbortSignal) => Promise<CheckResult>;

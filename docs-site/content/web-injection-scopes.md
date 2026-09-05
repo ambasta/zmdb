@@ -3,8 +3,8 @@
 ## Singleton and transient
 
 ```ts
-import { createToken } from '@zmdb/web/di';
-import { Module } from '@zmdb/web/modules';
+import { createToken } from '@zmdb/app/di';
+import { Module } from '@zmdb/app/modules';
 
 export const DRIVER = createToken<Driver>('DRIVER');
 export const REQUEST_ID = createToken<string>('REQUEST_ID');

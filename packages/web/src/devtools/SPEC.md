@@ -3,9 +3,9 @@
 > What the compiled module graph can be asked about, where every field of the answer comes from, how it is rendered at a size a human can read, and the structural separation that keeps the tooling out
 > of a server process (epic #598, sub-issue #599). Frozen before code.
 
-Lazy semantics, the two-pass compile and the metadata readers this file consumes are `../modules/SPEC.md`'s `## Amendments (lazy modules and the graph's data source, #599)`. The `modules` and `repl`
-commands are `../../../zmdb/src/cli/SPEC.md`'s `## Amendments (the module inspector and the REPL, #599)`. This file is the value: its shape, its provenance, its failure reporting and the subpath it
-lives behind.
+Lazy semantics, the two-pass compile and the metadata readers this file consumes are `../../../app/src/modules/SPEC.md`'s `## Amendments (lazy modules and the graph's data source, #599)`. The
+`modules` and `repl` commands are `../../../zmdb/src/cli/SPEC.md`'s `## Amendments (the module inspector and the REPL, #599)`. This file is the value: its shape, its provenance, its failure reporting
+and the subpath it lives behind.
 
 ## 1. The argument this has to answer, and it mostly survives
 
@@ -19,16 +19,15 @@ Two of its three clauses are not withdrawn. They are the design.
 1. **"zmdb resolves its graph at module construction" stays true.** Nothing here introspects a booted application. `describeGraph` takes a module class and re-derives the description from decorator
    metadata — §2 — so it answers the same question before the process starts as after, and `zmdb modules` never constructs anything at all.
 2. **"has no runtime metadata store to browse" stays true, and it is the reason for §2's signature.** There is no registry of provider descriptors, no reverse index, and nothing retained by
-   `compileModule` beyond the container and the controller list (`../modules/index.ts:103`). The description is reconstructed, which is what makes the epic's §1 cost constraint free rather than
-   something to engineer around — §3.
+   `compileModule` beyond its runtime container, controller/command lists, and lazy handles (`../../../app/src/modules/index.ts`). The description is reconstructed, which is what makes the epic's §1
+   cost constraint free rather than something to engineer around — §3.
 
 The clause that stops being true is the third. **Provider dependency edges, scopes and the module a token was registered in are in neither the types nor the OpenAPI document**, and no amount of
 reading either one answers "why is this a singleton" or "what breaks if I delete this provider". That is the gap, it is real, and `docs-site/content/web-devtools.md` states the reason for it too
 strongly: it says there are "no [dependency edges] to record".
 
-There are. `@Inject` records `{ field, token }` into `context.metadata` on every decorated class (`../di/index.ts:71-84`) and has done since the DI module shipped; the slot is simply **never read**.
-`INJECTIONS` appears nowhere in `packages/web/src` outside `../di/index.ts`: its declaration (:36), the type slot (:39), two comments (:42, :76), and the writer that copies then appends (:79, :81).
-Every occurrence belongs to that writer; nothing consumes the slot.
+There are. `@Inject` records `{ field, token }` into `context.metadata` on every decorated class (`../../../app/src/di/index.ts`) and has done since the DI module shipped. The app-owned `injectionsOf`
+reader exposes that slot to this HTTP-aware inspector without retaining a second graph.
 
 The edges exist, unread, in the one place that cannot fall out of sync with the source. §4 reads them.
 
@@ -102,16 +101,16 @@ Six corrections to #599's sketch. The first is the one everything else follows f
 **`describeGraph(app: App)` cannot be written.** `App` is `{ container, handle, fetch, init, [Symbol.asyncDispose] }` (`../app/index.ts:14-19`) and holds no root module, no controller list and no
 route table; `createApp` destructures `{ container, controllers }` and closes over the controllers without exposing them (`../app/index.ts:27-39`).
 
-The one thing it does expose is the `Container`, whose `#bindings` and `#factories` are private fields (`../di/index.ts:102-105`) with `has` and `resolve` as the only readers — so a token cannot even
-be enumerated from it, let alone attributed to a module.
+The one thing it does expose is the `Container`, whose `#bindings` and `#factories` are private fields (`../../../app/src/di/index.ts`) with `has` and `resolve` as the only readers — so a token cannot
+even be enumerated from it, let alone attributed to a module.
 
 An `App`-shaped signature therefore forces one of two things: a new field on `App` holding a description, which is the permanent retention the epic's §1 constraint forbids, or three new accessors on
 `Container` that exist only for a development tool. `ModuleClass` is the argument the data is actually reachable from, and taking it has a second effect worth more than the first: the inspector runs
 on a graph that does not boot.
 
-**`providers[].dependencies` is `readonly string[] | null`, not `readonly string[]`.** A factory provider is `(container: Container) => T` (`../modules/index.ts:12`) — an arbitrary function handed the
-whole container, which may resolve anything, conditionally, at any depth. Its edges are not derivable by any means short of running it, which is the thing the inspector must not do. So `null` means
-"not knowable", `[]` means "knowable and empty", and the two must not collapse.
+**`providers[].dependencies` is `readonly string[] | null`, not `readonly string[]`.** A factory provider is `(container: Container) => T` (`../../../app/src/modules/index.ts`) — an arbitrary function
+handed the whole container, which may resolve anything, conditionally, at any depth. Its edges are not derivable by any means short of running it, which is the thing the inspector must not do. So
+`null` means "not knowable", `[]` means "knowable and empty", and the two must not collapse.
 
 The distinction is load-bearing at the point of use: reading "nothing depends on `POOL`" off a graph that simply cannot see factory edges is how a provider gets deleted, and it is the single most
 likely way this tool causes an outage rather than preventing one.
@@ -119,30 +118,29 @@ likely way this tool causes an outage rather than preventing one.
 **`null` rather than `undefined`, deliberately.** `JSON.stringify` drops a property whose value is `undefined`, so the marker would vanish from exactly the output format a script reads and the field
 would read as absent — indistinguishable from an older description, and one `?? []` away from the misreading above. `null` survives serialisation.
 
-**`scope` lives only on the `factory` arm.** `ProviderDef` is a union in which `useValue` carries no scope at all (`../modules/index.ts:10-12`), because a bound value is not resolved once, it is
-bound. Reporting `'singleton'` for it would answer the epic's own example question — "why is this a singleton?" — with a word that does not apply, so the description mirrors the union it describes and
-a reader who sees `kind: 'value'` knows there is no factory to have run.
+**`scope` lives only on the `factory` arm.** `ProviderDef` is a union in which `useValue` carries no scope at all (`../../../app/src/modules/index.ts`), because a bound value is not resolved once, it
+is bound. Reporting `'singleton'` for it would answer the epic's own example question — "why is this a singleton?" — with a word that does not apply, so the description mirrors the union it describes
+and a reader who sees `kind: 'value'` knows there is no factory to have run.
 
 **`routes` is `{ method, path, handler }`, not `readonly string[]`.** `getRoutes` returns all three (`../routing/index.ts:117-121`) and the two the sketch drops are the two that make a shadowing bug
 visible: `web-devtools.md`'s hand-written route printout prints method, path _and_ handler, and says registration order is what decides which of two matching routes wins. A path alone cannot express
 `GET /users/:id` shadowing `GET /users/me`.
 
-**There is no `exports` field, and this is not an oversight.** `ModuleDef.exports` is declared (`../modules/index.ts:22`) and `../modules/SPEC.md:23-24` says providers are registered "respecting
-`imports`/`exports` visibility" — but `compileModule` never reads it. The walk registers every module's providers into one container without consulting it at all (`../modules/index.ts:89-93`, whose
-only condition is the testing override check at :90), so every token is visible to every module and `exports` is inert data.
+**There is no `exports` field, and this is not an oversight.** `ModuleDef.exports` is declared (`../../../app/src/modules/index.ts`) and `../../../app/src/modules/SPEC.md` records that visibility is
+aspirational — `compileModule` does not enforce it. The walk registers every module's providers into one container without consulting it at all (other than the testing override check), whose only
+condition is the testing override check at :90), so every token is visible to every module and `exports` is inert data.
 
 Publishing it in a description, and worse drawing it as a boundary in a diagram, would document a guarantee the runtime does not provide. #599 does not fix that divergence — it is a change to
 resolution semantics with consequences for every existing app — but the inspector refuses to launder it. When it is fixed, `exports` becomes a describable edge.
 
-`commands` is absent for the same reason `telemetry` is optional in `../observability/SPEC.md` §5: the `commands` key is still `## Pending` in `../modules/SPEC.md:46-56`, and a node list that is
-always empty is a field nothing reads whose only effect is to change the shape every `toEqual` compares. When that key lands, commands appear as a fourth `ClassNode` list, additively, with no other
-change here.
+`commands` remains absent from the HTTP-aware graph description. Commands are app-owned and have no route projection; adding them to this surface is a separate contract change rather than a side
+effect of moving the module graph.
 
 Ids are namespaced strings — `module:UsersModule`, `provider:USERS_REPOSITORY`, `controller:UsersModule.UsersController` — so one flat id space serves every edge, a DOT node id is unambiguous without
 a per-kind prefix invented by the renderer, and two classes of the same name in different modules do not collide.
 
-A token whose description is not unique gets a `#<n>` suffix in declaration order **and** a finding (§5): `createToken` derives no identity from its description (`../di/index.ts:17-19`), so two calls
-with the same string are two different tokens, and every output that names one is ambiguous.
+A token whose description is not unique gets a `#<n>` suffix in declaration order **and** a finding (§5): `createToken` derives no identity from its description (`../../../app/src/di/index.ts`), so
+two calls with the same string are two different tokens, and every output that names one is ambiguous.
 
 That is the same failure `web-devtools.md` describes from the other end, where a token described `'token'` produces a useless `UnresolvedTokenError`.
 
@@ -151,12 +149,12 @@ That is the same failure `web-devtools.md` describes from the other end, where a
 The epic's §1 constraint is that the metadata the inspector needs must not be retained at runtime unless asked for. The current implementation satisfies this without a special mechanism. Building the
 description during compilation and attaching it to `CompiledModule` would be easier, but it would retain the graph.
 
-`compileModule` returns `{ container, controllers }` (`../modules/index.ts:103`). Its `visited`, `inProgress` and per-module `def` references are function-local and unreachable the moment it returns.
-So there is no description to discard and no traversal to keep: the eager path does not hold a graph, it holds a container.
+`compileModule` returns runtime values — the container, controller/command instances, and lazy handles — but its traversal sets and per-module definitions are function-local and unreachable the moment
+it returns. So there is no description to discard and no traversal to keep.
 
-Everything the description needs is on the classes themselves — `ROUTES`/`PREFIX` in the routing metadata (`../routing/index.ts:28-29`), `MODULE` in the module metadata (`../modules/index.ts:31`),
-`INJECTIONS` in the DI metadata (`../di/index.ts:35`) — each written once at class-definition time and retained by the class for the process's lifetime whether or not anybody ever describes anything.
-**The inspector adds zero retained bytes because it reads data that is already there and throws its own answer away.**
+Everything the description needs is on the classes themselves — `ROUTES`/`PREFIX` in the routing metadata (`../routing/index.ts`), `MODULE` in the module metadata
+(`../../../app/src/modules/index.ts`), and `INJECTIONS` in the DI metadata (`../../../app/src/di/index.ts`) — each written once at class-definition time and retained by the class for the process's
+lifetime whether or not anybody ever describes anything. **The inspector adds zero retained bytes because it reads data that is already there and throws its own answer away.**
 
 That resolves #599's step 5 question ("the eager path may discard what it does not need") by observing that the eager path discards nothing, because it never accumulated anything.
 
@@ -167,9 +165,9 @@ The measurable claim is that **nothing reads it until asked**, and `countMetadat
 
 The cost of reconstruction is one walk of the module classes per call, which is the cost of the startup walk, on a tool a human invoked. It is not on any request path.
 
-The important distinction is that **a description describes the program, not a process.** It does not know about `compileModule`'s `overrides` (`../modules/index.ts:65`, which is how `createTestApp`
-injects stubs), and it does not know whether a lazy module has loaded. Lazy _status_ is per-app state and lives on `CompiledModule.lazy`'s handles (`../modules/SPEC.md`'s amendment §L2);
-`ModuleNode.lazy` is the declaration. Conflating the two would make the CLI's output depend on whether a request had arrived, in a CLI that has no process to ask.
+The important distinction is that **a description describes the program, not a process.** It does not know about `compileModule`'s testing overrides, and it does not know whether a lazy module has
+loaded. Lazy _status_ is per-app state and lives on `CompiledModule.lazy`'s handles (`../../../app/src/modules/SPEC.md`'s amendment §L2); `ModuleNode.lazy` is the declaration. Conflating the two would
+make the CLI's output depend on whether a request had arrived, in a CLI that has no process to ask.
 
 ## 4. Where every field comes from
 
@@ -178,7 +176,7 @@ injects stubs), and it does not know whether a lazy module has loaded. Lazy _sta
 | `modules[].name`             | `moduleClass.name`                                            | yes, unless anonymous     |
 | `modules[].imports`          | `ModuleDef.imports`, via a new `moduleDefOf`                  | yes                       |
 | `modules[].lazy`             | the `lazy()` marker on the importing module's `imports` entry | yes                       |
-| `providers[].token`          | `Token.description` (`../di/index.ts:12`)                     | yes                       |
+| `providers[].token`          | `Token.description` (`../../../app/src/di/index.ts`)          | yes                       |
 | `providers[].module`         | which `ModuleDef.providers` list it appeared in               | yes                       |
 | `providers[].kind`/`scope`   | the `ProviderDef` arm and its `scope ?? 'singleton'`          | yes                       |
 | `providers[].dependencies`   | nothing — a factory body is opaque                            | **no**, always `null`     |
@@ -188,10 +186,10 @@ injects stubs), and it does not know whether a lazy module has loaded. Lazy _sta
 Two readers have to be exported for this, and both are one line of new code over functions that already exist:
 
 ```ts
-// ../modules/index.ts — `readModuleDef` at :50 is already written, and unexported.
+// @zmdb/app/modules — public module metadata reader.
 export declare function moduleDefOf(module: ModuleClass): ModuleDef | undefined;
 
-// ../di/index.ts — reads the slot `Inject` writes at :73-79.
+// @zmdb/app/di — reads the slot `Inject` writes.
 export declare function injectionsOf(ctor: abstract new (...args: never[]) => unknown): readonly { readonly field: string | symbol; readonly token: Token<unknown> }[];
 ```
 
@@ -225,9 +223,9 @@ and a base whose table does not change when a subclass is evaluated.
 
 `describeGraph` **never throws.** Every problem it can see is a `Finding` in the returned value.
 
-That is the opposite of `compileModule`, which throws on a cycle (`../modules/index.ts:81`) and lets `UnresolvedTokenError` out of a field initialiser (`../di/index.ts:135`), and the asymmetry is
-deliberate: the inspector is the tool you reach for **because** the application will not boot, and a diagnostic that fails on the input it exists to explain is useless. A cycle throwing out of
-`describeGraph` would produce, for `zmdb modules`, exactly the message `web-devtools.md` already complains about, in the one command whose job is to say more than that.
+That is the opposite of `compileModule`, which throws on a cycle and lets `UnresolvedTokenError` out of a field initialiser (`../../../app/src/modules/index.ts`, `../../../app/src/di/index.ts`), and
+the asymmetry is deliberate: the inspector is the tool you reach for **because** the application will not boot, and a diagnostic that fails on the input it exists to explain is useless. A cycle
+throwing out of `describeGraph` would produce, for `zmdb modules`, exactly the message `web-devtools.md` already complains about, in the one command whose job is to say more than that.
 
 | kind                          | severity | meaning                                                                           |
 | ----------------------------- | -------- | --------------------------------------------------------------------------------- |
@@ -250,14 +248,14 @@ Severity is what the CLI's exit code reads (`../../../zmdb/src/cli/SPEC.md`'s am
 `compileModule` now names the cycle path:
 
 ```
-@zmdb/web: import cycle in the module graph: AppModule -> BillingModule -> UsersModule -> BillingModule
+@zmdb/app: import cycle in the module graph: AppModule -> BillingModule -> UsersModule -> BillingModule
 ```
 
 first element repeated last, so the closing edge is visible rather than inferred. The `Finding` carries the same list in `path`.
 
-**This needs no new bookkeeping.** `inProgress` is a `Set<ModuleClass>` (`../modules/index.ts:69`) and `Set` iteration is insertion-ordered, so at the moment `inProgress.has(moduleClass)` is true
-(`:80`) the path is that set from the repeated module onward, plus the repeated module again. An implementation that adds a parallel array is adding a second copy of the truth to the one function
-whose correctness this depends on.
+**This needs no new bookkeeping.** The app module walk's `inProgress` value is a `Set<ModuleClass>` (`../../../app/src/modules/index.ts`) and `Set` iteration is insertion-ordered, so at the moment
+`inProgress.has(moduleClass)` is true (`:80`) the path is that set from the repeated module onward, plus the repeated module again. An implementation that adds a parallel array is adding a second copy
+of the truth to the one function whose correctness this depends on.
 
 The same path makes the cycle a `warning`-free `error` finding rather than a throw in `describeGraph`: the walk that finds it is the walk that describes everything else, so a described graph with a
 cycle is a complete description plus one finding, not a partial one.
@@ -322,8 +320,8 @@ DoD 6 of the epic asks that nothing in this path be importable into a production
    scripts live there, while `verify:fixtures` runs a package's own bin. It walks the transitive import graph from every production `@zmdb/web` and `zmdb` `exports` target except the two intended tool
    entries, `@zmdb/web#./devtools` and build-time-only `zmdb#./cli`, and fails if any other entry reaches a file under `src/devtools/` or a `node:repl` specifier, printing the chain. The walker
    already exists: `importsOf` and `resolveSpecifier` at `.github/scripts/verify-exports.mjs:145-173` do this for `typescript`, including following `@zmdb/*` across package boundaries and matching
-   dynamic `import()`, and `pathToTypescript` at `:158-173` is the shape to copy. The reverse direction is allowed and must be: `src/devtools/` imports `../modules`, `../di` and `../routing`, which is
-   the point.
+   dynamic `import()`, and `pathToTypescript` at `:158-173` is the shape to copy. The reverse direction is allowed and must be: `src/devtools/` imports public `@zmdb/app/modules`, `@zmdb/app/di`, and
+   `../routing`, which is the point.
 4. **No TTY, no REPL.** The runtime refusal, specified in that same amendment, so that even `zmdb repl` spawned from a request handler declines.
 
 The failure mode all four exist to prevent is one line in a controller — `import { describeGraph } from '@zmdb/web/devtools'` behind a `/__graph` route — which ships the inspector into production and
@@ -342,7 +340,7 @@ serves a document naming every token, every route pattern and every module. That
    `mapping.mjs` cites it.
 5. `dependentsOf` over a token injected by two controllers returns both plus the opaque-factory sentinel, and a provider with no known consumer still returns that sentinel rather than the unsafe claim
    that it has no dependents.
-6. `injectionsOf(Base)` returns only the base class's fields when a subclass adds one — the assertion that fails against `../di/index.ts:78` as written today (§4).
+6. `injectionsOf(Base)` returns only the base class's fields when a subclass adds one (§4).
 7. Each row of §5, by `kind` and `severity`, on a fixture variant that provokes it; and `describeGraph` over a fixture with a cycle **returns** rather than throws, while `compileModule` over the same
    fixture still throws.
 8. The cycle message and the `path` are `A -> B -> C -> A` for a three-module cycle, first element repeated last, asserted on the string.

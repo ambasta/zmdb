@@ -1,9 +1,9 @@
+import { createToken, Inject } from '@zmdb/app/di';
+import { compileModule, Module } from '@zmdb/app/modules';
 // Runtime contract for #587/#588, against queues/SPEC.md. Every assertion reaches the
 // shipped worker through the supported in-memory backend and fake clock.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createToken, Inject } from '../di/index.js';
-import { compileModule, Module } from '../modules/index.js';
 import { createMemoryJobStore, type MemoryJobStore } from './backends/memory.js';
 import { createQueue, createWorker, type Clock, type DeadJob, type JobHandler, type WorkerOptions } from './index.js';
 

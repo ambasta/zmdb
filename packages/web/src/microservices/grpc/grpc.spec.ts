@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 
 import { Client, Metadata, credentials, status, type ClientWritableStream } from '@grpc/grpc-js';
+import { Module } from '@zmdb/app/modules';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../app/index.js';
 import type { Ctx, QueryValues } from '../../context/index.js';
-import { Module } from '../../modules/index.js';
 import type { DispatcherOptions, TransportRequest, TransportStrategy, WithHeaders } from '../index.js';
 import {
   ordersService,

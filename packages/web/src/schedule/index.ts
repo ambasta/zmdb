@@ -4,7 +4,7 @@
 // one application constructed, parses every expression once, and owns all
 // timers, run state and leases for that application.
 
-import '../polyfill.js';
+import '@zmdb/app';
 import type { Clock } from '../queues/index.js';
 import { createCronPlan, type CronPlan } from './cron.js';
 import { createLeaseHolder, createLeaseSession, type LeaseSession, type LeaseStore } from './lease.js';

@@ -42,10 +42,15 @@ const META = {
       'Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, and framework adapters. No proxies, no identity map.',
     keywords: ['typescript', 'repository', 'crud', 'transactions', 'data-layer', 'zmdb'],
   },
+  app: {
+    description:
+      'Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.',
+    keywords: ['typescript', 'application-framework', 'decorators', 'stage-3', 'dependency-injection', 'cqrs', 'zmdb'],
+  },
   web: {
     description:
-      'Stage-3 decorator web framework for the zmdb ecosystem: controllers, typed request context, compile-time DI and domain state machines — zero reflect-metadata, zero runtime reflection.',
-    keywords: ['typescript', 'web-framework', 'decorators', 'stage-3', 'dependency-injection', 'zmdb'],
+      'HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.',
+    keywords: ['typescript', 'web-framework', 'http', 'decorators', 'stage-3', 'openapi', 'zmdb'],
   },
   zmdb: {
     description:
@@ -71,7 +76,7 @@ for (const [name, m] of Object.entries(META)) {
     repository: { type: 'git', url: `git+${REPO}.git`, directory: `packages/${name}` },
     bugs: { url: `${REPO}/issues` },
     type: 'module',
-    sideEffects: false,
+    sideEffects: pkg.sideEffects ?? false,
     exports: pkg.exports,
     // The committed (dev) manifest. `.github/scripts/repoint-dist.mjs` rewrites
     // `exports`, `bin`, `main`, `types` and `files` onto `dist` in CI, right before

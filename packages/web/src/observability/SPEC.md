@@ -340,5 +340,5 @@ The narrow ports, W3C propagation, message spans and driver instrumentation move
 `SpanOptions`, `Tracer`, `Meter`, `Observability`, `CommentKey`, `CommentKeys`, `CommentPairs`, `QueryTelemetry`, `ExecutingDriver`, `tracedDriver`, `consumerSpan`, `fromTraceContext`,
 `fromTraceparent`, `toTraceHeaders` and `toTraceparent`.
 
-`createTracedRouter` remains HTTP-owned in `@zmdb/web`. `fromOpenTelemetry` and `OpenTelemetryOptions` move to `@zmdb/otel`, the sole owner of the OpenTelemetry peer. The old broad
-`@zmdb/web/observability` and `@zmdb/web/otel` entries are deleted; web imports app's public port and never the optional adapter.
+`createTracedRouter` remains HTTP-owned in `@zmdb/web`. The broad `@zmdb/web/observability` entry is deleted when its implementation moves to app. In this slice, `@zmdb/web/otel` remains the
+OpenTelemetry compatibility adapter; its later extraction moves `fromOpenTelemetry` and `OpenTelemetryOptions` to `@zmdb/otel`, the sole owner of the OpenTelemetry peer.

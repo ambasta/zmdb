@@ -30,7 +30,15 @@ const PACKAGES = join(ROOT, 'packages');
 const FIXTURES = join(ROOT, 'fixtures');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const TSC = join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
-const CURRENT_OWNER_DIRECTORIES = ['query-compiler', 'schema-core', 'aot-validator', 'repository', 'web', 'zmdb'];
+const CURRENT_OWNER_DIRECTORIES = [
+  'query-compiler',
+  'schema-core',
+  'aot-validator',
+  'repository',
+  'app',
+  'web',
+  'zmdb',
+];
 const TARGET_DIRECTORIES = {
   '@zmdb/compiler': 'compiler',
   '@zmdb/migrations': 'migrations',

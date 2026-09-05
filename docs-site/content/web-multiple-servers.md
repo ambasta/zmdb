@@ -50,7 +50,7 @@ provider overrides. Those remain a `createTestApp` feature, so a shared instance
 If you need overrides outside a test, drop one level down and wire the router yourself:
 
 ```ts
-import { compileModule } from '@zmdb/web/modules';
+import { compileModule } from '@zmdb/app/modules';
 import { createRouter, toNodeHandler } from '@zmdb/web/pipeline';
 
 const { controllers } = compileModule(PublicModule, [{ token: DRIVER, useValue: driver }]);

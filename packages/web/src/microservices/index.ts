@@ -2,9 +2,10 @@
 // contracts. Strategies own broker framing and settlement; the framework owns
 // validation, handler dispatch, request correlation and bounded client waits.
 
-import '../polyfill.js';
-import { consumerSpan, toTraceHeaders } from '../observability/index.js';
-import type { Observability, Span, TraceCarrier } from '../observability/index.js';
+import '@zmdb/app';
+import { consumerSpan, toTraceHeaders } from '@zmdb/app/observability';
+import type { Observability, Span, TraceCarrier } from '@zmdb/app/observability';
+
 import type { GrpcServerOptions } from './grpc/types.js';
 
 /** A parsed delivery constructed by a transport strategy. */

@@ -4,7 +4,8 @@ per-request graph walk or reflection).
 ## Declaring a module
 
 ```ts
-import { Module, createToken } from '@zmdb/web';
+import { createToken } from '@zmdb/app/di';
+import { Module } from '@zmdb/app/modules';
 
 class Clock {
   now() {
@@ -38,7 +39,7 @@ class AppModule {}
 ## Compiling the graph
 
 ```ts
-import { compileModule } from '@zmdb/web';
+import { compileModule } from '@zmdb/app/modules';
 
 const { container, controllers, lazy } = compileModule(AppModule);
 // providers registered (imports resolved first), controllers built with their
@@ -52,7 +53,7 @@ const { container, controllers, lazy } = compileModule(AppModule);
 ## Lazy imports
 
 ```ts
-import { lazy, Module } from '@zmdb/web';
+import { lazy, Module } from '@zmdb/app/modules';
 
 @Module({
   imports: [SharedModule, lazy(AdminModule)],
@@ -68,7 +69,7 @@ See [Lazy-Loading Modules](./web-lazy-modules.html) for concurrency, lifecycle a
 - **Static validation** — eager and lazy declarations are checked once; `resolve` is O(1), with no per-request reflection.
 - **Acyclic** — a circular `imports` graph, including lazy edges, throws at `compileModule` and names the cycle path.
 - **No `as` on the consumer surface** — provider tokens carry their type.
-- Granular import: `import { Module } from '@zmdb/web/modules'`.
+- Granular import: `import { Module } from '@zmdb/app/modules'`.
 
 ## Cross-links
 

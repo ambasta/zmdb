@@ -1,13 +1,14 @@
 > **Supported.** `createRouter` and `createApp` accept an `Observability` configuration. The router creates request, route, validation and handler spans; `tracedDriver` creates database spans; and
 > HTTP and message carriers propagate W3C `traceparent` plus optional `tracestate`.
 >
-> The span hierarchy, every attribute name, and propagation in both directions are frozen in `packages/web/src/observability/SPEC.md` against semantic conventions **v1.30.0**. zmdb ships ports and an
-> optional OpenTelemetry adapter, not an SDK, exporter, collector configuration or global auto-instrumentation.
+> The span hierarchy, every attribute name, and propagation in both directions are frozen in `packages/web/src/observability/SPEC.md` against semantic conventions **v1.30.0**. Its #647 ownership
+> amendment assigns the generic ports, propagation and database instrumentation to `@zmdb/app/observability`; HTTP spans remain web-owned. zmdb ships ports and an optional OpenTelemetry adapter, not
+> an SDK, exporter, collector configuration or global auto-instrumentation.
 
 ## Configure the framework
 
-The core entry point declares narrow `Tracer`, `Span` and `Meter` ports and has no third-party runtime dependency. The optional adapter is the only surface that imports `@opentelemetry/api`, which is
-an optional peer:
+The app observability entry point declares narrow `Tracer`, `Span` and `Meter` ports and has no third-party runtime dependency. The optional web adapter is the only current surface that imports
+`@opentelemetry/api`, which is an optional peer:
 
 ```ts
 import { metrics, trace } from '@opentelemetry/api';
@@ -69,7 +70,7 @@ A normal `4xx` records the response status but is not marked as a server-span er
 `tracedDriver` instruments the execute boundary. Parenting is explicit: pass the handler's `ctx.span` when the query should appear beneath that handler.
 
 ```ts
-import { tracedDriver } from '@zmdb/web/observability';
+import { tracedDriver } from '@zmdb/app/observability';
 
 async function list(ctx: Ctx) {
   const driver = tracedDriver(baseDriver, observability, ctx.span);
@@ -114,7 +115,7 @@ ignored and starts a new trace; it never fails the request. Invalid `tracestate`
 zmdb does not patch `fetch`. Use your SDK's propagation API, or write the framework span into an outbound carrier:
 
 ```ts
-import { toTraceHeaders } from '@zmdb/web/observability';
+import { toTraceHeaders } from '@zmdb/app/observability';
 
 const headers = ctx.span === undefined ? {} : toTraceHeaders(ctx.span);
 await fetch(url, { headers });
@@ -146,7 +147,7 @@ new NodeSDK({ sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampl
 
 ## Deliberate boundaries
 
-OpenTelemetry is not a required dependency. `@zmdb/web` declares a narrow port, and `@zmdb/web/otel` adapts the optional `@opentelemetry/api` peer.
+OpenTelemetry is not a required dependency. `@zmdb/app/observability` declares the narrow port, and `@zmdb/web/otel` adapts the optional `@opentelemetry/api` peer.
 
 The port is a port rather than a claim of structural compatibility, which is a deliberately modest position. `@opentelemetry/api`'s `Tracer.startActiveSpan` has four overloads and its `Span` has
 around ten methods, and the dependency-free core entry points cannot compile an assertion against that API. A claim that cannot be checked rots in silence. In the `otel` subpath the peer is a

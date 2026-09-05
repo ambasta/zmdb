@@ -1,11 +1,11 @@
+import { createToken, Inject } from '@zmdb/app/di';
+import { lazy, Module } from '@zmdb/app/modules';
 // Tests (#314) for testing utilities — RED first (testing exports absent).
 // createTestApp applies overrides, drives requests in-process, exposes get.
 // Per packages/web/src/testing/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
 import type { Ctx } from '../context/index.js';
-import { createToken, Inject } from '../di/index.js';
-import { lazy, Module } from '../modules/index.js';
 import { bodyText } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 import { createTestApp } from './index.js';

@@ -4,9 +4,10 @@
 // reconstructs the graph from decorator metadata only when called; App,
 // CompiledModule and Container retain no inspector-specific state.
 
-import type { Scope, Token } from '../di/index.js';
-import { injectionsOf } from '../di/index.js';
-import { moduleDefOf, type ModuleClass, type ModuleDef, type ProviderDef } from '../modules/index.js';
+import type { Scope, Token } from '@zmdb/app/di';
+import { injectionsOf } from '@zmdb/app/di';
+import { moduleDefOf, type ModuleClass, type ModuleDef, type ProviderDef } from '@zmdb/app/modules';
+
 import { getRoutes, type HttpMethod } from '../routing/index.js';
 
 export interface ModuleNode {

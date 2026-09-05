@@ -1,10 +1,10 @@
+import { Module } from '@zmdb/app/modules';
 // Tests (#294) for app bootstrap & lifecycle — RED first (app exports absent).
 // createApp routes a request; init runs hooks in order; dispose runs onShutdown
 // reversed. Per packages/web/src/app/SPEC.md.
 import { describe, it, expect } from 'vitest';
 
 import type { Ctx } from '../context/index.js';
-import { Module } from '../modules/index.js';
 import { bodyText } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
 import { createApp, type OnModuleInit, type OnApplicationBootstrap, type OnShutdown } from './index.js';

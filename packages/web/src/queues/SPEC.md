@@ -147,8 +147,8 @@ Everything above compiles under the project's settings, verified with `tsc --ign
 ### 2.1 `JobHandler<T>` cannot tie a name to a payload, and the obvious fix is silently crossed
 
 #586's `JobHandler<T>` has `name: string` and `handle(payload: T, …)` with `T` chosen by the caller. There is nothing in that type relating the two, so the enqueue side and the consume side pick their
-own `T` and agree by convention. `../events/SPEC.md` already settled this shape of problem for the emitter — **the map is the API**, because "a generic the caller instantiates is an assertion, not a
-check" — and a job payload is the same thing: one name, one payload type, declared once.
+own `T` and agree by convention. `../../../app/src/events/SPEC.md` already settled this shape of problem for the emitter — **the map is the API**, because "a generic the caller instantiates is an
+assertion, not a check" — and a job payload is the same thing: one name, one payload type, declared once.
 
 The interesting part is that the first correction is not enough. Writing the handler list as `readonly JobHandler<M, keyof M & string>[]` **still accepts a handler whose name and payload come from
 different rows of the map**, because `name` is checked against the union of keys and `validate`/`handle` against the union of payloads, independently.
@@ -484,8 +484,8 @@ a column.
 A job is the same shape of thing as a request and gets the same answer.
 
 **A handler runs in no scope.** It is a method on an instance the container built once at startup, with its `@Inject` fields resolved during that build — a module-level `currentContainer`
-(`../di/index.ts:50`) is set for the duration of `build` and cleared in a `finally` (`../di/index.ts:55-63`), so there is no later moment at which a per-job subtree could be resolved even if one were
-wanted.
+(`../../../app/src/di/index.ts:63`) is set for the duration of `build` and cleared in a `finally` (`../../../app/src/di/index.ts:68-75`), so there is no later moment at which a per-job subtree could
+be resolved even if one were wanted.
 
 Per-job state travels in `JobContext`, exactly as per-request state travels in `Ctx`.
 
@@ -559,7 +559,7 @@ horizon; #594 owns lifecycle discovery for plain providers because its live disp
 - **`container` on `JobContext`, or any per-job scope** (§10).
 - **A shipped Redis or SQS adapter.** The required real adapter is node-postgres because it already speaks the SQL-shaped `JobStore`; adding a broker protocol would create a second worker state
   machine rather than adapt this one.
-- **A logger, or a `log` on `JobContext`.** `onHandlerError` is the sink, for the reason `../events/SPEC.md` §3 requires `onError`; `web-logging` argues the rest.
+- **A logger, or a `log` on `JobContext`.** `onHandlerError` is the sink, for the reason `../../../app/src/events/SPEC.md` §3 requires `onError`; `web-logging` argues the rest.
 - **Metrics emitted from this module.** `RunReport` is the numbers; a `Meter` is `../observability/SPEC.md`'s and wiring one here would be a second telemetry pipeline.
 
 ## Package ownership amendment (#645)

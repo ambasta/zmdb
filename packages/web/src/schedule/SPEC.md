@@ -171,8 +171,8 @@ degraded to per-replica is precisely the bug the field exists to prevent, and di
 Startup is the only moment at which the check is free and the operator is watching. The check cannot be a type check, because the decorator and the scheduler are different objects in different files;
 that is a real limitation and the construction check is the closest enforcement available.
 
-**The field is `runs` and not `scope` because `scope` is taken.** `packages/web/src/index.ts:88` exports `type Scope` from the DI module, where it is `'singleton' | 'transient'` (`../di/index.ts:96`).
-A `scope` option on a scheduled task would read, to anyone who has used this framework's container, as a statement about instance lifetime.
+**The field is `runs` and not `scope` because `scope` is taken.** `@zmdb/app` exports `type Scope` from its DI module, where it is `'singleton' | 'transient'` (`../../../app/src/di/index.ts:113`). A
+`scope` option on a scheduled task would read, to anyone who has used this framework's container, as a statement about instance lifetime.
 
 This is the same collision that forced `Subscription` to be renamed `EventBinding` in `../graphql/subscriptions/SPEC.md` §3 — one barrel, so one namespace, and a word that already means something in
 it cannot be reused for something else. `runs` also reads as an English sentence at the call site: `runs: 'once-per-cluster'`.

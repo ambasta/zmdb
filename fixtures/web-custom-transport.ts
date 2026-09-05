@@ -1,3 +1,4 @@
+import type { TraceCarrier } from '@zmdb/app/observability';
 import {
   MessageCorrelationError,
   MessageRemoteError,
@@ -11,7 +12,6 @@ import {
   type TransportRequest,
   type TransportStrategy,
 } from '@zmdb/web/microservices';
-import type { TraceCarrier } from '@zmdb/web/observability';
 
 type Dispatch = (message: RawMessage) => Promise<DispatchOutcome>;
 

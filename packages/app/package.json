@@ -1,0 +1,67 @@
+{
+  "name": "@zmdb/app",
+  "version": "1.0.0-alpha.4",
+  "description": "Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.",
+  "keywords": [
+    "application-framework",
+    "cqrs",
+    "dependency-injection",
+    "events",
+    "stage-3",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/app"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./src/polyfill.ts"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./commands": "./src/commands/index.ts",
+    "./cqrs": "./src/cqrs/index.ts",
+    "./data": "./src/data/index.ts",
+    "./di": "./src/di/index.ts",
+    "./events": "./src/events/index.ts",
+    "./health": "./src/health/index.ts",
+    "./lifecycle": "./src/lifecycle.ts",
+    "./modules": "./src/modules/index.ts",
+    "./observability": "./src/observability/index.ts",
+    "./state": "./src/state/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/repository": "workspace:^",
+    "@zmdb/schema-core": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

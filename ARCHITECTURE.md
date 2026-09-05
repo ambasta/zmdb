@@ -83,7 +83,7 @@ These are not preferences; they are invariants. A change that violates one is re
 
 > The public API is assertion-free. Framework internals use a documented exception list for places where runtime data crosses into a TypeScript type.
 >
-> As of 2026-09-05, the 222 shipped files under `packages/*/src` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`, and one lint
+> As of 2026-09-05, the 246 shipped files under `packages/*/src` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`, and one lint
 > suppression. The consumer documentation contains no required casts.
 >
 > The count rose from 28 during the type-first work. Of the 53 current assertions, 26 are in `aot-validator`, mainly around checker values, parsed JSON, and validated return values. Each assertion
@@ -142,8 +142,13 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
       └───────┬────────┘
               ▼
       ┌────────────────┐
+      │   @zmdb/app    │  (also depends directly on schema-core,
+      │ (app kernel)   │   query-compiler, and aot-validator)
+      └───────┬────────┘
+              ▼
+      ┌────────────────┐
       │   @zmdb/web    │  (also depends directly on schema-core,
-      │(decorator HTTP)│   query-compiler, and aot-validator)
+      │(decorator HTTP)│   query-compiler, repository, and aot-validator)
       └───────┬────────┘
               ▼
       ┌────────────────┐
@@ -158,28 +163,30 @@ This is the shipped graph before the database-vertical extraction frozen in §3.
 - **AI depends on schema-core, never the reverse.** Its provider-neutral public names are migration-only forwarders until the coordinated ownership cutover.
 - **aot-validator depends on schema-core and AI, never the reverse.** Reflection remains above the declaration vocabulary; `toolFor` compilation consumes AI's document boundary.
 - **repository is the composition layer** — it wires schema + compiler + validator into CRUD, and currently owns the driver adapters (built-in `node:sqlite`, structurally injected `pg` and `mssql`).
-- **web sits above repository** — controllers inject repositories, routes validate via the AOT validator, responses serialize via the AOT serializer, and observability reads optional compile-time
-  query metadata without parsing SQL at execution.
+- **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, command, event, CQRS, state, health, and observability kernel.
+- **web sits above app and repository** — controllers inject repositories, routes validate via the AOT validator, responses serialize via the AOT serializer, and HTTP composition reuses the one
+  app-owned construction and lifecycle graph.
 - **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the default install; the sub-packages remain the tree-shakeable/advanced path.
 
 ### 3.3 Current package map
 
-| Package                | Responsibility                                                                                                                                             | Runtime deps                                                |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `@zmdb/client`         | Dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors      | none                                                        |
-| `@zmdb/query-compiler` | SQL-first compiler, DDL/migrations, introspection, declaration emission, the vendor-neutral dialect protocol, and current built-in dialect definitions     | oxfmt                                                       |
-| `@zmdb/schema-core`    | Tags, `TypeIR`, derived DTOs, relations, JSON Schema, seeding, and custom types. The old `./llm*` paths remain temporary implementation during extraction. | query-compiler                                              |
-| `@zmdb/ai`             | Provider-neutral tool documents and dialects, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools                    | schema-core                                                 |
-| `@zmdb/protobuf`       | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                             | none                                                        |
-| `@zmdb/aot-validator`  | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                                  | ai, schema-core                                             |
-| `@zmdb/repository`     | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and current driver adapters                                      | aot-validator, query-compiler, schema-core                  |
-| `@zmdb/web`            | Stage-3 decorator HTTP framework, routing, DI, request pipeline, application lifecycle, OpenAPI, observability, transports, jobs, and testing              | aot-validator, query-compiler, repository, schema-core      |
-| `zmdb`                 | Curated product facade and CLI; no AI public re-export                                                                                                     | aot-validator, query-compiler, repository, schema-core, web |
+| Package                | Responsibility                                                                                                                                             | Runtime deps                                                     |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `@zmdb/client`         | Dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors      | none                                                             |
+| `@zmdb/query-compiler` | SQL-first compiler, DDL/migrations, introspection, declaration emission, the vendor-neutral dialect protocol, and current built-in dialect definitions     | oxfmt                                                            |
+| `@zmdb/schema-core`    | Tags, `TypeIR`, derived DTOs, relations, JSON Schema, seeding, and custom types. The old `./llm*` paths remain temporary implementation during extraction. | query-compiler                                                   |
+| `@zmdb/ai`             | Provider-neutral tool documents and dialects, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools                    | schema-core                                                      |
+| `@zmdb/protobuf`       | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                             | none                                                             |
+| `@zmdb/aot-validator`  | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                                  | ai, schema-core                                                  |
+| `@zmdb/repository`     | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and current driver adapters                                      | aot-validator, query-compiler, schema-core                       |
+| `@zmdb/app`            | Protocol-neutral metadata, DI, modules, lifecycle/extensions, commands, events, CQRS, state, health contracts, and observability ports                     | aot-validator, query-compiler, repository, schema-core           |
+| `@zmdb/web`            | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                                | app, aot-validator, query-compiler, repository, schema-core      |
+| `zmdb`                 | Curated product facade and CLI; no AI public re-export                                                                                                     | app, aot-validator, query-compiler, repository, schema-core, web |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
 
 - `@zmdb/aot-validator` may split its **transformer plugin** from its **runtime fallback** if the plugin grows a heavy `typescript` coupling that hurts the runtime package's install weight.
-- `@zmdb/web` will likely spawn **sub-modules first** (routing, DI, pipeline, guards/interceptors) and only promote one to a package if it becomes independently useful (e.g. the DI container).
+- `@zmdb/web` keeps HTTP concerns as sub-modules unless one becomes independently useful; the protocol-neutral application kernel has already moved to `@zmdb/app`.
 - Native/WASM hot-path kernels (§4) would ship as their own artifact packages (`@zmdb/<x>-native`) loaded optionally, never as a hard dependency.
 
 ### 3.4 Frozen database-vertical target
@@ -638,12 +645,12 @@ Committing to a hard floor is itself an architecture decision — it removes cod
   `experimentalDecorators: false`.
 - **Build:** `scripts/build-package.mjs` runs `tsc` to produce ESM `.js` and `.d.ts` files in a layout that mirrors `src`.
 - **Publish:** Trusted Publishing (OIDC, no token) via CI; `latest` dist-tag tracks the highest-precedence release (stable > rc > beta > alpha); provenance attested. License **GPL-3.0-or-later**.
-- **No hidden state.** No module-level mutable singletons on the hot path (the DI container in `@zmdb/web` is the one explicit, opt-in registry, and it is resolved at class-init, not per request).
+- **No hidden state.** No module-level mutable singletons on the hot path (the DI container in `@zmdb/app` is the one explicit, opt-in registry, and it is resolved at class-init, not per request).
 
 ---
 
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the six implementation-package reality (including `@zmdb/ai` and `@zmdb/web`) rather than the original four. Component-level details in
-the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+the north-star-driven language policy in §4 here, and it records the nine implementation-package reality (including `@zmdb/client`, `@zmdb/ai`, `@zmdb/protobuf`, `@zmdb/app`, and `@zmdb/web`) rather
+than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

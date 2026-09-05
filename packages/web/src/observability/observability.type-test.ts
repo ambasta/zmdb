@@ -1,3 +1,16 @@
+import {
+  SpanKind,
+  type Attributes,
+  type CommentKey,
+  type Meter,
+  type Observability,
+  type QueryTelemetry,
+  type Span,
+  type SpanContext,
+  type SpanOptions,
+  type TraceCarrier,
+  type Tracer,
+} from '@zmdb/app/observability';
 // Type-level tests for the telemetry port frozen in ./SPEC.md §2, §3, §5 (#580, epic #578).
 // No runtime code: a *compilation* gate run by `node scripts/typecheck.mjs`, and therefore
 // by CI. `packages/web/tsconfig.json` includes `src/**/*.ts`, so this file is compiled.
@@ -17,19 +30,6 @@
 import type { Equal, Expect } from '@zmdb/schema-core';
 
 import type { Ctx } from '../context/index.js';
-import {
-  SpanKind,
-  type Attributes,
-  type CommentKey,
-  type Meter,
-  type Observability,
-  type QueryTelemetry,
-  type Span,
-  type SpanContext,
-  type SpanOptions,
-  type TraceCarrier,
-  type Tracer,
-} from './index.js';
 
 // §3: `Ctx` gains exactly one field. Written here as an intersection rather than a
 // re-declaration so that the assertions below are about the *real* `Ctx` — when #582 adds

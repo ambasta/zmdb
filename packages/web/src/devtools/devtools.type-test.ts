@@ -1,3 +1,5 @@
+import type { Scope } from '@zmdb/app/di';
+import type { ModuleClass } from '@zmdb/app/modules';
 // The graph description, as types. Tests freeze for the epic "The module graph as a first-class
 // object" (#598 / spec freeze #599); the frozen text is `./SPEC.md` §2 and §10.2.
 //
@@ -26,9 +28,7 @@
 import type { Equal, Expect, Extends } from '@zmdb/schema-core';
 
 import type { App } from '../app/index.js';
-import type { Scope } from '../di/index.js';
 import type { AppModule } from '../modules/__fixtures__/large-graph.js';
-import type { ModuleClass } from '../modules/index.js';
 import type { HttpMethod } from '../routing/index.js';
 import type {
   GraphDescription,

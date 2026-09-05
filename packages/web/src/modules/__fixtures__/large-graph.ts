@@ -14,9 +14,10 @@
 // plugin lowers any `.ts` file containing one, not only `*.spec.ts`, so this file runs under the
 // suite unchanged.
 
-import { Inject, createToken, type Container, type Token } from '../../di/index.js';
+import { Inject, createToken, type Container, type Token } from '@zmdb/app/di';
+import { lazy, Module, type ModuleClass, type ProviderDef } from '@zmdb/app/modules';
+
 import { Controller, Delete, Get, Post } from '../../routing/index.js';
-import { lazy, Module, type ModuleClass, type ProviderDef } from '../index.js';
 
 // ---------------------------------------------------------------------------
 // Tokens

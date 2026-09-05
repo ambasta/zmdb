@@ -1,3 +1,4 @@
+import { databaseReadinessCheck, type CheckResult, type HealthChecks, type ReadinessCheck } from '@zmdb/app/health';
 // Runtime acceptance tests for the liveness/readiness probes frozen by #580 and
 // implemented by #581 (epic #578).
 //
@@ -10,15 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Guard } from '../middleware/index.js';
 import { createRouter, json, type WebResponse } from '../pipeline/index.js';
 import { Controller, Get } from '../routing/index.js';
-import {
-  databaseReadinessCheck,
-  detailedReadyRoute,
-  healthRoutes,
-  type CheckResult,
-  type DetailedBody,
-  type HealthChecks,
-  type ReadinessCheck,
-} from './index.js';
+import { detailedReadyRoute, healthRoutes, type DetailedBody } from './index.js';
 
 /** A readiness check that resolves immediately, and counts how often it ran. */
 const instantCheck = (

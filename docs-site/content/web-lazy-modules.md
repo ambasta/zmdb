@@ -7,7 +7,7 @@ only when one of its routes or its handle first loads it.
 ## Declare a lazy import
 
 ```ts
-import { lazy, Module } from '@zmdb/web';
+import { lazy, Module } from '@zmdb/app/modules';
 
 @Module({
   imports: [CoreModule, lazy(AdminModule)],
@@ -80,7 +80,7 @@ no `onShutdown`. Loaded lazy instances shut down before the eager instances they
 A construction or hook failure is terminal for that module in the app. The handle stores the error value, reports `'failed'`, and every later caller receives the same error without rerunning
 factories. Retrying over a shared container could duplicate a pool or retain half-built objects because container registration is not transactional.
 
-Disposal waits for an in-flight load before shutdown and refuses a new lazy load with `@zmdb/web: application is shutting down`.
+Disposal waits for an in-flight load before shutdown and refuses a new lazy load with `@zmdb/app: application is shutting down`.
 
 ## Cost model
 

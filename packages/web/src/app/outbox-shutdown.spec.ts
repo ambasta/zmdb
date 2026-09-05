@@ -1,3 +1,5 @@
+import { createToken } from '@zmdb/app/di';
+import { Module } from '@zmdb/app/modules';
 // Application-level coverage for packages/query-compiler/src/outbox/SPEC.md §5: a dispatcher
 // registered as a provider participates in startup and graceful shutdown.
 //
@@ -12,8 +14,6 @@
 // to stop it, while still recording dependencies before the object whose factory resolved them.
 import { describe, expect, it } from 'vitest';
 
-import { createToken } from '../di/index.js';
-import { Module } from '../modules/index.js';
 import { createApp } from './index.js';
 
 // ---------------------------------------------------------------------------

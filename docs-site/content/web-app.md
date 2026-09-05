@@ -24,7 +24,7 @@ await app.fetch(new Request('http://x/ping')); // Fetch (Hono/edge)
 Implement any of these on a controller (or provider) and they run at the right time:
 
 ```ts
-import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from '@zmdb/web';
+import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from '@zmdb/app/lifecycle';
 
 class Db implements OnModuleInit, OnShutdown {
   onModuleInit() {

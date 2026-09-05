@@ -1,9 +1,12 @@
-zmdb currently publishes six implementation packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/ai` is independently installable and is not re-exported by
-the umbrella.
+zmdb currently publishes nine implementation packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side roots,
+while `@zmdb/ai` is independently installable and is not re-exported by the umbrella.
 
 The dependency spine is:
 
 ```
+@zmdb/client        @zmdb/protobuf
+      (independent dependency-free roots)
+
 @zmdb/query-compiler
           |
   @zmdb/schema-core
@@ -14,6 +17,8 @@ The dependency spine is:
           |
  @zmdb/repository
           |
+      @zmdb/app
+          |
       @zmdb/web
           |
          zmdb
@@ -22,6 +27,9 @@ The dependency spine is:
 Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
 
 ## What each package owns
+
+**`@zmdb/client`** — dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors. Generated clients target
+this runtime without importing web, schema, AOT, or Node-specific APIs.
 
 **`@zmdb/schema-core`** — the tag vocabulary, the IR, the schema object and everything derived from it by types alone. The tags (`Table`, `Sql`, `PrimaryKey`, `Serial`, …, types only, zero runtime
 exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission, and
@@ -35,13 +43,18 @@ no provider or framework SDK dependency or peer.
 also attaches the compile-known database system, operation and collection for an execution wrapper to consume. The package owns joins, aggregations, full-text search, set operations, DDL for schema
 objects, and the migration snapshot/diff engine. It never opens a connection.
 
+**`@zmdb/protobuf`** — dependency-free protobuf calls, descriptors, the generated-code wire ABI, and typed gRPC artifacts. Concrete gRPC transport ownership remains outside this package.
+
 **`@zmdb/aot-validator`** — the TypeScript transformer plus the runtime helpers it emits calls to (`is`, `assert`, `validate`, `stringify`, `parse`, `random`). The transformer runs during your build
 and replaces a generic call with a specialised checker derived from the checker's view of `T`.
 
 **`@zmdb/repository`** — the only package that touches a connection, and it does so through a driver interface with one required method and optional streaming. Holds `BaseRepository`, transactions,
 replicas, embeddables, inheritance, lifecycle hooks.
 
-**`@zmdb/web`** — HTTP. Controllers, DI container, modules, the middleware chain, adapters, gateways, OpenAPI assembly, test harness.
+**`@zmdb/app`** — the protocol-neutral application kernel: Stage-3 metadata, dependency injection, modules, lifecycle and extensions, command applications, events, CQRS, state machines, health
+contracts, and generic observability ports.
+
+**`@zmdb/web`** — HTTP-specific composition over app: controllers, request context, routing, middleware, OpenAPI assembly, gateways, HTTP-aware testing, and runtime adapters.
 
 ## The two boundaries that matter
 
@@ -84,10 +97,11 @@ and that you can read in the output bundle. CI checks the parsed call sites, the
 
 ## No runtime reflection
 
-There is no `reflect-metadata`, no `design:type`, and no metadata provider. The decorators in `@zmdb/web` (`@Controller`, `@Get`, `@Module`) record route and provider information in module-local maps
-— they never ask the runtime what type a parameter has, because at runtime that information is gone. Types are read by the transformer, at compile time, from the real checker.
+There is no `reflect-metadata`, no `design:type`, and no metadata provider. The decorators in `@zmdb/app` (`@Module`) and `@zmdb/web` (`@Controller`, `@Get`) record only the declarations they own —
+they never ask the runtime what type a parameter has, because at runtime that information is gone. Types are read by the transformer, at compile time, from the real checker.
 
-> [!NOTE] The consequence: `@zmdb/web` starts with no metadata scan. See [AOT vs JIT](./jit-vs-aot.html) for the measured difference and [Benchmarks](./benchmarks.html) for the numbers.
+> [!NOTE] The consequence: neither `@zmdb/app` nor `@zmdb/web` starts with a metadata scan. See [AOT vs JIT](./jit-vs-aot.html) for the measured difference and [Benchmarks](./benchmarks.html) for the
+> numbers.
 
 ## Provider-neutral dependency boundary
 

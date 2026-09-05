@@ -1,8 +1,8 @@
+import { compileModule, type CompiledModule } from '@zmdb/app/modules';
 import { describe, expect, it } from 'vitest';
 
 import { createApp, type App } from '../app/index.js';
 import { countMetadataReads } from '../bench/index.js';
-import { compileModule, type CompiledModule } from '../modules/index.js';
 import { bodyText } from '../pipeline/index.js';
 import {
   AppModule,
@@ -272,7 +272,7 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // real messages, so the day the path lands it says whether the order is right.
   it('names the cycle path in the import cycle message', () => {
     expect(bootstrap(CycleAppModule)).toBe(
-      'Error: @zmdb/web: import cycle in the module graph: ' +
+      'Error: @zmdb/app: import cycle in the module graph: ' +
         'CycleAppModule -> CycleBillingModule -> CycleUsersModule -> CycleAppModule',
     );
   });
@@ -541,8 +541,8 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
 });
 
 describe('the graph readers a description is built from (frozen: modules/SPEC.md L12.12)', () => {
-  // §L12.12 asks for `moduleDefOf` and `injectionsOf` to be "reachable from `@zmdb/web/modules`
-  // and `@zmdb/web/di` — checked by `yarn verify:exports`, not by an import in a test". That gate
+  // §L12.12 asks for `moduleDefOf` and `injectionsOf` to be "reachable from `@zmdb/app/modules`
+  // and `@zmdb/app/di` — checked by `yarn verify:exports`, not by an import in a test". That gate
   // reads the `exports` map and the entry point's re-exports; it does not check that a *name*
   // exists. So this asserts the narrower thing a test can assert well: that the two functions are
   // exported from the modules that would have to export them. Both modules exist, so the failure
@@ -554,12 +554,8 @@ describe('the graph readers a description is built from (frozen: modules/SPEC.md
   // rather than a `typeof import(...)` widening, which `consistent-type-imports` forbids. It is
   // also the most diagnostic of the three, because the failure message prints the export list that
   // does exist next to the name that does not.
-  //
-  // Before #601 both were `undefined`. `readModuleDef` existed at `./index.ts:50` and was not
-  // exported; `../di/index.ts` has no reader for the `INJECTIONS` slot at all — §L10 notes that
-  // nothing in the repository reads it.
   it('exports moduleDefOf from the modules entry and injectionsOf from the di entry', async () => {
-    expect(Object.keys(await import('./index.js')), 'modules/index.ts').toContain('moduleDefOf');
-    expect(Object.keys(await import('../di/index.js')), 'di/index.ts').toContain('injectionsOf');
+    expect(Object.keys(await import('@zmdb/app/modules')), '@zmdb/app/modules').toContain('moduleDefOf');
+    expect(Object.keys(await import('@zmdb/app/di')), '@zmdb/app/di').toContain('injectionsOf');
   });
 });

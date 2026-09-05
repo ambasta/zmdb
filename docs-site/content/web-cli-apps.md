@@ -7,7 +7,7 @@ The arguments are an ordinary DTO. Its emitted JSON Schema defines the flat argv
 ```ts
 // scripts/backfill-slugs.ts
 import { assert, defineRepository, schemaOf, type BaseRepository } from 'zmdb';
-import { Command, createCommandApp } from '@zmdb/web/cli';
+import { Command, createCommandApp } from '@zmdb/app/commands';
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
 import { Inject, Module, repositoryToken } from 'zmdb/web';
 

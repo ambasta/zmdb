@@ -1,4 +1,4 @@
-`@zmdb/web` provides dependency injection **without `emitDecoratorMetadata` or `reflect-metadata`**. Instead of reflecting constructor parameter types at runtime (the NestJS approach), you use
+`@zmdb/app` provides dependency injection **without `emitDecoratorMetadata` or `reflect-metadata`**. Instead of reflecting constructor parameter types at runtime (the NestJS approach), you use
 explicit, **typed tokens** and a small `Container`. The injected field's type is inferred from its token — so you never write an `as` cast to satisfy the container.
 
 ## Tokens
@@ -6,7 +6,7 @@ explicit, **typed tokens** and a small `Container`. The injected field's type is
 A `Token<T>` carries its instance type at compile time and is identified by reference:
 
 ```ts
-import { createToken } from '@zmdb/web';
+import { createToken } from '@zmdb/app/di';
 
 class Logger {
   log(m: string) {
@@ -20,7 +20,7 @@ const LoggerToken = createToken<Logger>('Logger');
 ## The container
 
 ```ts
-import { Container } from '@zmdb/web';
+import { Container } from '@zmdb/app/di';
 
 const container = new Container();
 container.register(LoggerToken, new Logger());
@@ -42,7 +42,7 @@ new Container().resolve(LoggerToken); // throws UnresolvedTokenError
 Declare a field and annotate it with `@Inject(token)`. Build the class through the container to satisfy its injected fields:
 
 ```ts
-import { Inject } from '@zmdb/web';
+import { Inject } from '@zmdb/app/di';
 
 class UserService {
   @Inject(LoggerToken)
@@ -66,7 +66,7 @@ svc.greet();
 - **No `as` on the consumer surface** — the field type comes from the token. (The framework contains exactly one isolated, documented boundary cast for its internal heterogeneous token→instance map;
   see the source.)
 - **O(1) resolution** keyed by token identity.
-- Granular import: `import { Container } from '@zmdb/web/di'`.
+- Granular import: `import { Container } from '@zmdb/app/di'`.
 
 ## Cross-links
 

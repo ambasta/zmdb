@@ -6,7 +6,7 @@ suite proves dispatch, stopped intake, bounded drain and connection close throug
 Use only the public microservices and observability entry points:
 
 ```ts
-import type { TraceCarrier } from '@zmdb/web/observability';
+import type { TraceCarrier } from '@zmdb/app/observability';
 import type { DispatchOutcome, MessageReply, RawMessage, TransportRequest, TransportStrategy } from '@zmdb/web/microservices';
 
 type Dispatch = (message: RawMessage) => Promise<DispatchOutcome>;

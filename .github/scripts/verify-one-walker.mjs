@@ -244,7 +244,9 @@ for (const [file, reason] of MAY_READ) {
 // No other shipped web module may import the compiler API, and the compiler must not
 // grow its own union/array/object schema traversal beside Reflector.typeIR().
 const webCompilerUsers = repositorySources().filter(file => {
-  if (!isLibrarySource(file) || !file.startsWith('packages/web/src/')) return false;
+  if (!isLibrarySource(file) || !file.startsWith('packages/web/src/') || !existsSync(join(ROOT, file))) {
+    return false;
+  }
   const code = withoutComments(readFileSync(join(ROOT, file), 'utf8'));
   return /from\s+['"]typescript\/unstable\/(?:ast|sync)/.test(code);
 });

@@ -265,7 +265,7 @@ templates that need wiring print the wiring rather than performing it (§13.3).
 | `controller <name>` | `src/<name>.controller.ts`, `src/<name>.controller.spec.ts`                                                                                                                                               |
 | `module <name>`     | `src/<name>.module.ts`, `src/<name>.module.spec.ts`                                                                                                                                                       |
 | `repository <name>` | `src/<name>.repository.ts` (the token and the provider factory), `src/<name>.repository.spec.ts`                                                                                                          |
-| `command <name>`    | `src/<name>.command.ts`, `src/<name>.command.spec.ts` (see `@zmdb/web`'s `src/cli/SPEC.md`)                                                                                                               |
+| `command <name>`    | `src/<name>.command.ts`, `src/<name>.command.spec.ts` (see `@zmdb/app`'s `src/commands/SPEC.md`)                                                                                                          |
 
 No template writes a barrel file, and no template appends to one. A generated `index.ts` re-export is the first thing a scaffold does that the developer has to undo.
 
@@ -389,7 +389,7 @@ The four pages this section is written against are `status: 'todo'` and owned by
 
 - `web-cli-apps.md` says a stripped script's `assert<T>()` "is permissive". It is not — the fallback throws `runtime type witness required in test/fallback mode`. The page's advice (build it, do not
   strip it) is right; its stated reason is the wrong direction, and "your validation is decoration" is the one sentence in the docs that would make someone trust an unchecked input.
-- The same page proposes `@Command`/`@Option` decorators; `@zmdb/web`'s `src/cli/SPEC.md` ships `@Command` and no `@Option`, because there are no parameter decorators in this project.
+- The same page proposes `@Command`/`@Option` decorators; `@zmdb/app`'s `src/commands/SPEC.md` ships `@Command` and no `@Option`, because there are no parameter decorators in this project.
 - `web-cli.md` uses `zmdb generate resource posts` for scaffolding. The verb is `new` (§13).
 - `cli-studio.md` concludes the studio should ship "as an opt-in package rather than a CLI command" to keep the credentials question in the user's hands. §14 ships it as a command, and the reason is
   that the config file already answers the credentials question — the same `driver` thunk `migrate` uses, with less privilege.
@@ -421,7 +421,7 @@ The four pages this section is written against are `status: 'todo'` and owned by
 ## Amendments (the module inspector and the REPL, #599)
 
 Two verbs — one that describes an application's module graph without constructing it, and one that boots an application into an interactive session — plus the four independent things that keep the
-second one out of a server (epic #598, sub-issue #599). The description's shape and its provenance are `@zmdb/web`'s `src/devtools/SPEC.md`; lazy semantics are that package's `src/modules/SPEC.md`
+second one out of a server (epic #598, sub-issue #599). The description's shape and its provenance are `@zmdb/web`'s `src/devtools/SPEC.md`; lazy semantics are `@zmdb/app`'s `src/modules/SPEC.md`
 §L1-L12. Frozen before code.
 
 ### R0. The edits this amendment makes to the sections above
@@ -436,7 +436,8 @@ second one out of a server (epic #598, sub-issue #599). The description's shape 
 §1's "Twelve in total, and the count is not the interesting number — the division is" paragraph becomes fourteen, with a **third** division, and the new sentence is the load-bearing part: ten verbs
 read or write a database or the tree that describes it, two are a code generator and a viewer, and two describe or inhabit an application's own object graph.
 
-The third division is the first thing in this CLI that reads `@zmdb/web` rather than the schema packages, and saying so is what keeps a future contributor from adding `--migrate` to `zmdb modules`.
+The third division is the first thing in this CLI that reads the application packages — `@zmdb/app` plus the HTTP-aware `@zmdb/web/devtools` inspector — rather than the schema packages, and saying so
+is what keeps a future contributor from adding `--migrate` to `zmdb modules`.
 
 §3's per-command `result` table gains one row:
 
@@ -606,7 +607,7 @@ Scope exposed at the prompt:
 is the only real design question. It is answered by `tokens` and by the description accepting text — and the ambiguity that creates is the reason `duplicate-token-description` is a finding: two tokens
 with one description make `get('db')` undecidable, and the session says so rather than picking.
 
-There is no `$()`. NestJS's `$(Controller)` is a class-keyed lookup, which is meaningful there because its container is keyed by class; here the container is keyed by `Token` (`@zmdb/web`'s
+There is no `$()`. NestJS's `$(Controller)` is a class-keyed lookup, which is meaningful there because its container is keyed by class; here the container is keyed by `Token` (`@zmdb/app`'s
 `src/di/index.ts`), and a class-keyed helper would have to be a second index over the graph description that resolves nothing the container knows about.
 
 History goes to `~/.zmdb_repl_history`, mode `0600`, matching `node:repl`'s own `~/.node_repl_history` convention so the location is already where a user's tooling ignores it. `ZMDB_REPL_HISTORY`

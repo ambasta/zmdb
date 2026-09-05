@@ -594,7 +594,7 @@ A loader is created from a `LoaderScope` constructed **per request** and holds i
 Loaders are consulted **before** a query is built, and entity filters (§3c) are applied **while** it is built. So a `load(42)` that hits an entry another request populated returns a row without the
 tenant filter ever running. That is not stale data, it is a tenant-isolation bypass, and it is invisible in the diff of whatever code moved the loader to module scope for reuse.
 
-The scope is **passed explicitly, not resolved from the DI container**. `@zmdb/web`'s `Scope` is `'singleton' | 'transient'` — there is no request scope — and both available registrations are wrong in
+The scope is **passed explicitly, not resolved from the DI container**. `@zmdb/app`'s `Scope` is `'singleton' | 'transient'` — there is no request scope — and both available registrations are wrong in
 opposite directions: `singleton` is the module-level loader above, and `transient` hands out a fresh scope per injection, so two collaborators in one request batch nothing and the feature silently
 does nothing at all.
 

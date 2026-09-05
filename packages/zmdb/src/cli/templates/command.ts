@@ -5,7 +5,7 @@ export const commandTemplate: TemplateFactory = ({ name }) => ({
     {
       path: `src/${name.fileStem}.command.ts`,
       source: `import { assert } from 'zmdb';
-import { Command } from '@zmdb/web/cli';
+import { Command } from '@zmdb/app/commands';
 
 export interface ${name.pascal}Args {
   readonly dryRun?: boolean;
@@ -35,7 +35,7 @@ export class ${name.pascal}Command {
     },
     {
       path: `src/${name.fileStem}.command.spec.ts`,
-      source: `import { createCommandApp } from '@zmdb/web/cli';
+      source: `import { createCommandApp } from '@zmdb/app/commands';
 import { createTestApp, Module } from 'zmdb/web';
 import { describe, expect, it } from 'vitest';
 

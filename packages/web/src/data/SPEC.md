@@ -8,7 +8,7 @@
 
 - **`repositoryToken<S>(name): Token<BaseRepository<S>>`** — a typed DI token for a repository (thin wrapper over `createToken`). Register a `defineRepository(...)` instance under it; inject it into a
   controller with `@Inject`.
-- No new machinery beyond `@zmdb/web/di` — this is a documented pattern + a typed token helper so the injected field type is the repository (no consumer `as`).
+- No new machinery beyond `@zmdb/app/di` — this is a documented pattern + a typed token helper so the injected field type is the repository (no consumer `as`).
 
 ### DTO-bound validation
 

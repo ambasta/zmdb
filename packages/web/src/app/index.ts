@@ -1,10 +1,16 @@
-// @zmdb/web — application bootstrap & lifecycle (epic #292, spec ./SPEC.md).
-// createApp compiles the module graph, wires routes once, and exposes lifecycle
-// hooks + `await using` graceful shutdown. Per-request path is unchanged. No
-// reflection per request; no `as` on the consumer surface.
+// @zmdb/web — HTTP application composition over the protocol-neutral kernel.
+// One @zmdb/app graph owns construction, lazy loading and lifecycle; this file
+// adds one startup-built router and the still-web-owned transport integrations.
 
-import type { Container } from '../di/index.js';
-import { runInit, runShutdown } from '../lifecycle.js';
+import {
+  createApplication,
+  type Application,
+  type ApplicationExtension,
+  type ApplicationExtensionContext,
+  type ApplicationOptions,
+  type ModuleClass,
+} from '@zmdb/app';
+
 import type { OpenedGrpcServer } from '../microservices/grpc/runtime.js';
 import {
   createMessageDispatcher,
@@ -15,176 +21,157 @@ import {
   type Settlement,
   type TransportStrategy,
 } from '../microservices/index.js';
-import { compileModule, type LazyModuleHandle, type ModuleClass } from '../modules/index.js';
-import { lifecycleInstances } from '../modules/lifecycle-instances.js';
-import { runtimeOf } from '../modules/runtime.js';
-import { createRouter, toFetchHandler, type Router, type WebRequest, type WebResponse } from '../pipeline/index.js';
-import { rememberAppCompilation } from './runtime.js';
+import {
+  createRouter,
+  toFetchHandler,
+  type GuardRegistry,
+  type Router,
+  type RouterOptions,
+  type WebRequest,
+  type WebResponse,
+} from '../pipeline/index.js';
+import type { VersionStrategy } from '../versioning/index.js';
+import { applicationControllersOf, type CompiledController } from './bridge.js';
 
-export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '../lifecycle.js';
+export type { OnApplicationBootstrap, OnModuleInit, OnShutdown } from '@zmdb/app/lifecycle';
 export type { AppOptions } from '../microservices/index.js';
 
-/** A bootstrapped application. */
-export interface App extends AsyncDisposable {
-  readonly container: Container;
-  readonly lazy: readonly LazyModuleHandle[];
-  handle(req: WebRequest): Promise<WebResponse>;
-  fetch(request: Request): Promise<Response>;
-  init(): Promise<void>;
+/**
+ * Transitional web options retain the current broker/gRPC fields until #648
+ * moves them behind public app extensions. The application, HTTP and lifecycle
+ * fields already have their final owners.
+ */
+export interface WebApplicationOptions extends AppOptions, ApplicationOptions {
+  readonly guardRegistry?: GuardRegistry;
+  readonly versioning?: VersionStrategy;
 }
 
+/** A protocol-neutral application with one HTTP router attached. */
+export interface WebApplication extends Application {
+  handle(req: WebRequest): Promise<WebResponse>;
+  fetch(request: Request): Promise<Response>;
+}
+
+/** Compatibility name retained until the HTTP package cutover in #649. */
+export type App = WebApplication;
+
 /**
- * Bootstrap an application from a root module: compile the module graph, build a
- * router, register every controller's routes. Wiring happens here (once); the
- * per-request path is the dispatcher from `createRouter`.
+ * Compose one router over one application graph. The container, lazy handles,
+ * init function and async-dispose function are the app-owned members by
+ * identity; no second lifecycle or construction ledger exists here.
  */
-export function createApp(rootModule: ModuleClass, options: AppOptions = {}): App {
-  const compiled = compileModule(rootModule);
-  const { container, controllers, lazy } = compiled;
-  const instances = lifecycleInstances(container);
-  const runtime = runtimeOf(compiled);
-  const transports = [...(options.transports ?? [])];
-  const graceMs = transportGrace(options.graceMs ?? 5_000);
-  const router: Router = createRouter(options.observability);
-  if (runtime === undefined) {
-    for (const controller of controllers) {
-      router.register(controller);
-    }
-  } else {
-    for (const route of runtime.routes) {
-      if (route.kind === 'eager') {
-        router.register(route.controller);
-      } else {
-        router.registerDeferred(route.controller, route.instance);
-      }
+export function createApp(rootModule: ModuleClass, options: WebApplicationOptions = {}): WebApplication {
+  let controllerBindings: readonly CompiledController[] = [];
+  const legacyExtension = legacyTransportExtension(options, () => controllerBindings);
+  const extensions = [...(options.extensions ?? []), ...(legacyExtension === undefined ? [] : [legacyExtension])];
+  const applicationOptions: ApplicationOptions = {
+    ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
+    ...(options.observability === undefined ? {} : { observability: options.observability }),
+    ...(extensions.length === 0 ? {} : { extensions }),
+  };
+  const application = createApplication(rootModule, applicationOptions);
+  controllerBindings = applicationControllersOf(application);
+
+  const router: Router = createRouter(routerOptions(options));
+  for (const binding of controllerBindings) {
+    if (binding.kind === 'eager') {
+      router.register(binding.controller);
+    } else {
+      router.registerDeferred(binding.controller, binding.instance);
     }
   }
   const fetchHandler = toFetchHandler(router);
+
+  return {
+    container: application.container,
+    lazy: application.lazy,
+    handle: req => router.handle(req),
+    fetch: request => fetchHandler(request),
+    init: application.init,
+    [Symbol.asyncDispose]: application[Symbol.asyncDispose],
+  };
+}
+
+function routerOptions(options: WebApplicationOptions): RouterOptions {
+  const observability = options.observability ?? {};
+  return {
+    ...observability,
+    ...(options.guardRegistry === undefined ? {} : { guardRegistry: options.guardRegistry }),
+    ...(options.versioning === undefined ? {} : { versioning: options.versioning }),
+  };
+}
+
+function legacyTransportExtension(
+  options: WebApplicationOptions,
+  controllers: () => readonly CompiledController[],
+): ApplicationExtension | undefined {
+  const transports = [...(options.transports ?? [])];
+  if (transports.length === 0 && options.grpc === undefined) {
+    return undefined;
+  }
+
   let opened: TransportStrategy[] = [];
   let openedGrpc: OpenedGrpcServer | undefined;
-  let initPromise: Promise<void> | undefined;
-  let disposePromise: Promise<void> | undefined;
-
-  const start = async (): Promise<void> => {
-    await runInit(instances);
-    if (transports.length === 0 && options.grpc === undefined) {
-      return;
-    }
-
-    const dispatcherOptions = options.dispatcher;
-    if (transports.length > 0 && dispatcherOptions === undefined) {
-      throw new Error('@zmdb/web: transports require dispatcher observation sinks');
-    }
-    if (dispatcherOptions !== undefined) {
-      validateTransportNames(transports);
-      validateLazyConsumers(runtime?.routes ?? []);
-      for (const transport of transports) {
-        validateUndeliverableSink(transport, dispatcherOptions);
+  return {
+    name: '@zmdb/web:legacy-transports',
+    async start(context) {
+      const dispatcherOptions = options.dispatcher;
+      if (transports.length > 0 && dispatcherOptions === undefined) {
+        throw new Error('@zmdb/web: transports require dispatcher observation sinks');
       }
-    }
-
-    const started: TransportStrategy[] = [];
-    try {
       if (dispatcherOptions !== undefined) {
-        const dispatcher = createMessageDispatcher(
-          controllers,
-          options.observability === undefined
-            ? dispatcherOptions
-            : { ...dispatcherOptions, observability: options.observability },
-        );
+        validateTransportNames(transports);
+        validateLazyConsumers(controllers());
         for (const transport of transports) {
-          await transport.listen(async message => {
-            const outcome = await dispatcher.dispatch(message, transport.name);
-            reportUndeliverable(transport, dispatcherOptions, message, outcome.settlement);
-            return outcome;
-          });
-          started.push(transport);
+          validateUndeliverableSink(transport, dispatcherOptions);
         }
+        await startTransports(transports, dispatcherOptions, context, opened);
       }
       if (options.grpc !== undefined) {
         const { openGrpcServer } = await import('../microservices/grpc/runtime.js');
         openedGrpc = await openGrpcServer(options.grpc);
       }
-    } catch (error) {
-      await closeIgnoringFailures(started, graceMs);
-      throw error;
-    }
-    opened = started;
-  };
-
-  const dispose = async (): Promise<void> => {
-    runtime?.beginShutdown();
-    await runtime?.waitForLoads();
-    if (initPromise !== undefined) {
+    },
+    async stop({ graceMs }) {
+      const errors: unknown[] = [];
       try {
-        await initPromise;
-      } catch {
-        // Startup already reported its own error. Disposal still runs hooks.
+        await openedGrpc?.close(graceMs);
+      } catch (error) {
+        errors.push(error);
+      } finally {
+        openedGrpc = undefined;
       }
-    }
-
-    let closeFailed = false;
-    let closeError: unknown;
-    try {
-      await openedGrpc?.close(graceMs);
-    } catch (error) {
-      closeFailed = true;
-      closeError = error;
-    } finally {
-      openedGrpc = undefined;
-    }
-    try {
-      await closeAll(opened, graceMs);
-    } catch (error) {
-      if (!closeFailed) {
-        closeFailed = true;
-        closeError = error;
+      for (let index = opened.length - 1; index >= 0; index -= 1) {
+        try {
+          await opened[index]?.close(graceMs);
+        } catch (error) {
+          errors.push(error);
+        }
       }
-    } finally {
       opened = [];
-    }
-    let shutdownFailed = false;
-    let shutdownError: unknown;
-    try {
-      await runShutdown(instances);
-    } catch (error) {
-      shutdownFailed = true;
-      shutdownError = error;
-    }
-    if (closeFailed) {
-      throw closeError;
-    }
-    if (shutdownFailed) {
-      throw shutdownError;
-    }
-  };
-
-  const app: App = {
-    container,
-    lazy,
-    handle: req => router.handle(req),
-    fetch: request => fetchHandler(request),
-    init: () => {
-      if (disposePromise !== undefined) {
-        return Promise.reject(new Error('@zmdb/web: application is shutting down'));
-      }
-      initPromise ??= start();
-      return initPromise;
-    },
-    [Symbol.asyncDispose]: () => {
-      disposePromise ??= dispose();
-      return disposePromise;
+      throwObserved(errors);
     },
   };
-  rememberAppCompilation(app, compiled);
-  return app;
 }
 
-function transportGrace(value: number): number {
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new RangeError('@zmdb/web: graceMs must be a positive integer');
+async function startTransports(
+  transports: readonly TransportStrategy[],
+  options: DispatcherOptions,
+  context: ApplicationExtensionContext,
+  opened: TransportStrategy[],
+): Promise<void> {
+  const dispatcher = createMessageDispatcher(context.controllers, {
+    ...options,
+    observability: context.observability,
+  });
+  for (const transport of transports) {
+    await transport.listen(async message => {
+      const outcome = await dispatcher.dispatch(message, transport.name);
+      reportUndeliverable(transport, options, message, outcome.settlement);
+      return outcome;
+    });
+    opened.push(transport);
   }
-  return value;
 }
 
 function validateTransportNames(transports: readonly TransportStrategy[]): void {
@@ -200,20 +187,12 @@ function validateTransportNames(transports: readonly TransportStrategy[]): void 
   }
 }
 
-function validateLazyConsumers(
-  routes: readonly (
-    | { readonly kind: 'eager'; readonly controller: object }
-    | {
-        readonly kind: 'deferred';
-        readonly controller: abstract new (...args: never[]) => object;
-        readonly instance: () => Promise<object>;
-      }
-  )[],
-): void {
-  for (const route of routes) {
-    if (route.kind === 'deferred' && getMessagePatterns(route.controller).length > 0) {
+function validateLazyConsumers(controllers: readonly CompiledController[]): void {
+  for (const binding of controllers) {
+    if (binding.kind === 'deferred' && getMessagePatterns(binding.controller).length > 0) {
       throw new Error(
-        `@zmdb/web: lazy controller "${route.controller.name}" declares message patterns; message consumers must be eager`,
+        `@zmdb/web: lazy controller "${binding.controller.name}" declares message patterns; ` +
+          'message consumers must be eager',
       );
     }
   }
@@ -247,30 +226,9 @@ function reportUndeliverable(
   }
 }
 
-async function closeIgnoringFailures(transports: readonly TransportStrategy[], graceMs: number): Promise<void> {
-  for (let index = transports.length - 1; index >= 0; index -= 1) {
-    try {
-      await transports[index]?.close(graceMs);
-    } catch {
-      // Preserve the startup error; close remains best effort on that path.
-    }
-  }
-}
-
-async function closeAll(transports: readonly TransportStrategy[], graceMs: number): Promise<void> {
-  let failed = false;
-  let firstError: unknown;
-  for (let index = transports.length - 1; index >= 0; index -= 1) {
-    try {
-      await transports[index]?.close(graceMs);
-    } catch (error) {
-      if (!failed) {
-        failed = true;
-        firstError = error;
-      }
-    }
-  }
-  if (failed) {
-    throw firstError;
-  }
+function throwObserved(errors: readonly unknown[]): void {
+  if (errors.length === 0) return;
+  const first = errors[0];
+  if (errors.length === 1 && first !== undefined) throw first;
+  throw new AggregateError(errors, '@zmdb/web: transport shutdown failed');
 }

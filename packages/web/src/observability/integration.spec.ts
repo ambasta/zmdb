@@ -1,7 +1,6 @@
+import { tracedDriver, type Span, type SpanContext, type Tracer } from '@zmdb/app/observability';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { describe, expect, it } from 'vitest';
-
-import { tracedDriver, type Span, type SpanContext, type Tracer } from './index.js';
 
 const context: SpanContext = {
   traceId: '00000000000000000000000000000001',

@@ -172,4 +172,8 @@ So the split is:
 zmdb one, that `../RESULTS.md` covers every in-scope case, and that each file's `upstreamCommit` still matches the submodule pinned in the tree. That last check is the one with teeth: bumping an
 upstream submodule invalidates every number measured against the old one, and CI will say so instead of publishing stale figures under a new commit.
 
+An architecture EPIC may temporarily list affected suites in `../DEFERRED.json` when the user explicitly requires measurement to happen after every functional child. Ordinary `yarn verify:bench` still
+verifies every non-deferred result and reports the tracking issue; `yarn verify:bench:epic` adds `--strict-deferred` and fails while that marker exists. Removing the marker without committing the
+required result also fails, so deferred measurements block only the named EPIC and cannot disappear silently.
+
 `yarn guardrail` needs `--current <file>` or an explicit `--live`. It used to measure when given neither, which is exactly the accident this arrangement is meant to prevent.

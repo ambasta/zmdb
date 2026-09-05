@@ -9,6 +9,7 @@ import type {
   validate as ownerValidate,
   ValidateResult as OwnerValidateResult,
 } from '@zmdb/aot-validator/utilities';
+import type { Module as OwnerModule, ModuleClass as OwnerModuleClass } from '@zmdb/app';
 import type {
   defineRepository as ownerDefineRepository,
   IncompleteKeyError as OwnerIncompleteKeyError,
@@ -45,7 +46,6 @@ import type {
   Controller as OwnerController,
   Delete as OwnerDelete,
   Get as OwnerGet,
-  Module as OwnerModule,
   Patch as OwnerPatch,
   Post as OwnerPost,
   Public as OwnerPublic,
@@ -53,7 +53,6 @@ import type {
   createApp as ownerCreateApp,
   App as OwnerApp,
   Ctx as OwnerCtx,
-  ModuleClass as OwnerModuleClass,
 } from '@zmdb/web';
 import {
   AssertError,

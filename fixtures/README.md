@@ -33,7 +33,7 @@ subpath. `consumer-cli/tsconfig.installed.json` does the same for the future ins
 route.
 
 `web-custom-transport.ts` is a single external consumer rather than a project. The web suite executes it, and `verify:publish` copies it beside the packed packages and compiles it there. Its imports
-are limited to `@zmdb/web/microservices` and `@zmdb/web/observability`, so the custom strategy contract is checked from the same side of the package boundary as an installed application.
+are limited to `@zmdb/web/microservices` and `@zmdb/app/observability`, so the custom strategy contract is checked from the same side of the package boundary as an installed application.
 
 ## Working on them
 

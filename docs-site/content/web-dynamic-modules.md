@@ -4,8 +4,8 @@ The `forRoot()` / `forFeature()` analogue. `Module` is a **class decorator**, so
 ## The forRoot pattern
 
 ```ts
-import { createToken } from '@zmdb/web/di';
-import { Module, type ModuleClass } from '@zmdb/web/modules';
+import { createToken } from '@zmdb/app/di';
+import { Module, type ModuleClass } from '@zmdb/app/modules';
 
 export interface MailerOptions {
   readonly apiKey: string;
@@ -123,7 +123,7 @@ Overrides are registered first and win over any provider with the same token, so
 
 - A function returning a class: no builder API, no `DynamicModule` shape, no runtime graph rewriting.
 - Options are ordinary providers keyed by a [`Token`](./web-di.html), so the type flows without an `as`.
-- Granular imports: `@zmdb/web/di`, `@zmdb/web/modules`.
+- Granular imports: `@zmdb/app/di`, `@zmdb/app/modules`.
 
 ---
 

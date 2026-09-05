@@ -5,7 +5,7 @@
 
 // Ensure Symbol.metadata exists before any decorated class in a consumer module
 // is evaluated (Node 26/V8 lacks it). Side-effect import; safe/no-op if present.
-import '../polyfill.js';
+import '@zmdb/app';
 import type { HttpMethod } from '../contract/index.js';
 
 export type { HttpMethod } from '../contract/index.js';

@@ -1,10 +1,10 @@
-`App` owns no server. It exposes `handle(req)` for a framework-neutral request and `fetch(request)` for a web-standard one, and that is the whole transport surface — which is what lets one application
-run behind `node:http`, a Fetch runtime, a Lambda, a test harness, or no server at all.
+`WebApplication` owns no listening server. It exposes `handle(req)` for a framework-neutral request and `fetch(request)` for a web-standard one, and that is the whole HTTP transport surface — which is
+what lets one application run behind `node:http`, a Fetch runtime, a Lambda, or a test harness. A process that needs no HTTP uses the protocol-neutral `Application` instead.
 
 ## No `listen()`
 
 ```ts
-export interface App extends AsyncDisposable {
+export interface WebApplication extends AsyncDisposable {
   readonly container: Container;
   readonly lazy: readonly LazyModuleHandle[];
   handle(req: WebRequest): Promise<WebResponse>;
@@ -72,19 +72,21 @@ Works on Cloudflare Workers, Deno, Bun, Vercel Edge and Netlify Edge unchanged. 
 A CLI, a queue consumer, a cron job — anything that wants the container and the services but no HTTP:
 
 ```ts
-const app = createApp(AppModule);
+import { createApplication } from '@zmdb/app';
+
+const app = createApplication(AppModule);
 await app.init();
 
 const repo = app.container.resolve(POSTS);
 await repo.create({ title: 'from a script', body: '…' });
 ```
 
-`container.resolve(token)` is the accessor. This is the closest thing to a "standalone application" in the NestJS sense, and it needs no special mode — the container is just a property.
+`container.resolve(token)` is the accessor. This is the standalone application: it imports and constructs no HTTP router.
 
 ## Lifecycle
 
 ```ts
-import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from '@zmdb/web/app';
+import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from '@zmdb/app/lifecycle';
 
 @Controller('/posts')
 export class PostsController implements OnModuleInit, OnShutdown {

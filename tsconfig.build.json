@@ -46,6 +46,9 @@
       "@zmdb/repository": ["./packages/repository/dist/index.d.ts"],
       "@zmdb/repository/drivers/*": ["./packages/repository/dist/drivers/*.d.ts"],
       "@zmdb/repository/*": ["./packages/repository/dist/*/index.d.ts"],
+      "@zmdb/app": ["./packages/app/dist/index.d.ts"],
+      "@zmdb/app/lifecycle": ["./packages/app/dist/lifecycle.d.ts"],
+      "@zmdb/app/*": ["./packages/app/dist/*/index.d.ts"],
       "@zmdb/web": ["./packages/web/dist/index.d.ts"],
       "@zmdb/web/*": ["./packages/web/dist/*/index.d.ts"]
     }

@@ -6,8 +6,8 @@ than a feature you switch on. Three shapes work; the first is the one to reach f
 ESM has top-level `await`, and a module graph built after the pool is open needs no async DI at all:
 
 ```ts
-import { createToken } from '@zmdb/web/di';
-import { Module } from '@zmdb/web/modules';
+import { createToken } from '@zmdb/app/di';
+import { Module } from '@zmdb/app/modules';
 import { createApp } from '@zmdb/web/app';
 
 const POOL = createToken<Pool>('POOL');
@@ -105,7 +105,7 @@ the same startup pass but constructed later. Because `@Inject` resolves eagerly 
 
 - All provider factories remain synchronous. A first request to a lazy module may await that module's lifecycle hooks before the handler.
 - No async container, no `forRootAsync`, no reflection.
-- Granular imports: `@zmdb/web/di`, `@zmdb/web/modules`, `@zmdb/web/app`.
+- Granular imports: `@zmdb/app/di`, `@zmdb/app/modules`, `@zmdb/web/app`.
 
 ---
 

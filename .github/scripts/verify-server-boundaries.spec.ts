@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { analyzeAppKernelBoundary } from './verify-server-boundaries.mjs';
+
 const ROOT = process.cwd();
 const SCRIPT = join(ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs');
 const FIXTURES = join(ROOT, '.github', 'scripts', '__fixtures__', 'server-boundaries');
@@ -18,6 +20,10 @@ function verifyFixture(name: string, partial = false): ReturnType<typeof spawnSy
 }
 
 describe('the optional server boundary verifier', () => {
+  it('keeps one Symbol.metadata installation and one metadataOf implementation', () => {
+    expect(analyzeAppKernelBoundary(ROOT)).toEqual([]);
+  });
+
   it('accepts the complete positive package graph', () => {
     const result = verifyFixture('positive');
     expect(result.status, result.stderr).toBe(0);

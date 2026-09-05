@@ -1,7 +1,7 @@
 # @zmdb/web
 
-`@zmdb/web` is the web framework for zmdb applications. It provides controllers, typed request contexts, compile-time dependency injection, middleware, OpenAPI, transports, background jobs, and
-scheduling using standard Stage 3 decorators. It does not depend on `reflect-metadata` or runtime reflection.
+`@zmdb/web` is the HTTP framework for zmdb applications. It composes controllers, typed request contexts, middleware, OpenAPI, gateways, testing utilities, and runtime adapters over the
+protocol-neutral `@zmdb/app` kernel. It does not use `reflect-metadata` or runtime type reflection.
 
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
@@ -15,14 +15,14 @@ npm add @zmdb/web@alpha
 
 ## Entry points
 
-The package root contains the common framework APIs. Feature-specific entry points include `/routing`, `/versioning`, `/context`, `/di`, `/state`, `/pipeline`, `/middleware`, `/app`, `/modules`,
-`/openapi`, `/health`, `/upload`, `/static`, `/compression`, `/events`, `/cqrs`, `/queues`, `/schedule`, `/observability`, `/microservices/grpc`, `/testing`, and `/devtools`.
+The package root contains the common HTTP APIs. Feature-specific entry points include `/routing`, `/versioning`, `/context`, `/contract`, `/pipeline`, `/middleware`, `/app`, `/openapi`, `/health`,
+`/upload`, `/static`, `/compression`, `/gateways`, `/testing`, and `/devtools`.
 
-The transport-neutral strategy and client contract lives at `/microservices`. Dedicated Redis, NATS, and RabbitMQ adapters have their own entry points. Queue backends are published under
-`/queues/backends`.
+During the server-package migration, transport strategies and clients remain at `/microservices`, dedicated Redis, NATS, RabbitMQ, and gRPC adapters retain their named entry points, and queues and
+scheduling retain `/queues` and `/schedule`. Queue backends are published under `/queues/backends`.
 
-`@zmdb/web/observability` contains dependency-free instrumentation interfaces. `@zmdb/web/otel` connects them to the optional `@opentelemetry/api` peer. It does not bundle an SDK, exporter, backend,
-or metrics endpoint.
+Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. The temporary
+`@zmdb/web/otel` adapter connects those ports to the optional `@opentelemetry/api` peer; it bundles no SDK, exporter, backend, or metrics endpoint.
 
 `@zmdb/web/versioning` provides version decorators and the path, header, and media-type strategies used by the router and OpenAPI generator.
 

@@ -4,8 +4,7 @@
 // the exact shared lifecycle ABI from the #645 SPECs; the expected missing-module
 // diagnostics retire as soon as #647/#650 add the real package entries.
 
-// @ts-expect-error #647 supplies the canonical application package
-import type { Application as MissingAppPackageApplication } from '@zmdb/app';
+import type { Application as AppPackageApplication } from '@zmdb/app';
 // @ts-expect-error #650 supplies the canonical jobs package
 import type { Worker as MissingJobsPackageWorker } from '@zmdb/jobs';
 import type { Equal, Expect } from '@zmdb/schema-core';
@@ -108,7 +107,7 @@ export type _CreateAppParameters = Expect<
 >;
 export type _CreateAppReturn = Expect<Equal<ReturnType<FrozenCreateApp>, FrozenWebApplication>>;
 export type _MissingPackageRetirementTriggers = [
-  MissingAppPackageApplication,
+  AppPackageApplication,
   MissingJobsPackageWorker,
   MissingAppFacadeApplication,
   MissingJobsFacadeWorker,

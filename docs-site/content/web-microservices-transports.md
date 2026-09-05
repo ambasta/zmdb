@@ -6,7 +6,7 @@ familiarity.
 A strategy owns broker framing, subscriptions, replies and settlement. The application owns payload validation, handler invocation and retry policy:
 
 ```ts
-import type { TraceCarrier } from '@zmdb/web/observability';
+import type { TraceCarrier } from '@zmdb/app/observability';
 import type { DispatchOutcome, MessageReply, RawMessage, TransportCapabilities, TransportRequest } from '@zmdb/web/microservices';
 
 export interface TransportStrategy {

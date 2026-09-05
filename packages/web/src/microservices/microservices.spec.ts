@@ -1,3 +1,5 @@
+import { lazy, Module } from '@zmdb/app/modules';
+import { toTraceHeaders, type Span, type SpanContext, type TraceCarrier, type Tracer } from '@zmdb/app/observability';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -9,8 +11,6 @@ import { createApp, type App } from '../app/index.js';
 import { countMetadataReads } from '../bench/index.js';
 import type { Ctx, QueryValues } from '../context/index.js';
 import type { Guard } from '../middleware/index.js';
-import { lazy, Module } from '../modules/index.js';
-import { toTraceHeaders, type Span, type SpanContext, type TraceCarrier, type Tracer } from '../observability/index.js';
 import { Controller, Get } from '../routing/index.js';
 import {
   createEventPublisher,
@@ -331,7 +331,17 @@ describe('microservice hybrid lifecycle (#559)', () => {
     await app.init();
     log.length = 0;
 
-    await expect(app[Symbol.asyncDispose]()).rejects.toBe(closeError);
+    let disposalError: unknown;
+    try {
+      await app[Symbol.asyncDispose]();
+    } catch (error) {
+      disposalError = error;
+    }
+    expect(disposalError).toBeInstanceOf(AggregateError);
+    if (!(disposalError instanceof AggregateError)) {
+      throw new Error('application shutdown did not aggregate transport and lifecycle failures');
+    }
+    expect(disposalError.errors).toEqual([closeError, shutdownError]);
     expect(log).toEqual(['close:b:5000', 'close:a:5000', 'onShutdown:Consumer']);
   });
 

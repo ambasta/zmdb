@@ -1,7 +1,7 @@
+import type { Observability } from '@zmdb/app/observability';
 import type { GrpcLoadedService, GrpcMethodDef, GrpcServiceDef } from '@zmdb/protobuf';
 import type { Equal, Expect, ExpectNot, Extends } from '@zmdb/schema-core';
 
-import type { Observability } from '../../observability/index.js';
 import type { AppOptions, DispatcherOptions, TransportStrategy, WithHeaders } from '../index.js';
 import type {
   GrpcBinding,

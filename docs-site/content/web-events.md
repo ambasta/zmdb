@@ -1,4 +1,4 @@
-Application events ship from `@zmdb/web/events` as an app-owned typed registry. There is no module-level singleton and no filesystem scan: construct one `Events<M>` per application, register handlers
+Application events ship from `@zmdb/app/events` as an app-owned typed registry. There is no module-level singleton and no filesystem scan: construct one `Events<M>` per application, register handlers
 explicitly, and choose in the method name whether the caller waits.
 
 ## Pick the delivery guarantee first
@@ -10,8 +10,8 @@ The question to ask first is whether the event may be lost. That answer picks th
 ```ts
 import { createTransactionalDb } from '@zmdb/repository/transactions';
 import { outboxWriter } from '@zmdb/repository/outbox';
-import { createToken } from '@zmdb/web/di';
-import { createEvents, OnEvent, type Events } from '@zmdb/web/events';
+import { createToken } from '@zmdb/app/di';
+import { createEvents, OnEvent, type Events } from '@zmdb/app/events';
 
 type AppEvents = {
   'post.published': { id: number };
@@ -139,7 +139,7 @@ survive a listener being disconnected; the consumer half now ships as `createWor
 
 ## The shipped contract
 
-Four decisions in `packages/web/src/events/SPEC.md` are worth keeping visible:
+Four decisions in `packages/app/src/events/SPEC.md` are worth keeping visible:
 
 - **The map is the API** — event name to payload, the shape `AppEvents` above has, declared as a `type` and not an `interface` so it satisfies `EventMap`'s index signature. No `EventType<T>` token — a
   generic the caller instantiates is an assertion, not a check.

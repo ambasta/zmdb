@@ -6,7 +6,7 @@
 // while each implementation slice retires its own recorded finding. `--strict`
 // is the target state and succeeds only when no finding remains.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -193,6 +193,36 @@ export const PRODUCT_SERVER_EXPORTS = [
   './web/versioning',
 ];
 
+export const APP_KERNEL_EXPORTS = [
+  '.',
+  './commands',
+  './cqrs',
+  './data',
+  './di',
+  './events',
+  './health',
+  './lifecycle',
+  './modules',
+  './observability',
+  './state',
+];
+
+const APP_KERNEL_MOVES = [
+  ['packages/web/src/polyfill.ts', 'packages/app/src/polyfill.ts'],
+  ['packages/web/src/lifecycle.ts', 'packages/app/src/lifecycle.ts'],
+  ['packages/web/src/di/index.ts', 'packages/app/src/di/index.ts'],
+  ['packages/web/src/modules/index.ts', 'packages/app/src/modules/index.ts'],
+  ['packages/web/src/modules/lifecycle-instances.ts', 'packages/app/src/modules/lifecycle-instances.ts'],
+  ['packages/web/src/modules/runtime.ts', 'packages/app/src/modules/runtime.ts'],
+  ['packages/web/src/cli/index.ts', 'packages/app/src/commands/index.ts'],
+  ['packages/web/src/events/index.ts', 'packages/app/src/events/index.ts'],
+  ['packages/web/src/cqrs/index.ts', 'packages/app/src/cqrs/index.ts'],
+  ['packages/web/src/state/index.ts', 'packages/app/src/state/index.ts'],
+  ['packages/web/src/observability/index.ts', 'packages/app/src/observability/index.ts'],
+  ['packages/web/src/observability/propagation.ts', 'packages/app/src/observability/propagation.ts'],
+  ['packages/web/src/observability/types.ts', 'packages/app/src/observability/types.ts'],
+];
+
 const SERVER_PEERS = new Set(SERVER_PACKAGES.flatMap(pkg => (pkg.peer === undefined ? [] : [pkg.peer.name])));
 const OPTIONAL_PACKAGES = new Set(SERVER_PACKAGES.map(pkg => pkg.name));
 const CORE_PACKAGES = ['@zmdb/aot-validator', '@zmdb/app', '@zmdb/jobs', '@zmdb/web', 'zmdb'];
@@ -289,6 +319,26 @@ function manifestAt(root, dir) {
 
 function readManifest(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function sourceFiles(directory) {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    if (entry.name === 'dist' || entry.name === 'node_modules') return [];
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? sourceFiles(path) : [path];
+  });
+}
+
+function shippedTypeScriptSources(root) {
+  return sourceFiles(join(root, 'packages')).filter(
+    path =>
+      path.endsWith('.ts') &&
+      !path.endsWith('.d.ts') &&
+      !path.endsWith('.spec.ts') &&
+      !path.endsWith('.type-test.ts') &&
+      !path.endsWith('.witness.ts'),
+  );
 }
 
 function packageByName(graph, name) {
@@ -424,6 +474,59 @@ function coreTargetProblems(root, graph, target, requireAll) {
   return problems;
 }
 
+function appKernelMoveProblems(root) {
+  const problems = [];
+  for (const [oldPath, newPath] of APP_KERNEL_MOVES) {
+    if (existsSync(join(root, oldPath))) problems.push(`moved app implementation still exists at ${oldPath}`);
+    if (!existsSync(join(root, newPath))) problems.push(`moved app implementation is absent at ${newPath}`);
+  }
+  return problems;
+}
+
+function metadataOwnershipProblems(root) {
+  const installations = [];
+  const readers = [];
+  for (const path of shippedTypeScriptSources(root)) {
+    const source = readFileSync(path, 'utf8');
+    const logical = relative(root, path);
+    const installationCount = source.match(/Object\.defineProperty\(\s*Symbol\s*,\s*['"]metadata['"]/g)?.length ?? 0;
+    const readerCount = source.match(/\bexport\s+function\s+metadataOf\s*\(/g)?.length ?? 0;
+    installations.push(...Array.from({ length: installationCount }, () => logical));
+    readers.push(...Array.from({ length: readerCount }, () => logical));
+  }
+
+  const problems = [];
+  const orderedInstallations = installations.toSorted();
+  const orderedReaders = readers.toSorted();
+  if (JSON.stringify(orderedInstallations) !== JSON.stringify(['packages/app/src/polyfill.ts'])) {
+    problems.push(
+      `Symbol.metadata installations ${display(orderedInstallations)}, expected [packages/app/src/polyfill.ts]`,
+    );
+  }
+  if (JSON.stringify(orderedReaders) !== JSON.stringify(['packages/app/src/index.ts'])) {
+    problems.push(`metadataOf implementations ${display(orderedReaders)}, expected [packages/app/src/index.ts]`);
+  }
+  return problems;
+}
+
+export function analyzeAppKernelBoundary(root = SCRIPT_ROOT) {
+  const graph = createImportGraph(root);
+  const target = {
+    ...CORE_SERVER_PACKAGES[0],
+    exports: APP_KERNEL_EXPORTS,
+  };
+  return [
+    ...coreTargetProblems(root, graph, target, true),
+    ...appKernelMoveProblems(root),
+    ...metadataOwnershipProblems(root),
+  ].toSorted();
+}
+
+function hasPublishedAppKernel(root) {
+  const path = manifestAt(root, 'app');
+  return existsSync(path) && readManifest(path).private !== true;
+}
+
 function productServerProblems(root, graph) {
   const problems = [];
   const pkg = packageByName(graph, 'zmdb');
@@ -550,6 +653,7 @@ export function analyzeServerBoundaries(root = SCRIPT_ROOT, options = {}) {
     ...coreProblems(root, graph),
     ...[...core.packageProblems.values()].flat(),
     ...core.graphProblems,
+    ...(hasPublishedAppKernel(root) ? analyzeAppKernelBoundary(root) : []),
   ].toSorted();
 }
 

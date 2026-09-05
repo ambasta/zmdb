@@ -1,3 +1,18 @@
+import {
+  consumerSpan,
+  fromTraceparent,
+  toTraceparent,
+  tracedDriver,
+  type Attributes,
+  type CommentPairs,
+  type ExecutingDriver,
+  type Meter,
+  type Observability,
+  type QueryTelemetry,
+  type SpanContext,
+  type SpanKind,
+  type Tracer,
+} from '@zmdb/app/observability';
 // Tests for the spans, metrics and trace propagation frozen in ./SPEC.md (#580, epic #578).
 //
 // The tracer double is a recorder, not a mock. `recordingTracer` below keeps every span it
@@ -10,22 +25,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { bodyText, createRouter, json, type Ctx, type WebRequest } from '../pipeline/index.js';
 import { Controller, Get, Post } from '../routing/index.js';
-import {
-  consumerSpan,
-  createTracedRouter,
-  fromTraceparent,
-  toTraceparent,
-  tracedDriver,
-  type Attributes,
-  type CommentPairs,
-  type ExecutingDriver,
-  type Meter,
-  type Observability,
-  type QueryTelemetry,
-  type SpanContext,
-  type Tracer,
-} from './index.js';
-import type { SpanKind } from './types.js';
+import { createTracedRouter } from '../traced-router.js';
 
 type TelemetryQuery = CompiledQuery;
 type TracedCtx = Ctx<Record<string, string>>;

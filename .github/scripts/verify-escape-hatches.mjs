@@ -110,6 +110,7 @@ const PACKAGES = [
   'protobuf',
   'repository',
   'query-compiler',
+  'app',
   'web',
   'zmdb',
 ];
