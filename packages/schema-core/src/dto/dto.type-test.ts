@@ -20,6 +20,7 @@ import {
   stDWithin,
   type GeoJsonGeometry,
   type GeometryColumnOf,
+  type Operator,
   type VectorColumnOf,
 } from '@zmdb/query-compiler';
 
@@ -132,8 +133,8 @@ export type _Agg4 = Expect<Mutual<R['firstStatus'], string | null>>;
 // builder must not widen it to the structural view, or every caller needs
 // `as typeof b` to get its own builder back.
 interface FakeBuilder {
-  where(col: string, op: string, value: unknown): this;
-  orWhere(col: string, op: string, value: unknown): this;
+  where(col: string, op: Operator, value: unknown): this;
+  orWhere(col: string, op: Operator, value: unknown): this;
   orderBy(col: string, dir: 'asc' | 'desc'): this;
   limit(n: number): this;
   offset(n: number): this;

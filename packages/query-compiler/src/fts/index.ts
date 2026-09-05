@@ -8,7 +8,7 @@ import {
 } from '../clauses.js';
 import { dialectName, dialectTraits, type DialectTarget } from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
-import type { CompiledQuery, QueryCompilerOptions } from '../index.js';
+import type { CompiledQuery, DistanceOp, Operator, QueryCompilerOptions, UnsafeOperator } from '../index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable } from '../quoting.js';
 
 export { UnsupportedFeatureError };
@@ -41,7 +41,7 @@ export interface FtsOptions extends FtsTableOptions, QueryCompilerOptions {}
 interface Predicate {
   kind: 'match' | 'cmp';
   col: string;
-  op?: string | undefined;
+  op?: Operator | UnsafeOperator | DistanceOp | undefined;
   value: unknown;
 }
 interface State {
@@ -53,8 +53,9 @@ interface State {
 }
 
 export interface FtsSelect {
-  whereMatch(column: string, term: string, options?: FtsTableOptions | string | boolean): FtsSelect;
-  where(col: string, op: string, value: unknown): FtsSelect;
+  readonly dialect: DialectTarget;
+  whereMatch(column: string, term: string, options?: FtsOptions | string | boolean): FtsSelect;
+  where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): FtsSelect;
   whereGroup(predicates: readonly ComparisonPredicate[]): FtsSelect;
   limit(n: number): FtsSelect;
   offset(n: number): FtsSelect;
@@ -64,6 +65,7 @@ export interface FtsSelect {
 function make(d: DialectTarget, s: State, telemetry: boolean): FtsSelect {
   const next = (p: Partial<State>): FtsSelect => make(d, { ...s, ...p }, telemetry);
   return {
+    dialect: d,
     whereMatch: (column, term, options) => {
       const ftsTable =
         s.ftsTable ?? (typeof options === 'string' || typeof options === 'boolean' ? options : options?.ftsTable);

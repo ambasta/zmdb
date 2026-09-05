@@ -331,7 +331,9 @@ SQL-first, dialect-aware query compiler with catalog introspection, declaration 
   - `CompiledQuery`
   - `DIALECT_PARAM_LIMITS`
   - `Dialect`
+  - `Operator`
   - `SetValue`
+  - `UnsafeOperator`
   - `UnsupportedFeatureError`
   - `appendComment`
   - `chunkArray`
@@ -340,12 +342,14 @@ SQL-first, dialect-aware query compiler with catalog introspection, declaration 
   - `createQueryCompiler`
   - `dec`
   - `inc`
+  - `isUnsafeOperator`
   - `migrations`
   - `mul`
   - `not`
   - `proposed`
   - `sanitizeKeys`
   - `serializeComment`
+  - `unsafeOperator`
   - `withComments`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 

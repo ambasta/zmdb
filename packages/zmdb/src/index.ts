@@ -45,6 +45,8 @@ export {
   sanitizeKeys,
   chunkArray,
   DIALECT_PARAM_LIMITS,
+  unsafeOperator,
+  isUnsafeOperator,
 } from '@zmdb/query-compiler';
 export * as migrations from '@zmdb/query-compiler/migrations';
 export type {
@@ -54,7 +56,9 @@ export type {
   CommentPairs,
   CompiledQuery,
   Dialect,
+  Operator,
   SetValue,
+  UnsafeOperator,
 } from '@zmdb/query-compiler';
 
 // Validators (AOT). is/assert/validate live in the utilities subpath; tags at root.

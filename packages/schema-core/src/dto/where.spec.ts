@@ -1,4 +1,4 @@
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler, type Operator } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
 import { ValidationError } from '../index.js';
@@ -10,8 +10,8 @@ import { compileWhere, type WhereDTO, type WhereTarget } from './index.js';
 function recorder() {
   const calls: [string, string, string, unknown][] = [];
   interface B {
-    where(c: string, o: string, v: unknown): B;
-    orWhere(c: string, o: string, v: unknown): B;
+    where(c: string, o: Operator, v: unknown): B;
+    orWhere(c: string, o: Operator, v: unknown): B;
     whereExists?(sub: unknown): B;
     orWhereExists?(sub: unknown): B;
     whereNotExists?(sub: unknown): B;

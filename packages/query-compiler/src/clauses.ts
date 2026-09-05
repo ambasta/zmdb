@@ -11,15 +11,16 @@
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
 import { dialectFamily, dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
-import { UnsupportedFeatureError } from './errors.js';
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 import {
   DISTANCE_OPERATORS,
   encodePgVector,
   isDistanceOp,
   renderSpatialPredicate,
+  type DistanceOp,
   type SpatialPredicateNode,
 } from './extensions/index.js';
-import type { CompiledQuery, QueryTelemetry } from './index.js';
+import type { CompiledQuery, Operator, QueryTelemetry } from './index.js';
 import { formatPlaceholder, quoteColumn, quoteTable, renumberPlaceholders, unaliasedTable } from './quoting.js';
 
 export type JoinKind = 'inner' | 'left' | 'right';
@@ -37,6 +38,26 @@ export interface JoinSpec {
   readonly on?: readonly Predicate[];
 }
 
+export interface UnsafeOperator {
+  readonly __unsafeOperator: true;
+  readonly op: string;
+}
+
+export function unsafeOperator(op: string): UnsafeOperator {
+  return { __unsafeOperator: true, op };
+}
+
+export function isUnsafeOperator(value: unknown): value is UnsafeOperator {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    '__unsafeOperator' in value &&
+    value.__unsafeOperator === true &&
+    'op' in value &&
+    typeof value.op === 'string'
+  );
+}
+
 /**
  * One comparison in a WHERE or HAVING list. `connector` says how it attaches to
  * the predicate before it and is ignored on the first one; builders that only
@@ -45,7 +66,7 @@ export interface JoinSpec {
 export interface ComparisonPredicate {
   readonly kind?: 'comparison';
   readonly col: string;
-  readonly op: string;
+  readonly op: Operator | UnsafeOperator | DistanceOp;
   readonly value: unknown;
   readonly connector?: 'AND' | 'OR' | undefined;
 }
@@ -95,71 +116,52 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
   }),
 );
 
-/**
- * The lexical shape of an operator the compiler does not know by name.
- *
- * This is deliberately not a dialect/operator allowlist: PostgreSQL extensions,
- * SQLite GLOB, MySQL's null-safe equality and SQL Server's !< all remain usable.
- * It is only the boundary between one SQL token and caller-controlled SQL text.
- *
- * `--` is excluded even though `-` is needed by real operators such as `->>`.
- * `#` is restricted to PostgreSQL's `#>` / `#>>`; a bare hash starts a MySQL
- * line comment. Placeholder markers are excluded on the dialects where they
- * would be parsed as parameters. Slash is absent, so block-comment openers
- * cannot be formed.
- */
-const UNMAPPED_OPERATOR_TOKEN = /^(?!.*--)[A-Za-z@<>=!~*&|?-]{1,4}$/;
+export interface SubqueryTarget {
+  compile(): CompiledQuery;
+  readonly dialect?: DialectTarget | undefined;
+}
 
-function isUnmappedOperatorToken(op: string, dialect: DialectTarget): boolean {
-  const traits = dialectTraits(dialect);
-  if (typeof dialect !== 'string') return traits.acceptsOperator(op);
-  if (op === '#>' || op === '#>>') return dialectFamily(dialect) === 'postgres';
-  if (!UNMAPPED_OPERATOR_TOKEN.test(op)) return false;
-  if (traits.placeholder === 'positional' && op.includes('?')) return false;
-  if (traits.placeholder === 'named' && op.includes('@')) return false;
-  return true;
+/** Anything with a `compile()` — a builder from this package, or a caller's own. */
+export function isSubqueryTarget(value: unknown): value is SubqueryTarget {
+  return value !== null && typeof value === 'object' && 'compile' in value && typeof value.compile === 'function';
 }
 
 /**
- * Anything with a `compile()` — a builder from this package, or a caller's own.
- *
- * boundary: the cast is inside the guard that the rest of the package relies on, and it
- * reads the one property the `in` check on the line above has just proven is there. Its
- * type is `unknown`, so the `typeof` is what establishes anything; a narrower cast would be
- * the claim this function exists to test.
+ * Normalizes supported operators to canonical SQL keywords.
+ * Throws QueryCompilerError for invalid or unsupported operators.
  */
-export function isSubqueryTarget(value: unknown): value is { compile(): CompiledQuery } {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    'compile' in value &&
-    typeof (value as { compile?: unknown }).compile === 'function'
-  );
-}
-
-/**
- * Normalizes known operators to canonical SQL keywords and admits an unmapped
- * operator only when it is one bounded SQL token.
- */
-export function sqlOperator(op: string, dialect: DialectTarget = 'postgres'): string {
-  const normalized = op.toLowerCase().trim();
-  if (isDistanceOp(normalized) && !dialectTraits(dialect).vectorDistance) {
-    throw new UnsupportedFeatureError(normalized, dialectName(dialect));
+export function sqlOperator(op: Operator | UnsafeOperator | string, dialect: DialectTarget = 'postgres'): string {
+  if (isUnsafeOperator(op)) {
+    return op.op;
   }
-  // A plain index read, and no own-property guard: `OP_MAP` has a null prototype, so
-  // `OP_MAP['constructor']` is already `undefined` rather than a function off
-  // `Object.prototype`. That is what makes `??` safe here, and it is why the map is built
-  // the way it is.
-  const mapped = OP_MAP[normalized];
-  if (mapped !== undefined) return mapped;
-  if (!isUnmappedOperatorToken(op, dialect)) {
-    const name = dialectName(dialect);
-    throw new TypeError(
-      `invalid unmapped SQL operator ${JSON.stringify(op)} for dialect ${JSON.stringify(name)}; expected ` +
-        'one non-comment operator token that does not conflict with the dialect placeholder syntax',
+  const opNorm = op.toLowerCase().trim();
+  if (isDistanceOp(opNorm) && !dialectTraits(dialect).vectorDistance) {
+    throw new UnsupportedFeatureError(opNorm, dialectName(dialect));
+  }
+  const mapped = OP_MAP[opNorm];
+  if (mapped !== undefined) {
+    return mapped;
+  }
+  throw new QueryCompilerError(`Invalid query operator "${op}"`);
+}
+
+/**
+ * Single shared routine for subquery compilation, dialect validation,
+ * parameter merging, and positional parameter offset calculation.
+ */
+export function processSubquery(parentDialect: DialectTarget, target: SubqueryTarget, params: unknown[]): string {
+  if (target.dialect !== undefined && dialectName(target.dialect) !== dialectName(parentDialect)) {
+    throw new QueryCompilerError(
+      `Subquery dialect "${dialectName(target.dialect)}" does not match parent query dialect "${dialectName(parentDialect)}"`,
     );
   }
-  return op;
+
+  const compiled = target.compile();
+  const offset = params.length;
+  const sql = renumberPlaceholders(compiled.text, offset, parentDialect);
+  params.push(...compiled.parameters);
+
+  return sql;
 }
 
 /** `col op $n`, or `EXISTS (…)` / `col op (…)` when the value is a subquery. */
@@ -169,7 +171,7 @@ export function renderPredicate(dialect: DialectTarget, p: Predicate, params: un
     return `(${predicateList(dialect, p.predicates, params)})`;
   }
   if (p.kind === 'spatial') return renderSpatialPredicate(dialect, p, params);
-  const normalized = p.op.toLowerCase().trim();
+  const normalized = isUnsafeOperator(p.op) ? p.op.op.toLowerCase().trim() : p.op.toLowerCase().trim();
   const sqlOp = sqlOperator(p.op, dialect);
 
   if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
@@ -186,15 +188,15 @@ export function renderPredicate(dialect: DialectTarget, p: Predicate, params: un
   }
 
   if (isSubqueryTarget(p.value)) {
-    const sub = p.value.compile();
-    // Continue the outer statement's numbering. Positional placeholders are a
-    // no-op here, so the order of the pushes below is what matters.
-    const text = renumberPlaceholders(sub.text, params.length, dialect);
-    params.push(...sub.parameters);
+    const sql = processSubquery(dialect, p.value, params);
 
-    if (sqlOp === 'EXISTS') return `EXISTS (${text})`;
-    if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${text})`;
-    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${text})`;
+    if (sqlOp === 'EXISTS') return `EXISTS (${sql})`;
+    if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${sql})`;
+    return `${quoteColumn(dialect, p.col)} ${sqlOp} (${sql})`;
+  }
+
+  if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
+    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
   }
 
   if (sqlOp === 'IN' || sqlOp === 'NOT IN') {
