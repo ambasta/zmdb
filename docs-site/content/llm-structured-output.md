@@ -54,10 +54,12 @@ import { assert } from '@zmdb/aot-validator/utilities';
 const result = lenientParse(res.text, v => assert<CreateDTO<User>>(v));
 ```
 
-It tolerates fenced code blocks, leading prose, trailing commas and single quotes — the specific ways model output deviates from strict JSON. An explicit coercion callback is required for typed parsing (`lenientParse<T>`) so caller-side validation catches shape mismatches before they reach downstream logic.
+It tolerates fenced code blocks, leading prose, trailing commas and single quotes — the specific ways model output deviates from strict JSON. An explicit coercion callback is required for typed
+parsing (`lenientParse<T>`) so caller-side validation catches shape mismatches before they reach downstream logic.
 
-> [!NOTE]
-> `assert<T>()` relies on the `@zmdb/aot-validator/unplugin` build transform to inject validator descriptors. In projects without the AOT plugin enabled, `assert<T>()` throws an uninitialized descriptor error that `lenientParse` catches as a validation failure. If your build pipeline does not include the AOT plugin, pass a hand-written narrowing function to `coerce` instead (or see [AOT Validator setup](./validators-assert.html)).
+> [!NOTE] `assert<T>()` relies on the `@zmdb/aot-validator/unplugin` build transform to inject validator descriptors. In projects without the AOT plugin enabled, `assert<T>()` throws an uninitialized
+> descriptor error that `lenientParse` catches as a validation failure. If your build pipeline does not include the AOT plugin, pass a hand-written narrowing function to `coerce` instead (or see
+> [AOT Validator setup](./validators-assert.html)).
 
 Prefer tool use over parsing prose when the API offers it. `lenientParse` is for when it does not.
 
