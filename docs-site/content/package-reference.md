@@ -86,7 +86,8 @@ Provider-neutral AI tool documents, bounded chat orchestration, shared tool invo
 - **Engines:**
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
-- **Facade exposure:** None.
+- **Facade exposure:**
+  - `zmdb/llm`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/ai-anthropic`
@@ -366,21 +367,30 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `./cockroach` → `./src/database-cockroach.ts`
   - `./compiler` → `./src/compiler.ts`
   - `./config` → `./src/config/index.ts`
+  - `./custom-types` → `./src/custom-types.ts`
   - `./derive` → `./src/derive.ts`
   - `./dto` → `./src/dto.ts`
+  - `./entity-modeling` → `./src/entity-modeling.ts`
+  - `./integrations` → `./src/integrations.ts`
   - `./ir` → `./src/ir.ts`
+  - `./llm` → `./src/llm.ts`
   - `./migrations` → `./src/migrations.ts`
   - `./mssql` → `./src/database-mssql.ts`
   - `./mysql` → `./src/database-mysql.ts`
+  - `./openapi` → `./src/openapi.ts`
   - `./orm` → `./src/orm.ts`
   - `./postgres` → `./src/database-postgres.ts`
+  - `./query` → `./src/query.ts`
   - `./relations` → `./src/relations.ts`
+  - `./replicas` → `./src/replicas.ts`
   - `./schema` → `./src/schema.ts`
+  - `./seeding` → `./src/seeding.ts`
   - `./singlestore` → `./src/database-singlestore.ts`
   - `./sql` → `./src/sql.ts`
   - `./sqlite` → `./src/database-sqlite.ts`
   - `./tags` → `./src/tags.ts`
   - `./testing` → `./src/testing.ts`
+  - `./transactions` → `./src/transactions.ts`
   - `./validator` → `./src/validator.ts`
   - `./web` → `./src/web.ts`
   - `./web/app` → `./src/web-app.ts`
@@ -800,9 +810,11 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `Unique`
   - `UpdateDTO`
   - `schemaOf`
+  - `@zmdb/core/custom-types`
   - `@zmdb/core/derive`
   - `@zmdb/core/dto`
   - `@zmdb/core/ir`
+  - `@zmdb/core/openapi`
   - `@zmdb/core/relations`
   - `@zmdb/core/schema`
   - `@zmdb/core/tags`

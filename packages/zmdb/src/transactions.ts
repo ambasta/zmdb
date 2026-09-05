@@ -1,5 +1,5 @@
 // zmdb/transactions — explicit named re-exports.
-export { batch, createTransactionalDb, markTransactionClosed } from '@zmdb/repository/transactions';
+export { batch, createTransactionalDb, markTransactionClosed } from '@zmdb/orm/transactions';
 export type {
   ActiveTransactionContext,
   ClosedTransactionContext,
@@ -7,4 +7,4 @@ export type {
   TransactionalDb,
   TransactionState,
   TxConnection,
-} from '@zmdb/repository/transactions';
+} from '@zmdb/orm/transactions';

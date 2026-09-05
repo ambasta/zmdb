@@ -5,5 +5,5 @@ export {
   toListSchema,
   toOpenApiComponents,
   toSearchSchema,
-} from '@zmdb/schema-core/openapi';
-export type { EnvelopeSchema, JsonSchemaObject, Variant } from '@zmdb/schema-core/openapi';
+} from '@zmdb/schema/openapi';
+export type { EnvelopeSchema, JsonSchemaObject, Variant } from '@zmdb/schema/openapi';
