@@ -181,14 +181,13 @@ const STATUS_BADGE = {
   wontfix: '<span class="badge muted">Not planned</span>',
 };
 
-// 26 groups and 274 pages do not fit on a screen, so groups collapse. The group
+// Product-journey groups collapse because several own long page lists. The group
 // holding the current page is the one opened — on the benchmarks page, which is in
 // no group, everything starts closed and the reader expands what they want.
 function navHtml(activeSlug, base = './') {
   let h = '';
   for (const group of NAV) {
-    const pages = group.pages.filter(slug => PAGES[slug] !== undefined);
-    if (pages.length === 0) continue;
+    const pages = group.pages;
     const open = pages.includes(activeSlug) ? ' open' : '';
     h += `<details class="nav-group"${open}><summary class="nav-title">${group.title}<span class="count">${pages.length}</span></summary>`;
     for (const slug of pages) {
@@ -211,7 +210,7 @@ function navHtml(activeSlug, base = './') {
 const CSS = SHELL_CSS;
 
 // Flat page order (from NAV) for prev/next navigation.
-const FLAT = NAV.flatMap(g => g.pages).filter(s => PAGES[s]);
+const FLAT = NAV.flatMap(g => g.pages);
 
 function pageHtml(slug, p) {
   const todoBanner =
@@ -261,7 +260,7 @@ ${topbarHtml({ base: '../', active: 'docs', withNavToggle: true })}
 <a class="nav-link nav-top" href="../openapi.json" target="_blank" download="openapi.json">OpenAPI spec</a>
 ${navHtml(slug)}</aside>
 <main>
-<div class="crumbs"><a href="../index.html">Docs</a> / ${p.group ?? ''}</div>
+<div class="crumbs"><a href="../index.html">Docs</a> / ${p.group}</div>
 <h1>${p.title}${STATUS_BADGE[p.status] ?? ''}</h1>
 ${todoBanner}
 ${body}
@@ -319,7 +318,8 @@ for (const [slug, p] of Object.entries(PAGES)) {
 }
 
 // The search index: one file, shared by every page, loaded only when someone
-// actually opens the palette. Inlining it into 274 pages would multiply it by 274;
+// actually opens the palette. Inlining it into every page would multiply the same
+// index by the full registry size;
 // putting it behind a service would mean the docs stop working offline.
 const searchIndex = searchIndexScript(PAGES, NAV);
 writeFileSync(join(OUT, 'search-index.js'), searchIndex);
@@ -483,8 +483,7 @@ ${topbarHtml({ base: './' })}
   <p class="lead">The union of the <a href="https://mikro-orm.io/docs/guide">MikroORM</a>, <a href="https://orm.drizzle.team/docs/overview">Drizzle</a>, <a href="https://typia.io/docs">Typia</a> and <a href="https://docs.nestjs.com/">NestJS</a> doc surfaces. Every capability page is written in full; the ones that are anti-patterns for a zero-overhead, no-proxy, AOT layer are <a href="./docs/anti-patterns.html">excluded and explained</a> rather than quietly missing. Press <span class="kbd">⌘K</span> to search all of it.</p>
   <div class="grid">
     ${NAV.map(g => {
-      const pages = g.pages.filter(s => PAGES[s] !== undefined);
-      if (pages.length === 0) return '';
+      const pages = g.pages;
       const shown = pages.slice(0, 5).map(s => `<a href="./docs/${s}.html">${PAGES[s].title}</a>`);
       const rest = pages.length - shown.length;
       return `<div class="card"><h4>${g.title} <span style="color:var(--muted);font-weight:400">${pages.length}</span></h4><p>${shown.join(' · ')}${rest > 0 ? ` · <a href="./docs/${pages[0]}.html">+${rest} more</a>` : ''}</p></div>`;

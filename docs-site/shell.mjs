@@ -590,7 +590,7 @@ function plainText(md) {
 /**
  * The static search index, as a script that assigns to `window.__ZMDB_SEARCH__`.
  *
- * Field names are one character because this file is downloaded whole: over 274
+ * Field names are one character because this file is downloaded whole: over 270
  * pages the difference between `title` and `t` is not rounding. Body text is
  * capped per page — enough for a term to be found and a snippet shown, without
  * shipping the entire corpus twice (it is already on the pages themselves).
@@ -598,19 +598,26 @@ function plainText(md) {
 export function searchIndexScript(pages, nav) {
   const groupOf = new Map();
   for (const group of nav) {
-    for (const slug of group.pages) groupOf.set(slug, group.title);
+    for (const slug of group.pages) {
+      if (groupOf.has(slug)) throw new Error(`docs search: duplicate navigation slug "${slug}".`);
+      groupOf.set(slug, group.title);
+    }
   }
-  const records = Object.entries(pages).map(([slug, page]) => ({
-    s: slug,
-    t: page.title,
-    g: page.group ?? groupOf.get(slug) ?? 'Docs',
-    // Headings are the strongest signal after the title: they are what the page
-    // promises to cover.
-    h: [...page.md.matchAll(/^#{2,3}\s+(.+)$/gm)].map(m => m[1].replace(/[`*]/g, '')),
-    x: plainText(page.md).slice(0, 3000),
-    // 1 = on the roadmap, 2 = declined. Both are searchable and both rank below a
-    // written page; only the label on the row differs.
-    ...(page.status === 'todo' ? { d: 1 } : page.status === 'wontfix' ? { d: 2 } : {}),
-  }));
+  const records = Object.entries(pages).map(([slug, page]) => {
+    const group = groupOf.get(slug);
+    if (group === undefined) throw new Error(`docs search: page "${slug}" has no navigation owner.`);
+    return {
+      s: slug,
+      t: page.title,
+      g: group,
+      // Headings are the strongest signal after the title: they are what the page
+      // promises to cover.
+      h: [...page.md.matchAll(/^#{2,3}\s+(.+)$/gm)].map(m => m[1].replace(/[`*]/g, '')),
+      x: plainText(page.md).slice(0, 3000),
+      // 1 = on the roadmap, 2 = declined. Both are searchable and both rank below a
+      // written page; only the label on the row differs.
+      ...(page.status === 'todo' ? { d: 1 } : page.status === 'wontfix' ? { d: 2 } : {}),
+    };
+  });
   return `window.__ZMDB_SEARCH__=${JSON.stringify(records)};\n`;
 }

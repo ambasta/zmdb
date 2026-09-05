@@ -1,6 +1,7 @@
-// zmdb docs manifest — joins the page registry (pages.mjs: nav + per-page
-// {title, group, status, note}) with the prose in content/<slug>.md and exports
-// the {NAV, PAGES} shape the site generator consumes.
+// zmdb docs manifest — joins the page registry (pages.mjs: navigation +
+// per-page {title, status, note}) with the prose in content/<slug>.md and
+// exports the {NAV, PAGES} shape the site generator consumes. `group` is
+// derived from NAV after pages.mjs validates one owner for every page.
 //
 // Splitting metadata from prose is what makes a manual this size reviewable: a
 // nav change is a diff in pages.mjs, a wording change is a diff in one .md file,
@@ -20,7 +21,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { antiPatterns } from './coverage/mapping.mjs';
-import { NAV, PAGE_META } from './pages.mjs';
+import { NAV, PAGE_GROUPS, PAGE_META } from './pages.mjs';
 
 const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), 'content');
 
@@ -79,7 +80,7 @@ function readBody(slug) {
 }
 
 export const PAGES = Object.fromEntries(
-  Object.entries(PAGE_META).map(([slug, meta]) => [slug, { ...meta, md: readBody(slug) }]),
+  Object.entries(PAGE_META).map(([slug, meta]) => [slug, { ...meta, group: PAGE_GROUPS[slug], md: readBody(slug) }]),
 );
 
 export { NAV };

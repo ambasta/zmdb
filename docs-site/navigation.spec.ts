@@ -6,11 +6,10 @@ import {
   LEGACY_REDIRECTS,
   PRODUCT_JOURNEY,
 } from './navigation-plan.mjs';
-import { NAV, PAGE_META } from './pages.mjs';
+import { NAV, PAGE_GROUPS, PAGE_META, derivePageGroups } from './pages.mjs';
 
 interface PageMeta {
   readonly title: string;
-  readonly group?: string;
   readonly status: 'supported' | 'todo' | 'wontfix';
   readonly note?: string;
 }
@@ -21,6 +20,11 @@ const targetSlugs = PRODUCT_JOURNEY.flatMap(group => group.pages);
 const legacySlugs = Object.keys(LEGACY_REDIRECTS);
 const legacySet = new Set(legacySlugs);
 const additionSlugs = Object.keys(CANONICAL_PAGE_ADDITIONS);
+const expectedLiveJourney = PRODUCT_JOURNEY.map(group => ({
+  title: group.title,
+  pages: group.pages.flatMap(slug => (slug === 'graphql' ? legacySlugs : [slug])),
+}));
+const expectedLiveSlugs = expectedLiveJourney.flatMap(group => group.pages);
 
 const sorted = (values: readonly string[]): string[] => [...values].toSorted();
 
@@ -31,41 +35,36 @@ function occurrences(values: readonly string[]): ReadonlyMap<string, number> {
 }
 
 describe('the frozen documentation product journey', () => {
-  // The #713 baseline measured 276 pages. #618 has since registered the
-  // package-reference placeholder, so pages.mjs now has 277 pages in the same 26
-  // groups. The target owns 266 canonical pages: the twelve GraphQL source slugs
-  // are replaced by `graphql`, and `package-reference` is retained as the other
-  // declared addition.
-  it.fails('assigns every registered page to exactly one product-journey group', () => {
+  // #715 keeps the twelve GraphQL source pages live until #718 replaces them with
+  // `graphql` plus redirects. All 277 current pages still need exactly one owner.
+  it('assigns every registered page to exactly one product-journey group', () => {
     const liveCounts = occurrences(liveSlugs);
-    const targetCounts = occurrences(targetSlugs);
     const problems: string[] = [];
 
-    for (const slug of targetSlugs) {
-      if (targetCounts.get(slug) !== 1) problems.push(`target:${slug}:${String(targetCounts.get(slug))}`);
+    for (const slug of expectedLiveSlugs) {
       if (liveCounts.get(slug) !== 1) problems.push(`live:${slug}:${String(liveCounts.get(slug))}`);
     }
     for (const slug of Object.keys(liveMeta)) {
       if (liveCounts.get(slug) !== 1) problems.push(`metadata:${slug}:${String(liveCounts.get(slug))}`);
     }
-    if (sorted(Object.keys(liveMeta)).join('\n') !== sorted(targetSlugs).join('\n')) {
-      problems.push('PAGE_META does not own exactly the canonical target slugs');
+    if (sorted(Object.keys(liveMeta)).join('\n') !== sorted(expectedLiveSlugs).join('\n')) {
+      problems.push('PAGE_META does not own exactly the live navigation slugs');
     }
 
-    for (const group of PRODUCT_JOURNEY) {
+    for (const group of expectedLiveJourney) {
       for (const slug of group.pages) {
-        if (liveMeta[slug]?.group !== group.title) {
-          problems.push(`${slug}: expected group "${group.title}", got "${liveMeta[slug]?.group ?? '<missing>'}"`);
+        if (PAGE_GROUPS[slug] !== group.title) {
+          problems.push(`${slug}: expected group "${group.title}", got "${PAGE_GROUPS[slug] ?? '<missing>'}"`);
         }
       }
     }
 
+    expect(NAV).toEqual(expectedLiveJourney);
+    expect(PAGE_GROUPS).toEqual(derivePageGroups(NAV, liveMeta));
     expect(problems).toEqual([]);
   });
 
-  // Measured today: the live titles begin "Getting Started", "Migrating to zmdb",
-  // "Schema" and continue for 26 groups.
-  it.fails('contains exactly ten top-level navigation groups', () => {
+  it('contains exactly ten top-level navigation groups', () => {
     expect(NAV.map(group => group.title)).toEqual(PRODUCT_JOURNEY.map(group => group.title));
     expect(NAV).toHaveLength(DOCUMENTATION_BASELINE.target.groups);
   });
@@ -87,13 +86,29 @@ describe('the frozen documentation product journey', () => {
     expect(new Set(legacySlugs).size).toBe(DOCUMENTATION_BASELINE.target.redirectArtifacts);
   });
 
-  // Measured today: all 277 PAGE_META records repeat a `group` string. The target
-  // derives that value from NAV so group ownership cannot drift in two places.
-  it.fails('derives page group ownership from navigation instead of PAGE_META', () => {
+  it('derives page group ownership from navigation instead of PAGE_META', () => {
     const duplicatedOwners = Object.entries(liveMeta)
       .filter(([, meta]) => Object.hasOwn(meta, 'group'))
       .map(([slug]) => slug);
     expect(duplicatedOwners).toEqual([]);
+    expect(Object.keys(PAGE_GROUPS)).toHaveLength(Object.keys(liveMeta).length);
+  });
+
+  it('rejects duplicate, missing and orphaned slugs deterministically', () => {
+    const invalidNav = [{ title: 'Start', pages: ['duplicate', 'duplicate', 'missing'] }];
+    const invalidMeta = {
+      duplicate: { title: 'Duplicate', status: 'supported' },
+      orphan: { title: 'Orphan', status: 'supported' },
+    };
+
+    expect(() => derivePageGroups(invalidNav, invalidMeta)).toThrowError(
+      [
+        'docs navigation registry invalid:',
+        '- duplicate slugs: duplicate',
+        '- missing page metadata: missing',
+        '- orphaned page metadata: orphan',
+      ].join('\n'),
+    );
   });
 
   it('preserves retained page statuses and makes the consolidated GraphQL decision wontfix', () => {

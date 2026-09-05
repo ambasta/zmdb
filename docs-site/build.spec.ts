@@ -53,6 +53,18 @@ describe('docs site generator', { timeout: BUILD_TIMEOUT }, () => {
     expect(spec.components.schemas.User).toBeDefined();
   });
 
+  it('renders navigation ownership in breadcrumbs, sidebar counts and previous-next order', () => {
+    build();
+    const introduction = readFileSync(join(SITE_DIR, 'docs', 'introduction.html'), 'utf8');
+    const codemod = readFileSync(join(SITE_DIR, 'docs', 'codemod.html'), 'utf8');
+
+    expect(introduction.match(/<details class="nav-group"/g)).toHaveLength(10);
+    expect(introduction).toContain('<summary class="nav-title">Start<span class="count">14</span></summary>');
+    expect(introduction).toContain('<div class="crumbs"><a href="../index.html">Docs</a> / Start</div>');
+    expect(codemod).toMatch(/href="\.\/web-faq\.html"[\s\S]*?← Previous/);
+    expect(codemod).toMatch(/href="\.\/configuration\.html"[\s\S]*?Next →/);
+  });
+
   it('renders each measured suite from its normalised JSON, with provenance', () => {
     build();
     const html = benchmarksHtml();

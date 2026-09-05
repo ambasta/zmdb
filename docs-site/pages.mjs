@@ -1,6 +1,6 @@
-// zmdb docs page registry — metadata only. Page bodies live in ./content/<slug>.md
-// so a ~400-page manual stays reviewable: this file is the table of contents,
-// content/ is the prose. manifest.mjs joins the two.
+// zmdb docs page registry. PRODUCT_JOURNEY owns navigation order and page
+// ownership; this file keeps only the live compatibility expansion plus page
+// title/status metadata. Page bodies live in ./content/<slug>.md.
 //
 //   status:'supported' -> the API is real; the page documents it. `note` may
 //                         narrow platform coverage without calling the whole API TODO.
@@ -15,1800 +15,1170 @@
 // Anti-patterns are deliberately absent from NAV and enumerated, with rationale,
 // in coverage/mapping.mjs + the anti-patterns page.
 
-export const NAV = [
-  {
-    title: 'Getting Started',
-    pages: [
-      'introduction',
-      'why-zmdb',
-      'quick-start',
-      'installation',
-      'aot-setup',
-      'pure-typescript',
-      'tutorial-blog-api',
-      'architecture',
-      'faq',
-      'gotchas',
-      'goodies',
-    ],
-  },
-  {
-    title: 'Migrating to zmdb',
-    pages: [
-      'migrate-from-drizzle',
-      'migrate-from-mikro-orm',
-      'migrate-from-typeorm',
-      'migrate-from-sequelize',
-      'migrate-from-prisma',
-      'web-faq',
-      'codemod',
-    ],
-  },
-  {
-    title: 'Schema',
-    pages: [
-      'schema-declaration',
-      'column-types',
-      'type-derivation',
-      'tags-reference',
-      'relations',
-      'composite-keys',
-      'bigint-keys',
-      'indexes-constraints',
-      'naming-strategy',
-      'json-properties',
-      'views',
-      'materialized-views',
-      'virtual-entities',
-      'sequences',
-      'generated-columns',
-      'schemas-namespaces',
-      'rls',
-      'db-extensions',
-      'stored-routines',
-      'schema-first',
-    ],
-  },
-  {
-    title: 'Data Access',
-    pages: [
-      'crud',
-      'repository',
-      'select',
-      'insert',
-      'update',
-      'delete',
-      'upsert',
-      'filters',
-      'entity-filters',
-      'pagination',
-      'read-dtos',
-      'projections',
-      'joins',
-      'populate-results',
-      'loading-strategies',
-      'dataloaders',
-      'aggregations',
-      'aggregate-results',
-      'full-text-search',
-      'aliases',
-      'set-operations',
-      'dynamic-queries',
-      'query-utils',
-      'raw-sql',
-      'sql-comments',
-      'streaming',
-      'query-cancellation',
-      'serialization',
-      'inert-rows',
-    ],
-  },
-  {
-    title: 'Transactions',
-    pages: ['transactions', 'batch', 'cascading', 'transactional-outbox', 'read-replicas', 'lifecycle-hooks'],
-  },
-  {
-    title: 'Migrations',
-    pages: [
-      'migrations',
-      'migrations-cli',
-      'migrations-custom',
-      'migrations-teams',
-      'migrations-web-mobile',
-      'seeding',
-      'seed-functions',
-    ],
-  },
-  {
-    title: 'CLI',
-    pages: [
-      'cli-overview',
-      'config-file',
-      'cli-codegen',
-      'cli-generate',
-      'cli-migrate',
-      'cli-push',
-      'cli-pull',
-      'cli-check',
-      'cli-up',
-      'cli-export',
-      'cli-studio',
-    ],
-  },
-  {
-    title: 'Dialects',
-    pages: [
-      'dialect-postgres',
-      'dialect-mysql',
-      'dialect-sqlite',
-      'dialect-cockroach',
-      'dialect-mssql',
-      'dialect-singlestore',
-      'dialect-gel',
-      'dialect-mongodb',
-      'custom-driver',
-    ],
-  },
-  {
-    title: 'Connecting',
-    pages: [
-      'drivers',
-      'connect-postgres',
-      'connect-sqlite',
-      'connect-pglite',
-      'connect-neon',
-      'connect-supabase',
-      'connect-vercel-postgres',
-      'connect-xata',
-      'connect-nile',
-      'connect-prisma-postgres',
-      'connect-planetscale',
-      'connect-tidb',
-      'connect-turso',
-      'connect-sqlite-cloud',
-      'connect-cloudflare-d1',
-      'connect-cloudflare-do',
-      'connect-aws-data-api',
-      'connect-bun',
-      'connect-http-proxy',
-      'connect-react-native',
-    ],
-  },
-  {
-    title: 'Validation',
-    pages: [
-      'validators-is',
-      'validators-assert',
-      'validators-validate',
-      'validators-tags',
-      'validators-shallow',
-      'validators-misc',
-      'unions-refinements',
-    ],
-  },
-  {
-    title: 'JSON & Serialization',
-    pages: [
-      'json-stringify',
-      'json-parse',
-      'json-schema',
-      'openapi',
-      'random',
-      'protobuf-message',
-      'protobuf-encode',
-      'protobuf-decode',
-    ],
-  },
-  {
-    title: 'LLM',
-    pages: [
-      'llm-function-calling',
-      'llm-json-schema',
-      'llm-structured-output',
-      'llm-strategy',
-      'llm-chat',
-      'llm-http',
-      'llm-mcp',
-      'llm-langchain',
-      'llm-vercel-ai-sdk',
-    ],
-  },
-  {
-    title: 'Advanced',
-    pages: [
-      'custom-types',
-      'embeddables',
-      'inheritance',
-      'configuration',
-      'logging',
-      'caching',
-      'testing',
-      'jit-vs-aot',
-      'perf-queries',
-      'perf-serverless',
-      'deployment',
-      'lint-rules',
-    ],
-  },
-  {
-    title: 'Interop',
-    pages: [
-      'interop-zod',
-      'interop-valibot',
-      'interop-typebox',
-      'interop-arktype',
-      'interop-effect-schema',
-      'interop-trpc',
-      'interop-hono',
-      'framework-integrations',
-    ],
-  },
-  {
-    title: 'Guides',
-    pages: [
-      'guides',
-      'guide-conditional-filters',
-      'guide-count-rows',
-      'guide-cursor-pagination',
-      'guide-exists-subquery',
-      'guide-increment-decrement',
-      'guide-toggle-boolean',
-      'guide-bulk-update',
-      'guide-array-defaults',
-      'guide-timestamp-defaults',
-      'guide-case-insensitive-unique',
-      'guide-fts-generated-columns',
-      'guide-vector-search',
-      'guide-postgis',
-      'guide-local-postgres',
-      'guide-local-mysql',
-    ],
-  },
-  {
-    title: 'Deploying',
-    pages: [
-      'tutorials',
-      'deploy-vercel',
-      'deploy-nextjs',
-      'deploy-netlify',
-      'deploy-supabase-edge',
-      'deploy-railway',
-      'deploy-encore',
-    ],
-  },
-  {
-    title: 'Web Framework',
-    pages: [
-      'web-overview',
-      'web-controllers',
-      'web-context',
-      'web-di',
-      'web-modules',
-      'web-middleware',
-      'web-exception-filters',
-      'web-custom-decorators',
-      'web-pipeline',
-      'web-app',
-      'web-standalone',
-      'web-request-lifecycle',
-      'web-validation',
-      'web-domain-state',
-      'web-data-integration',
-      'web-gateways',
-      'web-ws-adapter',
-      'web-testing',
-      'web-benchmarks',
-    ],
-  },
-  {
-    title: 'Web Framework — DI & Modules',
-    pages: [
-      'web-dynamic-modules',
-      'web-injection-scopes',
-      'web-async-providers',
-      'web-circular-dependency',
-      'web-module-ref',
-      'web-discovery',
-      'web-lazy-modules',
-      'web-router-module',
-      'web-cqrs',
-    ],
-  },
-  {
-    title: 'Web Framework — OpenAPI',
-    pages: [
-      'web-openapi',
-      'web-openapi-operations',
-      'web-openapi-decorators',
-      'web-openapi-security',
-      'web-mapped-types',
-    ],
-  },
-  {
-    title: 'Web Framework — Techniques',
-    pages: [
-      'web-configuration',
-      'web-logging',
-      'web-caching',
-      'web-request-context',
-      'web-raw-body',
-      'web-events',
-      'web-http-client',
-      'web-file-upload',
-      'web-streaming-files',
-      'web-compression',
-      'web-static-files',
-      'web-templates',
-      'web-task-scheduling',
-      'web-queues',
-      'web-versioning',
-      'web-performance',
-      'web-health-checks',
-      'web-observability',
-      'web-tracing',
-      'web-devtools',
-      'web-hot-reload',
-      'web-repl',
-      'web-multiple-servers',
-      'web-hybrid-application',
-      'web-serverless',
-      'web-deployment',
-    ],
-  },
-  {
-    title: 'Web Framework — Security',
-    pages: [
-      'web-authentication',
-      'web-authorization',
-      'web-cors',
-      'web-csrf',
-      'web-encryption',
-      'web-security-headers',
-      'web-rate-limiting',
-      'web-cookies-sessions',
-    ],
-  },
-  {
-    title: 'Web Framework — CLI',
-    pages: ['web-cli', 'web-cli-monorepo', 'web-cli-apps'],
-  },
-  {
-    title: 'Web Framework — Microservices',
-    pages: [
-      'web-microservices',
-      'web-microservices-transports',
-      'web-microservices-grpc',
-      'web-microservices-custom-transport',
-    ],
-  },
-  {
-    title: 'Web Framework — GraphQL',
-    pages: [
-      'web-graphql',
-      'web-graphql-resolvers',
-      'web-graphql-subscriptions',
-      'web-graphql-scalars',
-      'web-graphql-mapped-types',
-      'web-graphql-directives',
-      'web-graphql-plugins',
-      'web-graphql-complexity',
-      'web-graphql-field-middleware',
-      'web-graphql-middleware',
-      'web-graphql-federation',
-      'web-graphql-schema-first',
-    ],
-  },
-  {
-    title: 'Web Framework — FAQ',
-    pages: ['web-faq-errors'],
-  },
-  {
-    title: 'Reference',
-    pages: ['package-reference', 'anti-patterns', 'benchmarks'],
-  },
-];
+import { LEGACY_REDIRECTS, PRODUCT_JOURNEY } from './navigation-plan.mjs';
+
+const LEGACY_GRAPHQL_SLUGS = Object.freeze(Object.keys(LEGACY_REDIRECTS));
+
+function livePages(pages) {
+  return pages.flatMap(slug => (slug === 'graphql' ? LEGACY_GRAPHQL_SLUGS : [slug]));
+}
+
+export function derivePageGroups(nav, pageMeta) {
+  const ownership = new Map();
+  const duplicates = new Set();
+  const missing = new Set();
+
+  for (const group of nav) {
+    for (const slug of group.pages) {
+      if (ownership.has(slug)) duplicates.add(slug);
+      else ownership.set(slug, group.title);
+      if (!Object.hasOwn(pageMeta, slug)) missing.add(slug);
+    }
+  }
+
+  const orphaned = Object.keys(pageMeta).filter(slug => !ownership.has(slug));
+  const problems = [];
+  if (duplicates.size > 0) problems.push('duplicate slugs: ' + [...duplicates].toSorted().join(', '));
+  if (missing.size > 0) problems.push('missing page metadata: ' + [...missing].toSorted().join(', '));
+  if (orphaned.length > 0) problems.push('orphaned page metadata: ' + orphaned.toSorted().join(', '));
+  if (problems.length > 0) throw new Error('docs navigation registry invalid:\n- ' + problems.join('\n- '));
+
+  return Object.freeze(Object.fromEntries(ownership));
+}
+
+// #718 will replace the twelve retained GraphQL refusal pages with the canonical
+// `graphql` page and redirects. Until then, preserve those live pages at the
+// frozen GraphQL position without changing their status, content or filenames.
+export const NAV = PRODUCT_JOURNEY.map(group =>
+  Object.freeze({ title: group.title, pages: Object.freeze(livePages(group.pages)) }),
+);
 
 export const PAGE_META = {
   introduction: {
     title: 'Introduction',
-    group: 'Getting Started',
     status: 'supported',
   },
   'why-zmdb': {
     title: 'Why zmdb',
-    group: 'Getting Started',
     status: 'supported',
   },
   'quick-start': {
     title: 'Quick Start',
-    group: 'Getting Started',
     status: 'supported',
   },
   installation: {
     title: 'Installation',
-    group: 'Getting Started',
     status: 'supported',
   },
   'aot-setup': {
     title: 'AOT Setup (transformer)',
-    group: 'Getting Started',
     status: 'supported',
   },
   'pure-typescript': {
     title: 'Pure TypeScript',
-    group: 'Getting Started',
     status: 'supported',
   },
   'tutorial-blog-api': {
     title: 'Tutorial: a blog API end to end',
-    group: 'Getting Started',
     status: 'supported',
   },
   architecture: {
     title: 'Architecture',
-    group: 'Getting Started',
     status: 'supported',
   },
   faq: {
     title: 'FAQ',
-    group: 'Getting Started',
     status: 'supported',
   },
   gotchas: {
     title: 'Gotchas',
-    group: 'Getting Started',
     status: 'supported',
   },
   goodies: {
     title: 'Goodies',
-    group: 'Getting Started',
     status: 'supported',
   },
   'migrate-from-drizzle': {
     title: 'From Drizzle ORM',
-    group: 'Migrating to zmdb',
     status: 'supported',
   },
   'migrate-from-mikro-orm': {
     title: 'From MikroORM',
-    group: 'Migrating to zmdb',
     status: 'supported',
   },
   'migrate-from-typeorm': {
     title: 'From TypeORM',
-    group: 'Migrating to zmdb',
     status: 'supported',
   },
   'migrate-from-sequelize': {
     title: 'From Sequelize',
-    group: 'Migrating to zmdb',
     status: 'supported',
   },
   'migrate-from-prisma': {
     title: 'From Prisma',
-    group: 'Migrating to zmdb',
     status: 'supported',
   },
   'web-faq': {
     title: 'FAQ — Migrating from NestJS',
-    group: 'Migrating to zmdb',
     status: 'supported',
   },
   codemod: {
     title: 'Codemod: defineSchema → a type',
-    group: 'Migrating to zmdb',
     status: 'supported',
   },
   'schema-declaration': {
     title: 'Schema Declaration',
-    group: 'Schema',
     status: 'supported',
   },
   'column-types': {
     title: 'Column Types',
-    group: 'Schema',
     status: 'supported',
   },
   'type-derivation': {
     title: 'Type Derivation',
-    group: 'Schema',
     status: 'supported',
   },
   'tags-reference': {
     title: 'Tag Reference',
-    group: 'Schema',
     status: 'supported',
   },
   relations: {
     title: 'Relations',
-    group: 'Schema',
     status: 'supported',
   },
   'composite-keys': {
     title: 'Composite Primary Keys',
-    group: 'Schema',
     status: 'supported',
   },
   'bigint-keys': {
     title: 'bigint Primary Keys',
-    group: 'Schema',
     status: 'supported',
   },
   'indexes-constraints': {
     title: 'Indexes & Constraints',
-    group: 'Schema',
     status: 'supported',
   },
   'naming-strategy': {
     title: 'Naming Strategy',
-    group: 'Schema',
     status: 'supported',
   },
   'json-properties': {
     title: 'JSON Properties',
-    group: 'Schema',
     status: 'supported',
   },
   views: {
     title: 'Views',
-    group: 'Schema',
     status: 'supported',
   },
   'materialized-views': {
     title: 'Materialized Views',
-    group: 'Schema',
     status: 'supported',
   },
   'virtual-entities': {
     title: 'Virtual Entities',
-    group: 'Schema',
     status: 'supported',
   },
   sequences: {
     title: 'Sequences',
-    group: 'Schema',
     status: 'supported',
   },
   'generated-columns': {
     title: 'Generated Columns',
-    group: 'Schema',
     status: 'supported',
   },
   'schemas-namespaces': {
     title: 'Schemas / Namespaces',
-    group: 'Schema',
     status: 'supported',
   },
   rls: {
     title: 'Row-Level Security (RLS)',
-    group: 'Schema',
     status: 'supported',
   },
   'db-extensions': {
     title: 'Database Extensions',
-    group: 'Schema',
     status: 'supported',
   },
   'stored-routines': {
     title: 'Stored Procedures & Functions',
-    group: 'Schema',
     status: 'supported',
   },
   'schema-first': {
     title: 'Schema-First (existing database)',
-    group: 'Schema',
     status: 'supported',
   },
   crud: {
     title: 'CRUD',
-    group: 'Data Access',
     status: 'supported',
   },
   repository: {
     title: 'Repository',
-    group: 'Data Access',
     status: 'supported',
   },
   select: {
     title: 'Select',
-    group: 'Data Access',
     status: 'supported',
   },
   insert: {
     title: 'Insert',
-    group: 'Data Access',
     status: 'supported',
   },
   update: {
     title: 'Update',
-    group: 'Data Access',
     status: 'supported',
   },
   delete: {
     title: 'Delete',
-    group: 'Data Access',
     status: 'supported',
   },
   upsert: {
     title: 'Upsert',
-    group: 'Data Access',
     status: 'supported',
   },
   filters: {
     title: 'Filters & Operators',
-    group: 'Data Access',
     status: 'supported',
   },
   'entity-filters': {
     title: 'Entity Filters (soft delete)',
-    group: 'Data Access',
     status: 'supported',
   },
   pagination: {
     title: 'Ordering & Pagination',
-    group: 'Data Access',
     status: 'supported',
   },
   'read-dtos': {
     title: 'Read/Query DTOs — Get / List / Search',
-    group: 'Data Access',
     status: 'supported',
   },
   projections: {
     title: 'Projections (partial select)',
-    group: 'Data Access',
     status: 'supported',
   },
   joins: {
     title: 'Joins',
-    group: 'Data Access',
     status: 'supported',
   },
   'populate-results': {
     title: 'Typed Populate & Join Results',
-    group: 'Data Access',
     status: 'supported',
   },
   'loading-strategies': {
     title: 'Loading Strategies',
-    group: 'Data Access',
     status: 'supported',
   },
   dataloaders: {
     title: 'DataLoaders',
-    group: 'Data Access',
     status: 'supported',
   },
   aggregations: {
     title: 'Aggregations',
-    group: 'Data Access',
     status: 'supported',
   },
   'aggregate-results': {
     title: 'Typed Aggregate Results',
-    group: 'Data Access',
     status: 'supported',
   },
   'full-text-search': {
     title: 'Full-Text Search',
-    group: 'Data Access',
     status: 'supported',
   },
   aliases: {
     title: 'Aliases',
-    group: 'Data Access',
     status: 'supported',
   },
   'set-operations': {
     title: 'Set Operations',
-    group: 'Data Access',
     status: 'supported',
   },
   'dynamic-queries': {
     title: 'Dynamic Query Building',
-    group: 'Data Access',
     status: 'supported',
   },
   'query-utils': {
     title: 'Query Utilities',
-    group: 'Data Access',
     status: 'supported',
   },
   'raw-sql': {
     title: 'Raw SQL',
-    group: 'Data Access',
     status: 'supported',
   },
   'sql-comments': {
     title: 'SQL Comments',
-    group: 'Data Access',
     status: 'supported',
   },
   streaming: {
     title: 'Streaming Results',
-    group: 'Data Access',
     status: 'supported',
   },
   'query-cancellation': {
     title: 'Query Cancellation',
-    group: 'Data Access',
     status: 'supported',
   },
   serialization: {
     title: 'Serialization',
-    group: 'Data Access',
     status: 'supported',
   },
   'inert-rows': {
     title: 'Why Fetched Rows Are Inert',
-    group: 'Data Access',
     status: 'supported',
   },
   transactions: {
     title: 'Transactions',
-    group: 'Transactions',
     status: 'supported',
   },
   batch: {
     title: 'Batch API',
-    group: 'Transactions',
     status: 'supported',
   },
   cascading: {
     title: 'Cascading',
-    group: 'Transactions',
     status: 'supported',
   },
   'transactional-outbox': {
     title: 'Transactional Outbox',
-    group: 'Transactions',
     status: 'supported',
   },
   'read-replicas': {
     title: 'Read Replicas',
-    group: 'Transactions',
     status: 'supported',
   },
   'lifecycle-hooks': {
     title: 'Lifecycle Hooks & Events',
-    group: 'Transactions',
     status: 'supported',
   },
   migrations: {
     title: 'Migrations',
-    group: 'Migrations',
     status: 'supported',
   },
   'migrations-cli': {
     title: 'Migrations CLI',
-    group: 'Migrations',
     status: 'supported',
   },
   'migrations-custom': {
     title: 'Custom Migrations',
-    group: 'Migrations',
     status: 'supported',
   },
   'migrations-teams': {
     title: 'Migrations in a Team',
-    group: 'Migrations',
     status: 'supported',
   },
   'migrations-web-mobile': {
     title: 'Migrations on Web & Mobile',
-    group: 'Migrations',
     status: 'supported',
   },
   seeding: {
     title: 'Seeding',
-    group: 'Migrations',
     status: 'supported',
   },
   'seed-functions': {
     title: 'Seed Value Generators',
-    group: 'Migrations',
     status: 'supported',
   },
   'cli-overview': {
     title: 'CLI Overview',
-    group: 'CLI',
     status: 'supported',
   },
   'config-file': {
     title: 'Config File',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-codegen': {
     title: 'zmdb-codegen',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-generate': {
     title: 'generate',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-migrate': {
     title: 'migrate',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-push': {
     title: 'push',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-pull': {
     title: 'pull (introspect)',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-check': {
     title: 'check',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-up': {
     title: 'up',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-export': {
     title: 'export',
-    group: 'CLI',
     status: 'supported',
   },
   'cli-studio': {
     title: 'studio',
-    group: 'CLI',
     status: 'supported',
   },
   'dialect-postgres': {
     title: 'PostgreSQL',
-    group: 'Dialects',
     status: 'supported',
   },
   'dialect-mysql': {
     title: 'MySQL',
-    group: 'Dialects',
     status: 'supported',
     note: 'compiler and DDL supported; no bundled driver or live-server gate, and row-returning repository create/update/upsert methods refuse',
   },
   'dialect-sqlite': {
     title: 'SQLite',
-    group: 'Dialects',
     status: 'supported',
   },
   'dialect-cockroach': {
     title: 'CockroachDB',
-    group: 'Dialects',
     status: 'supported',
   },
   'dialect-mssql': {
     title: 'SQL Server',
-    group: 'Dialects',
     status: 'supported',
   },
   'dialect-singlestore': {
     title: 'SingleStore',
-    group: 'Dialects',
     status: 'supported',
   },
   'dialect-gel': {
     title: 'Gel (EdgeDB)',
-    group: 'Dialects',
     status: 'todo',
     note: 'refused: Gel owns its schema, so zmdb would be a client rather than the source; the SQL endpoint is the supported path',
   },
   'dialect-mongodb': {
     title: 'MongoDB',
-    group: 'Dialects',
     status: 'todo',
     note: 'refused: a Serial key has no MongoDB equivalent, aggregate hands SQL to application code, and savepoint has none',
   },
   'custom-driver': {
     title: 'Writing a Driver',
-    group: 'Dialects',
     status: 'supported',
   },
   drivers: {
     title: 'Drivers',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-postgres': {
     title: 'PostgreSQL (node-postgres)',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-sqlite': {
     title: 'SQLite (node:sqlite)',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-pglite': {
     title: 'PGlite',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-neon': {
     title: 'Neon',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-supabase': {
     title: 'Supabase',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-vercel-postgres': {
     title: 'Vercel Postgres',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-xata': {
     title: 'Xata',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-nile': {
     title: 'Nile',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-prisma-postgres': {
     title: 'Prisma Postgres',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-planetscale': {
     title: 'PlanetScale',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-tidb': {
     title: 'TiDB Cloud',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-turso': {
     title: 'Turso / libSQL',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-sqlite-cloud': {
     title: 'SQLite Cloud',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-cloudflare-d1': {
     title: 'Cloudflare D1',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-cloudflare-do': {
     title: 'Cloudflare Durable Objects',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-aws-data-api': {
     title: 'AWS RDS Data API',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-bun': {
     title: 'Bun',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-http-proxy': {
     title: 'HTTP Proxy',
-    group: 'Connecting',
     status: 'supported',
   },
   'connect-react-native': {
     title: 'React Native & Expo',
-    group: 'Connecting',
     status: 'supported',
   },
   'validators-is': {
     title: 'is()',
-    group: 'Validation',
     status: 'supported',
   },
   'validators-assert': {
     title: 'assert()',
-    group: 'Validation',
     status: 'supported',
   },
   'validators-validate': {
     title: 'validate()',
-    group: 'Validation',
     status: 'supported',
   },
   'validators-tags': {
     title: 'Special Tags',
-    group: 'Validation',
     status: 'supported',
   },
   'validators-shallow': {
     title: 'Shallow Validation',
-    group: 'Validation',
     status: 'supported',
   },
   'validators-misc': {
     title: 'equals, random & other utilities',
-    group: 'Validation',
     status: 'supported',
   },
   'unions-refinements': {
     title: 'Unions, Refinements & Transforms',
-    group: 'Validation',
     status: 'supported',
   },
   'json-stringify': {
     title: 'stringify()',
-    group: 'JSON & Serialization',
     status: 'supported',
   },
   'json-parse': {
     title: 'parse()',
-    group: 'JSON & Serialization',
     status: 'supported',
   },
   'json-schema': {
     title: 'JSON Schema',
-    group: 'JSON & Serialization',
     status: 'supported',
   },
   openapi: {
     title: 'OpenAPI',
-    group: 'JSON & Serialization',
     status: 'supported',
   },
   random: {
     title: 'Random Generator',
-    group: 'JSON & Serialization',
     status: 'supported',
   },
   'protobuf-message': {
     title: 'Protobuf Messages',
-    group: 'JSON & Serialization',
     status: 'supported',
   },
   'protobuf-encode': {
     title: 'protobuf encode',
-    group: 'JSON & Serialization',
     status: 'supported',
   },
   'protobuf-decode': {
     title: 'protobuf decode',
-    group: 'JSON & Serialization',
     status: 'supported',
   },
   'llm-function-calling': {
     title: 'LLM Function Calling',
-    group: 'LLM',
     status: 'supported',
   },
   'llm-json-schema': {
     title: 'LLM Schemas',
-    group: 'LLM',
     status: 'supported',
   },
   'llm-structured-output': {
     title: 'Structured Output',
-    group: 'LLM',
     status: 'supported',
   },
   'llm-strategy': {
     title: 'Provider Schema Strategies',
-    group: 'LLM',
     status: 'supported',
   },
   'llm-chat': {
     title: 'Chat & Agents',
-    group: 'LLM',
     status: 'supported',
   },
   'llm-http': {
     title: 'HTTP Tools from Controllers',
-    group: 'LLM',
     status: 'supported',
   },
   'llm-mcp': {
     title: 'Model Context Protocol',
-    group: 'LLM',
     status: 'supported',
   },
   'llm-langchain': {
     title: 'LangChain',
-    group: 'LLM',
     status: 'supported',
   },
   'llm-vercel-ai-sdk': {
     title: 'Vercel AI SDK',
-    group: 'LLM',
     status: 'supported',
   },
   'custom-types': {
     title: 'Custom Types & Codecs',
-    group: 'Advanced',
     status: 'supported',
   },
   embeddables: {
     title: 'Embeddables',
-    group: 'Advanced',
     status: 'supported',
   },
   inheritance: {
     title: 'Inheritance Mapping',
-    group: 'Advanced',
     status: 'supported',
   },
   configuration: {
     title: 'Configuration',
-    group: 'Advanced',
     status: 'supported',
   },
   logging: {
     title: 'Logging',
-    group: 'Advanced',
     status: 'supported',
   },
   caching: {
     title: 'Query Caching',
-    group: 'Advanced',
     status: 'supported',
   },
   testing: {
     title: 'Testing',
-    group: 'Advanced',
     status: 'supported',
   },
   'jit-vs-aot': {
     title: 'AOT vs JIT',
-    group: 'Advanced',
     status: 'supported',
   },
   'perf-queries': {
     title: 'Query Performance',
-    group: 'Advanced',
     status: 'supported',
   },
   'perf-serverless': {
     title: 'Serverless Performance',
-    group: 'Advanced',
     status: 'supported',
   },
   deployment: {
     title: 'Deployment',
-    group: 'Advanced',
     status: 'supported',
   },
   'lint-rules': {
     title: 'Lint Rules',
-    group: 'Advanced',
     status: 'supported',
   },
   'interop-zod': {
     title: 'Zod',
-    group: 'Interop',
     status: 'supported',
   },
   'interop-valibot': {
     title: 'Valibot',
-    group: 'Interop',
     status: 'supported',
   },
   'interop-typebox': {
     title: 'TypeBox',
-    group: 'Interop',
     status: 'supported',
   },
   'interop-arktype': {
     title: 'ArkType',
-    group: 'Interop',
     status: 'supported',
   },
   'interop-effect-schema': {
     title: 'Effect Schema',
-    group: 'Interop',
     status: 'supported',
   },
   'interop-trpc': {
     title: 'tRPC',
-    group: 'Interop',
     status: 'supported',
   },
   'interop-hono': {
     title: 'Hono',
-    group: 'Interop',
     status: 'supported',
   },
   'framework-integrations': {
     title: 'Framework Integrations',
-    group: 'Interop',
     status: 'supported',
   },
   guides: {
     title: 'Guides',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-conditional-filters': {
     title: 'Conditional filters',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-count-rows': {
     title: 'Counting rows',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-cursor-pagination': {
     title: 'Cursor-based pagination',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-exists-subquery': {
     title: 'Parents with at least one child',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-increment-decrement': {
     title: 'Incrementing and decrementing a value',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-toggle-boolean': {
     title: 'Toggling a boolean',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-bulk-update': {
     title: 'Bulk updates',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-array-defaults': {
     title: 'Array columns and empty defaults',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-timestamp-defaults': {
     title: 'Timestamp defaults',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-case-insensitive-unique': {
     title: 'Case-insensitive unique email',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-fts-generated-columns': {
     title: 'Full-text search with a generated column',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-vector-search': {
     title: 'Vector similarity search',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-postgis': {
     title: 'Geometry and point columns',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-local-postgres': {
     title: 'A local PostgreSQL',
-    group: 'Guides',
     status: 'supported',
   },
   'guide-local-mysql': {
     title: 'A local MySQL',
-    group: 'Guides',
     status: 'supported',
   },
   tutorials: {
     title: 'Deployment Tutorials',
-    group: 'Deploying',
     status: 'supported',
   },
   'deploy-vercel': {
     title: 'Vercel',
-    group: 'Deploying',
     status: 'supported',
   },
   'deploy-nextjs': {
     title: 'Next.js',
-    group: 'Deploying',
     status: 'supported',
   },
   'deploy-netlify': {
     title: 'Netlify',
-    group: 'Deploying',
     status: 'supported',
   },
   'deploy-supabase-edge': {
     title: 'Supabase Edge Functions',
-    group: 'Deploying',
     status: 'supported',
   },
   'deploy-railway': {
     title: 'Railway',
-    group: 'Deploying',
     status: 'supported',
   },
   'deploy-encore': {
     title: 'Encore',
-    group: 'Deploying',
     status: 'supported',
   },
   'web-overview': {
     title: '@zmdb/web — Overview',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-controllers': {
     title: 'Controllers & Routing',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-context': {
     title: 'Typed Request Context',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-di': {
     title: 'Dependency Injection',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-modules': {
     title: 'Modules & Providers',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-middleware': {
     title: 'Guards, Pipes, Interceptors & Filters',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-exception-filters': {
     title: 'Exception Filters',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-custom-decorators': {
     title: 'Custom Decorators',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-pipeline': {
     title: 'Request Pipeline & Adapters',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-app': {
     title: 'Application Bootstrap & Lifecycle',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-standalone': {
     title: 'Standalone Applications',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-request-lifecycle': {
     title: 'Request Lifecycle',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-validation': {
     title: 'Validation & Serialization',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-domain-state': {
     title: 'Domain State Machines',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-data-integration': {
     title: 'Building an API with zmdb',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-gateways': {
     title: 'WebSockets & SSE',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-ws-adapter': {
     title: 'WebSocket Adapters',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-testing': {
     title: 'Testing',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-benchmarks': {
     title: 'Web Performance & Benchmarks',
-    group: 'Web Framework',
     status: 'supported',
   },
   'web-dynamic-modules': {
     title: 'Dynamic Modules',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-injection-scopes': {
     title: 'Injection Scopes',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-async-providers': {
     title: 'Asynchronous Providers',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-circular-dependency': {
     title: 'Circular Dependencies',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-module-ref': {
     title: 'Module Reference',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-discovery': {
     title: 'Discovery & Introspection',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-lazy-modules': {
     title: 'Lazy-Loading Modules',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-router-module': {
     title: 'Route Composition',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-cqrs': {
     title: 'CQRS',
-    group: 'Web Framework — DI & Modules',
     status: 'supported',
   },
   'web-openapi': {
     title: 'OpenAPI Generation',
-    group: 'Web Framework — OpenAPI',
     status: 'supported',
   },
   'web-openapi-operations': {
     title: 'Operations & Responses',
-    group: 'Web Framework — OpenAPI',
     status: 'supported',
   },
   'web-openapi-decorators': {
     title: 'Schema Decorators',
-    group: 'Web Framework — OpenAPI',
     status: 'supported',
   },
   'web-openapi-security': {
     title: 'Security Schemes',
-    group: 'Web Framework — OpenAPI',
     status: 'supported',
   },
   'web-mapped-types': {
     title: 'Mapped Types',
-    group: 'Web Framework — OpenAPI',
     status: 'supported',
   },
   'web-configuration': {
     title: 'Configuration',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-logging': {
     title: 'Logging',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-caching': {
     title: 'Caching',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-request-context': {
     title: 'Request Context',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-raw-body': {
     title: 'Raw Body',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-events': {
     title: 'Events',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-http-client': {
     title: 'HTTP Client',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-file-upload': {
     title: 'File Upload',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-streaming-files': {
     title: 'Streaming Files',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-compression': {
     title: 'Compression',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-static-files': {
     title: 'Serving Static Files',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-templates': {
     title: 'Server-Side Templates',
-    group: 'Web Framework — Techniques',
     status: 'wontfix',
     note: 'declined — call the template engine in the handler and return its HTML with respond()',
   },
   'web-task-scheduling': {
     title: 'Task Scheduling',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-queues': {
     title: 'Queues',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-versioning': {
     title: 'API Versioning',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-performance': {
     title: 'Performance & Keep-Alive',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-health-checks': {
     title: 'Health Checks',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-observability': {
     title: 'Observability',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-tracing': {
     title: 'Distributed Tracing',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-devtools': {
     title: 'Devtools',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-hot-reload': {
     title: 'Hot Reload',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-repl': {
     title: 'REPL',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-multiple-servers': {
     title: 'Multiple Servers',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-hybrid-application': {
     title: 'Hybrid Applications',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-serverless': {
     title: 'Serverless',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-deployment': {
     title: 'Deployment',
-    group: 'Web Framework — Techniques',
     status: 'supported',
   },
   'web-authentication': {
     title: 'Authentication',
-    group: 'Web Framework — Security',
     status: 'supported',
   },
   'web-authorization': {
     title: 'Authorization',
-    group: 'Web Framework — Security',
     status: 'supported',
   },
   'web-cors': {
     title: 'CORS',
-    group: 'Web Framework — Security',
     status: 'supported',
   },
   'web-csrf': {
     title: 'CSRF Protection',
-    group: 'Web Framework — Security',
     status: 'supported',
   },
   'web-encryption': {
     title: 'Encryption & Hashing',
-    group: 'Web Framework — Security',
     status: 'supported',
   },
   'web-security-headers': {
     title: 'Security Headers',
-    group: 'Web Framework — Security',
     status: 'supported',
   },
   'web-rate-limiting': {
     title: 'Rate Limiting',
-    group: 'Web Framework — Security',
     status: 'supported',
   },
   'web-cookies-sessions': {
     title: 'Cookies & Sessions',
-    group: 'Web Framework — Security',
     status: 'supported',
   },
   'web-cli': {
     title: 'CLI & Scaffolding',
-    group: 'Web Framework — CLI',
     status: 'supported',
   },
   'web-cli-monorepo': {
     title: 'Monorepos & Libraries',
-    group: 'Web Framework — CLI',
     status: 'supported',
   },
   'web-cli-apps': {
     title: 'Building CLI Applications',
-    group: 'Web Framework — CLI',
     status: 'supported',
   },
   'web-microservices': {
     title: 'Microservices',
-    group: 'Web Framework — Microservices',
     status: 'supported',
   },
   'web-microservices-transports': {
     title: 'Broker Transports',
-    group: 'Web Framework — Microservices',
     status: 'supported',
   },
   'web-microservices-grpc': {
     title: 'gRPC',
-    group: 'Web Framework — Microservices',
     status: 'supported',
   },
   'web-microservices-custom-transport': {
     title: 'Custom Transports',
-    group: 'Web Framework — Microservices',
     status: 'supported',
   },
   'web-graphql': {
     title: 'GraphQL',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — run a GraphQL server next to the application instead',
   },
   'web-graphql-resolvers': {
     title: 'Resolvers & Mutations',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — a schema library calling your services directly is the answer',
   },
   'web-graphql-subscriptions': {
     title: 'Subscriptions',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — @Gateway and SSE are what real-time runs on',
   },
   'web-graphql-scalars': {
     title: 'Scalars, Enums, Unions & Interfaces',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — the wire-type-to-SDL mapping stays as a record',
   },
   'web-graphql-mapped-types': {
     title: 'Mapped Types & Shared Models',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: "out of scope — TypeScript's own operators already compose the types",
   },
   'web-graphql-directives': {
     title: 'Directives & Extensions',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — every directive here has a zmdb equivalent already',
   },
   'web-graphql-plugins': {
     title: 'Plugins',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — every hook a plugin would carry already has a home',
   },
   'web-graphql-complexity': {
     title: 'Complexity Limits',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — the estimator would be yours to call between parse and execute',
   },
   'web-graphql-field-middleware': {
     title: 'Field Middleware',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — a Chain binds to a route, and there are no fields to bind to',
   },
   'web-graphql-middleware': {
     title: 'Guards & Interceptors',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — the four middleware interfaces are HTTP-side and real',
   },
   'web-graphql-federation': {
     title: 'Federation',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — one deployable with real module boundaries is the cheaper answer',
   },
   'web-graphql-schema-first': {
     title: 'Schema-First',
-    group: 'Web Framework — GraphQL',
     status: 'wontfix',
     note: 'out of scope — and SDL as the source of truth is refused on principle',
   },
   'web-faq-errors': {
     title: 'Common Errors',
-    group: 'Web Framework — FAQ',
     status: 'supported',
   },
   'anti-patterns': {
     title: 'Anti-patterns (deliberately excluded)',
-    group: 'Reference',
     status: 'supported',
   },
   'package-reference': {
     title: 'Package reference',
-    group: 'Reference',
     status: 'todo',
     note: 'catalog contract frozen; generated package rows and the verified one-product documentation journey are pending',
   },
   benchmarks: {
     title: 'Benchmarks',
-    group: 'Reference',
     status: 'supported',
   },
 };
+
+export const PAGE_GROUPS = derivePageGroups(NAV, PAGE_META);

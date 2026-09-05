@@ -79,6 +79,10 @@ The plan has these invariants:
 The reading order is intentional: install the product, build with it, learn schema/ORM and contracts, compose the server and clients, select databases, operate the application, opt into integrations,
 then use reference material.
 
+Implementation is staged across the independent children. #715 applies the ten group names and every non-GraphQL page position, but it does not perform #718's GraphQL consolidation. Until #718 lands,
+the `graphql` position expands to the twelve existing `web-graphql*` pages in `LEGACY_REDIRECTS` order. The temporary live registry therefore remains 277 pages, with the same statuses, content slugs
+and output filenames; #718 alone replaces those twelve entries with one canonical page and redirect artifacts.
+
 ## 4. GraphQL consolidation and redirects
 
 `LEGACY_REDIRECTS` in `navigation-plan.mjs` is exhaustive. Every listed source resolves to `graphql`.

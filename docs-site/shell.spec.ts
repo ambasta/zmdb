@@ -43,11 +43,12 @@ describe('docs search index', () => {
     expect(records).toHaveLength(Object.keys(PAGES).length);
 
     const bySlug = new Map(records.map(r => [r.s, r]));
+    const groupBySlug = new Map(NAV.flatMap(group => group.pages.map(slug => [slug, group.title] as const)));
     for (const [slug, page] of Object.entries(PAGES)) {
       const record = bySlug.get(slug);
       expect(record, slug).toBeDefined();
       expect(record?.t).toBe(page.title);
-      expect(record?.g.length).toBeGreaterThan(0);
+      expect(record?.g).toBe(groupBySlug.get(slug));
       // A stub is searchable — it is how a reader discovers the feature is planned
       // — but it is flagged so the ranking and the result row can say so. A declined
       // feature is flagged too, with a different value, because "not planned" and
