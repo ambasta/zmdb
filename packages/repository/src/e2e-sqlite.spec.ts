@@ -135,14 +135,11 @@ describe('repository E2E (real SQLite)', () => {
     expect(all[0]).toMatchObject({ email: 'x@y.com', role: 'user' });
   });
 
-  // Tests freeze for #460. Actual at c972d74b: BaseRepository has no stream
-  // method and sqliteDriver exposes execute only.
-  //
   // The wrapper counts the native statement path, not merely the returned rows:
   // execute-and-yield would call `all`, while real node:sqlite stepping calls
   // `iterate`. The 257 rows exceed the requested batch and their ids assert the
   // order in which the real iterator steps them.
-  it.fails('streams real rows from node:sqlite', async () => {
+  it('streams real rows from node:sqlite', async () => {
     db.exec(`
       WITH RECURSIVE n(x) AS (
         SELECT 1

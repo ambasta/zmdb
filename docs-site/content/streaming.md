@@ -1,11 +1,11 @@
-> **ToDo / adapter gap.** `Driver.stream?` and `repo.stream()` now provide the
-> async-iterable boundary. A custom driver can supply a real cursor. The bundled
-> Postgres, SQLite and SQL Server drivers do not yet implement it, so they use
-> the documented buffered fallback.
+> **ToDo / final docs pass.** `Driver.stream?` and `repo.stream()` provide the
+> async-iterable boundary. The bundled SQLite driver steps native statements,
+> and the Postgres driver uses a server cursor when given a `Pool`. Drivers
+> without that capability, including the bundled SQL Server adapter and a bare
+> Postgres `Client`, use the documented buffered fallback.
 
-The HTTP half is no longer a blocker:
-[`WebResponse.body` supports streams](./web-streaming-files.html). What remains
-is cursor support in the bundled database adapters.
+The HTTP half also supports streams through
+[`WebResponse.body`](./web-streaming-files.html).
 
 ## The repository surface
 
@@ -75,33 +75,30 @@ That gives the _consumer_ an `AsyncIterable`, which is usually what the calling 
 > rows across page boundaries. Add the primary key as a tie-break — see
 > [Cursor-based pagination](./guide-cursor-pagination.html).
 
-## Until the bundled cursors land
+## Bundled driver behaviour
 
-If you need a genuine server-side cursor today, implement the optional driver
-method or use your client directly for that one query:
+`sqliteDriver` calls `StatementSync.iterate()` and decodes one stepped row at a
+time. `batchSize` has no effect because there is no client/server round trip to
+batch. An abort is observed between native steps; `node:sqlite` exposes no
+`sqlite3_interrupt`, so JavaScript cannot interrupt one slow step already
+running inside SQLite.
 
-```ts
-import { Client } from 'pg';
-import Cursor from 'pg-cursor';
+`pgDriver(pool)` checks out one connection for the iterable, opens an explicit
+transaction, declares a parameterised cursor, fetches `batchSize` rows per
+round trip, and closes the cursor and releases the connection in `finally`.
+Breaking a `for await` loop therefore returns the connection to the pool. A
+consumer that manually calls `iterator.next()` still owns calling
+`iterator.return()` when it stops early.
 
-const cursor = client.query(new Cursor('SELECT * FROM users'));
-for (;;) {
-  const rows = await cursor.read(1_000);
-  if (rows.length === 0) break;
-  for (const row of rows) handle(assert<Entity<User>>(row));
-}
-```
-
-The direct-client form loses the repository decoder for that query. Compile the
-SQL with the builder and hand `q.text` / `q.parameters` to the cursor if you
-want the query itself to stay derived.
+Other drivers can implement the same optional `Driver.stream` contract. When
+they do not, use `requireCursor: true` to refuse buffering or use keyset
+pagination as above.
 
 ## What remains
 
-The interface and repository wrapper are in place. The remaining work is
-driver-specific: step SQLite statements with `iterate()`, and hold a Postgres
-connection and cursor for the iterable's lifetime. Until then, the bundled
-drivers deliberately advertise no cursor capability.
+The remaining gap is adapter coverage: SQL Server and third-party drivers
+without `stream` still buffer. Request abort wiring also remains explicit at
+the application boundary.
 
 ---
 

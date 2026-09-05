@@ -17,7 +17,12 @@ const query = (q: CompiledQuery) =>
   });
 ```
 
-Now the query compiler and repository sit inside Effect's error channel, with typed failures, retries and interruption handled by Effect rather than by zmdb — which is the right division, since zmdb has [no cancellation support](./query-cancellation.html) of its own.
+Now the query compiler and repository sit inside Effect's error channel, with
+typed failures, retries and interruption controlled by Effect. Bridge Effect's
+interruption signal into the repository call when the database work must stop;
+the bundled Postgres driver can turn that signal into server cancellation when
+configured with `cancelVia`. See
+[Query Cancellation](./query-cancellation.html).
 
 The compiler is the cleanest integration point: `compile()` is a pure function returning `{ text, parameters }`, so it composes with anything. Wrap it and you have a data layer inside Effect with none of zmdb's async assumptions leaking in.
 

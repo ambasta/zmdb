@@ -108,6 +108,46 @@ describe('sqliteDriver (#211)', () => {
     expect(prepareSpy).toHaveBeenCalledTimes(4);
   });
 
+  it('observes abort between stepped rows and rejects with the exact reason', async () => {
+    const db = new DatabaseSync(':memory:');
+    const driver = sqliteDriver(db);
+    const stream = driver.stream;
+    if (stream === undefined) throw new Error('sqliteDriver did not expose stream');
+
+    const controller = new AbortController();
+    const reason = new Error('consumer stopped');
+    const iterator = stream(
+      {
+        text: 'SELECT 1 AS id UNION ALL SELECT 2 AS id ORDER BY id',
+        parameters: [],
+      },
+      { signal: controller.signal },
+    )[Symbol.asyncIterator]();
+
+    await expect(iterator.next()).resolves.toEqual({ done: false, value: { id: 1 } });
+    controller.abort(reason);
+    await expect(iterator.next()).rejects.toBe(reason);
+  });
+
+  it('does not evict a statement while its native iterator is active', async () => {
+    const db = new DatabaseSync(':memory:');
+    const prepareSpy = vi.spyOn(db, 'prepare');
+    const driver = sqliteDriver(db, { maxCacheSize: 1 });
+    const stream = driver.stream;
+    if (stream === undefined) throw new Error('sqliteDriver did not expose stream');
+
+    const iterator = stream({ text: 'SELECT 1 AS id UNION ALL SELECT 2 AS id', parameters: [] })[
+      Symbol.asyncIterator
+    ]();
+    await expect(iterator.next()).resolves.toEqual({ done: false, value: { id: 1 } });
+
+    await driver.execute({ text: 'SELECT 3 AS id', parameters: [] });
+    await iterator.return?.();
+    await driver.execute({ text: 'SELECT 1 AS id UNION ALL SELECT 2 AS id', parameters: [] });
+
+    expect(prepareSpy).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps a transaction callback on the database and rolls its writes back together', async () => {
     const db = new DatabaseSync(':memory:');
     db.exec('CREATE TABLE events (id INTEGER PRIMARY KEY)');
@@ -144,6 +184,12 @@ describe('pgDriver (#211)', () => {
 
     expect(query).toHaveBeenCalledWith('SELECT 1', [10]);
     expect(out).toEqual([{ id: 1 }]);
+  });
+
+  it('omits stream when the queryable cannot check out a connection', () => {
+    const query = vi.fn(async () => ({ rows: [] }));
+
+    expect(pgDriver({ query } as unknown as PgQueryable).stream).toBeUndefined();
   });
 
   it('hands a Date and a bigint over untouched', async () => {
@@ -250,6 +296,114 @@ describe('pgDriver (#211)', () => {
 
     expect(calls).toEqual(['BEGIN', 'CREATE TABLE probe (id INTEGER)', 'ROLLBACK']);
     expect(rootQuery).not.toHaveBeenCalled();
+    expect(connect).toHaveBeenCalledOnce();
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it('fetches a pool cursor in batches and closes it when the consumer breaks', async () => {
+    const calls: unknown[] = [];
+    const release = vi.fn();
+    let fetches = 0;
+    const client = {
+      release,
+      async query(arg: string | { text: string; values?: readonly unknown[] }) {
+        calls.push(arg);
+        const text = typeof arg === 'string' ? arg : arg.text;
+        if (text === 'SELECT pg_backend_pid() AS pid') return { rows: [{ pid: 41 }] };
+        if (text.startsWith('FETCH FORWARD')) {
+          fetches++;
+          return { rows: [{ id: 1 }, { id: 2 }] };
+        }
+        return { rows: [] };
+      },
+    };
+    const rootQuery = vi.fn(async () => ({ rows: [] }));
+    const connect = vi.fn(async () => client);
+    const pool = {
+      totalCount: 1,
+      idleCount: 1,
+      connect,
+      query: rootQuery,
+    };
+    const driver = pgDriver(pool as unknown as PgQueryable);
+    const stream = driver.stream;
+    if (stream === undefined) throw new Error('pgDriver did not expose stream for a pool');
+
+    const rows: Record<string, unknown>[] = [];
+    for await (const row of stream(
+      { text: 'SELECT id FROM users WHERE role = $1', parameters: ['admin'] },
+      { batchSize: 2 },
+    )) {
+      rows.push(row);
+      break;
+    }
+
+    expect(rows).toEqual([{ id: 1 }]);
+    expect(fetches).toBe(1);
+    expect(calls).toEqual([
+      'SELECT pg_backend_pid() AS pid',
+      'BEGIN',
+      {
+        text: 'DECLARE "zmdb_0" NO SCROLL CURSOR FOR SELECT id FROM users WHERE role = $1',
+        values: ['admin'],
+      },
+      'FETCH FORWARD 2 FROM "zmdb_0"',
+      'CLOSE "zmdb_0"',
+      'COMMIT',
+    ]);
+    expect(rootQuery).not.toHaveBeenCalled();
+    expect(connect).toHaveBeenCalledOnce();
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it('uses the transaction connection for a cursor without a nested transaction', async () => {
+    const calls: unknown[] = [];
+    const release = vi.fn();
+    let fetches = 0;
+    const client = {
+      release,
+      async query(arg: string | { text: string; values?: readonly unknown[] }) {
+        calls.push(arg);
+        const text = typeof arg === 'string' ? arg : arg.text;
+        if (text === 'SELECT pg_backend_pid() AS pid') return { rows: [{ pid: 42 }] };
+        if (text.startsWith('FETCH FORWARD')) {
+          return { rows: fetches++ === 0 ? [{ id: 7 }] : [] };
+        }
+        return { rows: [] };
+      },
+    };
+    const connect = vi.fn(async () => client);
+    const pool = {
+      totalCount: 1,
+      idleCount: 1,
+      connect,
+      query: vi.fn(async () => ({ rows: [] })),
+    };
+    const driver = pgDriver(pool as unknown as PgQueryable);
+
+    const rows = await driver.transaction(async transaction => {
+      const stream = transaction.stream;
+      if (stream === undefined) throw new Error('transaction driver did not expose stream');
+      const result: Record<string, unknown>[] = [];
+      for await (const row of stream({ text: 'SELECT id FROM users', parameters: [] }, { batchSize: 4 })) {
+        result.push(row);
+      }
+      return result;
+    });
+
+    expect(rows).toEqual([{ id: 7 }]);
+    expect(calls).toEqual([
+      'BEGIN',
+      'SELECT pg_backend_pid() AS pid',
+      {
+        text: 'DECLARE "zmdb_0" NO SCROLL CURSOR FOR SELECT id FROM users',
+        values: [],
+      },
+      'FETCH FORWARD 4 FROM "zmdb_0"',
+      'FETCH FORWARD 4 FROM "zmdb_0"',
+      'CLOSE "zmdb_0"',
+      'COMMIT',
+    ]);
     expect(connect).toHaveBeenCalledOnce();
     expect(release).toHaveBeenCalledOnce();
   });

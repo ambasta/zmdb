@@ -68,7 +68,10 @@ Combine with a caller's signal when you have one:
 signal: AbortSignal.any([AbortSignal.timeout(5_000), external]);
 ```
 
-Note that zmdb's [database layer has no cancellation](./query-cancellation.html), so an aborted HTTP call does not stop a query it triggered. The timeout protects your process, not the database.
+An aborted outbound HTTP call is not automatically coupled to a database query
+it triggered. Pass the same signal into the repository read; the bundled
+Postgres driver can then cancel the backend when configured with `cancelVia`.
+See [Query Cancellation](./query-cancellation.html).
 
 ## Retries, for the errors worth retrying
 

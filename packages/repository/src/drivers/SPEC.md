@@ -24,6 +24,7 @@ import type { Pool, Client } from 'pg';
 interface PgOptions {
   prepared?: boolean;
   maxCacheSize?: number;
+  cancelVia?: PgQueryable;
 } // opt-in server-side prepared stmts
 function pgDriver(client: Pool | Client, opts?: PgOptions): TransactionalDriver;
 
@@ -157,12 +158,14 @@ half-applying it.
 ## Acceptance
 
 - sqlite driver: E2E against an in-memory `node:sqlite` DB — create/find/list/
-  update/delete round-trips plus a real rollback (always runs, no external
-  service).
+  update/delete round-trips, native iterator streaming, abort between stepped
+  rows, active-statement cache safety and a real rollback (always runs, no
+  external service).
 - pg driver: unit test with a fake `query` recorder asserts it calls
   `query(text, params)` and returns `.rows`; prepared mode passes a stable `name`;
-  a pool transaction uses only its acquired client and releases it after
-  rollback. (Live-PG E2E self-skips when unreachable.)
+  pool and transaction cursors prove command order and cleanup. Live-PG E2E
+  proves parameterised `DECLARE`, repeated early-return pool safety and
+  `pg_cancel_backend` cancellation when reachable.
 - mssql driver: unit tests record the `p1…pn` bindings, recordset return and
   transaction-owned requests. A real suite runs DDL, CRUD and transactional
   rollback through SQL Server when `ZMDB_MSSQL_URL` is reachable, and emits a

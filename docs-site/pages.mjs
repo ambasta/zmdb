@@ -730,13 +730,13 @@ export const PAGE_META = {
     title: 'Streaming Results',
     group: 'Data Access',
     status: 'todo',
-    note: 'repository streaming ships, but bundled database drivers still have no cursor implementation',
+    note: 'SQLite stepping and Postgres pool cursors ship; final cross-page documentation remains',
   },
   'query-cancellation': {
     title: 'Query Cancellation',
     group: 'Data Access',
     status: 'todo',
-    note: 'AbortSignal plumbing ships, but bundled drivers do not yet cancel running server statements',
+    note: 'Postgres out-of-band cancellation ships with cancelVia; final cross-page documentation remains',
   },
   serialization: {
     title: 'Serialization',

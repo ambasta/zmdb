@@ -12,6 +12,8 @@ export interface SqliteStatement {
   all(...params: unknown[]): unknown[];
   /** Executes a non-returning statement. */
   run(...params: unknown[]): unknown;
+  /** Steps a row-returning statement without materialising the result. */
+  iterate(...params: unknown[]): Iterable<Record<string, unknown>>;
 }
 export interface SqliteDatabase {
   exec(sql: string): unknown;
@@ -25,6 +27,7 @@ export interface SqliteOptions {
 interface CachedStatement {
   stmt: SqliteStatement;
   isRead: boolean;
+  activeIterators: number;
 }
 
 /**
@@ -56,38 +59,84 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
   const maxCacheSize = opts?.maxCacheSize ?? 1000;
   const cache = new Map<string, CachedStatement>();
 
+  const statementFor = (text: string): CachedStatement => {
+    let entry = maxCacheSize > 0 ? cache.get(text) : undefined;
+    if (entry !== undefined) {
+      cache.delete(text);
+      cache.set(text, entry);
+      return entry;
+    }
+
+    entry = {
+      stmt: db.prepare(text),
+      isRead: /^\s*SELECT/i.test(text) || /RETURNING/i.test(text),
+      activeIterators: 0,
+    };
+    if (maxCacheSize <= 0) return entry;
+
+    if (cache.size >= maxCacheSize) {
+      const evictable = [...cache].find(([, candidate]) => candidate.activeIterators === 0);
+      if (evictable !== undefined) cache.delete(evictable[0]);
+    }
+    if (cache.size < maxCacheSize) cache.set(text, entry);
+    return entry;
+  };
+
   const driver: TransactionalDriver = {
     dialect: 'sqlite',
-    async execute(q) {
-      let entry = maxCacheSize > 0 ? cache.get(q.text) : undefined;
-      if (!entry) {
-        const isRead = /^\s*SELECT/i.test(q.text) || /RETURNING/i.test(q.text);
-        const stmt = db.prepare(q.text);
-        entry = { stmt, isRead };
-        if (maxCacheSize > 0) {
-          if (cache.size >= maxCacheSize) {
-            const oldestKey = cache.keys().next().value;
-            if (oldestKey !== undefined) {
-              cache.delete(oldestKey);
-            }
-          }
-          cache.set(q.text, entry);
-        }
-      } else if (maxCacheSize > 0) {
-        cache.delete(q.text);
-        cache.set(q.text, entry);
-      }
-
+    async execute(q, executeOpts) {
+      const signal = executeOpts?.signal;
+      signal?.throwIfAborted();
+      const entry = statementFor(q.text);
       const parameters = q.parameters.map(bindable);
       if (entry.isRead) {
         // boundary: rows leave the database untyped. `all()` is declared
         // `unknown[]` (the widest shape every @types/node version agrees on);
         // node:sqlite always yields plain row objects for a row-returning
         // statement, and callers re-type them at the repository's row boundary.
-        return entry.stmt.all(...parameters) as Record<string, unknown>[];
+        const rows = entry.stmt.all(...parameters) as Record<string, unknown>[];
+        signal?.throwIfAborted();
+        return rows;
       }
       entry.stmt.run(...parameters);
+      signal?.throwIfAborted();
       return [];
+    },
+    stream(q, executeOpts) {
+      const signal = executeOpts?.signal;
+      return {
+        async *[Symbol.asyncIterator](): AsyncGenerator<Record<string, unknown>, void, unknown> {
+          signal?.throwIfAborted();
+          const entry = statementFor(q.text);
+          if (!entry.isRead) throw new Error('sqliteDriver.stream requires a row-returning statement');
+          const parameters = q.parameters.map(bindable);
+          entry.activeIterators++;
+          let completed = false;
+          let iterator: Iterator<Record<string, unknown>> | undefined;
+          try {
+            iterator = entry.stmt.iterate(...parameters)[Symbol.iterator]();
+            for (;;) {
+              // node:sqlite has no sqlite3_interrupt binding. JavaScript regains
+              // control only between native steps, so abort can stop further
+              // rows but cannot interrupt one slow step already in SQLite.
+              signal?.throwIfAborted();
+              const next = iterator.next();
+              signal?.throwIfAborted();
+              if (next.done) {
+                completed = true;
+                return;
+              }
+              yield next.value;
+            }
+          } finally {
+            try {
+              if (!completed && iterator?.return !== undefined) iterator.return();
+            } finally {
+              entry.activeIterators--;
+            }
+          }
+        },
+      };
     },
     async transaction<Result>(run: (driver: Driver) => Promise<Result>): Promise<Result> {
       db.exec('BEGIN');

@@ -153,9 +153,7 @@ No change to `@zmdb/query-compiler`. A `CompiledQuery` is text and parameters; a
 lifecycle, which the compiler has no access to and should not acquire — see its §6 non-goal on retained
 per-query state.
 
-The bundled Postgres adapter uses `DECLARE … CURSOR` with `FETCH FORWARD <batchSize>`, in an explicit transaction (Postgres closes a non-holdable cursor at transaction end), and `CLOSE` on cleanup — rather than taking `pg-cursor` as a second optional peer dependency. One fact the implementation slice must verify against a live server before building on it: whether `DECLARE c CURSOR FOR <text>` accepts bound parameters over the extended query protocol.
-
-If it does not, the parameters would have to be interpolated into the `DECLARE`, which zmdb will not do at any price, and the fallback is `pg-cursor` after all. That is a measurement, not a design decision, and it is recorded as unmade rather than guessed.
+The bundled Postgres adapter uses `DECLARE … CURSOR` with `FETCH FORWARD <batchSize>`, in an explicit transaction (Postgres closes a non-holdable cursor at transaction end), and `CLOSE` on cleanup — rather than taking `pg-cursor` as a second optional peer dependency. Measured against PostgreSQL 16 through node-postgres 8.23.0, a parameterised `DECLARE … CURSOR FOR SELECT $1…` over the extended query protocol binds and fetches the supplied values. The adapter therefore passes `query.parameters` to `DECLARE`; it never interpolates them into SQL.
 
 ### Inside a transaction
 

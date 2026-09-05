@@ -121,7 +121,7 @@ because a module was imported is the kind of thing that ends up on a public list
 a `SELECT 1` that takes 400ms says the pool is exhausted, which is a load signal an
 unauthenticated caller should not be able to sample once a second.
 
-## 4. Deadlines, and the one that cannot be honoured
+## 4. Deadlines and driver cancellation
 
 `timeoutMs` is required on every `ReadinessCheck`. Not optional with a default, because
 the default would be the number every check silently inherits and nobody chooses, and the
@@ -133,11 +133,11 @@ Readiness checks run **concurrently**, so the aggregate deadline is `max(timeout
 The endpoint returns within that bound even if every check hangs, and a check that has not answered by its own deadline counts as **failed** with `detail: 'timeout'` — not as unknown, because the orchestrator has two states and inventing a third only moves the decision somewhere that has less information.
 
 The repository and `Driver.execute` now accept the check's `AbortSignal`. An
-already-aborted read never dispatches, and a cooperating driver can cancel the
-server-side statement. The bundled adapters do not yet implement that
-driver-specific cancellation, so with those adapters the framework still stops
-waiting while the server query keeps its connection until completion or a
-server timeout.
+already-aborted read never dispatches. The bundled Postgres adapter can cancel
+the server-side statement when configured with `cancelVia`; SQLite observes
+abort between stepped rows. Drivers without an active cancellation primitive
+still let the framework stop waiting while the server query keeps its
+connection until completion or a server timeout.
 
 The docs page already says this plainly at `web-health-checks.md`; the freeze names the consequence that follows. A 2-second timeout against a wedged database with a 5-second probe period consumes one connection every 5 seconds and never returns any, so a readiness probe can exhaust the pool it is testing — the probe becomes the outage.
 
@@ -152,11 +152,12 @@ Three facts bound the effect:
    because failures are deliberately not cached; an operation that ignored the aborted
    signal may still be running.
 
-The repository and `Driver.execute` now accept an optional `AbortSignal`, but
-the bundled adapters do not yet turn it into wire-level cancellation. A custom
-driver can do so; until the bundled adapters follow, #581 must not present
-`timeoutMs` as if it always stops the server-side statement. The remaining
-adapter gap is documented in `docs-site/content/query-cancellation.md`.
+The repository and `Driver.execute` accept an optional `AbortSignal`, but
+`timeoutMs` still must not be presented as if it always stops the server-side
+statement. Postgres needs `pgDriver(pool, { cancelVia })`; SQLite cannot
+interrupt one native step; SQL Server and custom drivers remain advisory unless
+their adapters implement active cancellation. The distinctions are documented
+in `docs-site/content/query-cancellation.md`.
 
 ## 5. Caching readiness, asymmetrically
 
