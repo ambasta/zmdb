@@ -1,9 +1,10 @@
 // The one description of what a published zmdb package looks like.
 //
-// Two scripts need it and must not disagree: `repoint-dist.mjs` writes it into the
-// working tree in CI right before `npm publish`, and `verify-publish.mjs` stages it
-// into a throwaway `node_modules` and imports every subpath out of it. If they
-// drifted, the gate would be checking a manifest nobody publishes.
+// Three boundaries need it and must not disagree: `repoint-dist.mjs` writes it into
+// the working tree in CI right before `npm publish`, `verify-publish.mjs` stages it
+// into a throwaway `node_modules`, and `verify-package-metadata.mjs` checks the pure
+// source-to-publish transform before any build. If they drifted, the gate would be
+// checking a manifest nobody publishes.
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -59,6 +60,12 @@ export function publishManifest(pkg) {
   // consumer stepping through a zmdb frame, or using go-to-definition on one of its types,
   // lands on the TypeScript the bug is in rather than on the line it came out as.
   next.files = ['dist', 'src', 'README.md', 'LICENSE'];
+  // `sideEffects` names the executable files a bundler must retain. A source
+  // allowlist left unchanged here would describe `src/*.ts` while consumers
+  // execute `dist/*.js`, silently making a required polyfill tree-shakeable.
+  if (Array.isArray(pkg.sideEffects)) {
+    next.sideEffects = pkg.sideEffects.map(target => toDist(target, '.js'));
+  }
   // An executable declared against `./src/cli/bin.ts` installs broken. Node refuses to strip
   // types from a file under `node_modules` — ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING —
   // which is also the reason `exports` cannot stay on `src`, however well it works in the
@@ -76,10 +83,12 @@ export function publishManifest(pkg) {
   // `workspace:^` is a yarn protocol; plain `npm publish` would leave it in the tarball.
   // Prereleases pin the exact version — `^1.0.0-alpha.4` is not reliably satisfied by a
   // sibling prerelease across resolvers.
-  if (pkg.dependencies) {
-    const range = /-/.test(pkg.version) ? pkg.version : `^${pkg.version}`;
-    next.dependencies = Object.fromEntries(
-      Object.entries(pkg.dependencies).map(([dep, spec]) => [
+  const versionWithoutBuild = pkg.version.split('+', 1)[0];
+  const range = versionWithoutBuild.includes('-') ? pkg.version : `^${pkg.version}`;
+  for (const section of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+    if (!pkg[section]) continue;
+    next[section] = Object.fromEntries(
+      Object.entries(pkg[section]).map(([dep, spec]) => [
         dep,
         typeof spec === 'string' && spec.startsWith('workspace:') ? range : spec,
       ]),

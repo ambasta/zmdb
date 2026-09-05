@@ -415,8 +415,9 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  // #725 retires only the cycle, forbidden-edge and missing-manifest expected failures.
-  // The six remaining `it.fails` cases belong to #726-#728.
+  // #725 retires the cycle, forbidden-edge and missing-manifest expected failures.
+  // #727 retires metadata and version drift and adds optional-peer metadata coverage.
+  // The four remaining `it.fails` cases belong to #726 and #728.
   it.fails('rejects a runtime export reaching a tooling module', () => {
     const result = runVerifier(VERIFIERS.runtime, fixtureRoot('tooling-leak'));
     expect(result.status).toBe(1);
@@ -449,7 +450,7 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  it.fails('rejects incomplete or inconsistent package metadata', () => {
+  it('rejects incomplete or inconsistent package metadata', () => {
     const result = runVerifier(VERIFIERS.metadata, fixtureRoot('metadata-drift'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
@@ -457,12 +458,36 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  it.fails('rejects versions that differ across the lockstep train', () => {
+  it('rejects versions that differ across the lockstep train', () => {
     const result = runVerifier(VERIFIERS.metadata, fixtureRoot('version-drift'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
       '[PACKAGE_VERSION_DRIFT] lockstep train versions 1.0.0-alpha.3 (core), 1.0.0-alpha.4 (app): catalog packages do not share one version. Remediation: run one whole-train bump.',
     ]);
+  });
+
+  it('rejects an optional peer without optional metadata', () => {
+    const root = mkdtempSync(join(tmpdir(), 'zmdb-package-metadata-'));
+    try {
+      cpSync(fixtureRoot('valid'), root, { recursive: true });
+      const manifestPath = join(root, 'packages', 'app', 'package.json');
+      const manifest = readJson<Readonly<Record<string, unknown>>>(manifestPath);
+      const metadata = manifest['peerDependenciesMeta'];
+      if (!isRecord(metadata)) throw new Error('valid fixture omitted peerDependenciesMeta');
+      const { ['fixture-peer']: _fixturePeer, ...remainingMetadata } = metadata;
+      writeFileSync(
+        manifestPath,
+        `${JSON.stringify({ ...manifest, peerDependenciesMeta: remainingMetadata }, null, 2)}\n`,
+      );
+
+      const result = runVerifier(VERIFIERS.metadata, root);
+      expect(result.status).toBe(1);
+      expect(diagnosticLines(result)).toEqual([
+        '[PACKAGE_PEER_METADATA] @fixture/app peer fixture-peer: peerDependenciesMeta.fixture-peer.optional is missing. Remediation: align the declaration and prove the range with the real peer.',
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it.fails('rejects a release version absent from CHANGELOG.md', () => {

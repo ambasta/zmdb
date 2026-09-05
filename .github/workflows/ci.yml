@@ -30,6 +30,9 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
+      - name: Verify package metadata and lockstep versions
+        run: yarn verify:package-metadata
+
       # The root config loads @zmdb/aot-validator/lint through its source adapter and enables
       # the complete recommended config. This is one oxlint invocation, not a second linter pass.
       - name: Lint (oxlint + zmdb recommended rules)

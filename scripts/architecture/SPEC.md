@@ -1,8 +1,8 @@
 # Package architecture and release governance — specification
 
 > **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, and the #710 AI ownership cutover. Issue #724
-> implements the canonical policy plus read-only discovery and graph APIs; issue #725 implements the catalog-backed architecture-zone, ring and workspace-edge verifier. Runtime reachability,
-> package-metadata and release-governance CLIs remain future slices. The original measured baseline is commit `5adba11e` on 2026-09-05.
+> implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and
+> lockstep-manifest enforcement. Runtime-reachability and release verifiers remain later slices. The original measured baseline is commit `5adba11e` on 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -366,16 +366,17 @@ Every catalog directory contains `package.json`, `README.md`, `LICENSE`, root `S
 - `homepage` is `https://github.com/ambasta/zmdb#readme`;
 - `bugs.url` is `https://github.com/ambasta/zmdb/issues`;
 - `license` is `GPL-3.0-or-later`, `author` is `zmdb contributors`, and `repository` is the canonical git URL plus directory;
-- `type` is `module`, `sideEffects` is `false`, and `engines.node` does not admit a version below 26;
+- `type` is `module`; `sideEffects` is `false` or a sorted package-local allowlist of measured `./src/*.ts` side-effect files; and `engines.node` does not admit a version below 26;
 - committed `files` is exactly `src`, `README.md`, `LICENSE`; the publish transform adds `dist`;
 - `exports` is non-empty, explicit and wildcard-free; every committed target is a package-local existing `./src/*.ts` file;
 - every `bin` target is package-local, exists, has a Node shebang and is named by a policy selector;
 - `publishConfig.access` is `public`, and its channel agrees with the common version;
 - `scripts.build` invokes the canonical package build and `scripts.test` runs Vitest; and
-- dependency, peer and dev-dependency sections are sorted and contain no duplicate ownership or stale entry.
+- dependency, peer and dev-dependency sections are sorted and contain no duplicate ownership or stale entry; the optional package-specific `zmdb` extension, when present, is a sorted non-empty
+  string-valued record.
 
 Every direct production workspace edge uses `workspace:^` in the committed manifest. The publish transform uses the exact common version for a prerelease and `^<version>` for a stable release.
-Published manifests omit dev dependencies, point exports and bins at existing `dist` `.js`/`.d.ts` files, and preserve the package's metadata.
+Published manifests omit dev dependencies, point exports and bins at existing `dist` `.js`/`.d.ts` files, repoint any side-effect allowlist to `dist` `.js`, and preserve the package's metadata.
 
 Every policy row has `release: 'lockstep'`; no other value, missing value or package-specific release train exists. The complete changelog, release-plan, tag, retry and publication-order contract is
 normative in [`PUBLISHING.md`](../../PUBLISHING.md).
@@ -492,12 +493,14 @@ The frozen test titles are:
 - `rejects a dependency absent from the manifest`;
 - `rejects incomplete or inconsistent package metadata`;
 - `rejects versions that differ across the lockstep train`;
+- `rejects an optional peer without optional metadata`;
 - `rejects a release version absent from CHANGELOG.md`;
 - `rejects a tag that disagrees with package versions`; and
 - `derives topological publish order from the package graph`.
 
 #725 retires the three expected failures for cycles, forbidden policy edges and workspace imports absent from the manifest, and adds executable stale-edge, non-canonical-ring and private-import
-coverage. Later implementation tests still freeze stale runtime exemptions, optional-peer metadata, deterministic release plans and the three remaining CI commands named by #726–#728.
+coverage. #727 retires the incomplete-metadata and lockstep-version expected failures and adds executable optional-peer metadata coverage. Later implementation tests still freeze stale runtime
+exemptions, deterministic release plans and the two remaining CI commands named by #726 and #728.
 
 ## 10. Explicit refusals
 

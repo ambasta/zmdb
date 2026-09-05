@@ -446,9 +446,9 @@ The exact measured 74-symbol root inventory, 13-entry export map, target root/su
 ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the fourteen-package inventory plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
-### 3.10 Canonical architecture policy and workspace enforcement (#722, #724, #725)
+### 3.10 Canonical architecture policy and enforcement (#722, #724, #725, #727)
 
-The canonical policy, read-only architecture model and workspace-edge enforcement verifier now exist; runtime reachability, package metadata and release governance remain later slices of epic #721.
+The canonical policy, read-only architecture model, workspace-edge verifier and package-metadata verifier now exist; runtime reachability and release governance remain later slices of epic #721.
 Product membership stays owned by the product catalog in [`scripts/product/catalog.mjs`](./scripts/product/catalog.mjs). [`scripts/architecture/policy.mjs`](./scripts/architecture/policy.mjs) attaches
 exactly one constraint row to every admitted package, and [`scripts/architecture/index.mjs`](./scripts/architecture/index.mjs) rejects missing or stale rows without discovering a second package list
 from the filesystem, a workflow loop or a publish script.
@@ -486,9 +486,10 @@ atomically once the catalog exists.
 The read-only model resolves package and export lookups from catalog-owned manifests, builds the policy DAG and returns deterministic dependency-first catalog ids.
 [`verify-architecture-zones.mjs`](./.github/scripts/verify-architecture-zones.mjs) starts from every manifest export and executable, counts production type-only imports for ownership, rejects private
 cross-package source imports, requires policy, manifest and observed workspace edges to agree, verifies canonical rings and prints complete shortest cycles. It accepts `--root` for the committed
-architecture fixtures and is run by `yarn verify:architecture-zones` in CI. Runtime reachability is checked separately from emitted entry points: ordinary exports cannot reach compiler/build tools,
-REPL/devtools modules or an optional peer assigned to another entry. Tooling exports and optional peers are explicit per-package exceptions, never inferred from a directory name. Relative source
-imports retain NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
+architecture fixtures and is run by `yarn verify:architecture-zones` in CI. [`verify-package-metadata.mjs`](./.github/scripts/verify-package-metadata.mjs) checks one manifest schema, required package
+files, lockstep versions, source and publish dependency ranges, export/bin targets, repository directories and optional-peer evidence before root builds or publication. Runtime reachability is checked
+separately from emitted entry points: ordinary exports cannot reach compiler/build tools, REPL/devtools modules or an optional peer assigned to another entry. Tooling exports and optional peers are
+explicit per-package exceptions, never inferred from a directory name. Relative source imports retain NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 
 All catalog packages form one lockstep release train. They carry one version, use `workspace:^` for committed internal ranges, derive publish order from the policy DAG, share one root changelog and
 must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
