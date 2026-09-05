@@ -621,8 +621,9 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
     return output.failure(errorMessage(error), 2);
   }
 
+  let session;
   try {
-    await using session = await createReplSession(root, {
+    session = await createReplSession(root, {
       configPath: parsed.config,
       moduleSpec: options.moduleSpec,
       cwd: io.cwd,
@@ -632,10 +633,18 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
       historyPath: options.history ? replHistoryPath(io.environment, io.homeDirectory) : null,
       terminal: io.stdinIsTTY && streamIsTTY(io.output),
     });
+  } catch (error) {
+    io.stderr(`zmdb repl: ${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  }
+
+  try {
     await session.closed;
     return 0;
   } catch (error) {
     return output.failure(errorMessage(error), 1);
+  } finally {
+    await session[Symbol.asyncDispose]();
   }
 }
 

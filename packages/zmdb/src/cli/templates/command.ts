@@ -50,13 +50,17 @@ class ${name.pascal}CommandTestModule {}
 
 describe('${name.pascal}Command', () => {
   it('runs through the command application', async () => {
-    await using testApp = createTestApp(${name.pascal}CommandTestModule);
-    await testApp.init();
-
-    await using commandApp = createCommandApp(${name.pascal}CommandTestModule);
-    await commandApp.init();
-    expect(await commandApp.run(['${name.fileStem}', '--dry-run'])).toBe(0);
-    expect(${name.camel}Runs).toBe(1);
+    const testApp = createTestApp(${name.pascal}CommandTestModule);
+    const commandApp = createCommandApp(${name.pascal}CommandTestModule);
+    try {
+      await testApp.init();
+      await commandApp.init();
+      expect(await commandApp.run(['${name.fileStem}', '--dry-run'])).toBe(0);
+      expect(${name.camel}Runs).toBe(1);
+    } finally {
+      await commandApp[Symbol.asyncDispose]();
+      await testApp[Symbol.asyncDispose]();
+    }
   });
 });
 `,

@@ -379,39 +379,38 @@ export function applyOrderBy<B extends OrderTarget>(
   return b;
 }
 
-function base64Encode(str: string): string {
+export function encodeCursor(payload: Record<string, unknown>): string {
+  const json = JSON.stringify(payload);
   if (globalThis.Buffer) {
-    return globalThis.Buffer.from(str, 'utf-8').toString('base64url');
+    return globalThis.Buffer.from(json).toString('base64url');
   }
   if (globalThis.btoa) {
-    return globalThis.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return globalThis.btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
   throw new Error('No base64 encoder available');
 }
 
-function base64Decode(str: string): string {
-  if (globalThis.Buffer) {
-    return globalThis.Buffer.from(str, 'base64url').toString('utf-8');
+export function decodeCursor(cursor: unknown): Record<string, unknown> {
+  if (isRecord(cursor)) {
+    return cursor;
   }
-  if (globalThis.atob) {
-    let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) base64 += '=';
-    return globalThis.atob(base64);
-  }
-  throw new Error('No base64 decoder available');
-}
-
-export function encodeCursor(payload: Record<string, unknown>): string {
-  return base64Encode(JSON.stringify(payload));
-}
-
-export function decodeCursor(cursor: string): Record<string, unknown> {
   if (typeof cursor !== 'string' || !cursor.trim()) {
-    throw new Error('Invalid cursor: must be a non-empty string');
+    throw new Error('Invalid cursor: must be a non-empty string or object');
   }
   try {
-    const json = base64Decode(cursor);
-    const parsed = JSON.parse(json);
+    let parsed: unknown;
+    if (globalThis.Buffer) {
+      const buf = globalThis.Buffer.from(cursor, 'base64url');
+      parsed = JSON.parse(buf.toString('utf-8'));
+    } else if (globalThis.atob) {
+      let base64 = cursor.replace(/-/g, '+').replace(/_/g, '/');
+      while (base64.length % 4) base64 += '=';
+      const json = globalThis.atob(base64);
+      parsed = JSON.parse(json);
+    } else {
+      throw new Error('No base64 decoder available');
+    }
+
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       throw new Error('Invalid cursor payload');
     }
