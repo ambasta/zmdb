@@ -1,6 +1,4 @@
 import type { CompiledQuery } from './compiled-query.js';
-// @zmdb/query-compiler — implementation.
-import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 import {
   dialectName,
   dialectTraits,
@@ -9,6 +7,8 @@ import {
   type ReturningStatement,
   type SqlDialect,
 } from './dialects/index.js';
+// @zmdb/query-compiler — implementation.
+import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export type { CompiledQuery, QueryTelemetry } from './compiled-query.js';
 export {
@@ -167,7 +167,7 @@ export interface WindowFunctionBuilder {
   orderBy(col: string, dir?: Direction): WindowFunctionBuilder;
   as(alias: string): WindowFunctionBuilder;
   toNode(): WindowProjectionNode;
-  compile(dialect: Dialect): string;
+  compile(dialect: DialectTarget): string;
 }
 
 export type ProjectionItem =
@@ -195,11 +195,12 @@ export interface CteSpec {
   readonly recursive?: boolean;
 }
 
-const SUPPORTED_DIALECTS: ReadonlySet<Dialect> = new Set(['postgres', 'mysql', 'sqlite']);
+const SUPPORTED_DIALECTS: ReadonlySet<string> = new Set(['postgres', 'mysql', 'sqlite']);
 
-export function checkDialectCapability(dialect: Dialect, feature: string): void {
-  if (!SUPPORTED_DIALECTS.has(dialect)) {
-    throw new UnsupportedFeatureError(feature, dialect);
+export function checkDialectCapability(dialect: DialectTarget, feature: string): void {
+  const name = dialectName(dialect);
+  if (!SUPPORTED_DIALECTS.has(name)) {
+    throw new UnsupportedFeatureError(feature, name);
   }
 }
 
@@ -234,7 +235,10 @@ export function assertNoWindowFunction(value: unknown, context: string): void {
   }
 }
 
-export function renderWindowProjectionNode(d: Dialect, item: WindowProjectionNode | WindowFunctionBuilder): string {
+export function renderWindowProjectionNode(
+  d: DialectTarget,
+  item: WindowProjectionNode | WindowFunctionBuilder,
+): string {
   const node = isWindowFunctionBuilder(item) ? item.toNode() : item;
   const fnName = node.functionName.toUpperCase();
 
@@ -297,7 +301,7 @@ export function windowFunction(fnName: string, args: readonly string[] = []): Wi
     toNode() {
       return node;
     },
-    compile(d: Dialect) {
+    compile(d: DialectTarget) {
       return renderWindowProjectionNode(d, node);
     },
   };
