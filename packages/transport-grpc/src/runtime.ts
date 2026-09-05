@@ -361,7 +361,7 @@ async function runBidi<S extends GrpcServiceDef>(
   spec: GrpcServiceSpec<S>,
   handlers: GrpcHandlers<S>,
 ): Promise<void> {
-  (call as unknown as { allowHalfOpen?: boolean }).allowHalfOpen = true;
+  Reflect.set(Object(call), 'allowHalfOpen', true);
   const scope = callScope(call, spec.maxDurationMs);
   try {
     const requests = requestStream(call, scope);
@@ -376,21 +376,25 @@ async function runBidi<S extends GrpcServiceDef>(
   }
 }
 
-function requestValue(decoded: DecodedRequest): unknown {
-  if (!decoded.ok) {
+function isDecodedRequest(value: unknown): value is DecodedRequest {
+  return typeof value === 'object' && value !== null && 'ok' in value;
+}
+
+function requestValue(decoded: unknown): unknown {
+  if (!isDecodedRequest(decoded) || !decoded.ok) {
     throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
   }
   return decoded.value;
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const queue: DecodedRequest[] = [];
+  const queue: unknown[] = [];
   let resolver: (() => void) | undefined;
   let ended = false;
   let error: unknown = undefined;
 
   const onData = (data: unknown): void => {
-    queue.push(data as DecodedRequest);
+    queue.push(data);
     resolver?.();
   };
   const onEnd = (): void => {
@@ -416,7 +420,8 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
       if (scope.signal.aborted) throw scope.reason();
       if (error !== undefined) throw error;
       if (queue.length > 0) {
-        yield requestValue(queue.shift()!);
+        const item = queue.shift();
+        if (item !== undefined) yield requestValue(item);
         continue;
       }
       await new Promise<void>(resolve => {
@@ -426,7 +431,8 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     }
     while (queue.length > 0) {
       if (scope.signal.aborted) throw scope.reason();
-      yield requestValue(queue.shift()!);
+      const item = queue.shift();
+      if (item !== undefined) yield requestValue(item);
     }
   } finally {
     call.removeListener('data', onData);
