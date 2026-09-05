@@ -11,7 +11,7 @@
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
 import { dialectFamily, dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
-import { UnsupportedFeatureError } from './errors.js';
+import { InvalidOperatorError, UnsupportedFeatureError } from './errors.js';
 import {
   DISTANCE_OPERATORS,
   encodePgVector,
@@ -78,19 +78,34 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null), {
     '=': '=',
     '!=': '!=',
+    '<>': '<>',
     '<': '<',
     '<=': '<=',
     '>': '>',
     '>=': '>=',
     like: 'LIKE',
+    'not like': 'NOT LIKE',
     ilike: 'ILIKE',
+    'not ilike': 'NOT ILIKE',
     in: 'IN',
     'not in': 'NOT IN',
     nin: 'NOT IN',
-    exists: 'EXISTS',
-    'not exists': 'NOT EXISTS',
+    is: 'IS',
+    'is not': 'IS NOT',
     'is null': 'IS NULL',
     'is not null': 'IS NOT NULL',
+    between: 'BETWEEN',
+    'not between': 'NOT BETWEEN',
+    exists: 'EXISTS',
+    'not exists': 'NOT EXISTS',
+    regexp: 'REGEXP',
+    'not regexp': 'NOT REGEXP',
+    rlike: 'RLIKE',
+    'not rlike': 'NOT RLIKE',
+    'sounds like': 'SOUNDS LIKE',
+    glob: 'GLOB',
+    'not glob': 'NOT GLOB',
+    match: 'MATCH',
     ...DISTANCE_OPERATORS,
   }),
 );
@@ -142,7 +157,11 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
  * operator only when it is one bounded SQL token.
  */
 export function sqlOperator(op: string, dialect: DialectTarget = 'postgres'): string {
-  const normalized = op.toLowerCase().trim();
+  // Guard against untyped JS callers passing non-string values at runtime.
+  if (typeof op !== 'string') {
+    throw new InvalidOperatorError(String(op));
+  }
+  const normalized = op.trim().toLowerCase();
   if (isDistanceOp(normalized) && !dialectTraits(dialect).vectorDistance) {
     throw new UnsupportedFeatureError(normalized, dialectName(dialect));
   }
@@ -153,11 +172,7 @@ export function sqlOperator(op: string, dialect: DialectTarget = 'postgres'): st
   const mapped = OP_MAP[normalized];
   if (mapped !== undefined) return mapped;
   if (!isUnmappedOperatorToken(op, dialect)) {
-    const name = dialectName(dialect);
-    throw new TypeError(
-      `invalid unmapped SQL operator ${JSON.stringify(op)} for dialect ${JSON.stringify(name)}; expected ` +
-        'one non-comment operator token that does not conflict with the dialect placeholder syntax',
-    );
+    throw new InvalidOperatorError(op, dialectName(dialect));
   }
   return op;
 }
@@ -195,6 +210,19 @@ export function renderPredicate(dialect: DialectTarget, p: Predicate, params: un
     if (sqlOp === 'EXISTS') return `EXISTS (${text})`;
     if (sqlOp === 'NOT EXISTS') return `NOT EXISTS (${text})`;
     return `${quoteColumn(dialect, p.col)} ${sqlOp} (${text})`;
+  }
+
+  if (sqlOp === 'IS NULL' || sqlOp === 'IS NOT NULL') {
+    return `${quoteColumn(dialect, p.col)} ${sqlOp}`;
+  }
+
+  if (sqlOp === 'BETWEEN' || sqlOp === 'NOT BETWEEN') {
+    const arr = Array.isArray(p.value) ? p.value : [p.value];
+    params.push(arr[0]);
+    const p1 = formatPlaceholder(dialect, params.length);
+    params.push(arr[1]);
+    const p2 = formatPlaceholder(dialect, params.length);
+    return `${quoteColumn(dialect, p.col)} ${sqlOp} ${p1} AND ${p2}`;
   }
 
   if (sqlOp === 'IN' || sqlOp === 'NOT IN') {
