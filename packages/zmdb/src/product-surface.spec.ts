@@ -190,7 +190,7 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const actual = readFacadeOwnership(ROOT);
     const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
 
-    expect(derived.root).toHaveLength(71);
+    expect(derived.root).toHaveLength(73);
     expect(derived.subpaths).toHaveLength(14);
     expect(actual.root).toEqual(derived.root);
     expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
