@@ -375,6 +375,36 @@ The exact public exports, lifecycle, install commands and evidence are frozen in
 [`packages/transport-rabbitmq/SPEC.md`](./packages/transport-rabbitmq/SPEC.md), [`packages/transport-redis/SPEC.md`](./packages/transport-redis/SPEC.md),
 [`packages/jobs-postgres/SPEC.md`](./packages/jobs-postgres/SPEC.md) and [`packages/otel/SPEC.md`](./packages/otel/SPEC.md).
 
+### 3.9 Frozen one-product facade and catalog target (#618)
+
+The repository ships one product, `zmdb`, through independently useful package firebreaks. The normal application journey starts with one install and one documented import/configuration vocabulary;
+the internal workspace graph is advanced architecture, not a set of products a beginner must assemble.
+
+The target facade has three layers:
+
+1. The `zmdb` root exposes only the schema, validation, repository and HTTP vocabulary needed by the packed one-install application.
+2. Stable `zmdb/*` concern subpaths expose advanced schema, SQL, validator, ORM, web, compiler, migrations, testing, CLI and configuration capabilities without mirroring implementation-package names.
+3. Optional database and external-technology integrations remain explicit, technology-selected entry points and are never eagerly loaded by the root.
+
+Facade modules delegate or re-export by identity. They do not implement query compilation, validation, reflection, migrations, drivers, routing, configuration discovery or another product algorithm.
+Importing the root must not reach the CLI, config loader, compiler, migration filesystem runner, build tools, database clients, brokers, telemetry SDKs, frontend frameworks or native bindings.
+`defineConfig` may be exposed from a dependency-free contract module; filesystem-backed discovery and loading remain behind `zmdb/config`.
+
+`zmdb/config` is the sole public project-configuration contract. CLI commands, compiler adapters, schema discovery, naming, migrations, introspection, Studio and scaffolding consume the same resolved
+configuration rather than declaring another `ZmdbConfig`, repeating discovery or applying private defaults. The implementation may move between tooling packages while the public entry point remains
+stable.
+
+A future read-only catalog at `scripts/product/catalog.mjs` becomes the sole authority for official package membership and product exposure. Each row identifies the package directory and npm name, its
+unique product role, root/subpath facade visibility, product optionality, documentation owner and packed-consumer evidence. Facade verification, package-reference generation, support matrices and
+consumer-fixture discovery consume that catalog instead of copying package lists.
+
+The catalog deliberately does not own versions, dependency ranges, changelogs, npm tags, publication credentials, publish order, compatibility timing or partial-release behavior. Those policies belong
+to architecture-governance EPIC #721 and its release implementation #728; release tooling may read catalog membership only.
+
+The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
+ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the six-package baseline plus required catalog consumers and rejection rules are frozen in
+[`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
+
 ---
 
 ## 4. Implementation-language policy

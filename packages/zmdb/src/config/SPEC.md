@@ -2,6 +2,21 @@
 
 > Part of `zmdb`, exported as `./config`. Read by the executable (`../cli/SPEC.md`); an application never has to import it.
 
+## 0. Product ownership and the stable entry point
+
+`zmdb/config` is the sole public project-configuration contract. CLI commands, the AOT compiler adapters, schema discovery, naming, migrations, introspection, Studio, and scaffolding consume either
+`loadConfig` or the same `ResolvedConfig` returned by it. They do not declare a second public config shape, repeat discovery, apply their own defaults, or resolve paths again.
+
+The canonical implementation may move to a tooling package as the workspace is split, but that is invisible to consumers: `zmdb/config` remains the stable product entry point and only one module owns
+discovery, execution, validation, defaulting, path resolution, and the path-keyed cache. A package may accept explicit per-invocation or runtime options where those values are not project
+configuration; it must not call that object another `ZmdbConfig`.
+
+The `zmdb` root may re-export `defineConfig` and the author-facing `ZmdbConfig` type from a dependency-free contract module. It must not re-export the loader module itself, because a root import may
+not reach filesystem, compiler, migration, or CLI code. `loadConfig`, `resolveConfig`, `ResolvedConfig`, and `LoadConfigOptions` remain on `zmdb/config`.
+
+Release versioning, changelog, tags, publish order, and partial-release behavior are not configuration concerns. They are owned by architecture-governance EPIC #721 and its release implementation
+#728.
+
 ## 1. Two shapes, because half of it cannot be validated
 
 The issue that proposed this asks for one `ZmdbConfig` and for the loaded object to be checked with the project's own validator, "deliberate dogfooding: the config is external data at a boundary". The

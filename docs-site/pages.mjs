@@ -404,7 +404,7 @@ export const NAV = [
   },
   {
     title: 'Reference',
-    pages: ['anti-patterns', 'benchmarks'],
+    pages: ['package-reference', 'anti-patterns', 'benchmarks'],
   },
 ];
 
@@ -1799,6 +1799,12 @@ export const PAGE_META = {
     title: 'Anti-patterns (deliberately excluded)',
     group: 'Reference',
     status: 'supported',
+  },
+  'package-reference': {
+    title: 'Package reference',
+    group: 'Reference',
+    status: 'todo',
+    note: 'catalog contract frozen; generated package rows and the verified one-product documentation journey are pending',
   },
   benchmarks: {
     title: 'Benchmarks',

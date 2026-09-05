@@ -1,61 +1,145 @@
-# SPEC — `zmdb` umbrella package (frozen)
+# SPEC — the `zmdb` product facade
 
-Epic #225. A single install (`zmdb`) that re-exports the whole ecosystem so a new user isn't assembling four packages. The four `@zmdb/*` packages remain independently installable (tree-shaking /
-advanced use).
+Issue #618 freezes the public product boundary before #619–#624 change exports, configuration consumers, generated product metadata, packed fixtures, or documentation. This document deliberately
+separates the surface measured at `44d8fa4a` from the target surface. Nothing in this issue changes runtime source or a package manifest.
 
-## Root re-export surface (curated)
+## 1. Measured baseline
 
-The `zmdb` root (`import { … } from 'zmdb'`) re-exports the **curated public API** of all four sub-packages. Frozen set:
+`packages/zmdb/package.json` currently declares 13 export-map entries: the root plus 12 named subpaths. Importing the root in an isolated Node process exposes 42 runtime names. Static inspection of
+`src/index.ts` adds 32 type-only names, for 74 root symbols in total.
 
-- from `@zmdb/schema-core`: `schemaOf`, the entity state machine (`defineStateTransitions`, `defineEntityStateMachine`, `createStateUpdatePayload`), and the derived types `Entity`, `CreateDTO`,
-  `UpdateDTO` (types). The tag vocabulary a table is declared in lives at the `zmdb/tags` subpath, and the derivations that read a declared type at `zmdb/derive`, since both are types-only and a value
-  import of either is a mistake worth making awkward.
+### 1.1 Every current root symbol
 
-  This list used to open with `defineSchema` and ten column builders. They were deleted (plan D2) — a table is declared as a type now — and `verify:no-defineschema` imports this very surface to check
-  they have not come back, which is the one check a grep could not make: a builder re-exported here without being declared here would still be published.
+The classifications below describe product disposition, not whether the symbol is useful. A public symbol classified as `internal` is an implementation leak that must leave the facade; it is not
+silently made private by this spec.
 
-- from `@zmdb/query-compiler`: `createQueryCompiler` + `Dialect`, `CompiledQuery` (types).
-- from `@zmdb/aot-validator`: `is`, `assert`, `validate`, `tags`.
-- from `@zmdb/repository`: `BaseRepository`, `defineRepository`, `Driver` (type), `ValidationError`.
+| Classification      | Count | Current root symbols                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Application default |    18 | `schemaOf`, `Entity`, `CreateDTO`, `UpdateDTO`, `PrimaryKeyOf`, `ValidationIssue`, `is`, `assert`, `validate`, `AssertError`, `ValidateResult`, `BaseRepository`, `defineRepository`, `IncompleteKeyError`, `ValidationError`, `Driver`, `UpdatePatch`, `UpsertOptions`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Advanced runtime    |    48 | `defineStateTransitions`, `defineEntityStateMachine`, `createStateUpdatePayload`, `CoreSchema`, `TaggedSchema`, `ColumnMeta`, `StateTransitions`, `AllowedTargetStates`, `StateUpdateDTO`, `EntityStateMachineOptions`, `EntityStateMachine`, `appendComment`, `coalesce`, `concat`, `serializeComment`, `withComments`, `createQueryCompiler`, `dec`, `inc`, `mul`, `not`, `proposed`, `UnsupportedFeatureError`, `ColumnExpr`, `CommentKey`, `CommentKeys`, `CommentPairs`, `CompiledQuery`, `Dialect`, `SetValue`, `equals`, `isShallow`, `assertShallow`, `assertEquals`, `random`, `validateShallow`, `tags`, `toJsonSchema`, `JsonSchemaObject`, `createTransactionalDb`, `batch`, `TransactionContext`, `TransactionState`, `ActiveTransactionContext`, `ClosedTransactionContext`, `TransactionalDb`, `TxConnection`, `NumericColumnOf` |
+| Tooling             |     1 | `migrations`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Integration         |     3 | `protoDecode`, `protoDescriptor`, `protoEncode`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Internal            |     4 | `sanitizeKeys`, `chunkArray`, `DIALECT_PARAM_LIMITS`, `markTransactionClosed`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
-## Subpath re-exports
+The sum is the inventory assertion: `18 + 48 + 1 + 3 + 4 = 74`. #619 must turn that review-time measurement into an executable exact-export test.
 
-Deeper / advanced surfaces are re-exported under subpaths that mirror the source packages, so nothing is lost:
+### 1.2 Every current named subpath
 
-- `zmdb/dto` → `@zmdb/schema-core/dto`
-- `zmdb/relations` → `@zmdb/schema-core/relations`
-- `zmdb/openapi`, `zmdb/seeding`, `zmdb/custom-types`, `zmdb/llm`
-- `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/drivers/mssql`
-- `zmdb/transactions`, `zmdb/replicas`, `zmdb/integrations`, `zmdb/entity-modeling`
-- `zmdb/query` → `@zmdb/query-compiler` (+ `zmdb/query/joins`, `/aggregations`, `/fts`, `/migrations`, `/set-ops`, `/schema-objects`)
-- `zmdb/validator` → `@zmdb/aot-validator` (+ `/advanced`, `/serialization`, `/utilities`, `/plugin`)
+| Current subpath       | Classification      | Target concern / disposition                                                                 |
+| --------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
+| `zmdb/tags`           | Application default | Root for the common declaration vocabulary; complete vocabulary under `zmdb/schema`          |
+| `zmdb/derive`         | Application default | Root for common DTOs; complete derivation family under `zmdb/schema`                         |
+| `zmdb/dto`            | Advanced runtime    | `zmdb/schema`                                                                                |
+| `zmdb/relations`      | Advanced runtime    | `zmdb/schema`                                                                                |
+| `zmdb/ir`             | Advanced runtime    | `zmdb/schema`                                                                                |
+| `zmdb/drivers/sqlite` | Integration         | Stable technology-selected integration subpath                                               |
+| `zmdb/drivers/pg`     | Integration         | Stable technology-selected integration subpath                                               |
+| `zmdb/drivers/mssql`  | Integration         | Stable technology-selected integration subpath                                               |
+| `zmdb/web`            | Advanced runtime    | Stable complete web surface                                                                  |
+| `zmdb/unplugin`       | Tooling             | `zmdb/compiler`; the old spelling may remain only as a release-governed compatibility alias  |
+| `zmdb/cli`            | Tooling             | Stable programmatic CLI boundary; the executable remains `zmdb`                              |
+| `zmdb/config`         | Tooling contract    | Stable canonical project-config boundary; its implementation package is intentionally hidden |
 
-## The two subpaths that are not re-exports
+Compatibility aliases may remain until release governance chooses a breaking release, but they do not own new APIs and the beginner documentation does not teach them. Removing or deprecating an alias
+is a versioning decision owned by #721/#728, not by the catalog.
 
-`zmdb/cli` and `zmdb/config` are the executable and its config schema, specified in `src/cli/SPEC.md` and `src/config/SPEC.md`. They break the pattern above twice, deliberately: they are written here
-rather than re-exported from somewhere else, and the package acquires a `bin`.
+## 2. Frozen target root
 
-The reason a facade hosts them is that `npx zmdb generate` is the command a user will type, and the only alternative is a second published package whose entire content is an executable. This package
-already depends on every other one, so the CLI reaches the reflector, the compiler and the migration runner without a new dependency edge — which is the same property that makes the facade the right
-host and would make any other choice add one.
+The root is the deliberate application vocabulary. It contains no wildcard exports and no implementation algorithm. Each value is re-exported by identity from the narrow module that owns it; each type
+is a type-only re-export.
 
-Both join `BUILD_TIME_ENTRIES` in `.github/scripts/verify-exports.mjs`, beside `zmdb#./unplugin`. That is what keeps a compiler session and a filesystem walk out of an application bundle, and it is
-the reason the no-collision guarantee below does not extend to them: nothing in either subpath is reachable from the root.
+The exact required root values are:
 
-## No-collision guarantee
+```text
+defineConfig
+schemaOf
+is, assert, validate
+defineRepository
+createApp, Module, Controller
+Get, Post, Put, Patch, Delete, Body, Public
+AssertError, ValidationError, IncompleteKeyError
+```
 
-- The curated root names are unique across packages (verified by test). Where a name could collide (none today), the sub-package wins and the other is only reachable via its subpath. The re-export
-  test asserts every promised name is present and identical (`===`) to the source export.
+The exact required root types are:
 
-## Packaging (#228)
+```text
+ZmdbConfig
+Table, Physical, Sql, PrimaryKey, Serial, Unique, HasDefault, Sensitive, References
+Min, Max, MinLength, MaxLength, Pattern
+Entity, CreateDTO, UpdateDTO, ReadDTO, PrimaryKeyOf
+Driver, UpdatePatch
+ValidateResult, ValidationIssue
+App, Ctx, ModuleClass
+```
 
-- New workspace `packages/zmdb`, `version` matching the others (`1.0.0-alpha.4`), `license: GPL-3.0-or-later`.
-- `dependencies`: every other `@zmdb/*` package — five of them, `@zmdb/web` included since the `zmdb/web` subpath landed — at the same exact prerelease.
-- Built by `scripts/build-package.mjs` (`tsc` → ESM `.js` + `.d.ts` mirroring `src`); wired into `prepare-publish.mjs`, `lib/publish-manifest.mjs`'s package order, and `publish.yml` — published
-  **last** (it depends on the others being on the registry). The `publish.yml` loop it was originally wired into addressed every workspace as `@zmdb/$pkg`, so the umbrella — named plainly `zmdb` — was
-  never actually built by it; `yarn build` covers every workspace instead.
+`Body` is part of the frozen application contract even though the measured baseline has no such root export. #619 therefore freezes it as missing behavior and #620 supplies it. Conversely, every
+measured root symbol absent from the two lists above moves to the concern subpath named below or leaves the facade if it is classified as internal.
 
-## Acceptance
+Adding a root name requires all of the following:
 
-- Runtime test: every curated root export is present and `===` its source.
-- Type-level: `import { schemaOf, BaseRepository } from 'zmdb'` type-checks and the types equal the source types.
+1. It is used by the packed one-install application rather than only by an advanced example.
+2. Its owner and facade visibility exist in the product catalog.
+3. It does not widen root import reachability beyond the eager-import rules.
+4. Its runtime identity and type inference are tested at the `zmdb` boundary.
+
+## 3. Frozen concern subpaths
+
+The product taxonomy is user-facing; it does not mirror whichever workspace package currently implements a concern.
+
+| Product subpath          | Owns                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `zmdb/config`            | `defineConfig`, discovery, loading, validation, resolution, and all config types                               |
+| `zmdb/schema`            | Complete tag, derivation, DTO, relation, IR, JSON Schema, and schema-state surfaces                            |
+| `zmdb/sql`               | Direct query compiler, expressions, comments, SQL errors, and compiled-query types                             |
+| `zmdb/validator`         | Advanced validation, shallow checks, equality, random generation, serialization, and protocol codecs           |
+| `zmdb/orm`               | Advanced repository, transaction, replica, loader, cache, hook, and repository-error surfaces                  |
+| `zmdb/web`               | Complete framework surface beyond the small root bootstrap/decorator vocabulary                                |
+| `zmdb/compiler`          | AOT transformer, code generation, bundler adapters, Metro adapter, and compiler-backed lint/reflection tooling |
+| `zmdb/migrations`        | Snapshot, diff, file, embedded-runner, live-runner, and migration-command APIs                                 |
+| `zmdb/testing`           | Product-level test app, validator/compiler helpers, fixtures, and test-only inspection                         |
+| `zmdb/cli`               | Programmatic command runner and command result/error types                                                     |
+| `zmdb/drivers/<name>`    | Database technology selected by the application; currently `sqlite`, `pg`, and `mssql`                         |
+| `zmdb/integrations/<id>` | Optional external technology whose dependency must not be reachable from any other product entry point         |
+
+The root and these subpaths are the stable product entry points. Canonical implementation may move between `@zmdb/*` packages without changing consumer imports. Workspace packages remain independently
+installable dependency firebreaks, but their names are advanced architecture, not the application vocabulary.
+
+## 4. Eager-import prohibition
+
+Importing `zmdb` may reach only the narrow runtime modules needed by the frozen root. It must not load or resolve:
+
+- the CLI, config discovery/loader, compiler, code generator, migration filesystem runner, Studio, or devtools;
+- `typescript`, `oxfmt`, `esbuild`, or another build tool;
+- an optional database client, broker client, telemetry SDK, frontend framework, transport, or native binding;
+- a broad package barrel when a narrower owner module avoids any of the above.
+
+`defineConfig` at the root is therefore re-exported from a dependency-free contract module. The full `zmdb/config` entry may load filesystem and compiler services only after a consumer explicitly
+imports it. The root web names are re-exported from narrow app, module, routing, and context modules rather than from a barrel that also initializes transports or optional integrations.
+
+#619 freezes these rules with two process boundaries:
+
+1. Import `zmdb`, capture the loaded module graph, and reject every forbidden module or package.
+2. Import each tooling or integration subpath explicitly and prove that its reachability is confined to that subpath.
+
+The existing identity checks remain necessary but are not sufficient: a re-export can have the correct identity and still eagerly load an unrelated tool.
+
+## 5. Facade implementation rule
+
+Files that implement the product facade contain only:
+
+- named `export` and `export type` declarations;
+- comments and type declarations that emit no mutable runtime state.
+
+They do not contain query compilation, validation, reflection, migration, driver, routing, configuration discovery, filesystem access, caches, mutable registries, functions, classes, or application
+algorithms. A dependency-free contract module may implement the `defineConfig` identity helper; the facade only re-exports it. #620 adds a static verifier for this rule. The existing config loader and
+CLI are product-owned capabilities, but they are not facade modules and remain behind explicit subpaths.
+
+## 6. Acceptance ownership
+
+- #619 freezes exact root/type imports, concern subpaths, module reachability, config sharing, catalog generation, and the packed external journey.
+- #620 implements the facade and eager-import boundary.
+- #621 makes `zmdb/config` the only project-config owner.
+- #622 creates the canonical product catalog and its generated consumers.
+- #623 proves the packed one-install SQLite HTTP journey.
+- #624 rewrites beginner documentation from that measured fixture.
+- #721/#728 exclusively own versioning, changelog, tags, publish order, compatibility/deprecation timing, and partial-release behavior.
