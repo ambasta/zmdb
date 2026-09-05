@@ -69,7 +69,12 @@ interface WritableResponseCall extends ServerCallSurface {
   removeListener(event: 'drain', listener: () => void): this;
 }
 
-interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
+interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {
+  on(event: 'data', listener: (data: DecodedRequest) => void): this;
+  on(event: string, listener: (...args: readonly unknown[]) => void): this;
+  removeListener(event: 'data', listener: (data: DecodedRequest) => void): this;
+  removeListener(event: string, listener: (...args: readonly unknown[]) => void): this;
+}
 
 interface CallScope {
   readonly signal: AbortSignal;
@@ -396,9 +401,9 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
     }
   };
 
-  const onData = (data: unknown) => {
+  const onData = (data: DecodedRequest) => {
     try {
-      queue.push(requestValue(data as DecodedRequest));
+      queue.push(requestValue(data));
       notify();
     } catch (err) {
       streamError = err;
