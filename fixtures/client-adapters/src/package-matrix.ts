@@ -26,11 +26,8 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     directory: 'react',
     lifecycle: 'react',
     dependencies: { '@zmdb/client': 'workspace:^' },
-    peerDependencies: {
-      '@types/react': '>=19.2.0 <20.0.0',
-      react: '>=19.2.0 <20.0.0',
-    },
-    optionalPeers: ['@types/react'],
+    peerDependencies: { react: '>=19.2.0 <20.0.0' },
+    optionalPeers: [],
     exports: ['.'],
     qualifyingBehaviour: 'React context ownership, effect cleanup, dependency changes and StrictMode replay',
   },

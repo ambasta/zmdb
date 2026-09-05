@@ -12,8 +12,9 @@ Issue #688, parent #687. This is the architecture contract for the optional UI a
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-No package above exists at this freeze, and this file creates no runtime surface. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The
-generated client, request transport, wire format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issue #691 now ships `@zmdb/react`; the other eight remain implementation targets. Each implementation issue creates its own
+package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire format, response validation and client error classes belong to #679 and its implementation
+children; this specification does not add another client API.
 
 ## 0. Measured starting point
 
@@ -121,7 +122,7 @@ The following do not qualify by themselves:
 
 Recipes are still supported documentation. They simply do not create another package, peer range, release surface or compatibility promise.
 
-### 2.3 Why all nine proposed packages qualify on paper
+### 2.3 Why the nine packages qualify
 
 | Package              | Behaviour unavailable from `@zmdb/client` alone                                                      |
 | -------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -135,7 +136,8 @@ Recipes are still supported documentation. They simply do not create another pac
 | `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
 | `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
-This table is a design qualification, not a support claim. Each row remains conditional on its packed qualification fixture in #700.
+This table is a design qualification, not a blanket support claim. `@zmdb/react` has earned its row through the native and packed qualification fixtures in #691; each remaining row stays conditional
+on its implementation and packed qualification evidence.
 
 ## 3. Common query and mutation semantics
 
@@ -333,7 +335,7 @@ A hydration key mismatch or absent payload starts a normal client request. Frame
 ### 6.1 React
 
 The binding factory owns one React context. The provider is isolated per tree. Query effects abort on dependency changes and unmount; mutation controllers abort on unmount. Missing-provider errors
-name the binding and explain that its provider is absent. StrictMode leaves at most one live request after its setup/cleanup replay.
+name the binding and explain that its provider is absent. StrictMode leaves at most one live request after its setup/cleanup replay. Issue #691 implements this contract in `@zmdb/react`.
 
 ### 6.2 Angular
 

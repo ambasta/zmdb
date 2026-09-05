@@ -20,8 +20,8 @@ dispose. The common cases then run the same generated client through that bindin
 | Nuxt           | Vue client scope or one Nitro request/plugin instance                 | Vue refs or request-local `useAsyncData` input/key change | scope stop or end of the Nitro request            |
 | SvelteKit      | Svelte subscription or one `RequestEvent` load                        | store change or a new navigation/load                     | unsubscribe or navigation/request cancellation    |
 
-The `bindPreparedAdapterSubject` bridge exists only to keep #689's missing-package `it.fails` cases executable. A real adapter issue replaces that bridge with a native binding; it does not copy the
-bridge into production.
+The `bindPreparedAdapterSubject` bridge exists only to keep #689's missing-package `it.fails` cases executable. `@zmdb/react` now uses the real provider and hooks through `react-binding.ts`; the
+remaining missing adapters still use the bridge as retirement triggers. No implementation copies the bridge into production.
 
 ## Deterministic fixtures
 
@@ -38,5 +38,5 @@ bridge into production.
 not workspace symlinks, and then runs the supplied framework build/runtime commands in order. Callers must provide a publish-ready manifest when a committed manifest still contains `workspace:`
 ranges.
 
-This helper is orchestration, not qualification evidence by itself. Issue #700 supplies the real framework applications, published manifests, browser/server bundles, and measured package
-qualification.
+This helper is orchestration, not qualification evidence by itself. Issue #691 combines it with the real `@zmdb/react` package, React lifecycle binding, published manifests, external typecheck, and
+the common runtime cases. Issue #700 remains responsible for the cross-adapter qualification that cannot be earned by the React slice alone.

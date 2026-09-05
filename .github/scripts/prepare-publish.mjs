@@ -12,6 +12,10 @@ const META = {
     description: 'Dependency-free HTTP client runtime for generated and manually declared zmdb operations.',
     keywords: ['typescript', 'http', 'fetch', 'client', 'zmdb'],
   },
+  react: {
+    description: 'React context, query, and mutation lifecycle bindings for generated zmdb clients.',
+    keywords: ['client', 'react', 'typescript', 'zmdb'],
+  },
   'schema-core': {
     description:
       'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, and custom types — the single source of truth for a zmdb data layer.',

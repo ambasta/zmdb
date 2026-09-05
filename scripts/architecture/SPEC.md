@@ -1,7 +1,7 @@
 # Package architecture and release governance — specification
 
-> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, #662, and the #710 AI ownership cutover. Issue
-> #724 implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and
+> **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #706, #707, #708, #709, #662, #691, and the #710 AI ownership cutover.
+> Issue #724 implements the canonical policy plus read-only discovery and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and
 > lockstep-manifest enforcement. #726 implements policy-driven runtime, tooling and optional-peer reachability; only the release verifier remains a later slice. The original measured baseline is
 > commit `5adba11e` on 2026-09-05.
 
@@ -24,9 +24,9 @@ At the measured baseline:
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
-Issues #656, #682, #705, #647, #706, #707, #708, #709, and #662 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`,
-`@zmdb/mcp`, and `@zmdb/otel`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current fifteen manifests keep `1.0.0-alpha.4`, declare 27 direct non-dev workspace edges, and retain
-13 optional peers, each on its owning integration entry. OpenTelemetry is a required peer only of its selected package.
+Issues #656, #682, #705, #647, #706, #707, #708, #709, #662, and #691 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`,
+`@zmdb/mcp`, `@zmdb/otel`, and `@zmdb/react`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current sixteen manifests keep `1.0.0-alpha.4`, declare 28 direct non-dev workspace
+edges, and retain 13 optional peers. OpenTelemetry and React are required peers only of their selected integration packages.
 
 ## 2. Canonical policy API
 
@@ -134,6 +134,16 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: ['./testing'],
+    release: 'lockstep',
+  },
+  react: {
+    directory: 'packages/react',
+    zone: 'integration',
+    ring: 1,
+    allowedWorkspaceDependencies: ['client'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
     release: 'lockstep',
   },
   'query-compiler': {
@@ -297,15 +307,17 @@ export const PACKAGE_POLICY = {
 } as const;
 ```
 
-The empty `allowedRuntimeDependencies` arrays are deliberate. Current non-workspace hard dependencies are tooling-only:
+The empty `allowedRuntimeDependencies` arrays are deliberate. Current ordinary third-party dependency entries are tooling-only:
 
 - `@zmdb/query-compiler#./introspect` reaches `oxfmt` only through declaration emission; and
 - `zmdb#./cli` and `bin:zmdb` reach `esbuild` and `oxfmt` for scaffolding, embedding and application loading.
 
+`@zmdb/react` reaches its required `react` peer under §5.4, so it does not use an ordinary-runtime dependency allowance.
+
 Every tooling selector carries an adjacent implementation comment explaining its purpose. A later package split moves the selector and dependency together; it does not leave a compatibility exemption
 in the former owner.
 
-The optional-peer assignments are the enforced narrow boundaries. A broader barrel path is a reachability failure, not a reason to broaden the row.
+The optional-peer assignments and required integration-peer rule are the enforced narrow boundaries. A broader barrel path is a reachability failure, not a reason to broaden the row.
 
 ## 5. Runtime, tooling and peer reachability
 

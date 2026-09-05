@@ -13,7 +13,7 @@ manifest supplies:
 
 - npm name, description and version;
 - public exports and dependencies;
-- optional peer ranges;
+- peer ranges and optional metadata;
 - runtime engines and license; and
 - an installation command derived from package name and catalog optionality.
 
@@ -21,23 +21,24 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 
 <!-- generated: product-catalog package-reference -->
 
-| Package              | Version       | Role      | Install mode                           | Installation                               | Description                                                                                                                                                                                                             | Documentation        |
-| -------------------- | ------------- | --------- | -------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| @zmdb/ai             | 1.0.0-alpha.4 | ai        | integration: provider-neutral AI tools | `npm add @zmdb/ai@1.0.0-alpha.4`           | Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, and OpenAPI-derived tools for zmdb.                                                                                             | llm-function-calling |
-| @zmdb/ai-anthropic   | 1.0.0-alpha.4 | anthropic | integration: Anthropic Messages API    | `npm add @zmdb/ai-anthropic@1.0.0-alpha.4` | Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.                                                                                                                                           | llm-chat             |
-| @zmdb/ai-langchain   | 1.0.0-alpha.4 | langchain | integration: LangChain                 | `npm add @zmdb/ai-langchain@1.0.0-alpha.4` | Optional LangChain structured-tool adapter for provider-neutral zmdb AI tool documents.                                                                                                                                 | llm-langchain        |
-| @zmdb/ai-vercel      | 1.0.0-alpha.4 | vercel-ai | integration: Vercel AI SDK             | `npm add @zmdb/ai-vercel@1.0.0-alpha.4`    | Vercel AI SDK tool integration for provider-neutral zmdb AI contracts.                                                                                                                                                  | llm-vercel-ai-sdk    |
-| @zmdb/aot-validator  | 1.0.0-alpha.4 | validator | required                               | `npm add zmdb@1.0.0-alpha.4`               | Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.                                         | aot-setup            |
-| @zmdb/app            | 1.0.0-alpha.4 | app       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.                                                     | web-app              |
-| @zmdb/client         | 1.0.0-alpha.4 | client    | integration: generated HTTP clients    | `npm add @zmdb/client@1.0.0-alpha.4`       | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                                                                | web-http-client      |
-| @zmdb/mcp            | 1.0.0-alpha.4 | mcp       | integration: Model Context Protocol    | `npm add @zmdb/mcp@1.0.0-alpha.4`          | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp              |
-| @zmdb/otel           | 1.0.0-alpha.4 | otel      | integration: OpenTelemetry             | `npm add @zmdb/otel@1.0.0-alpha.4`         | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability    |
-| @zmdb/protobuf       | 1.0.0-alpha.4 | protobuf  | integration: Protocol Buffers          | `npm add @zmdb/protobuf@1.0.0-alpha.4`     | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                           | protobuf-message     |
-| @zmdb/query-compiler | 1.0.0-alpha.4 | sql       | required                               | `npm add zmdb@1.0.0-alpha.4`               | SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.                                                                                     | raw-sql              |
-| @zmdb/repository     | 1.0.0-alpha.4 | orm       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.                                              | repository           |
-| @zmdb/schema-core    | 1.0.0-alpha.4 | schema    | required                               | `npm add zmdb@1.0.0-alpha.4`               | Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.                                                    | schema-declaration   |
-| @zmdb/web            | 1.0.0-alpha.4 | web       | required                               | `npm add zmdb@1.0.0-alpha.4`               | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                                                               | web-overview         |
-| zmdb                 | 1.0.0-alpha.4 | product   | required                               | `npm add zmdb@1.0.0-alpha.4`               | The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time. | package-reference    |
+| Package              | Version       | Role      | Install mode                           | Installation                               | Description                                                                                                                                                                                                             | Documentation          |
+| -------------------- | ------------- | --------- | -------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| @zmdb/ai             | 1.0.0-alpha.4 | ai        | integration: provider-neutral AI tools | `npm add @zmdb/ai@1.0.0-alpha.4`           | Provider-neutral AI tool documents, bounded chat orchestration, shared tool invocation, and OpenAPI-derived tools for zmdb.                                                                                             | llm-function-calling   |
+| @zmdb/ai-anthropic   | 1.0.0-alpha.4 | anthropic | integration: Anthropic Messages API    | `npm add @zmdb/ai-anthropic@1.0.0-alpha.4` | Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.                                                                                                                                           | llm-chat               |
+| @zmdb/ai-langchain   | 1.0.0-alpha.4 | langchain | integration: LangChain                 | `npm add @zmdb/ai-langchain@1.0.0-alpha.4` | Optional LangChain structured-tool adapter for provider-neutral zmdb AI tool documents.                                                                                                                                 | llm-langchain          |
+| @zmdb/ai-vercel      | 1.0.0-alpha.4 | vercel-ai | integration: Vercel AI SDK             | `npm add @zmdb/ai-vercel@1.0.0-alpha.4`    | Vercel AI SDK tool integration for provider-neutral zmdb AI contracts.                                                                                                                                                  | llm-vercel-ai-sdk      |
+| @zmdb/aot-validator  | 1.0.0-alpha.4 | validator | required                               | `npm add zmdb@1.0.0-alpha.4`               | Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.                                         | aot-setup              |
+| @zmdb/app            | 1.0.0-alpha.4 | app       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health, and observability.                                                     | web-app                |
+| @zmdb/client         | 1.0.0-alpha.4 | client    | integration: generated HTTP clients    | `npm add @zmdb/client@1.0.0-alpha.4`       | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                                                                | web-http-client        |
+| @zmdb/mcp            | 1.0.0-alpha.4 | mcp       | integration: Model Context Protocol    | `npm add @zmdb/mcp@1.0.0-alpha.4`          | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp                |
+| @zmdb/otel           | 1.0.0-alpha.4 | otel      | integration: OpenTelemetry             | `npm add @zmdb/otel@1.0.0-alpha.4`         | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability      |
+| @zmdb/protobuf       | 1.0.0-alpha.4 | protobuf  | integration: Protocol Buffers          | `npm add @zmdb/protobuf@1.0.0-alpha.4`     | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                           | protobuf-message       |
+| @zmdb/query-compiler | 1.0.0-alpha.4 | sql       | required                               | `npm add zmdb@1.0.0-alpha.4`               | SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.                                                                                     | raw-sql                |
+| @zmdb/react          | 1.0.0-alpha.4 | react     | integration: React                     | `npm add @zmdb/react@1.0.0-alpha.4`        | React context, query, and mutation lifecycle bindings for generated zmdb clients.                                                                                                                                       | framework-integrations |
+| @zmdb/repository     | 1.0.0-alpha.4 | orm       | required                               | `npm add zmdb@1.0.0-alpha.4`               | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.                                              | repository             |
+| @zmdb/schema-core    | 1.0.0-alpha.4 | schema    | required                               | `npm add zmdb@1.0.0-alpha.4`               | Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.                                                    | schema-declaration     |
+| @zmdb/web            | 1.0.0-alpha.4 | web       | required                               | `npm add zmdb@1.0.0-alpha.4`               | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                                                               | web-overview           |
+| zmdb                 | 1.0.0-alpha.4 | product   | required                               | `npm add zmdb@1.0.0-alpha.4`               | The zmdb umbrella package — one install that re-exports the whole ecosystem (schema-core, query-compiler, aot-validator, repository). Define your schema once; types, validation, CRUD and more derive at compile time. | package-reference      |
 
 ### `@zmdb/ai`
 
@@ -317,6 +318,24 @@ SQL-first, dialect-aware query compiler with catalog introspection, declaration 
   - `serializeComment`
   - `withComments`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
+
+### `@zmdb/react`
+
+React context, query, and mutation lifecycle bindings for generated zmdb clients.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/client` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `react` → `>=19.2.0 <20.0.0`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/client-adapters
 
 ### `@zmdb/repository`
 

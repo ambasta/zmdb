@@ -178,6 +178,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { reason: PUBLISH_VERIFIER_REASON },
   }),
   productPackage({
+    id: 'react',
+    directory: 'packages/react',
+    npmName: '@zmdb/react',
+    role: 'react',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'React' },
+    docsOwner: 'framework-integrations',
+    consumer: { fixture: 'fixtures/client-adapters' },
+  }),
+  productPackage({
     id: 'repository',
     directory: 'packages/repository',
     npmName: '@zmdb/repository',

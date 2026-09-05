@@ -19,7 +19,9 @@ AI and MCP stay outside the umbrella: install provider-neutral `@zmdb/ai`, then 
 
 OpenTelemetry is also opt-in: install `@zmdb/otel` only when adapting caller-owned tracers and meters to the application observability ports.
 
-> The workspace publishes **15 packages** across **122 export-map entry points**. The current suite has **2,921 passing tests** across 262 files, plus **178 expected failures** that describe work
+React is opt-in as well: install `@zmdb/react` only when a generated client needs React context and component-lifecycle ownership.
+
+> The workspace publishes **16 packages** across **123 export-map entry points**. The current suite has **2,942 passing tests** across 264 files, plus **165 expected failures** that describe work
 > still to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO
 > pages, and 13 pages for features we do not plan to add.
 

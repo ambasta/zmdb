@@ -1,0 +1,58 @@
+{
+  "name": "@zmdb/react",
+  "version": "1.0.0-alpha.4",
+  "description": "React context, query, and mutation lifecycle bindings for generated zmdb clients.",
+  "keywords": [
+    "client",
+    "react",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/react"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/client": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@types/react-test-renderer": "19.1.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-test-renderer": "19.2.8",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0 <20.0.0"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

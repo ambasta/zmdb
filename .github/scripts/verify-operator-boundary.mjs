@@ -25,6 +25,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BOUNDARY = 'packages/query-compiler/src/clauses.ts';
 const PACKAGES = [
   'client',
+  'react',
   'schema-core',
   'ai',
   'ai-anthropic',

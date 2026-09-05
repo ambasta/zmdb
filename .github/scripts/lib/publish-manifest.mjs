@@ -15,6 +15,7 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 // the registry. `publish.yml`'s loop uses the same order.
 export const PACKAGES = [
   'client',
+  'react',
   'query-compiler',
   'schema-core',
   'ai',

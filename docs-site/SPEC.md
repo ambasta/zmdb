@@ -122,7 +122,7 @@ Rules:
 `docs-site/content/package-reference.md` is generated from two authorities:
 
 1. `scripts/product/catalog.mjs` owns official product membership, package directory, product role, facade visibility, optionality, documentation owner and external-consumer owner.
-2. `<catalog directory>/package.json` owns npm name, version, description, exports, dependencies, optional peers, engines, license and repository metadata.
+2. `<catalog directory>/package.json` owns npm name, version, description, exports, dependencies, peer ranges and optional metadata, engines, license and repository metadata.
 
 The root workspace glob is not official-product membership: it also includes benchmarks and fixtures. The generator rejects an official catalog row without a matching manifest, an unregistered public
 package, a stale row, or disagreement between catalog directory/name and manifest directory/name.
@@ -151,7 +151,7 @@ export interface IntegrationRecord {
 Status semantics:
 
 - `built-in`: shipped through the default `zmdb` product surface with no additional integration package.
-- `optional`: shipped by the named official package; any framework library is its declared optional peer.
+- `optional`: shipped by the named opt-in official package; any named framework library is its declared peer and may itself be required by that package.
 - `documented`: a tested recipe over public APIs exists, but no official dedicated package exists.
 - `not-planned`: this documentation release claims no official integration; `docs` explains the unavailability and supported alternative.
 
@@ -160,7 +160,8 @@ Status is release-scoped shipped truth, not a forecast. An open roadmap issue do
 Additional invariants:
 
 - `package` is non-null for `built-in`, `optional` and `documented`; it is null for `not-planned`.
-- `peer` is permitted only for `optional` and must match that package's manifest.
+- `peer` is permitted only for `optional` and must match that package's manifest `peerDependencies`; the package's opt-in product status does not require the framework peer itself to use optional
+  metadata.
 - `docs` is one canonical slug, not a URL.
 - `evidence` is non-empty, repository-relative, exists at generation time and names tests, fixtures, public source or an unavailability specification that substantiates the row.
 - An issue, draft or roadmap entry is not support evidence. The matrix reports shipped truth only.

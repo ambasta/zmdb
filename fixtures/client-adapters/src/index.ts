@@ -70,4 +70,5 @@ export {
   type PackedProjectResult,
   type PackedTarball,
 } from './packed-project.js';
+export { createReactConformanceBinding } from './react-binding.js';
 export { assertSsrCredentialIsolation } from './ssr.js';

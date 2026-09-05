@@ -43,9 +43,9 @@ The generated-client documentation page is itself executable fixture source: eve
 `consumer-http-client/docs/` project outside the repository and compiles them against declarations from all packed packages, with no `paths` map or skipped library checks.
 
 `client-adapters/` is the private conformance workspace for #689 and #690. One generated client and a settlement-ledger transport drive reusable lifecycle, cancellation, stale-completion, error, retry
-and SSR-isolation assertions for every proposed adapter. Its React, Angular, Vue, Svelte and Solid harnesses execute real framework cleanup primitives, while missing adapter packages remain
-intentional `it.fails` retirement triggers. Reusable manifest/import rules and packed-project orchestration live beside them; the latter installs tarballs rather than workspace sources but is not
-package-qualification evidence by itself. #700 owns the real installed framework applications and bundle checks.
+and SSR-isolation assertions for every proposed adapter. `@zmdb/react` now runs those cases through its real provider and hooks and through an externally installed tarball project; the other missing
+adapter packages remain intentional `it.fails` retirement triggers. Reusable manifest/import rules and packed-project orchestration live beside them. #700 still owns cross-adapter installed framework
+and bundle checks beyond the React slice.
 
 ## Working on them
 

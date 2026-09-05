@@ -50,6 +50,7 @@ const PEERS = [
   'pg',
   '@types/node',
   '@types/pg',
+  '@types/react',
   '@anthropic-ai/sdk',
   '@langchain/core',
   '@grpc/grpc-js',
@@ -59,6 +60,7 @@ const PEERS = [
   '@nats-io/transport-node',
   'amqplib',
   'redis',
+  'react',
 ];
 const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'web-custom-transport.ts');
 const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');

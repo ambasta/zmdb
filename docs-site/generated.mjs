@@ -258,7 +258,7 @@ export function renderIntegrationRows(records) {
       (record.evidence ?? []).map(path => `\`${path}\``).join('<br>'),
     ]);
   return renderMarkdownTable(
-    ['Framework', 'Status', 'Public package', 'Optional peer', 'Documentation', 'Repository evidence'],
+    ['Framework', 'Status', 'Public package', 'Framework peer', 'Documentation', 'Repository evidence'],
     rows,
   );
 }
@@ -304,8 +304,6 @@ export function verifyIntegrationRecords(rows, records, options = {}) {
         const manifest = packageManifest(manifests, owner?.directory ?? '');
         if (manifest.peerDependencies?.[record.peer] === undefined) {
           problems.push(`integration ${record.capability} peer ${record.peer} is absent from ${record.package}`);
-        } else if (manifest.peerDependenciesMeta?.[record.peer]?.optional !== true) {
-          problems.push(`integration ${record.capability} peer ${record.peer} is not optional in ${record.package}`);
         }
       }
     } else if (record.status === 'optional') {

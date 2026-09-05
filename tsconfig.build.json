@@ -25,6 +25,7 @@
     "paths": {
       "@zmdb/client": ["./packages/client/dist/index.d.ts"],
       "@zmdb/client/*": ["./packages/client/dist/*/index.d.ts"],
+      "@zmdb/react": ["./packages/react/dist/index.d.ts"],
       "@zmdb/ai": ["./packages/ai/dist/index.d.ts"],
       "@zmdb/ai-anthropic": ["./packages/ai-anthropic/dist/index.d.ts"],
       "@zmdb/ai/chat": ["./packages/ai/dist/chat/index.d.ts"],

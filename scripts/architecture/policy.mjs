@@ -49,6 +49,15 @@ export const PACKAGE_POLICY = Object.freeze({
       './testing',
     ],
   }),
+  react: packagePolicy({
+    directory: 'packages/react',
+    zone: 'integration',
+    ring: 1,
+    allowedWorkspaceDependencies: ['client'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   'query-compiler': packagePolicy({
     directory: 'packages/query-compiler',
     zone: 'foundation',

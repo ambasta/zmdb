@@ -104,6 +104,7 @@ const BOUNDARIES_AT_AUDIT = 37;
 /** The packages whose shipped source this covers, in §9.4's order. */
 const PACKAGES = [
   'client',
+  'react',
   'schema-core',
   'ai',
   'ai-anthropic',

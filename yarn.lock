@@ -2037,6 +2037,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/react-dom@npm:19.2.7":
+  version: 19.2.7
+  resolution: "@types/react-dom@npm:19.2.7"
+  peerDependencies:
+    "@types/react": ^19.2.0
+  checksum: 10c0/226ab7e2b62114125e2276b3dcc3a25060177a673f8abadb7e31f395003de72ad68075c6edc5f51b02dd1e47443920ee030239c474c47fad075ded7410836909
+  languageName: node
+  linkType: hard
+
 "@types/react-test-renderer@npm:19.1.0":
   version: 19.1.0
   resolution: "@types/react-test-renderer@npm:19.1.0"
@@ -2377,9 +2386,12 @@ __metadata:
   dependencies:
     "@angular/core": "npm:22.1.5"
     "@types/react": "npm:19.2.18"
+    "@types/react-dom": "npm:19.2.7"
     "@types/react-test-renderer": "npm:19.1.0"
     "@zmdb/client": "workspace:^"
+    "@zmdb/react": "workspace:^"
     react: "npm:19.2.8"
+    react-dom: "npm:19.2.8"
     react-test-renderer: "npm:19.2.8"
     rxjs: "npm:7.8.2"
     solid-js: "npm:1.9.15"
@@ -2572,6 +2584,23 @@ __metadata:
   dependencies:
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/react@workspace:^, @zmdb/react@workspace:packages/react":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/react@workspace:packages/react"
+  dependencies:
+    "@types/react": "npm:19.2.18"
+    "@types/react-dom": "npm:19.2.7"
+    "@types/react-test-renderer": "npm:19.1.0"
+    "@zmdb/client": "workspace:^"
+    react: "npm:19.2.8"
+    react-dom: "npm:19.2.8"
+    react-test-renderer: "npm:19.2.8"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    react: ">=19.2.0 <20.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4892,6 +4921,17 @@ __metadata:
   dependencies:
     inherits: "npm:~2.0.3"
   checksum: 10c0/cf987476cc72e7d3aaabe23ccefaab1cd757a2b5e0c8d80b67c9575a6b5e1198807ffd4f0948a3f118b149d1111d810ee773473530b77a5c606673cac2c9c996
+  languageName: node
+  linkType: hard
+
+"react-dom@npm:19.2.8":
+  version: 19.2.8
+  resolution: "react-dom@npm:19.2.8"
+  dependencies:
+    scheduler: "npm:^0.27.0"
+  peerDependencies:
+    react: ^19.2.8
+  checksum: 10c0/41ba2247b76f687fcfe5bbc99f514d6b851d8c8041c2f5ded36ed05bd7fdc5208cacbac9de51e3e6633e77f96f44cec9f0d4a5a55184dba4e00738f224439134
   languageName: node
   linkType: hard
 

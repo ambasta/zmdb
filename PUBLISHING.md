@@ -133,7 +133,7 @@ Release verification reports every problem in deterministic package/path order a
    > node .github/scripts/repoint-dist.mjs
    >
    > packages=(
-   >   client query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel
+   >   client react query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel
    >   mcp protobuf aot-validator repository app otel web zmdb
    > )
    > for p in "${packages[@]}"; do

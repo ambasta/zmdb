@@ -290,6 +290,16 @@ describe('architecture and release governance fixtures', () => {
     expect(langchain.policy.allowedWorkspaceDependencies).toEqual(['ai']);
     expect(lookupPackage(live, langchain.directory)).toBe(langchain);
 
+    const react = lookupPackage(live, 'react');
+    if (react === undefined) throw new Error('canonical catalog omitted the react package id');
+    expect(react.npmName).toBe('@zmdb/react');
+    expect(lookupExport(live, 'react')).toBeUndefined();
+    expect(lookupExport(live, '@zmdb/react')).toMatchObject({
+      package: { id: 'react', npmName: '@zmdb/react' },
+      selector: '.',
+      target: './src/index.ts',
+    });
+
     expect(architecture.packages.map(packageRecord => packageRecord.id)).toEqual(['core', 'app']);
     expect(createDependencyGraph(architecture)).toEqual({
       core: [],
@@ -332,7 +342,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 15 catalog packages, 27 workspace edges, and canonical rings verified.',
+      'architecture zones: 16 catalog packages, 28 workspace edges, and canonical rings verified.',
     );
   });
 

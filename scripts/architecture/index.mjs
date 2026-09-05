@@ -317,7 +317,7 @@ function packageSpecifierParts(specifier) {
 export function lookupExport(architecture, specifier) {
   const parts = packageSpecifierParts(specifier);
   if (parts === undefined) return undefined;
-  const packageRecord = lookupPackage(architecture, parts.npmName);
+  const packageRecord = architecture.packages.find(candidate => candidate.npmName === parts.npmName);
   if (packageRecord === undefined) return undefined;
   const target = entryTarget(packageRecord, parts.selector);
   if (target === undefined) return undefined;

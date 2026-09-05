@@ -1,6 +1,6 @@
 // Compile-only framework inference freeze for #689.
 //
-// None of the nine adapter packages exists yet. The namespace imports are
+// React now uses its real public types. The remaining namespace imports are
 // retirement triggers: each implementation issue makes its directive unused,
 // at which point that package's native bridge below must be replaced by the
 // real public types rather than leaving a structural stand-in behind.
@@ -24,9 +24,8 @@ import type * as MissingNuxtClientAdapter from '@zmdb/nuxt/client';
 // @ts-expect-error #698 supplies the Nuxt server entry
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #698
 import type * as MissingNuxtServerAdapter from '@zmdb/nuxt/server';
-// @ts-expect-error #691 supplies the React adapter package
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #691
-import type * as MissingReactAdapter from '@zmdb/react';
+import { createZmdbReact } from '@zmdb/react';
+import type { ZmdbReactBindings } from '@zmdb/react';
 // @ts-expect-error #696 supplies the React Native adapter package
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #696
 import type * as MissingReactNativeAdapter from '@zmdb/react-native';
@@ -65,18 +64,7 @@ type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
 type Expect<Value extends true> = Value;
 
-interface ReactQuery<Output> extends QuerySnapshot<Output> {
-  refresh(): Promise<void>;
-}
-
-interface ReactMutation<Input, Output> extends MutationSnapshot {
-  mutate(input: Input): Promise<Output>;
-}
-
-interface ReactBindings<Client> {
-  query<Input, Output>(input: Input, load: QueryLoader<Client, Input, Output>): ReactQuery<Output>;
-  mutation<Input, Output>(run: MutationRunner<Client, Input, Output>): ReactMutation<Input, Output>;
-}
+type ReactBindings<Client extends object> = ZmdbReactBindings<Client>;
 
 interface AngularQuery<Output> {
   readonly data: Signal<Output | undefined>;
@@ -146,13 +134,16 @@ interface SolidBindings<Client> {
 }
 
 function reactInference(bindings: ReactBindings<ApiClient>): void {
-  const query = bindings.query({ id: 'one' }, (client, input, signal) => client.getWidget(input, { signal }));
+  const selectedClient = bindings.useZmdbClient();
+  selectedClient.getWidget satisfies ApiClient['getWidget'];
+
+  const query = bindings.useZmdbQuery((api, signal) => api.getWidget({ id: 'one' }, { signal }), ['one']);
   query.data satisfies Widget | undefined;
   query.error satisfies unknown;
   query.loading satisfies boolean;
   query.refresh satisfies () => Promise<void>;
 
-  const mutation = bindings.mutation((client, input: RenameWidgetInput, signal) =>
+  const mutation = bindings.useZmdbMutation((client, input: RenameWidgetInput, signal) =>
     client.renameWidget(input, { signal }),
   );
   mutation.mutate satisfies (input: RenameWidgetInput) => Promise<Widget>;
@@ -279,7 +270,6 @@ export type _MissingPackageRetirementTriggers = [
   keyof typeof MissingNuxtAdapter,
   keyof typeof MissingNuxtClientAdapter,
   keyof typeof MissingNuxtServerAdapter,
-  keyof typeof MissingReactAdapter,
   keyof typeof MissingReactNativeAdapter,
   keyof typeof MissingSolidAdapter,
   keyof typeof MissingSvelteAdapter,
@@ -288,6 +278,7 @@ export type _MissingPackageRetirementTriggers = [
   keyof typeof MissingVueAdapter,
 ];
 
+createZmdbReact<ApiClient>() satisfies ReactBindings<ApiClient>;
 void reactInference;
 void angularInference;
 void vueInference;

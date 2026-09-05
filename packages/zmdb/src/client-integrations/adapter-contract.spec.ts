@@ -27,6 +27,7 @@ import {
   createAdapterClientFixture,
   createApiClient,
   createControllableAdapterTransport,
+  createReactConformanceBinding,
   privateHarnessProductionLeaks,
   readAdapterPackageManifest,
   runPackedProject,
@@ -49,6 +50,8 @@ function expectationFor(name: AdapterPackageExpectation['name']): AdapterPackage
   if (expectation === undefined) throw new Error(`missing adapter package expectation ${name}`);
   return expectation;
 }
+
+const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(expectation => expectation.name !== '@zmdb/react');
 
 describe('the shared generated adapter fixture (#689, #690)', () => {
   it('the generated fixture client runs through the fake transport', async () => {
@@ -261,7 +264,43 @@ describe.each(Object.values(FRAMEWORK_LIFECYCLES))('the real $name lifecycle fix
   });
 });
 
-describe.each(ADAPTER_PACKAGES)('$name executable adapter contract', expectation => {
+describe('@zmdb/react executable adapter contract', () => {
+  const expectation = expectationFor('@zmdb/react');
+  const binding = createReactConformanceBinding<ApiClient>();
+
+  it('does not request before the framework primitive activates', () => assertNoRequestBeforeMount(binding));
+
+  it('publishes pending and success through the framework primitive', () => assertPendingAndSuccess(binding));
+
+  it('cancels when the owning scope is disposed', () => assertDisposalCancellation(binding));
+
+  it('ignores a stale response after inputs change', () => assertStaleResultSuppression(binding));
+
+  it('preserves ClientResponseError identity', () => assertClientResponseErrorIdentity(binding));
+
+  it('preserves protocol errors from the generated client', () => assertProtocolErrorIdentity(binding));
+
+  it('preserves response validation errors from the generated client', () => assertValidationErrorIdentity(binding));
+
+  it('does not retry without explicit policy', () => assertNoImplicitRetry(binding));
+
+  it('accepts a generated client without inspecting its contract', () => assertOpaqueGeneratedClient(binding));
+
+  it('keeps concurrent mutation promises independent and only the newest error visible', () =>
+    assertIndependentMutations(binding));
+
+  it('does not share request state across SSR requests', () => assertSsrCredentialIsolation(binding));
+
+  it('imports without executing network I/O', () => {
+    assertAdapterImportsWithoutEffects(ROOT, expectation);
+  });
+
+  it('framework package has only expected peers', () => {
+    assertAdapterPackageManifest(expectation, readAdapterPackageManifest(ROOT, expectation));
+  });
+});
+
+describe.each(UNAVAILABLE_ADAPTER_PACKAGES)('$name executable adapter contract', expectation => {
   const lifecycle = FRAMEWORK_LIFECYCLES[expectation.lifecycle];
   const binding: AdapterConformanceBinding<ApiClient> = bindPreparedAdapterSubject(
     unavailableAdapterSubject<ApiClient>(expectation),
