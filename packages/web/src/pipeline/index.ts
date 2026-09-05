@@ -20,8 +20,14 @@ import {
   type QueryValues,
 } from '../context/index.js';
 import type { CompiledHttpContract, HttpOperationIR, SecurityRequirement } from '../contract/index.js';
-import { BoundaryStatusError } from '../middleware/errors.js';
-import type { Guard, SecurityAwareGuard } from '../middleware/index.js';
+import {
+  ChainError,
+  compileRouteChain,
+  runChain,
+  type Chain,
+  type Guard,
+  type SecurityAwareGuard,
+} from '../middleware/index.js';
 import { getRoutes, isPublic, type ResolvedRoute } from '../routing/index.js';
 import { versionsOf, type VersionStrategy } from '../versioning/index.js';
 import { jsonMediaTypeForVersion, pathForVersion } from '../versioning/runtime.js';
@@ -64,6 +70,7 @@ export interface RouteOptions {
   readonly guards?: readonly Guard[];
   readonly security?: readonly SecurityRequirement[];
   readonly deprecated?: true;
+  readonly chain?: Chain;
 }
 
 /** Router-wide guard configuration shared with OpenAPI generation. */
@@ -81,6 +88,7 @@ interface BoundRoute {
   readonly operation?: HttpOperationIR;
   readonly pattern: CompiledPattern;
   readonly handler: Handler;
+  readonly chain: Chain;
   readonly validateBody?: (raw: unknown) => unknown;
   readonly guards?: readonly Guard[];
   readonly neutral?: true;
@@ -821,6 +829,31 @@ function fileHandleStream(handle: FileHandle): ReadableStream<Uint8Array<ArrayBu
   });
 }
 
+interface RawResponse {
+  status: unknown;
+  body?: unknown;
+  headers?: unknown;
+}
+
+function isResponseLike(value: unknown): value is RawResponse {
+  return typeof value === 'object' && value !== null && !(value instanceof Error) && 'status' in value;
+}
+
+function isStringRecord(value: unknown): value is Readonly<Record<string, string>> {
+  return typeof value === 'object' && value !== null;
+}
+
+// boundary: value is confirmed to be an object with numeric status and optional headers
+function normalizeWebResponse(value: unknown): WebResponse | undefined {
+  if (isResponseLike(value) && typeof value.status === 'number') {
+    const status = value.status;
+    const headers = isStringRecord(value.headers) ? value.headers : JSON_HEADERS;
+    const body = typeof value.body === 'string' ? textBody(value.body) : textBody(JSON.stringify(value.body ?? ''));
+    return { status, body, headers };
+  }
+  return undefined;
+}
+
 export interface Router {
   register(controller: object, options?: Readonly<Record<string, RouteOptions>>): void;
   registerContract(
@@ -871,8 +904,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     controller: ControllerCtor,
     route: ResolvedRoute,
     handler: Handler,
-    validateBody: ((raw: unknown) => unknown) | undefined,
-    guards: readonly Guard[],
+    chain: Chain,
+    validateBody?: (raw: unknown) => unknown,
   ): void {
     const declaration = versionsOf(controller, route.handlerName);
 
@@ -888,8 +921,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         route,
         pattern,
         handler,
+        chain,
         ...(validateBody === undefined ? {} : { validateBody }),
-        ...(guards.length === 0 ? {} : { guards }),
       });
       return;
     }
@@ -908,8 +941,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           route,
           pattern,
           handler,
+          chain,
           ...(validateBody === undefined ? {} : { validateBody }),
-          ...(guards.length === 0 ? {} : { guards }),
         });
         return;
       }
@@ -922,8 +955,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           route: expanded,
           pattern,
           handler,
+          chain,
           ...(validateBody === undefined ? {} : { validateBody }),
-          ...(guards.length === 0 ? {} : { guards }),
         });
       }
       return;
@@ -934,8 +967,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       route,
       pattern,
       handler,
+      chain,
       ...(validateBody === undefined ? {} : { validateBody }),
-      ...(guards.length === 0 ? {} : { guards }),
     };
     if (declaration === 'neutral') {
       addNeutralRoute(versionBuckets, neutralBuckets, route.method, { ...base, neutral: true });
@@ -969,11 +1002,19 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
   ): void {
     const route = { method: operation.method, path: operation.path, handlerName: operation.handler };
     const pattern = compilePattern(operation.path);
+    const compiledChain = compileRouteChain(controller, operation.handler);
+    const chain: Chain = {
+      guards: [...guards, ...compiledChain.guards],
+      pipes: compiledChain.pipes,
+      interceptors: compiledChain.interceptors,
+      filters: compiledChain.filters,
+    };
     const base = {
       route,
       operation,
       pattern,
       handler,
+      chain,
       ...(validateBody === undefined ? {} : { validateBody }),
       ...(guards.length === 0 ? {} : { guards }),
     };
@@ -1136,20 +1177,6 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           path: req.path,
         };
 
-        for (const guard of matched.guards ?? []) {
-          try {
-            if (!(await guard.canActivate(ctx))) {
-              response = jsonResponse(403, { error: 'forbidden' });
-              return response;
-            }
-          } catch (error) {
-            failed = true;
-            failure = error;
-            response = jsonResponse(500, { error: messageOf(error) });
-            return response;
-          }
-        }
-
         if (matched.validateBody !== undefined) {
           const validationSpan = childSpan(tracer, serverSpan, 'zmdb.validate');
           try {
@@ -1170,7 +1197,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         const handlerSpan = childSpan(tracer, serverSpan, 'zmdb.handler');
         const handlerCtx = handlerSpan === undefined ? ctx : { ...ctx, span: handlerSpan };
         try {
-          const result = await matched.handler(handlerCtx);
+          const result = await runChain(matched.chain, handlerCtx, matched.handler);
           response = mediaVersionedResponse(
             isTaggedResponse(result) ? result : jsonResponse(200, result, matched.versionJsonHeaders ?? JSON_HEADERS),
             matched.versionJsonHeaders,
@@ -1180,7 +1207,12 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           failed = true;
           failure = error;
           recordFailure(handlerSpan, error);
-          if (error instanceof BoundaryStatusError) {
+          const res = normalizeWebResponse(error);
+          if (res !== undefined) {
+            response = res;
+            return response;
+          }
+          if (error instanceof ChainError) {
             response = jsonResponse(error.status, { error: error.message });
             return response;
           }
@@ -1248,8 +1280,26 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             `Guard configuration error at ${ctor.name}.${route.handlerName}: an @Public() route cannot declare route guards or a non-empty security requirement`,
           );
         }
-        const guards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
-        addBoundRoute(ctor, route, handler, opts?.validateBody, guards);
+        const regGuards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, ctor.name, routeGuards);
+
+        const compiledChain = compileRouteChain(ctor, route.handlerName);
+        const pipes = [...compiledChain.pipes];
+        if (opts?.chain?.pipes !== undefined) {
+          pipes.push(...opts.chain.pipes);
+        }
+
+        const guards = publicRoute ? [] : [...regGuards, ...compiledChain.guards, ...(opts?.chain?.guards ?? [])];
+
+        const chain: Chain = {
+          guards,
+          pipes,
+          interceptors: opts?.chain?.interceptors
+            ? [...compiledChain.interceptors, ...opts.chain.interceptors]
+            : compiledChain.interceptors,
+          filters: opts?.chain?.filters ? [...compiledChain.filters, ...opts.chain.filters] : compiledChain.filters,
+        };
+
+        addBoundRoute(ctor, route, handler, chain, opts?.validateBody);
       }
     },
 
@@ -1365,10 +1415,16 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           }
           return resolved(ctx);
         };
-        const guards = isPublic(controller, route.handlerName)
-          ? []
-          : resolveGuards(routerOptions.guardRegistry, controller.name);
-        addBoundRoute(controller, route, handler, undefined, guards);
+        const publicRoute = isPublic(controller, route.handlerName);
+        const regGuards = publicRoute ? [] : resolveGuards(routerOptions.guardRegistry, controller.name);
+        const compiledChain = compileRouteChain(controller, route.handlerName);
+        const chain: Chain = {
+          guards: publicRoute ? [] : [...regGuards, ...compiledChain.guards],
+          pipes: compiledChain.pipes,
+          interceptors: compiledChain.interceptors,
+          filters: compiledChain.filters,
+        };
+        addBoundRoute(controller, route, handler, chain);
       }
     },
 
@@ -1393,46 +1449,45 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         if (params === undefined) {
           continue;
         }
-        const ctx = {
-          params,
-          body: req.rawBody,
-          query: req.query ?? {},
-          headers: req.headers,
-          method,
-          path: req.path,
-        };
-        for (const guard of bound.guards ?? []) {
-          try {
-            if (!(await guard.canActivate(ctx))) {
-              return jsonResponse(403, { error: 'forbidden' });
-            }
-          } catch (error) {
-            return jsonResponse(500, { error: messageOf(error) });
-          }
-        }
-
+        let body: unknown = req.rawBody;
         if (bound.validateBody !== undefined) {
           try {
-            ctx.body = bound.validateBody(req.rawBody);
+            body = bound.validateBody(req.rawBody);
           } catch (error) {
             const message = messageOf(error);
             const issues = validationIssuesOf(error);
             return jsonResponse(400, issues ? { error: message, issues } : { error: message });
           }
         }
+
+        const ctx: Ctx<Record<string, string>, unknown, QueryValues> = {
+          params,
+          body,
+          query: req.query ?? {},
+          headers: req.headers,
+          method,
+          path: req.path,
+        };
+
         try {
-          const result = await bound.handler(ctx);
-          // One symbol check on the hot path, no extra allocation: a handler that
-          // returns a plain value takes exactly the path it took before.
+          const result = await runChain(bound.chain, ctx, bound.handler);
+          if (isTaggedResponse(result)) {
+            return mediaVersionedResponse(result, bound.versionJsonHeaders);
+          }
+          const res = normalizeWebResponse(result);
+          if (res !== undefined) {
+            return mediaVersionedResponse(res, bound.versionJsonHeaders);
+          }
           return mediaVersionedResponse(
-            isTaggedResponse(result) ? result : jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
+            jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
             bound.versionJsonHeaders,
           );
         } catch (error) {
-          // A framework boundary refusal keeps its selected status. A validation
-          // error out of the handler is the request's fault and becomes 400;
-          // anything else is 500 with its message and nothing invented.
-          if (error instanceof BoundaryStatusError) {
+          const res = normalizeWebResponse(error);
+          if (res !== undefined) {
+            return res;
+          }
+          if (error instanceof ChainError) {
             return jsonResponse(error.status, { error: error.message });
           }
           if (error instanceof ValidationError || claimsValidationIssues(error)) {
