@@ -32,8 +32,8 @@
 // The second row has been mutation-tested against the regression it exists for. Moving the two
 // `session.created` / `session.refresh` calls inside the witness-writing loop — one line, and
 // it reads like a tidy-up — takes the count from 2 to 65 and fails both deterministic rows.
-// That mutation moved the *clock* from 6.0ms to 8.2ms per module, comfortably inside any ceiling
-// a shared runner would tolerate, which is the argument for the deterministic rows in one
+// That mutation moved the *clock* from 6.0ms to 8.2ms per module, comfortably inside a ceiling
+// loose enough for a shared runner, which is the argument for the deterministic rows in one
 // number.
 //
 // ---------------------------------------------------------------------------
@@ -42,9 +42,10 @@
 //
 // REQ-TF-11's criterion also asks for a *published* build-time measurement, so the numbers are
 // printed: opening the project, generating on top of it, checking an already-generated tree, and
-// the marginal cost of a module. Only the last is a gate, and a loose one — a CI runner is a
-// shared VM, and a threshold tight enough to catch a 20% regression would fail on a noisy
-// neighbour instead.
+// the marginal cost of a module. The clock is published, not gated. The exact same source measured
+// 9.5ms per module locally and 47.5ms on a GitHub runner while both deterministic rows remained
+// identical; a threshold between them rejects the runner, while one above them misses the
+// mutation described above.
 //
 // What the split shows is worth stating, because it is not quite the intuitive story. Opening
 // the project is ~20ms and does not grow with the file count, because the compiler defers the
@@ -85,9 +86,6 @@ const BUDGET = {
   apiInstances: { limit: 1, exact: true, what: 'compiler API instances opened by one build' },
   snapshotUpdates: { limit: 3, exact: false, what: 'snapshot updates for the whole build' },
 };
-
-/** Wall-time ceiling per module, in milliseconds. Measured at 6.0; loose on purpose. */
-const MS_PER_MODULE = 25;
 
 // ---------------------------------------------------------------------------
 // The project
@@ -302,7 +300,7 @@ for (const one of [small, big]) {
 }
 const perModule = (big.generated - small.generated) / (MODULES - SMALL);
 console.log(
-  `\n  marginal cost of a module: ${perModule.toFixed(1)}ms (ceiling ${MS_PER_MODULE}ms), ` +
+  `\n  marginal cost of a module: ${perModule.toFixed(1)}ms (published, not gated), ` +
     `against ${ms(big.opened)} to open the project once`,
 );
 console.log(`  artifacts written: ${big.written} for ${MODULES} modules`);
@@ -333,14 +331,6 @@ if (small.updates.join(',') !== big.updates.join(',')) {
       'comparison — `cli/index.ts` writes every witness before transforming any of them for this reason.',
   );
 }
-if (perModule > MS_PER_MODULE) {
-  problems.push(
-    `${perModule.toFixed(1)}ms per module, ceiling ${MS_PER_MODULE}ms. This ceiling is loose enough that ` +
-      'hitting it means a structural change rather than a slow runner — look for work that moved ' +
-      'inside the per-file loop.',
-  );
-}
-
 if (problems.length > 0) {
   console.error(`\n${problems.length} problem(s):\n`);
   for (const problem of problems) console.error(`  ${problem}\n`);
@@ -349,5 +339,5 @@ if (problems.length > 0) {
 
 console.log(
   `\none compiler session, ${values.snapshotUpdates} snapshot updates whatever the file count, ` +
-    `${perModule.toFixed(1)}ms per module.`,
+    `${perModule.toFixed(1)}ms per module published.`,
 );

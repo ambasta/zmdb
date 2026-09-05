@@ -23,8 +23,9 @@
 // deliberately loose ceiling. It is there to catch the case the instantiation count cannot:
 // work the checker does that is not an instantiation.
 //
-// Total build wall-time, on real projects rather than a generated one, is REQ-TF-11's
-// `verify:build-budget`. This file is about the marginal cost of a tag.
+// Total generated-project build wall-time is published by REQ-TF-11's
+// `verify:build-budget`; its deterministic session/update shape is the gate. This file is
+// about the marginal cost of a tag.
 //
 // ---------------------------------------------------------------------------
 // 512 tables, and what the scale caught

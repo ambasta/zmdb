@@ -436,8 +436,9 @@ That is what "not once per file" means operationally, because telling the compil
 ordering that reads like an arbitrary choice and is the only reason the second number is 2 instead of 65. Moving those two calls inside the loop is a one-line tidy-up that takes the log to 65 updates;
 the gate fails.
 
-The clock is published rather than enforced, and the reason is the same mutation. It moved the per-module time from 6.0ms to 8.2ms — 37%, comfortably inside any ceiling a shared CI runner would
-tolerate. A wall-time gate would have let that through.
+The clock is published rather than enforced. The mutation moved the per-module time from 6.0ms to 8.2ms — 37%, comfortably inside any ceiling loose enough for a shared runner. Conversely, on
+2026-09-05 the exact same source measured 9.5ms locally and 47.5ms on GitHub while both deterministic rows stayed identical. A wall-time threshold would either let the structural regression through or
+reject the runner rather than the code.
 
 The published split also corrects the intuition the requirement is usually justified with. Opening the project is about 20ms and **does not grow with the file count**, because the compiler defers the
 expensive work until something asks it a question; generating costs about 6ms per module, linear, and at 64 modules that dominates the load by a factor of twenty.

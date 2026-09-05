@@ -99,20 +99,13 @@ it("reports nothing on this repository's own source", () => {
       },
     );
     expect(result.error).toBeUndefined();
-    expect(
-      {
-        status: result.status,
-        signal: result.signal,
-        stdout: result.stdout,
-        stderr: result.stderr,
-      },
-      `${result.stdout}${result.stderr}`,
-    ).toEqual({
-      status: 0,
-      signal: null,
-      stdout: '',
-      stderr: '',
-    });
+    const output = `${result.stdout}${result.stderr}`;
+    expect(result.status, output).toBe(0);
+    expect(result.signal, output).toBeNull();
+    expect(result.stderr, output).toBe('');
+    expect(result.stdout, output).toMatch(
+      /^(?:|Found 0 warnings and 0 errors\.\r?\nFinished in [^\r\n]+ on \d+ files with 3 rules using 1 threads\.\r?\n)$/,
+    );
   } finally {
     rmSync(temporary, { force: true, recursive: true });
   }
