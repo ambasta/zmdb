@@ -60,12 +60,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
     "@zmdb/ai": "workspace:^",
-    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/compiler": "workspace:^",
     "typescript": "7.0.2"
   },

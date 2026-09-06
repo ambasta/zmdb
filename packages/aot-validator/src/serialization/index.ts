@@ -1,7 +1,6 @@
 // AOT serialization — implementation.
 // #52 stringify + parse implemented. #53 assertStringify remains unimplemented.
-import type { ValidationIssue } from '../advanced/index.js';
-import { assert, AssertError, type TypeIR } from '../utilities/index.js';
+import { assert, AssertError, type TypeIR, type ValidationIssue } from '../utilities/index.js';
 
 // Runtime fallback serializer. Byte-identical to JSON.stringify for supported
 // values; bigint throws TypeError (documented policy). The AOT transformer will
@@ -18,6 +17,8 @@ export function stringify(value: unknown): string {
     return v;
   });
 }
+
+export { compileFastStringifier, compileStringifier } from './fast-stringifier.js';
 
 // `TypeIR`: the witness a user has is the generated one, and there is no longer a
 // hand-written form of it to accept (REQ-TF-9).
@@ -69,8 +70,8 @@ export function decode<T = unknown>(text: string, schema?: TypeIR): ParseResult<
   const parsed = parse<T>(text);
   if (!parsed.success) return parsed;
   try {
-    const data = assert<T>(parsed.data, schema);
-    return { success: true, data };
+    assert(parsed.data, schema);
+    return parsed.data !== undefined ? { success: true, data: parsed.data } : { success: true };
   } catch (err) {
     const issues = err instanceof AssertError ? err.issues : [];
     return { success: false, issues };

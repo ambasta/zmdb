@@ -422,7 +422,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/web',
     zone: 'application',
     ring: 5,
-    allowedWorkspaceDependencies: ['app', 'schema-core'],
+    allowedWorkspaceDependencies: ['aot-validator', 'app', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@zmdb/compiler': ['./contract/compiler'],

@@ -85,6 +85,14 @@
       "rules": {
         "zmdb/no-unbounded-find": "off"
       }
+    },
+    {
+      "files": ["scripts/ts-specifier-hook.mjs"],
+      "rules": {
+        "eslint/no-extend-native": "off",
+        "no-restricted-globals": "off",
+        "no-restricted-properties": "off"
+      }
     }
   ],
   "rules": {

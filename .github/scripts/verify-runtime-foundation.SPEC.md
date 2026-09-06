@@ -185,13 +185,14 @@ packages/sqlite/src/migrations.ts
 packages/sqlite/src/node.ts
 ```
 
-### `@zmdb/validator` — 6
+### `@zmdb/validator` — 7
 
 ```text
 packages/aot-validator/src/advanced/index.ts
 packages/aot-validator/src/errors.ts
 packages/aot-validator/src/index.ts
 packages/aot-validator/src/regex-complexity.ts
+packages/aot-validator/src/serialization/fast-stringifier.ts
 packages/aot-validator/src/serialization/index.ts
 packages/aot-validator/src/utilities/index.ts
 ```

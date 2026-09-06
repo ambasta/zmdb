@@ -958,6 +958,7 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
   - `./upload` → `./src/upload/index.ts`
   - `./versioning` → `./src/versioning/index.ts`
 - **Dependencies:**
+  - `@zmdb/aot-validator` → `workspace:^`
   - `@zmdb/app` → `workspace:^`
   - `@zmdb/schema-core` → `workspace:^`
 - **Optional dependencies:** None.
