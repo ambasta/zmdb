@@ -35,6 +35,32 @@ export function releasePlan(root: string): {
 `packages` contains every catalog npm name in catalog-id order. `publishOrder` contains the same names exactly once in deterministic topological order, with dependencies before consumers and catalog
 id as the tie-breaker. `changelogEntry` is the exact Markdown body of the matching version section. The function performs no write, network request, registry lookup, build, tag or publish.
 
+### Admit a package to the train
+
+Admission is atomic. A new publishable package is not official, policy-governed, or releasable until one change supplies all of these:
+
+1. the package manifest, public exports, README, license and external-consumer evidence;
+2. one product-catalog row with the package directory, npm name, role, optionality, docs owner and consumer proof;
+3. one same-id architecture-policy row with the exact direct workspace dependencies, canonical ring, tooling selectors and optional-peer selectors;
+4. `workspace:^` for every committed internal dependency plus matching optional-peer metadata;
+5. a root `CHANGELOG.md` bullet owned by that catalog id; and
+6. regenerated catalog and policy documentation.
+
+Do not add the package to a publish loop, array, package-count sentence or copied graph. Regenerate and run the admission gates:
+
+```bash
+node docs-site/generated.mjs
+yarn verify:product-catalog
+yarn verify:architecture-zones
+yarn verify:runtime-reachability
+yarn verify:package-metadata
+yarn verify:release-governance
+yarn verify:docs-generated
+```
+
+The release plan admits the package automatically only after the catalog, policy and manifest agree. `yarn verify:architecture-zones` rejects missing, extra, upward, cyclic, private or non-canonical
+edges; `yarn verify:runtime-reachability` rejects tooling and optional-peer leakage per public entry; and `yarn verify:package-metadata` rejects release/version/range drift.
+
 ### Lockstep version and manifest rules
 
 - Every catalog package has one identical valid SemVer version. Independent package versions, partial trains and compatibility exceptions are refused.
@@ -73,14 +99,32 @@ not authorize publication.
 
 ### Release preparation, tag and publish order
 
+Choose the complete train version once:
+
+```bash
+RELEASE_VERSION=1.0.0-alpha.5
+node scripts/release/bump.mjs "$RELEASE_VERSION"
+yarn verify:architecture-zones
+yarn verify:runtime-reachability
+yarn verify:package-metadata
+yarn verify:release-governance
+yarn verify:publish
+node scripts/release/plan.mjs --publish-tsv
+```
+
 The final release flow is:
 
-1. Write and review non-empty `Unreleased` notes.
-2. Run `node scripts/release/bump.mjs <version>`. It validates the version transition, moves the pending notes under a dated version heading, restores an empty `Unreleased` section, updates every
-   catalog manifest atomically and runs Yarn to update the lockfile. It does not create a commit or tag and does not publish.
-3. Run all architecture, metadata, release and packed-publication gates. A dry run is read-only outside its temporary package staging area.
-4. Commit the complete train and create exactly `v<version>` at that commit. A real publish is tag-triggered; manual dispatch remains dry-run only.
-5. Recompute the release plan in CI, reject any tag/version/changelog disagreement, build and verify every package, then publish in `publishOrder`.
+1. Write and review non-empty `Unreleased` notes, set `RELEASE_VERSION`, and run the commands above. The bump validates the transition, moves the notes under a dated version heading, restores an empty
+   `Unreleased` section, updates every catalog manifest atomically and refreshes the lockfile. It does not create a commit or tag and does not publish.
+2. Run the complete ordinary repository gate. A manual workflow dispatch is the publication dry run and is read-only outside its disposable package staging area.
+3. Commit the complete train and create exactly `v<version>` at that commit:
+
+   ```bash
+   git tag "v$RELEASE_VERSION"
+   git push origin "v$RELEASE_VERSION"
+   ```
+
+4. CI recomputes the plan, rejects any tag/version/changelog disagreement before build or packaging, verifies every package, and publishes in `publishOrder`.
 
 Publication stops at the first failure. A retry uses the same tag and version, verifies the registry copy of any package already published in the interrupted train, skips only a byte-identical
 existing version, and resumes the remaining topological suffix. It never bumps or retags a subset. The train is complete only when every planned npm name reports the common version.
@@ -152,20 +196,11 @@ Release verification reports every problem in deterministic package/path order a
 3. **(Recommended) Lock it down**: once trusted publishing works, in each package's **Settings → Publishing access** choose **“Require two-factor authentication and disallow tokens.”** Trusted
    publishing keeps working (it uses OIDC, not tokens).
 
-## Releasing (after trusted publishers are configured)
+## Releasing after trusted publishers are configured
 
-- **Prepare the train:** add reviewed bullets below `Unreleased`, then run `node scripts/release/bump.mjs <version>`. This moves those notes, updates every catalog manifest and refreshes `yarn.lock`;
-  it does not commit, tag or publish.
-- **Verify locally:** run `yarn verify:release-governance` and `yarn verify:publish` with the ordinary repository gate.
-- **Dry run:** Actions tab → _Publish @zmdb packages to npm_ → Run workflow. Manual dispatch always builds, verifies, executes every optional server integration against its live peer, repoints only
-  the disposable checkout and runs `npm pack --dry-run`.
-- **Real publish:** commit the complete train and push its exact tag:
-  ```bash
-  git tag v1.0.0-alpha.N
-  git push origin v1.0.0-alpha.N
-  ```
-  The workflow rejects any tag/version/changelog disagreement before it builds, verifies the packed packages from outside the workspace, materializes the policy-derived order, executes the seven
-  installed optional server consumers against their required peers, repoints manifests and publishes each package via OIDC. No package inventory or npm token is embedded in the workflow.
+Use the release-preparation commands above. In the Actions tab, _Publish @zmdb packages to npm_ → _Run workflow_ is always a dry run: it builds, verifies, executes every optional server integration
+against its live peer, repoints only the disposable checkout and runs `npm pack --dry-run`. Only the exact pushed `v<version>` tag starts a real publish. The workflow uses the derived plan and OIDC;
+it embeds neither a package inventory nor an npm token.
 
 ## What ends up in each tarball
 

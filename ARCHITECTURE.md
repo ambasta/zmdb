@@ -518,7 +518,7 @@ The catalog deliberately does not own versions, dependency ranges, changelogs, n
 to architecture-governance EPIC #721; the #728 release tooling reads catalog membership only.
 
 The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
-ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the thirty-one-package inventory plus required catalog consumers and rejection rules are frozen in
+ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the current package inventory plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
 ### 3.10 Canonical architecture policy and enforcement (#722, #724, #725, #726, #727, #728)
@@ -535,45 +535,94 @@ foundation < runtime < application < integration < tooling < facade
 ```
 
 A package may depend only on its own or an inward zone, every direct workspace dependency must also be named explicitly by that package's policy row, and the dependency's numeric ring must be lower
-than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The current thirty-one
-catalog members therefore freeze as:
+than the consumer's. Rings are canonical rather than decorative: a package with no workspace dependency is ring 0; every other package is `1 + max(direct dependency rings)`. The complete current graph
+and entry-specific reachability assignments are generated from the admitted manifests and policy:
 
-| Catalog id           | Zone          | Ring | Direct workspace dependencies                                                          |
-| -------------------- | ------------- | ---: | -------------------------------------------------------------------------------------- |
-| `client`             | `foundation`  |    0 | none                                                                                   |
-| `angular`            | `integration` |    0 | none                                                                                   |
-| `react`              | `integration` |    1 | `client`                                                                               |
-| `react-native`       | `integration` |    2 | `client`, `react`                                                                      |
-| `vue`                | `integration` |    1 | `client`                                                                               |
-| `svelte`             | `integration` |    1 | `client`                                                                               |
-| `sveltekit`          | `integration` |    2 | `client`, `svelte`                                                                     |
-| `next`               | `integration` |    2 | `client`, `react`                                                                      |
-| `nuxt`               | `integration` |    2 | `client`, `vue`                                                                        |
-| `solid`              | `integration` |    1 | `client`                                                                               |
-| `protobuf`           | `foundation`  |    0 | none                                                                                   |
-| `query-compiler`     | `foundation`  |    0 | none                                                                                   |
-| `schema-core`        | `foundation`  |    1 | `query-compiler`                                                                       |
-| `ai`                 | `runtime`     |    2 | `schema-core`                                                                          |
-| `ai-anthropic`       | `integration` |    3 | `ai`                                                                                   |
-| `ai-langchain`       | `integration` |    3 | `ai`                                                                                   |
-| `ai-vercel`          | `integration` |    3 | `ai`                                                                                   |
-| `aot-validator`      | `runtime`     |    3 | `ai`, `schema-core`                                                                    |
-| `mcp`                | `integration` |    3 | `ai`                                                                                   |
-| `repository`         | `runtime`     |    4 | `aot-validator`, `query-compiler`, `schema-core`                                       |
-| `app`                | `application` |    5 | `aot-validator`, `query-compiler`, `repository`, `schema-core`                         |
-| `sqlite`             | `runtime`     |    5 | `query-compiler`, `repository`                                                         |
-| `jobs`               | `application` |    6 | `app`, `query-compiler`, `repository`, `sqlite`                                        |
-| `jobs-postgres`      | `integration` |    7 | `jobs`, `repository`                                                                   |
-| `otel`               | `integration` |    6 | `app`                                                                                  |
-| `transport-grpc`     | `integration` |    6 | `app`, `protobuf`                                                                      |
-| `transport-nats`     | `integration` |    6 | `app`                                                                                  |
-| `transport-rabbitmq` | `integration` |    6 | `app`                                                                                  |
-| `transport-redis`    | `integration` |    6 | `app`                                                                                  |
-| `web`                | `application` |    6 | `app`, `aot-validator`, `query-compiler`, `schema-core`                                |
-| `zmdb`               | `facade`      |    7 | `app`, `aot-validator`, `query-compiler`, `repository`, `schema-core`, `sqlite`, `web` |
+<!-- generated: architecture policy-graph -->
+
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **31 catalog packages**, **52 direct workspace edges**, and canonical rings **0–7**.
+
+| Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                |
+| ---- | ----------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | integration | `@zmdb/angular`            | none                                                                                                                                         |
+| 0    | foundation  | `@zmdb/client`             | none                                                                                                                                         |
+| 0    | foundation  | `@zmdb/protobuf`           | none                                                                                                                                         |
+| 0    | foundation  | `@zmdb/query-compiler`     | none                                                                                                                                         |
+| 1    | integration | `@zmdb/react`              | `@zmdb/client`                                                                                                                               |
+| 1    | foundation  | `@zmdb/schema-core`        | `@zmdb/query-compiler`                                                                                                                       |
+| 1    | integration | `@zmdb/solid`              | `@zmdb/client`                                                                                                                               |
+| 1    | integration | `@zmdb/svelte`             | `@zmdb/client`                                                                                                                               |
+| 1    | integration | `@zmdb/vue`                | `@zmdb/client`                                                                                                                               |
+| 2    | runtime     | `@zmdb/ai`                 | `@zmdb/schema-core`                                                                                                                          |
+| 2    | integration | `@zmdb/next`               | `@zmdb/client`<br>`@zmdb/react`                                                                                                              |
+| 2    | integration | `@zmdb/nuxt`               | `@zmdb/client`<br>`@zmdb/vue`                                                                                                                |
+| 2    | integration | `@zmdb/react-native`       | `@zmdb/client`<br>`@zmdb/react`                                                                                                              |
+| 2    | integration | `@zmdb/sveltekit`          | `@zmdb/client`<br>`@zmdb/svelte`                                                                                                             |
+| 3    | integration | `@zmdb/ai-anthropic`       | `@zmdb/ai`                                                                                                                                   |
+| 3    | integration | `@zmdb/ai-langchain`       | `@zmdb/ai`                                                                                                                                   |
+| 3    | integration | `@zmdb/ai-vercel`          | `@zmdb/ai`                                                                                                                                   |
+| 3    | runtime     | `@zmdb/aot-validator`      | `@zmdb/ai`<br>`@zmdb/schema-core`                                                                                                            |
+| 3    | integration | `@zmdb/mcp`                | `@zmdb/ai`                                                                                                                                   |
+| 4    | runtime     | `@zmdb/repository`         | `@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                                       |
+| 5    | application | `@zmdb/app`                | `@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`                                                 |
+| 5    | runtime     | `@zmdb/sqlite`             | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                 |
+| 6    | application | `@zmdb/jobs`               | `@zmdb/app`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/sqlite`                                                                |
+| 6    | integration | `@zmdb/otel`               | `@zmdb/app`                                                                                                                                  |
+| 6    | integration | `@zmdb/transport-grpc`     | `@zmdb/app`<br>`@zmdb/protobuf`                                                                                                              |
+| 6    | integration | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                  |
+| 6    | integration | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                  |
+| 6    | integration | `@zmdb/transport-redis`    | `@zmdb/app`                                                                                                                                  |
+| 6    | application | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                        |
+| 7    | integration | `@zmdb/jobs-postgres`      | `@zmdb/jobs`<br>`@zmdb/repository`                                                                                                           |
+| 7    | facade      | `zmdb`                     | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`<br>`@zmdb/sqlite`<br>`@zmdb/web` |
+
+Entry-specific runtime, tooling, and optional-peer reachability assignments:
+
+| Package                | Reachability class          | Allowed target                             | Entry selector(s)                                                                                                                                     |
+| ---------------------- | --------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@zmdb/client`         | tooling boundary            | tooling-only code                          | `./testing`                                                                                                                                           |
+| `@zmdb/query-compiler` | tooling boundary            | tooling-only code                          | `./introspect`                                                                                                                                        |
+| `@zmdb/ai`             | tooling boundary            | tooling-only code                          | `./compiler`                                                                                                                                          |
+| `@zmdb/next`           | ordinary runtime dependency | `server-only`                              | ordinary runtime entries                                                                                                                              |
+| `@zmdb/ai-anthropic`   | optional peer               | `@anthropic-ai/sdk@0.123.0`                | `.`                                                                                                                                                   |
+| `@zmdb/ai-langchain`   | optional peer               | `@langchain/core@^1.2.9`                   | `.`                                                                                                                                                   |
+| `@zmdb/ai-vercel`      | optional peer               | `ai@^7.0.83`                               | `.`                                                                                                                                                   |
+| `@zmdb/aot-validator`  | tooling boundary            | tooling-only code                          | `./codegen`<br>`./emit`<br>`./lint`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen` |
+| `@zmdb/aot-validator`  | optional peer               | `metro@>=0.87.0 <0.88.0`                   | `./metro`                                                                                                                                             |
+| `@zmdb/aot-validator`  | optional peer               | `metro-babel-transformer@>=0.87.0 <0.88.0` | `./metro`                                                                                                                                             |
+| `@zmdb/aot-validator`  | optional peer               | `oxlint@>=1.81.0 <1.82.0`                  | `./lint`                                                                                                                                              |
+| `@zmdb/aot-validator`  | optional peer               | `typescript@>=7.0.0`                       | `./codegen`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen`                         |
+| `@zmdb/web`            | tooling boundary            | tooling-only code                          | `./bench`<br>`./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                     |
+| `@zmdb/web`            | optional peer               | `typescript@>=7.0.0`                       | `./contract/compiler`                                                                                                                                 |
+| `zmdb`                 | tooling boundary            | tooling-only code                          | `./cli`<br>`./config`<br>`./unplugin`<br>`./web/contract/compiler`<br>`bin:zmdb`                                                                      |
+
+The tables are regenerated by `node docs-site/generated.mjs` and checked without writing by `yarn verify:docs-generated`.
+
+<!-- /generated: architecture policy-graph -->
 
 Roadmap-only directories do not receive policy rows. A package is added to this table only when it has a publishable manifest and is admitted to the product catalog; admission and policy must land
 atomically once the catalog exists.
+
+Package admission is one atomic workflow:
+
+1. add the publishable manifest, public exports, package documentation, license and external-consumer evidence;
+2. add one same-id row to `scripts/product/catalog.mjs` and `scripts/architecture/policy.mjs`;
+3. declare every direct catalog dependency as `workspace:^`, list the same ids in `allowedWorkspaceDependencies`, and use the canonical minimal ring;
+4. assign tooling entries and optional peers to exact export/bin selectors;
+5. add the root changelog bullet owned by the catalog id; and
+6. regenerate and verify every derived surface:
+
+```bash
+node docs-site/generated.mjs
+yarn verify:product-catalog
+yarn verify:architecture-zones
+yarn verify:runtime-reachability
+yarn verify:package-metadata
+yarn verify:release-governance
+yarn verify:docs-generated
+```
+
+No workflow, release helper, package reference or architecture diagram receives a separate package row or publish position.
 
 The read-only model resolves package and export lookups from catalog-owned manifests, builds the policy DAG and returns deterministic dependency-first catalog ids.
 [`verify-architecture-zones.mjs`](./.github/scripts/verify-architecture-zones.mjs) starts from every manifest export and executable, counts production type-only imports for ownership, rejects private
@@ -588,7 +637,7 @@ NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 All catalog packages form one lockstep release train. They carry one version, use `workspace:^` for committed internal ranges, derive publish order from the policy DAG, share one root changelog and
 must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
 
-The complete `PackagePolicy` schema, all thirty-one rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
+The complete `PackagePolicy` schema, all admitted rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
 [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication order are implemented under [`scripts/release/`](./scripts/release/) and documented in
 [PUBLISHING.md](./PUBLISHING.md).
 

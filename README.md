@@ -123,7 +123,8 @@ See also [ARCHITECTURE.md](./ARCHITECTURE.md) and the [COOKBOOK.md](./COOKBOOK.m
 
 ## Architecture
 
-Read [ARCHITECTURE.md](./ARCHITECTURE.md) for the design and [COOKBOOK.md](./COOKBOOK.md) for practical examples.
+Read [ARCHITECTURE.md](./ARCHITECTURE.md) for the policy-generated package graph and admission workflow, [PUBLISHING.md](./PUBLISHING.md) for the executable lockstep release workflow, and
+[COOKBOOK.md](./COOKBOOK.md) for practical examples.
 
 ## Benchmarks
 

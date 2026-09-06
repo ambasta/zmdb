@@ -17,6 +17,6 @@ if (report.problems.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-    `Generated documentation verified: ${String(report.packages)} packages and ${String(report.integrations)} framework integrations.`,
+    `Generated documentation verified: ${String(report.packages)} packages, ${String(report.integrations)} framework integrations, and ${String(report.architectureDocuments)} architecture policy views.`,
   );
 }

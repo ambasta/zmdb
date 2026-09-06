@@ -1,7 +1,7 @@
 # Documentation product journey — frozen specification
 
 > Status: **FROZEN** by GitHub sub-issue #713. Later issue-scoped changes implement the registry and generated sections; #686 amends the Client applications journey with one supported
-> `generated-client` page and executable packed samples.
+> `generated-client` page and executable packed samples, and #729 publishes the policy-generated architecture and executable governance workflows.
 
 ## 1. Purpose and boundary
 
@@ -107,6 +107,9 @@ Generated sections use paired, literal markers:
 
 <!-- generated: integrations framework-integrations -->
 <!-- /generated: integrations framework-integrations -->
+
+<!-- generated: architecture policy-graph -->
+<!-- /generated: architecture policy-graph -->
 ```
 
 Rules:
@@ -166,6 +169,21 @@ Additional invariants:
 - An issue, draft or roadmap entry is not support evidence. The matrix reports shipped truth only.
 - Prose mentions do not cause a row to be inferred.
 - React, Angular, Vue, Svelte, Solid, React Native, Next.js, Nuxt and SvelteKit each have exactly one row. Until implementation evidence exists, a row must not claim `built-in` or `optional`.
+
+### 5.3 Executable architecture views
+
+`ARCHITECTURE.md` and `docs-site/content/architecture.md` carry the same `architecture policy-graph` generated region. Its authorities are:
+
+1. `scripts/product/catalog.mjs` for admitted package identity and npm name;
+2. `scripts/architecture/policy.mjs` for zone, canonical ring, direct workspace dependencies, ordinary runtime allowances, tooling selectors, optional peers and their exact selectors; and
+3. the admitted manifests for optional-peer ranges.
+
+The generated view contains every admitted package exactly once, the complete direct workspace graph, measured package/edge/ring bounds, and every non-empty runtime/tooling/optional-peer assignment.
+Rows are ordered by ring and npm name. Package ids are mapped through the catalog rather than synthesized from directories.
+
+The docs checker also requires copy-pasteable package-admission and release commands in `ARCHITECTURE.md`, `docs-site/content/architecture.md`, and `PUBLISHING.md`. It rejects the former
+hand-maintained dependency spine, the stale twenty-nine-package claim, an independently-versionable-package claim, and a copied publish loop in release documentation. Graph output may change only by
+changing the catalog, policy or admitted manifests and regenerating with `node docs-site/generated.mjs`.
 
 ## 6. Documentation sample contract
 
@@ -260,6 +278,8 @@ The implementation children add exact tests for these frozen statements:
 - all current non-GraphQL slugs remain stable;
 - all twelve legacy GraphQL slugs redirect to `graphql`;
 - package and integration output is deterministic and sourced as specified;
+- architecture graph, rings and entry assignments are deterministic and sourced from catalog, policy and manifests;
+- package admission and lockstep release commands remain present while copied package inventories remain absent;
 - every retained typed fence is classified;
 - compile samples compile, expected-error samples fail for their declared diagnostics, and illustrative samples carry a reason.
 

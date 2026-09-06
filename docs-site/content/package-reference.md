@@ -832,4 +832,5 @@ at compile time.
 <!-- /generated: product-catalog package-reference -->
 
 Release versions, changelog entries, npm tags, and publish order are not product catalog fields. The release model combines this catalog membership with architecture-policy edges, package manifests
-and the root changelog.
+and the root changelog. See the [architecture guide](./architecture.html) for the generated graph and atomic package-admission workflow; the repository's `PUBLISHING.md` carries the complete
+changelog, bump, dry-run, exact-tag, and retry procedure.

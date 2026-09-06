@@ -16,11 +16,15 @@ import { pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { loadArchitectureSync } from '../scripts/architecture/index.mjs';
 import { PRODUCT_JOURNEY } from './navigation-plan.mjs';
 
 const ROOT = process.cwd();
+const ROOT_ARCHITECTURE = 'ARCHITECTURE.md';
+const DOCS_ARCHITECTURE = 'docs-site/content/architecture.md';
 const PACKAGE_REFERENCE = 'docs-site/content/package-reference.md';
 const FRAMEWORK_INTEGRATIONS = 'docs-site/content/framework-integrations.md';
+const ARCHITECTURE_MARKER = 'architecture policy-graph';
 const PACKAGE_MARKER = 'product-catalog package-reference';
 const INTEGRATION_MARKER = 'integrations framework-integrations';
 const FRAMEWORKS = ['React', 'Angular', 'Vue', 'Svelte', 'Solid', 'React Native', 'Next.js', 'Nuxt', 'SvelteKit'];
@@ -58,6 +62,9 @@ function createFixture(): string {
   }
   for (const file of ['package.json', 'yarn.lock', 'tsconfig.json', '.yarnrc.yml']) {
     symlinkSync(join(ROOT, file), join(fixture, file), 'file');
+  }
+  for (const file of [ROOT_ARCHITECTURE, 'PUBLISHING.md', 'docs-README.md']) {
+    cpSync(join(ROOT, file), join(fixture, file));
   }
   return fixture;
 }
@@ -106,6 +113,15 @@ function markerDocument(marker: string): string {
   ].join('\n');
 }
 
+function staleGeneratedRegion(source: string, marker: string): string {
+  const open = `<!-- generated: ${marker} -->`;
+  const close = `<!-- /generated: ${marker} -->`;
+  const openAt = source.indexOf(open);
+  const closeAt = source.indexOf(close);
+  if (openAt < 0 || closeAt < openAt) throw new Error(`missing generated marker pair: ${marker}`);
+  return `${source.slice(0, openAt + open.length)}\n\nSTALE GENERATED SENTINEL\n\n${source.slice(closeAt)}`;
+}
+
 function generatedSection(source: string, marker: string): string {
   const open = `<!-- generated: ${marker} -->`;
   const close = `<!-- /generated: ${marker} -->`;
@@ -118,6 +134,12 @@ function generatedSection(source: string, marker: string): string {
     throw new Error(`duplicated generated marker pair: ${marker}`);
   }
   return source.slice(openAt + open.length, closeAt);
+}
+
+function generatedSnapshot(root: string): string {
+  return [ROOT_ARCHITECTURE, DOCS_ARCHITECTURE, PACKAGE_REFERENCE, FRAMEWORK_INTEGRATIONS]
+    .map(path => readFileSync(join(root, path), 'utf8'))
+    .join('\n');
 }
 
 function publicPackageManifests(root: string): PackageManifest[] {
@@ -198,7 +220,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it('generates every integration row from evidence-bearing data', () => {
+  it('generates every integration row and architecture policy view from evidence-bearing data', () => {
     withFixture(fixture => {
       const target = join(fixture, FRAMEWORK_INTEGRATIONS);
       writeFileSync(target, markerDocument(INTEGRATION_MARKER));
@@ -212,27 +234,81 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       expect(generated).toMatch(/\b(built-in|optional|documented|not-planned)\b/);
       expect(generated).toMatch(/(?:packages|docs-site)\//);
     });
+
+    withFixture(fixture => {
+      for (const path of [ROOT_ARCHITECTURE, DOCS_ARCHITECTURE]) {
+        const target = join(fixture, path);
+        writeFileSync(target, staleGeneratedRegion(readFileSync(target, 'utf8'), ARCHITECTURE_MARKER));
+      }
+
+      const result = build(fixture);
+      expect(result.status, result.output).toBe(0);
+
+      const architecture = loadArchitectureSync(ROOT);
+      const edgeCount = architecture.packages.reduce(
+        (count, packageRecord) => count + packageRecord.policy.allowedWorkspaceDependencies.length,
+        0,
+      );
+      const byId = new Map(architecture.packages.map(packageRecord => [packageRecord.id, packageRecord]));
+
+      for (const path of [ROOT_ARCHITECTURE, DOCS_ARCHITECTURE]) {
+        const generated = generatedSection(readFileSync(join(fixture, path), 'utf8'), ARCHITECTURE_MARKER);
+        expect(generated).toContain(`**${String(architecture.packages.length)} catalog packages**`);
+        expect(generated).toContain(`**${String(edgeCount)} direct workspace edges**`);
+        for (const packageRecord of architecture.packages) {
+          expect(generated, packageRecord.id).toContain(packageRecord.npmName);
+          expect(generated, packageRecord.id).toContain(packageRecord.policy.zone);
+          expect(generated, packageRecord.id).toContain(String(packageRecord.policy.ring));
+          for (const dependency of packageRecord.policy.allowedWorkspaceDependencies) {
+            expect(generated, `${packageRecord.id}:${dependency}`).toContain(
+              byId.get(dependency)?.npmName ?? `missing:${dependency}`,
+            );
+          }
+          for (const selector of packageRecord.policy.toolingEntries) {
+            expect(generated, `${packageRecord.id}:${selector}`).toContain(selector);
+          }
+          for (const [peer, selectors] of Object.entries(packageRecord.policy.optionalPeerEntries)) {
+            expect(generated, `${packageRecord.id}:${peer}`).toContain(peer);
+            for (const selector of selectors) {
+              expect(generated, `${packageRecord.id}:${peer}:${selector}`).toContain(selector);
+            }
+          }
+        }
+      }
+    });
   });
 
   it('leaves generated content byte-identical on a second run', () => {
     withFixture(fixture => {
       const packageReference = join(fixture, PACKAGE_REFERENCE);
       const integrations = join(fixture, FRAMEWORK_INTEGRATIONS);
+      const rootArchitecture = join(fixture, ROOT_ARCHITECTURE);
+      const docsArchitecture = join(fixture, DOCS_ARCHITECTURE);
       writeFileSync(packageReference, markerDocument(PACKAGE_MARKER));
       writeFileSync(integrations, markerDocument(INTEGRATION_MARKER));
-      const before = `${readFileSync(packageReference, 'utf8')}\n${readFileSync(integrations, 'utf8')}`;
+      writeFileSync(
+        rootArchitecture,
+        staleGeneratedRegion(readFileSync(rootArchitecture, 'utf8'), ARCHITECTURE_MARKER),
+      );
+      writeFileSync(
+        docsArchitecture,
+        staleGeneratedRegion(readFileSync(docsArchitecture, 'utf8'), ARCHITECTURE_MARKER),
+      );
+      const before = generatedSnapshot(fixture);
 
       const firstResult = build(fixture);
       expect(firstResult.status, firstResult.output).toBe(0);
-      const first = `${readFileSync(packageReference, 'utf8')}\n${readFileSync(integrations, 'utf8')}`;
+      const first = generatedSnapshot(fixture);
 
       const secondResult = build(fixture);
       expect(secondResult.status, secondResult.output).toBe(0);
-      const second = `${readFileSync(packageReference, 'utf8')}\n${readFileSync(integrations, 'utf8')}`;
+      const second = generatedSnapshot(fixture);
 
       expect(first).not.toBe(before);
       expect(second).toBe(first);
       expect(first).not.toContain('STALE GENERATED SENTINEL');
+      expect(readFileSync(rootArchitecture, 'utf8')).toMatch(/\n$/);
+      expect(readFileSync(docsArchitecture, 'utf8')).toMatch(/\n$/);
       expect(readFileSync(packageReference, 'utf8')).toMatch(/\n$/);
       expect(readFileSync(integrations, 'utf8')).toMatch(/\n$/);
     });
@@ -280,16 +356,40 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     withFixture(fixture => {
       const packageReference = join(fixture, PACKAGE_REFERENCE);
       const integrations = join(fixture, FRAMEWORK_INTEGRATIONS);
+      const rootArchitecture = join(fixture, ROOT_ARCHITECTURE);
+      const docsArchitecture = join(fixture, DOCS_ARCHITECTURE);
       writeFileSync(packageReference, markerDocument(PACKAGE_MARKER));
       writeFileSync(integrations, markerDocument(INTEGRATION_MARKER));
+      writeFileSync(
+        rootArchitecture,
+        staleGeneratedRegion(readFileSync(rootArchitecture, 'utf8'), ARCHITECTURE_MARKER),
+      );
+      writeFileSync(
+        docsArchitecture,
+        staleGeneratedRegion(readFileSync(docsArchitecture, 'utf8'), ARCHITECTURE_MARKER),
+      );
       expect(build(fixture).status).toBe(0);
 
-      const before = `${readFileSync(packageReference, 'utf8')}\n${readFileSync(integrations, 'utf8')}`;
+      const before = generatedSnapshot(fixture);
       const result = verifyGenerated(fixture);
-      const after = `${readFileSync(packageReference, 'utf8')}\n${readFileSync(integrations, 'utf8')}`;
+      const after = generatedSnapshot(fixture);
 
       expect(result.status, result.output).toBe(0);
       expect(after).toBe(before);
+
+      const publishing = join(fixture, 'PUBLISHING.md');
+      writeFileSync(
+        publishing,
+        readFileSync(publishing, 'utf8').replaceAll(
+          'node scripts/release/plan.mjs --publish-tsv',
+          'STALE RELEASE PLAN COMMAND',
+        ),
+      );
+
+      const staleResult = verifyGenerated(fixture);
+      expect(staleResult.status).not.toBe(0);
+      expect(staleResult.output).toContain('PUBLISHING.md');
+      expect(staleResult.output).toContain('node scripts/release/plan.mjs --publish-tsv');
     });
   });
 
