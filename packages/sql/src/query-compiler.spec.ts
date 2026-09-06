@@ -769,7 +769,10 @@ describe('Operator validation and strict typing', () => {
 
     for (const operator of invalid) {
       const compile = () =>
-        createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('role', operator, 1).compile();
+        createQueryCompiler(postgresDialect)
+          .selectFrom(trustedTable('users'))
+          .where('role', operator, 1)
+          .compile();
       expect(compile, JSON.stringify(operator)).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -802,7 +805,10 @@ describe('Operator validation and strict typing', () => {
       const inherited: unknown = Reflect.get(input, 'operator');
       if (typeof inherited !== 'string') throw new TypeError('test input carried no inherited operator string');
       const compile = () =>
-        createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('col', inherited, 'val').compile();
+        createQueryCompiler(postgresDialect)
+          .selectFrom(trustedTable('users'))
+          .where('col', inherited, 'val')
+          .compile();
       expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
     }
   });
