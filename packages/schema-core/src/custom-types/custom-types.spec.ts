@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
+import type { ColumnMeta, CoreSchema } from '../index.js';
 import { defineType, encodeValue, decodeValue, wireCodec } from './index.js';
 
 // The codec's TS-side/DB-side types are asserted in `custom-types.type-test.ts`.
-// (This file used to build its fixture inside a try/catch that fell back to a
-// hand-cast `CustomType` "during red phase, when defineType throws" — a
-// placeholder that outlived the red phase and would have silently swallowed a
-// real `defineType` failure.)
 describe('custom types & codecs (#133)', () => {
   it('defineType returns a frozen descriptor', () => {
     const t = defineType<string, number, string>({
@@ -47,5 +44,51 @@ describe('custom types & codecs (#133)', () => {
     expect(codec.decode('19.99')).toEqual({ cents: 1999 });
     expect(codec.encode({ cents: 1999 })).toBe('19.99');
     expect(codec.encode(codec.decode('0.05'))).toBe('0.05');
+  });
+
+  it('attaches customType metadata to schema columns', () => {
+    interface Money {
+      amount: number;
+      currency: string;
+    }
+    const MoneyType = defineType<string, Money, string>({
+      sqlType: 'varchar(50)',
+      toDb: m => `${m.amount}:${m.currency}`,
+      fromDb: s => {
+        const [amount, currency] = s.split(':');
+        return { amount: Number(amount), currency: currency ?? 'USD' };
+      },
+      toWire: m => `${m.amount}:${m.currency}`,
+      fromWire: s => {
+        const [amount, currency] = s.split(':');
+        return { amount: Number(amount), currency: currency ?? 'USD' };
+      },
+      validate: m => {
+        if (typeof m !== 'object' || m === null) return 'must be object';
+        const money = m as Money;
+        return money.amount > 0 || 'amount must be positive';
+      },
+    });
+
+    const priceCol: ColumnMeta = {
+      type: 'text',
+      flags: { nullable: false },
+      customType: MoneyType,
+    };
+    expect(priceCol.customType?.sqlType).toBe('varchar(50)');
+    expect(priceCol.customType?.toDb).toBe(MoneyType.toDb);
+
+    const schema: CoreSchema = {
+      table: 'orders',
+      columns: {
+        id: { type: 'text', flags: { nullable: false, primaryKey: true } },
+        price: priceCol,
+      },
+      primaryKey: ['id'],
+      references: [],
+      ir: { table: 'orders', physicalTable: 'orders', columns: [], primaryKey: ['id'], relations: [], foreignKeys: [] },
+    };
+    expect(schema.columns['price']?.customType?.sqlType).toBe('varchar(50)');
+    expect(schema.columns['price']?.customType?.toDb).toBe(MoneyType.toDb);
   });
 });
