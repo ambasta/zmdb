@@ -59,12 +59,13 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
     const compiler = createQueryCompiler(mssql);
     const aliased = [{ column: 'created_at', alias: 'createdAt' }] as const;
 
-    expect(compiler.insertInto(trustedTable('users')).values({ email: 'a@b.com' }).returning(['id']).compile()).toEqual(
-      {
-        text: 'INSERT INTO [users] ([email]) OUTPUT INSERTED.[id] VALUES (@p1)',
-        parameters: ['a@b.com'],
-      },
-    );
+    expect(compiler.insertInto(trustedTable('users')).values({ email: 'a@b.com' }).returning(['id']).compile()).toEqual({
+      text: 'INSERT INTO [users] ([email]) OUTPUT INSERTED.[id] VALUES (@p1)',
+      parameters: ['a@b.com'],
+      returnsRows: true,
+      operation: 'insert',
+      isWrite: true,
+    });
     expect(
       compiler
         .updateTable(trustedTable('users'))
@@ -75,14 +76,23 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
     ).toEqual({
       text: 'UPDATE [users] SET [email] = @p1 OUTPUT INSERTED.* WHERE [id] = @p2',
       parameters: ['b@c.com', 1],
+      returnsRows: true,
+      operation: 'update',
+      isWrite: true,
     });
     expect(compiler.deleteFrom(trustedTable('users')).where('id', '=', 1).returning(['id']).compile()).toEqual({
       text: 'DELETE FROM [users] OUTPUT DELETED.[id] WHERE [id] = @p1',
       parameters: [1],
+      returnsRows: true,
+      operation: 'delete',
+      isWrite: true,
     });
     expect(compiler.deleteFrom(trustedTable('users')).where('id', '=', 1).returning(aliased).compile()).toEqual({
       text: 'DELETE FROM [users] OUTPUT DELETED.[created_at] AS [createdAt] WHERE [id] = @p1',
       parameters: [1],
+      returnsRows: true,
+      operation: 'delete',
+      isWrite: true,
     });
   });
 
@@ -104,6 +114,9 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
         'WHEN NOT MATCHED THEN INSERT ([email], [role], [visits]) ' +
         'VALUES (src.[email], src.[role], src.[visits]) OUTPUT INSERTED.*;',
       parameters: ['a@b.com', 'user', 1, 1],
+      returnsRows: true,
+      operation: 'insert',
+      isWrite: true,
     });
   });
 
@@ -160,6 +173,9 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
     ).toEqual({
       text: 'SELECT * FROM [audit]]schema].[user]]events] WHERE [tenant]]id] = @p1 AND [active] = @p2',
       parameters: [7, true],
+      returnsRows: true,
+      operation: 'select',
+      isWrite: false,
     });
   });
 
