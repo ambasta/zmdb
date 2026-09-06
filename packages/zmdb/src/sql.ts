@@ -4,6 +4,7 @@
 export {
   DISTANCE_OPERATORS,
   EXPR,
+  InvalidOperatorError,
   OP_MAP,
   QueryCompilerError,
   UnsupportedFeatureError,
@@ -32,6 +33,7 @@ export {
   renderPredicate,
   renumberPlaceholders,
   serializeComment,
+  sqlOperator,
   stContains,
   stDWithin,
   withComments,

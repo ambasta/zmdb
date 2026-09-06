@@ -35,7 +35,7 @@ import {
 } from './dialects/index.js';
 import { UnsupportedFeatureError } from './errors.js';
 
-export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
+export { InvalidOperatorError, QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export type { CompiledQuery, QueryEffects, QueryTelemetry } from './compiled-query.js';
 export {
   defineSqlDialect,
@@ -103,7 +103,7 @@ export type {
   CatalogWarning,
 } from './introspect/types.js';
 
-import { frozenQuery, queryTelemetry, whereClause, type Predicate } from './clauses.js';
+import { frozenQuery, queryTelemetry, sqlOperator, whereClause, type Predicate } from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 
@@ -121,24 +121,80 @@ export type {
   SpatialPredicate,
   VectorColumnOf,
 } from './extensions/index.js';
-export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
+export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders, sqlOperator };
 export type Operator =
   | '='
   | '!='
+  | '<>'
   | '<'
   | '<='
   | '>'
   | '>='
   | 'like'
+  | 'LIKE'
+  | 'not like'
+  | 'NOT LIKE'
   | 'ilike'
+  | 'ILIKE'
+  | 'not ilike'
+  | 'NOT ILIKE'
   | 'in'
+  | 'IN'
   | 'not in'
+  | 'NOT IN'
   | 'nin'
-  | 'exists'
-  | 'not exists'
+  | 'NIN'
+  | 'is'
+  | 'IS'
+  | 'is not'
+  | 'IS NOT'
   | 'is null'
+  | 'IS NULL'
   | 'is not null'
-  | (string & {});
+  | 'IS NOT NULL'
+  | 'exists'
+  | 'EXISTS'
+  | 'not exists'
+  | 'NOT EXISTS'
+  | 'between'
+  | 'BETWEEN'
+  | 'not between'
+  | 'NOT BETWEEN'
+  | '@>'
+  | '<@'
+  | '?'
+  | '?&'
+  | '?|'
+  | '&&'
+  | '~'
+  | '~*'
+  | '!~'
+  | '!~*'
+  | 'distinct from'
+  | 'IS DISTINCT FROM'
+  | 'not distinct from'
+  | 'IS NOT DISTINCT FROM'
+  | 'regexp'
+  | 'REGEXP'
+  | 'not regexp'
+  | 'NOT REGEXP'
+  | 'rlike'
+  | 'RLIKE'
+  | 'not rlike'
+  | 'NOT RLIKE'
+  | 'sounds like'
+  | 'SOUNDS LIKE'
+  | 'glob'
+  | 'GLOB'
+  | 'not glob'
+  | 'NOT GLOB'
+  | 'match'
+  | 'MATCH'
+  | '@@'
+  | '<=>'
+  | '#>>'
+  | '!<'
+  | DistanceOp;
 
 export { OP_MAP } from './clauses.js';
 export { renderPredicate } from './clauses.js';
