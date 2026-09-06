@@ -1,7 +1,6 @@
 // AOT serialization — implementation.
 // #52 stringify + parse implemented. #53 assertStringify remains unimplemented.
-import type { ValidationIssue } from '../advanced/index.js';
-import { assert, AssertError, type TypeIR } from '../utilities/index.js';
+import { assert, AssertError, type TypeIR, type ValidationIssue } from '../utilities/index.js';
 
 // Runtime fallback serializer. Byte-identical to JSON.stringify for supported
 // values; bigint throws TypeError (documented policy). The AOT transformer will
