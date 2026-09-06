@@ -79,7 +79,7 @@ interface BoundRoute {
   readonly route: ResolvedRoute;
   /** The exact serialisable operation object when this route came from a contract. */
   readonly operation?: HttpOperationIR;
-  readonly pattern: CompiledPattern;
+  readonly pattern?: CompiledPattern;
   readonly handler: Handler;
   readonly validateBody?: (raw: unknown) => unknown;
   readonly guards?: readonly Guard[];
@@ -87,18 +87,21 @@ interface BoundRoute {
   readonly versionJsonHeaders?: Readonly<Record<string, string>>;
 }
 
-// Routes are indexed by method, then by segment count, because a route can only
-// match a path that agrees on both — so a request never looks at a route it
-// could not possibly match. `handle` used to scan every registered route and
-// re-split each one's pattern, which made matching O(routes) with a handful of
-// allocations per candidate; with a real route table that cost grows without
-// bound while the two keys below are known before any comparison happens.
-//
-// Within a bucket the registration order of `register` is preserved, so
-// first-registered-wins is unchanged: a `/user/:id` declared before `/user/me`
-// still shadows it, exactly as the flat scan did.
-type MethodBuckets = Map<string, BoundRoute[][]>;
-type VersionBuckets = Map<string, Map<string, BoundRoute[][]>>;
+interface SegmentTrieNode {
+  staticChildren?: Map<string, SegmentTrieNode>;
+  paramChild?: {
+    readonly paramName: string;
+    readonly node: SegmentTrieNode;
+  };
+  wildcardChild?: {
+    readonly paramName: string;
+    readonly node: SegmentTrieNode;
+  };
+  boundRoute?: BoundRoute;
+}
+
+type MethodTries = Map<string, SegmentTrieNode>;
+type VersionTries = Map<string, Map<string, SegmentTrieNode>>;
 
 interface SupportedRoute {
   readonly pattern: CompiledPattern;
@@ -118,82 +121,135 @@ interface VersionLookup {
   nextId: number;
 }
 
-function bucketFor(buckets: MethodBuckets, method: string, segmentCount: number): BoundRoute[] {
-  let bySegmentCount = buckets.get(method);
-  if (bySegmentCount === undefined) {
-    bySegmentCount = [];
-    buckets.set(method, bySegmentCount);
-  }
-  let bucket = bySegmentCount[segmentCount];
-  if (bucket === undefined) {
-    bucket = [];
-    bySegmentCount[segmentCount] = bucket;
-  }
-  return bucket;
+function createTrieNode(): SegmentTrieNode {
+  return {};
 }
 
-function versionBucketFor(
-  buckets: VersionBuckets,
-  neutralBuckets: MethodBuckets,
-  method: string,
-  version: string,
-  segmentCount: number,
-): BoundRoute[] {
-  let byVersion = buckets.get(method);
+function trieFor(tries: MethodTries, method: string): SegmentTrieNode {
+  let root = tries.get(method);
+  if (root === undefined) {
+    root = createTrieNode();
+    tries.set(method, root);
+  }
+  return root;
+}
+
+function versionTrieFor(versionTries: VersionTries, method: string, version: string): SegmentTrieNode {
+  let byVersion = versionTries.get(method);
   if (byVersion === undefined) {
     byVersion = new Map();
-    buckets.set(method, byVersion);
+    versionTries.set(method, byVersion);
   }
-  let bySegmentCount = byVersion.get(version);
-  if (bySegmentCount === undefined) {
-    bySegmentCount = [];
-    byVersion.set(version, bySegmentCount);
+  let root = byVersion.get(version);
+  if (root === undefined) {
+    root = createTrieNode();
+    byVersion.set(version, root);
   }
-  let bucket = bySegmentCount[segmentCount];
-  if (bucket === undefined) {
-    bucket = [...(neutralBuckets.get(method)?.[segmentCount] ?? [])];
-    bySegmentCount[segmentCount] = bucket;
-  }
-  return bucket;
+  return root;
 }
 
-function addSpecificVersionRoute(
-  buckets: VersionBuckets,
-  neutralBuckets: MethodBuckets,
-  method: string,
-  version: string,
-  route: BoundRoute,
-): void {
-  const bucket = versionBucketFor(buckets, neutralBuckets, method, version, route.pattern.segmentCount);
-  const samePathNeutral = bucket.findIndex(
-    candidate => candidate.neutral === true && candidate.pattern.pattern === route.pattern.pattern,
-  );
-  if (samePathNeutral === -1) {
-    bucket.push(route);
-  } else {
-    bucket.splice(samePathNeutral, 0, route);
-  }
-}
+function insertRoute(root: SegmentTrieNode, path: string, bound: BoundRoute): void {
+  let curr = root;
+  let start = path.charCodeAt(0) === 47 ? 1 : 0;
+  const len = path.length;
 
-function addNeutralRoute(
-  buckets: VersionBuckets,
-  neutralBuckets: MethodBuckets,
-  method: string,
-  route: BoundRoute,
-): void {
-  bucketFor(neutralBuckets, method, route.pattern.segmentCount).push(route);
-  const byVersion = buckets.get(method);
-  if (byVersion === undefined) {
-    return;
-  }
-  for (const bySegmentCount of byVersion.values()) {
-    let bucket = bySegmentCount[route.pattern.segmentCount];
-    if (bucket === undefined) {
-      bucket = [];
-      bySegmentCount[route.pattern.segmentCount] = bucket;
+  while (start <= len) {
+    let slashIdx = path.indexOf('/', start);
+    if (slashIdx === -1) {
+      slashIdx = len;
     }
-    bucket.push(route);
+    const segment = path.slice(start, slashIdx);
+    start = slashIdx + 1;
+
+    if (segment.startsWith(':')) {
+      const isWildcard = segment.endsWith('*');
+      const paramName = isWildcard ? segment.slice(1, -1) : segment.slice(1);
+      if (isWildcard) {
+        if (!curr.wildcardChild) {
+          curr.wildcardChild = { paramName, node: createTrieNode() };
+        }
+        curr = curr.wildcardChild.node;
+      } else {
+        if (!curr.paramChild) {
+          curr.paramChild = { paramName, node: createTrieNode() };
+        }
+        curr = curr.paramChild.node;
+      }
+    } else if (segment.startsWith('*')) {
+      const paramName = segment.length > 1 ? segment.slice(1) : 'wildcard';
+      if (!curr.wildcardChild) {
+        curr.wildcardChild = { paramName, node: createTrieNode() };
+      }
+      curr = curr.wildcardChild.node;
+    } else {
+      if (!curr.staticChildren) {
+        curr.staticChildren = new Map();
+      }
+      let child = curr.staticChildren.get(segment);
+      if (!child) {
+        child = createTrieNode();
+        curr.staticChildren.set(segment, child);
+      }
+      curr = child;
+    }
+
+    if (slashIdx === len) {
+      break;
+    }
   }
+
+  curr.boundRoute = bound;
+}
+
+function matchTrie(
+  node: SegmentTrieNode | undefined,
+  path: string,
+  start: number,
+  params: Record<string, string>,
+): BoundRoute | undefined {
+  if (node === undefined) {
+    return undefined;
+  }
+  const len = path.length;
+  if (start > len) {
+    return node.boundRoute;
+  }
+
+  let slashIdx = path.indexOf('/', start);
+  if (slashIdx === -1) {
+    slashIdx = len;
+  }
+  const segment = path.slice(start, slashIdx);
+  const nextStart = slashIdx === len ? len + 1 : slashIdx + 1;
+
+  // 1. Exact static match
+  if (node.staticChildren) {
+    const staticChild = node.staticChildren.get(segment);
+    if (staticChild) {
+      const res = matchTrie(staticChild, path, nextStart, params);
+      if (res) return res;
+    }
+  }
+
+  // 2. Param match
+  if (node.paramChild) {
+    params[node.paramChild.paramName] = segment;
+    const res = matchTrie(node.paramChild.node, path, nextStart, params);
+    if (res) return res;
+    delete params[node.paramChild.paramName];
+  }
+
+  // 3. Wildcard match
+  if (node.wildcardChild) {
+    const rest = path.slice(start);
+    params[node.wildcardChild.paramName] = rest;
+    if (node.wildcardChild.node.boundRoute) {
+      return node.wildcardChild.node.boundRoute;
+    }
+    delete params[node.wildcardChild.paramName];
+  }
+
+  return undefined;
 }
 
 function supportedBucketFor(buckets: SupportedBuckets, method: string, segmentCount: number): SupportedRoute[] {
@@ -591,22 +647,7 @@ function textBody(value: string): ResponseBody {
 }
 
 // ---- Handler-controlled responses ------------------------------------------
-//
-// A handler normally returns a plain value and the pipeline serializes it as
-// `200 application/json`. That covers a JSON API and nothing else: until these
-// factories existed a handler could not choose a status, set a header, or return
-// a body that was not JSON, so anything needing one of those had to be done in a
-// hand-written adapter outside the framework.
-//
-// Detection is a marker symbol, deliberately not a structural check. Sniffing
-// for a `status` property would be cheaper and needs no new API, but a DTO with
-// a `status` field is an entirely ordinary thing to return — `{ status: 'draft' }`
-// would silently stop being a body and become an HTTP status. The symbol makes
-// "plain object → 200 JSON" provably unchanged for every existing caller.
-//
-// Symbol.for, not a fresh Symbol: two copies of this package in one process
-// (a hoisting mismatch, or an app importing both `@zmdb/web` and `zmdb/web`)
-// must still recognise each other's responses.
+
 const RESPONSE_TAG = Symbol.for('zmdb.web.response');
 
 /** Status and headers a response factory accepts. */
@@ -627,8 +668,6 @@ export interface FileResponseOptions extends ResponseOptions {
   readonly onError: (error: unknown) => void;
 }
 
-// The tag is non-enumerable so a WebResponse remains the plain
-// `{ status, body, headers }` record consumers expect at the top level.
 function tagged(response: WebResponse): WebResponse {
   Object.defineProperty(response, RESPONSE_TAG, { value: true, enumerable: false });
   return response;
@@ -834,11 +873,11 @@ export interface Router {
 
 /** Create a router. Routes and their effective guards are resolved once at register time. */
 export function createRouter(routerOptions: RouterOptions = {}): Router {
-  const buckets: MethodBuckets = new Map();
+  const methodTries: MethodTries = new Map();
   const versioning = routerOptions.versioning;
   const requestVersioning = versioning?.kind === 'header' || versioning?.kind === 'media-type' ? versioning : undefined;
-  const versionBuckets: VersionBuckets = new Map();
-  const neutralBuckets: MethodBuckets = new Map();
+  const versionTries: VersionTries = new Map();
+  const neutralTries: MethodTries = new Map();
   const supportedBuckets: SupportedBuckets = new Map();
   const versionedRouteKeys = new Set<string>();
   const registeredOperationIds = new Set<string>();
@@ -883,14 +922,13 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             '@Version() requires createRouter({ versioning: ... })',
         );
       }
-      const pattern = compilePattern(route.path);
-      bucketFor(buckets, route.method, pattern.segmentCount).push({
+      const bound: BoundRoute = {
         route,
-        pattern,
         handler,
         ...(validateBody === undefined ? {} : { validateBody }),
         ...(guards.length === 0 ? {} : { guards }),
-      });
+      };
+      insertRoute(trieFor(methodTries, route.method.toUpperCase()), route.path, bound);
       return;
     }
 
@@ -903,28 +941,26 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
 
     if (versioning.kind === 'path') {
       if (declaration === 'neutral') {
-        const pattern = compilePattern(route.path);
-        bucketFor(buckets, route.method, pattern.segmentCount).push({
+        const bound: BoundRoute = {
           route,
-          pattern,
           handler,
           ...(validateBody === undefined ? {} : { validateBody }),
           ...(guards.length === 0 ? {} : { guards }),
-        });
+        };
+        insertRoute(trieFor(methodTries, route.method.toUpperCase()), route.path, bound);
         return;
       }
       for (const version of declaration) {
         const publicPath = pathForVersion(versioning.prefix, version, route.path);
         claimVersionedRoute(controller, route, version, publicPath);
         const expanded = { ...route, path: publicPath };
-        const pattern = compilePattern(publicPath);
-        bucketFor(buckets, route.method, pattern.segmentCount).push({
+        const bound: BoundRoute = {
           route: expanded,
-          pattern,
           handler,
           ...(validateBody === undefined ? {} : { validateBody }),
           ...(guards.length === 0 ? {} : { guards }),
-        });
+        };
+        insertRoute(trieFor(methodTries, route.method.toUpperCase()), publicPath, bound);
       }
       return;
     }
@@ -932,13 +968,12 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     const pattern = compilePattern(route.path);
     const base = {
       route,
-      pattern,
       handler,
       ...(validateBody === undefined ? {} : { validateBody }),
       ...(guards.length === 0 ? {} : { guards }),
     };
     if (declaration === 'neutral') {
-      addNeutralRoute(versionBuckets, neutralBuckets, route.method, { ...base, neutral: true });
+      insertRoute(trieFor(neutralTries, route.method.toUpperCase()), route.path, { ...base, neutral: true });
       return;
     }
     for (const version of declaration) {
@@ -946,7 +981,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       if (mediaVersionLookup !== undefined) {
         addKnownVersion(mediaVersionLookup, version);
       }
-      addSpecificVersionRoute(versionBuckets, neutralBuckets, route.method, version, {
+      const bound: BoundRoute = {
         ...base,
         ...(versioning.kind === 'media-type'
           ? {
@@ -955,9 +990,38 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
               }),
             }
           : {}),
-      });
+      };
+      insertRoute(versionTrieFor(versionTries, route.method.toUpperCase(), version), route.path, bound);
     }
-    addSupportedRoute(supportedBuckets, route.method, pattern, declaration);
+    addSupportedRoute(supportedBuckets, route.method.toUpperCase(), pattern, declaration);
+  }
+
+  function findBoundRoute(
+    method: string,
+    path: string,
+    requestVersion: string | undefined,
+    params: Record<string, string>,
+  ): BoundRoute | undefined {
+    const start = path.charCodeAt(0) === 47 ? 1 : 0;
+    if (requestVersion !== undefined) {
+      const vRoot = versionTries.get(method)?.get(requestVersion);
+      if (vRoot !== undefined) {
+        const bound = matchTrie(vRoot, path, start, params);
+        if (bound !== undefined) {
+          return bound;
+        }
+      }
+      const nRoot = neutralTries.get(method);
+      if (nRoot !== undefined) {
+        return matchTrie(nRoot, path, start, params);
+      }
+      return undefined;
+    }
+    const root = methodTries.get(method);
+    if (root !== undefined) {
+      return matchTrie(root, path, start, params);
+    }
+    return undefined;
   }
 
   function addContractRoute(
@@ -985,7 +1049,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             'cannot be registered on a versioned router',
         );
       }
-      bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+      insertRoute(trieFor(methodTries, operation.method.toUpperCase()), operation.path, base);
       return;
     }
 
@@ -998,9 +1062,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
 
     if (operation.version.kind === 'neutral') {
       if (versioning.kind === 'path') {
-        bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+        insertRoute(trieFor(methodTries, operation.method.toUpperCase()), operation.path, base);
       } else {
-        addNeutralRoute(versionBuckets, neutralBuckets, operation.method, { ...base, neutral: true });
+        insertRoute(trieFor(neutralTries, operation.method.toUpperCase()), operation.path, { ...base, neutral: true });
       }
       return;
     }
@@ -1013,7 +1077,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         );
       }
       claimVersionedRoute(controller, route, operation.version.value, operation.path);
-      bucketFor(buckets, operation.method, pattern.segmentCount).push(base);
+      insertRoute(trieFor(methodTries, operation.method.toUpperCase()), operation.path, base);
       return;
     }
 
@@ -1036,7 +1100,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     for (const version of operation.version.values) {
       claimVersionedRoute(controller, route, version, operation.path);
       if (mediaVersionLookup !== undefined) addKnownVersion(mediaVersionLookup, version);
-      addSpecificVersionRoute(versionBuckets, neutralBuckets, operation.method, version, {
+      const bound: BoundRoute = {
         ...base,
         ...(operation.version.kind === 'media-type'
           ? {
@@ -1045,9 +1109,10 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
               }),
             }
           : {}),
-      });
+      };
+      insertRoute(versionTrieFor(versionTries, operation.method.toUpperCase(), version), operation.path, bound);
     }
-    addSupportedRoute(supportedBuckets, operation.method, pattern, operation.version.values);
+    addSupportedRoute(supportedBuckets, operation.method.toUpperCase(), pattern, operation.version.values);
   }
 
   async function handleObserved(req: WebRequest): Promise<WebResponse> {
@@ -1055,9 +1120,6 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
     const method = req.method.toUpperCase();
     const methodAttribute = STANDARD_HTTP_METHODS.has(method) ? method : '_OTHER';
 
-    // OpenTelemetry semantic conventions v1.30.0: start the SERVER span with the
-    // method-only fallback name, then update it once route resolution produces the
-    // low-cardinality route pattern.
     const remoteParent =
       tracer === undefined ? undefined : fromTraceContext(req.headers.traceparent, req.headers.tracestate);
     const serverSpan =
@@ -1078,29 +1140,15 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       }
 
       let matched: BoundRoute | undefined;
-      let matchedParams: Record<string, string> | undefined;
+      let matchedParams: Record<string, string> = {};
       let requestVersion: string | undefined;
       const routeSpan = childSpan(tracer, serverSpan, 'zmdb.route');
       try {
-        const segmentCount = countSegments(req.path);
         requestVersion =
           requestVersioning === undefined
             ? undefined
             : requestedVersion(requestVersioning, req.headers, versionHeaderName, mediaTypeKey, mediaVersionLookup);
-        const candidates =
-          requestVersion === undefined
-            ? (buckets.get(method)?.[segmentCount] ?? [])
-            : (versionBuckets.get(method)?.get(requestVersion)?.[segmentCount] ??
-              neutralBuckets.get(method)?.[segmentCount] ??
-              []);
-        for (const candidate of candidates) {
-          const params = matchCompiled(candidate.pattern, req.path);
-          if (params !== undefined) {
-            matched = candidate;
-            matchedParams = params;
-            break;
-          }
-        }
+        matched = findBoundRoute(method, req.path, requestVersion, matchedParams);
       } finally {
         routeSpan?.end();
       }
@@ -1115,7 +1163,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       let failed = false;
       let failure: unknown;
       try {
-        if (matched === undefined || matchedParams === undefined) {
+        if (matched === undefined) {
           if (requestVersion !== undefined && requestVersioning !== undefined) {
             const supported = supportedVersions(supportedBuckets, method, req.path);
             if (supported !== undefined) {
@@ -1377,22 +1425,13 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         return handleObserved(req);
       }
       const method = req.method.toUpperCase();
-      const segmentCount = countSegments(req.path);
       const requestVersion =
         requestVersioning === undefined
           ? undefined
           : requestedVersion(requestVersioning, req.headers, versionHeaderName, mediaTypeKey, mediaVersionLookup);
-      const candidates =
-        requestVersion === undefined
-          ? (buckets.get(method)?.[segmentCount] ?? [])
-          : (versionBuckets.get(method)?.get(requestVersion)?.[segmentCount] ??
-            neutralBuckets.get(method)?.[segmentCount] ??
-            []);
-      for (const bound of candidates) {
-        const params = matchCompiled(bound.pattern, req.path);
-        if (params === undefined) {
-          continue;
-        }
+      const params: Record<string, string> = {};
+      const bound = findBoundRoute(method, req.path, requestVersion, params);
+      if (bound !== undefined) {
         const ctx = {
           params,
           body: req.rawBody,
@@ -1422,8 +1461,6 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         }
         try {
           const result = await bound.handler(ctx);
-          // One symbol check on the hot path, no extra allocation: a handler that
-          // returns a plain value takes exactly the path it took before.
           return mediaVersionedResponse(
             isTaggedResponse(result) ? result : jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
             bound.versionJsonHeaders,
@@ -1454,12 +1491,10 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
   };
 }
 
-// The constructor type getRoutes reads metadata from.
 type ControllerCtor = abstract new (...args: never[]) => unknown;
 
-// boundary: an instance's `.constructor` carries the Symbol.metadata the class
-// decorators wrote; narrowing it to a constructor type for getRoutes is sound.
 function controllerCtor(controller: object): ControllerCtor | undefined {
+  // boundary: constructor function is checked via typeof before casting to ControllerCtor.
   const ctor = controller.constructor;
   if (typeof ctor !== 'function') {
     return undefined;
@@ -1526,6 +1561,7 @@ function securityFromGuards(guards: readonly Guard[]): readonly SecurityRequirem
 // sound because getRoutes only yields names of methods the decorators saw. This
 // is the single enumerated boundary for the pipeline (ARCHITECTURE.md §2.1).
 function readHandler(controller: object, name: string): Handler | undefined {
+  // boundary: property value is checked via typeof function before binding and casting to Handler.
   const value = Reflect.get(controller, name);
   if (typeof value !== 'function') {
     return undefined;
@@ -1571,9 +1607,6 @@ function typeOfFailure(error: unknown): string {
 
 // ---- Adapters (structurally typed; no hard node:http / Hono dependency) ----
 
-// The subset of node:http we touch. `setEncoding` and `writeHead` are optional
-// because this adapter is structurally typed — a hand-rolled req/res that lacks
-// them still works, it just takes the slower path.
 interface NodeReqLike {
   readonly method?: string;
   readonly url?: string;
@@ -1599,12 +1632,6 @@ export interface AdapterOptions {
 
 /**
  * Adapt a router to a node:http `(req, res)` handler.
- *
- * This is the path real consumers take, so its per-request cost is the
- * framework's real cost. The benchmark harness hand-writes its responses and so
- * never measured this; when it was measured (keep-alive on, 8 workers, c=256,
- * median of 5) the adapter served 294,067 req/s against the hand-written app's
- * 395,983 — 1.35x slower, entirely in the four things below.
  */
 export function toNodeHandler(
   router: Router,
@@ -1612,12 +1639,6 @@ export function toNodeHandler(
 ): (req: NodeReqLike, res: NodeResLike) => void {
   validateMaxBodyBytes(options.maxBodyBytes);
   return function (req: NodeReqLike, res: NodeResLike): void {
-    // A request with no body needs no 'data'/'end' listeners, no accumulator and
-    // no extra event-loop turn — and per RFC 9112 a request with neither
-    // content-length nor transfer-encoding HAS no body, which is the same rule
-    // node:http itself uses to decide whether to emit 'data' at all. So for the
-    // GET/HEAD/DELETE traffic that dominates most services this dispatches
-    // straight away instead of registering two closures and waiting a tick.
     if (hasRequestBody(req)) {
       const announcedLength = requestContentLength(req);
       if (announcedLength !== undefined && announcedLength > options.maxBodyBytes) {
@@ -1629,11 +1650,6 @@ export function toNodeHandler(
       let exceeded = false;
       const byteChunks: Uint8Array<ArrayBuffer>[] = [];
       let raw = '';
-      // setEncoding installs a StringDecoder, which holds partial multi-byte
-      // sequences across reads. Decoding each chunk separately with
-      // String(chunk) — as this used to — corrupts any character whose UTF-8
-      // bytes straddle a chunk boundary, so a large body with non-ASCII text
-      // would silently arrive with replacement characters in it.
       if (!binary) {
         req.setEncoding?.('utf8');
       }
@@ -1672,8 +1688,6 @@ export function toNodeHandler(
   };
 }
 
-// content-length: 0 is explicitly "no body"; any other length, or any
-// transfer-encoding at all (chunked), means there is one to read.
 function hasRequestBody(req: NodeReqLike): boolean {
   const length = req.headers['content-length'];
   if (typeof length === 'string') {
@@ -1683,15 +1697,8 @@ function hasRequestBody(req: NodeReqLike): boolean {
 }
 
 function dispatch(router: Router, req: NodeReqLike, res: NodeResLike, rawBody: unknown): void {
-  // `url.split('?')` allocated an array and split the whole query string just to
-  // throw the tail away; indexOf/slice reads the path without either.
   const url = req.url ?? '/';
   const query = url.indexOf('?');
-  // `.then(ok, err)` rather than an `async` IIFE with `await`: the IIFE added a
-  // second async frame and a second promise to every request on top of the one
-  // `router.handle` already returns. The reject arm also means a throw from
-  // outside handle's own try/catch becomes a 500 instead of an unhandled
-  // rejection that takes the process down.
   void router
     .handle({
       method: req.method ?? 'GET',
@@ -1737,12 +1744,6 @@ function send(res: NodeResLike, response: WebResponse, method: string): void {
 }
 
 function writeNodeHead(res: NodeResLike, status: number, headers: Readonly<Record<string, string>>): void {
-  // One writeHead with the whole header object beats a setHeader per entry:
-  // setHeader was the slowest of the five header strategies measured (78,962
-  // req/s against 91,302 for writeHead with an object literal), because each
-  // call re-validates the name and touches the outgoing-header map. The common
-  // case also hands writeHead the shared frozen JSON_HEADERS constant, so
-  // nothing is iterated or allocated at all.
   if (res.writeHead === undefined) {
     res.statusCode = status;
     for (const key of Object.keys(headers)) {
@@ -1916,8 +1917,6 @@ async function readFetchBody(
 
 function parseJson(raw: string): unknown {
   try {
-    // boundary: JSON.parse yields `any`; we immediately widen to `unknown` so no
-    // `any` escapes into the pipeline (validators/handlers narrow from there).
     const parsed: unknown = JSON.parse(raw);
     return parsed;
   } catch {
@@ -1925,9 +1924,6 @@ function parseJson(raw: string): unknown {
   }
 }
 
-// Object.keys allocates one array; Object.entries — which this used to use —
-// allocates that array plus a two-element array per header. A request with a
-// dozen headers was therefore doing thirteen allocations to read six of them.
 function flattenHeaders(headers: Readonly<Record<string, string | string[] | undefined>>): Record<string, string> {
   const flat: Record<string, string> = {};
   for (const key of Object.keys(headers)) {
