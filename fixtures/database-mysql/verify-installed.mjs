@@ -9,7 +9,7 @@ import { publishCatalog, publishManifest, readManifest } from '../../.github/scr
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(FIXTURE, '../..');
 const PUBLISH_PACKAGES = await publishCatalog(ROOT);
-const PACKAGE_DIRS = ['query-compiler', 'schema-core', 'ai', 'aot-validator', 'repository', 'mysql'];
+const PACKAGE_DIRS = ['query-compiler', 'schema-core', 'ai', 'aot-validator', 'repository', 'migrations', 'mysql'];
 
 function run(command, argumentsList, options = {}) {
   const result = spawnSync(command, argumentsList, {
@@ -79,6 +79,7 @@ try {
           '@types/node': '^26.4.1',
           '@zmdb/aot-validator': `file:${tarballs['@zmdb/aot-validator']}`,
           '@zmdb/ai': `file:${tarballs['@zmdb/ai']}`,
+          '@zmdb/migrations': `file:${tarballs['@zmdb/migrations']}`,
           '@zmdb/mysql': `file:${tarballs['@zmdb/mysql']}`,
           '@zmdb/query-compiler': `file:${tarballs['@zmdb/query-compiler']}`,
           '@zmdb/repository': `file:${tarballs['@zmdb/repository']}`,
