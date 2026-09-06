@@ -1,7 +1,7 @@
+import { validate as runtimeValidate } from '@zmdb/aot-validator/utilities';
 import { describe, expect, it } from 'vitest';
 
 import { FixtureProject } from './emit/__testing__/project.js';
-import { validate as runtimeValidate } from './utilities/index.js';
 
 describe('Hoisted File-Scope Error Collector', () => {
   it('hoists at most one file-scoped error collection helper regardless of validation call count', () => {
