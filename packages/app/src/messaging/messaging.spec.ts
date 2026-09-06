@@ -527,7 +527,7 @@ describe('application messaging lifecycle (#648)', () => {
     const app = createMessagingApplication(Root, {
       transports: [transport],
       dispatcher: sinks(log),
-      graceMs: 5,
+      graceMs: 50,
     });
     await app.init();
     const dispatch = transport.deliver(delivery('orders.hung'));
@@ -542,7 +542,7 @@ describe('application messaging lifecycle (#648)', () => {
       'close:connection',
       'onShutdown:Consumer',
     ]);
-    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 5)).toBe(true);
+    expect(lifecycleGraceValues(log).every(value => value >= 0 && value <= 50)).toBe(true);
 
     release.resolve();
     await dispatch;

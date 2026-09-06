@@ -12,6 +12,8 @@
 // The derived types have one spelling each, and it takes the declared type. See the
 // DTO suite below.
 
+export * from './custom-types/index.js';
+
 // Type-only, and a cycle only on paper: `./derive` imports `./tags`, which imports
 // `SqlType` from here, and `./ir` imports `ColumnMeta` and `CoreSchema`. Nothing is
 // imported at runtime in either direction.
@@ -68,10 +70,16 @@ export interface ColumnFlags {
 
 export interface ColumnMeta {
   readonly type: SqlType | ExtensionType;
+  readonly sql?: string;
   readonly flags: ColumnFlags;
   readonly default?: unknown;
   readonly references?: { readonly target: string };
   readonly validation?: readonly ValidationRule[];
+  readonly codec?: {
+    readonly sqlType: string;
+    toDb(value: unknown): unknown;
+    fromDb(raw: unknown): unknown;
+  };
 }
 
 export type ColumnsMap = Readonly<Record<string, ColumnMeta>>;
@@ -166,6 +174,7 @@ export function schemaOf<T>(): TaggedSchema<T> {
 // ---------------------------------------------------------------------------
 // The DTO suite (REQ-TF-4)
 // ---------------------------------------------------------------------------
+
 //
 // Re-exported, not defined. `./derive` reads the declared type, and there is no second
 // spelling any more: each of these used to have a column-map twin here, with every
