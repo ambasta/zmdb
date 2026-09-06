@@ -64,11 +64,11 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { codegen } from '../../packages/aot-validator/src/cli/index.ts';
-import { apiInstanceCount, ReflectSession } from '../../packages/aot-validator/src/reflect/session.ts';
-import { compileHttpContracts } from '../../packages/web/src/contract/compiler/index.ts';
-import { defineHttpContract, httpOperation } from '../../packages/web/src/contract/index.ts';
-import { Controller, Get, Public } from '../../packages/web/src/routing/index.ts';
+import { codegen } from '../../packages/aot-validator/src/cli/index.js';
+import { apiInstanceCount, ReflectSession } from '../../packages/aot-validator/src/reflect/session.js';
+import { compileHttpContracts } from '../../packages/web/src/contract/compiler/index.js';
+import { defineHttpContract, httpOperation } from '../../packages/web/src/contract/index.js';
+import { Controller, Get, Public } from '../../packages/web/src/routing/index.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SCRATCH = resolve(ROOT, '.budget');
@@ -128,8 +128,8 @@ const TSCONFIG = {
  * `is` would understate the checker traffic.
  */
 function module_(index) {
-  return `import { assert, is, toJsonSchema, validate } from 'zmdb';
-import type { JsonSchemaObject, ValidateResult } from 'zmdb';
+  return `import { assert, is, validate, type ValidateResult } from 'zmdb';
+import { toJsonSchema, type JsonSchemaObject } from 'zmdb/schema';
 import type { Length, Min, MinLength, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
 export interface Row${index} extends Table<'row_${index}'> {

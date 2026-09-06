@@ -1,5 +1,5 @@
 // zmdb/ir — explicit named re-exports of the schema IR: the one representation every
-// back-end consumes. (No `export *`: each symbol is enumerated so the umbrella
+// back-end consumes. (No `export *`: each symbol is enumerated so the compatibility
 // surface is explicit.)
 //
 // Plain data in, plain data out. Exported because a consumer generating its own

@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-// Read-only product-facade and packed-consumer probes for issues #619 and #651.
+// Read-only product-facade and packed-consumer probes for issues #619, #620, and #651.
 //
 // This file deliberately contains no facade implementation. It measures the
 // public package in a fresh process, records the modules that process resolves,
 // validates the external fixture's hygiene, and can run that fixture against
-// real tarballs. The broader root cleanup remains an `it.fails` contract in
-// packages/zmdb/src/product-surface.spec.ts; the server additions are live.
+// real tarballs.
 
 import { spawnSync } from 'node:child_process';
 import {
@@ -32,18 +31,15 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const TARGET_ROOT_VALUES = Object.freeze(
   [
     'AssertError',
-    'Body',
     'Command',
     'Container',
     'Controller',
-    'Cron',
     'Delete',
     'EventPattern',
     'Gateway',
     'Get',
     'IncompleteKeyError',
     'Inject',
-    'Interval',
     'MessagePattern',
     'Module',
     'OnEvent',
@@ -60,11 +56,7 @@ export const TARGET_ROOT_VALUES = Object.freeze(
     'createApplication',
     'createCommandApp',
     'createEvents',
-    'createMemoryJobStore',
-    'createQueue',
-    'createScheduler',
     'createToken',
-    'createWorker',
     'defineConfig',
     'defineRepository',
     'is',
@@ -88,7 +80,6 @@ export const TARGET_ROOT_TYPES = Object.freeze(
     'HasDefault',
     'Max',
     'MaxLength',
-    'MemoryJobStore',
     'Min',
     'MinLength',
     'ModuleClass',
@@ -97,10 +88,8 @@ export const TARGET_ROOT_TYPES = Object.freeze(
     'Physical',
     'PrimaryKey',
     'PrimaryKeyOf',
-    'Queue',
     'ReadDTO',
     'References',
-    'Scheduler',
     'Sensitive',
     'Serial',
     'Sql',
@@ -116,7 +105,6 @@ export const TARGET_ROOT_TYPES = Object.freeze(
     'WebApplicationOptions',
     'WebRequest',
     'WebResponse',
-    'Worker',
     'ZmdbConfig',
   ].toSorted(),
 );
@@ -141,9 +129,6 @@ export const REQUIRED_PRODUCT_SUBPATHS = Object.freeze(
     'zmdb/drivers/mssql',
     'zmdb/drivers/pg',
     'zmdb/drivers/sqlite',
-    'zmdb/jobs',
-    'zmdb/jobs/memory',
-    'zmdb/jobs/schedule',
     'zmdb/migrations',
     'zmdb/orm',
     'zmdb/schema',
@@ -193,7 +178,9 @@ const FORBIDDEN_SPECIFIERS = [
   /^redis(?:\/|$)/,
   /^@opentelemetry\//,
   /^@grpc\/grpc-js(?:\/|$)/,
+  /^next(?:\/|$)/,
   /^react(?:\/|$)/,
+  /^react-dom(?:\/|$)/,
   /^@angular\//,
   /^vue(?:\/|$)/,
   /^nuxt(?:\/|$)/,
@@ -208,6 +195,37 @@ const FORBIDDEN_PATHS = [
   /packages\/query-compiler\/src\/migrations\//,
   /packages\/aot-validator\/src\/(?:cli|codegen|emit|plugin|reflect|transformer)\//,
 ];
+
+const OPTIONAL_PRODUCT_PACKAGES = PRODUCT_CATALOG.filter(row => row.optionality.kind === 'integration').map(
+  row => row.npmName,
+);
+const PRODUCT_IMPLEMENTATION_ENTRIES = new Set(['./cli', './config', './unplugin']);
+
+/**
+ * Facade modules delegate with named re-exports only. A callable contract such
+ * as `defineConfig` has a separate owner module; putting its implementation in
+ * a facade would make the stable product entry an implementation package.
+ */
+export function verifyFacadeSource(source, label = 'facade') {
+  const withoutComments = source.replaceAll(/\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/gu, '');
+  const withoutNamedExports = withoutComments.replaceAll(
+    /export\s+(?:type\s+)?\{[\s\S]*?\}\s+from\s+['"][^'"]+['"]\s*;?/gu,
+    '',
+  );
+  const remainder = withoutNamedExports.trim();
+  return remainder.length === 0 ? [] : [`${label} contains executable or non-delegating source: ${remainder}`];
+}
+
+function facadeImplementationProblems(root, manifest) {
+  const problems = [];
+  for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
+    if (PRODUCT_IMPLEMENTATION_ENTRIES.has(subpath) || typeof target !== 'string') continue;
+    const label = subpath === '.' ? 'zmdb' : `zmdb${subpath.slice(1)}`;
+    const source = readFileSync(join(root, 'packages', 'zmdb', target), 'utf8');
+    problems.push(...verifyFacadeSource(source, label));
+  }
+  return problems;
+}
 
 function namesFromExportBlock(body) {
   return body
@@ -227,6 +245,15 @@ function namesFromExportBlock(body) {
 function packageName(specifier) {
   const match = /^(@[^/]+\/[^/]+|[^@./][^/]*)(?:\/|$)/.exec(specifier);
   return match?.[1] ?? 'zmdb';
+}
+
+function forbiddenSpecifier(specifier) {
+  return (
+    FORBIDDEN_SPECIFIERS.some(pattern => pattern.test(specifier)) ||
+    OPTIONAL_PRODUCT_PACKAGES.some(packageNameValue => {
+      return specifier === packageNameValue || specifier.startsWith(`${packageNameValue}/`);
+    })
+  );
 }
 
 function consumerSubpath(packageNameValue, subpath) {
@@ -383,10 +410,7 @@ export function inspectProductFacade(root = ROOT) {
   const forbiddenImports = [];
   for (const imported of captured.imports) {
     const logical = logicalUrl(root, imported.url);
-    if (
-      FORBIDDEN_SPECIFIERS.some(pattern => pattern.test(imported.specifier)) ||
-      FORBIDDEN_PATHS.some(pattern => pattern.test(logical))
-    ) {
+    if (forbiddenSpecifier(imported.specifier) || FORBIDDEN_PATHS.some(pattern => pattern.test(logical))) {
       forbiddenImports.push(`${imported.specifier} -> ${logical}`);
     }
   }
@@ -405,6 +429,7 @@ export function inspectProductFacade(root = ROOT) {
     subpaths,
     missingSubpaths: REQUIRED_PRODUCT_SUBPATHS.filter(subpath => !subpaths.includes(subpath)),
     forbiddenImports: [...new Set(forbiddenImports)].toSorted(),
+    facadeImplementationProblems: facadeImplementationProblems(root, manifest),
     ownership: readFacadeOwnership(root),
   };
 }
@@ -633,6 +658,7 @@ function main() {
       : [`root type exports differ: ${report.typeNames.join(', ')}`]),
     ...report.missingSubpaths.map(subpath => `missing product subpath ${subpath}`),
     ...report.forbiddenImports.map(path => `root import reaches ${path}`),
+    ...report.facadeImplementationProblems,
   ];
   if (problems.length > 0) {
     for (const problem of problems) console.error(`[ERROR] ${problem}`);

@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { defineConfig } from 'zmdb/config';
+import { defineConfig } from 'zmdb';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
 
 const databasePath = process.env.ZMDB_PRODUCT_DATABASE;

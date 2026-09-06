@@ -4,7 +4,7 @@ export const schemaTemplate: TemplateFactory = ({ name }) => ({
   files: [
     {
       path: `src/${name.fileStem}.ts`,
-      source: `import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+      source: `import type { PrimaryKey, Serial, Sql, Table } from 'zmdb';
 
 export interface ${name.pascal} extends Table<'${name.table}'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -14,9 +14,8 @@ export interface ${name.pascal} extends Table<'${name.table}'> {
     },
     {
       path: `src/${name.fileStem}.spec.ts`,
-      source: `import { is, schemaOf } from 'zmdb';
-import { createTestApp } from '@zmdb/web/testing';
-import { Module } from 'zmdb/web';
+      source: `import { Module, is, schemaOf } from 'zmdb';
+import { createTestApp } from 'zmdb/testing';
 import { describe, expect, it } from 'vitest';
 
 import type { ${name.pascal} } from './${name.fileStem}.js';

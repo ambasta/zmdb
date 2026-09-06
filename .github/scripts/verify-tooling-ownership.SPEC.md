@@ -2,15 +2,15 @@
 
 > Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, remeasured for #681, amended by #656 after the protobuf runtime/public-owner
 > extraction, remeasured for #668 after the generic dialect protocol/type split, amended by #669 for the SQLite owner move, amended by #685 for the generated-client command and its CLI fixtures, and
-> amended by #621 for the dependency-light config authoring contract. Issue #629 updates the measured ownership after migrations moved to their target package, and #651 adds the cohesive app, web and
-> jobs product facades.
+> amended by #621 for the dependency-light config authoring contract. Issue #629 updates the measured ownership after migrations moved to their target package, #651 adds the cohesive app, web and jobs
+> product facades, and #620 adds the remaining product concern facades.
 
 ## 1. Extraction rule and totals
 
 The shipped/build-input source inventory is every file below `packages/{aot-validator,migrations,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`,
 `*.spec.ts` and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **197 paths**, each exactly once:
+The inventory has **200 paths**, each exactly once:
 
 ```json
 {
@@ -18,7 +18,7 @@ The inventory has **197 paths**, each exactly once:
   "migrations": 23,
   "cli": 31,
   "runtime": 27,
-  "facade": 46,
+  "facade": 49,
   "optional-integration": 4,
   "test-only": 35,
   "obsolete": 1
@@ -156,6 +156,7 @@ facade	packages/zmdb/src/app-observability.ts
 facade	packages/zmdb/src/app-state.ts
 facade	packages/zmdb/src/app.ts
 facade	packages/zmdb/src/config/contract.ts
+facade	packages/zmdb/src/compiler.ts
 facade	packages/zmdb/src/derive.ts
 facade	packages/zmdb/src/drivers-mssql.ts
 facade	packages/zmdb/src/drivers-pg.ts
@@ -163,15 +164,17 @@ facade	packages/zmdb/src/drivers-sqlite.ts
 facade	packages/zmdb/src/dto.ts
 facade	packages/zmdb/src/index.ts
 facade	packages/zmdb/src/ir.ts
-facade	packages/zmdb/src/jobs-memory.ts
-facade	packages/zmdb/src/jobs-schedule.ts
-facade	packages/zmdb/src/jobs.ts
 facade	packages/zmdb/src/migrations.ts
+facade	packages/zmdb/src/orm.ts
 facade	packages/zmdb/src/relations.ts
+facade	packages/zmdb/src/schema.ts
+facade	packages/zmdb/src/sql.ts
 facade	packages/zmdb/src/tags.ts
 facade	packages/zmdb/src/web-app.ts
 facade	packages/zmdb/src/web-compression.ts
 facade	packages/zmdb/src/web-context.ts
+facade	packages/zmdb/src/testing.ts
+facade	packages/zmdb/src/validator.ts
 facade	packages/zmdb/src/web-contract-compiler.ts
 facade	packages/zmdb/src/web-contract.ts
 facade	packages/zmdb/src/web-csrf.ts
@@ -236,8 +239,8 @@ moving to compiler. `obsolete` means deletion with no replacement file; the beha
 
 ## 3. Public export and executable map
 
-There are **71 current export keys**: 14 AOT validator, 9 query compiler and 48 facade. This count is manifest-derived. The disposition map below also retains release-governed source-owner keys after
-their implementation moves, while #651's server facade keys are governed by `packages/zmdb/SPEC.md` §8 and `scripts/product/catalog.mjs`.
+There are **74 current export keys**: 14 AOT validator, 9 query compiler and 51 facade. This count is manifest-derived. The disposition map below also retains release-governed source-owner keys after
+their implementation moves, while #651's server facade keys, #620's concern facades, and #755's selected-jobs boundary are governed by `packages/zmdb/SPEC.md` and `scripts/product/catalog.mjs`.
 
 ```text
 @zmdb/aot-validator	.	retain	@zmdb/aot-validator
@@ -268,6 +271,13 @@ their implementation moves, while #651's server facade keys are governed by `pac
 @zmdb/query-compiler	./set-ops	retain	@zmdb/query-compiler/set-ops
 @zmdb/query-compiler	./schema-objects	retain	@zmdb/query-compiler/schema-objects
 zmdb	.	retain	zmdb
+zmdb	./schema	retain-product-facade	@zmdb/schema
+zmdb	./sql	retain-product-facade	@zmdb/sql
+zmdb	./validator	retain-product-facade	@zmdb/validator
+zmdb	./orm	retain-product-facade	@zmdb/orm
+zmdb	./compiler	retain-product-facade	@zmdb/compiler
+zmdb	./migrations	retain-product-facade	@zmdb/migrations
+zmdb	./testing	retain-product-facade	@zmdb/compiler/testing
 zmdb	./tags	retain	zmdb/tags
 zmdb	./ir	retain	zmdb/ir
 zmdb	./derive	retain	zmdb/derive

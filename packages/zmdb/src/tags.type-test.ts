@@ -1,4 +1,4 @@
-// The umbrella tag subpath is curated rather than `export *`, so a new schema-core
+// The compatibility tag subpath is curated rather than `export *`, so a new schema-core
 // tag needs a type-level check that the documented `zmdb/tags` route carries the
 // exact same nominal symbol.
 

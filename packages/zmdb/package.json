@@ -1,7 +1,7 @@
 {
   "name": "zmdb",
   "version": "1.0.0-alpha.4",
-  "description": "The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, migrations, configuration, and CLI from one install.",
+  "description": "The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.",
   "keywords": [
     "data-layer",
     "orm",
@@ -32,12 +32,18 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./sql": "./src/sql.ts",
+    "./validator": "./src/validator.ts",
+    "./orm": "./src/orm.ts",
+    "./compiler": "./src/compiler.ts",
+    "./migrations": "./src/migrations.ts",
+    "./testing": "./src/testing.ts",
     "./tags": "./src/tags.ts",
     "./ir": "./src/ir.ts",
     "./derive": "./src/derive.ts",
     "./dto": "./src/dto.ts",
     "./relations": "./src/relations.ts",
-    "./migrations": "./src/migrations.ts",
     "./drivers/sqlite": "./src/drivers-sqlite.ts",
     "./drivers/pg": "./src/drivers-pg.ts",
     "./drivers/mssql": "./src/drivers-mssql.ts",

@@ -1,7 +1,7 @@
 Use the branded `not()` expression when the new state must be the inverse of the value currently stored:
 
 ```ts
-import { not } from 'zmdb';
+import { not } from 'zmdb/sql';
 
 const user = await userRepo.update(id, { active: not() });
 await userRepo.updateMany({ suspended: false }, { active: not() });
@@ -43,7 +43,7 @@ It is also the more common bug in practice: a double-clicked button sends two re
 ## Compiler form
 
 ```ts
-import { createQueryCompiler, not } from 'zmdb';
+import { createQueryCompiler, not } from 'zmdb/sql';
 
 const query = createQueryCompiler('postgres').updateTable('users').set({ active: not() }).where('id', '=', id).compile();
 

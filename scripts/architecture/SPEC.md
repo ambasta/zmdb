@@ -483,7 +483,7 @@ export const PACKAGE_POLICY = {
       '@zmdb/mssql': ['./cli', './drivers/mssql', 'bin:zmdb'],
       '@zmdb/postgres': ['./drivers/pg'],
     },
-    toolingEntries: ['./cli', './config', './migrations', './unplugin', './web/contract/compiler', 'bin:zmdb'],
+    toolingEntries: ['./cli', './compiler', './config', './migrations', './testing', './unplugin', './web/contract/compiler', 'bin:zmdb'],
   },
 } as const;
 ```

@@ -176,7 +176,7 @@ PostgreSQL one-way, and SingleStore extends MySQL one-way.
       └───────┬────────┘
               ▼
       ┌────────────────┐
-      │      zmdb      │  (curated umbrella; ZERO logic)
+      │      zmdb      │  (cohesive product facade; ZERO logic)
       └────────────────┘
 ```
 
@@ -187,14 +187,14 @@ composes client and React, `@zmdb/nuxt` composes client and Vue, and `@zmdb/svel
 entries physically separate. The opt-in `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` packages depend inward only on `@zmdb/ai`; each integration alone declares its SDK/framework
 peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/otel`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and `@zmdb/transport-redis` each depend only on `@zmdb/app` and declare only their
 selected technology as a required peer; `@zmdb/transport-grpc` depends on `@zmdb/app` and `@zmdb/protobuf`. `@zmdb/jobs-postgres` depends on `@zmdb/jobs` and `@zmdb/postgres` and alone owns the
-required `pg` peer for job storage. None of these optional packages or the provider-neutral AI package is re-exported by the umbrella.
+required `pg` peer for job storage. None of these optional packages or the provider-neutral AI package is re-exported by the product facade.
 
 `@zmdb/sqlite` and `@zmdb/mssql` depend on migrations, query-compiler, and repository and own their complete database slices. SQLite additionally owns the embedded runner and structural `node:sqlite`
 adapter; SQL Server owns the structural node-mssql adapter and declares `mssql` as an optional client peer. During the storage transition, `@zmdb/jobs` still depends on SQLite for its in-memory queue
 backend; `zmdb` neither depends on jobs nor exposes a jobs facade. Applications select the capability directly through `@zmdb/jobs`.
 
 `@zmdb/postgres` also depends on migrations, query-compiler, and repository. It owns the complete PostgreSQL dialect, migration, catalog-introspection and structural-driver slice, with `pg` confined
-to an optional peer and development dependency. `@zmdb/jobs-postgres` depends on it rather than the generic repository, and the umbrella exposes it only through the optional `zmdb/drivers/pg`
+to an optional peer and development dependency. `@zmdb/jobs-postgres` depends on it rather than the generic repository, and the product facade exposes it only through the optional `zmdb/drivers/pg`
 compatibility facade.
 
 `@zmdb/mysql` also depends on migrations, query-compiler, and repository. It owns MySQL traits, refusals, DDL, migrations, catalog introspection, the structural `mysql2/promise` adapter, and the
@@ -213,10 +213,10 @@ catalog adaptation, conservative integrity/routine refusals, child-bound driver,
   provider-neutral AI.
 - **Angular binds the generated client structurally.** It owns DI, signals, `DestroyRef`, Observable cancellation, and request-local SSR state without importing client, web, schema, compiler, or ORM
   packages.
-- **MCP depends only on AI.** It owns the transport-neutral MCP client/server protocol, uses only platform APIs, and is not re-exported by the umbrella.
+- **MCP depends only on AI.** It owns the transport-neutral MCP client/server protocol, uses only platform APIs, and is not re-exported by the product facade.
 - **UI adapters depend only on the generated-client runtime.** React owns context/effect cleanup; Vue owns application injection, watcher/effect-scope cancellation, composable state, and
   per-application SSR isolation; Svelte owns typed context and subscription-aware stores; Solid owns context, native resources, owner disposal, and native Suspense/error propagation. Their framework
-  runtimes remain required peers and none is re-exported by the umbrella.
+  runtimes remain required peers and none is re-exported by the product facade.
 - **React Native extends React without copying it.** It reuses React's hooks and adds only AppState, connectivity, and credential-store policy through structural application-owned ports.
 - **Next depends on client and React, never server packages.** Its browser export is the React binding; its guarded server export owns only request-local generated-client construction, credential
   selection, memoization, and Next fetch policy.
@@ -241,7 +241,9 @@ catalog adaptation, conservative integrity/routine refusals, child-bound driver,
 - **PostgreSQL jobs depend only on jobs and postgres.** The adapter delegates to the public PostgreSQL driver, borrows caller-owned pools or clients, and alone owns the required `pg` peer.
 - **web sits above app** — controllers can receive repositories through app-owned DI, routes validate via the AOT validator, responses serialize via the AOT serializer, and HTTP composition reuses the
   one app-owned construction and lifecycle graph.
-- **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the default install; the sub-packages remain the tree-shakeable/advanced path.
+- **`zmdb` is the cohesive product facade.** Its lazy root contains only named identity re-exports for the normal application journey and does not reach compiler tooling, migration machinery, or
+  optional integrations. Stable concern subpaths (`schema`, `sql`, `validator`, `orm`, `web`, `compiler`, `migrations`, and `testing`) expose the larger APIs without owning logic or mutable state. The
+  implementation packages remain the independently testable advanced path.
 
 ### 3.3 Current package map
 
@@ -301,7 +303,7 @@ traits, migrations, catalog introspection, structural mysql2 behavior, strict `u
 adding immutable type/capability/retry overrides, Cockroach catalog normalization, a bound driver, and packed real-server acceptance without changing its PostgreSQL parent. The SQL Server slice now
 ships as `@zmdb/mssql`, with package-owned T-SQL compilation, migrations, catalog introspection, structural execution, live-server acceptance, and packed-consumer evidence. SingleStore ships as the
 one-way `@zmdb/singlestore` child, adding storage/distribution DDL, catalog adaptation, conservative refusals, a bound driver, and packed real-server acceptance without changing its MySQL parent. All
-six database verticals are now package-owned. The temporary six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge. The umbrella's temporary
+six database verticals are now package-owned. The temporary six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge. The product facade's temporary
 `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, and `zmdb/drivers/mssql` paths delegate to the selected packages while MySQL, Cockroach, and SingleStore remain independently selected packages with no facade
 export.
 
@@ -328,8 +330,8 @@ Database selection is explicit:
 - A consumer imports a database object from its package and passes that object to compiler, repository, config and tooling surfaces. The final architecture has no mutable registry, no
   `registerDialect()`, and no import-for-side-effect convention.
 - A package root may construct and freeze its own object, but importing it must not alter process-global state.
-- The umbrella may expose explicit `zmdb/sqlite`, `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach` and `zmdb/singlestore` identity re-exports backed by optional peers. Its root does not
-  select, resolve or eagerly instantiate a database.
+- The product facade may expose explicit `zmdb/sqlite`, `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach` and `zmdb/singlestore` identity re-exports backed by optional peers. Its root does
+  not select, resolve or eagerly instantiate a database.
 - Official driver adapters are structurally typed. A database client may be a development dependency for conformance tests, but it is not a hard runtime dependency unless a future adapter proves that
   structural injection is insufficient. Consequently, installing `zmdb` must not install `pg`, `mysql2`, `mssql` or another database client.
 
@@ -637,29 +639,29 @@ Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, 
 
 Entry-specific runtime, tooling, and optional-peer reachability assignments:
 
-| Package               | Reachability class          | Allowed target                             | Entry selector(s)                                                                                                                                     |
-| --------------------- | --------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@zmdb/client`        | tooling boundary            | tooling-only code                          | `./testing`                                                                                                                                           |
-| `@zmdb/migrations`    | tooling boundary            | tooling-only code                          | `./declarations`<br>`./files`<br>`./testing`                                                                                                          |
-| `@zmdb/ai`            | tooling boundary            | tooling-only code                          | `./compiler`                                                                                                                                          |
-| `@zmdb/next`          | ordinary runtime dependency | `server-only`                              | ordinary runtime entries                                                                                                                              |
-| `@zmdb/ai-anthropic`  | optional peer               | `@anthropic-ai/sdk@0.124.0`                | `.`                                                                                                                                                   |
-| `@zmdb/ai-langchain`  | optional peer               | `@langchain/core@^1.2.9`                   | `.`                                                                                                                                                   |
-| `@zmdb/ai-vercel`     | optional peer               | `ai@^7.0.93`                               | `.`                                                                                                                                                   |
-| `@zmdb/aot-validator` | tooling boundary            | tooling-only code                          | `./codegen`<br>`./emit`<br>`./lint`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen` |
-| `@zmdb/aot-validator` | optional peer               | `metro@>=0.87.0 <0.88.0`                   | `./metro`                                                                                                                                             |
-| `@zmdb/aot-validator` | optional peer               | `metro-babel-transformer@>=0.87.0 <0.88.0` | `./metro`                                                                                                                                             |
-| `@zmdb/aot-validator` | optional peer               | `oxlint@>=1.81.0 <1.82.0`                  | `./lint`                                                                                                                                              |
-| `@zmdb/aot-validator` | optional peer               | `typescript@>=7.0.0`                       | `./codegen`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen`                         |
-| `@zmdb/mssql`         | optional peer               | `mssql@^12.7.0`                            | `.`                                                                                                                                                   |
-| `@zmdb/mysql`         | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                   |
-| `@zmdb/postgres`      | optional peer               | `pg@^8.23.0`                               | `.`                                                                                                                                                   |
-| `@zmdb/singlestore`   | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                   |
-| `@zmdb/web`           | tooling boundary            | tooling-only code                          | `./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                                  |
-| `@zmdb/web`           | optional peer               | `typescript@>=7.0.0`                       | `./contract/compiler`                                                                                                                                 |
-| `zmdb`                | tooling boundary            | tooling-only code                          | `./cli`<br>`./config`<br>`./migrations`<br>`./unplugin`<br>`./web/contract/compiler`<br>`./web/devtools`<br>`./web/testing`<br>`bin:zmdb`             |
-| `zmdb`                | optional peer               | `@zmdb/mssql@workspace:^`                  | `./cli`<br>`./drivers/mssql`<br>`bin:zmdb`                                                                                                            |
-| `zmdb`                | optional peer               | `@zmdb/postgres@workspace:^`               | `./drivers/pg`                                                                                                                                        |
+| Package               | Reachability class          | Allowed target                             | Entry selector(s)                                                                                                                                                        |
+| --------------------- | --------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@zmdb/client`        | tooling boundary            | tooling-only code                          | `./testing`                                                                                                                                                              |
+| `@zmdb/migrations`    | tooling boundary            | tooling-only code                          | `./declarations`<br>`./files`<br>`./testing`                                                                                                                             |
+| `@zmdb/ai`            | tooling boundary            | tooling-only code                          | `./compiler`                                                                                                                                                             |
+| `@zmdb/next`          | ordinary runtime dependency | `server-only`                              | ordinary runtime entries                                                                                                                                                 |
+| `@zmdb/ai-anthropic`  | optional peer               | `@anthropic-ai/sdk@0.124.0`                | `.`                                                                                                                                                                      |
+| `@zmdb/ai-langchain`  | optional peer               | `@langchain/core@^1.2.9`                   | `.`                                                                                                                                                                      |
+| `@zmdb/ai-vercel`     | optional peer               | `ai@^7.0.93`                               | `.`                                                                                                                                                                      |
+| `@zmdb/aot-validator` | tooling boundary            | tooling-only code                          | `./codegen`<br>`./emit`<br>`./lint`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen`                    |
+| `@zmdb/aot-validator` | optional peer               | `metro@>=0.87.0 <0.88.0`                   | `./metro`                                                                                                                                                                |
+| `@zmdb/aot-validator` | optional peer               | `metro-babel-transformer@>=0.87.0 <0.88.0` | `./metro`                                                                                                                                                                |
+| `@zmdb/aot-validator` | optional peer               | `oxlint@>=1.81.0 <1.82.0`                  | `./lint`                                                                                                                                                                 |
+| `@zmdb/aot-validator` | optional peer               | `typescript@>=7.0.0`                       | `./codegen`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen`                                            |
+| `@zmdb/mssql`         | optional peer               | `mssql@^12.7.0`                            | `.`                                                                                                                                                                      |
+| `@zmdb/mysql`         | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                                      |
+| `@zmdb/postgres`      | optional peer               | `pg@^8.23.0`                               | `.`                                                                                                                                                                      |
+| `@zmdb/singlestore`   | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                                      |
+| `@zmdb/web`           | tooling boundary            | tooling-only code                          | `./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                                                     |
+| `@zmdb/web`           | optional peer               | `typescript@>=7.0.0`                       | `./contract/compiler`                                                                                                                                                    |
+| `zmdb`                | tooling boundary            | tooling-only code                          | `./cli`<br>`./compiler`<br>`./config`<br>`./migrations`<br>`./testing`<br>`./unplugin`<br>`./web/contract/compiler`<br>`./web/devtools`<br>`./web/testing`<br>`bin:zmdb` |
+| `zmdb`                | optional peer               | `@zmdb/mssql@workspace:^`                  | `./cli`<br>`./drivers/mssql`<br>`bin:zmdb`                                                                                                                               |
+| `zmdb`                | optional peer               | `@zmdb/postgres@workspace:^`               | `./drivers/pg`                                                                                                                                                           |
 
 The tables are regenerated by `node docs-site/generated.mjs` and checked without writing by `yarn verify:docs-generated`.
 

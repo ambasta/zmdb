@@ -363,9 +363,17 @@ const START_HERE = [
 
 const heroCode = mdToHtml(`
 \`\`\`ts
-import { defineRepository, schemaOf } from 'zmdb';
-import type { CreateDTO, Entity } from 'zmdb/derive';
-import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import {
+  defineRepository,
+  schemaOf,
+  type CreateDTO,
+  type Entity,
+  type HasDefault,
+  type PrimaryKey,
+  type Serial,
+  type Sql,
+  type Table,
+} from 'zmdb';
 
 // 1 — declare the table once, as a type
 export interface User extends Table<'users'> {
@@ -496,7 +504,7 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/transport-rabbitmq</code><p>RabbitMQ topic transport with positive prefetch, confirmed delayed retries, and owned dead-letter topology.</p></div>
     <div class="pkg"><code>@zmdb/transport-redis</code><p>Lossy Redis Pub/Sub messaging with concrete-channel dispatch and correlated request/reply.</p></div>
     <div class="pkg"><code>@zmdb/web</code><p>HTTP controllers, routing, request pipelines, OpenAPI, gateways, testing, and runtime adapters over <code>@zmdb/app</code>.</p></div>
-    <div class="pkg"><code>zmdb</code><p>The curated data/web umbrella. It contains no implementation logic and does not re-export opt-in AI, MCP, OpenTelemetry, frontend, or transport packages.</p></div>
+    <div class="pkg"><code>zmdb</code><p>The cohesive application facade: a lazy root plus focused schema, SQL, validator, ORM, web, compiler, migrations, and testing entries. It contains no implementation logic and does not re-export opt-in integrations.</p></div>
   </div>
 </section>
 

@@ -1,5 +1,5 @@
 // zmdb/dto — explicit named re-exports of the read/query DTO family.
-// (No `export *`: each symbol is enumerated so the umbrella surface is explicit.)
+// (No `export *`: each symbol is enumerated so the compatibility surface is explicit.)
 export {
   applyOrderBy,
   applyPagination,

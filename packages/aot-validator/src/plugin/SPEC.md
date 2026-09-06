@@ -23,7 +23,8 @@ import { zmdbAot } from '@zmdb/aot-validator/unplugin';
 `createTransformer(program: ts.Program): ts.TransformerFactory<ts.SourceFile>` is the core; the packaging wrappers adapt it.
 
 The lower-level `zmdbAot({ naming })` accepts the same named or custom strategy as `codegen({ naming })`, resolves it once when the plugin is created, and passes it into reflection. The
-`zmdb/unplugin` umbrella entry discovers `zmdb.config.ts` asynchronously and supplies its project and `resolvedNaming`, avoiding a static dependency cycle from this package back to `zmdb`.
+`zmdb/compiler` product entry discovers `zmdb.config.ts` asynchronously and supplies its project and `resolvedNaming`, avoiding a static dependency cycle from this package back to `zmdb`.
+`zmdb/unplugin` remains a release-governed compatibility spelling.
 
 ## 2. Intercepted calls
 
@@ -33,7 +34,7 @@ The transformer recognizes the seventeen generic calls in `CALLEES`: `is<T>(x)`,
 the call with emitted JavaScript.
 
 The five protobuf/gRPC artifact calls are recognised only through a resolved direct, aliased, or namespace binding to `@zmdb/protobuf`. The plugin leaves local shadows, foreign same-named exports, and
-removed AOT/umbrella spellings unchanged.
+removed AOT/compatibility-facade spellings unchanged.
 
 ## 3. Emitted-JS contract (frozen)
 

@@ -575,6 +575,7 @@ if (studioBin === undefined) {
 
 // 5. Typecheck a consumer against the published declarations.
 const METRO_SUBPATH = '@zmdb/aot-validator/metro';
+const PRODUCT_COMPILER_SUBPATH = 'zmdb/compiler';
 const BROWSER_FRAMEWORK_PACKAGES = ['@zmdb/svelte', '@zmdb/sveltekit', '@zmdb/vue'];
 const browserSpecifiers = specifiers.filter(specifier =>
   BROWSER_FRAMEWORK_PACKAGES.some(packageName => specifier === packageName || specifier.startsWith(`${packageName}/`)),
@@ -584,7 +585,10 @@ const nuxtSpecifiers = specifiers.filter(
 );
 const strictSpecifiers = specifiers.filter(
   specifier =>
-    specifier !== METRO_SUBPATH && !browserSpecifiers.includes(specifier) && !nuxtSpecifiers.includes(specifier),
+    specifier !== METRO_SUBPATH &&
+    specifier !== PRODUCT_COMPILER_SUBPATH &&
+    !browserSpecifiers.includes(specifier) &&
+    !nuxtSpecifiers.includes(specifier),
 );
 writeFileSync(
   join(app, 'consumer.ts'),
@@ -790,11 +794,13 @@ if (productTsc.status !== 0) {
 // MetroConfig. Every other published subpath remains under the strict check above.
 writeFileSync(
   join(app, 'metro-consumer.ts'),
-  `import { withZmdb } from '${METRO_SUBPATH}';
+  `import { withZmdb as withOwnerZmdb } from '${METRO_SUBPATH}';
+import { withZmdb as withProductZmdb } from '${PRODUCT_COMPILER_SUBPATH}';
 import type { MetroConfig } from 'metro';
 
 declare const config: MetroConfig;
-export const wrapped: MetroConfig = withZmdb(config, { workerCount: 1 });
+export const ownerWrapped: MetroConfig = withOwnerZmdb(config, { workerCount: 1 });
+export const productWrapped: MetroConfig = withProductZmdb(config, { workerCount: 1 });
 `,
 );
 writeFileSync(

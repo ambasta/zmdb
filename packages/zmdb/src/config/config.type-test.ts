@@ -1,5 +1,5 @@
 import type { loadConfig as loadCliConfig, ResolvedConfig as CliResolvedConfig } from '../cli/config.js';
-import { zmdbAot } from '../unplugin.js';
+import { zmdbAot } from '../compiler.js';
 import type {
   defineConfig as contractDefineConfig,
   HttpGenerationConfig as ContractHttpGenerationConfig,

@@ -1,6 +1,6 @@
 # Product Requirements Document — zmdb
 
-## One TypeScript backend ecosystem: NestJS + Typia + MikroORM + Kysely, replaced under a single umbrella
+## One TypeScript backend ecosystem: NestJS + Typia + MikroORM + Kysely, replaced by one product
 
 > **Status:** unified PRD — the single product requirement of record. Replaces `Stage3_Decorator_Framework_PRD.md` and `zero_maintenance_data_layer_prd.md`, both absorbed in full and **now deleted**
 > (history in git). See §13 for the clause-by-clause reconciliation, including the four places where the source documents contradicted each other or the shipped code. **Baseline (hard floor):**
@@ -73,7 +73,7 @@ the HTTP half still forces hand-maintained DTOs. The unification is the product:
 | **MikroORM** | `@zmdb/schema-core` + `@zmdb/repository` + `@zmdb/migrations` | Entity modeling, repositories, relations/populate, transactions, lifecycle events, embeddables, inheritance, seeding, migrations | Identity map, unit-of-work auto-flush, lazy proxy relations, change tracking, JIT mappers                              |
 | **Kysely**   | `@zmdb/query-compiler` + `@zmdb/migrations`                   | Typed SELECT/INSERT/UPDATE/DELETE, joins, aggregations, FTS, set ops, dialects, DDL, migration diff                              | A query builder that doesn't know about your entities (ours shares the schema)                                         |
 
-### 3.2 The umbrella promise
+### 3.2 The one-product promise
 
 ```bash
 npm add zmdb          # the whole ecosystem, one dependency, zero transitive third-party runtime deps
@@ -216,7 +216,7 @@ Performance claims use upstream benchmark harnesses and the actual competitor li
                ▼
         @zmdb/web          (+ direct app/aot/schema-core deps; HTTP only)
                ▼
-            zmdb                               (umbrella — curated re-exports, ZERO logic)
+            zmdb                               (cohesive product facade, ZERO logic)
 ```
 
 `@zmdb/client`, `@zmdb/angular`, and `@zmdb/protobuf` are independent roots outside this spine; Angular accepts the generated client structurally and therefore has no workspace edge. `@zmdb/react`,
@@ -373,13 +373,13 @@ a yes/no question — holds, and is the part REQ-AV-2 states directly.
 | **REQ-WB-13** | WebSocket/SSE support (`@Gateway`, `@Subscribe`, `sseStream`) sharing the same DI and validation path.                                                                                                                 | Gateway dispatch test; SSE stream E2E.                                                                                 |
 | **REQ-WB-14** | First-class testing utilities (`createTestApp`) allowing controller/DI testing without a network listener.                                                                                                             | Test-app suite exercises routes in-process.                                                                            |
 
-### 6.6 Umbrella (REQ-UM)
+### 6.6 Product facade (REQ-UM)
 
-| ID           | Requirement                                                                                                                                                                                                                    | AC                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| **REQ-UM-1** | `zmdb` re-exports the ecosystem through a curated root + subpath map (`zmdb`, `zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, `zmdb/relations`, `zmdb/web`, `zmdb/drivers/*`, `zmdb/unplugin`) and contains **zero logic**. | Re-export parity test; no non-re-export statement in the package. |
-| **REQ-UM-2** | Every sub-package remains independently installable and tree-shakeable; the umbrella is convenience, not coupling.                                                                                                             | Each package builds and tests in isolation in CI.                 |
-| **REQ-UM-3** | No `export *` — every public symbol is enumerated, with type exports separated.                                                                                                                                                | Lint rule forbidding star re-exports.                             |
+| ID           | Requirement                                                                                                                                                                                                                                                                                      | AC                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| **REQ-UM-1** | `zmdb` is the cohesive application facade. Its lazy root covers schema, validation, ORM, and HTTP defaults; `zmdb/schema`, `sql`, `validator`, `orm`, `web`, `compiler`, `migrations`, and `testing` expose complete concerns without implementation logic or optional-integration reachability. | Static facade-source verifier, exact export identity tests, and an isolated root-import reachability test.               |
+| **REQ-UM-2** | Every implementation and integration package remains independently installable and tree-shakeable; the facade is stable product vocabulary, not a second implementation.                                                                                                                         | Each package builds and tests in isolation in CI; catalog ownership maps every facade entry to exactly one package.      |
+| **REQ-UM-3** | No `export *` in facade modules — every public symbol is enumerated, with type exports separated. The dependency-light config contract may implement only the `defineConfig` identity helper that the facade re-exports.                                                                         | Static source verification rejects wildcard exports, executable facade logic, mutable state, and unowned public entries. |
 
 ### 6.6a Server package cohesion (REQ-SV)
 
@@ -597,8 +597,9 @@ export interface Orders extends Table<'orders'> {
 // 2. DATA LAYER — one call. Entity/CreateDTO/UpdateDTO/WhereDTO are already derived.
 // ─────────────────────────────────────────────────────────────────────────────
 import { DatabaseSync } from 'node:sqlite';
-import { BaseRepository, schemaOf } from 'zmdb';
+import { schemaOf } from 'zmdb';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { BaseRepository } from 'zmdb/orm';
 
 // The one build-time call: the transformer reads `Orders` and replaces this with a
 // frozen object literal. Untransformed, it throws — it never returns an empty schema.
@@ -870,7 +871,7 @@ Per-package distribution of the 2026-09-06 recount:
 | `@zmdb/transport-rabbitmq` |          0 |              0 | —                                                                                    |
 | `@zmdb/transport-redis`    |          0 |              0 | —                                                                                    |
 | `@zmdb/web`                |          5 |              9 | HTTP decorator metadata and request/transport boundary reads                         |
-| `zmdb` (umbrella)          |          0 |              0 | —                                                                                    |
+| `zmdb` (product facade)    |          0 |              0 | —                                                                                    |
 
 `@zmdb/app` and `@zmdb/web` have more boundary comments than assertions, which is the intended direction: a boundary is a place where types stop proving things, and several of them are guards and
 `unknown` reads rather than casts.

@@ -1,5 +1,5 @@
 // zmdb/tags — explicit named re-exports of the type-first declaration vocabulary.
-// (No `export *`: each symbol is enumerated so the umbrella surface is explicit.)
+// (No `export *`: each symbol is enumerated so the compatibility surface is explicit.)
 //
 // Types only. This subpath contributes nothing to a bundle, which is asserted by
 // `schema-core/src/tags/erasure.spec.ts`.

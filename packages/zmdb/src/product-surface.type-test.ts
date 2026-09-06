@@ -1,6 +1,5 @@
 // The one-product import statement, compiled exactly as an application writes
-// it. Names still missing from the broader #620 facade are intentionally
-// suppressed; the #651 server names below are live owner identities.
+// it. Each identity assertion below is against the real owning package.
 
 import type {
   AssertError as OwnerAssertError,
@@ -56,8 +55,8 @@ import type {
 } from '@zmdb/web';
 import {
   AssertError,
-  // @ts-expect-error -- #620 adds Body to the root facade.
-  Body,
+  // @ts-expect-error -- standard Stage-3 decorators have no Body parameter decorator export.
+  Body as legacyBodyExport,
   Controller,
   Delete,
   Get,
@@ -70,7 +69,6 @@ import {
   ValidationError,
   assert,
   createApp,
-  // @ts-expect-error -- #620 adds defineConfig to the root facade.
   defineConfig,
   defineRepository,
   is,
@@ -81,54 +79,48 @@ import {
   type Ctx,
   type Driver,
   type Entity,
-  // @ts-expect-error -- #620 adds HasDefault to the root facade.
   type HasDefault,
-  // @ts-expect-error -- #620 adds Max to the root facade.
   type Max,
-  // @ts-expect-error -- #620 adds MaxLength to the root facade.
   type MaxLength,
-  // @ts-expect-error -- #620 adds Min to the root facade.
   type Min,
-  // @ts-expect-error -- #620 adds MinLength to the root facade.
   type MinLength,
   type ModuleClass,
-  // @ts-expect-error -- #620 adds Pattern to the root facade.
   type Pattern,
-  // @ts-expect-error -- #620 adds Physical to the root facade.
   type Physical,
-  // @ts-expect-error -- #620 adds PrimaryKey to the root facade.
   type PrimaryKey,
   type PrimaryKeyOf,
-  // @ts-expect-error -- #620 adds ReadDTO to the root facade.
   type ReadDTO,
-  // @ts-expect-error -- #620 adds References to the root facade.
   type References,
-  // @ts-expect-error -- #620 adds Sensitive to the root facade.
   type Sensitive,
-  // @ts-expect-error -- #620 adds Serial to the root facade.
   type Serial,
-  // @ts-expect-error -- #620 adds Sql to the root facade.
   type Sql,
-  // @ts-expect-error -- #620 adds Table to the root facade.
   type Table,
-  // @ts-expect-error -- #620 adds Unique to the root facade.
   type Unique,
   type UpdateDTO,
   type UpdatePatch,
   type ValidateResult,
   type ValidationIssue,
-  // @ts-expect-error -- #620 adds ZmdbConfig to the root facade.
   type ZmdbConfig,
 } from 'zmdb';
 
-import type { defineConfig as ownerDefineConfig, ZmdbConfig as OwnerZmdbConfig } from './config/index.js';
+import type { defineConfig as ownerDefineConfig, ZmdbConfig as OwnerZmdbConfig } from './config/contract.js';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
 
+declare function legacyBodyParameter(...args: unknown[]): void;
+
+export class Stage3BodyContract {
+  handle(
+    // @ts-expect-error -- standard Stage-3 decorators have no parameter position.
+    @legacyBodyParameter body: unknown,
+  ): unknown {
+    return body;
+  }
+}
+
 interface ProductRootValues {
   readonly AssertError: typeof OwnerAssertError;
-  readonly Body: unknown;
   readonly Controller: typeof OwnerController;
   readonly Delete: typeof OwnerDelete;
   readonly Get: typeof OwnerGet;
@@ -150,7 +142,6 @@ interface ProductRootValues {
 
 export const productRootValues: ProductRootValues = {
   AssertError,
-  Body,
   Controller,
   Delete,
   Get,
@@ -170,8 +161,9 @@ export const productRootValues: ProductRootValues = {
   validate,
 };
 
+export const stage3BodyExportProbe = legacyBodyExport;
+
 export type _ConfigAndTags = Expect<
-  // @ts-expect-error -- #620 re-exports the canonical config and tag identities from the root.
   Equal<
     [
       ZmdbConfig,
@@ -216,7 +208,6 @@ interface FrozenOrder extends OwnerTable<'orders'> {
 }
 
 export type _SchemaTypes = Expect<
-  // @ts-expect-error -- #620 adds the remaining DTO type identities to the root.
   Equal<
     [
       Entity<FrozenOrder>,
@@ -247,4 +238,8 @@ export type _WebTypes = Expect<
     [WebApplication, Ctx<{ id: string }>, ModuleClass],
     [OwnerWebApplication, OwnerCtx<{ id: string }>, OwnerModuleClass]
   >
+>;
+
+export type _Stage3BodyContract = Expect<
+  Equal<Ctx<Record<never, string>, CreateDTO<FrozenOrder>>['body'], OwnerCreateDTO<FrozenOrder>>
 >;

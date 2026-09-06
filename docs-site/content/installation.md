@@ -4,31 +4,25 @@ recommended installation combines the cohesive data, application, and HTTP produ
 `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/singlestore`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
 `@zmdb/transport-redis`, and `@zmdb/jobs` plus its storage integrations remain independently installable.
 
-## Recommended: product plus SQLite
+## Recommended: one product install
 
 ```bash
-npm add zmdb@alpha @zmdb/sqlite@alpha
+npm add zmdb@alpha
 ```
 
 ```ts
-import { schemaOf, defineRepository, is } from 'zmdb';
-import { sqlite, sqliteDriver } from '@zmdb/sqlite';
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
-import type { CreateDTO, Entity } from 'zmdb/derive';
+import { defineRepository, is, schemaOf, type CreateDTO, type Entity, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
+import { sqliteDriver } from 'zmdb/drivers/sqlite';
 ```
 
-The `zmdb` package re-exports the curated public API of its eight required workspace dependencies, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`,
-`zmdb/relations`, `zmdb/migrations`, `zmdb/web`, `zmdb/drivers/pg`, …). Database selection is explicit: `@zmdb/sqlite` owns SQLite compilation traits, migrations, introspection, and its driver;
-`@zmdb/postgres` owns the complete PostgreSQL vertical and structural `pg` adapter; and `@zmdb/mssql` owns the complete SQL Server vertical and structural node-mssql adapter. The temporary
-`zmdb/drivers/sqlite` path delegates to SQLite, while `zmdb/drivers/pg` and `zmdb/drivers/mssql` delegate through optional database-package peers. The `zmdb/web` facade combines the protocol-neutral
-`@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
+The `zmdb` package depends on eight required workspace packages and exposes their application defaults at the root. Complete concerns live under `zmdb/schema`, `zmdb/sql`, `zmdb/validator`,
+`zmdb/orm`, `zmdb/web`, `zmdb/compiler`, `zmdb/migrations`, and `zmdb/testing`. The `zmdb/drivers/sqlite` entry delegates to the bundled SQLite vertical; `zmdb/drivers/pg` and `zmdb/drivers/mssql`
+delegate through optional database-package peers selected by the application.
 
-`@zmdb/ai` and `@zmdb/mcp` are independently installable and are not re-exported by the umbrella root. Anthropic, LangChain, and Vercel AI SDK users add the matching opt-in integration package and its
-SDK/framework peer.
+The older `zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, and `zmdb/relations` paths remain as compatibility entries. Type-only imports from either the root or those paths disappear from emitted
+JavaScript.
 
-`@zmdb/ai-anthropic` is an optional integration package. It depends on `@zmdb/ai` and accepts an injected Anthropic client; it is not re-exported by the umbrella.
-
-`@zmdb/mysql` is independently installable and is not pulled in by the umbrella. Install it with `mysql2` when the application selects MySQL; importing the package does not load the client.
+`@zmdb/mysql` is independently installable and is not pulled in by the default product. Install it with `mysql2` when the application selects MySQL; importing the package does not load the client.
 
 `zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime export, so those two imports vanish entirely from your build output.
 
@@ -215,16 +209,17 @@ zmdb declares tables as **types**, and a type does not exist at runtime. The tra
 `assert<T>()`, `is<T>()`, `validate<T>()`, `equals<T>()`, `assertEquals<T>()`, `random<T>()` and `toJsonSchema<T>()` call with the reflected result.
 
 ```ts
-// vite.config.ts / rollup / esbuild / webpack — unplugin, so one factory for all
-import { zmdbAot } from '@zmdb/aot-validator/unplugin';
+// vite.config.ts / rollup / esbuild / webpack — one factory for all
+import { zmdbAot } from 'zmdb/compiler';
 
+const plugin = await zmdbAot({ project: new URL('./tsconfig.json', import.meta.url).pathname });
 export default {
-  plugins: [zmdbAot({ project: new URL('./tsconfig.json', import.meta.url).pathname })],
+  plugins: [plugin],
 };
 ```
 
-> [!IMPORTANT] Without `project` (or an already-open `session`) the plugin cannot ask the checker what a type is, so it leaves every `f<T>(…)` call alone — and an untransformed `schemaOf<T>()` throws
-> when called. A refused call site is a build error by default, not a silent fallback. See [AOT Setup](./aot-setup.html).
+`zmdb/compiler` discovers `zmdb.config.ts` when `project` is omitted. If neither config nor an explicit project or session is available, the plugin cannot ask the checker what a type is, so it leaves
+every `f<T>(…)` call alone — and an untransformed `schemaOf<T>()` throws when called. A refused call site is a build error by default, not a silent fallback. See [AOT Setup](./aot-setup.html).
 
 For a project that only needs the query compiler, there is no build step at all — see [Pure TypeScript](./pure-typescript.html).
 
@@ -233,18 +228,16 @@ For a project that only needs the query compiler, there is no build step at all 
 The query compiler is plain runtime code, so it verifies the install without the transformer in the way:
 
 ```ts
-import { createQueryCompiler } from '@zmdb/query-compiler';
-import { sqlite } from '@zmdb/sqlite';
+import { createQueryCompiler } from 'zmdb/sql';
 
-const q = createQueryCompiler(sqlite).selectFrom('users').select(['id']).compile();
+const q = createQueryCompiler('sqlite').selectFrom('users').select(['id']).compile();
 console.log(q.text); // SELECT "id" FROM "users"
 ```
 
 Then verify the transformer is wired, which is the part that actually goes wrong:
 
 ```ts
-import { schemaOf } from '@zmdb/schema-core';
-import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import { schemaOf, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
 
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;

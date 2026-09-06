@@ -114,7 +114,7 @@ async function main(argv: readonly string[]): Promise<number> {
 }
 
 /**
- * Load the umbrella package's config from the consumer project when it is installed.
+ * Load the product package's config from the consumer project when it is installed.
  *
  * `@zmdb/aot-validator` remains usable on its own, so it cannot depend statically on
  * `zmdb`, which already depends on this package. Resolving from the consumer's cwd keeps
@@ -130,7 +130,7 @@ async function loadProjectConfig(
   const configModule = await importConfigModule(configCwd);
   if (configModule === undefined) {
     if (path !== undefined) {
-      throw new Error('cannot use --config because this project does not install the zmdb umbrella package');
+      throw new Error('cannot use --config because this project does not install the zmdb product package');
     }
     return undefined;
   }

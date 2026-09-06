@@ -65,8 +65,8 @@ Under `--json`, the same path is the top-level `config` value. An explicit `--co
 | `http.client.out`   | `string`                              | required with HTTP | generated `.ts`, relative to config   |
 
 `loadConfig` also returns `resolvedNaming`: the selected built-in singleton, the custom `namingStrategy` by identity, or an empty identity strategy. Every database command passes that object into
-schema reflection. `zmdb-codegen` and `zmdb/unplugin` discover the same config and pass the same value to the lower-level AOT APIs; the committed consumer fixtures exercise both routes against
-byte-identical config files.
+schema reflection. `zmdb-codegen` and `zmdb/compiler` discover the same config and pass the same value to the lower-level AOT APIs; the committed consumer fixtures exercise both routes against
+byte-identical config files. `zmdb/unplugin` remains a compatibility spelling for the same configured plugin.
 
 Every glob must match at least one file, and every matched file must belong to the configured TypeScript project. A match outside the project is an error rather than a silently omitted table.
 
@@ -164,7 +164,7 @@ The following example demonstrates callable-boundary validation and the custom s
 export default defineConfig({
   schema: 'src/**/*.schema.ts',
   dialect: 'postgres',
-  driver: () => import('./src/database.ts').then(module => module.driver),
+  driver: () => import('./src/database.js').then(module => module.driver),
   namingStrategy: {
     table: declared => declared.toLowerCase(),
     column: (property, { table }) => `${table}_${property}`.toLowerCase(),

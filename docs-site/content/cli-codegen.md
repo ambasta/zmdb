@@ -4,10 +4,10 @@
 npx zmdb-codegen
 ```
 
-It is `@zmdb/aot-validator`'s executable, which the `zmdb` umbrella depends on — so if you installed `zmdb`, you already have it.
+It is `@zmdb/aot-validator`'s executable, which the `zmdb` product depends on — so if you installed `zmdb`, you already have it.
 
 When `zmdb` is installed, the executable discovers `zmdb.config.ts` and uses both its TypeScript project and its resolved naming strategy. `--config <path>` selects a particular config, while
-`--project <path>` overrides only the project. A standalone `@zmdb/aot-validator` install with no umbrella package keeps the `./tsconfig.json` and identity-naming defaults.
+`--project <path>` overrides only the project. A standalone `@zmdb/aot-validator` install with no `zmdb` product package keeps the `./tsconfig.json` and identity-naming defaults.
 
 The [unplugin](./aot-setup.html) gets type information for free: a bundler hands it a module, it asks the compiler about the type arguments in it, and it hands back rewritten source that only the
 bundler ever sees. A project built by plain `tsc`, or run straight off `node --strip-types`, has nowhere to put that step. The compiled path is not a reward for choosing a particular bundler, so this

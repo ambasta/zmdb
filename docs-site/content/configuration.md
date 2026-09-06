@@ -16,12 +16,12 @@ toOpenApi(httpContractIR, { info? })
 That is the complete runtime surface. There is no `reflect-metadata`, boot-time metadata scan, or ambient config read. `zmdb.config.ts` is an explicit tooling boundary for schema files, dialect and
 migration paths; it does not change how an application constructs a driver or repository.
 
-The one thing that _is_ configured outside a function argument is the build plugin, because it has to find your `tsconfig.json`. The umbrella entry discovers `zmdb.config.ts` and passes its resolved
-project and naming strategy to the transformer:
+The one thing that _is_ configured outside a function argument is the build plugin, because it has to find your `tsconfig.json`. The product compiler entry discovers `zmdb.config.ts` and passes its
+resolved project and naming strategy to the transformer:
 
 ```ts
 // vite.config.ts / rollup.config.js / esbuild plugin list
-import { zmdbAot } from 'zmdb/unplugin';
+import { zmdbAot } from 'zmdb/compiler';
 
 const plugin = await zmdbAot();
 ```

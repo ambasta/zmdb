@@ -308,7 +308,7 @@ export function exportName(
  *
  * Only reached by `zmdb.is<User>(x)` where `zmdb` turns out not to be an import either —
  * an unusual file. The subpaths are the truth about where each function is declared, and a
- * project that installed only the umbrella has them all re-exported from `zmdb`, so the
+ * project that installed only the product package has them all re-exported from `zmdb`, so the
  * import the witness writes resolves in both layouts as long as the source's own import
  * could be read. When it could not, this is the better guess than nothing.
  */
@@ -336,10 +336,10 @@ const DEFAULT_MODULES: Readonly<Record<string, string>> = {
  * Which module the witness should import a callee from.
  *
  * The source's own import, whenever there is one, and not a fixed table: a project that
- * installed `zmdb` writes `import { is } from 'zmdb'`, and a witness that reached past it
- * to `@zmdb/aot-validator/utilities` would import a package that is not in the consumer's
- * dependencies. `zmdb.is<User>(x)` resolves through the namespace's own import for the
- * same reason.
+ * installed `zmdb` can import `is` from the product root, and a witness that reached past
+ * it to `@zmdb/aot-validator/utilities` would import a package that is not in the
+ * consumer's dependencies. `zmdb.is<User>(x)` resolves through the namespace's own import
+ * for the same reason.
  */
 function calleeSpecifier(facts: ModuleFacts, site: CallSite): string {
   if (site.specifier !== undefined) return site.specifier;

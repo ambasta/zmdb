@@ -44,12 +44,22 @@ const TSCONFIG = {
     // No `node_modules` here and nothing touching a Node builtin.
     types: [] as string[],
     paths: {
+      zmdb: [`${ROOT}packages/zmdb/src/index.ts`],
+      'zmdb/*': [`${ROOT}packages/zmdb/src/*.ts`],
+      '@zmdb/app': [`${ROOT}packages/app/src/index.ts`],
+      '@zmdb/app/*': [`${ROOT}packages/app/src/*/index.ts`],
       '@zmdb/schema-core': [`${ROOT}packages/schema-core/src/index.ts`],
       '@zmdb/schema-core/*': [`${ROOT}packages/schema-core/src/*/index.ts`],
+      '@zmdb/query-compiler': [`${ROOT}packages/query-compiler/src/index.ts`],
+      '@zmdb/query-compiler/*': [`${ROOT}packages/query-compiler/src/*/index.ts`],
+      '@zmdb/repository': [`${ROOT}packages/repository/src/index.ts`],
+      '@zmdb/repository/*': [`${ROOT}packages/repository/src/*/index.ts`],
       '@zmdb/aot-validator': [`${ROOT}packages/aot-validator/src/index.ts`],
       '@zmdb/aot-validator/*': [`${ROOT}packages/aot-validator/src/*/index.ts`],
       '@zmdb/protobuf': [`${ROOT}packages/protobuf/src/index.ts`],
       '@zmdb/protobuf/*': [`${ROOT}packages/protobuf/src/*.ts`],
+      '@zmdb/web': [`${ROOT}packages/web/src/index.ts`],
+      '@zmdb/web/*': [`${ROOT}packages/web/src/*/index.ts`],
       '@consumer/validation': [`${ROOT}packages/aot-validator/src/utilities/index.ts`],
     },
   },
@@ -138,6 +148,31 @@ export const accepts = (value: unknown): boolean => is<Order>(value);
     // import used to leave the file beginning with the paragraph break that followed it.
     expect(run.app.startsWith('\n')).toBe(false);
     expect(run.app).not.toContain('\n\n\n');
+  });
+
+  it('loads root schemaOf support types from the schema concern', () => {
+    const run = generate(
+      `import { schemaOf } from 'zmdb';
+
+import type { Order } from './model.js';
+
+export const OrderSchema = schemaOf<Order>();
+`,
+      {
+        'model.ts': `import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
+
+export interface Order extends Table<'orders'> {
+  readonly id: number & Sql<'integer'> & PrimaryKey;
+}
+`,
+      },
+    );
+    ok(run.result);
+    const witness = readFileSync(join(run.src, 'app.zmdb.witness.ts'), 'utf8');
+    const declaration = readFileSync(join(run.src, 'app.zmdb.generated.d.ts'), 'utf8');
+    expect(witness).toContain("import { schemaOf } from 'zmdb';");
+    expect(witness).toContain("import type { TaggedSchema } from 'zmdb/schema';");
+    expect(declaration).toContain("import type { TaggedSchema } from 'zmdb/schema';");
   });
 
   it('goes even when a comment says its name', () => {

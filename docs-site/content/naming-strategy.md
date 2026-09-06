@@ -85,10 +85,10 @@ export default defineConfig({
 });
 ```
 
-Database commands, `zmdb-codegen`, and the umbrella build plugin all pass `resolvedNaming` into reflection automatically:
+Database commands, `zmdb-codegen`, and the product compiler entry all pass `resolvedNaming` into reflection automatically:
 
 ```ts
-import { zmdbAot } from 'zmdb/unplugin';
+import { zmdbAot } from 'zmdb/compiler';
 
 const plugin = await zmdbAot();
 ```

@@ -1,7 +1,7 @@
 `BaseRepository.updateMany` applies one validated patch to every matching row in one statement. Ordinary values and closed SET expressions are both supported:
 
 ```ts
-import { inc } from 'zmdb';
+import { inc } from 'zmdb/sql';
 
 const affected = await postRepo.updateMany({ authorId }, { published: true });
 await postRepo.updateMany({ authorId }, { views: inc(1) });

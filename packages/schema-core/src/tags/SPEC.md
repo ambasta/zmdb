@@ -147,7 +147,7 @@ everything. Every assertion about a tagged derivation uses exact identity for th
 - [x] The module has zero runtime exports (`erasure.spec.ts`).
 - [x] A tagged declaration and its untagged twin emit byte-identical JavaScript.
 - [x] No emitted byte mentions a tag name.
-- [x] `Physical<Name>` is exported from schema-core and the `zmdb/tags` umbrella with no runtime surface.
+- [x] `Physical<Name>` is exported from schema-core and the `zmdb/tags` compatibility facade with no runtime surface.
 - [x] Vocabulary parity with `SqlType`, `ColumnFlags` and the constraint kinds is a compile-time gate.
 - [x] The duplicate-install failure mode is asserted exactly, with `Equal` rather than assignability.
 

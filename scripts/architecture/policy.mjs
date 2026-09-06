@@ -462,10 +462,14 @@ export const PACKAGE_POLICY = Object.freeze({
     toolingEntries: [
       // CLI orchestration, scaffolding, embedding, and application loading.
       './cli',
+      // Compiler, reflection, lint, bundler, and Metro integrations.
+      './compiler',
       // Filesystem-backed project configuration for build and CLI consumers.
       './config',
       // Curated schema-lifecycle facade.
       './migrations',
+      // Cross-package test fixtures and harness helpers.
+      './testing',
       // Public bundler integration delegated to the validator package.
       './unplugin',
       // Curated facade over the HTTP contract compiler.

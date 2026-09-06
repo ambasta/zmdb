@@ -12,8 +12,10 @@
 // no bookkeeping to keep in step.
 
 import type { Order } from './model.js';
-import type { JsonSchemaObject, TaggedSchema, ValidateResult } from 'zmdb';
-import { assert, is, random, schemaOf, toJsonSchema, validate } from 'zmdb';
+import type { JsonSchemaObject, TaggedSchema } from 'zmdb/schema';
+import type { ValidateResult } from 'zmdb/validator';
+import { assert, is, random, validate } from 'zmdb/validator';
+import { schemaOf, toJsonSchema } from 'zmdb/schema';
 /*zmdb:/imports*/
 
 /*zmdb:begin:zmdbIsOrder*/

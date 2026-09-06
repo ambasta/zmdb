@@ -311,6 +311,17 @@ export default {
     }
   }, 60_000);
 
+  it('keeps workspace-linked framework sources outside the consumer transform', async () => {
+    const fixture = join(ROOT, 'fixtures', 'consumer-plugin');
+    const dependency = join(ROOT, 'packages', 'zmdb', 'src', 'validator.ts');
+    const plugin = await zmdbAot({ cwd: fixture });
+    try {
+      expect(plugin.transform(readFileSync(dependency, 'utf8'), dependency)).toBeNull();
+    } finally {
+      plugin.buildEnd?.();
+    }
+  }, 60_000);
+
   it('keeps the generated config validator current', () => {
     const result = codegen({
       project: join(ROOT, 'packages', 'zmdb', 'tsconfig.codegen.json'),
@@ -595,8 +606,8 @@ export { loadConfig } from '../../zmdb/src/config/index.js';
     const build = files.get('orders/scripts/build.mjs');
     const runtime = files.get('orders/src/main.ts');
 
-    expect(config).toContain("from 'zmdb/config'");
-    expect(build).toContain("from 'zmdb/unplugin'");
+    expect(config).toContain("from 'zmdb'");
+    expect(build).toContain("from 'zmdb/compiler'");
     expect(build).toContain('zmdbAot({ cwd: root })');
     expect(runtime).not.toContain('zmdb/config');
     expect(runtime).not.toContain('loadConfig');

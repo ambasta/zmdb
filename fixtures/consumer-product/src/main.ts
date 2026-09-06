@@ -1,9 +1,19 @@
 import { readFile } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 
-import { assert, defineRepository, schemaOf, type CreateDTO } from 'zmdb';
+import {
+  Controller,
+  Module,
+  Post,
+  assert,
+  createApp,
+  defineRepository,
+  schemaOf,
+  type CreateDTO,
+  type Ctx,
+} from 'zmdb';
 import { loadConfig } from 'zmdb/config';
-import { bodyText, Controller, createApp, Module, Post, type Ctx } from 'zmdb/web';
+import { bodyText } from 'zmdb/web';
 
 import type { Order } from './schema.js';
 
@@ -65,9 +75,8 @@ const migrationSource = await readFile(
 const up = migrationSource.split('-- zmdb:down')[0]?.replace('-- zmdb:up', '').trim();
 if (up === undefined || up.length === 0) throw new Error('fixture migration has no up section');
 
-// A variable keeps this a runtime package-boundary probe. The current package
-// has no `zmdb/migrations` export, so #619 remains red for the exact missing
-// capability instead of failing while the fixture itself is parsed.
+// A variable keeps this a runtime package-boundary probe instead of letting the
+// bundler fold the migration facade into the application bundle.
 const migrationsEntry: string = 'zmdb/migrations';
 const migrationModule: unknown = await import(migrationsEntry);
 const database = new DatabaseSync(databasePath);

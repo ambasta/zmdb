@@ -22,15 +22,15 @@ The AOT transformer is available as an unplugin for Vite, esbuild, Webpack, and 
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite';
-import { zmdbAot } from 'zmdb/unplugin';
+import { zmdbAot } from 'zmdb/compiler';
 
 export default defineConfig({
   plugins: [await zmdbAot()],
 });
 ```
 
-The umbrella entry discovers `zmdb.config.ts`, including its project and naming strategy. Tooling that owns config loading can instead use the synchronous low-level `@zmdb/aot-validator/unplugin`
-entry and pass `project` and `naming` explicitly.
+The product compiler entry discovers `zmdb.config.ts`, including its project and naming strategy. Tooling that owns config loading can instead use the synchronous low-level
+`@zmdb/aot-validator/unplugin` entry and pass `project` and `naming` explicitly. The old `zmdb/unplugin` spelling remains a compatibility alias.
 
 ## Metro for React Native and Expo
 

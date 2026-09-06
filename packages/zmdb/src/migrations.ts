@@ -47,6 +47,8 @@ export type {
   TableOptions,
   TableSnapshot,
 } from '@zmdb/migrations';
+export { EmbeddedMigrationError, runEmbedded } from '@zmdb/migrations/embedded';
+export type { EmbeddedConnection, EmbeddedMigration } from '@zmdb/migrations/embedded';
 export {
   applyPush,
   checkProject,
@@ -80,3 +82,19 @@ export type {
   PushResult,
   UpgradeResult,
 } from '@zmdb/migrations/files';
+export { CatalogRowError, createIntrospector, detectDrift, nullableIntegerField } from '@zmdb/migrations/introspect';
+export type {
+  CatalogColumnSnapshot,
+  CatalogForeignKeySnapshot,
+  CatalogIndexColumn,
+  CatalogIndexSnapshot,
+  CatalogSchemaSnapshot,
+  CatalogTableSnapshot,
+  CatalogWarning,
+  DriftOptions,
+  DriftReport,
+  IntrospectionDriver,
+  Introspector,
+  IntrospectOptions,
+  LegacyIntrospector,
+} from '@zmdb/migrations/introspect';

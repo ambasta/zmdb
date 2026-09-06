@@ -285,10 +285,10 @@ function typeImportLines(imports: readonly TypeImport[], style: string): string[
 /**
  * The runtime API the witness calls, and the types its signatures mention.
  *
- * Both come from the specifier the *source* used, never from a fixed table: a project that
- * installed the `zmdb` umbrella has no `@zmdb/aot-validator` in its dependencies, so a
- * witness that imported one would not resolve. That the umbrella re-exports every support
- * type alongside its function is what makes one specifier enough for both lines.
+ * Values come from the specifier the *source* used, never from an implementation package: a
+ * project that installed only `zmdb` has no direct `@zmdb/aot-validator` dependency. Support
+ * types normally share that entry. The one deliberate split is root `schemaOf`: the curated
+ * root keeps the callable, while `TaggedSchema` belongs to the complete `zmdb/schema` concern.
  */
 function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<string, string>, style: string): string[] {
   const values = new Map<string, Set<string>>();
@@ -304,7 +304,8 @@ function calleeImportLines(entries: readonly Entry[], sources: ReadonlyMap<strin
     into(values, specifier, entry.callee);
     const support = SUPPORT_TYPES[entry.callee];
     if (support) {
-      for (const name of support) into(types, specifier, name);
+      const supportSpecifier = entry.callee === 'schemaOf' && specifier === 'zmdb' ? 'zmdb/schema' : specifier;
+      for (const name of support) into(types, supportSpecifier, name);
     }
   }
 

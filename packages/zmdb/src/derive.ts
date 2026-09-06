@@ -1,5 +1,5 @@
 // zmdb/derive — explicit named re-exports of the DTO suite derived from a tagged
-// type. (No `export *`: each symbol is enumerated so the umbrella surface is
+// type. (No `export *`: each symbol is enumerated so the compatibility surface is
 // explicit.)
 //
 // Types only; contributes nothing to a bundle.

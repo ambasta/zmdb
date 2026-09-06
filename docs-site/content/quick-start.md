@@ -7,19 +7,19 @@ issued a typed query.
 ## 1. Install
 
 ```bash
-npm add zmdb@alpha @zmdb/sqlite@alpha
+npm add zmdb@alpha
 ```
 
-`zmdb` exposes the cohesive product API; `@zmdb/sqlite` is the explicit complete SQLite vertical selected by this guide. (Prefer granular installs? See [Installation](./installation.html).) Then wire
-the transformer once — see [AOT setup](./aot-setup.html). It is not an optimisation you can skip: `schemaOf<T>()` and the validators read a type argument, which does not exist at runtime, so an
-untransformed build throws rather than quietly checking nothing.
+`zmdb` exposes the cohesive product API and its built-in SQLite path. (Prefer granular installs? See [Installation](./installation.html).) Then wire the transformer once — see
+[AOT setup](./aot-setup.html). It is not an optimisation you can skip: `schemaOf<T>()` and the validators read a type argument, which does not exist at runtime, so an untransformed build throws rather
+than quietly checking nothing.
 
 ## 2. Declare your table once
 
 A table is a TypeScript type. That declaration is the single source of truth, and everything else derives from it.
 
 ```ts
-import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from 'zmdb';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -43,7 +43,7 @@ There is no builder DSL and no global registry. If you have a codebase full of `
 ## 3. Types derive automatically
 
 ```ts
-import type { CreateDTO, Entity, UpdateDTO } from 'zmdb/derive';
+import type { CreateDTO, Entity, UpdateDTO } from 'zmdb';
 
 type Row = Entity<User>;
 //   { id: number; email: string; role: 'admin' | 'user'; createdAt: Date }
@@ -66,12 +66,11 @@ zero-dependency setup:
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { defineRepository } from '@zmdb/repository';
-import { sqlite, sqliteDriver } from '@zmdb/sqlite';
-import { schemaOf } from 'zmdb';
+import { defineRepository, schemaOf } from 'zmdb';
+import { sqliteDriver } from 'zmdb/drivers/sqlite';
 
 const db = new DatabaseSync('app.db'); // or ':memory:'
-const users = defineRepository(schemaOf<User>(), sqliteDriver(db), { dialect: sqlite });
+const users = defineRepository(schemaOf<User>(), sqliteDriver(db), { dialect: 'sqlite' });
 
 const u = await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
 const one = await users.findById(u.id); // Entity<S> | undefined
@@ -84,13 +83,13 @@ const gone = await users.delete(u.id); // boolean
 Prefer a class? Subclassing works identically:
 
 ```ts
-import { BaseRepository } from '@zmdb/repository';
+import { BaseRepository } from 'zmdb/orm';
 
 const userSchema = schemaOf<User>();
 class UserRepository extends BaseRepository<User> {
   static readonly schema = userSchema;
 }
-const users = new UserRepository(sqliteDriver(db), sqlite);
+const users = new UserRepository(sqliteDriver(db), 'sqlite');
 ```
 
 > [!IMPORTANT] `schemaOf<T>()` is a **compile-time** call — the answer is a function of a type argument, and type arguments do not exist at runtime. The transformer replaces it with a frozen object
@@ -105,7 +104,7 @@ const users = new UserRepository(sqliteDriver(db), sqlite);
 ## 5. Query your data (typed)
 
 ```ts
-import { compileWhere, applyOrderBy, buildListResult } from '@zmdb/schema-core/dto';
+import { applyOrderBy, buildListResult, compileWhere } from 'zmdb/schema';
 
 let qb = users.query.selectFrom('users');
 qb = compileWhere(qb, { role: 'admin', createdAt: { gte: since } });
@@ -126,7 +125,7 @@ The filter, ordering and pagination are all typed against `User`. See [Filters](
 ## 6. Atomic writes with transactions
 
 ```ts
-import { createTransactionalDb } from '@zmdb/repository/transactions';
+import { createTransactionalDb } from 'zmdb/orm';
 
 const db = createTransactionalDb(connection);
 await db.transaction(async tx => {
@@ -140,7 +139,7 @@ await db.transaction(async tx => {
 ## 7. Validate at the boundary
 
 ```ts
-import { assert } from '@zmdb/aot-validator/utilities';
+import { assert, type CreateDTO } from 'zmdb';
 
 // In an HTTP handler: validate the inbound body against the derived Create DTO.
 const payload = assert<CreateDTO<User>>(await req.json());

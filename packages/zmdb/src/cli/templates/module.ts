@@ -4,7 +4,8 @@ export const moduleTemplate: TemplateFactory = ({ name }) => ({
   files: [
     {
       path: `src/${name.fileStem}.module.ts`,
-      source: `import { createToken, Module } from 'zmdb/web';
+      source: `import { Module } from 'zmdb';
+import { createToken } from 'zmdb/web';
 
 export interface ${name.pascal}Status {
   readonly name: '${name.fileStem}';
@@ -22,7 +23,7 @@ export class ${name.pascal}Module {}
     },
     {
       path: `src/${name.fileStem}.module.spec.ts`,
-      source: `import { createTestApp } from '@zmdb/web/testing';
+      source: `import { createTestApp } from 'zmdb/testing';
 import { describe, expect, it } from 'vitest';
 
 import { ${name.constant}_STATUS, ${name.pascal}Module } from './${name.fileStem}.module.js';

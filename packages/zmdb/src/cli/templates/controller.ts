@@ -4,7 +4,7 @@ export const controllerTemplate: TemplateFactory = ({ name }) => ({
   files: [
     {
       path: `src/${name.fileStem}.controller.ts`,
-      source: `import { Controller, Get } from 'zmdb/web';
+      source: `import { Controller, Get } from 'zmdb';
 
 @Controller('/${name.fileStem}')
 export class ${name.pascal}Controller {
@@ -17,8 +17,9 @@ export class ${name.pascal}Controller {
     },
     {
       path: `src/${name.fileStem}.controller.spec.ts`,
-      source: `import { createTestApp } from '@zmdb/web/testing';
-import { bodyText, Module } from 'zmdb/web';
+      source: `import { Module } from 'zmdb';
+import { createTestApp } from 'zmdb/testing';
+import { bodyText } from 'zmdb/web';
 import { describe, expect, it } from 'vitest';
 
 import { ${name.pascal}Controller } from './${name.fileStem}.controller.js';

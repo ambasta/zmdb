@@ -87,7 +87,7 @@ const MAY_NAME = new Map([
     'the producer. It maps a declared TypeScript type to a `SqlType`, which is the direction ' +
       'this gate exists to protect: one thing writes the vocabulary, one thing reads it.',
   ],
-  ['packages/zmdb/src/index.ts', 'the umbrella re-export. A name passing through, not a read.'],
+  ['packages/zmdb/src/schema.ts', 'the schema concern facade. A name passing through, not a read.'],
 ]);
 
 /** Check 3's exemptions: every library source outside `ir/` that may read a column's meaning. */

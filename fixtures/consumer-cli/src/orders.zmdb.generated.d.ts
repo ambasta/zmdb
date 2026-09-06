@@ -8,7 +8,8 @@
 // module next door. Nothing here is checked against the implementation, and nothing needs
 // to be — the witness makes the same claims against the runtime API, and *that* is checked.
 import type { Order } from './model.js';
-import type { JsonSchemaObject, TaggedSchema, ValidateResult } from 'zmdb';
+import type { JsonSchemaObject, TaggedSchema } from 'zmdb/schema';
+import type { ValidateResult } from 'zmdb/validator';
 
 export declare function zmdbIsOrder(value: unknown): value is Order;
 

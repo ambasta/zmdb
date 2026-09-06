@@ -9,7 +9,7 @@ yarn add zmdb
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite';
-import { zmdbAot } from 'zmdb/unplugin';
+import { zmdbAot } from 'zmdb/compiler';
 
 export default defineConfig({ plugins: [await zmdbAot()] });
 ```
@@ -22,7 +22,7 @@ Two tables and one relation. This file is the only place the shape of a post exi
 
 ```ts
 // src/schema.ts
-import type { HasDefault, Length, ManyToOne, OneToMany, Pattern, PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/tags';
+import type { HasDefault, Length, ManyToOne, OneToMany, Pattern, PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/schema';
 
 export interface Author extends Table<'authors'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -45,7 +45,7 @@ export interface Post extends Table<'posts'> {
 The derived types come for free:
 
 ```ts
-import type { CreateDTO, Entity } from 'zmdb/derive';
+import type { CreateDTO, Entity } from 'zmdb';
 
 type Row = Entity<Post>;
 // { id: number; authorId: number; title: string; body: string; published: boolean; createdAt: Date }
@@ -63,7 +63,7 @@ any of that; it was read off the declaration.
 // scripts/generate.ts
 import { diff, emitUp, snapshot } from 'zmdb/migrations';
 import { schemaOf } from 'zmdb';
-import type { Author, Post } from '../src/schema.ts';
+import type { Author, Post } from '../src/schema.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const prev = JSON.parse(readFileSync('migrations/snapshot.json', 'utf8'));
@@ -80,10 +80,9 @@ Run it, commit both files, and apply with the [runner](./migrations-cli.html). F
 
 ```ts
 // src/repositories.ts
-import { defineRepository } from '@zmdb/repository';
-import { schemaOf } from 'zmdb';
-import type { Author, Post } from './schema.ts';
-import { driver } from './driver.ts';
+import { defineRepository, schemaOf } from 'zmdb';
+import type { Author, Post } from './schema.js';
+import { driver } from './driver.js';
 
 export const authorRepo = defineRepository(schemaOf<Author>(), driver);
 export const postRepo = defineRepository(schemaOf<Post>(), driver);
@@ -103,7 +102,8 @@ batches the child query from the same tag. There used to be a `relations` option
 ```ts
 // src/driver.ts
 import { Pool } from 'pg';
-import type { Driver, CompiledQuery } from '@zmdb/repository';
+import type { Driver } from 'zmdb';
+import type { CompiledQuery } from 'zmdb/sql';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -121,14 +121,11 @@ That is the entire database integration. See [Writing a Driver](./custom-driver.
 
 ```ts
 // src/posts.controller.ts
-import { Controller, Get, Post as HttpPost } from '@zmdb/web/routing';
-import { Inject } from '@zmdb/app/di';
-import type { Ctx } from '@zmdb/web/context';
-import { assert } from '@zmdb/aot-validator/utilities';
-import type { PostRepo } from './repositories.ts';
-import { postRepoToken } from './tokens.ts';
-import type { CreateDTO } from 'zmdb/derive';
-import type { Post } from './schema.ts';
+import { Controller, Get, Post as HttpPost, ValidationError, assert, type CreateDTO, type Ctx } from 'zmdb';
+import { Inject } from 'zmdb/web';
+import type { PostRepo } from './repositories.js';
+import type { Post } from './schema.js';
+import { postRepoToken } from './tokens.js';
 
 @Controller('/posts')
 export class PostsController {
@@ -168,12 +165,11 @@ export class PostsController {
 ```ts
 // src/app.ts
 import { createServer } from 'node:http';
-import { Module } from '@zmdb/app/modules';
-import { createApp } from '@zmdb/web/app';
-import { bodyText, toNodeHandler, createRouter } from '@zmdb/web/pipeline';
-import { PostsController } from './posts.controller.ts';
-import { postRepo } from './repositories.ts';
-import { postRepoToken } from './tokens.ts';
+import { Module, createApp } from 'zmdb';
+import { bodyText } from 'zmdb/web';
+import { PostsController } from './posts.controller.js';
+import { postRepo } from './repositories.js';
+import { postRepoToken } from './tokens.js';
 
 @Module({
   controllers: [PostsController],
@@ -198,10 +194,10 @@ snippet buffers a streamed response; use `toNodeHandler(router)` when the route 
 ## 8. OpenAPI, derived
 
 ```ts
-import { compileHttpContracts } from '@zmdb/web/contract/compiler';
-import { toOpenApi } from '@zmdb/web/openapi';
+import { toOpenApi } from 'zmdb/web';
+import { compileHttpContracts } from 'zmdb/web/contract/compiler';
 
-import { HTTP_CONTRACT } from './http-contract.ts';
+import { HTTP_CONTRACT } from './http-contract.js';
 
 const compiled = compileHttpContracts([{ file: new URL('./http-contract.ts', import.meta.url), exportName: 'HTTP_CONTRACT', contract: HTTP_CONTRACT }], { session });
 const doc = toOpenApi(compiled.ir, { info: { title: 'Blog', version: '1.0.0' } });
@@ -213,7 +209,7 @@ The contract's `GET /posts` response schema is reflected once during compilation
 ## 9. Tests
 
 ```ts
-import { createTestApp } from '@zmdb/web/testing';
+import { createTestApp } from 'zmdb/testing';
 import { expect, it } from 'vitest';
 
 it('rejects a post with no title', async () => {

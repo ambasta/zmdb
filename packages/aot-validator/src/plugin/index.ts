@@ -101,6 +101,13 @@ export function zmdbAot(options: ZmdbAotOptions = {}): UnpluginLike {
         return out === code ? null : { code: out };
       }
 
+      // Workspace package exports point at source files, so a bundler can hand us a
+      // dependency whose path does not contain `node_modules`. The compiler still marks
+      // that file as an external library. Treat it exactly like an installed dependency:
+      // framework code ships its own build and must not be recompiled as consumer code.
+      const sourceFile = open.sourceFile(id);
+      if (sourceFile !== undefined && open.program.isSourceFileFromExternalLibrary(sourceFile)) return null;
+
       let result = transformFile(id, code, {
         session: open,
         reflect,

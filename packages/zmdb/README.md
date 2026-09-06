@@ -1,8 +1,9 @@
 # zmdb
 
-The `zmdb` package re-exports the main schema, query, migration, validation, repository, application, web, configuration, and command-line APIs from one install.
+The `zmdb` package presents schema declaration, AOT validation, typed ORM access, SQL, migrations, and the HTTP application framework as one cohesive product.
 
-Define a schema once and use it for TypeScript types, validation, serialization, SQL, OpenAPI, and CRUD.
+The default `zmdb` import is intentionally small and lazy: it covers the normal application journey without loading compiler tooling, migration machinery, jobs, or optional integrations. Focused
+concern subpaths expose the larger APIs without requiring package-first imports.
 
 ## Install
 
@@ -14,12 +15,13 @@ npm add zmdb@alpha
 
 ## Entry points
 
-- Core APIs: `zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`
-- Schema lifecycle: `zmdb/migrations`
+- Application defaults: `zmdb`
+- Product concerns: `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`, `zmdb/web`
+- Build and operational concerns: `zmdb/compiler`, `zmdb/migrations`, `zmdb/testing`, `zmdb/config`, `zmdb/cli`
 - Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/drivers/mssql`
 - Application kernel: `zmdb/app` and `zmdb/app/{commands,cqrs,data,di,events,health,lifecycle,messaging,modules,observability,state}`
 - HTTP: `zmdb/web`, `zmdb/web/contract`, `zmdb/web/contract/compiler`, and the focused `zmdb/web/*` HTTP concern entries
-- Application tooling: `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
+- Compatibility subpaths: `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`, `zmdb/unplugin`, `zmdb/web/contract`, `zmdb/web/contract/compiler`
 
 `zmdb/web` composes the application kernel and HTTP package by identity for the common server import. The direct `@zmdb/web` package remains HTTP-only.
 
@@ -32,8 +34,11 @@ npm add @zmdb/jobs@alpha
 Import queues, workers, schedules, and `jobsExtension` from `@zmdb/jobs`. The default product neither installs jobs nor exposes a `zmdb/jobs` facade; the selected package still composes through the
 same `@zmdb/app` lifecycle.
 
+Every facade entry delegates to its owning implementation package by identity and contains no mutable state or implementation logic. AI providers, frontend bindings, observability, and transports are
+separate opt-in packages and are not reachable from the default root.
+
 `zmdb/drivers/pg` is a compatibility facade over the optional `@zmdb/postgres` peer. Install `@zmdb/postgres` and `pg` in applications that select PostgreSQL; neither is pulled into the default
-umbrella dependency closure.
+product dependency closure.
 
 ## Generate HTTP artifacts
 

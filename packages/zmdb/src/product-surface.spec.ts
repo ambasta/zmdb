@@ -1,5 +1,28 @@
 import { join } from 'node:path';
 
+import {
+  AssertError as ownerAssertError,
+  assert as ownerAssert,
+  is as ownerIs,
+  validate as ownerValidate,
+} from '@zmdb/aot-validator/utilities';
+import { Module as ownerModule } from '@zmdb/app/modules';
+import {
+  IncompleteKeyError as ownerIncompleteKeyError,
+  ValidationError as ownerValidationError,
+  defineRepository as ownerDefineRepository,
+} from '@zmdb/repository';
+import { schemaOf as ownerSchemaOf } from '@zmdb/schema-core';
+import { createApp as ownerCreateApp } from '@zmdb/web/app';
+import {
+  Controller as ownerController,
+  Delete as ownerDelete,
+  Get as ownerGet,
+  Patch as ownerPatch,
+  Post as ownerPost,
+  Public as ownerPublic,
+  Put as ownerPut,
+} from '@zmdb/web/routing';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -23,12 +46,34 @@ import {
   inspectProductFacade,
   readFacadeOwnership,
   runPackedProductConsumer,
+  verifyFacadeSource,
 } from '../../../.github/scripts/verify-product-facade.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   withPackedBuildLock,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 import { PRODUCT_CATALOG } from '../../../scripts/product/catalog.mjs';
+import { defineConfig as ownerDefineConfig } from './config/contract.js';
+import {
+  AssertError,
+  Controller,
+  Delete,
+  Get,
+  IncompleteKeyError,
+  Module,
+  Patch,
+  Post,
+  Public,
+  Put,
+  ValidationError,
+  assert,
+  createApp,
+  defineConfig,
+  defineRepository,
+  is,
+  schemaOf,
+  validate,
+} from './index.js';
 
 const ROOT = process.cwd();
 const PRODUCT_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
@@ -45,16 +90,43 @@ function catalogReport(): ReturnType<typeof inspectProductCatalog> {
   return measuredCatalog;
 }
 
-describe('the one-product facade and catalog (#619, #622)', () => {
-  // The default server facade carries app and HTTP identities while jobs stays
-  // package-owned. The frozen final target therefore has 44 stable subpaths.
-  it.fails('imports the complete application surface from zmdb without internal package imports', () => {
+let measuredPacked: ReturnType<typeof runPackedProductConsumer> | undefined;
+function packedReport(): ReturnType<typeof runPackedProductConsumer> {
+  measuredPacked ??= withPackedBuildLock(ROOT, () => runPackedProductConsumer(ROOT, PRODUCT_FIXTURE));
+  return measuredPacked;
+}
+
+function expectPackedProductJourney(): void {
+  expect(inspectProductConsumerFixture(PRODUCT_FIXTURE)).toEqual([]);
+
+  const result = packedReport();
+  expect(result.status, `${result.stage}\n${result.stdout}\n${result.stderr}`).toBe(0);
+  const output: unknown = JSON.parse(result.stdout.trim());
+  expect(output).toMatchObject({
+    applied: [20260905000100],
+    invalidStatus: 400,
+    afterInvalid: { count: 0 },
+    created: { id: 1, name: 'first order' },
+    ledger: [
+      {
+        version: 20260905000100,
+        name: 'create_orders',
+        checksum: 'sha256:consumer-product-create-orders-v1',
+      },
+    ],
+    stored: [{ id: 1, name: 'first order' }],
+  });
+}
+
+describe('the one-product facade and catalog (#619, #620, #622)', () => {
+  it('imports the complete application surface from zmdb without internal package imports', () => {
     const report = facadeReport();
 
     expect(report.processProblems).toEqual([]);
     expect(report.runtimeNames).toEqual(TARGET_ROOT_VALUES);
     expect(report.typeNames).toEqual(TARGET_ROOT_TYPES);
     expect(report.missingSubpaths).toEqual([]);
+    expect(report.facadeImplementationProblems).toEqual([]);
     expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(44);
   });
 
@@ -65,6 +137,167 @@ describe('the one-product facade and catalog (#619, #622)', () => {
 
     expect(report.processProblems).toEqual([]);
     expect(report.forbiddenImports).toEqual([]);
+  });
+
+  it('keeps the root facade free of executable implementation logic', () => {
+    expect(verifyFacadeSource("export { schemaOf } from '@zmdb/schema-core';", 'clean facade')).toEqual([]);
+    expect(verifyFacadeSource("export * as schema from '@zmdb/schema-core';", 'wildcard facade')).toEqual([
+      "wildcard facade contains executable or non-delegating source: export * as schema from '@zmdb/schema-core';",
+    ]);
+    expect(verifyFacadeSource('export const cache = new Map();', 'planted facade')).toEqual([
+      'planted facade contains executable or non-delegating source: export const cache = new Map();',
+    ]);
+  });
+
+  it('exports every root symbol with the same runtime identity as its owning package', () => {
+    expect({
+      AssertError,
+      Controller,
+      Delete,
+      Get,
+      IncompleteKeyError,
+      Module,
+      Patch,
+      Post,
+      Public,
+      Put,
+      ValidationError,
+      assert,
+      createApp,
+      defineConfig,
+      defineRepository,
+      is,
+      schemaOf,
+      validate,
+    }).toEqual({
+      AssertError: ownerAssertError,
+      Controller: ownerController,
+      Delete: ownerDelete,
+      Get: ownerGet,
+      IncompleteKeyError: ownerIncompleteKeyError,
+      Module: ownerModule,
+      Patch: ownerPatch,
+      Post: ownerPost,
+      Public: ownerPublic,
+      Put: ownerPut,
+      ValidationError: ownerValidationError,
+      assert: ownerAssert,
+      createApp: ownerCreateApp,
+      defineConfig: ownerDefineConfig,
+      defineRepository: ownerDefineRepository,
+      is: ownerIs,
+      schemaOf: ownerSchemaOf,
+      validate: ownerValidate,
+    });
+  });
+
+  it('preserves every concern-facade runtime identity', async () => {
+    const cases = [
+      {
+        facade: 'zmdb/schema',
+        owners: [
+          '@zmdb/schema-core',
+          '@zmdb/schema-core/dto',
+          '@zmdb/schema-core/ir',
+          '@zmdb/schema-core/openapi',
+          '@zmdb/schema-core/custom-types',
+          '@zmdb/schema-core/naming',
+        ],
+        excluded: new Set(['TAG_NAMES']),
+      },
+      {
+        facade: 'zmdb/sql',
+        owners: [
+          '@zmdb/query-compiler',
+          '@zmdb/query-compiler/fts',
+          '@zmdb/query-compiler/joins',
+          '@zmdb/query-compiler/aggregations',
+          '@zmdb/query-compiler/set-ops',
+          '@zmdb/query-compiler/schema-objects',
+          '@zmdb/query-compiler/naming',
+        ],
+        excluded: new Set(['DIALECT_PARAM_LIMITS', 'chunkArray', 'sanitizeKeys']),
+      },
+      {
+        facade: 'zmdb/validator',
+        owners: [
+          '@zmdb/aot-validator',
+          '@zmdb/aot-validator/utilities',
+          '@zmdb/aot-validator/advanced',
+          '@zmdb/aot-validator/serialization',
+        ],
+        excluded: new Set(['validate']),
+      },
+      {
+        facade: 'zmdb/orm',
+        owners: [
+          '@zmdb/repository',
+          '@zmdb/repository/seeding',
+          '@zmdb/repository/outbox',
+          '@zmdb/repository/replicas',
+          '@zmdb/repository/integrations',
+          '@zmdb/repository/entity-modeling',
+          '@zmdb/repository/jobs',
+          '@zmdb/query-compiler/outbox',
+        ],
+        excluded: new Set<string>(),
+      },
+      {
+        facade: 'zmdb/compiler',
+        owners: [
+          '@zmdb/aot-validator/unplugin',
+          '@zmdb/aot-validator/metro',
+          '@zmdb/aot-validator/codegen',
+          '@zmdb/aot-validator/emit',
+          '@zmdb/aot-validator/reflect',
+          '@zmdb/aot-validator/transformer',
+        ],
+        excluded: new Set(['zmdbAot']),
+      },
+      {
+        facade: 'zmdb/migrations',
+        owners: ['@zmdb/migrations', '@zmdb/migrations/embedded', '@zmdb/migrations/introspect'],
+        excluded: new Set([
+          'action',
+          'deterministicForeignKeyName',
+          'flagField',
+          'integerField',
+          'normalizeDriftSnapshot',
+          'nullableTextField',
+          'query',
+          'sortByName',
+          'sortWarnings',
+          'splitSqlList',
+          'tableSelected',
+          'textField',
+        ]),
+      },
+      {
+        facade: 'zmdb/testing',
+        owners: ['@zmdb/aot-validator/testing', '@zmdb/web/testing'],
+        excluded: new Set<string>(),
+      },
+    ] as const;
+
+    for (const { facade, owners, excluded } of cases) {
+      const product: Readonly<Record<string, unknown>> = await import(facade);
+      for (const ownerSpecifier of owners) {
+        const owner: Readonly<Record<string, unknown>> = await import(ownerSpecifier);
+        for (const [name, value] of Object.entries(owner)) {
+          if (excluded.has(name)) continue;
+          expect(product[name], `${facade} must preserve ${ownerSpecifier}#${name}`).toBe(value);
+        }
+      }
+    }
+
+    const compiler: Readonly<Record<string, unknown>> = await import('zmdb/compiler');
+    const lint: Readonly<Record<string, unknown>> = await import('@zmdb/aot-validator/lint');
+    const productCompiler: Readonly<Record<string, unknown>> = await import('./unplugin.js');
+    const validator: Readonly<Record<string, unknown>> = await import('zmdb/validator');
+    const utilities: Readonly<Record<string, unknown>> = await import('@zmdb/aot-validator/utilities');
+    expect(compiler.lintPlugin).toBe(lint.default);
+    expect(compiler.zmdbAot).toBe(productCompiler.zmdbAot);
+    expect(validator.validate).toBe(utilities.validate);
   });
 
   it('derives every official package role and facade exposure from one product catalog', async () => {
@@ -202,8 +435,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const actual = readFacadeOwnership(ROOT);
     const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
 
-    expect(derived.root).toHaveLength(108);
-    expect(derived.subpaths).toHaveLength(44);
+    expect(derived.root).toHaveLength(71);
+    expect(derived.subpaths).toHaveLength(50);
     expect(actual.root).toEqual(derived.root);
     expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
     expect(verifyFacadeOwnership(PRODUCT_CATALOG, actual)).toEqual([]);
@@ -345,30 +578,18 @@ describe('the one-product facade and catalog (#619, #622)', () => {
 
   // The fixture itself is a real external project: one registry dependency,
   // no workspace protocol, no paths, no skipLibCheck and no @zmdb/* import.
-  // The tarball process currently reaches the exact missing boundary first:
-  // `zmdb/compiler` is not exported.
-  it.fails(
+  it(
     'installs only zmdb and serves a validated SQLite-backed HTTP request from packed tarballs',
     () => {
-      expect(inspectProductConsumerFixture(PRODUCT_FIXTURE)).toEqual([]);
+      expectPackedProductJourney();
+    },
+    PACKED_BUILD_TEST_TIMEOUT_MS,
+  );
 
-      const result = withPackedBuildLock(ROOT, () => runPackedProductConsumer(ROOT, PRODUCT_FIXTURE));
-      expect(result.status, `${result.stage}\n${result.stdout}\n${result.stderr}`).toBe(0);
-      const output: unknown = JSON.parse(result.stdout.trim());
-      expect(output).toMatchObject({
-        applied: [20260905000100],
-        invalidStatus: 400,
-        afterInvalid: { count: 0 },
-        created: { id: 1, name: 'first order' },
-        ledger: [
-          {
-            version: 20260905000100,
-            name: 'create_orders',
-            checksum: 'sha256:consumer-product-create-orders-v1',
-          },
-        ],
-        stored: [{ id: 1, name: 'first order' }],
-      });
+  it(
+    'builds the documented application using only the zmdb root and documented subpaths',
+    () => {
+      expectPackedProductJourney();
     },
     PACKED_BUILD_TEST_TIMEOUT_MS,
   );

@@ -9,7 +9,7 @@ through the same zero-overhead path as the rest of zmdb.
 
 ```bash
 npm add @zmdb/web@alpha
-# or via the umbrella:
+# or via the product facade:
 npm add zmdb@alpha
 ```
 
@@ -60,4 +60,5 @@ See the project [ARCHITECTURE](https://github.com/ambasta/zmdb/blob/main/ARCHITE
 
 ## Package boundary
 
-Use `@zmdb/app` for protocol-neutral application code and `@zmdb/web` for HTTP declarations and adapters. The `zmdb/web` umbrella remains a curated combined surface during the package migration.
+Use `@zmdb/app` for protocol-neutral application code and `@zmdb/web` for HTTP declarations and adapters. Applications can use the curated combined surface at `zmdb/web` without naming either
+implementation package.

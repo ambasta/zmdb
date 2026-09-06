@@ -8,8 +8,8 @@ separates the historical surface measured at `44d8fa4a` from the target and late
 At `44d8fa4a`, `packages/zmdb/package.json` declared 13 export-map entries: the root plus 12 named subpaths. Importing that root in an isolated Node process exposed 42 runtime names. Static inspection
 of that revision's `src/index.ts` added 32 type-only names, for 74 root symbols in total.
 
-The current #651 surface is measured from the manifest, isolated root import and explicit source exports: 48 export-map entries (the root plus 47 named subpaths), 68 runtime names and 50 type-only
-names, for 118 catalog-owned root names.
+The combined #620/#651/#755 surface is measured from the manifest, isolated root import and explicit source exports: 51 export-map entries (the root plus 50 named subpaths), 33 runtime names and 38
+type-only names, for 71 catalog-owned root names.
 
 ### 1.1 Every baseline root symbol
 
@@ -64,7 +64,7 @@ schemaOf
 is, assert, validate
 defineRepository
 createApp, Module, Controller
-Get, Post, Put, Patch, Delete, Body, Public
+Get, Post, Put, Patch, Delete, Public
 AssertError, ValidationError, IncompleteKeyError
 ```
 
@@ -80,8 +80,9 @@ ValidateResult, ValidationIssue
 WebApplication, Ctx, ModuleClass
 ```
 
-`Body` is part of the frozen application contract even though the measured baseline has no such root export. #619 therefore freezes it as missing behavior and #620 supplies it. Conversely, every
-measured root symbol absent from the two lists above moves to the concern subpath named below or leaves the facade if it is classified as internal.
+#619 listed `Body` without a declaration owner or callable contract. That inventory was false: this project uses Stage-3 decorators, which have no parameter decorators, and HTTP handlers receive a
+typed `Ctx` whose `body` property carries the request value. #620 corrects the frozen list instead of publishing a no-op or legacy-decorator-shaped value. Every measured root symbol absent from the
+two lists above moves to the concern subpath named below or leaves the facade if it is classified as internal.
 
 Adding a root name requires all of the following:
 
@@ -269,8 +270,8 @@ WebRequest
 WebResponse
 ```
 
-Names already frozen in §2 remain part of the root contract even when they are not repeated here; in particular this target does not remove `Body` or `WebApplication`. Other app/web names remain
-available through the concern subpaths above. Job names remain available only from `@zmdb/jobs` and its package-owned subpaths.
+Names already frozen in §2 remain part of the root contract even when they are not repeated here; in particular this target retains `WebApplication`. `Body` is deliberately absent for the reason
+measured in §2. Other app/web names remain available through the concern subpaths above. Job names remain available only from `@zmdb/jobs` and its package-owned subpaths.
 
 ### Collision and identity rules
 
@@ -291,9 +292,10 @@ available through the concern subpaths above. Job names remain available only fr
 
 A consumer fixture must install packed tarballs outside the workspace and:
 
-1. import and strict-typecheck every direct app/web entry and all 32 default facade counterparts above;
-2. assert runtime identity between direct package, concern facade, and curated-root values;
-3. serve one HTTP request and run one command with no jobs package installed;
-4. assert `zmdb/jobs*`, old moved paths, and optional integration names do not resolve;
-5. inspect the installed dependency tree and prove the default product has no jobs edge; and
-6. separately pack `@zmdb/jobs`, typecheck its package-owned entries, and run `jobsExtension` through the real application lifecycle.
+1. build one SQLite HTTP application using only `zmdb`, including module/DI, a controller, validation, a repository and `createApp`;
+2. import and strict-typecheck every direct app/web entry and every default facade counterpart above;
+3. assert runtime identity between direct package, concern facade, and curated-root values;
+4. serve one HTTP request and run one command with no jobs package installed;
+5. assert `zmdb/jobs*`, old moved paths, and optional integration names do not resolve;
+6. inspect the installed dependency tree and prove the default product has no jobs edge; and
+7. separately pack `@zmdb/jobs`, typecheck its package-owned entries, and run `jobsExtension` through the real application lifecycle.

@@ -59,7 +59,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/transport-redis    | 1.0.0-alpha.4 | transport-redis | integration: Redis Pub/Sub                     | `npm add @zmdb/transport-redis@1.0.0-alpha.4 redis@^6.2.1`                                                       | Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.                                                                                  | web-microservices-transports |
 | @zmdb/vue                | 1.0.0-alpha.4 | vue             | integration: Vue 3                             | `npm add @zmdb/vue@1.0.0-alpha.4 'vue@>=3.5.0 <4.0.0'`                                                           | Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb clients.                                                                                         | client-vue                   |
 | @zmdb/web                | 1.0.0-alpha.4 | web             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                       | web-overview                 |
-| zmdb                     | 1.0.0-alpha.4 | product         | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, migrations, configuration, and CLI from one install.                                | package-reference            |
+| zmdb                     | 1.0.0-alpha.4 | product         | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.            | package-reference            |
 
 ### `@zmdb/ai`
 
@@ -190,16 +190,12 @@ Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/ran
   - `AssertError`
   - `ValidateResult`
   - `assert`
-  - `assertEquals`
-  - `assertShallow`
-  - `equals`
   - `is`
-  - `isShallow`
-  - `random`
-  - `tags`
   - `validate`
-  - `validateShallow`
+  - `zmdb/compiler`
+  - `zmdb/testing`
   - `zmdb/unplugin`
+  - `zmdb/validator`
 - **External proof:** fixtures/consumer-metro
 
 ### `@zmdb/app`
@@ -556,28 +552,7 @@ SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, f
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
-  - `ColumnExpr`
-  - `CommentKey`
-  - `CommentKeys`
-  - `CommentPairs`
-  - `CompiledQuery`
-  - `DIALECT_PARAM_LIMITS`
-  - `Dialect`
-  - `SetValue`
-  - `UnsupportedFeatureError`
-  - `appendComment`
-  - `chunkArray`
-  - `coalesce`
-  - `concat`
-  - `createQueryCompiler`
-  - `dec`
-  - `inc`
-  - `mul`
-  - `not`
-  - `proposed`
-  - `sanitizeKeys`
-  - `serializeComment`
-  - `withComments`
+  - `zmdb/sql`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/react`
@@ -642,23 +617,12 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
-  - `ActiveTransactionContext`
-  - `BaseRepository`
-  - `ClosedTransactionContext`
   - `Driver`
   - `IncompleteKeyError`
-  - `NumericColumnOf`
-  - `TransactionContext`
-  - `TransactionState`
-  - `TransactionalDb`
-  - `TxConnection`
   - `UpdatePatch`
-  - `UpsertOptions`
   - `ValidationError`
-  - `batch`
-  - `createTransactionalDb`
   - `defineRepository`
-  - `markTransactionClosed`
+  - `zmdb/orm`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/schema-core`
@@ -684,29 +648,32 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
-  - `AllowedTargetStates`
-  - `ColumnMeta`
-  - `CoreSchema`
   - `CreateDTO`
   - `Entity`
-  - `EntityStateMachine`
-  - `EntityStateMachineOptions`
-  - `JsonSchemaObject`
+  - `HasDefault`
+  - `Max`
+  - `MaxLength`
+  - `Min`
+  - `MinLength`
+  - `Pattern`
+  - `Physical`
+  - `PrimaryKey`
   - `PrimaryKeyOf`
-  - `StateTransitions`
-  - `StateUpdateDTO`
-  - `TaggedSchema`
+  - `ReadDTO`
+  - `References`
+  - `Sensitive`
+  - `Serial`
+  - `Sql`
+  - `Table`
+  - `Unique`
   - `UpdateDTO`
   - `ValidationIssue`
-  - `createStateUpdatePayload`
-  - `defineEntityStateMachine`
-  - `defineStateTransitions`
   - `schemaOf`
-  - `toJsonSchema`
   - `zmdb/derive`
   - `zmdb/dto`
   - `zmdb/ir`
   - `zmdb/relations`
+  - `zmdb/schema`
   - `zmdb/tags`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
@@ -979,7 +946,7 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
 
 ### `zmdb`
 
-The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, migrations, configuration, and CLI from one install.
+The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, application kernel, HTTP, migrations, configuration, CLI, and tooling from one install.
 
 - **Exports:**
   - `.` → `./src/index.ts`
@@ -996,6 +963,7 @@ The cohesive zmdb product: schema, SQL, validation, repositories, application ke
   - `./app/observability` → `./src/app-observability.ts`
   - `./app/state` → `./src/app-state.ts`
   - `./cli` → `./src/cli/index.ts`
+  - `./compiler` → `./src/compiler.ts`
   - `./config` → `./src/config/index.ts`
   - `./derive` → `./src/derive.ts`
   - `./drivers/mssql` → `./src/drivers-mssql.ts`
@@ -1004,9 +972,14 @@ The cohesive zmdb product: schema, SQL, validation, repositories, application ke
   - `./dto` → `./src/dto.ts`
   - `./ir` → `./src/ir.ts`
   - `./migrations` → `./src/migrations.ts`
+  - `./orm` → `./src/orm.ts`
   - `./relations` → `./src/relations.ts`
+  - `./schema` → `./src/schema.ts`
+  - `./sql` → `./src/sql.ts`
   - `./tags` → `./src/tags.ts`
+  - `./testing` → `./src/testing.ts`
   - `./unplugin` → `./src/unplugin.ts`
+  - `./validator` → `./src/validator.ts`
   - `./web` → `./src/web.ts`
   - `./web/app` → `./src/web-app.ts`
   - `./web/compression` → `./src/web-compression.ts`
@@ -1047,6 +1020,8 @@ The cohesive zmdb product: schema, SQL, validation, repositories, application ke
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
+  - `ZmdbConfig`
+  - `defineConfig`
   - `zmdb/cli`
   - `zmdb/config`
 - **External proof:** fixtures/consumer-product

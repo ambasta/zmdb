@@ -4,7 +4,7 @@
 // The package extraction itself belongs to #628-#630, so this gate has two jobs
 // before those packages exist:
 //
-// 1. turn #626's ownership policy, amended to 197 paths after #667, #681, #656, #668, #669, #671, #672, #673, #674, #685, #621, and #651, into an executable,
+// 1. turn #626's ownership policy, amended to 200 paths after the package extractions, #674, #621, #620, #651, and #755, into an executable,
 //    bijective inventory; and
 // 2. prevent the known runtime/generated-import violations from growing while
 //    the expected-failure tests freeze the zero-violation target.
@@ -87,7 +87,7 @@ const EXPECTED_OWNER_COUNTS = Object.freeze({
   migrations: 23,
   cli: 31,
   runtime: 27,
-  facade: 46,
+  facade: 49,
   'optional-integration': 4,
   'test-only': 35,
   obsolete: 1,
@@ -164,7 +164,7 @@ const GENERATED_TOOLING_SUBPATHS = [
   /^@zmdb\/cli(?:\/|$)/,
   /^@zmdb\/aot-validator\/(?:codegen|emit|lint|metro|plugin|reflect|testing|transformer|unplugin)(?:\/|$)/,
   /^@zmdb\/query-compiler\/(?:introspect|migrations)(?:\/|$)/,
-  /^zmdb\/(?:cli|compiler|config|migrations|unplugin)(?:\/|$)/,
+  /^zmdb\/(?:cli|compiler|config|migrations|testing|unplugin)(?:\/|$)/,
 ];
 
 function extension(path) {

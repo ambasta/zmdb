@@ -1,4 +1,4 @@
-import type { MinLength, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
+import type { MinLength, PrimaryKey, Serial, Sql, Table } from 'zmdb';
 
 export interface Order extends Table<'orders'> {
   readonly id: number & Sql<'integer'> & Serial & PrimaryKey;
