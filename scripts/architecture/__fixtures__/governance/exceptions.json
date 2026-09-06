@@ -1,0 +1,68 @@
+{
+  "finding": {
+    "id": "ARCH_EDGE_FORBIDDEN/edge/app-%3Ecore",
+    "code": "ARCH_EDGE_FORBIDDEN",
+    "scope": { "kind": "edge", "consumer": "app", "dependency": "core" }
+  },
+  "exception": {
+    "id": "GEX-architecture-edge-app-core",
+    "findingId": "ARCH_EDGE_FORBIDDEN/edge/app-%3Ecore",
+    "scope": { "kind": "edge", "consumer": "app", "dependency": "core" },
+    "rationale": "Frozen fixture debt pending owner issue completion.",
+    "introduced": {
+      "issue": 732,
+      "commit": "696feb9739183341025a6dcc2bcf28eedda394b0",
+      "evidence": ["scripts/architecture/__fixtures__/governance/exceptions.json"]
+    },
+    "ownerIssue": 735,
+    "ceiling": { "metric": "finding-count", "maximum": 1 },
+    "removeWhen": { "kind": "finding-absent" }
+  },
+  "cases": [
+    {
+      "name": "missing owner",
+      "ownerStates": {},
+      "rawFindingCount": 1,
+      "expectedCode": "GOV_EXCEPTION_OWNER_MISSING"
+    },
+    {
+      "name": "closed owner",
+      "ownerStates": { "735": "CLOSED" },
+      "rawFindingCount": 1,
+      "expectedCode": "GOV_EXCEPTION_OWNER_CLOSED"
+    },
+    {
+      "name": "raised ceiling",
+      "ownerStates": { "735": "OPEN" },
+      "rawFindingCount": 1,
+      "ceilingMaximum": 2,
+      "expectedCode": "GOV_EXCEPTION_CEILING_RAISED"
+    },
+    {
+      "name": "new debt above ceiling",
+      "ownerStates": { "735": "OPEN" },
+      "rawFindingCount": 2,
+      "expectedCode": "GOV_EXCEPTION_CEILING_EXCEEDED"
+    },
+    {
+      "name": "removal condition satisfied",
+      "ownerStates": { "735": "OPEN" },
+      "rawFindingCount": 1,
+      "removeWhen": { "kind": "count-at-most", "maximum": 1 },
+      "expectedCode": "GOV_EXCEPTION_REMOVAL_DUE"
+    },
+    {
+      "name": "duplicate finding id",
+      "ownerStates": { "735": "OPEN" },
+      "rawFindingCount": 1,
+      "copies": 2,
+      "expectedCode": "GOV_EXCEPTION_DUPLICATE_FINDING"
+    },
+    {
+      "name": "finding disappeared",
+      "ownerStates": { "735": "OPEN" },
+      "rawFindingCount": 0,
+      "expectedCode": "GOV_EXCEPTION_FINDING_ABSENT"
+    }
+  ]
+}

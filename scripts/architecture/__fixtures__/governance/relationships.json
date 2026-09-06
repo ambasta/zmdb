@@ -1,0 +1,201 @@
+{
+  "repository": "ambasta/zmdb",
+  "capturedAt": "2026-09-06T09:21:00.000Z",
+  "baseline": {
+    "openSubIssues": [
+      { "number": 620, "parent": 617, "openBlockers": [], "closedBlockers": [619] },
+      { "number": 623, "parent": 617, "openBlockers": [620], "closedBlockers": [621, 622] },
+      { "number": 624, "parent": 617, "openBlockers": [623], "closedBlockers": [] },
+      { "number": 628, "parent": 625, "openBlockers": [], "closedBlockers": [627] },
+      { "number": 630, "parent": 625, "openBlockers": [628], "closedBlockers": [629] },
+      { "number": 631, "parent": 625, "openBlockers": [628, 630], "closedBlockers": [629] },
+      { "number": 632, "parent": 625, "openBlockers": [631], "closedBlockers": [] },
+      { "number": 633, "parent": 625, "openBlockers": [632], "closedBlockers": [] },
+      { "number": 637, "parent": 634, "openBlockers": [675], "closedBlockers": [636, 710] },
+      { "number": 638, "parent": 634, "openBlockers": [637], "closedBlockers": [636] },
+      { "number": 639, "parent": 634, "openBlockers": [637], "closedBlockers": [629, 636] },
+      { "number": 640, "parent": 634, "openBlockers": [628], "closedBlockers": [636] },
+      { "number": 641, "parent": 634, "openBlockers": [637, 638, 639, 640], "closedBlockers": [] },
+      { "number": 642, "parent": 634, "openBlockers": [638, 639, 640, 641], "closedBlockers": [] },
+      { "number": 643, "parent": 634, "openBlockers": [642], "closedBlockers": [] },
+      { "number": 651, "parent": 644, "openBlockers": [], "closedBlockers": [648, 649, 650] },
+      { "number": 652, "parent": 644, "openBlockers": [651], "closedBlockers": [] },
+      { "number": 674, "parent": 665, "openBlockers": [], "closedBlockers": [671] },
+      { "number": 675, "parent": 665, "openBlockers": [674], "closedBlockers": [669, 670, 671, 672, 673] },
+      { "number": 676, "parent": 665, "openBlockers": [675], "closedBlockers": [] },
+      { "number": 677, "parent": 665, "openBlockers": [676], "closedBlockers": [] },
+      { "number": 701, "parent": 687, "openBlockers": [], "closedBlockers": [700] },
+      { "number": 717, "parent": 712, "openBlockers": [], "closedBlockers": [714] },
+      { "number": 719, "parent": 712, "openBlockers": [717], "closedBlockers": [715, 716, 718] },
+      { "number": 720, "parent": 712, "openBlockers": [719], "closedBlockers": [] },
+      { "number": 730, "parent": null, "openBlockers": [], "closedBlockers": [] },
+      { "number": 732, "parent": 731, "openBlockers": [], "closedBlockers": [] },
+      { "number": 733, "parent": 731, "openBlockers": [732], "closedBlockers": [] },
+      { "number": 734, "parent": 731, "openBlockers": [733], "closedBlockers": [] },
+      { "number": 735, "parent": 731, "openBlockers": [733], "closedBlockers": [] },
+      { "number": 736, "parent": 731, "openBlockers": [733], "closedBlockers": [] },
+      { "number": 737, "parent": 731, "openBlockers": [734, 735, 736], "closedBlockers": [] },
+      { "number": 739, "parent": 738, "openBlockers": [], "closedBlockers": [] },
+      { "number": 740, "parent": 738, "openBlockers": [739], "closedBlockers": [] },
+      { "number": 741, "parent": 738, "openBlockers": [740], "closedBlockers": [] },
+      { "number": 742, "parent": 738, "openBlockers": [740], "closedBlockers": [] },
+      { "number": 743, "parent": 738, "openBlockers": [741, 742], "closedBlockers": [] },
+      { "number": 744, "parent": 738, "openBlockers": [743], "closedBlockers": [] },
+      { "number": 746, "parent": 745, "openBlockers": [], "closedBlockers": [] },
+      { "number": 747, "parent": 745, "openBlockers": [746], "closedBlockers": [] },
+      { "number": 748, "parent": 745, "openBlockers": [747], "closedBlockers": [] },
+      { "number": 749, "parent": 745, "openBlockers": [747], "closedBlockers": [] },
+      { "number": 750, "parent": 745, "openBlockers": [748, 749], "closedBlockers": [] },
+      { "number": 751, "parent": 745, "openBlockers": [750], "closedBlockers": [] },
+      { "number": 753, "parent": 752, "openBlockers": [], "closedBlockers": [] },
+      { "number": 754, "parent": 752, "openBlockers": [753], "closedBlockers": [] },
+      { "number": 755, "parent": 752, "openBlockers": [754], "closedBlockers": [] },
+      { "number": 756, "parent": 752, "openBlockers": [755], "closedBlockers": [] },
+      { "number": 757, "parent": 752, "openBlockers": [755, 756], "closedBlockers": [] },
+      { "number": 758, "parent": 752, "openBlockers": [757], "closedBlockers": [] }
+    ],
+    "blockedLabelIssues": [
+      623, 624, 630, 631, 632, 633, 637, 638, 639, 640, 641, 642, 643, 652, 675, 676, 677, 719, 720, 730, 733, 734, 735,
+      736, 737, 740, 741, 742, 743, 744, 747, 748, 749, 750, 751, 754, 755, 756, 757, 758
+    ],
+    "parenthesizedProjections": {
+      "affectedBodies": [
+        201, 209, 215, 220, 225, 247, 252, 257, 262, 267, 272, 277, 282, 287, 292, 297, 302, 307, 312, 317, 617, 625,
+        634, 644, 665, 712, 731, 738, 745, 747, 748, 749, 750, 751, 752, 754, 755, 756, 757, 758
+      ],
+      "epicBodies": [
+        201, 209, 215, 220, 225, 247, 252, 257, 262, 267, 272, 277, 282, 287, 292, 297, 302, 307, 312, 317, 617, 625,
+        634, 644, 665, 712, 731, 738, 745, 752
+      ],
+      "openNonEpicBodies": [747, 748, 749, 750, 751, 754, 755, 756, 757, 758],
+      "bodyCounts": { "total": 40, "open": 20, "closed": 20, "openEpic": 10, "openNonEpic": 10 },
+      "occurrenceCounts": { "total": 116, "open": 50, "closed": 66 },
+      "checklistSuffixCounts": { "total": 106, "open": 40, "closed": 66 },
+      "openNonEpicOccurrenceCount": 10
+    },
+    "broaderBlockedByProse": {
+      "bodies": 138,
+      "open": 21,
+      "closed": 117,
+      "openParenthesizedBodies": 20,
+      "openNonParenthesizedBodies": [730],
+      "requiredFinalOpenBodies": 0,
+      "closedHistoricalNarrativePolicy": "retain unless it is one of the 66 parenthesized checklist suffixes"
+    },
+    "expected": {
+      "openSubIssues": 50,
+      "nativeParents": 49,
+      "nativeBlockedIssues": 39,
+      "openBlockerEdges": 51,
+      "actionable": [620, 628, 651, 674, 701, 717, 730, 732, 739, 746, 753]
+    }
+  },
+  "afterClosing732": {
+    "closedIssues": [732],
+    "blockedLabelCount": 39,
+    "removed": { "epic": 731, "issue": 733, "blocker": 732, "occurrences": 1 },
+    "parenthesizedProjections": {
+      "bodyCounts": { "total": 40, "open": 20, "closed": 20, "openEpic": 10, "openNonEpic": 10 },
+      "occurrenceCounts": { "total": 115, "open": 49, "closed": 66 },
+      "checklistSuffixCounts": { "total": 105, "open": 39, "closed": 66 },
+      "openNonEpicOccurrenceCount": 10
+    },
+    "expected": {
+      "openSubIssues": 49,
+      "nativeParents": 48,
+      "nativeBlockedIssues": 38,
+      "openBlockerEdges": 50,
+      "actionable": [620, 628, 651, 674, 701, 717, 730, 733, 739, 746, 753]
+    }
+  },
+  "afterClosing733": {
+    "closedIssues": [732, 733],
+    "blockedLabelCount": 36,
+    "removed": [
+      { "epic": 731, "issue": 734, "blocker": 733, "occurrences": 1 },
+      { "epic": 731, "issue": 735, "blocker": 733, "occurrences": 1 },
+      { "epic": 731, "issue": 736, "blocker": 733, "occurrences": 1 }
+    ],
+    "parenthesizedProjections": {
+      "bodyCounts": { "total": 40, "open": 20, "closed": 20, "openEpic": 10, "openNonEpic": 10 },
+      "occurrenceCounts": { "total": 112, "open": 46, "closed": 66 },
+      "checklistSuffixCounts": { "total": 102, "open": 36, "closed": 66 },
+      "openNonEpicOccurrenceCount": 10
+    },
+    "expected": {
+      "openSubIssues": 48,
+      "nativeParents": 47,
+      "nativeBlockedIssues": 35,
+      "openBlockerEdges": 47,
+      "actionable": [620, 628, 651, 674, 701, 717, 730, 734, 735, 736, 739, 746, 753]
+    }
+  },
+  "repair": {
+    "issue": 730,
+    "parent": 644,
+    "blockedBy": 652,
+    "preCloseExpected": {
+      "openSubIssues": 50,
+      "nativeParents": 50,
+      "nativeBlockedIssues": 40,
+      "openBlockerEdges": 52,
+      "actionable": [620, 628, 651, 674, 701, 717, 732, 739, 746, 753]
+    },
+    "liveExpected": {
+      "openSubIssues": 48,
+      "nativeParents": 48,
+      "nativeBlockedIssues": 36,
+      "openBlockerEdges": 48,
+      "actionable": [620, 628, 651, 674, 701, 717, 734, 735, 736, 739, 746, 753]
+    }
+  },
+  "paginationCase": {
+    "issues": [
+      { "number": 900, "state": "OPEN" },
+      { "number": 901, "state": "OPEN" },
+      { "number": 100, "state": "OPEN" },
+      { "number": 101, "state": "OPEN" },
+      { "number": 102, "state": "CLOSED" },
+      { "number": 103, "state": "OPEN" },
+      { "number": 104, "state": "OPEN" },
+      { "number": 105, "state": "OPEN" }
+    ],
+    "issuePages": [
+      [900, 901],
+      [100, 101],
+      [102, 103],
+      [104, 105]
+    ],
+    "subIssuePages": {
+      "900": [[100, 101], [102, 103], [104]],
+      "901": [[105]]
+    },
+    "blockedByPages": {
+      "100": [[]],
+      "101": [[]],
+      "102": [[]],
+      "103": [[101], [102]],
+      "104": [[102]],
+      "105": [[101]]
+    },
+    "expectedActionable": [100, 101, 104]
+  },
+  "invalidCases": {
+    "missingParent": {
+      "issues": [
+        { "number": 900, "state": "OPEN", "parent": null, "subIssues": [106], "blockedBy": [] },
+        { "number": 106, "state": "OPEN", "parent": null, "subIssues": [], "blockedBy": [] }
+      ],
+      "expectedCode": "GOV_ISSUE_PARENT_MISMATCH"
+    },
+    "cycle": {
+      "issues": [
+        { "number": 901, "state": "OPEN", "parent": null, "subIssues": [107, 108], "blockedBy": [] },
+        { "number": 107, "state": "OPEN", "parent": 901, "subIssues": [], "blockedBy": [108] },
+        { "number": 108, "state": "OPEN", "parent": 901, "subIssues": [], "blockedBy": [107] }
+      ],
+      "expectedCode": "GOV_ISSUE_DEPENDENCY_CYCLE",
+      "expectedCycle": [107, 108, 107]
+    }
+  }
+}
