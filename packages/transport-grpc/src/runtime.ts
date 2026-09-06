@@ -553,7 +553,10 @@ function callScope(call: ServerCallSurface, maxDurationMs?: number): CallScope {
   return {
     signal: controller.signal,
     trailers: trailerValues,
-    remainingMs: () => (Number.isFinite(deadline) ? Math.max(0, deadline - Date.now()) : Number.POSITIVE_INFINITY),
+    remainingMs: () => {
+      if (controller.signal.aborted) return 0;
+      return Number.isFinite(deadline) ? Math.max(0, deadline - Date.now()) : Number.POSITIVE_INFINITY;
+    },
     setTrailer: (key, value) => {
       const probe = new Metadata();
       probe.set(key, value);
