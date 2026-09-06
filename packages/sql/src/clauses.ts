@@ -15,7 +15,7 @@ import type { QueryEffects } from './compiled-query.js';
 //
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
-import { dialectFamily, dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
+import { dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
 import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 import {
   DISTANCE_OPERATORS,

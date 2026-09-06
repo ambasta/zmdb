@@ -331,8 +331,8 @@ describe('subquery & EXISTS compilation', () => {
   });
 
   it('throws QueryCompilerError when merging a subquery created for a different dialect', () => {
-    const qbPg = createQueryCompiler('postgres');
-    const qbSqlite = createQueryCompiler('sqlite');
+    const qbPg = createQueryCompiler(postgresDialect);
+    const qbSqlite = createQueryCompiler(sqliteDialect);
     const subSqlite = qbSqlite.selectFrom('orders').select(['user_id']).where('amount', '>', 100);
 
     expect(() => {
