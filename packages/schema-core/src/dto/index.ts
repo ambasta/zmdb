@@ -1,7 +1,15 @@
 // Read/Query DTO family — see ./SPEC.md.
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
-import type { ComparisonPredicate, CompiledQuery, DistanceOp, Operator, SelectBuilder, SqlDialect, UnsafeOperator } from '@zmdb/query-compiler';
+import type {
+  ComparisonPredicate,
+  CompiledQuery,
+  DistanceOp,
+  Operator,
+  SelectBuilder,
+  SqlDialect,
+  UnsafeOperator,
+} from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
 import type { DeclaredTable, RelationKeys } from '../derive/index.js';

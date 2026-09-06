@@ -294,8 +294,8 @@ describe('subquery & EXISTS compilation', () => {
   });
 
   it('throws QueryCompilerError when merging a subquery created for a different dialect', () => {
-    const qbPg = createQueryCompiler('postgres');
-    const qbSqlite = createQueryCompiler('sqlite');
+    const qbPg = createQueryCompiler(postgresDialect);
+    const qbSqlite = createQueryCompiler(sqliteDialect);
     const subSqlite = qbSqlite.selectFrom('orders').select(['user_id']).where('amount', '>', 100);
 
     expect(() => {
@@ -308,10 +308,10 @@ describe('subquery & EXISTS compilation', () => {
   });
 
   it('renumbers positional parameter placeholders consistently across join and aggregation clauses', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const sub1 = qb.selectFrom('audit_logs').select(['user_id']).where('action', '=', 'login');
 
-    const joinSub = joinableSelectFrom('users', 'postgres')
+    const joinSub = joinableSelectFrom('users', postgresDialect)
       .innerJoin('roles', 'roles.id', 'users.role_id')
       .where('role_name', '=', 'admin')
       .where('id', 'in', sub1);
@@ -323,7 +323,7 @@ describe('subquery & EXISTS compilation', () => {
     expect(qJoin.parameters).toEqual(['admin', 'login']);
 
     const sub2 = qb.selectFrom('payments').select(['user_id']).where('amount', '>', 500);
-    const aggSub = aggregateSelectFrom('users', 'postgres')
+    const aggSub = aggregateSelectFrom('users', postgresDialect)
       .select(['department'])
       .count('id', 'total_users')
       .where('status', '=', 'active')
@@ -691,7 +691,7 @@ describe('Operator validation and strict typing', () => {
     for (const testCase of cases) {
       const query = createQueryCompiler(officialDialects[testCase.dialect])
         .selectFrom(testCase.table)
-        .where(testCase.column, testCase.operator, testCase.value)
+        .where(testCase.column, testCase.operator as Operator, testCase.value)
         .compile();
       expect(query.text).toBe(testCase.text);
     }
@@ -699,7 +699,7 @@ describe('Operator validation and strict typing', () => {
 
   it('refuses the measured request-derived operator injection before returning SQL', () => {
     const compile = () =>
-      createQueryCompiler(postgresDialect).selectFrom('users').where('role', "= 'x' OR 1=1 --", 1).compile();
+      createQueryCompiler(postgresDialect).selectFrom('users').where('role', "= 'x' OR 1=1 --" as Operator, 1).compile();
 
     expect(compile).toThrow(
       'invalid unmapped SQL operator "= \'x\' OR 1=1 --" for dialect "postgres"; expected one non-comment ' +
@@ -712,7 +712,7 @@ describe('Operator validation and strict typing', () => {
 
     for (const operator of invalid) {
       const compile = () =>
-        createQueryCompiler(postgresDialect).selectFrom('users').where('role', operator, 1).compile();
+        createQueryCompiler(postgresDialect).selectFrom('users').where('role', operator as Operator, 1).compile();
       expect(compile, JSON.stringify(operator)).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -728,7 +728,7 @@ describe('Operator validation and strict typing', () => {
 
     for (const { dialect, operator } of collisions) {
       const compile = () =>
-        createQueryCompiler(officialDialects[dialect]).selectFrom('users').where('payload', operator, 1).compile();
+        createQueryCompiler(officialDialects[dialect]).selectFrom('users').where('payload', operator as Operator, 1).compile();
       expect(compile, `${dialect} ${operator}`).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -742,7 +742,7 @@ describe('Operator validation and strict typing', () => {
       const inherited: unknown = Reflect.get(input, 'operator');
       if (typeof inherited !== 'string') throw new TypeError('test input carried no inherited operator string');
       const compile = () =>
-        createQueryCompiler(postgresDialect).selectFrom('users').where('col', inherited, 'val').compile();
+        createQueryCompiler(postgresDialect).selectFrom('users').where('col', inherited as Operator, 'val').compile();
       expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
     }
   });

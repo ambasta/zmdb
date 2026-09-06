@@ -9,7 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, expect, it } from 'vitest';
 
-import { createQueryCompiler, quoteIdentifier, unsafeOperator } from '../index.js';
+import { createQueryCompiler, quoteIdentifier } from '../index.js';
 import type { CompiledQuery, DialectTarget } from '../index.js';
 import { createIndexDdl } from '../schema-objects/index.js';
 import {
