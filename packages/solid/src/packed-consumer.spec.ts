@@ -13,7 +13,7 @@ import {
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const CLIENT = join(ROOT, 'packages/client');
 const SOLID = join(ROOT, 'packages/solid');
 const HARNESS = join(ROOT, 'fixtures/client-adapters/src');

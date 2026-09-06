@@ -4,9 +4,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { analyzeAppKernelBoundary, analyzeOptionalServerPackages } from './verify-server-boundaries.mjs';
 
 const ROOT = process.cwd();
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
 const SCRIPT = join(ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs');
 const FIXTURES = join(ROOT, '.github', 'scripts', '__fixtures__', 'server-boundaries');
 const BASELINE = join(ROOT, '.github', 'scripts', 'server-boundaries-baseline.json');
@@ -21,7 +24,7 @@ function verifyFixture(name: string, partial = false): ReturnType<typeof spawnSy
 
 describe('the optional server boundary verifier', () => {
   it('keeps one Symbol.metadata installation and one metadataOf implementation', () => {
-    expect(analyzeAppKernelBoundary(ROOT)).toEqual([]);
+    expect(analyzeAppKernelBoundary(ROOT, { architecture: GOVERNANCE.architecture })).toEqual([]);
   });
 
   it('accepts the complete positive package graph', () => {
@@ -30,7 +33,7 @@ describe('the optional server boundary verifier', () => {
   });
 
   it('reports the live optional package graph independently of pending core work', () => {
-    expect(analyzeOptionalServerPackages(ROOT)).toEqual([]);
+    expect(analyzeOptionalServerPackages(ROOT, { architecture: GOVERNANCE.architecture })).toEqual([]);
     const result = spawnSync(process.execPath, [SCRIPT, '--strict', '--optional-packages-only'], {
       cwd: ROOT,
       encoding: 'utf8',
@@ -39,8 +42,11 @@ describe('the optional server boundary verifier', () => {
     expect(result.stdout).toContain('7 optional package manifests');
   });
 
-  it('reports a planted optional-package peer leak through the scoped analysis', () => {
-    expect(analyzeOptionalServerPackages(join(FIXTURES, 'multiple-peers'), { requireAll: false })).toContain(
+  it('reports a planted optional-package peer leak through the scoped analysis', async () => {
+    const root = join(FIXTURES, 'multiple-peers');
+    const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
+    if (snapshot.architecture === null) throw new Error('server fixture has no architecture');
+    expect(analyzeOptionalServerPackages(root, { architecture: snapshot.architecture, requireAll: false })).toContain(
       '@zmdb/transport-nats reaches external packages [@nats-io/transport-node, redis], expected [@nats-io/transport-node]',
     );
   });

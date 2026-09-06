@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { compareText } from '../../scripts/release/lib.mjs';
 import { ReleaseGovernanceError, releaseModel } from '../../scripts/release/model.mjs';
-import { releasePlan } from '../../scripts/release/plan.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -82,7 +82,10 @@ function lockfileDiagnostics(root, model) {
 function releaseConsumerDiagnostics(root, model) {
   const diagnostics = [];
   const requiredTokens = new Map([
-    ['.github/scripts/lib/publish-manifest.mjs', ['releaseModel', 'publishTrain']],
+    [
+      '.github/scripts/lib/publish-manifest.mjs',
+      ['loadGovernanceSnapshot', "checks: ['release']", 'snapshot.queries.release', 'publishTrain'],
+    ],
     ['.github/scripts/publish-package.mjs', ['RELEASE_EXISTING_MISMATCH', 'dist.integrity']],
     ['.github/scripts/repoint-dist.mjs', ['publishTrain', 'release.packages', 'release.version']],
     ['.github/scripts/set-latest-tag.mjs', ['publishTrain', 'release.packages']],
@@ -241,16 +244,22 @@ function releaseConsumerDiagnostics(root, model) {
   return diagnostics;
 }
 
-export function releaseGovernanceDiagnostics(root, tag, includeConsumers = true) {
-  let model;
+export async function releaseGovernanceDiagnostics(root, tag, includeConsumers = true, options = {}) {
+  const snapshot = options.snapshot ?? (await loadGovernanceSnapshot({ root, checks: ['release'] }));
+  const architecture = snapshot.architecture;
+  if (architecture === null) return snapshot.findings.map(item => item.line);
+  let firstModel;
+  let secondModel;
   try {
-    model = releaseModel(root);
+    firstModel = releaseModel(root, { architecture });
+    secondModel = releaseModel(root, { architecture });
   } catch (error) {
     if (error instanceof ReleaseGovernanceError) return error.diagnostics;
     throw error;
   }
-  const first = JSON.stringify(releasePlan(root));
-  const second = JSON.stringify(releasePlan(root));
+  const model = firstModel;
+  const first = JSON.stringify(firstModel.plan);
+  const second = JSON.stringify(secondModel.plan);
   const diagnostics = [...tagDiagnostics(model.plan.version, tag)];
   if (first !== second) {
     diagnostics.push(
@@ -274,35 +283,47 @@ function assertEqual(label, actual, expected) {
   }
 }
 
-function withChangelogMutation(fixture, mutate, inspect) {
+async function withChangelogMutation(fixture, mutate, inspect) {
   const root = mkdtempSync(join(tmpdir(), 'zmdb-release-governance-'));
   try {
     cpSync(fixture, root, { recursive: true });
     const path = join(root, 'CHANGELOG.md');
     writeFileSync(path, mutate(readFileSync(path, 'utf8')));
-    return inspect(root);
+    return await inspect(root);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }
 
-function runSelfTest() {
+async function releaseSnapshot(root) {
+  const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+  const model = snapshot.queries.release;
+  if (model !== undefined) return { model, snapshot };
+  throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
+}
+
+async function runSelfTest() {
   const fixtures = join(ROOT, 'scripts', 'architecture', '__fixtures__');
   const valid = join(fixtures, 'valid');
-  const plan = releasePlan(valid);
+  const { model: validModel, snapshot: validSnapshot } = await releaseSnapshot(valid);
+  const plan = validModel.plan;
   assertEqual('valid plan packages', plan.packages, ['@fixture/app', '@fixture/core']);
   assertEqual('valid plan order', plan.publishOrder, ['@fixture/core', '@fixture/app']);
-  assertEqual('valid plan determinism', releasePlan(valid), plan);
-  assertEqual('changelog drift', releaseGovernanceDiagnostics(join(fixtures, 'changelog-drift'), undefined, false), [
-    '[RELEASE_CHANGELOG_MISSING] 1.0.0-alpha.4 at CHANGELOG.md: no unique non-empty version section exists. Remediation: add one non-empty exact version section.',
-  ]);
-  assertEqual('matching tag', releaseGovernanceDiagnostics(valid, 'v1.0.0-alpha.4', false), []);
-  assertEqual('mismatched tag', releaseGovernanceDiagnostics(valid, 'v1.0.0-alpha.5', false), [
+  assertEqual('valid plan determinism', releaseModel(valid, { architecture: validSnapshot.architecture }).plan, plan);
+  assertEqual(
+    'changelog drift',
+    await releaseGovernanceDiagnostics(join(fixtures, 'changelog-drift'), undefined, false),
+    [
+      '[RELEASE_CHANGELOG_MISSING] 1.0.0-alpha.4 at CHANGELOG.md: no unique non-empty version section exists. Remediation: add one non-empty exact version section.',
+    ],
+  );
+  assertEqual('matching tag', await releaseGovernanceDiagnostics(valid, 'v1.0.0-alpha.4', false), []);
+  assertEqual('mismatched tag', await releaseGovernanceDiagnostics(valid, 'v1.0.0-alpha.5', false), [
     '[RELEASE_TAG_MISMATCH] v1.0.0-alpha.5 against 1.0.0-alpha.4: triggering tag disagrees with the common package version. Remediation: tag the verified commit exactly v<version>.',
   ]);
   assertEqual(
     'unknown changelog owner',
-    withChangelogMutation(
+    await withChangelogMutation(
       valid,
       source =>
         source.replace(
@@ -317,7 +338,7 @@ function runSelfTest() {
   );
   assertEqual(
     'newest-first changelog order',
-    withChangelogMutation(
+    await withChangelogMutation(
       valid,
       source =>
         `${source.trim()}\n\n## [1.0.0-alpha.5] - 2026-09-06\n\n### Added\n\n- **product:** put a newer release after an older release.\n`,
@@ -353,20 +374,24 @@ function parseArguments(argv) {
   return { root, selfTest, tag };
 }
 
-function main(argv) {
+async function main(argv) {
   const options = parseArguments(argv);
   if (options.selfTest) {
-    runSelfTest();
+    await runSelfTest();
     return;
   }
   const includeConsumers = existsSync(join(options.root, '.github', 'workflows', 'publish.yml'));
-  const diagnostics = releaseGovernanceDiagnostics(options.root, options.tag, includeConsumers);
+  const snapshot = await loadGovernanceSnapshot({ root: options.root, checks: ['release'] });
+  const diagnostics = await releaseGovernanceDiagnostics(options.root, options.tag, includeConsumers, {
+    snapshot,
+  });
   if (diagnostics.length > 0) {
     for (const item of diagnostics) console.error(item);
     process.exitCode = 1;
     return;
   }
-  const plan = releasePlan(options.root);
+  const plan = snapshot.release;
+  if (plan === null) throw new Error('release model is unavailable');
   console.log(
     `release governance: ${String(plan.packages.length)} packages at ${plan.version} in ${String(plan.publishOrder.length)} policy-derived publish steps.`,
   );
@@ -374,10 +399,8 @@ function main(argv) {
 
 const invoked = process.argv[1];
 if (invoked !== undefined && import.meta.url === pathToFileURL(resolve(invoked)).href) {
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
+  void main(process.argv.slice(2)).catch(error => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 2;
-  }
+  });
 }

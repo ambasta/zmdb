@@ -8,17 +8,17 @@
 // `node_modules` and imports every subpath out of it. This script adds one thing on
 // top: it checks that each target actually exists in `dist`, because a manifest that
 // points at a file `yarn build` did not produce publishes fine and fails on install.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ROOT, publishManifest, publishTrain } from './lib/publish-manifest.mjs';
 
-const release = publishTrain(ROOT);
+const release = await publishTrain(ROOT);
 let missing = 0;
 for (const packageRecord of release.packages) {
   const pkgDir = join(ROOT, packageRecord.directory);
   const pkgPath = join(pkgDir, 'package.json');
-  const pkg = publishManifest(JSON.parse(readFileSync(pkgPath, 'utf8')), release.version);
+  const pkg = publishManifest(packageRecord.manifest, release.version);
 
   for (const [subpath, exportEntry] of Object.entries(pkg.exports)) {
     for (const target of [exportEntry.types, exportEntry.import]) {

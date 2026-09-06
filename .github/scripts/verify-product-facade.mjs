@@ -22,8 +22,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { PRODUCT_CATALOG } from '../../scripts/product/catalog.mjs';
-import { releasePlan } from '../../scripts/release/plan.mjs';
+import { releaseModel } from '../../scripts/release/model.mjs';
 import { publishManifest } from './lib/publish-manifest.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -196,9 +195,6 @@ const FORBIDDEN_PATHS = [
   /packages\/aot-validator\/src\/(?:cli|codegen|emit|plugin|reflect|transformer)\//,
 ];
 
-const OPTIONAL_PRODUCT_PACKAGES = PRODUCT_CATALOG.filter(row => row.optionality.kind === 'integration').map(
-  row => row.npmName,
-);
 const PRODUCT_IMPLEMENTATION_ENTRIES = new Set(['./cli', './config', './unplugin']);
 
 /**
@@ -247,10 +243,10 @@ function packageName(specifier) {
   return match?.[1] ?? 'zmdb';
 }
 
-function forbiddenSpecifier(specifier) {
+function forbiddenSpecifier(specifier, optionalProductPackages) {
   return (
     FORBIDDEN_SPECIFIERS.some(pattern => pattern.test(specifier)) ||
-    OPTIONAL_PRODUCT_PACKAGES.some(packageNameValue => {
+    optionalProductPackages.some(packageNameValue => {
       return specifier === packageNameValue || specifier.startsWith(`${packageNameValue}/`);
     })
   );
@@ -286,8 +282,12 @@ function rootSourceOwnership(root) {
   };
 }
 
-export function readFacadeOwnership(root = ROOT) {
-  const manifest = JSON.parse(readFileSync(join(root, 'packages', 'zmdb', 'package.json'), 'utf8'));
+export function readFacadeOwnership(root = ROOT, architecture) {
+  if (architecture === undefined) {
+    throw new TypeError('readFacadeOwnership requires architecture from loadGovernanceSnapshot({ root })');
+  }
+  const manifest = architecture.packages.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
+  if (manifest === undefined) throw new Error('governance snapshot omitted the zmdb facade');
   const rootOwnership = rootSourceOwnership(root);
   const subpaths = [];
   for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
@@ -398,10 +398,18 @@ function logicalUrl(root, url) {
   return rel.startsWith('..') ? path : rel;
 }
 
-export function inspectProductFacade(root = ROOT) {
+export function inspectProductFacade(root = ROOT, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('inspectProductFacade requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const captured = captureProductRootImport(root);
   const ownership = rootSourceOwnership(root);
-  const manifest = JSON.parse(readFileSync(join(root, 'packages', 'zmdb', 'package.json'), 'utf8'));
+  const manifest = architecture.packages.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
+  if (manifest === undefined) throw new Error('governance snapshot omitted the zmdb facade');
+  const optionalProductPackages = architecture.catalog
+    .filter(row => row.optionality.kind === 'integration')
+    .map(row => row.npmName);
   const subpaths = Object.keys(manifest.exports ?? {})
     .map(subpath => consumerSubpath('zmdb', subpath))
     .filter(name => name !== 'zmdb')
@@ -410,7 +418,10 @@ export function inspectProductFacade(root = ROOT) {
   const forbiddenImports = [];
   for (const imported of captured.imports) {
     const logical = logicalUrl(root, imported.url);
-    if (forbiddenSpecifier(imported.specifier) || FORBIDDEN_PATHS.some(pattern => pattern.test(logical))) {
+    if (
+      forbiddenSpecifier(imported.specifier, optionalProductPackages) ||
+      FORBIDDEN_PATHS.some(pattern => pattern.test(logical))
+    ) {
       forbiddenImports.push(`${imported.specifier} -> ${logical}`);
     }
   }
@@ -430,7 +441,7 @@ export function inspectProductFacade(root = ROOT) {
     missingSubpaths: REQUIRED_PRODUCT_SUBPATHS.filter(subpath => !subpaths.includes(subpath)),
     forbiddenImports: [...new Set(forbiddenImports)].toSorted(),
     facadeImplementationProblems: facadeImplementationProblems(root, manifest),
-    ownership: readFacadeOwnership(root),
+    ownership: readFacadeOwnership(root, architecture),
   };
 }
 
@@ -576,10 +587,18 @@ await build({
 `;
 }
 
-export function runPackedProductConsumer(root = ROOT, fixture = join(root, 'fixtures', 'consumer-product')) {
+export function runPackedProductConsumer(
+  root = ROOT,
+  fixture = join(root, 'fixtures', 'consumer-product'),
+  options = {},
+) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('runPackedProductConsumer requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const build = spawnSync('yarn', ['build'], { cwd: root, encoding: 'utf8' });
   if (build.status !== 0) return failure('build', build);
-  const commonVersion = releasePlan(root).version;
+  const commonVersion = releaseModel(root, { architecture }).plan.version;
 
   const temporary = mkdtempSync(join(tmpdir(), 'zmdb-product-consumer-'));
   const stage = join(temporary, 'stage');
@@ -589,15 +608,15 @@ export function runPackedProductConsumer(root = ROOT, fixture = join(root, 'fixt
   mkdirSync(join(app, 'node_modules'), { recursive: true });
 
   try {
-    for (const row of PRODUCT_CATALOG) {
-      const source = join(root, row.directory);
-      const staged = join(stage, row.id);
+    for (const packageRecord of architecture.packages) {
+      const source = packageRecord.directoryPath;
+      const staged = join(stage, packageRecord.id);
       cpSync(source, staged, {
         recursive: true,
         dereference: true,
         filter: path => !path.includes(join(source, 'node_modules')),
       });
-      const manifest = publishManifest(JSON.parse(readFileSync(join(source, 'package.json'), 'utf8')), commonVersion);
+      const manifest = publishManifest(packageRecord.manifest, commonVersion);
       writeFileSync(join(staged, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
       const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', temporary], {
@@ -646,8 +665,11 @@ export function runPackedProductConsumer(root = ROOT, fixture = join(root, 'fixt
   }
 }
 
-function main() {
-  const report = inspectProductFacade(ROOT);
+async function main() {
+  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
+  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+  if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+  const report = inspectProductFacade(ROOT, { architecture: snapshot.architecture });
   const problems = [
     ...report.processProblems,
     ...(JSON.stringify(report.runtimeNames) === JSON.stringify(TARGET_ROOT_VALUES)
@@ -670,5 +692,5 @@ function main() {
 
 const invoked = process.argv[1];
 if (invoked !== undefined && import.meta.url === pathToFileURL(resolve(invoked)).href) {
-  main();
+  await main();
 }

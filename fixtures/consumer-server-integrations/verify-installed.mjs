@@ -18,7 +18,7 @@ import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish
 import { SERVER_PACKAGES as SERVER_TARGETS } from '../../.github/scripts/verify-server-boundaries.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const RELEASE = publishTrain(ROOT);
+const RELEASE = await publishTrain(ROOT);
 const RELEASE_VERSION = RELEASE.version;
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-server-integrations');
 const PACKAGES_DIR = join(ROOT, 'packages');

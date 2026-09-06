@@ -21,41 +21,11 @@ import { SyntaxKind } from 'typescript/unstable/ast';
 import { isExpression } from 'typescript/unstable/ast/is';
 import { API } from 'typescript/unstable/sync';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BOUNDARY = 'packages/query-compiler/src/clauses.ts';
-const PACKAGES = [
-  'client',
-  'react',
-  'react-native',
-  'vue',
-  'next',
-  'nuxt',
-  'solid',
-  'sveltekit',
-  'schema-core',
-  'ai',
-  'ai-anthropic',
-  'ai-langchain',
-  'ai-vercel',
-  'aot-validator',
-  'migrations',
-  'protobuf',
-  'repository',
-  'query-compiler',
-  'mssql',
-  'sqlite',
-  'mysql',
-  'app',
-  'jobs',
-  'jobs-postgres',
-  'otel',
-  'transport-grpc',
-  'transport-nats',
-  'transport-rabbitmq',
-  'transport-redis',
-  'web',
-  'zmdb',
-];
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
 const OPERATOR_NAMES = new Set(['op', 'operator']);
 
 const FUNCTION_LIKE = new Set([
@@ -378,8 +348,8 @@ const calls = [];
 const findings = [];
 const counters = { files: 0, scopes: 0, taintedNames: 0 };
 
-for (const name of PACKAGES) {
-  const packageRoot = resolve(ROOT, 'packages', name);
+for (const packageRecord of GOVERNANCE.packages) {
+  const packageRoot = packageRecord.directoryPath;
   const project = resolve(packageRoot, 'tsconfig.json');
   if (!existsSync(project)) continue;
 

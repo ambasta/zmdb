@@ -2,43 +2,30 @@
 // Confirms that all declared package exports resolve to valid files.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { inspectConfigContract } from './verify-config-contract.mjs';
-import { verifyRuntimeReachability } from './verify-runtime-reachability.mjs';
 import { TARGET_TOOLING_BIN, TARGET_TOOLING_EXPORTS } from './verify-tooling-boundaries.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PACKAGES_DIR = join(ROOT, 'packages');
 const NEXT_SERVER_SPECIFIER = '@zmdb/next/server';
 const SERVER_ONLY_MESSAGE = 'This module cannot be imported from a Client Component module';
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: ['runtime'] });
+if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
+const packageRecords = GOVERNANCE.packages;
 
 let errorsCount = 0;
 
 console.log('Validating export manifest resolution across all monorepo packages...');
 
-const packageDirs = readdirSync(PACKAGES_DIR, { withFileTypes: true })
-  .filter(entry => entry.isDirectory())
-  .map(entry => entry.name);
-
-for (const pkgDirName of packageDirs) {
-  const pkgDir = join(PACKAGES_DIR, pkgDirName);
-  const pkgJsonPath = join(pkgDir, 'package.json');
-
-  if (!existsSync(pkgJsonPath)) {
-    const entries = readdirSync(pkgDir).toSorted();
-    if (entries.length === 1 && entries[0] === 'SPEC.md') {
-      console.log(`  accepted future-package specification at packages/${pkgDirName}/SPEC.md`);
-      continue;
-    }
-    console.error(`[ERROR] Package manifest missing at ${pkgJsonPath}`);
-    errorsCount++;
-    continue;
-  }
-
-  const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+for (const packageRecord of packageRecords) {
+  const pkgDir = packageRecord.directoryPath;
+  const pkgDirName = packageRecord.directory.split('/').at(-1);
+  const pkg = packageRecord.manifest;
 
   if (!pkg.exports || Object.keys(pkg.exports).length === 0) {
     console.error(`[ERROR] Package ${pkg.name || pkgDirName} missing "exports" field in package.json`);
@@ -83,13 +70,9 @@ for (const pkgDirName of packageDirs) {
 // its public surface is no longer "whatever the manifest happened to contain".
 // #627 freezes these exact source export keys and the one executable owner.
 for (const [packageName, expected] of Object.entries(TARGET_TOOLING_EXPORTS)) {
-  const pkg = [...packageDirs]
-    .map(directory => {
-      const path = join(PACKAGES_DIR, directory, 'package.json');
-      return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : undefined;
-    })
-    .find(manifest => manifest?.name === packageName);
-  if (pkg === undefined) continue;
+  const packageRecord = packageRecords.find(candidate => candidate.npmName === packageName);
+  if (packageRecord === undefined) continue;
+  const pkg = packageRecord.manifest;
   const observed = Object.keys(pkg.exports ?? {}).toSorted();
   if (JSON.stringify(observed) !== JSON.stringify([...expected].toSorted())) {
     console.error(`[ERROR] ${packageName} exports ${JSON.stringify(observed)}, expected ${JSON.stringify(expected)}`);
@@ -115,7 +98,8 @@ for (const [packageName, expected] of Object.entries(TARGET_TOOLING_EXPORTS)) {
 // explicit at this level.
 const UMBRELLA_SRC = join(PACKAGES_DIR, 'zmdb', 'src');
 if (existsSync(UMBRELLA_SRC)) {
-  const umbrella = JSON.parse(readFileSync(join(PACKAGES_DIR, 'zmdb', 'package.json'), 'utf8'));
+  const umbrella = packageRecords.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
+  if (umbrella === undefined) throw new Error('governance snapshot omitted the zmdb facade');
 
   for (const [subpath, target] of Object.entries(umbrella.exports)) {
     if (typeof target !== 'string') continue;
@@ -135,7 +119,7 @@ if (existsSync(UMBRELLA_SRC)) {
   }
 }
 
-const configContract = inspectConfigContract(ROOT);
+const configContract = inspectConfigContract(ROOT, new Map(), { architecture: GOVERNANCE.architecture });
 for (const problem of configContract.problems) {
   console.error(`[ERROR] ${problem}`);
   errorsCount++;
@@ -148,7 +132,8 @@ if (configContract.problems.length === 0) {
 // resolution and source importability. Reachability belongs to the canonical
 // architecture-policy gate, and delegation here preserves compatibility for
 // callers that still run only `verify:exports`.
-const reachability = await verifyRuntimeReachability(ROOT);
+const reachability = GOVERNANCE.queries.runtime;
+if (reachability === undefined) throw new Error('governance snapshot omitted runtime reachability');
 for (const diagnostic of reachability.diagnostics) {
   console.error(diagnostic);
   errorsCount++;
@@ -202,10 +187,8 @@ function probeSourceImport(specifier, conditions = []) {
   );
 }
 
-for (const pkgDirName of packageDirs) {
-  const pkgJsonPath = join(PACKAGES_DIR, pkgDirName, 'package.json');
-  if (!existsSync(pkgJsonPath)) continue;
-  const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+for (const packageRecord of packageRecords) {
+  const pkg = packageRecord.manifest;
   if (!pkg.name) continue;
 
   for (const subpath of Object.keys(pkg.exports ?? {})) {

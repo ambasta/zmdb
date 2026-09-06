@@ -35,37 +35,24 @@ const PACKAGE_REFERENCE_END = '<!-- /generated: product-catalog package-referenc
 const INTEGRATION_START = '<!-- generated: integrations framework-integrations -->';
 const INTEGRATION_END = '<!-- /generated: integrations framework-integrations -->';
 
-function catalogRows(namespace) {
-  const candidate = namespace.PRODUCT_CATALOG ?? namespace.productCatalog ?? namespace.default;
-  return Array.isArray(candidate) ? candidate : undefined;
+async function loadLiveCatalog(_root, architecture) {
+  if (architecture === undefined) {
+    throw new TypeError('inspectProductCatalog requires architecture from loadGovernanceSnapshot({ root })');
+  }
+  return { rows: architecture.catalog, problems: [] };
 }
 
-async function loadLiveCatalog(root) {
-  const path = join(root, 'scripts', 'product', 'catalog.mjs');
-  if (!existsSync(path)) {
-    return { rows: undefined, problems: ['canonical product catalog scripts/product/catalog.mjs is missing'] };
-  }
-  const namespace = await import(`${pathToFileURL(path).href}?product-freeze=${String(Date.now())}`);
-  const rows = catalogRows(namespace);
-  return rows === undefined
-    ? {
-        rows: undefined,
-        problems: ['product catalog must export an array as PRODUCT_CATALOG, productCatalog, or default'],
-      }
-    : { rows, problems: [] };
-}
-
-function manifestInventory(root) {
-  const manifests = new Map();
-  for (const entry of readdirSync(join(root, 'packages'), { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const directory = `packages/${entry.name}`;
-    const path = join(root, directory, 'package.json');
-    if (!existsSync(path)) continue;
-    const manifest = JSON.parse(readFileSync(path, 'utf8'));
-    manifests.set(directory, { directory, path, manifest });
-  }
-  return manifests;
+function manifestInventory(architecture) {
+  return new Map(
+    architecture.workspacePackages.map(packageRecord => [
+      packageRecord.directory,
+      {
+        directory: packageRecord.directory,
+        path: packageRecord.manifestPath,
+        manifest: packageRecord.manifest,
+      },
+    ]),
+  );
 }
 
 function deeplyFrozen(value, seen = new Set()) {
@@ -194,9 +181,10 @@ export function verifyFacadeOwnership(rows, surface) {
   return problems.toSorted();
 }
 
-export function verifyFacadeDelegation(root, rows) {
+export function verifyFacadeDelegation(root, rows, architecture) {
   const problems = [];
-  const manifest = JSON.parse(readFileSync(join(root, 'packages', 'zmdb', 'package.json'), 'utf8'));
+  const manifest = architecture.packages.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
+  if (manifest === undefined) return ['governance snapshot omitted the zmdb facade'];
   const owners = new Map(catalogFacadeOwnership(rows).subpaths.map(item => [item.name, item.owner]));
 
   for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
@@ -545,13 +533,13 @@ async function liveIntegrationRecords(root) {
     : { records: undefined, problems: ['docs-site/integrations.mjs must export an integration record array'] };
 }
 
-export async function inspectProductCatalog(root = ROOT) {
-  const loaded = await loadLiveCatalog(root);
+export async function inspectProductCatalog(root = ROOT, options = {}) {
+  const loaded = await loadLiveCatalog(root, options.architecture);
   if (loaded.rows === undefined) {
     const missing = [...loaded.problems];
     return {
       rows: [],
-      manifests: manifestInventory(root),
+      manifests: manifestInventory(options.architecture),
       membershipProblems: missing,
       facadeProblems: missing,
       generatedProblems: missing,
@@ -562,12 +550,12 @@ export async function inspectProductCatalog(root = ROOT) {
   }
 
   const rows = loaded.rows;
-  const manifests = manifestInventory(root);
+  const manifests = manifestInventory(options.architecture);
   const pagesModule = await import(pathToFileURL(join(root, 'docs-site', 'pages.mjs')).href);
   const membershipProblems = verifyProductCatalogRows(rows, manifests, pageSlugs(pagesModule));
   const facadeProblems = [
-    ...verifyFacadeOwnership(rows, readFacadeOwnership(root)),
-    ...verifyFacadeDelegation(root, rows),
+    ...verifyFacadeOwnership(rows, readFacadeOwnership(root, options.architecture)),
+    ...verifyFacadeDelegation(root, rows, options.architecture),
   ].toSorted();
   const consumers = discoverCatalogConsumers(root, rows);
   const packageReferenceBytes = renderPackageReferenceRows(rows, manifests);
@@ -605,20 +593,15 @@ export async function inspectProductCatalog(root = ROOT) {
 }
 
 async function main() {
-  const report = await inspectProductCatalog(ROOT);
-  const problems = [
-    ...report.membershipProblems,
-    ...report.facadeProblems,
-    ...report.generatedProblems,
-    ...report.consumerProblems,
-  ];
-  if (problems.length > 0) {
-    for (const problem of [...new Set(problems)].toSorted()) console.error(`[ERROR] ${problem}`);
+  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
+  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: ['product'] });
+  if (snapshot.findings.length > 0) {
+    for (const item of snapshot.findings) console.error(item.line);
     process.exitCode = 1;
     return;
   }
   console.log(
-    `Product catalog verified: ${String(report.rows.length)} packages, deterministic docs, facade ownership, and external consumers.`,
+    `Product catalog verified: ${String(snapshot.packages.length)} packages, deterministic docs, facade ownership, and external consumers.`,
   );
 }
 

@@ -98,6 +98,7 @@ A public package joins the product, dependency graph, and release policy in one 
 
 ```bash
 node docs-site/generated.mjs
+yarn verify:governance
 yarn verify:product-catalog
 yarn verify:architecture-zones
 yarn verify:runtime-reachability
@@ -110,6 +111,9 @@ yarn build:docs
 An admitted package missing any authority fails. A policy-only dependency, a manifest-only dependency, an unclassified public package, an unmeasured compatibility floor, an unused allowance, a private
 source import, an inflated ring, or a stale selector also fails rather than being inferred away. Until issue #749 lands, `yarn verify:release-governance` checks only the current lockstep
 implementation; it is not evidence that the target release-group policy has been implemented.
+
+`yarn verify:governance` loads the catalog, policy, one workspace-manifest inventory, architecture graph, reachability, metadata, product documentation, and current release plan once. The focused
+architecture, reachability, metadata, product-catalog, and release commands remain compatibility wrappers over those same snapshot-backed queries.
 
 ## Reachability is per public entry
 

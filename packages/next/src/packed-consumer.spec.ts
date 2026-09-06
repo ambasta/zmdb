@@ -11,7 +11,8 @@ import {
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 import type { PackedProjectResult } from '../../../fixtures/client-adapters/src/packed-project.js';
 
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE = await publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
 
 const FIXTURE_FILES = [
   'app/api/scope/route.ts',
@@ -66,15 +67,15 @@ describe('@zmdb/next packed App Router consumer', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'react'),
-            manifest: publishManifest(readManifest('react'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('react', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'next'),
-            manifest: publishManifest(readManifest('next'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('next', RELEASE), RELEASE_VERSION),
           },
         ],
         dependencies: {

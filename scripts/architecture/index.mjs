@@ -4,7 +4,7 @@
 // Policy contributes constraints only; release versions, changelog content,
 // tags, publication state, and mutation remain outside this module.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -253,21 +253,37 @@ function architectureFromModules(resolvedRoot, catalog, policy) {
 
   for (const [id, row] of Object.entries(policy)) assertPolicyRow(id, row);
 
+  const packagesRoot = resolveInside(resolvedRoot, 'packages', 'workspace packages');
+  const workspacePackages = Object.freeze(
+    readdirSync(packagesRoot, { withFileTypes: true })
+      .filter(entry => entry.isDirectory())
+      .toSorted((left, right) => compareText(left.name, right.name))
+      .flatMap(entry => {
+        const directory = `packages/${entry.name}`;
+        const directoryPath = resolveInside(resolvedRoot, directory, `workspace directory ${directory}`);
+        const manifestPath = resolveInside(directoryPath, 'package.json', `${directory} manifest`);
+        if (!existsSync(manifestPath)) return [];
+        const manifest = deepFreeze(JSON.parse(readFileSync(manifestPath, 'utf8')));
+        if (!isRecord(manifest)) throw new TypeError(`${directory}/package.json must contain an object`);
+        return [Object.freeze({ directory, directoryPath, manifestPath, manifest })];
+      }),
+  );
+  const workspaceByDirectory = new Map(workspacePackages.map(record => [record.directory, record]));
   const packages = catalog.map(row => {
-    const directoryPath = resolveInside(resolvedRoot, row.directory, `catalog directory ${row.directory}`);
-    const manifestPath = resolveInside(directoryPath, 'package.json', `${row.id} manifest`);
-    const manifest = deepFreeze(JSON.parse(readFileSync(manifestPath, 'utf8')));
-    if (!isRecord(manifest)) throw new TypeError(`${row.directory}/package.json must contain an object`);
+    const workspace = workspaceByDirectory.get(row.directory);
+    if (workspace === undefined) {
+      throw new TypeError(`catalog package ${row.id} has no manifest at ${row.directory}/package.json`);
+    }
 
     const packageRecord = Object.freeze({
       id: row.id,
       directory: row.directory,
-      directoryPath,
+      directoryPath: workspace.directoryPath,
       npmName: row.npmName,
-      manifestPath,
+      manifestPath: workspace.manifestPath,
       catalog: row,
       policy: policy[row.id],
-      manifest,
+      manifest: workspace.manifest,
     });
     assertPolicySelectorsResolve(packageRecord);
     return packageRecord;
@@ -278,6 +294,7 @@ function architectureFromModules(resolvedRoot, catalog, policy) {
     catalog,
     policy,
     packages: Object.freeze(packages),
+    workspacePackages,
   });
 }
 

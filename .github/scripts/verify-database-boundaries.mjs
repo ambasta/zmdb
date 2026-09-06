@@ -23,6 +23,7 @@ import {
   SQL_TYPE_KEYS,
   VERTICAL_CONTRACT_KEYS,
 } from '../../packages/query-compiler/src/testing/capability-matrix.ts';
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -392,27 +393,6 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function packageManifests(root) {
-  const manifests = new Map();
-  const packagesDir = join(root, 'packages');
-  if (!existsSync(packagesDir)) return manifests;
-  for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const dir = join(packagesDir, entry.name);
-    const path = join(dir, 'package.json');
-    if (!existsSync(path)) continue;
-    const manifest = readJson(path);
-    if (typeof manifest.name === 'string') {
-      manifests.set(manifest.name, {
-        dir,
-        manifest,
-        path: relative(root, path),
-      });
-    }
-  }
-  return manifests;
-}
-
 function sourceFilesUnder(dir) {
   if (!existsSync(dir)) return [];
   const found = [];
@@ -436,8 +416,23 @@ function dependencyEntries(manifest) {
   return DEPENDENCY_FIELDS.flatMap(field => Object.keys(manifest[field] ?? {}).map(name => ({ field, name })));
 }
 
-function manifestModel(root) {
-  const manifests = packageManifests(root);
+function manifestModel(architecture) {
+  const manifests = new Map(
+    architecture.workspacePackages.flatMap(packageRecord =>
+      typeof packageRecord.manifest.name === 'string'
+        ? [
+            [
+              packageRecord.manifest.name,
+              {
+                dir: packageRecord.directoryPath,
+                manifest: packageRecord.manifest,
+                path: relative(architecture.root, packageRecord.manifestPath),
+              },
+            ],
+          ]
+        : [],
+    ),
+  );
   const sourceCounts = new Map();
   for (const [name, entry] of manifests) {
     sourceCounts.set(name, sourceFilesUnder(join(entry.dir, 'src')).length);
@@ -576,10 +571,14 @@ function analyzePackedConsumerRecords(records, model, matrix, add) {
   }
 }
 
-export async function inspectDatabaseBoundaries(root = ROOT) {
+export async function inspectDatabaseBoundaries(root = ROOT, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('inspectDatabaseBoundaries requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const collector = findingCollector();
   const shippedFiles = analyzeLiveSources(root, collector.add);
-  const model = manifestModel(root);
+  const model = manifestModel(architecture);
   analyzeManifests(model, collector.add);
   analyzeCapabilityMatrix(DATABASE_CAPABILITY_MATRIX, collector.add);
   analyzePackedConsumers(root, model, DATABASE_CAPABILITY_MATRIX, collector.add);
@@ -781,7 +780,9 @@ async function main(argv) {
     return 0;
   }
 
-  const report = await inspectDatabaseBoundaries();
+  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+  if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+  const report = await inspectDatabaseBoundaries(ROOT, { architecture: snapshot.architecture });
   if (argv.includes('--print-baseline')) {
     console.log(
       JSON.stringify(

@@ -34,7 +34,7 @@ import {
 const ROOT = resolve(import.meta.dirname, '../../..');
 const PACKAGES = join(ROOT, 'packages');
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-jobs-selection');
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const PACKED_TIMEOUT_MS = 600_000;
 const COMMAND_TIMEOUT_MS = 120_000;
 
@@ -88,7 +88,8 @@ const DEFAULT_IDENTITY_SOURCE = `
 import { assert as directAssert } from '@zmdb/aot-validator/utilities';
 import { BaseRepository as DirectBaseRepository } from '@zmdb/repository';
 import { createApp as directCreateApp } from '@zmdb/web';
-import { assert, BaseRepository } from 'zmdb';
+import { assert } from 'zmdb';
+import { BaseRepository } from 'zmdb/orm';
 import { createApp } from 'zmdb/web';
 
 if (assert !== directAssert || BaseRepository !== DirectBaseRepository || createApp !== directCreateApp) {

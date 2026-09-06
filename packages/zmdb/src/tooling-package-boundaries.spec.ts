@@ -24,8 +24,13 @@ import {
   TARGET_TOOLING_BIN,
   TARGET_TOOLING_EXPORTS,
 } from '../../../.github/scripts/verify-tooling-boundaries.mjs';
+import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+const ARCHITECTURE = GOVERNANCE.architecture;
+if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
+const analyseTooling = () => analyseToolingBoundaries({ architecture: ARCHITECTURE });
 const PACKAGES = join(ROOT, 'packages');
 const FIXTURES = join(ROOT, 'fixtures');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
@@ -688,7 +693,7 @@ describe('standalone tooling package fixtures (#627)', () => {
     ]);
     expect(applied).toEqual([1, 2]);
     expect(connection.migrationSql).toEqual(['CREATE TABLE first(id INTEGER)', 'CREATE TABLE second(id INTEGER)']);
-    expect(analyseToolingBoundaries().embeddedViolations).toEqual([]);
+    expect(analyseTooling().embeddedViolations).toEqual([]);
   });
 
   it('executes the current packed bin and every currently shipped command help route', () => {
@@ -741,8 +746,8 @@ describe('standalone tooling package fixtures (#627)', () => {
     expect.soft(migrationsSmoke?.stdout).toContain('"applied":[1,2]');
     expect.soft(migrationsSmoke?.stdout).toContain('"dialect":"postgres"');
     expect.soft(migrationsSmoke?.stdout).toContain('"sqliteIntrospectionRefused":true');
-    expect.soft(analyseToolingBoundaries().embeddedViolations).toEqual([]);
-    expect.soft(analyseToolingBoundaries().formatterViolations).toEqual([]);
+    expect.soft(analyseTooling().embeddedViolations).toEqual([]);
+    expect.soft(analyseTooling().formatterViolations).toEqual([]);
   });
 
   it.fails('runs the installed zmdb executable from @zmdb/cli and dispatches every command once', () => {
@@ -807,7 +812,7 @@ describe('standalone tooling package fixtures (#627)', () => {
 
 describe('tooling isolation and removal boundaries (#627)', () => {
   it.fails('generates runtime code that imports @zmdb/validator and never @zmdb/compiler', () => {
-    const analysis = analyseToolingBoundaries();
+    const analysis = analyseTooling();
     expect.soft(analysis.generatedViolations).toEqual([]);
 
     const runtimeImports = GENERATED_ARTIFACTS.filter(path => path.endsWith('.js')).flatMap(path => {
@@ -819,7 +824,7 @@ describe('tooling isolation and removal boundaries (#627)', () => {
   });
 
   it.fails('keeps every runtime root unreachable from TypeScript, oxfmt, CLI, REPL, Studio and scaffolding', () => {
-    expect(analyseToolingBoundaries().runtimeViolations).toEqual([]);
+    expect(analyseTooling().runtimeViolations).toEqual([]);
   });
 
   it.fails('does not publish zmdb-codegen or old tooling-owned subpaths', () => {

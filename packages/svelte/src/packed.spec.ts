@@ -11,7 +11,8 @@ import {
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const ROOT = join(import.meta.dirname, '../../..');
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE = await publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
 const FIXTURE = join(ROOT, 'fixtures', 'client-adapters', 'svelte-packed');
 const FIXTURE_FILES = [
   'App.svelte',
@@ -60,11 +61,11 @@ describe('@zmdb/svelte packed consumers', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'svelte'),
-            manifest: publishManifest(readManifest('svelte'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('svelte', RELEASE), RELEASE_VERSION),
           },
         ],
         dependencies: {

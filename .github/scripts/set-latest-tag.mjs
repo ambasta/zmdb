@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { ROOT, publishTrain } from './lib/publish-manifest.mjs';
 
 const DRY = process.argv.includes('--dry-run');
-const release = publishTrain(ROOT);
+const release = await publishTrain(ROOT);
 
 // precedence rank of a version's channel: higher = preferred for `latest`.
 function rank(v) {

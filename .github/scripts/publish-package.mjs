@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -82,12 +84,20 @@ function parseArguments(argv) {
   return { ...options, selfTest: false };
 }
 
-function verifyManifest(root, options) {
+function verifyManifest(root, options, release) {
   const directory = resolve(root, options.directory);
   if (!isInside(root, directory)) fail(`${options.directory} escapes the repository root`);
-  const manifestPath = join(directory, 'package.json');
-  if (!existsSync(manifestPath)) fail(`${options.directory}/package.json does not exist`);
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const entry = release.entries.find(
+    candidate => candidate.directory === options.directory || resolve(root, candidate.directory) === directory,
+  );
+  if (entry === undefined) fail(`${options.directory} is absent from the governance release train`);
+  if (entry.npmName !== options.packageName) {
+    fail(`${options.directory} is governed as ${entry.npmName}, expected ${options.packageName}`);
+  }
+  if (release.plan.version !== options.version) {
+    fail(`release train is ${release.plan.version}, expected ${options.version}`);
+  }
+  const manifest = entry.manifest;
   if (manifest.name !== options.packageName) {
     fail(`${options.directory} is ${String(manifest.name)}, expected ${options.packageName}`);
   }
@@ -97,8 +107,8 @@ function verifyManifest(root, options) {
   return directory;
 }
 
-async function publishPackage(root, options) {
-  const directory = verifyManifest(root, options);
+async function publishPackage(root, options, release) {
+  const directory = verifyManifest(root, options, release);
   if (options.dryRun) {
     const packed = runNpm(['pack', '--dry-run'], { cwd: directory, stdio: 'inherit' });
     if (packed.status !== 0) fail(`npm pack --dry-run failed for ${options.packageName}`);
@@ -177,7 +187,13 @@ async function main(argv) {
     selfTest();
     return;
   }
-  await publishPackage(resolve('.'), options);
+  const root = resolve('.');
+  const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+  const release = snapshot.queries.release;
+  if (release === undefined) {
+    fail(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
+  }
+  await publishPackage(root, options, release);
 }
 
 const invoked = process.argv[1];

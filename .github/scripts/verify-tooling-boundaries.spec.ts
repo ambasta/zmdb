@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import {
   analyseToolingBoundaries,
   GENERATED_ARTIFACTS,
@@ -14,9 +15,13 @@ import {
   TARGET_TOOLING_MANIFESTS,
 } from './verify-tooling-boundaries.mjs';
 
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
+const analyse = (options = {}) => analyseToolingBoundaries({ ...options, architecture: GOVERNANCE.architecture });
+
 describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
-    const result = analyseToolingBoundaries();
+    const result = analyse();
     expect(result.problems).toEqual([]);
     expect(result.inventory.actualCount).toBe(200);
     expect(result.inventory.ownerCounts).toEqual({
@@ -42,7 +47,7 @@ describe('the tooling-boundary verifier', () => {
   it('rejects a planted compiler import from a runtime root', () => {
     const entry = join(ROOT, 'packages', 'schema-core', 'src', 'index.ts');
     const overlays = new Map([[entry, `import 'typescript';\n${readFileSync(entry, 'utf8')}`]]);
-    const result = analyseToolingBoundaries({ overlays });
+    const result = analyse({ overlays });
     expect(result.problems).toContain(
       'new runtime tooling reachability @zmdb/schema-core|typescript|packages/schema-core/src/index.ts|typescript: packages/schema-core/src/index.ts -> typescript',
     );
@@ -53,7 +58,7 @@ describe('the tooling-boundary verifier', () => {
     expect(path).toBeDefined();
     const file = join(ROOT, path ?? '');
     const overlays = new Map([[file, `import '@zmdb/compiler';\n${readFileSync(file, 'utf8')}`]]);
-    const result = analyseToolingBoundaries({ overlays });
+    const result = analyse({ overlays });
     expect(result.problems).toContain(
       `new generated import violation ${String(path)} -> @zmdb/compiler (tooling-subpath)`,
     );
@@ -62,13 +67,13 @@ describe('the tooling-boundary verifier', () => {
   it('rejects forbidden imports from migration entries', () => {
     const embedded = join(ROOT, 'packages', 'migrations', 'src', 'embedded.ts');
     const embeddedOverlay = new Map([[embedded, `import 'node:fs';\n${readFileSync(embedded, 'utf8')}`]]);
-    expect(analyseToolingBoundaries({ overlays: embeddedOverlay }).problems).toContain(
+    expect(analyse({ overlays: embeddedOverlay }).problems).toContain(
       'embedded migrations reaches forbidden import packages/migrations/src/embedded.ts -> node:fs',
     );
 
     const root = join(ROOT, 'packages', 'migrations', 'src', 'index.ts');
     const formatterOverlay = new Map([[root, `import 'oxfmt';\n${readFileSync(root, 'utf8')}`]]);
-    expect(analyseToolingBoundaries({ overlays: formatterOverlay }).problems).toContain(
+    expect(analyse({ overlays: formatterOverlay }).problems).toContain(
       'migration entry . reaches formatter packages/migrations/src/index.ts -> oxfmt: ' +
         'packages/migrations/src/index.ts -> oxfmt',
     );

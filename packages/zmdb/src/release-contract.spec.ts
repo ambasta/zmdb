@@ -71,7 +71,11 @@ interface ReleaseTargetPlan {
 }
 
 interface ReleaseGovernanceModule {
-  releaseGovernanceDiagnostics(root: string, tag: string | undefined, includeConsumers: boolean): readonly string[];
+  releaseGovernanceDiagnostics(
+    root: string,
+    tag: string | undefined,
+    includeConsumers: boolean,
+  ): Promise<readonly string[]>;
 }
 
 interface PackageManagerOutcome {
@@ -342,7 +346,7 @@ async function withReleaseFixtureAsync<T>(
   }
 }
 
-function diagnosticLines(root: string): readonly string[] {
+function diagnosticLines(root: string): Promise<readonly string[]> {
   return releaseGovernance.releaseGovernanceDiagnostics(root, undefined, false);
 }
 
@@ -716,7 +720,7 @@ describe('release groups and compatibility tests freeze (#747)', () => {
       fixture.diagnosticCases.length,
     );
     await withReleaseFixtureAsync(undefined, async root => {
-      expect(diagnosticLines(root)).toEqual([]);
+      expect(await diagnosticLines(root)).toEqual([]);
       const releaseModule: unknown = await import(
         `${pathToFileURL(join(root, 'scripts', 'release', 'policy.mjs')).href}?fixture=747`
       );
@@ -729,9 +733,9 @@ describe('release groups and compatibility tests freeze (#747)', () => {
 
   // Measured at ee4e496a: the current lockstep verifier returns [] for every case except core drift,
   // where it reports RELEASE_VERSION_DRIFT. It does not read the frozen release policy yet.
-  it.fails.each(contract().diagnosticCases)('$name reports the exact actionable correction', testCase => {
-    withReleaseFixture(testCase.mutation, root => {
-      expect(diagnosticLines(root)).toContain(testCase.expected);
+  it.fails.each(contract().diagnosticCases)('$name reports the exact actionable correction', async testCase => {
+    await withReleaseFixtureAsync(testCase.mutation, async root => {
+      expect(await diagnosticLines(root)).toContain(testCase.expected);
     });
   });
 

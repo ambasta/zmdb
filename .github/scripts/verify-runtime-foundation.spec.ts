@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import {
   analyzeRuntimeFoundation,
   CONSUMER_FIXTURES,
@@ -13,6 +14,8 @@ import {
 } from './verify-runtime-foundation.mjs';
 
 const ROOT = process.cwd();
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
 const SCRIPT = join(ROOT, '.github', 'scripts', 'verify-runtime-foundation.mjs');
 const scratch: string[] = [];
 
@@ -61,7 +64,27 @@ function fixtureRoot(): string {
 }
 
 function analyzeFixture(root: string): readonly string[] {
+  const workspacePackages = FOUNDATION_PACKAGES.map(target => {
+    const directory = `packages/${target.dir}`;
+    const directoryPath = join(root, directory);
+    const manifestPath = join(directoryPath, 'package.json');
+    return {
+      directory,
+      directoryPath,
+      manifestPath,
+      manifest: JSON.parse(readFileSync(manifestPath, 'utf8')) as Readonly<Record<string, unknown>>,
+    };
+  });
   return analyzeRuntimeFoundation(root, {
+    architecture: {
+      root,
+      packages: workspacePackages.map((packageRecord, index) => ({
+        ...packageRecord,
+        id: FOUNDATION_PACKAGES[index]?.dir ?? '',
+        npmName: FOUNDATION_PACKAGES[index]?.name ?? '',
+      })),
+      workspacePackages,
+    },
     checkConsumers: false,
     checkLegacy: false,
     checkOwnership: false,
@@ -115,7 +138,7 @@ describe('runtime foundation boundary verifier (#636)', () => {
   });
 
   it('defines four consumers without workspace aliases or compiler paths', () => {
-    const problems = analyzeRuntimeFoundation().filter(
+    const problems = analyzeRuntimeFoundation(ROOT, { architecture: GOVERNANCE.architecture }).filter(
       problem =>
         problem.includes('packed consumer') ||
         problem.includes('workspace alias') ||

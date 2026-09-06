@@ -29,16 +29,24 @@ The current implementation has four sources with non-overlapping ownership:
 No workflow, publish helper or documentation loop may maintain another package list or order. The read-only API is:
 
 ```ts
-export function releasePlan(root: string): {
+export function releasePlan(
+  root: string,
+  options: { architecture: Architecture },
+): {
   readonly version: string;
   readonly packages: readonly string[];
   readonly publishOrder: readonly string[];
   readonly changelogEntry: string;
 };
+
+const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+const plan = releasePlan(root, { architecture: snapshot.architecture });
 ```
 
 `packages` contains every catalog npm name in catalog-id order. `publishOrder` contains the same names exactly once in deterministic topological order, with dependencies before consumers and catalog
-id as the tie-breaker. `changelogEntry` is the exact Markdown body of the matching version section. The function performs no write, network request, registry lookup, build, tag or publish.
+id as the tie-breaker. `changelogEntry` is the exact Markdown body of the matching version section. The function is a pure query over the validated snapshot and performs no write, network request,
+registry lookup, build, tag or publish.
 
 ### Admit a package to the current train
 
@@ -55,6 +63,7 @@ Do not add the package to a publish loop, array, package-count sentence or copie
 
 ```bash
 node docs-site/generated.mjs
+yarn verify:governance
 yarn verify:product-catalog
 yarn verify:architecture-zones
 yarn verify:runtime-reachability
@@ -147,7 +156,7 @@ Release verification reports every problem in deterministic package/path order a
 | `RELEASE_CHANGELOG_OWNER`   | A bullet names neither a catalog id nor `product`                      | Use the owning catalog id or the explicit cross-cutting owner                     |
 | `RELEASE_TAG_MISMATCH`      | A real-publish tag is not exactly `v<common version>`                  | Create the exact tag at the verified release commit                               |
 | `RELEASE_MEMBERSHIP_DRIFT`  | A release consumer repeats or omits catalog membership                 | Read membership from the product catalog                                          |
-| `RELEASE_ORDER_DRIFT`       | A publish consumer disagrees with the policy-derived topological order | Consume `releasePlan(root).publishOrder`                                          |
+| `RELEASE_ORDER_DRIFT`       | A publish consumer disagrees with the policy-derived topological order | Consume the snapshot-backed release plan's `publishOrder`                         |
 | `RELEASE_PARTIAL_TRAIN`     | A plan, tag or retry selects only part of the catalog                  | Resume or prepare the complete lockstep train                                     |
 | `RELEASE_EXISTING_MISMATCH` | A retry finds the same version with different packed bytes             | Stop; investigate the immutable registry conflict rather than overwriting         |
 

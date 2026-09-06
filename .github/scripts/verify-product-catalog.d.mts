@@ -1,3 +1,4 @@
+import type { Architecture } from '../../scripts/architecture/index.mjs';
 import type { FacadeOwnership } from './verify-product-facade.mjs';
 
 export interface CatalogFacade {
@@ -80,7 +81,11 @@ export function verifyIntegrationRecords(
 ): readonly string[];
 export function catalogFacadeOwnership(rows: readonly CatalogRow[]): FacadeOwnership;
 export function verifyFacadeOwnership(rows: readonly CatalogRow[], surface: FacadeOwnership): readonly string[];
-export function verifyFacadeDelegation(root: string, rows: readonly CatalogRow[]): readonly string[];
+export function verifyFacadeDelegation(
+  root: string,
+  rows: readonly CatalogRow[],
+  architecture: Architecture,
+): readonly string[];
 export function verifyProductCatalogRows(
   rows: readonly CatalogRow[],
   manifests: ReadonlyMap<string, ManifestEntry>,
@@ -88,4 +93,7 @@ export function verifyProductCatalogRows(
 ): readonly string[];
 export function discoverCatalogConsumers(root: string, rows: readonly CatalogRow[]): CatalogConsumerReport;
 export function handwrittenInventoryProblems(root: string, rows: readonly CatalogRow[]): readonly string[];
-export function inspectProductCatalog(root?: string): Promise<ProductCatalogReport>;
+export function inspectProductCatalog(
+  root: string | undefined,
+  options: { readonly architecture: Architecture },
+): Promise<ProductCatalogReport>;

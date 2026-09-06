@@ -61,9 +61,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { SyntaxKind } from 'typescript/unstable/ast';
 import { API, SignatureKind, TypeFlags } from 'typescript/unstable/sync';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
 
 /**
  * PRD §9.4's table, recounted by this script, and the ceiling for each row.
@@ -299,7 +301,7 @@ async function auditStringSourceEmission() {
     resolve(ROOT, 'packages/aot-validator/src/transformer.ts'),
     resolve(ROOT, 'packages/aot-validator/src/emit/index.ts'),
   ];
-  const graph = createImportGraph(ROOT);
+  const graph = createImportGraph(ROOT, GOVERNANCE);
 
   for (const entry of entries) {
     const chain = graph.findImportPath(

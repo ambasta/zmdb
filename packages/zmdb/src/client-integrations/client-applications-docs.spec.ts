@@ -21,9 +21,10 @@ import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
 } from '../../../../fixtures/client-adapters/src/packed-project.js';
-import { PRODUCT_CATALOG } from '../../../../scripts/product/catalog.mjs';
 
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE = await publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
+const PRODUCT_CATALOG = RELEASE.packages.map(packageRecord => packageRecord.catalog);
 const OVERVIEW = source('docs-site/content/framework-integrations.md');
 
 function source(path: string): string {
@@ -132,11 +133,11 @@ describe('Client Applications documentation (#701)', () => {
         packages: [
           {
             directory: join(ROOT, 'packages/client'),
-            manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
           },
           ...ADAPTER_PACKAGES.map(expectation => ({
             directory: join(ROOT, 'packages', expectation.directory),
-            manifest: publishManifest(readManifest(expectation.directory), RELEASE_VERSION),
+            manifest: publishManifest(readManifest(expectation.directory, RELEASE), RELEASE_VERSION),
           })),
         ],
         dependencies: {

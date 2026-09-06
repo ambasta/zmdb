@@ -80,16 +80,17 @@ architecture authority, and must disappear when `scripts/release/policy.mjs` lan
 [`index.mjs`](./index.mjs) exposes the reusable boundary consumed by later verifiers and release planning:
 
 - `loadArchitecture(root)` imports that root's `PRODUCT_CATALOG` and `PACKAGE_POLICY`, rejects missing, stale or directory-mismatched policy rows, and resolves exactly those catalog directories to
-  manifests;
-- `loadArchitectureSync(root)` provides the same validated snapshot synchronously for the exact synchronous release-plan boundary;
+  manifests while producing the one workspace-manifest inventory shared by specialised consumers;
+- `loadArchitectureSync(root)` is the synchronous compatibility form used by model-equivalence tests; release and verifier consumers use the composed asynchronous governance snapshot;
 - `policyMembershipDiagnostics(catalog, policy)` performs the same membership check without filesystem access;
 - `lookupPackage(architecture, identity)` finds a package by catalog id, npm name, repository-relative directory or resolved directory;
 - `lookupExport(architecture, specifier)` resolves an exact public package specifier to its manifest selector and source target;
 - `createDependencyGraph(architecture)` returns catalog ids mapped to the policy's allowed direct workspace dependencies; and
 - `topologicalOrder(graph)` returns dependency-first catalog ids with catalog id as the deterministic tie-breaker and rejects a cycle rather than returning a partial order.
 
-The model never enumerates `packages/*` to create membership and never infers policy from manifests or imports. It does not read versions, changelog content, tags, credentials or publication state.
-The release model maps the returned ids to catalog npm names and combines that order with separate release authorities.
+The model enumerates `packages/*` exactly once to validate that no manifest exists outside the catalog and to expose non-members to specialised ownership checks; that enumeration never creates
+membership. Policy is never inferred from manifests or imports. The architecture layer does not interpret versions, changelog content, tags, credentials or publication state. The release query maps
+the returned ids to catalog npm names and combines that order with separate release authorities.
 
 ## 3. Zones, rings and dependency direction
 
@@ -623,9 +624,9 @@ Violations: missing/stale rows, directory mismatch, forbidden/stale/undeclared e
 Remediation: remove or redirect the source import, declare the existing intended edge in both manifest and policy, or change catalog/policy ownership explicitly. The verifier never recommends merely
 raising a ring to hide a cycle.
 
-[`verify-architecture-zones.mjs`](../../.github/scripts/verify-architecture-zones.mjs) implements this boundary. It receives package resolution records from `loadArchitecture(root)`, starts at every
-manifest export and executable, counts type-only imports, ignores import-shaped text inside comments and string/template literals, and follows relative modules only while they remain inside the
-consumer package. `yarn verify:architecture-zones` runs the live repository root and CI invokes that package script directly.
+[`verify-architecture-zones.mjs`](../../.github/scripts/verify-architecture-zones.mjs) implements this boundary. It receives package resolution records from `loadGovernanceSnapshot({ root })`, starts
+at every manifest export and executable, counts type-only imports, ignores import-shaped text inside comments and string/template literals, and follows relative modules only while they remain inside
+the consumer package. `yarn verify:architecture-zones` is a thin focused wrapper over the same snapshot query used by `yarn verify:governance`.
 
 ### 7.2 `verify-runtime-reachability`
 
@@ -858,6 +859,9 @@ export interface GovernanceSnapshot {
 
 export function loadGovernanceSnapshot(input: GovernanceInput): Promise<GovernanceSnapshot>;
 ```
+
+The executable aggregate entry point is `yarn verify:governance`. It loads this snapshot once, runs every domain query against the injected catalog, policy, and manifest records, prints all ordered
+findings, and keeps the focused `verify:*` commands available as compatibility entry points.
 
 Local-only consumers may omit `relationships`, in which case `issues` is `null`. Asking for issue actionability without a complete relationship snapshot is `GOV_RELATIONSHIPS_REQUIRED`; absence is
 never interpreted as an empty graph or an unblocked issue. The network adapter is outside this pure boundary. It paginates the open issue collection, uses `sub_issues_summary.total` and

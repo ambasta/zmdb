@@ -1,8 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import {
   inspectDatabaseBoundaries,
   isShippedGenericSource,
+  ROOT,
   runDatabaseBoundaryFixtureProofs,
 } from './verify-database-boundaries.mjs';
 
@@ -10,7 +12,9 @@ describe('database boundary verifier (#667)', () => {
   let report: Awaited<ReturnType<typeof inspectDatabaseBoundaries>>;
 
   beforeAll(async () => {
-    report = await inspectDatabaseBoundaries();
+    const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+    if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+    report = await inspectDatabaseBoundaries(ROOT, { architecture: snapshot.architecture });
   }, 30_000);
 
   // Current ratcheted behavior: grouped official-name findings remain in shipped generic source.

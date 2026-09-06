@@ -1,9 +1,7 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { loadArchitectureSync } from '../scripts/architecture/index.mjs';
-import { PRODUCT_CATALOG } from '../scripts/product/catalog.mjs';
 import { INTEGRATIONS } from './integrations.mjs';
 import { PRODUCT_JOURNEY } from './navigation-plan.mjs';
 
@@ -54,6 +52,7 @@ const GENERATED_DOCUMENTS = Object.freeze([
 const GOVERNANCE_DOCUMENTATION = Object.freeze({
   'ARCHITECTURE.md': Object.freeze([
     'node docs-site/generated.mjs',
+    'yarn verify:governance',
     'yarn verify:product-catalog',
     'yarn verify:architecture-zones',
     'yarn verify:runtime-reachability',
@@ -65,6 +64,7 @@ const GOVERNANCE_DOCUMENTATION = Object.freeze({
     'node docs-site/generated.mjs',
     'node scripts/release/bump.mjs "$RELEASE_VERSION"',
     'node scripts/release/plan.mjs --publish-tsv',
+    'yarn verify:governance',
     'yarn verify:architecture-zones',
     'yarn verify:runtime-reachability',
     'yarn verify:package-metadata',
@@ -76,6 +76,7 @@ const GOVERNANCE_DOCUMENTATION = Object.freeze({
     'node docs-site/generated.mjs',
     'node scripts/release/bump.mjs "$RELEASE_VERSION"',
     'node scripts/release/plan.mjs --publish-tsv',
+    'yarn verify:governance',
     'yarn verify:product-catalog',
     'yarn verify:architecture-zones',
     'yarn verify:runtime-reachability',
@@ -506,24 +507,17 @@ export function verifyIntegrationRecords(rows, records, options = {}) {
   return problems.toSorted();
 }
 
-function manifestInventory(root) {
-  const manifests = new Map();
-  const packages = join(root, 'packages');
-  if (!existsSync(packages)) return manifests;
-  for (const entry of readdirSync(packages, { withFileTypes: true }).toSorted((left, right) =>
-    left.name.localeCompare(right.name),
-  )) {
-    if (!entry.isDirectory()) continue;
-    const directory = `packages/${entry.name}`;
-    const path = join(root, directory, 'package.json');
-    if (!existsSync(path)) continue;
-    manifests.set(directory, {
-      directory,
-      path,
-      manifest: JSON.parse(readFileSync(path, 'utf8')),
-    });
-  }
-  return manifests;
+function manifestInventory(architecture) {
+  return new Map(
+    architecture.workspacePackages.map(packageRecord => [
+      packageRecord.directory,
+      {
+        directory: packageRecord.directory,
+        path: packageRecord.manifestPath,
+        manifest: packageRecord.manifest,
+      },
+    ]),
+  );
 }
 
 function verifyManifestOwnership(rows, manifests) {
@@ -614,12 +608,17 @@ function renderIntegrations(_rows, _manifests, records) {
   return renderIntegrationRows(records);
 }
 
-function generationPlan(root) {
-  const manifests = manifestInventory(root);
+function generationPlan(root, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('documentation generation requires architecture from loadGovernanceSnapshot({ root })');
+  }
+  const rows = architecture.catalog;
+  const manifests = manifestInventory(architecture);
   const pageSlugs = new Set(PRODUCT_JOURNEY.flatMap(group => group.pages));
   const problems = [
-    ...verifyManifestOwnership(PRODUCT_CATALOG, manifests),
-    ...verifyIntegrationRecords(PRODUCT_CATALOG, INTEGRATIONS, {
+    ...verifyManifestOwnership(rows, manifests),
+    ...verifyIntegrationRecords(rows, INTEGRATIONS, {
       manifests,
       pageSlugs,
       requiredCapabilities: REQUIRED_FRAMEWORKS,
@@ -627,20 +626,13 @@ function generationPlan(root) {
     }),
     ...verifyGovernanceDocumentation(root),
   ].toSorted();
-  let architecture;
-  try {
-    architecture = loadArchitectureSync(root);
-  } catch (error) {
-    problems.push(`architecture policy could not be loaded: ${error instanceof Error ? error.message : String(error)}`);
-  }
   return {
     problems: problems.toSorted(),
     outputs: GENERATED_DOCUMENTS.flatMap(document => {
-      if (document.requiresArchitecture === true && architecture === undefined) return [];
       return [
         {
           ...document,
-          expected: document.render(PRODUCT_CATALOG, manifests, INTEGRATIONS, architecture),
+          expected: document.render(rows, manifests, INTEGRATIONS, architecture),
         },
       ];
     }),
@@ -651,8 +643,8 @@ function formatProblems(problems) {
   return problems.map(problem => `[ERROR] ${problem}`).join('\n');
 }
 
-export function generateDocumentation(root = ROOT) {
-  const plan = generationPlan(root);
+export function generateDocumentation(root = ROOT, options = {}) {
+  const plan = generationPlan(root, options);
   if (plan.problems.length > 0) throw new Error(formatProblems(plan.problems));
 
   const changed = [];
@@ -669,12 +661,12 @@ export function generateDocumentation(root = ROOT) {
     architectureDocuments: GENERATED_DOCUMENTS.filter(document => document.requiresArchitecture === true).length,
     changed,
     integrations: INTEGRATIONS.length,
-    packages: PRODUCT_CATALOG.length,
+    packages: options.architecture.catalog.length,
   };
 }
 
-export function checkGeneratedDocumentation(root = ROOT) {
-  const plan = generationPlan(root);
+export function checkGeneratedDocumentation(root = ROOT, options = {}) {
+  const plan = generationPlan(root, options);
   const problems = [...plan.problems];
   for (const output of plan.outputs) {
     const path = join(root, output.path);
@@ -696,18 +688,21 @@ export function checkGeneratedDocumentation(root = ROOT) {
   return {
     architectureDocuments: GENERATED_DOCUMENTS.filter(document => document.requiresArchitecture === true).length,
     integrations: INTEGRATIONS.length,
-    packages: PRODUCT_CATALOG.length,
+    packages: options.architecture.catalog.length,
     problems: [...new Set(problems)].toSorted(),
   };
 }
 
 const invoked = process.argv[1];
 if (invoked !== undefined && import.meta.url === pathToFileURL(resolve(invoked)).href) {
+  const { loadGovernanceSnapshot } = await import('../scripts/architecture/governance.mjs');
+  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+  if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
   if (process.argv.slice(2).some(argument => argument !== '--check')) {
     console.error('usage: node docs-site/generated.mjs [--check]');
     process.exitCode = 2;
   } else if (process.argv.includes('--check')) {
-    const report = checkGeneratedDocumentation(ROOT);
+    const report = checkGeneratedDocumentation(ROOT, { architecture: snapshot.architecture });
     if (report.problems.length > 0) {
       console.error(formatProblems(report.problems));
       process.exitCode = 1;
@@ -717,7 +712,7 @@ if (invoked !== undefined && import.meta.url === pathToFileURL(resolve(invoked))
       );
     }
   } else {
-    const report = generateDocumentation(ROOT);
+    const report = generateDocumentation(ROOT, { architecture: snapshot.architecture });
     console.log(
       `Generated documentation refreshed: ${String(report.packages)} packages, ${String(report.integrations)} framework integrations, ${String(report.architectureDocuments)} architecture policy views, ${String(report.changed.length)} changed files.`,
     );

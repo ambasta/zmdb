@@ -7,7 +7,7 @@ import { describeGraph } from '@zmdb/web/devtools';
 import { createTestApp } from '@zmdb/web/testing';
 import { describe, expect, it } from 'vitest';
 
-import { PACKAGE_POLICY } from '../../../../scripts/architecture/policy.mjs';
+import { loadGovernanceSnapshot } from '../../../../scripts/architecture/governance.mjs';
 import {
   AmbiguousTokenAppModule,
   AppModule,
@@ -42,6 +42,11 @@ import {
 // reading the file, not from reasoning about it.
 
 const ROOT = process.cwd();
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
+const PACKAGE_POLICY = GOVERNANCE.architecture.policy;
+const ZMDB_MANIFEST = GOVERNANCE.architecture.packages.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
+if (ZMDB_MANIFEST === undefined) throw new Error('governance snapshot omitted the zmdb facade');
 const CLI_DIR = join(ROOT, 'packages', 'zmdb', 'src', 'cli');
 const BIN = join(CLI_DIR, 'bin.ts');
 const CLI_PROCESS_TEST_TIMEOUT = 30_000;
@@ -97,8 +102,7 @@ describe('the zmdb CLI boundary', () => {
   // §12: the bin. Asserted on the manifest rather than by running `--help`, because the value in
   // the manifest is what `npx zmdb` resolves and a bin that exists at an unlisted path is not one.
   it('declares the zmdb bin at ./src/cli/bin.ts', () => {
-    const manifest: unknown = JSON.parse(readFileSync(join(ROOT, 'packages', 'zmdb', 'package.json'), 'utf8'));
-    const record: { bin?: string | Record<string, unknown> } = Object(manifest);
+    const record: { bin?: string | Record<string, unknown> } = Object(ZMDB_MANIFEST);
     const target = typeof record.bin === 'string' ? record.bin : record.bin?.['zmdb'];
     expect(target).toBe('./src/cli/bin.ts');
   });
@@ -106,8 +110,7 @@ describe('the zmdb CLI boundary', () => {
   // §12: the export, separate from the bin because they fail independently — the bin is what
   // a user types and the export is what the architecture policy and test suite import.
   it('publishes ./cli as a zmdb subpath', () => {
-    const manifest: unknown = JSON.parse(readFileSync(join(ROOT, 'packages', 'zmdb', 'package.json'), 'utf8'));
-    const record: { exports?: Record<string, unknown> } = Object(manifest);
+    const record: { exports?: Record<string, unknown> } = Object(ZMDB_MANIFEST);
     expect(record.exports?.['./cli']).toBe('./src/cli/index.ts');
   });
 

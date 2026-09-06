@@ -5,26 +5,22 @@
 // into a throwaway `node_modules`, and `verify-package-metadata.mjs` checks the pure
 // source-to-publish transform before any build. If they drifted, the gate would be
 // checking a manifest nobody publishes.
-import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { releaseModel } from '../../../scripts/release/model.mjs';
-
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-let defaultTrain;
 
-export function publishTrain(root = ROOT) {
-  const release = releaseModel(root);
+export async function publishTrain(root = ROOT) {
+  const { loadGovernanceSnapshot } = await import('../../../scripts/architecture/governance.mjs');
+  const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+  const release = snapshot.queries.release;
+  if (release === undefined) {
+    throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
+  }
   return Object.freeze({
     packages: release.entries,
     version: release.plan.version,
   });
-}
-
-function defaultPublishTrain() {
-  defaultTrain ??= publishTrain(ROOT);
-  return defaultTrain;
 }
 
 /**
@@ -109,12 +105,15 @@ export function publishManifest(pkg, commonVersion) {
   return next;
 }
 
-/** The committed manifest for a catalog id, npm name, or repository-relative package directory. */
-export function readManifest(identity) {
-  const entry = defaultPublishTrain().packages.find(
+/** A snapshot-owned manifest for a catalog id, npm name, or repository-relative package directory. */
+export function readManifest(identity, train) {
+  if (typeof train !== 'object' || train === null || !Array.isArray(train.packages)) {
+    throw new TypeError('readManifest requires the result of await publishTrain(root)');
+  }
+  const entry = train.packages.find(
     packageRecord =>
       packageRecord.id === identity || packageRecord.directory === identity || packageRecord.npmName === identity,
   );
   if (entry === undefined) throw new Error(`unknown catalog package ${identity}`);
-  return JSON.parse(readFileSync(join(ROOT, entry.directory, 'package.json'), 'utf8'));
+  return entry.manifest;
 }

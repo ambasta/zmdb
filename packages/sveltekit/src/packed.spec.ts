@@ -11,7 +11,8 @@ import {
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const ROOT = join(import.meta.dirname, '../../..');
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE = await publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
 const FIXTURE = join(ROOT, 'fixtures', 'client-adapters', 'sveltekit-packed');
 const FIXTURE_FILES = [
   '.npmrc',
@@ -58,15 +59,15 @@ describe('@zmdb/sveltekit packed consumers', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'svelte'),
-            manifest: publishManifest(readManifest('svelte'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('svelte', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'sveltekit'),
-            manifest: publishManifest(readManifest('sveltekit'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('sveltekit', RELEASE), RELEASE_VERSION),
           },
         ],
         dependencies: {

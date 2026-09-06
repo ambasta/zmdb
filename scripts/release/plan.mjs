@@ -7,17 +7,22 @@ import { releaseModel } from './model.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-export function releasePlan(root) {
-  return releaseModel(root).plan;
+export function releasePlan(root, options) {
+  return releaseModel(root, options).plan;
 }
 
-function main(argv) {
+async function main(argv) {
   if (argv.length !== 1 || (argv[0] !== '--json' && argv[0] !== '--publish-tsv')) {
     console.error('usage: node scripts/release/plan.mjs <--json|--publish-tsv>');
     process.exitCode = 2;
     return;
   }
-  const model = releaseModel(ROOT);
+  const { loadGovernanceSnapshot } = await import('../architecture/governance.mjs');
+  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
+  const model = snapshot.queries.release;
+  if (model === undefined) {
+    throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
+  }
   if (argv[0] === '--json') {
     console.log(JSON.stringify(model.plan, undefined, 2));
     return;
@@ -28,7 +33,7 @@ function main(argv) {
 const invoked = process.argv[1];
 if (invoked !== undefined && import.meta.url === pathToFileURL(resolve(invoked)).href) {
   try {
-    main(process.argv.slice(2));
+    await main(process.argv.slice(2));
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

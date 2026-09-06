@@ -577,11 +577,13 @@ integrations, one independently versioned tooling package, and six private root 
 generated tables below therefore describe observed manifests and reachability, not the new support policy.
 
 Issue #732 froze the next governance boundary in [`scripts/architecture/SPEC.md` §§11–16](./scripts/architecture/SPEC.md): one read-only snapshot composes these independent authorities, temporary
-findings become owned structured exceptions, and GitHub's native parent/sub-issue and blocked-by relationships are the sole actionability authority. Issue #736 implements the repository side of that
-cutover in [`scripts/roadmap/native-relationships.mjs`](./scripts/roadmap/native-relationships.mjs): the live reader paginates open issues, consults child and blocker endpoints only for issues whose
-native REST total counters report those relationships, retains closed referenced rows for parent-completion decisions, and computes actionability without labels or body prose. The canonical roadmap
-filer writes native links and plain task rows only; the three older projection-writing filers are archived. Operational planning and close helpers use the same native reader, while blocker suffixes,
-issue label assignments, the repository `blocked` label and their three synchronizer/staleness helpers are removed.
+findings become owned structured exceptions, and GitHub's native parent/sub-issue and blocked-by relationships are the sole actionability authority. The implemented architecture portion now loads
+catalog, policy, workspace manifests, graph facts, reachability, metadata, product documentation, and the current release plan once through `loadGovernanceSnapshot({ root })`. `yarn verify:governance`
+runs those five domain queries together; the focused commands call the same queries with the same snapshot records. Issue #736 implements the repository side of the native relationship cutover in
+[`scripts/roadmap/native-relationships.mjs`](./scripts/roadmap/native-relationships.mjs): the live reader paginates open issues, consults child and blocker endpoints only for issues whose native REST
+total counters report those relationships, retains closed referenced rows for parent-completion decisions, and computes actionability without labels or body prose. The canonical roadmap filer writes
+native links and plain task rows only; the three older projection-writing filers are archived. Operational planning and close helpers use the same native reader, while blocker suffixes, issue label
+assignments, the repository `blocked` label and their three synchronizer/staleness helpers are removed.
 
 Zones are ordered from inward to outward:
 
@@ -685,6 +687,7 @@ Package admission is one atomic workflow:
 
 ```bash
 node docs-site/generated.mjs
+yarn verify:governance
 yarn verify:product-catalog
 yarn verify:architecture-zones
 yarn verify:runtime-reachability
@@ -695,7 +698,7 @@ yarn verify:docs-generated
 
 No workflow, release helper, package reference or architecture diagram receives a separate package row or publish position.
 
-The read-only model resolves package and export lookups from catalog-owned manifests, builds the policy DAG and returns deterministic dependency-first catalog ids.
+The read-only snapshot resolves package and export lookups from its one manifest inventory, builds the policy DAG, and returns deterministic dependency-first catalog ids.
 [`verify-architecture-zones.mjs`](./.github/scripts/verify-architecture-zones.mjs) starts from every manifest export and executable, counts production type-only imports for ownership, rejects private
 cross-package source imports, requires policy, manifest and observed workspace edges to agree, verifies canonical rings and prints complete shortest cycles. It accepts `--root` for the committed
 architecture fixtures and is run by `yarn verify:architecture-zones` in CI. [`verify-package-metadata.mjs`](./.github/scripts/verify-package-metadata.mjs) currently checks the pre-#746 lockstep

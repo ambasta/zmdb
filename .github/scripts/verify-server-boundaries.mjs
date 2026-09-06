@@ -8,8 +8,9 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 const SCRIPT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -317,10 +318,6 @@ function reachablePackages(repoRoot, graph, starts) {
   };
 }
 
-function manifestAt(root, dir) {
-  return join(root, 'packages', dir, 'package.json');
-}
-
 function readManifest(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
@@ -334,20 +331,26 @@ function sourceFiles(directory) {
   });
 }
 
-function shippedTypeScriptSources(root) {
-  return sourceFiles(join(root, 'packages')).filter(
-    path =>
-      path.endsWith('.ts') &&
-      !path.endsWith('.d.ts') &&
-      !path.endsWith('.spec.ts') &&
-      !path.endsWith('.type-test.ts') &&
-      !path.endsWith('.witness.ts'),
-  );
+function shippedTypeScriptSources(architecture) {
+  return architecture.packages
+    .flatMap(packageRecord => sourceFiles(packageRecord.directoryPath))
+    .filter(
+      path =>
+        path.endsWith('.ts') &&
+        !path.endsWith('.d.ts') &&
+        !path.endsWith('.spec.ts') &&
+        !path.endsWith('.type-test.ts') &&
+        !path.endsWith('.witness.ts'),
+    );
 }
 
 function packageByName(graph, name) {
   const pkg = graph.packages.get(name);
   return pkg === undefined ? undefined : { ...pkg, name };
+}
+
+function workspacePackage(architecture, name) {
+  return architecture.workspacePackages.find(packageRecord => packageRecord.manifest.name === name);
 }
 
 function packageDirectory(root, file) {
@@ -356,15 +359,16 @@ function packageDirectory(root, file) {
   return path.split(/[\\/]/)[0] ?? null;
 }
 
-function targetProblems(root, graph, target, requireAll) {
+function targetProblems(root, graph, architecture, target, requireAll) {
   const problems = [];
-  const path = manifestAt(root, target.dir);
-  if (!existsSync(path)) {
+  const packageRecord = workspacePackage(architecture, target.name);
+  const path = packageRecord?.manifestPath ?? join(root, 'packages', target.dir, 'package.json');
+  if (packageRecord === undefined) {
     if (requireAll) problems.push(`missing package manifest for ${target.name}: ${relative(root, path)}`);
     return problems;
   }
 
-  const manifest = readManifest(path);
+  const { manifest } = packageRecord;
   if (manifest.name !== target.name) {
     problems.push(`${relative(root, path)} names ${String(manifest.name)}, expected ${target.name}`);
   }
@@ -413,15 +417,16 @@ function targetProblems(root, graph, target, requireAll) {
   return problems;
 }
 
-function coreTargetProblems(root, graph, target, requireAll) {
+function coreTargetProblems(root, graph, architecture, target, requireAll) {
   const problems = [];
-  const path = manifestAt(root, target.dir);
-  if (!existsSync(path)) {
+  const packageRecord = workspacePackage(architecture, target.name);
+  const path = packageRecord?.manifestPath ?? join(root, 'packages', target.dir, 'package.json');
+  if (packageRecord === undefined) {
     if (requireAll) problems.push(`missing core package manifest for ${target.name}: ${relative(root, path)}`);
     return problems;
   }
 
-  const manifest = readManifest(path);
+  const { manifest } = packageRecord;
   if (manifest.name !== target.name) {
     problems.push(`${relative(root, path)} names ${String(manifest.name)}, expected ${target.name}`);
   }
@@ -506,10 +511,10 @@ function appKernelMoveProblems(root) {
   return problems;
 }
 
-function metadataOwnershipProblems(root) {
+function metadataOwnershipProblems(root, architecture) {
   const installations = [];
   const readers = [];
-  for (const path of shippedTypeScriptSources(root)) {
+  for (const path of shippedTypeScriptSources(architecture)) {
     const source = readFileSync(path, 'utf8');
     const logical = relative(root, path);
     const installationCount = source.match(/Object\.defineProperty\(\s*Symbol\s*,\s*['"]metadata['"]/g)?.length ?? 0;
@@ -532,29 +537,35 @@ function metadataOwnershipProblems(root) {
   return problems;
 }
 
-export function analyzeAppKernelBoundary(root = SCRIPT_ROOT) {
-  const graph = createImportGraph(root);
+export function analyzeAppKernelBoundary(root = SCRIPT_ROOT, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('analyzeAppKernelBoundary requires architecture from loadGovernanceSnapshot({ root })');
+  }
+  const graph = createImportGraph(root, architecture);
   const target = {
     ...CORE_SERVER_PACKAGES[0],
     exports: APP_KERNEL_EXPORTS,
   };
   return [
-    ...coreTargetProblems(root, graph, target, true),
+    ...coreTargetProblems(root, graph, architecture, target, true),
     ...appKernelMoveProblems(root),
-    ...metadataOwnershipProblems(root),
+    ...metadataOwnershipProblems(root, architecture),
   ].toSorted();
 }
 
-function hasPublishedAppKernel(root) {
-  const path = manifestAt(root, 'app');
-  return existsSync(path) && readManifest(path).private !== true;
+function hasPublishedAppKernel(architecture) {
+  const packageRecord = workspacePackage(architecture, '@zmdb/app');
+  return packageRecord !== undefined && packageRecord.manifest.private !== true;
 }
 
-function productServerProblems(root, graph) {
+function productServerProblems(root, graph, architecture) {
   const problems = [];
   const pkg = packageByName(graph, 'zmdb');
   if (pkg === undefined) return ['zmdb is not discoverable as a workspace package'];
-  const manifest = readManifest(join(pkg.dir, 'package.json'));
+  const packageRecord = workspacePackage(architecture, 'zmdb');
+  if (packageRecord === undefined) return ['zmdb is absent from the governance workspace manifest inventory'];
+  const { manifest } = packageRecord;
   const dependencies = record(manifest.dependencies);
   const missingDependencies = ['@zmdb/app', '@zmdb/web'].filter(name => dependencies[name] !== 'workspace:^');
   if (missingDependencies.length > 0) {
@@ -579,10 +590,11 @@ function productServerProblems(root, graph) {
   return problems;
 }
 
-function workspaceDependencyEdges(graph) {
+function workspaceDependencyEdges(graph, architecture) {
   const edges = [];
-  for (const [name, pkg] of graph.packages) {
-    const manifest = readManifest(join(pkg.dir, 'package.json'));
+  for (const packageRecord of architecture.packages) {
+    const name = packageRecord.npmName;
+    const { manifest } = packageRecord;
     for (const dependency of sortedKeys(manifest.dependencies)) {
       if (graph.packages.has(dependency)) edges.push([name, dependency]);
     }
@@ -627,30 +639,43 @@ export function findServerPackageCycle(edges) {
 }
 
 export function analyzeCoreServerBoundaries(root = SCRIPT_ROOT, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('analyzeCoreServerBoundaries requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const requireAll = options.requireAll !== false;
-  const graph = createImportGraph(root);
+  const graph = createImportGraph(root, architecture);
   const packageProblems = new Map(
-    CORE_SERVER_PACKAGES.map(target => [target.name, coreTargetProblems(root, graph, target, requireAll)]),
+    CORE_SERVER_PACKAGES.map(target => [
+      target.name,
+      coreTargetProblems(root, graph, architecture, target, requireAll),
+    ]),
   );
-  packageProblems.set('zmdb', productServerProblems(root, graph));
-  const edges = workspaceDependencyEdges(graph);
+  packageProblems.set('zmdb', productServerProblems(root, graph, architecture));
+  const edges = workspaceDependencyEdges(graph, architecture);
   const cycle = findServerPackageCycle(edges);
   const graphProblems = cycle === null ? [] : [`workspace package dependency cycle: ${cycle.join(' -> ')}`];
   return { packageProblems, edges, graphProblems };
 }
 
 export function analyzeOptionalServerPackages(root = SCRIPT_ROOT, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('analyzeOptionalServerPackages requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const requireAll = options.requireAll !== false;
-  const graph = createImportGraph(root);
-  return SERVER_PACKAGES.flatMap(target => targetProblems(root, graph, target, requireAll)).toSorted();
+  const graph = createImportGraph(root, architecture);
+  return SERVER_PACKAGES.flatMap(target => targetProblems(root, graph, architecture, target, requireAll)).toSorted();
 }
 
-function coreProblems(root, graph) {
+function coreProblems(root, graph, architecture) {
   const problems = [];
   for (const name of CORE_PACKAGES) {
     const pkg = packageByName(graph, name);
     if (pkg === undefined) continue;
-    const manifest = readManifest(join(pkg.dir, 'package.json'));
+    const packageRecord = workspacePackage(architecture, name);
+    if (packageRecord === undefined) continue;
+    const { manifest } = packageRecord;
     const declared = new Set([
       ...sortedKeys(manifest.dependencies),
       ...sortedKeys(manifest.peerDependencies),
@@ -682,15 +707,19 @@ function coreProblems(root, graph) {
 }
 
 export function analyzeServerBoundaries(root = SCRIPT_ROOT, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('analyzeServerBoundaries requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const requireAll = options.requireAll !== false;
-  const graph = createImportGraph(root);
-  const core = analyzeCoreServerBoundaries(root, { requireAll });
+  const graph = createImportGraph(root, architecture);
+  const core = analyzeCoreServerBoundaries(root, { architecture, requireAll });
   return [
-    ...SERVER_PACKAGES.flatMap(target => targetProblems(root, graph, target, requireAll)),
-    ...coreProblems(root, graph),
+    ...SERVER_PACKAGES.flatMap(target => targetProblems(root, graph, architecture, target, requireAll)),
+    ...coreProblems(root, graph, architecture),
     ...[...core.packageProblems.values()].flat(),
     ...core.graphProblems,
-    ...(hasPublishedAppKernel(root) ? analyzeAppKernelBoundary(root) : []),
+    ...(hasPublishedAppKernel(architecture) ? analyzeAppKernelBoundary(root, { architecture }) : []),
   ].toSorted();
 }
 
@@ -726,11 +755,13 @@ function parseArgs(argv) {
   return { root, strict, requireAll, baseline, optionalPackagesOnly };
 }
 
-function runCli() {
+async function runCli() {
   const { root, strict, requireAll, baseline, optionalPackagesOnly } = parseArgs(process.argv.slice(2));
+  const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
+  if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
   const actual = optionalPackagesOnly
-    ? analyzeOptionalServerPackages(root, { requireAll })
-    : analyzeServerBoundaries(root, { requireAll });
+    ? analyzeOptionalServerPackages(root, { architecture: snapshot.architecture, requireAll })
+    : analyzeServerBoundaries(root, { architecture: snapshot.architecture, requireAll });
   const expected = strict || optionalPackagesOnly ? [] : readBoundaryBaseline(baseline);
   const added = difference(actual, expected);
   const retired = difference(expected, actual);
@@ -759,6 +790,6 @@ function runCli() {
   }
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  runCli();
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  await runCli();
 }

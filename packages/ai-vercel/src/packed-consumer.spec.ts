@@ -11,7 +11,8 @@ import {
   type PackedProjectResult,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE = await publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
 const PACKAGE_NAMES = ['@zmdb/query-compiler', '@zmdb/schema-core', '@zmdb/ai', '@zmdb/ai-vercel'] as const;
 
 function build(packageName: (typeof PACKAGE_NAMES)[number]): void {
@@ -164,19 +165,19 @@ describe('@zmdb/ai-vercel packed AI SDK floor (#748)', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'query-compiler'),
-            manifest: publishManifest(readManifest('query-compiler'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('query-compiler', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'schema-core'),
-            manifest: publishManifest(readManifest('schema-core'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('schema-core', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'ai'),
-            manifest: publishManifest(readManifest('ai'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('ai', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'ai-vercel'),
-            manifest: publishManifest(readManifest('ai-vercel'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('ai-vercel', RELEASE), RELEASE_VERSION),
           },
         ],
         dependencies: {

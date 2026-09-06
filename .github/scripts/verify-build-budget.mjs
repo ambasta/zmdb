@@ -69,8 +69,15 @@ import { apiInstanceCount, ReflectSession } from '../../packages/aot-validator/s
 import { compileHttpContracts } from '../../packages/web/src/contract/compiler/index.js';
 import { defineHttpContract, httpOperation } from '../../packages/web/src/contract/index.js';
 import { Controller, Get, Public } from '../../packages/web/src/routing/index.js';
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+for (const owner of ['aot-validator', 'web']) {
+  if (!GOVERNANCE.packages.some(packageRecord => packageRecord.id === owner)) {
+    throw new Error(`governance snapshot omitted build-budget owner ${owner}`);
+  }
+}
 const SCRATCH = resolve(ROOT, '.budget');
 
 /** The build to publish a number for, and the smaller one its update log is compared against. */

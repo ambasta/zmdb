@@ -5,9 +5,8 @@ import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'nod
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { loadGovernanceSnapshot } from '../architecture/governance.mjs';
 import { compareSemver, parseSemver, releaseChannel } from './lib.mjs';
-import { releaseModel } from './model.mjs';
-import { releasePlan } from './plan.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -115,7 +114,13 @@ function restore(snapshots) {
   }
 }
 
-function run(argv) {
+function requiredReleaseModel(governanceSnapshot) {
+  const model = governanceSnapshot.queries.release;
+  if (model !== undefined) return model;
+  throw new Error(governanceSnapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
+}
+
+async function run(argv) {
   const options = parseArguments(argv);
   const target = parseSemver(options.version);
   const channel = releaseChannel(target);
@@ -123,7 +128,7 @@ function run(argv) {
     throw new Error(`${options.version} is not a supported stable, alpha, beta or rc SemVer`);
   }
 
-  const model = releaseModel(options.root);
+  const model = requiredReleaseModel(await loadGovernanceSnapshot({ root: options.root, checks: ['release'] }));
   const current = parseSemver(model.plan.version);
   if (current === undefined || compareSemver(target, current) <= 0) {
     throw new Error(`${options.version} must be greater than current version ${model.plan.version}`);
@@ -148,7 +153,7 @@ function run(argv) {
     if (yarn.status !== 0) {
       throw new Error(`yarn install --mode=update-lockfile failed with status ${String(yarn.status)}`);
     }
-    const plan = releasePlan(options.root);
+    const plan = requiredReleaseModel(await loadGovernanceSnapshot({ root: options.root, checks: ['release'] })).plan;
     if (plan.version !== options.version) {
       throw new Error(`final release plan reported ${plan.version}, expected ${options.version}`);
     }
@@ -160,7 +165,7 @@ function run(argv) {
 }
 
 try {
-  run(process.argv.slice(2));
+  await run(process.argv.slice(2));
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;

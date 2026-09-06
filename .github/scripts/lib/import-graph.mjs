@@ -5,7 +5,7 @@
 // mode (all production imports, including type-only edges) or runtime mode
 // (only edges that survive emit).
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 const REGEX_PREFIX_KEYWORDS = new Set([
@@ -71,35 +71,22 @@ function packageName(specifier) {
 }
 
 function workspacePackages(root, source) {
-  if (source !== undefined) {
-    const packageRecords = Array.isArray(source) ? source : source.packages;
-    return new Map(
-      packageRecords.map(packageRecord => [
-        packageRecord.npmName,
-        {
-          dir: packageRecord.directoryPath,
-          exports: packageRecord.manifest.exports ?? {},
-        },
-      ]),
-    );
+  if (source === undefined) {
+    throw new TypeError('createImportGraph requires packages from loadGovernanceSnapshot({ root })');
   }
-
-  const packagesDir = join(root, 'packages');
-  const packages = new Map();
-  for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const dir = join(packagesDir, entry.name);
-    const manifest = join(dir, 'package.json');
-    if (!existsSync(manifest)) continue;
-    const packageManifest = JSON.parse(readFileSync(manifest, 'utf8'));
-    if (typeof packageManifest.name === 'string') {
-      packages.set(packageManifest.name, {
-        dir,
-        exports: packageManifest.exports ?? {},
-      });
-    }
+  const packageRecords = Array.isArray(source) ? source : (source.architecture?.packages ?? source.packages);
+  if (!Array.isArray(packageRecords)) {
+    throw new TypeError('createImportGraph source must expose governance package records');
   }
-  return packages;
+  return new Map(
+    packageRecords.map(packageRecord => [
+      packageRecord.npmName,
+      {
+        dir: packageRecord.directoryPath,
+        exports: packageRecord.manifest.exports ?? {},
+      },
+    ]),
+  );
 }
 
 function readString(source, start) {

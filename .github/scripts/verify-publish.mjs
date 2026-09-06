@@ -82,7 +82,7 @@ const HTTP_CLIENT_DOCS_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 
 const HTTP_CLIENT_DOCS_PAGE = join(ROOT, 'docs-site', 'content', 'generated-client.md');
 const HTTP_CLIENT_DOCS_TSCONFIG = join(ROOT, 'fixtures', 'consumer-http-client', 'tsconfig.docs.json');
 const HTTP_CLIENT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'verify-installed.mjs');
-const RELEASE = publishTrain(ROOT);
+const RELEASE = await publishTrain(ROOT);
 const PUBLISH_PACKAGES = RELEASE.packages;
 const RELEASE_VERSION = RELEASE.version;
 const ADMITTED_PACKAGE_NAMES = new Set(PUBLISH_PACKAGES.map(packageRecord => packageRecord.npmName));
@@ -392,7 +392,7 @@ const specifiers = [];
 const packedTarballs = new Map();
 let studioBin;
 for (const packageRecord of PUBLISH_PACKAGES) {
-  const pkg = publishManifest(readManifest(packageRecord.id), RELEASE_VERSION);
+  const pkg = publishManifest(readManifest(packageRecord.id, RELEASE), RELEASE_VERSION);
   const src = join(ROOT, packageRecord.directory);
   const dst = join(stage, packageRecord.id);
 

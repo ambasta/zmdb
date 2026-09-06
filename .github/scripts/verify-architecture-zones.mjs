@@ -5,12 +5,11 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
   ArchitecturePolicyError,
   DependencyCycleError,
-  loadArchitecture,
   lookupExport,
   topologicalOrder,
 } from '../../scripts/architecture/index.mjs';
@@ -353,8 +352,11 @@ function graphDiagnostics(architecture, graph) {
   return diagnostics;
 }
 
-export async function inspectArchitectureZones(root = SCRIPT_ROOT) {
-  const architecture = await loadArchitecture(root);
+export async function inspectArchitectureZones(root = SCRIPT_ROOT, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('inspectArchitectureZones requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const graph = createImportGraph(root, architecture.packages);
   const states = new Map(
     architecture.packages.map(packageRecord => [
@@ -403,14 +405,15 @@ async function main(argv) {
   }
 
   try {
-    const report = await inspectArchitectureZones(root);
-    if (report.diagnostics.length > 0) {
-      for (const line of report.diagnostics) console.error(line);
+    const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
+    const snapshot = await loadGovernanceSnapshot({ root, checks: ['architecture'] });
+    if (snapshot.findings.length > 0) {
+      for (const item of snapshot.findings) console.error(item.line);
       return 1;
     }
-    const edgeCount = Object.values(report.dependencyGraph).reduce((sum, dependencies) => sum + dependencies.length, 0);
+    const edgeCount = [...snapshot.packageGraph.values()].reduce((sum, dependencies) => sum + dependencies.length, 0);
     console.log(
-      `architecture zones: ${String(report.architecture.packages.length)} catalog packages, ${String(edgeCount)} workspace edges, and canonical rings verified.`,
+      `architecture zones: ${String(snapshot.packages.length)} catalog packages, ${String(edgeCount)} workspace edges, and canonical rings verified.`,
     );
     return 0;
   } catch (error) {
@@ -425,6 +428,7 @@ async function main(argv) {
   }
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+const invokedPath = process.argv[1] === undefined ? undefined : pathToFileURL(resolve(process.argv[1])).href;
+if (invokedPath === import.meta.url) {
   process.exitCode = await main(process.argv.slice(2));
 }

@@ -20,7 +20,7 @@ import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish
 
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(FIXTURE, '../..');
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const CLIENT = join(ROOT, 'packages', 'client');
 const TSC = join(ROOT, 'node_modules', '.bin', 'tsc');
 const ESBUILD = join(ROOT, 'node_modules', '.bin', 'esbuild');

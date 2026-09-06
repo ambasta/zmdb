@@ -17,7 +17,11 @@ import { generateOpenApiSpec } from './openapi-spec.mjs';
 import { PALETTE_HTML, SHELL_CSS, THEME_BOOT, searchIndexScript, shellJs, topbarHtml } from './shell.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-generateDocumentation(join(here, '..'));
+const root = join(here, '..');
+const { loadGovernanceSnapshot } = await import('../scripts/architecture/governance.mjs');
+const governance = await loadGovernanceSnapshot({ root, checks: [] });
+if (governance.architecture === null) throw new Error('governance snapshot has no architecture');
+generateDocumentation(root, { architecture: governance.architecture });
 const { NAV, PAGES } = await import('./manifest.mjs');
 const OUT = join(here, '..', 'site');
 const DASH = join(here, '..', 'benchmarks', 'site'); // existing benchmarks dashboard

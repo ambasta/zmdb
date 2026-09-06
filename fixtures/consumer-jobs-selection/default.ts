@@ -1,8 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { assert, BaseRepository } from 'zmdb';
+import { assert } from 'zmdb';
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
 import { schemaFromIR, type SchemaIR } from 'zmdb/ir';
+import { BaseRepository } from 'zmdb/orm';
 import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 import { Controller, createApp, Get, Module } from 'zmdb/web';
 

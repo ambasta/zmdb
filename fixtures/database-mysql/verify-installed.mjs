@@ -8,7 +8,8 @@ import { publishManifest, publishTrain, readManifest } from '../../.github/scrip
 
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(FIXTURE, '../..');
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE = await publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
 const PACKAGE_DIRS = ['query-compiler', 'schema-core', 'ai', 'aot-validator', 'repository', 'mysql'];
 
 function run(command, argumentsList, options = {}) {
@@ -36,7 +37,7 @@ function pack(name, stageRoot, tarballRoot) {
   }
   writeFileSync(
     join(stage, 'package.json'),
-    `${JSON.stringify(publishManifest(readManifest(name), RELEASE_VERSION), null, 2)}\n`,
+    `${JSON.stringify(publishManifest(readManifest(name, RELEASE), RELEASE_VERSION), null, 2)}\n`,
   );
   const result = run('npm', ['pack', '--json', '--pack-destination', tarballRoot], {
     cwd: stage,
@@ -66,7 +67,7 @@ try {
   mkdirSync(app, { recursive: true });
 
   const tarballs = Object.fromEntries(
-    PACKAGE_DIRS.map(name => [readManifest(name).name, pack(name, stageRoot, tarballRoot)]),
+    PACKAGE_DIRS.map(name => [readManifest(name, RELEASE).name, pack(name, stageRoot, tarballRoot)]),
   );
   writeFileSync(
     join(app, 'package.json'),

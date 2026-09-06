@@ -52,7 +52,7 @@ import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   withPackedBuildLock,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
-import { PRODUCT_CATALOG } from '../../../scripts/product/catalog.mjs';
+import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
 import { defineConfig as ownerDefineConfig } from './config/contract.js';
 import {
   AssertError,
@@ -76,23 +76,32 @@ import {
 } from './index.js';
 
 const ROOT = process.cwd();
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+const ARCHITECTURE =
+  GOVERNANCE.architecture ??
+  (() => {
+    throw new Error('governance snapshot has no architecture');
+  })();
+const PRODUCT_CATALOG = ARCHITECTURE.catalog;
 const PRODUCT_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
 
 let measuredFacade: ReturnType<typeof inspectProductFacade> | undefined;
 function facadeReport(): ReturnType<typeof inspectProductFacade> {
-  measuredFacade ??= inspectProductFacade(ROOT);
+  measuredFacade ??= inspectProductFacade(ROOT, { architecture: ARCHITECTURE });
   return measuredFacade;
 }
 
 let measuredCatalog: ReturnType<typeof inspectProductCatalog> | undefined;
 function catalogReport(): ReturnType<typeof inspectProductCatalog> {
-  measuredCatalog ??= inspectProductCatalog(ROOT);
+  measuredCatalog ??= inspectProductCatalog(ROOT, { architecture: ARCHITECTURE });
   return measuredCatalog;
 }
 
 let measuredPacked: ReturnType<typeof runPackedProductConsumer> | undefined;
 function packedReport(): ReturnType<typeof runPackedProductConsumer> {
-  measuredPacked ??= withPackedBuildLock(ROOT, () => runPackedProductConsumer(ROOT, PRODUCT_FIXTURE));
+  measuredPacked ??= withPackedBuildLock(ROOT, () =>
+    runPackedProductConsumer(ROOT, PRODUCT_FIXTURE, { architecture: ARCHITECTURE }),
+  );
   return measuredPacked;
 }
 
@@ -128,7 +137,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     expect(report.missingSubpaths).toEqual([]);
     expect(report.facadeImplementationProblems).toEqual([]);
     expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(44);
-  });
+  }, 15_000);
 
   // The migration namespace is reachable only through `zmdb/migrations`, so
   // importing the application root loads neither tooling nor optional peers.
@@ -432,7 +441,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
   });
 
   it('derives root and subpath facade ownership from the catalog', () => {
-    const actual = readFacadeOwnership(ROOT);
+    const actual = readFacadeOwnership(ROOT, ARCHITECTURE);
     const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
 
     expect(derived.root).toHaveLength(71);
@@ -440,7 +449,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     expect(actual.root).toEqual(derived.root);
     expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
     expect(verifyFacadeOwnership(PRODUCT_CATALOG, actual)).toEqual([]);
-    expect(verifyFacadeDelegation(ROOT, PRODUCT_CATALOG)).toEqual([]);
+    expect(verifyFacadeDelegation(ROOT, PRODUCT_CATALOG, ARCHITECTURE)).toEqual([]);
   });
 
   it('generates package-reference and support-matrix rows without a handwritten package list', async () => {

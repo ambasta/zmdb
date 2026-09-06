@@ -18,6 +18,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { createImportGraph } from '../../../.github/scripts/lib/import-graph.mjs';
+import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
 import {
   createDependencyGraph,
   loadArchitecture,
@@ -458,7 +459,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 37 catalog packages, 74 workspace edges, and canonical rings verified.',
+      'architecture zones: 37 catalog packages, 73 workspace edges, and canonical rings verified.',
     );
   });
 
@@ -643,7 +644,7 @@ describe('architecture and release governance fixtures', () => {
   it('derives topological publish order from the package graph', async () => {
     const architecture = await loadArchitecture(fixtureRoot('valid'));
     const order = topologicalOrder(createDependencyGraph(architecture));
-    const plan = releasePlan(fixtureRoot('valid'));
+    const plan = releasePlan(fixtureRoot('valid'), { architecture });
 
     expect(order).toEqual(['core', 'app']);
     expect(order.map(id => lookupPackage(architecture, id)?.npmName)).toEqual(['@fixture/core', '@fixture/app']);
@@ -659,9 +660,11 @@ describe('architecture and release governance fixtures', () => {
     ).toEqual(['alpha', 'middle', 'zeta']);
   });
 
-  it('produces the same release plan twice', () => {
-    const first = releasePlan(ROOT);
-    const second = releasePlan(ROOT);
+  it('produces the same release plan twice', async () => {
+    const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
+    if (snapshot.architecture === null) throw new Error('live governance snapshot has no architecture');
+    const first = releasePlan(ROOT, { architecture: snapshot.architecture });
+    const second = releasePlan(ROOT, { architecture: snapshot.architecture });
     const firstCommand = spawnSync(process.execPath, [join(ROOT, 'scripts', 'release', 'plan.mjs'), '--json'], {
       cwd: ROOT,
       encoding: 'utf8',
@@ -680,7 +683,7 @@ describe('architecture and release governance fixtures', () => {
     expect(secondCommand.stdout).toBe(firstCommand.stdout);
   });
 
-  it('bumps every catalog manifest and changelog as one train', () => {
+  it('bumps every catalog manifest and changelog as one train', async () => {
     const root = mkdtempSync(join(tmpdir(), 'zmdb-release-bump-'));
     try {
       cpSync(fixtureRoot('valid'), root, { recursive: true });
@@ -691,7 +694,9 @@ describe('architecture and release governance fixtures', () => {
       expect(result.stdout).toContain('Prepared 1.0.0-alpha.5 across 2 catalog packages.');
       expect(readFileSync(join(root, 'fake-yarn.log'), 'utf8')).toBe('install --mode=update-lockfile\n');
       expect(readFileSync(join(root, 'yarn.lock'), 'utf8')).toBe('updated-by-fake-yarn\n');
-      expect(releasePlan(root)).toMatchObject({
+      const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+      if (snapshot.architecture === null) throw new Error('bumped fixture has no architecture');
+      expect(releasePlan(root, { architecture: snapshot.architecture })).toMatchObject({
         version: '1.0.0-alpha.5',
         packages: ['@fixture/app', '@fixture/core'],
         publishOrder: ['@fixture/core', '@fixture/app'],
@@ -713,7 +718,7 @@ describe('architecture and release governance fixtures', () => {
     }
   });
 
-  it('restores the complete train when lockfile regeneration fails', () => {
+  it('restores the complete train when lockfile regeneration fails', async () => {
     const root = mkdtempSync(join(tmpdir(), 'zmdb-release-rollback-'));
     try {
       cpSync(fixtureRoot('valid'), root, { recursive: true });
@@ -725,7 +730,9 @@ describe('architecture and release governance fixtures', () => {
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('yarn install --mode=update-lockfile failed with status 7');
       for (const path of watched) expect(readFileSync(join(root, path), 'utf8'), path).toBe(before.get(path));
-      expect(releasePlan(root).version).toBe('1.0.0-alpha.4');
+      const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+      if (snapshot.architecture === null) throw new Error('restored fixture has no architecture');
+      expect(releasePlan(root, { architecture: snapshot.architecture }).version).toBe('1.0.0-alpha.4');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -897,6 +904,8 @@ interface NativeRelationshipSnapshot {
 
 interface GovernanceSnapshotTarget {
   readonly findings: readonly { readonly id: string; readonly code: string }[];
+  readonly packageGraph: ReadonlyMap<string, readonly string[]>;
+  readonly queries: Readonly<Record<string, unknown>>;
 }
 
 interface GovernanceTarget {
@@ -905,10 +914,11 @@ interface GovernanceTarget {
     readonly relationships?: NativeRelationshipSnapshot;
   }): Promise<GovernanceSnapshotTarget>;
   renderGovernanceReport(snapshot: GovernanceSnapshotTarget): string;
-  verifyConsumerParity(input: {
-    readonly root: string;
-    readonly inventory: ConsumerFixture;
-  }): Promise<{ readonly problems: readonly string[]; readonly generatedOutputs: readonly string[] }>;
+  verifyConsumerParity(input: { readonly root: string; readonly inventory: ConsumerFixture }): Promise<{
+    readonly problems: readonly string[];
+    readonly generatedOutputs: readonly string[];
+    readonly queryDomains: readonly string[];
+  }>;
 }
 
 interface ExceptionTarget {
@@ -1266,16 +1276,31 @@ describe('composed governance tests freeze (#733)', () => {
     expect(source).not.toContain('api.github.com');
   });
 
-  it.fails('loads the composed governance model and renders byte-stable architecture output', async () => {
+  it('loads the composed governance model and renders byte-stable architecture output', async () => {
+    const permissionedImport = spawnSync(
+      process.execPath,
+      [
+        '--permission',
+        `--allow-fs-read=${ROOT}`,
+        '--input-type=module',
+        '--eval',
+        `await import(${JSON.stringify(pathToFileURL(GOVERNANCE_MODEL).href)})`,
+      ],
+      { cwd: ROOT, encoding: 'utf8' },
+    );
     const target = await importTarget<GovernanceTarget>(GOVERNANCE_MODEL);
     const snapshot = await target.loadGovernanceSnapshot({ root: fixtureRoot('valid') });
     const expected = readFileSync(join(GOVERNANCE_FIXTURES, 'architecture-report.txt'), 'utf8');
+    expect(permissionedImport).toMatchObject({ status: 0, stderr: '' });
     expect(snapshot.findings).toEqual([]);
+    expect(Object.isFrozen(snapshot.packageGraph)).toBe(true);
+    expect(Reflect.has(snapshot.packageGraph, 'set')).toBe(false);
+    expect(Object.values(snapshot.queries).every(query => Object.isFrozen(query))).toBe(true);
     expect(target.renderGovernanceReport(snapshot)).toBe(expected);
     expect(target.renderGovernanceReport(snapshot)).toBe(expected);
   });
 
-  it.fails.each([
+  it.each([
     ['missing catalog-policy membership', 'undeclared-package', 'ARCH_POLICY_MISSING'],
     ['workspace cycle', 'cycle', 'ARCH_CYCLE'],
     ['forbidden reachability', 'upward-edge', 'ARCH_EDGE_FORBIDDEN'],
@@ -1286,7 +1311,7 @@ describe('composed governance tests freeze (#733)', () => {
     expect(findingCodes(snapshot)).toContain(expectedCode);
   });
 
-  it.fails('rejects a stale catalog row without discovering a second package inventory', async () => {
+  it('rejects a stale catalog row without discovering a second package inventory', async () => {
     const target = await importTarget<GovernanceTarget>(GOVERNANCE_MODEL);
     await withValidFixtureCopyAsync(
       root => {
@@ -1300,7 +1325,7 @@ describe('composed governance tests freeze (#733)', () => {
     );
   });
 
-  it.fails('rejects ring inflation from the canonical dependency graph', async () => {
+  it('rejects ring inflation from the canonical dependency graph', async () => {
     const target = await importTarget<GovernanceTarget>(GOVERNANCE_MODEL);
     await withValidFixtureCopyAsync(
       root => {
@@ -1317,13 +1342,14 @@ describe('composed governance tests freeze (#733)', () => {
     );
   });
 
-  it.fails('preserves finding, command, release, helper and generated-byte parity for every consumer', async () => {
+  it('preserves finding, command, release, helper and generated-byte parity for every consumer', async () => {
     const target = await importTarget<GovernanceTarget>(GOVERNANCE_MODEL);
     const inventory = consumerFixture();
     const report = await target.verifyConsumerParity({ root: ROOT, inventory });
     expect(report.problems).toEqual([]);
     expect(report.generatedOutputs).toEqual(inventory.generatedOutputs);
-  });
+    expect(report.queryDomains).toEqual(['architecture', 'metadata', 'product', 'release', 'runtime']);
+  }, 90_000);
 
   it('paginates native issues, children and blockers before computing actionability', async () => {
     const audit = relationshipAudit();

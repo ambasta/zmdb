@@ -11,7 +11,7 @@ import { builtinModules } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { loadArchitecture, lookupExport } from '../../scripts/architecture/index.mjs';
+import { lookupExport } from '../../scripts/architecture/index.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -506,12 +506,23 @@ export function analyzeRuntimeReachability(root, architecture, graph = createImp
 }
 
 export async function verifyRuntimeReachability(root = DEFAULT_ROOT, options = {}) {
-  const architecture = options.architecture ?? (await loadArchitecture(root));
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('verifyRuntimeReachability requires architecture from loadGovernanceSnapshot({ root })');
+  }
   return analyzeRuntimeReachability(root, architecture, createImportGraph(root, architecture));
 }
 
 async function runSelfTest(root) {
   const fixtureRoot = join(root, 'scripts', 'architecture', '__fixtures__');
+  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
+  const architectureFor = async fixture => {
+    const snapshot = await loadGovernanceSnapshot({ root: fixture, checks: [] });
+    if (snapshot.architecture === null) {
+      throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'governance snapshot has no architecture');
+    }
+    return snapshot.architecture;
+  };
   const cases = [
     {
       name: 'valid fixture',
@@ -543,7 +554,9 @@ async function runSelfTest(root) {
 
   let passed = 0;
   for (const testCase of cases) {
-    const report = await verifyRuntimeReachability(testCase.root);
+    const report = await verifyRuntimeReachability(testCase.root, {
+      architecture: await architectureFor(testCase.root),
+    });
     if (JSON.stringify(report.diagnostics) !== JSON.stringify(testCase.diagnostics)) {
       throw new Error(
         `${testCase.name} expected ${JSON.stringify(testCase.diagnostics)}, received ${JSON.stringify(report.diagnostics)}`,
@@ -553,7 +566,7 @@ async function runSelfTest(root) {
   }
 
   const validRoot = join(fixtureRoot, 'valid');
-  const valid = await loadArchitecture(validRoot);
+  const valid = await architectureFor(validRoot);
   const validApp = valid.packages.find(packageRecord => packageRecord.id === 'app');
   if (validApp === undefined) throw new Error('valid fixture omitted the app package');
   const indexPath = join(validApp.directoryPath, 'src', 'index.ts');
@@ -743,12 +756,14 @@ export async function runRuntimeReachabilityCli(argv = process.argv.slice(2), op
       return 0;
     }
 
-    const report = await verifyRuntimeReachability(parsed.root);
-    if (report.diagnostics.length > 0) {
-      for (const diagnostic of report.diagnostics) console.error(diagnostic);
-      console.error(`runtime reachability failed with ${String(report.diagnostics.length)} violation(s).`);
+    const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
+    const snapshot = await loadGovernanceSnapshot({ root: parsed.root, checks: ['runtime'] });
+    if (snapshot.findings.length > 0) {
+      for (const item of snapshot.findings) console.error(item.line);
+      console.error(`runtime reachability failed with ${String(snapshot.findings.length)} violation(s).`);
       return 1;
     }
+    const report = snapshot.queries.runtime;
     const prefix = options.compatibilityName === undefined ? 'runtime reachability' : options.compatibilityName;
     console.log(
       `${prefix}: ${String(report.entriesChecked)} export/bin entry point(s) across ` +

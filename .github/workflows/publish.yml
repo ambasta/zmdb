@@ -106,6 +106,7 @@ jobs:
 
       - name: Verify lockstep version, changelog, tag, membership, and order
         run: |
+          yarn verify:governance
           yarn verify:release-governance
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             node .github/scripts/verify-release-governance.mjs --tag "$GITHUB_REF_NAME"

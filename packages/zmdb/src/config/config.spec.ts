@@ -8,6 +8,7 @@ import { codegen } from '@zmdb/aot-validator/codegen';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { inspectConfigContract } from '../../../../.github/scripts/verify-config-contract.mjs';
+import { loadGovernanceSnapshot } from '../../../../scripts/architecture/governance.mjs';
 import { loadConfig as cliLoadConfig } from '../cli/config.js';
 import { runCli } from '../cli/index.js';
 import { scaffold } from '../cli/scaffold.js';
@@ -19,6 +20,11 @@ import { defineConfig as canonicalDefineConfig, loadConfig as canonicalLoadConfi
 // by #621 stay exact because they are part of the public config contract.
 
 const ROOT = process.env.ZMDB_REPOSITORY_ROOT ?? process.cwd();
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+const ARCHITECTURE = GOVERNANCE.architecture;
+if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
+const inspectProjectConfig = (overlays = new Map<string, string>()) =>
+  inspectConfigContract(ROOT, overlays, { architecture: ARCHITECTURE });
 const CONFIG_ENTRY = join(ROOT, 'packages', 'zmdb', 'src', 'config', 'index.ts');
 const CODEGEN_ENTRY = join(ROOT, 'packages', 'aot-validator', 'src', 'cli', 'bin.ts');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
@@ -535,7 +541,7 @@ process.stdout.write('bootstrapped');
   });
 
   it('rejects a second public project-config declaration outside the canonical owner', () => {
-    expect(inspectConfigContract(ROOT)).toEqual({
+    expect(inspectProjectConfig()).toEqual({
       owner: 'packages/zmdb/src/config/index.ts',
       authoringOwner: 'packages/zmdb/src/config/contract.ts',
       facade: 'packages/zmdb/src/config/index.ts',
@@ -544,8 +550,7 @@ process.stdout.write('bootstrapped');
 
     const planted = join(ROOT, 'packages', 'schema-core', 'src', 'index.ts');
     const source = readFileSync(planted, 'utf8');
-    const report = inspectConfigContract(
-      ROOT,
+    const report = inspectProjectConfig(
       new Map([
         [
           planted,
@@ -566,8 +571,7 @@ export async function loadConfig(): Promise<never> { throw new Error('planted');
     ]);
 
     expect(
-      inspectConfigContract(
-        ROOT,
+      inspectProjectConfig(
         new Map([
           [
             planted,
@@ -584,10 +588,8 @@ export { loadConfig } from '../../zmdb/src/config/index.js';
     const authoringOwner = join(ROOT, 'packages', 'zmdb', 'src', 'config', 'contract.ts');
     const authoringSource = readFileSync(authoringOwner, 'utf8');
     expect(
-      inspectConfigContract(
-        ROOT,
-        new Map([[authoringOwner, `import { readFileSync } from 'node:fs';\n${authoringSource}`]]),
-      ).problems,
+      inspectProjectConfig(new Map([[authoringOwner, `import { readFileSync } from 'node:fs';\n${authoringSource}`]]))
+        .problems,
     ).toContain(
       'packages/zmdb/src/config/contract.ts imports node:fs at runtime; the authoring contract must be dependency-free',
     );

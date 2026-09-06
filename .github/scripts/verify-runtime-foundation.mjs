@@ -9,8 +9,9 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -188,15 +189,16 @@ function reachableImports(graph, starts, stopAt = new Set()) {
   return references;
 }
 
-function manifestProblems(root, graph, target, requireAll) {
+function manifestProblems(root, graph, architecture, target, requireAll) {
   const problems = [];
-  const path = join(root, 'packages', target.dir, 'package.json');
-  if (!existsSync(path)) {
+  const packageRecord = architecture.workspacePackages.find(candidate => candidate.manifest.name === target.name);
+  const path = packageRecord?.manifestPath ?? join(root, 'packages', target.dir, 'package.json');
+  if (packageRecord === undefined) {
     if (requireAll) problems.push(`missing target package ${target.name}: ${relative(root, path)}`);
     return problems;
   }
 
-  const manifest = readJson(path);
+  const { manifest } = packageRecord;
   if (manifest.name !== target.name) {
     problems.push(`${relative(root, path)} names ${String(manifest.name)}, expected ${target.name}`);
   }
@@ -282,13 +284,11 @@ function ownershipProblems(root) {
   return problems;
 }
 
-function oldPackageProblems(root) {
+function oldPackageProblems(root, architecture) {
   const problems = [];
+  const workspaceNames = new Set(architecture.workspacePackages.map(packageRecord => packageRecord.manifest.name));
   for (const name of OLD_PACKAGES) {
-    const dir = name.slice('@zmdb/'.length);
-    if (existsSync(join(root, 'packages', dir, 'package.json'))) {
-      problems.push(`old package still exists: ${name}`);
-    }
+    if (workspaceNames.has(name)) problems.push(`old package still exists: ${name}`);
   }
 
   const scanRoots = [join(root, 'packages'), join(root, 'fixtures')];
@@ -395,12 +395,16 @@ function consumerProblems(root, requireAll) {
 }
 
 export function analyzeRuntimeFoundation(root = ROOT, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('analyzeRuntimeFoundation requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const requireAll = options.requireAll !== false;
-  const graph = createImportGraph(root);
+  const graph = createImportGraph(root, architecture);
   return [
     ...(options.checkOwnership === false ? [] : ownershipProblems(root)),
-    ...FOUNDATION_PACKAGES.flatMap(target => manifestProblems(root, graph, target, requireAll)),
-    ...(options.checkLegacy === false ? [] : oldPackageProblems(root)),
+    ...FOUNDATION_PACKAGES.flatMap(target => manifestProblems(root, graph, architecture, target, requireAll)),
+    ...(options.checkLegacy === false ? [] : oldPackageProblems(root, architecture)),
     ...optionalDirectionProblems(root, graph),
     ...(options.checkConsumers === false ? [] : consumerProblems(root, requireAll)),
   ].toSorted();
@@ -435,9 +439,11 @@ function parseArgs(argv) {
   return { root, baseline, strict, requireAll };
 }
 
-function runCli() {
+async function runCli() {
   const { root, baseline, strict, requireAll } = parseArgs(process.argv.slice(2));
-  const actual = analyzeRuntimeFoundation(root, { requireAll });
+  const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
+  if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+  const actual = analyzeRuntimeFoundation(root, { architecture: snapshot.architecture, requireAll });
   const expected = strict ? [] : readRuntimeFoundationBaseline(baseline);
   const added = difference(actual, expected);
   const retired = difference(expected, actual);
@@ -458,6 +464,6 @@ function runCli() {
   }
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  runCli();
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  await runCli();
 }

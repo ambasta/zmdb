@@ -1,25 +1,17 @@
 import { spawnSync } from 'node:child_process';
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { loadArchitectureSync } from '../scripts/architecture/index.mjs';
+import { loadGovernanceSnapshot } from '../scripts/architecture/governance.mjs';
 import { PRODUCT_JOURNEY } from './navigation-plan.mjs';
 
 const ROOT = process.cwd();
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
 const ROOT_ARCHITECTURE = 'ARCHITECTURE.md';
 const DOCS_ARCHITECTURE = 'docs-site/content/architecture.md';
 const PACKAGE_REFERENCE = 'docs-site/content/package-reference.md';
@@ -142,11 +134,9 @@ function generatedSnapshot(root: string): string {
     .join('\n');
 }
 
-function publicPackageManifests(root: string): PackageManifest[] {
-  const packages = join(root, 'packages');
-  return readdirSync(packages, { withFileTypes: true })
-    .filter(entry => entry.isDirectory() && existsSync(join(packages, entry.name, 'package.json')))
-    .map(entry => JSON.parse(readFileSync(join(packages, entry.name, 'package.json'), 'utf8')) as PackageManifest)
+function publicPackageManifests(): PackageManifest[] {
+  return GOVERNANCE.architecture.workspacePackages
+    .map(packageRecord => packageRecord.manifest as PackageManifest)
     .filter(manifest => manifest.name === 'zmdb' || manifest.name.startsWith('@zmdb/'))
     .toSorted((left, right) => left.name.localeCompare(right.name));
 }
@@ -172,11 +162,9 @@ function integrationRecords(value: object): readonly IntegrationRecord[] | undef
 function materializePackageManifests(fixture: string): void {
   rmSync(join(fixture, 'packages'), { recursive: true, force: true });
   mkdirSync(join(fixture, 'packages'), { recursive: true });
-  for (const entry of readdirSync(join(ROOT, 'packages'), { withFileTypes: true })) {
-    const manifest = join(ROOT, 'packages', entry.name, 'package.json');
-    if (!entry.isDirectory() || !existsSync(manifest)) continue;
-    mkdirSync(join(fixture, 'packages', entry.name), { recursive: true });
-    cpSync(manifest, join(fixture, 'packages', entry.name, 'package.json'));
+  for (const packageRecord of GOVERNANCE.architecture.workspacePackages) {
+    mkdirSync(join(fixture, packageRecord.directory), { recursive: true });
+    cpSync(packageRecord.manifestPath, join(fixture, packageRecord.directory, 'package.json'));
   }
 }
 
@@ -195,7 +183,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       const generated = generatedSection(source, PACKAGE_MARKER);
       expect(generated).not.toContain('STALE GENERATED SENTINEL');
 
-      const manifests = publicPackageManifests(ROOT);
+      const manifests = publicPackageManifests();
       expect(manifests.length).toBeGreaterThan(0);
       for (const manifest of manifests) {
         expect(generated, manifest.name).toContain(manifest.name);
@@ -244,7 +232,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       const result = build(fixture);
       expect(result.status, result.output).toBe(0);
 
-      const architecture = loadArchitectureSync(ROOT);
+      const architecture = GOVERNANCE.architecture;
       const edgeCount = architecture.packages.reduce(
         (count, packageRecord) => count + packageRecord.policy.allowedWorkspaceDependencies.length,
         0,
@@ -451,7 +439,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     expect(records).toBeDefined();
 
     const canonicalSlugs = new Set(PRODUCT_JOURNEY.flatMap(group => group.pages));
-    const manifests = new Map(publicPackageManifests(ROOT).map(manifest => [manifest.name, manifest]));
+    const manifests = new Map(publicPackageManifests().map(manifest => [manifest.name, manifest]));
     for (const framework of FRAMEWORKS) {
       expect(records?.filter(record => record.capability === framework)).toHaveLength(1);
     }

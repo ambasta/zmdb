@@ -23,7 +23,13 @@ export interface WorkspacePackageInput {
   };
 }
 
-export type WorkspacePackageSource = Architecture | readonly WorkspacePackageInput[];
+export type WorkspacePackageSource =
+  | Architecture
+  | readonly WorkspacePackageInput[]
+  | {
+      readonly architecture?: Architecture | null;
+      readonly packages: readonly WorkspacePackageInput[];
+    };
 
 export interface ImportGraph {
   readonly packages: ReadonlyMap<string, WorkspacePackage>;
@@ -38,4 +44,4 @@ export interface ImportGraph {
   reachCount(entry: string, mode?: ImportGraphMode): number;
 }
 
-export function createImportGraph(root: string, source?: WorkspacePackageSource): ImportGraph;
+export function createImportGraph(root: string, source: WorkspacePackageSource): ImportGraph;

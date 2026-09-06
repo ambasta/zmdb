@@ -1,3 +1,5 @@
+import type { Architecture } from '../architecture/index.mjs';
+
 export interface ReleasePlan {
   readonly version: string;
   readonly packages: readonly string[];
@@ -5,4 +7,4 @@ export interface ReleasePlan {
   readonly changelogEntry: string;
 }
 
-export function releasePlan(root: string): ReleasePlan;
+export function releasePlan(root: string, options: { readonly architecture: Architecture }): ReleasePlan;

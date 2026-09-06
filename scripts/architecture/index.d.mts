@@ -25,11 +25,19 @@ export interface ArchitecturePackage {
   readonly manifest: PackageManifest;
 }
 
+export interface WorkspacePackage {
+  readonly directory: string;
+  readonly directoryPath: string;
+  readonly manifestPath: string;
+  readonly manifest: PackageManifest;
+}
+
 export interface Architecture {
   readonly root: string;
   readonly catalog: readonly ProductPackage[];
   readonly policy: Readonly<Record<string, PackagePolicy>>;
   readonly packages: readonly ArchitecturePackage[];
+  readonly workspacePackages: readonly WorkspacePackage[];
 }
 
 export interface PackageExport {

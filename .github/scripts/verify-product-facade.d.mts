@@ -32,7 +32,15 @@ export const TARGET_ROOT_TYPES: readonly string[];
 export const REQUIRED_PRODUCT_SUBPATHS: readonly string[];
 
 export function verifyFacadeSource(source: string, label?: string): readonly string[];
-export function readFacadeOwnership(root?: string): FacadeOwnership;
-export function inspectProductFacade(root?: string): ProductFacadeReport;
+export function readFacadeOwnership(root: string | undefined, architecture: Architecture): FacadeOwnership;
+export function inspectProductFacade(
+  root: string | undefined,
+  options: { readonly architecture: Architecture },
+): ProductFacadeReport;
 export function inspectProductConsumerFixture(fixture: string): readonly string[];
-export function runPackedProductConsumer(root?: string, fixture?: string): PackedConsumerResult;
+export function runPackedProductConsumer(
+  root: string | undefined,
+  fixture: string | undefined,
+  options: { readonly architecture: Architecture },
+): PackedConsumerResult;
+import type { Architecture } from '../../scripts/architecture/index.mjs';

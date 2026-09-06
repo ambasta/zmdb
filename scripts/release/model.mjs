@@ -1,12 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import {
-  createDependencyGraph,
-  loadArchitectureSync,
-  lookupPackage,
-  topologicalOrder,
-} from '../architecture/index.mjs';
+import { createDependencyGraph, lookupPackage, topologicalOrder } from '../architecture/index.mjs';
 import { compareText, parseChangelog, parseSemver } from './lib.mjs';
 
 const freezeArray = values => Object.freeze([...values]);
@@ -31,9 +26,12 @@ function versionDiagnostic(versions, invalid) {
   return `[RELEASE_VERSION_DRIFT] lockstep train versions ${measured}: catalog packages do not share one valid version. Remediation: run one whole-train bump.`;
 }
 
-export function releaseModel(root) {
+export function releaseModel(root, options = {}) {
   const resolvedRoot = resolve(root);
-  const architecture = loadArchitectureSync(resolvedRoot);
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('releaseModel requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const catalogOrder = [...architecture.packages].toSorted((left, right) => compareText(left.id, right.id));
   const versions = new Map();
   const invalid = [];
@@ -57,11 +55,7 @@ export function releaseModel(root) {
   const entries = order.map(id => {
     const packageRecord = lookupPackage(architecture, id);
     if (packageRecord === undefined) throw new TypeError(`topological order references unknown catalog id ${id}`);
-    return Object.freeze({
-      id: packageRecord.id,
-      directory: packageRecord.directory,
-      npmName: packageRecord.npmName,
-    });
+    return packageRecord;
   });
 
   const changelogPath = join(resolvedRoot, 'CHANGELOG.md');

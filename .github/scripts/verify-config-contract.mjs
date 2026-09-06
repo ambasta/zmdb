@@ -7,12 +7,12 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const PACKAGES = 'packages';
 const PRODUCT_CONFIG = 'zmdb/config';
 const COMPILER_CONFIG = '@zmdb/compiler/config';
 const PRODUCT_ROOT = 'zmdb';
@@ -28,33 +28,19 @@ const PROTECTED_NAMES = new Set([
 ]);
 const ROOT_AUTHORING_NAMES = new Set(['ZmdbConfig', 'defineConfig']);
 
-function manifestEntries(root) {
-  const entries = [];
-  const packages = join(root, PACKAGES);
-  for (const directory of readdirSync(packages, { withFileTypes: true })) {
-    if (!directory.isDirectory()) continue;
-    const packageDirectory = join(packages, directory.name);
-    const manifestPath = join(packageDirectory, 'package.json');
-    if (!existsSync(manifestPath)) continue;
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    if (typeof manifest.name !== 'string') continue;
-    entries.push({ directory: packageDirectory, manifest });
-  }
-  return entries;
-}
-
 function exportedSpecifier(packageName, subpath) {
   return subpath === '.' ? packageName : `${packageName}${subpath.slice(1)}`;
 }
 
-function publicEntries(root) {
+function publicEntries(architecture) {
   const entries = new Map();
-  for (const { directory, manifest } of manifestEntries(root)) {
+  for (const packageRecord of architecture.packages) {
+    const { manifest } = packageRecord;
     for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
       if (typeof target !== 'string') continue;
-      const path = resolve(directory, target);
+      const path = resolve(packageRecord.directoryPath, target);
       const specifiers = entries.get(path) ?? [];
-      specifiers.push(exportedSpecifier(manifest.name, subpath));
+      specifiers.push(exportedSpecifier(packageRecord.npmName, subpath));
       entries.set(path, specifiers);
     }
   }
@@ -89,9 +75,9 @@ function sourceFiles(directory) {
   return files;
 }
 
-function shippedSources(root) {
-  return manifestEntries(root).flatMap(({ directory }) => {
-    const source = join(directory, 'src');
+function shippedSources(architecture) {
+  return architecture.packages.flatMap(packageRecord => {
+    const source = join(packageRecord.directoryPath, 'src');
     return existsSync(source) ? sourceFiles(source) : [];
   });
 }
@@ -197,10 +183,14 @@ function runtimeImports(source) {
   return [...new Set(specifiers.filter(Boolean))];
 }
 
-export function inspectConfigContract(root = ROOT, overlays = new Map()) {
+export function inspectConfigContract(root = ROOT, overlays = new Map(), options = {}) {
   const absoluteRoot = resolve(root);
-  const graph = createImportGraph(absoluteRoot);
-  const entries = publicEntries(absoluteRoot);
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('inspectConfigContract requires architecture from loadGovernanceSnapshot({ root })');
+  }
+  const graph = createImportGraph(absoluteRoot, architecture);
+  const entries = publicEntries(architecture);
   const facade = findPublicEntry(entries, PRODUCT_CONFIG);
   const compilerOwner = findPublicEntry(entries, COMPILER_CONFIG);
   const owner = compilerOwner ?? facade;
@@ -236,7 +226,7 @@ export function inspectConfigContract(root = ROOT, overlays = new Map()) {
     }
   }
 
-  for (const file of shippedSources(absoluteRoot)) {
+  for (const file of shippedSources(architecture)) {
     const source = sourceAt(absoluteRoot, file, overlays);
     const publicSpecifiers = entries.get(file) ?? [];
 
@@ -302,8 +292,10 @@ export function inspectConfigContract(root = ROOT, overlays = new Map()) {
   };
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const report = inspectConfigContract();
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+  if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+  const report = inspectConfigContract(ROOT, new Map(), { architecture: snapshot.architecture });
   if (report.problems.length > 0) {
     for (const problem of report.problems) process.stderr.write(`[ERROR] ${problem}\n`);
     process.exitCode = 1;

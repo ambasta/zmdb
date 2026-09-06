@@ -9,8 +9,13 @@ const root = [process.env.INIT_CWD, process.cwd(), process.env.PROJECT_CWD]
   .map(candidate => resolve(candidate))
   .find(candidate => existsSync(join(candidate, 'docs-site', 'generated.mjs')));
 if (root === undefined) throw new Error('could not locate docs-site/generated.mjs from the current Yarn project');
+const { loadGovernanceSnapshot } = await import(
+  pathToFileURL(join(root, 'scripts', 'architecture', 'governance.mjs')).href
+);
+const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
+if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
 const generated = await import(pathToFileURL(join(root, 'docs-site', 'generated.mjs')).href);
-const report = generated.checkGeneratedDocumentation(root);
+const report = generated.checkGeneratedDocumentation(root, { architecture: snapshot.architecture });
 
 if (report.problems.length > 0) {
   for (const problem of report.problems) console.error(`[ERROR] ${problem}`);

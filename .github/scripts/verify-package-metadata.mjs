@@ -4,7 +4,6 @@ import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { loadArchitecture } from '../../scripts/architecture/index.mjs';
 import { publishManifest, toDist } from './lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -926,8 +925,11 @@ export function packageMetadataDiagnostics(architecture) {
   return [...new Set(diagnostics)].toSorted(compareText);
 }
 
-export async function inspectPackageMetadata(root) {
-  const architecture = await loadArchitecture(root);
+export async function inspectPackageMetadata(root, options = {}) {
+  const { architecture } = options;
+  if (architecture === undefined) {
+    throw new TypeError('inspectPackageMetadata requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const diagnostics = packageMetadataDiagnostics(architecture);
   const versions = new Set(
     architecture.packages
@@ -1013,15 +1015,29 @@ function assertPublishTransform() {
 
 async function runSelfTest() {
   const fixtures = join(ROOT, 'scripts', 'architecture', '__fixtures__');
-  const valid = await loadArchitecture(join(fixtures, 'valid'));
+  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
+  const architectureFor = async root => {
+    const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
+    if (snapshot.architecture === null) {
+      throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'governance snapshot has no architecture');
+    }
+    return snapshot.architecture;
+  };
+  const valid = await architectureFor(join(fixtures, 'valid'));
   assertDiagnostics('valid fixture', packageMetadataDiagnostics(valid), []);
 
-  const metadataDrift = await inspectPackageMetadata(join(fixtures, 'metadata-drift'));
+  const metadataDriftRoot = join(fixtures, 'metadata-drift');
+  const metadataDrift = await inspectPackageMetadata(metadataDriftRoot, {
+    architecture: await architectureFor(metadataDriftRoot),
+  });
   assertDiagnostics('metadata drift fixture', metadataDrift.diagnostics, [
     '[PACKAGE_METADATA_INVALID] @fixture/app field dependencies.fixture-runtime: measured value is missing while an ordinary runtime entry and policy allowance use fixture-runtime. Remediation: restore the exact schema value or required file.',
   ]);
 
-  const versionDrift = await inspectPackageMetadata(join(fixtures, 'version-drift'));
+  const versionDriftRoot = join(fixtures, 'version-drift');
+  const versionDrift = await inspectPackageMetadata(versionDriftRoot, {
+    architecture: await architectureFor(versionDriftRoot),
+  });
   assertDiagnostics('version drift fixture', versionDrift.diagnostics, [
     '[PACKAGE_VERSION_DRIFT] lockstep train versions 1.0.0-alpha.3 (core), 1.0.0-alpha.4 (app): catalog packages do not share one version. Remediation: run one whole-train bump.',
   ]);
@@ -1146,11 +1162,13 @@ async function main(argv) {
       return 0;
     }
     assertReadableRoot(parsed.root);
-    const report = await inspectPackageMetadata(parsed.root);
-    if (report.diagnostics.length > 0) {
-      for (const diagnostic of report.diagnostics) console.error(diagnostic);
+    const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
+    const snapshot = await loadGovernanceSnapshot({ root: parsed.root, checks: ['metadata'] });
+    if (snapshot.findings.length > 0) {
+      for (const item of snapshot.findings) console.error(item.line);
       return 1;
     }
+    const report = snapshot.queries.metadata;
     console.log(
       `Package metadata verified: ${String(report.packageCount)} catalog packages share ${String(report.version)}; source and publish manifests satisfy the canonical schema.`,
     );

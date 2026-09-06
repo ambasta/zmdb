@@ -13,7 +13,8 @@ import {
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const FIXTURE_ROOT = join(ROOT, 'fixtures', 'client-adapters', 'nuxt');
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE = await publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
 
 function build(packageName: string): void {
   const result = spawnSync('yarn', ['workspace', packageName, 'build'], {
@@ -68,15 +69,15 @@ describe('@zmdb/nuxt packed consumers', () => {
           packages: [
             {
               directory: join(ROOT, 'packages', 'client'),
-              manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
+              manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
             },
             {
               directory: join(ROOT, 'packages', 'vue'),
-              manifest: publishManifest(readManifest('vue'), RELEASE_VERSION),
+              manifest: publishManifest(readManifest('vue', RELEASE), RELEASE_VERSION),
             },
             {
               directory: join(ROOT, 'packages', 'nuxt'),
-              manifest: publishManifest(readManifest('nuxt'), RELEASE_VERSION),
+              manifest: publishManifest(readManifest('nuxt', RELEASE), RELEASE_VERSION),
             },
           ],
           dependencies: {

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const FIXTURE = join(ROOT, 'fixtures', 'consumer-server-core');
 const PACKAGES_DIR = join(ROOT, 'packages');
 const JOBS_ROOTS = ['@zmdb/jobs'];

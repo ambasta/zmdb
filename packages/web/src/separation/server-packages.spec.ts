@@ -15,9 +15,13 @@ import {
   withPackedBuildLock,
 } from '../../../../fixtures/client-adapters/src/packed-project.js';
 import { inspectServerCoreFixture } from '../../../../fixtures/consumer-server-core/verify-installed.mjs';
+import { loadGovernanceSnapshot } from '../../../../scripts/architecture/governance.mjs';
 import { metadataOf as facadeMetadataOf } from '../../../zmdb/src/web.js';
 
 const ROOT = process.cwd();
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
+const ARCHITECTURE = GOVERNANCE.architecture;
 const CONSUMER = join(ROOT, 'fixtures', 'consumer-server-core', 'verify-installed.mjs');
 const TYPESCRIPT_HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const APP_SPECIFIER = '@zmdb/app';
@@ -145,7 +149,7 @@ function capturedError(action: () => PromiseLike<void>): Promise<unknown> {
 
 let measuredBoundaries: ReturnType<typeof analyzeCoreServerBoundaries> | undefined;
 function coreBoundaries(): ReturnType<typeof analyzeCoreServerBoundaries> {
-  measuredBoundaries ??= analyzeCoreServerBoundaries(ROOT);
+  measuredBoundaries ??= analyzeCoreServerBoundaries(ROOT, { architecture: ARCHITECTURE });
   return measuredBoundaries;
 }
 

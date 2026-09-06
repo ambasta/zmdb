@@ -1,3 +1,5 @@
+import type { Architecture } from '../../scripts/architecture/index.mjs';
+
 export interface ConfigContractReport {
   readonly owner: string;
   readonly authoringOwner: string;
@@ -5,4 +7,8 @@ export interface ConfigContractReport {
   readonly problems: readonly string[];
 }
 
-export function inspectConfigContract(root?: string, overlays?: ReadonlyMap<string, string>): ConfigContractReport;
+export function inspectConfigContract(
+  root: string | undefined,
+  overlays: ReadonlyMap<string, string> | undefined,
+  options: { readonly architecture: Architecture },
+): ConfigContractReport;

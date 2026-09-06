@@ -11,7 +11,8 @@ import {
   type PackedProjectResult,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
-const RELEASE_VERSION = publishTrain(ROOT).version;
+const RELEASE = await publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
 
 const FIXTURE_SOURCES = [
   'conformance-cases.ts',
@@ -64,11 +65,11 @@ describe('@zmdb/react packed consumer', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'react'),
-            manifest: publishManifest(readManifest('react'), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('react', RELEASE), RELEASE_VERSION),
           },
         ],
         dependencies: {

@@ -13,8 +13,9 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -253,8 +254,8 @@ function runtimeCategory(reference, owners) {
   return RUNTIME_EXTERNAL_TOOLING.find(([, pattern]) => pattern.test(reference.specifier))?.[0];
 }
 
-function runtimeViolations(root, catalog, overlays) {
-  const graph = createImportGraph(root);
+function runtimeViolations(root, architecture, catalog, overlays) {
+  const graph = createImportGraph(root, architecture);
   const owners = ownerByAbsolutePath(root, catalog);
   const violations = [];
 
@@ -309,16 +310,22 @@ function runtimeViolations(root, catalog, overlays) {
   return violations.toSorted((left, right) => left.id.localeCompare(right.id));
 }
 
-function workspaceManifests(root) {
-  const manifests = new Map();
-  for (const entry of readdirSync(join(root, 'packages'), { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const path = join(root, 'packages', entry.name, 'package.json');
-    if (!existsSync(path)) continue;
-    const manifest = JSON.parse(readFileSync(path, 'utf8'));
-    if (typeof manifest.name === 'string') manifests.set(manifest.name, { directory: entry.name, manifest });
-  }
-  return manifests;
+function workspaceManifests(architecture) {
+  return new Map(
+    architecture.workspacePackages.flatMap(packageRecord =>
+      typeof packageRecord.manifest.name === 'string'
+        ? [
+            [
+              packageRecord.manifest.name,
+              {
+                directory: packageRecord.directory.split('/').at(-1),
+                manifest: packageRecord.manifest,
+              },
+            ],
+          ]
+        : [],
+    ),
+  );
 }
 
 function workspaceDependencyEdges(manifests) {
@@ -413,8 +420,8 @@ function generatedViolation(root, file, reference) {
   return null;
 }
 
-function generatedViolations(root, overlays) {
-  const graph = createImportGraph(root);
+function generatedViolations(root, architecture, overlays) {
+  const graph = createImportGraph(root, architecture);
   const violations = [];
   for (const path of GENERATED_ARTIFACTS) {
     const file = join(root, path);
@@ -449,8 +456,8 @@ function embeddedEntry(root, graph) {
   return join(root, 'packages', 'query-compiler', 'src', 'migrations', 'embedded.ts');
 }
 
-function embeddedViolations(root, overlays) {
-  const graph = createImportGraph(root);
+function embeddedViolations(root, architecture, overlays) {
+  const graph = createImportGraph(root, architecture);
   const entry = embeddedEntry(root, graph);
   if (!existsSync(entry) && !overlays.has(entry)) {
     return [{ id: 'missing-embedded-entry', file: relative(root, entry), specifier: 'missing' }];
@@ -502,8 +509,8 @@ function runtimeImportsOf(graph, file, source) {
   return graph.importsOf(file, runtimeSource);
 }
 
-function formatterViolations(root, overlays) {
-  const graph = createImportGraph(root);
+function formatterViolations(root, architecture, overlays) {
+  const graph = createImportGraph(root, architecture);
   const target = graph.packages.get('@zmdb/migrations');
   if (target === undefined) {
     return [{ id: 'missing-migrations-package', file: 'packages/migrations/package.json', specifier: 'missing' }];
@@ -558,13 +565,10 @@ function normalizeBins(manifest) {
   return typeof manifest.bin === 'object' && manifest.bin !== null ? manifest.bin : {};
 }
 
-function binOwners(root) {
+function binOwners(architecture) {
   const owners = [];
-  for (const entry of readdirSync(join(root, 'packages'), { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const manifestPath = join(root, 'packages', entry.name, 'package.json');
-    if (!existsSync(manifestPath)) continue;
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  for (const packageRecord of architecture.workspacePackages) {
+    const { manifest } = packageRecord;
     if (typeof manifest.name !== 'string') continue;
     for (const command of Object.keys(normalizeBins(manifest))) {
       if (command === 'zmdb' || command === 'zmdb-codegen') owners.push(`${manifest.name}|${command}`);
@@ -577,18 +581,19 @@ function sortedKeys(value) {
   return Object.keys(value ?? {}).toSorted();
 }
 
-function targetPackageProblems(root) {
+function targetPackageProblems(architecture) {
   const problems = [];
-  const productPath = join(root, 'packages', 'zmdb', 'package.json');
-  const product = JSON.parse(readFileSync(productPath, 'utf8'));
+  const product = architecture.workspacePackages.find(
+    packageRecord => packageRecord.manifest.name === 'zmdb',
+  )?.manifest;
+  if (product === undefined) return ['zmdb is absent from the governance workspace manifest inventory'];
   for (const [packageName, expected] of Object.entries(TARGET_TOOLING_EXPORTS)) {
-    const directory = packageName.slice('@zmdb/'.length);
-    const manifestPath = join(root, 'packages', directory, 'package.json');
-    if (!existsSync(manifestPath)) continue;
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const packageRecord = architecture.workspacePackages.find(candidate => candidate.manifest.name === packageName);
+    if (packageRecord === undefined) continue;
+    const { manifest } = packageRecord;
     const observed = sortedKeys(manifest.exports);
     if (manifest.name !== packageName)
-      problems.push(`${manifestPath} declares ${String(manifest.name)}, expected ${packageName}`);
+      problems.push(`${packageRecord.manifestPath} declares ${String(manifest.name)}, expected ${packageName}`);
     if (JSON.stringify(observed) !== JSON.stringify([...expected].toSorted())) {
       problems.push(`${packageName} exports ${JSON.stringify(observed)}, expected ${JSON.stringify(expected)}`);
     }
@@ -633,16 +638,19 @@ function targetPackageProblems(root) {
   return problems;
 }
 
-export function analyseToolingBoundaries({ root = ROOT, overlays = new Map() } = {}) {
+export function analyseToolingBoundaries({ root = ROOT, architecture, overlays = new Map() } = {}) {
+  if (architecture === undefined) {
+    throw new TypeError('analyseToolingBoundaries requires architecture from loadGovernanceSnapshot({ root })');
+  }
   const inventory = ownershipInventory(root);
-  const manifests = workspaceManifests(root);
+  const manifests = workspaceManifests(architecture);
   const packageGraph = packageGraphProblems(manifests);
-  const runtime = runtimeViolations(root, inventory.catalog, overlays);
-  const generated = generatedViolations(root, overlays);
-  const embedded = embeddedViolations(root, overlays);
-  const formatter = formatterViolations(root, overlays);
-  const bins = binOwners(root);
-  const problems = [...inventory.problems, ...packageGraph.problems, ...targetPackageProblems(root)];
+  const runtime = runtimeViolations(root, architecture, inventory.catalog, overlays);
+  const generated = generatedViolations(root, architecture, overlays);
+  const embedded = embeddedViolations(root, architecture, overlays);
+  const formatter = formatterViolations(root, architecture, overlays);
+  const bins = binOwners(architecture);
+  const problems = [...inventory.problems, ...packageGraph.problems, ...targetPackageProblems(architecture)];
 
   for (const violation of runtime) {
     if (!BASELINE_RUNTIME_VIOLATIONS.has(violation.id)) {
@@ -702,8 +710,10 @@ function successLine(result) {
 }
 
 const invokedPath = process.argv[1] === undefined ? undefined : resolve(process.argv[1]);
-if (invokedPath === fileURLToPath(import.meta.url)) {
-  const result = analyseToolingBoundaries();
+if (invokedPath !== undefined && import.meta.url === pathToFileURL(invokedPath).href) {
+  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+  if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+  const result = analyseToolingBoundaries({ architecture: snapshot.architecture });
   if (result.problems.length > 0) {
     console.error(`tooling boundary verification failed with ${String(result.problems.length)} problem(s):`);
     for (const problem of result.problems) console.error(`  ${problem}`);

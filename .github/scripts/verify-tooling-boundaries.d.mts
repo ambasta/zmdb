@@ -1,3 +1,5 @@
+import type { Architecture } from '../../scripts/architecture/index.mjs';
+
 export const ROOT: string;
 
 export const TARGET_TOOLING_EXPORTS: Readonly<{
@@ -94,7 +96,8 @@ export interface ToolingBoundaryResult {
 
 export function findPackageCycle(edges: readonly (readonly [string, string])[]): readonly string[] | null;
 export function parseOwnershipCatalog(source: string): readonly OwnershipEntry[];
-export function analyseToolingBoundaries(options?: {
+export function analyseToolingBoundaries(options: {
   readonly root?: string;
+  readonly architecture: Architecture;
   readonly overlays?: ReadonlyMap<string, string>;
 }): ToolingBoundaryResult;
