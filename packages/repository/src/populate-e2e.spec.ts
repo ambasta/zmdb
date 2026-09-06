@@ -1,11 +1,21 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/compiler/testing';
-import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
+import type { CompiledQuery } from '@zmdb/query-compiler';
+import type {
+  ManyToMany,
+  ManyToOne,
+  OneToMany,
+  PrimaryKey,
+  References,
+  Serial,
+  Sql,
+  Table,
+} from '@zmdb/schema-core/tags';
 import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { BaseRepository } from './index.js';
+import { BaseRepository, defineRepository } from './index.js';
 import { sqliteDialect } from './testing/official-dialects.fixture.js';
 
 // #34: integrate populate() into the repository + E2E (real SQLite).
@@ -36,14 +46,39 @@ export interface TenantPost extends Table<'tenant_posts'> {
   author?: TenantUser & ManyToOne<'tenant_users', 'tenantId,userId'>;
 }
 
-const { User: UserSchema, Order: OrderSchema } = schemasFrom<{ User: User; Order: Order }>(import.meta.url, [
-  'User',
-  'Order',
-]);
-const { TenantUser: TenantUserSchema, TenantPost: TenantPostSchema } = schemasFrom<{
+export interface Tag extends Table<'tags'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  name: string & Sql<'text'>;
+}
+
+export interface Post extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  tags?: Tag[] & ManyToMany<'tags', 'post_tags'>;
+}
+
+export interface ExplicitPost extends Table<'posts'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  title: string & Sql<'text'>;
+  tags?: Tag[] & ManyToMany<'tags', 'custom_pivot', 'custom_post_id', 'custom_tag_id'>;
+}
+
+const {
+  User: UserSchema,
+  Order: OrderSchema,
+  TenantUser: TenantUserSchema,
+  TenantPost: TenantPostSchema,
+  Post: PostSchema,
+  ExplicitPost: ExplicitPostSchema,
+} = schemasFrom<{
+  User: User;
+  Order: Order;
   TenantUser: TenantUser;
   TenantPost: TenantPost;
-}>(import.meta.url, ['TenantUser', 'TenantPost']);
+  Tag: Tag;
+  Post: Post;
+  ExplicitPost: ExplicitPost;
+}>(import.meta.url, ['User', 'Order', 'TenantUser', 'TenantPost', 'Tag', 'Post', 'ExplicitPost']);
 
 class UserRepository extends BaseRepository<User> {
   static override readonly schema = UserSchema;
@@ -66,6 +101,10 @@ beforeEach(() => {
   db.exec(
     'CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total INTEGER NOT NULL)',
   );
+  db.exec('CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)');
+  db.exec('CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)');
+  db.exec('CREATE TABLE post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)');
+  db.exec('CREATE TABLE custom_pivot (custom_post_id INTEGER NOT NULL, custom_tag_id INTEGER NOT NULL)');
 });
 
 describe('populate to-many E2E (real SQLite)', () => {
@@ -125,5 +164,66 @@ describe('populate to-many E2E (real SQLite)', () => {
     expect(userByTenant.get('t2')?.posts.map(post => post.title)).toEqual(['t2 post']);
     expect(postByTenant.get('t1')?.author?.email).toBe('one@t1.example');
     expect(postByTenant.get('t2')?.author?.email).toBe('one@t2.example');
+  });
+});
+
+describe('populate many-to-many E2E (real SQLite)', () => {
+  it('hydrates target entity arrays using zero-config inferred foreign keys', async () => {
+    const driver = sqliteDriver(db);
+    const posts = defineRepository(PostSchema, driver, { dialect: sqliteDialect });
+
+    db.exec("INSERT INTO posts (id, title) VALUES (1, 'First Post'), (2, 'Second Post'), (3, 'Third Post')");
+    db.exec("INSERT INTO tags (id, name) VALUES (10, 'TypeScript'), (20, 'Database')");
+    db.exec('INSERT INTO post_tags (postId, tagId) VALUES (1, 10), (1, 20), (2, 20)');
+
+    const p1 = await posts.findById(1, { populate: ['tags'] });
+    expect(p1?.title).toBe('First Post');
+    expect(p1?.tags).toHaveLength(2);
+    expect(p1?.tags.map(t => t.name).toSorted()).toEqual(['Database', 'TypeScript']);
+
+    // oxlint-disable-next-line zmdb/no-unbounded-find
+    const all = await posts.find({}, { populate: ['tags'] });
+    expect(all).toHaveLength(3);
+    const byId = new Map(all.map(p => [p.id, p]));
+    expect(byId.get(1)?.tags).toHaveLength(2);
+    expect(byId.get(2)?.tags).toHaveLength(1);
+    expect(byId.get(3)?.tags).toEqual([]);
+  });
+
+  it('hydrates target entity arrays using explicit foreign keys on many-to-many relation', async () => {
+    const driver = sqliteDriver(db);
+    const posts = defineRepository(ExplicitPostSchema, driver, { dialect: sqliteDialect });
+
+    db.exec("INSERT INTO posts (id, title) VALUES (1, 'Explicit FK Post')");
+    db.exec("INSERT INTO tags (id, name) VALUES (50, 'ORM')");
+    db.exec('INSERT INTO custom_pivot (custom_post_id, custom_tag_id) VALUES (1, 50)');
+
+    const post = await posts.findById(1, { populate: ['tags'] });
+    expect(post?.tags).toHaveLength(1);
+    expect(post?.tags[0]?.name).toBe('ORM');
+  });
+
+  it('completes gracefully on empty pivot table without executing invalid secondary queries', async () => {
+    const executedQueries: string[] = [];
+    const rawDriver = sqliteDriver(db);
+    const trackingDriver = {
+      dialect: rawDriver.dialect,
+      async execute(q: CompiledQuery) {
+        executedQueries.push(q.text);
+        return rawDriver.execute(q);
+      },
+    };
+
+    const posts = defineRepository(PostSchema, trackingDriver, { dialect: sqliteDialect });
+    db.exec("INSERT INTO posts (id, title) VALUES (1, 'Lonely Post')");
+
+    executedQueries.length = 0;
+    const post = await posts.findById(1, { populate: ['tags'] });
+    expect(post?.tags).toEqual([]);
+
+    // Should query posts (1), then pivot post_tags (1), and short-circuit without querying tags table
+    expect(executedQueries).toHaveLength(2);
+    expect(executedQueries[0]).toMatch(/SELECT .* FROM ["`]?posts["`]?/i);
+    expect(executedQueries[1]).toMatch(/SELECT .* FROM ["`]?post_tags["`]?/i);
   });
 });

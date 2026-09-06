@@ -14,6 +14,7 @@ export {
   createStateUpdatePayload,
   defineEntityStateMachine,
   defineStateTransitions,
+  inferFkName,
   isRecord,
   resolveRelation,
   schemaOf,
@@ -198,6 +199,7 @@ export type {
 
 export {
   componentName,
+  singularizeWord,
   toJsonSchema,
   toJsonSchemaWithRelations,
   toListSchema,
