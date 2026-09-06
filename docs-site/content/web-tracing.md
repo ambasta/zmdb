@@ -5,8 +5,8 @@
 > amendment assigns the generic ports, propagation and database instrumentation to `@zmdb/app/observability`; HTTP spans remain web-owned. zmdb ships ports and a separately installed OpenTelemetry
 > adapter, not an SDK, exporter, collector configuration or global auto-instrumentation.
 
-Install the adapter and its sole peer with `npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.0`. Neither is part of the `zmdb` default install. The application selects and owns any SDK, provider,
-processor, exporter, sampler, collector connection, global registration, flush, and shutdown.
+Install the adapter and its sole external peer with `npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.1`. Neither is part of the `zmdb` default install. The application selects and owns any SDK,
+provider, processor, exporter, sampler, collector connection, global registration, flush, and shutdown.
 
 ## Configure the framework
 

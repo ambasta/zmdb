@@ -5,7 +5,7 @@ None of those four adapters or their peers is installed by `npm add zmdb@alpha`.
 
 | Adapter                    | Required peer                    | Lifecycle owner                                                          |
 | -------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| `@zmdb/transport-grpc`     | `@grpc/grpc-js@^1.14.0`          | application owns server extension; caller closes each created client     |
+| `@zmdb/transport-grpc`     | `@grpc/grpc-js@^1.14.4`          | application owns server extension; caller closes each created client     |
 | `@zmdb/transport-nats`     | `@nats-io/transport-node@^3.4.0` | application starts, drains, and closes the strategy connection           |
 | `@zmdb/transport-rabbitmq` | `amqplib@^2.0.1`                 | application owns connection, channels, retry, and dead-letter topology   |
 | `@zmdb/transport-redis`    | `redis@^6.2.1`                   | application owns publisher/subscriber clients and their bounded shutdown |

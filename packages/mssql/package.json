@@ -40,16 +40,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/migrations": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
     "@types/mssql": "^12.3.0",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/repository": "workspace:^",
     "mssql": "12.7.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@zmdb/query-compiler": "1.0.0-alpha.4",
+    "@zmdb/repository": "1.0.0-alpha.4",
     "mssql": "^12.7.0"
   },
   "peerDependenciesMeta": {

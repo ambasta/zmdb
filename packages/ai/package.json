@@ -44,14 +44,15 @@
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@zmdb/schema-core": "workspace:^"
-  },
   "devDependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/compiler": "workspace:^",
+    "@zmdb/schema-core": "workspace:^",
     "oxfmt": "0.66.0",
     "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@zmdb/schema-core": "1.0.0-alpha.4"
   },
   "engines": {
     "node": ">=26"

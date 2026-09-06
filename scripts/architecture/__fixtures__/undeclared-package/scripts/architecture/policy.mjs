@@ -9,6 +9,5 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedRuntimeDependencies: freezeArray([]),
     optionalPeerEntries: Object.freeze({}),
     toolingEntries: freezeArray([]),
-    release: 'lockstep',
   }),
 });

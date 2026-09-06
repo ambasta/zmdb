@@ -16,9 +16,9 @@ The catalog does not contain or mutate:
 - publish order or dependency-ring policy;
 - release-group, compatibility, deprecation, or partial-release decisions.
 
-Architecture policy owns dependency direction and publish order. The release-group and compatibility contract frozen by #746 is owned by `scripts/release/SPEC.md`; its future
-`scripts/release/policy.mjs` attaches exactly one release row to each catalog id and rejects a missing or stale row. The currently implemented #728 release model remains the pre-#746 lockstep baseline
-until #749 replaces it.
+Architecture policy owns dependency direction and publish order. The release-group and compatibility contract frozen by #746 is owned by `scripts/release/SPEC.md`; `scripts/release/policy.mjs`
+attaches exactly one release row to each catalog id and rejects a missing or stale row. Issue #749 implements that authority and the target-scoped release model; packed compatibility qualification
+remains owned by #750.
 
 Issue #732's `GovernanceSnapshot` composes this catalog without absorbing it: package membership, npm identity, product role, facade ownership, optionality, docs ownership and consumer evidence remain
 catalog facts, and no architecture, release, exception or issue-relationship consumer may recreate them.

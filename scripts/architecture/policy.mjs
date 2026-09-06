@@ -1,6 +1,6 @@
 // Canonical, read-only architecture constraints for the packages admitted by
 // scripts/product/catalog.mjs. The catalog owns membership and npm identity;
-// this record owns only dependency, reachability, and lockstep constraints.
+// this record owns only dependency and reachability constraints.
 //
 // There are deliberately no ordinary third-party runtime allowances today.
 // Required peers for technology-selected integration and provider packages are
@@ -35,7 +35,6 @@ function packagePolicy({
     allowedRuntimeDependencies: freezeArray(allowedRuntimeDependencies),
     optionalPeerEntries: freezeEntryAssignments(optionalPeerEntries),
     toolingEntries: freezeArray(toolingEntries),
-    release: 'lockstep',
   });
 }
 

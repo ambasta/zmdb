@@ -4,15 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ROOT, publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { ROOT, publishCatalog, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 import type { PackedProjectResult } from '../../../fixtures/client-adapters/src/packed-project.js';
 
-const RELEASE = await publishTrain(ROOT);
-const RELEASE_VERSION = RELEASE.version;
+const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 
 const FIXTURE_FILES = [
   'app/api/scope/route.ts',
@@ -67,15 +66,15 @@ describe('@zmdb/next packed App Router consumer', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'react'),
-            manifest: publishManifest(readManifest('react', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('react', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'next'),
-            manifest: publishManifest(readManifest('next', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('next', PUBLISH_PACKAGES)),
           },
         ],
         dependencies: {

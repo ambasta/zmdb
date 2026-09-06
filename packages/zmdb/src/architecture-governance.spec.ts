@@ -296,7 +296,7 @@ exit "$FAKE_YARN_EXIT"
 
 function runBump(root: string, version: string, exitCode = 0): VerifierResult {
   const fake = fakeYarn(root);
-  const result = spawnSync(process.execPath, [BUMP, version, '--root', root, '--date', '2026-09-06'], {
+  const result = spawnSync(process.execPath, [BUMP, 'core', version, '--root', root, '--date', '2026-09-06'], {
     cwd: ROOT,
     encoding: 'utf8',
     env: {
@@ -593,11 +593,11 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  it('rejects versions that differ across the lockstep train', () => {
-    const result = runVerifier(VERIFIERS.metadata, fixtureRoot('version-drift'));
+  it('rejects versions that differ inside the cohesive core train', () => {
+    const result = runVerifier(VERIFIERS.release, fixtureRoot('version-drift'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
-      '[PACKAGE_VERSION_DRIFT] lockstep train versions 1.0.0-alpha.3 (core), 1.0.0-alpha.4 (app): catalog packages do not share one version. Remediation: run one whole-train bump.',
+      '[RELEASE_CORE_VERSION_DRIFT] core (@fixture/core): core manifest version 1.0.0-alpha.3 disagrees with app at 1.0.0-alpha.4. Remediation: set every core manifest to one byte-identical version.',
     ]);
   });
 
@@ -629,22 +629,33 @@ describe('architecture and release governance fixtures', () => {
     const result = runVerifier(VERIFIERS.release, fixtureRoot('changelog-drift'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
-      '[RELEASE_CHANGELOG_MISSING] 1.0.0-alpha.4 at CHANGELOG.md: no unique non-empty version section exists. Remediation: add one non-empty exact version section.',
+      '[RELEASE_CHANGELOG_MISSING] core@1.0.0-alpha.4 at CHANGELOG.md: no unique non-empty release section exists. Remediation: add the exact release-id and version section.',
     ]);
   });
 
   it('rejects a tag that disagrees with package versions', () => {
-    const result = runVerifier(VERIFIERS.release, fixtureRoot('valid'), '--tag', 'v1.0.0-alpha.5');
+    const result = runVerifier(VERIFIERS.release, fixtureRoot('valid'), '--tag', 'core-v1.0.0-alpha.5');
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
-      '[RELEASE_TAG_MISMATCH] v1.0.0-alpha.5 against 1.0.0-alpha.4: triggering tag disagrees with the common package version. Remediation: tag the verified commit exactly v<version>.',
+      '[RELEASE_CHANGELOG_MISSING] core@1.0.0-alpha.5 at CHANGELOG.md: no unique non-empty release section exists. Remediation: add the exact release-id and version section.',
+      '[RELEASE_TAG_MISMATCH] core-v1.0.0-alpha.5 against core@1.0.0-alpha.5: @fixture/app manifest version is 1.0.0-alpha.4, expected 1.0.0-alpha.5. Remediation: prepare the selected release unit before tagging it.',
+      '[RELEASE_TAG_MISMATCH] core-v1.0.0-alpha.5 against core@1.0.0-alpha.5: @fixture/core manifest version is 1.0.0-alpha.4, expected 1.0.0-alpha.5. Remediation: prepare the selected release unit before tagging it.',
     ]);
   });
 
   it('derives topological publish order from the package graph', async () => {
-    const architecture = await loadArchitecture(fixtureRoot('valid'));
+    const root = fixtureRoot('valid');
+    const architecture = await loadArchitecture(root);
     const order = topologicalOrder(createDependencyGraph(architecture));
-    const plan = releasePlan(fixtureRoot('valid'), { architecture });
+    const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+    if (snapshot.architecture === null) throw new Error('fixture governance snapshot has no architecture');
+    const plan = releasePlan(
+      root,
+      { kind: 'core', version: '1.0.0-alpha.4' },
+      {
+        architecture: snapshot.architecture,
+      },
+    );
 
     expect(order).toEqual(['core', 'app']);
     expect(order.map(id => lookupPackage(architecture, id)?.npmName)).toEqual(['@fixture/core', '@fixture/app']);
@@ -661,18 +672,24 @@ describe('architecture and release governance fixtures', () => {
   });
 
   it('produces the same release plan twice', async () => {
-    const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
-    if (snapshot.architecture === null) throw new Error('live governance snapshot has no architecture');
-    const first = releasePlan(ROOT, { architecture: snapshot.architecture });
-    const second = releasePlan(ROOT, { architecture: snapshot.architecture });
-    const firstCommand = spawnSync(process.execPath, [join(ROOT, 'scripts', 'release', 'plan.mjs'), '--json'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
-    const secondCommand = spawnSync(process.execPath, [join(ROOT, 'scripts', 'release', 'plan.mjs'), '--json'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
+    const root = fixtureRoot('valid');
+    const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+    if (snapshot.architecture === null) throw new Error('fixture governance snapshot has no architecture');
+    const target = { kind: 'core', version: '1.0.0-alpha.4' } as const;
+    const first = releasePlan(root, target, { architecture: snapshot.architecture });
+    const second = releasePlan(root, target, { architecture: snapshot.architecture });
+    const args = [
+      join(ROOT, 'scripts', 'release', 'plan.mjs'),
+      '--root',
+      root,
+      '--release',
+      'core',
+      '--version',
+      target.version,
+      '--json',
+    ];
+    const firstCommand = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+    const secondCommand = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
 
     expect(second).toEqual(first);
     expect(Object.isFrozen(first)).toBe(true);
@@ -683,7 +700,7 @@ describe('architecture and release governance fixtures', () => {
     expect(secondCommand.stdout).toBe(firstCommand.stdout);
   });
 
-  it('bumps every catalog manifest and changelog as one train', async () => {
+  it('bumps every selected core manifest and changelog as one train', async () => {
     const root = mkdtempSync(join(tmpdir(), 'zmdb-release-bump-'));
     try {
       cpSync(fixtureRoot('valid'), root, { recursive: true });
@@ -691,14 +708,23 @@ describe('architecture and release governance fixtures', () => {
 
       const result = runBump(root, '1.0.0-alpha.5');
       expect(result).toMatchObject({ status: 0, stderr: '' });
-      expect(result.stdout).toContain('Prepared 1.0.0-alpha.5 across 2 catalog packages.');
+      expect(result.stdout).toContain('Prepared core@1.0.0-alpha.5 across 2 package(s).');
       expect(readFileSync(join(root, 'fake-yarn.log'), 'utf8')).toBe('install --mode=update-lockfile\n');
       expect(readFileSync(join(root, 'yarn.lock'), 'utf8')).toBe('updated-by-fake-yarn\n');
       const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
       if (snapshot.architecture === null) throw new Error('bumped fixture has no architecture');
-      expect(releasePlan(root, { architecture: snapshot.architecture })).toMatchObject({
+      expect(
+        releasePlan(
+          root,
+          { kind: 'core', version: '1.0.0-alpha.5' },
+          {
+            architecture: snapshot.architecture,
+          },
+        ),
+      ).toMatchObject({
+        releaseId: 'core',
         version: '1.0.0-alpha.5',
-        packages: ['@fixture/app', '@fixture/core'],
+        packages: ['@fixture/core', '@fixture/app'],
         publishOrder: ['@fixture/core', '@fixture/app'],
       });
       for (const id of ['app', 'core']) {
@@ -711,7 +737,7 @@ describe('architecture and release governance fixtures', () => {
         });
       }
       const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
-      expect(changelog).toContain('## [Unreleased]\n\n## [1.0.0-alpha.5] - 2026-09-06');
+      expect(changelog).toContain('## [Unreleased]\n\n## [core@1.0.0-alpha.5] - 2026-09-06');
       expect(changelog).toContain('- **product:** reserve pending fixture changes.');
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -732,7 +758,15 @@ describe('architecture and release governance fixtures', () => {
       for (const path of watched) expect(readFileSync(join(root, path), 'utf8'), path).toBe(before.get(path));
       const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
       if (snapshot.architecture === null) throw new Error('restored fixture has no architecture');
-      expect(releasePlan(root, { architecture: snapshot.architecture }).version).toBe('1.0.0-alpha.4');
+      expect(
+        releasePlan(
+          root,
+          { kind: 'core', version: '1.0.0-alpha.4' },
+          {
+            architecture: snapshot.architecture,
+          },
+        ).version,
+      ).toBe('1.0.0-alpha.4');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -1233,7 +1267,7 @@ describe('composed governance tests freeze (#733)', () => {
       'version-drift',
       'changelog-drift',
     ]);
-    for (const name of FIXTURE_NAMES) expect(fixtureFiles(fixtureRoot(name))).toHaveLength(24);
+    for (const name of FIXTURE_NAMES) expect(fixtureFiles(fixtureRoot(name))).toHaveLength(25);
     expect(Object.keys(EXPECTED_MUTATIONS).toSorted()).toEqual(
       FIXTURE_NAMES.filter(name => name !== 'valid').toSorted(),
     );
@@ -1304,7 +1338,7 @@ describe('composed governance tests freeze (#733)', () => {
     ['missing catalog-policy membership', 'undeclared-package', 'ARCH_POLICY_MISSING'],
     ['workspace cycle', 'cycle', 'ARCH_CYCLE'],
     ['forbidden reachability', 'upward-edge', 'ARCH_EDGE_FORBIDDEN'],
-    ['release-group drift', 'version-drift', 'PACKAGE_VERSION_DRIFT'],
+    ['release-group drift', 'version-drift', 'RELEASE_CORE_VERSION_DRIFT'],
   ] as const)('reports stable findings for %s', async (_name, fixture, expectedCode) => {
     const target = await importTarget<GovernanceTarget>(GOVERNANCE_MODEL);
     const snapshot = await target.loadGovernanceSnapshot({ root: fixtureRoot(fixture) });

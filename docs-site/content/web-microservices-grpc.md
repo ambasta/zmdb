@@ -2,7 +2,7 @@ Typed gRPC services, exhaustive bindings and clients ship through `@zmdb/transpo
 `.proto` at runtime.
 
 ```bash
-npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.0
+npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.4
 npm add @zmdb/aot-validator@alpha
 npm add --save-dev @zmdb/compiler@alpha
 ```

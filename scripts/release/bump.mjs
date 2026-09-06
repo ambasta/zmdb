@@ -7,8 +7,10 @@ import { fileURLToPath } from 'node:url';
 
 import { loadGovernanceSnapshot } from '../architecture/governance.mjs';
 import { compareSemver, parseSemver, releaseChannel } from './lib.mjs';
+import { createReleasePlan } from './model.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const CATEGORIES = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security'];
 
 function atomicWrite(path, content) {
   const temporary = `${path}.zmdb-release-${String(process.pid)}`;
@@ -53,30 +55,114 @@ function parseArguments(argv) {
       positional.push(argument);
     }
   }
-  if (positional.length !== 1) {
-    throw new Error('usage: node scripts/release/bump.mjs <version> [--root <path>] [--date YYYY-MM-DD]');
+  if (positional.length !== 2) {
+    throw new Error(
+      'usage: node scripts/release/bump.mjs <core|catalog-id> <version> [--root <path>] [--date YYYY-MM-DD]',
+    );
   }
-  return { date, root, version: positional[0] };
+  return { date, releaseId: positional[0], root, version: positional[1] };
 }
 
-function bumpedChangelog(model, version, date) {
+function targetFor(releaseId, version) {
+  return releaseId === 'core'
+    ? Object.freeze({ kind: 'core', version })
+    : Object.freeze({ kind: 'package', id: releaseId, version });
+}
+
+function selectedPackages(model, releaseId) {
+  if (releaseId === 'core') {
+    return model.architecture.packages.filter(packageRecord => model.releasePolicy[packageRecord.id].group === 'core');
+  }
+  const packageRecord = model.architecture.packages.find(candidate => candidate.id === releaseId);
+  if (packageRecord === undefined) throw new Error(`unknown release target ${releaseId}`);
+  if (model.releasePolicy[releaseId].group === 'core') {
+    throw new Error(`${releaseId} belongs to the core release target`);
+  }
+  return [packageRecord];
+}
+
+function assertCleanGit(root) {
+  if (!existsSync(join(root, '.git'))) return;
+  const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=normal'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  if (status.status !== 0) {
+    throw new Error(`git status failed before release preparation: ${status.stderr.trim()}`);
+  }
+  if (status.stdout.trim().length > 0) {
+    throw new Error('release preparation requires a clean git worktree');
+  }
+}
+
+function parseUnreleasedBody(body) {
+  const categories = new Map();
+  let category;
+  let current;
+  for (const line of body.split('\n')) {
+    const heading = /^### (.+)$/.exec(line);
+    if (heading !== null) {
+      category = heading[1];
+      if (!CATEGORIES.includes(category)) throw new Error(`unsupported Unreleased category ${category}`);
+      if (!categories.has(category)) categories.set(category, []);
+      current = undefined;
+      continue;
+    }
+    if (line.startsWith('- ')) {
+      if (category === undefined) throw new Error('Unreleased bullet has no category');
+      const owner = /^- \*\*([^*:]+):\*\*/.exec(line)?.[1];
+      if (owner === undefined) throw new Error(`Unreleased bullet has no owner: ${line}`);
+      current = { lines: [line], owner };
+      categories.get(category).push(current);
+      continue;
+    }
+    if (/^\s{2,}\S/.test(line) && current !== undefined) {
+      current.lines.push(line);
+    }
+  }
+  return categories;
+}
+
+function renderCategories(categories, include) {
+  const sections = [];
+  for (const category of CATEGORIES) {
+    const bullets = (categories.get(category) ?? []).filter(include);
+    if (bullets.length === 0) continue;
+    sections.push(`### ${category}\n\n${bullets.map(bullet => bullet.lines.join('\n')).join('\n')}`);
+  }
+  return sections.join('\n\n');
+}
+
+function bumpedChangelog(model, releaseId, version, date) {
   const unreleased = model.changelog.unreleased;
   if (unreleased === undefined || unreleased.bulletCount === 0) {
     throw new Error('Unreleased must contain at least one valid release-note bullet before a bump');
   }
-  if (model.changelog.releases.has(version)) {
-    throw new Error(`CHANGELOG.md already contains version ${version}`);
+  const releaseKey = `${releaseId}@${version}`;
+  if (model.changelog.releases.has(releaseKey)) {
+    throw new Error(`CHANGELOG.md already contains release ${releaseKey}`);
   }
+  const owners = new Set(model.releaseOwners[releaseId] ?? []);
+  if (releaseId === 'core') owners.add('product');
+  if (owners.size === 0) throw new Error(`unknown release target ${releaseId}`);
+
+  const categories = parseUnreleasedBody(unreleased.body);
+  const selected = renderCategories(categories, bullet => owners.has(bullet.owner));
+  if (selected.length === 0) {
+    throw new Error(`Unreleased contains no bullet owned by release target ${releaseId}`);
+  }
+  const remaining = renderCategories(categories, bullet => !owners.has(bullet.owner));
   const lines = model.changelogSource.replace(/\r\n/g, '\n').split('\n');
   const older = lines.slice(unreleased.endLine).join('\n').trim();
   return [
     '# Changelog',
     '',
     '## [Unreleased]',
+    ...(remaining.length === 0 ? [] : ['', remaining]),
     '',
-    `## [${version}] - ${date}`,
+    `## [${releaseKey}] - ${date}`,
     '',
-    unreleased.body,
+    selected,
     ...(older.length === 0 ? [] : ['', older]),
     '',
   ].join('\n');
@@ -122,26 +208,34 @@ function requiredReleaseModel(governanceSnapshot) {
 
 async function run(argv) {
   const options = parseArguments(argv);
-  const target = parseSemver(options.version);
-  const channel = releaseChannel(target);
-  if (target === undefined || channel === undefined) {
+  const targetVersion = parseSemver(options.version);
+  const channel = releaseChannel(targetVersion);
+  if (targetVersion === undefined || channel === undefined) {
     throw new Error(`${options.version} is not a supported stable, alpha, beta or rc SemVer`);
   }
 
+  assertCleanGit(options.root);
   const model = requiredReleaseModel(await loadGovernanceSnapshot({ root: options.root, checks: ['release'] }));
-  const current = parseSemver(model.plan.version);
-  if (current === undefined || compareSemver(target, current) <= 0) {
-    throw new Error(`${options.version} must be greater than current version ${model.plan.version}`);
+  const packages = selectedPackages(model, options.releaseId);
+  const currentVersions = new Set(packages.map(packageRecord => packageRecord.manifest.version));
+  if (currentVersions.size !== 1) {
+    throw new Error(`${options.releaseId} manifests do not share one current version`);
   }
-  const changelog = bumpedChangelog(model, options.version, options.date);
+  const currentSource = currentVersions.values().next().value;
+  const current = parseSemver(currentSource);
+  if (current === undefined || compareSemver(targetVersion, current) <= 0) {
+    throw new Error(`${options.version} must be greater than current ${options.releaseId} version ${currentSource}`);
+  }
+
+  const changelog = bumpedChangelog(model, options.releaseId, options.version, options.date);
   const changelogPath = join(options.root, 'CHANGELOG.md');
   const lockfilePath = join(options.root, 'yarn.lock');
-  const manifests = model.architecture.packages.map(packageRecord => packageRecord.manifestPath);
+  const manifests = packages.map(packageRecord => packageRecord.manifestPath);
   const snapshots = snapshot([changelogPath, lockfilePath, ...manifests]);
 
   try {
     atomicWrite(changelogPath, changelog);
-    for (const packageRecord of model.architecture.packages) {
+    for (const packageRecord of packages) {
       atomicWrite(packageRecord.manifestPath, nextManifest(packageRecord, options.version, channel));
     }
 
@@ -153,11 +247,18 @@ async function run(argv) {
     if (yarn.status !== 0) {
       throw new Error(`yarn install --mode=update-lockfile failed with status ${String(yarn.status)}`);
     }
-    const plan = requiredReleaseModel(await loadGovernanceSnapshot({ root: options.root, checks: ['release'] })).plan;
-    if (plan.version !== options.version) {
-      throw new Error(`final release plan reported ${plan.version}, expected ${options.version}`);
+    const target = targetFor(options.releaseId, options.version);
+    const finalModel = requiredReleaseModel(await loadGovernanceSnapshot({ root: options.root, checks: ['release'] }));
+    const plan = createReleasePlan(finalModel, target);
+    if (plan.version !== options.version || plan.releaseId !== options.releaseId) {
+      throw new Error(
+        `final release plan reported ${plan.releaseId}@${plan.version}, expected ${options.releaseId}@${options.version}`,
+      );
     }
-    console.log(`Prepared ${options.version} across ${String(plan.packages.length)} catalog packages.`);
+    if (plan.changelogEntry.length === 0) {
+      throw new Error(`final release plan found no ${options.releaseId}@${options.version} changelog entry`);
+    }
+    console.log(`Prepared ${options.releaseId}@${options.version} across ${String(plan.packages.length)} package(s).`);
   } catch (error) {
     restore(snapshots);
     throw error;

@@ -7,9 +7,9 @@ import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mj
 import { analyzeAppKernelBoundary, analyzeOptionalServerPackages } from './verify-server-boundaries.mjs';
 
 const ROOT = process.cwd();
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-const ARCHITECTURE = GOVERNANCE.architecture;
-if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
+if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
+if (GOVERNANCE.queries.release === undefined) throw new Error('governance snapshot has no release query');
 const SCRIPT = join(ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs');
 const FIXTURES = join(ROOT, '.github', 'scripts', '__fixtures__', 'server-boundaries');
 
@@ -23,7 +23,12 @@ function verifyFixture(name: string, partial = false) {
 
 describe('the optional server boundary verifier', () => {
   it('keeps one Symbol.metadata installation and one metadataOf implementation', () => {
-    expect(analyzeAppKernelBoundary(ROOT, { architecture: ARCHITECTURE })).toEqual([]);
+    expect(
+      analyzeAppKernelBoundary(ROOT, {
+        architecture: GOVERNANCE.architecture,
+        release: GOVERNANCE.queries.release,
+      }),
+    ).toEqual([]);
   });
 
   it('accepts the complete positive package graph', () => {
@@ -32,7 +37,12 @@ describe('the optional server boundary verifier', () => {
   });
 
   it('reports the live optional package graph independently of pending core work', () => {
-    expect(analyzeOptionalServerPackages(ROOT, { architecture: ARCHITECTURE })).toEqual([]);
+    expect(
+      analyzeOptionalServerPackages(ROOT, {
+        architecture: GOVERNANCE.architecture,
+        release: GOVERNANCE.queries.release,
+      }),
+    ).toEqual([]);
     const result = spawnSync(process.execPath, [SCRIPT, '--strict', '--optional-packages-only'], {
       cwd: ROOT,
       encoding: 'utf8',

@@ -7,12 +7,12 @@ It creates no provider, exporter, sampler, collector client, metrics endpoint, a
 ## Install
 
 ```bash
-npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.0
+npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.1
 ```
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-The sole peer is `@opentelemetry/api@^1.9.0`. Neither it nor this adapter is installed by `npm add zmdb@alpha`.
+The sole external peer is `@opentelemetry/api@^1.9.1`. Neither it nor this adapter is installed by `npm add zmdb@alpha`.
 
 Install the SDK and exporter selected by the application separately.
 

@@ -6,10 +6,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const FIXTURE = join(ROOT, 'fixtures', 'database-postgres');
 const PACKAGES = join(ROOT, 'packages');
 
@@ -34,6 +33,14 @@ function workspacePackages() {
   return packages;
 }
 
+function workspaceInstallDependencies(packages, pkg) {
+  const dependencies = Object.keys(pkg.manifest.dependencies ?? {}).filter(name => packages.has(name));
+  const requiredPeers = Object.keys(pkg.manifest.peerDependencies ?? {}).filter(
+    name => packages.has(name) && pkg.manifest.peerDependenciesMeta?.[name]?.optional !== true,
+  );
+  return [...new Set([...dependencies, ...requiredPeers])].toSorted();
+}
+
 function closure(packages, root) {
   const found = new Set();
   const queue = [root];
@@ -43,9 +50,7 @@ function closure(packages, root) {
     const pkg = packages.get(name);
     if (pkg === undefined) throw new Error(`workspace dependency is absent: ${name}`);
     found.add(name);
-    for (const dependency of Object.keys(pkg.manifest.dependencies ?? {})) {
-      if (packages.has(dependency)) queue.push(dependency);
-    }
+    queue.push(...workspaceInstallDependencies(packages, pkg));
   }
   return [...found].toSorted();
 }
@@ -66,10 +71,7 @@ function pack(packages, names, scratch) {
     const stage = join(scratch, 'stage', name.replaceAll('/', '__'));
     mkdirSync(dirname(stage), { recursive: true });
     copyForPack(pkg.directory, stage);
-    writeFileSync(
-      join(stage, 'package.json'),
-      `${JSON.stringify(publishManifest(pkg.manifest, RELEASE_VERSION), null, 2)}\n`,
-    );
+    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(pkg.manifest), null, 2)}\n`);
     const packed = run('npm', ['pack', '--json', '--pack-destination', scratch], {
       cwd: stage,
       env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },

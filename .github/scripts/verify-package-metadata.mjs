@@ -44,8 +44,8 @@ const BUGS_URL = 'https://github.com/ambasta/zmdb/issues';
 const REPOSITORY_URL = 'git+https://github.com/ambasta/zmdb.git';
 const METADATA_REMEDIATION = 'restore the exact schema value or required file';
 const PEER_REMEDIATION = 'align the declaration and prove the range with the real peer';
-const WORKSPACE_REMEDIATION = 'use workspace:^ in source and regenerate the publish manifest';
-const VERSION_REMEDIATION = 'run one whole-train bump';
+const WORKSPACE_REMEDIATION =
+  'use workspace:^ inside the core or workspace:<explicit-range> across release units and regenerate the publish manifest';
 
 const compareText = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
@@ -92,14 +92,6 @@ function peerDiagnostic(packageRecord, peer, detail) {
 
 function workspaceDiagnostic(packageRecord, dependency, detail) {
   return `[PACKAGE_WORKSPACE_RANGE] ${packageRecord.npmName} dependency ${dependency}: ${detail}. Remediation: ${WORKSPACE_REMEDIATION}.`;
-}
-
-function versionDiagnostic(versions) {
-  const measured = [...versions.entries()]
-    .toSorted(([leftVersion], [rightVersion]) => compareText(leftVersion, rightVersion))
-    .map(([version, ids]) => `${version} (${[...ids].toSorted(compareText).join(', ')})`)
-    .join(', ');
-  return `[PACKAGE_VERSION_DRIFT] lockstep train versions ${measured}: catalog packages do not share one version. Remediation: ${VERSION_REMEDIATION}.`;
 }
 
 function parseSemver(value) {
@@ -646,12 +638,19 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
 
   for (const [section, dependencies] of Object.entries(sections)) {
     for (const [name, range] of Object.entries(dependencies)) {
-      if (catalogByName.has(name) && range !== 'workspace:^') {
+      if (
+        catalogByName.has(name) &&
+        section !== 'peerDependencies' &&
+        (typeof range !== 'string' ||
+          !range.startsWith('workspace:') ||
+          range === 'workspace:*' ||
+          range === 'workspace:')
+      ) {
         diagnostics.push(
           workspaceDiagnostic(
             packageRecord,
             name,
-            `measured ${section} range is ${shown(range)}, expected "workspace:^"`,
+            `measured ${section} range is ${shown(range)}, expected workspace:^ or workspace:<explicit-range>`,
           ),
         );
       }
@@ -712,7 +711,7 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
       diagnostics.push(peerDiagnostic(packageRecord, peer, 'optional metadata has no matching policy assignment'));
     }
     if (!optionalPeers.has(peer)) {
-      if (!ownsRequiredPeer(packageRecord)) {
+      if (!catalogByName.has(peer) && !ownsRequiredPeer(packageRecord)) {
         diagnostics.push(
           peerDiagnostic(packageRecord, peer, 'required peer is owned by a non-integration/provider/tooling package'),
         );
@@ -750,11 +749,11 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
   return diagnostics;
 }
 
-function publishedManifestDiagnostics(packageRecord, commonVersion, catalogByName) {
+function publishedManifestDiagnostics(packageRecord, catalogByName) {
   const diagnostics = [];
   let published;
   try {
-    published = publishManifest(packageRecord.manifest, commonVersion);
+    published = publishManifest(packageRecord.manifest);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return [metadataDiagnostic(packageRecord, 'publish manifest', `transform failed: ${message}`)];
@@ -844,18 +843,28 @@ function publishedManifestDiagnostics(packageRecord, commonVersion, catalogByNam
     );
   }
 
-  const parsedVersion = parseSemver(commonVersion);
+  const parsedVersion = parseSemver(packageRecord.manifest.version);
   const expectedWorkspaceRange =
-    parsedVersion === undefined ? undefined : parsedVersion.prerelease.length > 0 ? commonVersion : `^${commonVersion}`;
+    parsedVersion === undefined
+      ? undefined
+      : parsedVersion.prerelease.length > 0
+        ? packageRecord.manifest.version
+        : `^${packageRecord.manifest.version}`;
   for (const section of PRODUCTION_DEPENDENCY_SECTIONS) {
     for (const [dependency, sourceRange] of Object.entries(packageRecord.manifest[section] ?? {})) {
       const publishedRange = published[section]?.[dependency];
-      if (catalogByName.has(dependency) && sourceRange === 'workspace:^' && publishedRange !== expectedWorkspaceRange) {
+      const expectedPublishedRange =
+        sourceRange === 'workspace:^'
+          ? expectedWorkspaceRange
+          : typeof sourceRange === 'string' && sourceRange.startsWith('workspace:')
+            ? sourceRange.slice('workspace:'.length)
+            : sourceRange;
+      if (catalogByName.has(dependency) && publishedRange !== expectedPublishedRange) {
         diagnostics.push(
           workspaceDiagnostic(
             packageRecord,
             dependency,
-            `publish ${section} range is ${shown(publishedRange)}, expected ${shown(expectedWorkspaceRange)}`,
+            `publish ${section} range is ${shown(publishedRange)}, expected ${shown(expectedPublishedRange)}`,
           ),
         );
       }
@@ -901,28 +910,11 @@ function publishedManifestDiagnostics(packageRecord, commonVersion, catalogByNam
 export function packageMetadataDiagnostics(architecture) {
   const diagnostics = [];
   const catalogByName = new Map(architecture.packages.map(packageRecord => [packageRecord.npmName, packageRecord]));
-  const versions = new Map();
-  let everyVersionValid = true;
 
   for (const packageRecord of architecture.packages) {
     diagnostics.push(...manifestShapeDiagnostics(packageRecord));
     diagnostics.push(...dependencyDiagnostics(packageRecord, catalogByName));
-    const parsed = parseSemver(packageRecord.manifest.version);
-    if (parsed === undefined) {
-      everyVersionValid = false;
-    } else {
-      const ids = versions.get(parsed.source) ?? [];
-      ids.push(packageRecord.id);
-      versions.set(parsed.source, ids);
-    }
-  }
-
-  if (everyVersionValid && versions.size > 1) diagnostics.push(versionDiagnostic(versions));
-  const commonVersion = everyVersionValid && versions.size === 1 ? versions.keys().next().value : undefined;
-  if (typeof commonVersion === 'string') {
-    for (const packageRecord of architecture.packages) {
-      diagnostics.push(...publishedManifestDiagnostics(packageRecord, commonVersion, catalogByName));
-    }
+    diagnostics.push(...publishedManifestDiagnostics(packageRecord, catalogByName));
   }
 
   return [...new Set(diagnostics)].toSorted(compareText);
@@ -976,7 +968,7 @@ function assertPublishTransform() {
     peerDependencies: { '@fixture/peer': 'workspace:^' },
     devDependencies: { fixture: '1.0.0' },
   };
-  const prerelease = publishManifest(source, source.version);
+  const prerelease = publishManifest(source);
   const expectedPrerelease = '2.0.0-beta.3';
   for (const [section, dependency] of [
     ['dependencies', '@fixture/dependency'],
@@ -992,25 +984,22 @@ function assertPublishTransform() {
   }
   if (Object.hasOwn(prerelease, 'devDependencies')) throw new Error('publish manifest retained devDependencies');
 
-  const subpathsOnly = publishManifest(
-    {
-      ...source,
-      exports: {
-        './client': './src/client.ts',
-        './server': './src/server.ts',
-      },
+  const subpathsOnly = publishManifest({
+    ...source,
+    exports: {
+      './client': './src/client.ts',
+      './server': './src/server.ts',
     },
-    source.version,
-  );
+  });
   if (Object.hasOwn(subpathsOnly, 'main') || Object.hasOwn(subpathsOnly, 'types')) {
     throw new Error('subpath-only publish manifest invented a root entry');
   }
 
-  const stable = publishManifest({ ...source, version: '2.0.0' }, '2.0.0');
+  const stable = publishManifest({ ...source, version: '2.0.0' });
   if (stable.dependencies?.['@fixture/dependency'] !== '^2.0.0') {
     throw new Error('stable workspace dependency did not publish as ^2.0.0');
   }
-  const stableBuild = publishManifest({ ...source, version: '2.0.0+build-3' }, '2.0.0+build-3');
+  const stableBuild = publishManifest({ ...source, version: '2.0.0+build-3' });
   if (stableBuild.dependencies?.['@fixture/dependency'] !== '^2.0.0+build-3') {
     throw new Error('stable build metadata was mistaken for a prerelease');
   }
@@ -1041,9 +1030,7 @@ async function runSelfTest() {
   const versionDrift = await inspectPackageMetadata(versionDriftRoot, {
     architecture: await architectureFor(versionDriftRoot),
   });
-  assertDiagnostics('version drift fixture', versionDrift.diagnostics, [
-    '[PACKAGE_VERSION_DRIFT] lockstep train versions 1.0.0-alpha.3 (core), 1.0.0-alpha.4 (app): catalog packages do not share one version. Remediation: run one whole-train bump.',
-  ]);
+  assertDiagnostics('release-owned version drift fixture', versionDrift.diagnostics, []);
 
   const optionalPeerDrift = architectureWithManifest(valid, 'app', manifest => ({
     ...manifest,
@@ -1099,7 +1086,7 @@ async function runSelfTest() {
     },
   }));
   assertDiagnostics('workspace source range', packageMetadataDiagnostics(workspaceDrift), [
-    '[PACKAGE_WORKSPACE_RANGE] @fixture/app dependency @fixture/core: measured dependencies range is "workspace:*", expected "workspace:^". Remediation: use workspace:^ in source and regenerate the publish manifest.',
+    '[PACKAGE_WORKSPACE_RANGE] @fixture/app dependency @fixture/core: measured dependencies range is "workspace:*", expected workspace:^ or workspace:<explicit-range>. Remediation: use workspace:^ inside the core or workspace:<explicit-range> across release units and regenerate the publish manifest.',
   ]);
 
   const schemaDrift = architectureWithManifest(valid, 'app', manifest => ({
@@ -1122,7 +1109,7 @@ async function runSelfTest() {
 
   assertPublishTransform();
   console.log(
-    'Package metadata self-test passed: valid, schema drift, version drift, optional-peer metadata, workspace ranges, and publish transforms.',
+    'Package metadata self-test passed: valid, schema drift, release-owned version drift, optional-peer metadata, workspace ranges, and publish transforms.',
   );
 }
 
@@ -1173,7 +1160,7 @@ async function main(argv) {
     }
     const report = snapshot.queries.metadata;
     console.log(
-      `Package metadata verified: ${String(report.packageCount)} catalog packages share ${String(report.version)}; source and publish manifests satisfy the canonical schema.`,
+      `Package metadata verified: ${String(report.packageCount)} catalog packages; source and publish manifests satisfy the canonical schema.`,
     );
     return 0;
   } catch (error) {

@@ -46,7 +46,7 @@
     "@zmdb/app": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
-    "@zmdb/sqlite": "workspace:^"
+    "@zmdb/sqlite": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
     "typescript": "7.0.2"

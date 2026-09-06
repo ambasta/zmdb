@@ -20,7 +20,7 @@ const INTEGRATIONS = [
   {
     packageName: '@zmdb/transport-grpc',
     directory: 'transport-grpc',
-    peer: ['@grpc/grpc-js', '^1.14.0'],
+    peer: ['@grpc/grpc-js', '^1.14.4'],
     ownership: ['application owns the server extension', 'caller owns every client'],
   },
   {
@@ -50,7 +50,7 @@ const INTEGRATIONS = [
   {
     packageName: '@zmdb/otel',
     directory: 'otel',
-    peer: ['@opentelemetry/api', '^1.9.0'],
+    peer: ['@opentelemetry/api', '^1.9.1'],
     ownership: ['caller-owned OpenTelemetry', 'shutdown hook'],
   },
 ] as const;
@@ -178,11 +178,18 @@ describe('optional server integration documentation (#664)', { timeout: TEST_TIM
         expect(readme).toContain('no runtime dependency or peer dependency');
       } else {
         const [peer, range] = integration.peer;
-        expect(packageManifest.peerDependencies).toEqual({ [peer]: range });
+        const externalPeers = Object.fromEntries(
+          Object.entries(packageManifest.peerDependencies ?? {}).filter(([name]) => !name.startsWith('@zmdb/')),
+        );
+        expect(externalPeers).toEqual({ [peer]: range });
         expect(defaultDependencies, peer).not.toHaveProperty(peer);
         expect(readme, integration.packageName).toContain(`${peer}@${range}`);
+        const installPeers = Object.entries(packageManifest.peerDependencies ?? {})
+          .toSorted(([left], [right]) => left.localeCompare(right))
+          .map(([name, peerRange]) => `${name}@${peerRange}`)
+          .join(' ');
         expect(packageReference, integration.packageName).toContain(
-          `npm add ${integration.packageName}@${String(packageManifest.version)} ${peer}@${range}`,
+          `npm add ${integration.packageName}@${String(packageManifest.version)} ${installPeers}`,
         );
       }
     }

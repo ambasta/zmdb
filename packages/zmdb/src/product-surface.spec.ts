@@ -76,11 +76,16 @@ import {
 } from './index.js';
 
 const ROOT = process.cwd();
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
 const ARCHITECTURE =
   GOVERNANCE.architecture ??
   (() => {
     throw new Error('governance snapshot has no architecture');
+  })();
+const RELEASE =
+  GOVERNANCE.queries.release ??
+  (() => {
+    throw new Error('governance snapshot has no release model');
   })();
 const PRODUCT_CATALOG = ARCHITECTURE.catalog;
 const PRODUCT_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
@@ -93,7 +98,7 @@ function facadeReport(): ReturnType<typeof inspectProductFacade> {
 
 let measuredCatalog: ReturnType<typeof inspectProductCatalog> | undefined;
 function catalogReport(): ReturnType<typeof inspectProductCatalog> {
-  measuredCatalog ??= inspectProductCatalog(ROOT, { architecture: ARCHITECTURE });
+  measuredCatalog ??= inspectProductCatalog(ROOT, { architecture: ARCHITECTURE, release: RELEASE });
   return measuredCatalog;
 }
 
@@ -381,8 +386,11 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
         },
       ],
     ]);
-    const first = renderPackageReferenceRows(catalog, manifests);
-    const second = renderPackageReferenceRows(catalog, manifests);
+    const releasePolicy = Object.freeze({
+      schema: Object.freeze({ group: 'core' }),
+    });
+    const first = renderPackageReferenceRows(catalog, manifests, releasePolicy);
+    const second = renderPackageReferenceRows(catalog, manifests, releasePolicy);
     expect(second).toBe(first);
 
     const source = [

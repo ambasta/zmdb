@@ -41,7 +41,7 @@ unsettled; only the newest-started call may update `error()`. Results and errors
 ## 4. Package boundary
 
 - Runtime workspace dependency: `@zmdb/client` at `workspace:^`.
-- Required peer: `solid-js` at `>=1.9.0 <2.0.0`.
+- Required peer: `solid-js` at `>=1.9.15 <2.0.0`.
 - Public export: `.` only.
 - ESM-only, `sideEffects: false`, no Node built-in or private conformance-harness import.
 

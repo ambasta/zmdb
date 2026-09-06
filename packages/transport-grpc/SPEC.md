@@ -12,7 +12,7 @@ Manifest edges are exact:
 | ------------- | ---------------- | ------------- |
 | dependency    | `@zmdb/app`      | `workspace:^` |
 | dependency    | `@zmdb/protobuf` | `workspace:^` |
-| required peer | `@grpc/grpc-js`  | `^1.14.0`     |
+| required peer | `@grpc/grpc-js`  | `^1.14.4`     |
 | dev evidence  | `@grpc/grpc-js`  | `1.14.4`      |
 
 `@grpc/proto-loader` is absent. The package root is side-effect-free and is its only export.

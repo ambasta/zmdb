@@ -51,15 +51,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/ai": "workspace:^",
-    "@zmdb/aot-validator": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/schema-core": "workspace:^"
+    "@zmdb/ai": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
+    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/mssql": "workspace:^",
     "@zmdb/postgres": "workspace:^",
     "@zmdb/protobuf": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/schema-core": "workspace:^",
     "@zmdb/sqlite": "workspace:^",
     "metro": "0.87.0",
     "metro-babel-transformer": "0.87.0",
@@ -68,6 +68,9 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@zmdb/aot-validator": "1.0.0-alpha.4",
+    "@zmdb/query-compiler": "1.0.0-alpha.4",
+    "@zmdb/schema-core": "1.0.0-alpha.4",
     "metro": ">=0.87.0 <0.88.0",
     "metro-babel-transformer": ">=0.87.0 <0.88.0",
     "oxlint": ">=1.81.0 <1.82.0",

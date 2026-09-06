@@ -6,14 +6,14 @@ application shutdown without parsing `.proto` files at runtime.
 ## Install
 
 ```bash
-npm add @zmdb/app@alpha @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.0
+npm add @zmdb/app@alpha @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.4
 npm add @zmdb/aot-validator@alpha
 npm add --save-dev @zmdb/compiler@alpha
 ```
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-The sole peer is `@grpc/grpc-js@^1.14.0`. The package is not installed by `npm add zmdb@alpha`; `@zmdb/protobuf` supplies the source-level service artifact, `@zmdb/compiler` emits it at build time,
+The sole peer is `@grpc/grpc-js@^1.14.4`. The package is not installed by `npm add zmdb@alpha`; `@zmdb/protobuf` supplies the source-level service artifact, `@zmdb/compiler` emits it at build time,
 and the generated validators import the `@zmdb/aot-validator` runtime ABI.
 
 ## Usage

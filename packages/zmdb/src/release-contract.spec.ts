@@ -1,17 +1,29 @@
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
+import { createDependencyGraph, loadArchitecture, topologicalOrder } from '../../../scripts/architecture/index.mjs';
 import { releasePlan } from '../../../scripts/release/plan.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const CONTRACT_PATH = join(ROOT, 'scripts', 'release', '__fixtures__', 'contract.json');
 const AI_VERCEL_MANIFEST = join(ROOT, 'packages', 'ai-vercel', 'package.json');
+const BUMP = join(ROOT, 'scripts', 'release', 'bump.mjs');
+const PLAN = join(ROOT, 'scripts', 'release', 'plan.mjs');
 const PACKAGE_MANAGER_TIMEOUT_MS = 120_000;
 
 type Mutation =
@@ -20,7 +32,9 @@ type Mutation =
   | 'duplicate-group'
   | 'internal-range'
   | 'peer-floor'
+  | 'policy-floor'
   | 'prerelease'
+  | 'prerelease-current'
   | 'stale-policy'
   | 'unclassified'
   | 'undeclared-dependency';
@@ -34,6 +48,8 @@ interface PackageIdentity {
 interface ReleaseContractFixture {
   readonly versions: {
     readonly core: string;
+    readonly corePatch: string;
+    readonly corePrereleaseNext: string;
     readonly integrationNext: string;
     readonly peerFloor: string;
     readonly peerCurrent: string;
@@ -57,17 +73,6 @@ interface PackageManifest {
   readonly dependencies?: Readonly<Record<string, string>>;
   readonly devDependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
-}
-
-interface ReleaseTargetPlan {
-  readonly releaseId: string;
-  readonly version: string;
-  readonly packages: readonly string[];
-  readonly manifestChanges: readonly {
-    readonly package: string;
-    readonly version: string;
-    readonly ranges: Readonly<Record<string, string>>;
-  }[];
 }
 
 interface ReleaseGovernanceModule {
@@ -95,10 +100,9 @@ interface PackageManagerOutcome {
 
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
 
-const nodeRequire = createRequire(import.meta.url);
-const releaseGovernance = nodeRequire(
-  join(ROOT, '.github', 'scripts', 'verify-release-governance.mjs'),
-) as ReleaseGovernanceModule;
+const releaseGovernance = (await import(
+  pathToFileURL(join(ROOT, '.github', 'scripts', 'verify-release-governance.mjs')).href
+)) as ReleaseGovernanceModule;
 
 const contract = (): ReleaseContractFixture => readJson<ReleaseContractFixture>(CONTRACT_PATH);
 
@@ -173,7 +177,6 @@ const row = value => Object.freeze({
     ),
   ),
   toolingEntries: freezeArray([]),
-  release: 'lockstep',
 });
 
 export const PACKAGE_POLICY = Object.freeze({
@@ -213,15 +216,17 @@ function compatibility(range: string, floor: string, tested: readonly string[], 
 
 function releasePolicySource(fixture: ReleaseContractFixture, mutation?: Mutation): string {
   const { adapter, coreA, coreB } = fixture.packages;
-  const { core, peerFloor, peerCurrent } = fixture.versions;
+  const { core, peerBelowFloor, peerFloor, peerCurrent } = fixture.versions;
   const adapterGroup = mutation === 'duplicate-group' ? "Object.freeze(['core', 'integration'])" : "'integration'";
-  const internalRange = mutation === 'prerelease' ? `^${core}` : core;
-  const internalTested = [core];
+  const internalRange = mutation === 'prerelease' || mutation === 'prerelease-current' ? `^${core}` : core;
+  const internalTested = mutation === 'prerelease-current' ? [core, fixture.versions.corePrereleaseNext] : [core];
+  const peerTested = [...new Set([peerFloor, peerCurrent])];
+  const peerRange = mutation === 'policy-floor' ? `^${peerBelowFloor}` : `^${peerFloor}`;
   const rows = [`  ${JSON.stringify(coreA.id)}: row('core'),`, `  ${JSON.stringify(coreB.id)}: row('core'),`];
   rows.push(`  ${JSON.stringify(adapter.id)}: row(${adapterGroup}, {
     ${JSON.stringify(coreB.id)}: ${compatibility(internalRange, core, internalTested, 'fixtures/release/adapter-core')},
   }, {
-    ai: ${compatibility(`^${peerFloor}`, peerFloor, [peerFloor, peerCurrent], 'fixtures/release/adapter-ai')},
+    ai: ${compatibility(peerRange, peerFloor, peerTested, 'fixtures/release/adapter-ai')},
   }),`);
   if (mutation === 'stale-policy') rows.push(`  ghost: row('integration'),`);
   return `const row = (group, internalCompatibility = {}, peers = {}) => Object.freeze({
@@ -271,8 +276,9 @@ function writeReleaseFixture(root: string, mutation?: Mutation): void {
 ### Changed
 
 - **product:** reserve release-contract fixture changes.
+- **adapter:** reserve an integration-only release.
 
-## [${core}] - 2026-09-06
+## [core@${core}] - 2026-09-06
 
 ### Added
 
@@ -300,7 +306,7 @@ function writeReleaseFixture(root: string, mutation?: Mutation): void {
       },
       peerDependencies: {
         [coreB.npmName]: adapterPeerRange,
-        ai: mutation === 'peer-floor' ? '^7.0.83' : `^${peerFloor}`,
+        ai: mutation === 'peer-floor' || mutation === 'policy-floor' ? '^7.0.83' : `^${peerFloor}`,
       },
     }),
   );
@@ -319,6 +325,104 @@ function writeReleaseFixture(root: string, mutation?: Mutation): void {
     };
     writePackage(root, identity, packageManifest(identity, core));
   }
+}
+
+function writeReleaseOrderFixture(root: string): void {
+  writeReleaseFixture(root);
+  const fixture = contract();
+  const { adapter, coreA, coreB } = fixture.packages;
+  const { core, peerFloor } = fixture.versions;
+  writeFileSync(
+    join(root, 'scripts', 'architecture', 'policy.mjs'),
+    `const freezeArray = values => Object.freeze([...values]);
+
+const row = value => Object.freeze({
+  ...value,
+  allowedWorkspaceDependencies: freezeArray(value.allowedWorkspaceDependencies),
+  allowedRuntimeDependencies: freezeArray([]),
+  optionalPeerEntries: Object.freeze(
+    Object.fromEntries(
+      Object.entries(value.optionalPeerEntries).map(([name, selectors]) => [name, freezeArray(selectors)]),
+    ),
+  ),
+  toolingEntries: freezeArray([]),
+});
+
+export const PACKAGE_POLICY = Object.freeze({
+  ${JSON.stringify(coreA.id)}: row({
+    directory: ${JSON.stringify(coreA.directory)},
+    zone: 'foundation',
+    ring: 0,
+    allowedWorkspaceDependencies: [],
+    optionalPeerEntries: {},
+  }),
+  ${JSON.stringify(coreB.id)}: row({
+    directory: ${JSON.stringify(coreB.directory)},
+    zone: 'foundation',
+    ring: 0,
+    allowedWorkspaceDependencies: [],
+    optionalPeerEntries: {},
+  }),
+  ${JSON.stringify(adapter.id)}: row({
+    directory: ${JSON.stringify(adapter.directory)},
+    zone: 'integration',
+    ring: 1,
+    allowedWorkspaceDependencies: [${JSON.stringify(coreA.id)}],
+    optionalPeerEntries: {
+      ${JSON.stringify(coreB.npmName)}: ['.'],
+      ai: ['.'],
+    },
+  }),
+});
+`,
+  );
+  writeFileSync(
+    join(root, 'scripts', 'release', 'policy.mjs'),
+    `const row = (group, internalCompatibility = {}, peers = {}) => Object.freeze({
+  group,
+  internalCompatibility: Object.freeze(internalCompatibility),
+  peers: Object.freeze(peers),
+});
+
+const coreCompatibility = ${compatibility(core, core, [core], 'fixtures/release/adapter-core')};
+const aiCompatibility = ${compatibility(`^${peerFloor}`, peerFloor, [peerFloor], 'fixtures/release/adapter-ai')};
+
+export const RELEASE_PACKAGE_POLICY = Object.freeze({
+  ${JSON.stringify(adapter.id)}: row('integration', {
+    ${JSON.stringify(coreA.id)}: coreCompatibility,
+    ${JSON.stringify(coreB.id)}: coreCompatibility,
+  }, {
+    ai: aiCompatibility,
+  }),
+  ${JSON.stringify(coreA.id)}: row('core'),
+  ${JSON.stringify(coreB.id)}: row('core'),
+});
+`,
+  );
+  writeJson(
+    join(root, adapter.directory, 'package.json'),
+    packageManifest(adapter, core, {
+      devDependencies: {
+        [coreA.npmName]: 'workspace:^',
+        [coreB.npmName]: 'workspace:^',
+        ai: peerFloor,
+      },
+      peerDependencies: {
+        [coreA.npmName]: core,
+        [coreB.npmName]: core,
+        ai: `^${peerFloor}`,
+      },
+    }),
+  );
+  const adapterManifest = readJson<Record<string, unknown>>(join(root, adapter.directory, 'package.json'));
+  writeJson(join(root, adapter.directory, 'package.json'), {
+    ...adapterManifest,
+    peerDependenciesMeta: {
+      [coreB.npmName]: { optional: true },
+      ai: { optional: true },
+    },
+  });
+  writeJson(join(root, coreB.directory, 'package.json'), packageManifest(coreB, core));
 }
 
 function withReleaseFixture<T>(mutation: Mutation | undefined, inspect: (root: string) => T): T {
@@ -346,8 +450,57 @@ async function withReleaseFixtureAsync<T>(
   }
 }
 
-function diagnosticLines(root: string): Promise<readonly string[]> {
+async function diagnosticLines(root: string): Promise<readonly string[]> {
   return releaseGovernance.releaseGovernanceDiagnostics(root, undefined, false);
+}
+
+async function targetPlan(
+  root: string,
+  target:
+    | { readonly kind: 'core'; readonly version: string }
+    | { readonly kind: 'package'; readonly id: string; readonly version: string },
+) {
+  const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+  if (snapshot.architecture === null) {
+    throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
+  }
+  return releasePlan(root, target, { architecture: snapshot.architecture });
+}
+
+function runBump(root: string, releaseId: string, version: string, gitStatus?: string): SpawnSyncReturns<string> {
+  const bin = join(root, 'fake-bin');
+  const log = join(root, 'fake-yarn.log');
+  mkdirSync(bin);
+  const yarn = join(bin, 'yarn');
+  writeFileSync(
+    yarn,
+    `#!/bin/sh
+printf '%s\\n' "$*" > "$FAKE_YARN_LOG"
+printf 'updated-by-fake-yarn\\n' > yarn.lock
+`,
+  );
+  chmodSync(yarn, 0o755);
+  if (gitStatus !== undefined) {
+    writeFileSync(join(root, '.git'), 'fixture git marker\n');
+    const git = join(bin, 'git');
+    writeFileSync(
+      git,
+      `#!/bin/sh
+printf '%s' "$FAKE_GIT_STATUS"
+`,
+    );
+    chmodSync(git, 0o755);
+  }
+  return spawnSync(process.execPath, [BUMP, releaseId, version, '--root', root, '--date', '2026-09-06'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      FAKE_GIT_STATUS: gitStatus ?? '',
+      FAKE_YARN_LOG: log,
+      PATH: `${bin}:${process.env['PATH'] ?? ''}`,
+    },
+  });
 }
 
 function npmEnvironment(): NodeJS.ProcessEnv {
@@ -703,6 +856,22 @@ function runUndeclaredConsumer(): PackageManagerOutcome {
 }
 
 describe('release groups and compatibility tests freeze (#747)', () => {
+  it('orders optional internal release peers before their consumers', async () => {
+    const temporary = mkdtempSync(join(tmpdir(), 'zmdb-release-order-'));
+    const root = join(temporary, 'fixture');
+    try {
+      writeReleaseOrderFixture(root);
+      const architecture = await loadArchitecture(root);
+      expect(topologicalOrder(createDependencyGraph(architecture))).toEqual(['core-a', 'adapter', 'core-b']);
+
+      const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
+      expect(snapshot.findings).toEqual([]);
+      expect(snapshot.queries.release?.entries.map(entry => entry.id)).toEqual(['core-a', 'core-b', 'adapter']);
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  });
+
   it('keeps the release fixture exhaustive, parseable and green before isolated mutations', async () => {
     const fixture = contract();
     expect(fixture.diagnosticCases.map(testCase => testCase.mutation).toSorted()).toEqual([
@@ -711,7 +880,9 @@ describe('release groups and compatibility tests freeze (#747)', () => {
       'duplicate-group',
       'internal-range',
       'peer-floor',
+      'policy-floor',
       'prerelease',
+      'prerelease-current',
       'stale-policy',
       'unclassified',
       'undeclared-dependency',
@@ -731,24 +902,31 @@ describe('release groups and compatibility tests freeze (#747)', () => {
     });
   });
 
-  // Measured at ee4e496a: the current lockstep verifier returns [] for every case except core drift,
-  // where it reports RELEASE_VERSION_DRIFT. It does not read the frozen release policy yet.
-  it.fails.each(contract().diagnosticCases)('$name reports the exact actionable correction', async testCase => {
-    await withReleaseFixtureAsync(testCase.mutation, async root => {
-      expect(await diagnosticLines(root)).toContain(testCase.expected);
-    });
-  });
+  it.each(contract().diagnosticCases.filter(testCase => testCase.mutation !== 'undeclared-dependency'))(
+    '$name reports the exact actionable correction',
+    async testCase => {
+      await withReleaseFixtureAsync(testCase.mutation, async root => {
+        expect(await diagnosticLines(root)).toContain(testCase.expected);
+      });
+    },
+  );
 
-  // Measured at ee4e496a: releasePlan ignores the target and returns all three fixture packages
-  // at 1.0.0-alpha.4 with no manifestChanges field.
-  it.fails('releases one integration without moving either core package', () => {
+  // #750 owns packed-source inspection. #749 validates membership, groups, versions,
+  // ranges, aliases and prerelease promises without pretending a manifest grep proves
+  // that the packed export can execute.
+  it.fails.each(contract().diagnosticCases.filter(testCase => testCase.mutation === 'undeclared-dependency'))(
+    '$name reports the exact actionable correction',
+    async testCase => {
+      await withReleaseFixtureAsync(testCase.mutation, async root => {
+        expect(await diagnosticLines(root)).toContain(testCase.expected);
+      });
+    },
+  );
+
+  it('releases one integration without moving either core package', async () => {
     const fixture = contract();
-    withReleaseFixture(undefined, root => {
-      const targetPlan = releasePlan as unknown as (
-        root: string,
-        target: { readonly kind: 'package'; readonly id: string; readonly version: string },
-      ) => ReleaseTargetPlan;
-      const plan = targetPlan(root, {
+    await withReleaseFixtureAsync(undefined, async root => {
+      const plan = await targetPlan(root, {
         kind: 'package',
         id: fixture.packages.adapter.id,
         version: fixture.versions.integrationNext,
@@ -762,9 +940,213 @@ describe('release groups and compatibility tests freeze (#747)', () => {
         {
           package: fixture.packages.adapter.npmName,
           version: fixture.versions.integrationNext,
-          ranges: {},
+          ranges: {
+            [fixture.packages.coreB.npmName]: fixture.versions.core,
+            ai: `^${fixture.versions.peerFloor}`,
+          },
         },
       ]);
+
+      const json = spawnSync(
+        process.execPath,
+        [
+          PLAN,
+          '--root',
+          root,
+          '--release',
+          fixture.packages.adapter.id,
+          '--version',
+          fixture.versions.integrationNext,
+          '--json',
+        ],
+        { cwd: ROOT, encoding: 'utf8' },
+      );
+      expect(json.status, output(json)).toBe(0);
+      expect(JSON.parse(json.stdout)).toEqual(plan);
+
+      const tsv = spawnSync(
+        process.execPath,
+        [
+          PLAN,
+          '--root',
+          root,
+          '--tag',
+          `${fixture.packages.adapter.id}-v${fixture.versions.integrationNext}`,
+          '--publish-tsv',
+        ],
+        { cwd: ROOT, encoding: 'utf8' },
+      );
+      expect(tsv).toMatchObject({ status: 0, stderr: '' });
+      expect(tsv.stdout).toBe(`${fixture.packages.adapter.directory}\t${fixture.packages.adapter.npmName}\n`);
+    });
+  });
+
+  it('dry-runs core prerelease and stable patch releases without moving integration or writing files', async () => {
+    const fixture = contract();
+    await withReleaseFixtureAsync(undefined, async root => {
+      const watched = [
+        'CHANGELOG.md',
+        `${fixture.packages.coreA.directory}/package.json`,
+        `${fixture.packages.coreB.directory}/package.json`,
+        `${fixture.packages.adapter.directory}/package.json`,
+      ];
+      const before = new Map(watched.map(path => [path, readFileSync(join(root, path), 'utf8')]));
+
+      for (const [version, coreRange] of [
+        [fixture.versions.corePrereleaseNext, fixture.versions.corePrereleaseNext],
+        [fixture.versions.corePatch, `^${fixture.versions.corePatch}`],
+      ] as const) {
+        expect(
+          await targetPlan(root, {
+            kind: 'core',
+            version,
+          }),
+        ).toMatchObject({
+          releaseId: 'core',
+          version,
+          packages: [fixture.packages.coreA.npmName, fixture.packages.coreB.npmName],
+          manifestChanges: [
+            {
+              package: fixture.packages.coreA.npmName,
+              version,
+              ranges: {},
+            },
+            {
+              package: fixture.packages.coreB.npmName,
+              version,
+              ranges: {
+                [fixture.packages.coreA.npmName]: coreRange,
+              },
+            },
+          ],
+        });
+      }
+
+      for (const path of watched) {
+        expect(readFileSync(join(root, path), 'utf8'), path).toBe(before.get(path));
+      }
+    });
+  });
+
+  it('rejects prerelease channels outside alpha.N, beta.N, and rc.N', async () => {
+    await withReleaseFixtureAsync(undefined, async root => {
+      for (const version of ['1.0.0-alpha', '1.0.0-alpha.next', '1.0.0-preview.1']) {
+        await expect(
+          targetPlan(root, {
+            kind: 'core',
+            version,
+          }),
+        ).rejects.toThrow(`release target version ${version} is not a supported SemVer`);
+      }
+    });
+  });
+
+  it('prepares one integration release while preserving core versions and unrelated notes', async () => {
+    const fixture = contract();
+    await withReleaseFixtureAsync(undefined, async root => {
+      writeFileSync(join(root, 'yarn.lock'), 'original-lockfile\n');
+      const result = runBump(root, fixture.packages.adapter.id, fixture.versions.integrationNext);
+
+      expect(result.status, output(result)).toBe(0);
+      expect(result.stdout).toContain(
+        `Prepared ${fixture.packages.adapter.id}@${fixture.versions.integrationNext} across 1 package(s).`,
+      );
+      expect(readFileSync(join(root, 'fake-yarn.log'), 'utf8')).toBe('install --mode=update-lockfile\n');
+      expect(readFileSync(join(root, 'yarn.lock'), 'utf8')).toBe('updated-by-fake-yarn\n');
+
+      expect(readJson<PackageManifest>(join(root, fixture.packages.adapter.directory, 'package.json')).version).toBe(
+        fixture.versions.integrationNext,
+      );
+      for (const core of [fixture.packages.coreA, fixture.packages.coreB]) {
+        expect(readJson<PackageManifest>(join(root, core.directory, 'package.json')).version).toBe(
+          fixture.versions.core,
+        );
+      }
+
+      const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
+      expect(changelog).toContain(`## [${fixture.packages.adapter.id}@${fixture.versions.integrationNext}]`);
+      expect(changelog).toContain('- **adapter:** reserve an integration-only release.');
+      expect(changelog.slice(0, changelog.indexOf(`## [${fixture.packages.adapter.id}@`))).toContain(
+        '- **product:** reserve release-contract fixture changes.',
+      );
+      expect(
+        await targetPlan(root, {
+          kind: 'package',
+          id: fixture.packages.adapter.id,
+          version: fixture.versions.integrationNext,
+        }),
+      ).toMatchObject({
+        releaseId: fixture.packages.adapter.id,
+        version: fixture.versions.integrationNext,
+        packages: [fixture.packages.adapter.npmName],
+      });
+    });
+  });
+
+  it('refuses a dirty worktree before changing release files or invoking Yarn', () => {
+    const fixture = contract();
+    withReleaseFixture(undefined, root => {
+      const watched = [
+        'CHANGELOG.md',
+        `${fixture.packages.coreA.directory}/package.json`,
+        `${fixture.packages.coreB.directory}/package.json`,
+        `${fixture.packages.adapter.directory}/package.json`,
+        'yarn.lock',
+      ];
+      writeFileSync(join(root, 'yarn.lock'), 'original-lockfile\n');
+      const before = new Map(watched.map(path => [path, readFileSync(join(root, path), 'utf8')]));
+
+      const result = runBump(root, fixture.packages.adapter.id, fixture.versions.integrationNext, ' M CHANGELOG.md\n');
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('release preparation requires a clean git worktree');
+      expect(existsSync(join(root, 'fake-yarn.log'))).toBe(false);
+      for (const path of watched) {
+        expect(readFileSync(join(root, path), 'utf8'), path).toBe(before.get(path));
+      }
+    });
+  });
+
+  it('rejects release sections whose dates are not newest first', async () => {
+    await withReleaseFixtureAsync(undefined, async root => {
+      const path = join(root, 'CHANGELOG.md');
+      const source = readFileSync(path, 'utf8').replace(
+        '## [core@1.0.0-alpha.4] - 2026-09-06',
+        '## [core@1.0.0-alpha.4] - 2026-09-05',
+      );
+      writeFileSync(
+        path,
+        `${source.trimEnd()}
+
+## [adapter@1.0.0-alpha.4] - 2026-09-06
+
+### Fixed
+
+- **adapter:** record the newer integration release.`,
+      );
+      expect(await diagnosticLines(root)).toContain(
+        '[RELEASE_CHANGELOG_FORMAT] CHANGELOG.md: release adapter@1.0.0-alpha.4 date 2026-09-06 is newer than the preceding release date 2026-09-05. Remediation: restore the one-project changelog shape in scripts/release/SPEC.md.',
+      );
+    });
+  });
+
+  it('rejects a newer version below an older section for the same release unit', async () => {
+    await withReleaseFixtureAsync(undefined, async root => {
+      const path = join(root, 'CHANGELOG.md');
+      writeFileSync(
+        path,
+        `${readFileSync(path, 'utf8').trimEnd()}
+
+## [core@1.0.0-alpha.5] - 2026-09-05
+
+### Fixed
+
+- **product:** record an invalid later core version.
+`,
+      );
+      expect(await diagnosticLines(root)).toContain(
+        '[RELEASE_CHANGELOG_FORMAT] CHANGELOG.md: release core@1.0.0-alpha.5 is not older than the preceding core@1.0.0-alpha.4. Remediation: restore the one-project changelog shape in scripts/release/SPEC.md.',
+      );
     });
   });
 

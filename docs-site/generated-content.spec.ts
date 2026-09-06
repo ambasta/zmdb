@@ -10,8 +10,10 @@ import { loadGovernanceSnapshot } from '../scripts/architecture/governance.mjs';
 import { PRODUCT_JOURNEY } from './navigation-plan.mjs';
 
 const ROOT = process.cwd();
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
 if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
+if (GOVERNANCE.queries.release === undefined) throw new Error('governance snapshot has no release model');
+const RELEASE_POLICY = GOVERNANCE.queries.release.releasePolicy;
 const ROOT_ARCHITECTURE = 'ARCHITECTURE.md';
 const DOCS_ARCHITECTURE = 'docs-site/content/architecture.md';
 const PACKAGE_REFERENCE = 'docs-site/content/package-reference.md';
@@ -55,7 +57,7 @@ function createFixture(): string {
   for (const file of ['package.json', 'yarn.lock', 'tsconfig.json', '.yarnrc.yml']) {
     symlinkSync(join(ROOT, file), join(fixture, file), 'file');
   }
-  for (const file of [ROOT_ARCHITECTURE, 'PUBLISHING.md', 'docs-README.md']) {
+  for (const file of [ROOT_ARCHITECTURE, 'CHANGELOG.md', 'PUBLISHING.md', 'docs-README.md']) {
     cpSync(join(ROOT, file), join(fixture, file));
   }
   return fixture;
@@ -200,6 +202,9 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
           expect(generated, `${manifest.name}:${name}`).toContain(range);
         }
       }
+      for (const [id, policy] of Object.entries(RELEASE_POLICY)) {
+        expect(generated, id).toContain(policy.group);
+      }
 
       const positions = manifests.map(manifest => generated.indexOf(`| ${manifest.name}`));
       expect(positions.every(position => position >= 0)).toBe(true);
@@ -261,6 +266,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
               expect(generated, `${packageRecord.id}:${peer}:${selector}`).toContain(selector);
             }
           }
+          expect(generated, `${packageRecord.id}:release`).toContain(RELEASE_POLICY[packageRecord.id]?.group);
         }
       }
     });
@@ -369,7 +375,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       writeFileSync(
         publishing,
         readFileSync(publishing, 'utf8').replaceAll(
-          'node scripts/release/plan.mjs --publish-tsv',
+          'node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --publish-tsv',
           'STALE RELEASE PLAN COMMAND',
         ),
       );
@@ -377,7 +383,9 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       const staleResult = verifyGenerated(fixture);
       expect(staleResult.status).not.toBe(0);
       expect(staleResult.output).toContain('PUBLISHING.md');
-      expect(staleResult.output).toContain('node scripts/release/plan.mjs --publish-tsv');
+      expect(staleResult.output).toContain(
+        'node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --publish-tsv',
+      );
     });
   });
 

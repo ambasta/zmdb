@@ -10,7 +10,7 @@
 - `./client` as the Vue/client binding and browser-plugin entry; and
 - `./server` as the Nitro request-transport and server-plugin entry.
 
-Its only production workspace dependencies are `@zmdb/client` and `@zmdb/vue`. Nuxt `>=4.5.0 <5.0.0` and Vue `>=3.5.0 <4.0.0` are required peers. The package has no dependency on web, ORM, schema,
+Its only production workspace dependencies are `@zmdb/client` and `@zmdb/vue`. Nuxt `>=4.5.2 <5.0.0` and Vue `>=3.5.42 <4.0.0` are required peers. The package has no dependency on web, ORM, schema,
 validator, database, Node built-in, cache, state-management, or competing HTTP packages.
 
 Importing any entry performs no request, creates no client, reads no request or environment state, and registers no process-global value. The root module generates framework-only plugin templates when

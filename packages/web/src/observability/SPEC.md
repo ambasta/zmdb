@@ -7,8 +7,8 @@ Health probes are `../health/SPEC.md`. The SQL comment this file's trace context
 the shape of the seam it emits through.
 
 > **Ownership amended by #654, #647 and #662:** generic `Observability`, tracer/meter/span ports and propagation belong to `@zmdb/app`. The OpenTelemetry conversion belongs to `@zmdb/otel`, whose only
-> required peer is `@opentelemetry/api@^1.9.0`. `@zmdb/web/otel` is removed with no forwarding subpath. The adapter borrows caller-owned objects, installs no provider or ambient context, and owns no
-> SDK or exporter.
+> required external peer is `@opentelemetry/api@^1.9.1`. `@zmdb/web/otel` is removed with no forwarding subpath. The adapter borrows caller-owned objects, installs no provider or ambient context, and
+> owns no SDK or exporter.
 
 ## 1. Span names are a public interface
 

@@ -6,7 +6,6 @@ export interface PackagePolicy {
   readonly allowedRuntimeDependencies: readonly string[];
   readonly optionalPeerEntries: Readonly<Record<string, readonly string[]>>;
   readonly toolingEntries: readonly string[];
-  readonly release: 'lockstep';
 }
 
 export const PACKAGE_POLICY: Readonly<Record<string, PackagePolicy>>;

@@ -5,12 +5,23 @@ name: Publish @zmdb packages to npm
 # @zmdb package on npmjs.com pointing at this repo + workflow file `publish.yml`,
 # (2) npm CLI >= 11.5.1 (installed below). See PUBLISHING.md.
 #
-# Trigger: manual dispatch (dry-run only) or a v* tag.
+# Trigger: manual dispatch (dry-run only) or one release-unit tag.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      release:
+        description: core or one independent catalog id
+        required: true
+        default: core
+        type: string
+      version:
+        description: Exact prepared release version
+        required: true
+        type: string
   push:
     tags:
-      - 'v*'
+      - 'core-v*'
+      - '*-v*'
 
 permissions:
   id-token: write # REQUIRED for OIDC trusted publishing
@@ -104,22 +115,31 @@ jobs:
           yarn npm audit --all --recursive --severity high --no-deprecations
           --ignore 1138808 --ignore 1138809
 
-      - name: Verify lockstep version, changelog, tag, membership, and order
+      - name: Resolve the selected release target
+        env:
+          REQUESTED_RELEASE: ${{ inputs.release }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            RELEASE_TAG="${REQUESTED_RELEASE}-v${REQUESTED_VERSION}"
+          else
+            RELEASE_TAG="$GITHUB_REF_NAME"
+          fi
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+
+      - name: Verify release group, version, changelog, tag, membership, and order
         run: |
           yarn verify:governance
           yarn verify:release-governance
-          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            node .github/scripts/verify-release-governance.mjs --tag "$GITHUB_REF_NAME"
-          fi
+          node .github/scripts/verify-release-governance.mjs --tag "$RELEASE_TAG"
 
       - name: Test
         run: yarn vitest run
 
-      # `yarn build` is `workspaces foreach -A -t`, i.e. topological, which the build
-      # requires: a package resolves its `@zmdb/*` imports to the sibling's `dist/*.d.ts`
-      # (see tsconfig.build.json). The loop this replaces named every workspace as
-      # `@zmdb/$pkg`, and the umbrella package is called `zmdb` — so the last iteration
-      # had never built anything.
+      # `yarn build` follows the canonical architecture and release dependency DAG,
+      # which the build requires: a package resolves its `@zmdb/*` imports to the
+      # sibling's `dist/*.d.ts` (see tsconfig.build.json). It also discovers private
+      # build workspaces instead of copying a package list into this workflow.
       - name: Build dist for every package (topological)
         run: yarn build
 
@@ -201,11 +221,11 @@ jobs:
 
       - name: Materialize the verified release plan
         run: |
-          node scripts/release/plan.mjs --json > "$RUNNER_TEMP/zmdb-release-plan.json"
-          node scripts/release/plan.mjs --publish-tsv > "$RUNNER_TEMP/zmdb-publish-order.tsv"
+          node scripts/release/plan.mjs --tag "$RELEASE_TAG" --json > "$RUNNER_TEMP/zmdb-release-plan.json"
+          node scripts/release/plan.mjs --tag "$RELEASE_TAG" --publish-tsv > "$RUNNER_TEMP/zmdb-publish-order.tsv"
 
       - name: Repoint package.json → dist (publish manifest)
-        run: node .github/scripts/repoint-dist.mjs
+        run: node .github/scripts/repoint-dist.mjs --tag "$RELEASE_TAG"
 
       - name: Publish via OIDC (or dry-run) each package
         env:
@@ -215,8 +235,8 @@ jobs:
           set -euo pipefail
           VER=$(node -e "const fs=require('node:fs'); console.log(JSON.parse(fs.readFileSync(process.argv[1], 'utf8')).version)" "$RUNNER_TEMP/zmdb-release-plan.json")
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then DRY=true; else DRY=false; fi
-          # Manual dispatch always packs. Only an exact verified v<version> tag publishes.
-          # The TSV is catalog-owned membership in policy-derived dependency order.
+          # Manual dispatch always packs. Only an exact verified release-unit tag publishes.
+          # The TSV is the selected policy-owned release unit in architecture-derived order.
           # No token: npm detects the GitHub OIDC environment.
           #
           # Tag policy (implements: latest = highest of stable>rc>beta>alpha):

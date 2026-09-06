@@ -4416,7 +4416,7 @@ __metadata:
   resolution: "@zmdb/ai-anthropic@workspace:packages/ai-anthropic"
   dependencies:
     "@anthropic-ai/sdk": "npm:0.124.0"
-    "@zmdb/ai": "workspace:^"
+    "@zmdb/ai": "workspace:1.0.0-alpha.4"
     typescript: "npm:7.0.2"
   peerDependencies:
     "@anthropic-ai/sdk": 0.124.0
@@ -4431,7 +4431,7 @@ __metadata:
   resolution: "@zmdb/ai-langchain@workspace:packages/ai-langchain"
   dependencies:
     "@langchain/core": "npm:1.2.9"
-    "@zmdb/ai": "workspace:^"
+    "@zmdb/ai": "workspace:1.0.0-alpha.4"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
@@ -4449,7 +4449,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/ai-vercel@workspace:packages/ai-vercel"
   dependencies:
-    "@zmdb/ai": "workspace:^"
+    "@zmdb/ai": "workspace:1.0.0-alpha.4"
     ai: "npm:7.0.93"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
@@ -4462,7 +4462,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/ai@workspace:^, @zmdb/ai@workspace:packages/ai":
+"@zmdb/ai@workspace:1.0.0-alpha.4, @zmdb/ai@workspace:^, @zmdb/ai@workspace:packages/ai":
   version: 0.0.0-use.local
   resolution: "@zmdb/ai@workspace:packages/ai"
   dependencies:
@@ -4471,6 +4471,8 @@ __metadata:
     "@zmdb/schema-core": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
+  peerDependencies:
+    "@zmdb/schema-core": 1.0.0-alpha.4
   languageName: unknown
   linkType: soft
 
@@ -4482,8 +4484,8 @@ __metadata:
     rxjs: "npm:7.8.2"
     typescript: "npm:7.0.2"
   peerDependencies:
-    "@angular/core": ">=22.1.0 <23.0.0"
-    rxjs: ">=7.4.0 <8.0.0"
+    "@angular/core": ">=22.1.5 <23.0.0"
+    rxjs: ">=7.8.2 <8.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4520,7 +4522,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/client@workspace:^, @zmdb/client@workspace:packages/client":
+"@zmdb/client@workspace:1.0.0-alpha.4, @zmdb/client@workspace:^, @zmdb/client@workspace:packages/client":
   version: 0.0.0-use.local
   resolution: "@zmdb/client@workspace:packages/client"
   dependencies:
@@ -4533,20 +4535,23 @@ __metadata:
   resolution: "@zmdb/cockroach@workspace:packages/cockroach"
   dependencies:
     "@types/pg": "npm:^8.23.1"
-    "@zmdb/migrations": "workspace:^"
-    "@zmdb/postgres": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
+    "@zmdb/postgres": "workspace:1.0.0-alpha.4"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     pg: "npm:8.23.0"
     typescript: "npm:7.0.2"
+  peerDependencies:
+    "@zmdb/query-compiler": 1.0.0-alpha.4
+    "@zmdb/repository": 1.0.0-alpha.4
   languageName: unknown
   linkType: soft
 
-"@zmdb/compiler@workspace:^, @zmdb/compiler@workspace:packages/compiler":
+"@zmdb/compiler@workspace:1.0.0-alpha.4, @zmdb/compiler@workspace:^, @zmdb/compiler@workspace:packages/compiler":
   version: 0.0.0-use.local
   resolution: "@zmdb/compiler@workspace:packages/compiler"
   dependencies:
-    "@zmdb/ai": "workspace:^"
+    "@zmdb/ai": "workspace:1.0.0-alpha.4"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/mssql": "workspace:^"
     "@zmdb/postgres": "workspace:^"
@@ -4560,6 +4565,9 @@ __metadata:
     protobufjs: "npm:8.8.0"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/aot-validator": 1.0.0-alpha.4
+    "@zmdb/query-compiler": 1.0.0-alpha.4
+    "@zmdb/schema-core": 1.0.0-alpha.4
     metro: ">=0.87.0 <0.88.0"
     metro-babel-transformer: ">=0.87.0 <0.88.0"
     oxlint: ">=1.81.0 <1.82.0"
@@ -4580,10 +4588,11 @@ __metadata:
   dependencies:
     "@types/pg": "npm:^8.23.1"
     "@zmdb/jobs": "workspace:^"
-    "@zmdb/postgres": "workspace:^"
+    "@zmdb/postgres": "workspace:1.0.0-alpha.4"
     pg: "npm:8.23.0"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/jobs": 1.0.0-alpha.4
     pg: ^8.23.0
   languageName: unknown
   linkType: soft
@@ -4595,7 +4604,7 @@ __metadata:
     "@zmdb/app": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
-    "@zmdb/sqlite": "workspace:^"
+    "@zmdb/sqlite": "workspace:1.0.0-alpha.4"
     typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft
@@ -4604,7 +4613,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/mcp@workspace:packages/mcp"
   dependencies:
-    "@zmdb/ai": "workspace:^"
+    "@zmdb/ai": "workspace:1.0.0-alpha.4"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
@@ -4612,7 +4621,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/migrations@workspace:^, @zmdb/migrations@workspace:packages/migrations":
+"@zmdb/migrations@workspace:1.0.0-alpha.4, @zmdb/migrations@workspace:^, @zmdb/migrations@workspace:packages/migrations":
   version: 0.0.0-use.local
   resolution: "@zmdb/migrations@workspace:packages/migrations"
   dependencies:
@@ -4625,6 +4634,8 @@ __metadata:
     "@zmdb/sqlite": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
+  peerDependencies:
+    "@zmdb/query-compiler": 1.0.0-alpha.4
   languageName: unknown
   linkType: soft
 
@@ -4633,12 +4644,14 @@ __metadata:
   resolution: "@zmdb/mssql@workspace:packages/mssql"
   dependencies:
     "@types/mssql": "npm:^12.3.0"
-    "@zmdb/migrations": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     mssql: "npm:12.7.0"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/query-compiler": 1.0.0-alpha.4
+    "@zmdb/repository": 1.0.0-alpha.4
     mssql: ^12.7.0
   peerDependenciesMeta:
     mssql:
@@ -4646,17 +4659,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/mysql@workspace:^, @zmdb/mysql@workspace:packages/mysql":
+"@zmdb/mysql@workspace:1.0.0-alpha.4, @zmdb/mysql@workspace:^, @zmdb/mysql@workspace:packages/mysql":
   version: 0.0.0-use.local
   resolution: "@zmdb/mysql@workspace:packages/mysql"
   dependencies:
     "@types/node": "npm:^26.4.1"
-    "@zmdb/migrations": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     mysql2: "npm:3.24.3"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/query-compiler": 1.0.0-alpha.4
+    "@zmdb/repository": 1.0.0-alpha.4
     mysql2: ^3.24.3
   peerDependenciesMeta:
     mysql2:
@@ -4670,17 +4685,17 @@ __metadata:
   dependencies:
     "@types/react": "npm:19.2.18"
     "@types/react-dom": "npm:19.2.7"
-    "@zmdb/client": "workspace:^"
-    "@zmdb/react": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4"
+    "@zmdb/react": "workspace:1.0.0-alpha.4"
     next: "npm:16.3.4"
     react: "npm:19.2.8"
     react-dom: "npm:19.2.8"
     server-only: "npm:0.0.1"
     typescript: "npm:7.0.2"
   peerDependencies:
-    next: ">=16.3.0 <17.0.0"
-    react: ">=19.2.0 <20.0.0"
-    react-dom: ">=19.2.0 <20.0.0"
+    next: ">=16.3.4 <17.0.0"
+    react: ">=19.2.8 <20.0.0"
+    react-dom: ">=19.2.8 <20.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4688,15 +4703,15 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/nuxt@workspace:packages/nuxt"
   dependencies:
-    "@zmdb/client": "workspace:^"
-    "@zmdb/vue": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4"
+    "@zmdb/vue": "workspace:1.0.0-alpha.4"
     nuxt: "npm:4.5.2"
     rolldown: "npm:1.2.7"
     typescript: "npm:7.0.2"
     vue: "npm:3.5.42"
   peerDependencies:
-    nuxt: ">=4.5.0 <5.0.0"
-    vue: ">=3.5.0 <4.0.0"
+    nuxt: ">=4.5.2 <5.0.0"
+    vue: ">=3.5.42 <4.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4709,21 +4724,24 @@ __metadata:
     "@zmdb/app": "workspace:^"
     typescript: "npm:7.0.2"
   peerDependencies:
-    "@opentelemetry/api": ^1.9.0
+    "@opentelemetry/api": ^1.9.1
+    "@zmdb/app": 1.0.0-alpha.4
   languageName: unknown
   linkType: soft
 
-"@zmdb/postgres@workspace:^, @zmdb/postgres@workspace:packages/postgres":
+"@zmdb/postgres@workspace:1.0.0-alpha.4, @zmdb/postgres@workspace:^, @zmdb/postgres@workspace:packages/postgres":
   version: 0.0.0-use.local
   resolution: "@zmdb/postgres@workspace:packages/postgres"
   dependencies:
     "@types/pg": "npm:^8.23.1"
-    "@zmdb/migrations": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     pg: "npm:8.23.0"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/query-compiler": 1.0.0-alpha.4
+    "@zmdb/repository": 1.0.0-alpha.4
     pg: ^8.23.0
   peerDependenciesMeta:
     pg:
@@ -4731,7 +4749,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/protobuf@workspace:^, @zmdb/protobuf@workspace:packages/protobuf":
+"@zmdb/protobuf@workspace:1.0.0-alpha.4, @zmdb/protobuf@workspace:^, @zmdb/protobuf@workspace:packages/protobuf":
   version: 0.0.0-use.local
   resolution: "@zmdb/protobuf@workspace:packages/protobuf"
   dependencies:
@@ -4756,33 +4774,33 @@ __metadata:
   dependencies:
     "@types/react": "npm:19.2.18"
     "@types/react-test-renderer": "npm:19.1.0"
-    "@zmdb/client": "workspace:^"
-    "@zmdb/react": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4"
+    "@zmdb/react": "workspace:1.0.0-alpha.4"
     metro: "npm:0.87.0"
     react: "npm:19.2.8"
     react-native: "npm:0.87.1"
     react-test-renderer: "npm:19.2.8"
     typescript: "npm:7.0.2"
   peerDependencies:
-    react: ">=19.2.0 <20.0.0"
-    react-native: ">=0.87.0 <0.88.0"
+    react: ">=19.2.8 <20.0.0"
+    react-native: ">=0.87.1 <0.88.0"
   languageName: unknown
   linkType: soft
 
-"@zmdb/react@workspace:^, @zmdb/react@workspace:packages/react":
+"@zmdb/react@workspace:1.0.0-alpha.4, @zmdb/react@workspace:^, @zmdb/react@workspace:packages/react":
   version: 0.0.0-use.local
   resolution: "@zmdb/react@workspace:packages/react"
   dependencies:
     "@types/react": "npm:19.2.18"
     "@types/react-dom": "npm:19.2.7"
     "@types/react-test-renderer": "npm:19.1.0"
-    "@zmdb/client": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4"
     react: "npm:19.2.8"
     react-dom: "npm:19.2.8"
     react-test-renderer: "npm:19.2.8"
     typescript: "npm:7.0.2"
   peerDependencies:
-    react: ">=19.2.0 <20.0.0"
+    react: ">=19.2.8 <20.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4819,13 +4837,15 @@ __metadata:
   resolution: "@zmdb/singlestore@workspace:packages/singlestore"
   dependencies:
     "@types/node": "npm:^26.4.1"
-    "@zmdb/migrations": "workspace:^"
-    "@zmdb/mysql": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
+    "@zmdb/mysql": "workspace:1.0.0-alpha.4"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     mysql2: "npm:3.24.3"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/query-compiler": 1.0.0-alpha.4
+    "@zmdb/repository": 1.0.0-alpha.4
     mysql2: ^3.24.3
   peerDependenciesMeta:
     mysql2:
@@ -4837,36 +4857,39 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/solid@workspace:packages/solid"
   dependencies:
-    "@zmdb/client": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4"
     solid-js: "npm:1.9.15"
     typescript: "npm:7.0.2"
   peerDependencies:
-    solid-js: ">=1.9.0 <2.0.0"
+    solid-js: ">=1.9.15 <2.0.0"
   languageName: unknown
   linkType: soft
 
-"@zmdb/sqlite@workspace:^, @zmdb/sqlite@workspace:packages/sqlite":
+"@zmdb/sqlite@workspace:1.0.0-alpha.4, @zmdb/sqlite@workspace:^, @zmdb/sqlite@workspace:packages/sqlite":
   version: 0.0.0-use.local
   resolution: "@zmdb/sqlite@workspace:packages/sqlite"
   dependencies:
     "@zmdb/compiler": "workspace:^"
-    "@zmdb/migrations": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
+  peerDependencies:
+    "@zmdb/query-compiler": 1.0.0-alpha.4
+    "@zmdb/repository": 1.0.0-alpha.4
   languageName: unknown
   linkType: soft
 
-"@zmdb/svelte@workspace:^, @zmdb/svelte@workspace:packages/svelte":
+"@zmdb/svelte@workspace:1.0.0-alpha.4, @zmdb/svelte@workspace:^, @zmdb/svelte@workspace:packages/svelte":
   version: 0.0.0-use.local
   resolution: "@zmdb/svelte@workspace:packages/svelte"
   dependencies:
-    "@zmdb/client": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4"
     svelte: "npm:5.57.0"
     typescript: "npm:7.0.2"
   peerDependencies:
-    svelte: ">=5.0.0 <6.0.0"
+    svelte: ">=5.57.0 <6.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4876,14 +4899,14 @@ __metadata:
   dependencies:
     "@sveltejs/kit": "npm:2.70.3"
     "@sveltejs/vite-plugin-svelte": "npm:7.3.0"
-    "@zmdb/client": "workspace:^"
-    "@zmdb/svelte": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4"
+    "@zmdb/svelte": "workspace:1.0.0-alpha.4"
     svelte: "npm:5.57.0"
     typescript: "npm:7.0.2"
     vite: "npm:8.2.2"
   peerDependencies:
-    "@sveltejs/kit": ">=2.70.0 <3.0.0"
-    svelte: ">=5.0.0 <6.0.0"
+    "@sveltejs/kit": ">=2.70.3 <3.0.0"
+    svelte: ">=5.57.0 <6.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4894,11 +4917,12 @@ __metadata:
     "@grpc/grpc-js": "npm:1.14.4"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
-    "@zmdb/protobuf": "workspace:^"
+    "@zmdb/protobuf": "workspace:1.0.0-alpha.4"
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
   peerDependencies:
-    "@grpc/grpc-js": ^1.14.0
+    "@grpc/grpc-js": ^1.14.4
+    "@zmdb/app": 1.0.0-alpha.4
   languageName: unknown
   linkType: soft
 
@@ -4911,6 +4935,7 @@ __metadata:
     typescript: "npm:7.0.2"
   peerDependencies:
     "@nats-io/transport-node": ^3.4.0
+    "@zmdb/app": 1.0.0-alpha.4
   languageName: unknown
   linkType: soft
 
@@ -4922,6 +4947,7 @@ __metadata:
     amqplib: "npm:2.0.1"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/app": 1.0.0-alpha.4
     amqplib: ^2.0.1
   languageName: unknown
   linkType: soft
@@ -4934,19 +4960,20 @@ __metadata:
     redis: "npm:6.2.1"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/app": 1.0.0-alpha.4
     redis: ^6.2.1
   languageName: unknown
   linkType: soft
 
-"@zmdb/vue@workspace:^, @zmdb/vue@workspace:packages/vue":
+"@zmdb/vue@workspace:1.0.0-alpha.4, @zmdb/vue@workspace:^, @zmdb/vue@workspace:packages/vue":
   version: 0.0.0-use.local
   resolution: "@zmdb/vue@workspace:packages/vue"
   dependencies:
-    "@zmdb/client": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4"
     typescript: "npm:7.0.2"
     vue: "npm:3.5.42"
   peerDependencies:
-    vue: ">=3.5.0 <4.0.0"
+    vue: ">=3.5.42 <4.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4961,8 +4988,8 @@ __metadata:
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
   peerDependencies:
-    "@zmdb/compiler": "workspace:^"
-    typescript: ">=7.0.0"
+    "@zmdb/compiler": 1.0.0-alpha.4
+    typescript: ">=7.0.2 <8.0.0"
   peerDependenciesMeta:
     "@zmdb/compiler":
       optional: true
@@ -12690,8 +12717,8 @@ __metadata:
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
     "@zmdb/cockroach": "workspace:^"
-    "@zmdb/compiler": "workspace:^"
-    "@zmdb/migrations": "workspace:^"
+    "@zmdb/compiler": "workspace:1.0.0-alpha.4"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
     "@zmdb/mssql": "workspace:^"
     "@zmdb/mysql": "workspace:^"
     "@zmdb/postgres": "workspace:^"
@@ -12705,12 +12732,12 @@ __metadata:
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
   peerDependencies:
-    "@zmdb/cockroach": "workspace:^"
-    "@zmdb/mssql": "workspace:^"
-    "@zmdb/mysql": "workspace:^"
-    "@zmdb/postgres": "workspace:^"
-    "@zmdb/singlestore": "workspace:^"
-    "@zmdb/sqlite": "workspace:^"
+    "@zmdb/cockroach": 1.0.0-alpha.4
+    "@zmdb/mssql": 1.0.0-alpha.4
+    "@zmdb/mysql": 1.0.0-alpha.4
+    "@zmdb/postgres": 1.0.0-alpha.4
+    "@zmdb/singlestore": 1.0.0-alpha.4
+    "@zmdb/sqlite": 1.0.0-alpha.4
   peerDependenciesMeta:
     "@zmdb/cockroach":
       optional: true

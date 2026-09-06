@@ -58,8 +58,105 @@ export function releaseChannel(version) {
   const parsed = typeof version === 'string' ? parseSemver(version) : version;
   if (parsed === undefined) return undefined;
   if (parsed.prerelease.length === 0) return 'latest';
-  const channel = parsed.prerelease[0];
-  return channel === 'alpha' || channel === 'beta' || channel === 'rc' ? channel : undefined;
+  const [channel, iteration] = parsed.prerelease;
+  return parsed.prerelease.length === 2 &&
+    (channel === 'alpha' || channel === 'beta' || channel === 'rc') &&
+    iteration !== undefined &&
+    /^\d+$/.test(iteration)
+    ? channel
+    : undefined;
+}
+
+function upperBoundForCaret(version) {
+  if (version.major > 0) {
+    return { ...version, major: version.major + 1, minor: 0, patch: 0, prerelease: [] };
+  }
+  if (version.minor > 0) {
+    return { ...version, minor: version.minor + 1, patch: 0, prerelease: [] };
+  }
+  return { ...version, patch: version.patch + 1, prerelease: [] };
+}
+
+function upperBoundForTilde(version) {
+  return { ...version, minor: version.minor + 1, patch: 0, prerelease: [] };
+}
+
+function satisfiesComparator(version, operator, target) {
+  const compared = compareSemver(version, target);
+  if (operator === '>') return compared > 0;
+  if (operator === '>=') return compared >= 0;
+  if (operator === '<') return compared < 0;
+  if (operator === '<=') return compared <= 0;
+  return compared === 0;
+}
+
+function rangeBranchFloor(branch) {
+  if (branch.startsWith('^') || branch.startsWith('~')) {
+    return parseSemver(branch.slice(1));
+  }
+  const exact = parseSemver(branch);
+  if (exact !== undefined) return exact;
+
+  const lowerBounds = [];
+  for (const comparator of branch.split(/\s+/)) {
+    const match = /^(<=|>=|<|>|=)?(.+)$/.exec(comparator);
+    if (match === null) return undefined;
+    const target = parseSemver(match[2]);
+    if (target === undefined) return undefined;
+    const operator = match[1] ?? '=';
+    if (operator === '>') return undefined;
+    if (operator === '>=' || operator === '=') lowerBounds.push(target);
+  }
+  if (lowerBounds.length === 0) return undefined;
+  return lowerBounds.reduce((highest, candidate) => (compareSemver(candidate, highest) > 0 ? candidate : highest));
+}
+
+export function rangeFloor(range) {
+  if (typeof range !== 'string' || range.trim().length === 0) return undefined;
+  const floors = range
+    .split('||')
+    .map(branch => rangeBranchFloor(branch.trim()))
+    .filter(floor => floor !== undefined);
+  if (floors.length !== range.split('||').length || floors.length === 0) return undefined;
+  return floors.reduce((lowest, candidate) => (compareSemver(candidate, lowest) < 0 ? candidate : lowest));
+}
+
+export function satisfiesRange(version, range) {
+  const parsedVersion = typeof version === 'string' ? parseSemver(version) : version;
+  if (parsedVersion === undefined || typeof range !== 'string' || range.trim().length === 0) return false;
+  return range.split('||').some(branch => {
+    const trimmed = branch.trim();
+    if (trimmed === '*' || trimmed.toLowerCase() === 'latest') return true;
+    if (trimmed.startsWith('^')) {
+      const lower = parseSemver(trimmed.slice(1));
+      return (
+        lower !== undefined &&
+        compareSemver(parsedVersion, lower) >= 0 &&
+        compareSemver(parsedVersion, upperBoundForCaret(lower)) < 0
+      );
+    }
+    if (trimmed.startsWith('~')) {
+      const lower = parseSemver(trimmed.slice(1));
+      return (
+        lower !== undefined &&
+        compareSemver(parsedVersion, lower) >= 0 &&
+        compareSemver(parsedVersion, upperBoundForTilde(lower)) < 0
+      );
+    }
+    const exact = parseSemver(trimmed);
+    if (exact !== undefined) return compareSemver(parsedVersion, exact) === 0;
+
+    const comparators = trimmed.split(/\s+/);
+    return (
+      comparators.length > 0 &&
+      comparators.every(comparator => {
+        const match = /^(<=|>=|<|>|=)?(.+)$/.exec(comparator);
+        if (match === null) return false;
+        const target = parseSemver(match[2]);
+        return target !== undefined && satisfiesComparator(parsedVersion, match[1] ?? '=', target);
+      })
+    );
+  });
 }
 
 function validDate(value) {
@@ -153,10 +250,22 @@ function validateSection(section, owners, diagnostics) {
   return bulletCount;
 }
 
-export function parseChangelog(source, ownerIds) {
+function releaseOwnerMap(value) {
+  if (value instanceof Map) return value;
+  if (Array.isArray(value)) return new Map([['core', new Set([...value, 'product'])]]);
+  return new Map(
+    Object.entries(value).map(([releaseId, owners]) => [
+      releaseId,
+      new Set(releaseId === 'core' ? [...owners, 'product'] : owners),
+    ]),
+  );
+}
+
+export function parseChangelog(source, releaseOwners) {
   const lines = source.replace(/\r\n/g, '\n').split('\n');
   const diagnostics = [];
-  const owners = new Set([...ownerIds, 'product']);
+  const ownersByRelease = releaseOwnerMap(releaseOwners);
+  const owners = new Set(['product', ...[...ownersByRelease.values()].flatMap(value => [...value])]);
   const levelOneHeadings = lines.map((line, index) => ({ index, line })).filter(item => item.line.startsWith('# '));
   if (
     levelOneHeadings.length !== 1 ||
@@ -173,32 +282,48 @@ export function parseChangelog(source, ownerIds) {
       headings.push({ kind: 'unreleased', index, label: 'Unreleased' });
       continue;
     }
-    const release = /^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})$/.exec(line);
+    const release = /^## \[([^@\]]+)@([^\]]+)\] - (\d{4}-\d{2}-\d{2})$/.exec(line);
     if (release === null) {
       diagnostics.push(
         changelogFormat(`CHANGELOG.md line ${String(index + 1)}`, `invalid release heading ${JSON.stringify(line)}`),
       );
       continue;
     }
-    const version = parseSemver(release[1]);
+    const releaseId = release[1];
+    const version = parseSemver(release[2]);
     if (version === undefined) {
       diagnostics.push(
         changelogFormat(
           `CHANGELOG.md line ${String(index + 1)}`,
-          `released heading contains invalid SemVer ${release[1]}`,
+          `released heading contains invalid SemVer ${release[2]}`,
         ),
       );
       continue;
     }
-    if (!validDate(release[2])) {
+    if (!ownersByRelease.has(releaseId)) {
       diagnostics.push(
         changelogFormat(
           `CHANGELOG.md line ${String(index + 1)}`,
-          `released heading contains invalid date ${release[2]}`,
+          `released heading contains unknown release id ${releaseId}`,
         ),
       );
     }
-    headings.push({ kind: 'release', index, label: release[1], version, date: release[2] });
+    if (!validDate(release[3])) {
+      diagnostics.push(
+        changelogFormat(
+          `CHANGELOG.md line ${String(index + 1)}`,
+          `released heading contains invalid date ${release[3]}`,
+        ),
+      );
+    }
+    headings.push({
+      kind: 'release',
+      index,
+      label: `${releaseId}@${version.source}`,
+      releaseId,
+      version,
+      date: release[3],
+    });
   }
 
   const firstHeading = headings[0]?.index ?? lines.length;
@@ -219,7 +344,8 @@ export function parseChangelog(source, ownerIds) {
 
   const releases = new Map();
   let unreleased;
-  let previousVersion;
+  let previousReleaseDate;
+  const previousVersionByRelease = new Map();
   for (const [headingIndex, heading] of headings.entries()) {
     const endLine = headings[headingIndex + 1]?.index ?? lines.length;
     const section = {
@@ -228,9 +354,12 @@ export function parseChangelog(source, ownerIds) {
       endLine,
       lines: lines.slice(heading.index + 1, endLine),
     };
-    const bulletCount = validateSection(section, owners, diagnostics);
+    const sectionOwners = heading.kind === 'release' ? (ownersByRelease.get(heading.releaseId) ?? new Set()) : owners;
+    const bulletCount = validateSection(section, sectionOwners, diagnostics);
     const record = Object.freeze({
       label: heading.label,
+      releaseId: heading.releaseId,
+      version: heading.version?.source,
       date: heading.date,
       startLine: heading.index,
       endLine,
@@ -242,19 +371,33 @@ export function parseChangelog(source, ownerIds) {
       continue;
     }
     if (releases.has(heading.label)) {
-      diagnostics.push(changelogFormat('CHANGELOG.md', `version ${heading.label} appears more than once`));
+      diagnostics.push(changelogFormat('CHANGELOG.md', `release ${heading.label} appears more than once`));
     } else {
       releases.set(heading.label, record);
     }
     if (bulletCount === 0) {
       diagnostics.push(changelogFormat(heading.label, 'released section has no release-note bullet'));
     }
-    if (previousVersion !== undefined && compareSemver(previousVersion, heading.version) <= 0) {
+    if (previousReleaseDate !== undefined && validDate(heading.date) && heading.date > previousReleaseDate) {
       diagnostics.push(
-        changelogFormat('CHANGELOG.md', `released version ${heading.label} is not older than the preceding section`),
+        changelogFormat(
+          'CHANGELOG.md',
+          `release ${heading.label} date ${heading.date} is newer than the preceding release date ${previousReleaseDate}`,
+        ),
       );
     }
-    previousVersion = heading.version;
+    if (validDate(heading.date)) previousReleaseDate = heading.date;
+
+    const previousVersion = previousVersionByRelease.get(heading.releaseId);
+    if (previousVersion !== undefined && compareSemver(previousVersion, heading.version) <= 0) {
+      diagnostics.push(
+        changelogFormat(
+          'CHANGELOG.md',
+          `release ${heading.label} is not older than the preceding ${heading.releaseId}@${previousVersion.source}`,
+        ),
+      );
+    }
+    previousVersionByRelease.set(heading.releaseId, heading.version);
   }
 
   return Object.freeze({

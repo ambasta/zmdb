@@ -93,7 +93,7 @@ Two concurrent request injectors with distinct generated clients and credentials
 The committed dependency boundary is:
 
 - workspace dependencies: none; generated clients use `@zmdb/client`, but this adapter receives their public method shape without importing or inspecting that runtime;
-- required peers: `@angular/core` at `>=22.1.0 <23.0.0` and `rxjs` at `>=7.4.0 <8.0.0`;
+- required peers: `@angular/core` at `>=22.1.5 <23.0.0` and `rxjs` at `>=7.8.2 <8.0.0`;
 - exact conformance versions: Angular `22.1.5` and RxJS `7.8.2`.
 
 `@angular/common` and `HttpClient` are not imported, bundled, or declared as peers. Applications that choose `HttpClient` adapt it while constructing their generated client; this package receives the

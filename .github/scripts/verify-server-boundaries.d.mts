@@ -1,3 +1,4 @@
+import type { GovernanceReleaseQuery } from '../../scripts/architecture/governance.mjs';
 import type { Architecture } from '../../scripts/architecture/index.mjs';
 
 export interface CoreServerPackageTarget {
@@ -22,17 +23,29 @@ export interface CoreServerBoundaryReport {
 export function findServerPackageCycle(edges: readonly (readonly [string, string])[]): readonly string[] | null;
 export function analyzeAppKernelBoundary(
   root: string | undefined,
-  options: { readonly architecture: Architecture },
+  options: { readonly architecture: Architecture; readonly release?: GovernanceReleaseQuery },
 ): readonly string[];
 export function analyzeCoreServerBoundaries(
   root: string | undefined,
-  options: { readonly architecture: Architecture; readonly requireAll?: boolean },
+  options: {
+    readonly architecture: Architecture;
+    readonly release?: GovernanceReleaseQuery;
+    readonly requireAll?: boolean;
+  },
 ): CoreServerBoundaryReport;
 export function analyzeOptionalServerPackages(
   root: string | undefined,
-  options: { readonly architecture: Architecture; readonly requireAll?: boolean },
+  options: {
+    readonly architecture: Architecture;
+    readonly release?: GovernanceReleaseQuery;
+    readonly requireAll?: boolean;
+  },
 ): readonly string[];
 export function analyzeServerBoundaries(
   root: string | undefined,
-  options: { readonly architecture: Architecture; readonly requireAll?: boolean },
+  options: {
+    readonly architecture: Architecture;
+    readonly release?: GovernanceReleaseQuery;
+    readonly requireAll?: boolean;
+  },
 ): readonly string[];

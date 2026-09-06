@@ -177,7 +177,7 @@ export function readGovernanceRelationshipSnapshot(path) {
   return snapshot;
 }
 
-async function inspectGovernanceExceptions({ root, architecture, packageGraph, issues, requireOwnerStates }) {
+async function inspectGovernanceExceptions({ root, architecture, release, packageGraph, issues, requireOwnerStates }) {
   const [databaseModule, runtimeModule, serverModule, toolingModule] = await Promise.all([
     import(
       `${pathToFileURL(join(DEFAULT_ROOT, '.github', 'scripts', 'verify-database-boundaries.mjs')).href}?governance-exceptions=1`
@@ -195,7 +195,7 @@ async function inspectGovernanceExceptions({ root, architecture, packageGraph, i
   const [database, runtime, server, tooling] = await Promise.all([
     databaseModule.inspectDatabaseBoundaries(root, { architecture }),
     Promise.resolve(runtimeModule.inspectRuntimeFoundation(root, { architecture })),
-    Promise.resolve(serverModule.analyzeServerBoundaries(root, { architecture })),
+    Promise.resolve(serverModule.analyzeServerBoundaries(root, { architecture, release })),
     Promise.resolve(toolingModule.analyseToolingBoundaries({ root, architecture, classifyExceptions: false })),
   ]);
   const rawBySource = {
@@ -276,25 +276,9 @@ export async function loadGovernanceSnapshot(input) {
     values.push(...findings('metadata', queries.metadata.diagnostics));
   }
 
-  if (checks.has('product')) {
-    const { inspectProductCatalog } = await import(
-      `${pathToFileURL(join(DEFAULT_ROOT, '.github', 'scripts', 'verify-product-catalog.mjs')).href}?governance=1`
-    );
-    queries.product = await inspectProductCatalog(root, { architecture });
-    const productProblems = [
-      ...queries.product.membershipProblems,
-      ...queries.product.facadeProblems,
-      ...queries.product.generatedProblems,
-      ...queries.product.consumerProblems,
-    ].map(
-      problem =>
-        `[PRODUCT_CATALOG_INVALID] product catalog: ${problem}. Remediation: restore the canonical catalog projection.`,
-    );
-    values.push(...findings('product', productProblems));
-  }
-
   let release = null;
-  if (checks.has('release')) {
+  const exceptionsNeedRelease = checks.has('exceptions') && existsSync(join(root, 'scripts', 'release', 'policy.mjs'));
+  if (checks.has('release') || checks.has('product') || exceptionsNeedRelease) {
     try {
       queries.release = releaseModel(root, { architecture });
       release = queries.release.plan;
@@ -307,10 +291,28 @@ export async function loadGovernanceSnapshot(input) {
     }
   }
 
+  if (checks.has('product')) {
+    const { inspectProductCatalog } = await import(
+      `${pathToFileURL(join(DEFAULT_ROOT, '.github', 'scripts', 'verify-product-catalog.mjs')).href}?governance=1`
+    );
+    queries.product = await inspectProductCatalog(root, { architecture, release: queries.release });
+    const productProblems = [
+      ...queries.product.membershipProblems,
+      ...queries.product.facadeProblems,
+      ...queries.product.generatedProblems,
+      ...queries.product.consumerProblems,
+    ].map(
+      problem =>
+        `[PRODUCT_CATALOG_INVALID] product catalog: ${problem}. Remediation: restore the canonical catalog projection.`,
+    );
+    values.push(...findings('product', productProblems));
+  }
+
   if (checks.has('exceptions')) {
     queries.exceptions = await inspectGovernanceExceptions({
       root,
       architecture,
+      release: queries.release,
       packageGraph,
       issues,
       requireOwnerStates: input.requireExceptionOwnerStates ?? input.relationships !== undefined,
@@ -548,12 +550,16 @@ export async function verifyConsumerParity({ root, inventory }) {
     exceptions: await inspectGovernanceExceptions({
       root,
       architecture: snapshot.architecture,
+      release: snapshot.queries.release,
       packageGraph: snapshot.packageGraph,
       issues: snapshot.issues,
       requireOwnerStates: false,
     }),
     metadata: await metadataModule.inspectPackageMetadata(root, { architecture: snapshot.architecture }),
-    product: await productModule.inspectProductCatalog(root, { architecture: snapshot.architecture }),
+    product: await productModule.inspectProductCatalog(root, {
+      architecture: snapshot.architecture,
+      release: snapshot.queries.release,
+    }),
     release: releaseModel(root, { architecture: snapshot.architecture }),
     runtime: await runtimeModule.verifyRuntimeReachability(root, { architecture: snapshot.architecture }),
   };
@@ -572,7 +578,10 @@ export async function verifyConsumerParity({ root, inventory }) {
   const { checkGeneratedDocumentation } = await import(
     `${pathToFileURL(join(root, 'docs-site', 'generated.mjs')).href}?governance=1`
   );
-  const generated = checkGeneratedDocumentation(root, { architecture: snapshot.architecture });
+  const generated = checkGeneratedDocumentation(root, {
+    architecture: snapshot.architecture,
+    release: snapshot.queries.release,
+  });
   problems.push(...generated.problems.map(problem => `generated:${problem}`));
 
   return Object.freeze({

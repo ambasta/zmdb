@@ -16,7 +16,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { publishManifest, publishTrain } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import { withPackedBuildLock } from '../../../fixtures/client-adapters/src/packed-project.js';
 import {
   Cron as JobsCron,
@@ -34,7 +34,6 @@ import {
 const ROOT = resolve(import.meta.dirname, '../../..');
 const PACKAGES = join(ROOT, 'packages');
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-jobs-selection');
-const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const PACKED_TIMEOUT_MS = 600_000;
 const COMMAND_TIMEOUT_MS = 120_000;
 
@@ -198,6 +197,30 @@ function workspacePackages(): ReadonlyMap<string, WorkspacePackage> {
   return packages;
 }
 
+function workspaceVersion(packages: ReadonlyMap<string, WorkspacePackage>, name: string): string {
+  const version = packages.get(name)?.manifest.version;
+  if (typeof version !== 'string') throw new Error(`${name} has no workspace version`);
+  return version;
+}
+
+function requiredOfficialPeers(manifest: PackageManifest): readonly string[] {
+  return Object.keys(manifest.peerDependencies ?? {})
+    .filter(
+      name =>
+        official(name) &&
+        (manifest.peerDependenciesMeta?.[name] as Readonly<Record<string, unknown>> | undefined)?.optional !== true,
+    )
+    .toSorted();
+}
+
+function runtimeDependencies(manifest: PackageManifest): readonly string[] {
+  return [
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.optionalDependencies ?? {}),
+    ...requiredOfficialPeers(manifest),
+  ].toSorted();
+}
+
 function workspaceClosure(
   packages: ReadonlyMap<string, WorkspacePackage>,
   roots: readonly string[],
@@ -210,7 +233,7 @@ function workspaceClosure(
     const pkg = packages.get(name);
     if (pkg === undefined) throw new Error(`SELECTION_PROVIDER_MISSING: workspace package ${name} is absent`);
     visited.add(name);
-    for (const dependency of Object.keys(pkg.manifest.dependencies ?? {}).toSorted()) {
+    for (const dependency of runtimeDependencies(pkg.manifest)) {
       if (packages.has(dependency)) visit(dependency);
     }
     order.push(name);
@@ -265,7 +288,7 @@ function packPackages(
     if (pkg === undefined) throw new Error(`cannot pack absent workspace package ${name}`);
     const stage = join(stageRoot, String(index));
     copyPackage(pkg.directory, stage);
-    const published = publishManifest(pkg.manifest, RELEASE_VERSION) as Readonly<Record<string, unknown>>;
+    const published = publishManifest(pkg.manifest) as Readonly<Record<string, unknown>>;
     writeFileSync(join(stage, 'package.json'), `${JSON.stringify(published, null, 2)}\n`);
     const packed = run('npm', ['pack', '--json', '--pack-destination', archiveRoot], stage, {
       COREPACK_ENABLE_PROJECT_SPEC: '0',
@@ -360,11 +383,7 @@ function installedGraph(root: string, packages: ReadonlyMap<string, InstalledPac
     const pkg = packages.get(name);
     if (pkg === undefined) throw new Error(`installed graph is missing ${name}`);
     closure.push(name);
-    const dependencies = {
-      ...pkg.manifest.dependencies,
-      ...pkg.manifest.optionalDependencies,
-    };
-    for (const dependency of Object.keys(dependencies).toSorted()) {
+    for (const dependency of runtimeDependencies(pkg.manifest)) {
       if (!packages.has(dependency) || paths.has(dependency)) continue;
       paths.set(dependency, [...(paths.get(name) ?? [name]), dependency]);
       queue.push(dependency);
@@ -595,12 +614,7 @@ function official(name: string): boolean {
 }
 
 function directOfficial(manifest: PackageManifest): readonly string[] {
-  return Object.keys({
-    ...manifest.dependencies,
-    ...manifest.optionalDependencies,
-  })
-    .filter(official)
-    .toSorted();
+  return runtimeDependencies(manifest).filter(official);
 }
 
 function formatPath(graph: InstalledGraph, name: string): string {
@@ -952,7 +966,10 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
     mutation.packages.set('@zmdb/jobs', installedJobs);
     replaceManifest(mutation.packages, 'zmdb', manifest => ({
       ...manifest,
-      dependencies: { ...manifest.dependencies, '@zmdb/jobs': RELEASE_VERSION },
+      dependencies: {
+        ...manifest.dependencies,
+        '@zmdb/jobs': workspaceVersion(matrix.workspace, '@zmdb/jobs'),
+      },
     }));
     expect(selectionDiagnostics(mutation.graph())).toContain('SELECTION_DEFAULT_LEAK: zmdb -> @zmdb/jobs');
   });
@@ -967,8 +984,8 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
     replaceManifest(mutation.packages, '@zmdb/jobs', manifest => ({
       ...manifest,
       dependencies: {
-        '@zmdb/app': RELEASE_VERSION,
-        '@zmdb/sqlite': RELEASE_VERSION,
+        '@zmdb/app': workspaceVersion(matrix.workspace, '@zmdb/app'),
+        '@zmdb/sqlite': workspaceVersion(matrix.workspace, '@zmdb/sqlite'),
       },
     }));
     expect(selectionDiagnostics(mutation.graph())).toContain('SELECTION_PROVIDER_LEAK: @zmdb/jobs -> @zmdb/sqlite');
@@ -983,13 +1000,13 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
     }
     replaceManifest(mutation.packages, '@zmdb/jobs', manifest => ({
       ...manifest,
-      dependencies: { '@zmdb/app': RELEASE_VERSION },
+      dependencies: { '@zmdb/app': workspaceVersion(matrix.workspace, '@zmdb/app') },
     }));
     replaceManifest(mutation.packages, '@zmdb/jobs-postgres', manifest => ({
       ...manifest,
       dependencies: {
         ...manifest.dependencies,
-        '@zmdb/sqlite': RELEASE_VERSION,
+        '@zmdb/sqlite': workspaceVersion(matrix.workspace, '@zmdb/sqlite'),
       },
     }));
     expect(selectionDiagnostics(mutation.graph(), { pg: '8.23.0' })).toContain(

@@ -97,8 +97,8 @@
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
-    "@zmdb/compiler": "workspace:^",
-    "@zmdb/migrations": "workspace:^",
+    "@zmdb/compiler": "workspace:1.0.0-alpha.4",
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4",
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
@@ -117,12 +117,12 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@zmdb/cockroach": "workspace:^",
-    "@zmdb/mssql": "workspace:^",
-    "@zmdb/mysql": "workspace:^",
-    "@zmdb/postgres": "workspace:^",
-    "@zmdb/singlestore": "workspace:^",
-    "@zmdb/sqlite": "workspace:^"
+    "@zmdb/cockroach": "1.0.0-alpha.4",
+    "@zmdb/mssql": "1.0.0-alpha.4",
+    "@zmdb/mysql": "1.0.0-alpha.4",
+    "@zmdb/postgres": "1.0.0-alpha.4",
+    "@zmdb/singlestore": "1.0.0-alpha.4",
+    "@zmdb/sqlite": "1.0.0-alpha.4"
   },
   "peerDependenciesMeta": {
     "@zmdb/cockroach": {

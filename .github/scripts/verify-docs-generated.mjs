@@ -12,10 +12,14 @@ if (root === undefined) throw new Error('could not locate docs-site/generated.mj
 const { loadGovernanceSnapshot } = await import(
   pathToFileURL(join(root, 'scripts', 'architecture', 'governance.mjs')).href
 );
-const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
+const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
 if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+if (snapshot.queries.release === undefined) throw new Error('governance snapshot has no release model');
 const generated = await import(pathToFileURL(join(root, 'docs-site', 'generated.mjs')).href);
-const report = generated.checkGeneratedDocumentation(root, { architecture: snapshot.architecture });
+const report = generated.checkGeneratedDocumentation(root, {
+  architecture: snapshot.architecture,
+  release: snapshot.queries.release,
+});
 
 if (report.problems.length > 0) {
   for (const problem of report.problems) console.error(`[ERROR] ${problem}`);

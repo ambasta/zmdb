@@ -11,14 +11,20 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { releaseTargetFromTag } from '../../scripts/release/plan.mjs';
 import { ROOT, publishManifest, publishTrain } from './lib/publish-manifest.mjs';
 
-const release = await publishTrain(ROOT);
+const tagIndex = process.argv.indexOf('--tag');
+const tag = tagIndex === -1 ? undefined : process.argv[tagIndex + 1];
+if (tag === undefined || process.argv.length !== 4) {
+  throw new Error('usage: node .github/scripts/repoint-dist.mjs --tag <release-id>-v<version>');
+}
+const release = await publishTrain(ROOT, releaseTargetFromTag(tag));
 let missing = 0;
 for (const packageRecord of release.packages) {
   const pkgDir = join(ROOT, packageRecord.directory);
   const pkgPath = join(pkgDir, 'package.json');
-  const pkg = publishManifest(packageRecord.manifest, release.version);
+  const pkg = publishManifest(packageRecord.manifest);
 
   for (const [subpath, exportEntry] of Object.entries(pkg.exports)) {
     for (const target of [exportEntry.types, exportEntry.import]) {

@@ -40,17 +40,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/app": "workspace:^",
-    "@zmdb/protobuf": "workspace:^"
+    "@zmdb/protobuf": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
     "@grpc/grpc-js": "1.14.4",
     "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/app": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@grpc/grpc-js": "^1.14.0"
+    "@grpc/grpc-js": "^1.14.4",
+    "@zmdb/app": "1.0.0-alpha.4"
   },
   "engines": {
     "node": ">=26"

@@ -534,6 +534,9 @@ async function liveIntegrationRecords(root) {
 }
 
 export async function inspectProductCatalog(root = ROOT, options = {}) {
+  if (options.release === undefined) {
+    throw new TypeError('inspectProductCatalog requires release policy from loadGovernanceSnapshot({ root })');
+  }
   const loaded = await loadLiveCatalog(root, options.architecture);
   if (loaded.rows === undefined) {
     const missing = [...loaded.problems];
@@ -558,7 +561,7 @@ export async function inspectProductCatalog(root = ROOT, options = {}) {
     ...verifyFacadeDelegation(root, rows, options.architecture),
   ].toSorted();
   const consumers = discoverCatalogConsumers(root, rows);
-  const packageReferenceBytes = renderPackageReferenceRows(rows, manifests);
+  const packageReferenceBytes = renderPackageReferenceRows(rows, manifests, options.release.releasePolicy);
   const packageReference = readFileSync(join(root, 'docs-site', 'content', 'package-reference.md'), 'utf8');
   const generatedProblems = compareGeneratedRegion(
     packageReference,

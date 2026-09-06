@@ -78,13 +78,21 @@ export const TARGET_PRODUCT_TOOLING_EXPORTS = Object.freeze({
 
 export const TARGET_TOOLING_MANIFESTS = Object.freeze({
   '@zmdb/compiler': Object.freeze({
-    dependencies: Object.freeze(['@zmdb/ai', '@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/schema-core']),
-    peerDependencies: Object.freeze(['metro', 'metro-babel-transformer', 'oxlint', 'typescript']),
+    dependencies: Object.freeze(['@zmdb/ai']),
+    peerDependencies: Object.freeze([
+      '@zmdb/aot-validator',
+      '@zmdb/query-compiler',
+      '@zmdb/schema-core',
+      'metro',
+      'metro-babel-transformer',
+      'oxlint',
+      'typescript',
+    ]),
     optionalPeers: Object.freeze(['metro', 'metro-babel-transformer', 'oxlint']),
   }),
   '@zmdb/migrations': Object.freeze({
-    dependencies: Object.freeze(['@zmdb/query-compiler', 'oxfmt']),
-    peerDependencies: Object.freeze([]),
+    dependencies: Object.freeze(['oxfmt']),
+    peerDependencies: Object.freeze(['@zmdb/query-compiler']),
     optionalPeers: Object.freeze([]),
   }),
   '@zmdb/cli': Object.freeze({

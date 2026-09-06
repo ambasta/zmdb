@@ -8,7 +8,7 @@
 `@zmdb/vue` is ESM-only and has:
 
 - one production workspace dependency, `@zmdb/client`;
-- one required framework peer, `vue@>=3.5.0 <4.0.0`;
+- one required framework peer, `vue@>=3.5.42 <4.0.0`;
 - no dependency on `@zmdb/web`, the ORM, schema, validator, database, Node built-in, HTTP client, cache, or state-management package;
 - no module-level client, request, credential, cache, mutable registry, retry loop, or polling loop; and
 - one public root export.

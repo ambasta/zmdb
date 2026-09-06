@@ -4,15 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ROOT, publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { ROOT, publishCatalog, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
   type PackedProjectResult,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
-const RELEASE = await publishTrain(ROOT);
-const RELEASE_VERSION = RELEASE.version;
+const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 const PACKAGE_NAMES = ['@zmdb/query-compiler', '@zmdb/schema-core', '@zmdb/ai', '@zmdb/ai-vercel'] as const;
 
 function build(packageName: (typeof PACKAGE_NAMES)[number]): void {
@@ -165,19 +164,19 @@ describe('@zmdb/ai-vercel packed AI SDK floor (#748)', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'query-compiler'),
-            manifest: publishManifest(readManifest('query-compiler', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('query-compiler', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'schema-core'),
-            manifest: publishManifest(readManifest('schema-core', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('schema-core', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'ai'),
-            manifest: publishManifest(readManifest('ai', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('ai', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'ai-vercel'),
-            manifest: publishManifest(readManifest('ai-vercel', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('ai-vercel', PUBLISH_PACKAGES)),
           },
         ],
         dependencies: {

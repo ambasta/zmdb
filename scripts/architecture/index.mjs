@@ -16,7 +16,6 @@ const POLICY_FIELDS = [
   'allowedWorkspaceDependencies',
   'directory',
   'optionalPeerEntries',
-  'release',
   'ring',
   'toolingEntries',
   'zone',
@@ -128,9 +127,6 @@ function assertPolicyRow(id, row) {
     assertSelectors(selectors, `PACKAGE_POLICY row ${id}.optionalPeerEntries[${dependency}]`);
   }
   assertSelectors(row.toolingEntries, `PACKAGE_POLICY row ${id}.toolingEntries`);
-  if (row.release !== 'lockstep') {
-    throw new TypeError(`PACKAGE_POLICY row ${id}.release must be lockstep`);
-  }
   if (!isDeeplyFrozen(row)) {
     throw new TypeError(`PACKAGE_POLICY row ${id} must be deeply frozen`);
   }

@@ -9,7 +9,7 @@ cancellation and reactive source changes follow Solid's owner graph.
 yarn add @zmdb/client @zmdb/solid solid-js
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, configured for the `alpha` dist-tag). Requires **Node.js 26+**, is **ESM-only**, and supports Solid `>=1.9.0 <2.0.0`.
+> **Prerelease** (`1.0.0-alpha.4`, configured for the `alpha` dist-tag). Requires **Node.js 26+**, is **ESM-only**, and supports Solid `>=1.9.15 <2.0.0`.
 
 ## Usage
 

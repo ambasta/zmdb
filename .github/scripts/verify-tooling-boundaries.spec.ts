@@ -41,7 +41,7 @@ describe('the tooling-boundary verifier', () => {
     expect(result.generatedViolations).toHaveLength(3);
     expect(result.embeddedViolations).toEqual([]);
     expect(result.formatterViolations).toEqual([]);
-    expect(result.packageGraph.edges).toHaveLength(73);
+    expect(result.packageGraph.edges).toHaveLength(50);
   });
 
   it('rejects a planted compiler import from a runtime root', () => {
@@ -141,13 +141,21 @@ runtime	packages/example/src/index.ts
     });
     expect(TARGET_TOOLING_MANIFESTS).toEqual({
       '@zmdb/compiler': {
-        dependencies: ['@zmdb/ai', '@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/schema-core'],
-        peerDependencies: ['metro', 'metro-babel-transformer', 'oxlint', 'typescript'],
+        dependencies: ['@zmdb/ai'],
+        peerDependencies: [
+          '@zmdb/aot-validator',
+          '@zmdb/query-compiler',
+          '@zmdb/schema-core',
+          'metro',
+          'metro-babel-transformer',
+          'oxlint',
+          'typescript',
+        ],
         optionalPeers: ['metro', 'metro-babel-transformer', 'oxlint'],
       },
       '@zmdb/migrations': {
-        dependencies: ['@zmdb/query-compiler', 'oxfmt'],
-        peerDependencies: [],
+        dependencies: ['oxfmt'],
+        peerDependencies: ['@zmdb/query-compiler'],
         optionalPeers: [],
       },
       '@zmdb/cli': {

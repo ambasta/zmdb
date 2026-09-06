@@ -7,8 +7,9 @@
   // the program as an input file, and an input file outside `rootDir` is TS6059
   // — so the build resolves cross-package imports to the sibling's *declaration
   // output* instead. A `.d.ts` is never emitted, so it never fights `rootDir`.
-  // That is why `yarn build` is topological (`workspaces foreach -A -t`): a
-  // package's dependencies must have produced their `dist` before it compiles.
+  // That is why `yarn build` follows the canonical architecture and release
+  // dependency DAG through `scripts/build-workspaces.mjs`: a package's
+  // dependencies must have produced their `dist` before it compiles.
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "declaration": true,

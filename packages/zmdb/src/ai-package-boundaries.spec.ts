@@ -462,8 +462,9 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     const manifest = readJson<PackageManifest>(join(AI, 'package.json'));
     expect.soft(entries.map(file => packageOwner(file))).toEqual(entries.map(() => '@zmdb/ai'));
     expect.soft(forbidden).toEqual([]);
-    expect.soft(manifest.dependencies).toEqual({ '@zmdb/schema-core': 'workspace:^' });
-    expect.soft(manifest.peerDependencies).toBeUndefined();
+    expect.soft(manifest.dependencies).toBeUndefined();
+    expect.soft(manifest.devDependencies?.['@zmdb/schema-core']).toBe('workspace:^');
+    expect.soft(manifest.peerDependencies).toEqual({ '@zmdb/schema-core': '1.0.0-alpha.4' });
     expect.soft(AI_SDK_PEERS.filter(peer => manifest.dependencies?.[peer] !== undefined)).toEqual([]);
   });
 
@@ -481,7 +482,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     ].toSorted();
 
     expect.soft(packageOwner(entry)).toBe('@zmdb/ai-anthropic');
-    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:1.0.0-alpha.4' });
     expect.soft(manifest.peerDependencies).toEqual({ '@anthropic-ai/sdk': '0.124.0' });
     expect.soft(manifest.devDependencies?.['@anthropic-ai/sdk']).toBe('0.124.0');
     expect.soft(manifest.peerDependenciesMeta).toEqual({
@@ -489,7 +490,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     });
     expect.soft(external).toEqual(['@anthropic-ai/sdk', '@zmdb/ai']);
     expect.soft(external.filter(name => !name.startsWith('@zmdb/'))).toEqual(['@anthropic-ai/sdk']);
-    expect.soft(aiManifest.peerDependencies).toBeUndefined();
+    expect.soft(aiManifest.peerDependencies).toEqual({ '@zmdb/schema-core': '1.0.0-alpha.4' });
     expect.soft(aiManifest.dependencies?.['@anthropic-ai/sdk']).toBeUndefined();
     expect.soft(schemaManifest.devDependencies?.['@anthropic-ai/sdk']).toBeUndefined();
     expect.soft(schemaManifest.peerDependencies?.['@anthropic-ai/sdk']).toBeUndefined();
@@ -509,7 +510,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
       .map(reference => `${relative(ROOT, reference.file)} -> ${reference.specifier}`);
 
     expect.soft(packageOwner(file)).toBe('@zmdb/ai-vercel');
-    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:1.0.0-alpha.4' });
     expect.soft(manifest.peerDependencies).toEqual({ ai: '^7.0.93' });
     expect.soft(manifest.peerDependenciesMeta).toEqual({ ai: { optional: true } });
     expect.soft(sdkImports).toEqual([]);
@@ -524,7 +525,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect.soft(packageOwner(source)).toBe('@zmdb/ai-langchain');
     expect.soft(Object.keys(manifest.exports ?? {})).toEqual(['.']);
     expect.soft(manifest.dependencies).toEqual({
-      '@zmdb/ai': 'workspace:^',
+      '@zmdb/ai': 'workspace:1.0.0-alpha.4',
     });
     expect.soft(manifest.peerDependencies).toEqual({ '@langchain/core': '^1.2.9' });
     expect.soft(manifest.peerDependenciesMeta).toEqual({
@@ -555,7 +556,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect
       .soft(crossOwnerImports)
       .toEqual(['packages/mcp/src/server.ts -> @zmdb/ai/chat', 'packages/mcp/src/server.ts -> @zmdb/ai/tool-runtime']);
-    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:1.0.0-alpha.4' });
     expect.soft(manifest.peerDependencies).toBeUndefined();
     const oldMcpDirectory = join(LLM, 'mcp');
     expect
@@ -565,7 +566,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect
       .soft(packedMcp.imported['@zmdb/mcp'])
       .toEqual(['MCP_PROTOCOL_VERSION', 'McpProtocolError', 'createMcpClient', 'createMcpServer']);
-    expect.soft(packedMcp.manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(packedMcp.manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:1.0.0-alpha.4' });
     expect.soft(packedMcp.installedPeers).toEqual([]);
   });
 
@@ -579,7 +580,6 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
       '@zmdb/aot-validator -> @zmdb/schema-core',
       '@zmdb/compiler -> @zmdb/ai',
       '@zmdb/compiler -> @zmdb/aot-validator',
-      '@zmdb/compiler -> @zmdb/query-compiler',
       '@zmdb/compiler -> @zmdb/schema-core',
       '@zmdb/mcp -> @zmdb/ai',
       '@zmdb/schema-core -> @zmdb/query-compiler',
@@ -607,7 +607,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     const manifest = readJson<PackageManifest>(join(COMPILER, 'package.json'));
     const runtimeManifest = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
     expect.soft(stale).toEqual([]);
-    expect.soft(manifest.dependencies?.['@zmdb/ai']).toBe('workspace:^');
+    expect.soft(manifest.dependencies?.['@zmdb/ai']).toBe('workspace:1.0.0-alpha.4');
     expect.soft(runtimeManifest.dependencies?.['@zmdb/ai']).toBeUndefined();
   });
 
@@ -651,7 +651,9 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect(packedAiVercel.files).toContain('src/index.ts');
     expect.soft(packedAiVercel.manifest.name).toBe('@zmdb/ai-vercel');
     expect.soft(Object.keys(packedAiVercel.manifest.exports ?? {})).toEqual(['.']);
-    expect.soft(packedAiVercel.manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
+    expect.soft(packedAiVercel.manifest.dependencies).toEqual({
+      '@zmdb/ai': 'workspace:1.0.0-alpha.4',
+    });
     expect.soft(packedAiVercel.manifest.peerDependencies).toEqual({ ai: '^7.0.93' });
     expect.soft(packedAiVercel.manifest.peerDependenciesMeta).toEqual({ ai: { optional: true } });
     expect.soft(packedAiVercel.installedPeers).toEqual([]);

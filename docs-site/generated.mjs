@@ -62,20 +62,20 @@ const GOVERNANCE_DOCUMENTATION = Object.freeze({
   ]),
   'docs-site/content/architecture.md': Object.freeze([
     'node docs-site/generated.mjs',
-    'node scripts/release/bump.mjs "$RELEASE_VERSION"',
-    'node scripts/release/plan.mjs --publish-tsv',
+    'node scripts/release/bump.mjs "$RELEASE_ID" "$RELEASE_VERSION"',
+    'node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --publish-tsv',
     'yarn verify:governance',
     'yarn verify:architecture-zones',
     'yarn verify:runtime-reachability',
     'yarn verify:package-metadata',
     'yarn verify:release-governance',
     'yarn verify:docs-generated',
-    'git tag "v$RELEASE_VERSION"',
+    'git tag "$RELEASE_ID-v$RELEASE_VERSION"',
   ]),
   'PUBLISHING.md': Object.freeze([
     'node docs-site/generated.mjs',
-    'node scripts/release/bump.mjs "$RELEASE_VERSION"',
-    'node scripts/release/plan.mjs --publish-tsv',
+    'node scripts/release/bump.mjs "$RELEASE_ID" "$RELEASE_VERSION"',
+    'node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --publish-tsv',
     'yarn verify:governance',
     'yarn verify:product-catalog',
     'yarn verify:architecture-zones',
@@ -83,7 +83,7 @@ const GOVERNANCE_DOCUMENTATION = Object.freeze({
     'yarn verify:package-metadata',
     'yarn verify:release-governance',
     'yarn verify:docs-generated',
-    'git tag "v$RELEASE_VERSION"',
+    'git tag "$RELEASE_ID-v$RELEASE_VERSION"',
   ]),
 });
 
@@ -193,6 +193,10 @@ function optionalityLabel(optionality) {
   return 'invalid';
 }
 
+function releaseGroupLabel(row, releasePolicy) {
+  return releasePolicy[row.id]?.group ?? 'unclassified';
+}
+
 function consumerLabel(consumer) {
   if (typeof consumer?.fixture === 'string') return consumer.fixture;
   if (typeof consumer?.reason === 'string') return consumer.reason;
@@ -271,7 +275,7 @@ function installCommand(row, manifest, productManifest) {
   return `npm add ${String(manifest.name ?? row.npmName)}@${version}`;
 }
 
-export function renderPackageReferenceRows(rows, manifests) {
+export function renderPackageReferenceRows(rows, manifests, releasePolicy) {
   const productManifest = packageManifest(
     manifests,
     rows.find(row => row.npmName === 'zmdb')?.directory ?? 'packages/zmdb',
@@ -281,10 +285,11 @@ export function renderPackageReferenceRows(rows, manifests) {
     .map(row => ({ row, manifest: packageManifest(manifests, row.directory) }));
 
   const summary = renderMarkdownTable(
-    ['Package', 'Version', 'Role', 'Install mode', 'Installation', 'Description', 'Documentation'],
+    ['Package', 'Version', 'Release unit', 'Role', 'Install mode', 'Installation', 'Description', 'Documentation'],
     packages.map(({ row, manifest }) => [
       manifest.name ?? row.npmName,
       manifest.version ?? 'missing',
+      releaseGroupLabel(row, releasePolicy),
       row.role,
       optionalityLabel(row.optionality),
       `\`${installCommand(row, manifest, productManifest)}\``,
@@ -299,6 +304,7 @@ export function renderPackageReferenceRows(rows, manifests) {
       '',
       wrapParagraph(manifest.description ?? 'No package description is present in the manifest.'),
       '',
+      `- **Release unit:** \`${releaseGroupLabel(row, releasePolicy)}\``,
     ];
     listMap(lines, 'Exports', manifestEntries(manifest.exports));
     listMap(lines, 'Dependencies', manifestEntries(manifest.dependencies));
@@ -336,7 +342,7 @@ function codeList(values) {
   return values.length === 0 ? 'none' : values.map(value => `\`${value}\``).join('<br>');
 }
 
-export function renderArchitecturePolicy(_rows, _manifests, _records, architecture) {
+export function renderArchitecturePolicy(_rows, _manifests, _records, architecture, releasePolicy) {
   const byId = new Map(architecture.packages.map(packageRecord => [packageRecord.id, packageRecord]));
   const packages = [...architecture.packages].toSorted(
     (left, right) => left.policy.ring - right.policy.ring || left.npmName.localeCompare(right.npmName),
@@ -347,10 +353,11 @@ export function renderArchitecturePolicy(_rows, _manifests, _records, architectu
   );
   const maximumRing = Math.max(...packages.map(packageRecord => packageRecord.policy.ring));
   const graph = renderMarkdownTable(
-    ['Ring', 'Zone', 'Package', 'Direct workspace dependencies'],
+    ['Ring', 'Zone', 'Release unit', 'Package', 'Direct workspace dependencies'],
     packages.map(packageRecord => [
       String(packageRecord.policy.ring),
       packageRecord.policy.zone,
+      releaseGroupLabel(packageRecord, releasePolicy),
       `\`${packageRecord.npmName}\``,
       codeList(
         packageRecord.policy.allowedWorkspaceDependencies.map(
@@ -391,7 +398,9 @@ export function renderArchitecturePolicy(_rows, _manifests, _records, architectu
   }
 
   return [
-    `Measured from \`scripts/product/catalog.mjs\`, \`scripts/architecture/policy.mjs\`, and the admitted manifests: **${String(packages.length)} catalog packages**, **${String(edgeCount)} direct workspace edges**, and canonical rings **0–${String(maximumRing)}**.`,
+    wrapParagraph(
+      `Measured from \`scripts/product/catalog.mjs\`, \`scripts/architecture/policy.mjs\`, \`scripts/release/policy.mjs\`, and the admitted manifests: **${String(packages.length)} catalog packages**, **${String(edgeCount)} direct workspace edges**, **${String(packages.filter(packageRecord => releaseGroupLabel(packageRecord, releasePolicy) === 'core').length)} core packages**, **${String(packages.filter(packageRecord => releaseGroupLabel(packageRecord, releasePolicy) === 'integration').length)} integration packages**, **${String(packages.filter(packageRecord => releaseGroupLabel(packageRecord, releasePolicy) === 'tooling').length)} tooling packages**, and canonical rings **0–${String(maximumRing)}**.`,
+    ),
     '',
     graph.trimEnd(),
     '',
@@ -600,8 +609,8 @@ function verifyGovernanceDocumentation(root) {
   return problems.toSorted();
 }
 
-function renderPackageReference(rows, manifests) {
-  return renderPackageReferenceRows(rows, manifests);
+function renderPackageReference(rows, manifests, _records, _architecture, releasePolicy) {
+  return renderPackageReferenceRows(rows, manifests, releasePolicy);
 }
 
 function renderIntegrations(_rows, _manifests, records) {
@@ -609,9 +618,11 @@ function renderIntegrations(_rows, _manifests, records) {
 }
 
 function generationPlan(root, options = {}) {
-  const { architecture } = options;
-  if (architecture === undefined) {
-    throw new TypeError('documentation generation requires architecture from loadGovernanceSnapshot({ root })');
+  const { architecture, release } = options;
+  if (architecture === undefined || release === undefined) {
+    throw new TypeError(
+      'documentation generation requires architecture and release policy from loadGovernanceSnapshot({ root, checks: ["release"] })',
+    );
   }
   const rows = architecture.catalog;
   const manifests = manifestInventory(architecture);
@@ -632,7 +643,7 @@ function generationPlan(root, options = {}) {
       return [
         {
           ...document,
-          expected: document.render(rows, manifests, INTEGRATIONS, architecture),
+          expected: document.render(rows, manifests, INTEGRATIONS, architecture, release.releasePolicy),
         },
       ];
     }),
@@ -696,13 +707,17 @@ export function checkGeneratedDocumentation(root = ROOT, options = {}) {
 const invoked = process.argv[1];
 if (invoked !== undefined && import.meta.url === pathToFileURL(resolve(invoked)).href) {
   const { loadGovernanceSnapshot } = await import('../scripts/architecture/governance.mjs');
-  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
+  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
   if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
+  if (snapshot.queries.release === undefined) throw new Error('governance snapshot has no release model');
   if (process.argv.slice(2).some(argument => argument !== '--check')) {
     console.error('usage: node docs-site/generated.mjs [--check]');
     process.exitCode = 2;
   } else if (process.argv.includes('--check')) {
-    const report = checkGeneratedDocumentation(ROOT, { architecture: snapshot.architecture });
+    const report = checkGeneratedDocumentation(ROOT, {
+      architecture: snapshot.architecture,
+      release: snapshot.queries.release,
+    });
     if (report.problems.length > 0) {
       console.error(formatProblems(report.problems));
       process.exitCode = 1;
@@ -712,7 +727,10 @@ if (invoked !== undefined && import.meta.url === pathToFileURL(resolve(invoked))
       );
     }
   } else {
-    const report = generateDocumentation(ROOT, { architecture: snapshot.architecture });
+    const report = generateDocumentation(ROOT, {
+      architecture: snapshot.architecture,
+      release: snapshot.queries.release,
+    });
     console.log(
       `Generated documentation refreshed: ${String(report.packages)} packages, ${String(report.integrations)} framework integrations, ${String(report.architectureDocuments)} architecture policy views, ${String(report.changed.length)} changed files.`,
     );

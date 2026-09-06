@@ -8,7 +8,7 @@
 
 - `./client` depends inward on `@zmdb/client` and re-exports the native stores and typed context owned by `@zmdb/svelte`.
 - `./server` depends inward on `@zmdb/client`, accepts the current SvelteKit request event, and never imports a browser navigation module or Svelte store.
-- `@sveltejs/kit@>=2.70.0 <3.0.0` and `svelte@>=5.0.0 <6.0.0` are required peers.
+- `@sveltejs/kit@>=2.70.3 <3.0.0` and `svelte@>=5.57.0 <6.0.0` are required peers.
 - Neither entry inspects generated-client operations, builds URLs, parses responses, retries requests, or owns a process-global client, request, credential, load, or hydration registry.
 
 Relative TypeScript imports use `.js` specifiers and the package typechecks with `allowImportingTsExtensions: false`.

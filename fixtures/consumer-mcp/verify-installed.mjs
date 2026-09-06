@@ -6,11 +6,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(FIXTURE, '../..');
-const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const PACKAGES = join(ROOT, 'packages');
 const TSC = join(ROOT, 'node_modules', '.bin', 'tsc');
 const BUILD_ORDER = ['query-compiler', 'schema-core', 'ai', 'mcp'];
@@ -45,10 +44,7 @@ try {
       filter: path => !path.split(sep).includes('node_modules'),
     });
     const committed = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'));
-    writeFileSync(
-      join(stage, 'package.json'),
-      `${JSON.stringify(publishManifest(committed, RELEASE_VERSION), null, 2)}\n`,
-    );
+    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(committed), null, 2)}\n`);
     const packed = run('npm', ['pack', '--json', '--pack-destination', temporary], {
       cwd: stage,
       env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },
@@ -87,7 +83,8 @@ try {
   }
 
   const mcpManifest = JSON.parse(readFileSync(join(app, 'node_modules', '@zmdb', 'mcp', 'package.json'), 'utf8'));
-  if (JSON.stringify(mcpManifest.dependencies) !== JSON.stringify({ '@zmdb/ai': RELEASE_VERSION })) {
+  const aiVersion = JSON.parse(readFileSync(join(PACKAGES, 'ai', 'package.json'), 'utf8')).version;
+  if (JSON.stringify(mcpManifest.dependencies) !== JSON.stringify({ '@zmdb/ai': aiVersion })) {
     throw new Error(`packed @zmdb/mcp dependencies are ${JSON.stringify(mcpManifest.dependencies)}`);
   }
   if (mcpManifest.peerDependencies !== undefined) {

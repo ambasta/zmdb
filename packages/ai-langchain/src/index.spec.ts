@@ -240,7 +240,7 @@ describe('@zmdb/ai-langchain', () => {
     }
 
     expect(manifestField(integration, 'dependencies')).toEqual({
-      '@zmdb/ai': 'workspace:^',
+      '@zmdb/ai': 'workspace:1.0.0-alpha.4',
     });
     expect(manifestField(integration, 'peerDependencies')).toEqual({ '@langchain/core': '^1.2.9' });
     expect(manifestField(integration, 'devDependencies')).toMatchObject({ '@langchain/core': '1.2.9' });

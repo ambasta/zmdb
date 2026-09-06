@@ -14,17 +14,16 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishCatalog, publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
 import { SERVER_PACKAGES as SERVER_TARGETS } from '../../.github/scripts/verify-server-boundaries.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const RELEASE = await publishTrain(ROOT);
-const RELEASE_VERSION = RELEASE.version;
+const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-server-integrations');
 const PACKAGES_DIR = join(ROOT, 'packages');
 const SERVER_PACKAGES = SERVER_TARGETS.map(target => target.name);
 const SERVER_PEERS = SERVER_TARGETS.flatMap(target => (target.peer === undefined ? [] : [target.peer.name]));
-const PUBLISH_PACKAGE_NAMES = RELEASE.packages.map(packageRecord => packageRecord.npmName);
+const PUBLISH_PACKAGE_NAMES = PUBLISH_PACKAGES.map(packageRecord => packageRecord.npmName);
 const REQUIRED_SERVICE_ENV = new Map([
   ['@zmdb/jobs-postgres', 'ZMDB_PG'],
   ['@zmdb/transport-nats', 'ZMDB_NATS_URL'],
@@ -53,6 +52,14 @@ function workspacePackages() {
   return packages;
 }
 
+function workspaceInstallDependencies(packages, pkg) {
+  const dependencies = Object.keys(pkg.manifest.dependencies ?? {}).filter(name => packages.has(name));
+  const requiredPeers = Object.keys(pkg.manifest.peerDependencies ?? {}).filter(
+    name => packages.has(name) && pkg.manifest.peerDependenciesMeta?.[name]?.optional !== true,
+  );
+  return [...new Set([...dependencies, ...requiredPeers])].toSorted();
+}
+
 function workspaceClosure(packages, roots) {
   const closure = new Set();
   const queue = [...roots];
@@ -62,9 +69,7 @@ function workspaceClosure(packages, roots) {
     const pkg = packages.get(name);
     if (pkg === undefined) throw new Error(`workspace package ${name} has no manifest`);
     closure.add(name);
-    for (const dependency of Object.keys(pkg.manifest.dependencies ?? {})) {
-      if (packages.has(dependency)) queue.push(dependency);
-    }
+    queue.push(...workspaceInstallDependencies(packages, pkg));
   }
   const ordered = PUBLISH_PACKAGE_NAMES.filter(name => closure.has(name));
   const missing = [...closure].filter(name => !PUBLISH_PACKAGE_NAMES.includes(name));
@@ -76,7 +81,7 @@ function workspaceClosure(packages, roots) {
   for (const name of ordered) {
     const pkg = packages.get(name);
     if (pkg === undefined) throw new Error(`workspace package ${name} disappeared while ordering`);
-    for (const dependency of Object.keys(pkg.manifest.dependencies ?? {})) {
+    for (const dependency of workspaceInstallDependencies(packages, pkg)) {
       if (!closure.has(dependency)) continue;
       const dependencyIndex = position.get(dependency);
       const packageIndex = position.get(name);
@@ -107,10 +112,7 @@ function packWorkspace(packages, names, scratch) {
     if (pkg === undefined) throw new Error(`cannot pack absent workspace package ${name}`);
     const destination = join(stage, pkg.dir.slice(PACKAGES_DIR.length + 1));
     copyForPack(pkg.dir, destination);
-    writeFileSync(
-      join(destination, 'package.json'),
-      `${JSON.stringify(publishManifest(pkg.manifest, RELEASE_VERSION), null, 2)}\n`,
-    );
+    writeFileSync(join(destination, 'package.json'), `${JSON.stringify(publishManifest(pkg.manifest), null, 2)}\n`);
 
     const packed = run('npm', ['pack', '--json', '--pack-destination', scratch], {
       cwd: destination,
@@ -292,8 +294,10 @@ function targetContract(name) {
   return target;
 }
 
-function verifyInstalledIntegration(fixture, closure, app) {
+function verifyInstalledIntegration(packages, fixture, closure, app) {
   const target = targetContract(fixture.target);
+  const sourcePackage = packages.get(fixture.target);
+  if (sourcePackage === undefined) throw new Error(`workspace package ${fixture.target} disappeared`);
   const nodeModules = join(app, 'node_modules');
   const namesInTree = installedPackageNames(nodeModules);
   const allowedPackages = new Set(closure);
@@ -316,11 +320,18 @@ function verifyInstalledIntegration(fixture, closure, app) {
   const actualPeers = Object.entries(installedManifest.peerDependencies ?? {}).toSorted(([left], [right]) =>
     left.localeCompare(right),
   );
-  const expectedPeers = target.peer === undefined ? [] : [[target.peer.name, target.peer.range]];
+  const expectedPeers = Object.entries(publishManifest(sourcePackage.manifest).peerDependencies ?? {}).toSorted(
+    ([left], [right]) => left.localeCompare(right),
+  );
   if (JSON.stringify(actualPeers) !== JSON.stringify(expectedPeers)) {
     throw new Error(
       `${fixture.target} packed peers ${JSON.stringify(actualPeers)}, expected ${JSON.stringify(expectedPeers)}`,
     );
+  }
+  for (const [peer] of expectedPeers) {
+    if (!namesInTree.has(peer)) {
+      throw new Error(`${fixture.target} consumer did not install required peer ${peer}`);
+    }
   }
   if (expectedPeer !== undefined && installedManifest.peerDependenciesMeta?.[expectedPeer]?.optional === true) {
     throw new Error(`${fixture.target} packed required peer ${expectedPeer} is marked optional`);
@@ -380,7 +391,7 @@ function verifyIntegrationConsumers(packages, scratch, target, requireServices) 
     const closure = workspaceClosure(packages, [fixture.target]);
     writeConsumerManifest(packages, fixture, closure, tarballs, app);
     installConsumer(app, fixture.target);
-    verifyInstalledIntegration(fixture, closure, app);
+    verifyInstalledIntegration(packages, fixture, closure, app);
 
     const runtime = run(process.execPath, [join(app, 'src', 'runtime.mjs')], {
       cwd: app,

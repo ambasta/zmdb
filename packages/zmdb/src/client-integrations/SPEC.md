@@ -273,18 +273,18 @@ than duplicating React's runtime peer or type ownership.
 
 | Peer package    | Exact fixture version | Frozen peer range  |
 | --------------- | --------------------- | ------------------ |
-| `react`         | `19.2.8`              | `>=19.2.0 <20.0.0` |
-| `react-dom`     | `19.2.8`              | `>=19.2.0 <20.0.0` |
-| `@types/react`  | `19.2.18`             | `>=19.2.0 <20.0.0` |
-| `@angular/core` | `22.1.5`              | `>=22.1.0 <23.0.0` |
-| `rxjs`          | `7.8.2`               | `>=7.4.0 <8.0.0`   |
-| `vue`           | `3.5.42`              | `>=3.5.0 <4.0.0`   |
-| `svelte`        | `5.57.0`              | `>=5.0.0 <6.0.0`   |
-| `solid-js`      | `1.9.15`              | `>=1.9.0 <2.0.0`   |
-| `react-native`  | `0.87.1`              | `>=0.87.0 <0.88.0` |
-| `next`          | `16.3.4`              | `>=16.3.0 <17.0.0` |
-| `nuxt`          | `4.5.2`               | `>=4.5.0 <5.0.0`   |
-| `@sveltejs/kit` | `2.70.3`              | `>=2.70.0 <3.0.0`  |
+| `react`         | `19.2.8`              | `>=19.2.8 <20.0.0` |
+| `react-dom`     | `19.2.8`              | `>=19.2.8 <20.0.0` |
+| `@types/react`  | `19.2.18`             | `>=19.2.8 <20.0.0` |
+| `@angular/core` | `22.1.5`              | `>=22.1.5 <23.0.0` |
+| `rxjs`          | `7.8.2`               | `>=7.8.2 <8.0.0`   |
+| `vue`           | `3.5.42`              | `>=3.5.42 <4.0.0`  |
+| `svelte`        | `5.57.0`              | `>=5.57.0 <6.0.0`  |
+| `solid-js`      | `1.9.15`              | `>=1.9.15 <2.0.0`  |
+| `react-native`  | `0.87.1`              | `>=0.87.1 <0.88.0` |
+| `next`          | `16.3.4`              | `>=16.3.4 <17.0.0` |
+| `nuxt`          | `4.5.2`               | `>=4.5.2 <5.0.0`   |
+| `@sveltejs/kit` | `2.70.3`              | `>=2.70.3 <3.0.0`  |
 
 `@angular/common`, Angular `HttpClient`, NetInfo, AsyncStorage and native credential vaults are not peers because the adapters do not import them. Their application-owned structural bridges remain
 recipes. SvelteKit 2.70.3 currently advertises an optional TypeScript peer only through TypeScript 6; the packed TypeScript 7 fixture is the measured compatibility evidence rather than the optional

@@ -4,7 +4,7 @@
 
 ## 1. Boundary
 
-`@zmdb/svelte` is an ESM-only integration package with one root export. It depends inward on `@zmdb/client`, requires `svelte@>=5.0.0 <6.0.0` as a peer, and has no server, ORM, database, cache,
+`@zmdb/svelte` is an ESM-only integration package with one root export. It depends inward on `@zmdb/client`, requires `svelte@>=5.57.0 <6.0.0` as a peer, and has no server, ORM, database, cache,
 transport, generated-code, or competing HTTP dependency.
 
 The package receives an opaque application-generated client. Application callbacks select generated methods:

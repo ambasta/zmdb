@@ -17,8 +17,8 @@ export interface OpenTelemetryOptions {
 export function fromOpenTelemetry(options: OpenTelemetryOptions): Observability;
 ```
 
-The root is the only export. It depends on `@zmdb/app` at `workspace:^` and declares one required external peer, `@opentelemetry/api@^1.9.0`. Evidence uses API `1.9.1` and
-`@opentelemetry/sdk-trace-base@2.11.0` as dev dependencies.
+The root is the only export. It declares required peers on `@zmdb/app@1.0.0-alpha.4` and `@opentelemetry/api@^1.9.1`. Evidence uses API `1.9.1` and `@opentelemetry/sdk-trace-base@2.11.0` as dev
+dependencies.
 
 The package adapts the app's narrow tracer/meter ports. It does not ship or own an SDK, provider, sampler, processor, exporter, collector client or metrics endpoint.
 

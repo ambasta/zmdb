@@ -214,8 +214,8 @@ describe('core server package boundaries (#646)', () => {
           '@zmdb/schema-core': 'workspace:^',
         },
         buildTimePeers: {
-          '@zmdb/compiler': 'workspace:^',
-          typescript: '>=7.0.0',
+          '@zmdb/compiler': '1.0.0-alpha.4',
+          typescript: '>=7.0.2 <8.0.0',
         },
         exports: [
           '.',

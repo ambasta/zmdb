@@ -4,7 +4,6 @@ const row = (directory, allowedWorkspaceDependencies = []) =>
     allowedWorkspaceDependencies: Object.freeze(allowedWorkspaceDependencies),
     directory,
     optionalPeerEntries: Object.freeze({}),
-    release: 'lockstep',
     ring: 0,
     toolingEntries: Object.freeze([]),
     zone: 'integration',

@@ -3,7 +3,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 
-import { publishManifest, publishTrain } from './lib/publish-manifest.mjs';
+import { publishManifest } from './lib/publish-manifest.mjs';
 
 const DATABASE_PACKAGES = [
   '@zmdb/sqlite',
@@ -45,15 +45,21 @@ function workspacePackages(root) {
   return packages;
 }
 
+function workspaceInstallDependencies(packages, pkg) {
+  const dependencies = Object.keys(pkg.manifest.dependencies ?? {}).filter(name => packages.has(name));
+  const requiredPeers = Object.keys(pkg.manifest.peerDependencies ?? {}).filter(
+    name => packages.has(name) && pkg.manifest.peerDependenciesMeta?.[name]?.optional !== true,
+  );
+  return [...new Set([...dependencies, ...requiredPeers])].toSorted();
+}
+
 function dependencyClosure(packages, roots) {
   const found = new Set();
   const visit = name => {
     if (found.has(name)) return;
     const pkg = packages.get(name);
     if (pkg === undefined) throw new Error(`workspace package is absent: ${name}`);
-    for (const dependency of Object.keys(pkg.manifest.dependencies ?? {})) {
-      if (packages.has(dependency)) visit(dependency);
-    }
+    for (const dependency of workspaceInstallDependencies(packages, pkg)) visit(dependency);
     found.add(name);
   };
   for (const root of roots) visit(root);
@@ -77,8 +83,7 @@ function buildPackages(root, packages, names) {
   }
 }
 
-async function packPackages(root, packages, names, scratch) {
-  const version = (await publishTrain(root)).version;
+function packPackages(packages, names, scratch) {
   const archives = new Map();
   for (const name of names) {
     const pkg = packages.get(name);
@@ -86,7 +91,7 @@ async function packPackages(root, packages, names, scratch) {
     const stage = join(scratch, 'stage', name.replaceAll('/', '__'));
     mkdirSync(dirname(stage), { recursive: true });
     copyForPack(pkg.directory, stage);
-    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(pkg.manifest, version), null, 2)}\n`);
+    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(pkg.manifest), null, 2)}\n`);
     const result = run('npm', ['pack', '--json', '--pack-destination', scratch], {
       cwd: stage,
       env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },
@@ -159,7 +164,7 @@ export async function runPackedDatabasePackageProofs(root) {
   const scratch = mkdtempSync(join(tmpdir(), 'zmdb-database-package-proof-'));
   try {
     buildPackages(root, packages, buildOrder);
-    const archives = await packPackages(root, packages, buildOrder, scratch);
+    const archives = packPackages(packages, buildOrder, scratch);
 
     const databaseApp = join(scratch, 'database-app');
     installPackedApp(databaseApp, archives, databaseClosure);
