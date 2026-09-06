@@ -119,7 +119,7 @@ const EXPECTED_OWNER_COUNTS = Object.freeze({
   compiler: 33,
   migrations: 21,
   cli: 31,
-  runtime: 30,
+  runtime: 31,
   facade: 53,
   'optional-integration': 0,
   'test-only': 38,

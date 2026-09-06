@@ -28,9 +28,9 @@ generic lifecycle/introspection implementations into `@zmdb/migrations` while re
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              16 |                  9 |
 | `@zmdb/query-compiler` |                              24 |                  9 |
-| `@zmdb/aot-validator`  |                               6 |                  5 |
+| `@zmdb/aot-validator`  |                               7 |                  5 |
 | `@zmdb/repository`     |                              18 |                  8 |
-| **Total**              |                          **64** |             **31** |
+| **Total**              |                          **65** |             **31** |
 
 The four manifests contain 17 dependency entries: 5 `dependencies` and 12 `devDependencies`. They contain no `peerDependencies` or `optionalDependencies`.
 
@@ -40,7 +40,7 @@ owned exception records until the coordinated foundation and final database purg
 
 ## 2. Exact file ownership
 
-Every one of the 64 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
+Every one of the 65 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
 path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql` sections also record their package-owned production
 files outside that legacy input inventory.
 
@@ -185,9 +185,10 @@ packages/sqlite/src/migrations.ts
 packages/sqlite/src/node.ts
 ```
 
-### `@zmdb/validator` — 6
+### `@zmdb/validator` — 7
 
 ```text
+packages/aot-validator/src/advanced/ast.ts
 packages/aot-validator/src/advanced/index.ts
 packages/aot-validator/src/errors.ts
 packages/aot-validator/src/index.ts

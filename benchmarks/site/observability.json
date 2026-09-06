@@ -14,11 +14,11 @@
       },
       {
         "path": "package.json",
-        "sha256": "a891a2c90ab9c9c7ad281871f4911b60bae5e80ae882817a888a12f7315db58a"
+        "sha256": "65890fd4d586db2d10785481b376b711cf5c60d05af4a351a8755b05a9c78317"
       },
       {
         "path": "yarn.lock",
-        "sha256": "99b85c69d0a8927bc90cc287140b746b96033832f0e2fb6fb256f7b1b1d9a48a"
+        "sha256": "3d98f82e1d044a12597fb2c9e9056394080f039054055544341d8993b66e3cb0"
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",
@@ -42,7 +42,7 @@
       },
       {
         "path": "packages/web/package.json",
-        "sha256": "5c2270cf5dcde3d86f469c1ee121415ffbe5fd920b0c7c790538f155317f579f"
+        "sha256": "f1217a40d807ae59b89338119a543cc6352b28e8457a6ff39437ec05c9c1d003"
       },
       {
         "path": "packages/web/src/bench/index.ts",
