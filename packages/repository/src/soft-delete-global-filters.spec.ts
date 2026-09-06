@@ -9,6 +9,7 @@ import type { OneToMany, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-cor
 import { describe, expect, it } from 'vitest';
 
 import { BaseRepository, type Driver, type FilterDef } from './index.js';
+import { postgresDialect } from './testing/official-dialects.fixture.js';
 
 // Mock driver recording compiled queries and returning configurable rows
 function createMockDriver(mockRows: Record<string, unknown>[] = []): {
@@ -17,7 +18,7 @@ function createMockDriver(mockRows: Record<string, unknown>[] = []): {
 } {
   const queries: { text: string; parameters: readonly unknown[] }[] = [];
   const driver: Driver = {
-    dialect: 'postgres',
+    dialect: postgresDialect,
     async execute(query) {
       queries.push({ text: query.text, parameters: query.parameters });
       return mockRows;
@@ -363,7 +364,7 @@ describe('Schema-Driven Soft Delete & Global Entity Filters', () => {
     it('applies soft-delete filter automatically to child query during populate', async () => {
       const queries: { text: string; parameters: readonly unknown[] }[] = [];
       const mockDriver: Driver = {
-        dialect: 'postgres',
+        dialect: postgresDialect,
         async execute(query) {
           queries.push({ text: query.text, parameters: query.parameters });
           if (query.text.includes('FROM "users"')) {
@@ -391,7 +392,7 @@ describe('Schema-Driven Soft Delete & Global Entity Filters', () => {
     it('passes withDeleted flag down to relational child population', async () => {
       const queries: { text: string; parameters: readonly unknown[] }[] = [];
       const mockDriver: Driver = {
-        dialect: 'postgres',
+        dialect: postgresDialect,
         async execute(query) {
           queries.push({ text: query.text, parameters: query.parameters });
           if (query.text.includes('FROM "users"')) {
