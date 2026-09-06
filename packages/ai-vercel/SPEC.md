@@ -1,8 +1,7 @@
 # @zmdb/ai-vercel — Vercel AI SDK tool integration specification
 
-> **Status:** implemented by issue #708, with the compatibility floor frozen by issue #746. The package owns the adapter, its real-SDK and packed-consumer tests, and the `ai` peer; the old schema-core
-> adapter path is removed. The supported and tested AI SDK floor is `7.0.93`. The checked-in manifest still contains the pre-freeze `^7.0.83` range and `7.0.83` test alias until issue #748 changes
-> that metadata.
+> **Status:** implemented by issue #708, with the compatibility floor frozen by issue #746 and shipped by issue #748. The package owns the adapter, its real-SDK and packed-consumer tests, and the
+> optional `ai@^7.0.93` peer; the old schema-core adapter path is removed. Exact AI SDK `7.0.93` is both the development fixture and the supported, externally tested floor.
 
 ## 1. Responsibility
 
@@ -42,7 +41,7 @@ The caller passes the installed SDK's `jsonSchema` function. The package neither
 ## 3. Dependencies and peer
 
 - Current direct workspace dependency: `@zmdb/ai` at `workspace:^`. The frozen release target replaces that cross-unit source range with the explicit compatibility range owned by release policy.
-- Target sole external peer: `ai` at `^7.0.93`, marked optional because shipped source never imports it and receives the branded factory from the caller.
+- Sole external peer: `ai` at `^7.0.93`, marked optional because shipped source never imports it and receives the branded factory from the caller.
 - Supported and tested floor: exact `ai@7.0.93`.
 - No runtime dependency on `@zmdb/schema-core`, `@ai-sdk/*`, Zod, a provider SDK or another integration package. `zod` is a development-only entry that satisfies the AI SDK's own peer while both the
   adapter and SDK declarations compile.
@@ -52,8 +51,8 @@ resolved both imports from that project's `node_modules`, typechecked representa
 `description`, `execute`, and `inputSchema` fields. The stricter `skipLibCheck: false` attempt reached upstream `@ai-sdk/provider-utils` declaration errors, so the proof does not claim that
 configuration. Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
 
-The existing `^7.0.83` manifest range and `ai-lower-bound` alias are transition state, not evidence that `7.0.83` is supported. Issue #748 owns narrowing the manifest and removing the alias; issue
-#746 does not alter either.
+Issue #748 made the measured policy executable: the manifest exposes `ai@^7.0.93`, the development dependency is exact `7.0.93`, and the packed test installs the four published zmdb tarballs plus the
+real SDK in a clean project. No root-workspace alias or TypeScript path mapping participates in that proof.
 
 ## 4. Migration and qualification
 

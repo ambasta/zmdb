@@ -292,7 +292,7 @@ function writeReleaseFixture(root: string, mutation?: Mutation): void {
       devDependencies: {
         [coreB.npmName]: 'workspace:^',
         ai: peerFloor,
-        ...(mutation === 'alias' ? { 'ai-lower-bound': 'npm:ai@7.0.83' } : {}),
+        ...(mutation === 'alias' ? { 'ai-unsupported-fixture': 'npm:ai@7.0.83' } : {}),
       },
       peerDependencies: {
         [coreB.npmName]: adapterPeerRange,
@@ -785,19 +785,13 @@ describe('release groups and compatibility tests freeze (#747)', () => {
     },
   );
 
-  // Measured at ee4e496a: npm 12 accepts exact ai@7.0.83 because the observed packed-fixture peer
-  // range copied from @zmdb/ai-vercel is still ^7.0.83. #748 narrows it to ^7.0.93.
-  it.fails(
-    'rejects the exact real AI version below the supported floor',
-    { timeout: PACKAGE_MANAGER_TIMEOUT_MS },
-    () => {
-      const outcome = runExactAiConsumer(contract().versions.peerBelowFloor);
-      expect(outcome.status).not.toBe(0);
-      expect(outcome.stderr).toContain('ERESOLVE');
-      expect(outcome.consumerRemoved).toBe(true);
-      expect(outcome.cacheRemoved).toBe(true);
-    },
-  );
+  it('rejects the exact real AI version below the supported floor', { timeout: PACKAGE_MANAGER_TIMEOUT_MS }, () => {
+    const outcome = runExactAiConsumer(contract().versions.peerBelowFloor);
+    expect(outcome.status).not.toBe(0);
+    expect(outcome.stderr).toContain('ERESOLVE');
+    expect(outcome.consumerRemoved).toBe(true);
+    expect(outcome.cacheRemoved).toBe(true);
+  });
 
   it(
     'uses package-manager prerelease semantics for matching and mismatched core tarballs',

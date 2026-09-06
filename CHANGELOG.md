@@ -10,6 +10,7 @@
 
 ### Changed
 
+- **ai-vercel:** make AI SDK 7.0.93 the supported peer floor and replace the workspace alias matrix with an exact packed-consumer proof.
 - **product:** freeze cohesive core, independent integration and tooling releases, compatibility guarantees, and measured peer floors.
 - **product:** update the tested Anthropic SDK, Vercel AI SDK, Rolldown, and Metro Babel toolchain versions.
 

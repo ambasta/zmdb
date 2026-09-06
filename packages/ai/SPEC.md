@@ -195,8 +195,7 @@ Vercel peer is optional for the same structural reason: the adapter receives the
 dependencies, never runtime dependencies.
 
 A claimed peer range ships only after packed-consumer tests pass at its exact lower bound and every additional version named by the compatibility policy. Issue #746 resolved the earlier Vercel
-condition: exact `ai@7.0.93` passed from packed tarballs in an external consumer, so `^7.0.93` is the frozen range and `7.0.93` is the supported and tested floor. The checked-in manifest and
-lower-bound alias remain unchanged until issue #748; neither is evidence that `7.0.83` is supported.
+condition by measuring exact `ai@7.0.93`; issue #748 then set the manifest to `^7.0.93`, retained exact `7.0.93` for development, and made the four-tarball external consumer the executable proof.
 
 `@zmdb/mcp` has no external peer. In particular, no `@modelcontextprotocol/*` package appears in its manifest.
 

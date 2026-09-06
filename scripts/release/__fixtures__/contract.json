@@ -57,7 +57,7 @@
     {
       "name": "workspace-only compatibility alias",
       "mutation": "alias",
-      "expected": "[RELEASE_PEER_ALIAS] adapter (@fixture/adapter): devDependencies.ai-lower-bound aliases npm:ai@7.0.83 outside the declared ai policy. Remediation: remove the alias and install each exact tested ai version in an isolated consumer."
+      "expected": "[RELEASE_PEER_ALIAS] adapter (@fixture/adapter): devDependencies.ai-unsupported-fixture aliases npm:ai@7.0.83 outside the declared ai policy. Remediation: remove the alias and install each exact tested ai version in an isolated consumer."
     },
     {
       "name": "prerelease range admitting an untested version",

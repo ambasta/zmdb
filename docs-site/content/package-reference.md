@@ -127,7 +127,7 @@ Vercel AI SDK tool integration for provider-neutral zmdb AI contracts.
   - `@zmdb/ai` → `workspace:^`
 - **Optional dependencies:** None.
 - **Optional peers:**
-  - `ai` → `^7.0.83`
+  - `ai` → `^7.0.93`
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`

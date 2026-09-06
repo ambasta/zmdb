@@ -5,19 +5,6 @@ __metadata:
   version: 10
   cacheKey: 10c0
 
-"@ai-sdk/gateway@npm:4.0.67":
-  version: 4.0.67
-  resolution: "@ai-sdk/gateway@npm:4.0.67"
-  dependencies:
-    "@ai-sdk/provider": "npm:4.0.8"
-    "@ai-sdk/provider-utils": "npm:5.0.32"
-    "@vercel/oidc": "npm:3.2.0"
-  peerDependencies:
-    zod: ^3.25.76 || ^4.1.8
-  checksum: 10c0/4fd7d477fe409b06f5c7250b073acfb5cba3e707ac0d4efc317acd58046fe3d5b2075363967127f64b8984fb2ee12c6632cec2b71d65f0b8e28e74da7f391baa
-  languageName: node
-  linkType: hard
-
 "@ai-sdk/gateway@npm:4.0.75":
   version: 4.0.75
   resolution: "@ai-sdk/gateway@npm:4.0.75"
@@ -28,21 +15,6 @@ __metadata:
   peerDependencies:
     zod: ^3.25.76 || ^4.1.8
   checksum: 10c0/4019bf0822a37093b7120fab6135464454e26e8f77ad3409c23e9c7c9557e6f75e5227f701c463770cc3620ea29bbc46ae144bb06ab6636233a37393d23abc2d
-  languageName: node
-  linkType: hard
-
-"@ai-sdk/provider-utils@npm:5.0.32":
-  version: 5.0.32
-  resolution: "@ai-sdk/provider-utils@npm:5.0.32"
-  dependencies:
-    "@ai-sdk/provider": "npm:4.0.8"
-    "@standard-schema/spec": "npm:^1.1.0"
-    "@workflow/serde": "npm:4.1.0"
-    eventsource-parser: "npm:^3.0.8"
-    undici: "npm:^7.28.0"
-  peerDependencies:
-    zod: ^3.25.76 || ^4.1.8
-  checksum: 10c0/b8c91f0b3a5b92f15fc5415e288f32bfb3f087921c22beead440c3e0b3deb4ebf102986f6e0e49c8bd826888f932e06afdd4e20d2af5e425c95c7c7d25050fa5
   languageName: node
   linkType: hard
 
@@ -67,15 +39,6 @@ __metadata:
   dependencies:
     json-schema: "npm:^0.4.0"
   checksum: 10c0/20e9cc820a90296469180d929ac9051cd71399e46073d829517ccda75d2406f86ad9f0ee554a1d1a34126c56dad40c223c761c4ca9a24cd00dbcb7c1e808434f
-  languageName: node
-  linkType: hard
-
-"@ai-sdk/provider@npm:4.0.8":
-  version: 4.0.8
-  resolution: "@ai-sdk/provider@npm:4.0.8"
-  dependencies:
-    json-schema: "npm:^0.4.0"
-  checksum: 10c0/a003aa2e1d6dd74f61150ca5c79d022c03183994ea99c0d1cd7e23bece91308788f49cb01e06dfeed2f707d4ad11eaf20c72877df4daeedd1deca4037ef2635b
   languageName: node
   linkType: hard
 
@@ -4485,12 +4448,11 @@ __metadata:
   dependencies:
     "@zmdb/ai": "workspace:^"
     ai: "npm:7.0.93"
-    ai-lower-bound: "npm:ai@7.0.83"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
     zod: "npm:4.5.4"
   peerDependencies:
-    ai: ^7.0.83
+    ai: ^7.0.93
   peerDependenciesMeta:
     ai:
       optional: true
@@ -5020,19 +4982,6 @@ __metadata:
   version: 7.1.4
   resolution: "agent-base@npm:7.1.4"
   checksum: 10c0/c2c9ab7599692d594b6a161559ada307b7a624fa4c7b03e3afdb5a5e31cd0e53269115b620fcab024c5ac6a6f37fa5eb2e004f076ad30f5f7e6b8b671f7b35fe
-  languageName: node
-  linkType: hard
-
-"ai-lower-bound@npm:ai@7.0.83":
-  version: 7.0.83
-  resolution: "ai@npm:7.0.83"
-  dependencies:
-    "@ai-sdk/gateway": "npm:4.0.67"
-    "@ai-sdk/provider": "npm:4.0.8"
-    "@ai-sdk/provider-utils": "npm:5.0.32"
-  peerDependencies:
-    zod: ^3.25.76 || ^4.1.8
-  checksum: 10c0/651b259965e0c8f842e515dbc620f95ed9318949a6cc2f6dcbb76588260310e535e27f28adc325b0092677e495460e10293ca7bfefe94342cfec49d616dab95b
   languageName: node
   linkType: hard
 
@@ -11688,7 +11637,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^7.28.0, undici@npm:^7.29.0":
+"undici@npm:^7.29.0":
   version: 7.29.1
   resolution: "undici@npm:7.29.1"
   checksum: 10c0/5a419b1364531071ebdfd93748f7f2392d4eb6d68dd99814e1020f8fc6a517e3298129004c871516ee204bac68aba93541f587200b04a7449b8d45683a7d86f6
