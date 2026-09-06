@@ -1602,14 +1602,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const keyset = page && 'after' in page && page.after !== undefined && page.after !== null;
     let cursorValues: Record<string, unknown> | undefined;
     if (keyset) {
-      if (typeof page.after === 'string') {
-        cursorValues = decodeCursor(page.after);
-      } else if (typeof page.after === 'object' && !Array.isArray(page.after)) {
-        // boundary: page.after is an untrusted client DTO parameter; runtime check above proves it is a non-null, non-array object.
-        cursorValues = page.after as Record<string, unknown>;
-      } else {
-        throw new Error('Invalid cursor parameter: expected string or object');
-      }
+      // boundary: page.after is checked by keyset guard above; decodeCursor performs runtime string/object validation.
+      cursorValues = decodeCursor(page.after as string | Record<string, unknown>);
     }
 
     const compiled = this.compileRead(
