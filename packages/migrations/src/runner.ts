@@ -49,7 +49,6 @@ export interface MigrationConnection {
 
 // Interface matching any runtime database driver (e.g. from @zmdb/repository).
 export interface MigrationDriver extends Driver {
-  readonly dialect?: DialectTarget | undefined;
   transaction?<T>(run: (driver: MigrationDriver) => Promise<T>): Promise<T>;
 }
 

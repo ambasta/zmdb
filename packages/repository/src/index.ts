@@ -114,6 +114,7 @@ export type { Driver, ExecuteOptions };
 export type SelectedDriver<Name extends string = string> = Driver<Name>;
 
 export interface TransactionalDriver<Name extends string = string> extends SelectedDriver<Name> {
+  readonly dialect: SqlDialect<Name>;
   transaction<Result>(run: (driver: SelectedDriver<Name>) => Promise<Result>): Promise<Result>;
 }
 
