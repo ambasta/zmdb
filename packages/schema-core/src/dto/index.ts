@@ -383,23 +383,23 @@ export function applyOrderBy<B extends OrderTarget>(
 }
 
 function base64Encode(str: string): string {
-  if (globalThis.Buffer) {
-    return globalThis.Buffer.from(str, 'utf-8').toString('base64url');
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(str, 'utf-8').toString('base64url');
   }
-  if (globalThis.btoa) {
-    return globalThis.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  if (typeof btoa !== 'undefined') {
+    return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
   throw new Error('No base64 encoder available');
 }
 
 function base64Decode(str: string): string {
-  if (globalThis.Buffer) {
-    return globalThis.Buffer.from(str, 'base64url').toString('utf-8');
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(str, 'base64url').toString('utf-8');
   }
-  if (globalThis.atob) {
+  if (typeof atob !== 'undefined') {
     let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
     while (base64.length % 4) base64 += '=';
-    return globalThis.atob(base64);
+    return atob(base64);
   }
   throw new Error('No base64 decoder available');
 }
