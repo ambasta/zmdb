@@ -33,6 +33,7 @@ import { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 import {
   dialectName,
   dialectTraits,
+  isSqlDialect,
   type DialectReturningSql,
   type DialectTarget,
   type ReturningStatement,

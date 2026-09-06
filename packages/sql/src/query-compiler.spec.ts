@@ -22,6 +22,7 @@ import {
   stDWithin,
   windowFunction,
   type Dialect,
+  type DialectTarget,
 } from './index.js';
 import {
   mssqlDialect,
