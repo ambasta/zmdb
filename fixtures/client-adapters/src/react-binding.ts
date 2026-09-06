@@ -1,5 +1,5 @@
 import { createZmdbReact } from '@zmdb/react';
-import type { MutationState, QueryState } from '@zmdb/react';
+import type { MutationState, QueryState, ZmdbReactBindings } from '@zmdb/react';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { act, create } from 'react-test-renderer';
@@ -34,9 +34,9 @@ async function unwrapSettlement<Value>(settlement: Promise<ObservedSettlement<Va
   throw outcome.error;
 }
 
-function reactExpectation(): AdapterPackageExpectation {
-  const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/react');
-  if (expectation === undefined) throw new Error('the adapter matrix omitted @zmdb/react');
+function adapterExpectation(name: AdapterPackageExpectation['name']): AdapterPackageExpectation {
+  const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === name);
+  if (expectation === undefined) throw new Error(`the adapter matrix omitted ${name}`);
   return expectation;
 }
 
@@ -92,11 +92,13 @@ function mountedMutation<Input, Output>(state: MutationState<Input, Output> | un
 }
 
 function prepareReactQuery<Client extends object, Input, Output>(
+  packageName: string,
+  createBindings: (bindingName?: string) => ZmdbReactBindings<Client>,
   client: Client,
   initialInput: Input,
   load: QueryLoader<Client, Input, Output>,
 ): ConformanceQuery<Input, Output> {
-  const bindings = createZmdbReact<Client>('@zmdb/react conformance');
+  const bindings = createBindings(`${packageName} conformance`);
   let input = initialInput;
   let renderer: ReactTestRenderer | undefined;
   let observed: QueryState<Output> | undefined;
@@ -127,7 +129,7 @@ function prepareReactQuery<Client extends object, Input, Output>(
       return querySnapshot(observed);
     },
     async mount() {
-      if (renderer !== undefined) throw new Error('@zmdb/react conformance query mounted twice');
+      if (renderer !== undefined) throw new Error(`${packageName} conformance query mounted twice`);
       await runAct(() => {
         renderer = createRenderer(tree());
       });
@@ -171,13 +173,25 @@ function prepareReactQuery<Client extends object, Input, Output>(
 }
 
 function prepareReactMutation<Client extends object, Input, Output>(
+  packageName: string,
+  createBindings: (bindingName?: string) => ZmdbReactBindings<Client>,
   client: Client,
   run: MutationRunner<Client, Input, Output>,
 ): ConformanceMutation<Input, Output> {
-  const bindings = createZmdbReact<Client>('@zmdb/react conformance');
+  const bindings = createBindings(`${packageName} conformance`);
   let renderer: ReactTestRenderer | undefined;
   let observed: MutationState<Input, Output> | undefined;
   let disposed = false;
+  let actQueue: Promise<void> = Promise.resolve();
+
+  function queueAct(action: () => void | Promise<void>): Promise<void> {
+    const scheduled = actQueue.then(() => runAct(action));
+    actQueue = scheduled.then(
+      () => undefined,
+      () => undefined,
+    );
+    return scheduled;
+  }
 
   function Probe() {
     observed = bindings.useZmdbMutation(run);
@@ -193,15 +207,15 @@ function prepareReactMutation<Client extends object, Input, Output>(
       return mutationSnapshot(observed);
     },
     async mount() {
-      if (renderer !== undefined) throw new Error('@zmdb/react conformance mutation mounted twice');
-      await runAct(() => {
+      if (renderer !== undefined) throw new Error(`${packageName} conformance mutation mounted twice`);
+      await queueAct(() => {
         renderer = createRenderer(tree());
       });
     },
     mutate(input) {
       const state = mountedMutation(observed);
       let settlement: Promise<ObservedSettlement<Output>> | undefined;
-      const started = runAct(async () => {
+      const started = queueAct(async () => {
         settlement = observeSettlement(state.mutate(input));
         await Promise.resolve();
       });
@@ -209,13 +223,13 @@ function prepareReactMutation<Client extends object, Input, Output>(
         if (settlement === undefined) throw new Error('@zmdb/react mutation did not start');
         return unwrapSettlement(settlement).then(
           async value => {
-            await runAct(async () => {
+            await queueAct(async () => {
               await Promise.resolve();
             });
             return value;
           },
           async error => {
-            await runAct(async () => {
+            await queueAct(async () => {
               await Promise.resolve();
             });
             throw error;
@@ -229,7 +243,7 @@ function prepareReactMutation<Client extends object, Input, Output>(
       const selectedRenderer = renderer;
       renderer = undefined;
       if (selectedRenderer !== undefined) {
-        await runAct(() => {
+        await queueAct(() => {
           selectedRenderer.unmount();
         });
       }
@@ -237,17 +251,20 @@ function prepareReactMutation<Client extends object, Input, Output>(
   };
 }
 
-export function createReactConformanceBinding<Client extends object>(): AdapterConformanceBinding<Client> {
+export function createReactLifecycleConformanceBinding<Client extends object>(
+  expectation: AdapterPackageExpectation,
+  createBindings: (bindingName?: string) => ZmdbReactBindings<Client>,
+): AdapterConformanceBinding<Client> {
   return {
-    package: reactExpectation(),
+    package: expectation,
     prepareQuery(options) {
-      return prepareReactQuery(options.client, options.input, options.load);
+      return prepareReactQuery(expectation.name, createBindings, options.client, options.input, options.load);
     },
     prepareMutation(options) {
-      return prepareReactMutation(options.client, options.run);
+      return prepareReactMutation(expectation.name, createBindings, options.client, options.run);
     },
     runSsrQuery(options) {
-      const bindings = createZmdbReact<Client>('@zmdb/react SSR conformance');
+      const bindings = createBindings(`${expectation.name} SSR conformance`);
       const selected: { client?: Client } = {};
 
       function Probe() {
@@ -257,8 +274,14 @@ export function createReactConformanceBinding<Client extends object>(): AdapterC
 
       renderToString(createElement(bindings.ZmdbClientProvider, { client: options.client }, createElement(Probe)));
       const client = selected.client;
-      if (client === undefined) throw new Error('@zmdb/react SSR provider did not expose its request client');
+      if (client === undefined) {
+        throw new Error(`${expectation.name} SSR provider did not expose its request client`);
+      }
       return Promise.resolve(options.load(client, options.input, new AbortController().signal));
     },
   };
+}
+
+export function createReactConformanceBinding<Client extends object>(): AdapterConformanceBinding<Client> {
+  return createReactLifecycleConformanceBinding(adapterExpectation('@zmdb/react'), createZmdbReact<Client>);
 }

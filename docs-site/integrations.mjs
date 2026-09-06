@@ -27,10 +27,11 @@ export const INTEGRATIONS = Object.freeze([
   }),
   integration({
     capability: 'Next.js',
-    package: '@zmdb/repository',
-    status: 'documented',
-    docs: 'deploy-nextjs',
-    evidence: ['packages/repository/src/repository.spec.ts', 'packages/zmdb/src/client-integrations/SPEC.md'],
+    package: '@zmdb/next',
+    status: 'optional',
+    peers: ['next', 'react', 'react-dom'],
+    docs: 'framework-integrations',
+    evidence: ['packages/next/src/client.spec.ts', 'packages/next/src/server.spec.ts', 'fixtures/next-app-router'],
   }),
   integration({
     capability: 'Nuxt',

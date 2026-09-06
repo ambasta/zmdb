@@ -78,6 +78,18 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  next: packagePolicy({
+    directory: 'packages/next',
+    zone: 'integration',
+    ring: 2,
+    allowedWorkspaceDependencies: ['client', 'react'],
+    allowedRuntimeDependencies: [
+      // Next's server export loads the framework's official build-time client-boundary marker.
+      'server-only',
+    ],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   'query-compiler': packagePolicy({
     directory: 'packages/query-compiler',
     zone: 'foundation',

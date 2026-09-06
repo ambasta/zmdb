@@ -12,9 +12,9 @@ Issue #688, parent #687. This is the architecture contract for the optional UI a
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-This file originally froze all nine packages before implementation. Issues #691–#694 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte`; the other five remain implementation
-targets. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire format, response validation and client
-error classes belong to #679 and its implementation children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issues #691–#694 and #697 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/next`; the other four
+remain implementation targets. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire format, response
+validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
 
 ## 0. Measured starting point
 
@@ -34,13 +34,12 @@ The framework release lines in §4 were measured with `yarn npm info`, not infer
 
 ## 0.1 Current implementation status
 
-`@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte` implement four base-adapter rows in this contract. The Svelte package provides typed context, lazy query stores, mutation stores,
-final-subscriber and `onDestroy` cancellation, stale-result guards, and request-isolated server rendering. Its public API and qualification evidence are normative in
-[`packages/svelte/SPEC.md`](../../../svelte/SPEC.md).
+`@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte` implement the four base-adapter rows in this contract. `@zmdb/next` implements the first meta-framework row through physically separate
+browser and server exports, React binding reuse, request-scoped credential forwarding, request-local RSC memoization, and explicit Next fetch policy.
 
-The shared generated-client conformance suite now executes all four landed rows as ordinary passing tests. The remaining five adapter rows retain executable missing-package expected failures until
+The shared generated-client conformance suite now executes all five landed rows as ordinary passing tests. The remaining four adapter rows retain executable missing-package expected failures until
 their own implementation issues land. The Svelte packed fixture installs real client and adapter tarballs, compiles browser and server component graphs, checks public inference, and renders isolated
-server trees.
+server trees. The Next packed fixture builds and runs a real App Router application, checks the server-only boundary, and inspects browser output for server credentials and server package code.
 
 ## 1. Ownership boundary
 
@@ -147,8 +146,8 @@ Recipes are still supported documentation. They simply do not create another pac
 | `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
 | `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
-This table is a design qualification, not a blanket support claim. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte` have earned their rows through native and packed qualification
-fixtures in #691–#694; each remaining row stays conditional on its implementation and packed qualification evidence.
+This table is a design qualification, not a blanket support claim. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/next` have earned their rows through native and packed
+qualification fixtures in #691–#694 and #697; each remaining row stays conditional on its implementation and packed qualification evidence.
 
 ## 3. Common query and mutation semantics
 
@@ -247,7 +246,9 @@ errors and navigation cancellations remain the framework's original objects.
 Framework runtimes are required peer dependencies, not bundled dependencies and not optional peers. The exact version used by each packed fixture is a dev dependency of that fixture. Peer ranges cover
 the measured current stable line only; this repository does not promise old-major compatibility.
 
-`@types/react` is an optional peer for packages whose declarations name React types and an exact fixture dev dependency. It is not a runtime dependency.
+`@types/react` is an optional peer only when a package's own emitted declarations import React types and an exact fixture dev dependency. The implemented `@zmdb/next/client` declaration was measured
+after build: it re-exports from its direct `@zmdb/react` dependency and contains no direct `react` import. `@zmdb/next` therefore keeps `@types/react` as an exact dev/fixture dependency rather than
+duplicating its base adapter's type ownership as another peer.
 
 | Peer package    | Exact fixture version | Frozen peer range  |
 | --------------- | --------------------- | ------------------ |
@@ -280,7 +281,7 @@ Every package is ESM-only, has `sideEffects: false`, performs no global registra
 | `@zmdb/svelte`       | `@zmdb/client`                 | `svelte`                                      | `.`                         |
 | `@zmdb/solid`        | `@zmdb/client`                 | `solid-js`                                    | `.`                         |
 | `@zmdb/react-native` | `@zmdb/client`, `@zmdb/react`  | `react`, `react-native`; optional React types | `.`                         |
-| `@zmdb/next`         | `@zmdb/client`, `@zmdb/react`  | `next`, `react`, `react-dom`; optional types  | `./client`, `./server`      |
+| `@zmdb/next`         | `@zmdb/client`, `@zmdb/react`  | `next`, `react`, `react-dom`                  | `./client`, `./server`      |
 | `@zmdb/nuxt`         | `@zmdb/client`, `@zmdb/vue`    | `nuxt`, `vue`                                 | `.`, `./client`, `./server` |
 | `@zmdb/sveltekit`    | `@zmdb/client`, `@zmdb/svelte` | `@sveltejs/kit`, `svelte`                     | `./client`, `./server`      |
 
@@ -301,6 +302,8 @@ The dependency arrows are:
 ```
 
 No arrow points from a base adapter to a meta-framework adapter, from `@zmdb/client` to an adapter, or from any adapter to `@zmdb/web`, the ORM, schema packages, compiler or validator.
+
+`@zmdb/next` also declares `server-only@0.0.1` as a direct non-workspace dependency. It is Next's executable server/client boundary marker, not a framework peer or a second client runtime.
 
 These packages are not dependencies or re-exports of the default `zmdb` package. Doing so would make an application that chose one framework install the release surface and peer constraints of all
 nine. Cohesion is provided by one generated-client contract and one documentation journey, not by a facade that imports every optional ecosystem.

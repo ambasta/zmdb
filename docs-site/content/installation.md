@@ -1,7 +1,7 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-five packages are published today: twenty-four focused packages plus the `zmdb` facade. The
-recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/protobuf`,
-provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
-`@zmdb/jobs-postgres` remain independently installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-seven packages are published today: twenty-six focused packages plus the `zmdb` facade. The
+recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`,
+`@zmdb/next`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
+`@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -91,8 +91,17 @@ npm install @zmdb/client
 # React generated-client lifecycle bindings
 npm install @zmdb/react react@19
 
+# Angular dependency injection, signals, and Observable cancellation
+npm install @zmdb/angular @angular/core@22 rxjs@7
+
 # Vue plugin and lifecycle composables
 npm install @zmdb/vue vue@^3.5
+
+# Svelte context and lifecycle-aware stores
+npm install @zmdb/svelte svelte@^5.57
+
+# Next App Router request scopes and browser bindings
+npm install @zmdb/next next@16 react@19 react-dom@19
 
 # Dependency-free protobuf and typed gRPC artifacts
 npm install @zmdb/protobuf

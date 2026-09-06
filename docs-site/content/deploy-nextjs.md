@@ -1,5 +1,44 @@
-Next.js and zmdb divide cleanly: Next owns rendering and routing, zmdb owns the schema, queries and validation. `@zmdb/web` is usually not part of the picture — you call repositories from server
-components and route handlers.
+Next.js and zmdb divide cleanly: Next owns rendering and routing, while zmdb owns the schema, generated HTTP contract, queries, and validation. There are two supported boundaries:
+
+- use `@zmdb/next` when the Next application calls a separately deployed zmdb HTTP API through its generated client; or
+- call repositories directly when the Next server process owns the database connection.
+
+## Generated HTTP clients
+
+Install the request-scoped adapter and framework peers:
+
+```bash
+npm add @zmdb/next@alpha next@16 react@19 react-dom@19
+```
+
+The server entry reads the current Next header and cookie stores only while creating a request scope. Nothing is forwarded by default:
+
+```ts
+import { createNextServerClient } from '@zmdb/next/server';
+import { createApiClient } from '@/generated/http-client.generated.js';
+
+const apiOrigin = process.env['API_ORIGIN'];
+if (apiOrigin === undefined) throw new Error('API_ORIGIN is required');
+
+const request = await createNextServerClient({
+  createClient: createApiClient,
+  baseUrl: apiOrigin,
+  fetch: globalThis.fetch,
+  forward: {
+    headers: ['authorization', 'x-tenant-id'],
+    cookies: ['session'],
+  },
+  fetchPolicy: { next: { revalidate: 60, tags: ['accounts'] } },
+});
+```
+
+Create that scope inside the server component, route handler, or server action that owns the request. `request.memoize(load, key)` shares duplicate work only inside that scope; it never shares a
+client, credential, or result map across requests. `cache: 'no-store'`, `cache: 'force-cache'`, and `next: { revalidate, tags }` pass through to the supplied Next fetch unchanged.
+
+Client components import only `@zmdb/next/client`. It reuses the `@zmdb/react` provider and hooks; the package has no mixed root barrel, and the guarded server entry cannot enter a client component.
+See [Framework Integrations](./framework-integrations.html) for the client binding.
+
+## Direct database access
 
 ## One module for the driver
 

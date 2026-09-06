@@ -71,6 +71,7 @@ export {
   type PackedProjectResult,
   type PackedTarball,
 } from './packed-project.js';
+export { createNextConformanceBinding } from './next-binding.js';
 export { createReactConformanceBinding } from './react-binding.js';
 export { assertSsrCredentialIsolation } from './ssr.js';
 export { createSvelteAdapterConformanceBinding } from './svelte-binding.js';

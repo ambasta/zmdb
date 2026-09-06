@@ -108,6 +108,7 @@ const PACKAGES = [
   'angular',
   'vue',
   'svelte',
+  'next',
   'schema-core',
   'ai',
   'ai-anthropic',

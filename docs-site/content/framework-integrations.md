@@ -5,17 +5,17 @@ release has no official framework adapter; use the generated HTTP client through
 
 <!-- generated: integrations framework-integrations -->
 
-| Framework    | Status      | Public package      | Framework peers       | Documentation                                           | Repository evidence                                                                                                     |
-| ------------ | ----------- | ------------------- | --------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Angular      | optional    | @zmdb/angular       | @angular/core<br>rxjs | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`fixtures/client-adapters/angular` |
-| Next.js      | documented  | @zmdb/repository    | —                     | [deploy-nextjs](./deploy-nextjs.html)                   | `packages/repository/src/repository.spec.ts`<br>`packages/zmdb/src/client-integrations/SPEC.md`                         |
-| Nuxt         | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
-| React        | optional    | @zmdb/react         | react                 | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                        |
-| React Native | documented  | @zmdb/aot-validator | —                     | [connect-react-native](./connect-react-native.html)     | `packages/aot-validator/src/plugin/metro.spec.ts`<br>`fixtures/consumer-metro`                                          |
-| Solid        | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
-| Svelte       | optional    | @zmdb/svelte        | svelte                | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`           |
-| SvelteKit    | not-planned | —                   | —                     | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
-| Vue          | optional    | @zmdb/vue           | vue                   | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`             |
+| Framework    | Status      | Public package      | Framework peers            | Documentation                                           | Repository evidence                                                                                                     |
+| ------------ | ----------- | ------------------- | -------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Angular      | optional    | @zmdb/angular       | @angular/core<br>rxjs      | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`fixtures/client-adapters/angular` |
+| Next.js      | optional    | @zmdb/next          | next<br>react<br>react-dom | [framework-integrations](./framework-integrations.html) | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`fixtures/next-app-router`                  |
+| Nuxt         | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
+| React        | optional    | @zmdb/react         | react                      | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                        |
+| React Native | documented  | @zmdb/aot-validator | —                          | [connect-react-native](./connect-react-native.html)     | `packages/aot-validator/src/plugin/metro.spec.ts`<br>`fixtures/consumer-metro`                                          |
+| Solid        | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
+| Svelte       | optional    | @zmdb/svelte        | svelte                     | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`           |
+| SvelteKit    | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
+| Vue          | optional    | @zmdb/vue           | vue                        | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`             |
 
 <!-- /generated: integrations framework-integrations -->
 
@@ -66,7 +66,7 @@ const rename = apiReact.useZmdbMutation((client, input: { id: string; name: stri
 Queries begin after effect activation, abort on dependency changes and unmount, and suppress stale completion even when a transport ignores cancellation. Mutations remain independent and abort on
 unmount. The package adds no shared cache, implicit retry, polling, focus refetch, or server-render request; those policies stay explicit in the application.
 
-Solid, Nuxt, and SvelteKit remain pending. React Native and Next.js stay documented because their current recipes use shipped package boundaries without claiming those future adapters.
+Solid, Nuxt, and SvelteKit remain pending. React Native remains documented because its current recipe uses shipped package boundaries without claiming the future adapter.
 
 ## Vue
 
@@ -135,3 +135,50 @@ export const zmdb = createZmdbSvelte<ApiClient>();
 Set a tree- or request-local client during provider component initialisation. Descendants call `zmdb.query(input, load)` and `zmdb.mutation(run)`. Query stores make no request until their first
 subscription, abort after their final unsubscribe, restart for a later subscriber, and suppress stale completions after an input-store change. Context-owned stores also register component destruction
 cleanup. Direct `createQueryStore(...)` and `createMutationStore(...)` exports support owners outside component context and the later SvelteKit integration.
+
+## Next.js
+
+Install the App Router adapter with its required framework peers:
+
+```bash
+npm add @zmdb/next@alpha next@16 react@19 react-dom@19
+```
+
+Create a request-owned generated client in a server component or route handler. Only explicitly selected incoming credentials are forwarded:
+
+```ts
+import { createNextServerClient } from '@zmdb/next/server';
+import { createApiClient } from './generated/http-client.generated.js';
+
+const apiOrigin = process.env['API_ORIGIN'];
+if (apiOrigin === undefined) throw new Error('API_ORIGIN is required');
+
+const request = await createNextServerClient({
+  createClient: createApiClient,
+  baseUrl: apiOrigin,
+  fetch: globalThis.fetch,
+  forward: {
+    headers: ['authorization', 'x-tenant-id'],
+    cookies: ['session'],
+  },
+  fetchPolicy: { cache: 'no-store' },
+});
+```
+
+`request.memoize(load, key)` de-duplicates duplicate RSC work only inside that request scope. Another request receives another client and memo table. Use `fetchPolicy.cache` or
+`fetchPolicy.next = { revalidate, tags }` to pass an explicit Next cache policy through unchanged.
+
+Client components import only the browser entry, which is the existing React binding:
+
+```ts
+'use client';
+
+import { createZmdbNextClient } from '@zmdb/next/client';
+import type { ApiClient } from './generated/http-client.generated.js';
+
+export const apiNext = createZmdbNextClient<ApiClient>('AccountApi');
+```
+
+The package has no mixed root export. `@zmdb/next/server` carries the real `server-only` boundary, while `@zmdb/next/client` cannot reach Next request APIs or server credentials.
+
+React Native remains a documented recipe because its dedicated client adapter has not landed.

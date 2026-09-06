@@ -1,6 +1,6 @@
 // Compile-only framework inference freeze for #689.
 //
-// React, Angular, Vue, and Svelte now use their real public types. The remaining namespace imports are
+// React, Angular, Vue, Svelte, and Next now use their real public types. The remaining namespace imports are
 // retirement triggers: each implementation issue makes its directive unused,
 // at which point that package's native bridge below must be replaced by the
 // real public types rather than leaving a structural stand-in behind.
@@ -8,12 +8,8 @@
 import type { InjectionToken } from '@angular/core';
 import { createZmdbAngular } from '@zmdb/angular';
 import type { ZmdbAngularBindings, ZmdbClientRef } from '@zmdb/angular';
-// @ts-expect-error #697 supplies the Next client entry
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #697
-import type * as MissingNextClientAdapter from '@zmdb/next/client';
-// @ts-expect-error #697 supplies the Next server entry
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #697
-import type * as MissingNextServerAdapter from '@zmdb/next/server';
+import { createZmdbNextClient } from '@zmdb/next/client';
+import type { NextServerClient } from '@zmdb/next/server';
 // @ts-expect-error #698 supplies the Nuxt root entry
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #698
 import type * as MissingNuxtAdapter from '@zmdb/nuxt';
@@ -111,6 +107,16 @@ function reactInference(bindings: ReactBindings<ApiClient>): void {
   mutation.pending satisfies boolean;
   // @ts-expect-error generated mutation input still requires a name
   void mutation.mutate({ id: 'one' });
+}
+
+function nextInference(bindings: ReactBindings<ApiClient>, server: NextServerClient<ApiClient>): void {
+  reactInference(bindings);
+  server.client.getWidget satisfies ApiClient['getWidget'];
+  const getWidget = server.memoize(
+    (client, id: string) => client.getWidget({ id }),
+    id => id,
+  );
+  getWidget satisfies (id: string) => Promise<Widget>;
 }
 
 function angularInference(bindings: ZmdbAngularBindings<ApiClient>): void {
@@ -251,8 +257,6 @@ export type _MetaFrameworksReuseNativeBaseShapes = [
 ];
 
 export type _MissingPackageRetirementTriggers = [
-  keyof typeof MissingNextClientAdapter,
-  keyof typeof MissingNextServerAdapter,
   keyof typeof MissingNuxtAdapter,
   keyof typeof MissingNuxtClientAdapter,
   keyof typeof MissingNuxtServerAdapter,
@@ -264,7 +268,9 @@ export type _MissingPackageRetirementTriggers = [
 
 createZmdbReact<ApiClient>() satisfies ReactBindings<ApiClient>;
 createZmdbVue<ApiClient>() satisfies VueBindings<ApiClient>;
+createZmdbNextClient<ApiClient>() satisfies ReactBindings<ApiClient>;
 void reactInference;
+void nextInference;
 void angularInference;
 void createZmdbAngular<ApiClient>;
 void vueInference;

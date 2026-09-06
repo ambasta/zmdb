@@ -6,7 +6,8 @@
     "benchmarks",
     "fixtures/client-adapters",
     "fixtures/consumer-metro",
-    "fixtures/llm-adapters"
+    "fixtures/llm-adapters",
+    "fixtures/next-app-router"
   ],
   "type": "module",
   "scripts": {

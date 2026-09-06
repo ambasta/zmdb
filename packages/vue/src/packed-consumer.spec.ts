@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { ROOT, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
+  PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
-  withPackedBuildLock,
   type PackedProjectResult,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
@@ -70,13 +70,16 @@ describe('@zmdb/vue packed consumers', () => {
     result = undefined;
   });
 
-  it('installs published tarballs and runs browser, SSR, and common conformance without workspace paths', () => {
-    result = withPackedBuildLock(ROOT, () => {
-      build('@zmdb/client');
-      build('@zmdb/vue');
-
-      return runPackedProject({
+  it(
+    'installs published tarballs and runs browser, SSR, and common conformance without workspace paths',
+    () => {
+      result = runPackedProject({
         name: '@zmdb-fixture/packed-vue',
+        buildLockRoot: ROOT,
+        preparePackages() {
+          build('@zmdb/client');
+          build('@zmdb/vue');
+        },
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
@@ -131,27 +134,28 @@ describe('@zmdb/vue packed consumers', () => {
           },
         ],
       });
-    });
 
-    expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/vue']);
-    expect(result.commands.map(command => [command.label, command.status])).toEqual([
-      ['packed Vue typecheck', 0],
-      ['packed Vue browser bundle', 0],
-      ['packed Vue browser runtime', 0],
-      ['packed Vue SSR runtime', 0],
-      ['packed Vue common conformance', 0],
-    ]);
-    expect(JSON.parse(result.commands[2]?.stdout ?? '')).toEqual({
-      calls: ['browser'],
-      result: { id: 'browser' },
-    });
-    expect(JSON.parse(result.commands[3]?.stdout ?? '')).toEqual({
-      credentials: ['first', 'second'],
-    });
-    expect(JSON.parse(result.commands[4]?.stdout ?? '')).toEqual({
-      package: '@zmdb/vue',
-      cases: 11,
-      source: 'packed-tarballs',
-    });
-  }, 240_000);
+      expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/vue']);
+      expect(result.commands.map(command => [command.label, command.status])).toEqual([
+        ['packed Vue typecheck', 0],
+        ['packed Vue browser bundle', 0],
+        ['packed Vue browser runtime', 0],
+        ['packed Vue SSR runtime', 0],
+        ['packed Vue common conformance', 0],
+      ]);
+      expect(JSON.parse(result.commands[2]?.stdout ?? '')).toEqual({
+        calls: ['browser'],
+        result: { id: 'browser' },
+      });
+      expect(JSON.parse(result.commands[3]?.stdout ?? '')).toEqual({
+        credentials: ['first', 'second'],
+      });
+      expect(JSON.parse(result.commands[4]?.stdout ?? '')).toEqual({
+        package: '@zmdb/vue',
+        cases: 11,
+        source: 'packed-tarballs',
+      });
+    },
+    PACKED_BUILD_TEST_TIMEOUT_MS,
+  );
 });

@@ -28,6 +28,7 @@ import {
   createAdapterClientFixture,
   createApiClient,
   createControllableAdapterTransport,
+  createNextConformanceBinding,
   createReactConformanceBinding,
   createSvelteAdapterConformanceBinding,
   createVueConformanceBinding,
@@ -100,7 +101,8 @@ const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(
     expectation.name !== '@zmdb/react' &&
     expectation.name !== '@zmdb/angular' &&
     expectation.name !== '@zmdb/vue' &&
-    expectation.name !== '@zmdb/svelte',
+    expectation.name !== '@zmdb/svelte' &&
+    expectation.name !== '@zmdb/next',
 );
 
 describe('the shared generated adapter fixture (#689, #690)', () => {
@@ -329,6 +331,42 @@ describe('@zmdb/vue executable adapter contract', () => {
 describe('@zmdb/svelte executable adapter contract', () => {
   const expectation = expectationFor('@zmdb/svelte');
   const binding = createSvelteAdapterConformanceBinding();
+
+  it('does not request before the framework primitive activates', () => assertNoRequestBeforeMount(binding));
+
+  it('publishes pending and success through the framework primitive', () => assertPendingAndSuccess(binding));
+
+  it('cancels when the owning scope is disposed', () => assertDisposalCancellation(binding));
+
+  it('ignores a stale response after inputs change', () => assertStaleResultSuppression(binding));
+
+  it('preserves ClientResponseError identity', () => assertClientResponseErrorIdentity(binding));
+
+  it('preserves protocol errors from the generated client', () => assertProtocolErrorIdentity(binding));
+
+  it('preserves response validation errors from the generated client', () => assertValidationErrorIdentity(binding));
+
+  it('does not retry without explicit policy', () => assertNoImplicitRetry(binding));
+
+  it('accepts a generated client without inspecting its contract', () => assertOpaqueGeneratedClient(binding));
+
+  it('keeps concurrent mutation promises independent and only the newest error visible', () =>
+    assertIndependentMutations(binding));
+
+  it('does not share request state across SSR requests', () => assertSsrCredentialIsolation(binding));
+
+  it('imports without executing network I/O', () => {
+    assertAdapterImportsWithoutEffects(ROOT, expectation);
+  });
+
+  it('framework package has only expected peers', () => {
+    assertAdapterPackageManifest(expectation, readAdapterPackageManifest(ROOT, expectation));
+  });
+});
+
+describe('@zmdb/next executable adapter contract', () => {
+  const expectation = expectationFor('@zmdb/next');
+  const binding = createNextConformanceBinding<ApiClient>();
 
   it('does not request before the framework primitive activates', () => assertNoRequestBeforeMount(binding));
 

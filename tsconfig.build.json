@@ -25,6 +25,7 @@
     "paths": {
       "@zmdb/client": ["./packages/client/dist/index.d.ts"],
       "@zmdb/client/*": ["./packages/client/dist/*/index.d.ts"],
+      "@zmdb/next/*": ["./packages/next/dist/*.d.ts"],
       "@zmdb/react": ["./packages/react/dist/index.d.ts"],
       "@zmdb/vue": ["./packages/vue/dist/index.d.ts"],
       "@zmdb/ai": ["./packages/ai/dist/index.d.ts"],

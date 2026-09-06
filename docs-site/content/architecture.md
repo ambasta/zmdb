@@ -1,12 +1,14 @@
-zmdb currently publishes twenty-three focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side
-roots, `@zmdb/react` and `@zmdb/vue` are independently installable leaves over the generated-client runtime, and `@zmdb/ai`, the opt-in Anthropic, LangChain, and Vercel integrations, and `@zmdb/mcp`
-are independently installable and are not re-exported by the umbrella.
+zmdb currently publishes twenty-six focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side roots,
+while UI, AI, protocol, database, and telemetry integrations remain independently installable and are not re-exported by the umbrella.
 
 The dependency spine is:
 
 ```
-@zmdb/client ──> @zmdb/react, @zmdb/vue        @zmdb/protobuf
-       (generated-client adapters)             (dependency-free root)
+@zmdb/client ──> @zmdb/react ──> @zmdb/next
+       ├────────> @zmdb/vue
+       └────────> @zmdb/svelte
+@zmdb/angular                 @zmdb/protobuf
+  (structural adapter)        (dependency-free root)
 
 @zmdb/query-compiler
           |
@@ -17,17 +19,17 @@ The dependency spine is:
 @zmdb/mcp  @zmdb/aot-validator
                  |
          @zmdb/repository
-                 |
-             @zmdb/app
-                 |
-             @zmdb/web
-                 |
-                zmdb
+          /            \
+@zmdb/sqlite          @zmdb/app
+     |                /    |    \
+     |       @zmdb/jobs @zmdb/otel @zmdb/web
+     |                               |
+     └─────────────────────────────> zmdb
 ```
 
-`@zmdb/react` and `@zmdb/vue` depend only on `@zmdb/client` and declare their framework runtimes as required peers. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` depend inward only
-on `@zmdb/ai`. `@zmdb/client` and `@zmdb/protobuf` are independent roots. Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic
-order rather than every shortcut edge.
+`@zmdb/react`, `@zmdb/vue`, and `@zmdb/svelte` depend only on `@zmdb/client`; `@zmdb/next` depends inward on the generated client and React adapter; and `@zmdb/angular` accepts the generated client
+structurally without a workspace dependency. Each declares only its selected framework runtimes as required peers. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` depend inward only
+on `@zmdb/ai`. Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
 
 ## What each package owns
 
@@ -37,8 +39,17 @@ this runtime without importing web, schema, AOT, or Node-specific APIs.
 **`@zmdb/react`** — React context, query, and mutation hooks over an application-generated client. Effect cleanup aborts active work, dependency changes suppress stale results, and React remains a
 required peer.
 
+**`@zmdb/angular`** — Angular dependency injection, signals, `DestroyRef` cleanup, and Observable cancellation over a structurally supplied generated client. Angular core and RxJS remain required
+peers.
+
 **`@zmdb/vue`** — a Vue 3 application plugin plus typed query and mutation composables over an application-generated client. Watcher changes and effect-scope disposal abort active requests, stale
 completions cannot overwrite newer state, and each SSR application owns its client and state. Vue is a required peer rather than a bundled dependency.
+
+**`@zmdb/svelte`** — typed context plus lazy query and mutation stores over an application-generated client. First subscription activates work, final unsubscribe and component destruction abort it,
+and request-local server rendering does not share client state.
+
+**`@zmdb/next`** — physically separated browser and server entries over the generated client. The browser entry reuses `@zmdb/react`; the guarded server entry owns selected credential forwarding,
+request-local RSC memoization, and explicit Next fetch cache policy.
 
 **`@zmdb/schema-core`** — the tag vocabulary, the IR, the schema object and everything derived from it by types alone. The tags (`Table`, `Sql`, `PrimaryKey`, `Serial`, …, types only, zero runtime
 exports), the `TypeIR`/`ColumnIR` spine and its converters, the DTO types (`Entity`, `CreateDTO`, `UpdateDTO`, `ReadDTO`, `WhereDTO`, `ListDTO`), relation metadata, JSON Schema / OpenAPI emission, and
@@ -72,8 +83,14 @@ and replaces a generic call with a specialised checker derived from the checker'
 **`@zmdb/repository`** — the only package that touches a connection, and it does so through a driver interface with one required method and optional streaming. Holds `BaseRepository`, transactions,
 replicas, embeddables, inheritance, lifecycle hooks.
 
+**`@zmdb/sqlite`** — the complete SQLite vertical: compilation traits, DDL, migrations, introspection, capabilities, and the structural `node:sqlite` driver.
+
 **`@zmdb/app`** — the protocol-neutral application kernel: Stage-3 metadata, dependency injection, modules, lifecycle and extensions, command applications, events, CQRS, state machines, health
 contracts, and generic observability ports.
+
+**`@zmdb/jobs`** — typed queues, workers, dead letters, scheduling, leases, and the built-in SQLite memory backend over the application kernel.
+
+**`@zmdb/otel`** — OpenTelemetry API adaptation over caller-owned tracers and meters; it owns no provider, exporter, SDK lifecycle, or ambient context.
 
 **`@zmdb/web`** — HTTP-specific composition over app: controllers, request context, routing, middleware, OpenAPI assembly, gateways, HTTP-aware testing, and runtime adapters.
 

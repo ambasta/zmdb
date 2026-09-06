@@ -27,6 +27,7 @@ const PACKAGES = [
   'client',
   'react',
   'vue',
+  'next',
   'schema-core',
   'ai',
   'ai-anthropic',

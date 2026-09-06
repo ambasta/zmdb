@@ -1,6 +1,7 @@
 // Verification script for package export manifests.
 // Confirms that all declared package exports resolve to valid files.
 
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +11,8 @@ import { TARGET_TOOLING_BIN, TARGET_TOOLING_EXPORTS } from './verify-tooling-bou
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PACKAGES_DIR = join(ROOT, 'packages');
+const NEXT_SERVER_SPECIFIER = '@zmdb/next/server';
+const SERVER_ONLY_MESSAGE = 'This module cannot be imported from a Client Component module';
 
 let errorsCount = 0;
 
@@ -171,6 +174,24 @@ for (const diagnostic of reachability.diagnostics) {
 //     the emit into `dist`, so this catches it on both routes.
 //
 // Neither is visible to a test run, which is exactly why it belongs in a gate.
+function probeSourceImport(specifier, conditions = []) {
+  return spawnSync(
+    process.execPath,
+    [
+      ...conditions.map(condition => `--conditions=${condition}`),
+      `--import=${join(ROOT, 'scripts', 'ts-specifier-hook.mjs')}`,
+      '--input-type=module',
+      '--eval',
+      `await import(${JSON.stringify(specifier)})`,
+    ],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+    },
+  );
+}
+
 for (const pkgDirName of packageDirs) {
   const pkgJsonPath = join(PACKAGES_DIR, pkgDirName, 'package.json');
   if (!existsSync(pkgJsonPath)) continue;
@@ -179,6 +200,21 @@ for (const pkgDirName of packageDirs) {
 
   for (const subpath of Object.keys(pkg.exports ?? {})) {
     const specifier = subpath === '.' ? pkg.name : `${pkg.name}${subpath.slice(1)}`;
+    if (specifier === NEXT_SERVER_SPECIFIER) {
+      const guarded = probeSourceImport(specifier);
+      if (guarded.status === 0 || !guarded.stderr.includes(SERVER_ONLY_MESSAGE)) {
+        console.error(
+          `[ERROR] import('${specifier}') did not enforce its plain-node server-only guard: ${guarded.stderr.trim()}`,
+        );
+        errorsCount++;
+      }
+      const server = probeSourceImport(specifier, ['react-server']);
+      if (server.status !== 0) {
+        console.error(`[ERROR] import('${specifier}') fails under the react-server condition: ${server.stderr.trim()}`);
+        errorsCount++;
+      }
+      continue;
+    }
     try {
       await import(specifier);
     } catch (error) {
@@ -193,7 +229,7 @@ if (errorsCount > 0) {
   process.exit(1);
 } else {
   console.log(
-    '\n[SUCCESS] every export entry point resolves, imports under plain node, and satisfies architecture reachability policy.',
+    '\n[SUCCESS] every export entry point resolves, imports under its qualified node condition, and satisfies architecture reachability policy.',
   );
   process.exit(0);
 }

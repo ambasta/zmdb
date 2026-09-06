@@ -8,6 +8,11 @@ import { jsonSchemaFromIR, objectTypeFromIR, schemaFromIR, type SchemaIR, type T
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import {
+  PACKED_BUILD_TEST_TIMEOUT_MS,
+  withPackedBuildLock,
+} from '../../../fixtures/client-adapters/src/packed-project.js';
+
 const ROOT = process.cwd();
 const PACKED_VERIFIER = join(ROOT, 'fixtures', 'consumer-runtime-foundation', 'verify-installed.mjs');
 const TARGET_PACKAGE_ROOTS = [
@@ -152,12 +157,14 @@ const ORM_IR: SchemaIR = {
 let packedResult: SpawnSyncReturns<string>;
 
 beforeAll(() => {
-  packedResult = spawnSync(process.execPath, [PACKED_VERIFIER], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    timeout: 300_000,
-  });
-});
+  packedResult = withPackedBuildLock(ROOT, () =>
+    spawnSync(process.execPath, [PACKED_VERIFIER], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 300_000,
+    }),
+  );
+}, PACKED_BUILD_TEST_TIMEOUT_MS);
 
 function packedOutput(): string {
   return [packedResult.stdout, packedResult.stderr].filter(Boolean).join('\n');

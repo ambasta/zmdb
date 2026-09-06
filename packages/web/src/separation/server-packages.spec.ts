@@ -10,6 +10,10 @@ import {
   findServerPackageCycle,
   PRODUCT_SERVER_EXPORTS,
 } from '../../../../.github/scripts/verify-server-boundaries.mjs';
+import {
+  PACKED_BUILD_TEST_TIMEOUT_MS,
+  withPackedBuildLock,
+} from '../../../../fixtures/client-adapters/src/packed-project.js';
 import { inspectServerCoreFixture } from '../../../../fixtures/consumer-server-core/verify-installed.mjs';
 import { metadataOf as facadeMetadataOf } from '../../../zmdb/src/web.js';
 
@@ -292,13 +296,19 @@ describe('core server package boundaries (#646)', () => {
     expect(output).toMatch(/0 optional server packages or peers/);
   }, 180_000);
 
-  it.fails('installed app, HTTP, jobs, and facade runtime and declarations share one boundary', () => {
-    const result = spawnSync(process.execPath, [CONSUMER, '--target'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
-    expect(result.status, result.stderr).toBe(0);
-  }, 300_000);
+  it.fails(
+    'installed app, HTTP, jobs, and facade runtime and declarations share one boundary',
+    () => {
+      const result = withPackedBuildLock(ROOT, () =>
+        spawnSync(process.execPath, [CONSUMER, '--target'], {
+          cwd: ROOT,
+          encoding: 'utf8',
+        }),
+      );
+      expect(result.status, result.stderr).toBe(0);
+    },
+    PACKED_BUILD_TEST_TIMEOUT_MS,
+  );
 });
 
 describe('@zmdb/app deterministic lifecycle (#646)', () => {

@@ -65,6 +65,9 @@ const PEERS = [
   'react',
   'rxjs',
   'vue',
+  'react-dom',
+  'next',
+  'server-only',
 ];
 const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'app-custom-transport.ts');
 const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
@@ -394,12 +397,15 @@ for (const name of PACKAGES) {
   console.log(`  installed ${pkg.name} (${Object.keys(pkg.exports).length} subpaths)`);
 }
 
-// 3. Load every subpath from the temp project.
+// 3. Load every ordinary subpath from the temp project. The Next server entry
+// deliberately rejects a plain import and is qualified separately below.
+const NEXT_SERVER_SPECIFIER = '@zmdb/next/server';
+const ordinarySpecifiers = specifiers.filter(specifier => specifier !== NEXT_SERVER_SPECIFIER);
 writeFileSync(
   join(app, 'smoke.mjs'),
   `${[
     'let failed = 0;',
-    `for (const specifier of ${JSON.stringify(specifiers)}) {`,
+    `for (const specifier of ${JSON.stringify(ordinarySpecifiers)}) {`,
     '  try {',
     '    await import(specifier);',
     '  } catch (error) {',
@@ -410,9 +416,35 @@ writeFileSync(
     'process.exit(failed > 0 ? 1 : 0);',
   ].join('\n')}\n`,
 );
-console.log(`Importing ${specifiers.length} subpath(s) from an installed tree...`);
+console.log(`Importing ${ordinarySpecifiers.length} ordinary subpath(s) from an installed tree...`);
 if (run('node', ['smoke.mjs'], { cwd: app, stdio: 'inherit' }).status !== 0) {
   fail('at least one subpath does not import from an installed tree');
+}
+if (specifiers.includes(NEXT_SERVER_SPECIFIER)) {
+  const guarded = run(
+    'node',
+    ['--input-type=module', '--eval', `await import(${JSON.stringify(NEXT_SERVER_SPECIFIER)})`],
+    { cwd: app },
+  );
+  if (
+    guarded.status === 0 ||
+    !guarded.stderr?.includes('This module cannot be imported from a Client Component module')
+  ) {
+    fail(`installed ${NEXT_SERVER_SPECIFIER} did not enforce its plain-node guard: ${guarded.stderr?.trim()}`);
+  }
+  const server = run(
+    'node',
+    [
+      '--conditions=react-server',
+      '--input-type=module',
+      '--eval',
+      `await import(${JSON.stringify(NEXT_SERVER_SPECIFIER)})`,
+    ],
+    { cwd: app },
+  );
+  if (server.status !== 0) {
+    fail(`installed ${NEXT_SERVER_SPECIFIER} does not import under react-server: ${server.stderr?.trim()}`);
+  }
 }
 
 // 4. Parse and execute the installed Studio path. Importing `zmdb/cli` is not

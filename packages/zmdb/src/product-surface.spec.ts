@@ -24,6 +24,10 @@ import {
   readFacadeOwnership,
   runPackedProductConsumer,
 } from '../../../.github/scripts/verify-product-facade.mjs';
+import {
+  PACKED_BUILD_TEST_TIMEOUT_MS,
+  withPackedBuildLock,
+} from '../../../fixtures/client-adapters/src/packed-project.js';
 import { PRODUCT_CATALOG } from '../../../scripts/product/catalog.mjs';
 
 const ROOT = process.cwd();
@@ -165,8 +169,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
   it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
     const report = await catalogReport();
     expect(report.membershipProblems).toEqual([]);
-    expect(report.rows).toHaveLength(26);
-    expect(report.manifests.size).toBe(26);
+    expect(report.rows).toHaveLength(27);
+    expect(report.manifests.size).toBe(27);
 
     const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
     const staleManifests = new Map(report.manifests);
@@ -225,8 +229,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
 
     expect(report.problems).toEqual([]);
-    expect(report.assignments).toHaveLength(26);
-    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(18);
+    expect(report.assignments).toHaveLength(27);
+    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(19);
     expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(8);
   });
 
@@ -299,25 +303,29 @@ describe('the one-product facade and catalog (#619, #622)', () => {
   // no workspace protocol, no paths, no skipLibCheck and no @zmdb/* import.
   // The tarball process currently reaches the exact missing boundary first:
   // `zmdb/compiler` is not exported.
-  it.fails('installs only zmdb and serves a validated SQLite-backed HTTP request from packed tarballs', () => {
-    expect(inspectProductConsumerFixture(PRODUCT_FIXTURE)).toEqual([]);
+  it.fails(
+    'installs only zmdb and serves a validated SQLite-backed HTTP request from packed tarballs',
+    () => {
+      expect(inspectProductConsumerFixture(PRODUCT_FIXTURE)).toEqual([]);
 
-    const result = runPackedProductConsumer(ROOT, PRODUCT_FIXTURE);
-    expect(result.status, `${result.stage}\n${result.stdout}\n${result.stderr}`).toBe(0);
-    const output: unknown = JSON.parse(result.stdout.trim());
-    expect(output).toMatchObject({
-      applied: [20260905000100],
-      invalidStatus: 400,
-      afterInvalid: { count: 0 },
-      created: { id: 1, name: 'first order' },
-      ledger: [
-        {
-          version: 20260905000100,
-          name: 'create_orders',
-          checksum: 'sha256:consumer-product-create-orders-v1',
-        },
-      ],
-      stored: [{ id: 1, name: 'first order' }],
-    });
-  }, 240_000);
+      const result = withPackedBuildLock(ROOT, () => runPackedProductConsumer(ROOT, PRODUCT_FIXTURE));
+      expect(result.status, `${result.stage}\n${result.stdout}\n${result.stderr}`).toBe(0);
+      const output: unknown = JSON.parse(result.stdout.trim());
+      expect(output).toMatchObject({
+        applied: [20260905000100],
+        invalidStatus: 400,
+        afterInvalid: { count: 0 },
+        created: { id: 1, name: 'first order' },
+        ledger: [
+          {
+            version: 20260905000100,
+            name: 'create_orders',
+            checksum: 'sha256:consumer-product-create-orders-v1',
+          },
+        ],
+        stored: [{ id: 1, name: 'first order' }],
+      });
+    },
+    PACKED_BUILD_TEST_TIMEOUT_MS,
+  );
 });

@@ -100,14 +100,14 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
     dependencies: {
       '@zmdb/client': 'workspace:^',
       '@zmdb/react': 'workspace:^',
+      'server-only': '0.0.1',
     },
     peerDependencies: {
-      '@types/react': '>=19.2.0 <20.0.0',
       next: '>=16.3.0 <17.0.0',
       react: '>=19.2.0 <20.0.0',
       'react-dom': '>=19.2.0 <20.0.0',
     },
-    optionalPeers: ['@types/react'],
+    optionalPeers: [],
     exports: ['./client', './server'],
     qualifyingBehaviour: 'Next request-scoped RSC memoization, explicit cache policy and server/client separation',
   },

@@ -29,6 +29,8 @@ export interface PackedProjectCommand {
 export interface PackedProjectPlan {
   readonly name: string;
   readonly packages: readonly PackedPackageSource[];
+  readonly buildLockRoot?: string;
+  readonly preparePackages?: () => void;
   readonly dependencies?: Readonly<Record<string, string>>;
   readonly devDependencies?: Readonly<Record<string, string>>;
   readonly files?: Readonly<Record<string, string>>;
@@ -64,6 +66,7 @@ interface PackageManifest {
 
 const PACKED_BUILD_WAIT = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
 const PACKED_BUILD_LOCK_TIMEOUT_MS = 300_000;
+export const PACKED_BUILD_TEST_TIMEOUT_MS = PACKED_BUILD_LOCK_TIMEOUT_MS * 2;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -228,7 +231,12 @@ export function runPackedProject(plan: PackedProjectPlan): PackedProjectResult {
   let cleaned = false;
 
   try {
-    const tarballs = packPackages(plan, directory);
+    const prepareTarballs = (): ReadonlyMap<string, PackedTarball> => {
+      plan.preparePackages?.();
+      return packPackages(plan, directory);
+    };
+    const tarballs =
+      plan.buildLockRoot === undefined ? prepareTarballs() : withPackedBuildLock(plan.buildLockRoot, prepareTarballs);
     const application = join(directory, 'application');
     mkdirSync(application, { recursive: true });
     const dependencies = {

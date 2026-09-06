@@ -31,6 +31,8 @@
     "paths": {
       "@zmdb/client": ["./packages/client/src/index.ts"],
       "@zmdb/client/*": ["./packages/client/src/*/index.ts"],
+      "@zmdb/next/*": ["./packages/next/src/*.ts"],
+      "next/headers": ["./node_modules/next/headers.d.ts"],
       "@zmdb/react": ["./packages/react/src/index.ts"],
       "@zmdb/vue": ["./packages/vue/src/index.ts"],
       "@zmdb/ai": ["./packages/ai/src/index.ts"],

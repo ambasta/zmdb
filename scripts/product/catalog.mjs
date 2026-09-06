@@ -151,6 +151,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-mcp' },
   }),
   productPackage({
+    id: 'next',
+    directory: 'packages/next',
+    npmName: '@zmdb/next',
+    role: 'next',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'Next.js' },
+    docsOwner: 'framework-integrations',
+    consumer: { fixture: 'fixtures/next-app-router' },
+  }),
+  productPackage({
     id: 'otel',
     directory: 'packages/otel',
     npmName: '@zmdb/otel',

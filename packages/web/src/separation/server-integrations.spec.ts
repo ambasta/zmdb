@@ -4,6 +4,11 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  PACKED_BUILD_TEST_TIMEOUT_MS,
+  withPackedBuildLock,
+} from '../../../../fixtures/client-adapters/src/packed-project.js';
+
 const ROOT = process.cwd();
 const BOUNDARY_VERIFIER = join(ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs');
 const CONSUMER_VERIFIER = join(ROOT, 'fixtures', 'consumer-server-integrations', 'verify-installed.mjs');
@@ -58,13 +63,15 @@ function filesUnder(directory: string): string[] {
 
 let installedConsumers: string | undefined;
 function installedConsumerOutput(): string {
-  installedConsumers ??= execFileSync(
-    process.execPath,
-    [CONSUMER_VERIFIER, '--integrations', ...(HAS_REQUIRED_SERVICES ? ['--require-services'] : [])],
-    {
-      cwd: ROOT,
-      encoding: 'utf8',
-    },
+  installedConsumers ??= withPackedBuildLock(ROOT, () =>
+    execFileSync(
+      process.execPath,
+      [CONSUMER_VERIFIER, '--integrations', ...(HAS_REQUIRED_SERVICES ? ['--require-services'] : [])],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+      },
+    ),
   );
   return installedConsumers;
 }
@@ -104,9 +111,13 @@ describe('optional server package isolation (#655)', () => {
     expect(output).toMatch(/0 optional server packages or peers/);
   }, 180_000);
 
-  it('every integration imports and typechecks from an installed tarball', () => {
-    expect(installedConsumerOutput()).toContain('installed consumer: @zmdb/protobuf runtime and declarations OK');
-  }, 300_000);
+  it(
+    'every integration imports and typechecks from an installed tarball',
+    () => {
+      expect(installedConsumerOutput()).toContain('installed consumer: @zmdb/protobuf runtime and declarations OK');
+    },
+    PACKED_BUILD_TEST_TIMEOUT_MS,
+  );
 
   it('required installed consumers refuse missing live services', () => {
     const env = { ...process.env };

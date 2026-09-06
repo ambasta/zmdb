@@ -310,6 +310,20 @@ describe('architecture and release governance fixtures', () => {
       target: './src/index.ts',
     });
 
+    const next = lookupPackage(live, 'next');
+    if (next === undefined) throw new Error('canonical catalog omitted the Next package id');
+    expect(next.policy.allowedWorkspaceDependencies).toEqual(['client', 'react']);
+    expect(lookupExport(live, '@zmdb/next/client')).toMatchObject({
+      package: { id: 'next', npmName: '@zmdb/next' },
+      selector: './client',
+      target: './src/client.ts',
+    });
+    expect(lookupExport(live, '@zmdb/next/server')).toMatchObject({
+      package: { id: 'next', npmName: '@zmdb/next' },
+      selector: './server',
+      target: './src/server.ts',
+    });
+
     expect(architecture.packages.map(packageRecord => packageRecord.id)).toEqual(['core', 'app']);
     expect(createDependencyGraph(architecture)).toEqual({
       core: [],
@@ -352,7 +366,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 26 catalog packages, 43 workspace edges, and canonical rings verified.',
+      'architecture zones: 27 catalog packages, 45 workspace edges, and canonical rings verified.',
     );
   });
 

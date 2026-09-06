@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { ROOT, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
+  PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
-  withPackedBuildLock,
   type PackedProjectResult,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
@@ -49,13 +49,16 @@ describe('@zmdb/react packed consumer', () => {
     result = undefined;
   });
 
-  it('installs published tarballs and runs the common conformance suite without workspace paths', () => {
-    result = withPackedBuildLock(ROOT, () => {
-      build('@zmdb/client');
-      build('@zmdb/react');
-
-      return runPackedProject({
+  it(
+    'installs published tarballs and runs the common conformance suite without workspace paths',
+    () => {
+      result = runPackedProject({
         name: '@zmdb-fixture/packed-react',
+        buildLockRoot: ROOT,
+        preparePackages() {
+          build('@zmdb/client');
+          build('@zmdb/react');
+        },
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
@@ -132,17 +135,18 @@ export interface LifecycleHarness {
           },
         ],
       });
-    });
 
-    expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/react']);
-    expect(result.commands.map(command => [command.label, command.status])).toEqual([
-      ['packed React typecheck', 0],
-      ['packed React conformance', 0],
-    ]);
-    expect(JSON.parse(result.commands[1]?.stdout ?? '')).toEqual({
-      package: '@zmdb/react',
-      cases: 11,
-      source: 'packed-tarballs',
-    });
-  }, 240_000);
+      expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/react']);
+      expect(result.commands.map(command => [command.label, command.status])).toEqual([
+        ['packed React typecheck', 0],
+        ['packed React conformance', 0],
+      ]);
+      expect(JSON.parse(result.commands[1]?.stdout ?? '')).toEqual({
+        package: '@zmdb/react',
+        cases: 11,
+        source: 'packed-tarballs',
+      });
+    },
+    PACKED_BUILD_TEST_TIMEOUT_MS,
+  );
 });
