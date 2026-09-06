@@ -105,6 +105,11 @@ export interface Everything extends Table<'all'> {
   h: Date & Sql<'timestamp'>;
   i: { x: number } & Sql<'json'>;
   j: 'x';
+  k: string & Sql<'uuid'>;
+  l: (Date | string) & Sql<'date'>;
+  m: string & Sql<'time'>;
+  n: (string | number) & Sql<'decimal'>;
+  o: Uint8Array & Sql<'blob'>;
 }
 
 /** A table with nothing a driver can hand back in two forms, for `dbDecodedColumns`. */

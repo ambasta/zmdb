@@ -14,6 +14,11 @@ const TYPES = Object.freeze({
   timestamp: 'TEXT',
   json: 'TEXT',
   jsonEnum: 'TEXT',
+  uuid: 'text',
+  date: 'date',
+  time: 'time',
+  decimal: 'decimal',
+  blob: 'blob',
 } satisfies DialectTypeMap);
 
 const OPERATOR_TOKEN = /^(?!.*--)[A-Za-z@<>=!~*&|?-]{1,4}$/;

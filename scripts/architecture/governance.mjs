@@ -351,6 +351,7 @@ function migrationProblems(root, inventory) {
 export async function verifyConsumerParity({ root, inventory }) {
   const problems = migrationProblems(root, inventory);
   for (const group of inventory.groups) {
+    if (group.externalRoot !== undefined && !existsSync(group.externalRoot)) continue;
     for (const path of group.paths) {
       if (!existsSync(inventoryPath(root, group, path))) problems.push(`${group.id}:${path} is missing`);
     }

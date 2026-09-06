@@ -117,6 +117,11 @@ describe('@zmdb/sqlite vertical', () => {
       timestamp: 'TEXT',
       json: 'TEXT',
       jsonEnum: 'TEXT',
+      uuid: 'text',
+      date: 'date',
+      time: 'time',
+      decimal: 'decimal',
+      blob: 'blob',
     });
     expect(sqlite.traits.paginate({ offset: 20, ordered: true })).toBe(' LIMIT -1 OFFSET 20');
 

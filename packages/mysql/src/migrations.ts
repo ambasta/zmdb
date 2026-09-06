@@ -30,7 +30,12 @@ const TYPES = Object.freeze({
   timestamp: 'DATETIME(3)',
   json: 'JSON',
   jsonEnum: 'TEXT',
-});
+  uuid: 'CHAR(36)',
+  date: 'DATE',
+  time: 'TIME',
+  decimal: 'DECIMAL',
+  blob: 'BLOB',
+} satisfies DialectTypeMap);
 
 const EXTENSION_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 

@@ -28,7 +28,12 @@ export type SqlType =
   | 'boolean'
   | 'timestamp'
   | 'json'
-  | 'jsonEnum';
+  | 'jsonEnum'
+  | 'uuid'
+  | 'date'
+  | 'time'
+  | 'decimal'
+  | 'blob';
 
 export interface ValidationRule {
   readonly kind: string;

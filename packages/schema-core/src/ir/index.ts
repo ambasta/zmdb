@@ -280,6 +280,11 @@ export const SQL_TYPES = [
   'timestamp',
   'json',
   'jsonEnum',
+  'uuid',
+  'date',
+  'time',
+  'decimal',
+  'blob',
 ] as const satisfies readonly SqlType[];
 
 /** The closed protobuf scalar vocabulary carried by {@link ScalarIR}. */
@@ -499,6 +504,16 @@ function appBaseOf(col: ColumnIR): TypeIR {
       return { kind: 'scalar', scalar: 'boolean' };
     case 'timestamp':
       return { kind: 'scalar', scalar: 'date' };
+    case 'uuid':
+      return constrained('string', col, 'uuid');
+    case 'date':
+      return { kind: 'scalar', scalar: 'date' };
+    case 'time':
+      return constrained('string', col, 'time');
+    case 'decimal':
+      return constrained('string', col, 'decimal');
+    case 'blob':
+      return { kind: 'unknown' };
     case 'jsonEnum':
       return col.enum === undefined || col.enum.length === 0
         ? constrained('string', col)
@@ -574,6 +589,7 @@ export function wireTypeOf(col: ColumnIR): TypeIR {
   }
   if (typeof col.sql !== 'string') return appTypeOf(col);
   if (col.sql === 'timestamp') return withNull(constrained('string', col, 'date-time'), col.nullable);
+  if (col.sql === 'date') return withNull(constrained('string', col, 'date'), col.nullable);
   if (col.sql === 'bigint') return withNull(constrained('string', col, 'int64'), col.nullable);
   return appTypeOf(col);
 }
@@ -629,6 +645,26 @@ export function jsonSchemaForColumn(col: ColumnIR): Record<string, unknown> {
     case 'timestamp':
       base.type = 'string';
       base.format = 'date-time';
+      break;
+    case 'uuid':
+      base.type = 'string';
+      base.format = 'uuid';
+      break;
+    case 'date':
+      base.type = 'string';
+      base.format = 'date';
+      break;
+    case 'time':
+      base.type = 'string';
+      base.format = 'time';
+      break;
+    case 'decimal':
+      base.type = 'string';
+      base.format = 'decimal';
+      break;
+    case 'blob':
+      base.type = 'string';
+      base.format = 'binary';
       break;
     case 'jsonEnum':
       base.type = 'string';
