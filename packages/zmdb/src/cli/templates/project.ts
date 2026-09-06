@@ -89,7 +89,7 @@ const common = {
   format: 'esm',
   packages: 'external',
   platform: 'node',
-  target: 'node26',
+  target: 'node20',
 };
 
 const mode = process.argv[2];
