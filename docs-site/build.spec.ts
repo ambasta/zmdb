@@ -51,7 +51,7 @@ describe('docs site generator', { timeout: BUILD_TIMEOUT }, () => {
     expect(spec.openapi).toBe('3.0.3');
     expect(spec.paths['/users']).toBeDefined();
     expect(spec.components.schemas.User).toBeDefined();
-  });
+  }, 30_000);
 
   it('renders navigation ownership in breadcrumbs, sidebar counts and previous-next order', () => {
     build();
@@ -90,7 +90,7 @@ describe('docs site generator', { timeout: BUILD_TIMEOUT }, () => {
     // The dashboard must not depend on a CDN: the docs site is meant to be usable
     // offline and from a file:// path.
     expect(html).not.toMatch(/<script[^>]+src=/);
-  });
+  }, 30_000);
 
   it('reports a suite as not measured instead of inventing zeroes', () => {
     const missing = join(DASH_DIR, 'framework.json');
@@ -111,7 +111,7 @@ describe('docs site generator', { timeout: BUILD_TIMEOUT }, () => {
         rmSync(backup, { force: true });
       }
     }
-  });
+  }, 30_000);
 
   it('survives an unparseable results file rather than emitting a half-rendered panel', () => {
     const target = join(DASH_DIR, 'orm.json');
@@ -133,5 +133,5 @@ describe('docs site generator', { timeout: BUILD_TIMEOUT }, () => {
         rmSync(target, { force: true });
       }
     }
-  });
+  }, 30_000);
 });
