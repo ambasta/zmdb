@@ -106,7 +106,11 @@ const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
     ['packages/compiler/src/config/index.ts', 'packages/compiler/src/emit/__testing__/project.ts'],
     640,
   ],
-  ['@zmdb/aot-validator/serialization', ['packages/zmdb/src/validator.ts'], 640],
+  [
+    '@zmdb/aot-validator/serialization',
+    ['packages/web/src/dto-pipes/index.ts', 'packages/web/src/pipeline/index.ts', 'packages/zmdb/src/validator.ts'],
+    640,
+  ],
   [
     '@zmdb/aot-validator/utilities',
     [
