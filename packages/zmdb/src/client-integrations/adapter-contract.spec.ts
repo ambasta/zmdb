@@ -1,6 +1,7 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { ClientResponseError, ResponseValidationError, UnexpectedStatusError } from '@zmdb/client';
 import { describe, expect, it } from 'vitest';
@@ -48,6 +49,21 @@ import {
 } from '../../../../fixtures/client-adapters/src/self-test-binding.js';
 
 const ROOT = process.cwd();
+const TYPESCRIPT_HOOK = resolve(ROOT, 'scripts/ts-specifier-hook.mjs');
+const SOLID_RUNNER = resolve(ROOT, 'fixtures/client-adapters/src/solid-runner.ts');
+
+function runSolidScenario(scenario: string, environment: 'browser' | 'server' = 'browser'): void {
+  const conditions = environment === 'browser' ? ['--conditions=browser'] : [];
+  const output = execFileSync(
+    process.execPath,
+    [...conditions, `--import=${TYPESCRIPT_HOOK}`, SOLID_RUNNER, scenario],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+    },
+  ).trim();
+  expect(output).toBe(`${scenario}: ok`);
+}
 
 function expectationFor(name: AdapterPackageExpectation['name']): AdapterPackageExpectation {
   const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === name);
@@ -102,6 +118,7 @@ const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(
     expectation.name !== '@zmdb/angular' &&
     expectation.name !== '@zmdb/vue' &&
     expectation.name !== '@zmdb/svelte' &&
+    expectation.name !== '@zmdb/solid' &&
     expectation.name !== '@zmdb/next',
 );
 
@@ -390,6 +407,62 @@ describe('@zmdb/next executable adapter contract', () => {
     assertIndependentMutations(binding));
 
   it('does not share request state across SSR requests', () => assertSsrCredentialIsolation(binding));
+
+  it('imports without executing network I/O', () => {
+    assertAdapterImportsWithoutEffects(ROOT, expectation);
+  });
+
+  it('framework package has only expected peers', () => {
+    assertAdapterPackageManifest(expectation, readAdapterPackageManifest(ROOT, expectation));
+  });
+});
+
+describe('@zmdb/solid executable adapter contract', () => {
+  const expectation = expectationFor('@zmdb/solid');
+
+  it('does not request before the framework primitive activates', () => {
+    runSolidScenario('no-request');
+  });
+
+  it('publishes pending and success through the framework primitive', () => {
+    runSolidScenario('pending');
+  });
+
+  it('cancels when the owning scope is disposed', () => {
+    runSolidScenario('disposal');
+  });
+
+  it('ignores a stale response after inputs change', () => {
+    runSolidScenario('latest-input');
+  });
+
+  it('preserves ClientResponseError identity', () => {
+    runSolidScenario('client-error');
+  });
+
+  it('preserves protocol errors from the generated client', () => {
+    runSolidScenario('protocol-error');
+  });
+
+  it('preserves response validation errors from the generated client', () => {
+    runSolidScenario('validation-error');
+  });
+
+  it('does not retry without explicit policy', () => {
+    runSolidScenario('no-retry');
+  });
+
+  it('accepts a generated client without inspecting its contract', () => {
+    runSolidScenario('opaque');
+  });
+
+  it('keeps concurrent mutation promises independent and only the newest error visible', () => {
+    runSolidScenario('mutations');
+  });
+
+  it('does not share request state across SSR requests', () => {
+    runSolidScenario('ssr', 'server');
+  });
 
   it('imports without executing network I/O', () => {
     assertAdapterImportsWithoutEffects(ROOT, expectation);

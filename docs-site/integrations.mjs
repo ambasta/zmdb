@@ -57,10 +57,16 @@ export const INTEGRATIONS = Object.freeze([
   }),
   integration({
     capability: 'Solid',
-    package: null,
-    status: 'not-planned',
+    package: '@zmdb/solid',
+    status: 'optional',
+    peers: ['solid-js'],
     docs: 'framework-integrations',
-    evidence: ['packages/zmdb/src/client-integrations/SPEC.md'],
+    evidence: [
+      'packages/solid/SPEC.md',
+      'packages/solid/src/solid.spec.ts',
+      'packages/solid/src/packed-consumer.spec.ts',
+      'fixtures/client-adapters/src/solid-binding.ts',
+    ],
   }),
   integration({
     capability: 'Svelte',

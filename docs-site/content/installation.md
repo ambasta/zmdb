@@ -1,7 +1,7 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-seven packages are published today: twenty-six focused packages plus the `zmdb` facade. The
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-eight packages are published today: twenty-seven focused packages plus the `zmdb` facade. The
 recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`,
-`@zmdb/next`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
-`@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently installable.
+`@zmdb/solid`, `@zmdb/next`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,
+`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -102,6 +102,9 @@ npm install @zmdb/svelte svelte@^5.57
 
 # Next App Router request scopes and browser bindings
 npm install @zmdb/next next@16 react@19 react-dom@19
+
+# Solid context, resources, and owner-lifetime cancellation
+npm install @zmdb/solid solid-js@1
 
 # Dependency-free protobuf and typed gRPC artifacts
 npm install @zmdb/protobuf

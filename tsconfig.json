@@ -35,6 +35,7 @@
       "next/headers": ["./node_modules/next/headers.d.ts"],
       "@zmdb/react": ["./packages/react/src/index.ts"],
       "@zmdb/vue": ["./packages/vue/src/index.ts"],
+      "@zmdb/solid": ["./packages/solid/src/index.ts"],
       "@zmdb/ai": ["./packages/ai/src/index.ts"],
       "@zmdb/ai-anthropic": ["./packages/ai-anthropic/src/index.ts"],
       "@zmdb/ai/chat": ["./packages/ai/src/chat/index.ts"],

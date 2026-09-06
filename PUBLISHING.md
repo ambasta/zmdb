@@ -10,7 +10,7 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 
 ## Frozen lockstep governance target (#722)
 
-This section is the normative target for epic #721. The current workflow still repeats twenty-seven package names in release scripts and has no root `CHANGELOG.md` or release-plan module; #728
+This section is the normative target for epic #721. The current workflow still repeats twenty-eight package names in release scripts and has no root `CHANGELOG.md` or release-plan module; #728
 implements this contract and removes those repetitions.
 
 ### Authorities and release plan
@@ -213,7 +213,7 @@ npm view @zmdb/repository dependencies
 
 Future releases are fully automated via CI OIDC — no token, no manual build:
 
-1. Bump the version in all twenty-seven published `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
+1. Bump the version in all twenty-eight published `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
 2. Tag and push:
    ```bash
    git tag v1.0.0-alpha.N && git push origin v1.0.0-alpha.N

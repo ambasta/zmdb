@@ -324,6 +324,16 @@ describe('architecture and release governance fixtures', () => {
       target: './src/server.ts',
     });
 
+    const solid = lookupPackage(live, 'solid');
+    if (solid === undefined) throw new Error('canonical catalog omitted the solid package id');
+    expect(solid.npmName).toBe('@zmdb/solid');
+    expect(lookupExport(live, 'solid')).toBeUndefined();
+    expect(lookupExport(live, '@zmdb/solid')).toMatchObject({
+      package: { id: 'solid', npmName: '@zmdb/solid' },
+      selector: '.',
+      target: './src/index.ts',
+    });
+
     expect(architecture.packages.map(packageRecord => packageRecord.id)).toEqual(['core', 'app']);
     expect(createDependencyGraph(architecture)).toEqual({
       core: [],
@@ -366,7 +376,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 27 catalog packages, 45 workspace edges, and canonical rings verified.',
+      'architecture zones: 28 catalog packages, 46 workspace edges, and canonical rings verified.',
     );
   });
 

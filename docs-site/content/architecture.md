@@ -1,12 +1,13 @@
-zmdb currently publishes twenty-six focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side roots,
-while UI, AI, protocol, database, and telemetry integrations remain independently installable and are not re-exported by the umbrella.
+zmdb currently publishes twenty-seven focused packages plus the `zmdb` umbrella. Direct workspace dependencies form an acyclic graph; `@zmdb/client` and `@zmdb/protobuf` are dependency-free side
+roots, while UI, AI, protocol, database, and telemetry integrations remain independently installable and are not re-exported by the umbrella.
 
 The dependency spine is:
 
 ```
 @zmdb/client ──> @zmdb/react ──> @zmdb/next
        ├────────> @zmdb/vue
-       └────────> @zmdb/svelte
+       ├────────> @zmdb/svelte
+       └────────> @zmdb/solid
 @zmdb/angular                 @zmdb/protobuf
   (structural adapter)        (dependency-free root)
 
@@ -27,9 +28,9 @@ The dependency spine is:
      └─────────────────────────────> zmdb
 ```
 
-`@zmdb/react`, `@zmdb/vue`, and `@zmdb/svelte` depend only on `@zmdb/client`; `@zmdb/next` depends inward on the generated client and React adapter; and `@zmdb/angular` accepts the generated client
-structurally without a workspace dependency. Each declares only its selected framework runtimes as required peers. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` depend inward only
-on `@zmdb/ai`. Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
+`@zmdb/react`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/solid` depend only on `@zmdb/client`; `@zmdb/next` depends inward on the generated client and React adapter; and `@zmdb/angular` accepts the
+generated client structurally without a workspace dependency. Each declares only its selected framework runtimes as required peers. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel`
+depend inward only on `@zmdb/ai`. Higher packages also keep the direct lower-level dependencies listed in their manifests; the spine shows the required acyclic order rather than every shortcut edge.
 
 ## What each package owns
 
@@ -47,6 +48,8 @@ completions cannot overwrite newer state, and each SSR application owns its clie
 
 **`@zmdb/svelte`** — typed context plus lazy query and mutation stores over an application-generated client. First subscription activates work, final unsubscribe and component destruction abort it,
 and request-local server rendering does not share client state.
+
+**`@zmdb/solid`** — typed context, native resources, owner disposal, source-change cancellation, stale-result suppression, and native Suspense/error propagation over an application-generated client.
 
 **`@zmdb/next`** — physically separated browser and server entries over the generated client. The browser entry reuses `@zmdb/react`; the guarded server entry owns selected credential forwarding,
 request-local RSC memoization, and explicit Next fetch cache policy.

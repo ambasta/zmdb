@@ -6,6 +6,7 @@
     "@zmdb/client": "workspace:^",
     "@zmdb/next": "workspace:^",
     "@zmdb/react": "workspace:^",
+    "@zmdb/solid": "workspace:^",
     "@zmdb/svelte": "workspace:^",
     "@zmdb/vue": "workspace:^"
   },

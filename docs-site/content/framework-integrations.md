@@ -5,17 +5,17 @@ release has no official framework adapter; use the generated HTTP client through
 
 <!-- generated: integrations framework-integrations -->
 
-| Framework    | Status      | Public package      | Framework peers            | Documentation                                           | Repository evidence                                                                                                     |
-| ------------ | ----------- | ------------------- | -------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Angular      | optional    | @zmdb/angular       | @angular/core<br>rxjs      | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`fixtures/client-adapters/angular` |
-| Next.js      | optional    | @zmdb/next          | next<br>react<br>react-dom | [framework-integrations](./framework-integrations.html) | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`fixtures/next-app-router`                  |
-| Nuxt         | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
-| React        | optional    | @zmdb/react         | react                      | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                        |
-| React Native | documented  | @zmdb/aot-validator | —                          | [connect-react-native](./connect-react-native.html)     | `packages/aot-validator/src/plugin/metro.spec.ts`<br>`fixtures/consumer-metro`                                          |
-| Solid        | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
-| Svelte       | optional    | @zmdb/svelte        | svelte                     | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`           |
-| SvelteKit    | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                         |
-| Vue          | optional    | @zmdb/vue           | vue                        | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`             |
+| Framework    | Status      | Public package      | Framework peers            | Documentation                                           | Repository evidence                                                                                                                                               |
+| ------------ | ----------- | ------------------- | -------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Angular      | optional    | @zmdb/angular       | @angular/core<br>rxjs      | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`fixtures/client-adapters/angular`                                           |
+| Next.js      | optional    | @zmdb/next          | next<br>react<br>react-dom | [framework-integrations](./framework-integrations.html) | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`fixtures/next-app-router`                                                            |
+| Nuxt         | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                                                                   |
+| React        | optional    | @zmdb/react         | react                      | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                                                                  |
+| React Native | documented  | @zmdb/aot-validator | —                          | [connect-react-native](./connect-react-native.html)     | `packages/aot-validator/src/plugin/metro.spec.ts`<br>`fixtures/consumer-metro`                                                                                    |
+| Solid        | optional    | @zmdb/solid         | solid-js                   | [framework-integrations](./framework-integrations.html) | `packages/solid/SPEC.md`<br>`packages/solid/src/solid.spec.ts`<br>`packages/solid/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/src/solid-binding.ts` |
+| Svelte       | optional    | @zmdb/svelte        | svelte                     | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`                                                     |
+| SvelteKit    | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                                                                   |
+| Vue          | optional    | @zmdb/vue           | vue                        | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`                                                       |
 
 <!-- /generated: integrations framework-integrations -->
 
@@ -66,7 +66,7 @@ const rename = apiReact.useZmdbMutation((client, input: { id: string; name: stri
 Queries begin after effect activation, abort on dependency changes and unmount, and suppress stale completion even when a transport ignores cancellation. Mutations remain independent and abort on
 unmount. The package adds no shared cache, implicit retry, polling, focus refetch, or server-render request; those policies stay explicit in the application.
 
-Solid, Nuxt, and SvelteKit remain pending. React Native remains documented because its current recipe uses shipped package boundaries without claiming the future adapter.
+Nuxt and SvelteKit remain pending. React Native remains documented because its current recipe uses shipped package boundaries without claiming the future adapter.
 
 ## Vue
 
@@ -182,3 +182,35 @@ export const apiNext = createZmdbNextClient<ApiClient>('AccountApi');
 The package has no mixed root export. `@zmdb/next/server` carries the real `server-only` boundary, while `@zmdb/next/client` cannot reach Next request APIs or server credentials.
 
 React Native remains a documented recipe because its dedicated client adapter has not landed.
+
+## Solid
+
+Install the generated-client binding with its required Solid peer:
+
+```bash
+npm add @zmdb/solid@alpha solid-js@1
+```
+
+Create one binding for the generated client type and provide a client to each application or server owner:
+
+```ts
+import { createZmdbSolid } from '@zmdb/solid';
+import { createSignal } from 'solid-js';
+
+import type { ApiClient } from './generated/http-client.generated.js';
+
+export const apiSolid = createZmdbSolid<ApiClient>();
+
+function Account() {
+  const [accountId] = createSignal('current');
+  const account = apiSolid.query(
+    () => ({ id: accountId() }),
+    (client, input, signal) => client.getAccount(input, { signal }),
+  );
+
+  return account.data()?.name;
+}
+```
+
+Render `Account` beneath `<apiSolid.Provider client={client}>`. The returned `data` is a native Solid resource, so reads retain native Suspense and error-boundary behaviour. Source changes abort the
+older request and suppress stale completion; owner disposal aborts the active query and every active mutation. The package adds no shared cache, implicit retry, polling, or module-level client.

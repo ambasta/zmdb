@@ -33,6 +33,10 @@ const META = {
     description: 'Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.',
     keywords: ['client', 'nextjs', 'react', 'typescript', 'zmdb'],
   },
+  solid: {
+    description: 'Solid context, resource and owner-lifetime bindings for generated zmdb clients.',
+    keywords: ['client', 'solid', 'solidjs', 'typescript', 'zmdb'],
+  },
   'schema-core': {
     description:
       'Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, seeding, and custom types — the single source of truth for a zmdb data layer.',

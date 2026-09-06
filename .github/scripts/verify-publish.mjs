@@ -64,6 +64,7 @@ const PEERS = [
   'redis',
   'react',
   'rxjs',
+  'solid-js',
   'vue',
   'react-dom',
   'next',

@@ -1,6 +1,6 @@
 // Compile-only framework inference freeze for #689.
 //
-// React, Angular, Vue, Svelte, and Next now use their real public types. The remaining namespace imports are
+// React, Angular, Vue, Svelte, Solid, and Next now use their real public types. The remaining namespace imports are
 // retirement triggers: each implementation issue makes its directive unused,
 // at which point that package's native bridge below must be replaced by the
 // real public types rather than leaving a structural stand-in behind.
@@ -24,9 +24,8 @@ import type { ZmdbReactBindings } from '@zmdb/react';
 // @ts-expect-error #696 supplies the React Native adapter package
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #696
 import type * as MissingReactNativeAdapter from '@zmdb/react-native';
-// @ts-expect-error #695 supplies the Solid adapter package
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #695
-import type * as MissingSolidAdapter from '@zmdb/solid';
+import { createZmdbSolid } from '@zmdb/solid';
+import type { ZmdbSolidBindings } from '@zmdb/solid';
 import { createMutationStore, createQueryStore, createZmdbSvelte } from '@zmdb/svelte';
 // @ts-expect-error #699 supplies the SvelteKit client entry
 // oxlint-disable-next-line import/no-namespace -- no public member name exists before #699
@@ -37,7 +36,6 @@ import type * as MissingSvelteKitServerAdapter from '@zmdb/sveltekit/server';
 import { createZmdbVue } from '@zmdb/vue';
 import type { ZmdbVueBindings } from '@zmdb/vue';
 import type { Observable } from 'rxjs';
-import type { Accessor } from 'solid-js';
 import type { Readable } from 'svelte/store';
 
 import type {
@@ -72,23 +70,7 @@ interface SvelteBindings<Client> {
   mutation<Input, Output>(run: MutationRunner<Client, Input, Output>): SvelteMutation<Input, Output>;
 }
 
-interface SolidQuery<Output> {
-  readonly data: Accessor<Output | undefined>;
-  readonly error: Accessor<unknown>;
-  readonly loading: Accessor<boolean>;
-  refresh(): Promise<void>;
-}
-
-interface SolidMutation<Input, Output> {
-  readonly error: Accessor<unknown>;
-  readonly pending: Accessor<boolean>;
-  mutate(input: Input): Promise<Output>;
-}
-
-interface SolidBindings<Client> {
-  query<Input, Output>(input: Input, load: QueryLoader<Client, Input, Output>): SolidQuery<Output>;
-  mutation<Input, Output>(run: MutationRunner<Client, Input, Output>): SolidMutation<Input, Output>;
-}
+type SolidBindings<Client> = ZmdbSolidBindings<Client>;
 
 function reactInference(bindings: ReactBindings<ApiClient>): void {
   const selectedClient = bindings.useZmdbClient();
@@ -190,8 +172,12 @@ function svelteInference(client: ApiClient): void {
 }
 
 function solidInference(bindings: SolidBindings<ApiClient>): void {
+  const selectedClient = bindings.useClient();
+  selectedClient.getWidget satisfies ApiClient['getWidget'];
+
   const query = bindings.query({ id: 'one' }, (client, input, signal) => client.getWidget(input, { signal }));
   query.data() satisfies Widget | undefined;
+  query.latest() satisfies Widget | undefined;
   query.error() satisfies unknown;
   query.loading() satisfies boolean;
 
@@ -261,7 +247,6 @@ export type _MissingPackageRetirementTriggers = [
   keyof typeof MissingNuxtClientAdapter,
   keyof typeof MissingNuxtServerAdapter,
   keyof typeof MissingReactNativeAdapter,
-  keyof typeof MissingSolidAdapter,
   keyof typeof MissingSvelteKitClientAdapter,
   keyof typeof MissingSvelteKitServerAdapter,
 ];
@@ -269,6 +254,7 @@ export type _MissingPackageRetirementTriggers = [
 createZmdbReact<ApiClient>() satisfies ReactBindings<ApiClient>;
 createZmdbVue<ApiClient>() satisfies VueBindings<ApiClient>;
 createZmdbNextClient<ApiClient>() satisfies ReactBindings<ApiClient>;
+createZmdbSolid<ApiClient>() satisfies SolidBindings<ApiClient>;
 void reactInference;
 void nextInference;
 void angularInference;

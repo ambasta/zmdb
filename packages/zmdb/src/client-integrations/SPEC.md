@@ -12,9 +12,9 @@ Issue #688, parent #687. This is the architecture contract for the optional UI a
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-This file originally froze all nine packages before implementation. Issues #691–#694 and #697 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/next`; the other four
-remain implementation targets. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire format, response
-validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issues #691–#695 and #697 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, and `@zmdb/next`; the
+other three remain implementation targets. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire
+format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
 
 ## 0. Measured starting point
 
@@ -34,12 +34,18 @@ The framework release lines in §4 were measured with `yarn npm info`, not infer
 
 ## 0.1 Current implementation status
 
-`@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, and `@zmdb/svelte` implement the four base-adapter rows in this contract. `@zmdb/next` implements the first meta-framework row through physically separate
-browser and server exports, React binding reuse, request-scoped credential forwarding, request-local RSC memoization, and explicit Next fetch policy.
+`@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/solid` implement all five base-adapter rows in this contract. The Svelte package provides typed context, lazy query stores,
+mutation stores, final-subscriber and `onDestroy` cancellation, stale-result guards, and request-isolated server rendering. The Solid package provides typed context, native resources, owner-disposal
+and source-change cancellation, stale-result guards, and native Suspense/error propagation. Their public APIs and qualification evidence are normative in
+[`packages/svelte/SPEC.md`](../../../svelte/SPEC.md) and [`packages/solid/SPEC.md`](../../../solid/SPEC.md).
 
-The shared generated-client conformance suite now executes all five landed rows as ordinary passing tests. The remaining four adapter rows retain executable missing-package expected failures until
-their own implementation issues land. The Svelte packed fixture installs real client and adapter tarballs, compiles browser and server component graphs, checks public inference, and renders isolated
-server trees. The Next packed fixture builds and runs a real App Router application, checks the server-only boundary, and inspects browser output for server credentials and server package code.
+`@zmdb/next` implements the first meta-framework row through physically separate browser and server exports, React binding reuse, request-scoped credential forwarding, request-local RSC memoization,
+and explicit Next fetch policy.
+
+The shared generated-client conformance suite now executes all six landed rows as ordinary passing tests. The remaining three adapter rows retain executable missing-package expected failures until
+their own implementation issues land. The Svelte and Solid packed fixtures install real client and adapter tarballs, exercise browser and server conditions, check public inference, and prove
+request-isolated server ownership. The Next packed fixture builds and runs a real App Router application, checks the server-only boundary, and inspects browser output for server credentials and server
+package code.
 
 ## 1. Ownership boundary
 
@@ -372,7 +378,7 @@ SvelteKit package. This row is implemented by `@zmdb/svelte`.
 ### 6.5 Solid
 
 The binding factory owns a Solid context. Query resources bind cleanup to the current owner and preserve Solid's native pending promise and thrown error for Suspense and error boundaries. Source
-changes use the latest input and suppress earlier completion.
+changes use the latest input and suppress earlier completion. Issue #695 implements this contract in `@zmdb/solid`.
 
 ### 6.6 React Native
 

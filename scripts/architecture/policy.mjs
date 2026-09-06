@@ -120,6 +120,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  solid: packagePolicy({
+    directory: 'packages/solid',
+    zone: 'integration',
+    ring: 1,
+    allowedWorkspaceDependencies: ['client'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   ai: packagePolicy({
     directory: 'packages/ai',
     zone: 'runtime',

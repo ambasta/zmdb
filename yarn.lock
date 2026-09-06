@@ -2709,6 +2709,7 @@ __metadata:
     "@zmdb/client": "workspace:^"
     "@zmdb/next": "workspace:^"
     "@zmdb/react": "workspace:^"
+    "@zmdb/solid": "workspace:^"
     "@zmdb/svelte": "workspace:^"
     "@zmdb/vue": "workspace:^"
     next: "npm:16.3.4"
@@ -3024,6 +3025,18 @@ __metadata:
     "@zmdb/query-compiler": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/solid@workspace:^, @zmdb/solid@workspace:packages/solid":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/solid@workspace:packages/solid"
+  dependencies:
+    "@zmdb/client": "workspace:^"
+    solid-js: "npm:1.9.15"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    solid-js: ">=1.9.0 <2.0.0"
   languageName: unknown
   linkType: soft
 

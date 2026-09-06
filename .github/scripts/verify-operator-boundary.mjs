@@ -28,6 +28,7 @@ const PACKAGES = [
   'react',
   'vue',
   'next',
+  'solid',
   'schema-core',
   'ai',
   'ai-anthropic',

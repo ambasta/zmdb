@@ -292,6 +292,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { reason: PUBLISH_VERIFIER_REASON },
   }),
   productPackage({
+    id: 'solid',
+    directory: 'packages/solid',
+    npmName: '@zmdb/solid',
+    role: 'solid',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'Solid client resources' },
+    docsOwner: 'framework-integrations',
+    consumer: { fixture: 'fixtures/client-adapters' },
+  }),
+  productPackage({
     id: 'sqlite',
     directory: 'packages/sqlite',
     npmName: '@zmdb/sqlite',
