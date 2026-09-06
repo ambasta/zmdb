@@ -1087,7 +1087,7 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `./web/upload` → `./src/web-upload.ts`
   - `./web/versioning` → `./src/web-versioning.ts`
 - **Dependencies:**
-  - `@zmdb/ai` → `workspace:^`
+  - `@zmdb/ai` → `workspace:1.0.0-alpha.4`
   - `@zmdb/aot-validator` → `workspace:^`
   - `@zmdb/app` → `workspace:^`
   - `@zmdb/compiler` → `workspace:1.0.0-alpha.4`

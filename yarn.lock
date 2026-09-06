@@ -12702,7 +12702,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "zmdb@workspace:packages/zmdb"
   dependencies:
-    "@zmdb/ai": "workspace:^"
+    "@zmdb/ai": "workspace:1.0.0-alpha.4"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
     "@zmdb/cockroach": "workspace:^"

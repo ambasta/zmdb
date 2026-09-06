@@ -459,7 +459,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 38 catalog packages, 73 workspace edges, and canonical rings verified.',
+      'architecture zones: 38 catalog packages, 74 workspace edges, and canonical rings verified.',
     );
   });
 
