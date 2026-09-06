@@ -33,7 +33,6 @@ import {
 } from '@zmdb/sql';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 import { describe, expect, it } from 'vitest';
-
 import {
   cockroachDialect,
   mysqlDialect,
