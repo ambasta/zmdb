@@ -52,6 +52,11 @@ const compareText = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
 const isRecord = value => typeof value === 'object' && value !== null && !Array.isArray(value);
 
+function ownsRequiredPeer(packageRecord) {
+  const kind = packageRecord.catalog.optionality?.kind;
+  return packageRecord.policy.zone === 'integration' && (kind === 'integration' || kind === 'provider');
+}
+
 function canonicalValue(value) {
   if (Array.isArray(value)) return value.map(canonicalValue);
   if (!isRecord(value)) return value;
@@ -705,10 +710,10 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
       diagnostics.push(peerDiagnostic(packageRecord, peer, 'optional metadata has no matching policy assignment'));
     }
     if (!optionalPeers.has(peer)) {
-      const integration =
-        packageRecord.policy.zone === 'integration' && packageRecord.catalog.optionality?.kind === 'integration';
-      if (!integration) {
-        diagnostics.push(peerDiagnostic(packageRecord, peer, 'required peer is owned by a non-integration package'));
+      if (!ownsRequiredPeer(packageRecord)) {
+        diagnostics.push(
+          peerDiagnostic(packageRecord, peer, 'required peer is owned by a non-integration/provider package'),
+        );
       }
       if (metadata !== undefined) {
         diagnostics.push(peerDiagnostic(packageRecord, peer, 'required peer must omit peerDependenciesMeta'));

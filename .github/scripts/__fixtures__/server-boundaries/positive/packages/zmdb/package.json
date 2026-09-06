@@ -16,9 +16,6 @@
     "./app/modules": "./src/index.ts",
     "./app/observability": "./src/index.ts",
     "./app/state": "./src/index.ts",
-    "./jobs": "./src/index.ts",
-    "./jobs/memory": "./src/index.ts",
-    "./jobs/schedule": "./src/index.ts",
     "./web": "./src/index.ts",
     "./web/app": "./src/index.ts",
     "./web/compression": "./src/index.ts",
@@ -42,7 +39,6 @@
   },
   "dependencies": {
     "@zmdb/app": "workspace:^",
-    "@zmdb/jobs": "workspace:^",
     "@zmdb/web": "workspace:^"
   }
 }

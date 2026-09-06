@@ -32,8 +32,8 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/app                | 1.0.0-alpha.4 | app             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.  | web-app                      |
 | @zmdb/client             | 1.0.0-alpha.4 | client          | integration: generated HTTP clients            | `npm add @zmdb/client@1.0.0-alpha.4`                                                                             | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                        | generated-client             |
 | @zmdb/cockroach          | 1.0.0-alpha.4 | cockroach       | integration: CockroachDB                       | `npm add @zmdb/cockroach@1.0.0-alpha.4`                                                                          | CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.                                       | dialect-cockroach            |
-| @zmdb/jobs               | 1.0.0-alpha.4 | jobs            | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.                                                            | web-queues                   |
-| @zmdb/jobs-postgres      | 1.0.0-alpha.4 | jobs-postgres   | integration: PostgreSQL job storage            | `npm add @zmdb/jobs-postgres@1.0.0-alpha.4 pg@^8.23.0`                                                           | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                   | web-queues                   |
+| @zmdb/jobs               | 1.0.0-alpha.4 | jobs            | capability: jobs                               | `npm add @zmdb/jobs@1.0.0-alpha.4`                                                                               | Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.                                                            | web-queues                   |
+| @zmdb/jobs-postgres      | 1.0.0-alpha.4 | jobs-postgres   | provider: jobs / PostgreSQL                    | `npm add @zmdb/jobs-postgres@1.0.0-alpha.4 pg@^8.23.0`                                                           | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                   | web-queues                   |
 | @zmdb/mcp                | 1.0.0-alpha.4 | mcp             | integration: Model Context Protocol            | `npm add @zmdb/mcp@1.0.0-alpha.4`                                                                                | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                   | llm-mcp                      |
 | @zmdb/migrations         | 1.0.0-alpha.4 | migrations      | tooling                                        | `npm add --save-dev @zmdb/migrations@1.0.0-alpha.4`                                                              | Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.                                  | migrations                   |
 | @zmdb/mssql              | 1.0.0-alpha.4 | mssql           | integration: SQL Server                        | `npm add @zmdb/mssql@1.0.0-alpha.4`                                                                              | Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural node-mssql execution, catalog introspection, and capability metadata.                          | dialect-mssql                |
@@ -59,7 +59,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/transport-redis    | 1.0.0-alpha.4 | transport-redis | integration: Redis Pub/Sub                     | `npm add @zmdb/transport-redis@1.0.0-alpha.4 redis@^6.2.1`                                                       | Redis Pub/Sub transport strategy for the protocol-neutral zmdb application messaging contract.                                                                                  | web-microservices-transports |
 | @zmdb/vue                | 1.0.0-alpha.4 | vue             | integration: Vue 3                             | `npm add @zmdb/vue@1.0.0-alpha.4 'vue@>=3.5.0 <4.0.0'`                                                           | Vue plugin, reactive query, and mutation lifecycle bindings for generated zmdb clients.                                                                                         | client-vue                   |
 | @zmdb/web                | 1.0.0-alpha.4 | web             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | HTTP framework for the zmdb application kernel: Stage-3 controllers, typed request context, middleware, OpenAPI, gateways, testing, and runtime adapters.                       | web-overview                 |
-| zmdb                     | 1.0.0-alpha.4 | product         | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, jobs, migrations, configuration, and CLI from one install.                          | package-reference            |
+| zmdb                     | 1.0.0-alpha.4 | product         | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, migrations, configuration, and CLI from one install.                                | package-reference            |
 
 ### `@zmdb/ai`
 
@@ -327,20 +327,7 @@ Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite m
 - **Engines:**
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
-- **Facade exposure:**
-  - `Cron`
-  - `Interval`
-  - `MemoryJobStore`
-  - `Queue`
-  - `Scheduler`
-  - `Worker`
-  - `createMemoryJobStore`
-  - `createQueue`
-  - `createScheduler`
-  - `createWorker`
-  - `zmdb/jobs`
-  - `zmdb/jobs/memory`
-  - `zmdb/jobs/schedule`
+- **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-core
 
 ### `@zmdb/jobs-postgres`
@@ -992,7 +979,7 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
 
 ### `zmdb`
 
-The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, jobs, migrations, configuration, and CLI from one install.
+The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, migrations, configuration, and CLI from one install.
 
 - **Exports:**
   - `.` → `./src/index.ts`
@@ -1016,9 +1003,6 @@ The cohesive zmdb product: schema, SQL, validation, repositories, application ke
   - `./drivers/sqlite` → `./src/drivers-sqlite.ts`
   - `./dto` → `./src/dto.ts`
   - `./ir` → `./src/ir.ts`
-  - `./jobs` → `./src/jobs.ts`
-  - `./jobs/memory` → `./src/jobs-memory.ts`
-  - `./jobs/schedule` → `./src/jobs-schedule.ts`
   - `./migrations` → `./src/migrations.ts`
   - `./relations` → `./src/relations.ts`
   - `./tags` → `./src/tags.ts`
@@ -1046,7 +1030,6 @@ The cohesive zmdb product: schema, SQL, validation, repositories, application ke
 - **Dependencies:**
   - `@zmdb/aot-validator` → `workspace:^`
   - `@zmdb/app` → `workspace:^`
-  - `@zmdb/jobs` → `workspace:^`
   - `@zmdb/migrations` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`

@@ -840,6 +840,7 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
       const runtime = runRuntime(matrix.portableConsumer, 'dist/portable.js');
       requireSuccess('packed portable jobs runtime', runtime);
       expect(JSON.parse(runtime.stdout)).toMatchObject({
+        lifecycle: ['start:worker', 'start:scheduler', 'stop:scheduler', 'stop:worker'],
         missingLease: expect.stringContaining('once-per-cluster schedules require leases'),
       });
 

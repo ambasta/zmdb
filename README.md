@@ -22,6 +22,9 @@ acceptance.
 AI and MCP stay outside the umbrella: install provider-neutral `@zmdb/ai`, then add only the Anthropic, LangChain, Vercel AI SDK, or MCP package the application uses. The
 [LLM package and migration guide](./docs-site/content/llm-strategy.md) lists the exact installs, optional peers, and replacements for every removed schema-core LLM subpath.
 
+Background jobs are selected the same way: install `@zmdb/jobs` only when an application needs queues or schedules, then pass `jobsExtension(...)` through the existing application lifecycle. The
+default `zmdb` install has no jobs dependency and deliberately exposes no `zmdb/jobs` compatibility facade.
+
 React is opt-in as well: install `@zmdb/react` only when a generated client needs React context and component-lifecycle ownership.
 
 React Native is opt-in too: install `@zmdb/react-native` with React and React Native when the same generated client needs AppState cancellation, explicit offline policy, and application-selected

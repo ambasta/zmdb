@@ -1,3 +1,5 @@
+const app = await import('@zmdb/app');
+const modules = await import('@zmdb/app/modules');
 const jobs = await import('@zmdb/jobs');
 const memory = await import('@zmdb/jobs/memory');
 const schedule = await import('@zmdb/jobs/schedule');
@@ -34,11 +36,34 @@ const extension = jobs.jobsExtension({
     },
   ],
 });
-extension.start({});
-await extension.stop({ graceMs: 100 });
+
+class JobsApplication {
+  selectedCapability = '@zmdb/jobs';
+}
+const metadata = Object.create(null);
+Object.defineProperty(JobsApplication, Symbol.metadata, { value: metadata });
+modules.Module({ controllers: [] })(JobsApplication, { metadata });
+
+const application = app.createApplication(JobsApplication, {
+  graceMs: 100,
+  extensions: [extension],
+});
+await application.init();
+await application[Symbol.asyncDispose]();
+const schedulerGrace = Number(log[2]?.split(':')[2]);
+const workerGrace = Number(log[3]?.split(':')[2]);
 if (
   extension.name !== '@zmdb/jobs' ||
-  JSON.stringify(log) !== JSON.stringify(['start:worker', 'start:scheduler', 'stop:scheduler:100', 'stop:worker:100'])
+  log[0] !== 'start:worker' ||
+  log[1] !== 'start:scheduler' ||
+  !log[2]?.startsWith('stop:scheduler:') ||
+  !log[3]?.startsWith('stop:worker:') ||
+  !Number.isFinite(schedulerGrace) ||
+  !Number.isFinite(workerGrace) ||
+  schedulerGrace < 0 ||
+  schedulerGrace > 100 ||
+  workerGrace < 0 ||
+  workerGrace > schedulerGrace
 ) {
   throw new Error(`installed jobs extension lifecycle mismatch: ${JSON.stringify(log)}`);
 }

@@ -98,6 +98,35 @@ function sameKeys(value, expected) {
   return JSON.stringify(objectKeys(value)) === JSON.stringify(expected);
 }
 
+function nonEmptyString(value) {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function workspaceProductionClosure(rows, manifests, rootName) {
+  const byName = new Map(
+    rows.flatMap(row => {
+      const entry = manifests.get(row.directory);
+      return entry === undefined ? [] : [[row.npmName, entry.manifest]];
+    }),
+  );
+  const closure = new Set();
+  const queue = [rootName];
+  while (queue.length > 0) {
+    const name = queue.shift();
+    if (name === undefined || closure.has(name)) continue;
+    const manifest = byName.get(name);
+    if (manifest === undefined) continue;
+    closure.add(name);
+    for (const dependency of Object.keys({
+      ...manifest.dependencies,
+      ...manifest.optionalDependencies,
+    }).toSorted()) {
+      if (byName.has(dependency)) queue.push(dependency);
+    }
+  }
+  return closure;
+}
+
 export function catalogFacadeOwnership(rows) {
   return {
     root: rows
@@ -251,9 +280,21 @@ export function verifyProductCatalogRows(rows, manifests, pages) {
       !((optionality?.kind === 'required' || optionality?.kind === 'tooling') && sameKeys(optionality, ['kind'])) &&
       !(
         optionality?.kind === 'integration' &&
-        typeof optionality.technology === 'string' &&
-        optionality.technology.length > 0 &&
+        nonEmptyString(optionality.technology) &&
         sameKeys(optionality, ['kind', 'technology'])
+      ) &&
+      !(
+        optionality?.kind === 'capability' &&
+        nonEmptyString(optionality.capability) &&
+        sameKeys(optionality, ['capability', 'kind'])
+      ) &&
+      !(
+        optionality?.kind === 'provider' &&
+        nonEmptyString(optionality.capability) &&
+        nonEmptyString(optionality.capabilityOwner) &&
+        nonEmptyString(optionality.technology) &&
+        typeof optionality.includedInDefault === 'boolean' &&
+        sameKeys(optionality, ['capability', 'capabilityOwner', 'includedInDefault', 'kind', 'technology'])
       )
     ) {
       problems.push(`catalog package ${row.npmName} has invalid optionality`);
@@ -283,6 +324,75 @@ export function verifyProductCatalogRows(rows, manifests, pages) {
   if (JSON.stringify(ids) !== JSON.stringify([...ids].toSorted())) {
     problems.push('catalog ids are not in deterministic alphabetical order');
   }
+
+  const byId = new Map(rows.map(row => [row.id, row]));
+  const providerOwners = new Map();
+  for (const row of rows) {
+    const optionality = row.optionality;
+    if (optionality?.kind === 'capability' && optionality.capability !== row.id) {
+      problems.push(
+        `catalog capability ${row.id} names capability ${optionality.capability}; the stable capability id must match`,
+      );
+    }
+    if (optionality?.kind !== 'provider') continue;
+    const owner = byId.get(optionality.capabilityOwner);
+    const ownerMatches =
+      owner?.optionality?.kind === 'required' ||
+      (owner?.optionality?.kind === 'capability' && owner.optionality.capability === optionality.capability);
+    if (!ownerMatches) {
+      problems.push(
+        `catalog provider ${row.id} names invalid capability owner ${optionality.capabilityOwner} for ${optionality.capability}`,
+      );
+    }
+    if (optionality.includedInDefault && owner?.optionality?.kind !== 'required') {
+      problems.push(
+        `catalog provider ${row.id} cannot be included by non-required owner ${optionality.capabilityOwner}`,
+      );
+    }
+    const previousOwner = providerOwners.get(optionality.capability);
+    if (previousOwner !== undefined && previousOwner !== optionality.capabilityOwner) {
+      problems.push(
+        `catalog providers for ${optionality.capability} disagree on owners ${previousOwner} and ${optionality.capabilityOwner}`,
+      );
+    }
+    providerOwners.set(optionality.capability, optionality.capabilityOwner);
+  }
+
+  const defaultClosure = workspaceProductionClosure(rows, manifests, 'zmdb');
+  for (const row of rows) {
+    if (row.optionality?.kind === 'capability' && defaultClosure.has(row.npmName)) {
+      problems.push(`catalog capability ${row.id} is reachable from the installed zmdb production closure`);
+    }
+    if (row.optionality?.kind === 'provider' && row.optionality.includedInDefault !== defaultClosure.has(row.npmName)) {
+      problems.push(
+        `catalog provider ${row.id} includedInDefault ${String(row.optionality.includedInDefault)} disagrees with installed zmdb production closure ${String(defaultClosure.has(row.npmName))}`,
+      );
+    }
+    if (
+      (row.optionality?.kind === 'capability' || row.optionality?.kind === 'provider') &&
+      row.optionality.capability === 'jobs' &&
+      ((row.facade?.root ?? []).length > 0 || (row.facade?.subpaths ?? []).some(name => name.startsWith('zmdb/jobs')))
+    ) {
+      problems.push(`catalog jobs package ${row.id} has forbidden zmdb facade exposure`);
+    }
+  }
+
+  for (const owner of rows.filter(row => row.optionality?.kind === 'capability')) {
+    const ownerClosure = workspaceProductionClosure(rows, manifests, owner.npmName);
+    const leakedProviders = rows
+      .filter(
+        row =>
+          row.optionality?.kind === 'provider' &&
+          row.optionality.capabilityOwner === owner.id &&
+          ownerClosure.has(row.npmName),
+      )
+      .map(row => row.npmName)
+      .toSorted();
+    if (leakedProviders.length > 0) {
+      problems.push(`catalog capability ${owner.id} reaches providers ${leakedProviders.join(', ')}`);
+    }
+  }
+
   if (!deeplyFrozen(rows)) problems.push('product catalog export is not deeply frozen');
   return problems.toSorted();
 }

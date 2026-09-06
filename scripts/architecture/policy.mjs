@@ -3,8 +3,9 @@
 // this record owns only dependency, reachability, and lockstep constraints.
 //
 // There are deliberately no ordinary third-party runtime allowances today.
-// Required peers for technology-selected integration packages are governed by
-// their manifests and packed fixtures rather than this dependency allowance.
+// Required peers for technology-selected integration and provider packages are
+// governed by their manifests and packed fixtures rather than this dependency
+// allowance.
 // Build/compiler dependencies remain confined to the tooling selectors whose
 // adjacent comments explain the accepted purpose.
 
@@ -444,7 +445,6 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: [
       'app',
       'aot-validator',
-      'jobs',
       'migrations',
       'mssql',
       'postgres',

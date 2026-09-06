@@ -46,9 +46,8 @@ function catalogReport(): ReturnType<typeof inspectProductCatalog> {
 }
 
 describe('the one-product facade and catalog (#619, #622)', () => {
-  // The server facade adds 30 runtime values, 18 type-only declarations and 32
-  // manifest entries to the still-broader historical product root. The frozen
-  // final target now composes 40 values, 42 types and 47 stable subpaths.
+  // The default server facade carries app and HTTP identities while jobs stays
+  // package-owned. The frozen final target therefore has 44 stable subpaths.
   it.fails('imports the complete application surface from zmdb without internal package imports', () => {
     const report = facadeReport();
 
@@ -56,7 +55,7 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     expect(report.runtimeNames).toEqual(TARGET_ROOT_VALUES);
     expect(report.typeNames).toEqual(TARGET_ROOT_TYPES);
     expect(report.missingSubpaths).toEqual([]);
-    expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(47);
+    expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(44);
   });
 
   // The migration namespace is reachable only through `zmdb/migrations`, so
@@ -70,11 +69,21 @@ describe('the one-product facade and catalog (#619, #622)', () => {
 
   it('derives every official package role and facade exposure from one product catalog', async () => {
     const report = await catalogReport();
+    const jobs = PRODUCT_CATALOG.find(row => row.id === 'jobs');
+    const jobsPostgres = PRODUCT_CATALOG.find(row => row.id === 'jobs-postgres');
 
     expect(report.membershipProblems).toEqual([]);
     expect(report.facadeProblems).toEqual([]);
     expect(report.rows).toHaveLength(report.manifests.size);
     expect(report.packageReferenceBytes).not.toBe('');
+    expect(jobs?.optionality).toEqual({ kind: 'capability', capability: 'jobs' });
+    expect(jobsPostgres?.optionality).toEqual({
+      kind: 'provider',
+      capability: 'jobs',
+      capabilityOwner: 'jobs',
+      technology: 'PostgreSQL',
+      includedInDefault: false,
+    });
   });
 
   it('rejects a facade export whose owning package or visibility is absent from the catalog', () => {
@@ -193,8 +202,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const actual = readFacadeOwnership(ROOT);
     const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
 
-    expect(derived.root).toHaveLength(118);
-    expect(derived.subpaths).toHaveLength(47);
+    expect(derived.root).toHaveLength(108);
+    expect(derived.subpaths).toHaveLength(44);
     expect(actual.root).toEqual(derived.root);
     expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
     expect(verifyFacadeOwnership(PRODUCT_CATALOG, actual)).toEqual([]);
@@ -206,8 +215,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     expect(report.generatedProblems).toEqual([]);
     expect(report.packageReferenceBytes).toContain('@zmdb/schema-core');
     const jobsRow = report.packageReferenceBytes.split('\n').find(line => line.startsWith('| @zmdb/jobs '));
-    expect(jobsRow).toContain('`npm add zmdb@1.0.0-alpha.4`');
-    expect(jobsRow).not.toContain('npm add @zmdb/jobs');
+    expect(jobsRow).toContain('`npm add @zmdb/jobs@1.0.0-alpha.4`');
+    expect(jobsRow).not.toContain('npm add zmdb');
     expect(report.packageReferenceBytes).toMatch(/\|\s+zmdb\s+\|/);
     expect(handwrittenInventoryProblems(ROOT, PRODUCT_CATALOG)).toEqual([]);
 
@@ -262,6 +271,40 @@ describe('the one-product facade and catalog (#619, #622)', () => {
         subpaths: [],
       }),
     ).toContain('facade root export orphanedFacadeExport owner @zmdb/missing is absent from the catalog');
+
+    const providerWithoutOwner = Object.freeze(
+      PRODUCT_CATALOG.map(row =>
+        row.id === 'jobs-postgres'
+          ? Object.freeze({
+              ...row,
+              optionality: Object.freeze({
+                ...row.optionality,
+                capabilityOwner: 'missing',
+              }),
+            })
+          : row,
+      ),
+    );
+    expect(verifyProductCatalogRows(providerWithoutOwner, report.manifests, pages)).toContain(
+      'catalog provider jobs-postgres names invalid capability owner missing for jobs',
+    );
+
+    const providerWithFalseDefaultClaim = Object.freeze(
+      PRODUCT_CATALOG.map(row =>
+        row.id === 'jobs-postgres'
+          ? Object.freeze({
+              ...row,
+              optionality: Object.freeze({
+                ...row.optionality,
+                includedInDefault: true,
+              }),
+            })
+          : row,
+      ),
+    );
+    expect(verifyProductCatalogRows(providerWithFalseDefaultClaim, report.manifests, pages)).toContain(
+      'catalog provider jobs-postgres includedInDefault true disagrees with installed zmdb production closure false',
+    );
   });
 
   it('exposes package membership to release governance without encoding versions or publish actions', () => {

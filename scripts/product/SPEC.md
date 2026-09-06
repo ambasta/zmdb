@@ -103,7 +103,7 @@ once. Publication derives its dependency-first sequence from architecture policy
 | `packages/mysql`              | `@zmdb/mysql`              | `mysql`             | None; selected database vertical with no facade export          |
 | `packages/singlestore`        | `@zmdb/singlestore`        | `singlestore`       | None; selected SingleStore vertical with no facade export       |
 | `packages/app`                | `@zmdb/app`                | `app`               | Root application names and `zmdb/app/*`                         |
-| `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | Root job names and `zmdb/jobs/*`                                |
+| `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None; selected first-party capability with no facade export     |
 | `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL job adapter with no facade export     |
 | `packages/otel`               | `@zmdb/otel`               | `otel`              | None; selected OpenTelemetry integration with no facade export  |
 | `packages/transport-grpc`     | `@zmdb/transport-grpc`     | `grpc`              | None; selected gRPC integration with no facade export           |

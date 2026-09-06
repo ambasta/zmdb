@@ -1,8 +1,8 @@
 // Compile-only freeze for the app/web/jobs package split (#646).
 //
 // The local declarations below transcribe the exact shared lifecycle ABI from
-// the #645 SPECs. Direct package and product-facade imports must remain the same
-// types after #651 wires the installed experience.
+// the #645 SPECs. App and web retain their product facades; jobs remains a
+// package-owned selected capability.
 
 import type {
   Application as AppPackageApplication,
@@ -20,7 +20,8 @@ import type {
   WebApplicationOptions as WebPackageApplicationOptions,
 } from '@zmdb/web/app';
 import type { Application as AppFacadeApplication } from 'zmdb/app';
-import type { Worker as JobsFacadeWorker } from 'zmdb/jobs';
+// @ts-expect-error selected jobs intentionally has no product facade
+import type { Worker as ForbiddenJobsFacadeWorker } from 'zmdb/jobs';
 
 interface FrozenContainer {}
 interface FrozenLazyModuleHandle {
@@ -130,12 +131,11 @@ export type _PublishedCreateAppParameters = Expect<
 >;
 export type _PublishedCreateAppReturn = Expect<Equal<ReturnType<PublishedCreateApp>, WebPackageApplication>>;
 export type _AppFacadeIdentity = Expect<Equal<AppFacadeApplication, AppPackageApplication>>;
-export type _JobsFacadeIdentity = Expect<Equal<JobsFacadeWorker, JobsPackageWorker>>;
 export type _PackageRetirementTriggers = [
   AppPackageApplication,
   JobsPackageWorker,
   RemovedWebApp,
   RemovedWebAppOptions,
   AppFacadeApplication,
-  JobsFacadeWorker,
+  ForbiddenJobsFacadeWorker,
 ];

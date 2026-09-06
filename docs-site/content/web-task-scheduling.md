@@ -1,5 +1,13 @@
 ## Scale-out is the first decision
 
+Install the selected background-work capability before using schedules:
+
+```bash
+npm add @zmdb/jobs@alpha
+```
+
+Scheduling composes through `jobsExtension`; it is not installed or re-exported by the default `zmdb` package.
+
 Three replicas run an in-process timer three times. That is correct for a local cache refresh and a billing defect for a cluster-wide job, so every schedule must choose explicitly:
 
 | `runs` value       | Behaviour                                        | Typical use                      |

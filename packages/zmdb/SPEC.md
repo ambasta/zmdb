@@ -171,9 +171,10 @@ product documentation teaches the stable `zmdb/*` vocabulary.
 `zmdb/unplugin` is not a second compiler owner. Its compatibility lifetime, and the removal timing of old AOT/query-compiler tooling subpaths and `zmdb-codegen`, are release-governance decisions under
 #721/#728. The target contains no permanent implementation forwarders; stable product facade modules are part of the product contract rather than compatibility shims.
 
-## 8. Server facade target (#645)
+## 8. Default server facade and selected jobs (#645, #651, #755)
 
-This section freezes the app/web/jobs facade before implementation. It composes with the one-product facade contract; it does not add runtime logic to `packages/zmdb`.
+The product facade includes the application kernel and HTTP concerns. Background jobs remain a first-party product capability, but selecting them is an installation choice rather than a mandatory
+`zmdb` dependency.
 
 ### Product subpaths
 
@@ -213,30 +214,24 @@ zmdb/web/static
 zmdb/web/testing
 zmdb/web/upload
 zmdb/web/versioning
-
-zmdb/jobs
-zmdb/jobs/memory
-zmdb/jobs/schedule
 ```
 
-Optional integrations are not pulled into `zmdb` or these subpaths. A consumer chooses and installs `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`,
-`@zmdb/jobs-postgres` or `@zmdb/otel` explicitly.
+There is no `zmdb/jobs`, `zmdb/jobs/memory`, or `zmdb/jobs/schedule` export. Consumers install `@zmdb/jobs` directly and add any storage provider explicitly. Optional transports, telemetry, and
+durable job providers are likewise not pulled into `zmdb`.
 
 ### Curated root additions
 
-The app/web/jobs target adds or reassigns exactly these application-default server values at `zmdb`:
+The app/web target adds or reassigns exactly these application-default server values at `zmdb`:
 
 ```text
 Command
 Container
 Controller
-Cron
 Delete
 EventPattern
 Gateway
 Get
 Inject
-Interval
 MessagePattern
 Module
 OnEvent
@@ -251,11 +246,7 @@ createApp
 createApplication
 createCommandApp
 createEvents
-createMemoryJobStore
-createQueue
-createScheduler
 createToken
-createWorker
 repositoryToken
 ```
 
@@ -268,45 +259,41 @@ ApplicationExtensionContext
 ApplicationOptions
 CommandApp
 Ctx
-MemoryJobStore
 ModuleClass
 Observability
-Queue
-Scheduler
 Token
 TransportStrategy
 WebApplication
 WebApplicationOptions
 WebRequest
 WebResponse
-Worker
 ```
 
-Names already frozen in §2 remain part of the root contract even when they are not repeated here; in particular this target does not remove `Body` or `WebApplication`. All other app/web/jobs names
-remain available through the concern subpaths above. Optional integration names never appear at the root.
+Names already frozen in §2 remain part of the root contract even when they are not repeated here; in particular this target does not remove `Body` or `WebApplication`. Other app/web names remain
+available through the concern subpaths above. Job names remain available only from `@zmdb/jobs` and its package-owned subpaths.
 
 ### Collision and identity rules
 
 - Root and each facade file enumerate exports; `export *` remains forbidden.
 - A public name has one canonical declaration owner. If two package surfaces propose the same name, the root either selects one canonical symbol explicitly or exposes both only through their concern
   subpaths. It does not rename, wrap or let source order choose a winner.
-- Every runtime value imported from `zmdb/app`, `zmdb/web`, `zmdb/jobs` or the curated root is `===` the direct package value.
+- Every runtime value imported from `zmdb/app`, `zmdb/web`, or the curated root is `===` the direct package value. Job providers compose the direct `@zmdb/jobs` identities.
 - Every class and error preserves `instanceof` across direct and facade imports because the facade never subclasses or reconstructs it.
 - Type exports are direct aliases to the canonical declaration, not copied interfaces.
-- The root cannot eagerly reach CLI/compiler code, TypeScript, benchmark/devtools modules, a Node built-in, or any optional integration. Its curated `createMemoryJobStore` identity resolves
-  `node:sqlite` only when the caller constructs the selected backend; no third-party database, broker, transport, or telemetry package becomes reachable. Import-graph tests enforce this.
+- The root cannot eagerly reach CLI/compiler code, TypeScript, benchmark/devtools modules, jobs, a jobs provider, a Node built-in, or any optional integration. Import-graph tests enforce this.
 
 ### Old paths and migration
 
-`@zmdb/web` remains HTTP-only. The product-level `zmdb/web` entry composes the `@zmdb/app` and `@zmdb/web` roots by identity. Moved app/jobs concerns are reached through `zmdb/app` or `zmdb/jobs`; old
-nested `zmdb/web/*` app/jobs paths are deleted with their direct-package counterparts. There are no compatibility files, aliases, deprecation warnings or fallback resolution.
+`@zmdb/web` remains HTTP-only. The product-level `zmdb/web` entry composes the `@zmdb/app` and `@zmdb/web` roots by identity. Replace any alpha-era `zmdb/jobs` import with `@zmdb/jobs` and
+`zmdb/jobs/schedule` with `@zmdb/jobs/schedule`; there is no compatibility forwarder, dynamic fallback, or duplicated implementation.
 
 ### Packed-consumer evidence
 
 A consumer fixture must install packed tarballs outside the workspace and:
 
-1. import and strict-typecheck every direct app/web/jobs entry and all 35 facade counterparts above;
-2. assert runtime identity between direct package, concern facade and curated-root values;
-3. serve one HTTP request, run one command and consume one job through the built-in in-memory worker;
-4. assert old moved paths and optional integration names do not resolve; and
-5. inspect the installed dependency tree and prove app/web/jobs introduce no third-party runtime peer.
+1. import and strict-typecheck every direct app/web entry and all 32 default facade counterparts above;
+2. assert runtime identity between direct package, concern facade, and curated-root values;
+3. serve one HTTP request and run one command with no jobs package installed;
+4. assert `zmdb/jobs*`, old moved paths, and optional integration names do not resolve;
+5. inspect the installed dependency tree and prove the default product has no jobs edge; and
+6. separately pack `@zmdb/jobs`, typecheck its package-owned entries, and run `jobsExtension` through the real application lifecycle.

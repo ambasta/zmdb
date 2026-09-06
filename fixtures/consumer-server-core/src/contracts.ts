@@ -10,9 +10,6 @@ import { createMessageDispatcher } from '@zmdb/app/messaging';
 import { Module } from '@zmdb/app/modules';
 import { SpanKind } from '@zmdb/app/observability';
 import { defineState } from '@zmdb/app/state';
-import { createQueue, jobsExtension } from '@zmdb/jobs';
-import { createMemoryJobStore } from '@zmdb/jobs/memory';
-import { createScheduler } from '@zmdb/jobs/schedule';
 import { Controller } from '@zmdb/web';
 import { createApp, type WebApplication } from '@zmdb/web/app';
 import { compress } from '@zmdb/web/compression';
@@ -45,9 +42,6 @@ import { createMessageDispatcher as facadeCreateMessageDispatcher } from 'zmdb/a
 import { Module as FacadeModule } from 'zmdb/app/modules';
 import { SpanKind as FacadeSpanKind } from 'zmdb/app/observability';
 import { defineState as facadeDefineState } from 'zmdb/app/state';
-import { createQueue as facadeCreateQueue } from 'zmdb/jobs';
-import { createMemoryJobStore as facadeCreateMemoryJobStore } from 'zmdb/jobs/memory';
-import { createScheduler as facadeCreateScheduler } from 'zmdb/jobs/schedule';
 import { Controller as FacadeController } from 'zmdb/web';
 import { createApp as facadeCreateApp } from 'zmdb/web/app';
 import { compress as facadeCompress } from 'zmdb/web/compression';
@@ -95,10 +89,6 @@ void [
   Module,
   SpanKind,
   defineState,
-  createQueue,
-  jobsExtension,
-  createMemoryJobStore,
-  createScheduler,
   Controller,
   createApp,
   compress,
@@ -130,9 +120,6 @@ void [
   FacadeModule,
   FacadeSpanKind,
   facadeDefineState,
-  facadeCreateQueue,
-  facadeCreateMemoryJobStore,
-  facadeCreateScheduler,
   FacadeController,
   facadeCreateApp,
   facadeCompress,

@@ -28,6 +28,11 @@ function record(value) {
   return isRecord(value) ? value : {};
 }
 
+function ownsRequiredPeer(packageRecord) {
+  const kind = packageRecord.catalog.optionality?.kind;
+  return packageRecord.policy.zone === 'integration' && (kind === 'integration' || kind === 'provider');
+}
+
 function isInside(root, path) {
   const fromRoot = relative(root, path);
   return fromRoot === '' || (!isAbsolute(fromRoot) && fromRoot !== '..' && !fromRoot.startsWith(`..${sep}`));
@@ -421,10 +426,9 @@ export function analyzeRuntimeReachability(root, architecture, graph = createImp
         }
 
         if (kind === 'peerDependency') {
-          const integration =
-            current.context.package.policy.zone === 'integration' &&
-            current.context.package.catalog.optionality?.kind === 'integration';
-          if (!integration) addUndeclared(entry, current.context.package, dependency, trail);
+          if (!ownsRequiredPeer(current.context.package)) {
+            addUndeclared(entry, current.context.package, dependency, trail);
+          }
           continue;
         }
 

@@ -11,9 +11,6 @@ const pairs = [
   ['@zmdb/app/modules', 'zmdb/app/modules'],
   ['@zmdb/app/observability', 'zmdb/app/observability'],
   ['@zmdb/app/state', 'zmdb/app/state'],
-  ['@zmdb/jobs', 'zmdb/jobs'],
-  ['@zmdb/jobs/memory', 'zmdb/jobs/memory'],
-  ['@zmdb/jobs/schedule', 'zmdb/jobs/schedule'],
   ['@zmdb/web', 'zmdb/web'],
   ['@zmdb/web/app', 'zmdb/web/app'],
   ['@zmdb/web/compression', 'zmdb/web/compression'],
@@ -56,7 +53,6 @@ const appData = await import('@zmdb/app/data');
 const appEvents = await import('@zmdb/app/events');
 const appMessaging = await import('@zmdb/app/messaging');
 const web = await import('@zmdb/web');
-const jobs = await import('@zmdb/jobs');
 for (const [owner, names] of [
   [app, ['Container', 'Inject', 'Module', 'createApplication', 'createToken']],
   [appCommands, ['Command', 'createCommandApp']],
@@ -80,7 +76,6 @@ for (const [owner, names] of [
       'createApp',
     ],
   ],
-  [jobs, ['Cron', 'Interval', 'createMemoryJobStore', 'createQueue', 'createScheduler', 'createWorker']],
 ]) {
   for (const name of names) {
     if (product[name] !== owner[name]) {
@@ -116,6 +111,17 @@ for (const oldPath of [
     throw new Error(`${oldPath} remains resolvable`);
   } catch (error) {
     if (error instanceof Error && error.message === `${oldPath} remains resolvable`) {
+      throw error;
+    }
+  }
+}
+
+for (const removedFacade of ['zmdb/jobs', 'zmdb/jobs/memory', 'zmdb/jobs/schedule']) {
+  try {
+    await import(removedFacade);
+    throw new Error(`${removedFacade} remains resolvable`);
+  } catch (error) {
+    if (error instanceof Error && error.message === `${removedFacade} remains resolvable`) {
       throw error;
     }
   }

@@ -1,7 +1,7 @@
 {
   "name": "zmdb",
   "version": "1.0.0-alpha.4",
-  "description": "The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, jobs, migrations, configuration, and CLI from one install.",
+  "description": "The cohesive zmdb product: schema, SQL, validation, repositories, application kernel, HTTP, migrations, configuration, and CLI from one install.",
   "keywords": [
     "data-layer",
     "orm",
@@ -73,9 +73,6 @@
     "./web/testing": "./src/web-testing.ts",
     "./web/upload": "./src/web-upload.ts",
     "./web/versioning": "./src/web-versioning.ts",
-    "./jobs": "./src/jobs.ts",
-    "./jobs/memory": "./src/jobs-memory.ts",
-    "./jobs/schedule": "./src/jobs-schedule.ts",
     "./unplugin": "./src/unplugin.ts",
     "./cli": "./src/cli/index.ts",
     "./config": "./src/config/index.ts"
@@ -91,7 +88,6 @@
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
-    "@zmdb/jobs": "workspace:^",
     "@zmdb/migrations": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",

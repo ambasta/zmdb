@@ -174,7 +174,7 @@ describe('core server package boundaries (#646)', () => {
     ).toEqual(['@zmdb/app', '@zmdb/web', '@zmdb/app']);
   });
 
-  it('freezes every direct core edge and all 35 product facade subpaths', () => {
+  it('freezes every direct core edge and all 32 default product facade subpaths', () => {
     expect(CORE_SERVER_PACKAGES).toEqual([
       {
         name: '@zmdb/app',
@@ -265,8 +265,9 @@ describe('core server package boundaries (#646)', () => {
         forbiddenExports: [],
       },
     ]);
-    expect(PRODUCT_SERVER_EXPORTS).toHaveLength(35);
-    expect(new Set(PRODUCT_SERVER_EXPORTS).size).toBe(35);
+    expect(PRODUCT_SERVER_EXPORTS).toHaveLength(32);
+    expect(new Set(PRODUCT_SERVER_EXPORTS).size).toBe(32);
+    expect(PRODUCT_SERVER_EXPORTS.filter(subpath => subpath === './jobs' || subpath.startsWith('./jobs/'))).toEqual([]);
   });
 
   it.each([APP_SPECIFIER])('imports %s from its dedicated package', specifier => {
@@ -300,7 +301,7 @@ describe('core server package boundaries (#646)', () => {
   }, 180_000);
 
   it(
-    'a default installed consumer serves HTTP and runs an in-memory worker',
+    'a default installed consumer serves HTTP and runs a command without jobs',
     () => {
       const result = withPackedBuildLock(ROOT, () =>
         spawnSync(process.execPath, [CONSUMER, '--target'], {
@@ -309,10 +310,9 @@ describe('core server package boundaries (#646)', () => {
         }),
       );
       expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-      expect(result.stdout).toContain('"facadePairs":35');
+      expect(result.stdout).toContain('"facadePairs":32');
       expect(result.stdout).toContain('"httpStatus":200');
       expect(result.stdout).toContain('"commandExit":0');
-      expect(result.stdout).toContain('"jobDone":1');
     },
     PACKED_BUILD_TEST_TIMEOUT_MS,
   );
@@ -741,22 +741,10 @@ describe('server facade and reflection identity (#646)', () => {
     }
   });
 
-  it('zmdb/jobs exports job values by identity', async () => {
-    const [jobsValue, jobsFacadeValue, productValue] = await Promise.all([
-      loadModule(JOBS_SPECIFIER),
-      loadModule('zmdb/jobs'),
-      loadModule('zmdb'),
-    ]);
-    const jobs = moduleRecord(jobsValue, JOBS_SPECIFIER);
-    const jobsFacade = moduleRecord(jobsFacadeValue, 'zmdb/jobs');
-    const product = moduleRecord(productValue, 'zmdb');
-
-    for (const name of Object.keys(jobs)) {
-      expect(jobsFacade[name], `zmdb/jobs#${name}`).toBe(jobs[name]);
-    }
-    for (const name of ['createMemoryJobStore', 'createQueue', 'createScheduler', 'createWorker']) {
-      expect(product[name], `zmdb#${name}`).toBe(jobs[name]);
-    }
+  it('keeps jobs package-owned and absent from the default product facade', async () => {
+    const jobs = moduleRecord(await loadModule(JOBS_SPECIFIER), JOBS_SPECIFIER);
+    expect(typeof jobs.createQueue).toBe('function');
+    await expect(loadModule('zmdb/jobs')).rejects.toThrow(/not exported/);
   });
 
   it('keeps extension dispatch off the HTTP request hot path and shares controller identity', async () => {

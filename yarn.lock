@@ -12653,7 +12653,6 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
-    "@zmdb/jobs": "workspace:^"
     "@zmdb/migrations": "workspace:^"
     "@zmdb/mssql": "workspace:^"
     "@zmdb/postgres": "workspace:^"

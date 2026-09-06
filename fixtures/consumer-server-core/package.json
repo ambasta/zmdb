@@ -4,7 +4,6 @@
   "type": "module",
   "dependencies": {
     "@zmdb/app": "1.0.0-alpha.4",
-    "@zmdb/jobs": "1.0.0-alpha.4",
     "@zmdb/web": "1.0.0-alpha.4",
     "zmdb": "1.0.0-alpha.4"
   },

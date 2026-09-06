@@ -1,3 +1,14 @@
+## Select background jobs
+
+Background jobs are a first-party capability selected independently from the default product:
+
+```bash
+npm add @zmdb/jobs@alpha
+```
+
+Import queues, workers, schedules, and `jobsExtension` directly from `@zmdb/jobs`. The `zmdb` package neither installs jobs nor exposes a `zmdb/jobs` facade; application startup and bounded shutdown
+still run through the same `@zmdb/app` extension lifecycle.
+
 ## Delivery is at-least-once: make the effect idempotent
 
 A worker can commit an effect and die before it marks the job done. That crash window makes delivery **at-least-once**, so every handler must make a repeated invocation harmless. Scaling from one

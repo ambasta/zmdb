@@ -138,8 +138,3 @@ export { createApp } from '@zmdb/web/app';
 export type { WebApplication, WebApplicationOptions } from '@zmdb/web/app';
 export type { Ctx } from '@zmdb/web/context';
 export type { WebRequest, WebResponse } from '@zmdb/web/pipeline';
-
-// Background work. Optional durable stores remain independently selected;
-// the default product includes only the built-in SQLite memory path.
-export { Cron, Interval, createMemoryJobStore, createQueue, createScheduler, createWorker } from '@zmdb/jobs';
-export type { MemoryJobStore, Queue, Scheduler, Worker } from '@zmdb/jobs';

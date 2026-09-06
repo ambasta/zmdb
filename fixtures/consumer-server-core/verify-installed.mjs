@@ -14,7 +14,7 @@ const RELEASE_VERSION = publishTrain(ROOT).version;
 const FIXTURE = join(ROOT, 'fixtures', 'consumer-server-core');
 const PACKAGES_DIR = join(ROOT, 'packages');
 const JOBS_ROOTS = ['@zmdb/jobs'];
-const TARGET_ROOTS = ['@zmdb/app', '@zmdb/jobs', '@zmdb/web', 'zmdb'];
+const TARGET_ROOTS = ['@zmdb/app', '@zmdb/web', 'zmdb'];
 const OPTIONAL_SERVER_PACKAGES = [
   '@zmdb/jobs-postgres',
   '@zmdb/otel',
@@ -85,6 +85,9 @@ export function inspectServerCoreFixture(fixture = FIXTURE) {
   if (tsconfig.compilerOptions?.skipLibCheck !== false) problems.push('fixture tsconfig must keep skipLibCheck=false');
   if (tsconfig.compilerOptions?.allowImportingTsExtensions !== false) {
     problems.push('fixture tsconfig must keep allowImportingTsExtensions=false');
+  }
+  if (JSON.stringify(tsconfig.include) !== JSON.stringify(['src/contracts.ts'])) {
+    problems.push('default fixture must include only src/contracts.ts');
   }
   const jobsTsconfig = JSON.parse(readFileSync(join(fixture, 'tsconfig.jobs.json'), 'utf8'));
   if (jobsTsconfig.extends !== './tsconfig.consumer.json') {
@@ -255,6 +258,7 @@ function verifyPlain(packages, scratch) {
   const names = workspaceClosure(packages, ['zmdb']);
   const app = installConsumer(packWorkspace(packages, names, scratch), scratch, { includeTypecheckTools: false });
   assertNoOptionalServerPackages(app, names.length);
+  assertWorkspaceClosure(app, names);
 }
 
 function verifyJobs(packages, scratch) {

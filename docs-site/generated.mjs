@@ -185,6 +185,10 @@ function optionalityLabel(optionality) {
   if (optionality?.kind === 'required') return 'required';
   if (optionality?.kind === 'tooling') return 'tooling';
   if (optionality?.kind === 'integration') return `integration: ${optionality.technology}`;
+  if (optionality?.kind === 'capability') return `capability: ${optionality.capability}`;
+  if (optionality?.kind === 'provider') {
+    return `provider: ${optionality.capability} / ${optionality.technology}`;
+  }
   return 'invalid';
 }
 
@@ -249,11 +253,14 @@ function installCommand(row, manifest, productManifest) {
   if (row.optionality?.kind === 'tooling') {
     return `npm add --save-dev ${String(manifest.name ?? row.npmName)}@${version}`;
   }
-  if (row.optionality?.kind === 'integration') {
+  if (row.optionality?.kind === 'integration' || row.optionality?.kind === 'provider') {
     const peers = requiredPeerEntries(manifest).map(([name, range]) =>
       shellArgument(`${name}@${manifestValue(range)}`),
     );
     return `npm add ${[`${String(manifest.name ?? row.npmName)}@${version}`, ...peers].join(' ')}`;
+  }
+  if (row.optionality?.kind === 'capability') {
+    return `npm add ${String(manifest.name ?? row.npmName)}@${version}`;
   }
   const productVersion = typeof productManifest.version === 'string' ? productManifest.version : 'missing';
   const productDependencies = productManifest.dependencies ?? {};
@@ -433,8 +440,8 @@ export function verifyIntegrationRecords(rows, records, options = {}) {
       const owner = record.package === null ? undefined : packages.get(record.package);
       if (record.status !== 'optional') {
         problems.push(`integration ${record.capability} names peers outside optional status`);
-      } else if (owner?.optionality?.kind !== 'integration') {
-        problems.push(`integration ${record.capability} names peers on a non-integration package`);
+      } else if (owner?.optionality?.kind !== 'integration' && owner?.optionality?.kind !== 'provider') {
+        problems.push(`integration ${record.capability} names peers on a non-integration/provider package`);
       }
       if (
         !Array.isArray(record.peers) ||

@@ -2,7 +2,7 @@ zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeS
 recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
 `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/migrations`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations,
 `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/singlestore`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
-`@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently installable.
+`@zmdb/transport-redis`, and `@zmdb/jobs` plus its storage integrations remain independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -49,11 +49,15 @@ compares all nine official packages, and links to their framework-native lifecyc
 | Core NATS          | `npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0`             | app starts, drains, and closes the strategy connection                                 |
 | RabbitMQ           | `npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1`                         | app owns connection, channels, retry, and dead-letter topology                         |
 | Redis Pub/Sub      | `npm add @zmdb/transport-redis@alpha redis@^6.2.1`                              | app owns publisher/subscriber clients and bounded drain                                |
+| Background jobs    | `npm add @zmdb/jobs@alpha`                                                      | app starts and drains explicit workers/schedulers through `jobsExtension`              |
 | PostgreSQL jobs    | `npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0`                 | caller owns and closes/releases the pool or client                                     |
 | OpenTelemetry      | `npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.0`                            | caller owns providers, exporters, tracers, meters, and shutdown                        |
 
 The package owns the adapter; the peer owns the external protocol client. `@zmdb/app` owns transport-neutral messaging and observability ports, while `@zmdb/jobs` owns queue and worker behavior.
 `@zmdb/aot-validator` owns TypeScript reflection and emission; `@zmdb/protobuf` owns the calls, service-artifact types, and generated wire runtime that emitted code imports.
+
+Alpha migration: replace any branch-only or pre-release `zmdb/jobs` import with `@zmdb/jobs`, and replace `zmdb/jobs/schedule` with `@zmdb/jobs/schedule`. The default product does not ship a
+compatibility facade or automatically install jobs.
 
 ## Prerequisites
 

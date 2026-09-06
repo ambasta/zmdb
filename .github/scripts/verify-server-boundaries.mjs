@@ -171,9 +171,6 @@ export const PRODUCT_SERVER_EXPORTS = [
   './app/modules',
   './app/observability',
   './app/state',
-  './jobs',
-  './jobs/memory',
-  './jobs/schedule',
   './web',
   './web/app',
   './web/compression',
@@ -559,17 +556,25 @@ function productServerProblems(root, graph) {
   if (pkg === undefined) return ['zmdb is not discoverable as a workspace package'];
   const manifest = readManifest(join(pkg.dir, 'package.json'));
   const dependencies = record(manifest.dependencies);
-  const missingDependencies = ['@zmdb/app', '@zmdb/jobs', '@zmdb/web'].filter(
-    name => dependencies[name] !== 'workspace:^',
-  );
+  const missingDependencies = ['@zmdb/app', '@zmdb/web'].filter(name => dependencies[name] !== 'workspace:^');
   if (missingDependencies.length > 0) {
     problems.push(`zmdb is missing core server dependencies ${display(missingDependencies)}`);
+  }
+  const selectedDependencies = ['@zmdb/jobs', '@zmdb/jobs-postgres', '@zmdb/jobs-sqlite'].filter(
+    name => dependencies[name] !== undefined,
+  );
+  if (selectedDependencies.length > 0) {
+    problems.push(`zmdb declares selected jobs packages ${display(selectedDependencies)}`);
   }
 
   const exports = record(manifest.exports);
   const missingExports = PRODUCT_SERVER_EXPORTS.filter(subpath => typeof exports[subpath] !== 'string');
   if (missingExports.length > 0) {
     problems.push(`zmdb is missing core server facade subpaths ${display(missingExports)}`);
+  }
+  const selectedExports = Object.keys(exports).filter(subpath => subpath === './jobs' || subpath.startsWith('./jobs/'));
+  if (selectedExports.length > 0) {
+    problems.push(`zmdb publishes selected jobs facade subpaths ${display(selectedExports)}`);
   }
   return problems;
 }

@@ -328,7 +328,8 @@ No tombstone export, deprecated alias, optional dependency, dynamic importer, so
 
 ## 9. Evidence required from split work
 
-Issue #754 freezes failing packed-consumer and negative-edge tests against this exact contract. #755 removes or prevents umbrella selection and runtime facades. #756 moves storage and migrations into
-the providers. #757 proves all three packed journeys. #758 changes generated/user documentation only after those package boundaries exist.
+Issue #754 freezes failing packed-consumer and negative-edge tests against this exact contract. #755 enforces direct capability selection, application-lifecycle composition, and the absence of an
+umbrella dependency or runtime facade. #756 moves storage and migrations into the providers. #757 proves all three packed journeys. #758 completes the provider-aware generated documentation after
+those package boundaries exist.
 
 Required evidence is dependency/install, API identity, transaction, migration, behavior, and shutdown evidence. No benchmark or performance claim is part of this contract.
