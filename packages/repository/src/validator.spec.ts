@@ -4,6 +4,7 @@ import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-co
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, ValidationError, type Driver } from './index.js';
+import { postgresDialect } from './testing/official-dialects.fixture.js';
 import { compileSchemaValidator } from './validator.js';
 
 export interface Item extends Table<'items'> {
@@ -21,6 +22,7 @@ class TestRepo extends BaseRepository<Item> {
 
 function fakeDriver(): Driver {
   return {
+    dialect: postgresDialect,
     execute: vi.fn(async () => [{ id: 1, name: 'Widget', count: 5, status: 'active' }]),
   };
 }
