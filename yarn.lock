@@ -4583,6 +4583,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/cockroach@workspace:packages/cockroach":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/cockroach@workspace:packages/cockroach"
+  dependencies:
+    "@types/pg": "npm:^8.23.1"
+    "@zmdb/postgres": "workspace:^"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    pg: "npm:8.23.0"
+    typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/jobs-postgres@workspace:packages/jobs-postgres":
   version: 0.0.0-use.local
   resolution: "@zmdb/jobs-postgres@workspace:packages/jobs-postgres"

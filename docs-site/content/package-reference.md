@@ -31,6 +31,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/aot-validator      | 1.0.0-alpha.4 | validator       | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.                                         | aot-setup                    |
 | @zmdb/app                | 1.0.0-alpha.4 | app             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Protocol-neutral application kernel for zmdb: Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state, health, and observability.                                          | web-app                      |
 | @zmdb/client             | 1.0.0-alpha.4 | client          | integration: generated HTTP clients            | `npm add @zmdb/client@1.0.0-alpha.4`                                                                             | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                                                                | web-http-client              |
+| @zmdb/cockroach          | 1.0.0-alpha.4 | cockroach       | integration: CockroachDB                       | `npm add @zmdb/cockroach@1.0.0-alpha.4`                                                                          | CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.                                                                               | dialect-cockroach            |
 | @zmdb/jobs               | 1.0.0-alpha.4 | jobs            | required                                       | `npm add @zmdb/jobs@1.0.0-alpha.4`                                                                               | Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.                                                                                                    | web-queues                   |
 | @zmdb/jobs-postgres      | 1.0.0-alpha.4 | jobs-postgres   | integration: PostgreSQL job storage            | `npm add @zmdb/jobs-postgres@1.0.0-alpha.4 pg@^8.23.0`                                                           | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                                                           | web-queues                   |
 | @zmdb/mcp                | 1.0.0-alpha.4 | mcp             | integration: Model Context Protocol            | `npm add @zmdb/mcp@1.0.0-alpha.4`                                                                                | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp                      |
@@ -250,6 +251,25 @@ Dependency-free HTTP client runtime for generated and manually declared zmdb ope
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-http-client
+
+### `@zmdb/cockroach`
+
+CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/postgres` → `workspace:^`
+  - `@zmdb/query-compiler` → `workspace:^`
+  - `@zmdb/repository` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:** None.
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/database-cockroach
 
 ### `@zmdb/jobs`
 

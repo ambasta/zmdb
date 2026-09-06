@@ -1,0 +1,15 @@
+{
+  "name": "@zmdb-fixture/database-cockroach",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/cockroach": "1.0.0-alpha.4",
+    "@zmdb/query-compiler": "1.0.0-alpha.4",
+    "@zmdb/repository": "1.0.0-alpha.4",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "@types/pg": "^8.23.1"
+  }
+}

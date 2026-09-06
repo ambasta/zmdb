@@ -457,12 +457,12 @@ cockroach: {
   parent: 'postgres',
   types: { serial: 'INT8 DEFAULT unique_rowid()', integer: 'INT4' },
   fts: 'none',
-  features: { rowLevelSecurity: false },
+  features: { rowLevelSecurity: false, transactionalDdl: false },
   retryableCodes: ['40001'],
 }
 ```
 
-Five keys. That is the return on the mechanism, and it is the whole argument in §2.2's favour: a flat sixth member means writing Cockroach's Postgres behaviour out again in twenty-one places, where
+Six keys. That is the return on the mechanism, and it is the whole argument in §2.2's favour: a flat sixth member means writing Cockroach's Postgres behaviour out again in twenty-one places, where
 nineteen of the copies would be identical and two would be the ones that matter.
 
 `types` merges over the parent's map key by key, so the eight entries Cockroach agrees with Postgres about — including `timestamp: 'TIMESTAMPTZ'` — are inherited rather than repeated.
@@ -521,9 +521,11 @@ freeze commits only to where the classification data lives and that nothing in t
 
 ### 4.5 Asynchronous schema changes
 
-`ALTER TABLE` returns before the change has propagated, and Cockroach rejects several DDL statements inside an explicit transaction. `../../../zmdb/src/cli/SPEC.md` §5 wraps each migration in a
-transaction, and that stays: `transactionalDdl: true` is inherited and correct. What changes is the advice, not the mechanism — a migration whose `up` alters a column and then writes through it may
-need splitting into two versions, which is a migration-authoring fact for the docs page and not something the emitter can detect.
+CockroachDB v26.2.2 retained a successfully executed `CREATE TABLE` after an explicit `ROLLBACK` in the package's live lane. The child therefore overrides `transactionalDdl: false`, and its migration
+connection omits the PostgreSQL transaction wrapper so the generic runner emits its non-atomic-DDL warning.
+
+`ALTER TABLE` can also return before a schema change has propagated. A migration whose `up` alters a column and then writes through it may need splitting into two versions, which is a
+migration-authoring fact for the docs page and not something the emitter can detect.
 
 ## 5. SingleStore (`singlestore`)
 
@@ -738,20 +740,20 @@ The epic requires this to be stated honestly. Six temporary built-in dialect nam
 complete vertical lives in `@zmdb/postgres`; `packages/repository/src/drivers/` retains only the SQL Server compatibility adapter. MySQL remains a supported dialect with no official adapter yet.
 "Supported" means the compiler emits correct SQL, with an official adapter where the table says one exists.
 
-| Dialect       | Official/compatibility driver                   | Always-on CI database                                    | Coverage                                                                |
-| ------------- | ----------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `postgres`    | `@zmdb/postgres`                                | no; fail-closed packed lane requires `ZMDB_POSTGRES_URL` | golden SQL + packed real-server E2E when invoked                        |
-| `sqlite`      | `@zmdb/sqlite`                                  | in-process                                               | package goldens + mandatory real and packed E2E                         |
-| `mysql`       | none                                            | no                                                       | golden SQL only, today                                                  |
-| `mssql`       | `@zmdb/repository/drivers/mssql` compatibility  | no; opt-in through `ZMDB_MSSQL_URL`                      | complete golden matrix + loud-gated real E2E when a server is reachable |
-| `cockroach`   | `@zmdb/postgres` public family-driver primitive | no                                                       | complete golden matrix; live-server qualification remains               |
-| `singlestore` | none                                            | no: the image wants a licence key and several gigabytes  | complete golden matrix; live-server qualification remains               |
+| Dialect       | Official/compatibility driver                  | Always-on CI database                                    | Coverage                                                                |
+| ------------- | ---------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `postgres`    | `@zmdb/postgres`                               | no; fail-closed packed lane requires `ZMDB_POSTGRES_URL` | golden SQL + packed real-server E2E when invoked                        |
+| `sqlite`      | `@zmdb/sqlite`                                 | in-process                                               | package goldens + mandatory real and packed E2E                         |
+| `mysql`       | none                                           | no                                                       | golden SQL only, today                                                  |
+| `mssql`       | `@zmdb/repository/drivers/mssql` compatibility | no; opt-in through `ZMDB_MSSQL_URL`                      | complete golden matrix + loud-gated real E2E when a server is reachable |
+| `cockroach`   | `@zmdb/cockroach`                              | CockroachDB v26.2.2                                      | package goldens + mandatory packed real-server E2E                      |
+| `singlestore` | none                                           | no: the image wants a licence key and several gigabytes  | complete golden matrix; live-server qualification remains               |
 
 SQL Server's opt-in suite executes generated DDL, the adapter's named-parameter binding, bracket escaping, `OUTPUT`, ordered pagination, `MERGE`, timestamp round-trips and column migrations against a
 real server. When `ZMDB_MSSQL_URL` is absent or unreachable, it emits a visible `[skip] SQL Server E2E: …` reason and retains a passing availability assertion rather than silently disappearing.
 
-Cockroach speaks the Postgres wire protocol, so `postgresFamilyDriver` can bind a Cockroach dialect object to the same structural client. The always-on gate does not currently start a Cockroach
-server, so accepting the emitted SQL there remains deployment qualification rather than CI evidence.
+Cockroach speaks the Postgres wire protocol, so `@zmdb/cockroach` binds its child dialect object through the public `postgresFamilyDriver` primitive. Its always-on lane starts CockroachDB v26.2.2,
+packs the dependency closure, installs it outside the workspace, and executes migrations, CRUD, introspection, cursor streaming, explicit retry, and dependency-direction checks.
 
 SingleStore is the expensive one and the freeze does not pretend otherwise. Its divergences — shard keys, per-partition auto-increment, the unique-index rule — are exactly the kind that a golden file
 cannot verify, because the question is whether the server accepts the DDL.

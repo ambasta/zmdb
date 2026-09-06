@@ -124,6 +124,7 @@ const PACKAGES = [
   'repository',
   'query-compiler',
   'postgres',
+  'cockroach',
   'sqlite',
   'mysql',
   'app',

@@ -62,6 +62,8 @@
       "@zmdb/protobuf/*": ["./packages/protobuf/src/*.ts"],
       "@zmdb/postgres": ["./packages/postgres/src/index.ts"],
       "@zmdb/postgres/*": ["./packages/postgres/src/*/index.ts"],
+      "@zmdb/cockroach": ["./packages/cockroach/src/index.ts"],
+      "@zmdb/cockroach/*": ["./packages/cockroach/src/*/index.ts"],
       "@zmdb/repository": ["./packages/repository/src/index.ts"],
       "@zmdb/repository/drivers/*": ["./packages/repository/src/drivers/*.ts"],
       "@zmdb/repository/*": ["./packages/repository/src/*/index.ts"],

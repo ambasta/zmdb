@@ -448,9 +448,9 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
     const cockroach = driverMigrationConnection(cockroachDriver, 'cockroach');
 
     await ensureVersionTable(cockroach);
-    await expect(cockroach.transaction?.(async () => 'pinned')).resolves.toBe('pinned');
-    expect(cockroach.transactionalDdl).toBe(true);
-    expect(transactionCalls).toBe(1);
+    await expect(cockroach.transaction?.(async () => 'direct')).resolves.toBe('direct');
+    expect(cockroach.transactionalDdl).toBe(false);
+    expect(transactionCalls).toBe(0);
     expect(cockroachQueries).toEqual([
       'CREATE TABLE IF NOT EXISTS "_zmdb_migrations" (' +
         'version BIGINT PRIMARY KEY, name TEXT NOT NULL, applied_at BIGINT NOT NULL, checksum TEXT)',

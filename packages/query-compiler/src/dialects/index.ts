@@ -315,6 +315,7 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     fts: 'none',
     features: Object.freeze({
       rowLevelSecurity: false,
+      transactionalDdl: false,
     }),
     vectorDistance: false,
     spatialPredicates: false,

@@ -57,7 +57,11 @@ export async function planPush(config: ResolvedConfig): Promise<PushPlan> {
 export async function applyPush(plan: PushPlan, warning: (message: string) => void): Promise<PushResult> {
   if (plan.statements.length === 0) return { ops: plan.ops, statements: plan.statements, applied: false };
   if (plan.connection.transactionalDdl === false) {
-    warning('mysql does not support transactional DDL; a failed push may leave only part of the printed plan applied');
+    const target = plan.connection.dialect;
+    const name = typeof target === 'string' ? target : (target?.name ?? 'database');
+    warning(
+      `${name} does not support transactional DDL; a failed push may leave only part of the printed plan applied`,
+    );
   }
 
   const run = async (connection: MigrationConnection = plan.connection): Promise<void> => {

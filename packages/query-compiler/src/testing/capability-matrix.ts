@@ -216,7 +216,7 @@ const matrix = {
       'returning.upsert': expectation('suffix'),
       'returning.update': expectation('suffix'),
       'returning.delete': expectation('suffix'),
-      transactionalDdl: expectation(true),
+      transactionalDdl: refusal('transactional DDL'),
       schemas: expectation(true),
       sequences: expectation(true),
       generatedColumns: expectation(true),
@@ -224,7 +224,7 @@ const matrix = {
       foreignKeys: expectation(true),
       rowLevelSecurity: refusal('row-level security'),
       streaming: expectation('PostgreSQL-family cursor-capable queryable'),
-      cancellation: expectation('PostgreSQL-family configured second queryable'),
+      cancellation: refusal('server-side cancellation'),
     },
     sqlTypes: {
       ...POSTGRES_TYPES,

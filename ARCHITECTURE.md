@@ -83,7 +83,7 @@ These are not preferences; they are invariants. A change that violates one is re
 
 > The public API is assertion-free. Framework internals use a documented exception list for places where runtime data crosses into a TypeScript type.
 >
-> As of 2026-09-06, the 275 shipped files covered by `verify:escape-hatches` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`,
+> As of 2026-09-06, the 278 shipped files covered by `verify:escape-hatches` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`,
 > and one lint suppression. The consumer documentation contains no required casts.
 >
 > The count rose from 28 during the type-first work. Of the 53 current assertions, 26 are in `aot-validator`, mainly around checker values, parsed JSON, and validated return values. Each assertion
@@ -283,9 +283,10 @@ and repositories derive and cache its limits, retries and returning support.
 
 The SQLite slice now ships as `@zmdb/sqlite`, with package-owned traits, migrations, introspection, driver tests, and packed in-memory acceptance. The PostgreSQL slice now ships as `@zmdb/postgres`,
 with package-owned traits, migrations, catalog introspection, driver behavior, live-server acceptance, and packed-consumer evidence. The MySQL slice now ships as `@zmdb/mysql`, with package-owned
-traits, migrations, catalog introspection, structural mysql2 behavior, strict `utf8mb4` live-server acceptance, and packed-consumer evidence. The other three database packages are still pending. The
-temporary six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge; `@zmdb/repository` retains only the SQL Server compatibility adapter. The umbrella's temporary
-`zmdb/drivers/sqlite` and `zmdb/drivers/pg` paths delegate to the selected packages while MySQL remains an independently selected package with no facade export.
+traits, migrations, catalog introspection, structural mysql2 behavior, strict `utf8mb4` live-server acceptance, and packed-consumer evidence. CockroachDB ships as the one-way `@zmdb/cockroach` child,
+adding immutable type/capability/retry overrides, Cockroach catalog normalization, a bound driver, and packed real-server acceptance without changing its PostgreSQL parent. SQL Server and SingleStore
+are still pending. The temporary six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge; `@zmdb/repository` retains only the SQL Server compatibility adapter. The
+umbrella's temporary `zmdb/drivers/sqlite` and `zmdb/drivers/pg` paths delegate to the selected packages while MySQL and Cockroach remain independently selected packages with no facade export.
 
 A database package is a **complete vertical**, not a syntax table. It owns the database's query traits, DDL and migration behavior, introspector, official driver adapter, capability/refusal metadata,
 golden SQL, real-server qualification and packed-consumer evidence. Generic packages retain the algorithms and protocols that can serve an unknown third-party database.
@@ -559,7 +560,7 @@ and entry-specific reachability assignments are generated from the admitted mani
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **33 catalog packages**, **57 direct workspace edges**, and canonical rings **0–7**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **34 catalog packages**, **60 direct workspace edges**, and canonical rings **0–7**.
 
 | Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                                    |
 | ---- | ----------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -587,6 +588,7 @@ Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, 
 | 5    | integration | `@zmdb/mysql`              | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
 | 5    | runtime     | `@zmdb/postgres`           | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
 | 5    | runtime     | `@zmdb/sqlite`             | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
+| 6    | runtime     | `@zmdb/cockroach`          | `@zmdb/postgres`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                 |
 | 6    | application | `@zmdb/jobs`               | `@zmdb/app`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/sqlite`                                                                                    |
 | 6    | integration | `@zmdb/otel`               | `@zmdb/app`                                                                                                                                                      |
 | 6    | integration | `@zmdb/transport-grpc`     | `@zmdb/app`<br>`@zmdb/protobuf`                                                                                                                                  |
@@ -855,7 +857,7 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the thirty-three-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
+the north-star-driven language policy in §4 here, and it records the thirty-four-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
 `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/ai`, its opt-in integrations, `@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`,
-`@zmdb/jobs-postgres`, `@zmdb/postgres`, `@zmdb/sqlite`, `@zmdb/mysql`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
-`@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+`@zmdb/jobs-postgres`, `@zmdb/postgres`, `@zmdb/cockroach`, `@zmdb/sqlite`, `@zmdb/mysql`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
+`@zmdb/transport-redis`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

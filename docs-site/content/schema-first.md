@@ -1,6 +1,6 @@
-All six dialect values have catalog readers that produce a normalized `CatalogSchemaSnapshot`; Cockroach and SingleStore reuse the Postgres and MySQL readers respectively. `emitDeclarations()` turns
-the snapshot into deterministic TypeScript, and `detectDrift()` compares that live snapshot with reviewed declarations in both directions. Those library APIs are the supported adoption path;
-`zmdb pull` packages the reader and emitter behind project configuration.
+All six temporary dialect values have catalog readers that produce a normalized `CatalogSchemaSnapshot`. Cockroach layers its `SHOW INDEXES`/`SHOW CREATE` evidence and `unique_rowid()` normalization
+over the public PostgreSQL-family reader; SingleStore still reuses the MySQL reader. `emitDeclarations()` turns the snapshot into deterministic TypeScript, and `detectDrift()` compares that live
+snapshot with reviewed declarations in both directions. Those library APIs are the supported adoption path; `zmdb pull` packages the reader and emitter behind project configuration.
 
 ## What "schema first" means here
 

@@ -79,6 +79,22 @@ jobs:
       - name: Install (yarn, immutable)
         run: yarn install --immutable
 
+      - name: Start CockroachDB 26.2.2
+        run: |
+          docker run --detach --name zmdb-cockroach-publish \
+            --publish 26257:26257 --publish 8080:8080 \
+            cockroachdb/cockroach:v26.2.2 \
+            start-single-node --insecure \
+            --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080
+          for attempt in $(seq 1 30); do
+            if docker exec zmdb-cockroach-publish cockroach sql --insecure --execute 'SELECT 1' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs zmdb-cockroach-publish
+          exit 1
+
       - name: Pre-publish Dependency Vulnerability Audit
         # Metro 0.87.0 is a dev-only fixture dependency. Its image-size range
         # has no non-vulnerable published target yet: even current 2.0.2 is
@@ -114,11 +130,14 @@ jobs:
 
       - name: Verify installed optional server integrations against live peers
         env:
+          ZMDB_COCKROACH_URL: postgresql://root@127.0.0.1:26257/defaultdb?sslmode=disable
           ZMDB_NATS_URL: nats://127.0.0.1:4222
           ZMDB_PG: postgres://postgres:postgres@127.0.0.1:5432/bench
           ZMDB_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672
           ZMDB_REDIS_URL: redis://127.0.0.1:6379
-        run: yarn verify:server-integrations
+        run: |
+          yarn verify:server-integrations
+          yarn verify:database-cockroach
 
       - name: Start strict utf8mb4 MySQL for the packed @zmdb/mysql consumer
         run: |
@@ -195,6 +214,10 @@ jobs:
                 --pack-destination "$RUNNER_TEMP/zmdb-release-tarballs"
             fi
           done < "$RUNNER_TEMP/zmdb-publish-order.tsv"
+
+      - name: Stop CockroachDB
+        if: always()
+        run: docker rm --force zmdb-cockroach-publish || true
 
       # NOTE: `npm dist-tag` is NOT authorized by OIDC/trusted publishing (only
       # `npm publish` is). So `latest` is managed by the publish itself:

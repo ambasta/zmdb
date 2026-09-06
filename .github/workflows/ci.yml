@@ -242,8 +242,25 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
+      - name: Start CockroachDB 26.2.2
+        run: |
+          docker run --detach --name zmdb-cockroach-ci \
+            --publish 26257:26257 --publish 8080:8080 \
+            cockroachdb/cockroach:v26.2.2 \
+            start-single-node --insecure \
+            --listen-addr=0.0.0.0:26257 --http-addr=0.0.0.0:8080
+          for attempt in $(seq 1 30); do
+            if docker exec zmdb-cockroach-ci cockroach sql --insecure --execute 'SELECT 1' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs zmdb-cockroach-ci
+          exit 1
+
       - name: Pack, install, typecheck, and execute every optional server integration
         env:
+          ZMDB_COCKROACH_URL: postgresql://root@127.0.0.1:26257/defaultdb?sslmode=disable
           ZMDB_NATS_URL: nats://127.0.0.1:4222
           ZMDB_PG: postgres://postgres:postgres@127.0.0.1:5432/bench
           ZMDB_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/bench
@@ -251,7 +268,12 @@ jobs:
           ZMDB_REDIS_URL: redis://127.0.0.1:6379
         run: |
           yarn verify:server-integrations
+          yarn verify:database-cockroach
           yarn verify:database-postgres
+
+      - name: Stop CockroachDB
+        if: always()
+        run: docker rm --force zmdb-cockroach-ci || true
 
   docs:
     name: Documentation Site Generation

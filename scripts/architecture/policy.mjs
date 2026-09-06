@@ -292,6 +292,15 @@ export const PACKAGE_POLICY = Object.freeze({
     },
     toolingEntries: [],
   }),
+  cockroach: packagePolicy({
+    directory: 'packages/cockroach',
+    zone: 'runtime',
+    ring: 6,
+    allowedWorkspaceDependencies: ['postgres', 'query-compiler', 'repository'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   sqlite: packagePolicy({
     directory: 'packages/sqlite',
     zone: 'runtime',

@@ -121,6 +121,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-http-client' },
   }),
   productPackage({
+    id: 'cockroach',
+    directory: 'packages/cockroach',
+    npmName: '@zmdb/cockroach',
+    role: 'cockroach',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'CockroachDB' },
+    docsOwner: 'dialect-cockroach',
+    consumer: { fixture: 'fixtures/database-cockroach' },
+  }),
+  productPackage({
     id: 'jobs',
     directory: 'packages/jobs',
     npmName: '@zmdb/jobs',

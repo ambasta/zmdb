@@ -8,7 +8,7 @@ row, point to an equal-or-inward zone, and have a strictly lower canonical ring.
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **33 catalog packages**, **57 direct workspace edges**, and canonical rings **0–7**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **34 catalog packages**, **60 direct workspace edges**, and canonical rings **0–7**.
 
 | Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                                    |
 | ---- | ----------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -36,6 +36,7 @@ Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, 
 | 5    | integration | `@zmdb/mysql`              | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
 | 5    | runtime     | `@zmdb/postgres`           | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
 | 5    | runtime     | `@zmdb/sqlite`             | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
+| 6    | runtime     | `@zmdb/cockroach`          | `@zmdb/postgres`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                 |
 | 6    | application | `@zmdb/jobs`               | `@zmdb/app`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/sqlite`                                                                                    |
 | 6    | integration | `@zmdb/otel`               | `@zmdb/app`                                                                                                                                                      |
 | 6    | integration | `@zmdb/transport-grpc`     | `@zmdb/app`<br>`@zmdb/protobuf`                                                                                                                                  |
