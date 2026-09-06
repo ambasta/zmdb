@@ -584,6 +584,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   readonly #entityLoaders = new WeakMap<object, EntityLoader<T>>();
   readonly #relationLoaders = new WeakMap<object, RelationLoaderMap<T>>();
 
+  static readonly #tableSchemas = new Map<string, CoreSchema>();
+
+  protected static getSchemaForTable(table: string): CoreSchema | undefined {
+    return BaseRepository.#tableSchemas.get(table);
+  }
+
   constructor(driver: Driver, dialect: DialectTarget | undefined = driver.dialect, options?: RepositoryOptions) {
     if (dialect === undefined) {
       throw new TypeError('repository construction requires an explicit database dialect object');
@@ -647,7 +653,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
     this.keyColumns = this.#rootSqlNames.keyColumns;
     this.physicalKeyColumns = this.#rootSqlNames.physicalKeyColumns;
-
     const seen = new Set<string>();
     for (const filter of this.#filterDefinitions) {
       if (filter.name.trim().length === 0) throw new ValidationError('filter names must not be empty');
@@ -656,6 +661,15 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         throw new ValidationError(`filter \`${filter.name}\` is declared more than once for \`${filter.table}\``);
       }
       seen.add(identity);
+    }
+
+    try {
+      const s = this.schema;
+      if (s && s.table) {
+        BaseRepository.#tableSchemas.set(s.table, s);
+      }
+    } catch {
+      // ignore if static schema is not yet accessible
     }
   }
 
@@ -910,9 +924,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   private filterDefinitionsFor(table: string, schema?: CoreSchema<string>): readonly FilterDef<unknown>[] {
     const definitions = this.#filterDefinitions.filter(filter => filter.table === table);
-    const softDelete =
-      (schema === undefined ? this.sqlNamesForTable(table) : this.sqlNamesForTable(schema.table))?.ir.softDelete ??
-      schema?.ir.softDelete;
+    const sqlNames =
+      this.sqlNamesForTable(table) ?? (schema === undefined ? undefined : this.sqlNamesForTable(schema.table));
+    const softDelete = sqlNames !== undefined ? sqlNames.ir.softDelete : schema?.ir.softDelete;
     if (softDelete === undefined || definitions.some(filter => filter.name === 'softDelete')) {
       return definitions;
     }
@@ -1181,19 +1195,65 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    * rather than copying every row to no effect. Only `timestamp` and `bigint` need distinct
    * JSON wire forms; vector decoding is specific to the db→app crossing.
    */
-  private decodeRows(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
-    const columns = this.decodedColumns;
-    if (columns.length === 0 || rows.length === 0) return rows;
-    return rows.map(row => this.decodeRow(row, columns));
+  protected decodeRows(
+    rows: readonly Record<string, unknown>[],
+    schema?: CoreSchema,
+    irColsMap?: Map<string, ColumnIR>,
+  ): readonly Record<string, unknown>[] {
+    if (rows.length === 0) return rows;
+    const targetSchema = schema ?? (irColsMap ? undefined : this.#rootSqlNames.schema);
+    const irCols = irColsMap ?? new Map(targetSchema?.ir?.columns?.map(c => [c.name, c]) ?? []);
+    if (irCols.size === 0) return rows;
+    let modified = false;
+    const result = rows.map(row => {
+      let rowCopied = false;
+      let out: Record<string, unknown> = row;
+      for (const [key, val] of Object.entries(row)) {
+        if (val === null || val === undefined) continue;
+        const colIR = irCols.get(key);
+        let decoded: unknown = val;
+        if (colIR) {
+          decoded = this.decodeValueForColumn(val, colIR);
+        } else if (typeof val === 'bigint' && Number.isSafeInteger(Number(val))) {
+          decoded = Number(val);
+        }
+        if (decoded !== val) {
+          if (!rowCopied) {
+            out = { ...row };
+            rowCopied = true;
+            modified = true;
+          }
+          out[key] = decoded;
+        }
+      }
+      return out;
+    });
+    return modified ? result : rows;
   }
 
-  private decodeRow(row: Record<string, unknown>, columns: readonly ColumnIR[]): Record<string, unknown> {
-    if (columns.length === 0) return row;
-    const out: Record<string, unknown> = { ...row };
-    for (const column of columns) {
-      if (column.name in out) out[column.name] = decodeDbValue(column, out[column.name]);
+  protected decodeValueForColumn(raw: unknown, col: ColumnIR): unknown {
+    if (raw === null || raw === undefined) return raw;
+    if (col.codec) {
+      const customCodec = this.schema.columns[col.name]?.codec;
+      if (customCodec) return customCodec.fromDb(raw);
     }
-    return out;
+    if (col.sql === 'json') {
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
+      }
+      return raw;
+    }
+    if (col.sql === 'boolean') {
+      if (typeof raw === 'boolean') return raw;
+      if (typeof raw === 'number' || typeof raw === 'bigint') return Number(raw) !== 0;
+      if (typeof raw === 'string') return raw === 'true' || raw === '1';
+      return raw;
+    }
+    return decodeDbValue(col, raw);
   }
 
   private get decodedColumns(): readonly ColumnIR[] {
@@ -1337,11 +1397,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   /** The shared body of `findById` and `findOne`: first row for a where clause, relations attached if asked for. */
   private async firstMatching(where: WhereDTO<T>, options?: InternalReadOptions): Promise<Entity<T> | undefined> {
+    this.validateWhere(where);
+    const encWhere = this.encodeWhere(where);
     const populateFilters = this.resolvePopulateFilters(options?.populate, options);
     const query = this.compileRead(
       'findOne',
       options,
-      () => this.limitOne(compileWhere(this.selectEntity(), where, column => this.physicalColumn(column))),
+      () => this.limitOne(compileWhere(this.selectEntity(), encWhere, column => this.physicalColumn(column))),
       { additionalKnownNames: this.populateFilterNames(options?.populate) },
     );
     return this.firstResult(query, options, populateFilters);
@@ -1367,6 +1429,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     options?: ReadOptions,
     filters?: ResolvedFilters,
     names: SchemaSqlNames | undefined = this.sqlNamesForTable(childTable),
+    overrideSchema?: CoreSchema,
   ): Promise<Map<string, Record<string, unknown>[]>> {
     options?.signal?.throwIfAborted();
     if (childKeys.length === 0) {
@@ -1426,8 +1489,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const res = await this.executeRead(query, options?.signal);
       children.push(...res);
     }
+    const childSchema = overrideSchema ?? names?.schema ?? BaseRepository.getSchemaForTable(childTable);
+    const decodedChildren = childSchema ? this.decodeRows(children, childSchema) : this.decodeRows(children);
     const byParent = new Map<string, Record<string, unknown>[]>();
-    for (const c of children) {
+    for (const c of decodedChildren) {
       const values = childKeys.map(childKey => c[childKey]);
       if (hasNullishKeyPart(values)) continue;
       const key = loaderKey(values);
@@ -1520,11 +1585,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   ): Promise<readonly Populated<T, K>[]>;
   async find(where: WhereDTO<T>, opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async find(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
+    this.validateWhere(where);
+    const encWhere = this.encodeWhere(where);
     const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
     const query = this.compileRead(
       'find',
       opts,
-      () => compileWhere(this.selectEntity(), where, column => this.physicalColumn(column)),
+      () => compileWhere(this.selectEntity(), encWhere, column => this.physicalColumn(column)),
       {
         additionalKnownNames: this.populateFilterNames(opts?.populate),
       },
@@ -1604,9 +1671,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     if (keyset) {
       if (typeof page.after === 'string') {
         cursorValues = decodeCursor(page.after);
-      } else if (typeof page.after === 'object' && !Array.isArray(page.after)) {
+      } else if (isRecord(page.after)) {
         // boundary: page.after is an untrusted client DTO parameter; runtime check above proves it is a non-null, non-array object.
-        cursorValues = page.after as Record<string, unknown>;
+        cursorValues = page.after;
       } else {
         throw new Error('Invalid cursor parameter: expected string or object');
       }
@@ -1692,9 +1759,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           : compileWhere(this.selectEntity(), where, column => this.physicalColumn(column)),
       reportBuffered ? { buffered: true } : {},
     );
-    // Resolve the schema-derived decoder once before iteration; the mapper then
-    // performs only the per-row conversions that ordinary reads use.
-    const columns = this.decodedColumns;
+    const targetSchema = this.schema;
+    const irCols = new Map(targetSchema.ir.columns.map(c => [c.name, c]));
     const signal = options?.signal;
 
     const open =
@@ -1715,7 +1781,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         : (): AsyncIterable<Record<string, unknown>> =>
             driverStream.call(this.driver, query, executeOptions(signal, options?.batchSize ?? 100));
 
-    return createRepositoryStream(open, row => this.trusted<Entity<T>>(this.decodeRow(row, columns)), signal);
+    return createRepositoryStream(
+      open,
+      row => this.trusted<Entity<T>>(this.decodeRows([row], targetSchema, irCols)[0] ?? row),
+      signal,
+    );
   }
 
   // #96 — full-text search integration. Uses the query-compiler FTS builder.
@@ -1794,7 +1864,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         additionalKnownNames: targetDefinitions.map(filter => filter.name),
       },
     );
-    return this.executeRead(query, options?.signal);
+    const rows = await this.executeRead(query, options?.signal);
+    return this.decodeRows(rows, targetSchema);
   }
 
   /**
@@ -2109,17 +2180,19 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const rawRows = await this.executeRead(q, options?.signal);
 
     const mappedRows = rawRows.map(row => {
-      const out: Record<string, unknown> = { ...row };
+      const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(row)) {
+        const val = typeof v === 'bigint' ? (Number.isSafeInteger(Number(v)) ? Number(v) : v) : v;
+        out[k] = val;
         if (k.includes('.')) {
           const flatKey = k.replace('.', '_');
           if (!(flatKey in out)) {
-            out[flatKey] = v;
+            out[flatKey] = val;
           }
         } else if (k.includes('_')) {
           const dotKey = k.replace('_', '.');
           if (!(dotKey in out)) {
-            out[dotKey] = v;
+            out[dotKey] = val;
           }
         }
       }
@@ -2199,8 +2272,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // separately before SQL.
   async create(dto: CreateDTO<T>, options?: CacheInvalidationOptions): Promise<Entity<T>> {
     const clean = this.validatePayload(dto, 'create');
+    const encoded = this.encodeRow(clean);
     this.preInsert(clean);
-    const physical = this.physicalRecord(clean);
+    const physical = this.physicalRecord(encoded);
     const rows = await this.rows<EntityRow<T>>(
       this.qb.insertInto(this.tableName).values(physical).returning(this.entityReturning()).compile(),
     );
@@ -2213,6 +2287,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   async upsert(dto: CreateDTO<T>, opts?: UpsertOptions<T>): Promise<Entity<T> | undefined> {
     const clean = this.validatePayload(dto, 'create');
+    const encoded = this.encodeRow(clean);
     this.preInsert(clean);
     const target = opts?.target ?? this.requiredKeyColumns();
     const requestedUpdateFields = opts?.updateFields;
@@ -2226,7 +2301,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const physicalUpdateFields = this.physicalFields(resolvedUpdateFields);
     const ib = this.qb
       .insertInto(this.tableName)
-      .values(this.physicalRecord(clean))
+      .values(this.physicalRecord(encoded))
       .onConflict(physicalTarget)
       .doUpdate(physicalUpdateFields);
     if (
@@ -2319,7 +2394,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       );
       return this.firstResult(query);
     }
-    const physical = this.physicalRecord(clean);
+    const encoded = this.encodeRow(clean);
+    const physical = this.physicalRecord(encoded);
     const build = () => this.keyWhere(this.qb.updateTable(this.tableName).set(physical), id, 'update');
     if (!this.dialectCapabilities.returning.update && this.hasColumnExpression(physical)) {
       await this.driver.execute(this.assertKeyed(this.compileWrite('update', options, build), 'update'));
@@ -2352,6 +2428,161 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       );
     }
     return query;
+  }
+
+  protected encodeRow(row: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    const colsMap = new Map(this.schema.ir.columns.map(c => [c.name, c]));
+    for (const [key, val] of Object.entries(row)) {
+      const col = colsMap.get(key);
+      out[key] = col ? this.encodeValueForColumn(val, col) : val;
+    }
+    return out;
+  }
+
+  protected encodeValueForColumn(val: unknown, col: ColumnIR): unknown {
+    if (val === null || val === undefined) return val;
+    if (col.codec) {
+      const customCodec = this.schema.columns[col.name]?.codec;
+      if (customCodec) return customCodec.toDb(val);
+    }
+    switch (col.sql) {
+      case 'timestamp':
+        if (val instanceof Date) return val;
+        if (typeof val === 'number') return new Date(val);
+        return val;
+      case 'json':
+        if (typeof val === 'string') return val;
+        return JSON.stringify(val);
+      case 'bigint':
+        if (typeof val === 'bigint')
+          return !this.dialectCapabilities.schemas && !this.dialectCapabilities.returning.insert ? val.toString() : val;
+        if (typeof val === 'number' || typeof val === 'string' || typeof val === 'boolean') {
+          const b = BigInt(val);
+          return !this.dialectCapabilities.schemas && !this.dialectCapabilities.returning.insert ? b.toString() : b;
+        }
+        return val;
+      default:
+        return val;
+    }
+  }
+
+  protected validateWhere(where: unknown): void {
+    if (!where || typeof where !== 'object' || where === null) return;
+    const colsMap = new Map(this.schema.ir.columns.map(c => [c.name, c]));
+    for (const [key, val] of Object.entries(where)) {
+      if (key === 'and' && Array.isArray(val)) {
+        for (const sub of val) this.validateWhere(sub);
+      } else if (key === 'or' && Array.isArray(val)) {
+        for (const sub of val) this.validateWhere(sub);
+      } else if (key === 'exists' || key === 'notExists') {
+        continue;
+      } else {
+        const col = colsMap.get(key);
+        if (!col) {
+          throw new ValidationError(`unknown column "${key}" in query filter`);
+        }
+        if (isRecord(val) && !(val instanceof Date)) {
+          if ('table' in val || 'compile' in val) {
+            continue;
+          }
+          for (const [op, opVal] of Object.entries(val)) {
+            if (isRecord(opVal) && ('table' in opVal || 'compile' in opVal)) {
+              continue;
+            }
+            if (op === 'isNull' || op === 'notNull') {
+              if (typeof opVal !== 'boolean') throw new ValidationError(`invalid boolean for "${key}.${op}"`);
+            } else if (op === 'in' || op === 'nin') {
+              if (!Array.isArray(opVal)) throw new ValidationError(`expected array for "${key}.${op}"`);
+            } else if (op === 'like' || op === 'ilike') {
+              if (typeof opVal !== 'string') throw new ValidationError(`expected string for "${key}.${op}"`);
+            } else if (opVal === null) {
+              continue;
+            } else {
+              if (!this.filterValueMatches(opVal, col)) throw new ValidationError(`invalid value for "${key}.${op}"`);
+            }
+          }
+        } else {
+          if (!this.filterValueMatches(val, col)) throw new ValidationError(`invalid filter value for "${key}"`);
+        }
+      }
+    }
+  }
+
+  private filterValueMatches(value: unknown, col: ColumnIR): boolean {
+    if (value === null) return true;
+    if (value === undefined) return false;
+    if (col.codec) return true;
+    switch (col.sql) {
+      case 'serial':
+      case 'integer':
+      case 'numeric':
+        return typeof value === 'number' || typeof value === 'bigint' || typeof value === 'string';
+      case 'bigint':
+        return typeof value === 'bigint' || typeof value === 'number' || typeof value === 'string';
+      case 'text':
+      case 'varchar':
+        return typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint';
+      case 'boolean':
+        return typeof value === 'boolean';
+      case 'timestamp':
+        if (value instanceof Date) return !isNaN(value.getTime());
+        if (typeof value === 'string') return !isNaN(Date.parse(value));
+        if (typeof value === 'number') return !isNaN(value);
+        return false;
+      case 'jsonEnum':
+        return typeof value === 'string' && (col.enum ? col.enum.includes(value) : true);
+      case 'json':
+        return typeof value === 'object';
+      default:
+        return true;
+    }
+  }
+
+  protected encodeWhere<Where extends WhereDTO<T> | Record<string, unknown>>(
+    where: Where | undefined,
+  ): Where | undefined {
+    // boundary: accumulated record maps schema columns to encoded DB values while preserving filter structures.
+    if (!where || typeof where !== 'object' || where === null) return where;
+    const colsMap = new Map(this.schema.ir.columns.map(c => [c.name, c]));
+    const acc: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(where)) {
+      if (key === 'and' && Array.isArray(val)) {
+        acc.and = val.map(sub => (isRecord(sub) ? this.encodeWhere(sub) : sub));
+      } else if (key === 'or' && Array.isArray(val)) {
+        acc.or = val.map(sub => (isRecord(sub) ? this.encodeWhere(sub) : sub));
+      } else if (key === 'exists' || key === 'notExists') {
+        acc[key] = val;
+      } else {
+        const col = colsMap.get(key);
+        if (!col) {
+          acc[key] = val;
+          continue;
+        }
+        if (isRecord(val) && !(val instanceof Date)) {
+          if ('table' in val || 'compile' in val) {
+            acc[key] = val;
+            continue;
+          }
+          const opObj: Record<string, unknown> = {};
+          for (const [op, opVal] of Object.entries(val)) {
+            if (isRecord(opVal) && ('table' in opVal || 'compile' in opVal)) {
+              opObj[op] = opVal;
+            } else if (op === 'in' || op === 'nin') {
+              opObj[op] = Array.isArray(opVal) ? opVal.map(v => this.encodeValueForColumn(v, col)) : opVal;
+            } else if (op === 'isNull' || op === 'notNull' || op === 'like' || op === 'ilike') {
+              opObj[op] = opVal;
+            } else {
+              opObj[op] = this.encodeValueForColumn(opVal, col);
+            }
+          }
+          acc[key] = opObj;
+        } else {
+          acc[key] = this.encodeValueForColumn(val, col);
+        }
+      }
+    }
+    return acc as Where;
   }
 
   // #28 — delete + lifecycle hooks.
