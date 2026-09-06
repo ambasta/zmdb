@@ -11,7 +11,7 @@ The shipped/build-input source inventory is every file below `packages/{validato
 `packages/schema/src/ir/{validation-shape,vocabulary}.ts`, `packages/schema/src/naming/index.ts` and `packages/orm/src/outbox/sql.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in
 declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **210 paths**, each exactly once:
+The inventory has **219 paths**, each exactly once:
 
 ```json
 {
@@ -19,7 +19,7 @@ The inventory has **210 paths**, each exactly once:
   "migrations": 21,
   "cli": 33,
   "runtime": 31,
-  "facade": 53,
+  "facade": 62,
   "optional-integration": 0,
   "test-only": 38,
   "obsolete": 0
@@ -166,6 +166,7 @@ facade	packages/zmdb/src/app.ts
 facade	packages/zmdb/src/cli/index.ts
 facade	packages/zmdb/src/compiler.ts
 facade	packages/zmdb/src/config/index.ts
+facade	packages/zmdb/src/custom-types.ts
 facade	packages/zmdb/src/database-cockroach.ts
 facade	packages/zmdb/src/database-mssql.ts
 facade	packages/zmdb/src/database-mysql.ts
