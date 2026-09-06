@@ -45,6 +45,7 @@ function stage3Decorators(): Plugin {
 export default defineConfig({
   plugins: [stage3Decorators()],
   test: {
+    setupFiles: ['./scripts/vitest-setup.ts'],
     // All package tests live alongside sources under packages/*/src.
     include: [
       'packages/*/src/**/*.spec.ts',
