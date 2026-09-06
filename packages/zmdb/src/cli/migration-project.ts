@@ -63,7 +63,7 @@ export function reflectedMigrationProject(config: ResolvedConfig, driver?: Migra
   return migrationProject(config, {
     schemas,
     ...(driver === undefined ? {} : { driver }),
-    ...(driver === undefined ? {} : { introspector: configuredIntrospector(driver.dialect) }),
+    ...(driver === undefined ? {} : { introspector: configuredIntrospector(driver.dialect ?? config.dialect) }),
   });
 }
 

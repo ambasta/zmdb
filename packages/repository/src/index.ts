@@ -10,6 +10,8 @@ import type {
   ComparisonPredicate,
   CompiledQuery,
   DialectTarget,
+  Driver,
+  ExecuteOptions,
   Predicate,
   SelectBuilder,
   SetValue,
@@ -107,23 +109,12 @@ import {
 } from './loaders/index.js';
 import { createRepositoryStream } from './streaming/index.js';
 
-export interface ExecuteOptions {
-  readonly signal?: AbortSignal;
-  /** Rows per round trip. A driver may clamp it; zero or negative is refused. */
-  readonly batchSize?: number;
-}
-
-export interface Driver<Name extends string = string> {
-  readonly dialect: DialectTarget<Name>;
-  /** Enables compile-time query attributes when an execution wrapper consumes them. */
-  readonly queryTelemetry?: true;
-  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
-  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
-}
+export type { Driver, ExecuteOptions };
 
 export type SelectedDriver<Name extends string = string> = Driver<Name>;
 
 export interface TransactionalDriver<Name extends string = string> extends SelectedDriver<Name> {
+  readonly dialect: SqlDialect<Name>;
   transaction<Result>(run: (driver: SelectedDriver<Name>) => Promise<Result>): Promise<Result>;
 }
 
@@ -697,10 +688,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // subclass contract, like the static `schema`, and there is no way to state it in the type
   // system from inside the base class. `new (this.constructor as …)` is the only way to
   // re-run field initialisers, which is the point: `Object.create` would share `#shapes`.
-  withTransaction(tx: Pick<Driver, 'execute' | 'stream'>): this {
+  withTransaction(tx: Pick<Driver, 'execute' | 'stream'> & { readonly dialect?: DialectTarget | undefined }): this {
+    const txDialect = 'dialect' in tx && tx.dialect ? tx.dialect : this.dialect;
     const txStream = typeof tx.stream === 'function' ? tx.stream : undefined;
     const txDriver: Driver = {
-      dialect: this.dialect,
+      dialect: txDialect,
       ...(this.driver.queryTelemetry === true ? { queryTelemetry: true as const } : {}),
       execute: (query, opts) => tx.execute(query, opts),
       ...(txStream === undefined
@@ -716,7 +708,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       ...(this.#additionalSchemas.length === 0 ? {} : { schemas: this.#additionalSchemas }),
       ...(this.#onQuery === undefined ? {} : { onQuery: this.#onQuery }),
     };
-    return new ctor(txDriver, this.dialect, Object.keys(options).length === 0 ? undefined : options);
+    return new ctor(txDriver, txDialect, Object.keys(options).length === 0 ? undefined : options);
   }
 
   /**

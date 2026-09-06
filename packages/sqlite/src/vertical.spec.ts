@@ -133,6 +133,9 @@ describe('@zmdb/sqlite vertical', () => {
     ).toEqual({
       text: 'SELECT "id", "email" FROM "users" WHERE "visits" >= ? ORDER BY "id" ASC LIMIT 10 OFFSET 5',
       parameters: [1],
+      returnsRows: true,
+      operation: 'select',
+      isWrite: false,
     });
     expect(
       compiler

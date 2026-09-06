@@ -1,7 +1,13 @@
 // Transactions — implementation (#36 transaction context primitive).
 // createTransactionalDb.transaction() issues BEGIN/COMMIT/ROLLBACK and
 // tx.savepoint() issues SAVEPOINT / RELEASE / ROLLBACK TO SAVEPOINT.
-import { dialectTraits, type CompiledQuery, type DialectTarget } from '@zmdb/query-compiler';
+import {
+  dialectTraits,
+  type CompiledQuery,
+  type DialectTarget,
+  type Driver,
+  type SqlDialect,
+} from '@zmdb/query-compiler';
 
 import type { ExecuteOptions } from '../index.js';
 
@@ -9,7 +15,7 @@ export type TransactionState = 'active' | 'closed' | 'committed' | 'rolled_back'
 
 export interface TransactionContext<State extends string = 'active'> {
   readonly _state?: State | undefined;
-  readonly dialect?: DialectTarget;
+  readonly dialect?: DialectTarget | SqlDialect | undefined;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
   savepoint<R>(fn: (tx: TransactionContext<State>) => Promise<R>): Promise<R>;
@@ -36,8 +42,7 @@ export function markTransactionClosed<State extends string = 'active'>(
   };
 }
 
-export interface TxConnection {
-  readonly dialect?: DialectTarget;
+export interface TxConnection extends Driver {
   raw(sql: string): Promise<void>;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;

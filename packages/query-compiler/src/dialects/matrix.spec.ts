@@ -303,8 +303,12 @@ function value(expected: unknown): Outcome {
   return { kind: 'value', value: expected };
 }
 
+function analyzeQueryLocal(text: string) {
+  return invoke(clausesApi, 'analyzeQuery', [text]) as Record<string, unknown>;
+}
+
 function query(text: string, parameters: readonly unknown[]): Outcome {
-  return value({ text, parameters });
+  return value({ text, parameters, ...analyzeQueryLocal(text) });
 }
 
 function refused(feature: string, dialect: FrozenDialect): Outcome {
@@ -365,7 +369,13 @@ const MATRIX: readonly MatrixCase[] = [
       postgres: query('INSERT INTO "users" ("email", "role") VALUES ($1, $2) RETURNING "id"', ['a@b.com', 'user']),
       mysql: refused('returning', 'mysql'),
       sqlite: query('INSERT INTO "users" ("email", "role") VALUES (?, ?) RETURNING "id"', ['a@b.com', 'user']),
-      mssql: query('INSERT INTO [users] ([email], [role]) OUTPUT INSERTED.[id] VALUES (@p1, @p2)', ['a@b.com', 'user']),
+      mssql: value({
+        text: 'INSERT INTO [users] ([email], [role]) OUTPUT INSERTED.[id] VALUES (@p1, @p2)',
+        parameters: ['a@b.com', 'user'],
+        operation: 'insert',
+        isWrite: true,
+        returnsRows: true,
+      }),
       cockroach: query('INSERT INTO "users" ("email", "role") VALUES ($1, $2) RETURNING "id"', ['a@b.com', 'user']),
       singlestore: refused('returning', 'singlestore'),
     },
@@ -465,10 +475,13 @@ const MATRIX: readonly MatrixCase[] = [
         'INSERT INTO "users" ("email", "role") VALUES (?, ?) ON CONFLICT ("email") DO UPDATE SET "role" = EXCLUDED."role"',
         ['a@b.com', 'user'],
       ),
-      mssql: query(
-        'MERGE [users] WITH (HOLDLOCK) AS tgt USING (VALUES (@p1, @p2)) AS src ([email], [role]) ON tgt.[email] = src.[email] WHEN MATCHED THEN UPDATE SET [role] = src.[role] WHEN NOT MATCHED THEN INSERT ([email], [role]) VALUES (src.[email], src.[role]);',
-        ['a@b.com', 'user'],
-      ),
+      mssql: value({
+        text: 'MERGE [users] WITH (HOLDLOCK) AS tgt USING (VALUES (@p1, @p2)) AS src ([email], [role]) ON tgt.[email] = src.[email] WHEN MATCHED THEN UPDATE SET [role] = src.[role] WHEN NOT MATCHED THEN INSERT ([email], [role]) VALUES (src.[email], src.[role]);',
+        parameters: ['a@b.com', 'user'],
+        operation: 'insert',
+        isWrite: true,
+        returnsRows: false,
+      }),
       cockroach: query(
         'INSERT INTO "users" ("email", "role") VALUES ($1, $2) ON CONFLICT ("email") DO UPDATE SET "role" = EXCLUDED."role"',
         ['a@b.com', 'user'],
@@ -567,7 +580,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'spatial predicate: contains',
     build: dialect => spatialPredicate(dialect, 'st_contains', 'area', geometry),
     expected: {
-      postgres: query('ST_Contains("area", ST_GeomFromGeoJSON($1))', [geometry]),
+      postgres: value({ text: 'ST_Contains("area", ST_GeomFromGeoJSON($1))', parameters: [geometry] }),
       mysql: refused('st_contains', 'mysql'),
       sqlite: refused('st_contains', 'sqlite'),
       mssql: refused('st_contains', 'mssql'),
@@ -579,7 +592,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'spatial predicate: within',
     build: dialect => spatialPredicate(dialect, 'st_within', 'area', geometry),
     expected: {
-      postgres: query('ST_Within("area", ST_GeomFromGeoJSON($1))', [geometry]),
+      postgres: value({ text: 'ST_Within("area", ST_GeomFromGeoJSON($1))', parameters: [geometry] }),
       mysql: refused('st_within', 'mysql'),
       sqlite: refused('st_within', 'sqlite'),
       mssql: refused('st_within', 'mssql'),
@@ -591,7 +604,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'spatial predicate: intersects',
     build: dialect => spatialPredicate(dialect, 'st_intersects', 'area', geometry),
     expected: {
-      postgres: query('ST_Intersects("area", ST_GeomFromGeoJSON($1))', [geometry]),
+      postgres: value({ text: 'ST_Intersects("area", ST_GeomFromGeoJSON($1))', parameters: [geometry] }),
       mysql: refused('st_intersects', 'mysql'),
       sqlite: refused('st_intersects', 'sqlite'),
       mssql: refused('st_intersects', 'mssql'),
@@ -603,7 +616,7 @@ const MATRIX: readonly MatrixCase[] = [
     name: 'spatial predicate: within distance',
     build: dialect => spatialPredicate(dialect, 'st_dwithin', 'location', geometry, 500),
     expected: {
-      postgres: query('ST_DWithin("location", ST_GeomFromGeoJSON($1), $2)', [geometry, 500]),
+      postgres: value({ text: 'ST_DWithin("location", ST_GeomFromGeoJSON($1), $2)', parameters: [geometry, 500] }),
       mysql: refused('st_dwithin', 'mysql'),
       sqlite: refused('st_dwithin', 'sqlite'),
       mssql: refused('st_dwithin', 'mssql'),

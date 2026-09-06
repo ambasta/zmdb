@@ -140,7 +140,12 @@ function run(project: Project, ...argv: readonly string[]): Run {
 function withoutCompilerShutdownNoise(stderr: string): string {
   return stderr
     .split(/\r?\n/)
-    .filter(line => line !== 'context canceled')
+    .filter(
+      line =>
+        line !== 'context canceled' &&
+        !line.includes('ExperimentalWarning: SQLite') &&
+        !line.includes('(Use `node --trace-warnings'),
+    )
     .join('\n');
 }
 

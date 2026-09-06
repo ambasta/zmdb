@@ -17,12 +17,18 @@ describe('MySQL compiler and capabilities', () => {
     expect(compiler.selectFrom('users').select(['id']).where('email', '=', 'a@b.test').offset(5).compile()).toEqual({
       text: 'SELECT `id` FROM `users` WHERE `email` = ? LIMIT 18446744073709551615 OFFSET 5',
       parameters: ['a@b.test'],
+      returnsRows: true,
+      operation: 'select',
+      isWrite: false,
     });
     expect(
       compiler.insertInto('users').values({ id: 1, email: 'a@b.test' }).onConflict('id').doUpdate(['email']).compile(),
     ).toEqual({
       text: 'INSERT INTO `users` (`id`, `email`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `email` = VALUES(`email`)',
       parameters: [1, 'a@b.test'],
+      returnsRows: false,
+      operation: 'insert',
+      isWrite: true,
     });
   });
 

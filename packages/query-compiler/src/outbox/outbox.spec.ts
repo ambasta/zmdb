@@ -304,6 +304,9 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
         'SELECT "id" FROM "zmdb_outbox" WHERE "status" = $1 AND "lease_until" < $2 ' +
         'ORDER BY "created_at" ASC LIMIT 100',
       parameters: [PENDING, NOW],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
     expect(outboxCandidatesQuery(mysqlDialect, { now: NOW, batch: 100 }).text).toBe(
       'SELECT `id` FROM `zmdb_outbox` WHERE `status` = ? AND `lease_until` < ? ' +
@@ -325,6 +328,9 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
         'UPDATE "zmdb_outbox" SET "lease_owner" = $1, "lease_until" = $2 ' +
         'WHERE "status" = $3 AND "lease_until" < $4 AND "id" IN ($5, $6)',
       parameters: ['tok', LEASE_UNTIL, PENDING, NOW, 'a', 'b'],
+      operation: 'update',
+      isWrite: true,
+      returnsRows: false,
     });
   });
 
@@ -332,6 +338,9 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     expect(outboxReadBackQuery(postgresDialect, { token: 'tok' })).toEqual({
       text: 'SELECT "id", "topic", "payload", "attempts" FROM "zmdb_outbox" WHERE "lease_owner" = $1',
       parameters: ['tok'],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
     });
   });
 
@@ -363,6 +372,9 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
         'UPDATE "zmdb_outbox" SET "status" = $1, "delivered_at" = $2, "attempts" = $3 ' +
         'WHERE "id" = $4 AND "lease_owner" = $5',
       parameters: ['delivered', NOW, 1, 'r1', 'tok'],
+      operation: 'update',
+      isWrite: true,
+      returnsRows: false,
     });
   });
 
@@ -409,7 +421,13 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
         .select(['id'])
         .where('deliveredAt', 'is null', null)
         .compile(),
-    ).toEqual({ text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" IS NULL', parameters: [] });
+    ).toEqual({
+      text: 'SELECT "id" FROM "zmdb_outbox" WHERE "deliveredAt" IS NULL',
+      parameters: [],
+      operation: 'select',
+      isWrite: false,
+      returnsRows: true,
+    });
   });
 
   it('no claim or mark statement emits RETURNING', () => {
