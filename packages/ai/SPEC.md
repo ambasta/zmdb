@@ -23,9 +23,9 @@ The inventory below was measured on 2026-09-05 at `94164c53`.
 
 - `packages/schema-core/src/llm/` contains exactly **32 files**.
 - `@zmdb/schema-core` publishes six LLM subpaths: `./llm`, `./llm/ai-sdk`, `./llm/chat`, `./llm/http`, `./llm/langchain` and `./llm/mcp`. Its package root does not export the LLM surface.
-- `@zmdb/schema-core` declares `@anthropic-ai/sdk` `0.123.0`, `@langchain/core` `^1.2.9` and `ai` `^7.0.83` as optional peers.
-- The installed Anthropic SDK is `0.123.0`. The LangChain consumer fixture declares and resolves `1.2.9`. The Vercel AI SDK fixture declares and resolves `7.0.92`, so the current lockfile does not
-  prove the lower bound `7.0.83` even though the peer range starts there.
+- `@zmdb/schema-core` declares Anthropic, LangChain, and Vercel AI SDK optional peers.
+- The installed Anthropic SDK is `0.123.0`. The LangChain consumer fixture declares and resolves `1.2.9`. The original Vercel fixture pinned a newer SDK than its declared floor, so it did not prove
+  the advertised compatibility range.
 - Nine canonical LLM documentation pages exist: `llm-chat`, `llm-function-calling`, `llm-http`, `llm-json-schema`, `llm-langchain`, `llm-mcp`, `llm-strategy`, `llm-structured-output` and
   `llm-vercel-ai-sdk`.
 - The AOT transformer, emitter, scanner, witness tests and callable-surface test still name `@zmdb/schema-core/llm`. Generated OpenAPI-tool modules also emit that old package header.
@@ -194,9 +194,9 @@ development dependency. Issue #707 likewise makes the LangChain peer optional be
 Vercel peer is optional for the same structural reason: the adapter receives the installed SDK's branded `jsonSchema` factory and never imports the SDK. Exact tested versions are development/fixture
 dependencies, never runtime dependencies.
 
-A claimed peer range ships only after packed-consumer tests pass at its exact lower bound and every additional version named by the compatibility policy. Issue #746 resolved the earlier Vercel
-condition: exact `ai@7.0.93` passed from packed tarballs in an external consumer, so `^7.0.93` is the frozen range and `7.0.93` is the supported and tested floor. The checked-in manifest and
-lower-bound alias remain unchanged until issue #748; neither is evidence that `7.0.83` is supported.
+A claimed peer range ships only after packed-consumer tests pass at its exact lower bound and every additional version named by the compatibility policy. The Vercel manifest is rooted at `^7.0.93`,
+and its repository proof installs exact `7.0.93` from packed tarballs and executes a streamed tool call. Broader compatibility matrices belong in isolated generated consumers rather than aliases in
+this workspace.
 
 `@zmdb/mcp` has no external peer. In particular, no `@modelcontextprotocol/*` package appears in its manifest.
 

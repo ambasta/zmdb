@@ -168,7 +168,7 @@ npm install @zmdb/ai-anthropic @anthropic-ai/sdk@0.124.0
 npm install @zmdb/ai @zmdb/ai-langchain @langchain/core@^1.2.9
 
 # Vercel AI SDK tool adapter
-npm install @zmdb/ai @zmdb/ai-vercel ai@^7.0.83
+npm install @zmdb/ai @zmdb/ai-vercel ai@^7.0.93
 
 # Transport-neutral MCP client/server core
 npm install @zmdb/ai @zmdb/mcp

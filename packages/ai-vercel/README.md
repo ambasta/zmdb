@@ -6,11 +6,10 @@ neither imports the SDK at runtime nor fabricates its schema brand with a cast.
 ## Install
 
 ```bash
-yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.83
+yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.93
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, configured for the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. The peer range is tested against its lower bound, `7.0.83`, and the current
-> repository version, `7.0.93`.
+> **Prerelease** (`1.0.0-alpha.4`, configured for the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. The peer range is tested against its exact supported floor, `7.0.93`.
 
 ## Usage
 

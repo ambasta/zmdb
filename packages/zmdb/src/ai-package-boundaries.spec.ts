@@ -508,7 +508,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
 
     expect.soft(packageOwner(file)).toBe('@zmdb/ai-vercel');
     expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
-    expect.soft(manifest.peerDependencies).toEqual({ ai: '^7.0.83' });
+    expect.soft(manifest.peerDependencies).toEqual({ ai: '^7.0.93' });
     expect.soft(manifest.peerDependenciesMeta).toEqual({ ai: { optional: true } });
     expect.soft(sdkImports).toEqual([]);
   });
@@ -645,7 +645,7 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
     expect.soft(packedAiVercel.manifest.name).toBe('@zmdb/ai-vercel');
     expect.soft(Object.keys(packedAiVercel.manifest.exports ?? {})).toEqual(['.']);
     expect.soft(packedAiVercel.manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
-    expect.soft(packedAiVercel.manifest.peerDependencies).toEqual({ ai: '^7.0.83' });
+    expect.soft(packedAiVercel.manifest.peerDependencies).toEqual({ ai: '^7.0.93' });
     expect.soft(packedAiVercel.manifest.peerDependenciesMeta).toEqual({ ai: { optional: true } });
     expect.soft(packedAiVercel.installedPeers).toEqual([]);
   });

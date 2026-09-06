@@ -1,6 +1,5 @@
 import type { ToolSchema } from '@zmdb/ai';
-import { jsonSchema as currentJsonSchema, tool as currentTool } from 'ai';
-import { jsonSchema as lowerJsonSchema, tool as lowerTool } from 'ai-lower-bound';
+import { jsonSchema, tool } from 'ai';
 
 import { aiSdkTool } from './index.js';
 
@@ -12,25 +11,15 @@ function realAiSdkContracts(schema: ToolSchema): void {
   const validate = (value: unknown): EchoInput => ({ value: String(Reflect.get(Object(value), 'value')) });
   const execute = (input: EchoInput): string => input.value;
 
-  const current = currentTool(
+  const supported = tool(
     aiSdkTool('echo', schema, {
-      jsonSchema: currentJsonSchema,
+      jsonSchema,
       description: 'Echo one value',
       validate,
       execute,
     }),
   );
-  const lowerBound = lowerTool(
-    aiSdkTool('echo', schema, {
-      jsonSchema: lowerJsonSchema,
-      description: 'Echo one value',
-      validate,
-      execute,
-    }),
-  );
-
-  void current;
-  void lowerBound;
+  void supported;
 }
 
 void realAiSdkContracts;

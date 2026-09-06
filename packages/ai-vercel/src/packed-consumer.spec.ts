@@ -1,146 +1,202 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { publishManifest, publishTrain } from '../../../.github/scripts/lib/publish-manifest.mjs';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const PACKAGE = join(ROOT, 'packages', 'ai-vercel');
-const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
-const PEERS = [
-  { module: 'ai-lower-bound', version: '7.0.83' },
-  { module: 'ai', version: '7.0.93' },
-] as const;
+const PACKAGES = join(ROOT, 'packages');
+const AI_VERSION = '7.0.93';
+const PACKAGE_DIRECTORIES = ['query-compiler', 'schema-core', 'ai', 'ai-vercel'] as const;
 
 let scratch = '';
-let packed = '';
+let consumer = '';
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+const readJson = (path: string): Readonly<Record<string, unknown>> =>
+  JSON.parse(readFileSync(path, 'utf8')) as Readonly<Record<string, unknown>>;
 
-function packFilename(output: string): string {
+function run(command: string, arguments_: readonly string[], cwd: string): string {
+  return execFileSync(command, arguments_, {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },
+  });
+}
+
+function pack(directory: (typeof PACKAGE_DIRECTORIES)[number], releaseVersion: string): string {
+  const source = join(PACKAGES, directory);
+  const stage = join(scratch, 'stage', directory);
+  cpSync(source, stage, {
+    recursive: true,
+    dereference: true,
+    filter: path => !path.split(sep).includes('node_modules'),
+  });
+  const manifest = readJson(join(source, 'package.json'));
+  writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(manifest, releaseVersion), null, 2)}\n`);
+  const output = run('npm', ['pack', '--json', '--pack-destination', join(scratch, 'tarballs')], stage);
   const report: unknown = JSON.parse(output);
-  const row = Array.isArray(report) ? report[0] : isRecord(report) ? Object.values(report)[0] : undefined;
-  if (!isRecord(row) || typeof row['filename'] !== 'string') {
-    throw new Error(`npm pack returned no filename: ${output}`);
+  const row = Array.isArray(report) ? report[0] : undefined;
+  if (typeof row !== 'object' || row === null || !('filename' in row) || typeof row.filename !== 'string') {
+    throw new Error(`npm pack returned no filename for ${directory}: ${output}`);
   }
-  return row['filename'];
+  return join(scratch, 'tarballs', row.filename);
 }
 
-function link(target: string, path: string): void {
-  mkdirSync(dirname(path), { recursive: true });
-  symlinkSync(target, path, 'dir');
-}
+beforeAll(() => {
+  scratch = mkdtempSync(join(tmpdir(), 'zmdb-ai-vercel-supported-floor-'));
+  consumer = join(scratch, 'consumer');
+  mkdirSync(join(scratch, 'tarballs'), { recursive: true });
+  mkdirSync(consumer, { recursive: true });
 
-function runPackedConsumer(peer: (typeof PEERS)[number]): unknown {
-  const app = join(scratch, `consumer-${peer.version}`);
-  const modules = join(app, 'node_modules');
-  mkdirSync(modules, { recursive: true });
-  writeFileSync(join(app, 'package.json'), '{"name":"ai-vercel-packed-consumer","private":true,"type":"module"}\n');
+  const releaseVersion = publishTrain(ROOT).version;
+  const tarballs = new Map<string, string>();
+  for (const directory of PACKAGE_DIRECTORIES) {
+    const manifest = readJson(join(PACKAGES, directory, 'package.json'));
+    const name = manifest['name'];
+    if (typeof name !== 'string') throw new Error(`${directory} has no package name`);
+    run('yarn', ['workspace', name, 'build'], ROOT);
+    tarballs.set(name, pack(directory, releaseVersion));
+  }
 
-  link(packed, join(modules, '@zmdb', 'ai-vercel'));
-  const peerDirectory = join(ROOT, 'node_modules', peer.module);
-  if (!existsSync(peerDirectory)) throw new Error(`missing installed peer fixture ${peer.module}`);
-  link(peerDirectory, join(modules, 'ai'));
-
-  const probe = join(app, 'probe.mjs');
   writeFileSync(
-    probe,
-    `import { createRequire } from 'node:module';
-import { aiSdkTool } from '@zmdb/ai-vercel';
-import { jsonSchema, tool } from 'ai';
+    join(consumer, 'package.json'),
+    `${JSON.stringify(
+      {
+        name: 'ai-vercel-supported-floor-consumer',
+        private: true,
+        type: 'module',
+        dependencies: {
+          '@zmdb/ai-vercel': `file:${tarballs.get('@zmdb/ai-vercel')}`,
+          '@zmdb/ai': `file:${tarballs.get('@zmdb/ai')}`,
+          '@zmdb/query-compiler': `file:${tarballs.get('@zmdb/query-compiler')}`,
+          '@zmdb/schema-core': `file:${tarballs.get('@zmdb/schema-core')}`,
+          ai: AI_VERSION,
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], consumer);
 
-const require = createRequire(import.meta.url);
-const { version } = require('ai/package.json');
+  writeFileSync(
+    join(consumer, 'contract.ts'),
+    `import { jsonSchema, streamText, tool, type LanguageModel } from 'ai';
+import { aiSdkTool } from '@zmdb/ai-vercel';
+import type { ToolSchema } from '@zmdb/ai';
+
+declare const schema: ToolSchema;
+declare const model: LanguageModel;
+const echo = tool(aiSdkTool('echo', schema, {
+  jsonSchema,
+  description: 'Echo one value',
+  validate(input): { readonly value: string } {
+    return { value: String(Reflect.get(Object(input), 'value')) };
+  },
+  execute: async input => input.value,
+}));
+const stream = streamText({ model, prompt: 'echo', tools: { echo } }).fullStream;
+void stream;
+`,
+  );
+  writeFileSync(
+    join(consumer, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          strict: true,
+          skipLibCheck: true,
+          target: 'ESNext',
+        },
+        include: ['contract.ts'],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(
+    join(consumer, 'runtime.mjs'),
+    `import { readFileSync } from 'node:fs';
+import { aiSdkTool } from '@zmdb/ai-vercel';
+import { jsonSchema, simulateReadableStream, streamText, tool } from 'ai';
+import { MockLanguageModelV3 } from 'ai/test';
+
+const manifest = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
 const column = name => ({
-  name,
-  physicalName: name,
-  sql: 'text',
-  nullable: false,
-  primaryKey: false,
-  serial: false,
-  unique: false,
-  hasDefault: false,
-  sensitive: false,
-  constraints: {},
-  rules: [],
+  name, physicalName: name, sql: 'text', nullable: false, primaryKey: false,
+  serial: false, unique: false, hasDefault: false, sensitive: false, constraints: {}, rules: [],
 });
 const schema = {
-  table: 'echoes',
-  columns: { value: { type: 'text', flags: { nullable: false } } },
-  primaryKey: [],
-  references: [],
-  ir: {
-    table: 'echoes',
-    physicalTable: 'echoes',
-    columns: [column('value')],
-    primaryKey: [],
-    relations: [],
-    foreignKeys: [],
-  },
+  table: 'echoes', columns: { value: { type: 'text', flags: { nullable: false } } },
+  primaryKey: [], references: [],
+  ir: { table: 'echoes', physicalTable: 'echoes', columns: [column('value')], primaryKey: [], relations: [], foreignKeys: [] },
 };
 const fields = aiSdkTool('echo', schema, {
   jsonSchema,
   description: 'Echo one value',
-  validate(value) {
-    const text = Reflect.get(Object(value), 'value');
-    if (typeof text !== 'string') {
-      const error = new Error('invalid echo input');
-      error.issues = [{ path: '$input.value', message: 'value must be a string', expected: 'string' }];
-      throw error;
-    }
-    return { value: text };
+  validate(input) {
+    const value = Reflect.get(Object(input), 'value');
+    if (typeof value !== 'string') throw Object.assign(new Error('invalid input'), {
+      issues: [{ path: '$input.value', message: 'value must be a string', expected: 'string' }],
+    });
+    return { value };
   },
-  execute(input) {
-    return input.value;
-  },
+  execute: async input => input.value,
 });
 const sdkTool = tool(fields);
+const usage = {
+  inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: 1, text: 1, reasoning: undefined },
+};
+const model = new MockLanguageModelV3({
+  doStream: {
+    stream: simulateReadableStream({ chunks: [
+      { type: 'stream-start', warnings: [] },
+      { type: 'tool-call', toolCallId: 'call-1', toolName: 'echo', input: '{"value":"packed"}' },
+      { type: 'finish', finishReason: { unified: 'tool-calls', raw: undefined }, usage },
+    ] }),
+  },
+});
+const result = streamText({ model, prompt: 'echo', tools: { echo: sdkTool } });
+let toolCalls = 0;
+let toolResult;
+for await (const event of result.fullStream) {
+  if (event.type === 'tool-call') toolCalls += 1;
+  if (event.type === 'tool-result') toolResult = event.output;
+}
 process.stdout.write(JSON.stringify({
-  version,
-  keys: Object.keys(sdkTool).toSorted(),
-  result: await fields.execute({ value: 'packed' }),
+  version: manifest('./node_modules/ai/package.json').version,
+  peer: manifest('./node_modules/@zmdb/ai-vercel/package.json').peerDependencies.ai,
+  toolCalls,
+  toolResult,
 }));
 `,
   );
-
-  const output = execFileSync(process.execPath, [`--import=${HOOK}`, probe], {
-    cwd: app,
-    encoding: 'utf8',
-  });
-  return JSON.parse(output);
-}
-
-beforeAll(() => {
-  scratch = mkdtempSync(join(tmpdir(), 'zmdb-ai-vercel-'));
-  const output = execFileSync('npm', ['pack', '--json', '--pack-destination', scratch], {
-    cwd: PACKAGE,
-    encoding: 'utf8',
-    env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },
-  });
-  packed = join(scratch, 'packed');
-  mkdirSync(packed, { recursive: true });
-  execFileSync('tar', ['-xzf', join(scratch, packFilename(output)), '-C', packed, '--strip-components=1']);
-  link(join(ROOT, 'packages', 'ai'), join(packed, 'node_modules', '@zmdb', 'ai'));
-  link(join(ROOT, 'packages', 'schema-core'), join(packed, 'node_modules', '@zmdb', 'schema-core'));
-  link(join(ROOT, 'packages', 'query-compiler'), join(packed, 'node_modules', '@zmdb', 'query-compiler'));
-  expect(readFileSync(join(packed, 'package.json'), 'utf8')).toContain('"@zmdb/ai"');
-});
+}, 120_000);
 
 afterAll(() => {
   if (scratch !== '') rmSync(scratch, { recursive: true, force: true });
 });
 
-describe('packed @zmdb/ai-vercel peer matrix (#708)', () => {
-  for (const peer of PEERS) {
-    it(`accepts ai ${peer.version} from a packed consumer`, () => {
-      expect(runPackedConsumer(peer)).toEqual({
-        version: peer.version,
-        keys: ['description', 'execute', 'inputSchema'],
-        result: 'packed',
-      });
+describe('packed @zmdb/ai-vercel supported-floor consumer (#748)', () => {
+  it('installs exact ai 7.0.93 and exercises real tool and streaming surfaces', () => {
+    run(
+      process.execPath,
+      [join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'), '--noEmit', '-p', 'tsconfig.json'],
+      consumer,
+    );
+    const output = run(process.execPath, ['runtime.mjs'], consumer);
+    expect(JSON.parse(output)).toEqual({
+      version: AI_VERSION,
+      peer: '^7.0.93',
+      toolCalls: 1,
+      toolResult: 'packed',
     });
-  }
+  });
 });

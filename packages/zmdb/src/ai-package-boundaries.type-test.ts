@@ -167,7 +167,7 @@ type FinalPeers = {
   readonly '@zmdb/ai': never;
   readonly '@zmdb/ai-anthropic': '@anthropic-ai/sdk@0.124.0';
   readonly '@zmdb/ai-langchain': '@langchain/core@^1.2.9';
-  readonly '@zmdb/ai-vercel': 'ai@^7.0.83';
+  readonly '@zmdb/ai-vercel': 'ai@^7.0.93';
   readonly '@zmdb/mcp': never;
   readonly '@zmdb/aot-validator': never;
 };
@@ -234,7 +234,7 @@ export type _OnlyIntegrationPackagesOwnSdkPeers = Expect<
     {
       readonly anthropic: '@anthropic-ai/sdk@0.124.0';
       readonly langchain: '@langchain/core@^1.2.9';
-      readonly vercel: 'ai@^7.0.83';
+      readonly vercel: 'ai@^7.0.93';
     }
   >
 >;

@@ -434,6 +434,6 @@ Issue #746 deliberately does not:
 - add `scripts/release/policy.mjs`;
 - change release, publish, or verification scripts;
 - alter a package version, dependency, peer range, alias, or lockfile entry;
-- remove the existing `ai-lower-bound` fixture;
+- remove the existing workspace compatibility fixture;
 - publish, tag, commit, or mutate GitHub; or
 - claim that the current lockstep automation can already execute this target contract.
