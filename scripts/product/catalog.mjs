@@ -320,7 +320,15 @@ export const PRODUCT_CATALOG = Object.freeze([
     npmName: '@zmdb/repository',
     role: 'orm',
     facade: {
-      root: ['Driver', 'IncompleteKeyError', 'UpdatePatch', 'ValidationError', 'defineRepository'],
+      root: [
+        'CreateGraphDTO',
+        'Driver',
+        'IncompleteKeyError',
+        'UpdateGraphDTO',
+        'UpdatePatch',
+        'ValidationError',
+        'defineRepository',
+      ],
       subpaths: ['zmdb/orm'],
     },
     optionality: { kind: 'required' },

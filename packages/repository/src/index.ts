@@ -299,6 +299,14 @@ export class IncompleteKeyError extends ValidationError {
   }
 }
 
+export type CreateGraphDTO<T extends DeclaredTable> = CreateDTO<T> & {
+  readonly [key: string]: unknown;
+};
+
+export type UpdateGraphDTO<T extends DeclaredTable> = UpdateDTO<T> & {
+  readonly [key: string]: unknown;
+};
+
 /** A literal value or a compiler-owned expression, per updatable column. */
 export type UpdatePatch<T extends DeclaredTable> = {
   readonly [K in keyof UpdateDTO<T>]?: SetValue<UpdateDTO<T>[K]>;
@@ -1074,6 +1082,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   private requiredKeyColumns(): readonly string[] {
     if (this.keyColumns.length === 0) throw new Error(`schema ${this.tableName} has no primary key`);
     return this.keyColumns;
+  }
+
+  private get pkColumn(): string {
+    return this.keyColumns[0] ?? 'id';
   }
 
   /**
@@ -2625,6 +2637,350 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   private hasColumnExpression(patch: Record<string, unknown>): boolean {
     return Object.values(patch).some(isColumnExpression);
+  }
+
+  /**
+   * Execute an async operation within an isolated transaction (or savepoint if already inside a transaction).
+   */
+  private async executeInTransaction<R>(fn: (repo: this) => Promise<R>): Promise<R> {
+    let isTopLevelTx = false;
+    let savepointName: string | null = null;
+
+    try {
+      await this.driver.execute({ text: 'BEGIN', parameters: [] });
+      isTopLevelTx = true;
+    } catch {
+      savepointName = `sp_graph_${Math.random().toString(36).substring(2, 9)}`;
+      try {
+        await this.driver.execute({ text: 'SAVEPOINT ' + savepointName, parameters: [] });
+      } catch {
+        savepointName = null;
+      }
+    }
+
+    try {
+      const result = await fn(this);
+      if (isTopLevelTx) {
+        await this.driver.execute({ text: 'COMMIT', parameters: [] });
+      } else if (savepointName) {
+        await this.driver.execute({ text: 'RELEASE SAVEPOINT ' + savepointName, parameters: [] });
+      }
+      return result;
+    } catch (err) {
+      if (isTopLevelTx) {
+        try {
+          await this.driver.execute({ text: 'ROLLBACK', parameters: [] });
+        } catch {
+          /* ignore */
+        }
+      } else if (savepointName) {
+        try {
+          await this.driver.execute({ text: 'ROLLBACK TO SAVEPOINT ' + savepointName, parameters: [] });
+        } catch {
+          /* ignore */
+        }
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Explicit graph creation method: creates root entity and nested relation payloads atomically in a transaction.
+   */
+  async createGraph<K extends RelationKeys<T> & string = RelationKeys<T> & string>(
+    payload: CreateGraphDTO<T>,
+  ): Promise<Populated<T, K>> {
+    // boundary: payload DTO contains root and relation fields; parentData is validated by create(), and child payloads are sanitized.
+    return this.executeInTransaction(async () => {
+      const declaredRelations = this.schema.ir.relations;
+      const relationNames = new Set(declaredRelations.map(r => r.name));
+      const parentData: Record<string, unknown> = {};
+      const relationPayloads: Record<string, unknown> = {};
+
+      for (const [key, val] of Object.entries(payload)) {
+        if (relationNames.has(key)) {
+          relationPayloads[key] = val;
+        } else {
+          parentData[key] = val;
+        }
+      }
+
+      // 1. Handle many-to-one dependencies first (parent table contains FK referencing target)
+      for (const rel of declaredRelations) {
+        if (!(rel.name in relationPayloads)) continue;
+        if (rel.relation === 'manyToOne') {
+          const childData = relationPayloads[rel.name];
+          if (isRecord(childData)) {
+            const cleanChild = this.sanitizePayload(childData);
+            const inserted = await this.driver.execute(
+              this.qb.insertInto(rel.target).values(cleanChild).returning(['*']).compile(),
+            );
+            const childRow = inserted[0];
+            if (childRow) {
+              const resRel = this.relation(rel.name);
+              const parentFk = resRel.parentKey[0] ?? 'id';
+              const targetKey = resRel.targetKey[0] ?? 'id';
+              parentData[parentFk] = childRow[targetKey] ?? childRow.id;
+            }
+          }
+        }
+      }
+
+      // 2. Create primary entity
+      const rootEntity = await this.create(parentData as CreateDTO<T>);
+      const rootRec: Record<string, unknown> = isRecord(rootEntity) ? rootEntity : {};
+      const rootPkVal = rootRec[this.pkColumn];
+
+      // 3. Handle one-to-many, one-to-one, and many-to-many child entities
+      for (const rel of declaredRelations) {
+        if (!(rel.name in relationPayloads)) continue;
+        if (rel.relation === 'manyToOne') continue;
+
+        const relValue = relationPayloads[rel.name];
+
+        if (rel.relation === 'oneToMany' || rel.relation === 'oneToOne') {
+          const resRel = this.relation(rel.name);
+          const childTable = resRel.targetTable;
+          const childFk = resRel.targetKey[0] ?? 'id';
+          const parentKey = resRel.parentKey[0] ?? 'id';
+          const parentId = rootRec[parentKey] ?? rootPkVal;
+
+          if (rel.relation === 'oneToMany') {
+            if (Array.isArray(relValue)) {
+              for (const childItem of relValue) {
+                if (isRecord(childItem)) {
+                  const childPayload = this.sanitizePayload({
+                    ...childItem,
+                    [childFk]: parentId,
+                  });
+                  await this.driver.execute(
+                    this.qb.insertInto(childTable).values(childPayload).returning(['*']).compile(),
+                  );
+                }
+              }
+            }
+          } else if (rel.relation === 'oneToOne') {
+            if (isRecord(relValue)) {
+              const childPayload = this.sanitizePayload({
+                ...relValue,
+                [childFk]: parentId,
+              });
+              await this.driver.execute(this.qb.insertInto(childTable).values(childPayload).returning(['*']).compile());
+            }
+          }
+        } else if (rel.relation === 'manyToMany') {
+          const through = rel.via;
+          const childTable = rel.target;
+          const parentId = rootRec[this.pkColumn] ?? rootPkVal;
+
+          if (through && Array.isArray(relValue)) {
+            for (const childItem of relValue) {
+              if (isRecord(childItem)) {
+                const cleanChild = this.sanitizePayload(childItem);
+                const insertedChild = await this.driver.execute(
+                  this.qb.insertInto(childTable).values(cleanChild).returning(['*']).compile(),
+                );
+                const childRow = insertedChild[0];
+                const childPk = isRecord(childRow) ? (childRow.id ?? childRow.userId) : undefined;
+                if (childPk !== undefined) {
+                  const baseFkCol = `${this.tableName.replace(/s$/, '')}Id`;
+                  const targetFkCol = `${childTable.replace(/s$/, '')}Id`;
+                  await this.driver.execute(
+                    this.qb
+                      .insertInto(through)
+                      .values({ [baseFkCol]: parentId, [targetFkCol]: childPk })
+                      .compile(),
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const populateKeys = Object.keys(relationPayloads);
+      const populateList = (
+        populateKeys.length > 0 ? populateKeys : declaredRelations.map(r => r.name)
+      ) as (RelationKeys<T> & string)[];
+
+      const populated =
+        rootPkVal !== undefined && rootPkVal !== null
+          ? await this.findById(rootPkVal as PrimaryKeyOf<T>, { populate: populateList })
+          : undefined;
+      return (populated ?? rootEntity) as Populated<T, K>;
+    });
+  }
+
+  /**
+   * Explicit graph update method: updates existing root entity and reconciles nested child records in a transaction.
+   */
+  async updateGraph<K extends RelationKeys<T> & string = RelationKeys<T> & string>(
+    id: PrimaryKeyOf<T>,
+    payload: UpdateGraphDTO<T>,
+  ): Promise<Populated<T, K> | undefined> {
+    // boundary: payload DTO contains root and relation updates; parentData is validated by update(), and child reconciliations run inside tx.
+    return this.executeInTransaction(async () => {
+      const existing = await this.findById(id);
+      if (!existing) return undefined;
+      const existingRec: Record<string, unknown> = isRecord(existing) ? existing : {};
+
+      const declaredRelations = this.schema.ir.relations;
+      const relationNames = new Set(declaredRelations.map(r => r.name));
+      const parentData: Record<string, unknown> = {};
+      const relationPayloads: Record<string, unknown> = {};
+
+      for (const [key, val] of Object.entries(payload)) {
+        if (relationNames.has(key)) {
+          relationPayloads[key] = val;
+        } else {
+          parentData[key] = val;
+        }
+      }
+
+      if (Object.keys(parentData).length > 0) {
+        await this.update(id, parentData as UpdateDTO<T>);
+      }
+
+      for (const rel of declaredRelations) {
+        if (!(rel.name in relationPayloads)) continue;
+
+        const relValue = relationPayloads[rel.name];
+
+        if (rel.relation === 'oneToMany' || rel.relation === 'oneToOne') {
+          const resRel = this.relation(rel.name);
+          const childTable = resRel.targetTable;
+          const childFk = resRel.targetKey[0] ?? 'id';
+          const parentKey = resRel.parentKey[0] ?? 'id';
+          const parentId = existingRec[parentKey] ?? id;
+
+          if (rel.relation === 'oneToMany') {
+            if (Array.isArray(relValue)) {
+              const existingChildren = await this.driver.execute(
+                this.qb.selectFrom(childTable).where(childFk, '=', parentId).compile(),
+              );
+              const childPkCol = 'id';
+              const existingChildIds = new Set(
+                existingChildren.map(c => c[childPkCol]).filter(v => v !== undefined && v !== null),
+              );
+              const keptChildIds = new Set<unknown>();
+
+              for (const item of relValue) {
+                if (isRecord(item)) {
+                  const childObj = { ...item, [childFk]: parentId };
+                  const childId = childObj[childPkCol];
+
+                  if (childId !== undefined && childId !== null && existingChildIds.has(childId)) {
+                    const updateData = this.sanitizePayload({ ...childObj });
+                    delete updateData[childPkCol];
+                    if (Object.keys(updateData).length > 0) {
+                      await this.driver.execute(
+                        this.qb
+                          .updateTable(childTable)
+                          .set(updateData)
+                          .where(childPkCol, '=', childId)
+                          .where(childFk, '=', parentId)
+                          .compile(),
+                      );
+                    }
+                    keptChildIds.add(childId);
+                  } else {
+                    const cleanChild = this.sanitizePayload(childObj);
+                    const inserted = await this.driver.execute(
+                      this.qb.insertInto(childTable).values(cleanChild).returning(['*']).compile(),
+                    );
+                    const newRow = inserted[0];
+                    if (newRow && newRow[childPkCol] !== undefined) {
+                      keptChildIds.add(newRow[childPkCol]);
+                    }
+                  }
+                }
+              }
+
+              for (const oldId of existingChildIds) {
+                if (!keptChildIds.has(oldId)) {
+                  await this.driver.execute(
+                    this.qb
+                      .deleteFrom(childTable)
+                      .where(childPkCol, '=', oldId)
+                      .where(childFk, '=', parentId)
+                      .compile(),
+                  );
+                }
+              }
+            }
+          } else if (rel.relation === 'oneToOne') {
+            const childPkCol = 'id';
+            if (isRecord(relValue)) {
+              const childObj = { ...relValue, [childFk]: parentId };
+              const existingChild = (
+                await this.driver.execute(this.qb.selectFrom(childTable).where(childFk, '=', parentId).compile())
+              )[0];
+
+              if (existingChild) {
+                const existingChildId = existingChild[childPkCol];
+                const updateData = this.sanitizePayload({ ...childObj });
+                delete updateData[childPkCol];
+                if (Object.keys(updateData).length > 0) {
+                  await this.driver.execute(
+                    this.qb.updateTable(childTable).set(updateData).where(childPkCol, '=', existingChildId).compile(),
+                  );
+                }
+              } else {
+                const cleanChild = this.sanitizePayload(childObj);
+                await this.driver.execute(this.qb.insertInto(childTable).values(cleanChild).returning(['*']).compile());
+              }
+            } else if (relValue === null) {
+              await this.driver.execute(this.qb.deleteFrom(childTable).where(childFk, '=', parentId).compile());
+            }
+          }
+        }
+      }
+
+      const populateKeys = Object.keys(relationPayloads);
+      const populateList = (
+        populateKeys.length > 0 ? populateKeys : declaredRelations.map(r => r.name)
+      ) as (RelationKeys<T> & string)[];
+
+      const populated = await this.findById(id, { populate: populateList });
+      return (populated ?? existing) as Populated<T, K>;
+    });
+  }
+
+  /**
+   * Explicit graph delete method: removes target root entity and all related child records in cascading order inside a transaction.
+   */
+  async deleteGraph(id: PrimaryKeyOf<T>): Promise<boolean> {
+    // boundary: removes associated child records and cascades deletion inside a transaction.
+    return this.executeInTransaction(async () => {
+      const existing = await this.findById(id);
+      if (!existing) return false;
+      const existingRec: Record<string, unknown> = isRecord(existing) ? existing : {};
+
+      const declaredRelations = this.schema.ir.relations;
+
+      for (const rel of declaredRelations) {
+        if (rel.relation === 'oneToMany' || rel.relation === 'oneToOne') {
+          const resRel = this.relation(rel.name);
+          const childTable = resRel.targetTable;
+          const childFk = resRel.targetKey[0] ?? 'id';
+          const parentKey = resRel.parentKey[0] ?? 'id';
+          const parentId = existingRec[parentKey] ?? id;
+
+          if (childTable && childFk) {
+            await this.driver.execute(this.qb.deleteFrom(childTable).where(childFk, '=', parentId).compile());
+          }
+        } else if (rel.relation === 'manyToMany') {
+          const through = rel.via;
+          const parentId = existingRec[this.pkColumn] ?? id;
+          if (through) {
+            const baseFkCol = `${this.tableName.replace(/s$/, '')}Id`;
+            await this.driver.execute(this.qb.deleteFrom(through).where(baseFkCol, '=', parentId).compile());
+          }
+        }
+      }
+
+      return this.delete(id);
+    });
   }
 }
 

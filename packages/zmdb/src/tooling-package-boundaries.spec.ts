@@ -435,12 +435,25 @@ function typecheckCopied(directory: string, config: string, fixture: string): Ty
   };
 }
 
+function withoutCompilerShutdownNoise(stderr: string): string {
+  return stderr
+    .split(/\r?\n/)
+    .filter(
+      line =>
+        line !== 'context canceled' &&
+        !line.includes('ExperimentalWarning: SQLite is an experimental feature') &&
+        !line.includes('(Use `node --trace-warnings'),
+    )
+    .join('\n')
+    .trim();
+}
+
 function runNode(app: string, args: readonly string[]): CommandResult {
   const result = spawnSync(process.execPath, args, { cwd: app, encoding: 'utf8' });
   return {
     status: result.status,
     stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
+    stderr: withoutCompilerShutdownNoise(result.stderr ?? ''),
   };
 }
 
