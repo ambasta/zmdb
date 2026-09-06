@@ -68,7 +68,16 @@
   },
   "devDependencies": {
     "@zmdb/ai": "workspace:^",
+    "@zmdb/postgres": "workspace:^",
     "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@zmdb/postgres": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@zmdb/postgres": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=26"

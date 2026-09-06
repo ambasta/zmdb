@@ -180,7 +180,7 @@ describe('@zmdb/jobs-postgres (#661)', () => {
     const adapter = readManifest(join(root, 'packages', 'jobs-postgres', 'package.json'));
     expect(adapter.dependencies).toEqual({
       '@zmdb/jobs': 'workspace:^',
-      '@zmdb/repository': 'workspace:^',
+      '@zmdb/postgres': 'workspace:^',
     });
     expect(adapter.peerDependencies).toEqual({ pg: '^8.23.0' });
     expect(adapter.peerDependenciesMeta).toBeUndefined();

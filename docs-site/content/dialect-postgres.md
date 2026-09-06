@@ -4,10 +4,11 @@ Postgres is the dialect with the fewest compromises: it is the only one where ma
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres, postgresDriver } from '@zmdb/postgres';
 import { defineRepository } from '@zmdb/repository';
 
-const compiler = createQueryCompiler('postgres');
-const userRepo = defineRepository(users, pgDriver(pool), { dialect: 'postgres' });
+const compiler = createQueryCompiler(postgres);
+const userRepo = defineRepository(users, postgresDriver(pool));
 ```
 
 ## What it emits

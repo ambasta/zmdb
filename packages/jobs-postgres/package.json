@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@zmdb/jobs": "workspace:^",
-    "@zmdb/repository": "workspace:^"
+    "@zmdb/postgres": "workspace:^"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",

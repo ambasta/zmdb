@@ -18,6 +18,9 @@ npm add zmdb@alpha
 - Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/drivers/mssql`
 - Application tooling: `zmdb/web`, `zmdb/web/contract`, `zmdb/web/contract/compiler`, `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
 
+`zmdb/drivers/pg` is a compatibility facade over the optional `@zmdb/postgres` peer. Install `@zmdb/postgres` and `pg` in applications that select PostgreSQL; neither is pulled into the default
+umbrella dependency closure.
+
 ## Generate HTTP artifacts
 
 Configure exported HTTP contracts and both output files in `zmdb.config.ts`, then run:

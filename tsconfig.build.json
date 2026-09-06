@@ -58,6 +58,8 @@
       "@zmdb/aot-validator/*": ["./packages/aot-validator/dist/*/index.d.ts"],
       "@zmdb/protobuf": ["./packages/protobuf/dist/index.d.ts"],
       "@zmdb/protobuf/*": ["./packages/protobuf/dist/*.d.ts"],
+      "@zmdb/postgres": ["./packages/postgres/dist/index.d.ts"],
+      "@zmdb/postgres/*": ["./packages/postgres/dist/*/index.d.ts"],
       "@zmdb/repository": ["./packages/repository/dist/index.d.ts"],
       "@zmdb/repository/drivers/*": ["./packages/repository/dist/drivers/*.d.ts"],
       "@zmdb/repository/*": ["./packages/repository/dist/*/index.d.ts"],

@@ -428,8 +428,8 @@ widens `serial` to `BIGINT AUTO_INCREMENT`, since auto-increment values there ar
 
 ## 4. Migration lifecycle + version tracking
 
-- Version table `_zmdb_migrations(version, name, applied_at, checksum)`. The version is `BIGINT` on the Postgres and MySQL families and SQLite's 64-bit `INTEGER`; checksum is nullable so rows written
-  by older runners remain applied but unverifiable.
+- Version table `_zmdb_migrations(version, name, applied_at, checksum)`. The version is `BIGINT` on the Postgres and MySQL families and SQLite's 64-bit `INTEGER`; PostgreSQL stores `applied_at` as
+  `TIMESTAMPTZ` from a `Date`, while the other verticals retain their own time representation. Checksum is nullable so rows written by older runners remain applied but unverifiable.
 - Runner verbs: `up`, `down`, `status`, where `up` applies every pending migration.
 - The driver adapter owns the ledger DDL and records SHA-256 over the exact `up` section. An applied non-null checksum mismatch refuses before new SQL.
 - The Postgres family, SQLite and SQL Server run each migration body and ledger write in one pinned transaction. A driver for one of those dialects that cannot pin callback queries is refused instead

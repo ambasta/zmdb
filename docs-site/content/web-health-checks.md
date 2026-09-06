@@ -97,8 +97,8 @@ An unreachable database often does not refuse the connection — it hangs. Every
 largest timeout plus a 50ms scheduling allowance. At the declared timeout the check's `AbortSignal` is aborted; if the check still has not settled by the end of the allowance, its result becomes
 `{ ok: false, detail: 'timeout' }`.
 
-Repository reads pass an `AbortSignal` to `Driver.execute`. A bundled `pgDriver(pool, { cancelVia })` sends `pg_cancel_backend` through another connection when that signal aborts. SQLite observes
-abort between stepped rows, and drivers without active cancellation leave the losing query on its connection until it finishes.
+Repository reads pass an `AbortSignal` to `Driver.execute`. `postgresDriver(pool, { cancelVia })` from `@zmdb/postgres` sends `pg_cancel_backend` through another connection when that signal aborts.
+SQLite observes abort between stepped rows, and drivers without active cancellation leave the losing query on its connection until it finishes.
 
 This can turn the health check into the incident. A 2-second timeout on a 5-second probe period against a hung database consumes one connection every 5 seconds and returns none of them, eventually
 exhausting the pool being tested. Concurrent callers share a run while the aggregator is waiting, but the next probe retries after a deadline because failures are not cached.

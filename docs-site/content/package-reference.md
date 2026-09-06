@@ -37,6 +37,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/next               | 1.0.0-alpha.4 | next            | integration: Next.js                           | `npm add @zmdb/next@1.0.0-alpha.4 'next@>=16.3.0 <17.0.0' 'react@>=19.2.0 <20.0.0' 'react-dom@>=19.2.0 <20.0.0'` | Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.                                                                                                                            | framework-integrations       |
 | @zmdb/nuxt               | 1.0.0-alpha.4 | nuxt            | integration: Nuxt 4                            | `npm add @zmdb/nuxt@1.0.0-alpha.4 'nuxt@>=4.5.0 <5.0.0' 'vue@>=3.5.0 <4.0.0'`                                    | Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.                                                                                                             | framework-integrations       |
 | @zmdb/otel               | 1.0.0-alpha.4 | otel            | integration: OpenTelemetry                     | `npm add @zmdb/otel@1.0.0-alpha.4 @opentelemetry/api@^1.9.0`                                                     | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability            |
+| @zmdb/postgres           | 1.0.0-alpha.4 | postgres        | integration: PostgreSQL                        | `npm add @zmdb/postgres@1.0.0-alpha.4`                                                                           | The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspection, node-postgres driver, cursors, and cancellation.                                                                                 | dialect-postgres             |
 | @zmdb/protobuf           | 1.0.0-alpha.4 | protobuf        | integration: Protocol Buffers                  | `npm add @zmdb/protobuf@1.0.0-alpha.4`                                                                           | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                           | protobuf-message             |
 | @zmdb/query-compiler     | 1.0.0-alpha.4 | sql             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.                                                                                     | raw-sql                      |
 | @zmdb/react              | 1.0.0-alpha.4 | react           | integration: React                             | `npm add @zmdb/react@1.0.0-alpha.4 'react@>=19.2.0 <20.0.0'`                                                     | React context, query, and mutation lifecycle bindings for generated zmdb clients.                                                                                                                                       | framework-integrations       |
@@ -279,7 +280,7 @@ node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.
   - `.` → `./src/index.ts`
 - **Dependencies:**
   - `@zmdb/jobs` → `workspace:^`
-  - `@zmdb/repository` → `workspace:^`
+  - `@zmdb/postgres` → `workspace:^`
 - **Optional dependencies:** None.
 - **Optional peers:** None.
 - **Required peers:**
@@ -369,6 +370,26 @@ OpenTelemetry API adapter for the explicit observability ports owned by the zmdb
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
+
+### `@zmdb/postgres`
+
+The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspection, node-postgres driver, cursors, and cancellation.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/query-compiler` → `workspace:^`
+  - `@zmdb/repository` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:**
+  - `pg` → `^8.23.0`
+- **Required peers:** None.
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:**
+  - `zmdb/drivers/pg`
+- **External proof:** fixtures/database-postgres
 
 ### `@zmdb/protobuf`
 
@@ -485,7 +506,6 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./drivers/mssql` → `./src/drivers/mssql.ts`
-  - `./drivers/pg` → `./src/drivers/pg.ts`
   - `./entity-modeling` → `./src/entity-modeling/index.ts`
   - `./integrations` → `./src/integrations/index.ts`
   - `./jobs` → `./src/jobs/index.ts`
@@ -522,7 +542,6 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `defineRepository`
   - `markTransactionClosed`
   - `zmdb/drivers/mssql`
-  - `zmdb/drivers/pg`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/schema-core`
@@ -819,7 +838,8 @@ at compile time.
   - `esbuild` → `^0.28.2`
   - `oxfmt` → `0.66.0`
 - **Optional dependencies:** None.
-- **Optional peers:** None.
+- **Optional peers:**
+  - `@zmdb/postgres` → `workspace:^`
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`

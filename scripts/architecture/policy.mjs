@@ -281,6 +281,17 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  postgres: packagePolicy({
+    directory: 'packages/postgres',
+    zone: 'runtime',
+    ring: 5,
+    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {
+      pg: ['.'],
+    },
+    toolingEntries: [],
+  }),
   sqlite: packagePolicy({
     directory: 'packages/sqlite',
     zone: 'runtime',
@@ -348,7 +359,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/jobs-postgres',
     zone: 'integration',
     ring: 7,
-    allowedWorkspaceDependencies: ['jobs', 'repository'],
+    allowedWorkspaceDependencies: ['jobs', 'postgres'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -380,6 +391,7 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: [
       'app',
       'aot-validator',
+      'postgres',
       'query-compiler',
       'repository',
       'schema-core',
@@ -387,7 +399,9 @@ export const PACKAGE_POLICY = Object.freeze({
       'web',
     ],
     allowedRuntimeDependencies: [],
-    optionalPeerEntries: {},
+    optionalPeerEntries: {
+      '@zmdb/postgres': ['./drivers/pg'],
+    },
     toolingEntries: [
       // CLI orchestration, scaffolding, embedding, and application loading.
       './cli',

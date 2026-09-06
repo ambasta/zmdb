@@ -734,24 +734,24 @@ titles only.
 
 ## 8. What "supported" means, per dialect
 
-The epic requires this to be stated honestly. Six temporary built-in dialect names still ship. SQLite's complete adapter, migrations, and catalog reader now live in `@zmdb/sqlite`;
-`packages/repository/src/drivers/` retains only the PostgreSQL and SQL Server compatibility adapters. MySQL remains a supported dialect with no official adapter yet. "Supported" means the compiler
-emits correct SQL, with an official adapter where the table says one exists.
+The epic requires this to be stated honestly. Six temporary built-in dialect names still ship. SQLite's complete adapter, migrations, and catalog reader live in `@zmdb/sqlite`, and PostgreSQL's
+complete vertical lives in `@zmdb/postgres`; `packages/repository/src/drivers/` retains only the SQL Server compatibility adapter. MySQL remains a supported dialect with no official adapter yet.
+"Supported" means the compiler emits correct SQL, with an official adapter where the table says one exists.
 
-| Dialect       | Official/compatibility driver                  | Always-on CI database                                   | Coverage                                                                |
-| ------------- | ---------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `postgres`    | `@zmdb/repository/drivers/pg` compatibility    | yes                                                     | golden SQL + real E2E                                                   |
-| `sqlite`      | `@zmdb/sqlite`                                 | in-process                                              | package goldens + mandatory real and packed E2E                         |
-| `mysql`       | none                                           | no                                                      | golden SQL only, today                                                  |
-| `mssql`       | `@zmdb/repository/drivers/mssql` compatibility | no; opt-in through `ZMDB_MSSQL_URL`                     | complete golden matrix + loud-gated real E2E when a server is reachable |
-| `cockroach`   | reuses the PostgreSQL compatibility adapter    | no                                                      | complete golden matrix; live-server qualification remains               |
-| `singlestore` | none                                           | no: the image wants a licence key and several gigabytes | complete golden matrix; live-server qualification remains               |
+| Dialect       | Official/compatibility driver                   | Always-on CI database                                    | Coverage                                                                |
+| ------------- | ----------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `postgres`    | `@zmdb/postgres`                                | no; fail-closed packed lane requires `ZMDB_POSTGRES_URL` | golden SQL + packed real-server E2E when invoked                        |
+| `sqlite`      | `@zmdb/sqlite`                                  | in-process                                               | package goldens + mandatory real and packed E2E                         |
+| `mysql`       | none                                            | no                                                       | golden SQL only, today                                                  |
+| `mssql`       | `@zmdb/repository/drivers/mssql` compatibility  | no; opt-in through `ZMDB_MSSQL_URL`                      | complete golden matrix + loud-gated real E2E when a server is reachable |
+| `cockroach`   | `@zmdb/postgres` public family-driver primitive | no                                                       | complete golden matrix; live-server qualification remains               |
+| `singlestore` | none                                            | no: the image wants a licence key and several gigabytes  | complete golden matrix; live-server qualification remains               |
 
 SQL Server's opt-in suite executes generated DDL, the adapter's named-parameter binding, bracket escaping, `OUTPUT`, ordered pagination, `MERGE`, timestamp round-trips and column migrations against a
 real server. When `ZMDB_MSSQL_URL` is absent or unreachable, it emits a visible `[skip] SQL Server E2E: …` reason and retains a passing availability assertion rather than silently disappearing.
 
-Cockroach speaks the Postgres wire protocol, so the existing driver can run against it with a connection string change. The always-on gate does not currently start a Cockroach server, so accepting the
-emitted SQL there remains deployment qualification rather than CI evidence.
+Cockroach speaks the Postgres wire protocol, so `postgresFamilyDriver` can bind a Cockroach dialect object to the same structural client. The always-on gate does not currently start a Cockroach
+server, so accepting the emitted SQL there remains deployment qualification rather than CI evidence.
 
 SingleStore is the expensive one and the freeze does not pretend otherwise. Its divergences — shard keys, per-partition auto-increment, the unique-index rule — are exactly the kind that a golden file
 cannot verify, because the question is whether the server accepts the DDL.
@@ -798,16 +798,17 @@ the injected path and final architecture.
 
 ### 11.1 Measured starting point
 
-At commit `94164c53`, the official names are declared together in `index.ts`, the compiler defaults to the string `'postgres'`, `createIntrospector` switches over all six names, repository drivers
-carry optional string names, and config/CLI surfaces pass those strings through. That measured tree had three driver implementations (`sqlite`, `pg`, `mssql`), three catalog readers (`sqlite`,
-`postgres`, `mysql`), no MySQL driver, and no SQL Server catalog reader. Cockroach and SingleStore inherit central records and delegate catalog work to their parents.
+At commit `94164c53`, the official names were declared together in `index.ts`, the compiler defaulted to the string `'postgres'`, `createIntrospector` switched over all six names, repository drivers
+carried optional string names, and config/CLI surfaces passed those strings through. Issues #669 and #670 have since moved the SQLite and PostgreSQL drivers and independent catalog readers to their
+vertical packages; the compatibility tree retains only the SQL Server repository adapter and the central PostgreSQL and MySQL catalog readers. There is no MySQL driver and no SQL Server catalog
+reader. Cockroach and SingleStore still inherit central records and delegate catalog work to their parents.
 
 Those facts describe the migration source, not the support state promised by the target packages.
 
 Issue #668 adds a registry-free `dialects/protocol.ts` containing `SqlDialect`, its total traits and capabilities, migration and introspection protocols, and `defineSqlDialect` / `extendSqlDialect`.
 The compiler and helpers accept that object, migration wrappers and the runner delegate through its migration implementation, callers use its introspector directly, and the repository derives and
-caches the same object's behavior. Issue #669 moves the SQLite reader and adapter into `@zmdb/sqlite`; the legacy six-name definitions, string overloads, config values, and remaining database
-implementations stay until their extraction children and #675 complete the cutover.
+caches the same object's behavior. Issues #669 and #670 move the SQLite and PostgreSQL readers and adapters into their vertical packages; the legacy six-name definitions, string overloads, config
+values, and remaining database implementations stay until their extraction children and #675 complete the cutover.
 
 ### 11.2 Generic public contract
 
@@ -959,7 +960,7 @@ vendor-owned unit has one owner:
 | `introspect/index.ts`: SQL Server refusal                                                                                                                           | replaced by the real `@zmdb/mssql` introspector                                                                                          | protocol exports only; no dispatch                                       |
 | `introspect/drift.ts`: MySQL support-index normalization                                                                                                            | `@zmdb/mysql` introspector normalization                                                                                                 | two-snapshot comparison and report formatting                            |
 | `repository/src/drivers/sqlite.ts`                                                                                                                                  | `@zmdb/sqlite` Node-specific export                                                                                                      | none                                                                     |
-| `repository/src/drivers/pg.ts`                                                                                                                                      | `@zmdb/postgres` public family driver primitive                                                                                          | none                                                                     |
+| `packages/postgres/src/driver.ts` (moved from `repository/src/drivers/pg.ts`)                                                                                       | `@zmdb/postgres` public family driver primitive                                                                                          | none                                                                     |
 | `repository/src/drivers/mssql.ts`                                                                                                                                   | `@zmdb/mssql`                                                                                                                            | none                                                                     |
 | missing structural `mysql2/promise` adapter                                                                                                                         | `@zmdb/mysql`                                                                                                                            | none                                                                     |
 | `repository/src/index.ts`: SQL Server single-row limit and MySQL-family write/returning branches                                                                    | `@zmdb/mssql`, `@zmdb/mysql`, and inherited SingleStore behavior respectively                                                            | CRUD orchestration over injected strategies                              |
@@ -967,7 +968,7 @@ vendor-owned unit has one owner:
 | `repository/src/transactions/index.ts`: retry code lists                                                                                                            | the selected database package's traits                                                                                                   | explicit retry policy, backoff and callback replay                       |
 | `repository/src/transactions/recording-conn.ts`: string dialect classification                                                                                      | the injected driver object                                                                                                               | transaction recording remains generic                                    |
 | `repository/src/jobs/index.ts` and `repository/src/outbox/index.ts`: database-specific index/DDL choices                                                            | each selected database package's migration strategies                                                                                    | repository-facing job/outbox API                                         |
-| `repository/package.json`: three driver subpaths and client test dependencies                                                                                       | database package manifests/exports own their adapter                                                                                     | generic repository manifest retains no vendor subpath or client          |
+| `repository/package.json`: one remaining driver subpath and SQL Server client test dependencies; SQLite and PostgreSQL already moved                                | database package manifests/exports own their adapter                                                                                     | generic repository manifest retains no vendor subpath or client          |
 | `zmdb/src/config/index.ts` and generated validator/witness artifacts: closed name validation and PostgreSQL-family schema branch                                    | selected dialect object and its migration validation; `zmdb` remains the config consumer                                                 | config discovery, paths and plain-data validation                        |
 | `zmdb/src/cli/**` and `zmdb/src/studio/index.ts`: string propagation, SQLite-only branches, templates and fixtures                                                  | `zmdb` consumes one explicit database object; database behavior belongs to the selected package                                          | command/studio workflow, argument handling and generated-project UX      |
 | `zmdb/src/index.ts`, `zmdb/src/drivers-{sqlite,pg,mssql}.ts` and `zmdb/package.json`: `Dialect`/driver facade exports                                               | optional identity/compatibility re-exports only; implementations belong to the selected database package                                 | facade policy remains `zmdb`                                             |

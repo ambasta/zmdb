@@ -83,7 +83,7 @@ These are not preferences; they are invariants. A change that violates one is re
 
 > The public API is assertion-free. Framework internals use a documented exception list for places where runtime data crosses into a TypeScript type.
 >
-> As of 2026-09-06, the 270 shipped files covered by `verify:escape-hatches` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`,
+> As of 2026-09-06, the 275 shipped files covered by `verify:escape-hatches` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`,
 > and one lint suppression. The consumer documentation contains no required casts.
 >
 > The count rose from 28 during the type-first work. Of the 53 current assertions, 26 are in `aot-validator`, mainly around checker values, parsed JSON, and validated return values. Each assertion
@@ -114,8 +114,8 @@ Conversely, we **merge** packages that have grown a bidirectional dependency or 
 
 ### 3.2 The current dependency DAG (must stay acyclic)
 
-This is the shipped graph during the database-vertical extraction frozen in §3.4. SQLite is now a side vertical over query-compiler and repository; the remaining database implementations still sit in
-the generic packages.
+This is the shipped graph during the database-vertical extraction frozen in §3.4. SQLite and PostgreSQL are now side verticals over query-compiler and repository; the remaining database
+implementations still sit in the generic packages.
 
 ```
       ┌────────────────┐
@@ -144,8 +144,11 @@ the generic packages.
               ▼
       ┌────────────────┐
       │@zmdb/repository│  (also depends directly on schema-core + query-compiler)
-      │  + pg/mssql    │   temporary compatibility adapters
+      │    + mssql     │   temporary compatibility adapter
       └───────┬────────┘
+              ├──────────────▶┌────────────────┐
+              │               │@zmdb/postgres  │  (also query-compiler; optional peer: pg)
+              │               └────────────────┘
               ▼
       ┌────────────────┐
       │   @zmdb/app    │  (also depends directly on schema-core,
@@ -177,12 +180,15 @@ alone declare their required framework peers. `@zmdb/react-native` depends on `@
 composes client and React, `@zmdb/nuxt` composes client and Vue, and `@zmdb/sveltekit` composes client and Svelte; each meta-framework alone declares its framework peers and keeps browser and server
 entries physically separate. The opt-in `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, and `@zmdb/ai-vercel` packages depend inward only on `@zmdb/ai`; each integration alone declares its SDK/framework
 peer. `@zmdb/mcp` depends only on `@zmdb/ai`. `@zmdb/otel`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, and `@zmdb/transport-redis` each depend only on `@zmdb/app` and declare only their
-selected technology as a required peer; `@zmdb/transport-grpc` depends on `@zmdb/app` and `@zmdb/protobuf`. `@zmdb/jobs-postgres` depends on `@zmdb/jobs` and `@zmdb/repository` and alone owns the
+selected technology as a required peer; `@zmdb/transport-grpc` depends on `@zmdb/app` and `@zmdb/protobuf`. `@zmdb/jobs-postgres` depends on `@zmdb/jobs` and `@zmdb/postgres` and alone owns the
 required `pg` peer for job storage. None of these optional packages or the provider-neutral AI package is re-exported by the umbrella.
 
 `@zmdb/sqlite` depends on query-compiler and repository and owns the complete SQLite dialect, migration, introspection, embedded-runner, and structural-driver slice. During the transition,
 `@zmdb/jobs` depends on it for the in-memory queue backend and `zmdb` depends on it for the retained `zmdb/drivers/sqlite` facade. #675 owns the final product/config/CLI cutover and optional facade
 shape.
+
+`@zmdb/postgres` also depends on query-compiler and repository. It owns the complete PostgreSQL dialect, migration, catalog-introspection and structural-driver slice, with `pg` confined to an optional
+peer and development dependency. `@zmdb/jobs-postgres` depends on it rather than the generic repository, and the umbrella exposes it only through the optional `zmdb/drivers/pg` compatibility facade.
 
 **Rules enforced by this DAG:**
 
@@ -203,54 +209,56 @@ shape.
 - **SvelteKit depends on client and Svelte, never server packages.** Its browser export reuses the Svelte stores; its server export owns request-local `event.fetch`, explicit credential forwarding,
   load/error identity, and request cancellation.
 - **aot-validator depends on schema-core and AI, never the reverse.** Reflection remains above the declaration vocabulary; `toolFor` compilation consumes AI's document boundary.
-- **repository is the composition layer** — it wires schema + compiler + validator into CRUD and temporarily retains the structurally injected PostgreSQL and SQL Server compatibility adapters.
+- **repository is the composition layer** — it wires schema + compiler + validator into CRUD and temporarily retains the structurally injected SQL Server compatibility adapter.
 - **sqlite is a complete database vertical** — it owns SQLite traits, DDL/refusals, introspection, embedded migrations, and the structural `node:sqlite` adapter without a third-party database client.
+- **postgres is a complete database vertical** — it owns PostgreSQL traits, DDL/refusals, introspection, prepared statements, cursor streaming, cancellation, and the structural `pg` adapter.
 - **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, messaging, command, event, CQRS, state, health, and observability kernel.
 - **OTel depends only on app.** It adapts caller-owned API objects to the app ports and owns no provider, SDK, exporter, ambient context, or web edge.
 - **NATS depends only on app.** It implements the public transport strategy with a startup-built subject trie and owns only the required NATS client peer.
 - **RabbitMQ depends only on app.** It implements the public transport strategy with bounded prefetch, confirmed delayed retries, and owned dead-letter topology while owning only the required
   `amqplib` peer.
 - **Redis depends only on app.** It implements concrete Pub/Sub channels and process-owned request/reply subscriptions while owning only the required `redis` peer.
-- **PostgreSQL jobs depend only on jobs and repository.** The adapter delegates to the public PostgreSQL driver, borrows caller-owned pools or clients, and alone owns the required `pg` peer.
+- **PostgreSQL jobs depend only on jobs and postgres.** The adapter delegates to the public PostgreSQL driver, borrows caller-owned pools or clients, and alone owns the required `pg` peer.
 - **web sits above app** — controllers can receive repositories through app-owned DI, routes validate via the AOT validator, responses serialize via the AOT serializer, and HTTP composition reuses the
   one app-owned construction and lifecycle graph.
 - **`zmdb` (umbrella) contains no logic** — only curated re-exports. It is the default install; the sub-packages remain the tree-shakeable/advanced path.
 
 ### 3.3 Current package map
 
-| Package                    | Responsibility                                                                                                                                        | Runtime deps                                                                |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `@zmdb/client`             | Dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors | none                                                                        |
-| `@zmdb/angular`            | Angular DI, signal, `DestroyRef`, Observable cancellation, and request-local generated-client ownership                                               | `@angular/core`, `rxjs` (required peers)                                    |
-| `@zmdb/react`              | Optional React context, hooks and component-lifecycle ownership for generated clients                                                                 | client; `react` (required peer)                                             |
-| `@zmdb/react-native`       | Optional AppState, connectivity, and credential-store lifecycle policy over the React generated-client hooks                                          | client, react; `react`, `react-native` (required peers)                     |
-| `@zmdb/next`               | Optional Next.js request-scoped server clients and browser bindings for generated clients                                                             | client, react, `server-only`; `next`, `react`, `react-dom` (required peers) |
-| `@zmdb/nuxt`               | Optional Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration                                                              | client, vue; `nuxt`, `vue` (required peers)                                 |
-| `@zmdb/vue`                | Optional Vue plugin, reactive query/mutation composables, watcher/effect-scope cancellation, and per-application SSR isolation                        | client; `vue` (required peer)                                               |
-| `@zmdb/svelte`             | Optional typed Svelte context, lazy query and mutation stores, stale-result suppression, and lifecycle cancellation                                   | client; `svelte` (required peer)                                            |
-| `@zmdb/sveltekit`          | Optional request-local SvelteKit server/client loads, explicit credential forwarding, native errors, and navigation cancellation                      | client, svelte; `@sveltejs/kit`, `svelte` (required peers)                  |
-| `@zmdb/solid`              | Optional Solid context, native resources, owner cancellation, stale-result suppression, and native Suspense/error propagation                         | client; `solid-js` (required peer)                                          |
-| `@zmdb/query-compiler`     | SQL-first compiler, generic DDL/migrations and introspection protocols, declaration emission, and remaining built-in dialect definitions              | oxfmt                                                                       |
-| `@zmdb/schema-core`        | Tags, `TypeIR`, derived DTOs, relations, JSON Schema, seeding, and custom types; no AI source, export, or peer                                        | query-compiler                                                              |
-| `@zmdb/ai`                 | Provider-neutral tool documents and dialects, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools               | schema-core                                                                 |
-| `@zmdb/ai-anthropic`       | Optional Anthropic Messages API driver over the provider-neutral chat contract                                                                        | ai; `@anthropic-ai/sdk` (optional peer)                                     |
-| `@zmdb/ai-langchain`       | Optional LangChain structured-tool contract and the sole `@langchain/core` peer                                                                       | ai; `@langchain/core` (optional peer)                                       |
-| `@zmdb/ai-vercel`          | Optional Vercel AI SDK tool fields with caller-owned schema branding and validation                                                                   | ai; `ai` (optional peer)                                                    |
-| `@zmdb/mcp`                | Transport-neutral MCP client/server protocol handling, authenticated identity injection, validation, and bounded remote calls                         | ai                                                                          |
-| `@zmdb/protobuf`           | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                        | none                                                                        |
-| `@zmdb/aot-validator`      | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                             | ai, schema-core                                                             |
-| `@zmdb/repository`         | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and temporary PostgreSQL/SQL Server adapters                | aot-validator, query-compiler, schema-core                                  |
-| `@zmdb/sqlite`             | Complete SQLite traits, DDL/migrations/refusals, introspection, embedded migrations, capabilities, and structural `node:sqlite` driver                | query-compiler, repository                                                  |
-| `@zmdb/app`                | Protocol-neutral metadata, DI, modules, lifecycle/extensions, messaging, commands, events, CQRS, state, health contracts, and observability ports     | aot-validator, query-compiler, repository, schema-core                      |
-| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases and the built-in SQLite memory backend                                                        | app, query-compiler, repository, sqlite                                     |
-| `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adaptation over caller-owned pools and clients                                                                                  | jobs, repository; `pg` (required peer)                                      |
-| `@zmdb/otel`               | OpenTelemetry API adaptation over caller-owned tracers and meters, without provider, SDK, exporter, or ambient-context ownership                      | app; `@opentelemetry/api` (required peer)                                   |
-| `@zmdb/transport-grpc`     | Typed grpc-js server/client adaptation over generated protobuf service artifacts, with explicit application lifecycle and caller-owned clients        | app, protobuf; `@grpc/grpc-js` (required peer)                              |
-| `@zmdb/transport-nats`     | Core NATS wildcard and queue-group messaging over the public application transport strategy contract                                                  | app; `@nats-io/transport-node` (required peer)                              |
-| `@zmdb/transport-rabbitmq` | RabbitMQ topic transport with bounded prefetch, confirmed delayed retries, request/reply, and owned dead-letter topology                              | app; `amqplib` (required peer)                                              |
-| `@zmdb/transport-redis`    | Redis Pub/Sub event and request/reply transport over concrete application messaging channels                                                          | app; `redis` (required peer)                                                |
-| `@zmdb/web`                | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                           | app, aot-validator, query-compiler, schema-core                             |
-| `zmdb`                     | Curated product facade and CLI; no AI, MCP, or OTel public re-export                                                                                  | app, aot-validator, query-compiler, repository, schema-core, sqlite, web    |
+| Package                    | Responsibility                                                                                                                                        | Runtime deps                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `@zmdb/client`             | Dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors | none                                                                                               |
+| `@zmdb/angular`            | Angular DI, signal, `DestroyRef`, Observable cancellation, and request-local generated-client ownership                                               | `@angular/core`, `rxjs` (required peers)                                                           |
+| `@zmdb/react`              | Optional React context, hooks and component-lifecycle ownership for generated clients                                                                 | client; `react` (required peer)                                                                    |
+| `@zmdb/react-native`       | Optional AppState, connectivity, and credential-store lifecycle policy over the React generated-client hooks                                          | client, react; `react`, `react-native` (required peers)                                            |
+| `@zmdb/next`               | Optional Next.js request-scoped server clients and browser bindings for generated clients                                                             | client, react, `server-only`; `next`, `react`, `react-dom` (required peers)                        |
+| `@zmdb/nuxt`               | Optional Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration                                                              | client, vue; `nuxt`, `vue` (required peers)                                                        |
+| `@zmdb/vue`                | Optional Vue plugin, reactive query/mutation composables, watcher/effect-scope cancellation, and per-application SSR isolation                        | client; `vue` (required peer)                                                                      |
+| `@zmdb/svelte`             | Optional typed Svelte context, lazy query and mutation stores, stale-result suppression, and lifecycle cancellation                                   | client; `svelte` (required peer)                                                                   |
+| `@zmdb/sveltekit`          | Optional request-local SvelteKit server/client loads, explicit credential forwarding, native errors, and navigation cancellation                      | client, svelte; `@sveltejs/kit`, `svelte` (required peers)                                         |
+| `@zmdb/solid`              | Optional Solid context, native resources, owner cancellation, stale-result suppression, and native Suspense/error propagation                         | client; `solid-js` (required peer)                                                                 |
+| `@zmdb/query-compiler`     | SQL-first compiler, generic DDL/migrations and introspection protocols, declaration emission, and remaining built-in dialect definitions              | oxfmt                                                                                              |
+| `@zmdb/schema-core`        | Tags, `TypeIR`, derived DTOs, relations, JSON Schema, seeding, and custom types; no AI source, export, or peer                                        | query-compiler                                                                                     |
+| `@zmdb/ai`                 | Provider-neutral tool documents and dialects, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools               | schema-core                                                                                        |
+| `@zmdb/ai-anthropic`       | Optional Anthropic Messages API driver over the provider-neutral chat contract                                                                        | ai; `@anthropic-ai/sdk` (optional peer)                                                            |
+| `@zmdb/ai-langchain`       | Optional LangChain structured-tool contract and the sole `@langchain/core` peer                                                                       | ai; `@langchain/core` (optional peer)                                                              |
+| `@zmdb/ai-vercel`          | Optional Vercel AI SDK tool fields with caller-owned schema branding and validation                                                                   | ai; `ai` (optional peer)                                                                           |
+| `@zmdb/mcp`                | Transport-neutral MCP client/server protocol handling, authenticated identity injection, validation, and bounded remote calls                         | ai                                                                                                 |
+| `@zmdb/protobuf`           | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                        | none                                                                                               |
+| `@zmdb/aot-validator`      | Reflection, AOT transformation, `zmdb-codegen`, validation/serialization utilities, and artifact emission                                             | ai, schema-core                                                                                    |
+| `@zmdb/repository`         | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and the temporary SQL Server adapter                        | aot-validator, query-compiler, schema-core                                                         |
+| `@zmdb/postgres`           | Complete PostgreSQL traits, DDL/migrations, catalog introspection, structural driver, streaming, cancellation, and family extension points            | query-compiler, repository; `pg` (optional peer)                                                   |
+| `@zmdb/sqlite`             | Complete SQLite traits, DDL/migrations/refusals, introspection, embedded migrations, capabilities, and structural `node:sqlite` driver                | query-compiler, repository                                                                         |
+| `@zmdb/app`                | Protocol-neutral metadata, DI, modules, lifecycle/extensions, messaging, commands, events, CQRS, state, health contracts, and observability ports     | aot-validator, query-compiler, repository, schema-core                                             |
+| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases and the built-in SQLite memory backend                                                        | app, query-compiler, repository, sqlite                                                            |
+| `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adaptation over caller-owned pools and clients                                                                                  | jobs, postgres; `pg` (required peer)                                                               |
+| `@zmdb/otel`               | OpenTelemetry API adaptation over caller-owned tracers and meters, without provider, SDK, exporter, or ambient-context ownership                      | app; `@opentelemetry/api` (required peer)                                                          |
+| `@zmdb/transport-grpc`     | Typed grpc-js server/client adaptation over generated protobuf service artifacts, with explicit application lifecycle and caller-owned clients        | app, protobuf; `@grpc/grpc-js` (required peer)                                                     |
+| `@zmdb/transport-nats`     | Core NATS wildcard and queue-group messaging over the public application transport strategy contract                                                  | app; `@nats-io/transport-node` (required peer)                                                     |
+| `@zmdb/transport-rabbitmq` | RabbitMQ topic transport with bounded prefetch, confirmed delayed retries, request/reply, and owned dead-letter topology                              | app; `amqplib` (required peer)                                                                     |
+| `@zmdb/transport-redis`    | Redis Pub/Sub event and request/reply transport over concrete application messaging channels                                                          | app; `redis` (required peer)                                                                       |
+| `@zmdb/web`                | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                           | app, aot-validator, query-compiler, schema-core                                                    |
+| `zmdb`                     | Curated product facade and CLI; no AI, MCP, or OTel public re-export                                                                                  | app, aot-validator, query-compiler, repository, schema-core, sqlite, web; postgres (optional peer) |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
 
@@ -264,9 +272,10 @@ Issue #666 froze this target for epic #665. Issue #668 now ships the vendor-neut
 traits, total capabilities, a migration dialect and an introspector; the compiler accepts it, migration wrappers and the driver adapter delegate through it, callers can use its introspector directly,
 and repositories derive and cache its limits, retries and returning support.
 
-The SQLite slice now ships as `@zmdb/sqlite`, with package-owned traits, migrations, introspection, driver tests, and packed in-memory acceptance. The other five database packages are still pending.
-The temporary six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge; `@zmdb/repository` retains only the PostgreSQL and SQL Server compatibility adapters. The
-umbrella's temporary `zmdb/drivers/sqlite` path re-exports the package while product entry-point optionality remains a later cutover.
+The SQLite slice now ships as `@zmdb/sqlite`, with package-owned traits, migrations, introspection, driver tests, and packed in-memory acceptance. The PostgreSQL slice now ships as `@zmdb/postgres`,
+with package-owned traits, migrations, catalog introspection, driver behavior, live-server acceptance, and packed-consumer evidence. The other four database packages are still pending. The temporary
+six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge; `@zmdb/repository` retains only the SQL Server compatibility adapter. The umbrella's temporary
+`zmdb/drivers/sqlite` and `zmdb/drivers/pg` paths delegate to the selected packages while product entry-point optionality remains a later cutover.
 
 A database package is a **complete vertical**, not a syntax table. It owns the database's query traits, DDL and migration behavior, introspector, official driver adapter, capability/refusal metadata,
 golden SQL, real-server qualification and packed-consumer evidence. Generic packages retain the algorithms and protocols that can serve an unknown third-party database.
@@ -438,15 +447,15 @@ has moved the transport-neutral dispatcher, typed clients, decorators, SPI and a
 
 The final manifest graph is:
 
-| Package                    | Direct internal dependencies     | Sole external peer               |
-| -------------------------- | -------------------------------- | -------------------------------- |
-| `@zmdb/protobuf`           | none                             | none                             |
-| `@zmdb/transport-grpc`     | `@zmdb/app`, `@zmdb/protobuf`    | `@grpc/grpc-js@^1.14.0`          |
-| `@zmdb/transport-nats`     | `@zmdb/app`                      | `@nats-io/transport-node@^3.4.0` |
-| `@zmdb/transport-rabbitmq` | `@zmdb/app`                      | `amqplib@^2.0.1`                 |
-| `@zmdb/transport-redis`    | `@zmdb/app`                      | `redis@^6.2.1`                   |
-| `@zmdb/jobs-postgres`      | `@zmdb/jobs`, `@zmdb/repository` | `pg@^8.23.0`                     |
-| `@zmdb/otel`               | `@zmdb/app`                      | `@opentelemetry/api@^1.9.0`      |
+| Package                    | Direct internal dependencies   | Sole external peer               |
+| -------------------------- | ------------------------------ | -------------------------------- |
+| `@zmdb/protobuf`           | none                           | none                             |
+| `@zmdb/transport-grpc`     | `@zmdb/app`, `@zmdb/protobuf`  | `@grpc/grpc-js@^1.14.0`          |
+| `@zmdb/transport-nats`     | `@zmdb/app`                    | `@nats-io/transport-node@^3.4.0` |
+| `@zmdb/transport-rabbitmq` | `@zmdb/app`                    | `amqplib@^2.0.1`                 |
+| `@zmdb/transport-redis`    | `@zmdb/app`                    | `redis@^6.2.1`                   |
+| `@zmdb/jobs-postgres`      | `@zmdb/jobs`, `@zmdb/postgres` | `pg@^8.23.0`                     |
+| `@zmdb/otel`               | `@zmdb/app`                    | `@opentelemetry/api@^1.9.0`      |
 
 The peers are required by the package that selects them, not optional peers of a core package. `@zmdb/app`, `@zmdb/web`, `@zmdb/jobs`, `zmdb`, `@zmdb/protobuf` and `@zmdb/aot-validator` declare none
 of them. The default product therefore remains cohesive without installing every broker, database client or telemetry API.
@@ -540,41 +549,42 @@ and entry-specific reachability assignments are generated from the admitted mani
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **31 catalog packages**, **52 direct workspace edges**, and canonical rings **0–7**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **32 catalog packages**, **55 direct workspace edges**, and canonical rings **0–7**.
 
-| Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                |
-| ---- | ----------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | integration | `@zmdb/angular`            | none                                                                                                                                         |
-| 0    | foundation  | `@zmdb/client`             | none                                                                                                                                         |
-| 0    | foundation  | `@zmdb/protobuf`           | none                                                                                                                                         |
-| 0    | foundation  | `@zmdb/query-compiler`     | none                                                                                                                                         |
-| 1    | integration | `@zmdb/react`              | `@zmdb/client`                                                                                                                               |
-| 1    | foundation  | `@zmdb/schema-core`        | `@zmdb/query-compiler`                                                                                                                       |
-| 1    | integration | `@zmdb/solid`              | `@zmdb/client`                                                                                                                               |
-| 1    | integration | `@zmdb/svelte`             | `@zmdb/client`                                                                                                                               |
-| 1    | integration | `@zmdb/vue`                | `@zmdb/client`                                                                                                                               |
-| 2    | runtime     | `@zmdb/ai`                 | `@zmdb/schema-core`                                                                                                                          |
-| 2    | integration | `@zmdb/next`               | `@zmdb/client`<br>`@zmdb/react`                                                                                                              |
-| 2    | integration | `@zmdb/nuxt`               | `@zmdb/client`<br>`@zmdb/vue`                                                                                                                |
-| 2    | integration | `@zmdb/react-native`       | `@zmdb/client`<br>`@zmdb/react`                                                                                                              |
-| 2    | integration | `@zmdb/sveltekit`          | `@zmdb/client`<br>`@zmdb/svelte`                                                                                                             |
-| 3    | integration | `@zmdb/ai-anthropic`       | `@zmdb/ai`                                                                                                                                   |
-| 3    | integration | `@zmdb/ai-langchain`       | `@zmdb/ai`                                                                                                                                   |
-| 3    | integration | `@zmdb/ai-vercel`          | `@zmdb/ai`                                                                                                                                   |
-| 3    | runtime     | `@zmdb/aot-validator`      | `@zmdb/ai`<br>`@zmdb/schema-core`                                                                                                            |
-| 3    | integration | `@zmdb/mcp`                | `@zmdb/ai`                                                                                                                                   |
-| 4    | runtime     | `@zmdb/repository`         | `@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                                       |
-| 5    | application | `@zmdb/app`                | `@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`                                                 |
-| 5    | runtime     | `@zmdb/sqlite`             | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                 |
-| 6    | application | `@zmdb/jobs`               | `@zmdb/app`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/sqlite`                                                                |
-| 6    | integration | `@zmdb/otel`               | `@zmdb/app`                                                                                                                                  |
-| 6    | integration | `@zmdb/transport-grpc`     | `@zmdb/app`<br>`@zmdb/protobuf`                                                                                                              |
-| 6    | integration | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                  |
-| 6    | integration | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                  |
-| 6    | integration | `@zmdb/transport-redis`    | `@zmdb/app`                                                                                                                                  |
-| 6    | application | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                        |
-| 7    | integration | `@zmdb/jobs-postgres`      | `@zmdb/jobs`<br>`@zmdb/repository`                                                                                                           |
-| 7    | facade      | `zmdb`                     | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`<br>`@zmdb/sqlite`<br>`@zmdb/web` |
+| Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                                    |
+| ---- | ----------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | integration | `@zmdb/angular`            | none                                                                                                                                                             |
+| 0    | foundation  | `@zmdb/client`             | none                                                                                                                                                             |
+| 0    | foundation  | `@zmdb/protobuf`           | none                                                                                                                                                             |
+| 0    | foundation  | `@zmdb/query-compiler`     | none                                                                                                                                                             |
+| 1    | integration | `@zmdb/react`              | `@zmdb/client`                                                                                                                                                   |
+| 1    | foundation  | `@zmdb/schema-core`        | `@zmdb/query-compiler`                                                                                                                                           |
+| 1    | integration | `@zmdb/solid`              | `@zmdb/client`                                                                                                                                                   |
+| 1    | integration | `@zmdb/svelte`             | `@zmdb/client`                                                                                                                                                   |
+| 1    | integration | `@zmdb/vue`                | `@zmdb/client`                                                                                                                                                   |
+| 2    | runtime     | `@zmdb/ai`                 | `@zmdb/schema-core`                                                                                                                                              |
+| 2    | integration | `@zmdb/next`               | `@zmdb/client`<br>`@zmdb/react`                                                                                                                                  |
+| 2    | integration | `@zmdb/nuxt`               | `@zmdb/client`<br>`@zmdb/vue`                                                                                                                                    |
+| 2    | integration | `@zmdb/react-native`       | `@zmdb/client`<br>`@zmdb/react`                                                                                                                                  |
+| 2    | integration | `@zmdb/sveltekit`          | `@zmdb/client`<br>`@zmdb/svelte`                                                                                                                                 |
+| 3    | integration | `@zmdb/ai-anthropic`       | `@zmdb/ai`                                                                                                                                                       |
+| 3    | integration | `@zmdb/ai-langchain`       | `@zmdb/ai`                                                                                                                                                       |
+| 3    | integration | `@zmdb/ai-vercel`          | `@zmdb/ai`                                                                                                                                                       |
+| 3    | runtime     | `@zmdb/aot-validator`      | `@zmdb/ai`<br>`@zmdb/schema-core`                                                                                                                                |
+| 3    | integration | `@zmdb/mcp`                | `@zmdb/ai`                                                                                                                                                       |
+| 4    | runtime     | `@zmdb/repository`         | `@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                                                           |
+| 5    | application | `@zmdb/app`                | `@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`                                                                     |
+| 5    | runtime     | `@zmdb/postgres`           | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
+| 5    | runtime     | `@zmdb/sqlite`             | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
+| 6    | application | `@zmdb/jobs`               | `@zmdb/app`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/sqlite`                                                                                    |
+| 6    | integration | `@zmdb/otel`               | `@zmdb/app`                                                                                                                                                      |
+| 6    | integration | `@zmdb/transport-grpc`     | `@zmdb/app`<br>`@zmdb/protobuf`                                                                                                                                  |
+| 6    | integration | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                                      |
+| 6    | integration | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                                      |
+| 6    | integration | `@zmdb/transport-redis`    | `@zmdb/app`                                                                                                                                                      |
+| 6    | application | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                                            |
+| 7    | integration | `@zmdb/jobs-postgres`      | `@zmdb/jobs`<br>`@zmdb/postgres`                                                                                                                                 |
+| 7    | facade      | `zmdb`                     | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/postgres`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`<br>`@zmdb/sqlite`<br>`@zmdb/web` |
 
 Entry-specific runtime, tooling, and optional-peer reachability assignments:
 
@@ -592,9 +602,11 @@ Entry-specific runtime, tooling, and optional-peer reachability assignments:
 | `@zmdb/aot-validator`  | optional peer               | `metro-babel-transformer@>=0.87.0 <0.88.0` | `./metro`                                                                                                                                             |
 | `@zmdb/aot-validator`  | optional peer               | `oxlint@>=1.81.0 <1.82.0`                  | `./lint`                                                                                                                                              |
 | `@zmdb/aot-validator`  | optional peer               | `typescript@>=7.0.0`                       | `./codegen`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen`                         |
+| `@zmdb/postgres`       | optional peer               | `pg@^8.23.0`                               | `.`                                                                                                                                                   |
 | `@zmdb/web`            | tooling boundary            | tooling-only code                          | `./bench`<br>`./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                     |
 | `@zmdb/web`            | optional peer               | `typescript@>=7.0.0`                       | `./contract/compiler`                                                                                                                                 |
 | `zmdb`                 | tooling boundary            | tooling-only code                          | `./cli`<br>`./config`<br>`./unplugin`<br>`./web/contract/compiler`<br>`bin:zmdb`                                                                      |
+| `zmdb`                 | optional peer               | `@zmdb/postgres@workspace:^`               | `./drivers/pg`                                                                                                                                        |
 
 The tables are regenerated by `node docs-site/generated.mjs` and checked without writing by `yarn verify:docs-generated`.
 
@@ -699,7 +711,7 @@ symbols span three independently usable responsibilities and six third-party pee
   |
   +--> optional transports / OpenTelemetry
 
-@zmdb/jobs-postgres --> @zmdb/jobs, @zmdb/repository
+@zmdb/jobs-postgres --> @zmdb/jobs, @zmdb/postgres
 zmdb --> @zmdb/app, @zmdb/web and @zmdb/jobs by explicit re-export only
 ```
 
@@ -710,7 +722,7 @@ The exact direct edges are:
 | `@zmdb/app`           | aot-validator, query-compiler, repository, schema-core                     | none                      |
 | `@zmdb/web`           | app, aot-validator, schema-core                                            | none                      |
 | `@zmdb/jobs`          | app, query-compiler, repository, sqlite                                    | none                      |
-| `@zmdb/jobs-postgres` | jobs, repository                                                           | pg (required peer)        |
+| `@zmdb/jobs-postgres` | jobs, postgres                                                             | pg (required peer)        |
 | `zmdb`                | app, web, jobs plus the existing product packages it explicitly re-exports | none                      |
 
 `app -> web`, `app -> jobs`, `web -> jobs`, `jobs -> web`, any core-to-optional edge, and any server package importing another package's private source are forbidden. Optional integrations depend
@@ -831,7 +843,7 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the thirty-one-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
+the north-star-driven language policy in §4 here, and it records the thirty-two-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
 `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/ai`, its opt-in integrations, `@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`,
-`@zmdb/jobs-postgres`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/web`) rather than the original
-four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+`@zmdb/jobs-postgres`, `@zmdb/postgres`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/web`) rather than
+the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

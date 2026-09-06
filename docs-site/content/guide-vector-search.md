@@ -38,9 +38,9 @@ import { Pool } from 'pg';
 
 import { assert } from '@zmdb/aot-validator/utilities';
 import { createQueryCompiler, distance } from '@zmdb/query-compiler';
-import { diff, emitUp, snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+import { diff, snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
-import { pgDriver } from '@zmdb/repository/drivers/pg';
+import { postgres, postgresDriver } from '@zmdb/postgres';
 import { schemaOf } from '@zmdb/schema-core';
 
 function vector1536(value: unknown): readonly number[] {
@@ -61,13 +61,13 @@ async function main(): Promise<void> {
   if (connectionString === undefined) throw new Error('DATABASE_URL is required');
 
   const pool = new Pool({ connectionString });
-  const driver = pgDriver(pool);
+  const driver = postgresDriver(pool);
   try {
     const empty: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
     const declared = snapshot([schemaOf<Embedding>()]);
 
     for (const op of diff(empty, declared, { dialect: 'postgres' })) {
-      await driver.execute({ text: emitUp(op, 'postgres'), parameters: [] });
+      await driver.execute({ text: postgres.migrations.emitUp(op), parameters: [] });
     }
 
     const indexSql = createIndexDdl(
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
     });
 
     const nearest = distance<Embedding>('embedding', 'cosine', vector);
-    const query = createQueryCompiler('postgres')
+    const query = createQueryCompiler(postgres)
       .selectFrom('embeddings')
       .select(['id', 'documentId', 'chunk', nearest.as('distance')])
       .orderBy(nearest, 'asc')

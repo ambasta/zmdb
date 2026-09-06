@@ -1,16 +1,13 @@
-// pg (node-postgres) driver adapter — see ../drivers/SPEC.md.
-import type { CompiledQuery } from '@zmdb/query-compiler';
+import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
+import type { Driver, ExecuteOptions, TransactionalDriver } from '@zmdb/repository';
 
-import type { Driver, ExecuteOptions } from '../index.js';
-import type { TransactionalDriver } from './transactional.js';
-
-// Minimal structural type so we don't hard-depend on `pg`'s types at build time.
 export interface PgQueryable {
   query(text: string, params?: readonly unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
   query(config: {
-    name?: string;
-    text: string;
-    values?: readonly unknown[];
+    readonly name?: string;
+    readonly queryMode?: 'extended';
+    readonly text: string;
+    readonly values?: readonly unknown[];
   }): Promise<{ rows: Record<string, unknown>[] }>;
   connect?(): Promise<PgConnection>;
 }
@@ -20,10 +17,10 @@ export interface PgConnection extends PgQueryable {
 }
 
 export interface PgOptions {
-  prepared?: boolean;
-  maxCacheSize?: number;
-  /** A queryable able to use a connection other than the running backend. */
-  cancelVia?: PgQueryable;
+  readonly prepared?: boolean;
+  readonly maxCacheSize?: number;
+  /** A queryable guaranteed to use a connection other than the running backend. */
+  readonly cancelVia?: PgQueryable;
 }
 
 interface PgPoolClient extends PgConnection {
@@ -36,62 +33,99 @@ interface PgPoolQueryable extends PgQueryable {
   connect(): Promise<PgPoolClient>;
 }
 
-/** Wrap a pg Pool/Client as a zmdb Driver. `prepared: true` opts into server-side
- * prepared statements (stable statement name per SQL). Kept opt-in to preserve
- * the zero-state default (see the benchmarks tail trade-off). */
-export function pgDriver(client: PgQueryable, opts?: PgOptions): TransactionalDriver {
-  return createPgDriver(client, opts, false);
+interface PreparedState {
+  readonly names: Map<string, string>;
+  sequence: number;
 }
 
-function createPgDriver(client: PgQueryable, opts: PgOptions | undefined, pinned: boolean): TransactionalDriver {
-  const prepared = opts?.prepared ?? false;
-  const maxCacheSize = opts?.maxCacheSize ?? 1000;
-  const names = new Map<string, string>();
-  let seq = 0;
-  let cursorSeq = 0;
+export function postgresFamilyDriver<Name extends string>(
+  dialect: SqlDialect<Name>,
+  client: PgQueryable,
+  options?: PgOptions,
+): TransactionalDriver<Name> {
+  return createPostgresDriver(dialect, client, options, false, new WeakMap());
+}
 
-  const nameFor = (text: string): string => {
-    let n = maxCacheSize > 0 ? names.get(text) : undefined;
-    if (!n) {
-      n = 'z' + (seq++).toString(36);
-      if (maxCacheSize > 0) {
-        if (names.size >= maxCacheSize) {
-          const oldestKey = names.keys().next().value;
-          if (oldestKey !== undefined) {
-            const oldestName = names.get(oldestKey);
-            names.delete(oldestKey);
-            if (oldestName) {
-              client.query(`DEALLOCATE ${oldestName}`).catch(() => {});
-            }
-          }
-        }
-        names.set(text, n);
-      }
-    } else if (maxCacheSize > 0) {
-      names.delete(text);
-      names.set(text, n);
+function createPostgresDriver<Name extends string>(
+  dialect: SqlDialect<Name>,
+  client: PgQueryable,
+  options: PgOptions | undefined,
+  pinned: boolean,
+  preparedStates: WeakMap<PgQueryable, PreparedState>,
+): TransactionalDriver<Name> {
+  const prepared = options?.prepared ?? false;
+  const maxCacheSize = options?.maxCacheSize ?? 1000;
+  if (!Number.isSafeInteger(maxCacheSize) || maxCacheSize < 0) {
+    throw new RangeError('maxCacheSize must be a non-negative safe integer');
+  }
+  let cursorSequence = 0;
+
+  const stateFor = (target: PgQueryable): PreparedState => {
+    const current = preparedStates.get(target);
+    if (current !== undefined) return current;
+    const created = { names: new Map<string, string>(), sequence: 0 };
+    preparedStates.set(target, created);
+    return created;
+  };
+
+  const preparedName = async (target: PgQueryable, text: string): Promise<string> => {
+    const preparedState = stateFor(target);
+    const cached = maxCacheSize > 0 ? preparedState.names.get(text) : undefined;
+    if (cached !== undefined) {
+      preparedState.names.delete(text);
+      preparedState.names.set(text, cached);
+      return cached;
     }
-    return n;
+
+    const name = `zmdb_${(preparedState.sequence++).toString(36)}`;
+    if (maxCacheSize > 0) {
+      if (preparedState.names.size >= maxCacheSize) {
+        const oldestSql = preparedState.names.keys().next().value;
+        if (oldestSql !== undefined) {
+          const oldestName = preparedState.names.get(oldestSql);
+          preparedState.names.delete(oldestSql);
+          if (oldestName !== undefined) await target.query(`DEALLOCATE ${oldestName}`);
+        }
+      }
+      preparedState.names.set(text, name);
+    }
+    return name;
   };
 
   const executeOn = async (target: PgQueryable, query: CompiledQuery): Promise<readonly Record<string, unknown>[]> => {
-    const result = prepared
-      ? await target.query({ name: nameFor(query.text), text: query.text, values: query.parameters })
-      : await target.query(query.text, query.parameters);
+    const result = !prepared
+      ? await target.query(query.text, query.parameters)
+      : maxCacheSize === 0
+        ? await target.query({
+            queryMode: 'extended',
+            text: query.text,
+            values: query.parameters,
+          })
+        : await target.query({
+            name: await preparedName(target, query.text),
+            text: query.text,
+            values: query.parameters,
+          });
     return result.rows;
   };
 
-  const driver: TransactionalDriver = {
-    dialect: 'postgres',
-    async execute(query, executeOpts) {
-      const signal = executeOpts?.signal;
+  const driver: TransactionalDriver<Name> = {
+    dialect,
+    async execute(query, executeOptions) {
+      const signal = executeOptions?.signal;
       signal?.throwIfAborted();
 
-      const cancelVia = opts?.cancelVia;
+      const cancelVia = options?.cancelVia;
       if (signal === undefined || cancelVia === undefined) {
-        const rows = await executeOn(client, query);
-        signal?.throwIfAborted();
-        return rows;
+        const ownsPreparedConnection = prepared && !pinned && isPool(client);
+        const target = ownsPreparedConnection ? await client.connect() : client;
+        try {
+          const rows = await executeOn(target, query);
+          signal?.throwIfAborted();
+          return rows;
+        } finally {
+          if (ownsPreparedConnection) release(target);
+        }
       }
 
       const ownsConnection = !pinned && isPool(client);
@@ -117,23 +151,25 @@ function createPgDriver(client: PgQueryable, opts: PgOptions | undefined, pinned
     },
     ...(pinned || isPool(client)
       ? {
-          stream(query: CompiledQuery, executeOpts?: ExecuteOptions): AsyncIterable<Record<string, unknown>> {
+          stream(query: CompiledQuery, executeOptions?: ExecuteOptions): AsyncIterable<Record<string, unknown>> {
             return streamPostgres(
               client,
               query,
-              executeOpts,
-              opts?.cancelVia,
+              executeOptions,
+              options?.cancelVia,
               pinned,
-              `zmdb_${(cursorSeq++).toString(36)}`,
+              `zmdb_${(cursorSequence++).toString(36)}`,
             );
           },
         }
       : {}),
-    async transaction<Result>(run: (driver: Driver) => Promise<Result>): Promise<Result> {
-      if (!isPool(client)) return runTransaction(client, opts, run);
+    async transaction<Result>(run: (transaction: Driver<Name>) => Promise<Result>): Promise<Result> {
+      if (!isPool(client)) {
+        return runTransaction(dialect, client, options, preparedStates, run);
+      }
       const connection = await client.connect();
       try {
-        return await runTransaction(connection, opts, run);
+        return await runTransaction(dialect, connection, options, preparedStates, run);
       } finally {
         connection.release();
       }
@@ -142,12 +178,14 @@ function createPgDriver(client: PgQueryable, opts: PgOptions | undefined, pinned
   return driver;
 }
 
-async function runTransaction<Result>(
+async function runTransaction<Name extends string, Result>(
+  dialect: SqlDialect<Name>,
   connection: PgQueryable,
   options: PgOptions | undefined,
-  run: (driver: Driver) => Promise<Result>,
+  preparedStates: WeakMap<PgQueryable, PreparedState>,
+  run: (transaction: Driver<Name>) => Promise<Result>,
 ): Promise<Result> {
-  const transactionDriver = createPgDriver(connection, options, true);
+  const transactionDriver = createPostgresDriver(dialect, connection, options, true, preparedStates);
   await connection.query('BEGIN');
   try {
     const result = await run(transactionDriver);
@@ -163,7 +201,7 @@ async function backendPid(connection: PgQueryable): Promise<number> {
   const result = await connection.query('SELECT pg_backend_pid() AS pid');
   const pid = result.rows[0]?.['pid'];
   if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) {
-    throw new Error('pgDriver could not read a valid pg_backend_pid()');
+    throw new Error('postgresDriver could not read a valid pg_backend_pid()');
   }
   return pid;
 }
@@ -173,9 +211,6 @@ function forwardAbort(signal: AbortSignal, pid: number, cancelVia: PgQueryable):
   const cancel = (): void => {
     if (sent) return;
     sent = true;
-    // Rejecting only in JavaScript would leave PostgreSQL doing work for a
-    // caller that has already gone away. The cancel must reach a second
-    // connection because it would queue behind the query on the busy one.
     void cancelVia.query('SELECT pg_cancel_backend($1)', [pid]).catch(() => {});
   };
   signal.addEventListener('abort', cancel, { once: true });
@@ -192,29 +227,22 @@ function streamPostgres(
   cursorName: string,
 ): AsyncIterable<Record<string, unknown>> {
   const batchSize = options?.batchSize ?? 100;
-  if (!Number.isInteger(batchSize) || batchSize <= 0) {
-    throw new RangeError('batchSize must be a positive integer');
+  if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
+    throw new RangeError('batchSize must be a positive safe integer');
   }
 
   return {
     [Symbol.asyncIterator](): AsyncIterator<Record<string, unknown>, void, unknown> {
-      const signal = options?.signal;
-      let cleanupFailed = false;
       let cleanupFailure: unknown;
       const generator = (async function* (): AsyncGenerator<Record<string, unknown>, void, unknown> {
+        const signal = options?.signal;
         signal?.throwIfAborted();
         const ownsConnection = !pinned && isPool(client);
         const connection = ownsConnection ? await client.connect() : client;
         let transactionOpen = false;
         let cursorOpen = false;
-        let bodyFailed = false;
         let bodyFailure: unknown;
         let removeAbort = (): void => {};
-
-        const rememberCleanupFailure = (error: unknown): void => {
-          if (!cleanupFailed) cleanupFailure = error;
-          cleanupFailed = true;
-        };
 
         try {
           signal?.throwIfAborted();
@@ -228,63 +256,57 @@ function streamPostgres(
             await connection.query('BEGIN');
             transactionOpen = true;
           }
-
           await connection.query({
             text: `DECLARE "${cursorName}" NO SCROLL CURSOR FOR ${query.text}`,
             values: query.parameters,
           });
           cursorOpen = true;
 
-          let exhausted = false;
-          while (!exhausted) {
+          while (true) {
             signal?.throwIfAborted();
             const fetched = await connection.query(`FETCH FORWARD ${batchSize} FROM "${cursorName}"`);
             signal?.throwIfAborted();
-            exhausted = fetched.rows.length === 0;
+            if (fetched.rows.length === 0) break;
             for (const row of fetched.rows) {
               signal?.throwIfAborted();
               yield row;
             }
           }
         } catch (error) {
-          bodyFailed = true;
           bodyFailure = signal?.aborted === true ? signal.reason : error;
         } finally {
           removeAbort();
-
           if (cursorOpen) {
             try {
               await connection.query(`CLOSE "${cursorName}"`);
             } catch (error) {
-              rememberCleanupFailure(error);
+              cleanupFailure ??= error;
             }
           }
-
           if (transactionOpen) {
             try {
-              await connection.query(bodyFailed || cleanupFailed ? 'ROLLBACK' : 'COMMIT');
+              await connection.query(bodyFailure === undefined && cleanupFailure === undefined ? 'COMMIT' : 'ROLLBACK');
             } catch (error) {
-              rememberCleanupFailure(error);
+              cleanupFailure ??= error;
               try {
                 await connection.query('ROLLBACK');
               } catch (rollbackError) {
-                rememberCleanupFailure(rollbackError);
+                cleanupFailure ??= rollbackError;
               }
             }
           }
-
           if (ownsConnection) release(connection);
         }
 
-        if (bodyFailed) throw bodyFailure;
-        if (cleanupFailed) throw cleanupFailure;
+        if (bodyFailure !== undefined) throw bodyFailure;
+        if (cleanupFailure !== undefined) throw cleanupFailure;
       })();
 
       return {
         next: () => generator.next(),
         async return() {
           const result = await generator.return(undefined);
-          if (cleanupFailed) throw cleanupFailure;
+          if (cleanupFailure !== undefined) throw cleanupFailure;
           return result;
         },
         throw: error => generator.throw(error),
@@ -294,13 +316,12 @@ function streamPostgres(
 }
 
 function release(connection: PgQueryable): void {
-  const releaseMethod = Reflect.get(connection, 'release');
-  if (typeof releaseMethod === 'function') Reflect.apply(releaseMethod, connection, []);
+  const method = Reflect.get(connection, 'release');
+  if (typeof method === 'function') Reflect.apply(method, connection, []);
 }
 
 function isPool(client: PgQueryable): client is PgPoolQueryable {
   return (
-    'connect' in client &&
     typeof client.connect === 'function' &&
     'totalCount' in client &&
     typeof client.totalCount === 'number' &&

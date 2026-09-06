@@ -85,19 +85,19 @@ for (const op of changes) {
 
 ## Version Table
 
-The migration runner creates a `_zmdb_migrations` table to track applied versions:
+The PostgreSQL migration runner creates a `_zmdb_migrations` table to track applied versions:
 
 ```sql
 CREATE TABLE IF NOT EXISTS _zmdb_migrations (
   version BIGINT PRIMARY KEY,
   name TEXT NOT NULL,
-  applied_at BIGINT NOT NULL,
+  applied_at TIMESTAMPTZ NOT NULL,
   checksum TEXT
 )
 ```
 
-SQLite uses `INTEGER` for both numeric columns because its integer storage is already 64-bit. A null checksum identifies history written by an older runner; new rows store SHA-256 over the exact `up`
-section.
+PostgreSQL binds `applied_at` as a JavaScript `Date`, preserving an instant rather than a local wall clock. SQLite uses `INTEGER` for both numeric columns because its integer storage is already
+64-bit; other database packages own their corresponding ledger representation. A null checksum identifies history written by an older runner; new rows store SHA-256 over the exact `up` section.
 
 > [!TIP] Always store migrations in version control. Pair with the CLI runner for local development.
 

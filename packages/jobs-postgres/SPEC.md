@@ -16,11 +16,10 @@ export interface PgJobStoreOptions {
 export function createPgJobStore(client: PgJobClient, options?: PgJobStoreOptions): JobStore;
 ```
 
-The root is the only export. It depends on `@zmdb/jobs` and `@zmdb/repository` at `workspace:^` and declares one required external peer, `pg@^8.23.0`; release tests use `pg@8.23.0` and
+The root is the only export. It depends on `@zmdb/jobs` and `@zmdb/postgres` at `workspace:^` and declares one required external peer, `pg@^8.23.0`; release tests use `pg@8.23.0` and
 `@types/pg@^8.23.1`.
 
-The package implements the structural `JobStore` port by delegating to the public `@zmdb/repository/drivers/pg` adapter. It does not own queue SQL, workers, scheduling, migrations or a second job
-state machine.
+The package implements the structural `JobStore` port by delegating to the public `@zmdb/postgres` adapter. It does not own queue SQL, workers, scheduling, migrations or a second job state machine.
 
 ## 2. Lifecycle
 

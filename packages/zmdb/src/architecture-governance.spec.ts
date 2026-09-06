@@ -458,7 +458,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 31 catalog packages, 52 workspace edges, and canonical rings verified.',
+      'architecture zones: 32 catalog packages, 55 workspace edges, and canonical rings verified.',
     );
   });
 
@@ -580,7 +580,7 @@ describe('architecture and release governance fixtures', () => {
   it('rejects a stale tooling or peer exemption', () => {
     const result = runVerifier(VERIFIERS.runtime, ROOT, '--self-test');
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('runtime reachability self-test: 9 case(s) passed.');
+    expect(result.stdout).toContain('runtime reachability self-test: 10 case(s) passed.');
     expect(result.stderr).toBe('');
   });
 

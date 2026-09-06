@@ -20,6 +20,13 @@ const OWNERSHIP_SPEC = '.github/scripts/verify-runtime-foundation.SPEC.md';
 const CONSUMER_ROOT = 'fixtures/consumer-runtime-foundation';
 const OLD_PACKAGES = ['@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/repository', '@zmdb/schema-core'];
 const OPTIONAL_TARGETS = ['@zmdb/ai', '@zmdb/mssql', '@zmdb/postgres', '@zmdb/sqlite'];
+const TRANSITIONAL_OPTIONAL_EDGES = new Map([
+  // #670 implements the PostgreSQL vertical against the current generic seams.
+  // #634 owns the hard cutover to @zmdb/sql and @zmdb/orm. Keep this exact
+  // old-package closure visible to oldPackageProblems (and therefore strict
+  // mode) while refusing any unrelated workspace edge here.
+  ['@zmdb/postgres', new Set(OLD_PACKAGES)],
+]);
 const FORBIDDEN_RUNTIME_PACKAGES = new Set([
   '@zmdb/ai',
   '@zmdb/ai-anthropic',
@@ -312,6 +319,7 @@ function optionalDirectionProblems(root, graph) {
     for (const imported of references) {
       const reached = packageRoot(imported.specifier);
       if (FOUNDATION_PACKAGES.some(foundation => foundation.name === reached)) continue;
+      if (TRANSITIONAL_OPTIONAL_EDGES.get(target)?.has(reached) === true) continue;
       if (
         imported.specifier.startsWith('.') ||
         imported.specifier.startsWith('node:') ||

@@ -123,6 +123,7 @@ const PACKAGES = [
   'protobuf',
   'repository',
   'query-compiler',
+  'postgres',
   'sqlite',
   'app',
   'jobs',

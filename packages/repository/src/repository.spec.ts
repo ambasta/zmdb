@@ -4,8 +4,8 @@ import type { CreateDTO, ValidationIssue } from '@zmdb/schema-core';
 import type { Length, Max, Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
+import { usePostgres } from '../../postgres/src/testing/fixture.js';
 import { BaseRepository, ValidationError, type Driver } from './index.js';
-import { usePostgres } from './pg-fixture.js';
 
 // #25: repository CRUD + validation interception.
 

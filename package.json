@@ -41,6 +41,7 @@
     "verify:build-budget": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-build-budget.mjs",
     "verify:config-contract": "node .github/scripts/verify-config-contract.mjs",
     "verify:database-boundaries": "node .github/scripts/verify-database-boundaries.mjs && node .github/scripts/verify-database-boundaries.mjs --self-test",
+    "verify:database-postgres": "node fixtures/database-postgres/verify-installed.mjs",
     "verify:devtools-boundary": "node .github/scripts/verify-devtools-boundary.mjs",
     "verify:docs-coverage": "node .github/scripts/verify-docs-coverage.mjs",
     "verify:docs-generated": "node .github/scripts/verify-docs-generated.mjs",

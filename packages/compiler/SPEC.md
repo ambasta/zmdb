@@ -125,7 +125,7 @@ export interface ToolingDriver {
 }
 ```
 
-The existing repository drivers satisfy this interface. Config remains tooling-only; importing an application runtime never discovers or evaluates it.
+The concrete database-package drivers satisfy this interface. Config remains tooling-only; importing an application runtime never discovers or evaluates it.
 
 `zmdb/config` is the sole stable product config entry and is a direct identity facade over this implementation. It contains no loader implementation. `@zmdb/cli` imports the compiler subpath directly.
 No `@zmdb/cli/config` public subpath exists.

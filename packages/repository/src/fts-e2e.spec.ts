@@ -5,8 +5,8 @@ import type { Fts, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags
 import { sqliteDriver } from '@zmdb/sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { usePostgres } from '../../postgres/src/testing/fixture.js';
 import { BaseRepository } from './index.js';
-import { usePostgres } from './pg-fixture.js';
 
 const pg = usePostgres(async pool => {
   await pool.query('DROP TABLE IF EXISTS fts_docs');

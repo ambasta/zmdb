@@ -221,6 +221,19 @@ function rangeWitness(range) {
   return undefined;
 }
 
+function dependencyRangeWitness(range, dependency, catalogByName) {
+  if (range !== 'workspace:^') return rangeWitness(range);
+  const packageRecord = catalogByName.get(dependency);
+  return packageRecord === undefined ? undefined : parseSemver(packageRecord.manifest.version);
+}
+
+function dependencyRangeContains(range, witness, dependency, catalogByName) {
+  if (range !== 'workspace:^') return satisfiesRange(witness, range);
+  const packageRecord = catalogByName.get(dependency);
+  const expected = packageRecord === undefined ? undefined : parseSemver(packageRecord.manifest.version);
+  return expected !== undefined && compareSemver(witness, expected) === 0;
+}
+
 function releaseChannel(version) {
   if (version.prerelease.length === 0) return 'latest';
   const channel = version.prerelease[0];
@@ -668,10 +681,13 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
       );
     }
     const devRange = sections.devDependencies[peer];
-    const witness = rangeWitness(devRange);
+    const witness = dependencyRangeWitness(devRange, peer, catalogByName);
     if (typeof devRange !== 'string') {
       diagnostics.push(peerDiagnostic(packageRecord, peer, 'devDependencies evidence is missing'));
-    } else if (typeof range === 'string' && (witness === undefined || !satisfiesRange(witness, range))) {
+    } else if (
+      typeof range === 'string' &&
+      (witness === undefined || !dependencyRangeContains(range, witness, peer, catalogByName))
+    ) {
       diagnostics.push(
         peerDiagnostic(
           packageRecord,
@@ -698,10 +714,13 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
         diagnostics.push(peerDiagnostic(packageRecord, peer, 'required peer must omit peerDependenciesMeta'));
       }
       const devRange = sections.devDependencies[peer];
-      const witness = rangeWitness(devRange);
+      const witness = dependencyRangeWitness(devRange, peer, catalogByName);
       if (typeof devRange !== 'string') {
         diagnostics.push(peerDiagnostic(packageRecord, peer, 'required peer has no devDependencies evidence'));
-      } else if (typeof range === 'string' && (witness === undefined || !satisfiesRange(witness, range))) {
+      } else if (
+        typeof range === 'string' &&
+        (witness === undefined || !dependencyRangeContains(range, witness, peer, catalogByName))
+      ) {
         diagnostics.push(
           peerDiagnostic(
             packageRecord,
@@ -1009,6 +1028,44 @@ async function runSelfTest() {
   assertDiagnostics('optional peer metadata', packageMetadataDiagnostics(optionalPeerDrift), [
     '[PACKAGE_PEER_METADATA] @fixture/app peer fixture-peer: peerDependenciesMeta.fixture-peer.optional is missing. Remediation: align the declaration and prove the range with the real peer.',
   ]);
+
+  const internalOptionalPeer = {
+    ...valid,
+    packages: valid.packages.map(packageRecord => {
+      if (packageRecord.id !== 'app') return packageRecord;
+      return {
+        ...packageRecord,
+        manifest: {
+          ...packageRecord.manifest,
+          dependencies: Object.fromEntries(
+            Object.entries(packageRecord.manifest.dependencies).filter(([name]) => name !== '@fixture/core'),
+          ),
+          devDependencies: {
+            '@fixture/core': 'workspace:^',
+            ...packageRecord.manifest.devDependencies,
+          },
+          peerDependencies: {
+            '@fixture/core': 'workspace:^',
+            ...packageRecord.manifest.peerDependencies,
+          },
+          peerDependenciesMeta: {
+            '@fixture/core': {
+              optional: true,
+            },
+            ...packageRecord.manifest.peerDependenciesMeta,
+          },
+        },
+        policy: {
+          ...packageRecord.policy,
+          optionalPeerEntries: {
+            ...packageRecord.policy.optionalPeerEntries,
+            '@fixture/core': ['.'],
+          },
+        },
+      };
+    }),
+  };
+  assertDiagnostics('internal optional peer metadata', packageMetadataDiagnostics(internalOptionalPeer), []);
 
   const workspaceDrift = architectureWithManifest(valid, 'app', manifest => ({
     ...manifest,

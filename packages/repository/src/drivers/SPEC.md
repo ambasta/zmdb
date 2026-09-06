@@ -1,5 +1,8 @@
 # SPEC — First-party driver adapters (frozen)
 
+> PostgreSQL implementation status: extracted to `@zmdb/postgres` by #670. The PostgreSQL sections below remain the behavioral contract; the generic repository no longer exports the adapter or
+> declares `pg`.
+
 ## Issue #635 ownership exit
 
 `Driver`, `ExecuteOptions`, and `TransactionalDriver` remain structural contracts in `@zmdb/orm`. Concrete adapters move to `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql`. Their client peers and
@@ -29,7 +32,7 @@ interface PgOptions {
   maxCacheSize?: number;
   cancelVia?: PgQueryable;
 } // opt-in server-side prepared stmts
-function pgDriver(client: Pool | Client, opts?: PgOptions): TransactionalDriver;
+function postgresDriver(client: Pool | Client, opts?: PgOptions): TransactionalDriver<'postgres'>;
 
 // mssql — pass an already-connected node-mssql pool
 interface MssqlRequest {
@@ -68,12 +71,13 @@ function mssqlDriver(pool: MssqlPool): TransactionalDriver;
 - All three return a `TransactionalDriver` for the migration runner. SQLite issues `BEGIN` / `COMMIT` / `ROLLBACK` on its database handle. Postgres pins the callback to one client; when given a pool
   it checks that client out and releases it in `finally`. SQL Server creates one node-mssql `Transaction` and every callback request comes from that transaction until commit or rollback.
 
-### pgDriver (#213)
+### postgresDriver (#213, extracted by #670)
 
 - `execute(q)`: `client.query(q.text, q.parameters)` → return `result.rows`.
 - With `opts.prepared === true`, use a stable statement `name` derived from the SQL text so Postgres caches the plan (server-side prepared statement). Kept opt-in to preserve the zero-state default
   (see the benchmarks tail trade-off).
 - Internal statement name cache is LRU-bounded (default 1000 entries); evicting a statement issues `DEALLOCATE <name>` to clean up server-side state.
+- `maxCacheSize: 0` uses PostgreSQL's unnamed extended-query execution, so prepared execution cannot accumulate named server state.
 - Ordinary `execute` never manages connection lifecycle. `transaction` is the explicit exception: a pool client is acquired for the callback and released afterwards so `BEGIN`, the work, and `COMMIT`
   or `ROLLBACK` cannot hop connections.
 
@@ -101,7 +105,7 @@ interface PgOptions {
 
 export interface PgQueryable {
   query(/* … as today … */): Promise<{ rows: Record<string, unknown>[] }>;
-  /** Optional. Without it, pgDriver ships no `stream`. */
+  /** Optional. Without it, postgresDriver ships no `stream`. */
   connect?(): Promise<PgConnection>;
 }
 interface PgConnection extends PgQueryable {
@@ -113,8 +117,8 @@ interface PgConnection extends PgQueryable {
 there is no round trip to batch. The cache stays as it is, with one addition: a statement being iterated is not evictable, because dropping the handle mid-walk would free native memory the iterator is
 standing on. Cancellation is only ever between rows; `node:sqlite` exposes no `sqlite3_interrupt`, so a slow single statement runs to completion.
 
-**`pgDriver` streams only when it can check out a connection.** With no `connect` on the queryable, the returned object has **no `stream` property at all**, so the repository buffers by its normal
-capability check instead of taking a cursor path that would throw.
+**`postgresDriver` streams only when it can check out a connection.** With no `connect` on the queryable, the returned object has **no `stream` property at all**, so the repository buffers by its
+normal capability check instead of taking a cursor path that would throw.
 
 With one: check out, read `pg_backend_pid()`, `BEGIN`, `DECLARE … CURSOR FOR <query.text>` with the parameters, `FETCH FORWARD <batchSize>` per round trip, then `CLOSE`, `COMMIT` and release on
 cleanup — in a `finally`, so an abandoned iterator that does get closed cannot leave the connection in a transaction.
@@ -128,8 +132,8 @@ rather than half-applying it.
 ## Packaging
 
 - SQLite is exposed by `@zmdb/sqlite` and its `@zmdb/sqlite/node` subpath. `@zmdb/repository/drivers/sqlite` has been removed.
-- The remaining compatibility adapters are `@zmdb/repository/drivers/pg` and `@zmdb/repository/drivers/mssql`.
-- `pg` is a development dependency of the repository while its vertical extraction is pending. The SQLite package declares no third-party database client.
+- PostgreSQL is exposed by `@zmdb/postgres`; `pg` is that package's optional peer and development dependency, never a dependency of the generic repository.
+- The remaining compatibility adapter is `@zmdb/repository/drivers/mssql`.
 - `mssql` is a development dependency for the real E2E suite, not a published runtime dependency. Consumers install their chosen compatible node-mssql package and pass its connected pool to the
   structural adapter.
 
@@ -137,15 +141,15 @@ rather than half-applying it.
 
 - sqlite driver: package-owned E2E against an in-memory `node:sqlite` DB — migration and CRUD round-trips, catalog introspection, native iterator streaming, abort between stepped rows,
   active-statement cache safety and a real rollback (always runs, no external service).
-- pg driver: unit test with a fake `query` recorder asserts it calls `query(text, params)` and returns `.rows`; prepared mode passes a stable `name`; pool and transaction cursors prove command order
-  and cleanup. Live-PG E2E proves parameterised `DECLARE`, repeated early-return pool safety and `pg_cancel_backend` cancellation when reachable.
+- PostgreSQL driver: package-owned recorder tests cover query dispatch, stable prepared names, pool and transaction cursor command order, and cleanup. The fail-closed packed PostgreSQL 16 consumer
+  proves parameterised `DECLARE`, repeated early-return pool safety, out-of-band cancellation, pinned transactions, and server-side `DEALLOCATE`.
 - mssql driver: unit tests record the `p1…pn` bindings, recordset return and transaction-owned requests. A real suite runs DDL, CRUD and transactional rollback through SQL Server when `ZMDB_MSSQL_URL`
   is reachable, and emits a visible `[skip] SQL Server E2E: …` reason otherwise.
 
 ## Database vertical target (issue #666)
 
-The sections above describe the current repository-owned adapters. Epic #665 moves each adapter into the package that owns the complete database vertical. Issue #668 implements the runtime object seam
-while preserving optional built-in names and the separate dialect argument for compatibility. This section describes the stricter contract after extraction.
+The SQL Server sections above describe the remaining repository-owned compatibility adapter. SQLite completed extraction in #669 and PostgreSQL completed it in #670. Issue #668 implemented the runtime
+object seam while preserving optional built-in names and the separate dialect argument for compatibility.
 
 ### Generic repository protocol
 

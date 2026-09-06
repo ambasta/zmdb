@@ -2,17 +2,17 @@ import { performance } from 'node:perf_hooks';
 
 import { describe, expect, it } from 'vitest';
 
-import { usePostgres } from '../pg-fixture.js';
-import { pgDriver } from './pg.js';
+import { postgresDriver } from './index.js';
+import { usePostgres } from './testing/fixture.js';
 
 const pg = usePostgres(async () => {});
 
-describe('pgDriver streaming and cancellation (#462)', () => {
+describe('postgresDriver streaming and cancellation (#462)', () => {
   it('streams parameterised rows through a real PostgreSQL cursor', async () => {
     if (!pg.reachable()) return;
-    const driver = pgDriver(pg.pool());
+    const driver = postgresDriver(pg.pool());
     const stream = driver.stream;
-    if (stream === undefined) throw new Error('pgDriver did not expose stream for a pool');
+    if (stream === undefined) throw new Error('postgresDriver did not expose stream for a pool');
 
     const rows: Record<string, unknown>[] = [];
     for await (const row of stream(
@@ -31,9 +31,9 @@ describe('pgDriver streaming and cancellation (#462)', () => {
   it('releases the connection when an iterator is abandoned', async () => {
     if (!pg.reachable()) return;
     const pool = pg.pool();
-    const driver = pgDriver(pool);
+    const driver = postgresDriver(pool);
     const stream = driver.stream;
-    if (stream === undefined) throw new Error('pgDriver did not expose stream for a pool');
+    if (stream === undefined) throw new Error('postgresDriver did not expose stream for a pool');
 
     for (let index = 0; index < 20; index++) {
       for await (const _row of stream(
@@ -55,7 +55,7 @@ describe('pgDriver streaming and cancellation (#462)', () => {
   it('cancels the server-side query on abort', async () => {
     if (!pg.reachable()) return;
     const pool = pg.pool();
-    const driver = pgDriver(pool, { cancelVia: pool });
+    const driver = postgresDriver(pool, { cancelVia: pool });
     const controller = new AbortController();
     const reason = new Error('request deadline reached');
     const startedAt = performance.now();

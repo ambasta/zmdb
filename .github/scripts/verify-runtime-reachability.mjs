@@ -329,8 +329,21 @@ export function analyzeRuntimeReachability(root, architecture, graph = createImp
 
         if (workspaceExport !== undefined) {
           const kind = dependencyKind(current.context.package, workspaceExport.package.npmName);
+          const peer = workspaceExport.package.npmName;
+          const assignments = current.context.package.policy.optionalPeerEntries[peer];
+          const manifestOptional =
+            kind === 'peerDependency' &&
+            isRecord(record(current.context.package.manifest.peerDependenciesMeta)[peer]) &&
+            record(current.context.package.manifest.peerDependenciesMeta)[peer].optional === true;
+          if (assignments !== undefined || manifestOptional) {
+            if (assignments?.includes(current.context.selector) === true) {
+              optionalPeerUses.add(`${current.context.package.id}\u0000${peer}\u0000${current.context.selector}`);
+            } else {
+              addPeerLeak(entry, peer, trail);
+            }
+          }
           if (kind === 'missing' || kind === 'devDependency') {
-            addUndeclared(entry, current.context.package, workspaceExport.package.npmName, trail);
+            addUndeclared(entry, current.context.package, peer, trail);
           }
           const nextContext = contextFor(workspaceExport.package, workspaceExport.selector);
           if (mode === 'runtime' && !entry.tooling && !current.context.tooling && nextContext.tooling) {
@@ -581,6 +594,42 @@ async function runSelfTest(root) {
     )
   ) {
     throw new Error(`stale peer self-test received ${JSON.stringify(stalePeerReport.diagnostics)}`);
+  }
+  passed++;
+
+  const workspaceOptionalPeer = cloneArchitecturePackage(valid, 'app', packageRecord => ({
+    ...packageRecord,
+    manifest: {
+      ...packageRecord.manifest,
+      dependencies: Object.fromEntries(
+        Object.entries(record(packageRecord.manifest.dependencies)).filter(([name]) => name !== '@fixture/core'),
+      ),
+      peerDependencies: {
+        ...record(packageRecord.manifest.peerDependencies),
+        '@fixture/core': 'workspace:^',
+      },
+      peerDependenciesMeta: {
+        ...record(packageRecord.manifest.peerDependenciesMeta),
+        '@fixture/core': {
+          optional: true,
+        },
+      },
+    },
+    policy: {
+      ...packageRecord.policy,
+      optionalPeerEntries: {
+        ...packageRecord.policy.optionalPeerEntries,
+        '@fixture/core': ['.'],
+      },
+    },
+  }));
+  const workspaceOptionalPeerReport = await verifyRuntimeReachability(validRoot, {
+    architecture: workspaceOptionalPeer,
+  });
+  if (workspaceOptionalPeerReport.diagnostics.length > 0) {
+    throw new Error(
+      `workspace optional-peer self-test received ${JSON.stringify(workspaceOptionalPeerReport.diagnostics)}`,
+    );
   }
   passed++;
 

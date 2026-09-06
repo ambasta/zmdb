@@ -459,17 +459,19 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Thirty published packages</h2>
+  <h2>Thirty-two published packages</h2>
   <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in client/framework, gRPC, NATS, RabbitMQ, Redis, MCP, OpenTelemetry, or another implementation package on its own.</p>
     <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
     <div class="pkg"><code>@zmdb/react</code><p>React context, query, and mutation lifecycle bindings for generated HTTP clients.</p></div>
+    <div class="pkg"><code>@zmdb/react-native</code><p>React Native AppState, connectivity, credential-store, and offline lifecycle policy over the React client binding.</p></div>
     <div class="pkg"><code>@zmdb/angular</code><p>Angular dependency injection, signals, Observable cancellation, and request-local generated-client ownership.</p></div>
     <div class="pkg"><code>@zmdb/vue</code><p>Vue plugin, reactive query and mutation composables, scope cancellation, and per-application SSR isolation.</p></div>
     <div class="pkg"><code>@zmdb/svelte</code><p>Typed Svelte context, subscription-aware stores, stale-result suppression, and lifecycle cancellation.</p></div>
     <div class="pkg"><code>@zmdb/sveltekit</code><p>Request-local server/client loads, explicit credential forwarding, native errors, and navigation cancellation.</p></div>
     <div class="pkg"><code>@zmdb/solid</code><p>Solid context, native resources, owner cancellation, stale-result suppression, and native Suspense/error propagation.</p></div>
     <div class="pkg"><code>@zmdb/next</code><p>Request-scoped App Router server clients and browser bindings over <code>@zmdb/react</code>.</p></div>
+    <div class="pkg"><code>@zmdb/nuxt</code><p>Request-scoped Nitro transport, native hydration, and browser bindings over <code>@zmdb/vue</code>.</p></div>
     <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>
     <div class="pkg"><code>@zmdb/schema-core</code><p>Schema DSL + type derivation (Entity / Create / Update / read DTOs), relations, OpenAPI, seeding, custom types.</p></div>
     <div class="pkg"><code>@zmdb/ai</code><p>Provider-neutral tool documents, bounded chat orchestration, shared invocation, and OpenAPI-derived tools.</p></div>
@@ -480,6 +482,7 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/protobuf</code><p>Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts.</p></div>
     <div class="pkg"><code>@zmdb/aot-validator</code><p>AOT is / assert / validate / equals / random, unions, transforms, and JSON Ser/De — inlined at build time.</p></div>
     <div class="pkg"><code>@zmdb/repository</code><p>Auto-validating CRUD, transactions, populate, read-replicas, lifecycle events, framework adapters.</p></div>
+    <div class="pkg"><code>@zmdb/postgres</code><p>Complete PostgreSQL dialect, migrations, catalog introspection, structural <code>pg</code> driver, cursors, and cancellation.</p></div>
     <div class="pkg"><code>@zmdb/sqlite</code><p>Complete SQLite dialect, migrations, introspection, embedded runner, and structural <code>node:sqlite</code> driver.</p></div>
     <div class="pkg"><code>@zmdb/app</code><p>Protocol-neutral metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, and observability ports.</p></div>
     <div class="pkg"><code>@zmdb/jobs</code><p>Typed queues, workers, dead letters, scheduling, leases, and the built-in SQLite memory backend.</p></div>

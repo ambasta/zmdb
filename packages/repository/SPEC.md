@@ -4,9 +4,8 @@
 
 ## Issue #635 target ownership
 
-The current package has 21 build-included TypeScript files and 10 export-map entries after the SQLite adapter moved to `@zmdb/sqlite`. Sixteen current files move to `@zmdb/orm`; PostgreSQL owns two,
-SQL Server owns one, web owns the endpoint integration, and jobs owns the job-storage module. The compiler outbox file adds the seventeenth ORM-owned file in the complete 137-file map amended after
-#656.
+The current package has 19 build-included TypeScript files and 9 export-map entries after the SQLite and PostgreSQL adapters moved to `@zmdb/sqlite` and `@zmdb/postgres`. Sixteen current files move to
+`@zmdb/orm`; SQL Server owns one, web owns the endpoint integration, and jobs owns the job-storage module. The compiler outbox file remains the seventeenth ORM-owned file in the target ownership map.
 
 `@zmdb/orm` depends exactly on `@zmdb/schema`, `@zmdb/sql`, and `@zmdb/validator`. Concrete database clients, built-ins, web/jobs, compiler, migrations, and AI are not reachable. The old package and
 every `@zmdb/repository/*` import are deleted rather than forwarded.
@@ -117,13 +116,13 @@ production, unread:
 adapter cannot dodge.
 
 The pid has to be read on the same connection that runs the query, which means the stream must hold a checked-out connection rather than call `pool.query()` per statement — the same requirement the
-cursor already imposes. And `PgQueryable` is deliberately minimal (`text`/`config` overloads only, no `connect()`), so `pgDriver` gets a second connection only if it is given one:
+cursor already imposes. And `PgQueryable` is deliberately minimal (`text`/`config` overloads plus optional `connect()`), so `postgresDriver` gets a second connection only if it is given one:
 
-- `PgQueryable` gains an **optional** `connect?()`. When it is absent, `pgDriver` **omits `stream` from the object it returns**, so the repository's buffering fallback engages by the normal capability
-  check instead of a cursor path that throws on first `next()`. Omitting beats throwing here: a driver that advertises a method it cannot honour turns a documented degradation into a crash.
+- `PgQueryable` has an **optional** `connect?()`. When it is absent, `postgresDriver` **omits `stream` from the object it returns**, so the repository's buffering fallback engages by the normal
+  capability check instead of a cursor path that throws on first `next()`. Omitting beats throwing here: a driver that advertises a method it cannot honour turns a documented degradation into a crash.
 - Cancellation additionally needs a connection that is _not_ the busy one. On a `Pool` that is any other member; on a bare `Client` there is none, and a `pg_cancel_backend` sent down the blocked
-  socket queues behind the query it is meant to kill. `pg` exposes no way to tell the two apart through a structural type, so it is explicit: `pgDriver(client, { cancelVia })`, a second `PgQueryable`
-  used for nothing but the cancel. Without it, abort is tier one plus "stop fetching further batches", which for a cursor is most of the value anyway.
+  socket queues behind the query it is meant to kill. `pg` exposes no way to tell the two apart through a structural type, so it is explicit: `postgresDriver(client, { cancelVia })`, a second
+  `PgQueryable` used for nothing but the cancel. Without it, abort is tier one plus "stop fetching further batches", which for a cursor is most of the value anyway.
 
 **MySQL** is `KILL QUERY <id>` with the id from `CONNECTION_ID()`, on a second connection, under the same two constraints. **There is no bundled MySQL adapter**, so this is written for an implementer
 rather than as a description of shipped code.

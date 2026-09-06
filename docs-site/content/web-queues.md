@@ -71,8 +71,8 @@ const store = createPgJobStore(pool, {
 });
 ```
 
-The adapter delegates parameterized and prepared execution to the repository PostgreSQL driver but does not create, end, or release the supplied pool/client. Stop and drain workers first; the
-application then closes or releases the caller-owned PostgreSQL resource.
+The adapter delegates parameterized and prepared execution to the `@zmdb/postgres` driver but does not create, end, or release the supplied pool/client. Stop and drain workers first; the application
+then closes or releases the caller-owned PostgreSQL resource.
 
 ## Registering typed work
 

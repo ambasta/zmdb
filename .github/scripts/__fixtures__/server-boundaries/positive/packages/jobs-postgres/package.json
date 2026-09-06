@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "@zmdb/jobs": "workspace:^",
-    "@zmdb/repository": "workspace:^"
+    "@zmdb/postgres": "workspace:^"
   },
   "peerDependencies": {
     "pg": "^8.23.0"

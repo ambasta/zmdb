@@ -218,9 +218,12 @@ jobs:
         env:
           ZMDB_NATS_URL: nats://127.0.0.1:4222
           ZMDB_PG: postgres://postgres:postgres@127.0.0.1:5432/bench
+          ZMDB_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/bench
           ZMDB_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672
           ZMDB_REDIS_URL: redis://127.0.0.1:6379
-        run: yarn verify:server-integrations
+        run: |
+          yarn verify:server-integrations
+          yarn verify:database-postgres
 
   docs:
     name: Documentation Site Generation

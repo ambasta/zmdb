@@ -96,7 +96,8 @@ const users = new UserRepository(sqliteDriver(db), sqlite);
 > [!IMPORTANT] `schemaOf<T>()` is a **compile-time** call — the answer is a function of a type argument, and type arguments do not exist at runtime. The transformer replaces it with a frozen object
 > literal. An untransformed build throws a message saying exactly that; it does not hand back an empty schema. Wire up the [plugin](./aot-setup.html) or the [codegen CLI](./cli-codegen.html).
 
-> [!TIP] Use `pgDriver` from `@zmdb/repository/drivers/pg` for PostgreSQL. A full runnable example lives at `examples/quickstart.ts`. See [Drivers](./drivers.html).
+> [!TIP] Install `@zmdb/postgres` and `pg`, then use `postgresDriver(pool)` for PostgreSQL. The driver carries the same frozen dialect object used by compilation, migrations, and introspection. See
+> [Drivers](./drivers.html).
 
 > [!IMPORTANT] Rows you read back are **plain, inert objects**. Mutating `user.email = 'x'` persists nothing — writes only happen through `create`/`update`/`delete`. This is deliberate; see
 > [Why fetched rows are inert](./inert-rows.html).

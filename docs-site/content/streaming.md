@@ -72,9 +72,9 @@ That gives the _consumer_ an `AsyncIterable`, which is usually what the calling 
 `sqliteDriver` calls `StatementSync.iterate()` and decodes one stepped row at a time. `batchSize` has no effect because there is no client/server round trip to batch. An abort is observed between
 native steps; `node:sqlite` exposes no `sqlite3_interrupt`, so JavaScript cannot interrupt one slow step already running inside SQLite.
 
-`pgDriver(pool)` checks out one connection for the iterable, opens an explicit transaction, declares a parameterised cursor, fetches `batchSize` rows per round trip, and closes the cursor and releases
-the connection in `finally`. Breaking a `for await` loop therefore returns the connection to the pool. A consumer that manually calls `iterator.next()` still owns calling `iterator.return()` when it
-stops early.
+`postgresDriver(pool)` checks out one connection for the iterable, opens an explicit transaction, declares a parameterised cursor, fetches `batchSize` rows per round trip, and closes the cursor and
+releases the connection in `finally`. Breaking a `for await` loop therefore returns the connection to the pool. A consumer that manually calls `iterator.next()` still owns calling `iterator.return()`
+when it stops early.
 
 Other drivers can implement the same optional `Driver.stream` contract. When they do not, use `requireCursor: true` to refuse buffering or use keyset pagination as above.
 

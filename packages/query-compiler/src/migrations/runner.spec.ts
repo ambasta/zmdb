@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { pgDriver, type PgQueryable } from '../../../repository/src/drivers/pg.js';
+import { postgresDriver as pgDriver, type PgQueryable } from '../../../postgres/src/index.js';
 import {
   down,
   driverMigrationConnection,

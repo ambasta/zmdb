@@ -105,6 +105,11 @@ const MAY_READ = new Map([
       'SQLite declarations and refusals; it does not decide which application values a column admits.',
   ],
   [
+    'packages/postgres/src/migrations.ts',
+    'the extracted PostgreSQL DDL boundary. It turns normalized migration snapshots into PostgreSQL ' +
+      'types and schema-object SQL while the generic compatibility emitter remains until #675.',
+  ],
+  [
     'packages/query-compiler/src/introspect/mysql.ts',
     'the reverse MySQL catalog boundary. Its input is external catalog text, so no declaration ' +
       'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
@@ -118,6 +123,11 @@ const MAY_READ = new Map([
     'packages/sqlite/src/introspector.ts',
     'the reverse SQLite catalog boundary. Its input is external PRAGMA/catalog rows, so no declaration ' +
       'or TypeIR exists yet; it creates the normalized snapshot owned by the SQLite vertical.',
+  ],
+  [
+    'packages/postgres/src/introspect.ts',
+    'the package-owned reverse PostgreSQL catalog boundary. Its input is external catalog text, so ' +
+      'no declaration or TypeIR exists yet; it creates the vertical package snapshot independently.',
   ],
   [
     'packages/query-compiler/src/introspect/emit.ts',

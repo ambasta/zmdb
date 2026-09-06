@@ -57,8 +57,8 @@ A factory receives the `Container`, so it resolves whatever else it needs. There
 
 ```ts
 import { Pool } from 'pg';
+import { postgresDriver } from '@zmdb/postgres';
 import { defineRepository } from '@zmdb/repository';
-import { pgDriver } from '@zmdb/repository/drivers/pg';
 import type { Driver } from '@zmdb/repository';
 import { repositoryToken } from '@zmdb/web/data';
 
@@ -68,8 +68,8 @@ export const USERS = repositoryToken<User>('USERS');
 @Module({
   providers: [
     { token: CONFIG, useValue: loadConfig() },
-    { token: DRIVER, useFactory: c => pgDriver(new Pool({ connectionString: c.resolve(CONFIG).databaseUrl })) },
-    { token: USERS, useFactory: c => defineRepository(users, c.resolve(DRIVER), { dialect: 'postgres' }) },
+    { token: DRIVER, useFactory: c => postgresDriver(new Pool({ connectionString: c.resolve(CONFIG).databaseUrl })) },
+    { token: USERS, useFactory: c => defineRepository(users, c.resolve(DRIVER)) },
   ],
   controllers: [UsersController],
 })

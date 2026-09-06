@@ -4,11 +4,18 @@ here means the emitted SQL and refusals are covered; the repository does not cur
 ## Using it
 
 ```ts
+import { createQueryCompiler } from '@zmdb/query-compiler';
+import { defineRepository } from '@zmdb/repository';
+import { pgDriver } from 'zmdb/drivers/pg';
+
 const compiler = createQueryCompiler('cockroach');
 const userRepo = defineRepository(users, pgDriver(pool), { dialect: 'cockroach' });
 ```
 
-Use a Postgres-protocol client through the [Postgres driver](./connect-postgres.html); the driver boundary is unchanged:
+The `zmdb/drivers/pg` compatibility facade delegates to `@zmdb/postgres`. The future `@zmdb/cockroach` package consumes `postgresFamilyDriver`, `postgresFamilyIntrospector`, and
+`postgresFamilyMigrations` from that public parent surface; no Cockroach behavior is embedded in the PostgreSQL package.
+
+Use a Postgres-protocol client through the [Postgres driver](./connect-postgres.html):
 
 ```ts
 const pool = new Pool({ connectionString: process.env.COCKROACH_URL });

@@ -129,7 +129,7 @@ Three facts bound the effect:
    deliberately not cached; an operation that ignored the aborted signal may still be running.
 
 The repository and `Driver.execute` accept an optional `AbortSignal`, but `timeoutMs` still must not be presented as if it always stops the server-side statement. Postgres needs
-`pgDriver(pool, { cancelVia })`; SQLite cannot interrupt one native step; SQL Server and custom drivers remain advisory unless their adapters implement active cancellation. The distinctions are
+`postgresDriver(pool, { cancelVia })`; SQLite cannot interrupt one native step; SQL Server and custom drivers remain advisory unless their adapters implement active cancellation. The distinctions are
 documented in `docs-site/content/query-cancellation.md`.
 
 ## 5. Caching readiness, asymmetrically

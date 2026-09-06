@@ -1,10 +1,11 @@
-Dialect: `'postgres'`. zmdb has no client of its own — you write a `Driver` over `pg` or `postgres.js` and pass it to your repositories.
+Install `@zmdb/postgres` with the `pg` client selected by your application. The package supplies the immutable PostgreSQL dialect, migrations, introspector, and structural driver adapter; it never
+constructs a pool or opens a connection.
 
 ## With `node-postgres`
 
 ```ts
 import { Pool } from 'pg';
-import type { Driver } from '@zmdb/repository';
+import { postgresDriver } from '@zmdb/postgres';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -14,12 +15,7 @@ const pool = new Pool({
   application_name: 'my-service',
 });
 
-export const driver: Driver = {
-  async execute(query) {
-    const result = await pool.query(query.text, [...query.parameters]);
-    return result.rows;
-  },
-};
+export const driver = postgresDriver(pool, { cancelVia: pool });
 ```
 
 ## With `postgres.js`
@@ -48,7 +44,7 @@ first query.
 ```ts
 import { defineRepository } from '@zmdb/repository';
 
-const repo = defineRepository(users, pgDriver(pool), { dialect: 'postgres' });
+const repo = defineRepository(users, driver);
 
 await repo.findOne({ email: { eq: 'ada@example.com' } });
 ```
@@ -63,11 +59,11 @@ front — see below.
 
 ## PgBouncer
 
-In **transaction pooling** mode, prepared statements do not survive between statements, so turn them off in your client:
+Prepared statements are opt-in in `postgresDriver`. Keep the default when a proxy cannot preserve named statements for a backend session:
 
 ```ts
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, statement_timeout: 5_000 });
-// node-postgres: do not use `pool.query({ name: '...' })` — named statements break in transaction mode
+const driver = postgresDriver(pool); // prepared defaults to false
 ```
 
 `postgres.js` needs `prepare: false`. Also note that `SET LOCAL` works (it is transaction-scoped) but plain `SET` does not persist, which matters for [SQL comments](./sql-comments.html) and any
@@ -75,25 +71,16 @@ session variable you rely on.
 
 ## Transactions
 
-A transaction needs one pinned connection; a pool is free to use any. So build the transactional connection from a checked-out client:
+A transaction needs one pinned connection; a pool is free to use any. `postgresDriver(pool).transaction()` checks out one client for the whole callback and releases it in `finally`:
 
 ```ts
-import { createTransactionalDb } from '@zmdb/repository/transactions';
-
-const client = await pool.connect();
-try {
-  const db = createTransactionalDb({
-    execute: async q => (await client.query(q.text, [...q.parameters])).rows,
-  });
-  await db.transaction(async () => {
-    /* ... */
-  });
-} finally {
-  client.release();
-}
+await driver.transaction(async transaction => {
+  await transaction.execute({ text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
+  // every query here uses the same checked-out client
+});
 ```
 
-The `finally` is not optional — a client that is never released is a connection leaked for the lifetime of the process.
+The adapter owns only the checkout/release lifecycle for that callback. Pool construction, configuration, and shutdown remain application responsibilities.
 
 ## SSL
 

@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635, amended by #656, #668, #669, #705, #706, #707, #708, #709, #710 and #621
+# Runtime foundation boundary policy — issue #635, amended by #656, #668, #669, #705, #706, #707, #708, #709, #710, #621 and #670
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -20,23 +20,24 @@ exclude them; the ownership map therefore cannot pretend they are not shipped. G
 Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`. Issue #656 then
 moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`; #705 added the provider-neutral AI edge used by the compiler; #706 and
 #707 moved the Anthropic and LangChain peers; #708 moved the Vercel adapter, export and peer out of schema-core; #709 moved the MCP client/server implementation and export; #710 moved the final
-provider-neutral and LangChain implementations out of schema-core and removed its four LLM exports; and #669 moved the SQLite introspector and driver into the database package:
+provider-neutral and LangChain implementations out of schema-core and removed its four LLM exports; #669 moved the SQLite introspector and driver into its database package; and #670 moved the
+PostgreSQL driver and fixture out of repository:
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              14 |                  9 |
 | `@zmdb/query-compiler` |                              35 |                 14 |
 | `@zmdb/aot-validator`  |                              54 |                 14 |
-| `@zmdb/repository`     |                              21 |                 10 |
-| **Total**              |                         **124** |             **47** |
+| `@zmdb/repository`     |                              19 |                  9 |
+| **Total**              |                         **122** |             **46** |
 
-The four manifests contain 22 dependency entries: 7 `dependencies`, 2 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
+The four manifests contain 24 dependency entries: 7 `dependencies`, 4 `peerDependencies`, and 13 `devDependencies`. They contain no `optionalDependencies`.
 
 ## 2. Exact file ownership
 
-Every one of the 124 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
-path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite` section also records its seven package-owned production files outside that legacy input
-inventory.
+Every one of the 122 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
+path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite` and `@zmdb/postgres` sections also record their package-owned production files outside that
+legacy input inventory.
 
 ### `@zmdb/ai` — 0
 
@@ -173,14 +174,10 @@ packages/repository/src/typed-populate/fixtures.ts
 
 The five fixture/support files remain owned by ORM tests and must stop being published.
 
-### `@zmdb/postgres` — 2
+### `@zmdb/postgres` — 0 current generic files
 
-```text
-packages/repository/src/drivers/pg.ts
-packages/repository/src/pg-fixture.ts
-```
-
-`pg-fixture.ts` becomes package acceptance-test support and is excluded from the tarball.
+Issue #670 moved the former repository driver to `packages/postgres/src/driver.ts` and its fixture to `packages/postgres/src/testing/fixture.ts`. The fixture remains package acceptance-test support
+and is excluded from the tarball.
 
 ### `@zmdb/schema` — 15
 
@@ -287,7 +284,7 @@ No symbol may be temporarily exported from both destinations. A move and its imp
 
 ## 4. Public export map
 
-All 47 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
+All 46 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
 
 ### Current `@zmdb/schema-core` — 9
 
@@ -347,7 +344,7 @@ All 47 current export entries across the four foundation candidates have one dis
 | `./transformer`   | `@zmdb/compiler/transformer`    |
 | `./unplugin`      | `@zmdb/compiler/unplugin`       |
 
-### Current `@zmdb/repository` — 10
+### Current `@zmdb/repository` — 9
 
 | Old subpath         | Final public owner                                                                  |
 | ------------------- | ----------------------------------------------------------------------------------- |
@@ -359,11 +356,11 @@ All 47 current export entries across the four foundation candidates have one dis
 | `./integrations`    | `@zmdb/web/integrations`                                                            |
 | `./entity-modeling` | split between `@zmdb/orm/entity-modeling` and `@zmdb/schema/entity-modeling`, by §3 |
 | `./jobs`            | `@zmdb/jobs`                                                                        |
-| `./drivers/pg`      | `@zmdb/postgres`                                                                    |
 | `./drivers/mssql`   | `@zmdb/mssql`                                                                       |
 
-After cutover, the four old package names and all 47 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed
-consumers. `@zmdb/mcp` remains independently published. There are no forwarding packages and no `exports` aliases.
+Issue #670 already removed `@zmdb/repository/drivers/pg`; `@zmdb/postgres` now owns that public runtime. After cutover, the four old package names and the remaining 46 old subpaths are absent from
+workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed consumers. `@zmdb/mcp` remains independently published. There are no forwarding
+packages and no `exports` aliases.
 
 ## 5. Manifest dependency disposition
 
@@ -392,9 +389,7 @@ Every current manifest entry has one disposition:
 | `repository dependencies @zmdb/query-compiler`  | becomes `@zmdb/orm -> @zmdb/sql`                                   |
 | `repository dependencies @zmdb/schema-core`     | becomes `@zmdb/orm -> @zmdb/schema`                                |
 | `repository dev @types/mssql`                   | `@zmdb/mssql` dev dependency                                       |
-| `repository dev @types/pg`                      | `@zmdb/postgres` dev dependency                                    |
 | `repository dev mssql`                          | `@zmdb/mssql` dev dependency and peer                              |
-| `repository dev pg`                             | `@zmdb/postgres` dev dependency and peer                           |
 | `repository dev typescript`                     | build/test-only dependency permitted on `@zmdb/orm`                |
 
 For a foundation package, “zero external dependencies” means:

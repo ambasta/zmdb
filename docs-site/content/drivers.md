@@ -30,16 +30,16 @@ const users = defineRepository(UserSchema, sqliteDriver(db));
 ```ts
 // pg (node-postgres)
 import { Pool } from 'pg';
-import { pgDriver } from '@zmdb/repository/drivers/pg';
+import { postgresDriver } from '@zmdb/postgres';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const users = defineRepository(UserSchema, pgDriver(pool));
+const users = defineRepository(UserSchema, postgresDriver(pool));
 
 // opt-in server-side prepared statements (caches the plan per SQL text)
-const fast = pgDriver(pool, { prepared: true });
+const fast = postgresDriver(pool, { prepared: true });
 
 // active AbortSignal cancellation; the pool must have a spare connection
-const cancellable = pgDriver(pool, { cancelVia: pool });
+const cancellable = postgresDriver(pool, { cancelVia: pool });
 ```
 
 ```ts
@@ -64,8 +64,8 @@ values, that cache has a bounded number of entries — unless you build SQL by s
 The SQL Server adapter creates one request per execution and maps positional parameters onto node-mssql names `p1…pn`; the compiler emits the matching `@p1…@pn` placeholders. Pool lifecycle and client
 configuration remain yours.
 
-`sqliteDriver` exposes a native stepped stream. `pgDriver` exposes a server-cursor stream when given a `Pool`, fetching `batchSize` rows per round trip and releasing the checked-out connection on
-iterator cleanup. A bare Postgres `Client` and the SQL Server adapter omit `stream`, so repositories use their documented buffered fallback unless `requireCursor: true` refuses it.
+`sqliteDriver` exposes a native stepped stream. `postgresDriver` exposes a server-cursor stream when given a `Pool`, fetching `batchSize` rows per round trip and releasing the checked-out connection
+on iterator cleanup. A bare Postgres `Client` and the SQL Server adapter omit `stream`, so repositories use their documented buffered fallback unless `requireCursor: true` refuses it.
 
 ## Writing your own
 
