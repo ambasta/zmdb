@@ -1,10 +1,11 @@
 import { isRecord, type ValidationIssue } from '@zmdb/schema';
+
 // Advanced validation — implementation.
 // #46 refinement compilation (refine + refinement-aware validateObject with
 // exact error paths). Coercion + object strictness (#49) are co-implemented
 // because the same validateObject drives them. #47 transform remains a rule
 // constructor only; no validator path applies it.
-import { type Rule, type ValidationIssue } from '../index.js';
+import { type Rule } from '../index.js';
 
 export type { ValidationIssue };
 
