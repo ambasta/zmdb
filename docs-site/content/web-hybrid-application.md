@@ -86,7 +86,7 @@ const result = await app.handle({
 const response = await app.fetch(new Request('https://service.example/health'));
 ```
 
-The host still owns its listening socket and must close it as part of process shutdown. `toNodeHandler` currently accepts a `Router`, not an `App`, so do not pass `app` to it; use
+The host still owns its listening socket and must close it as part of process shutdown. `toNodeHandler` currently accepts a `Router`, not a `WebApplication`, so do not pass `app` to it; use
 `app.fetch`/`app.handle` in a compatible host or build the Node router explicitly as described by [Standalone Applications](./web-standalone.html).
 
 ## Several transports

@@ -71,7 +71,7 @@ Everything else — the compiler, the repository, the DTO types, `@zmdb/web` —
 
 ## `Bun.serve` with `@zmdb/web`
 
-`App` exposes `fetch(request)`, which is exactly `Bun.serve`'s handler signature:
+`WebApplication` exposes `fetch(request)`, which is exactly `Bun.serve`'s handler signature:
 
 ```ts
 import { createApp } from '@zmdb/web';

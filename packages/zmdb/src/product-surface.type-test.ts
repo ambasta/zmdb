@@ -51,7 +51,7 @@ import type {
   Public as OwnerPublic,
   Put as OwnerPut,
   createApp as ownerCreateApp,
-  App as OwnerApp,
+  WebApplication as OwnerWebApplication,
   Ctx as OwnerCtx,
 } from '@zmdb/web';
 import {
@@ -85,8 +85,8 @@ import {
   is,
   schemaOf,
   validate,
-  // @ts-expect-error -- #620 adds App to the root facade.
-  type App,
+  // @ts-expect-error -- #620 adds WebApplication to the root facade.
+  type WebApplication,
   type CreateDTO,
   // @ts-expect-error -- #620 adds Ctx to the root facade.
   type Ctx,
@@ -256,5 +256,8 @@ export type _RepositoryAndValidatorTypes = Expect<
 
 export type _WebTypes = Expect<
   // @ts-expect-error -- #620 adds the web application type identities to the root.
-  Equal<[App, Ctx<{ id: string }>, ModuleClass], [OwnerApp, OwnerCtx<{ id: string }>, OwnerModuleClass]>
+  Equal<
+    [WebApplication, Ctx<{ id: string }>, ModuleClass],
+    [OwnerWebApplication, OwnerCtx<{ id: string }>, OwnerModuleClass]
+  >
 >;

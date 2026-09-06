@@ -154,7 +154,7 @@ describe('core server package boundaries (#646)', () => {
     expect(coreBoundaries().packageProblems.get('@zmdb/app')).toEqual([]);
   });
 
-  it.fails('keeps @zmdb/web free of jobs and optional integrations', () => {
+  it('keeps @zmdb/web free of jobs and optional integrations', () => {
     expect(coreBoundaries().packageProblems.get('@zmdb/web')).toEqual([]);
   });
 
@@ -209,6 +209,9 @@ describe('core server package boundaries (#646)', () => {
           '@zmdb/aot-validator': 'workspace:^',
           '@zmdb/app': 'workspace:^',
           '@zmdb/schema-core': 'workspace:^',
+        },
+        buildTimePeers: {
+          typescript: '>=7.0.0',
         },
         exports: [
           '.',

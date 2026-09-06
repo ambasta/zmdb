@@ -127,8 +127,8 @@ const scheduler = createScheduler({
 const backgroundWork = jobsExtension({ schedulers: [scheduler] });
 ```
 
-Pass `backgroundWork` to the application's `extensions` option. App initialization starts schedulers after every worker in the same jobs extension, and disposal stops schedulers before workers under
-one remaining grace budget. A standalone program may call `scheduler.start()` and `scheduler.onShutdown()` directly. No process signal handler is installed.
+Pass `backgroundWork` to the application's `extensions` option. Application initialization starts schedulers after every worker in the same jobs extension, and disposal stops schedulers before workers
+under one remaining grace budget. A standalone program may call `scheduler.start()` and `scheduler.onShutdown()` directly. No process signal handler is installed.
 
 Use the same `Clock` instance for queues and schedules. Tests can supply a controllable clock; production can use the system-clock implementation above.
 

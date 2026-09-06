@@ -186,8 +186,8 @@ The implementation test also executes the shipped database example and asserts t
   names as a mistake people make.
 - **A startup probe as a distinct kind.** It is a `LivenessCheck` reading the flag `await app.init()` sets, exactly as the page shows, and a third kind would need a third set of semantics to justify
   itself.
-- **`SIGTERM` handling inside this module.** Failing readiness on shutdown is the right pattern and it needs a bounded grace period in `runShutdown`, which is `../../lifecycle.ts`'s business and
-  another epic's.
+- **`SIGTERM` handling inside this module.** Failing readiness on shutdown is the right pattern and it needs a bounded grace period in `runShutdown`, which is `packages/app/src/lifecycle.ts`'s
+  business and another epic's.
 
 ## Package ownership amendment (#645)
 

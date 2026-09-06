@@ -15,8 +15,8 @@ npm add @zmdb/web@alpha
 
 ## Entry points
 
-The package root contains the common HTTP APIs. Feature-specific entry points include `/routing`, `/versioning`, `/context`, `/contract`, `/contract/compiler`, `/pipeline`, `/middleware`, `/app`,
-`/openapi`, `/health`, `/upload`, `/static`, `/compression`, `/gateways`, `/testing`, and `/devtools`.
+The package root contains the common HTTP APIs. Its complete feature entry set is `/app`, `/compression`, `/context`, `/contract`, `/contract/compiler`, `/csrf`, `/data`, `/devtools`, `/dto-pipes`,
+`/gateways`, `/health`, `/middleware`, `/openapi`, `/pipeline`, `/routing`, `/static`, `/testing`, `/upload`, and `/versioning`.
 
 `@zmdb/web/contract` contains inert HTTP declarations and serialisable `HttpContractIR`. The build-time `@zmdb/web/contract/compiler` entry compiles those declarations and emits deterministic typed
 client modules whose runtime imports are limited to `@zmdb/client`. `zmdb client generate` projects the same compiled IR into sibling OpenAPI and client artifacts; it does not derive one from the
@@ -32,8 +32,8 @@ Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands,
 
 `@zmdb/web/versioning` provides version decorators and the path, header, and media-type strategies used by the router and OpenAPI generator.
 
-Install each selected transport package with its required peer: grpc-js `^1.14.0`, the Node NATS transport `^3.4.0`, amqplib `^2.0.1`, or redis `^6.2.1`. `@zmdb/web` declares none of those peers and
-publishes no broker subpath.
+Install each selected transport package with its required peer: grpc-js `^1.14.0`, the Node NATS transport `^3.4.0`, amqplib `^2.0.1`, or redis `^6.2.1`. `@zmdb/web` declares no third-party runtime
+peer and publishes no broker or benchmark-helper subpath. Its optional TypeScript peer is reached only by the build-time `/contract/compiler` entry.
 
 ## Documentation
 

@@ -211,7 +211,7 @@ Performance claims use upstream benchmark harnesses and the actual competitor li
                ├────────▶ @zmdb/otel               (selected OpenTelemetry adapter; depends only on app)
                └────────▶ @zmdb/transport-redis    (selected Redis Pub/Sub transport; depends only on app)
                ▼
-        @zmdb/web          (+ direct app/aot/schema-core/query-compiler/repository deps; HTTP only)
+        @zmdb/web          (+ direct app/aot/schema-core deps; HTTP only)
                ▼
             zmdb                               (umbrella — curated re-exports, ZERO logic)
 ```
@@ -258,7 +258,7 @@ repository and alone declares the optional SQL Server client peer.
 | `@zmdb/transport-nats`     | core NATS messaging integration        | Native subject wildcards, queue groups, at-most-once dispatch, request/reply, cancellation, and bounded shutdown                                                            | app; `@nats-io/transport-node` (required peer)                                                            |
 | `@zmdb/transport-rabbitmq` | RabbitMQ messaging integration         | Topic routing, positive prefetch, publisher-confirmed delayed retries, dead-letter topology, request/reply, and bounded shutdown                                            | app; `amqplib` (required peer)                                                                            |
 | `@zmdb/transport-redis`    | Redis Pub/Sub messaging integration    | Lossy exact/glob subscriptions, concrete-channel dispatch, correlated request/reply, cancellation, and bounded shutdown                                                     | app; `redis` (required peer)                                                                              |
-| `@zmdb/web`                | NestJS HTTP layer                      | Stage-3 controllers, routing, typed `Ctx`, request pipeline + adapters, guards/pipes/interceptors/filters, DTO validation/serialization, OpenAPI, WS/SSE, and HTTP testing  | app, aot-validator, schema-core, query-compiler, repository                                               |
+| `@zmdb/web`                | NestJS HTTP layer                      | Stage-3 controllers, routing, typed `Ctx`, request pipeline + adapters, guards/pipes/interceptors/filters, DTO validation/serialization, OpenAPI, WS/SSE, and HTTP testing  | app, aot-validator, schema-core                                                                           |
 | `zmdb`                     | the data/app/web stack                 | Umbrella meta-package (curated root + subpath re-exports; no AI, MCP, OTel, UI, or transport public re-export)                                                              | app, aot-validator, schema-core, query-compiler, repository, sqlite, web; mssql/postgres (optional peers) |
 
 ### 5.4 Target server product boundary (#645)

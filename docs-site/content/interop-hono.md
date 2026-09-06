@@ -1,5 +1,5 @@
-Hono is a small, fast, standards-based router. `@zmdb/web`'s `App` exposes `fetch(request)` and `handle(req)` and owns no server, which makes the two compose rather than compete — you can mount zmdb
-inside Hono, or use zmdb's data layer under Hono routes and skip `@zmdb/web` entirely.
+Hono is a small, fast, standards-based router. `@zmdb/web`'s `WebApplication` exposes `fetch(request)` and `handle(req)` and owns no server, which makes the two compose rather than compete — you can
+mount zmdb inside Hono, or use zmdb's data layer under Hono routes and skip `@zmdb/web` entirely.
 
 ## zmdb data layer, Hono routes
 
@@ -24,7 +24,7 @@ No decorators, no container, no `@zmdb/web` at all. The schema, compiler, reposi
 
 ## Mount `@zmdb/web` inside Hono
 
-Because `App.fetch` takes and returns web-standard `Request`/`Response`, it mounts as a Hono handler:
+Because `WebApplication.fetch` takes and returns web-standard `Request`/`Response`, it mounts as a Hono handler:
 
 ```ts
 const zmdbApp = createApp(AppModule);
@@ -37,7 +37,7 @@ hono.get('/health', c => c.text('ok'));
 
 Use this when you want zmdb's DI and OpenAPI for the API surface and Hono's middleware for everything around it — CORS, static assets, compression, streaming.
 
-> [!NOTE] Your controllers see the full path, so a controller behind `/api/*` must be declared as `@Controller('/api/posts')`. `App` does not know it is mounted and does not strip a prefix.
+> [!NOTE] Your controllers see the full path, so a controller behind `/api/*` must be declared as `@Controller('/api/posts')`. `WebApplication` does not know it is mounted and does not strip a prefix.
 
 ## Hono middleware fills real gaps
 

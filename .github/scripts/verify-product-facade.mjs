@@ -55,7 +55,6 @@ export const TARGET_ROOT_VALUES = Object.freeze(
 
 export const TARGET_ROOT_TYPES = Object.freeze(
   [
-    'App',
     'CreateDTO',
     'Ctx',
     'Driver',
@@ -81,6 +80,7 @@ export const TARGET_ROOT_TYPES = Object.freeze(
     'UpdatePatch',
     'ValidateResult',
     'ValidationIssue',
+    'WebApplication',
     'ZmdbConfig',
   ].toSorted(),
 );

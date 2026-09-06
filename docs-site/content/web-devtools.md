@@ -12,8 +12,8 @@ const graph = describeGraph(AppModule);
 console.log(renderTree(graph));
 ```
 
-`describeGraph` takes the root module class, not an `App` or a `Container`. It reads the metadata already written by `@Module`, `@Controller`, the route decorators and `@Inject`; it does not construct
-a provider, call a lifecycle hook or retain an inspector index on the running application.
+`describeGraph` takes the root module class, not a `WebApplication` or a `Container`. It reads the metadata already written by `@Module`, `@Controller`, the route decorators and `@Inject`; it does not
+construct a provider, call a lifecycle hook or retain an inspector index on the running application.
 
 The returned `GraphDescription` contains:
 

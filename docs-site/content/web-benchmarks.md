@@ -3,43 +3,17 @@ reflection" claim — and it is the key difference from `reflect-metadata`-based
 
 ## The init-time-resolution guarantee (verified)
 
-A regression guard instruments a controller's `Symbol.metadata` with a counting getter, then asserts it is read at `register` and **zero additional times** across many `handle` calls:
+A repository-private regression guard instruments a controller's `Symbol.metadata` with a counting getter, then asserts it is read at `register` and **zero additional times** across repeated `handle`
+calls. The probe lives with `packages/web/src/bench/bench.spec.ts`; it is not a published application entry point.
 
-```ts
-import { countMetadataReads } from '@zmdb/web/bench';
-import { createRouter } from '@zmdb/web';
-
-const counter = countMetadataReads(XController);
-const router = createRouter();
-router.register(new XController());
-const atRegister = counter.count(); // resolved once
-
-for (let i = 0; i < 50; i++) await router.handle(req);
-counter.count() === atRegister; // ✅ no per-request metadata reads
-```
-
-This test ships in the suite, so the guarantee cannot silently regress.
+This correctness test stays in the suite, so the guarantee cannot silently regress.
 
 ## Microbench harness
 
-`benchmarkRouter` returns **raw timings** — deliberately no composite "score":
+The repository-private `benchmarkRouter` and `benchmarkAppStartup` helpers return **raw timings** — `{ iters, totalMs, opsPerSec }` — and deliberately no composite score. They support controlled
+framework qualification from `packages/web/src/bench`, but `@zmdb/web/bench` is not published.
 
-```ts
-import { benchmarkRouter } from '@zmdb/web/bench';
-
-const { iters, totalMs, opsPerSec } = await benchmarkRouter({ routes: 20, iters: 100_000 });
-```
-
-`benchmarkAppStartup` measures repeated eager `createApp` calls with the same raw result shape:
-
-```ts
-import { benchmarkAppStartup } from '@zmdb/web/bench';
-
-const result = benchmarkAppStartup(AppModule, 10_000);
-```
-
-It deliberately has no built-in pass/fail threshold. Startup timing depends on the module graph and the machine running it; the suite checks the benchmark itself and eager behavior, while callers
-record comparable runs in their own environment.
+The helpers have no built-in pass/fail threshold. Startup timing depends on the module graph and machine, so maintainers record comparable runs only in a controlled environment.
 
 ## Observability overhead — off, API no-op and recording exporter
 

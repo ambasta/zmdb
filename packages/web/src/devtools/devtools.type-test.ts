@@ -10,8 +10,8 @@ import type { ModuleClass } from '@zmdb/app/modules';
 // is stated. That is worth setting out before the file, because the shape of the file is entirely
 // determined by it.
 //
-// **"`describeGraph(app)` is rejected where `app: App`"** is carried positively as the two facts
-// that make the rejection follow: `App` is not assignable to `ModuleClass`, and
+// **"`describeGraph(app)` is rejected where `app: WebApplication`"** is carried positively as the two facts
+// that make the rejection follow: `WebApplication` is not assignable to `ModuleClass`, and
 // `describeGraph`'s first parameter is exactly `ModuleClass`.
 //
 // **"reading `scope` off a `ProviderNode` without narrowing `kind` is rejected" likewise.** It is
@@ -27,7 +27,7 @@ import type { ModuleClass } from '@zmdb/app/modules';
 // comment, to hand `@Module` a definition whose `imports` today's `ModuleDef` does not admit.
 import type { Equal, Expect, Extends } from '@zmdb/schema-core';
 
-import type { App } from '../app/index.js';
+import type { WebApplication } from '../app/index.js';
 import type { AppModule } from '../modules/__fixtures__/large-graph.js';
 import type { HttpMethod } from '../routing/index.js';
 import type {
@@ -41,16 +41,16 @@ import type {
 } from './index.js';
 
 // ---------------------------------------------------------------------------
-// The reason `describeGraph(app: App)` is rejected
+// The reason `describeGraph(app: WebApplication)` is rejected
 // ---------------------------------------------------------------------------
 
-// Green, and the most valuable line in the file: it holds today, against the real `App`, and it is
-// the whole of §2's first correction as a type. `App` is
+// Green, and the most valuable line in the file: it holds today, against the real `WebApplication`, and it is
+// the whole of §2's first correction as a type. `WebApplication` is
 // `{ container, handle, fetch, init, [Symbol.asyncDispose] }` — an object type with no construct
 // signature — so it is not assignable to `ModuleClass` and never will be without someone adding
 // one. If a later slice makes this go red, `describeGraph(app)` has become writable and §2's
 // argument has been abandoned, which is exactly the change this line exists to catch.
-export type _AppIsNotAModuleClass = Expect<Equal<Extends<App, ModuleClass>, false>>;
+export type _WebApplicationIsNotAModuleClass = Expect<Equal<Extends<WebApplication, ModuleClass>, false>>;
 
 // The other half: a module class is accepted. Green today, over the fixture's real root — an
 // `@Module`-decorated class with a zero-argument constructor, which is what every caller passes.
@@ -120,7 +120,7 @@ export type _CommonKeys = Expect<Equal<keyof FrozenProviderNode, 'kind' | 'id' |
 export type _ValueArmKeys = Expect<Equal<keyof FrozenValueProvider, 'kind' | 'id' | 'token' | 'module'>>;
 
 // The factory arm's `scope` is `Scope` itself and not a copy of its members, so adding a third
-// scope to `../di/index.ts` does not silently leave the description behind.
+// scope to `@zmdb/app/di` does not silently leave the description behind.
 export type _FactoryScope = Expect<Equal<FrozenFactoryProvider['scope'], Scope>>;
 
 // §2's third correction and §10.3's assertion, as a type: `null`, never absent, never `undefined`.

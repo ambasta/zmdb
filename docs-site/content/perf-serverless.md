@@ -68,7 +68,7 @@ Do **not** put migrations at module scope. Every cold start would race every oth
 
 ## `@zmdb/web` in a function
 
-`App` exposes `fetch(request)` and `handle(req)`, so it adapts to any platform without a server:
+`WebApplication` exposes `fetch(request)` and `handle(req)`, so it adapts to any platform without a server:
 
 ```ts
 const app = createApp(AppModule);

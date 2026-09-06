@@ -170,8 +170,8 @@ PostgreSQL one-way, and the remaining SingleStore implementation still sits in t
               │               └──────────────────────────┘
               ▼
       ┌────────────────┐
-      │   @zmdb/web    │  (also depends directly on schema-core,
-      │(decorator HTTP)│   query-compiler, and aot-validator)
+      │   @zmdb/web    │  (also depends directly on schema-core
+      │(decorator HTTP)│   and aot-validator)
       └───────┬────────┘
               ▼
       ┌────────────────┐
@@ -272,7 +272,7 @@ real-server lane; only that selected package declares the optional `mysql2` peer
 | `@zmdb/transport-nats`     | Core NATS wildcard and queue-group messaging over the public application transport strategy contract                                                  | app; `@nats-io/transport-node` (required peer)                                                            |
 | `@zmdb/transport-rabbitmq` | RabbitMQ topic transport with bounded prefetch, confirmed delayed retries, request/reply, and owned dead-letter topology                              | app; `amqplib` (required peer)                                                                            |
 | `@zmdb/transport-redis`    | Redis Pub/Sub event and request/reply transport over concrete application messaging channels                                                          | app; `redis` (required peer)                                                                              |
-| `@zmdb/web`                | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                           | app, aot-validator, query-compiler, schema-core                                                           |
+| `@zmdb/web`                | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                           | app, aot-validator, schema-core                                                                           |
 | `zmdb`                     | Curated product facade and CLI; no AI, MCP, or OTel public re-export                                                                                  | app, aot-validator, query-compiler, repository, schema-core, sqlite, web; mssql/postgres (optional peers) |
 
 **Watch-list for future splits** (kept as sub-modules until they earn §3.1):
@@ -462,7 +462,8 @@ external peers on `@zmdb/web`; and six integration subpaths under web.
 Implementation status: #656 has completed the `@zmdb/protobuf` row and removed the two old AOT public surfaces; #662 has completed the `@zmdb/otel` row and removed the old web export and peer; #648
 has moved the transport-neutral dispatcher, typed clients, decorators, SPI and adapter kit to `@zmdb/app/messaging`; #657 has moved gRPC to `@zmdb/transport-grpc`; #658 has moved core NATS to
 `@zmdb/transport-nats`; #659 has moved RabbitMQ to `@zmdb/transport-rabbitmq`; #660 has moved Redis Pub/Sub to `@zmdb/transport-redis`; and #661 has moved PostgreSQL job storage to
-`@zmdb/jobs-postgres`. Every named optional-server package in this target now has a manifest, implementation, tests, and packed consumer.
+`@zmdb/jobs-postgres`. #649 removes the final integration-era web dependency and public benchmark selector. Every named optional-server package in this target now has a manifest, implementation,
+tests, and packed consumer.
 
 The final manifest graph is:
 
@@ -568,7 +569,7 @@ and entry-specific reachability assignments are generated from the admitted mani
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **35 catalog packages**, **63 direct workspace edges**, and canonical rings **0–7**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **35 catalog packages**, **62 direct workspace edges**, and canonical rings **0–7**.
 
 | Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                                                     |
 | ---- | ----------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -604,7 +605,7 @@ Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, 
 | 6    | integration | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                                                       |
 | 6    | integration | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                                                       |
 | 6    | integration | `@zmdb/transport-redis`    | `@zmdb/app`                                                                                                                                                                       |
-| 6    | application | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                                                             |
+| 6    | application | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/schema-core`                                                                                                                       |
 | 7    | integration | `@zmdb/jobs-postgres`      | `@zmdb/jobs`<br>`@zmdb/postgres`                                                                                                                                                  |
 | 7    | facade      | `zmdb`                     | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/mssql`<br>`@zmdb/postgres`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`<br>`@zmdb/sqlite`<br>`@zmdb/web` |
 
@@ -627,7 +628,7 @@ Entry-specific runtime, tooling, and optional-peer reachability assignments:
 | `@zmdb/mssql`          | optional peer               | `mssql@^12.7.0`                            | `.`                                                                                                                                                   |
 | `@zmdb/mysql`          | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                   |
 | `@zmdb/postgres`       | optional peer               | `pg@^8.23.0`                               | `.`                                                                                                                                                   |
-| `@zmdb/web`            | tooling boundary            | tooling-only code                          | `./bench`<br>`./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                     |
+| `@zmdb/web`            | tooling boundary            | tooling-only code                          | `./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                                  |
 | `@zmdb/web`            | optional peer               | `typescript@>=7.0.0`                       | `./contract/compiler`                                                                                                                                 |
 | `zmdb`                 | tooling boundary            | tooling-only code                          | `./cli`<br>`./config`<br>`./unplugin`<br>`./web/contract/compiler`<br>`bin:zmdb`                                                                      |
 | `zmdb`                 | optional peer               | `@zmdb/mssql@workspace:^`                  | `./cli`<br>`./drivers/mssql`<br>`bin:zmdb`                                                                                                            |
@@ -717,8 +718,8 @@ be admitted atomically; release membership and deterministic publish order then 
 
 ### 3.12 Target server package DAG and facade (#645)
 
-The current `@zmdb/web` package has outgrown the sub-module default: its measured public surface is 36 manifest entries, 318 distinct symbols and 58 shipped non-test/non-generated source files. Those
-symbols span three independently usable responsibilities and six third-party peers. The target is one server product with package boundaries as dependency firebreaks:
+Before the server split, `@zmdb/web` had outgrown the sub-module default: its measured public surface was 36 manifest entries, 318 distinct symbols and 58 shipped non-test/non-generated source files.
+Those symbols spanned three independently usable responsibilities and six third-party peers. The app, jobs and integration extractions plus #649's final HTTP cutover now enforce the target below:
 
 ```text
 @zmdb/query-compiler

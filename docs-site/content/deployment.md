@@ -113,7 +113,7 @@ server.listen(env.PORT);
 
 This hand-written module adapter buffers streamed responses. At router level, `toNodeHandler` streams with backpressure and cancellation.
 
-`App` has no `listen()` — it is transport-agnostic on purpose. See [Standalone Applications](./web-standalone.html).
+`WebApplication` has no `listen()` — it is transport-agnostic on purpose. See [Standalone Applications](./web-standalone.html).
 
 Handle shutdown, or an in-flight request dies on every deploy:
 

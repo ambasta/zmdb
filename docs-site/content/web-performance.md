@@ -16,7 +16,8 @@ For eager or already-loaded routes there is no reflection, metadata read or DI r
 lazy route waits for that subtree's one-time construction and lifecycle hooks; later requests use the same cached handler path. Steady-state framework overhead is version selection when configured, a
 bucketed match and two JSON operations.
 
-`countMetadataReads` from `@zmdb/web/bench` is the test that keeps this true: decorator metadata is read at registration, not per request, and a regression there shows up as a rising count.
+The repository-private `countMetadataReads` probe keeps this true: the web correctness suite asserts that decorator metadata is read at registration, not per request, and a regression appears as a
+rising count.
 
 ## Matching is bucketed, then first-match
 

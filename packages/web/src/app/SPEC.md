@@ -7,7 +7,7 @@
 ### `createApp(RootModule, options?: WebApplicationOptions): WebApplication`
 
 - Compiles the module graph (via `compileModule`), builds a `Router`, and registers every module controller's routes on it — **once, at bootstrap**.
-- Returns an `App`:
+- Returns a `WebApplication`:
   - **`handle(req: WebRequest): Promise<WebResponse>`** — delegate to the router.
   - **`fetch(request: Request): Promise<Response>`** — the Fetch adapter.
   - **`container: Container`** — the resolved DI container.
@@ -64,10 +64,10 @@ The lifecycle above splits without changing its observable ordering:
 - HTTP route registration, `handle`, `fetch` and the name `createApp` remain in `@zmdb/web/app`;
 - broker startup and gRPC startup are supplied as `ApplicationExtension` values by their owning packages.
 
-`WebApplication` is the public shape. `AppOptions` is deleted in favour of `ApplicationOptions` and `WebApplicationOptions`; the temporary `App` compatibility name remains until #649.
+`WebApplication` is the public shape. `App` and `AppOptions` are deleted rather than retained as aliases; `ApplicationOptions` and `WebApplicationOptions` carry the app-owned and HTTP-owned options.
 
 `createApp` composes one router over one `Application`. Its `container`, `lazy`, `init` and async-dispose members are the same members by identity, and it cannot run a second hook/extension ledger.
 The complete lifecycle state machine, rollback and error precedence are frozen in `packages/app/SPEC.md`.
 
-The #647 extraction is the independently usable first slice. #648 removes `AppOptions` and the broker fields in favour of `transportExtension`; #657 removes the gRPC field in favour of
-`grpcExtension`. The temporary `App` name delegates to `createApplication`; it does not retain a second lifecycle implementation.
+The #647 extraction supplied the app-owned lifecycle. #648 moved broker fields behind `transportExtension`, #657 moved gRPC behind `grpcExtension`, and #649 removes the final compatibility name
+without changing the one-call `createApp` composition.

@@ -102,6 +102,9 @@ export const CORE_SERVER_PACKAGES = [
       '@zmdb/app': 'workspace:^',
       '@zmdb/schema-core': 'workspace:^',
     },
+    buildTimePeers: {
+      typescript: '>=7.0.0',
+    },
     exports: [
       '.',
       './app',
@@ -438,11 +441,27 @@ function coreTargetProblems(root, graph, target, requireAll) {
     );
   }
 
-  for (const field of ['optionalDependencies', 'peerDependencies']) {
-    const names = sortedKeys(manifest[field]);
-    if (names.length > 0) {
-      problems.push(`${target.name} core ${field} ${display(names)}, expected []`);
+  const optionalDependencies = sortedKeys(manifest.optionalDependencies);
+  if (optionalDependencies.length > 0) {
+    problems.push(`${target.name} core optionalDependencies ${display(optionalDependencies)}, expected []`);
+  }
+
+  const peers = record(manifest.peerDependencies);
+  const expectedPeers = target.buildTimePeers ?? {};
+  if (!sameEntries(peers, expectedPeers)) {
+    problems.push(
+      `${target.name} core peerDependencies ${JSON.stringify(peers)}, expected ${JSON.stringify(expectedPeers)}`,
+    );
+  }
+  const peerMeta = record(manifest.peerDependenciesMeta);
+  for (const peer of Object.keys(expectedPeers)) {
+    if (record(peerMeta[peer]).optional !== true) {
+      problems.push(`${target.name} build-time peer ${peer} must be optional`);
     }
+  }
+  const stalePeerMeta = sortedKeys(peerMeta).filter(peer => expectedPeers[peer] === undefined);
+  if (stalePeerMeta.length > 0) {
+    problems.push(`${target.name} has peer metadata for undeclared peers ${display(stalePeerMeta)}`);
   }
 
   const forbiddenExports = target.forbiddenExports.filter(subpath => record(manifest.exports)[subpath] !== undefined);
@@ -468,7 +487,10 @@ function coreTargetProblems(root, graph, target, requireAll) {
   if (forbiddenWorkspace.length > 0) {
     problems.push(`${target.name} reaches forbidden server packages ${display(forbiddenWorkspace)}`);
   }
-  const forbiddenExternal = reached.external.filter(name => name === 'typescript' || SERVER_PEERS.has(name));
+  const allowedExternal = new Set(Object.keys(expectedPeers));
+  const forbiddenExternal = reached.external.filter(
+    name => !allowedExternal.has(name) && (name === 'typescript' || SERVER_PEERS.has(name)),
+  );
   if (forbiddenExternal.length > 0) {
     problems.push(`${target.name} reaches forbidden server/reflection peers ${display(forbiddenExternal)}`);
   }

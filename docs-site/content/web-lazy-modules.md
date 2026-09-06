@@ -84,15 +84,8 @@ Disposal waits for an in-flight load before shutdown and refuses a new lazy load
 
 ## Cost model
 
-An app with no lazy imports uses the eager fast path. The benchmark helper measures repeated eager startup with raw timings:
-
-```ts
-import { benchmarkAppStartup } from '@zmdb/web/bench';
-
-const result = benchmarkAppStartup(AppModule, 10_000);
-```
-
-Timing depends on the graph and machine, so the helper reports `{ iters, totalMs, opsPerSec }` rather than imposing a universal threshold.
+An app with no lazy imports uses the eager fast path. The repository-private startup helper reports `{ iters, totalMs, opsPerSec }` and remains available to controlled qualification runs without
+becoming an application API. Timing depends on the graph and machine, so the helper imposes no universal threshold.
 
 ---
 

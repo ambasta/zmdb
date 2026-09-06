@@ -32,7 +32,7 @@ This module-level adapter buffers streamed responses. Use `toNodeHandler` at rou
 
 Two Railway-specific requirements: bind `0.0.0.0`, not `localhost`, or the health check cannot reach you; and use `process.env.PORT`, which Railway assigns.
 
-`App` has no `listen()` — it is transport-agnostic on purpose. See [Standalone Applications](./web-standalone.html).
+`WebApplication` has no `listen()` — it is transport-agnostic on purpose. See [Standalone Applications](./web-standalone.html).
 
 ## Graceful shutdown
 

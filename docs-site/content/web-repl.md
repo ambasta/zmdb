@@ -27,7 +27,7 @@ print credentials. Put a safe environment label in your own startup output if op
 
 | Binding                   | Value                                                           |
 | ------------------------- | --------------------------------------------------------------- |
-| `app`                     | the initialized `App`                                           |
+| `app`                     | the initialized `WebApplication`                                |
 | `container`               | `app.container`                                                 |
 | `get(tokenOrDescription)` | resolves a token object or one unique token description         |
 | `tokens`                  | provider-token descriptions from the declared module graph      |
@@ -99,8 +99,8 @@ The project directory never receives a history file.
 
 ## Shutdown
 
-Leaving with `.exit`, Ctrl-D or an input close ends the session. The command then disposes the `App`, waits for in-flight lazy loads and calls `onShutdown` in reverse construction order. A pool
-registered as a provider therefore closes through the same lifecycle as the server application.
+Leaving with `.exit`, Ctrl-D or an input close ends the session. The command then disposes the `WebApplication`, waits for in-flight lazy loads and calls `onShutdown` in reverse construction order. A
+pool registered as a provider therefore closes through the same lifecycle as the server application.
 
 ## Security boundary
 

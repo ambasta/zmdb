@@ -105,8 +105,8 @@ router.register(new PostsController(), {
 `RouteOptions` is keyed by **handler name**. `validateBody` runs before the handler; effective guards run first in app → controller → route order and every guard must return true. The same record also
 carries the OpenAPI-only `security` override and `deprecated` marker.
 
-> [!NOTE] `createApp(AppModule, { observability })` forwards observability to its router and message dispatcher, but still calls `router.register(controller)` with **no route options**. A module graph
-> therefore gets no guard registry or automatic body validation. Validate inside the handler with `assert<T>(ctx.body)` instead, or build the router yourself.
+> [!NOTE] `createApp(AppModule, { observability, guardRegistry })` forwards both settings to its startup-built router, but still calls `router.register(controller)` with **no route options**. A module
+> graph therefore gets app/controller guards but no handler-specific guard or automatic body validation. Validate inside the handler with `assert<T>(ctx.body)` instead, or build the router yourself.
 
 ## Route guards are in this path; full chains are explicit
 

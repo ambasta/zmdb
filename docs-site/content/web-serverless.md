@@ -1,4 +1,4 @@
-`App.fetch` is a `(Request) => Promise<Response>`, which is the interface every serverless and edge platform accepts. There is no adapter package to install and no platform-specific build.
+`WebApplication.fetch` is a `(Request) => Promise<Response>`, which is the interface every serverless and edge platform accepts. There is no adapter package to install and no platform-specific build.
 
 ```ts
 import { createApp } from '@zmdb/web';

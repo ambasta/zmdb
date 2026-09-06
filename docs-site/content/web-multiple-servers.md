@@ -12,7 +12,7 @@ const handleAdmin = (request: Request) => adminApp.fetch(request);
 ```
 
 Bind those two Fetch handlers to separate listeners with the host runtime. Two ports then have two route tables and two containers, with no shared registry or ordering dependency. The current Node
-`toNodeHandler` accepts a `Router`, not an `App`; use the explicit-router path below when Node owns the sockets.
+`toNodeHandler` accepts a `Router`, not a `WebApplication`; use the explicit-router path below when Node owns the sockets.
 
 ## Why you would
 
@@ -125,7 +125,7 @@ certificate is a full outage.
 
 ## Fetch-based runtimes
 
-`App.fetch` is already a `(Request) => Promise<Response>` for Workers, Deno and Bun. Multiple apps compose directly:
+`WebApplication.fetch` is already a `(Request) => Promise<Response>` for Workers, Deno and Bun. Multiple apps compose directly:
 
 ```ts
 const handlePublic = (request: Request) => publicApp.fetch(request);

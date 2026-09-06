@@ -64,7 +64,7 @@ describe('@zmdb/web testing: createTestApp', () => {
     expect(app.get(GreeterToken)).toBe(stub);
   });
 
-  // SPEC.md: "lifecycle, same as App" — every hook createApp runs, in the same
+  // SPEC.md: "lifecycle, same as WebApplication" — every hook createApp runs, in the same
   // order, so a test can exercise startup work rather than only routes.
   it('runs the same lifecycle hooks as createApp, in order', async () => {
     const calls: string[] = [];

@@ -49,7 +49,7 @@ packages/schema-core/src/derive/__budget__/
 /zmdb-handover/
 /.handover/
 
-# The build budget generates a project and runs the real codegen over it. Inside the repository
-# because `zmdb` has to resolve the way it does for a consumer, and outside packages/ and
-# fixtures/ because `yarn typecheck` discovers those.
+# Build and type-instantiation budgets generate projects and run real toolchains over them. Keep
+# them inside the repository so workspace dependencies resolve, and outside packages/ and fixtures/
+# so source inventories and `yarn typecheck` cannot observe transient files.
 /.budget/

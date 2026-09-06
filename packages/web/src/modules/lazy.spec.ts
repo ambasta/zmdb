@@ -1,7 +1,7 @@
 import { compileModule, type CompiledModule } from '@zmdb/app/modules';
 import { describe, expect, it } from 'vitest';
 
-import { createApp, type App } from '../app/index.js';
+import { createApp, type WebApplication } from '../app/index.js';
 import { countMetadataReads } from '../bench/index.js';
 import { bodyText } from '../pipeline/index.js';
 import {
@@ -76,9 +76,9 @@ function lazyHandlesOf(compiled: CompiledModule): readonly LazyModuleHandle[] | 
   return view.lazy;
 }
 
-/** The same field on `App`, which §L11 adds it to so a `zmdb repl` can load without a request. */
-function lazyHandlesOfApp(app: App): readonly LazyModuleHandle[] | undefined {
-  const view: App & { readonly lazy?: readonly LazyModuleHandle[] } = app;
+/** The same field on `WebApplication`, which §L11 adds so a `zmdb repl` can load without a request. */
+function lazyHandlesOfApp(app: WebApplication): readonly LazyModuleHandle[] | undefined {
+  const view: WebApplication & { readonly lazy?: readonly LazyModuleHandle[] } = app;
   return view.lazy;
 }
 
@@ -86,24 +86,24 @@ function lazyHandlesOfApp(app: App): readonly LazyModuleHandle[] | undefined {
  * `name:status` for every handle, or a sentence saying why there are none.
  *
  * A string rather than a throw so that a missing field prints as a diff against the expected
- * handle list. `App has no lazy property` in a failure message says which of the two things went
+ * handle list. `WebApplication has no lazy property` in a failure message says which of the two things went
  * wrong — the field, or the contents — which a `TypeError: Cannot read properties of undefined`
  * would not.
  */
-function lazyReport(app: App): readonly string[] | string {
+function lazyReport(app: WebApplication): readonly string[] | string {
   const handles = lazyHandlesOfApp(app);
   if (handles === undefined) {
-    return 'App has no lazy property';
+    return 'WebApplication has no lazy property';
   }
   return handles.map(handle => `${handle.name}:${handle.status}`);
 }
 
 /** The outcome of `handle.load()` for one module, as a string: `loaded`, an error, or why not. */
-async function loadModule(app: App, name: string): Promise<string> {
+async function loadModule(app: WebApplication, name: string): Promise<string> {
   const handles = lazyHandlesOfApp(app);
   const handle = handles?.find(candidate => candidate.name === name);
   if (handle === undefined) {
-    return `no handle named ${name}; App.lazy is ${String(handles)}`;
+    return `no handle named ${name}; WebApplication.lazy is ${String(handles)}`;
   }
   try {
     await handle.load();
@@ -114,7 +114,7 @@ async function loadModule(app: App, name: string): Promise<string> {
 }
 
 /** What `createApp` produced, or the exception it produced, as a string. */
-function bootstrap(root: Parameters<typeof createApp>[0]): App | string {
+function bootstrap(root: Parameters<typeof createApp>[0]): WebApplication | string {
   try {
     return createApp(root);
   } catch (error) {
@@ -134,7 +134,7 @@ const probePaths: readonly (readonly [string, string])[] = [
   ['DELETE', '/admin/1'],
 ];
 
-async function reachableRoutes(app: App): Promise<readonly string[]> {
+async function reachableRoutes(app: WebApplication): Promise<readonly string[]> {
   const seen: string[] = [];
   for (const [method, path] of probePaths) {
     const response = await app.handle({ method, path, headers: {} });
@@ -288,7 +288,7 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   // is that a refusal happens at all plus the two module names it has to carry.
   it('refuses two modules registering the same token, naming both', () => {
     const result = bootstrap(DuplicateProviderAppModule);
-    expect(typeof result, 'a refusal is a string here, an App is not').toBe('string');
+    expect(typeof result, 'a refusal is a string here, a WebApplication is not').toBe('string');
     expect(result).toMatch(/CONFIG/);
     expect(result).toMatch(/FirstConfigModule/);
     expect(result).toMatch(/SecondConfigModule/);
@@ -425,11 +425,10 @@ describe('lazily imported modules (frozen: modules/SPEC.md L12)', () => {
   });
 
   // §L12.11, second clause. A loaded module's instances join the ordered instance list, so
-  // `runShutdown`'s reverse iteration (`../lifecycle.ts:48-54`) tears them down before the eager
-  // instances they were loaded after. `HealthController` stands in for "the eager provider it
-  // injects" because providers get no hooks at all today — see the note in `NOTES.md`; asserting
-  // the ordering over controllers is the strongest form of this claim the current lifecycle
-  // supports, and it is the form that catches a load appending to the wrong end of the list.
+  // `runShutdown`'s reverse iteration (`packages/app/src/lifecycle.ts:46-57`) tears them down before
+  // the eager instances they were loaded after. `HealthController` supplies an observable eager
+  // lifecycle marker; asserting controller order directly catches a lazy load appending its
+  // instances to the wrong end of the shared application ledger.
   //
   // Before #601 `hookLog` after dispose was
   //   ["HealthController.onModuleInit","HealthController.onApplicationBootstrap","HealthController.onShutdown"]

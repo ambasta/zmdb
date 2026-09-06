@@ -27,7 +27,7 @@ await app.init();
 Everything downstream sees a plain `Pool`, not a `Promise<Pool>`. Connection failure crashes the process before a single request is accepted, which is what you want from a dependency the application
 cannot run without.
 
-`createApp` is **synchronous** and takes the root module only — it returns an `App`, and `await app.init()` runs the lifecycle hooks. There is no options argument and no
+`createApp` is **synchronous** and takes the root module plus optional `WebApplicationOptions` — it returns a `WebApplication`, and `await app.init()` runs the lifecycle hooks. There is no
 `createApp({ controllers, providers })` object form.
 
 ## 2. Let the token hold the promise

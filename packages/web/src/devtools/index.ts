@@ -1,7 +1,7 @@
 // @zmdb/web/devtools — an on-demand description of the declared module graph.
 //
 // This entry point is deliberately separate from the runtime package roots. It
-// reconstructs the graph from decorator metadata only when called; App,
+// reconstructs the graph from decorator metadata only when called; WebApplication,
 // CompiledModule and Container retain no inspector-specific state.
 
 import type { Scope, Token } from '@zmdb/app/di';

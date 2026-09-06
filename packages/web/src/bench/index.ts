@@ -4,9 +4,7 @@
 
 import '@zmdb/app';
 import type { ModuleClass } from '@zmdb/app/modules';
-import { tracedDriver } from '@zmdb/app/observability';
-import type { Observability } from '@zmdb/app/observability';
-import type { CompiledQuery } from '@zmdb/query-compiler';
+import { tracedDriver, type ExecutingDriver, type Observability } from '@zmdb/app/observability';
 
 import { createApp } from '../app/index.js';
 import { createRouter, type ResponseBody } from '../pipeline/index.js';
@@ -191,14 +189,16 @@ function observabilityResult(
   };
 }
 
-const QUERY_TELEMETRY: NonNullable<CompiledQuery['telemetry']> = Object.freeze({
+type BenchmarkQuery = Parameters<ExecutingDriver['execute']>[0];
+
+const QUERY_TELEMETRY: NonNullable<BenchmarkQuery['telemetry']> = Object.freeze({
   system: 'postgresql',
   operation: 'SELECT',
   collection: 'bench',
 });
 
-const BENCH_QUERIES: readonly CompiledQuery[] = Object.freeze(
-  Array.from({ length: 8 }, (_, index): CompiledQuery =>
+const BENCH_QUERIES: readonly BenchmarkQuery[] = Object.freeze(
+  Array.from({ length: 8 }, (_, index): BenchmarkQuery =>
     Object.freeze({
       text: 'SELECT "id" FROM "bench" WHERE "id" = $1',
       parameters: Object.freeze([index + 1]),
@@ -213,7 +213,7 @@ const TWO_ROWS: readonly Record<string, unknown>[] = Object.freeze([
   Object.freeze({ id: 2 }),
 ]);
 
-function benchQuery(index: number): CompiledQuery {
+function benchQuery(index: number): BenchmarkQuery {
   const query = BENCH_QUERIES[index % BENCH_QUERIES.length];
   if (query === undefined) {
     throw new Error('observability benchmark query pool is empty');

@@ -127,13 +127,13 @@ Both write to the same per-class metadata object under their own symbols. Use a 
 
 ## `Symbol.metadata` must exist
 
-Node 26 does not expose `Symbol.metadata` natively; `@zmdb/web` installs it (and nothing else) on first import. Importing anything from `@zmdb/web` before your decorated classes are evaluated is
-enough — which the normal import order gives you. A decorator file that imports nothing from `@zmdb/web` and is loaded first will see `undefined`, and `context.metadata` will not be shared.
+Node 26 does not expose `Symbol.metadata` natively; `@zmdb/app` installs it (and nothing else) on first import. Importing `@zmdb/web` also loads that app-owned polyfill before web decorators are
+evaluated. A standalone decorator file should import `@zmdb/app` before decorated classes are evaluated.
 
 ## Design notes
 
 - No `reflect-metadata`, no `emitDecoratorMetadata`, no design-time type emission.
-- Everything a decorator computes is computed at class-definition time, so it is boot cost, not per-request cost. `countMetadataReads` from `@zmdb/web/bench` asserts that in a test.
+- Everything a decorator computes is computed at class-definition time, so it is boot cost, not per-request cost. The repository-private `countMetadataReads` probe asserts that in a test.
 - Granular imports: `@zmdb/web/context`, `@zmdb/web/routing`.
 
 ---

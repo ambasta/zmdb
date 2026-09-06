@@ -399,14 +399,12 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/web',
     zone: 'application',
     ring: 6,
-    allowedWorkspaceDependencies: ['app', 'aot-validator', 'query-compiler', 'schema-core'],
+    allowedWorkspaceDependencies: ['app', 'aot-validator', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       typescript: ['./contract/compiler'],
     },
     toolingEntries: [
-      // Benchmark-only request and pipeline harnesses.
-      './bench',
       // HTTP contract code generation.
       './contract/compiler',
       // Runtime inspection and developer diagnostics.

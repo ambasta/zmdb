@@ -12,7 +12,7 @@
 - Returns a `TestApp`:
   - **`request(req: WebRequest): Promise<WebResponse>`** — drive a route in-process (no socket), same pipeline as production.
   - **`get<T>(token): T`** — resolve any provider (e.g. to assert on a spy).
-  - **`init()` / `[Symbol.asyncDispose]()`** — provider/controller lifecycle, same as `App`, including constructed-only shutdown for lazy factories.
+  - **`init()` / `[Symbol.asyncDispose]()`** — provider/controller lifecycle, same as `WebApplication`, including constructed-only shutdown for lazy factories.
 
 ## Invariants
 

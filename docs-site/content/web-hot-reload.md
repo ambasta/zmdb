@@ -72,7 +72,7 @@ registered `Router` with `toNodeHandler` when streaming and disconnect cancellat
 
 `SIGUSR2` is what some watchers send. `process.once`, not `on` — a second signal during shutdown should terminate immediately rather than re-enter the handler.
 
-`App` is `AsyncDisposable`, so `await using` handles this in a script:
+`WebApplication` is `AsyncDisposable`, so `await using` handles this in a script:
 
 ```ts
 await using app = createApp(AppModule);

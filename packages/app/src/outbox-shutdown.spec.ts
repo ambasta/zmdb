@@ -4,7 +4,7 @@ import { Module } from '@zmdb/app/modules';
 // registered as a provider participates in startup and graceful shutdown.
 //
 // §5 promises `onShutdown()` "stops claiming, waits for the in-flight batch, and does not wait for
-// the lease". ../../../repository/src/outbox/outbox.spec.ts asserts that promise against the
+// the lease". ../../repository/src/outbox/outbox.spec.ts asserts that promise against the
 // dispatcher object. This file asserts the other half — that something calls it — because a
 // dispatcher whose `onShutdown` is correct and never invoked loses its in-flight batch on every
 // deploy, and that failure is invisible to both suites above.
@@ -14,7 +14,7 @@ import { Module } from '@zmdb/app/modules';
 // to stop it, while still recording dependencies before the object whose factory resolved them.
 import { describe, expect, it } from 'vitest';
 
-import { createApp } from './index.js';
+import { createApplication } from './index.js';
 
 // ---------------------------------------------------------------------------
 // the dispatcher's frozen shape (outbox SPEC §5), hand-written
@@ -28,8 +28,8 @@ interface OutboxDispatcher {
 
 /**
  * A dispatcher that records its own lifecycle. It implements `OnModuleInit` and `OnShutdown`
- * structurally, which is how ../lifecycle.ts detects them (`'onShutdown' in x`, no reflection), so
- * if `createApp` ever drives providers this object needs no change to be driven.
+ * structurally, which is how ./lifecycle.ts detects them (`'onShutdown' in x`, no reflection), so
+ * if `createApplication` ever drives providers this object needs no change to be driven.
  */
 class RecordingDispatcher implements OutboxDispatcher {
   started = 0;
@@ -56,7 +56,7 @@ class RecordingDispatcher implements OutboxDispatcher {
   }
 }
 
-// A `Token<T>` is an object with a `description`, not a string (../di/index.ts:10-13). A bare string
+// A `Token<T>` is an object with a `description`, not a string (./di/index.ts:10-13). A bare string
 // happens to WORK at runtime — the container is a `Map` and any key resolves — but it is TS2322,
 // "Type 'string' is not assignable to type 'Token<unknown>'" (verified 2026-09-04), and the phantom
 // `__type` is what makes `resolve` return the dispatcher rather than `unknown`.
@@ -70,7 +70,7 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
     @Module({ providers: [{ token: DISPATCHER, useValue: dispatcher }] })
     class OutboxModule {}
 
-    const app = createApp(OutboxModule);
+    const app = createApplication(OutboxModule);
     await app.init();
     await app[Symbol.asyncDispose]();
 
@@ -82,9 +82,9 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
   it('the same hooks on a controller remain driven', async () => {
     // The instance is observed through a shared log rather than through the container, because
     // `compileModule` does NOT register controllers as providers: `app.container.resolve(TheClass)`
-    // throws `UnresolvedTokenError: @zmdb/web: no provider registered for token "undefined"` from
-    // ../di/index.ts:135 (verified 2026-09-04 — the token description is `undefined` because a
-    // class is not a symbol token). Worth recording: `createApp` gives a caller no handle on a
+    // throws `UnresolvedTokenError: @zmdb/app: no provider registered for token "undefined"` from
+    // ./di/index.ts:152 (verified 2026-09-06 — the token description is `undefined` because a
+    // class is not a symbol token). Worth recording: `createApplication` gives a caller no handle on a
     // controller instance at all, which is a second reason a dispatcher does not belong in that list.
     const log: string[] = [];
 
@@ -100,7 +100,7 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
     @Module({ controllers: [ControllerDispatcher] })
     class OutboxModule {}
 
-    const app = createApp(OutboxModule);
+    const app = createApplication(OutboxModule);
     await app.init();
     await app[Symbol.asyncDispose]();
 
@@ -113,7 +113,7 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
     @Module({ providers: [{ token: DISPATCHER, useValue: dispatcher }] })
     class OutboxModule {}
 
-    const app = createApp(OutboxModule);
+    const app = createApplication(OutboxModule);
     await app.init();
     expect(dispatcher.started).toBe(1);
     expect(dispatcher.claiming).toBe(true);
@@ -153,7 +153,7 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
     })
     class OutboxModule {}
 
-    const app = createApp(OutboxModule);
+    const app = createApplication(OutboxModule);
     await app.init();
     const resolved = app.container.resolve(DISPATCHER);
     await app[Symbol.asyncDispose]();
@@ -165,7 +165,7 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
   });
 
   it('shutdown drains a dispatcher before the driver it depends on', async () => {
-    // ../lifecycle.ts documents the ordering rule — "`onShutdown` in reverse construction
+    // ./lifecycle.ts documents the ordering rule — "`onShutdown` in reverse construction
     // order, so a dependent tears down before what it depends on" — and it is exactly the rule the
     // outbox needs: a dispatcher whose driver is closed underneath it fails its in-flight batch's
     // marks. OWNER is deliberately registered before DRIVER, so declaration order cannot make this
@@ -195,7 +195,7 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
     })
     class OutboxModule {}
 
-    const app = createApp(OutboxModule);
+    const app = createApplication(OutboxModule);
     app.container.resolve(OWNER);
     await app.init();
     await app[Symbol.asyncDispose]();
@@ -205,8 +205,8 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
 
   it('await using disposes the app, which is the path a deployment actually takes', async () => {
     // Green, and it is here so the tests above are read as a gap in coverage of the REAL shutdown
-    // path rather than as a quibble about a method nobody calls. `App extends AsyncDisposable`
-    // (./index.ts:14), so `await using app = createApp(…)` is the documented shape, and it reaches
+    // path rather than as a quibble about a method nobody calls. `Application extends AsyncDisposable`,
+    // so `await using app = createApplication(…)` is the documented shape, and it reaches
     // the same `runShutdown` the explicit dispose above does.
     const log: string[] = [];
 
@@ -220,7 +220,7 @@ describe('outbox on an app: dispatcher provider lifecycle (#593, outbox SPEC §5
     class OutboxModule {}
 
     {
-      await using app = createApp(OutboxModule);
+      await using app = createApplication(OutboxModule);
       await app.init();
       expect(log).toEqual([]);
     }

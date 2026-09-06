@@ -8,7 +8,7 @@ row, point to an equal-or-inward zone, and have a strictly lower canonical ring.
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **35 catalog packages**, **63 direct workspace edges**, and canonical rings **0–7**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **35 catalog packages**, **62 direct workspace edges**, and canonical rings **0–7**.
 
 | Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                                                     |
 | ---- | ----------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -44,7 +44,7 @@ Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, 
 | 6    | integration | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                                                       |
 | 6    | integration | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                                                       |
 | 6    | integration | `@zmdb/transport-redis`    | `@zmdb/app`                                                                                                                                                                       |
-| 6    | application | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                                                             |
+| 6    | application | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/schema-core`                                                                                                                       |
 | 7    | integration | `@zmdb/jobs-postgres`      | `@zmdb/jobs`<br>`@zmdb/postgres`                                                                                                                                                  |
 | 7    | facade      | `zmdb`                     | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/mssql`<br>`@zmdb/postgres`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`<br>`@zmdb/sqlite`<br>`@zmdb/web` |
 
@@ -67,7 +67,7 @@ Entry-specific runtime, tooling, and optional-peer reachability assignments:
 | `@zmdb/mssql`          | optional peer               | `mssql@^12.7.0`                            | `.`                                                                                                                                                   |
 | `@zmdb/mysql`          | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                   |
 | `@zmdb/postgres`       | optional peer               | `pg@^8.23.0`                               | `.`                                                                                                                                                   |
-| `@zmdb/web`            | tooling boundary            | tooling-only code                          | `./bench`<br>`./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                     |
+| `@zmdb/web`            | tooling boundary            | tooling-only code                          | `./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                                  |
 | `@zmdb/web`            | optional peer               | `typescript@>=7.0.0`                       | `./contract/compiler`                                                                                                                                 |
 | `zmdb`                 | tooling boundary            | tooling-only code                          | `./cli`<br>`./config`<br>`./unplugin`<br>`./web/contract/compiler`<br>`bin:zmdb`                                                                      |
 | `zmdb`                 | optional peer               | `@zmdb/mssql@workspace:^`                  | `./cli`<br>`./drivers/mssql`<br>`bin:zmdb`                                                                                                            |

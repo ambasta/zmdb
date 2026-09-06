@@ -597,7 +597,7 @@ Scope exposed at the prompt:
 
 | name                      | is                                                             |
 | ------------------------- | -------------------------------------------------------------- |
-| `app`                     | the `App` from `createApp`                                     |
+| `app`                     | the `WebApplication` from `createApp`                          |
 | `container`               | `app.container`                                                |
 | `get(tokenOrDescription)` | `container.resolve`, also accepting a token's description text |
 | `tokens`                  | the token descriptions in the graph, from the description      |

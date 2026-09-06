@@ -828,7 +828,6 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./app` → `./src/app/index.ts`
-  - `./bench` → `./src/bench/index.ts`
   - `./compression` → `./src/compression/index.ts`
   - `./context` → `./src/context/index.ts`
   - `./contract` → `./src/contract/index.ts`
@@ -850,7 +849,6 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
 - **Dependencies:**
   - `@zmdb/aot-validator` → `workspace:^`
   - `@zmdb/app` → `workspace:^`
-  - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/schema-core` → `workspace:^`
 - **Optional dependencies:** None.
 - **Optional peers:**

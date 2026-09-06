@@ -109,7 +109,7 @@ constructs. Disposal runs `onShutdown` in **reverse construction order**, so a d
 
 ## Graceful shutdown
 
-`App` is `AsyncDisposable`, so `await using` handles it:
+`WebApplication` is `AsyncDisposable`, so `await using` handles it:
 
 ```ts
 await using app = createApp(AppModule);

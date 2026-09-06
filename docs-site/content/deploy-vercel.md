@@ -1,4 +1,4 @@
-Vercel runs your code as functions. `App` exposes `fetch(request)` and owns no server, so it adapts directly — the work is in the connection arithmetic and the build step.
+Vercel runs your code as functions. `WebApplication` exposes `fetch(request)` and owns no server, so it adapts directly — the work is in the connection arithmetic and the build step.
 
 ## A function
 

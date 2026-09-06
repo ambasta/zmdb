@@ -6,7 +6,7 @@ import { start, type REPLServer } from 'node:repl';
 
 import type { Token } from '@zmdb/app/di';
 import { moduleDefOf, type ModuleClass } from '@zmdb/app/modules';
-import { createApp, type App } from '@zmdb/web/app';
+import { createApp, type WebApplication } from '@zmdb/web/app';
 import { describeGraph, renderTree, type GraphDescription } from '@zmdb/web/devtools';
 import type { WebRequest, WebResponse } from '@zmdb/web/pipeline';
 
@@ -16,8 +16,8 @@ export interface ReplGet {
 }
 
 export interface ReplScope {
-  readonly app: App;
-  readonly container: App['container'];
+  readonly app: WebApplication;
+  readonly container: WebApplication['container'];
   readonly get: ReplGet;
   readonly tokens: readonly string[];
   readonly describe: () => string;
@@ -37,7 +37,7 @@ export interface ReplSessionOptions {
 }
 
 export interface ReplSession extends AsyncDisposable {
-  readonly app: App;
+  readonly app: WebApplication;
   readonly graph: GraphDescription;
   readonly scope: ReplScope;
   readonly server: REPLServer;
@@ -169,7 +169,7 @@ export function replHistoryPath(
   return isAbsolute(configured) ? configured : resolve(homeDirectory, configured);
 }
 
-function replScope(app: App, graph: GraphDescription, records: readonly TokenRecord[]): ReplScope {
+function replScope(app: WebApplication, graph: GraphDescription, records: readonly TokenRecord[]): ReplScope {
   const get = createGet(app, records);
   const tokens = graph.providers.map(provider => provider.token).toSorted();
   return {
@@ -195,7 +195,7 @@ function replScope(app: App, graph: GraphDescription, records: readonly TokenRec
   };
 }
 
-function createGet(app: App, records: readonly TokenRecord[]): ReplGet {
+function createGet(app: WebApplication, records: readonly TokenRecord[]): ReplGet {
   return <T>(tokenOrDescription: Token<T> | string): T | unknown => {
     if (typeof tokenOrDescription !== 'string') {
       return app.container.resolve(tokenOrDescription);

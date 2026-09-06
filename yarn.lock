@@ -4931,7 +4931,6 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
-    "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
   peerDependencies:

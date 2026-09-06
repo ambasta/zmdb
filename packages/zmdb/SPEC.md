@@ -74,7 +74,7 @@ Min, Max, MinLength, MaxLength, Pattern
 Entity, CreateDTO, UpdateDTO, ReadDTO, PrimaryKeyOf
 Driver, UpdatePatch
 ValidateResult, ValidationIssue
-App, Ctx, ModuleClass
+WebApplication, Ctx, ModuleClass
 ```
 
 `Body` is part of the frozen application contract even though the measured baseline has no such root export. #619 therefore freezes it as missing behavior and #620 supplies it. Conversely, every
@@ -277,8 +277,8 @@ WebResponse
 Worker
 ```
 
-Names already frozen in §2 remain part of the root contract even when they are not repeated here; in particular this target does not remove `Body` or `App`. All other app/web/jobs names remain
-available through the concern subpaths above. Optional integration names never appear at the root.
+Names already frozen in §2 remain part of the root contract even when they are not repeated here; in particular this target does not remove `Body` or `WebApplication`. All other app/web/jobs names
+remain available through the concern subpaths above. Optional integration names never appear at the root.
 
 ### Collision and identity rules
 

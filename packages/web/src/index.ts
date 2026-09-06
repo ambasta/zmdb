@@ -127,7 +127,7 @@ export {
 } from './middleware/index.js';
 
 // HTTP application bootstrap over one app-owned graph. See ./app.
-export { createApp, type App, type WebApplication, type WebApplicationOptions } from './app/index.js';
+export { createApp, type WebApplication, type WebApplicationOptions } from './app/index.js';
 
 // DTO validation & serialization pipes. See ./dto-pipes.
 export {

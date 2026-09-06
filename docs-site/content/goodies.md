@@ -120,15 +120,8 @@ Same router, same middleware chain, same DI graph — with `await using` for tea
 
 ## Count metadata reads to prove there are none
 
-```ts
-import { countMetadataReads } from '@zmdb/web/bench';
-
-const counter = countMetadataReads(MyController);
-// ... boot the app ...
-counter.count; // 0
-```
-
-This is how the "no runtime reflection" claim is tested rather than asserted. See [Web Performance & Benchmarks](./web-benchmarks.html).
+The repository-private `countMetadataReads` probe wraps a controller's `Symbol.metadata` property, boots the real router, then proves repeated requests add zero reads. This is how the "no runtime
+reflection" claim is tested rather than asserted; it is test support, not a published application entry point. See [Web Performance & Benchmarks](./web-benchmarks.html).
 
 ## `whereExists` takes any compilable
 

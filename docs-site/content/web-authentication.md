@@ -97,8 +97,8 @@ routeRouter.register(new AccountController(), { profile: { guards: [authenticate
 Effective guards run app → controller → route. A guard returning `false` produces a 403 and the handler does not run. `@Public()` bypasses inherited app/controller guards and cannot also declare a
 route guard or a non-empty explicit security requirement.
 
-`createApp` can pass observability to its router, but it still has no guard registry or per-route registration options. Applications using module bootstrap must therefore construct the router
-explicitly or keep the check in the handler.
+`createApp(AppModule, { guardRegistry })` applies app-wide and controller-specific guards to its startup-built router. Module bootstrap still has no per-route registration options, so handler-specific
+guards and automatic body validation require an explicitly constructed router or a check in the handler.
 
 ## Getting a 401 out
 
@@ -192,8 +192,8 @@ Put the verifier behind a token so tests substitute it. Then assert the negative
 
 ## What it would take
 
-App, controller and route guards now enforce authentication on an explicitly constructed router. A typed way for a guard to hand a principal to the handler still needs a per-request bag or `Ctx`
-extension point; `createApp` also has no guard-registry option.
+Application and controller guards now work through both `createRouter` and `createApp`; route-specific guards work through explicit router registration. A typed way for a guard to hand a principal to
+the handler still needs a per-request bag or `Ctx` extension point.
 
 ---
 

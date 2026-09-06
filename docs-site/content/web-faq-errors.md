@@ -146,7 +146,7 @@ array is fine. Validator-produced errors populate `issues` with paths.
 
 ## The process will not exit after a script
 
-An open connection pool holds the event loop. `App` is `AsyncDisposable`:
+An open connection pool holds the event loop. `WebApplication` is `AsyncDisposable`:
 
 ```ts
 await using app = createApp(AppModule);

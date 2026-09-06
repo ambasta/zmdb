@@ -228,7 +228,7 @@ function findingKinds(graph: GraphDescription | string): readonly string[] | str
  *
  * This is the one reader in this file that does not go through `./index.js`, because §10.6's claim
  * is about the metadata writer itself. The slot is found by
- * symbol *description* rather than by importing the symbol, which `../di/index.ts` does not export;
+ * symbol *description* rather than by importing the symbol, which `@zmdb/app/di` does not export;
  * the property is then read with an ordinary get, which follows the prototype chain — exactly what
  * `injectionsOf` reading `metadata[INJECTIONS]` would do, so this measures the bug rather than an
  * artefact of how the test looks.

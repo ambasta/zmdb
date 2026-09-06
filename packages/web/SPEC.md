@@ -1,14 +1,12 @@
-# `@zmdb/web` — SPEC
+# `@zmdb/web` — HTTP package SPEC
 
-> Stage-3 decorator web framework for the zmdb ecosystem. This SPEC freezes the **package baseline** (issue #248, epic #247). Later concerns (routing, Ctx, DI, state machines, pipeline, …) get their
-> own `src/<concern>/SPEC.md`.
+> Stage-3 HTTP framework over the protocol-neutral `@zmdb/app` kernel. The original issue #248 package baseline remains below as history; issue #649's HTTP-only boundary is the current contract.
 
 ## Position in the architecture
 
 At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in the dependency DAG (ARCHITECTURE.md §3) and depended on `@zmdb/schema-core`, `@zmdb/aot-validator`,
-`@zmdb/query-compiler` and `@zmdb/repository`. The current manifest no longer declares the repository edge after #650 removed the last shipped import with the queue implementation. Web still has
-**zero required third-party runtime dependencies**. Broker clients remain optional peers; TypeScript is an optional peer only for `./contract/compiler`. grpc-js is owned solely by
-`@zmdb/transport-grpc`.
+`@zmdb/query-compiler` and `@zmdb/repository`. The current package is the HTTP adapter over `@zmdb/app`; its direct runtime dependencies are exactly `@zmdb/app`, `@zmdb/aot-validator` and
+`@zmdb/schema-core`. It declares no third-party runtime dependency or runtime peer. TypeScript remains an optional build-time peer reached only by `./contract/compiler`.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -25,9 +23,8 @@ At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in t
 ### Package
 
 - New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
-- Original `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). The current manifest no longer declares `@zmdb/repository`. There
-  are no required third-party runtime dependencies; broker clients remain optional peers for their integration subpaths, TypeScript is optional only for `./contract/compiler`, and grpc-js is owned
-  solely by `@zmdb/transport-grpc`.
+- Original `dependencies`: `@zmdb/schema-core`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, `@zmdb/repository` (all `workspace:^`). Integration peers belonged to the former server subpaths. The
+  current HTTP-only manifest is defined in the issue #649 section below.
 - `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish, exactly like the sibling packages).
 
 ### tsconfig
@@ -63,9 +60,9 @@ At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in t
 Routing (#252), typed `Ctx`/path-params (#257), DI (#262), domain state machines (#267), request pipeline/adapters (#272), data-layer integration (#277), and all NestJS-parity follow-ups (#282–#321).
 Those freeze their own SPECs.
 
-## Target HTTP-only package boundary (#645)
+## HTTP-only package boundary (#649)
 
-This section supersedes this file's package-ownership statements once the #644 migration lands. It freezes the target; it does not claim that the current manifest has moved.
+This section supersedes the historical package-ownership statements above and describes the current manifest.
 
 `@zmdb/web` becomes the HTTP adapter over `@zmdb/app`. It owns controllers, routes and versions, typed HTTP context, request/response adapters, guards/pipes/interceptors/filters, body and wire
 conversion, static files, compression, uploads, CSRF, OpenAPI, WS/SSE gateways, HTTP health responses, HTTP testing utilities and the HTTP-aware graph inspector.
@@ -83,8 +80,8 @@ Direct runtime dependencies are exactly the following workspace packages:
 @zmdb/schema-core
 ```
 
-The package declares no third-party `dependencies`, `optionalDependencies` or `peerDependencies`. Optional technology adapters are separately installed packages. `@zmdb/web` must not import
-`@zmdb/jobs` or any optional integration package.
+The package declares no third-party runtime dependency, optional dependency or runtime peer. Its only peer is optional `typescript@>=7`, reached exclusively from the build-time `./contract/compiler`
+entry. Optional technology adapters are separately installed packages. `@zmdb/web` must not import `@zmdb/jobs` or any optional integration package.
 
 The target public entries are:
 

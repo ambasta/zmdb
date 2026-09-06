@@ -20,14 +20,13 @@ import {
 // which is what §1 says is the public interface — rather than about the order of calls on a
 // spy. A call-order assertion passes an implementation that emits the right calls in the
 // wrong hierarchy, and the hierarchy is the thing a waterfall renders.
-import { createQueryCompiler, type CompiledQuery } from '@zmdb/query-compiler';
 import { describe, expect, it, vi } from 'vitest';
 
 import { bodyText, createRouter, json, type Ctx, type WebRequest } from '../pipeline/index.js';
 import { Controller, Get, Post } from '../routing/index.js';
 import { createTracedRouter } from '../traced-router.js';
 
-type TelemetryQuery = CompiledQuery;
+type TelemetryQuery = Parameters<ExecutingDriver['execute']>[0];
 type TracedCtx = Ctx<Record<string, string>>;
 
 // --- the recording tracer -------------------------------------------------
@@ -163,12 +162,9 @@ const recordingMeter = (): RecordingMeter => {
 
 // --- the application under test -------------------------------------------
 
-/** A `CompiledQuery` carrying the compile-time telemetry frozen in §5. */
-const telemetryQuery = (text: string, parameters: readonly unknown[], telemetry: QueryTelemetry): TelemetryQuery => ({
-  text,
-  parameters,
-  telemetry,
-});
+/** A query carrying the compile-time telemetry frozen in §5. */
+const telemetryQuery = (text: string, parameters: readonly unknown[], telemetry: QueryTelemetry): TelemetryQuery =>
+  Object.freeze({ text, parameters, telemetry });
 
 const noRows = (): ExecutingDriver => ({
   dialect: 'postgres',
@@ -339,7 +335,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
 
     // The driver decorator has the same branch, and the same evidence: no tracer, no span,
     // and the compiled query reaches the driver untouched.
-    const seen: CompiledQuery[] = [];
+    const seen: TelemetryQuery[] = [];
     const driver = tracedDriver({ execute: q => (seen.push(q), Promise.resolve([])) }, {});
     const query = telemetryQuery('SELECT 1', [], { system: 'postgresql', operation: 'SELECT', collection: 'x' });
     await driver.execute(query);
@@ -354,12 +350,12 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   it('tags a query at execution with only the configured closed comment keys', async () => {
     const tracer = recordingTracer();
     const parent = tracer.startSpan('zmdb.handler');
-    const seen: CompiledQuery[] = [];
-    const query = createQueryCompiler('postgres', { telemetry: true })
-      .selectFrom('posts')
-      .select(['id'])
-      .where('id', '=', 1)
-      .compile();
+    const seen: TelemetryQuery[] = [];
+    const query = telemetryQuery('SELECT "id" FROM "posts" WHERE "id" = $1', [1], {
+      system: 'postgresql',
+      operation: 'SELECT',
+      collection: 'posts',
+    });
     const driver = tracedDriver(
       {
         dialect: 'postgres',
@@ -396,7 +392,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
 
     const inherited: CommentPairs = Object.create({ route: '/forged' });
     Object.defineProperty(inherited, 'action', { value: 'get', enumerable: true });
-    const prototypeSeen: CompiledQuery[] = [];
+    const prototypeSeen: TelemetryQuery[] = [];
     const commentsOnly = tracedDriver(
       { execute: executed => (prototypeSeen.push(executed), Promise.resolve([])) },
       { comments: { keys: ['route', 'action'] } },
@@ -677,12 +673,12 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     expect(withoutValidator.spans.map(s => s.name)).toEqual(['POST /posts', 'zmdb.route', 'zmdb.handler']);
   });
 
-  // §9.6, and §9.4 for the database keys. The attributes come from `CompiledQuery.telemetry`,
+  // §9.6, and §9.4 for the database keys. The attributes come from the query's compile-time telemetry,
   // which the compiler filled in because it "knows the dialect, the verb and the table without
   // a regular expression".
   //
   // The CTE case is the assertion the docs page's regex fails, and it is built from a
-  // hand-written `CompiledQuery` rather than a compiled one on purpose: zmdb's compiler has no
+  // hand-written query rather than a compiled one on purpose: zmdb's compiler has no
   // `WITH` clause at all (`tests/api-coverage/mapping.mjs` records this as `NO_CTE`, "zmdb has
   // no WITH clause"), so there is no builder call that would produce this text. Nothing is lost
   // — §9.6 is an assertion about where the label comes from, and a literal makes that sharper
@@ -730,7 +726,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
   });
 
   // §9.5. The statement is recorded — §6 argues zmdb "has an unusually strong right to do it",
-  // because `CompiledQuery` always separates text from parameters and its optional telemetry
+  // because the query contract always separates text from parameters and its optional telemetry
   // contains no parameter values. The driver binds the parameters, so the text contains no
   // user data *by construction*. Parameter values are never recorded at any level and there
   // is no option that enables it.

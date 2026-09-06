@@ -81,8 +81,14 @@ const dispatcher = {
 
 describe('@zmdb/web app: createApp', () => {
   it('routes a request to a module controller', async () => {
-    const app = createApp(AppModule);
-    const res = await app.handle({ method: 'GET', path: '/ping', headers: {} });
+    const app = createApp(AppModule, {
+      guardRegistry: {
+        app: [{ canActivate: context => context.headers['x-api-key'] === 'secret' }],
+      },
+    });
+    const denied = await app.handle({ method: 'GET', path: '/ping', headers: {} });
+    const res = await app.handle({ method: 'GET', path: '/ping', headers: { 'x-api-key': 'secret' } });
+    expect(denied.status).toBe(403);
     expect(res.status).toBe(200);
     expect(JSON.parse(await bodyText(res))).toEqual({ pong: true });
   });

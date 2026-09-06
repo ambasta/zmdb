@@ -142,7 +142,7 @@ Assert the limit **and** the reset. A limiter that never resets is an outage.
 
 ## What it would take
 
-App/controller-level registration now applies a limiter across an explicitly constructed router. A status other than 403 from a rejected guard is still needed. Limit headers likewise need a
+Application/controller-level registration now applies a limiter across an explicitly constructed router. A status other than 403 from a rejected guard is still needed. Limit headers likewise need a
 handler/adapter response.
 
 ---

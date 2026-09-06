@@ -28,5 +28,13 @@
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
+  },
+  "peerDependencies": {
+    "typescript": ">=7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   }
 }

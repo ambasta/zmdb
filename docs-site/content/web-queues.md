@@ -135,7 +135,7 @@ const backgroundWork = jobsExtension({ workers: [worker] });
 Registration is explicit and by value. `createWorker` builds one dispatch `Map` at startup; there is no module scan, decorator side effect or process-global registry. Build handlers through the
 container first when they have injected dependencies, then pass those instances in the `handlers` array.
 
-Pass `backgroundWork` in `createApplication(..., { extensions: [backgroundWork] })` or `createApp(..., { extensions: [backgroundWork] })`. App initialization starts the worker after bootstrap;
+Pass `backgroundWork` in `createApplication(..., { extensions: [backgroundWork] })` or `createApp(..., { extensions: [backgroundWork] })`. Application initialization starts the worker after bootstrap;
 application disposal stops intake and drains it within the remaining app-wide grace budget. Standalone programs may call `worker.start()` and `worker.onShutdown()` directly. No process signal handler
 is installed.
 

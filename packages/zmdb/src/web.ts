@@ -107,7 +107,6 @@ export {
   UPLOAD_DEFAULTS,
 } from '@zmdb/web';
 export type {
-  App,
   AnyCtx,
   Chain,
   ChainHandler,
@@ -175,4 +174,6 @@ export type {
   Multipart,
   UploadLimits,
   UploadPart,
+  WebApplication,
+  WebApplicationOptions,
 } from '@zmdb/web';

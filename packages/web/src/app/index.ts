@@ -32,9 +32,6 @@ export interface WebApplication extends Application {
   fetch(request: Request): Promise<Response>;
 }
 
-/** Compatibility name retained until the HTTP package cutover in #649. */
-export type App = WebApplication;
-
 /**
  * Compose one router over one application graph. The container, lazy handles,
  * init function and async-dispose function are the app-owned members by

@@ -123,7 +123,7 @@ Send a comment line (`: ping\n\n`) every 20–30 seconds or proxies will close a
 ## No Socket.IO, no protocol negotiation
 
 The dispatcher is transport-agnostic: it maps an event name and a payload to a method. Whether the frames arrive over `ws`, `uWebSockets.js`, Socket.IO or a Durable Object is your choice, and none of
-it is in the package. That is the same trade as `App` having no `listen()` — less provided, nothing to fight.
+it is in the package. That is the same trade as `WebApplication` having no `listen()` — less provided, nothing to fight.
 
 ## Cloudflare Durable Objects
 

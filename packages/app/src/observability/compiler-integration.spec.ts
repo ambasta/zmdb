@@ -22,7 +22,7 @@ const tracer: Tracer = {
   },
 };
 
-describe('observability compiler integration', () => {
+describe('app observability compiler integration', () => {
   it('marks configured drivers so callers can opt the compiler into telemetry', async () => {
     const queries: Parameters<ReturnType<typeof tracedDriver>['execute']>[0][] = [];
     const driver = tracedDriver(

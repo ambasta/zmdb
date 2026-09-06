@@ -49,7 +49,6 @@
     "./health": "./src/health/index.ts",
     "./gateways": "./src/gateways/index.ts",
     "./testing": "./src/testing/index.ts",
-    "./bench": "./src/bench/index.ts",
     "./devtools": "./src/devtools/index.ts"
   },
   "publishConfig": {
@@ -63,7 +62,6 @@
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {

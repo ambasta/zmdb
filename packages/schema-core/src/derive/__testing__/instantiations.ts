@@ -21,9 +21,11 @@ const ROOT = new URL('../../../../../', import.meta.url).pathname;
  * It has to be *inside* the repository. A project written to `/tmp` fails with `TS2688:
  * Cannot find type definition file for 'node'`, because `types` is resolved by walking up
  * from the project directory looking for `node_modules` and outside the tree there is none
- * to find. Gitignored; `cleanup()` removes it.
+ * to find. It must also stay outside `packages/`: source-boundary verifiers run concurrently
+ * with this test and must not observe a half-written generated project as shipped source.
+ * The root `.budget/` directory is gitignored; `cleanup()` removes this dedicated subtree.
  */
-const SCRATCH = new URL('../__budget__/', import.meta.url).pathname;
+const SCRATCH = `${ROOT}.budget/instantiations/`;
 
 /** What to generate. The three axes are the three things anyone wants to compare. */
 export interface Variant {

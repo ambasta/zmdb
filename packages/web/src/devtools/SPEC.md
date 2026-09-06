@@ -35,7 +35,7 @@ Those three rows plus `lazy-modules/e2e/*` now cite live tests. `NO_REPL` was de
 local application process with no socket, host or remote-attach protocol. `lazy-modules/e2e/*` likewise moved from "there is nothing to defer" to tests for eager validation and deferred construction.
 `yarn verify:api-coverage` checks every cited title.
 
-## 2. The surface, and why it cannot take an `App`
+## 2. The surface, and why it cannot take a `WebApplication`
 
 ```ts
 export interface ModuleNode {
@@ -98,13 +98,13 @@ export declare function renderDot(graph: GraphDescription, filter?: GraphFilter)
 
 Six corrections to #599's sketch. The first is the one everything else follows from.
 
-**`describeGraph(app: App)` cannot be written.** `App` is `{ container, handle, fetch, init, [Symbol.asyncDispose] }` (`../app/index.ts:14-19`) and holds no root module, no controller list and no
-route table; `createApp` destructures `{ container, controllers }` and closes over the controllers without exposing them (`../app/index.ts:27-39`).
+**`describeGraph(app: WebApplication)` cannot be written.** `WebApplication` is `{ container, handle, fetch, init, [Symbol.asyncDispose] }` (`../app/index.ts`) and holds no root module, no controller
+list and no route table; `createApp` closes over the controller bindings without exposing them.
 
 The one thing it does expose is the `Container`, whose `#bindings` and `#factories` are private fields (`../../../app/src/di/index.ts`) with `has` and `resolve` as the only readers — so a token cannot
 even be enumerated from it, let alone attributed to a module.
 
-An `App`-shaped signature therefore forces one of two things: a new field on `App` holding a description, which is the permanent retention the epic's §1 constraint forbids, or three new accessors on
+Such a signature therefore forces one of two things: a new field on `WebApplication` holding a description, which is the permanent retention the epic's §1 constraint forbids, or three new accessors on
 `Container` that exist only for a development tool. `ModuleClass` is the argument the data is actually reachable from, and taking it has a second effect worth more than the first: the inspector runs
 on a graph that does not boot.
 
@@ -330,8 +330,8 @@ serves a document naming every token, every route pattern and every module. That
 
 1. `describeGraph` over the large fixture returns a description whose `modules`, `providers` and `controllers` match a golden value, including `kind: 'value'` carrying no `scope` and `kind: 'factory'`
    carrying `dependencies: null`.
-2. Compile-time, in a `*.type-test.ts`: `describeGraph(app)` is rejected where `app: App`, and accepted for a `ModuleClass`; reading `scope` off a `ProviderNode` without narrowing `kind` is rejected.
-   No `as` anywhere in the fixture or the tests.
+2. Compile-time, in a `*.type-test.ts`: `describeGraph(app)` is rejected where `app: WebApplication`, and accepted for a `ModuleClass`; reading `scope` off a `ProviderNode` without narrowing `kind` is
+   rejected. No `as` anywhere in the fixture or the tests.
 3. `JSON.stringify` of a description containing an opaque factory contains `"dependencies":null` — the assertion that fails if the marker is `undefined`.
 4. Between `createApp` and the first `describeGraph` call, `countMetadataReads` (`../bench/index.ts:20`) on a module class reports **zero** reads, and a non-zero count after it. This replaces #600's
    `does not retain graph metadata when the description was never requested`, which cannot pass as titled — the metadata is owned by the class in both arms. The title has to change with it, before
@@ -349,7 +349,7 @@ serves a document naming every token, every route pattern and every module. That
 
 ## Non-goals (rejected)
 
-- **`describeGraph(app: App)`, and any `App` or `Container` accessor added to support it** (§2).
+- **`describeGraph(app: WebApplication)`, and any `WebApplication` or `Container` accessor added to support it** (§2).
 - **Reporting `exports` as a visibility boundary** (§2) — it is declared and unenforced, and a diagram is the worst place to imply otherwise.
 - **Guessing factory dependencies**, by parsing a function body, by a proxy container that records `resolve` calls, or by running the factory (§2, §4). The first two are reflection, the third is the
   instantiation the description exists to avoid.
@@ -368,4 +368,4 @@ serves a document naming every token, every route pattern and every module. That
 The graph inspector remains `@zmdb/web/devtools`: `RouteNode`, route shadowing and controller route projections make this an HTTP-aware tool. It consumes `moduleDefOf`, `injectionsOf` and the module
 types from public `@zmdb/app` entries, so the permitted dependency remains `web -> app`.
 
-App retains no inspector state, and app does not import this entry. The production-root reachability barrier and on-demand reconstruction invariant remain unchanged.
+`WebApplication` retains no inspector state, and app does not import this entry. The production-root reachability barrier and on-demand reconstruction invariant remain unchanged.
