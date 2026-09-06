@@ -67,7 +67,7 @@ validation runtime.
 Compiler tooling is independently usable: install `@zmdb/compiler` when a build, linter, Metro project, or no-bundler workflow needs the TypeScript front end directly. The
 [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
-> The workspace publishes **38 packages** across **185 export-map entry points**. The current suite has **3,346 passing tests** across 312 files, plus **57 expected failures** that describe work still
+> The workspace publishes **38 packages** across **185 export-map entry points**. The current suite has **3,363 passing tests** across 313 files, plus **50 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 271 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

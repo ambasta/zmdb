@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 // Freeze the package graph for the optional server integrations.
 //
-// The default invocation compares the live tree with the checked-in tests-freeze
-// baseline. That makes this useful before the packages exist: a new leak fails,
-// while each implementation slice retires its own recorded finding. `--strict`
-// succeeds only when no finding remains.
+// The default invocation compares the live tree with exact owned exception
+// records. That makes this useful before the packages exist: a new leak fails,
+// while each implementation slice retires its own record. `--strict` succeeds
+// only when no finding remains.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
+import {
+  governanceExceptionsForSource,
+  serverBoundaryProblemFinding,
+  verifyGovernanceSnapshotExceptionSource,
+} from '../../scripts/architecture/exceptions.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 const SCRIPT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const DEFAULT_BASELINE = join(SCRIPT_ROOT, '.github', 'scripts', 'server-boundaries-baseline.json');
+const STRUCTURED_EXCEPTIONS = join(SCRIPT_ROOT, 'scripts', 'architecture', 'exceptions.mjs');
 
 export const SERVER_PACKAGES = [
   {
@@ -316,10 +320,6 @@ function reachablePackages(repoRoot, graph, starts) {
     directWorkspace: [...directWorkspace].toSorted(),
     privateImports: [...privateImports].toSorted(),
   };
-}
-
-function readManifest(path) {
-  return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 function sourceFiles(directory) {
@@ -723,24 +723,10 @@ export function analyzeServerBoundaries(root = SCRIPT_ROOT, options = {}) {
   ].toSorted();
 }
 
-export function readBoundaryBaseline(path = DEFAULT_BASELINE) {
-  const parsed = readManifest(path);
-  if (!Array.isArray(parsed.problems) || parsed.problems.some(problem => typeof problem !== 'string')) {
-    throw new Error(`${path} must contain a string-array "problems" field`);
-  }
-  return parsed.problems.toSorted();
-}
-
-function difference(left, right) {
-  const rightSet = new Set(right);
-  return left.filter(value => !rightSet.has(value));
-}
-
 function parseArgs(argv) {
   let root = SCRIPT_ROOT;
   let strict = false;
   let requireAll = true;
-  let baseline = DEFAULT_BASELINE;
   let optionalPackagesOnly = false;
 
   for (let index = 0; index < argv.length; index++) {
@@ -749,27 +735,39 @@ function parseArgs(argv) {
     else if (argument === '--partial') requireAll = false;
     else if (argument === '--optional-packages-only') optionalPackagesOnly = true;
     else if (argument === '--root') root = resolve(argv[++index] ?? '');
-    else if (argument === '--baseline') baseline = resolve(argv[++index] ?? '');
-    else throw new Error(`unknown argument: ${argument}`);
+    else if (argument === '--baseline') {
+      const supplied = resolve(argv[++index] ?? '');
+      if (supplied !== STRUCTURED_EXCEPTIONS) {
+        throw new Error(`--baseline now accepts only the structured registry ${STRUCTURED_EXCEPTIONS}`);
+      }
+    } else throw new Error(`unknown argument: ${argument}`);
   }
-  return { root, strict, requireAll, baseline, optionalPackagesOnly };
+  return { root, strict, requireAll, optionalPackagesOnly };
 }
 
 async function runCli() {
-  const { root, strict, requireAll, baseline, optionalPackagesOnly } = parseArgs(process.argv.slice(2));
+  const { root, strict, requireAll, optionalPackagesOnly } = parseArgs(process.argv.slice(2));
+  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
   const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
   if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
   const actual = optionalPackagesOnly
     ? analyzeOptionalServerPackages(root, { architecture: snapshot.architecture, requireAll })
     : analyzeServerBoundaries(root, { architecture: snapshot.architecture, requireAll });
-  const expected = strict || optionalPackagesOnly ? [] : readBoundaryBaseline(baseline);
-  const added = difference(actual, expected);
-  const retired = difference(expected, actual);
+  const rawFindings = actual.map(serverBoundaryProblemFinding);
+  const exceptionReport =
+    strict || optionalPackagesOnly
+      ? { diagnostics: [] }
+      : verifyGovernanceSnapshotExceptionSource({
+          snapshot,
+          source: 'server-boundaries',
+          rawFindings,
+          requireOwnerStates: false,
+        });
 
-  if (added.length > 0 || retired.length > 0) {
+  if (((strict || optionalPackagesOnly) && actual.length > 0) || exceptionReport.diagnostics.length > 0) {
     console.error(`server boundary verification failed: ${String(actual.length)} current finding(s)`);
-    for (const problem of added) console.error(`  NEW: ${problem}`);
-    for (const problem of retired) console.error(`  RETIRED (update the baseline): ${problem}`);
+    for (const problem of actual) console.error(`  FINDING: ${problem}`);
+    for (const diagnostic of exceptionReport.diagnostics) console.error(`  ${diagnostic.message}`);
     process.exit(1);
   }
 
@@ -782,10 +780,11 @@ async function runCli() {
       `server boundaries: strict package graph clean across ${String(SERVER_PACKAGES.length)} optional and ${String(CORE_SERVER_PACKAGES.length + 1)} core/facade packages.`,
     );
   } else {
+    const exceptions = governanceExceptionsForSource('server-boundaries', snapshot.exceptions);
     console.log(
-      actual.length === 0
-        ? 'server boundaries: 0 frozen finding(s) match the tests-freeze baseline; strict target is clean.'
-        : `server boundaries: ${String(actual.length)} frozen finding(s) match the tests-freeze baseline; strict target remains red.`,
+      `server boundaries: ${String(exceptions.length)} owned exception record(s) exactly classify ` +
+        `${String(rawFindings.reduce((total, finding) => total + finding.count, 0))} measured occurrence(s); ` +
+        (actual.length === 0 ? 'strict target is clean.' : 'strict target remains red.'),
     );
   }
 }

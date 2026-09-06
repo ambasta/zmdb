@@ -1147,7 +1147,7 @@ function symmetricDifference(left: readonly number[], right: readonly number[]):
 }
 
 // Measured at 696feb9739183341025a6dcc2bcf28eedda394b0: the three target modules did not exist.
-// #736 retires only the native-relationship failures; #734 governance and #735 exception cases stay expected-failing.
+// #735 retires the exception lifecycle cases; #734 governance cases are implemented.
 describe('composed governance tests freeze (#733)', () => {
   it('records the exact #732 relationship baseline and #730 repair target', () => {
     const audit = relationshipAudit();
@@ -1250,7 +1250,7 @@ describe('composed governance tests freeze (#733)', () => {
       'release-consumers',
       'generated-docs',
       'generated-projections',
-      'temporary-baselines',
+      'owned-exceptions',
       'roadmap-plan',
       'roadmap-filing',
       'handover-operations',
@@ -1348,7 +1348,7 @@ describe('composed governance tests freeze (#733)', () => {
     const report = await target.verifyConsumerParity({ root: ROOT, inventory });
     expect(report.problems).toEqual([]);
     expect(report.generatedOutputs).toEqual(inventory.generatedOutputs);
-    expect(report.queryDomains).toEqual(['architecture', 'metadata', 'product', 'release', 'runtime']);
+    expect(report.queryDomains).toEqual(['architecture', 'exceptions', 'metadata', 'product', 'release', 'runtime']);
   }, 90_000);
 
   it('paginates native issues, children and blockers before computing actionability', async () => {
@@ -1691,14 +1691,16 @@ describe('composed governance tests freeze (#733)', () => {
         env: { ...process.env, GH_CALLED_MARKER: marker, PATH: bin },
       });
       expect(result).toMatchObject({ status: 0, stderr: '' });
-      expect(result.stdout).toBe('usage: node scripts/roadmap/native-relationships.mjs [--repository owner/repo]\n');
+      expect(result.stdout).toBe(
+        'usage: node scripts/roadmap/native-relationships.mjs [--repository owner/repo] [--json]\n',
+      );
       expect(existsSync(marker)).toBe(false);
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
   });
 
-  it.fails.each(readJson<ExceptionFixture>(join(GOVERNANCE_FIXTURES, 'exceptions.json')).cases)(
+  it.each(readJson<ExceptionFixture>(join(GOVERNANCE_FIXTURES, 'exceptions.json')).cases)(
     'rejects exception lifecycle drift: $name',
     async testCase => {
       const fixture = readJson<ExceptionFixture>(join(GOVERNANCE_FIXTURES, 'exceptions.json'));

@@ -2,11 +2,11 @@
 // Freeze the database-package extraction boundary from issue #667.
 //
 // The implementation is intentionally a ratchet while the extraction is incomplete:
-// current vendor-owned code and any package/consumer gaps are recorded in
-// database-boundary-baseline.json. The verifier fails on both a new finding and a stale
-// finding, so every implementation issue has to remove the exact gaps it closes. Tests
-// keep incomplete dimensions as expected failures and completed dimensions as ordinary
-// assertions.
+// current vendor-owned code and any remaining package/consumer gaps are recorded as
+// owned, expiring records in scripts/architecture/exceptions.mjs. The verifier fails on
+// new debt, a reduced ceiling, or a disappeared finding until the owning implementation
+// issue updates the exact record. Tests keep incomplete dimensions as expected failures
+// and completed dimensions as ordinary assertions.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -23,7 +23,11 @@ import {
   SQL_TYPE_KEYS,
   VERTICAL_CONTRACT_KEYS,
 } from '../../packages/query-compiler/src/testing/capability-matrix.ts';
-import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
+import {
+  databaseBoundaryFinding,
+  governanceExceptionsForSource,
+  verifyGovernanceSnapshotExceptionSource,
+} from '../../scripts/architecture/exceptions.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -75,7 +79,6 @@ const MUTATING_METHODS = new Set([
   'splice',
   'unshift',
 ]);
-const BASELINE_PATH = join(ROOT, '.github', 'scripts', 'database-boundary-baseline.json');
 const FIXTURE_DIR = join(ROOT, '.github', 'scripts', '__fixtures__', 'database-boundaries');
 const MSSQL_COMPATIBILITY_PATHS = new Set(['packages/query-compiler/src/dialects/index.ts']);
 const MSSQL_IMPLEMENTATION_MARKERS = [
@@ -752,15 +755,6 @@ export async function runDatabaseBoundaryFixtureProofs() {
   };
 }
 
-function compareBaseline(findings, baseline) {
-  const actual = findings.map(findingSignature).toSorted();
-  const expected = [...baseline.findings].toSorted();
-  return {
-    added: actual.filter(signature => !expected.includes(signature)),
-    stale: expected.filter(signature => !actual.includes(signature)),
-  };
-}
-
 function printFindings(findings) {
   for (const finding of findings) {
     const lines = finding.lines.length === 0 ? '' : ` lines ${finding.lines.join(',')}`;
@@ -780,42 +774,34 @@ async function main(argv) {
     return 0;
   }
 
+  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
   const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
   if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
   const report = await inspectDatabaseBoundaries(ROOT, { architecture: snapshot.architecture });
   if (argv.includes('--print-baseline')) {
-    console.log(
-      JSON.stringify(
-        {
-          version: 1,
-          findings: report.findings.map(findingSignature).toSorted(),
-        },
-        null,
-        2,
-      ),
-    );
+    console.log(JSON.stringify(governanceExceptionsForSource('database-boundaries'), null, 2));
     return 0;
   }
 
-  const baseline = readJson(BASELINE_PATH);
-  const comparison = compareBaseline(report.findings, baseline);
+  const rawFindings = report.findings.map(databaseBoundaryFinding);
+  const exceptionReport = verifyGovernanceSnapshotExceptionSource({
+    snapshot,
+    source: 'database-boundaries',
+    rawFindings,
+    requireOwnerStates: false,
+  });
   console.log(
     `database boundaries: ${String(report.shippedFiles)} shipped generic source file(s), ` +
-      `${String(report.manifests)} manifest(s), ${String(report.findings.length)} frozen gap(s).`,
+      `${String(report.manifests)} manifest(s), ${String(report.findings.length)} owned gap record(s), ` +
+      `${String(rawFindings.reduce((total, finding) => total + finding.count, 0))} measured occurrence(s).`,
   );
   printFindings(report.findings);
-  if (comparison.added.length > 0 || comparison.stale.length > 0) {
-    if (comparison.added.length > 0) {
-      console.error('\nnew database-boundary findings:');
-      for (const signature of comparison.added) console.error(`  ${signature}`);
-    }
-    if (comparison.stale.length > 0) {
-      console.error('\nstale database-boundary baseline entries:');
-      for (const signature of comparison.stale) console.error(`  ${signature}`);
-    }
+  if (exceptionReport.diagnostics.length > 0) {
+    console.error('\ndatabase-boundary exception lifecycle failures:');
+    for (const diagnostic of exceptionReport.diagnostics) console.error(`  ${diagnostic.message}`);
     return 1;
   }
-  console.log('database boundary ratchet: every current gap is explicit and no new gap was introduced.');
+  console.log('database boundary ratchet: every current gap has exact ownership and can only stay level or shrink.');
   return 0;
 }
 

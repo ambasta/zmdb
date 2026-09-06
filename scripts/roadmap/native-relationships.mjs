@@ -596,19 +596,32 @@ export async function readGitHubNativeRelationshipSnapshot({ repository }) {
 
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
-    process.stdout.write('usage: node scripts/roadmap/native-relationships.mjs [--repository owner/repo]\n');
+    process.stdout.write('usage: node scripts/roadmap/native-relationships.mjs [--repository owner/repo] [--json]\n');
     return;
   }
-  const repositoryIndex = process.argv.indexOf('--repository');
-  const repository =
-    repositoryIndex >= 0 ? process.argv[repositoryIndex + 1] : (process.env.ROADMAP_REPO ?? 'ambasta/zmdb');
+  let repository = process.env.ROADMAP_REPO ?? 'ambasta/zmdb';
+  let json = false;
+  const arguments_ = process.argv.slice(2);
+  for (let index = 0; index < arguments_.length; index++) {
+    const argument = arguments_[index];
+    if (argument === '--repository') {
+      repository = arguments_[++index];
+    } else if (argument === '--json') {
+      json = true;
+    } else {
+      throw new Error('usage: node scripts/roadmap/native-relationships.mjs [--repository owner/repo] [--json]');
+    }
+  }
   if (typeof repository !== 'string' || repository.length === 0) {
-    throw new Error('usage: node scripts/roadmap/native-relationships.mjs [--repository owner/repo]');
+    throw new Error('usage: node scripts/roadmap/native-relationships.mjs [--repository owner/repo] [--json]');
   }
   const snapshot = await readGitHubNativeRelationshipSnapshot({ repository });
-  process.stdout.write(renderActionabilityReport(snapshot));
+  process.stdout.write(json ? `${JSON.stringify(snapshot, undefined, 2)}\n` : renderActionabilityReport(snapshot));
 }
 
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
-  await main();
+  main().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

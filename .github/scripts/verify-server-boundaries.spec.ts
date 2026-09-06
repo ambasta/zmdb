@@ -1,5 +1,4 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -9,12 +8,12 @@ import { analyzeAppKernelBoundary, analyzeOptionalServerPackages } from './verif
 
 const ROOT = process.cwd();
 const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
+const ARCHITECTURE = GOVERNANCE.architecture;
+if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
 const SCRIPT = join(ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs');
 const FIXTURES = join(ROOT, '.github', 'scripts', '__fixtures__', 'server-boundaries');
-const BASELINE = join(ROOT, '.github', 'scripts', 'server-boundaries-baseline.json');
 
-function verifyFixture(name: string, partial = false): ReturnType<typeof spawnSync> {
+function verifyFixture(name: string, partial = false) {
   return spawnSync(
     process.execPath,
     [SCRIPT, '--root', join(FIXTURES, name), '--strict', ...(partial ? ['--partial'] : [])],
@@ -24,7 +23,7 @@ function verifyFixture(name: string, partial = false): ReturnType<typeof spawnSy
 
 describe('the optional server boundary verifier', () => {
   it('keeps one Symbol.metadata installation and one metadataOf implementation', () => {
-    expect(analyzeAppKernelBoundary(ROOT, { architecture: GOVERNANCE.architecture })).toEqual([]);
+    expect(analyzeAppKernelBoundary(ROOT, { architecture: ARCHITECTURE })).toEqual([]);
   });
 
   it('accepts the complete positive package graph', () => {
@@ -33,7 +32,7 @@ describe('the optional server boundary verifier', () => {
   });
 
   it('reports the live optional package graph independently of pending core work', () => {
-    expect(analyzeOptionalServerPackages(ROOT, { architecture: GOVERNANCE.architecture })).toEqual([]);
+    expect(analyzeOptionalServerPackages(ROOT, { architecture: ARCHITECTURE })).toEqual([]);
     const result = spawnSync(process.execPath, [SCRIPT, '--strict', '--optional-packages-only'], {
       cwd: ROOT,
       encoding: 'utf8',
@@ -61,9 +60,10 @@ describe('the optional server boundary verifier', () => {
     expect(result.stderr).toContain(message);
   });
 
-  it('matches the checked-in live-tree baseline in its default mode', () => {
+  it('matches the empty owned live-tree exception registry in its default mode', () => {
     const output = execFileSync(process.execPath, [SCRIPT], { encoding: 'utf8' });
-    const baseline = JSON.parse(readFileSync(BASELINE, 'utf8')) as { readonly problems: readonly string[] };
-    expect(output).toContain(`${String(baseline.problems.length)} frozen finding(s)`);
+    expect(output).toContain('0 owned exception record(s)');
+    expect(output).toContain('0 measured occurrence(s)');
+    expect(output).toContain('strict target is clean');
   });
 });

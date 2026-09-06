@@ -7,16 +7,21 @@
 // 1. turn #626's ownership policy, amended through the package extractions,
 //    #674, #621, #620, #651, #755, and #675, into an executable,
 //    bijective inventory; and
-// 2. prevent the known runtime/generated-import violations from growing while
-//    the expected-failure tests freeze the zero-violation target.
+// 2. classify every known runtime/generated-import violation through an owned,
+//    expiring architecture exception while expected-failure tests freeze zero.
 //
-// A violation disappearing is always accepted. A new violation is not.
+// New debt, a reduced count, and a disappeared finding all fail until the exact
+// structured record is added, lowered, or deleted.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
+import {
+  toolingGeneratedFinding,
+  toolingRuntimeFinding,
+  verifyGovernanceSnapshotExceptionSource,
+} from '../../scripts/architecture/exceptions.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -124,11 +129,6 @@ const RUNTIME_ROOTS = Object.freeze([
 const RUNTIME_FOUNDATIONS = new Set(RUNTIME_ROOTS.filter(packageName => packageName !== 'zmdb'));
 const TARGET_TOOLING_PACKAGES = new Set(Object.keys(TARGET_TOOLING_MANIFESTS));
 
-// Remeasured after #628 and #629 removed the compiler and migration-tooling
-// paths from ordinary runtime roots. New routes into either category are not
-// accepted.
-const BASELINE_RUNTIME_VIOLATIONS = new Set();
-
 const RUNTIME_EXTERNAL_TOOLING = Object.freeze([
   ['typescript', /^typescript(?:\/|$)/],
   ['oxfmt', /^oxfmt(?:\/|$)/],
@@ -151,12 +151,6 @@ export const GENERATED_ARTIFACTS = Object.freeze([
   'packages/compiler/src/config/index.zmdb.generated.d.ts',
   'packages/compiler/src/config/index.zmdb.generated.js',
   'packages/compiler/src/config/index.zmdb.witness.ts',
-]);
-
-const BASELINE_GENERATED_VIOLATIONS = new Set([
-  'benchmarks/harness/framework/model.zmdb.generated.js|../../../packages/aot-validator/src/utilities/index.js|private-source',
-  'benchmarks/harness/framework/model.zmdb.witness.ts|../../../packages/aot-validator/src/utilities/index.js|private-source',
-  'benchmarks/harness/validation/model.generated.ts|../../../packages/schema-core/src/ir/index.js|private-source',
 ]);
 
 const BASELINE_BIN_OWNERS = new Set(['zmdb|zmdb']);
@@ -670,9 +664,18 @@ function targetPackageProblems(architecture) {
   return problems;
 }
 
-export function analyseToolingBoundaries({ root = ROOT, architecture, overlays = new Map() } = {}) {
+export function analyseToolingBoundaries({
+  root = ROOT,
+  architecture,
+  snapshot,
+  overlays = new Map(),
+  classifyExceptions = true,
+} = {}) {
   if (architecture === undefined) {
     throw new TypeError('analyseToolingBoundaries requires architecture from loadGovernanceSnapshot({ root })');
+  }
+  if (classifyExceptions && snapshot === undefined) {
+    throw new TypeError('analyseToolingBoundaries requires a governance snapshot to classify exceptions');
   }
   const inventory = ownershipInventory(root);
   const manifests = workspaceManifests(architecture);
@@ -683,17 +686,15 @@ export function analyseToolingBoundaries({ root = ROOT, architecture, overlays =
   const formatter = formatterViolations(root, architecture, overlays);
   const bins = binOwners(architecture);
   const problems = [...inventory.problems, ...packageGraph.problems, ...targetPackageProblems(architecture)];
-
-  for (const violation of runtime) {
-    if (!BASELINE_RUNTIME_VIOLATIONS.has(violation.id)) {
-      problems.push(`new runtime tooling reachability ${violation.id}: ${violation.chain.join(' -> ')}`);
-    }
-  }
-  for (const violation of generated) {
-    if (!BASELINE_GENERATED_VIOLATIONS.has(violation.id)) {
-      problems.push(`new generated import violation ${violation.path} -> ${violation.specifier} (${violation.reason})`);
-    }
-  }
+  const exceptionReport = classifyExceptions
+    ? verifyGovernanceSnapshotExceptionSource({
+        snapshot,
+        source: 'tooling-boundaries',
+        rawFindings: [...runtime.map(toolingRuntimeFinding), ...generated.map(toolingGeneratedFinding)],
+        requireOwnerStates: false,
+      })
+    : { diagnostics: [], findings: [] };
+  problems.push(...exceptionReport.diagnostics.map(diagnostic => diagnostic.message));
   for (const violation of embedded) {
     problems.push(`embedded migrations reaches forbidden import ${violation.file} -> ${violation.specifier}`);
   }
@@ -723,6 +724,7 @@ export function analyseToolingBoundaries({ root = ROOT, architecture, overlays =
     embeddedViolations: embedded,
     formatterViolations: formatter,
     binOwners: bins,
+    exceptionReport,
   };
 }
 
@@ -743,9 +745,10 @@ function successLine(result) {
 
 const invokedPath = process.argv[1] === undefined ? undefined : resolve(process.argv[1]);
 if (invokedPath !== undefined && import.meta.url === pathToFileURL(invokedPath).href) {
+  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
   const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
   if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
-  const result = analyseToolingBoundaries({ architecture: snapshot.architecture });
+  const result = analyseToolingBoundaries({ architecture: snapshot.architecture, snapshot });
   if (result.problems.length > 0) {
     console.error(`tooling boundary verification failed with ${String(result.problems.length)} problem(s):`);
     for (const problem of result.problems) console.error(`  ${problem}`);

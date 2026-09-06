@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v4
 
@@ -30,8 +31,13 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
+      - name: Capture native issue relationships
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/roadmap/native-relationships.mjs --json > "$RUNNER_TEMP/zmdb-native-relationships.json"
+
       - name: Verify the composed architecture and release governance snapshot
-        run: yarn verify:governance
+        run: yarn verify:governance --relationships "$RUNNER_TEMP/zmdb-native-relationships.json"
 
       - name: Verify package metadata and lockstep versions
         run: yarn verify:package-metadata

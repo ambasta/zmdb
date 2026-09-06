@@ -5,10 +5,23 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { ReleaseGovernanceError, releaseModel } from '../release/model.mjs';
+import {
+  renderNativeRelationshipDiagnostics,
+  validateNativeRelationshipSnapshot,
+} from '../roadmap/native-relationships.mjs';
+import {
+  architectureExceptionInventory,
+  databaseBoundaryFinding,
+  GOVERNANCE_EXCEPTIONS,
+  serverBoundaryProblemFinding,
+  toolingGeneratedFinding,
+  toolingRuntimeFinding,
+  verifyGovernanceSnapshotExceptionSource,
+} from './exceptions.mjs';
 import { ArchitecturePolicyError, createDependencyGraph, DependencyCycleError, loadArchitecture } from './index.mjs';
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const DEFAULT_CHECKS = Object.freeze(['architecture', 'metadata', 'product', 'release', 'runtime']);
+const DEFAULT_CHECKS = Object.freeze(['architecture', 'exceptions', 'metadata', 'product', 'release', 'runtime']);
 const compareText = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
 function freezeArray(values) {
@@ -99,6 +112,27 @@ function sortedFindings(values) {
   );
 }
 
+function exceptionFinding(domain, value) {
+  return Object.freeze({
+    ...value,
+    domain,
+    line: `[${value.code}] ${value.message}`,
+  });
+}
+
+function exceptionDiagnosticFinding(diagnostic) {
+  return Object.freeze({
+    id: `${diagnostic.code}/path/${encodeURIComponent(diagnostic.exceptionId)}`,
+    code: diagnostic.code,
+    scope: Object.freeze({ kind: 'path', path: diagnostic.exceptionId }),
+    message: diagnostic.message,
+    remediation: diagnostic.message,
+    disposition: 'active',
+    domain: 'exceptions',
+    line: `[${diagnostic.code}] ${diagnostic.exceptionId}: ${diagnostic.message}`,
+  });
+}
+
 function graphMap(graph) {
   return deepReadonly(
     new Map(
@@ -116,7 +150,7 @@ function emptySnapshot(root, values) {
     packages: Object.freeze([]),
     packageGraph: deepReadonly(new Map()),
     release: null,
-    exceptions: Object.freeze([]),
+    exceptions: GOVERNANCE_EXCEPTIONS,
     issues: null,
     findings: sortedFindings(values),
     queries: Object.freeze({}),
@@ -127,7 +161,73 @@ function selectedChecks(input, root) {
   if (input.checks !== undefined) return new Set(input.checks);
   const checks = new Set(DEFAULT_CHECKS);
   if (!existsSync(join(root, 'docs-site', 'pages.mjs'))) checks.delete('product');
+  if (!existsSync(join(root, 'scripts', 'architecture', 'exceptions.mjs'))) checks.delete('exceptions');
   return checks;
+}
+
+export function readGovernanceRelationshipSnapshot(path) {
+  const resolved = resolve(path);
+  const snapshot = JSON.parse(readFileSync(resolved, 'utf8'));
+  const report = validateNativeRelationshipSnapshot(snapshot);
+  if (report.diagnostics.length > 0) {
+    throw new Error(
+      `${resolved} is not a complete native relationship snapshot:\n${renderNativeRelationshipDiagnostics(report).trimEnd()}`,
+    );
+  }
+  return snapshot;
+}
+
+async function inspectGovernanceExceptions({ root, architecture, packageGraph, issues, requireOwnerStates }) {
+  const [databaseModule, runtimeModule, serverModule, toolingModule] = await Promise.all([
+    import(
+      `${pathToFileURL(join(DEFAULT_ROOT, '.github', 'scripts', 'verify-database-boundaries.mjs')).href}?governance-exceptions=1`
+    ),
+    import(
+      `${pathToFileURL(join(DEFAULT_ROOT, '.github', 'scripts', 'verify-runtime-foundation.mjs')).href}?governance-exceptions=1`
+    ),
+    import(
+      `${pathToFileURL(join(DEFAULT_ROOT, '.github', 'scripts', 'verify-server-boundaries.mjs')).href}?governance-exceptions=1`
+    ),
+    import(
+      `${pathToFileURL(join(DEFAULT_ROOT, '.github', 'scripts', 'verify-tooling-boundaries.mjs')).href}?governance-exceptions=1`
+    ),
+  ]);
+  const [database, runtime, server, tooling] = await Promise.all([
+    databaseModule.inspectDatabaseBoundaries(root, { architecture }),
+    Promise.resolve(runtimeModule.inspectRuntimeFoundation(root, { architecture })),
+    Promise.resolve(serverModule.analyzeServerBoundaries(root, { architecture })),
+    Promise.resolve(toolingModule.analyseToolingBoundaries({ root, architecture, classifyExceptions: false })),
+  ]);
+  const rawBySource = {
+    'database-boundaries': database.findings.map(databaseBoundaryFinding),
+    'runtime-foundation': runtime.findings,
+    'server-boundaries': server.map(serverBoundaryProblemFinding),
+    'tooling-boundaries': [
+      ...tooling.runtimeViolations.map(toolingRuntimeFinding),
+      ...tooling.generatedViolations.map(toolingGeneratedFinding),
+    ],
+  };
+  const context = Object.freeze({
+    root,
+    packageGraph,
+    exceptions: GOVERNANCE_EXCEPTIONS,
+    issues,
+  });
+  const reports = Object.fromEntries(
+    Object.entries(rawBySource).map(([source, rawFindings]) => [
+      source,
+      verifyGovernanceSnapshotExceptionSource({
+        snapshot: context,
+        source,
+        rawFindings,
+        requireOwnerStates,
+      }),
+    ]),
+  );
+  return Object.freeze({
+    inventory: architectureExceptionInventory(),
+    reports: deepReadonly(reports),
+  });
 }
 
 export async function loadGovernanceSnapshot(input) {
@@ -144,8 +244,13 @@ export async function loadGovernanceSnapshot(input) {
     return emptySnapshot(root, findings('architecture', error.diagnostics));
   }
 
+  const packageGraph = graphMap(createDependencyGraph(architecture));
   const values = [];
   const queries = {};
+  const issues =
+    input.relationships === undefined
+      ? null
+      : deepReadonly(new Map(input.relationships.issues.map(issue => [issue.number, issue])));
 
   if (checks.has('architecture')) {
     const { inspectArchitectureZones } = await import(
@@ -202,19 +307,29 @@ export async function loadGovernanceSnapshot(input) {
     }
   }
 
-  const dependencyGraph = createDependencyGraph(architecture);
+  if (checks.has('exceptions')) {
+    queries.exceptions = await inspectGovernanceExceptions({
+      root,
+      architecture,
+      packageGraph,
+      issues,
+      requireOwnerStates: input.requireExceptionOwnerStates ?? input.relationships !== undefined,
+    });
+    for (const [source, report] of Object.entries(queries.exceptions.reports)) {
+      values.push(...report.findings.map(value => exceptionFinding(source, value)));
+      values.push(...report.diagnostics.map(exceptionDiagnosticFinding));
+    }
+  }
+
   const readonlyQueries = deepReadonly(queries);
   return Object.freeze({
     root,
     architecture,
     packages: architecture.packages,
-    packageGraph: graphMap(dependencyGraph),
+    packageGraph,
     release,
-    exceptions: Object.freeze([]),
-    issues:
-      input.relationships === undefined
-        ? null
-        : deepReadonly(new Map(input.relationships.issues.map(issue => [issue.number, issue]))),
+    exceptions: GOVERNANCE_EXCEPTIONS,
+    issues,
     findings: sortedFindings(values),
     queries: readonlyQueries,
   });
@@ -254,6 +369,25 @@ function sameValue(left, right) {
 }
 
 function queryProjection(domain, query) {
+  if (domain === 'exceptions') {
+    return {
+      inventory: query.inventory,
+      reports: Object.fromEntries(
+        Object.entries(query.reports).map(([source, report]) => [
+          source,
+          {
+            diagnostics: report.diagnostics,
+            findings: report.findings.map(item => ({
+              id: item.id,
+              count: item.count,
+              disposition: item.disposition,
+              exceptionId: item.exceptionId,
+            })),
+          },
+        ]),
+      ),
+    };
+  }
   if (domain === 'architecture') {
     return {
       dependencyGraph: query.dependencyGraph,
@@ -392,6 +526,9 @@ export async function verifyConsumerParity({ root, inventory }) {
   if (!Object.isFrozen(snapshot.packageGraph) || Reflect.has(snapshot.packageGraph, 'set')) {
     problems.push('aggregate governance package graph is mutable');
   }
+  if (!Object.isFrozen(snapshot.exceptions) || snapshot.exceptions !== GOVERNANCE_EXCEPTIONS) {
+    problems.push('aggregate governance exception registry is mutable or detached from its authority');
+  }
   if (Object.values(snapshot.queries).some(query => !Object.isFrozen(query))) {
     problems.push('aggregate governance query result is mutable');
   }
@@ -408,6 +545,13 @@ export async function verifyConsumerParity({ root, inventory }) {
   ]);
   const focused = {
     architecture: await architectureModule.inspectArchitectureZones(root, { architecture: snapshot.architecture }),
+    exceptions: await inspectGovernanceExceptions({
+      root,
+      architecture: snapshot.architecture,
+      packageGraph: snapshot.packageGraph,
+      issues: snapshot.issues,
+      requireOwnerStates: false,
+    }),
     metadata: await metadataModule.inspectPackageMetadata(root, { architecture: snapshot.architecture }),
     product: await productModule.inspectProductCatalog(root, { architecture: snapshot.architecture }),
     release: releaseModel(root, { architecture: snapshot.architecture }),
@@ -441,24 +585,38 @@ export async function verifyConsumerParity({ root, inventory }) {
 function parseArguments(argv) {
   let root = DEFAULT_ROOT;
   let json = false;
+  let relationships;
   for (let index = 0; index < argv.length; index++) {
     const argument = argv[index];
     if (argument === '--root') {
       const value = argv[++index];
       if (value === undefined) throw new TypeError('--root requires a path');
       root = resolve(value);
+    } else if (argument === '--relationships') {
+      const value = argv[++index];
+      if (value === undefined) throw new TypeError('--relationships requires a path');
+      relationships = resolve(value);
     } else if (argument === '--json') {
       json = true;
     } else {
-      throw new TypeError('usage: node scripts/architecture/governance.mjs [--root <path>] [--json]');
+      throw new TypeError(
+        'usage: node scripts/architecture/governance.mjs [--root <path>] [--relationships <path>] [--json]',
+      );
     }
   }
-  return { root, json };
+  return { root, json, relationships };
 }
 
 async function main(argv) {
   const options = parseArguments(argv);
-  const snapshot = await loadGovernanceSnapshot({ root: options.root });
+  const relationships =
+    options.relationships === undefined ? undefined : readGovernanceRelationshipSnapshot(options.relationships);
+  const snapshot = await loadGovernanceSnapshot({
+    root: options.root,
+    relationships,
+    requireExceptionOwnerStates: true,
+  });
+  const activeFindings = snapshot.findings.filter(item => item.disposition === 'active');
   if (options.json) {
     console.log(
       JSON.stringify(
@@ -471,15 +629,15 @@ async function main(argv) {
         2,
       ),
     );
-  } else if (snapshot.findings.length === 0) {
+  } else if (activeFindings.length === 0) {
     const edgeCount = [...snapshot.packageGraph.values()].reduce((sum, dependencies) => sum + dependencies.length, 0);
     console.log(
       `governance: ${String(snapshot.packages.length)} packages, ${String(edgeCount)} policy edges, and ${String(snapshot.release?.publishOrder.length ?? 0)} release steps verified.`,
     );
   } else {
-    for (const item of snapshot.findings) console.error(item.line);
+    for (const item of activeFindings) console.error(item.line);
   }
-  return snapshot.findings.length === 0 ? 0 : 1;
+  return activeFindings.length === 0 ? 0 : 1;
 }
 
 const invoked = process.argv[1];

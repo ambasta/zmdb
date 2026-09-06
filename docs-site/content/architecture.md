@@ -126,6 +126,17 @@ The generated assignment table above shows the live exceptions. Ordinary exports
 permission. Likewise, an optional peer assignment permits only the listed selector: the compiler lint entry can reach Oxlint, while unrelated compiler exports cannot inherit that access.
 `yarn verify:runtime-reachability` walks every export and executable independently and rejects tooling leaks, optional-peer leaks, undeclared dependencies, and stale exceptions.
 
+## Temporary debt expires
+
+Architecture verifiers compute raw findings before consulting [`scripts/architecture/exceptions.mjs`](https://github.com/ambasta/zmdb/blob/main/scripts/architecture/exceptions.mjs). The registry
+contains 81 live records: zero database, 78 runtime-foundation, zero server, and three tooling findings with a total measured ceiling of 265 occurrences. Issue #675 had already removed every database
+finding, so its closed issue owns no live exception. Issue #628 had removed every runtime tooling violation; the remaining generated private-source findings are owned by the open runtime-package
+extractions that remove them.
+
+Every live record names one exact structured scope, rationale, introducing evidence, open removal issue, measured ceiling, and explicit removal condition. A new path or edge cannot hide behind an
+existing record. Growth fails, a smaller positive count requires lowering the ceiling, and a disappeared finding requires deleting the record. The old opaque JSON baselines and tooling violation sets
+no longer exist. The [exception maintenance guide](https://github.com/ambasta/zmdb/blob/main/scripts/architecture/EXCEPTIONS.md) gives the measured add, lower, and remove workflow.
+
 ## Current executable release workflow
 
 The commands below describe the checked-in pre-#746 tooling. They still require one reviewed root changelog and one version for all 38 public packages:

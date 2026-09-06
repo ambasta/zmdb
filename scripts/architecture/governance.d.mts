@@ -1,16 +1,26 @@
+import type { GovernanceException, GovernanceScope } from './exceptions.mjs';
 import type { Architecture, ArchitecturePackage } from './index.mjs';
 
 export interface GovernanceFinding {
   readonly id: string;
   readonly code: string;
-  readonly scope: {
-    readonly kind: 'path';
-    readonly path: string;
-  };
+  readonly scope: GovernanceScope;
   readonly message: string;
   readonly remediation: string;
   readonly disposition: 'active' | 'excepted';
-  readonly domain: 'architecture' | 'metadata' | 'product' | 'release' | 'runtime';
+  readonly exceptionId?: string;
+  readonly count?: number;
+  readonly domain:
+    | 'architecture'
+    | 'database-boundaries'
+    | 'exceptions'
+    | 'metadata'
+    | 'product'
+    | 'release'
+    | 'runtime'
+    | 'runtime-foundation'
+    | 'server-boundaries'
+    | 'tooling-boundaries';
   readonly line: string;
 }
 
@@ -25,17 +35,35 @@ export interface GovernanceSnapshot {
     readonly publishOrder: readonly string[];
     readonly changelogEntry: string;
   } | null;
-  readonly exceptions: readonly [];
+  readonly exceptions: readonly GovernanceException[];
   readonly issues: ReadonlyMap<number, Readonly<Record<string, unknown>>> | null;
   readonly findings: readonly GovernanceFinding[];
-  readonly queries: Readonly<Partial<Record<'architecture' | 'metadata' | 'product' | 'release' | 'runtime', unknown>>>;
+  readonly queries: Readonly<
+    Partial<Record<'architecture' | 'exceptions' | 'metadata' | 'product' | 'release' | 'runtime', unknown>>
+  >;
 }
 
 export function loadGovernanceSnapshot(input: {
   readonly root: string;
-  readonly relationships?: { readonly issues: readonly { readonly number: number }[] };
-  readonly checks?: readonly ('architecture' | 'metadata' | 'product' | 'release' | 'runtime')[];
+  readonly relationships?: {
+    readonly issues: readonly {
+      readonly number: number;
+      readonly state: 'OPEN' | 'CLOSED';
+      readonly [field: string]: unknown;
+    }[];
+  };
+  readonly requireExceptionOwnerStates?: boolean;
+  readonly checks?: readonly ('architecture' | 'exceptions' | 'metadata' | 'product' | 'release' | 'runtime')[];
 }): Promise<GovernanceSnapshot>;
+
+export function readGovernanceRelationshipSnapshot(path: string): {
+  readonly complete: true;
+  readonly issues: readonly {
+    readonly number: number;
+    readonly state: 'OPEN' | 'CLOSED';
+    readonly [field: string]: unknown;
+  }[];
+};
 
 export function renderGovernanceReport(snapshot: GovernanceSnapshot): string;
 
@@ -53,5 +81,5 @@ export function verifyConsumerParity(input: {
 }): Promise<{
   readonly problems: readonly string[];
   readonly generatedOutputs: readonly string[];
-  readonly queryDomains: readonly ('architecture' | 'metadata' | 'product' | 'release' | 'runtime')[];
+  readonly queryDomains: readonly ('architecture' | 'exceptions' | 'metadata' | 'product' | 'release' | 'runtime')[];
 }>;
