@@ -10,10 +10,43 @@ function tagDriver(tag: string, log: string[]): Driver {
 const q = (text: string) => ({ text, parameters: [] });
 
 describe('read replicas (#128)', () => {
-  it('isWrite detects INSERT/UPDATE/DELETE', () => {
+  it('isWrite detects INSERT/UPDATE/DELETE across upper/lower/mixed case and whitespace', () => {
+    // Upper case
     expect(isWrite('INSERT INTO x ...')).toBe(true);
-    expect(isWrite('  update x set ...')).toBe(true);
+    expect(isWrite('UPDATE x SET ...')).toBe(true);
+    expect(isWrite('DELETE FROM x ...')).toBe(true);
+
+    // Lower case
+    expect(isWrite('insert into x ...')).toBe(true);
+    expect(isWrite('update x set ...')).toBe(true);
+    expect(isWrite('delete from x ...')).toBe(true);
+
+    // Mixed case
+    expect(isWrite('iNsErT INTO x ...')).toBe(true);
+    expect(isWrite('uPdAtE x SET ...')).toBe(true);
+    expect(isWrite('DeLeTe FROM x ...')).toBe(true);
+
+    // Leading whitespace (spaces, tabs, newlines, carriage returns)
+    expect(isWrite('   \t\n\r  INSERT INTO x ...')).toBe(true);
+    expect(isWrite('\n\r  update x set ...')).toBe(true);
+    expect(isWrite('\t\tDELETE FROM x ...')).toBe(true);
+
+    // Non-write queries
     expect(isWrite('SELECT 1')).toBe(false);
+    expect(isWrite('  select * from users')).toBe(false);
+    expect(isWrite('WITH cte AS (SELECT 1) SELECT * FROM cte')).toBe(false);
+    expect(isWrite('CREATE TABLE foo (id INT)')).toBe(false);
+    expect(isWrite('DROP TABLE foo')).toBe(false);
+    expect(isWrite('EXPLAIN SELECT 1')).toBe(false);
+
+    // Short or empty strings
+    expect(isWrite('')).toBe(false);
+    expect(isWrite('   ')).toBe(false);
+    expect(isWrite('\t\n')).toBe(false);
+    expect(isWrite('INS')).toBe(false);
+    expect(isWrite('UPD')).toBe(false);
+    expect(isWrite('DEL')).toBe(false);
+    expect(isWrite('INSER')).toBe(false);
   });
 
   it('routes writes to primary, reads to replicas (round-robin)', async () => {
