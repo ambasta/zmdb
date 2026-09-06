@@ -1,4 +1,4 @@
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { describe, it, expect } from 'vitest';
 
 import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
@@ -10,7 +10,7 @@ export interface User extends Table<'users'> {
 }
 
 // The schema value these functions take, read off the interface above the way the build
-// would. See `@zmdb/aot-validator/testing` — `schemaOf<User>()` has no runtime, so a test
+// would. See `@zmdb/compiler/testing` — `schemaOf<User>()` has no runtime, so a test
 // with no transform in front of it asks the checker directly.
 const { User: UserSchema } = schemasFrom(import.meta.url, ['User']);
 

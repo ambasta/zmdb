@@ -1,4 +1,4 @@
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { schemaFromIR, type ColumnIR } from '@zmdb/schema-core/ir';
 import type { JsonSchemaObject } from '@zmdb/schema-core/openapi';
 import type { Codec, HasDefault, PrimaryKey, Sensitive, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';

@@ -83,7 +83,7 @@ const MAY_NAME = new Map([
       "`Sql<'serial'>` is refused because `Serial` is the tag that means it.",
   ],
   [
-    'packages/aot-validator/src/reflect/index.ts',
+    'packages/compiler/src/reflect/index.ts',
     'the producer. It maps a declared TypeScript type to a `SqlType`, which is the direction ' +
       'this gate exists to protect: one thing writes the vocabulary, one thing reads it.',
   ],
@@ -175,23 +175,23 @@ const MAY_READ = new Map([
       'generates. That is a fact about who writes the column, not about what values it admits.',
   ],
   [
-    'packages/aot-validator/src/reflect/index.ts',
+    'packages/compiler/src/reflect/index.ts',
     "the producer again, from the other side: `Sql<'integer'>` with `Serial` beside it is a " +
       '`serial`, a literal union is a `jsonEnum`, and a bare `number` is neither. Deciding ' +
       'which SQL type a declaration means is the opposite of reading one back.',
   ],
   [
-    'packages/aot-validator/src/protobuf/decode.ts',
+    'packages/compiler/src/protobuf/decode.ts',
     "the matched `case 'timestamp'` is the decoder's private `TimestampPlan` discriminant. " +
       'The back-end receives TypeIR and never reads a column, its flags, validation, or SqlType.',
   ],
   [
-    'packages/aot-validator/src/protobuf/encode.ts',
+    'packages/compiler/src/protobuf/encode.ts',
     "the matched `case 'timestamp'` is the encoder's private `TimestampPlan` discriminant. " +
       'The back-end receives TypeIR and never reads a column, its flags, validation, or SqlType.',
   ],
   [
-    'packages/aot-validator/src/lint/rules/no-interpolated-sql.ts',
+    'packages/compiler/src/lint/rules/no-interpolated-sql.ts',
     "the matched `=== 'text'` is an ESTree object-property name. The lint rule reads source " +
       'syntax only; it imports no schema metadata and never reads a column or TypeIR.',
   ],

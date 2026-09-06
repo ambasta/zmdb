@@ -4,7 +4,7 @@ const { join, resolve } = require('node:path');
 const delegate = require('metro-babel-transformer');
 
 const fixtureSource = `${resolve(__dirname, 'src')}/`;
-const sessionModule = join(resolve(__dirname, '../..'), 'packages/aot-validator/src/reflect/session.ts');
+const sessionModule = join(resolve(__dirname, '../..'), 'packages/compiler/src/reflect/session.ts');
 
 function transform(args) {
   let source = args.src;

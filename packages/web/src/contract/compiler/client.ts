@@ -4,7 +4,7 @@
 // plans, response dispatch and AOT validation helpers, and imports its runtime ABI
 // exclusively from @zmdb/client.
 
-import { Emitter } from '@zmdb/aot-validator/emit';
+import { Emitter } from '@zmdb/compiler/emit';
 
 import type {
   HttpBodyIR,

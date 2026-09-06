@@ -1,4 +1,4 @@
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { diff, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, type TableSnapshot } from '@zmdb/migrations';
 import type { PrimaryKey, References, Rowstore, ShardKey, SortKey, Sql, Table, Unique } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';

@@ -484,9 +484,9 @@ export interface Target<Q> {
     title: '[EPIC] React Native — the Metro build path and embedded migrations',
     labels: ['enhancement', 'area:dialects', 'area:cli'],
     pages: ['connect-react-native', 'migrations-web-mobile'],
-    packages: ['@zmdb/aot-validator', '@zmdb/query-compiler'],
+    packages: ['@zmdb/compiler', '@zmdb/query-compiler'],
     motivation: `
-zmdb's AOT transform runs as a build plugin or through \`zmdb-codegen\`. React Native does not use those
+zmdb's AOT transform runs as a build plugin or through the project compiler. React Native does not use those
 build pipelines — it uses Metro, with its own transformer interface — so \`schemaOf<T>()\` in an RN bundle
 is never transformed. The failure is at least loud (an untransformed build throws with an explanatory
 message rather than returning an empty schema), but the practical result is that zmdb cannot be used in
@@ -524,12 +524,12 @@ what a phone wants. The gap is entirely in the build integration.
         goal: 'Freeze how the transform hooks into Metro, how Expo is supported, the embedded migration format, and how the runner applies migrations with no filesystem. No code.',
         why: "Metro's transformer interface is a different shape from a bundler plugin — it transforms per file with its own caching, and a project can only have one custom transformer, so composing with an existing one (Expo's, or Reanimated's) is the real constraint. Getting that wrong produces an integration that works alone and breaks in every real app.",
         files: [
-          '`packages/aot-validator/src/plugin/SPEC.md` — the Metro entry.',
+          '`packages/compiler/src/unplugin/SPEC.md` — the Metro entry.',
           '`packages/query-compiler/src/migrations/SPEC.md` — the embedded format and runner.',
         ],
         api: `
 // metro.config.js
-const { withZmdb } = require('@zmdb/aot-validator/metro');
+const { withZmdb } = require('@zmdb/compiler/metro');
 module.exports = withZmdb(getDefaultConfig(__dirname));
 
 /** Migrations compiled into the bundle. */
@@ -565,7 +565,7 @@ export declare function runEmbedded(driver: Driver, migrations: readonly Embedde
         goal: 'Land failing tests that bundle a fixture app with real Metro and assert the output, plus embedded-runner tests against a real sqlite database with no filesystem access.',
         why: 'A unit test of a transformer function proves the function works. What breaks is the integration: the config wrapper, the cache key, and composition with another transformer. So the test has to run Metro.',
         files: [
-          '`packages/aot-validator/src/plugin/metro.spec.ts` (new)',
+          '`packages/compiler/src/metro/metro.spec.ts`',
           '`fixtures/consumer-metro/` (new) — a minimal RN-shaped app.',
           '`packages/query-compiler/src/migrations/embedded.spec.ts` (new)',
         ],
@@ -599,8 +599,8 @@ export declare function runEmbedded(driver: Driver, migrations: readonly Embedde
         blockedBy: ['tests'],
         goal: 'Ship `withZmdb` for Metro, delegating to any existing transformer, with a correct cache key, working in both bare React Native and Expo.',
         files: [
-          '`packages/aot-validator/src/plugin/metro.ts` (new)',
-          '`packages/aot-validator/package.json` — a `./metro` subpath.',
+          '`packages/compiler/src/metro/metro.ts`',
+          '`packages/compiler/package.json` — the `./metro` subpath.',
           '`fixtures/consumer-metro/`',
         ],
         steps: [

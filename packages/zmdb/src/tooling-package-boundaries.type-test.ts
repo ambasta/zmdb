@@ -1,12 +1,18 @@
 // Compile-only freeze for #627.
 //
-// The extraction issues replace each structural placeholder with the real
-// package entry point while retaining this exact subpath and delegation freeze.
+// The compiler and migrations extraction issues replace their structural
+// placeholders with real package entry points while retaining this exact
+// subpath and delegation freeze.
 
-import type { CodegenOptions, CodegenResult, codegen, watchCodegen } from '@zmdb/aot-validator/codegen';
-import type { EmitDiagnostic, EmitOptions, Emitter } from '@zmdb/aot-validator/emit';
-import type { configs as lintConfigs } from '@zmdb/aot-validator/lint';
-import type { MetroOptions, withZmdb } from '@zmdb/aot-validator/metro';
+import type {
+  CompileProjectOptions as CompilerCompileProjectOptions,
+  CompileResult as CompilerCompileResult,
+  compileProject as compilerCompileProject,
+  writeCompileResult as compilerWriteCompileResult,
+} from '@zmdb/compiler';
+import type { EmitDiagnostic, EmitOptions, Emitter } from '@zmdb/compiler/emit';
+import type { configs as lintConfigs } from '@zmdb/compiler/lint';
+import type { MetroOptions, withZmdb } from '@zmdb/compiler/metro';
 import type {
   ReflectDiagnostic,
   ReflectLimits,
@@ -15,15 +21,10 @@ import type {
   Reflector,
   irFromType,
   schemaIrFromType,
-} from '@zmdb/aot-validator/reflect';
-import type { schemasFrom, schemasFromFiles, schemaIrsFrom } from '@zmdb/aot-validator/testing';
-import type {
-  TransformContext,
-  TransformDiagnostic,
-  TransformResult,
-  transformFile,
-} from '@zmdb/aot-validator/transformer';
-import type { UnpluginLike, ZmdbAotOptions, zmdbAot } from '@zmdb/aot-validator/unplugin';
+} from '@zmdb/compiler/reflect';
+import type { schemasFrom, schemasFromFiles, schemaIrsFrom } from '@zmdb/compiler/testing';
+import type { TransformContext, TransformDiagnostic, TransformResult, transformFile } from '@zmdb/compiler/transform';
+import type { UnpluginLike, ZmdbAotOptions, zmdbAot } from '@zmdb/compiler/unplugin';
 import type {
   ChangeOp,
   DiffOptions,
@@ -318,7 +319,7 @@ export type _ToolingDependencyGraphIsExact = Expect<
   Equal<
     TargetDependencies,
     {
-      readonly '@zmdb/compiler': '@zmdb/aot-validator' | '@zmdb/query-compiler' | '@zmdb/schema-core';
+      readonly '@zmdb/compiler': '@zmdb/ai' | '@zmdb/aot-validator' | '@zmdb/query-compiler' | '@zmdb/schema-core';
       readonly '@zmdb/migrations': '@zmdb/query-compiler' | 'oxfmt';
       readonly '@zmdb/cli': '@zmdb/compiler' | '@zmdb/migrations' | 'oxfmt';
     }
@@ -381,10 +382,10 @@ export type _MigrationSnapshotRemainsStructural = Expect<
 // Keep every current implementation signature named so the extraction cannot
 // silently narrow a moved entry while the structural package map still compiles.
 export type _CompilerImplementationSignatures = [
-  typeof codegen,
-  typeof watchCodegen,
-  CodegenOptions,
-  CodegenResult,
+  typeof compilerCompileProject,
+  typeof compilerWriteCompileResult,
+  CompilerCompileProjectOptions,
+  CompilerCompileResult,
   Emitter,
   EmitDiagnostic,
   EmitOptions,

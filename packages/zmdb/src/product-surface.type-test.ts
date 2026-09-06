@@ -9,6 +9,7 @@ import type {
   ValidateResult as OwnerValidateResult,
 } from '@zmdb/aot-validator/utilities';
 import type { Module as OwnerModule, ModuleClass as OwnerModuleClass } from '@zmdb/app';
+import type { defineConfig as ownerDefineConfig, ZmdbConfig as OwnerZmdbConfig } from '@zmdb/compiler/config/contract';
 import type {
   defineRepository as ownerDefineRepository,
   IncompleteKeyError as OwnerIncompleteKeyError,
@@ -102,8 +103,6 @@ import {
   type ValidationIssue,
   type ZmdbConfig,
 } from 'zmdb';
-
-import type { defineConfig as ownerDefineConfig, ZmdbConfig as OwnerZmdbConfig } from './config/contract.js';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;

@@ -49,7 +49,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/compiler": "workspace:^",
     "@zmdb/migrations": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
     "typescript": "7.0.2"

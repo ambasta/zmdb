@@ -93,7 +93,7 @@ Bare React Native:
 ```js
 // metro.config.js
 const { getDefaultConfig } = require('@react-native/metro-config');
-const { withZmdb } = require('@zmdb/aot-validator/metro');
+const { withZmdb } = require('@zmdb/compiler/metro');
 
 module.exports = withZmdb(getDefaultConfig(__dirname));
 ```
@@ -103,12 +103,12 @@ Expo uses the same wrapper around Expo's default config:
 ```js
 // metro.config.js
 const { getDefaultConfig } = require('expo/metro-config');
-const { withZmdb } = require('@zmdb/aot-validator/metro');
+const { withZmdb } = require('@zmdb/compiler/metro');
 
 module.exports = withZmdb(getDefaultConfig(__dirname));
 ```
 
-`withZmdb` preserves the existing `babelTransformerPath`, including Expo's or an app-supplied transformer, and delegates to it after applying the same transform as the unplugin and `zmdb-codegen`.
+`withZmdb` preserves the existing `babelTransformerPath`, including Expo's or an app-supplied transformer, and delegates to it after applying the same transform as the unplugin and project compiler.
 There is no Expo config plugin; config plugins run at prebuild and cannot configure the later Metro process.
 
 This is the configuration exercised by `fixtures/consumer-metro`: a real Metro 0.87 bundle with an existing custom transformer. The fixture asserts that the schema is inlined, no runtime `schemaOf`

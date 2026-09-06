@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { snapshot, type ChangeOp, type SchemaSnapshot } from '@zmdb/migrations';
 import { emitDeclarations } from '@zmdb/migrations/declarations';
 import type { CatalogSchemaSnapshot } from '@zmdb/migrations/introspect';

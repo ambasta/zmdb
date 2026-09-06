@@ -1,6 +1,6 @@
 import { lenientParse, toolFromSchema } from '@zmdb/ai';
 import { defineTools } from '@zmdb/ai/chat';
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { ValidationError } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { beforeEach, describe, expect, it } from 'vitest';

@@ -4,7 +4,7 @@ import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { ReflectSession } from '@zmdb/aot-validator/reflect';
+import { ReflectSession } from '@zmdb/compiler/reflect';
 import type { HttpContractDeclaration } from '@zmdb/web/contract';
 import { compileHttpContracts, generateHttpClient, type HttpContractSource } from '@zmdb/web/contract/compiler';
 import { toOpenApi, type OpenApiDocument } from '@zmdb/web/openapi';

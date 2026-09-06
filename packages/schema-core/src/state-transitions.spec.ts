@@ -1,4 +1,4 @@
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { describe, it, expect } from 'vitest';
 
 import {

@@ -1,22 +1,23 @@
 # The config file — Spec (epic "The zmdb executable")
 
-> Part of `zmdb`, exported as `./config`. Read by the executable (`../cli/SPEC.md`); an application never has to import it.
+> Implemented by `@zmdb/compiler/config` and exposed by the `zmdb/config` product facade. Read by the executable (`../cli/SPEC.md`); an application never has to import it.
 
 ## 0. Product ownership and the stable entry point
 
-`zmdb/config` is the sole public project-configuration contract. CLI commands, the AOT compiler adapters, schema discovery, naming, migrations, introspection, Studio, and scaffolding consume either
-`loadConfig` or the same `ResolvedConfig` returned by it. They do not declare a second public config shape, repeat discovery, apply their own defaults, or resolve paths again.
+`@zmdb/compiler/config` is the sole implementation of the public project-configuration contract, and `zmdb/config` is its stable product facade. CLI commands, compiler adapters, schema discovery,
+naming, migrations, introspection, Studio, and scaffolding consume either `loadConfig` or the same `ResolvedConfig` returned by it. They do not declare a second public config shape, repeat discovery,
+apply their own defaults, or resolve paths again.
 
-The canonical implementation may move to a tooling package as the workspace is split, but that is invisible to consumers: `zmdb/config` remains the stable product entry point and only one module owns
-discovery, execution, validation, defaulting, path resolution, and the path-keyed cache. A package may accept explicit per-invocation or runtime options where those values are not project
-configuration; it must not call that object another `ZmdbConfig`.
+The implementation move is invisible to product consumers: `zmdb/config` remains the stable entry point and only `packages/compiler/src/config/index.ts` owns discovery, execution, validation,
+defaulting, path resolution, and the path-keyed cache. A package may accept explicit per-invocation or runtime options where those values are not project configuration; it must not call that object
+another `ZmdbConfig`.
 
 The `zmdb` root may re-export `defineConfig` and the author-facing `ZmdbConfig` type from a dependency-free contract module. It must not re-export the loader module itself, because a root import may
 not reach filesystem, compiler, migration, or CLI code. `loadConfig`, `resolveConfig`, `ResolvedConfig`, and `LoadConfigOptions` remain on `zmdb/config`.
 
-The current authoring owner is `contract.ts`. It contains the identity helper and author-facing types, uses type-only dependency imports, and performs no discovery, validation, defaulting, path
-resolution, caching, or module execution. `index.ts` is the one loader owner and re-exports those authoring identities, so `zmdb/config` exposes one contract while a runtime facade can reuse the
-dependency-light half without importing tooling.
+The authoring owner is `packages/compiler/src/config/contract.ts`. It contains the identity helper and author-facing types, uses type-only dependency imports, and performs no discovery, validation,
+defaulting, path resolution, caching, or module execution. The adjacent `index.ts` is the one loader owner and re-exports those authoring identities, so `zmdb/config` exposes one contract while a
+runtime facade can reuse the dependency-light half without importing tooling.
 
 The consumer inventory is deliberate:
 
@@ -24,7 +25,7 @@ The consumer inventory is deliberate:
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | database commands, migrations, introspection, HTTP generation and Studio | one `ResolvedConfig` from `loadConfig`; `--project` is reapplied through `resolveConfig`                     | confirmation, check/watch, migration name/target, generated output override, dry-run and Studio port |
 | `zmdb/unplugin`                                                          | optional `loadConfig`, then the canonical `project` and `resolvedNaming`                                     | caller-owned compiler session, emit settings and diagnostic callback                                 |
-| `zmdb-codegen`                                                           | dynamically resolves the installed `zmdb/config` entry and calls its `loadConfig`                            | `--check`, `--watch` and an explicit `--project` override                                            |
+| direct `@zmdb/compiler` project compilation                              | receives the explicit project path and naming strategy selected by its caller                                | selected source files, check/write mode and diagnostics                                              |
 | `zmdb new project`                                                       | emits a config importing `defineConfig` from `zmdb/config`; its generated build adapter uses `zmdb/unplugin` | scaffold kind, name, workspace package and dry-run                                                   |
 | application/runtime APIs                                                 | never load project config                                                                                    | drivers, base URLs, authentication, retries, DI values and all other runtime settings                |
 
@@ -37,12 +38,12 @@ Release versioning, changelog, tags, publish order, and partial-release behavior
 ## 1. Two shapes, because half of it cannot be validated
 
 The issue that proposed this asks for one `ZmdbConfig` and for the loaded object to be checked with the project's own validator, "deliberate dogfooding: the config is external data at a boundary". The
-intent is right and the shape is not, for a reason that is measured rather than stylistic. `@zmdb/aot-validator`'s reflector refuses an object type with a callable property:
+intent is right and the shape is not, for a reason that is measured rather than stylistic. `@zmdb/compiler`'s reflector refuses an object type with a callable property:
 
 > `` `X` has a method (`driver`); only data types can be checked ``
 
-so a `ZmdbConfig` carrying `driver?: () => Driver` cannot be reflected at all, let alone checked. And `naming?: NamingStrategy | 'snake_case' | 'snake_case_plural'` is refused twice over: the object
-arm is a type whose members are functions.
+so a `ZmdbConfig` carrying `driver?: () => ToolingDriver` cannot be reflected at all, let alone checked. And `naming?: NamingStrategy | 'snake_case' | 'snake_case_plural'` is refused twice over: the
+object arm is a type whose members are functions.
 
 So the config is two types, and the split is exactly the line the validator draws:
 
@@ -65,10 +66,17 @@ export interface ZmdbConfigData {
   readonly introspect?: IntrospectOptions;
 }
 
+/** Structural database boundary; the compiler does not depend on the ORM. */
+export interface ToolingDriver {
+  readonly dialect?: DialectTarget;
+  execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
+  transaction?<T>(run: (driver: ToolingDriver) => Promise<T>): Promise<T>;
+}
+
 /** What `defineConfig` takes. */
 export interface ZmdbConfig extends ZmdbConfigData {
   /** Checked with `typeof === 'function'`, not validated. */
-  readonly driver?: () => Driver | Promise<Driver>;
+  readonly driver?: () => ToolingDriver | Promise<ToolingDriver>;
   /** A custom strategy, where the two named ones do not fit. */
   readonly namingStrategy?: NamingStrategy;
 }
@@ -175,14 +183,14 @@ The default export is used if present, otherwise the named export `config`. Anyt
 
 ## 5. `schema` globs are read through a project, and a miss is an error
 
-A glob is a list of files; the reflector needs a `Program`. So `project` (default `./tsconfig.json`, the same default and the same flag name `zmdb-codegen` already uses) names the tsconfig, the CLI
-opens one compiler session over it, and `schema` selects from the files that project already includes.
+A glob is a list of files; the reflector needs a `Program`. So `project` (default `./tsconfig.json`, shared with `@zmdb/compiler` project compilation) names the tsconfig, the CLI opens one compiler
+session over it, and `schema` selects from the files that project already includes.
 
 **A glob that matches a file the project does not include is an error, not a silent skip.** The reflector cannot read a declaration outside the program, so the alternative is a `generate` run that
 quietly emits a migration missing three tables. The message names the file and the project.
 
 This is also the answer to the docs page's other objection — that globs "mean the CLI has to load TypeScript, which means a loader, which means a build-tool dependency in a project with zero runtime
-dependencies". The compiler is already a **peer** dependency of `@zmdb/aot-validator`, and `zmdb-codegen` already opens the consumer's project to do its work. The dependency the page is protecting
+dependencies". TypeScript is already a **peer** dependency of `@zmdb/compiler`, and project compilation already opens the consumer's project to do its work. The dependency the page is protecting
 against has already been paid for, once, deliberately, and it is not a runtime one.
 
 ## 6. Fields that are not portable are refused, not ignored
@@ -256,7 +264,7 @@ Base URLs, credentials, authentication providers, timeouts, retries, and deploym
 
 ## 9. Canonical owner after tooling extraction (#626)
 
-This behavioral contract's filesystem-backed implementation moves to `@zmdb/compiler/config`. The loader, generated validator pair and witness move together; there is one
+This behavioral contract's filesystem-backed implementation lives in `@zmdb/compiler/config`. The loader, generated validator pair and witness moved together; there is one
 discovery/cache/validation/path-resolution boundary.
 
 `zmdb/config` remains public as a direct identity re-export, so the default product import stays:
@@ -265,6 +273,6 @@ discovery/cache/validation/path-resolution boundary.
 import { defineConfig } from 'zmdb/config';
 ```
 
-Advanced tooling imports `@zmdb/compiler/config`. `@zmdb/cli` uses that subpath directly and does not publish another config API. The `zmdb` root may re-export only the dependency-free authoring
-contract described in §0; it must not reach the compiler loader. The config's driver contract is structural, avoiding a compiler dependency on `@zmdb/repository`; application runtimes still never
-evaluate the config.
+Advanced tooling imports `@zmdb/compiler/config`. The current `zmdb` CLI uses that subpath directly; the future `@zmdb/cli` extraction must keep the same dependency and must not publish another config
+API. The `zmdb` root may re-export only the dependency-free authoring contract described in §0; it must not reach the compiler loader. The config's driver contract is structural, avoiding a compiler
+dependency on `@zmdb/repository`; application runtimes still never evaluate the config.

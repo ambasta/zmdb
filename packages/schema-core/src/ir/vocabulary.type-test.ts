@@ -97,7 +97,7 @@ export const CONSTRAINT_TO_TAG: { readonly [K in ConstraintKind]: string } = {
 
 // --- the reflection can find every tag it needs -----------------------------
 //
-// `TAG_NAMES` is how `@zmdb/aot-validator`'s reflection recognises a tag: `../tags` is
+// `TAG_NAMES` is how `@zmdb/compiler`'s reflection recognises a tag: `../tags` is
 // types-only, so the reflection matches on the escaped symbol name (`__@zmdbSerial@1`)
 // instead of importing the tag. `Ext` is the one frozen structural marker and normalises
 // `__zmdbExt` to the same table entry. A tag with no entry there is a tag the reflection

@@ -139,7 +139,15 @@ function packageRoot(specifier) {
 function sourceFiles(directory) {
   if (!existsSync(directory)) return [];
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
-    if (entry.name === '__generated__' || entry.name === 'dist' || entry.name === 'node_modules') return [];
+    if (
+      entry.name === '.next' ||
+      entry.name === '__budget__' ||
+      entry.name === '__generated__' ||
+      entry.name === 'dist' ||
+      entry.name === 'node_modules'
+    ) {
+      return [];
+    }
     const path = join(directory, entry.name);
     return entry.isDirectory() ? sourceFiles(path) : [path];
   });

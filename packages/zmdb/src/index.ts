@@ -52,5 +52,5 @@ export type { WebRequest, WebResponse } from '@zmdb/web/pipeline';
 export { Controller, Delete, Get, Patch, Post, Public, Put } from '@zmdb/web/routing';
 export { Version, VersionNeutral } from '@zmdb/web/versioning';
 
-export { defineConfig } from './config/contract.js';
-export type { ZmdbConfig } from './config/contract.js';
+export { defineConfig } from '@zmdb/compiler/config/contract';
+export type { ZmdbConfig } from '@zmdb/compiler/config/contract';

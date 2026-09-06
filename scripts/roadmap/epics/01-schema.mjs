@@ -466,7 +466,7 @@ chose not to do something we just did.
     title: '[EPIC] Naming strategy — physical names decided at build time',
     labels: ['enhancement', 'area:schema', 'parity:mikro-orm'],
     pages: ['naming-strategy'],
-    packages: ['@zmdb/schema-core', '@zmdb/aot-validator', '@zmdb/query-compiler'],
+    packages: ['@zmdb/schema-core', '@zmdb/compiler', '@zmdb/query-compiler'],
     motivation: `
 Table and column names are used exactly as declared. A team whose database is \`user_accounts\` with
 \`created_at\` has to write those names in the TypeScript declaration, which means the property names
@@ -514,11 +514,11 @@ every migration diff after a strategy change will be a rename storm.
 `,
         files: [
           '`packages/schema-core/src/ir/SPEC.md` — `ColumnIR.physicalName` / `SchemaIR.physicalTable` and the rule that SQL reads one, types read the other.',
-          '`packages/aot-validator/src/reflect/SPEC.md` — where the strategy is applied during reflection.',
+          '`packages/compiler/src/reflect/SPEC.md` — where the strategy is applied during reflection.',
           '`packages/query-compiler/src/migrations/SPEC.md` — snapshots record physical names.',
         ],
         api: `
-// zmdb.config.ts (loaded by the transformer / codegen CLI, not at runtime)
+// zmdb.config.ts (loaded by @zmdb/compiler/config, not at runtime)
 export interface NamingStrategy {
   /** Property name → column name. Called once per column per build. */
   readonly column?: (property: string, context: { table: string }) => string;
@@ -545,7 +545,7 @@ interface ColumnIR {
           'Specify relation and index naming: a foreign-key column and a generated index name are derived from other names, so they must be derived from *physical* names, or a snake_case database ends up with a camelCase index.',
           'Specify snapshot behaviour: `SchemaSnapshot` records physical names only, and the spec states what happens when a strategy changes under an existing snapshot (it is a rename diff, and the runner should be able to say so rather than emitting drop+add).',
           'Specify the raw-SQL boundary explicitly: a string a caller writes in `where`, `IndexDef.expr` or a check constraint is not rewritten. Say it in the spec and repeat it on the docs page.',
-          'Specify config loading: the strategy comes from `zmdb.config.ts`, which the CLI epic owns. Name the dependency here so the implementation slice does not invent a second loader.',
+          'Specify config loading: the strategy comes from `zmdb.config.ts`, whose canonical loader is `@zmdb/compiler/config`. Name that dependency so no adapter invents a second loader.',
         ],
         tests: ['None — spec text only.', '`yarn validate:spec` green.'],
         dod: [
@@ -562,8 +562,8 @@ interface ColumnIR {
         blockedBy: ['spec'],
         goal: 'Land red tests for every claim in the naming spec, including the two that are easiest to get wrong: a collision must fail the build, and a derived index name must use physical names.',
         files: [
-          '`packages/aot-validator/src/reflect/reflect.spec.ts` — reflection applies the strategy.',
-          '`packages/aot-validator/src/reflect/__fixtures__/` — a fixture interface in camelCase.',
+          '`packages/compiler/src/reflect/reflect.spec.ts` — reflection applies the strategy.',
+          '`packages/compiler/src/reflect/__fixtures__/` — a fixture interface in camelCase.',
           '`packages/query-compiler/src/migrations/migrations.spec.ts` — DDL and snapshot use physical names.',
           '`packages/schema-core/src/ir/ir.type-test.ts` — derived types keep property names.',
         ],
@@ -579,9 +579,9 @@ interface ColumnIR {
           "Type-level: `Expect<Equal<keyof Entity<User>, 'id' | 'createdAt'>>` — the strategy must not leak into the type surface.",
         ],
         steps: [
-          'Add a camelCase fixture under `packages/aot-validator/src/reflect/__fixtures__/` — note that `fixtures/` is outside the vitest include globs, so it is compiled by the reflection session, not run.',
+          'Add a camelCase fixture under `packages/compiler/src/reflect/__fixtures__/` — note that `fixtures/` is outside the vitest include globs, so it is compiled by the reflection session, not run.',
           'Write a benchmark-shaped assertion for the cost claim: capture the compiled SQL for a select before and after a strategy is configured and assert the *emitted text* differs while the compile path does no extra work. A timing test would be flaky; an "identical call count" test is not.',
-          'Leave the config loader stubbed in the tests (a literal strategy object) so this slice does not block on the CLI epic.',
+          'Leave filesystem-backed config loading outside the reflection unit tests (pass a literal strategy object); `@zmdb/compiler/config` has its own contract tests.',
         ],
         dod: [
           'Every spec claim has a named failing test.',
@@ -598,8 +598,8 @@ interface ColumnIR {
         why: 'Splitting "the IR carries the name" from "SQL uses the name" keeps the risky half small. If the two land together, a bug in either shows up as wrong SQL and there is no way to tell which half produced it.',
         files: [
           '`packages/schema-core/src/ir/index.ts` — `ColumnIR`, `SchemaIR`, the IR vocabulary tables and `vocabulary.type-test.ts`.',
-          '`packages/aot-validator/src/reflect/index.ts` — apply the strategy while building `schemaIrFromType`.',
-          '`packages/aot-validator/src/reflect/index.ts` `#refuse` path — the collision diagnostic.',
+          '`packages/compiler/src/reflect/index.ts` — apply the strategy while building `schemaIrFromType`.',
+          '`packages/compiler/src/reflect/index.ts` `#refuse` path — the collision diagnostic.',
         ],
         api: `
 export interface ReflectOptions {
@@ -668,11 +668,11 @@ export interface ReflectOptions {
         blockedBy: ['sql', 'cli:config'],
         goal: 'Ship the two strategies people actually want, resolved from `zmdb.config.ts` by the transformer and the codegen CLI, so a project turns this on with one line and no runtime cost.',
         why: 'A `NamingStrategy` interface with no implementations is a hook, not a feature. The two built-ins are also the test cases that expose the collision and acronym problems every hand-rolled snake_case function gets wrong.',
-        blockedByNote: 'Needs the config loader from the CLI epic.',
+        blockedByNote: 'Uses the canonical loader from `@zmdb/compiler/config`.',
         files: [
           '`packages/schema-core/src/naming/index.ts` (new) + `SPEC.md`',
           '`packages/schema-core/package.json` — a `./naming` subpath.',
-          '`packages/aot-validator/src/plugin/index.ts` and `src/cli/` — read `naming` from the loaded config.',
+          '`packages/compiler/src/unplugin/index.ts` and `src/codegen/` — read `naming` from the loaded config.',
         ],
         api: `
 export const snakeCase: NamingStrategy;
@@ -683,7 +683,7 @@ export function resolveNaming(config: ZmdbConfig['naming']): NamingStrategy;
           'Implement `snakeCase` with the cases that break naive implementations: `createdAt` → `created_at`, `HTTPStatus` → `http_status`, `id2` → `id2`, `userID` → `user_id`, and a name already in snake_case is unchanged (idempotence).',
           'Implement pluralisation as a small explicit rule set plus an irregular table, and document that it is deliberately not a linguistics library — `person` → `people` if the table says so, otherwise the user supplies a function.',
           'Add the `./naming` export and register it wherever the export inventory is checked (`yarn verify:exports` imports every subpath).',
-          'Read `naming` from the config in both AOT routes — the unplugin transformer and the `zmdb-codegen` CLI — and prove they agree: the repo already has consumer fixtures for both routes (`fixtures/consumer-plugin`, `fixtures/consumer-cli`) and `yarn verify:fixtures` asserts they emit the same code.',
+          'Read `naming` from the config in both AOT routes — the unplugin transformer and project compiler — and prove they agree: the repo already has consumer fixtures for both routes (`fixtures/consumer-plugin`, `fixtures/consumer-cli`) and `yarn verify:fixtures` asserts they emit the same code.',
         ],
         tests: [
           '`snake_cases the names every hand-rolled implementation gets wrong` — table-driven over the cases above.',

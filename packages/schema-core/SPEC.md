@@ -52,7 +52,7 @@ interface ColumnMeta {
 `{ extension, name, args? }`, preserving the installable extension, its provided type, and any type arguments without admitting arbitrary strings into the core vocabulary.
 
 A `Serial` column carries `autoIncrement: true` **and** `hasDefault: true`. Both, always, and not as a convenience: the sequence belongs to the database, so `INSERT` may omit the column, and
-`hasDefault` is what tells `CreateDTO` and the JSON Schema's `required` list so. `aot-validator/src/reflect/SPEC.md` §7 is the long version.
+`hasDefault` is what tells `CreateDTO` and the JSON Schema's `required` list so. `../compiler/src/reflect/SPEC.md` §7 is the long version.
 
 What a `ColumnMeta` **cannot** hold: a numeric precision, a codec name, a wire type, a json payload's shape, or a relation. Five facts a declaration states and this shape has nowhere to put — see §8
 of the reflection spec, and §3 below for what carries them.
@@ -70,8 +70,8 @@ interface CoreSchema<T extends string = string> {
 }
 ```
 
-`schemaOf<T>()` is the only way to get one. It has no runtime implementation and cannot have one — the answer is a function of a type argument — so `@zmdb/aot-validator` replaces the call with a
-frozen literal at build time, and an untransformed build throws a message saying exactly that rather than returning a plausible empty schema.
+`schemaOf<T>()` is the only way to get one. It has no runtime implementation and cannot have one — the answer is a function of a type argument — so `@zmdb/compiler` replaces the call with a frozen
+literal at build time, and an untransformed build throws a message saying exactly that rather than returning a plausible empty schema.
 
 `ir` is required, and that is the whole design. `columns` is the lossy SQL-facing projection §2 describes: its keys, `table`, `primaryKey` and local reference columns are physical identifiers. `ir` is
 the complete declaration-facing form and carries both declared and physical names. SQL back-ends read the physical projection; validators, derived documents and DTOs read declared names from the IR.

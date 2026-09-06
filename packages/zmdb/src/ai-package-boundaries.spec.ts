@@ -30,6 +30,7 @@ const AI = join(PACKAGES, 'ai');
 const AI_ANTHROPIC = join(PACKAGES, 'ai-anthropic');
 const AI_LANGCHAIN = join(PACKAGES, 'ai-langchain');
 const AI_VERCEL = join(PACKAGES, 'ai-vercel');
+const COMPILER = join(PACKAGES, 'compiler');
 const MCP = join(PACKAGES, 'mcp');
 const MCP_SOURCE = join(MCP, 'src');
 const SCHEMA_CORE = join(PACKAGES, 'schema-core');
@@ -239,12 +240,9 @@ function projectedAiGraph(): string[] {
   const mcpProduction = MCP_SOURCE_FILES.filter(
     path => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.endsWith('.type-test.ts'),
   ).map(path => join(MCP_SOURCE, path));
-  const aotSources = [
-    join(PACKAGES, 'aot-validator', 'src', 'transformer.ts'),
-    join(PACKAGES, 'aot-validator', 'src', 'emit', 'index.ts'),
-  ];
+  const compilerSources = [join(COMPILER, 'src', 'transform', 'index.ts'), join(COMPILER, 'src', 'emit', 'index.ts')];
 
-  for (const file of [...production, ...mcpProduction, ...aotSources]) {
+  for (const file of [...production, ...mcpProduction, ...compilerSources]) {
     const from = projectedOwner(file);
     for (const reference of importsOf(file)) {
       let to: string | null = null;
@@ -265,6 +263,10 @@ function projectedAiGraph(): string[] {
   const aotManifest = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
   for (const dependency of Object.keys(aotManifest.dependencies ?? {})) {
     if (dependency.startsWith('@zmdb/')) edges.add(`@zmdb/aot-validator -> ${dependency}`);
+  }
+  const compilerManifest = readJson<PackageManifest>(join(COMPILER, 'package.json'));
+  for (const dependency of Object.keys(compilerManifest.dependencies ?? {})) {
+    if (dependency.startsWith('@zmdb/')) edges.add(`@zmdb/compiler -> ${dependency}`);
   }
   return [...edges].toSorted();
 }
@@ -574,8 +576,11 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
       '@zmdb/ai-anthropic -> @zmdb/ai',
       '@zmdb/ai-langchain -> @zmdb/ai',
       '@zmdb/ai-vercel -> @zmdb/ai',
-      '@zmdb/aot-validator -> @zmdb/ai',
       '@zmdb/aot-validator -> @zmdb/schema-core',
+      '@zmdb/compiler -> @zmdb/ai',
+      '@zmdb/compiler -> @zmdb/aot-validator',
+      '@zmdb/compiler -> @zmdb/query-compiler',
+      '@zmdb/compiler -> @zmdb/schema-core',
       '@zmdb/mcp -> @zmdb/ai',
       '@zmdb/schema-core -> @zmdb/query-compiler',
     ];
@@ -585,11 +590,11 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
 
   it('toolFor codegen witnesses import from @zmdb/ai', () => {
     const files = [
-      join(PACKAGES, 'aot-validator', 'src', 'transformer.ts'),
-      join(PACKAGES, 'aot-validator', 'src', 'emit', 'index.ts'),
-      join(PACKAGES, 'aot-validator', 'src', 'cli', 'scan.ts'),
-      join(PACKAGES, 'aot-validator', 'src', 'tool-for.spec.ts'),
-      join(PACKAGES, 'aot-validator', 'src', 'transform-code.spec.ts'),
+      join(COMPILER, 'src', 'transform', 'index.ts'),
+      join(COMPILER, 'src', 'emit', 'index.ts'),
+      join(COMPILER, 'src', 'codegen', 'scan.ts'),
+      join(COMPILER, 'src', 'tool-for.spec.ts'),
+      join(COMPILER, 'src', 'transform-code.spec.ts'),
     ];
     const stale = files
       .flatMap(file =>
@@ -599,9 +604,11 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
           .filter(entry => entry.line.includes('@zmdb/schema-core/llm')),
       )
       .map(entry => `${relative(ROOT, entry.file)}:${String(entry.index)} ${entry.line.trim()}`);
-    const manifest = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
+    const manifest = readJson<PackageManifest>(join(COMPILER, 'package.json'));
+    const runtimeManifest = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
     expect.soft(stale).toEqual([]);
     expect.soft(manifest.dependencies?.['@zmdb/ai']).toBe('workspace:^');
+    expect.soft(runtimeManifest.dependencies?.['@zmdb/ai']).toBeUndefined();
   });
 
   it('every advertised AI subpath imports from a packed consumer', () => {

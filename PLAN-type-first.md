@@ -2,13 +2,16 @@
 
 Implements [`DESIGN-type-first.md`](DESIGN-type-first.md) / PRD §6.7 (`REQ-TF-1` … `REQ-TF-13`).
 
+**Status:** implemented. Issue #628 subsequently moved every TypeScript-front-end path named in this plan from `packages/aot-validator` to the matching concern under `packages/compiler`; the runtime
+validator retained only its five runtime exports.
+
 **Read §1 and §2 first.** They contain the one architectural decision the rest of the plan depends on, and the five choices that shape it — all five resolved on 2026-09-02.
 
 ---
 
 ## 1. The spine: one IR, two front-ends, N back-ends
 
-The repo currently contains **four independent walkers over the same column metadata**, each with its own vocabulary, its own gaps, and its own bugs:
+At the planning baseline the repo contained **four independent walkers over the same column metadata**, each with its own vocabulary, its own gaps, and its own bugs:
 
 | Walker                      | Location                                     | Produces         | Knows about                                   |
 | --------------------------- | -------------------------------------------- | ---------------- | --------------------------------------------- |
@@ -61,12 +64,12 @@ Constraint: `@zmdb/schema-core` imports **no sibling and no third-party runtime 
 | ------------------------------------------------------------- | -------------------------------------- | ------------------------------- | -------------------------------------------------------------------------- |
 | `zmdb/tags` — the tag vocabulary                              | `schema-core/src/tags/index.ts`        | none (types only)               | Every package's derivations need it; it is pure types so it costs nothing. |
 | `zmdb/ir` — IR types + `irFromSchema()` + JSON Schema emitter | `schema-core/src/ir/index.ts`          | none                            | Pure data in, pure data out. Keeps REQ-SC-8.                               |
-| `irFromType(checker, type)`                                   | `aot-validator/src/reflect/index.ts`   | `typescript` (peer, build-time) | Only the build path may see the checker.                                   |
-| IR → JS emitters                                              | `aot-validator/src/emit/index.ts`      | none                            | Strings in, strings out; testable without a checker.                       |
+| `irFromType(checker, type)`                                   | `compiler/src/reflect/index.ts`        | `typescript` (peer, build-time) | Only the build path may see the checker.                                   |
+| IR → JS emitters                                              | `compiler/src/emit/index.ts`           | none                            | Strings in, strings out; testable without a checker.                       |
 | IR runtime walker (replaces `TypeDescriptor`)                 | `aot-validator/src/utilities/index.ts` | `import type` only              | Ships to consumers; must stay dependency-free.                             |
-| `zmdb-codegen` CLI                                            | `aot-validator/src/cli/index.ts`       | `typescript` (peer)             | The `tsc`-without-a-plugin answer. See Phase 8.                            |
+| project compilation                                           | `compiler/src/index.ts`                | `typescript` (peer)             | The no-bundler answer. See Phase 8.                                        |
 
-`typescript` moves to `peerDependencies` + `peerDependenciesMeta.optional` on `@zmdb/aot-validator`, imported **only** from `./reflect`, `./plugin` and `./cli`. A `verify:exports` addition asserts no
+`typescript` is a required peer of `@zmdb/compiler`; the runtime-only `@zmdb/aot-validator` has no compiler peer or compiler-facing export. `verify:exports` and the tooling-boundary gate assert no
 runtime entrypoint reaches it.
 
 ---
@@ -261,18 +264,18 @@ Phases 1–3 in part plus Phases 4, 5, 6 and 7a in full, with five refinements w
 | `schema-core/src/index.ts`                                   | `TaggedSchema<T>`, `schemaOf<T>()`, and the four brand-aware derivation arms         |
 | `schema-core/src/schema-of.type-test.ts`                     | The brand discriminates: tagged types one side, `defineSchema`'s the other           |
 | `schema-core/src/openapi/index.ts`                           | Rewritten: `scalarSchema` **deleted**, delegates to the IR; `toJsonSchema<T>()`      |
-| `aot-validator/src/reflect/session.ts`                       | The compiler boundary: one `tsgo` session per build, `Disposable`                    |
-| `aot-validator/src/reflect/callsites.ts`                     | Finds `f<T>(…)` calls and hands back `T`'s type node                                 |
-| `aot-validator/src/reflect/index.ts`                         | `Reflector` — `typeIR`/`schemaIR`/`shapeIR`, total, budgeted, named refusals         |
-| `aot-validator/src/reflect/__fixtures__/`                    | The construct table, the equivalence corpus, the codemod corpus, the documents       |
-| `aot-validator/src/reflect/reflect.spec.ts`                  | 61 assertions incl. the tagged-vs-`defineSchema` deep equality                       |
-| `aot-validator/src/reflect/documents.spec.ts`                | REQ-TF-7 as a byte equality, on documents the emitted module actually produced       |
-| `aot-validator/src/reflect/schema-values.spec.ts`            | REQ-TF-10 on the object the emitted module ships, against the twin's IR              |
-| `aot-validator/src/reflect/SPEC.md`                          | Including §4, the measured checker limitations                                       |
-| `aot-validator/src/emit/index.ts`                            | Six targets — check, excess, issues, sample, document, schema — one hoisting context |
-| `aot-validator/src/emit/differential.spec.ts`                | REQ-AV-4: the emitted check against the runtime walker on the same IR                |
-| `aot-validator/src/transformer.ts`                           | Checker-driven rewriting by text offset; the hand-rolled type parser deleted         |
-| `aot-validator/src/plugin/index.ts`                          | The bundler hook: `enforce: 'pre'`, one session per build, watch-mode refresh        |
+| `compiler/src/reflect/session.ts`                            | The compiler boundary: one `tsgo` session per build, `Disposable`                    |
+| `compiler/src/reflect/callsites.ts`                          | Finds `f<T>(…)` calls and hands back `T`'s type node                                 |
+| `compiler/src/reflect/index.ts`                              | `Reflector` — `typeIR`/`schemaIR`/`shapeIR`, total, budgeted, named refusals         |
+| `compiler/src/reflect/__fixtures__/`                         | The construct table, the equivalence corpus, the codemod corpus, the documents       |
+| `compiler/src/reflect/reflect.spec.ts`                       | 61 assertions incl. the tagged-vs-`defineSchema` deep equality                       |
+| `compiler/src/reflect/documents.spec.ts`                     | REQ-TF-7 as a byte equality, on documents the emitted module actually produced       |
+| `compiler/src/reflect/schema-values.spec.ts`                 | REQ-TF-10 on the object the emitted module ships, against the twin's IR              |
+| `compiler/src/reflect/SPEC.md`                               | Including §4, the measured checker limitations                                       |
+| `compiler/src/emit/index.ts`                                 | Six targets — check, excess, issues, sample, document, schema — one hoisting context |
+| `compiler/src/emit/differential.spec.ts`                     | REQ-AV-4: the emitted check against the runtime walker on the same IR                |
+| `compiler/src/transform/index.ts`                            | Checker-driven rewriting by text offset; the hand-rolled type parser deleted         |
+| `compiler/src/unplugin/index.ts`                             | The bundler hook: `enforce: 'pre'`, one session per build, watch-mode refresh        |
 | `scripts/codemod-tagged-schema.mjs`                          | `defineSchema` → tagged interface, checked against its corpora line for line         |
 | `web/src/openapi/generated-schemas.spec.ts`                  | `toOpenApi` fed from generated literals, through the real plugin                     |
 | `repository/src/tagged-to-ddl.spec.ts`                       | REQ-TF-10's runtime half: an awkward declaration to written-out DDL, three dialects  |
@@ -294,8 +297,8 @@ Also landed from Phase 0: the umbrella subpaths `zmdb/tags`, `zmdb/ir` and `zmdb
 from outside the workspace. And **D1**: the `PrimaryKey<S>` → `PrimaryKeyOf<S>` rename, in full.
 
 **Refinement 3 — the checker API is smaller than its `.d.ts`.** Phase 4 below is written as if `ts.Type` behaves the way it did in TypeScript 6. It does not. `typescript@7` is the Go compiler behind a
-thin marshalling client, so several members that exist in the type declarations arrive `undefined` over the wire, one of them _panics the server process_, and one throws when read. `reflect/SPEC.md`
-§4 is the measured table; the two that changed the design rather than just the code:
+thin marshalling client, so several members that exist in the type declarations arrive `undefined` over the wire, one of them _panics the server process_, and one throws when read.
+`packages/compiler/src/reflect/SPEC.md` §4 is the measured table; the two that changed the design rather than just the code:
 
 - **Index signatures are detectable but not readable.** `getPropertiesOfType` ignores them entirely, `getIndexInfosOfType(t).length` is safe, and reading `info.keyType` throws. So `Record<string, T>`
   is a named refusal. Modelling it as "an object with no properties" would have emitted a validator that accepts `{}` and everything else, which is the failure mode D4 exists to prevent.
@@ -492,7 +495,7 @@ removes the largest instantiation-cost worry.
 
 ### Phase 4 — Reflection: type → IR · L
 
-The first phase that needs the checker. Promote and harden the prototype's `classify`/`readTags`/`checks` into `aot-validator/src/reflect/`.
+The first phase that needs the checker. Its implemented owner is `compiler/src/reflect/`.
 
 **Deliverables**
 
@@ -544,9 +547,9 @@ existing tag-call inlining (`tags.Min(…)`), which needs no types.
 
 **Deliverables**
 
-- `aot-validator/src/emit/index.ts` — IR → JS, four emitters sharing one walk: `predicate` (is), `issues` (assert/validate, with `path`/`expected`/`value` and **no allocation on the success path** —
+- `compiler/src/emit/index.ts` — IR → JS, four emitters sharing one walk: `predicate` (is), `issues` (assert/validate, with `path`/`expected`/`value` and **no allocation on the success path** —
   REQ-AV-7), `excess` (equals/assertEquals), `sample` (random).
-- `aot-validator/src/reflect/session.ts` — the single `API` holder: one instance per build, projects opened once, `fileChanges` for watch-mode invalidation, explicit `close()`. **REQ-TF-11.**
+- `compiler/src/reflect/session.ts` — the single `API` holder: one instance per build, projects opened once, `fileChanges` for watch-mode invalidation, explicit `close()`. **REQ-TF-11.**
 - `transformFile` + `zmdbAot()` rewired to it; `enforce: 'pre'`; graceful degradation when no tsconfig covers the file.
 - Delete `parseType`, `primType`, `PType`, `emitCheck`, `emitEqualsCheck`, `emitExcessKeyGuards` (**REQ-TF-8**).
 - Rewrite `utilities/index.ts`'s `matches`/`collectIssues`/`hasNoExcessKeys`/`randomFor` to walk **IR**. (`TypeDescriptor` was kept as a converted legacy input rather than an alias, and Phase 7c
@@ -571,7 +574,7 @@ existing tag-call inlining (`tags.Min(…)`), which needs no types.
 
 - `schema-core/src/ir/json-schema.ts` — `jsonSchemaFromIR(ir, variant)`. Move `scalarSchema`'s logic here verbatim first, _then_ refactor, so the golden output cannot drift during the move.
 - `toJsonSchema(schema, variant)` reduced to `jsonSchemaFromIR(irFromSchema(schema), variant)`.
-- `toJsonSchema<T>()` — the type-driven form, replaced at build time by a frozen object literal (**REQ-TF-7**). Also a new emitter target in `emit/`.
+- `toJsonSchema<T>()` — the type-driven form, replaced at build time by a frozen object literal (**REQ-TF-7**). Also a new emitter target in `packages/compiler/src/emit/`.
 - `toJsonSchemaWithRelations`, `toOpenApiComponents`, `toListSchema`, `toSearchSchema`, `toolFromSchema` re-pointed at IR; **output contracts unchanged**. `toJsonSchemaWithRelations` loses its middle
   argument — the relations are in the IR, so a document can no longer name a relation the table does not have.
 - `Variant` as a type argument: `toJsonSchema<CreateDTO<User>>()`.
@@ -650,19 +653,21 @@ The fallback's throw message went from `runtime descriptor required in test/fall
 
 ---
 
-### Phase 8 — The `tsc` path: a codegen CLI · M
+### Phase 8 — The `tsc` path: project compilation · M
 
 TS 7's Go compiler does not run `ts-patch`-style program transformers, so REQ-AV-3's "tsc transformer" cannot be satisfied as written. The plan does not wait for it.
 
-`zmdb-codegen` reads a tsconfig, walks `is`/`assert`/`validate`/`equals`/`random`/ `toJsonSchema` call sites, and writes a generated module per project containing the validators, the JSON Schema
-literals and the runtime schema consts. A tiny stable import replaces the call. Plain `tsc`, plain `node --experimental-strip-types`, plain anything then gets the AOT path with **no plugin at all**.
+`@zmdb/compiler` reads a tsconfig, walks `is`/`assert`/`validate`/`equals`/`random`/ `toJsonSchema` call sites, and writes generated modules beside their source files containing validators, JSON
+Schema literals and runtime schema consts. A tiny stable import replaces each call. Plain `tsc`, plain `node --experimental-strip-types`, plain anything then gets the AOT path with **no plugin at
+all**.
 
 This is strategically larger than it looks: it converts **RISK-1** ("the AOT premise is unearned out of the box — without the plugin, consumers get a runtime validator slower than zod v4") from a
 plugin-adoption problem into a one-command build step. The bundler plugin remains, as the optimisation that removes the last function call (REQ-AV-1).
 
-- Deliverables: the CLI, `--watch`, a consumer fixture project in CI that builds with **only** the CLI, and a second that builds with the plugin.
-- Test: both fixtures produce identical accept/reject behaviour; the plugin fixture's bundle contains no function call on the happy path (REQ-AV-1); the CLI fixture's measured throughput is published
-  beside the plugin's.
+- Deliverables: a callable compiler API, check-only materialisation, a consumer fixture project in CI that builds with project compilation, and a second that builds with the plugin. The unified CLI
+  command and watch orchestration are owned by #630.
+- Test: both fixtures produce identical accept/reject behaviour; the plugin fixture's bundle contains no function call on the happy path (REQ-AV-1); the no-bundler project fixture's measured
+  throughput is published beside the plugin's.
 
 **Gate:** REQ-AV-3 closed or explicitly re-scoped in the PRD with the reason.
 
@@ -793,7 +798,7 @@ union/discriminated-union emit matrix (Phase 4). D2's answer took the dual dispa
 
 The app/web/jobs split is an ownership move around the type-first spine, not another front-end or back-end.
 
-- `@zmdb/aot-validator` remains the only package that opens the TypeScript checker or reflects a declared type into `TypeIR`.
+- `@zmdb/compiler` is the only package that opens the TypeScript checker or reflects a declared type into `TypeIR`; `@zmdb/aot-validator` is runtime-only.
 - `@zmdb/app` may consume generated validators and schema artifacts, but cannot reflect source, instantiate a checker or walk TypeIR to invent another interpretation.
 - `@zmdb/web` retains the single wire↔app crossing from D3. HTTP decodes generated wire shapes before app validation and encodes app values on response; app and jobs do not introduce another codec
   path.

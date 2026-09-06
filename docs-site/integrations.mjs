@@ -71,10 +71,12 @@ export const INTEGRATIONS = Object.freeze([
     peers: ['react', 'react-native'],
     docs: 'client-react-native',
     evidence: [
+      'packages/compiler/src/metro/metro.spec.ts',
       'packages/react-native/src/index.spec.ts',
       'packages/react-native/src/metro.spec.ts',
       'packages/react-native/src/packed-consumer.spec.ts',
       'fixtures/client-adapters',
+      'fixtures/consumer-metro',
     ],
   }),
   integration({

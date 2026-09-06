@@ -383,7 +383,7 @@ export const PAGE_META = {
     status: 'supported',
   },
   'cli-codegen': {
-    title: 'zmdb-codegen',
+    title: 'Compiler code generation',
     status: 'supported',
   },
   'cli-generate': {

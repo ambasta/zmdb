@@ -8,7 +8,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Reflector, type ReflectSession } from '@zmdb/aot-validator/reflect';
+import { Reflector, type ReflectSession } from '@zmdb/compiler/reflect';
 import { jsonSchemaFromTypeIR, type TypeIR } from '@zmdb/schema-core/ir';
 import type {
   Expression,

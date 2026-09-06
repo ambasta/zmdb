@@ -22,7 +22,7 @@ Valibot's advantage over Zod is real: you import the validators you use, so a sm
 zmdb's position is different rather than strictly better:
 
 - **No schema objects at all.** Nothing to import per type.
-- **But** the AOT transformer emits a descriptor literal per validated type, inline in your output. Ten small types cost less than Valibot; a hundred large nested types may cost more.
+- **But** `@zmdb/compiler` emits straight-line validation control flow per validated type, inline in your output. Ten small types cost less than Valibot; a hundred large nested types may cost more.
 - **No runtime library to load** on top of either.
 
 If bundle size is the deciding factor, measure your actual types rather than trusting either claim. The [benchmarks](./benchmarks.html) cover throughput, not bytes.

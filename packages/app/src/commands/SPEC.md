@@ -57,8 +57,9 @@ The information a parameter decorator would have carried by hand is already deri
 **The parameter property is not blocked by the transform's ability — it is blocked by the transform being optional.** `tsc` desugars a parameter property perfectly well, so a command that is _built_
 can already contain one; what cannot contain one is a command that is _stripped_, which is the loading story §8 is about.
 
-The transformer is deliberately allowed to do nothing: it rewrites eight named call sites by text offset (`transformer.ts`'s `CALLEES`) and leaves alone any it cannot reach, and §8 depends on that
-degradation being survivable — an untransformed `assert<A>` still reaches a runtime fallback that throws a sentence naming the problem. An undesugared parameter property is not a degraded path.
+The transformer is deliberately allowed to do nothing: it rewrites the named call sites in `packages/compiler/src/transform/index.ts`'s `CALLEES` and leaves alone any it cannot reach, and §8 depends
+on that degradation being survivable — an untransformed `assert<A>` still reaches a runtime fallback that throws a sentence naming the problem. An undesugared parameter property is not a degraded
+path.
 
 It is `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` at module load, before any zmdb code runs, so the surface would only exist for consumers who run a bundler plugin — which is exactly the mandatory bundler
 `zmdb`'s `src/config/SPEC.md` §4 rejects, for reasons that have nothing to do with commands.
@@ -73,9 +74,9 @@ different tokens, and that is a normal thing to register, not a corner case.
 Making the type the key means a build-time registry mapping types to providers across the whole program, resolved by a tool the consumer may not be running: `emitDecoratorMetadata` with extra steps
 and a worse failure mode.
 
-There is also a blunter obstacle. The reflector refuses classes outright — `reflect/index.ts` answers a type with a method with `` `X` has a method (`m`); only data types can be checked `` — and a
-repository is nothing but methods. The AOT reflects the shape of data crossing a boundary. A dependency graph is made of behaviour, so the one component that reads types cannot describe a single node
-of it.
+There is also a blunter obstacle. The reflector refuses classes outright — `packages/compiler/src/reflect/index.ts` answers a type with a method with
+`` `X` has a method (`m`); only data types can be checked `` — and a repository is nothing but methods. The AOT reflects the shape of data crossing a boundary. A dependency graph is made of behaviour,
+so the one component that reads types cannot describe a single node of it.
 
 ## 2. The surface
 
@@ -171,7 +172,7 @@ Two details that are `parseArgs` facts rather than choices:
   positional argument.
 
 An unknown flag is a usage error: strict `parseArgs` throws `ERR_PARSE_ARGS_UNKNOWN_OPTION` and the framework reports it with the command's `--help` and **exit code 2**. That number is not chosen here
-— it is the convention `zmdb-codegen` set and `zmdb`'s `src/cli/SPEC.md` §2 froze, and a command application that disagreed with the executable that scaffolded it would be gratuitous.
+— it is the convention the original compiler command set and `zmdb`'s `src/cli/SPEC.md` §2 froze, and a command application that disagreed with the executable that scaffolded it would be gratuitous.
 
 ## 5. The exit code comes from the return value, with `void` meaning success
 

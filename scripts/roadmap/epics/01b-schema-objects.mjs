@@ -147,7 +147,7 @@ export interface ExtensionDef {
           '`packages/query-compiler/src/schema-objects/index.ts` — `ExtensionDef`, `createExtensionDdl`.',
           '`packages/query-compiler/src/migrations/index.ts` — `ColumnSnapshot.type` widening, `ddlType`, `emitUp` ordering, `diff`.',
           '`packages/schema-core/src/ir/index.ts` and `src/tags/index.ts` — the `Ext` tag and its IR carriage.',
-          '`packages/aot-validator/src/reflect/index.ts` — read the tag.',
+          '`packages/compiler/src/reflect/index.ts` — read the tag.',
         ],
         steps: [
           'Add the tag and read it in the reflection, carrying an `ExtensionType` into the IR. Keep `Sql<...>` untouched for the closed vocabulary — a column has one or the other, and the type makes that exclusive.',

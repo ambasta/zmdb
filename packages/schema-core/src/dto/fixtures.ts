@@ -6,8 +6,8 @@
 // enum columns are derived would have been checked in some of them and not others.
 //
 // The declaration is the interface; the schema values below are read off it the way a
-// build would. See `@zmdb/aot-validator/testing`.
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+// build would. See `@zmdb/compiler/testing`.
+import { schemasFrom } from '@zmdb/compiler/testing';
 
 import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
 

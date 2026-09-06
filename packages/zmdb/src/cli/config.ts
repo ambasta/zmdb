@@ -1,4 +1,4 @@
-// Keep the published CLI entry's internal imports on its own relative boundary.
-// The implementation remains the single config loader exported by `zmdb/config`.
-export { loadConfig, resolveConfig } from '../config/index.js';
-export type { ResolvedConfig, ZmdbConfig } from '../config/index.js';
+// The CLI consumes the canonical tooling owner directly. `zmdb/config` is the
+// stable product facade over these same identities.
+export { loadConfig, resolveConfig } from '@zmdb/compiler/config';
+export type { ResolvedConfig, ZmdbConfig } from '@zmdb/compiler/config';

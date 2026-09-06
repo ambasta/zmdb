@@ -8,7 +8,7 @@
 re-exported by `zmdb`.
 
 The package owns device lifecycle policy around an opaque application-generated client. It does not inspect operations, construct URLs, encode requests, validate responses, choose a connectivity
-library, choose credential persistence, import a database or server package, or expose a `./metro` entry. The existing `@zmdb/aot-validator/metro` export remains the AOT build integration.
+library, choose credential persistence, import a database or server package, or expose a `./metro` entry. `@zmdb/compiler/metro` owns the AOT build integration.
 
 ## 2. Structural native ports
 
@@ -83,8 +83,8 @@ The package root has no Node built-in, server export, database package, NetInfo,
 3. typechecks against published declarations;
 4. runs AppState cancellation, foreground refresh, offline refusal, and credential-port identity through React mounting.
 
-The repository's existing Metro fixture separately imports the native adapter and real React Native `AppState`, traverses `@zmdb/aot-validator/metro`, and produces a Metro 0.87 iOS bundle whose
-resolver rejects every Node built-in. Keeping that build witness in the established fixture proves the client adapter adds no competing `./metro` surface.
+The repository's existing Metro fixture separately imports the native adapter and real React Native `AppState`, traverses `@zmdb/compiler/metro`, and produces a Metro 0.87 iOS bundle whose resolver
+rejects every Node built-in. Keeping that build witness in the established fixture proves the client adapter adds no competing `./metro` surface.
 
 The workspace conformance harness additionally runs the common generated-client query, mutation, cancellation, stale-result, exact-error, no-retry, opaque-client, import-purity, and SSR cases through
 the real native binding.

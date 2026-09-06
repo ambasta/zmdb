@@ -42,6 +42,7 @@ const DEFAULT_CLOSURE = [
   '@zmdb/ai',
   '@zmdb/aot-validator',
   '@zmdb/app',
+  '@zmdb/compiler',
   '@zmdb/migrations',
   '@zmdb/query-compiler',
   '@zmdb/repository',

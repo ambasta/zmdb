@@ -7,7 +7,7 @@ export const VALIDATOR_EPICS = [
     title: '[EPIC] Shallow validation — a depth-limited validator variant',
     labels: ['enhancement', 'area:validator', 'perf', 'parity:typia'],
     pages: ['validators-shallow'],
-    packages: ['@zmdb/aot-validator', '@zmdb/schema-core'],
+    packages: ['@zmdb/compiler', '@zmdb/aot-validator', '@zmdb/schema-core'],
     motivation: `
 \`is()\` and \`assert()\` walk the whole tree. That is the right default — a validator that checks the
 top level and trusts the rest is a validator that lets a malformed nested object through — but it is
@@ -54,7 +54,7 @@ one produces a validator that says yes to malformed data — which is worse than
 it comes with a promise.
 `,
         files: [
-          '`packages/aot-validator/src/emit/SPEC.md` — a "Depth" section.',
+          '`packages/compiler/src/emit/SPEC.md` — a "Depth" section.',
           '`packages/schema-core/SPEC.md` — the public API surface if the entry points live there.',
         ],
         api: `
@@ -83,11 +83,11 @@ export declare function validateShallow<T>(value: unknown, depth?: number): Vali
         labels: ['spec'],
         blockedBy: ['spec'],
         goal: 'Land failing tests that assert the *emitted code* omits nested branches, alongside the behavioural tests. A behaviour-only suite cannot tell a genuinely shallow validator from a full one with an early return.',
-        why: 'The whole justification is smaller emitted code. The repo already has emit-snapshot tests (`packages/aot-validator/src/emit/emit.spec.ts` and the transform tests), so asserting the emitted output is an established pattern here, not a new kind of test.',
+        why: 'The whole justification is smaller emitted code. The repo already has emit-snapshot tests (`packages/compiler/src/emit/emit.spec.ts` and the transform tests), so asserting the emitted output is an established pattern here, not a new kind of test.',
         files: [
-          '`packages/aot-validator/src/emit/emit.spec.ts`',
-          '`packages/aot-validator/src/transform-code.spec.ts` — `CALLEES` must learn the new names.',
-          '`packages/aot-validator/src/aot-validator.spec.ts` — behaviour.',
+          '`packages/compiler/src/emit/emit.spec.ts`',
+          '`packages/compiler/src/transform-code.spec.ts` — `CALLEES` must learn the new names.',
+          '`packages/compiler/src/aot-validator.spec.ts` — behaviour.',
           '`packages/schema-core/src/schema-core.spec.ts` — the public entry points.',
         ],
         tests: [
@@ -118,9 +118,9 @@ export declare function validateShallow<T>(value: unknown, depth?: number): Vali
         blockedBy: ['tests'],
         goal: 'Implement depth in the emitter: a limit threads through emission and truncates the tree, producing smaller code. No runtime counter anywhere.',
         files: [
-          '`packages/aot-validator/src/emit/emit.ts` — the emission walk.',
-          '`packages/aot-validator/src/emit/shape.ts` — the shape check at the truncation point.',
-          '`packages/aot-validator/src/transform-code.ts` — `CALLEES` and the call-site rewrite that reads the literal `depth`.',
+          '`packages/compiler/src/emit/index.ts` — the emission walk.',
+          '`packages/schema-core/src/ir/validation-shape.ts` — shared shape decisions at the truncation point.',
+          '`packages/compiler/src/transform/index.ts` — `CALLEES` and the call-site rewrite that reads the literal `depth`.',
         ],
         api: `
 interface EmitOptions {
@@ -157,7 +157,7 @@ interface EmitOptions {
         why: 'A performance feature without a number is a guess. The repo already runs the validation benchmark suite, so the measurement is cheap and the claim becomes checkable.',
         files: [
           '`packages/schema-core/src/index.ts`, `packages/zmdb/src/index.ts` — exports.',
-          '`packages/aot-validator/src/utilities/utilities.ts` — the untransformed-build throw must name the new functions too.',
+          '`packages/aot-validator/src/utilities/index.ts` — the untransformed-build throw must name the new functions too.',
           '`benchmarks/` — a case for a populated row.',
           "`tests/api-coverage/mapping.mjs` — Typia's shallow suites.",
         ],
@@ -208,7 +208,7 @@ interface EmitOptions {
     title: '[EPIC] Protobuf — descriptors, encoder and decoder from the same IR',
     labels: ['enhancement', 'area:validator', 'parity:typia'],
     pages: ['protobuf-message', 'protobuf-encode', 'protobuf-decode'],
-    packages: ['@zmdb/aot-validator', '@zmdb/schema-core'],
+    packages: ['@zmdb/compiler', '@zmdb/protobuf', '@zmdb/aot-validator', '@zmdb/schema-core'],
     motivation: `
 zmdb derives JSON validators, JSON Schema, OpenAPI and SQL from one declaration. Protobuf is the
 obvious missing member of that list, and the one with the strongest argument: a wire format whose
@@ -268,7 +268,7 @@ will produce a subtle bug if it is not written down first.
 `,
         files: [
           '`packages/schema-core/src/ir/SPEC.md` — the proto tag vocabulary and IR carriage.',
-          '`packages/aot-validator/src/emit/SPEC.md` — descriptor, encoder and decoder emission.',
+          '`packages/compiler/src/emit/SPEC.md` — descriptor, encoder and decoder emission.',
         ],
         api: `
 /** Protobuf field number. Required on every property of a message type. */
@@ -311,10 +311,10 @@ export declare function protoDecode<T>(bytes: Uint8Array): T;
         goal: 'Land failing tests covering every scalar and composite, the presence edge cases, byte-exact vectors, cross-implementation interop, and every build refusal.',
         why: "A round-trip test proves self-consistency, which is the property a wrong implementation also has. So the suite needs byte-exact expectations for known values (taken from the protobuf specification's own examples, and from a reference encoder) and at least one test that goes through another implementation.",
         files: [
-          '`packages/aot-validator/src/protobuf/protobuf.spec.ts` (new)',
-          '`packages/aot-validator/src/protobuf/interop.spec.ts` (new) — against a reference implementation.',
-          '`packages/aot-validator/src/emit/emit.spec.ts` — descriptor snapshots.',
-          '`packages/aot-validator/src/transform-code.spec.ts` — `CALLEES`.',
+          '`packages/compiler/src/protobuf/protobuf.spec.ts` (new)',
+          '`packages/compiler/src/protobuf/interop.spec.ts` (new) — against a reference implementation.',
+          '`packages/compiler/src/emit/emit.spec.ts` — descriptor snapshots.',
+          '`packages/compiler/src/transform-code.spec.ts` — `CALLEES`.',
         ],
         tests: [
           '`encodes a varint field to the bytes the specification gives` — the canonical `150` → `08 96 01` vector, byte-exact.',
@@ -357,8 +357,8 @@ export declare function protoDecode<T>(bytes: Uint8Array): T;
         files: [
           '`packages/schema-core/src/tags/index.ts` — the two tags.',
           '`packages/schema-core/src/ir/index.ts` — `ColumnIR`/`TypeIR` carriage, and `vocabulary.type-test.ts`.',
-          '`packages/aot-validator/src/reflect/index.ts` — read the tags, validate numbering.',
-          '`packages/aot-validator/src/protobuf/descriptor.ts` (new) — `.proto` text emission.',
+          '`packages/compiler/src/reflect/index.ts` — read the tags, validate numbering.',
+          '`packages/compiler/src/protobuf/descriptor.ts` (new) — `.proto` text emission.',
         ],
         steps: [
           'Add the tags as phantom symbol types like the rest of the vocabulary, so they compile to nothing.',
@@ -384,9 +384,9 @@ export declare function protoDecode<T>(bytes: Uint8Array): T;
         blockedBy: ['ir'],
         goal: 'Emit an encoder per type: varint, zigzag, fixed-width, length-delimited, packed repeated, maps, nested messages and proto3 presence rules — writing into a growable buffer with no per-field lookup.',
         files: [
-          '`packages/aot-validator/src/protobuf/encode.ts` (new) — emission.',
-          '`packages/aot-validator/src/protobuf/wire.ts` (new) — the varint/zigzag primitives the emitted code calls.',
-          '`packages/aot-validator/src/transform-code.ts` — the `protoEncode` callee.',
+          '`packages/compiler/src/protobuf/encode.ts` (new) — emission.',
+          '`packages/protobuf/src/wire.ts` — the varint/zigzag primitives the emitted code calls.',
+          '`packages/compiler/src/transform/index.ts` — the `protoEncode` callee.',
         ],
         steps: [
           'Emit straight-line code per field in number order: tag byte, then value. No loop over a descriptor — that is the runtime reflection this project rejects, and it is also slower.',
@@ -418,9 +418,9 @@ export declare function protoDecode<T>(bytes: Uint8Array): T;
         goal: 'Emit a decoder per type that reads any valid encoding of the message — including field orders and wire forms our encoder does not produce — and handles unknown fields, truncated input and malicious lengths safely.',
         why: 'The decoder is the security-relevant half: its input is bytes from another process. A decoder that trusts a length prefix can be made to allocate gigabytes by four bytes of input, and a decoder that only handles the bytes our own encoder emits will fail against every other implementation.',
         files: [
-          '`packages/aot-validator/src/protobuf/decode.ts` (new)',
-          '`packages/aot-validator/src/protobuf/wire.ts`',
-          '`packages/aot-validator/src/transform-code.ts` — the `protoDecode` callee.',
+          '`packages/compiler/src/protobuf/decode.ts` (new)',
+          '`packages/protobuf/src/wire.ts`',
+          '`packages/compiler/src/transform/index.ts` — the `protoDecode` callee.',
         ],
         steps: [
           'Emit a tag-dispatch loop with a switch on the field number — a switch over known numbers is the one loop that has to exist, because a decoder cannot know the field order in advance.',
@@ -482,7 +482,7 @@ export declare function protoDecode<T>(bytes: Uint8Array): T;
     title: '[EPIC] A lint plugin for the mistakes the type system cannot catch',
     labels: ['enhancement', 'area:validator', 'documentation'],
     pages: ['lint-rules'],
-    packages: ['@zmdb/aot-validator'],
+    packages: ['@zmdb/compiler'],
     motivation: `
 zmdb's central bet is that the type system catches schema mistakes. It does — but there is a residue
 it structurally cannot catch, and every item in that residue is currently found in production instead.
@@ -522,7 +522,7 @@ things are wrong to do with this library. A lint rule is that argument made exec
         goal: 'Decide which lint host(s) the plugin targets, enumerate the rules with their exact detection criteria and autofix behaviour, and set the precision bar a rule must clear to ship as an error rather than a warning.',
         why: "The host decision is a real constraint, not a preference: this repo lints with oxlint, whose plugin support differs from ESLint's, and a rule set designed for one may not be expressible in the other. Deciding first avoids writing rules twice or writing them for a host the project does not use. The precision bar matters just as much — a plugin that cries wolf gets added to an ignore list, and then none of the rules run.",
         files: [
-          '`packages/aot-validator/src/lint/SPEC.md` (new)',
+          '`packages/compiler/src/lint/SPEC.md`',
           '`docs-site/content/anti-patterns.md` — which arguments become rules.',
         ],
         api: `
@@ -538,7 +538,7 @@ export const configs: { readonly recommended: unknown; readonly strict: unknown 
           'For `no-empty-patch`: an `update` call with an object literal that has no properties. Autofixable only by deletion, which changes behaviour if the call was awaited for its error, so specify it as a report without a fix.',
           'For `no-find-by-id-without-key`: requires knowing the schema type, which means type information — an ESLint typed rule or nothing. Say which.',
           "Set the precision bar: a rule ships as an error only if it produces zero findings on this repo's own source except where a finding is a genuine bug. Anything else ships as a warning, and the spec says why.",
-          'Decide the package: a `./lint` subpath of `@zmdb/aot-validator` or a separate package. A separate package means a consumer installs a lint plugin without the transformer, which is the cleaner dependency story; weigh it against one more package to publish and pick.',
+          'Keep the rule set behind `@zmdb/compiler/lint`, so a runtime-only validator install cannot reach TypeScript or the lint host.',
         ],
         tests: ['None — spec only.', '`yarn validate:spec` green.'],
         dod: [
@@ -556,8 +556,8 @@ export const configs: { readonly recommended: unknown; readonly strict: unknown 
         goal: 'Land the rule test suites with valid and invalid cases per rule, weighted toward the valid cases that a sloppy implementation would flag.',
         why: 'Lint rule tests are unusual in that the *negative* cases carry the value: the invalid cases prove the rule fires, and the valid cases prove it does not fire on legitimate code, which is the failure mode that gets a plugin uninstalled.',
         files: [
-          '`packages/aot-validator/src/lint/rules/*.spec.ts` (new)',
-          '`packages/aot-validator/src/lint/__fixtures__/` — realistic code samples.',
+          '`packages/compiler/src/lint/rules/*.spec.ts`',
+          '`packages/compiler/src/lint/__fixtures__/` — realistic code samples.',
         ],
         tests: [
           'Per rule: `reports <the mistake>` with the exact message and location, and `does not report <the legitimate near-miss>` for at least two near-misses.',
@@ -585,8 +585,8 @@ export const configs: { readonly recommended: unknown; readonly strict: unknown 
         blockedBy: ['tests'],
         goal: 'Implement every specified rule against the chosen host, with the messages and autofixes the spec fixed, precise enough to clear the false-positive bar on this repo.',
         files: [
-          '`packages/aot-validator/src/lint/index.ts` — the plugin entry, `rules` and `configs`.',
-          '`packages/aot-validator/src/lint/rules/*.ts`',
+          '`packages/compiler/src/lint/index.ts` — the plugin entry, `rules` and `configs`.',
+          '`packages/compiler/src/lint/rules/*.ts`',
           '`package.json` / a new package manifest per the packaging decision.',
         ],
         steps: [

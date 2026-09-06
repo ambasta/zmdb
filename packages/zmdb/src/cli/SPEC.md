@@ -42,8 +42,8 @@ bundle imports, and the format belongs to `@zmdb/migrations` — see §4.1.
 
 ## 2. Argument parsing and exit codes are already decided
 
-`zmdb-codegen` ships in this repository and establishes the conventions. They are reused rather than reinvented, because two executables from one project that disagree about exit codes is a worse
-outcome than either convention being suboptimal.
+The retired `zmdb-codegen` executable established the conventions below before #628 removed the second binary. The unified CLI reuses them rather than reinventing them, because two command paths from
+one project that disagree about exit codes is a worse outcome than either convention being suboptimal.
 
 | Code | Meaning                                                                             |
 | ---- | ----------------------------------------------------------------------------------- |
@@ -51,11 +51,11 @@ outcome than either convention being suboptimal.
 | 1    | The tree or the database is not in the state it should be. Nothing wrong with you.  |
 | 2    | The invocation is wrong: unknown command, missing flag argument, unreadable config. |
 
-That distinction is already load-bearing in `zmdb-codegen`, whose `--check` failure says in a full sentence that it is "not an error in the code — an error in the tree", and it is what lets CI treat a
-2 as a pipeline bug and a 1 as a review comment. Parsing uses Node's `util.parseArgs`, with the command definitions also rendering global and per-command help. There is no CLI-framework dependency.
+That distinction was already load-bearing in `zmdb-codegen`, whose `--check` failure said in a full sentence that it was "not an error in the code — an error in the tree", and it is what lets CI treat
+a 2 as a pipeline bug and a 1 as a review comment. Parsing uses Node's `util.parseArgs`, with the command definitions also rendering global and per-command help. There is no CLI-framework dependency.
 
 Global flags: `--config <path>`, `--project <tsconfig>` (overriding the config's `project`), `--json`, `--yes`, `--force`, `--help`, `--version`. Two flags that ask for opposite things exit 2 with a
-sentence saying so, following `zmdb-codegen: --check and --watch ask for opposite things`.
+sentence saying so, following the retired compiler command's `--check`/`--watch` refusal.
 
 **`--force` and `--yes` are different questions and neither implies the other.** `--force` permits a destructive operation; `--yes` declines to be asked. A scripted destructive push needs both, and
 that is deliberate: a CI job that sets `--yes` once, for convenience, must not silently acquire permission to drop a column two months later.
@@ -517,9 +517,9 @@ Naming it is the difference between a surprising connection and a documented one
 **`--json` and `--format` collide, and the resolution is that `--json` wins by being the same thing.** The global `--json` (§3) already promises exactly one JSON document on stdout, and that document
 is `CliResult<GraphDescription>` — which _is_ the machine-readable form of this command, not a wrapper around a rendered string.
 
-So `--format` takes only the two human-or-tool renderings, and `--json --format dot` exits 2 with a sentence saying they ask for opposite things, following §2's existing convention and its
-`zmdb-codegen: --check and --watch ask for opposite things` precedent. Making `--format json` a third value would give the CLI two ways to ask for JSON that differ in whether the `CliResult` envelope
-is present, which is the sort of divergence that gets discovered by a script.
+So `--format` takes only the two human-or-tool renderings, and `--json --format dot` exits 2 with a sentence saying they ask for opposite things, following §2's existing convention and its the
+compiler command's `--check`/`--watch` precedent. Making `--format json` a third value would give the CLI two ways to ask for JSON that differ in whether the `CliResult` envelope is present, which is
+the sort of divergence that gets discovered by a script.
 
 Exit codes, under §2's three:
 

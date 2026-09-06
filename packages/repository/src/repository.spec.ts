@@ -1,4 +1,4 @@
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type { CompiledQuery } from '@zmdb/query-compiler';
 import type { CreateDTO, ValidationIssue } from '@zmdb/schema-core';
 import type { Length, Max, Min, Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';

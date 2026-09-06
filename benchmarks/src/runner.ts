@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
+import { schemaIrsFrom } from '@zmdb/compiler/testing';
 import { objectTypeFromIR } from '@zmdb/schema-core/ir';
 import type { Min, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 

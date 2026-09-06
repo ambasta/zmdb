@@ -10,6 +10,7 @@ async function metroBase() {
     zmdb: resolve(repoRoot, 'packages/zmdb'),
     '@zmdb/aot-validator': resolve(repoRoot, 'packages/aot-validator'),
     '@zmdb/client': resolve(repoRoot, 'packages/client'),
+    '@zmdb/compiler': resolve(repoRoot, 'packages/compiler'),
     '@zmdb/query-compiler': resolve(repoRoot, 'packages/query-compiler'),
     '@zmdb/react': resolve(repoRoot, 'packages/react'),
     '@zmdb/react-native': resolve(repoRoot, 'packages/react-native'),

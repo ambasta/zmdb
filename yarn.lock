@@ -4374,9 +4374,11 @@ __metadata:
     "@babel/core": "npm:8.0.1"
     "@babel/plugin-transform-export-namespace-from": "npm:8.0.1"
     "@react-native/babel-preset": "npm:0.87.1"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/react-native": "workspace:^"
     react: "npm:19.2.8"
     react-native: "npm:0.87.1"
+    typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft
 
@@ -4431,6 +4433,7 @@ __metadata:
     "@langchain/core": "npm:1.2.9"
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
@@ -4464,6 +4467,7 @@ __metadata:
   resolution: "@zmdb/ai@workspace:packages/ai"
   dependencies:
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
@@ -4487,30 +4491,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/aot-validator@workspace:packages/aot-validator"
   dependencies:
-    "@zmdb/ai": "workspace:^"
-    "@zmdb/protobuf": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
-    metro: "npm:0.87.0"
-    metro-babel-transformer: "npm:0.87.0"
-    oxlint: "npm:1.81.0"
-    protobufjs: "npm:8.8.0"
     typescript: "npm:7.0.2"
-  peerDependencies:
-    metro: ">=0.87.0 <0.88.0"
-    metro-babel-transformer: ">=0.87.0 <0.88.0"
-    oxlint: ">=1.81.0 <1.82.0"
-    typescript: ">=7.0.0"
-  peerDependenciesMeta:
-    metro:
-      optional: true
-    metro-babel-transformer:
-      optional: true
-    oxlint:
-      optional: true
-    typescript:
-      optional: true
-  bin:
-    zmdb-codegen: ./src/cli/bin.ts
   languageName: unknown
   linkType: soft
 
@@ -4559,6 +4541,35 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/compiler@workspace:^, @zmdb/compiler@workspace:packages/compiler":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/compiler@workspace:packages/compiler"
+  dependencies:
+    "@zmdb/ai": "workspace:^"
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/protobuf": "workspace:^"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
+    metro: "npm:0.87.0"
+    metro-babel-transformer: "npm:0.87.0"
+    oxlint: "npm:1.81.0"
+    protobufjs: "npm:8.8.0"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    metro: ">=0.87.0 <0.88.0"
+    metro-babel-transformer: ">=0.87.0 <0.88.0"
+    oxlint: ">=1.81.0 <1.82.0"
+    typescript: ">=7.0.2 <8.0.0"
+  peerDependenciesMeta:
+    metro:
+      optional: true
+    metro-babel-transformer:
+      optional: true
+    oxlint:
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/jobs-postgres@workspace:packages/jobs-postgres":
   version: 0.0.0-use.local
   resolution: "@zmdb/jobs-postgres@workspace:packages/jobs-postgres"
@@ -4591,6 +4602,7 @@ __metadata:
   dependencies:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
   languageName: unknown
@@ -4727,7 +4739,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/query-compiler@workspace:packages/query-compiler"
   dependencies:
-    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/migrations": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
@@ -4775,6 +4787,7 @@ __metadata:
   resolution: "@zmdb/repository@workspace:packages/repository"
   dependencies:
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/migrations": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
@@ -4787,6 +4800,7 @@ __metadata:
   resolution: "@zmdb/schema-core@workspace:packages/schema-core"
   dependencies:
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
@@ -4828,7 +4842,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/sqlite@workspace:packages/sqlite"
   dependencies:
-    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/migrations": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
@@ -4936,11 +4950,15 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/compiler": "workspace:^"
     typescript: ">=7.0.0"
   peerDependenciesMeta:
+    "@zmdb/compiler":
+      optional: true
     typescript:
       optional: true
   languageName: unknown
@@ -12653,6 +12671,7 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
+    "@zmdb/compiler": "workspace:^"
     "@zmdb/migrations": "workspace:^"
     "@zmdb/mssql": "workspace:^"
     "@zmdb/postgres": "workspace:^"

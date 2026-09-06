@@ -17,7 +17,7 @@ export const CLI_EPICS = [
       'cli-export',
       'cli-pull',
     ],
-    packages: ['@zmdb/query-compiler', '@zmdb/aot-validator', 'zmdb'],
+    packages: ['@zmdb/query-compiler', '@zmdb/compiler', 'zmdb'],
     motivation: `
 The migration engine is complete and unreachable. \`snapshot\`, \`diff\`, \`ddlType\`, \`emitUp\`,
 \`emitDown\` and the runner all exist and are tested, and using any of them means writing a script that
@@ -25,10 +25,10 @@ imports them, resolves the schema set by hand, and wires a driver. Nine docs pag
 that do not exist — the CLI overview page says it plainly: "there is no zmdb executable; the snapshot /
 diff / DDL engine is a library API you call from a script".
 
-The one binary that does exist is \`zmdb-codegen\` (in \`@zmdb/aot-validator\`), which covers the AOT
-transform for projects that cannot use a build plugin. So the packaging question is already half
-answered, and the gap is a \`zmdb\` command with subcommands plus the thing every one of them needs
-first: a \`zmdb.config.ts\` loader.
+The no-bundler compiler path now lives in \`@zmdb/compiler\`; #628 removed the standalone
+\`zmdb-codegen\` executable so this epic can add code generation to the sole \`zmdb\` command rather
+than preserve a second binary. The remaining gap is that command's subcommands plus the thing every
+one of them needs first: the canonical \`zmdb.config.ts\` loader.
 
 That loader is the keystone. It is what lets a command find the schema declarations, the driver, the
 migrations directory and the naming strategy without nine flags — and the naming-strategy epic already
@@ -73,7 +73,8 @@ bundler does. Deciding this in the spec avoids a loader that works in this repo 
 `,
         files: [
           '`packages/zmdb/src/cli/SPEC.md` (new) — the command surface.',
-          '`packages/zmdb/src/config/SPEC.md` (new) — the config schema and resolution.',
+          '`packages/zmdb/src/config/SPEC.md` — the public product contract.',
+          '`packages/compiler/src/config/` — the canonical config schema, discovery and resolution implementation.',
         ],
         api: `
 export interface ZmdbConfig {
@@ -123,7 +124,7 @@ export declare function defineConfig(config: ZmdbConfig): ZmdbConfig;
         why: 'Unit-testing an argument parser proves the parser works. What breaks in CLIs is path resolution, file writing, exit codes and the interaction between commands — so the tests have to run the commands, in order, in a directory, and look at what happened. The repo already runs real `node:sqlite` E2E tests, so the machinery exists.',
         files: [
           '`packages/zmdb/src/cli/cli.e2e.spec.ts` (new)',
-          '`packages/zmdb/src/config/config.spec.ts` (new)',
+          '`packages/compiler/src/config/config.spec.ts`',
           '`packages/zmdb/src/cli/__fixtures__/project/` — a minimal consumer project.',
         ],
         tests: [
@@ -163,11 +164,12 @@ export declare function defineConfig(config: ZmdbConfig): ZmdbConfig;
         title: 'The zmdb.config.ts loader',
         labels: ['enhancement'],
         blockedBy: ['tests'],
-        goal: 'Ship config discovery, loading, validation and path resolution as a library function every command and the AOT transformer can call.',
+        goal: 'Ship config discovery, loading, validation and path resolution from the canonical compiler subpath every command and AOT adapter can call.',
         why: "This is the keystone: nine commands and the naming-strategy epic all need it, and it is the piece most likely to be reimplemented three times if it is not built first. It is also where a bad error message costs the most — a user's first interaction with zmdb's CLI is often a config that does not load.",
         files: [
-          '`packages/zmdb/src/config/index.ts` (new) — `defineConfig`, `loadConfig`, `resolveConfig`.',
-          '`packages/zmdb/package.json` — a `./config` subpath.',
+          '`packages/compiler/src/config/index.ts` — `defineConfig`, `loadConfig`, `resolveConfig`.',
+          '`packages/compiler/package.json` — the canonical `./config` subpath.',
+          '`packages/zmdb/src/config/index.ts` — the identity product facade.',
         ],
         api: `
 export declare function defineConfig(config: ZmdbConfig): ZmdbConfig;
@@ -184,7 +186,7 @@ export interface ResolvedConfig extends ZmdbConfig {
           'Load with the mechanism the spec chose, and wrap any failure in an error that includes the underlying message and the resolved path. Do not swallow the cause.',
           'Validate the loaded object with the project validator and report the offending field. This is the dogfooding case: if the error message is bad here, it is bad for every user of the validator.',
           "Resolve every path against the config file's directory, and expand schema globs eagerly so a command gets a concrete file list.",
-          'Export from a `./config` subpath so the AOT transformer can read a config without depending on the CLI, and add it to the export inventory.',
+          'Export from `@zmdb/compiler/config` so AOT adapters can read config without depending on the CLI; keep `zmdb/config` as an identity facade and add both to their export inventories.',
           'Cache within a process but not across, and make the cache key the resolved config path — a monorepo build may load two.',
         ],
         tests: [
@@ -194,7 +196,7 @@ export interface ResolvedConfig extends ZmdbConfig {
           '`loads two different configs in one process without cross-talk`.',
         ],
         dod: [
-          'Discovery, loading, validation and resolution shipped behind `./config`.',
+          'Discovery, loading, validation and resolution shipped behind `@zmdb/compiler/config`, with `zmdb/config` preserving product identity.',
           'Errors include their cause and the resolved path.',
           '`yarn verify:exports` green.',
         ],
@@ -213,7 +215,7 @@ export interface ResolvedConfig extends ZmdbConfig {
         ],
         steps: [
           "Use Node's own `util.parseArgs` rather than adding a CLI framework — the surface is nine commands with a handful of flags each, and §2.6 applies to dependencies as much as to code.",
-          'Add the `bin` entry alongside the existing `zmdb-codegen`, and check `yarn verify:publish`, which inspects what the packages actually ship.',
+          'Keep one `zmdb` bin entry and route code generation through `@zmdb/compiler`; check `yarn verify:publish`, which inspects what the packages actually ship.',
           'Implement `--help` per command from a single source of truth so help and parsing cannot disagree.',
           'Route all output through one writer that knows about `--json`, so no command prints an ad-hoc line that breaks machine consumption.',
           'Implement `generate` as: load config → read declarations → snapshot → diff against the stored snapshot → write migration + snapshot. Every step is an existing library call; if any step needs new logic, that logic belongs in the library, not here.',

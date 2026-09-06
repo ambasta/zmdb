@@ -7,21 +7,22 @@
 
 ## 1. Extraction rule and totals
 
-The shipped/build-input source inventory is every file below `packages/{aot-validator,migrations,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`,
-`*.spec.ts` and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
+The shipped/build-input source inventory is every file below `packages/{aot-validator,compiler,migrations,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, plus
+`packages/schema-core/src/ir/{validation-shape,vocabulary}.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count
+because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **200 paths**, each exactly once:
+The inventory has **202 paths**, each exactly once:
 
 ```json
 {
-  "compiler": 30,
+  "compiler": 33,
   "migrations": 23,
   "cli": 31,
-  "runtime": 27,
-  "facade": 49,
-  "optional-integration": 4,
+  "runtime": 30,
+  "facade": 50,
+  "optional-integration": 0,
   "test-only": 35,
-  "obsolete": 1
+  "obsolete": 0
 }
 ```
 
@@ -32,36 +33,39 @@ An ownership verifier must fail on an omitted current path, a path in two groups
 The line grammar is `<target-owner><TAB><current-path>`.
 
 ```text
-compiler	packages/aot-validator/src/cli/index.ts
-compiler	packages/aot-validator/src/cli/scan.ts
-compiler	packages/aot-validator/src/cli/witness.ts
-compiler	packages/aot-validator/src/emit/__testing__/project.ts
-compiler	packages/aot-validator/src/emit/index.ts
-compiler	packages/aot-validator/src/emit/shape.ts
-compiler	packages/aot-validator/src/lint/ast.ts
-compiler	packages/aot-validator/src/lint/host-types.ts
-compiler	packages/aot-validator/src/lint/index.ts
-compiler	packages/aot-validator/src/lint/rules/no-distributed-nullable-tags.ts
-compiler	packages/aot-validator/src/lint/rules/no-empty-patch.ts
-compiler	packages/aot-validator/src/lint/rules/no-interpolated-sql.ts
-compiler	packages/aot-validator/src/lint/rules/no-unbounded-find.ts
-compiler	packages/aot-validator/src/lint/rules/no-unknown-json-column.ts
-compiler	packages/aot-validator/src/lint/rules/require-sql-on-number.ts
-compiler	packages/aot-validator/src/lint/types.ts
-compiler	packages/aot-validator/src/plugin/index.ts
-compiler	packages/aot-validator/src/plugin/inline-bench.ts
-compiler	packages/aot-validator/src/plugin/metro.ts
-compiler	packages/aot-validator/src/reflect/callsites.ts
-compiler	packages/aot-validator/src/reflect/index.ts
-compiler	packages/aot-validator/src/reflect/session.ts
-compiler	packages/aot-validator/src/testing/index.ts
-compiler	packages/aot-validator/src/transformer.ts
-compiler	packages/aot-validator/src/unplugin.ts
-compiler	packages/zmdb/src/config/index.ts
-compiler	packages/zmdb/src/config/index.zmdb.generated.d.ts
-compiler	packages/zmdb/src/config/index.zmdb.generated.js
-compiler	packages/zmdb/src/config/index.zmdb.witness.ts
-compiler	packages/zmdb/src/unplugin.ts
+compiler	packages/compiler/src/codegen/index.ts
+compiler	packages/compiler/src/codegen/scan.ts
+compiler	packages/compiler/src/codegen/witness.ts
+compiler	packages/compiler/src/config/index.ts
+compiler	packages/compiler/src/config/index.zmdb.generated.d.ts
+compiler	packages/compiler/src/config/index.zmdb.generated.js
+compiler	packages/compiler/src/config/index.zmdb.witness.ts
+compiler	packages/compiler/src/emit/__testing__/project.ts
+compiler	packages/compiler/src/emit/index.ts
+compiler	packages/compiler/src/errors.ts
+compiler	packages/compiler/src/index.ts
+compiler	packages/compiler/src/lint/ast.ts
+compiler	packages/compiler/src/lint/host-types.ts
+compiler	packages/compiler/src/lint/index.ts
+compiler	packages/compiler/src/lint/rules/no-distributed-nullable-tags.ts
+compiler	packages/compiler/src/lint/rules/no-empty-patch.ts
+compiler	packages/compiler/src/lint/rules/no-interpolated-sql.ts
+compiler	packages/compiler/src/lint/rules/no-unbounded-find.ts
+compiler	packages/compiler/src/lint/rules/no-unknown-json-column.ts
+compiler	packages/compiler/src/lint/rules/require-sql-on-number.ts
+compiler	packages/compiler/src/lint/types.ts
+compiler	packages/compiler/src/metro/metro.ts
+compiler	packages/compiler/src/protobuf/decode.ts
+compiler	packages/compiler/src/protobuf/descriptor.ts
+compiler	packages/compiler/src/protobuf/encode.ts
+compiler	packages/compiler/src/protobuf/grpc-ir.ts
+compiler	packages/compiler/src/reflect/callsites.ts
+compiler	packages/compiler/src/reflect/index.ts
+compiler	packages/compiler/src/reflect/session.ts
+compiler	packages/compiler/src/testing/index.ts
+compiler	packages/compiler/src/transform/index.ts
+compiler	packages/compiler/src/unplugin/index.ts
+compiler	packages/compiler/src/unplugin/inline-bench.ts
 migrations	packages/migrations/src/declarations/emit.ts
 migrations	packages/migrations/src/declarations/index.ts
 migrations	packages/migrations/src/declarations/tagged-property.ts
@@ -122,6 +126,7 @@ runtime	packages/aot-validator/src/index.ts
 runtime	packages/aot-validator/src/regex-complexity.ts
 runtime	packages/aot-validator/src/serialization/index.ts
 runtime	packages/aot-validator/src/utilities/index.ts
+runtime	packages/compiler/src/config/contract.ts
 runtime	packages/query-compiler/src/aggregations/index.ts
 runtime	packages/query-compiler/src/clauses.ts
 runtime	packages/query-compiler/src/comments/index.ts
@@ -143,6 +148,8 @@ runtime	packages/query-compiler/src/schema-objects/extensions.ts
 runtime	packages/query-compiler/src/schema-objects/index.ts
 runtime	packages/query-compiler/src/schema-objects/types.ts
 runtime	packages/query-compiler/src/set-ops/index.ts
+runtime	packages/schema-core/src/ir/validation-shape.ts
+runtime	packages/schema-core/src/ir/vocabulary.ts
 facade	packages/zmdb/src/app-commands.ts
 facade	packages/zmdb/src/app-cqrs.ts
 facade	packages/zmdb/src/app-data.ts
@@ -155,8 +162,8 @@ facade	packages/zmdb/src/app-modules.ts
 facade	packages/zmdb/src/app-observability.ts
 facade	packages/zmdb/src/app-state.ts
 facade	packages/zmdb/src/app.ts
-facade	packages/zmdb/src/config/contract.ts
 facade	packages/zmdb/src/compiler.ts
+facade	packages/zmdb/src/config/index.ts
 facade	packages/zmdb/src/derive.ts
 facade	packages/zmdb/src/drivers-mssql.ts
 facade	packages/zmdb/src/drivers-pg.ts
@@ -170,6 +177,7 @@ facade	packages/zmdb/src/relations.ts
 facade	packages/zmdb/src/schema.ts
 facade	packages/zmdb/src/sql.ts
 facade	packages/zmdb/src/tags.ts
+facade	packages/zmdb/src/unplugin.ts
 facade	packages/zmdb/src/web-app.ts
 facade	packages/zmdb/src/web-compression.ts
 facade	packages/zmdb/src/web-context.ts
@@ -192,30 +200,26 @@ facade	packages/zmdb/src/web-testing.ts
 facade	packages/zmdb/src/web-upload.ts
 facade	packages/zmdb/src/web-versioning.ts
 facade	packages/zmdb/src/web.ts
-optional-integration	packages/aot-validator/src/protobuf/decode.ts
-optional-integration	packages/aot-validator/src/protobuf/descriptor.ts
-optional-integration	packages/aot-validator/src/protobuf/encode.ts
-optional-integration	packages/aot-validator/src/protobuf/grpc-ir.ts
-test-only	packages/aot-validator/src/lint/__fixtures__/nullable-tags.fixed.ts
-test-only	packages/aot-validator/src/lint/__fixtures__/nullable-tags.input.ts
-test-only	packages/aot-validator/src/lint/__fixtures__/rule-tester.ts
-test-only	packages/aot-validator/src/lint/__fixtures__/unknown-json.input.ts
-test-only	packages/aot-validator/src/lint/__fixtures__/unknown-json.suggested.ts
-test-only	packages/aot-validator/src/lint/__fixtures__/valid-near-misses.ts
-test-only	packages/aot-validator/src/protobuf/__fixtures__/reference.proto
-test-only	packages/aot-validator/src/protobuf/__testing__/fixture.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/codemod-corpus.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/codemod-refusals.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/codemod-tables.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/constructs.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/documents.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/legacy-dsl.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/naming-strategy.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/payloads.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/schema-values-refusals.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/schema-values.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/tables.ts
-test-only	packages/aot-validator/src/reflect/__fixtures__/tsconfig.json
+test-only	packages/compiler/src/lint/__fixtures__/nullable-tags.fixed.ts
+test-only	packages/compiler/src/lint/__fixtures__/nullable-tags.input.ts
+test-only	packages/compiler/src/lint/__fixtures__/rule-tester.ts
+test-only	packages/compiler/src/lint/__fixtures__/unknown-json.input.ts
+test-only	packages/compiler/src/lint/__fixtures__/unknown-json.suggested.ts
+test-only	packages/compiler/src/lint/__fixtures__/valid-near-misses.ts
+test-only	packages/compiler/src/protobuf/__fixtures__/reference.proto
+test-only	packages/compiler/src/protobuf/__testing__/fixture.ts
+test-only	packages/compiler/src/reflect/__fixtures__/codemod-corpus.ts
+test-only	packages/compiler/src/reflect/__fixtures__/codemod-refusals.ts
+test-only	packages/compiler/src/reflect/__fixtures__/codemod-tables.ts
+test-only	packages/compiler/src/reflect/__fixtures__/constructs.ts
+test-only	packages/compiler/src/reflect/__fixtures__/documents.ts
+test-only	packages/compiler/src/reflect/__fixtures__/legacy-dsl.ts
+test-only	packages/compiler/src/reflect/__fixtures__/naming-strategy.ts
+test-only	packages/compiler/src/reflect/__fixtures__/payloads.ts
+test-only	packages/compiler/src/reflect/__fixtures__/schema-values-refusals.ts
+test-only	packages/compiler/src/reflect/__fixtures__/schema-values.ts
+test-only	packages/compiler/src/reflect/__fixtures__/tables.ts
+test-only	packages/compiler/src/reflect/__fixtures__/tsconfig.json
 test-only	packages/migrations/src/introspect/__fixtures__/mysql-8.4.11.json
 test-only	packages/query-compiler/src/testing/capability-matrix.ts
 test-only	packages/query-compiler/src/testing/database-vertical.ts
@@ -231,11 +235,10 @@ test-only	packages/zmdb/src/cli/__fixtures__/project/package.json
 test-only	packages/zmdb/src/cli/__fixtures__/project/src/schema.ts
 test-only	packages/zmdb/src/cli/__fixtures__/project/tsconfig.json
 test-only	packages/zmdb/src/cli/__fixtures__/project/zmdb.config.ts
-obsolete	packages/aot-validator/src/cli/bin.ts
 ```
 
-`test-only` paths follow the concern they test when implementation moves them; they never become published public APIs. The protobuf test paths remain with the optional-integration owner rather than
-moving to compiler. `obsolete` means deletion with no replacement file; the behavior moves to the `codegen` command in `@zmdb/cli`.
+`test-only` paths follow the concern they test when implementation moves them; they never become published public APIs. The zero counts are retained as ratchet categories: adding an
+optional-integration or obsolete source path now requires an intentional policy change.
 
 ## 3. Public export and executable map
 
@@ -289,23 +292,21 @@ zmdb	./drivers/mssql	retain-until-database-epic	zmdb/drivers/mssql
 zmdb	./web	retain	zmdb/web
 zmdb	./web/contract	retain	@zmdb/web/contract
 zmdb	./web/contract/compiler	retain	@zmdb/web/contract/compiler
+zmdb	./compiler	retain-facade	@zmdb/compiler
 zmdb	./unplugin	release-governed-alias	zmdb/compiler
 zmdb	./cli	retain-product-facade	@zmdb/cli
 zmdb	./config	retain-facade	@zmdb/compiler/config
 ```
 
-`delete-after-move` records the target ownership disposition, not permission to remove an export in an arbitrary implementation commit. #721/#728 select the coordinated removal version and changelog
-entry. Stable `zmdb/*` product facades are not compatibility forwarders: they remain while their implementation moves.
+Stable `zmdb/*` product facades remain while implementation ownership moves.
 
-The two current binaries are:
+The one current tooling binary is:
 
 ```text
-@zmdb/aot-validator	zmdb-codegen	delete
 zmdb	zmdb	move-to-@zmdb/cli
 ```
 
-The target repository has one bin declaration, `@zmdb/cli` → `zmdb`. After the release plan schedules the executable migration, a verifier fails if `zmdb-codegen` appears in any manifest, if `zmdb`
-declares a bin, or if more than one workspace declares the `zmdb` command.
+The target repository has one bin declaration, `@zmdb/cli` → `zmdb`. The `zmdb-codegen` declaration is gone; the CLI slice will move the remaining command without creating a second owner.
 
 ## 4. Exact tooling DAG
 
@@ -315,37 +316,49 @@ The line grammar is `<dependency><TAB><consumer><TAB><kind>`. These are the comp
 @zmdb/query-compiler	@zmdb/compiler	required
 @zmdb/schema-core	@zmdb/compiler	required
 @zmdb/aot-validator	@zmdb/compiler	required
+@zmdb/ai	@zmdb/compiler	required
 @zmdb/query-compiler	@zmdb/migrations	required
 @zmdb/compiler	@zmdb/cli	required
 @zmdb/migrations	@zmdb/cli	required
 @zmdb/cli	zmdb	required
 @zmdb/compiler	zmdb	required-product-and-config-facades
+@zmdb/compiler	@zmdb/web	optional-contract-compiler
 @zmdb/migrations	zmdb	required-product-facade
 @zmdb/web	@zmdb/cli	optional-lazy-command
 ```
 
-`@zmdb/compiler` and `@zmdb/migrations` have no edge between them. The CLI composes their public results. `@zmdb/web` is not evaluated by the CLI root; it is an optional peer loaded only for the
-selected application commands. The three tooling packages reach `zmdb` only through stable concern facades, and none is reachable from the product root. No runtime package has a consumer-to-tooling
-edge. A topological sort must contain query/schema/validator protocols before compiler/migrations, both tooling libraries before CLI, and all three tooling packages before the product facade.
+`@zmdb/compiler` and `@zmdb/migrations` have no edge between them. The CLI composes their public results. `@zmdb/web/contract/compiler` alone has an optional compiler peer; the web root cannot reach
+it. `@zmdb/web` is not evaluated by the CLI root; it is an optional peer loaded only for selected application commands. The three tooling packages reach `zmdb` only through stable concern facades, and
+none is reachable from the product root. A topological sort must contain query/schema/validator/AI protocols before compiler, compiler/migrations before CLI, and all three tooling packages before the
+product facade.
 
 ## 5. Manifest-edge move map
 
-There are **33 current dependency/peer/development edges** in the three manifests. The move map below records the tooling-sensitive edge lifecycle rather than duplicating every ordinary current
-runtime, facade, peer and test dependency.
+There are **35 current dependency/peer/development edges** in the four affected manifests.
 
 ```text
-packages/aot-validator/package.json	dependency	@zmdb/ai	move-compiler-build-time
 packages/aot-validator/package.json	dependency	@zmdb/schema-core	retain-runtime
-packages/aot-validator/package.json	peer	oxlint	move-compiler-optional-peer
-packages/aot-validator/package.json	peer	typescript	move-compiler-peer
-packages/aot-validator/package.json	dev	oxlint	move-compiler-dev
-packages/aot-validator/package.json	dev	protobufjs	retain-optional-integration-dev
-packages/aot-validator/package.json	dev	@zmdb/protobuf	retain-compiler-boundary-tests
-packages/aot-validator/package.json	dev	typescript	move-compiler-dev
+packages/aot-validator/package.json	dev	typescript	retain-runtime-build
+packages/compiler/package.json	dependency	@zmdb/ai	retain-compiler-build-time
+packages/compiler/package.json	dependency	@zmdb/aot-validator	retain-generated-runtime-abi
+packages/compiler/package.json	dependency	@zmdb/query-compiler	retain-config-protocols
+packages/compiler/package.json	dependency	@zmdb/schema-core	retain-reflection-ir
+packages/compiler/package.json	peer	metro	retain-compiler-optional-peer
+packages/compiler/package.json	peer	metro-babel-transformer	retain-compiler-optional-peer
+packages/compiler/package.json	peer	oxlint	retain-compiler-optional-peer
+packages/compiler/package.json	peer	typescript	retain-compiler-required-peer
+packages/compiler/package.json	dev	@zmdb/protobuf	retain-compiler-boundary-tests
+packages/compiler/package.json	dev	metro	retain-compiler-integration-tests
+packages/compiler/package.json	dev	metro-babel-transformer	retain-compiler-integration-tests
+packages/compiler/package.json	dev	oxlint	retain-compiler-lint-tests
+packages/compiler/package.json	dev	protobufjs	retain-compiler-protobuf-conformance
+packages/compiler/package.json	dev	typescript	retain-compiler-build
 packages/query-compiler/package.json	dependency	oxfmt	move-migrations-dependency
+packages/query-compiler/package.json	dev	@zmdb/compiler	retain-compiler-query-fixtures
 packages/query-compiler/package.json	dev	typescript	retain-query-build
 packages/zmdb/package.json	dependency	@zmdb/aot-validator	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/app	retain-facade
+packages/zmdb/package.json	dependency	@zmdb/compiler	retain-product-and-config-facades
 packages/zmdb/package.json	dependency	@zmdb/query-compiler	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/repository	retain-facade
 packages/zmdb/package.json	dependency	@zmdb/schema-core	retain-facade
@@ -354,7 +367,11 @@ packages/zmdb/package.json	dependency	@zmdb/web	retain-facade
 packages/zmdb/package.json	dependency	esbuild	move-cli-optional-peer-and-dev
 packages/zmdb/package.json	dependency	oxfmt	move-cli-dependency
 packages/zmdb/package.json	dev	@zmdb/ai	retain-facade-boundary-tests
+packages/zmdb/package.json	dev	@zmdb/mssql	retain-optional-facade-tests
+packages/zmdb/package.json	dev	@zmdb/postgres	retain-optional-facade-tests
 packages/zmdb/package.json	dev	typescript	retain-facade-build
+packages/zmdb/package.json	peer	@zmdb/mssql	retain-optional-database-facade
+packages/zmdb/package.json	peer	@zmdb/postgres	retain-optional-database-facade
 ```
 
 New dependency declarations make `@zmdb/cli` depend on `@zmdb/compiler` and `@zmdb/migrations`, while `zmdb` depends on all three for `zmdb/cli`, `zmdb/compiler`, `zmdb/migrations` and `zmdb/config`.
@@ -395,7 +412,7 @@ fixtures/consumer-metro/src/plain.ts
 fixtures/consumer-metro/tsconfig.json
 ```
 
-`consumer-cli` currently proves the old codegen executable and becomes the compiler/no-bundler fixture. `consumer-plugin` and `consumer-metro` become compiler adapter fixtures. Separate packed
+`consumer-cli` historically proved the old codegen executable and now proves the compiler/no-bundler route. `consumer-plugin` and `consumer-metro` are compiler adapter fixtures. Separate packed
 fixtures must be added for standalone migrations and for the installed `@zmdb/cli` binary; neither may be simulated by workspace path mappings.
 
 ## 7. Benchmarks and generated artifacts
@@ -436,9 +453,9 @@ compiler-benchmark	benchmarks/harness/validation/shallow.generated.ts	0
 compiler-fixture	fixtures/consumer-cli/src/orders.zmdb.generated.d.ts	2
 compiler-fixture	fixtures/consumer-cli/src/orders.zmdb.generated.js	1
 compiler-fixture	fixtures/consumer-cli/src/orders.zmdb.witness.ts	3
-compiler-config	packages/zmdb/src/config/index.zmdb.generated.d.ts	1
-compiler-config	packages/zmdb/src/config/index.zmdb.generated.js	1
-compiler-config	packages/zmdb/src/config/index.zmdb.witness.ts	2
+compiler-config	packages/compiler/src/config/index.zmdb.generated.d.ts	1
+compiler-config	packages/compiler/src/config/index.zmdb.generated.js	1
+compiler-config	packages/compiler/src/config/index.zmdb.witness.ts	2
 ```
 
 The target oracle scans generated `.js`, declarations and witnesses. It rejects `@zmdb/compiler`, `typescript`, `oxlint`, Metro, bundlers, Node built-ins, old tooling subpaths and private

@@ -10,7 +10,7 @@
 // the graph where both halves are reachable. What stays here is the round trip that *is*
 // expressible in this package: the real `toJsonSchema` out and `toolsFromOpenApi` back, which is
 // the same claim minus the routing. NOTES.md records the split.
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { toJsonSchema, type JsonSchemaObject } from '@zmdb/schema-core/openapi';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { format } from 'oxfmt';

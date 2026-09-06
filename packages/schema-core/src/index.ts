@@ -4,7 +4,7 @@
 // There is no builder DSL any more — `defineSchema`, the ten column builders and the
 // eight function-style modifiers were deleted with the last of their callers, and
 // `schemaOf<T>()` is what produces a schema value now. A table is declared once, as a
-// type, in the tags of `./tags`; `@zmdb/aot-validator` reflects that declaration into a
+// type, in the tags of `./tags`; `@zmdb/compiler` reflects that declaration into a
 // `SchemaIR` and `schemaFromIR` turns the IR into the value the query compiler reads. So
 // what is left in this file is the *data model* — `SqlType`, `ColumnFlags`, `ColumnMeta`,
 // `CoreSchema` — plus the derived-type family and the type-level assertion helpers.
@@ -143,7 +143,7 @@ export interface TaggedSchema<T> extends CoreSchema<string> {
  *
  * The only way to get one, and it declares nothing: `User` already says the table, the
  * columns, the keys and the constraints, so this asks for that declaration as data.
- * `@zmdb/aot-validator` replaces the call with a frozen literal — `schemaFromIR` applied
+ * `@zmdb/compiler` replaces the call with a frozen literal — `schemaFromIR` applied
  * to the IR it read off `T` — so the schema is written exactly once, in the type.
  *
  * ```ts
@@ -157,8 +157,8 @@ export interface TaggedSchema<T> extends CoreSchema<string> {
  */
 export function schemaOf<T>(): TaggedSchema<T> {
   throw new Error(
-    'schemaOf<T>() was not replaced at build time. It is compiled away by the zmdb transform ' +
-      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+    'schemaOf<T>() was not replaced at build time. It is compiled away by @zmdb/compiler ' +
+      '(the unplugin, Metro adapter, or project compiler), which did not run over this file — a type argument cannot ' +
       'be read at runtime, so there is nothing to fall back to.',
   );
 }

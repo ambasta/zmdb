@@ -63,7 +63,7 @@ export const orderSchema = schemaOf<Order>();
 ```
 
 That call is compiled away. Its answer is a function of a type argument, and type arguments do not exist at runtime, so the transformer replaces it with a frozen object literal — and an untransformed
-build throws a message saying exactly that rather than handing back an empty schema. Wire the unplugin, or run `zmdb-codegen`.
+build throws a message saying exactly that rather than handing back an empty schema. Wire `@zmdb/compiler/unplugin`, or run `@zmdb/compiler` project compilation.
 
 ---
 
@@ -388,7 +388,7 @@ const output = runCli('up', connection, migrations); // 'applied: 3'
 - Deterministic schema snapshot → `diff(prev, next)` → dialect-correct DDL.
 - Migrations are plain, reviewable SQL; `down` reverses `up`.
 - No runtime `updateSchema()` against production (explicitly rejected).
-- **(planned)** A `zmdb migrate` command. The only shipped binary today is `zmdb-codegen`, which is the AOT transform, not the migration runner.
+- The current `zmdb migrate` command applies the reviewed migration ledger. Project compilation is a programmatic `@zmdb/compiler` operation until the unified CLI gains `zmdb codegen`.
 - The snapshot format models name, type, nullability, primary keys, lengths and foreign keys with referential actions. A `UNIQUE` constraint, a column default and an FTS index still need a custom
   migration.
 

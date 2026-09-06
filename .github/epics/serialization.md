@@ -1,9 +1,12 @@
 # [EPIC] High-Performance AOT JSON Serialization
 
+> Architecture ownership amendment (#628): future TypeScript reflection and serializer emission belong to `@zmdb/compiler`; the callable serialization runtime and generated-code helpers remain in
+> `@zmdb/aot-validator`.
+
 ## Goal
 
 Provide typia-grade JSON serialization — a compile-time-generated, allocation-lean `stringify` that is dramatically faster than `JSON.stringify` for known schema types, and a matching typed
-`parse`/decode path. Serialization code is emitted by `@zmdb/aot-validator`'s transformer from the schema/type.
+`parse`/decode path. Serialization code is emitted by `@zmdb/compiler` from the schema/type and targets the runtime ABI in `@zmdb/aot-validator`.
 
 ## Parity Reference
 

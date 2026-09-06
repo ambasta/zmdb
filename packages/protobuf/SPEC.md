@@ -1,12 +1,13 @@
 # `@zmdb/protobuf` — generated protobuf runtime contract
 
-> Frozen by #654 for epic #653 and implemented by #656. The package now owns the public calls, artifact types, and wire ABI while `@zmdb/aot-validator` retains the single compiler front end.
+> Frozen by #654 for epic #653 and implemented by #656, then amended by #628. The package owns the public calls, artifact types, and wire ABI while `@zmdb/compiler` owns the single TypeScript front
+> end.
 
 ## 1. Ownership
 
 `@zmdb/protobuf` owns the source-level protobuf calls, gRPC service-artifact types and the byte-level runtime used by generated codecs. It does **not** own reflection or emission:
 
-- `@zmdb/aot-validator` remains the only TypeScript checker client, `TypeIR`/service-IR walker and JavaScript emitter;
+- `@zmdb/compiler` is the only TypeScript checker client, `TypeIR`/service-IR walker and JavaScript emitter;
 - `.proto` is generated output, never runtime input;
 - the runtime receives no descriptor, schema object, checker or metadata reader; and
 - `protobufjs` and `protoc` remain test or external interoperability oracles, never runtime dependencies.
@@ -81,7 +82,7 @@ Generated artifacts use canonical imports:
 | ------------------------------------------ | ------------------------------------------------------ |
 | encoder/decoder JavaScript                 | `ProtoReader`/`ProtoWriter` from `@zmdb/protobuf/wire` |
 | gRPC witness and declaration artifacts     | service calls and artifact types from `@zmdb/protobuf` |
-| reflection, diagnostics and source rewrite | remain inside `@zmdb/aot-validator`                    |
+| reflection, diagnostics and source rewrite | live inside `@zmdb/compiler`                           |
 
 Generated code must not import `@zmdb/aot-validator/protobuf/wire`, and protobuf declarations must not import their public artifact types from `@zmdb/aot-validator`.
 
@@ -89,7 +90,7 @@ Generated code must not import `@zmdb/aot-validator/protobuf/wire`, and protobuf
 
 The package owns no connection, server, process or global registry. Calls compile to local straight-line helpers; importing either entry point performs no I/O and changes no global state.
 
-Wire behavior, refusals and interoperability remain the contract in `../aot-validator/src/emit/SPEC.md` §7b. Moving ownership does not change field numbering, scalar widths, presence, enum-zero,
+Wire behavior, refusals and interoperability remain the contract in `../compiler/src/emit/SPEC.md` §7b. Moving ownership does not change field numbering, scalar widths, presence, enum-zero,
 unknown-field or gRPC service-artifact semantics.
 
 ## 5. Migration and installation

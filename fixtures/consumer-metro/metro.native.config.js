@@ -1,6 +1,6 @@
 const { builtinModules } = require('node:module');
 
-const { withZmdb } = require('@zmdb/aot-validator/metro');
+const { withZmdb } = require('@zmdb/compiler/metro');
 
 const { metroBase } = require('./metro.base.js');
 

@@ -25,7 +25,7 @@ const ROOT = new URL('../../../../../', import.meta.url).pathname;
  * with this test and must not observe a half-written generated project as shipped source.
  * The root `.budget/` directory is gitignored; `cleanup()` removes this dedicated subtree.
  */
-const SCRATCH = `${ROOT}.budget/instantiations/`;
+const SCRATCH = `${ROOT}.budget/instantiations/${process.pid}/`;
 
 /** What to generate. The three axes are the three things anyone wants to compare. */
 export interface Variant {
@@ -142,7 +142,9 @@ const TAGS_IMPORT =
   "import type { HasDefault, Length, Max, Min, MinLength, Pattern, PrimaryKey, Sensitive, Serial, Sql, Table, Unique } from '@zmdb/schema-core/tags';";
 
 /**
- * Write one project under `SCRATCH`, named so two variants never share a directory.
+ * Write one project under the current process's `SCRATCH`, named so two variants never share a
+ * directory. The process segment keeps the verifier and Vitest budget suite independent when the
+ * complete test run schedules them concurrently.
  *
  * Both imports are present in every variant, tags included, so the untagged baseline pays
  * for loading the same modules. Otherwise the comparison would be measuring module

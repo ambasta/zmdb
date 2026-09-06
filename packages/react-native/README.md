@@ -56,7 +56,7 @@ const account = apiNative.useZmdbQuery((client, signal) => client.getAccount({ i
 
 ## Metro
 
-This package owns device lifecycle only. Continue to configure the ahead-of-time transform through `@zmdb/aot-validator/metro`; there is deliberately no `@zmdb/react-native/metro` export.
+This package owns device lifecycle only. Configure the ahead-of-time transform through `@zmdb/compiler/metro`; there is deliberately no `@zmdb/react-native/metro` export.
 
 Full project documentation is at **https://ambasta.github.io/zmdb/**.
 

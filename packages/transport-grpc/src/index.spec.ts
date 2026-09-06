@@ -189,10 +189,10 @@ async function malformedGet(address: string): Promise<void> {
 }
 
 describe('the protobuf boundary', () => {
-  it('grpcDescriptor is owned by @zmdb/protobuf while emission stays in @zmdb/aot-validator', () => {
+  it('grpcDescriptor is owned by @zmdb/protobuf while emission stays in @zmdb/compiler', () => {
     const protobuf = readFileSync(new URL('../../protobuf/src/index.ts', import.meta.url), 'utf8');
     const aotRoot = readFileSync(new URL('../../aot-validator/src/index.ts', import.meta.url), 'utf8');
-    const emit = readFileSync(new URL('../../aot-validator/src/emit/index.ts', import.meta.url), 'utf8');
+    const emit = readFileSync(new URL('../../compiler/src/emit/index.ts', import.meta.url), 'utf8');
     const wanted = ['protoEncode', 'protoDecode', 'protoDescriptor', 'grpcDescriptor', 'loadGrpcService'];
     expect(wanted.every(name => protobuf.includes(`function ${name}`))).toBe(true);
     expect(wanted.every(name => !aotRoot.includes(`function ${name}`))).toBe(true);

@@ -1,8 +1,8 @@
 # Design goal — type-first declaration, AOT-generated runtime
 
 **Status:** implemented. `defineSchema` is gone, the tags are the only front-end, and every `REQ-TF-*` acceptance criterion names a script or a test that enforces it (PRD §6.7). **Owns:** PRD §6.7
-(`REQ-TF-*`). **Plan:** [`PLAN-type-first.md`](PLAN-type-first.md). **Specs:** `packages/schema-core/src/tags/SPEC.md`, `.../src/ir/SPEC.md`, `packages/aot-validator/src/reflect/SPEC.md`,
-`.../src/emit/SPEC.md`, `.../src/cli/SPEC.md`.
+(`REQ-TF-*`). **Plan:** [`PLAN-type-first.md`](PLAN-type-first.md). **Specs:** `packages/schema-core/src/tags/SPEC.md`, `.../src/ir/SPEC.md`, `packages/compiler/src/reflect/SPEC.md`,
+`.../src/emit/SPEC.md`, `.../src/codegen/SPEC.md`.
 
 ---
 
@@ -14,7 +14,7 @@
 >
 > — PRD §4, principle **P3**
 
-Today a schema is a **value** and the types are inferred from it:
+At the pre-implementation baseline a schema was a **value** and the types were inferred from it:
 
 ```ts
 const UserSchema = defineSchema('users', { id: serial(), email: text() });
@@ -36,10 +36,9 @@ are a shadow of them, so the runtime data is the source and the type system is d
 
 ## 2. Why this is possible now, and was not before
 
-The blocker was always type resolution: a transformer that cannot resolve `is<User>(x)` to `User`'s members cannot generate anything. `packages/aot-validator/src/transformer.ts` works around this with
-a hand-written **text parser** over the type-argument source (`parseType`), which understands primitives and inline object literals and nothing else. A named type is silently skipped and falls through
-to a runtime path that throws without a hand-built `TypeDescriptor` (`src/utilities/index.ts:83`). That is why `benchmarks/harness/framework/app.ts` hand-writes `columnKind` and `createDtoDescriptor`:
-the library cannot bridge schema to descriptor.
+The blocker was always type resolution: a transformer that cannot resolve `is<User>(x)` to `User`'s members cannot generate anything. The pre-implementation `packages/aot-validator/src/transformer.ts`
+worked around this with a hand-written **text parser** over the type-argument source (`parseType`), which understood primitives and inline object literals and nothing else. The implemented
+checker-driven front end now lives in `packages/compiler/src/transform/index.ts`.
 
 **TypeScript 7.0.2 — already in `node_modules` — ships a type checker over `typescript/unstable/sync`.** `Checker` exposes `getTypeFromTypeNode`, `getPropertiesOfType`, `getTypeOfSymbolAtLocation`,
 `getTypeArguments`, `isTypeAssignableTo`, the `isXType()` predicates, and `Symbol.flags` for optionality.
@@ -168,20 +167,21 @@ was about. `git log` has it if the sketch is ever wanted again.
 
 Each thing it proved, and where the claim lives now:
 
-| Prototype claim                                                          | Now carried by                                                           |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| The checker resolves a named interface, its aliases and its nested types | `reflect/reflect.spec.ts`, against `__fixtures__/constructs.ts`          |
-| Tags read off an intersection as literal types                           | `reflect/index.ts` `#readTags`; `ir/vocabulary.type-test.ts`             |
-| Tags drive key filtering exactly (`SerialKeys<User>` → `'id'`)           | `derive/type-derivation-tagged.type-test.ts`, with `Equal` not `extends` |
-| Resolution **through** mapped types (`Partial<Omit<User, 'id'>>`)        | `reflect/SPEC.md` §6a — no branch in the code, asserted property lists   |
-| Constraints survive `Omit`/`Pick`/`Partial`                              | the same tests                                                           |
-| `                                                                        | null`, `?` and literal unions read correctly                             | `reflect/SPEC.md` §4's two normalisation facts, with fixtures |
-| `Sensitive`/`Serial`/`HasDefault` land in the right DTO                  | `ir/ir.spec.ts` variants + `derive`'s type tests                         |
-| No tag symbol appears in emitted code                                    | `tags/erasure.spec.ts`                                                   |
+| Prototype claim                                                          | Now carried by                                                                                                      |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| The checker resolves a named interface, its aliases and its nested types | `packages/compiler/src/reflect/reflect.spec.ts`, against `packages/compiler/src/reflect/__fixtures__/constructs.ts` |
+| Tags read off an intersection as literal types                           | `packages/compiler/src/reflect/index.ts` `#readTags`; `packages/schema-core/src/ir/vocabulary.type-test.ts`         |
+| Tags drive key filtering exactly (`SerialKeys<User>` → `'id'`)           | `packages/schema-core/src/derive/type-derivation-tagged.type-test.ts`, with `Equal` not `extends`                   |
+| Resolution **through** mapped types (`Partial<Omit<User, 'id'>>`)        | `packages/compiler/src/reflect/SPEC.md` §6a — no branch in the code, asserted property lists                        |
+| Constraints survive `Omit`/`Pick`/`Partial`                              | the same tests                                                                                                      |
+| `                                                                        | null`, `?` and literal unions read correctly                                                                        | `packages/compiler/src/reflect/SPEC.md` §4's two normalisation facts, with fixtures |
+| `Sensitive`/`Serial`/`HasDefault` land in the right DTO                  | `packages/schema-core/src/ir/ir.spec.ts` variants + `derive`'s type tests                                           |
+| No tag symbol appears in emitted code                                    | `packages/schema-core/src/tags/erasure.spec.ts`                                                                     |
 
 Two bugs it caught, kept because they are the kind that come back:
 
-- `boolean` is `true | false` — a **union**, not an intrinsic type. Classify it before any property-bearing fallback, or a primitive gets an object check. (Pinned: `reflect/SPEC.md` §9.)
+- `boolean` is `true | false` — a **union**, not an intrinsic type. Classify it before any property-bearing fallback, or a primitive gets an object check. (Pinned:
+  `packages/compiler/src/reflect/SPEC.md` §9.)
 - Stripping nullability early (`getNonNullableType` at the top of the walk) destroys legitimate `T | null` columns. Optionality and nullability are handled at the property and the union level
   respectively.
 
@@ -194,11 +194,11 @@ rechecked rather than trusted.
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Build wiring            | **Closed.** One `API` per build, refreshed per file change. `apiInstanceCount()` makes it measurable and `yarn verify:build-budget` asserts the snapshot update log is identical at 8 modules and at 64.                                                                                                                                                                                                                      |
 | No in-memory overlay    | **Closed, as a constraint rather than a fix.** `fileChanges` only invalidates, so the plugin declares `enforce: 'pre'` and `transformFile` compares the text before it trusts an offset.                                                                                                                                                                                                                                      |
-| `tsc`-driven builds     | **Closed.** `zmdb-codegen` writes the rewrite to disk; `fixtures/consumer-cli/` and `fixtures/consumer-plugin/` are asserted to produce byte-identical output. `packages/aot-validator/src/cli/SPEC.md`.                                                                                                                                                                                                                      |
+| `tsc`-driven builds     | **Closed.** `@zmdb/compiler` project compilation writes the rewrite to disk; `fixtures/consumer-cli/` and `fixtures/consumer-plugin/` are asserted to produce byte-identical output. `packages/compiler/src/codegen/SPEC.md`.                                                                                                                                                                                                 |
 | Three types per column  | **Closed** (plan D3): `appTypeOf`/`wireTypeOf` in `schema-core/ir`, `ddlType(dialect, col)` in `@zmdb/migrations`. `timestamp` is an ISO `string` in JSON Schema, a `Date` in `Entity<T>`, `TIMESTAMPTZ` on Postgres and `TEXT` on SQLite.                                                                                                                                                                                    |
 | Recursive entity graphs | **Closed.** `RefIR` plus a seen-set; mutual recursion (`Folder` ↔ `FileEntry`) closes with a `ref`, not only self-recursion.                                                                                                                                                                                                                                                                                                  |
 | Scale                   | **Closed enough to state a number.** `yarn verify:instantiations` typechecks a tagged project against an untagged baseline and fails on a regression; the budget script covers 64 modules. A 60-column entity behind four layers of conditionals is still untested.                                                                                                                                                           |
-| Excess properties       | **Closed.** `excess` is one of the emitter's four targets, and `hasExcessCheck` in `emit/shape.ts` is the single place that decides whether a shape has one.                                                                                                                                                                                                                                                                  |
+| Excess properties       | **Closed.** `excess` is one of the emitter's four targets, and `hasExcessCheck` in `packages/compiler/src/emit/shape.ts` is the single place that decides whether a shape has one.                                                                                                                                                                                                                                            |
 | Migration path          | **Closed** (plan D2): `defineSchema` is deleted, `yarn verify:no-defineschema` keeps it deleted, and `scripts/codemod-tagged-schema.mjs` converts a project.                                                                                                                                                                                                                                                                  |
 | Declaration ergonomics  | **Open, and a judgement rather than a gap.** `number & Sql<'integer'> & Min<18> & Max<120>` reads worse than a builder chain. Named aliases (`Age`, `Email`, `PositiveInteger`) recover it, and the reflection sees through aliases.                                                                                                                                                                                          |
 | `dts` build break       | **Closed.** tsup is gone: `rollup-plugin-dts` reads `ts.sys` off the `typescript` package, which TS 7 does not ship, so `tsc -p tsconfig.build.json` emits `dist` mirroring `src` instead (`scripts/build-package.mjs`). Chasing it also found `exports` pointing at `./src/*.ts`, which cannot be imported once installed — `yarn verify:publish` packs, installs and imports every published subpath from outside the repo. |
@@ -224,14 +224,14 @@ Each item names what enforces it, because a definition of done that is only a do
 | #   | Done                                                                                                              | Enforced by                                                                                                                                                                                                 |
 | --- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Every `REQ-TF-*` acceptance criterion in PRD §6.7 is met, or says in the row what is not.                         | the scripts named in each row; all thirteen read ✅. `yarn verify:tf-acceptance` audits the table itself — a row that cites a test or a gate that does not exist, or a gate CI does not run, fails          |
-| 2   | A tagged interface expresses everything `defineSchema` could.                                                     | `ir/vocabulary.type-test.ts` — a new `ColumnFlags` member without a tag fails to compile; `yarn verify:tf-coverage`                                                                                         |
-| 3   | `is`/`assert`/`validate`/`equals` on any named type, mapped type or derived DTO are transformed — no silent skip. | `reflect.spec.ts` + `differential.spec.ts`; a refusal is a named build error, not a skip                                                                                                                    |
-| 4   | No `TypeDescriptor` is hand-written in the repo or the benchmarks.                                                | `yarn verify:no-descriptors` — 296 files, an empty allow-list and a count of zero. The type is deleted, not fenced off, so the gate also fails on a re-declaration of the name                              |
+| 2   | A tagged interface expresses everything `defineSchema` could.                                                     | `packages/schema-core/src/ir/vocabulary.type-test.ts` — a new `ColumnFlags` member without a tag fails to compile; `yarn verify:tf-coverage`                                                                |
+| 3   | `is`/`assert`/`validate`/`equals` on any named type, mapped type or derived DTO are transformed — no silent skip. | `packages/compiler/src/reflect/reflect.spec.ts` + `packages/compiler/src/emit/differential.spec.ts`; a refusal is a named build error, not a skip                                                           |
+| 4   | No `TypeDescriptor` is hand-written in the repo or the benchmarks.                                                | `yarn verify:no-descriptors` — 871 files, an empty allow-list and a count of zero. The type is deleted, not fenced off, so the gate also fails on a re-declaration of the name                              |
 | 5   | `parseType` and the text-scanning reading of a type argument are deleted.                                         | `packages/aot-validator/SPEC.md` §2 and its eight byte-identical pass-through assertions. `transformCode` survives for `validate(tags.X, expr)`, which carries its rule at the call site and needs no types |
-| 6   | The conformance suite passes identically against the generated and the runtime path.                              | `emit/differential.spec.ts`, four assertions per case over a 22-value wild corpus; non-vacuous by construction                                                                                              |
+| 6   | The conformance suite passes identically against the generated and the runtime path.                              | `packages/compiler/src/emit/differential.spec.ts`, four assertions per case over a 22-value wild corpus; non-vacuous by construction                                                                        |
 | 7   | `benchmarks/harness/framework/app.ts` contains no schema→descriptor bridge.                                       | the same descriptor ratchet as row 4                                                                                                                                                                        |
 | 8   | Build time is measured and published, with the one-`API`-instance property asserted rather than assumed.          | `yarn verify:build-budget`, on `apiInstanceCount()` and the session's update log                                                                                                                            |
-| 9   | `defineSchema` no longer exists, and a codemod converts a project that used it.                                   | `yarn verify:no-defineschema` (export names, not a grep) + `reflect/codemod.spec.ts`                                                                                                                        |
+| 9   | `defineSchema` no longer exists, and a codemod converts a project that used it.                                   | `yarn verify:no-defineschema` (export names, not a grep) + `packages/compiler/src/reflect/codemod.spec.ts`                                                                                                  |
 | 10  | The result is publishable: it builds, and an installed copy of it loads and typechecks.                           | `yarn verify:publish` — `npm pack`, extract into a throwaway `node_modules`, import every published subpath and typecheck a consumer against the shipped `.d.ts` with no `paths` and no `skipLibCheck`      |
 
 ## 9. Decision log

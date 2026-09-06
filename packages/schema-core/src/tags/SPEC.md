@@ -133,7 +133,7 @@ filter: the filter collapses to `never`, `Omit<T, never>` is `T`, and a generate
 Reflection is name-based and therefore unaffected, so the emitted validator would disagree with the derived type. That asymmetry is the hazard.
 
 The guard cannot live here — a runtime check would give the tags a runtime cost — so it lives in the reflection, which sees the escaped symbol ids (`__@zmdbSerial@1` vs `__@zmdbSerial@12`) that the
-type system distinguishes. `#readTags` keeps a basename → first-seen-escaped-name map per file and refuses the build with both spellings named (`../../../aot-validator/src/reflect/SPEC.md` §5).
+type system distinguishes. `#readTags` keeps a basename → first-seen-escaped-name map per file and refuses the build with both spellings named (`../../../compiler/src/reflect/SPEC.md` §5).
 
 What that catches is a _file_ whose types reach two copies. A project where the declaration consistently resolves to one copy and the derivation imports the other shows the reflector one spelling per
 tag and is not caught — it is the same nominal-identity failure, one import graph further out, and the accurate answer to it is `yarn dedupe` rather than a check.

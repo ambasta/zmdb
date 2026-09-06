@@ -1,8 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
 import { repositoryToken } from '@zmdb/app/data';
 import { Container, Inject } from '@zmdb/app/di';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { defineRepository, type BaseRepository } from '@zmdb/repository';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { sqliteDriver } from '@zmdb/sqlite';

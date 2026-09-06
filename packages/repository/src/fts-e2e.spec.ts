@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type { Fts, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { sqliteDriver } from '@zmdb/sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';

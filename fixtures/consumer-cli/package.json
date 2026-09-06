@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node --import ../../scripts/ts-specifier-hook.mjs ../../packages/aot-validator/src/cli/bin.ts",
-    "check": "node --import ../../scripts/ts-specifier-hook.mjs ../../packages/aot-validator/src/cli/bin.ts --check",
+    "build": "node --import ../../scripts/ts-specifier-hook.mjs ../../scripts/compiler-codegen.mjs",
+    "check": "node --import ../../scripts/ts-specifier-hook.mjs ../../scripts/compiler-codegen.mjs --check",
     "start": "node src/probe.ts"
   },
   "dependencies": {
     "@zmdb/cli": "1.0.0-alpha.4",
     "@zmdb/compiler": "1.0.0-alpha.4",
     "@zmdb/migrations": "1.0.0-alpha.4"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
   }
 }

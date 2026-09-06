@@ -3,7 +3,7 @@
 // `zmdbAot()` returns a plain unplugin object — `{ name, enforce, transform(code, id) }` —
 // rather than an esbuild plugin, which is why there are twenty lines here instead of one
 // import. That is the honest shape of the integration: unplugin's adapters exist and work,
-// but `@zmdb/aot-validator` does not depend on unplugin, so a consumer either installs it or
+// but `@zmdb/compiler` does not depend on unplugin, so a consumer either installs it or
 // writes the fifteen-line `onLoad` below. Both are supported; this fixture takes the second
 // route so that nothing but esbuild is between the source and the bundle.
 //

@@ -9,7 +9,7 @@
 // `SchemaError`, synchronously, when a column map had no primary key in it. That rule now lives
 // where the table is declared — `Reflector.schemaIR` refuses a `Table<'name'>` with no
 // `PrimaryKey` column, so it is a build error instead of a constructor throw, and
-// `aot-validator/src/reflect/reflect.spec.ts` is where it is covered. `SchemaError` itself is
+// `compiler/src/reflect/reflect.spec.ts` is where it is covered. `SchemaError` itself is
 // gone: nothing threw it once `defineSchema` did not.
 
 import { describe, it, expect } from 'vitest';

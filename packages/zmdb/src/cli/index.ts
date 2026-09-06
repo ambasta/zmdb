@@ -10,8 +10,8 @@ import { resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { schemasFromFiles } from '@zmdb/aot-validator/testing';
 import type { ModuleClass } from '@zmdb/app/modules';
+import { schemasFromFiles } from '@zmdb/compiler/testing';
 import { describeGraph, renderDot, renderTree, type GraphFilter } from '@zmdb/web/devtools';
 
 import { commandHelp, globalHelp, parseCommand, type ParsedCommand } from './args.js';

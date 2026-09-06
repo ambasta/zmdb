@@ -575,7 +575,7 @@ export const migrations: readonly EmbeddedMigration[] = [{ version: 202609031200
   `export --embed`** either: `export` writes the full DDL for the schema set to stdout (§9 there) from declarations, not from files. Both would be a second meaning for a verb that has one, which is
   the wart that spec's §1 and §13 are both about. So `embed` reads migration files, writes a TypeScript module, connects to nothing — a row in that spec's database-command table.
 - A TypeScript module rather than JSON: the declared type plus `as const` means a hand-edit that breaks the shape is a typecheck failure, and the alternative that seems simpler — importing the `.sql`
-  files — needs `assetExts` surgery in the Metro config, which is the thing the wrapper in `../../aot-validator/src/plugin/SPEC.md` §6.1 exists to avoid.
+  files — needs `assetExts` surgery in the Metro config, which is the thing the wrapper in `../../compiler/src/unplugin/SPEC.md` §6.1 exists to avoid.
 - Output is byte-stable in version order, so it is committed and reviewed like any other generated file.
 - `check` (§7 of the CLI spec) gains a `stale-embedded` finding: the module is out of date with respect to the directory. A stale embedded module is the same class of bug as a stale Metro cache — a
   build that succeeds and ships the wrong statements — and the whole point of `check` is that CI notices first.
@@ -625,8 +625,8 @@ records the remaining platform boundary as an application-selected SQLite bindin
    `better-sqlite3`-shaped binding usable without wrapping every call.
 6. _Done._ "The device only ever imports the finished array, so no diffing code ships in the bundle" is scoped to the embedded subpath; the page names the singleton import-graph test that enforces it
    (§5.5).
-7. _Done._ The React Native page's two transformer workarounds are replaced by `withZmdb` (`../../aot-validator/src/plugin/SPEC.md` §6), and its unconfigured path says the generic calls throw rather
-   than silently accepting input (§6.4 there).
+7. _Done._ The React Native page's two transformer workarounds are replaced by `withZmdb` (`../../compiler/src/unplugin/SPEC.md` §6), and its unconfigured path says the generic calls throw rather than
+   silently accepting input (§6.4 there).
 8. _Done._ The React Native page names the dev-server staleness window and the `--reset-cache` / `expo start --clear` remedy (§6.3 there).
 9. _Done._ The cache guidance says a manual reset is exceptional: a new build's project fingerprint handles ordinary invalidation, while an already-running server cannot see a cross-file type
    dependency.

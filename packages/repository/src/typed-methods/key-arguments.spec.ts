@@ -17,7 +17,7 @@ import { ProductsRepo, recorder, TenantUsersRepo } from './fixtures.js';
  * A table with no primary key, which `schema-core/src/ir/SPEC.md` §4.1 says is legal IR.
  *
  * Built from IR rather than from a tagged interface on purpose: `schemasFrom` goes through
- * `@zmdb/aot-validator`'s reflector, and that refuses a table with no `PrimaryKey` column
+ * `@zmdb/compiler`'s reflector, and that refuses a table with no `PrimaryKey` column
  * outright, so there is no way to declare this shape in TypeScript today. Since §4.1 freezes the
  * shape as legal, the repository's behaviour for it is asserted from the IR the reflector will
  * eventually be able to produce. That contradiction is itself a finding, not a workaround.

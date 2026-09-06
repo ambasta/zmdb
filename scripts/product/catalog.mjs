@@ -81,11 +81,11 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'validator',
     facade: {
       root: ['AssertError', 'ValidateResult', 'assert', 'is', 'validate'],
-      subpaths: ['zmdb/compiler', 'zmdb/testing', 'zmdb/unplugin', 'zmdb/validator'],
+      subpaths: ['zmdb/validator'],
     },
     optionality: { kind: 'required' },
     docsOwner: 'aot-setup',
-    consumer: { fixture: 'fixtures/consumer-metro' },
+    consumer: { reason: PUBLISH_VERIFIER_REASON },
   }),
   productPackage({
     id: 'app',
@@ -154,6 +154,19 @@ export const PRODUCT_CATALOG = Object.freeze([
     optionality: { kind: 'integration', technology: 'CockroachDB' },
     docsOwner: 'dialect-cockroach',
     consumer: { fixture: 'fixtures/database-cockroach' },
+  }),
+  productPackage({
+    id: 'compiler',
+    directory: 'packages/compiler',
+    npmName: '@zmdb/compiler',
+    role: 'compiler',
+    facade: {
+      root: ['ZmdbConfig', 'defineConfig'],
+      subpaths: ['zmdb/compiler', 'zmdb/config', 'zmdb/testing', 'zmdb/unplugin'],
+    },
+    optionality: { kind: 'tooling' },
+    docsOwner: 'aot-setup',
+    consumer: { fixture: 'fixtures/consumer-compiler' },
   }),
   productPackage({
     id: 'jobs',
@@ -506,7 +519,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     directory: 'packages/zmdb',
     npmName: 'zmdb',
     role: 'product',
-    facade: { root: ['ZmdbConfig', 'defineConfig'], subpaths: ['zmdb/cli', 'zmdb/config'] },
+    facade: { root: [], subpaths: ['zmdb/cli'] },
     optionality: { kind: 'required' },
     docsOwner: 'package-reference',
     consumer: { fixture: 'fixtures/consumer-product' },

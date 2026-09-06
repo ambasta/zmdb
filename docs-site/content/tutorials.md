@@ -8,9 +8,9 @@ End-to-end walkthroughs, as opposed to the task-shaped answers in [Guides](./gui
 
 ## The three things that trip people up on day one
 
-Worth knowing before you follow any tutorial, because each one produces a confusing failure rather than a clear error:
+Worth knowing before you follow any tutorial, because each one otherwise interrupts the first working run:
 
-**The AOT transformer must be configured.** If it is not, `is<T>()` and `assert<T>()` return success and check nothing — validation that fails open. Write this test first, in every project:
+**The AOT transformer must be configured.** If it is not, `is<T>()` and `assert<T>()` throw because the erased type argument has no runtime witness. Write this test first, in every project:
 
 ```ts
 it('the transformer is running', () => {

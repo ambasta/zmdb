@@ -40,10 +40,10 @@ const check = process.argv.includes('--check');
 // linked too early for the hook to affect their transitive dependencies.
 await import('../../scripts/ts-specifier-hook.mjs');
 const [{ findCallSites }, { Reflector }, { ReflectSession }, { transformFile }] = await Promise.all([
-  import('../../packages/aot-validator/src/reflect/callsites.js'),
-  import('../../packages/aot-validator/src/reflect/index.js'),
-  import('../../packages/aot-validator/src/reflect/session.js'),
-  import('../../packages/aot-validator/src/transformer.js'),
+  import('../../packages/compiler/src/reflect/callsites.js'),
+  import('../../packages/compiler/src/reflect/index.js'),
+  import('../../packages/compiler/src/reflect/session.js'),
+  import('../../packages/compiler/src/transform/index.js'),
 ]);
 
 const BANNER = from =>

@@ -1,4 +1,4 @@
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { inc, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/query-compiler';
 import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';

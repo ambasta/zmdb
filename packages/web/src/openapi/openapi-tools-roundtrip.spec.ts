@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 
 import type { ToolSpec } from '@zmdb/ai';
 import { generateOpenApiToolsModule, toolsFromOpenApi } from '@zmdb/ai/http';
-import { zmdbAot } from '@zmdb/aot-validator/plugin';
+import { zmdbAot } from '@zmdb/compiler/unplugin';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { HttpContractIR, HttpOperationIR, HttpParameterIR, HttpTypeIR } from '../contract/index.js';

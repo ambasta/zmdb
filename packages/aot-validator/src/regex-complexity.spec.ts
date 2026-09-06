@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { tags, validate, ValidationError } from './index.js';
 import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
-import { transformCode } from './transformer.js';
 import { is, validate as utilityValidate } from './utilities/index.js';
 
 describe('Static Regular Expression Complexity Validation & Caching', () => {
@@ -53,41 +52,11 @@ describe('Static Regular Expression Complexity Validation & Caching', () => {
     });
   });
 
-  describe('AOT Code Transformer Safety', () => {
-    it('fails transformation with descriptive error on invalid pattern syntax', () => {
-      const source = 'const ok = validate(tags.Pattern("+"), input);';
-      expect(() => transformCode(source)).toThrow(ValidationError);
-      expect(() => transformCode(source)).toThrow(/Invalid regular expression/);
-    });
-
-    it('emits monomorphic allocation-free inline JS for safe pattern', () => {
-      const source = 'const ok = validate(tags.Pattern("^[a-z]+$"), input);';
-      const transformed = transformCode(source);
-      expect(transformed).toBe('const ok = (typeof input === "string" && /^[a-z]+$/.test(input));');
-    });
-  });
-
   describe('Fallback Execution Safeguards', () => {
     it('evaluates safe pattern correctly in untransformed fallback mode', () => {
       const rule = tags.Pattern('^[a-z]+$');
       expect(validate(rule, 'hello')).toBe(true);
       expect(validate(rule, '12345')).toBe(false);
-    });
-
-    it('gives a long input the same answer the inlined form would', () => {
-      // The old `safeTestPattern` threw over 10 000 characters. The inlined form is
-      // `/^[a-z]+$/.test(x)` and cannot throw, so the two paths disagreed for exactly the
-      // inputs the cap was meant to protect. The cap is gone and this is the replacement
-      // contract: same input, same answer, whichever path runs.
-      const rule = tags.Pattern('^[a-z]+$');
-      const long = 'a'.repeat(20_000);
-      const inlined = new Function(
-        'input',
-        `return (${transformCode('validate(tags.Pattern("^[a-z]+$"), input)')});`,
-      ) as (input: unknown) => boolean;
-      expect(validate(rule, long)).toBe(true);
-      expect(inlined(long)).toBe(true);
-      expect(validate(rule, `${long}1`)).toBe(inlined(`${long}1`));
     });
 
     it('works safely through the IR-walking utilities', () => {

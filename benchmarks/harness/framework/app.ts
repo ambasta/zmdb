@@ -20,7 +20,7 @@
 // copy of the shape, and no schema value in between.
 //
 // AOT VALIDATION: the validator is not built at boot and not built here. It was
-// compiled from `CreateDTO<User>` by `zmdb-codegen`, which wrote the
+// compiled from `CreateDTO<User>` by `@zmdb/compiler`, which wrote the
 // straight-line JavaScript in `model.zmdb.generated.js` and is committed next to
 // the interface it came from. The per-request path calls a function whose body is
 // three `typeof` tests — no descriptor, no walk, no schema value in the process at

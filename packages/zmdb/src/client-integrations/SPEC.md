@@ -24,9 +24,9 @@ Measured on 2026-09-05 at `cd75aed4`:
   contract and `packages/web/src/contract/SPEC.md` remain authoritative; this tests freeze adds no surface to either.
 - The repository has no published framework-client adapter package. Issue #689 adds only the private `fixtures/client-adapters` conformance workspace.
 - `docs-site/content/framework-integrations.md` documents one- or two-line server framework wrappers over `makeEndpoint`. Those remain recipes, not packages.
-- At the original baseline, React Native support consisted of the `@zmdb/aot-validator/metro` transform and structural SQLite driver examples. Issue #696 adds the separate generated-client lifecycle
-  adapter without changing those build and database boundaries.
-- The committed Metro fixture runs Metro 0.87, preserves an existing Babel transformer and proves the AOT transform. `@zmdb/aot-validator` records `>=0.87.0 <0.88.0` as its supported Metro line.
+- At the original baseline, React Native support consisted of the Metro AOT transform and structural SQLite driver examples. Issue #696 adds the separate generated-client lifecycle adapter without
+  changing those build and database boundaries.
+- The committed Metro fixture runs Metro 0.87, preserves an existing Babel transformer and proves the AOT transform. `@zmdb/compiler` records `>=0.87.0 <0.88.0` as its supported Metro line.
 - The Next.js guide currently calls repositories directly from server components, route handlers and server actions. It documents no generated HTTP client or client-state adapter.
 - The architecture and publication gates know about the existing packages, but no rule can validate packages that do not exist. The dependency rules below therefore need executable missing-package
   assertions in #689 and packed-package enforcement in #700.
@@ -335,7 +335,7 @@ nine. Cohesion is provided by one generated-client contract and one documentatio
 - `@zmdb/nuxt` root is the Nuxt module entry. `./client` contains the browser plugin/composables and `./server` contains Nitro request integration. The module may register those entries but importing
   it performs no request or global client registration.
 - `@zmdb/sveltekit` has no mixed root barrel. `./client` reaches `@zmdb/svelte`; `./server` accepts a request event and never enters the browser graph.
-- `@zmdb/react-native` has no `./metro` export. The AOT Metro transform remains `@zmdb/aot-validator/metro`; the client adapter owns device lifecycle only.
+- `@zmdb/react-native` has no `./metro` export. The AOT Metro transform remains `@zmdb/compiler/metro`; the client adapter owns device lifecycle only.
 - Base adapter roots contain no server secret, Node built-in or meta-framework import.
 
 ## 5. SSR, hydration and credential ownership
@@ -402,7 +402,7 @@ Foreground refresh is opt-in. Background behaviour is an explicit policy: abort 
 
 Issue qualification combines a packed native lifecycle consumer with a real Metro bundle. The packed consumer installs built tarballs and executes common generated-client semantics plus AppState,
 foreground-refresh, offline-refusal, and credential-identity cases. The Metro witness proves that no Node built-in, server export or credential implementation reaches the device bundle. Issue #696
-implements this contract in `@zmdb/react-native`; the AOT transform remains `@zmdb/aot-validator/metro` rather than becoming a second package-owned transform.
+implements this contract in `@zmdb/react-native`; the AOT transform remains `@zmdb/compiler/metro` rather than becoming a second package-owned transform.
 
 ### 6.7 Next
 

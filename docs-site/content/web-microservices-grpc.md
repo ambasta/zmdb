@@ -3,11 +3,13 @@ Typed gRPC services, exhaustive bindings and clients ship through `@zmdb/transpo
 
 ```bash
 npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.0
-npm add --save-dev @zmdb/aot-validator@alpha
+npm add @zmdb/aot-validator@alpha
+npm add --save-dev @zmdb/compiler@alpha
 ```
 
-Neither package nor grpc-js is installed by `npm add zmdb@alpha`. `@zmdb/protobuf` owns the service calls and generated artifact types; `@zmdb/aot-validator` owns reflection and emission;
-`@zmdb/transport-grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by `createGrpcClient` is caller-owned and must be closed.
+None of these optional packages or grpc-js is installed by `npm add zmdb@alpha`. `@zmdb/protobuf` owns the service calls and generated artifact types; `@zmdb/compiler` owns reflection and emission;
+`@zmdb/aot-validator` owns the generated validation-helper ABI; and `@zmdb/transport-grpc` owns the grpc-js binding. The application owns the server extension, while each client returned by
+`createGrpcClient` is caller-owned and must be closed.
 
 ## One TypeScript contract, including the wire format
 
@@ -57,8 +59,8 @@ type Orders = {
 export const ordersService = loadGrpcService<Orders>('Orders', 'orders');
 ```
 
-`loadGrpcService` is declared by `@zmdb/protobuf` and compiled by the `@zmdb/aot-validator` build transform or `zmdb-codegen`. It becomes a frozen descriptor, method paths, streaming flags,
-validators, and protobuf codecs. No `.proto` file is read or parsed at runtime, and `@grpc/proto-loader` is not a direct dependency.
+`loadGrpcService` is declared by `@zmdb/protobuf` and compiled by the `@zmdb/compiler` build transform or project compiler. It becomes a frozen descriptor, method paths, streaming flags, validators,
+and protobuf codecs. No `.proto` file is read or parsed at runtime, and `@grpc/proto-loader` is not a direct dependency.
 
 That shape also makes the service closed: a binding with an unimplemented method does not compile. The streaming flags select the handler signature, so using a unary function where a server stream is
 declared is a compile error.

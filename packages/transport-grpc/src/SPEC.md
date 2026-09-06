@@ -35,7 +35,7 @@ What gRPC does share is the lifecycle: `grpcExtension` starts through `createApp
 ## 2. TypeScript is the source of truth — the direction `#557` has backwards
 
 `#557` step 8 asks for "proto loading" and step 9 for "a proto-derived TypeScript type". **Both describe the wrong direction, and the right one is already frozen and closed.**
-`../../aot-validator/src/emit/SPEC.md` §7b froze:
+`../../compiler/src/emit/SPEC.md` §7b froze:
 
 ```ts
 protoEncode<T>(value: T): Uint8Array;
@@ -76,8 +76,8 @@ It emits the `service` block and every message block it references, so the artif
 diff it in CI, and the contract-change review that `.proto` files are prized for is a pull request — which is exactly what `web-microservices-grpc.md` already recommends doing with an OpenAPI
 document.
 
-`grpcDescriptor` and `protoDescriptor` are public calls in `@zmdb/protobuf`, while their one reflector and emitter remain in `@zmdb/aot-validator`. `@zmdb/transport-grpc` has no `TypeIR` walker; the
-walker exists once and this epic calls it. §8 is the rest of that boundary.
+`grpcDescriptor` and `protoDescriptor` are public calls in `@zmdb/protobuf`, while their one reflector and emitter live in `@zmdb/compiler`. `@zmdb/transport-grpc` has no `TypeIR` walker; the walker
+exists once and this epic calls it. §8 is the rest of that boundary.
 
 The `ServiceDefinition` object `@grpc/grpc-js`'s `Server.addService` wants is built from `loadGrpcService`'s generated method table. Each entry carries the same validators and protobuf codecs the
 standalone message calls emit. That is the entire reason `@grpc/proto-loader` is unnecessary: everything it would have produced is already available in a typed build artifact.
@@ -323,14 +323,14 @@ application rules are part of the service contract.
 
 `#557` step 9 asked for this boundary. The implemented split separates public runtime ownership from compiler ownership:
 
-| Compiler (`@zmdb/aot-validator`, `@zmdb/schema-core`)  | Artifact runtime (`@zmdb/protobuf`)              | Adapter (`@zmdb/transport-grpc`)                     |
+| Compiler (`@zmdb/compiler`, `@zmdb/schema-core`)       | Artifact runtime (`@zmdb/protobuf`)              | Adapter (`@zmdb/transport-grpc`)                     |
 | ------------------------------------------------------ | ------------------------------------------------ | ---------------------------------------------------- |
 | one reflection session and protobuf/service-IR walk    | `ProtoField`-derived calls and `Grpc*Def` types  | `bindGrpcService`, `GrpcHandlers`, `grpcExtension`   |
 | descriptor, validator and straight-line codec emission | generated service artifacts and wire primitives  | deadlines, cancellation, metadata and status mapping |
 | build diagnostics and generated-import selection       | no checker, emitter or runtime descriptor parser | grpc-js server/client lifecycle                      |
 
-There is **one** `TypeIR` walker and it remains in `@zmdb/aot-validator`. `grpcDescriptor` is publicly owned by `@zmdb/protobuf` but compiled by that existing emitter; moving the walk into either
-runtime package would create the second interpretation this boundary forbids.
+There is **one** `TypeIR` walker and it lives in `@zmdb/compiler`. `grpcDescriptor` is publicly owned by `@zmdb/protobuf` but compiled by that emitter; moving the walk into either runtime package
+would create the second interpretation this boundary forbids.
 
 The artifact half ships from `@zmdb/protobuf` and the adapter ships from `@zmdb/transport-grpc`; one reflection walk continues to emit the descriptor, validators and codecs without parsing the
 descriptor at runtime.

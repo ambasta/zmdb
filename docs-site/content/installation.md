@@ -1,8 +1,8 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-seven packages are published today: thirty-six focused packages plus the `zmdb` facade. The
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-eight packages are published today: thirty-seven focused packages plus the `zmdb` facade. The
 recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
-`@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/migrations`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations,
-`@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/singlestore`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
-`@zmdb/transport-redis`, and `@zmdb/jobs` plus its storage integrations remain independently installable.
+`@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/compiler`, `@zmdb/migrations`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider
+integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/singlestore`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,
+`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs` plus its storage integrations remain independently installable.
 
 ## Recommended: one product install
 
@@ -15,9 +15,9 @@ import { defineRepository, is, schemaOf, type CreateDTO, type Entity, type Prima
 import { sqliteDriver } from 'zmdb/drivers/sqlite';
 ```
 
-The `zmdb` package depends on eight required workspace packages and exposes their application defaults at the root. Complete concerns live under `zmdb/schema`, `zmdb/sql`, `zmdb/validator`,
-`zmdb/orm`, `zmdb/web`, `zmdb/compiler`, `zmdb/migrations`, and `zmdb/testing`. The `zmdb/drivers/sqlite` entry delegates to the bundled SQLite vertical; `zmdb/drivers/pg` and `zmdb/drivers/mssql`
-delegate through optional database-package peers selected by the application.
+The `zmdb` package depends on nine required workspace packages and exposes their application defaults at the root. Complete concerns live under `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`,
+`zmdb/web`, `zmdb/compiler`, `zmdb/migrations`, and `zmdb/testing`. The `zmdb/drivers/sqlite` entry delegates to the bundled SQLite vertical; `zmdb/drivers/pg` and `zmdb/drivers/mssql` delegate
+through optional database-package peers selected by the application.
 
 The older `zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, and `zmdb/relations` paths remain as compatibility entries. Type-only imports from either the root or those paths disappear from emitted
 JavaScript.
@@ -36,19 +36,19 @@ compares all nine official packages, and links to their framework-native lifecyc
 
 `npm add zmdb@alpha` installs none of the packages or peers below. Add only the integration selected by the application:
 
-| Capability         | Install                                                                         | Lifecycle and ownership                                                                |
-| ------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Protobuf artifacts | `npm add @zmdb/protobuf@alpha`                                                  | no peer or external resource; add `@zmdb/aot-validator@alpha` as a build-time dev tool |
-| Typed gRPC         | `npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.0` | app owns server extension; caller closes clients                                       |
-| Core NATS          | `npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0`             | app starts, drains, and closes the strategy connection                                 |
-| RabbitMQ           | `npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1`                         | app owns connection, channels, retry, and dead-letter topology                         |
-| Redis Pub/Sub      | `npm add @zmdb/transport-redis@alpha redis@^6.2.1`                              | app owns publisher/subscriber clients and bounded drain                                |
-| Background jobs    | `npm add @zmdb/jobs@alpha`                                                      | app starts and drains explicit workers/schedulers through `jobsExtension`              |
-| PostgreSQL jobs    | `npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0`                 | caller owns and closes/releases the pool or client                                     |
-| OpenTelemetry      | `npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.0`                            | caller owns providers, exporters, tracers, meters, and shutdown                        |
+| Capability         | Install                                                                         | Lifecycle and ownership                                                   |
+| ------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Protobuf artifacts | `npm add @zmdb/protobuf@alpha && npm add --save-dev @zmdb/compiler@alpha`       | no runtime peer or external resource; compiler emits the artifacts        |
+| Typed gRPC         | `npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.0` | app owns server extension; caller closes clients                          |
+| Core NATS          | `npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0`             | app starts, drains, and closes the strategy connection                    |
+| RabbitMQ           | `npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1`                         | app owns connection, channels, retry, and dead-letter topology            |
+| Redis Pub/Sub      | `npm add @zmdb/transport-redis@alpha redis@^6.2.1`                              | app owns publisher/subscriber clients and bounded drain                   |
+| Background jobs    | `npm add @zmdb/jobs@alpha`                                                      | app starts and drains explicit workers/schedulers through `jobsExtension` |
+| PostgreSQL jobs    | `npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0`                 | caller owns and closes/releases the pool or client                        |
+| OpenTelemetry      | `npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.0`                            | caller owns providers, exporters, tracers, meters, and shutdown           |
 
 The package owns the adapter; the peer owns the external protocol client. `@zmdb/app` owns transport-neutral messaging and observability ports, while `@zmdb/jobs` owns queue and worker behavior.
-`@zmdb/aot-validator` owns TypeScript reflection and emission; `@zmdb/protobuf` owns the calls, service-artifact types, and generated wire runtime that emitted code imports.
+`@zmdb/compiler` owns TypeScript reflection and emission; `@zmdb/protobuf` owns the calls, service-artifact types, and generated wire runtime that emitted code imports.
 
 Alpha migration: replace any branch-only or pre-release `zmdb/jobs` import with `@zmdb/jobs`, and replace `zmdb/jobs/schedule` with `@zmdb/jobs/schedule`. The default product does not ship a
 compatibility facade or automatically install jobs.
@@ -73,7 +73,7 @@ compatibility facade or automatically install jobs.
 Prefer to depend only on the pieces you use (better tree-shaking):
 
 ```bash
-npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/migrations @zmdb/aot-validator @zmdb/repository @zmdb/sqlite @zmdb/app @zmdb/web
+npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/compiler @zmdb/migrations @zmdb/aot-validator @zmdb/repository @zmdb/sqlite @zmdb/app @zmdb/web
 ```
 
 ## Install Individual Packages
@@ -90,8 +90,11 @@ npm install @zmdb/query-compiler
 # Schema snapshots, migration plans, runners, introspection, and declaration emission
 npm install @zmdb/migrations
 
-# AOT validation + serialization
+# Runtime validation + serialization
 npm install @zmdb/aot-validator
+
+# TypeScript reflection, AOT emission, build adapters, and lint rules
+npm install --save-dev @zmdb/compiler typescript@^7
 
 # Repository with CRUD + transactions
 npm install @zmdb/repository
@@ -258,7 +261,8 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/schema-core`        | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI   |
 | `@zmdb/query-compiler`     | SELECT/INSERT/UPDATE/DELETE, dialect protocols, JOINs, aggregations, FTS, schema-object DDL    |
 | `@zmdb/migrations`         | Snapshots, diffs, DDL plans, files, runners, introspection, and declaration emission           |
-| `@zmdb/aot-validator`      | Type reflection, full/shallow is/assert/validate, equals/random, serialization                 |
+| `@zmdb/aot-validator`      | Runtime full/shallow is/assert/validate, equals/random, errors, and serialization              |
+| `@zmdb/compiler`           | TypeScript reflection, AOT emission, project compilation, build adapters, and lint rules       |
 | `@zmdb/repository`         | Auto-validating CRUD, hooks, transactions, populate                                            |
 | `@zmdb/mssql`              | T-SQL compilation, migrations, structural driver, introspection, and capability refusals       |
 | `@zmdb/postgres`           | PostgreSQL compiler traits, migrations, introspection, structural `pg` driver, and cursors     |

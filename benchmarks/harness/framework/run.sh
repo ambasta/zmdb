@@ -180,9 +180,9 @@ resolve_runtime || exit 1
 # without it — it is here so that editing the interface cannot leave the measured app
 # checking last week's shape. `--check` would only report the drift; the benchmark wants
 # it fixed.
-echo "== compiling the validator from model.ts (zmdb-codegen) =="
-( cd "$REPO_ROOT" && node packages/aot-validator/src/cli/bin.ts --project "$HERE/tsconfig.json" ) || {
-  echo "zmdb-codegen failed"; exit 1
+echo "== compiling the validator from model.ts (@zmdb/compiler) =="
+( cd "$REPO_ROOT" && node --import ./scripts/ts-specifier-hook.mjs scripts/compiler-codegen.mjs --project "$HERE/tsconfig.json" ) || {
+  echo "@zmdb/compiler project compilation failed"; exit 1
 }
 
 echo "== building @zmdb/web (tsc: ESM .js + .d.ts mirroring src) =="

@@ -14,7 +14,7 @@
 // build can afford and an application should not — see `fixtures/consumer-cli` for the build
 // that inlines the same schema instead.
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type {
   HasDefault,
   MaxLength,

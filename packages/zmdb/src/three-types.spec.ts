@@ -13,8 +13,8 @@
 // one declaration, which is why it lives in the umbrella package — the one that depends on
 // all of them.
 
-import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
 import { issuesFor } from '@zmdb/aot-validator/utilities';
+import { schemaIrsFrom } from '@zmdb/compiler/testing';
 import { emitUp, snapshot, type ChangeOp } from '@zmdb/migrations';
 import { mssql } from '@zmdb/mssql';
 import type { Dialect } from '@zmdb/query-compiler';

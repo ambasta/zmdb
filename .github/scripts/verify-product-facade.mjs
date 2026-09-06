@@ -191,8 +191,9 @@ const FORBIDDEN_PATHS = [
   /packages\/zmdb\/src\/config\/index\.ts$/,
   /packages\/zmdb\/src\/studio\//,
   /packages\/zmdb\/src\/unplugin\.ts$/,
+  /packages\/compiler\/src\/(?!config\/contract\.ts$)/,
   /packages\/query-compiler\/src\/migrations\//,
-  /packages\/aot-validator\/src\/(?:cli|codegen|emit|plugin|reflect|transformer)\//,
+  /packages\/aot-validator\/src\/(?:cli|codegen|emit|lint|metro|plugin|reflect|testing|transformer|unplugin)\//,
 ];
 
 const PRODUCT_IMPLEMENTATION_ENTRIES = new Set(['./cli', './config', './unplugin']);

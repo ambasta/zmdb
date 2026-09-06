@@ -67,11 +67,11 @@ repository root explicitly.
 ## 3. Measured package inventory
 
 At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #672, #691, #692, #693,
-#694, #657, #658, #659, #660, #661, #695, #696, #697, #698, #699, and #629 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`,
-`@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`,
-`@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, `@zmdb/nuxt`,
-`@zmdb/sveltekit`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, and issue #674 adds `@zmdb/singlestore`. The catalog now accounts for all thirty-seven manifest-backed packages exactly
-once. Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather than release order:
+#694, #657, #658, #659, #660, #661, #695, #696, #697, #698, #699, #628, and #629 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected
+`@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`,
+`@zmdb/svelte`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`,
+`@zmdb/nuxt`, `@zmdb/sveltekit`, `@zmdb/compiler`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, and issue #674 adds `@zmdb/singlestore`. The catalog now accounts for all thirty-eight
+manifest-backed packages exactly once. Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather than release order:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                                   |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------------------- |
@@ -94,7 +94,8 @@ once. Publication derives its dependency-first sequence from architecture policy
 | `packages/ai-vercel`          | `@zmdb/ai-vercel`          | `vercel-ai`         | None; selected integration with no facade export                           |
 | `packages/mcp`                | `@zmdb/mcp`                | `mcp`               | None; selected protocol integration with no facade export                  |
 | `packages/protobuf`           | `@zmdb/protobuf`           | `protobuf`          | None; installed and imported independently                                 |
-| `packages/aot-validator`      | `@zmdb/aot-validator`      | `validator`         | Root validator defaults; `validator`, `compiler`, `testing`, `unplugin`    |
+| `packages/aot-validator`      | `@zmdb/aot-validator`      | `validator`         | Root validator defaults and `zmdb/validator`                               |
+| `packages/compiler`           | `@zmdb/compiler`           | `compiler`          | Root config authoring names; `compiler`, `config`, `testing`, `unplugin`   |
 | `packages/repository`         | `@zmdb/repository`         | `orm`               | Root repository defaults and `zmdb/orm`                                    |
 | `packages/mssql`              | `@zmdb/mssql`              | `mssql`             | `zmdb/drivers/mssql` during the facade cutover                             |
 | `packages/postgres`           | `@zmdb/postgres`           | `postgres`          | `zmdb/drivers/pg` compatibility facade                                     |
@@ -113,7 +114,7 @@ once. Publication derives its dependency-first sequence from architecture policy
 | `packages/web`                | `@zmdb/web`                | `web`               | Root HTTP names and `zmdb/web/*`                                           |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, concern facades, `config`, `cli`, and executable         |
 
-This table is review evidence, not the canonical machine source. The thirty-seven rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit
+This table is review evidence, not the canonical machine source. The thirty-eight rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit
 plus the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers

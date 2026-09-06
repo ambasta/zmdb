@@ -10,8 +10,8 @@
 // than next to either half.
 
 import { lenientParse, toolFromSchema } from '@zmdb/ai';
-import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
 import { issuesFor } from '@zmdb/aot-validator/utilities';
+import { schemaIrsFrom } from '@zmdb/compiler/testing';
 import type { PrimaryKey, Sensitive, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 

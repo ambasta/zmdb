@@ -99,13 +99,16 @@ describe('zmdb product re-exports (#227, #620)', () => {
   });
 
   it('exposes compiler adapters from zmdb/compiler', async () => {
-    const [facade, productOwner, owner] = await Promise.all([
+    const [facade, owner, transform, productOwner] = await Promise.all([
       import('./compiler.js'),
+      import('@zmdb/compiler'),
+      import('@zmdb/compiler/transform'),
       import('./unplugin.js'),
-      import('@zmdb/aot-validator/unplugin'),
     ]);
+    expect(facade.compileProject).toBe(owner.compileProject);
+    expect(facade.writeCompileResult).toBe(owner.writeCompileResult);
+    expect(facade.transformFile).toBe(transform.transformFile);
     expect(facade.zmdbAot).toBe(productOwner.zmdbAot);
-    expect(facade.transformFile).toBe(owner.transformFile);
   });
 
   it('exposes live and embedded migration runners from zmdb/migrations', async () => {
@@ -119,12 +122,12 @@ describe('zmdb product re-exports (#227, #620)', () => {
   });
 
   it('exposes package-boundary helpers from zmdb/testing', async () => {
-    const [facade, validator, web] = await Promise.all([
+    const [facade, compiler, web] = await Promise.all([
       import('./testing.js'),
-      import('@zmdb/aot-validator/testing'),
+      import('@zmdb/compiler/testing'),
       import('@zmdb/web/testing'),
     ]);
-    expect(facade.schemasFrom).toBe(validator.schemasFrom);
+    expect(facade.schemasFrom).toBe(compiler.schemasFrom);
     expect(facade.createTestApp).toBe(web.createTestApp);
   });
 

@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { runEmbedded, type EmbeddedConnection } from '@zmdb/migrations/embedded';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -20,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   analyseToolingBoundaries,
   GENERATED_ARTIFACTS,
+  RETIRED_AOT_TOOLING_EXPORTS,
   TARGET_PRODUCT_TOOLING_EXPORTS,
   TARGET_TOOLING_BIN,
   TARGET_TOOLING_EXPORTS,
@@ -36,6 +37,7 @@ const FIXTURES = join(ROOT, 'fixtures');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const TSC = join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
 const CURRENT_OWNER_DIRECTORIES = [
+  'ai',
   'query-compiler',
   'schema-core',
   'aot-validator',
@@ -297,6 +299,7 @@ function packWorkspace(): PackedFixture {
   const fullApp = createPackedApp(directory, 'full-app', packed, [...fullInstalls, ...targetInstalls]);
   const compilerApp = createPackedApp(directory, 'compiler-app', packed, [
     { packageName: '@zmdb/compiler', owner: targetOwnerDirectory(packed, '@zmdb/compiler'), copy: true },
+    { packageName: '@zmdb/ai', owner: 'ai' },
     { packageName: '@zmdb/aot-validator', owner: 'aot-validator' },
     { packageName: '@zmdb/query-compiler', owner: 'query-compiler' },
     { packageName: '@zmdb/schema-core', owner: 'schema-core' },
@@ -327,6 +330,7 @@ function packWorkspace(): PackedFixture {
         owner: targetOwnerDirectory(packed, '@zmdb/migrations'),
         copy: true,
       },
+      { packageName: '@zmdb/ai', owner: 'ai' },
       { packageName: '@zmdb/aot-validator', owner: 'aot-validator' },
       { packageName: '@zmdb/query-compiler', owner: 'query-compiler' },
       { packageName: '@zmdb/schema-core', owner: 'schema-core' },
@@ -417,6 +421,20 @@ function copyAndTypecheck(
   };
 }
 
+function typecheckCopied(directory: string, config: string, fixture: string): TypecheckResult {
+  const result = spawnSync(process.execPath, [TSC, '--noEmit', '-p', join(directory, config)], {
+    cwd: directory,
+    encoding: 'utf8',
+  });
+  return {
+    fixture,
+    directory,
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
+}
+
 function runNode(app: string, args: readonly string[]): CommandResult {
   const result = spawnSync(process.execPath, args, { cwd: app, encoding: 'utf8' });
   return {
@@ -496,6 +514,7 @@ let migrationsImports: Readonly<Record<string, ImportResult>> = {};
 let cliImports: Readonly<Record<string, ImportResult>> = {};
 let productIdentities: Readonly<Record<string, IdentityResult>> = {};
 let compilerTypes: TypecheckResult | undefined;
+let compilerMetroTypes: TypecheckResult | undefined;
 let migrationsTypes: TypecheckResult | undefined;
 let cliTypes: TypecheckResult | undefined;
 let installedCli: CommandResult | undefined;
@@ -526,6 +545,11 @@ beforeAll(() => {
     'tsconfig.fixture.json',
     'compiler',
   );
+  compilerMetroTypes = typecheckCopied(
+    compilerTypes.directory,
+    'tsconfig.metro.json',
+    'fixtures/consumer-compiler/tsconfig.metro.json',
+  );
   migrationsTypes = copyAndTypecheck(
     fixture,
     fixture.migrationsApp,
@@ -542,6 +566,7 @@ beforeAll(() => {
   );
 
   const compilerProject = compilerTypes.directory;
+  const compilerModel = join(compilerProject, 'src', 'model.ts');
   compilerSmoke = runNode(fixture.compilerApp, [
     `--import=${HOOK}`,
     '--input-type=module',
@@ -549,13 +574,25 @@ beforeAll(() => {
     `const { compileProject, writeCompileResult } = await import('@zmdb/compiler');
 const result = await compileProject({
   project: ${JSON.stringify(join(compilerProject, 'tsconfig.fixture.json'))},
-  files: [${JSON.stringify(join(compilerProject, 'src', 'model.ts'))}],
+  files: [${JSON.stringify(compilerModel)}],
 });
-const written = await writeCompileResult(result, { check: true });
+const checked = await writeCompileResult(result, { check: true });
+const materialized = await writeCompileResult(result);
+const recompiled = await compileProject({
+  project: ${JSON.stringify(join(compilerProject, 'tsconfig.fixture.json'))},
+  files: [${JSON.stringify(compilerModel)}],
+});
+const rechecked = await writeCompileResult(recompiled, { check: true });
+const model = await import(${JSON.stringify(pathToFileURL(compilerModel).href)});
 process.stdout.write(JSON.stringify({
   files: result.files.length,
+  artifacts: result.artifacts.length,
   diagnostics: result.diagnostics.length,
-  stale: written.stale.length,
+  initialStale: checked.stale.length,
+  written: materialized.written.length,
+  recheckStale: rechecked.stale.length,
+  good: model.acceptsCompilerFixtureUser({ id: 1, email: 'user@example.com' }),
+  bad: model.acceptsCompilerFixtureUser({ id: '1', email: 'user@example.com' }),
 }));
 `,
   ]);
@@ -662,7 +699,7 @@ describe('standalone tooling package fixtures (#627)', () => {
       Object.keys(
         readJson<PackageManifest>(join(FIXTURES, 'consumer-compiler', 'package.json')).dependencies ?? {},
       ).toSorted(),
-    ).toEqual(['@zmdb/compiler', '@zmdb/schema-core', 'typescript']);
+    ).toEqual(['@zmdb/aot-validator', '@zmdb/compiler', '@zmdb/schema-core', 'typescript']);
     expect(
       Object.keys(
         readJson<PackageManifest>(join(FIXTURES, 'consumer-migrations', 'package.json')).dependencies ?? {},
@@ -706,7 +743,7 @@ describe('standalone tooling package fixtures (#627)', () => {
     }
   });
 
-  it.fails('imports every @zmdb/compiler subpath from a packed standalone installation', () => {
+  it('loads direct codegen, unplugin, Metro and lint subpaths from the packed package', () => {
     const owner = targetPackedPackage(packedFixture(), '@zmdb/compiler');
     expect(owner).toBeDefined();
     expect.soft(owner?.manifest.name).toBe('@zmdb/compiler');
@@ -719,13 +756,23 @@ describe('standalone tooling package fixtures (#627)', () => {
     expect.soft(compilerImports['@zmdb/compiler']?.keys).toContain('compileProject');
     expect.soft(compilerImports['@zmdb/compiler']?.keys).toContain('writeCompileResult');
     expect.soft(compilerTypes?.status, compilerTypes?.stderr || compilerTypes?.stdout).toBe(0);
+    expect.soft(compilerMetroTypes?.status, compilerMetroTypes?.stderr || compilerMetroTypes?.stdout).toBe(0);
     expect.soft(productIdentities['compiler']).toEqual({ ok: true, same: true });
     expect.soft(productIdentities['config']).toEqual({ ok: true, same: true });
     expect.soft(compilerSmoke, compilerSmoke?.stderr || compilerSmoke?.stdout).toMatchObject({
       status: 0,
       stderr: '',
     });
-    expect.soft(compilerSmoke?.stdout).toMatch(/"diagnostics":0/);
+    expect.soft(JSON.parse(compilerSmoke?.stdout ?? '{}')).toEqual({
+      files: 1,
+      artifacts: 1,
+      diagnostics: 0,
+      initialStale: 4,
+      written: 4,
+      recheckStale: 0,
+      good: true,
+      bad: false,
+    });
   });
 
   it('runs embedded migrations from a packed package with no filesystem or formatter reachability', () => {
@@ -811,30 +858,40 @@ describe('standalone tooling package fixtures (#627)', () => {
 });
 
 describe('tooling isolation and removal boundaries (#627)', () => {
-  it.fails('generates runtime code that imports @zmdb/validator and never @zmdb/compiler', () => {
+  it('generates no import of @zmdb/compiler in application runtime output', () => {
     const analysis = analyseTooling();
-    expect.soft(analysis.generatedViolations).toEqual([]);
+    expect
+      .soft(
+        analysis.generatedViolations.filter(violation => /^@zmdb\/compiler(?:\/|$)/.test(violation.specifier ?? '')),
+      )
+      .toEqual([]);
 
     const runtimeImports = GENERATED_ARTIFACTS.filter(path => path.endsWith('.js')).flatMap(path => {
       const source = readFileSync(join(ROOT, path), 'utf8');
       return [...source.matchAll(/(?:from\s+|import\s*\(\s*)['"]([^'"]+)['"]/g)].map(match => match[1] ?? '');
     });
-    expect.soft(runtimeImports.some(specifier => specifier === '@zmdb/validator')).toBe(true);
+    expect
+      .soft(runtimeImports.some(specifier => /^@zmdb\/(?:aot-validator|protobuf)(?:\/|$)/.test(specifier)))
+      .toBe(true);
     expect.soft(runtimeImports.some(specifier => /^@zmdb\/compiler(?:\/|$)/.test(specifier))).toBe(false);
+
+    const aot = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
+    expect(normalizeBins(aot)).toEqual({});
+    for (const subpath of RETIRED_AOT_TOOLING_EXPORTS) {
+      expect.soft(aot.exports, `@zmdb/aot-validator ${subpath}`).not.toHaveProperty(subpath);
+    }
   });
 
-  it.fails('keeps every runtime root unreachable from TypeScript, oxfmt, CLI, REPL, Studio and scaffolding', () => {
+  it('keeps every runtime root unreachable from TypeScript, oxfmt, CLI, REPL, Studio and scaffolding', () => {
     expect(analyseTooling().runtimeViolations).toEqual([]);
   });
 
-  it.fails('does not publish zmdb-codegen or old tooling-owned subpaths', () => {
-    const aot = readJson<PackageManifest>(join(PACKAGES, 'aot-validator', 'package.json'));
+  it.fails('moves the remaining migration and CLI surfaces to their target owners', () => {
     const query = readJson<PackageManifest>(join(PACKAGES, 'query-compiler', 'package.json'));
     const product = readJson<PackageManifest>(join(PACKAGES, 'zmdb', 'package.json'));
     const cliDirectory = join(PACKAGES, 'cli', 'package.json');
     const cli = existsSync(cliDirectory) ? readJson<PackageManifest>(cliDirectory) : undefined;
 
-    expect.soft(normalizeBins(aot)).not.toHaveProperty('zmdb-codegen');
     expect.soft(normalizeBins(product)).not.toHaveProperty('zmdb');
     expect.soft(cli?.name).toBe(TARGET_TOOLING_BIN.packageName);
     expect.soft(normalizeBins(cli ?? {})).toEqual({ [TARGET_TOOLING_BIN.command]: './src/bin.ts' });
@@ -845,19 +902,6 @@ describe('tooling isolation and removal boundaries (#627)', () => {
       }
     }
 
-    for (const subpath of [
-      './codegen',
-      './emit',
-      './lint',
-      './metro',
-      './plugin',
-      './reflect',
-      './testing',
-      './transformer',
-      './unplugin',
-    ]) {
-      expect.soft(aot.exports, `@zmdb/aot-validator ${subpath}`).not.toHaveProperty(subpath);
-    }
     for (const subpath of ['./introspect', './migrations', './migrations/embedded', './migrations/runner']) {
       expect.soft(query.exports, `@zmdb/query-compiler ${subpath}`).not.toHaveProperty(subpath);
     }

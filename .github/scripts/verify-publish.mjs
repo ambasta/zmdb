@@ -574,7 +574,7 @@ if (studioBin === undefined) {
 }
 
 // 5. Typecheck a consumer against the published declarations.
-const METRO_SUBPATH = '@zmdb/aot-validator/metro';
+const METRO_SUBPATH = '@zmdb/compiler/metro';
 const PRODUCT_COMPILER_SUBPATH = 'zmdb/compiler';
 const BROWSER_FRAMEWORK_PACKAGES = ['@zmdb/svelte', '@zmdb/sveltekit', '@zmdb/vue'];
 const browserSpecifiers = specifiers.filter(specifier =>

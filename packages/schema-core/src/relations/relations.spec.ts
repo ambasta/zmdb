@@ -1,5 +1,5 @@
-import type { ReflectDiagnostic } from '@zmdb/aot-validator/reflect';
-import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
+import type { ReflectDiagnostic } from '@zmdb/compiler/reflect';
+import { schemaIrsFrom } from '@zmdb/compiler/testing';
 import type { HasDefault, PrimaryKey, References, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 

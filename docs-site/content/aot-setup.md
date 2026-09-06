@@ -1,4 +1,4 @@
-AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime parsing overhead. The validator transforms the full and depth-limited `is`/`assert`/`validate` families into
+AOT (ahead-of-time) validation inlines type checks at build time, eliminating runtime parsing overhead. `@zmdb/compiler` transforms the full and depth-limited `is`/`assert`/`validate` families into
 direct JavaScript checks — no Zod-style runtime parsers, no reflection.
 
 ## Why AOT?
@@ -29,8 +29,8 @@ export default defineConfig({
 });
 ```
 
-The product compiler entry discovers `zmdb.config.ts`, including its project and naming strategy. Tooling that owns config loading can instead use the synchronous low-level
-`@zmdb/aot-validator/unplugin` entry and pass `project` and `naming` explicitly. The old `zmdb/unplugin` spelling remains a compatibility alias.
+The product compiler entry discovers `zmdb.config.ts`, including its project and naming strategy. Tooling that owns config loading can instead use the synchronous low-level `@zmdb/compiler/unplugin`
+entry and pass `project` and `naming` explicitly. The old `zmdb/unplugin` spelling remains a compatibility alias.
 
 ## Metro for React Native and Expo
 
@@ -40,7 +40,7 @@ Metro uses a Babel-transformer seam rather than an unplugin. Wrap the default co
 // Bare React Native: require('@react-native/metro-config')
 // Expo: require('expo/metro-config')
 const { getDefaultConfig } = require('expo/metro-config');
-const { withZmdb } = require('@zmdb/aot-validator/metro');
+const { withZmdb } = require('@zmdb/compiler/metro');
 
 module.exports = withZmdb(getDefaultConfig(__dirname));
 ```
@@ -49,22 +49,22 @@ The supported range is Metro `>=0.87.0 <0.88.0`. `withZmdb` keeps Expo's or the 
 [React Native Client](./client-react-native.html) for generated-client lifecycle and [React Native & Expo](./connect-react-native.html) for the bare-RN form, embedded SQLite boundary, worker-memory
 tuning, the cache key, and the one dev-server case that needs a reset.
 
-## ts-patch Alternative
+## Direct compiler integration
 
-For TypeScript project references or direct ts-patch usage:
+Tools that already own a TypeScript project can call the shared transform directly:
 
-```json
-{
-  "compilerOptions": {
-    "plugins": [{ "transform": "@zmdb/aot-validator/plugin", "type": "program" }]
-  }
-}
+```ts
+import { ReflectSession } from '@zmdb/compiler/reflect';
+import { transformFile } from '@zmdb/compiler/transform';
+
+using session = ReflectSession.open({ project: '/workspace/app/tsconfig.json' });
+const result = transformFile('/workspace/app/src/orders.ts', source, { session });
 ```
 
 ## Prove the transform is installed
 
-No lint rule can prove that a transform runs. A project may wire zmdb through Vite, esbuild, Webpack, Rollup, Metro, ts-patch or `zmdb-codegen`, and a linter looking at one source file cannot
-distinguish those working configurations from a missing one without false positives.
+No lint rule can prove that a transform runs. A project may wire zmdb through Vite, esbuild, Webpack, Rollup, Metro, direct project compilation, or another compiler host, and a linter looking at one
+source file cannot distinguish those working configurations from a missing one without false positives.
 
 Add a build-path smoke test instead:
 
@@ -84,8 +84,8 @@ precise from syntax alone.
 
 The transformer recognizes these seventeen generic entry points:
 
-`toolFor<T>()` is imported from `@zmdb/ai`; install it with `npm add @zmdb/ai@alpha`. The five protobuf/gRPC entries are imported from `@zmdb/protobuf`; `@zmdb/aot-validator` remains their compiler
-and does not re-export either package.
+`toolFor<T>()` is imported from `@zmdb/ai`; install it with `npm add @zmdb/ai@alpha`. The five protobuf/gRPC entries are imported from `@zmdb/protobuf`; `@zmdb/compiler` compiles them and does not
+re-export either package.
 
 | Function                            | Emits                                       |
 | ----------------------------------- | ------------------------------------------- |
@@ -171,7 +171,7 @@ const ok = is(payload, userTypeIr);
 ```
 
 The generic `schemaOf<T>()`, `toJsonSchema<T>()` and protobuf calls are compile-time-only surfaces. `toJsonSchema(schema, variant)` remains available when the caller already has a runtime schema. Use
-the build plugin or `zmdb-codegen` for the generic forms.
+the build plugin or [project compiler](./cli-codegen.html) for the generic forms.
 
 ## Cross-links
 

@@ -5,7 +5,7 @@
 // `.type-test.ts` compilation gates. They had a copy each, which is how a "typed
 // reads" schema and a "typed writes" schema end up quietly disagreeing about
 // whether `role` has a default, and with it whether it is optional on create.
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 import { BaseRepository, type Driver } from '../index.js';

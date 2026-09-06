@@ -30,9 +30,9 @@ config.schemaFiles; // absolute files, expanded eagerly
 config.outDir; // absolute migration output directory
 ```
 
-The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, `client generate`, and `studio` commands consume this loader. `zmdb-codegen` and
-`zmdb/unplugin` use the same resolved project and naming strategy. `zmdb new project` emits this public import and a build adapter that delegates discovery to `zmdb/unplugin`; the generated runtime
-entry never imports the loader. `up` is deliberately refused because it is ambiguous between migration application and snapshot upgrade.
+The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, `client generate`, and `studio` commands consume this loader. Direct `@zmdb/compiler`
+project compilation and `zmdb/unplugin` use the same resolved project and naming strategy. `zmdb new project` emits this public import and a build adapter that delegates discovery to `zmdb/unplugin`;
+the generated runtime entry never imports the loader. `up` is deliberately refused because it is ambiguous between migration application and snapshot upgrade.
 
 ## The resolved path is observable
 
@@ -48,25 +48,25 @@ Under `--json`, the same path is the top-level `config` value. An explicit `--co
 
 ## Fields
 
-| Field               | Type                                  | Default            | Resolution                            |
-| ------------------- | ------------------------------------- | ------------------ | ------------------------------------- |
-| `schema`            | `string \| readonly string[]`         | required           | globs relative to the config file     |
-| `dialect`           | `Dialect`                             | required           | six current SQL dialects              |
-| `project`           | `string`                              | `./tsconfig.json`  | relative to the config file           |
-| `out`               | `string`                              | `./migrations`     | relative to the config file           |
-| `naming`            | `'snake_case' \| 'snake_case_plural'` | absent             | resolved once for reflection          |
-| `namingStrategy`    | `NamingStrategy`                      | absent             | custom strategy; wins over `naming`   |
-| `driver`            | `() => Driver \| Promise<Driver>`     | absent             | callable boundary, checked separately |
-| `migrations.table`  | `string`                              | `_zmdb_migrations` | —                                     |
-| `migrations.schema` | `string`                              | dialect default    | PostgreSQL family only                |
-| `introspect`        | `{ schemas?, include?, exclude? }`    | command-specific   | names/globs, not filesystem paths     |
-| `http.contracts`    | `string \| readonly string[]`         | absent             | `<path>#<export>` from the project    |
-| `http.openApi.out`  | `string`                              | required with HTTP | generated `.json`, relative to config |
-| `http.client.out`   | `string`                              | required with HTTP | generated `.ts`, relative to config   |
+| Field               | Type                                            | Default            | Resolution                                       |
+| ------------------- | ----------------------------------------------- | ------------------ | ------------------------------------------------ |
+| `schema`            | `string \| readonly string[]`                   | required           | globs relative to the config file                |
+| `dialect`           | `Dialect`                                       | required           | six current SQL dialects                         |
+| `project`           | `string`                                        | `./tsconfig.json`  | relative to the config file                      |
+| `out`               | `string`                                        | `./migrations`     | relative to the config file                      |
+| `naming`            | `'snake_case' \| 'snake_case_plural'`           | absent             | resolved once for reflection                     |
+| `namingStrategy`    | `NamingStrategy`                                | absent             | custom strategy; wins over `naming`              |
+| `driver`            | `() => ToolingDriver \| Promise<ToolingDriver>` | absent             | structural callable boundary, checked separately |
+| `migrations.table`  | `string`                                        | `_zmdb_migrations` | —                                                |
+| `migrations.schema` | `string`                                        | dialect default    | PostgreSQL family only                           |
+| `introspect`        | `{ schemas?, include?, exclude? }`              | command-specific   | names/globs, not filesystem paths                |
+| `http.contracts`    | `string \| readonly string[]`                   | absent             | `<path>#<export>` from the project               |
+| `http.openApi.out`  | `string`                                        | required with HTTP | generated `.json`, relative to config            |
+| `http.client.out`   | `string`                                        | required with HTTP | generated `.ts`, relative to config              |
 
 `loadConfig` also returns `resolvedNaming`: the selected built-in singleton, the custom `namingStrategy` by identity, or an empty identity strategy. Every database command passes that object into
-schema reflection. `zmdb-codegen` and `zmdb/compiler` discover the same config and pass the same value to the lower-level AOT APIs; the committed consumer fixtures exercise both routes against
-byte-identical config files. `zmdb/unplugin` remains a compatibility spelling for the same configured plugin.
+schema reflection. `@zmdb/compiler` project compilation and `zmdb/unplugin` discover the same config and pass the same value to the compiler APIs; the committed consumer fixtures exercise both routes
+against byte-identical config files.
 
 Every glob must match at least one file, and every matched file must belong to the configured TypeScript project. A match outside the project is an error rather than a silently omitted table.
 
