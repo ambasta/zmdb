@@ -342,6 +342,7 @@ const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
       'packages/web/src/contract/compiler/index.ts',
       'packages/web/src/contract/index.ts',
       'packages/web/src/data/index.ts',
+      'packages/web/src/routing/index.ts',
       'packages/zmdb/src/ir.ts',
       'packages/zmdb/src/schema.ts',
       'packages/zmdb/src/studio/index.ts',
