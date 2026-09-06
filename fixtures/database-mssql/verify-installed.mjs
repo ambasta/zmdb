@@ -11,7 +11,7 @@ import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURE = join(ROOT, 'fixtures', 'database-mssql');
 const PACKAGES = join(ROOT, 'packages');
-const ROOTS = ['@zmdb/mssql', '@zmdb/sql', '@zmdb/orm'];
+const ROOTS = ['@zmdb/migrations', '@zmdb/mssql', '@zmdb/sql', '@zmdb/orm'];
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, { encoding: 'utf8', ...options });
