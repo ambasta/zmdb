@@ -37,7 +37,8 @@ Two more verbs are frozen further down and are not about the schema at all: `new
 fifteen visible commands in three groups: ten read or write a database or the tree that describes it, three scaffold, generate, or view developer artifacts, and two describe or inhabit an
 application's object graph.
 
-`embed` is the twelfth and the newest; it is in the first group because it reads the migration files, though it is the only verb in it that neither connects nor writes into the schema tree. Its output is a module an application bundle imports, and the format belongs to `@zmdb/migrations` — see §4.1.
+`embed` is the twelfth and the newest; it is in the first group because it reads the migration files, though it is the only verb in it that neither connects nor writes into the schema tree. Its output
+is a module an application bundle imports, and the format belongs to `@zmdb/migrations` — see §4.1.
 
 ## 2. Argument parsing and exit codes are already decided
 
