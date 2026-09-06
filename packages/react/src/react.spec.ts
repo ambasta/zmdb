@@ -1,5 +1,5 @@
 import { createZmdbReact } from '@zmdb/react';
-import type { MutationState, QueryState } from '@zmdb/react';
+import type { MutationState, QueryState, ZmdbReactRequestKind, ZmdbReactRequestLifecycle } from '@zmdb/react';
 import { StrictMode, createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { act, create } from 'react-test-renderer';
@@ -229,6 +229,45 @@ describe('@zmdb/react native lifecycle', () => {
       await Promise.resolve();
     });
     expect(query?.data).toBe('second');
+    await unmount(selected);
+  });
+
+  it('provider lifecycle control aborts actual requests without publishing a query error', async () => {
+    const react = createZmdbReact<object>('NativeAccounts');
+    const registered: { readonly controller: AbortController; readonly kind: ZmdbReactRequestKind }[] = [];
+    const lifecycle: ZmdbReactRequestLifecycle = {
+      register(kind, controller) {
+        registered.push({ controller, kind });
+      },
+    };
+    const requests: Pending<string>[] = [];
+    let query: QueryState<string> | undefined;
+    let renderer: ReactTestRenderer | undefined;
+
+    function Probe() {
+      query = react.useZmdbQuery((_client, signal) => held(signal, requests), []);
+      return null;
+    }
+
+    await runAct(() => {
+      renderer = createRenderer(
+        createElement(react.ZmdbClientProvider, { client: {}, requestLifecycle: lifecycle }, createElement(Probe)),
+      );
+    });
+    expect(registered.map(request => request.kind)).toEqual(['query']);
+    expect(registered[0]?.controller.signal).toBe(requests[0]?.signal);
+
+    const reason = new Error('native owner moved to the background');
+    await runAct(async () => {
+      registered[0]?.controller.abort(reason);
+      await Promise.resolve();
+    });
+
+    expect(query?.loading).toBe(false);
+    expect(query?.error).toBeUndefined();
+    expect(query?.data).toBeUndefined();
+    const selected = renderer;
+    if (selected === undefined) throw new Error('provider-lifecycle renderer did not mount');
     await unmount(selected);
   });
 

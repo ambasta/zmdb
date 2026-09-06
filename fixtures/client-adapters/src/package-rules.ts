@@ -253,9 +253,10 @@ export function probeAdapterImports(root: string, expectation: AdapterPackageExp
   const requiredPeers = Object.keys(expectation.peerDependencies)
     .filter(name => !expectation.optionalPeers.includes(name))
     .toSorted();
+  const importProbePeers = expectation.importProbePeers ?? requiredPeers;
   const allowedGlobals = expectation.allowedImportGlobals ?? [];
   if (expectation.name !== '@zmdb/next') {
-    const result = runImportProbe(root, specifiers, requiredPeers, allowedGlobals);
+    const result = runImportProbe(root, specifiers, importProbePeers, allowedGlobals);
     return {
       status: result.status ?? 1,
       stdout: commandOutput(result.stdout),
@@ -264,7 +265,7 @@ export function probeAdapterImports(root: string, expectation: AdapterPackageExp
   }
 
   const clientSpecifiers = specifiers.filter(specifier => specifier !== '@zmdb/next/server');
-  const client = runImportProbe(root, clientSpecifiers, requiredPeers, allowedGlobals);
+  const client = runImportProbe(root, clientSpecifiers, importProbePeers, allowedGlobals);
   const server = runImportProbe(root, ['@zmdb/next/server'], [], allowedGlobals, ['react-server']);
   const guarded = spawnSync(
     process.execPath,

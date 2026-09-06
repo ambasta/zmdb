@@ -1,5 +1,11 @@
 import { createZmdbReact } from '@zmdb/react';
-import type { MutationState, QueryState, ZmdbReactBindings } from '@zmdb/react';
+import type {
+  MutationState,
+  QueryState,
+  ZmdbClientProviderProps,
+  ZmdbReactBindings,
+  ZmdbReactRequestLifecycle,
+} from '@zmdb/react';
 
 interface Widget {
   readonly id: string;
@@ -15,6 +21,22 @@ interface GeneratedClient {
 }
 
 const bindings = createZmdbReact<GeneratedClient>('Widgets');
+const generatedClient: GeneratedClient = {
+  getWidget: input => Promise.resolve({ id: input.id, name: 'Widget' }),
+  renameWidget: input => Promise.resolve(input),
+};
+
+const requestLifecycle: ZmdbReactRequestLifecycle = {
+  register(kind, controller) {
+    kind satisfies 'mutation' | 'query';
+    controller satisfies AbortController;
+  },
+};
+
+const providerProps = {
+  client: generatedClient,
+  requestLifecycle,
+} satisfies ZmdbClientProviderProps<GeneratedClient>;
 
 function inference(react: ZmdbReactBindings<GeneratedClient>): void {
   const client = react.useZmdbClient();
@@ -36,4 +58,5 @@ function inference(react: ZmdbReactBindings<GeneratedClient>): void {
 }
 
 bindings satisfies ZmdbReactBindings<GeneratedClient>;
+void providerProps;
 void inference;

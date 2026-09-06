@@ -12,9 +12,9 @@ Issue #688, parent #687. This is the architecture contract for the optional UI a
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-This file originally froze all nine packages before implementation. Issues #691–#695, #697, and #698 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/next`,
-and `@zmdb/nuxt`; the other two remain implementation targets. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request
-transport, wire format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issues #691–#698 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`,
+`@zmdb/next`, and `@zmdb/nuxt`; only `@zmdb/sveltekit` remains an implementation target. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The
+generated client, request transport, wire format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
 
 ## 0. Measured starting point
 
@@ -24,7 +24,8 @@ Measured on 2026-09-05 at `cd75aed4`:
   contract and `packages/web/src/contract/SPEC.md` remain authoritative; this tests freeze adds no surface to either.
 - The repository has no published framework-client adapter package. Issue #689 adds only the private `fixtures/client-adapters` conformance workspace.
 - `docs-site/content/framework-integrations.md` documents one- or two-line server framework wrappers over `makeEndpoint`. Those remain recipes, not packages.
-- React Native support currently consists of the `@zmdb/aot-validator/metro` transform and structural SQLite driver examples. There is no client-state adapter.
+- At the original baseline, React Native support consisted of the `@zmdb/aot-validator/metro` transform and structural SQLite driver examples. Issue #696 adds the separate generated-client lifecycle
+  adapter without changing those build and database boundaries.
 - The committed Metro fixture runs Metro 0.87, preserves an existing Babel transformer and proves the AOT transform. `@zmdb/aot-validator` records `>=0.87.0 <0.88.0` as its supported Metro line.
 - The Next.js guide currently calls repositories directly from server components, route handlers and server actions. It documents no generated HTTP client or client-state adapter.
 - The architecture and publication gates know about the existing packages, but no rule can validate packages that do not exist. The dependency rules below therefore need executable missing-package
@@ -39,16 +40,20 @@ mutation stores, final-subscriber and `onDestroy` cancellation, stale-result gua
 and source-change cancellation, stale-result guards, and native Suspense/error propagation. Their public APIs and qualification evidence are normative in
 [`packages/svelte/SPEC.md`](../../../svelte/SPEC.md) and [`packages/solid/SPEC.md`](../../../solid/SPEC.md).
 
+`@zmdb/react-native` reuses React's query and mutation state machines while adding provider-owned AppState subscriptions, background cancellation/foreground-refresh policy, pre-dispatch connectivity
+policy, and exact application-injected credential storage.
+
 `@zmdb/next` implements the first meta-framework row through physically separate browser and server exports, React binding reuse, request-scoped credential forwarding, request-local RSC memoization,
 and explicit Next fetch policy.
 
 `@zmdb/nuxt` implements the Vue meta-framework row through a root Nuxt module, physically separate client and server exports, request-scoped Nitro local fetch, allow-listed incoming credentials,
 stable serializable hydration keys, and native `useAsyncData` payload reuse.
 
-The shared generated-client conformance suite now executes all seven landed rows as ordinary passing tests. The remaining two adapter rows retain executable missing-package expected failures until
-their own implementation issues land. The Svelte and Solid packed fixtures install real client and adapter tarballs, exercise browser and server conditions, check public inference, and prove
-request-isolated server ownership. The Next packed fixture builds and runs a real App Router application, checks the server-only boundary, and inspects browser output for server credentials and server
-package code. The Nuxt packed fixture builds the real module, renders concurrent SSR requests with isolated credentials, observes native payload reuse, and exercises the browser plugin.
+The shared generated-client conformance suite now executes all eight landed rows as ordinary passing tests. The remaining SvelteKit row retains executable missing-package expected failures until its
+implementation issue lands. The Svelte and Solid packed fixtures install real client and adapter tarballs, exercise browser and server conditions, check public inference, and prove request-isolated
+server ownership. The Next packed fixture builds and runs a real App Router application, checks the server-only boundary, and inspects browser output for server credentials and server package code.
+The React Native packed fixture installs real client, React, and native-adapter tarballs and executes both common lifecycle and native AppState/connectivity cases. The Nuxt packed fixture builds the
+real module, renders concurrent SSR requests with isolated credentials, observes native payload reuse, and exercises the browser plugin.
 
 ## 1. Ownership boundary
 
@@ -155,8 +160,9 @@ Recipes are still supported documentation. They simply do not create another pac
 | `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
 | `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
-This table is a design qualification, not a blanket support claim. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/next`, and `@zmdb/nuxt` have earned their rows
-through native and packed qualification fixtures in #691–#695, #697, and #698; each remaining row stays conditional on its implementation and packed qualification evidence.
+This table is a design qualification, not a blanket support claim. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, and `@zmdb/nuxt` have
+earned their rows through native, shared-conformance, packed-consumer, and bundle qualification in #691–#698; the remaining SvelteKit row stays conditional on its implementation and packed
+qualification evidence.
 
 ## 3. Common query and mutation semantics
 
@@ -255,9 +261,8 @@ errors and navigation cancellations remain the framework's original objects.
 Framework runtimes are required peer dependencies, not bundled dependencies and not optional peers. The exact version used by each packed fixture is a dev dependency of that fixture. Peer ranges cover
 the measured current stable line only; this repository does not promise old-major compatibility.
 
-`@types/react` is an optional peer only when a package's own emitted declarations import React types and an exact fixture dev dependency. The implemented `@zmdb/next/client` declaration was measured
-after build: it re-exports from its direct `@zmdb/react` dependency and contains no direct `react` import. `@zmdb/next` therefore keeps `@types/react` as an exact dev/fixture dependency rather than
-duplicating its base adapter's type ownership as another peer.
+`@types/react` is exact fixture development evidence for the shipped React, React Native, and Next adapters, not a production peer. The implemented packages keep it as an exact dev dependency rather
+than duplicating React's runtime peer or type ownership.
 
 | Peer package    | Exact fixture version | Frozen peer range  |
 | --------------- | --------------------- | ------------------ |
@@ -282,17 +287,17 @@ warning as compatibility evidence.
 
 Every package is ESM-only, has `sideEffects: false`, performs no global registration at import time and follows the repository's source-export/build-repoint convention.
 
-| Package              | Workspace dependencies         | Required framework peers                      | Public exports              |
-| -------------------- | ------------------------------ | --------------------------------------------- | --------------------------- |
-| `@zmdb/react`        | `@zmdb/client`                 | `react`; optional `@types/react`              | `.`                         |
-| `@zmdb/angular`      | none                           | `@angular/core`, `rxjs`                       | `.`                         |
-| `@zmdb/vue`          | `@zmdb/client`                 | `vue`                                         | `.`                         |
-| `@zmdb/svelte`       | `@zmdb/client`                 | `svelte`                                      | `.`                         |
-| `@zmdb/solid`        | `@zmdb/client`                 | `solid-js`                                    | `.`                         |
-| `@zmdb/react-native` | `@zmdb/client`, `@zmdb/react`  | `react`, `react-native`; optional React types | `.`                         |
-| `@zmdb/next`         | `@zmdb/client`, `@zmdb/react`  | `next`, `react`, `react-dom`                  | `./client`, `./server`      |
-| `@zmdb/nuxt`         | `@zmdb/client`, `@zmdb/vue`    | `nuxt`, `vue`                                 | `.`, `./client`, `./server` |
-| `@zmdb/sveltekit`    | `@zmdb/client`, `@zmdb/svelte` | `@sveltejs/kit`, `svelte`                     | `./client`, `./server`      |
+| Package              | Workspace dependencies         | Required framework peers     | Public exports              |
+| -------------------- | ------------------------------ | ---------------------------- | --------------------------- |
+| `@zmdb/react`        | `@zmdb/client`                 | `react`                      | `.`                         |
+| `@zmdb/angular`      | none                           | `@angular/core`, `rxjs`      | `.`                         |
+| `@zmdb/vue`          | `@zmdb/client`                 | `vue`                        | `.`                         |
+| `@zmdb/svelte`       | `@zmdb/client`                 | `svelte`                     | `.`                         |
+| `@zmdb/solid`        | `@zmdb/client`                 | `solid-js`                   | `.`                         |
+| `@zmdb/react-native` | `@zmdb/client`, `@zmdb/react`  | `react`, `react-native`      | `.`                         |
+| `@zmdb/next`         | `@zmdb/client`, `@zmdb/react`  | `next`, `react`, `react-dom` | `./client`, `./server`      |
+| `@zmdb/nuxt`         | `@zmdb/client`, `@zmdb/vue`    | `nuxt`, `vue`                | `.`, `./client`, `./server` |
+| `@zmdb/sveltekit`    | `@zmdb/client`, `@zmdb/svelte` | `@sveltejs/kit`, `svelte`    | `./client`, `./server`      |
 
 The dependency arrows are:
 
@@ -388,7 +393,9 @@ changes use the latest input and suppress earlier completion. Issue #695 impleme
 The package reuses `@zmdb/react` bindings rather than copying hooks. It accepts structural connectivity and credential-store ports supplied by the application. Offline refusal happens before dispatch.
 Foreground refresh is opt-in. Background behaviour is an explicit policy: abort active queries, leave them running, or abort and mark them refreshable; there is no hidden default retry.
 
-The packed fixture must traverse the existing Metro transform and prove that no Node built-in, server export or credential implementation reaches the device bundle.
+Issue qualification combines a packed native lifecycle consumer with a real Metro bundle. The packed consumer installs built tarballs and executes common generated-client semantics plus AppState,
+foreground-refresh, offline-refusal, and credential-identity cases. The Metro witness proves that no Node built-in, server export or credential implementation reaches the device bundle. Issue #696
+implements this contract in `@zmdb/react-native`; the AOT transform remains `@zmdb/aot-validator/metro` rather than becoming a second package-owned transform.
 
 ### 6.7 Next
 

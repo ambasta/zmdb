@@ -32,6 +32,7 @@ import {
   createNextConformanceBinding,
   createNuxtConformanceBinding,
   createReactConformanceBinding,
+  createReactNativeConformanceBinding,
   createSvelteAdapterConformanceBinding,
   createVueConformanceBinding,
   privateHarnessProductionLeaks,
@@ -116,6 +117,7 @@ function registerExecutableAdapterContract(
 const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(
   expectation =>
     expectation.name !== '@zmdb/react' &&
+    expectation.name !== '@zmdb/react-native' &&
     expectation.name !== '@zmdb/angular' &&
     expectation.name !== '@zmdb/vue' &&
     expectation.name !== '@zmdb/svelte' &&
@@ -337,6 +339,10 @@ describe.each(Object.values(FRAMEWORK_LIFECYCLES))('the real $name lifecycle fix
 
 describe('@zmdb/react executable adapter contract', () => {
   registerExecutableAdapterContract(it, createReactConformanceBinding<ApiClient>());
+});
+
+describe('@zmdb/react-native executable adapter contract', () => {
+  registerExecutableAdapterContract(it, createReactNativeConformanceBinding<ApiClient>());
 });
 
 describe('@zmdb/angular executable adapter contract', () => {

@@ -20,7 +20,7 @@ Each factory invocation creates one React context and returns:
 
 ```ts
 export interface ZmdbReactBindings<Client extends object> {
-  ZmdbClientProvider(props: { readonly client: Client; readonly children?: ReactNode }): ReactElement;
+  ZmdbClientProvider(props: { readonly client: Client; readonly children?: ReactNode; readonly requestLifecycle?: ZmdbReactRequestLifecycle }): ReactElement;
   useZmdbClient(): Client;
   useZmdbQuery<Output>(load: (client: Client, signal: AbortSignal) => PromiseLike<Output>, dependencies: DependencyList): QueryState<Output>;
   useZmdbMutation<Input, Output>(run: (client: Client, input: Input, signal: AbortSignal) => PromiseLike<Output>): MutationState<Input, Output>;
@@ -29,6 +29,9 @@ export interface ZmdbReactBindings<Client extends object> {
 
 The generic client type is preserved from provider to callback without a consumer assertion. Creating the binding or rendering only the provider performs no request. `useZmdbClient` outside the
 matching provider throws an adapter-owned error naming `bindingName` and the missing provider.
+
+`requestLifecycle` is a per-provider environment-adapter seam. It observes the fresh controller owned by each real query or mutation and may return an idempotent unregister callback. Registration
+performs no request and does not replace React's state machine. Official environment adapters such as `@zmdb/react-native` use it to apply platform lifecycle policy to the actual hook-owned signal.
 
 ## 3. Query lifecycle
 

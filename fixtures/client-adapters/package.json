@@ -7,6 +7,7 @@
     "@zmdb/next": "workspace:^",
     "@zmdb/nuxt": "workspace:^",
     "@zmdb/react": "workspace:^",
+    "@zmdb/react-native": "workspace:^",
     "@zmdb/solid": "workspace:^",
     "@zmdb/svelte": "workspace:^",
     "@zmdb/vue": "workspace:^"
@@ -21,6 +22,7 @@
     "nuxt": "4.5.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-native": "0.87.1",
     "react-test-renderer": "19.2.8",
     "rolldown": "1.2.2",
     "rxjs": "7.8.2",

@@ -40,6 +40,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/protobuf           | 1.0.0-alpha.4 | protobuf        | integration: Protocol Buffers                  | `npm add @zmdb/protobuf@1.0.0-alpha.4`           | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                           | protobuf-message             |
 | @zmdb/query-compiler     | 1.0.0-alpha.4 | sql             | required                                       | `npm add zmdb@1.0.0-alpha.4`                     | SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.                                                                                     | raw-sql                      |
 | @zmdb/react              | 1.0.0-alpha.4 | react           | integration: React                             | `npm add @zmdb/react@1.0.0-alpha.4`              | React context, query, and mutation lifecycle bindings for generated zmdb clients.                                                                                                                                       | framework-integrations       |
+| @zmdb/react-native       | 1.0.0-alpha.4 | react-native    | integration: React Native                      | `npm add @zmdb/react-native@1.0.0-alpha.4`       | React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.                                                                                                                          | connect-react-native         |
 | @zmdb/repository         | 1.0.0-alpha.4 | orm             | required                                       | `npm add zmdb@1.0.0-alpha.4`                     | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.                                              | repository                   |
 | @zmdb/schema-core        | 1.0.0-alpha.4 | schema          | required                                       | `npm add zmdb@1.0.0-alpha.4`                     | Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.                                                    | schema-declaration           |
 | @zmdb/solid              | 1.0.0-alpha.4 | solid           | integration: Solid client resources            | `npm add @zmdb/solid@1.0.0-alpha.4`              | Solid context, resource and owner-lifetime bindings for generated zmdb clients.                                                                                                                                         | framework-integrations       |
@@ -450,6 +451,26 @@ React context, query, and mutation lifecycle bindings for generated zmdb clients
 - **Optional peers:** None.
 - **Required peers:**
   - `react` → `>=19.2.0 <20.0.0`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/client-adapters
+
+### `@zmdb/react-native`
+
+React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/client` → `workspace:^`
+  - `@zmdb/react` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `react` → `>=19.2.0 <20.0.0`
+  - `react-native` → `>=0.87.0 <0.88.0`
 - **Engines:**
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`

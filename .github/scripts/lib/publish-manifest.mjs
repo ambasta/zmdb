@@ -16,6 +16,7 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 export const PACKAGES = [
   'client',
   'react',
+  'react-native',
   'angular',
   'vue',
   'svelte',

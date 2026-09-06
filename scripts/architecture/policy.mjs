@@ -60,6 +60,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  'react-native': packagePolicy({
+    directory: 'packages/react-native',
+    zone: 'integration',
+    ring: 2,
+    allowedWorkspaceDependencies: ['client', 'react'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   angular: packagePolicy({
     directory: 'packages/angular',
     zone: 'integration',

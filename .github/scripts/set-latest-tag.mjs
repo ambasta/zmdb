@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 const PACKAGES = [
   '@zmdb/client',
   '@zmdb/react',
+  '@zmdb/react-native',
   '@zmdb/angular',
   '@zmdb/vue',
   '@zmdb/svelte',

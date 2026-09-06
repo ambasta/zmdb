@@ -73,7 +73,8 @@ export {
 } from './packed-project.js';
 export { createNextConformanceBinding } from './next-binding.js';
 export { createNuxtConformanceBinding } from './nuxt-binding.js';
-export { createReactConformanceBinding } from './react-binding.js';
+export { createReactConformanceBinding, createReactFamilyConformanceBinding } from './react-binding.js';
+export { createReactNativeConformanceBinding } from './react-native-binding.js';
 export { assertSsrCredentialIsolation } from './ssr.js';
 export { createSvelteAdapterConformanceBinding } from './svelte-binding.js';
 export { createVueConformanceBinding } from './vue-binding.js';

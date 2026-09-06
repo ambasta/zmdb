@@ -3,8 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "type": "commonjs",
+  "dependencies": {
+    "@zmdb/react-native": "workspace:^",
+    "react": "19.2.8",
+    "react-native": "0.87.1"
+  },
   "devDependencies": {
     "@babel/core": "7.29.7",
-    "@babel/preset-typescript": "7.29.7"
+    "@babel/plugin-transform-export-namespace-from": "7.27.1",
+    "@react-native/babel-preset": "0.87.1"
   }
 }

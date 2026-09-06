@@ -34,7 +34,9 @@ async function unwrapSettlement<Value>(settlement: Promise<ObservedSettlement<Va
   throw outcome.error;
 }
 
-function adapterExpectation(name: AdapterPackageExpectation['name']): AdapterPackageExpectation {
+export type ReactConformanceBindingFactory<Client extends object> = (bindingName: string) => ZmdbReactBindings<Client>;
+
+function packageExpectation(name: AdapterPackageExpectation['name']): AdapterPackageExpectation {
   const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === name);
   if (expectation === undefined) throw new Error(`the adapter matrix omitted ${name}`);
   return expectation;
@@ -63,17 +65,27 @@ function createRenderer(element: ReturnType<typeof createElement>): ReactTestRen
   }
 }
 
-async function runAct(action: () => void | Promise<void>): Promise<void> {
-  const previous = Reflect.get(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
-  Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
-  try {
-    await act(async () => {
-      await action();
-    });
-  } finally {
-    if (previous === undefined) Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
-    else Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', previous);
-  }
+let reactActQueue: Promise<void> = Promise.resolve();
+
+function runAct(action: () => void | Promise<void>): Promise<void> {
+  const execute = async (): Promise<void> => {
+    const previous = Reflect.get(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
+    Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
+    try {
+      await act(async () => {
+        await action();
+      });
+    } finally {
+      if (previous === undefined) Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
+      else Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', previous);
+    }
+  };
+  const selected = reactActQueue.then(execute, execute);
+  reactActQueue = selected.then(
+    () => undefined,
+    () => undefined,
+  );
+  return selected;
 }
 
 function mountedRenderer(renderer: ReactTestRenderer | undefined): ReactTestRenderer {
@@ -92,8 +104,8 @@ function mountedMutation<Input, Output>(state: MutationState<Input, Output> | un
 }
 
 function prepareReactQuery<Client extends object, Input, Output>(
-  packageName: string,
-  createBindings: (bindingName?: string) => ZmdbReactBindings<Client>,
+  packageName: AdapterPackageExpectation['name'],
+  createBindings: ReactConformanceBindingFactory<Client>,
   client: Client,
   initialInput: Input,
   load: QueryLoader<Client, Input, Output>,
@@ -173,8 +185,8 @@ function prepareReactQuery<Client extends object, Input, Output>(
 }
 
 function prepareReactMutation<Client extends object, Input, Output>(
-  packageName: string,
-  createBindings: (bindingName?: string) => ZmdbReactBindings<Client>,
+  packageName: AdapterPackageExpectation['name'],
+  createBindings: ReactConformanceBindingFactory<Client>,
   client: Client,
   run: MutationRunner<Client, Input, Output>,
 ): ConformanceMutation<Input, Output> {
@@ -253,7 +265,7 @@ function prepareReactMutation<Client extends object, Input, Output>(
 
 export function createReactLifecycleConformanceBinding<Client extends object>(
   expectation: AdapterPackageExpectation,
-  createBindings: (bindingName?: string) => ZmdbReactBindings<Client>,
+  createBindings: ReactConformanceBindingFactory<Client>,
 ): AdapterConformanceBinding<Client> {
   return {
     package: expectation,
@@ -282,6 +294,13 @@ export function createReactLifecycleConformanceBinding<Client extends object>(
   };
 }
 
+export function createReactFamilyConformanceBinding<Client extends object>(
+  packageName: AdapterPackageExpectation['name'],
+  createBindings: ReactConformanceBindingFactory<Client>,
+): AdapterConformanceBinding<Client> {
+  return createReactLifecycleConformanceBinding(packageExpectation(packageName), createBindings);
+}
+
 export function createReactConformanceBinding<Client extends object>(): AdapterConformanceBinding<Client> {
-  return createReactLifecycleConformanceBinding(adapterExpectation('@zmdb/react'), createZmdbReact<Client>);
+  return createReactFamilyConformanceBinding('@zmdb/react', bindingName => createZmdbReact<Client>(bindingName));
 }

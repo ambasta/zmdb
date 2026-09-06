@@ -238,6 +238,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
+    id: 'react-native',
+    directory: 'packages/react-native',
+    npmName: '@zmdb/react-native',
+    role: 'react-native',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'React Native' },
+    docsOwner: 'connect-react-native',
+    consumer: { fixture: 'fixtures/client-adapters' },
+  }),
+  productPackage({
     id: 'repository',
     directory: 'packages/repository',
     npmName: '@zmdb/repository',

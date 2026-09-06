@@ -1,5 +1,36 @@
-> [!NOTE] React Native and Expo are supported through the Metro transform and a structural SQLite adapter. `node:sqlite` does not exist on device, and zmdb deliberately does not make `expo-sqlite` or
-> `op-sqlite` a peer dependency. Choose the binding for the app and map it to the small `Driver` below.
+> [!NOTE] React Native and Expo use `@zmdb/react-native` for generated HTTP-client lifecycle, the existing Metro transform for ahead-of-time validation, and an application-selected structural SQLite
+> adapter for local storage. `node:sqlite` does not exist on device, and zmdb deliberately does not select NetInfo, credential storage, `expo-sqlite`, or `op-sqlite` for the application.
+
+## Generated-client lifecycle
+
+Install the native adapter with its required React and React Native peers:
+
+```bash
+npm add @zmdb/react-native@alpha react@19 react-native@0.87
+```
+
+React Native's `AppState` satisfies the lifecycle port directly. Connectivity and credential storage stay application choices:
+
+```ts
+import { createZmdbReactNative } from '@zmdb/react-native';
+import { AppState } from 'react-native';
+
+import type { ApiClient } from './generated/http-client.generated.js';
+import { connectivity } from './native-connectivity.js';
+import { credentials } from './native-credentials.js';
+
+export const apiNative = createZmdbReactNative<ApiClient, string>({
+  appState: AppState,
+  backgroundPolicy: 'abort-and-refresh',
+  connectivity,
+  credentials,
+  offlinePolicy: 'refuse',
+});
+```
+
+The returned provider and hooks reuse `@zmdb/react`. Background policy can continue, abort, or abort and refresh mounted queries when the app next becomes active; mutations are never replayed. Offline
+policy either refuses before the generated client dispatches or waits for the injected connectivity port to report online. `useCredentialStore()` returns the exact injected store; the package bundles
+no NetInfo, AsyncStorage, keychain, vault, retry engine, or cache.
 
 ## What runs on device unchanged
 

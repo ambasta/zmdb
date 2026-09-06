@@ -56,10 +56,16 @@ export const INTEGRATIONS = Object.freeze([
   }),
   integration({
     capability: 'React Native',
-    package: '@zmdb/aot-validator',
-    status: 'documented',
+    package: '@zmdb/react-native',
+    status: 'optional',
+    peers: ['react', 'react-native'],
     docs: 'connect-react-native',
-    evidence: ['packages/aot-validator/src/plugin/metro.spec.ts', 'fixtures/consumer-metro'],
+    evidence: [
+      'packages/react-native/src/index.spec.ts',
+      'packages/react-native/src/metro.spec.ts',
+      'packages/react-native/src/packed-consumer.spec.ts',
+      'fixtures/client-adapters',
+    ],
   }),
   integration({
     capability: 'Solid',

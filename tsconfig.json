@@ -37,6 +37,7 @@
       "@zmdb/nuxt/server": ["./packages/nuxt/src/server/index.ts"],
       "next/headers": ["./node_modules/next/headers.d.ts"],
       "@zmdb/react": ["./packages/react/src/index.ts"],
+      "@zmdb/react-native": ["./packages/react-native/src/index.ts"],
       "@zmdb/vue": ["./packages/vue/src/index.ts"],
       "@zmdb/solid": ["./packages/solid/src/index.ts"],
       "@zmdb/ai": ["./packages/ai/src/index.ts"],

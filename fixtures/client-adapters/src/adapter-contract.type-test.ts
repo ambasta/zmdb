@@ -16,9 +16,8 @@ import type { ZmdbNuxtAsyncData, ZmdbNuxtBindings } from '@zmdb/nuxt/client';
 import { createNuxtServerTransport } from '@zmdb/nuxt/server';
 import { createZmdbReact } from '@zmdb/react';
 import type { ZmdbReactBindings } from '@zmdb/react';
-// @ts-expect-error #696 supplies the React Native adapter package
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #696
-import type * as MissingReactNativeAdapter from '@zmdb/react-native';
+import { createZmdbReactNative } from '@zmdb/react-native';
+import type { ZmdbReactNativeBindings } from '@zmdb/react-native';
 import { createZmdbSolid } from '@zmdb/solid';
 import type { ZmdbSolidBindings } from '@zmdb/solid';
 import { createMutationStore, createQueryStore, createZmdbSvelte } from '@zmdb/svelte';
@@ -225,7 +224,7 @@ type NativeBindingsByPackage = {
   readonly '@zmdb/vue': VueBindings<ApiClient>;
   readonly '@zmdb/svelte': SvelteBindings<ApiClient>;
   readonly '@zmdb/solid': SolidBindings<ApiClient>;
-  readonly '@zmdb/react-native': ReactBindings<ApiClient>;
+  readonly '@zmdb/react-native': ZmdbReactNativeBindings<ApiClient, string>;
   readonly '@zmdb/next': ReactBindings<ApiClient>;
   readonly '@zmdb/nuxt': ZmdbNuxtBindings<ApiClient>;
   readonly '@zmdb/sveltekit': SvelteBindings<ApiClient>;
@@ -247,19 +246,34 @@ export type _AllAdapterTypeBridges = Expect<
 >;
 
 export type _MetaFrameworksReuseNativeBaseShapes = [
-  Expect<Equal<NativeBindingsByPackage['@zmdb/react-native'], NativeBindingsByPackage['@zmdb/react']>>,
+  Expect<NativeBindingsByPackage['@zmdb/react-native'] extends NativeBindingsByPackage['@zmdb/react'] ? true : false>,
   Expect<Equal<NativeBindingsByPackage['@zmdb/next'], NativeBindingsByPackage['@zmdb/react']>>,
   Expect<NativeBindingsByPackage['@zmdb/nuxt'] extends NativeBindingsByPackage['@zmdb/vue'] ? true : false>,
   Expect<Equal<NativeBindingsByPackage['@zmdb/sveltekit'], NativeBindingsByPackage['@zmdb/svelte']>>,
 ];
 
 export type _MissingPackageRetirementTriggers = [
-  keyof typeof MissingReactNativeAdapter,
   keyof typeof MissingSvelteKitClientAdapter,
   keyof typeof MissingSvelteKitServerAdapter,
 ];
 
 createZmdbReact<ApiClient>() satisfies ReactBindings<ApiClient>;
+createZmdbReactNative<ApiClient, string>({
+  appState: {
+    currentState: 'active',
+    addEventListener: () => ({ remove() {} }),
+  },
+  backgroundPolicy: 'abort',
+  connectivity: {
+    currentState: 'online',
+    subscribe: () => () => undefined,
+  },
+  credentials: {
+    read: () => Promise.resolve(null),
+    write: () => Promise.resolve(),
+  },
+  offlinePolicy: 'refuse',
+}) satisfies ZmdbReactNativeBindings<ApiClient, string>;
 createZmdbVue<ApiClient>() satisfies VueBindings<ApiClient>;
 createZmdbNextClient<ApiClient>() satisfies ReactBindings<ApiClient>;
 createZmdbNuxt<ApiClient>({ useAsyncData }) satisfies ZmdbNuxtBindings<ApiClient>;

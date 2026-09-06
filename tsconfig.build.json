@@ -30,6 +30,7 @@
       "@zmdb/nuxt/client": ["./packages/nuxt/dist/client/index.d.ts"],
       "@zmdb/nuxt/server": ["./packages/nuxt/dist/server/index.d.ts"],
       "@zmdb/react": ["./packages/react/dist/index.d.ts"],
+      "@zmdb/react-native": ["./packages/react-native/dist/index.d.ts"],
       "@zmdb/vue": ["./packages/vue/dist/index.d.ts"],
       "@zmdb/solid": ["./packages/solid/dist/index.d.ts"],
       "@zmdb/ai": ["./packages/ai/dist/index.d.ts"],

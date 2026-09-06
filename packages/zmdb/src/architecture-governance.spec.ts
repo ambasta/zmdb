@@ -300,6 +300,15 @@ describe('architecture and release governance fixtures', () => {
       target: './src/index.ts',
     });
 
+    const reactNative = lookupPackage(live, '@zmdb/react-native');
+    if (reactNative === undefined) throw new Error('canonical catalog omitted @zmdb/react-native');
+    expect(reactNative.policy.allowedWorkspaceDependencies).toEqual(['client', 'react']);
+    expect(lookupExport(live, '@zmdb/react-native')).toMatchObject({
+      package: { id: 'react-native', npmName: '@zmdb/react-native' },
+      selector: '.',
+      target: './src/index.ts',
+    });
+
     const vue = lookupPackage(live, 'vue');
     if (vue === undefined) throw new Error('canonical catalog omitted the vue package id');
     expect(vue.npmName).toBe('@zmdb/vue');
@@ -397,7 +406,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 29 catalog packages, 48 workspace edges, and canonical rings verified.',
+      'architecture zones: 30 catalog packages, 50 workspace edges, and canonical rings verified.',
     );
   });
 

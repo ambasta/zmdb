@@ -17,6 +17,7 @@ export interface AdapterPackageExpectation {
   readonly peerDependencies: Readonly<Record<string, string>>;
   readonly optionalPeers: readonly string[];
   readonly exports: readonly string[];
+  readonly importProbePeers?: readonly string[];
   readonly allowedImportGlobals?: readonly string[];
   readonly qualifyingBehaviour: string;
 }
@@ -85,12 +86,12 @@ export const ADAPTER_PACKAGES: readonly AdapterPackageExpectation[] = [
       '@zmdb/react': 'workspace:^',
     },
     peerDependencies: {
-      '@types/react': '>=19.2.0 <20.0.0',
       react: '>=19.2.0 <20.0.0',
       'react-native': '>=0.87.0 <0.88.0',
     },
-    optionalPeers: ['@types/react'],
+    optionalPeers: [],
     exports: ['.'],
+    importProbePeers: ['react'],
     qualifyingBehaviour: 'React Native AppState, connectivity and injected credential-storage ownership',
   },
   {

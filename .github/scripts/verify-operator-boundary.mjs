@@ -26,6 +26,7 @@ const BOUNDARY = 'packages/query-compiler/src/clauses.ts';
 const PACKAGES = [
   'client',
   'react',
+  'react-native',
   'vue',
   'next',
   'nuxt',

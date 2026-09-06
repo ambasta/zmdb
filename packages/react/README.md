@@ -59,6 +59,9 @@ active controller without writing state afterwards.
 - There is no shared cache, implicit retry, focus refetch, polling, or mutation replay.
 - `dependencies` follows the same stable-length and exhaustive-value rules as React's built-in dependency lists.
 
+The provider also exposes a low-level per-tree request-lifecycle seam for official environment adapters. Most applications should not set it directly; `@zmdb/react-native` uses it to apply AppState
+policy to the actual controllers owned by these hooks without copying their state implementation.
+
 Full project documentation is at **https://ambasta.github.io/zmdb/**.
 
 ## License

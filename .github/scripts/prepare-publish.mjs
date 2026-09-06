@@ -16,6 +16,10 @@ const META = {
     description: 'React context, query, and mutation lifecycle bindings for generated zmdb clients.',
     keywords: ['client', 'react', 'typescript', 'zmdb'],
   },
+  'react-native': {
+    description: 'React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.',
+    keywords: ['client', 'mobile', 'react', 'react-native', 'typescript', 'zmdb'],
+  },
   angular: {
     description: 'Angular dependency-injection, signal, lifecycle, and Observable bindings for generated zmdb clients.',
     keywords: ['typescript', 'angular', 'client', 'dependency-injection', 'signals', 'rxjs', 'zmdb'],

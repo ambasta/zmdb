@@ -1,0 +1,62 @@
+{
+  "name": "@zmdb/react-native",
+  "version": "1.0.0-alpha.4",
+  "description": "React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.",
+  "keywords": [
+    "client",
+    "mobile",
+    "react",
+    "react-native",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/react-native"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/client": "workspace:^",
+    "@zmdb/react": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-test-renderer": "19.1.0",
+    "metro": "0.87.0",
+    "react": "19.2.8",
+    "react-native": "0.87.1",
+    "react-test-renderer": "19.2.8",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0 <20.0.0",
+    "react-native": ">=0.87.0 <0.88.0"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

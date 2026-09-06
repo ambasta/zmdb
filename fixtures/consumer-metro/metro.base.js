@@ -9,10 +9,15 @@ async function metroBase() {
   const workspacePackages = {
     zmdb: resolve(repoRoot, 'packages/zmdb'),
     '@zmdb/aot-validator': resolve(repoRoot, 'packages/aot-validator'),
+    '@zmdb/client': resolve(repoRoot, 'packages/client'),
     '@zmdb/query-compiler': resolve(repoRoot, 'packages/query-compiler'),
+    '@zmdb/react': resolve(repoRoot, 'packages/react'),
+    '@zmdb/react-native': resolve(repoRoot, 'packages/react-native'),
     '@zmdb/repository': resolve(repoRoot, 'packages/repository'),
     '@zmdb/schema-core': resolve(repoRoot, 'packages/schema-core'),
     '@zmdb/web': resolve(repoRoot, 'packages/web'),
+    react: dirname(require.resolve('react/package.json')),
+    'react-native': dirname(require.resolve('react-native/package.json')),
   };
   const config = await getDefaultConfig(projectRoot);
   return {

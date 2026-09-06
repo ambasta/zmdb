@@ -1,3 +1,4 @@
 module.exports = {
-  presets: [['@babel/preset-typescript', { allExtensions: true, isTSX: true }]],
+  plugins: ['@babel/plugin-transform-export-namespace-from'],
+  presets: ['module:@react-native/babel-preset'],
 };
