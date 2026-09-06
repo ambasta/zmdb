@@ -65,6 +65,7 @@
       "@zmdb/repository/*": ["./packages/repository/dist/*/index.d.ts"],
       "@zmdb/sqlite": ["./packages/sqlite/dist/index.d.ts"],
       "@zmdb/sqlite/*": ["./packages/sqlite/dist/*.d.ts"],
+      "@zmdb/mysql": ["./packages/mysql/dist/index.d.ts"],
       "@zmdb/app": ["./packages/app/dist/index.d.ts"],
       "@zmdb/app/lifecycle": ["./packages/app/dist/lifecycle.d.ts"],
       "@zmdb/app/*": ["./packages/app/dist/*/index.d.ts"],

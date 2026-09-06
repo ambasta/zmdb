@@ -10,9 +10,10 @@
 
 ## Product and packages
 
-Install `zmdb` for the curated product facade and CLI, plus the database vertical selected by the application. The SQLite quick start uses `@zmdb/sqlite`. The other independently installable `@zmdb/*`
-packages are advanced dependency firebreaks, integrations, and tooling rather than a second beginner setup. Their membership, product roles, facade exposure, documentation ownership, and
-external-consumer evidence come from the [canonical product catalog](./scripts/product/catalog.mjs); the [package reference](./docs-site/content/package-reference.md) renders that inventory.
+Install `zmdb` for the curated product facade and CLI, plus the database vertical selected by the application. The SQLite quick start uses `@zmdb/sqlite`; MySQL applications install `@zmdb/mysql` with
+`mysql2`. The other independently installable `@zmdb/*` packages are advanced dependency firebreaks, integrations, and tooling rather than a second beginner setup. Their membership, product roles,
+facade exposure, documentation ownership, and external-consumer evidence come from the [canonical product catalog](./scripts/product/catalog.mjs); the
+[package reference](./docs-site/content/package-reference.md) renders that inventory.
 
 AI and MCP stay outside the umbrella: install provider-neutral `@zmdb/ai`, then add only the Anthropic, LangChain, Vercel AI SDK, or MCP package the application uses. The
 [LLM package and migration guide](./docs-site/content/llm-strategy.md) lists the exact installs, optional peers, and replacements for every removed schema-core LLM subpath.
@@ -50,7 +51,7 @@ Optional server integrations stay outside the `zmdb` default install:
 `@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/aot-validator` remains the build-time reflector and emitter, so projects authoring protobuf calls add
 it as a development dependency. The [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
-> The workspace publishes **32 packages** across **140 export-map entry points**. The current suite has **3,217 passing tests** across 297 files, plus **49 expected failures** that describe work still
+> The workspace publishes **33 packages** across **141 export-map entry points**. The current suite has **3,232 passing tests** across 301 files, plus **49 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

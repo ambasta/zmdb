@@ -42,6 +42,7 @@ const PACKAGES = [
   'repository',
   'query-compiler',
   'sqlite',
+  'mysql',
   'app',
   'jobs',
   'jobs-postgres',

@@ -125,6 +125,7 @@ const PACKAGES = [
   'query-compiler',
   'postgres',
   'sqlite',
+  'mysql',
   'app',
   'jobs',
   'jobs-postgres',

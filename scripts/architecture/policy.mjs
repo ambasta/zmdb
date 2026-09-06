@@ -301,6 +301,17 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  mysql: packagePolicy({
+    directory: 'packages/mysql',
+    zone: 'integration',
+    ring: 5,
+    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {
+      mysql2: ['.'],
+    },
+    toolingEntries: [],
+  }),
   app: packagePolicy({
     directory: 'packages/app',
     zone: 'application',

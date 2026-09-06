@@ -28,6 +28,21 @@ const users = defineRepository(UserSchema, sqliteDriver(db));
 ```
 
 ```ts
+// mysql2 — selected by the application
+import mysql2 from 'mysql2/promise';
+import { mysqlDriver } from '@zmdb/mysql';
+import { defineRepository } from '@zmdb/repository';
+
+const pool = mysql2.createPool({
+  uri: process.env.DATABASE_URL,
+  charset: 'utf8mb4',
+  supportBigNumbers: true,
+  bigNumberStrings: true,
+});
+const users = defineRepository(UserSchema, mysqlDriver(pool));
+```
+
+```ts
 // pg (node-postgres)
 import { Pool } from 'pg';
 import { postgresDriver } from '@zmdb/postgres';
@@ -51,9 +66,9 @@ const pool = await sql.connect(process.env.DATABASE_URL!);
 const users = defineRepository(UserSchema, mssqlDriver(pool));
 ```
 
-All three accept **structural** types — `SqliteDatabase` is `{ exec(sql); prepare(sql) }`, `PgQueryable` is `{ query(…) }`, and `MssqlPool` is `{ request() }` — so the real client objects are
-assignable without a client library becoming a runtime dependency of the adapter. `@zmdb/sqlite` declares no third-party database client; `node:sqlite` is built in. Install `pg` or `mssql` in the
-application that uses those compatibility adapters.
+All four accept **structural** types — `SqliteDatabase` is `{ exec(sql); prepare(sql) }`, `MysqlQueryable` is the `execute`/transaction subset of `mysql2/promise`, `PgQueryable` is `{ query(…) }`, and
+`MssqlPool` is `{ request() }` — so the real client objects are assignable without a client library becoming a runtime dependency of the adapter. `@zmdb/sqlite` declares no third-party database
+client; `node:sqlite` is built in. `@zmdb/mysql` declares `mysql2` only as an optional peer. Install `mysql2`, `pg`, or `mssql` in the application that selects the corresponding adapter.
 
 > [!NOTE] First-party drivers declare their dialect object. `defineRepository` uses an explicit option first, then `driver.dialect`, then the temporary `'postgres'` fallback. Driver wrappers must
 > preserve the wrapped dialect. A third-party driver can attach a frozen `SqlDialect` object, and the repository uses that same object for compilation, limits, retries and returning behavior.

@@ -94,6 +94,16 @@ const MAY_NAME = new Map([
 const MAY_READ = new Map([
   [SELF, 'the gate'],
   [
+    'packages/mysql/src/introspect.ts',
+    'the official reverse MySQL catalog boundary. Its input is information_schema text, so no ' +
+      'declaration or TypeIR exists yet; it creates the normalized snapshot consumed by drift checks.',
+  ],
+  [
+    'packages/mysql/src/migrations.ts',
+    'the official MySQL DDL boundary. It consumes normalized migration snapshots to spell server ' +
+      'types and column constraints; it does not decide which application values a column admits.',
+  ],
+  [
     'packages/query-compiler/src/migrations/index.ts',
     'the DDL boundary. SQL text is a vocabulary of its own and the IR does not reach into it — ' +
       "`varchar` takes a length where `text` does not, and `serial` is MySQL's " +

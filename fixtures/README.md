@@ -32,6 +32,9 @@ framework dependencies belong to that private consumer fixture. LangChain is an 
 subpath. `consumer-cli/tsconfig.installed.json` does the same for the future installed `@zmdb/cli` boundary while the existing files in that directory continue to prove today's no-bundler codegen
 route.
 
+`database-mysql/` packs the complete MySQL vertical and its transitive workspace closure, installs those tarballs with the real `mysql2` peer in a temporary project, typechecks only the published
+declarations, then runs migrations, transactions, binding, bigint, strict `utf8mb4`, generated-column, index, foreign-key, and catalog-introspection acceptance against the configured MySQL server.
+
 `app-custom-transport.ts` is a single external consumer rather than a project. The app suite executes it, and `verify:publish` copies it beside the packed packages and compiles it there. Its imports
 are limited to `@zmdb/app/messaging` and `@zmdb/app/observability`, so the custom strategy contract is checked from the same side of the package boundary as an installed application.
 

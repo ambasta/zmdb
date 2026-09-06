@@ -34,11 +34,15 @@ Account for that before choosing a [portable uniqueness strategy](./guide-case-i
 ## Connecting
 
 ```ts
+import { mysqlDriver } from '@zmdb/mysql';
 import { createPool } from 'mysql2/promise';
-import type { Driver } from '@zmdb/repository';
 
 const pool = createPool({
-  uri: 'mysql://root:dev@localhost:3306/app_dev',
+  host: '127.0.0.1',
+  port: 3306,
+  user: 'root',
+  password: 'dev',
+  database: 'app_dev',
   connectionLimit: 5,
   charset: 'utf8mb4',
   dateStrings: false,
@@ -46,22 +50,20 @@ const pool = createPool({
   bigNumberStrings: true,
 });
 
-export const driver: Driver = {
-  async execute(query) {
-    const [rows] = await pool.query(query.text, [...query.parameters]);
-    return Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [];
-  },
-};
+export const driver = mysqlDriver(pool);
 ```
 
-`bigNumberStrings` keeps `bigint` columns as strings rather than losing precision in a `number` past 2^53. See [Connect: MySQL](./dialect-mysql.html).
+`bigNumberStrings` keeps `bigint` columns as strings rather than losing precision in a `number` past 2^53. The packed acceptance lane exercises this exact client shape against strict utf8mb4 MySQL
+8.4.11. See [Connect: MySQL](./dialect-mysql.html).
 
 ## Applying the schema
 
 ```ts
-for (const op of diff({ tables: {} }, snapshot(allSchemas))) {
-  await driver.execute({ text: emitUp(op, 'mysql'), parameters: [] });
-}
+import { mysql } from '@zmdb/mysql';
+import { up } from '@zmdb/query-compiler/migrations';
+
+const connection = mysql.migrations.connection(driver);
+await up(connection, migrations, { onWarning: console.warn });
 ```
 
 > [!WARNING] MySQL has **no transactional DDL**. A migration that fails halfway leaves the schema half-changed, and the runner cannot roll it back. Keep each migration to one DDL statement where you

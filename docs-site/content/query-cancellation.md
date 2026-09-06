@@ -58,13 +58,13 @@ exact abort reason.
 
 ## Per-dialect truth
 
-| Driver                                     | Active abort behaviour                                                                                                                                         |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `postgresDriver(pool, { cancelVia })`      | Reads the busy backend pid and sends `pg_cancel_backend` over another connection. The same pool needs spare capacity, or `cancelVia` can be a separate pool.   |
-| `postgresDriver(pool)` without `cancelVia` | Rejects before dispatch or after the current query/fetch settles. A stream stops fetching further batches, but an in-flight server statement is not cancelled. |
-| `sqliteDriver`                             | A stream stops between stepped rows. A synchronous statement already executing inside SQLite runs until that native step returns.                              |
-| `mssqlDriver`                              | Currently advisory: repository code stops waiting only after the node-mssql request settles. Pair it with a server/request timeout.                            |
-| Third-party MySQL driver                   | Active cancellation requires `KILL QUERY <connection-id>` over a second connection. zmdb bundles no MySQL driver.                                              |
+| Driver                                     | Active abort behaviour                                                                                                                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `postgresDriver(pool, { cancelVia })`      | Reads the busy backend pid and sends `pg_cancel_backend` over another connection. The same pool needs spare capacity, or `cancelVia` can be a separate pool.                        |
+| `postgresDriver(pool)` without `cancelVia` | Rejects before dispatch or after the current query/fetch settles. A stream stops fetching further batches, but an in-flight server statement is not cancelled.                      |
+| `sqliteDriver`                             | A stream stops between stepped rows. A synchronous statement already executing inside SQLite runs until that native step returns.                                                   |
+| `mssqlDriver`                              | Currently advisory: repository code stops waiting only after the node-mssql request settles. Pair it with a server/request timeout.                                                 |
+| `mysqlDriver`                              | Checks already-aborted signals before dispatch and after mysql2 settles. It does not claim active cancellation; active cancellation requires `KILL QUERY` over a second connection. |
 
 ## Where the signal comes from
 
@@ -74,7 +74,7 @@ be captured at the adapter and passed down explicitly.
 
 ## Application wiring and adapter limits
 
-HTTP request cancellation remains explicit application wiring because `Ctx` and `WebRequest` do not carry a database signal. SQL Server and third-party drivers also remain advisory unless their
+HTTP request cancellation remains explicit application wiring because `Ctx` and `WebRequest` do not carry a database signal. SQL Server, MySQL and third-party drivers also remain advisory unless their
 adapters connect the signal to a real server-side cancellation primitive.
 
 ---

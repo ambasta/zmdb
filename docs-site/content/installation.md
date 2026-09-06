@@ -1,7 +1,7 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-two packages are published today: thirty-one focused packages plus the `zmdb` facade. The recommended
-installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`, `@zmdb/vue`,
-`@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`,
-`@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/postgres`, and `@zmdb/jobs-postgres` remain independently installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-three packages are published today: thirty-two focused packages plus the `zmdb` facade. The
+recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
+`@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`,
+`@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/postgres`, `@zmdb/mysql`, and `@zmdb/jobs-postgres` remain independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -25,6 +25,8 @@ owns the complete PostgreSQL vertical and its structural `pg` adapter. The tempo
 SDK/framework peer.
 
 `@zmdb/ai-anthropic` is an optional integration package. It depends on `@zmdb/ai` and accepts an injected Anthropic client; it is not re-exported by the umbrella.
+
+`@zmdb/mysql` is independently installable and is not pulled in by the umbrella. Install it with `mysql2` when the application selects MySQL; importing the package does not load the client.
 
 `zmdb/tags` and `zmdb/derive` are **types only** — nothing there has a runtime export, so those two imports vanish entirely from your build output.
 
@@ -93,6 +95,9 @@ npm install @zmdb/sqlite
 
 # Complete PostgreSQL dialect + migrations + introspection + structural pg driver
 npm install @zmdb/postgres pg
+
+# Complete MySQL vertical + consumer-selected client
+npm install @zmdb/mysql mysql2
 
 # Protocol-neutral application kernel
 npm install @zmdb/app
@@ -242,6 +247,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/repository`         | Auto-validating CRUD, hooks, transactions, populate                                            |
 | `@zmdb/postgres`           | PostgreSQL compiler traits, migrations, introspection, structural `pg` driver, and cursors     |
 | `@zmdb/sqlite`             | SQLite compiler traits, migrations, introspection, embedded runner, and `node:sqlite` driver   |
+| `@zmdb/mysql`              | MySQL compilation, migrations, introspection, and structural mysql2 driver                     |
 | `@zmdb/app`                | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health      |
 | `@zmdb/web`                | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters        |
 | `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and SQLite memory storage             |

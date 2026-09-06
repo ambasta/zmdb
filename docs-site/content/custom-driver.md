@@ -138,7 +138,8 @@ const isSelect = /^\s*(select|with)/i.test(query.text);
 return isSelect ? result.rows : [];
 ```
 
-`mysql2` needs this because it returns an `OkPacket` rather than rows for writes. See [MySQL](./dialect-mysql.html) for getting the insert id out.
+The official `mysqlDriver` follows this rule and exposes mysql2's `affectedRows` and `insertId` separately through `executeResult`; it never puts an `OkPacket` into the row array. See
+[MySQL](./dialect-mysql.html).
 
 ## A logging wrapper
 

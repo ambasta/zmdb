@@ -151,6 +151,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-mcp' },
   }),
   productPackage({
+    id: 'mysql',
+    directory: 'packages/mysql',
+    npmName: '@zmdb/mysql',
+    role: 'mysql',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'MySQL' },
+    docsOwner: 'dialect-mysql',
+    consumer: { fixture: 'fixtures/database-mysql' },
+  }),
+  productPackage({
     id: 'next',
     directory: 'packages/next',
     npmName: '@zmdb/next',

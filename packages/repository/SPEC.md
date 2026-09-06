@@ -124,8 +124,8 @@ cursor already imposes. And `PgQueryable` is deliberately minimal (`text`/`confi
   socket queues behind the query it is meant to kill. `pg` exposes no way to tell the two apart through a structural type, so it is explicit: `postgresDriver(client, { cancelVia })`, a second
   `PgQueryable` used for nothing but the cancel. Without it, abort is tier one plus "stop fetching further batches", which for a cursor is most of the value anyway.
 
-**MySQL** is `KILL QUERY <id>` with the id from `CONNECTION_ID()`, on a second connection, under the same two constraints. **There is no bundled MySQL adapter**, so this is written for an implementer
-rather than as a description of shipped code.
+**MySQL** is `KILL QUERY <id>` with the id from `CONNECTION_ID()`, on a second connection, under the same two constraints. The official `@zmdb/mysql` adapter currently claims only advisory
+cancellation: it checks before dispatch and after mysql2 settles, but does not issue `KILL QUERY`.
 
 **SQLite** is synchronous and in-process.
 

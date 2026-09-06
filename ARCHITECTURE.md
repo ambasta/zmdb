@@ -114,7 +114,7 @@ Conversely, we **merge** packages that have grown a bidirectional dependency or 
 
 ### 3.2 The current dependency DAG (must stay acyclic)
 
-This is the shipped graph during the database-vertical extraction frozen in §3.4. SQLite and PostgreSQL are now side verticals over query-compiler and repository; the remaining database
+This is the shipped graph during the database-vertical extraction frozen in §3.4. SQLite, PostgreSQL, and MySQL are now side verticals over query-compiler and repository; the remaining database
 implementations still sit in the generic packages.
 
 ```
@@ -148,6 +148,9 @@ implementations still sit in the generic packages.
       └───────┬────────┘
               ├──────────────▶┌────────────────┐
               │               │@zmdb/postgres  │  (also query-compiler; optional peer: pg)
+              │               └────────────────┘
+              ├──────────────▶┌────────────────┐
+              │               │ @zmdb/mysql    │  (also query-compiler; optional peer: mysql2)
               │               └────────────────┘
               ▼
       ┌────────────────┐
@@ -190,6 +193,9 @@ shape.
 `@zmdb/postgres` also depends on query-compiler and repository. It owns the complete PostgreSQL dialect, migration, catalog-introspection and structural-driver slice, with `pg` confined to an optional
 peer and development dependency. `@zmdb/jobs-postgres` depends on it rather than the generic repository, and the umbrella exposes it only through the optional `zmdb/drivers/pg` compatibility facade.
 
+`@zmdb/mysql` also depends on query-compiler and repository. It owns MySQL traits, refusals, DDL, migrations, catalog introspection, the structural `mysql2/promise` adapter, and the mandatory packed
+real-server lane; only that selected package declares the optional `mysql2` peer.
+
 **Rules enforced by this DAG:**
 
 - **query-compiler is the lower-level SQL/tooling package.** Its declaration emitter is the only framework path that requires `oxfmt`; ordinary query compilation does not invoke it.
@@ -212,6 +218,8 @@ peer and development dependency. `@zmdb/jobs-postgres` depends on it rather than
 - **repository is the composition layer** — it wires schema + compiler + validator into CRUD and temporarily retains the structurally injected SQL Server compatibility adapter.
 - **sqlite is a complete database vertical** — it owns SQLite traits, DDL/refusals, introspection, embedded migrations, and the structural `node:sqlite` adapter without a third-party database client.
 - **postgres is a complete database vertical** — it owns PostgreSQL traits, DDL/refusals, introspection, prepared statements, cursor streaming, cancellation, and the structural `pg` adapter.
+- **mysql is a complete database vertical** — it owns MySQL traits, DDL/refusals, introspection, the structural `mysql2` adapter, and strict packed real-server acceptance without placing `mysql2` on
+  either generic package.
 - **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, messaging, command, event, CQRS, state, health, and observability kernel.
 - **OTel depends only on app.** It adapts caller-owned API objects to the app ports and owns no provider, SDK, exporter, ambient context, or web edge.
 - **NATS depends only on app.** It implements the public transport strategy with a startup-built subject trie and owns only the required NATS client peer.
@@ -249,6 +257,7 @@ peer and development dependency. `@zmdb/jobs-postgres` depends on it rather than
 | `@zmdb/repository`         | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and the temporary SQL Server adapter                        | aot-validator, query-compiler, schema-core                                                         |
 | `@zmdb/postgres`           | Complete PostgreSQL traits, DDL/migrations, catalog introspection, structural driver, streaming, cancellation, and family extension points            | query-compiler, repository; `pg` (optional peer)                                                   |
 | `@zmdb/sqlite`             | Complete SQLite traits, DDL/migrations/refusals, introspection, embedded migrations, capabilities, and structural `node:sqlite` driver                | query-compiler, repository                                                                         |
+| `@zmdb/mysql`              | Complete MySQL traits, DDL/migrations/refusals, introspection, structural mysql2 driver, capabilities, and packed live acceptance                     | query-compiler, repository; `mysql2` (optional peer)                                               |
 | `@zmdb/app`                | Protocol-neutral metadata, DI, modules, lifecycle/extensions, messaging, commands, events, CQRS, state, health contracts, and observability ports     | aot-validator, query-compiler, repository, schema-core                                             |
 | `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases and the built-in SQLite memory backend                                                        | app, query-compiler, repository, sqlite                                                            |
 | `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adaptation over caller-owned pools and clients                                                                                  | jobs, postgres; `pg` (required peer)                                                               |
@@ -273,9 +282,10 @@ traits, total capabilities, a migration dialect and an introspector; the compile
 and repositories derive and cache its limits, retries and returning support.
 
 The SQLite slice now ships as `@zmdb/sqlite`, with package-owned traits, migrations, introspection, driver tests, and packed in-memory acceptance. The PostgreSQL slice now ships as `@zmdb/postgres`,
-with package-owned traits, migrations, catalog introspection, driver behavior, live-server acceptance, and packed-consumer evidence. The other four database packages are still pending. The temporary
-six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge; `@zmdb/repository` retains only the SQL Server compatibility adapter. The umbrella's temporary
-`zmdb/drivers/sqlite` and `zmdb/drivers/pg` paths delegate to the selected packages while product entry-point optionality remains a later cutover.
+with package-owned traits, migrations, catalog introspection, driver behavior, live-server acceptance, and packed-consumer evidence. The MySQL slice now ships as `@zmdb/mysql`, with package-owned
+traits, migrations, catalog introspection, structural mysql2 behavior, strict `utf8mb4` live-server acceptance, and packed-consumer evidence. The other three database packages are still pending. The
+temporary six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge; `@zmdb/repository` retains only the SQL Server compatibility adapter. The umbrella's temporary
+`zmdb/drivers/sqlite` and `zmdb/drivers/pg` paths delegate to the selected packages while MySQL remains an independently selected package with no facade export.
 
 A database package is a **complete vertical**, not a syntax table. It owns the database's query traits, DDL and migration behavior, introspector, official driver adapter, capability/refusal metadata,
 golden SQL, real-server qualification and packed-consumer evidence. Generic packages retain the algorithms and protocols that can serve an unknown third-party database.
@@ -490,14 +500,14 @@ Resource ownership is explicit:
 
 Release publication follows the manifest DAG: publish `@zmdb/protobuf`, `@zmdb/app` and `@zmdb/jobs` before their dependants, publish the compiler version that recognises the new protobuf owner only
 after `@zmdb/protobuf` exists, then publish each integration independently. A release is qualified only when every package packs, installs, imports and typechecks outside the workspace; real gRPC,
-NATS, RabbitMQ, Redis and PostgreSQL evidence runs against the named peer, and a missing required service fails rather than silently skipping. `@zmdb/otel` is proven with real API/SDK objects but owns
-no collector or exporter. The executable CI and release gate is `yarn verify:server-integrations`; its local non-required mode prints an explicit skip for each absent service rather than treating
-absence as runtime evidence.
+NATS, RabbitMQ, Redis and PostgreSQL evidence runs against the named peer, and strict `utf8mb4` MySQL evidence runs through the packed `@zmdb/mysql` consumer. A missing required service fails rather
+than silently skipping. `@zmdb/otel` is proven with real API/SDK objects but owns no collector or exporter. The executable gates are `yarn verify:server-integrations` and `yarn verify:mysql-live`; the
+server-integration gate's local non-required mode prints an explicit skip for each absent service rather than treating absence as runtime evidence.
 
 The exact public exports, lifecycle, install commands and evidence are frozen in [`packages/protobuf/SPEC.md`](./packages/protobuf/SPEC.md),
 [`packages/transport-grpc/SPEC.md`](./packages/transport-grpc/SPEC.md), [`packages/transport-nats/SPEC.md`](./packages/transport-nats/SPEC.md),
 [`packages/transport-rabbitmq/SPEC.md`](./packages/transport-rabbitmq/SPEC.md), [`packages/transport-redis/SPEC.md`](./packages/transport-redis/SPEC.md),
-[`packages/jobs-postgres/SPEC.md`](./packages/jobs-postgres/SPEC.md) and [`packages/otel/SPEC.md`](./packages/otel/SPEC.md).
+[`packages/jobs-postgres/SPEC.md`](./packages/jobs-postgres/SPEC.md), [`packages/mysql/SPEC.md`](./packages/mysql/SPEC.md), and [`packages/otel/SPEC.md`](./packages/otel/SPEC.md).
 
 ### 3.9 Frozen one-product facade and catalog target (#618)
 
@@ -549,7 +559,7 @@ and entry-specific reachability assignments are generated from the admitted mani
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **32 catalog packages**, **55 direct workspace edges**, and canonical rings **0–7**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **33 catalog packages**, **57 direct workspace edges**, and canonical rings **0–7**.
 
 | Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                                    |
 | ---- | ----------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -574,6 +584,7 @@ Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, 
 | 3    | integration | `@zmdb/mcp`                | `@zmdb/ai`                                                                                                                                                       |
 | 4    | runtime     | `@zmdb/repository`         | `@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/schema-core`                                                                                           |
 | 5    | application | `@zmdb/app`                | `@zmdb/aot-validator`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`                                                                     |
+| 5    | integration | `@zmdb/mysql`              | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
 | 5    | runtime     | `@zmdb/postgres`           | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
 | 5    | runtime     | `@zmdb/sqlite`             | `@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
 | 6    | application | `@zmdb/jobs`               | `@zmdb/app`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/sqlite`                                                                                    |
@@ -602,6 +613,7 @@ Entry-specific runtime, tooling, and optional-peer reachability assignments:
 | `@zmdb/aot-validator`  | optional peer               | `metro-babel-transformer@>=0.87.0 <0.88.0` | `./metro`                                                                                                                                             |
 | `@zmdb/aot-validator`  | optional peer               | `oxlint@>=1.81.0 <1.82.0`                  | `./lint`                                                                                                                                              |
 | `@zmdb/aot-validator`  | optional peer               | `typescript@>=7.0.0`                       | `./codegen`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen`                         |
+| `@zmdb/mysql`          | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                   |
 | `@zmdb/postgres`       | optional peer               | `pg@^8.23.0`                               | `.`                                                                                                                                                   |
 | `@zmdb/web`            | tooling boundary            | tooling-only code                          | `./bench`<br>`./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                     |
 | `@zmdb/web`            | optional peer               | `typescript@>=7.0.0`                       | `./contract/compiler`                                                                                                                                 |
@@ -843,7 +855,7 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the thirty-two-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
+the north-star-driven language policy in §4 here, and it records the thirty-three-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
 `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/ai`, its opt-in integrations, `@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`,
-`@zmdb/jobs-postgres`, `@zmdb/postgres`, `@zmdb/sqlite`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/web`) rather than
-the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+`@zmdb/jobs-postgres`, `@zmdb/postgres`, `@zmdb/sqlite`, `@zmdb/mysql`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
+`@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.

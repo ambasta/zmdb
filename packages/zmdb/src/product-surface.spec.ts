@@ -169,8 +169,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
   it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
     const report = await catalogReport();
     expect(report.membershipProblems).toEqual([]);
-    expect(report.rows).toHaveLength(32);
-    expect(report.manifests.size).toBe(32);
+    expect(report.rows).toHaveLength(33);
+    expect(report.manifests.size).toBe(33);
 
     const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
     const staleManifests = new Map(report.manifests);
@@ -229,8 +229,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
 
     expect(report.problems).toEqual([]);
-    expect(report.assignments).toHaveLength(32);
-    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(24);
+    expect(report.assignments).toHaveLength(33);
+    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(25);
     expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(8);
   });
 

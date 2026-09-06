@@ -1,14 +1,18 @@
-The query compiler and DDL emitter support MySQL. The repository has no bundled MySQL driver or live-server gate, and its row-returning write methods are deliberately narrower: `create`, ordinary
-`update`, and ordinary `upsert` refuse because MySQL cannot satisfy their returned-entity contract in one statement.
+`@zmdb/mysql` is the complete MySQL vertical: its immutable dialect object owns compilation, DDL and migrations, catalog introspection, capabilities and the structural `mysql2/promise` adapter.
+Row-returning repository writes remain deliberately narrower: `create`, ordinary `update`, and ordinary `upsert` refuse because MySQL cannot satisfy their returned-entity contract in one statement.
 
 ## Selecting it
 
 ```ts
-const compiler = createQueryCompiler('mysql');
-const userRepo = defineRepository(users, driver, { dialect: 'mysql' });
+import { mysql, mysqlDriver } from '@zmdb/mysql';
+import { createQueryCompiler } from '@zmdb/query-compiler';
+
+const driver = mysqlDriver(pool);
+const compiler = createQueryCompiler(mysql);
+const userRepo = defineRepository(users, driver);
 ```
 
-`driver` is your `Driver` adapter around `mysql2`, PlanetScale, TiDB, or another MySQL-protocol client; none is bundled.
+Install `mysql2` in the application and pass an existing pool or connection. It is an optional peer, so importing `@zmdb/mysql` does not load or install a client.
 
 ## What it emits
 
@@ -45,21 +49,15 @@ The capability is declared separately for INSERT, upsert, UPDATE, and DELETE. Th
 invalid SQL nor silently resolve to `undefined`. Use a lower-level statement without `returning()` and then read by a known primary or unique key:
 
 ```ts
-const driver: Driver = {
-  async execute(q) {
-    const [result] = await pool.execute(q.text, [...q.parameters]);
-    if (Array.isArray(result)) return result as Record<string, unknown>[];
-    // an OkPacket from an INSERT/UPDATE/DELETE
-    return [{ insertId: result.insertId, affectedRows: result.affectedRows }];
-  },
-};
-
-await driver.execute(compiler.insertInto('users').values(dto).compile());
+const result = await driver.executeResult(compiler.insertInto('users').values(dto).compile());
+if (result.kind !== 'command') throw new Error('expected command metadata');
+console.log(result.insertId, result.affectedRows);
 const row = await userRepo.findOne({ email: { eq: dto.email } });
 ```
 
-That is two round trips and bypasses repository write validation, so validate the payload before compiling. Selecting on a supplied unique value is safe across a pool; `LAST_INSERT_ID()` is
-connection-local and needs both statements pinned to the same connection.
+`execute()` returns `[]` for that command; it never disguises command metadata as an entity row. The explicit `executeResult()` path plus the follow-up read is two round trips and bypasses repository
+write validation, so validate the payload before compiling. Selecting on a supplied unique value is safe across a pool; `LAST_INSERT_ID()` is connection-local and needs both statements pinned to the
+same connection.
 
 Expression-valued repository writes have a narrower explicit contract: `update(id, { count: inc(1) })`, `increment`, every `updateMany`, and an expression-valued `upsert` update object omit
 unsupported `RETURNING`, execute one statement, and resolve to `undefined`. They do not issue a hidden follow-up `SELECT`.
@@ -101,6 +99,9 @@ CREATE DATABASE app CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 MySQL auto-commits DDL, so a migration with two `ALTER TABLE`s can leave the first applied and the second failed. Wrapping it in `BEGIN`/`COMMIT` does not help. One statement per migration on MySQL.
 See [migrate](./cli-migrate.html).
+
+The required acceptance lane packs the published artifact, installs it outside the workspace, and runs compilation, migrations, CRUD, transaction rollback and catalog round-trip against MySQL 8.4.11
+configured with `utf8mb4`, `utf8mb4_0900_ai_ci` and strict SQL mode. The consumer selects mysql2; generic packages do not install it.
 
 ## Connecting
 

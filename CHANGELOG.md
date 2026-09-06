@@ -4,6 +4,7 @@
 
 ### Added
 
+- **mysql:** add the complete MySQL compiler, migrations, introspection, and structural mysql2 driver vertical.
 - **postgres:** add the complete PostgreSQL package with migrations, catalog introspection, streaming, cancellation, and packed live acceptance.
 
 ### Changed

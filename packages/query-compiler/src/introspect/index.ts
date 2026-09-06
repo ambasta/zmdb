@@ -18,6 +18,7 @@ export {
   deterministicForeignKeyName,
   flagField,
   integerField,
+  nullableIntegerField,
   nullableTextField,
   query,
   sortByName,

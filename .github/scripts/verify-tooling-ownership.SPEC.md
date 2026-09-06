@@ -121,6 +121,7 @@ runtime	packages/query-compiler/src/extensions/index.ts
 runtime	packages/query-compiler/src/fts/index.ts
 runtime	packages/query-compiler/src/index.ts
 runtime	packages/query-compiler/src/introspect/types.ts
+runtime	packages/query-compiler/src/introspect/runtime.ts
 runtime	packages/query-compiler/src/joins/index.ts
 runtime	packages/query-compiler/src/migrations/types.ts
 runtime	packages/query-compiler/src/naming/index.ts

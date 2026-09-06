@@ -1,0 +1,14 @@
+{
+  "name": "zmdb-database-mysql-consumer",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/mysql": "1.0.0-alpha.4",
+    "@zmdb/query-compiler": "1.0.0-alpha.4",
+    "mysql2": "3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "typescript": "7.0.2"
+  }
+}

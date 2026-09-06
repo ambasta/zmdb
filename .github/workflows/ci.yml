@@ -76,6 +76,34 @@ jobs:
       - name: Verify the packages install and load as published
         run: yarn verify:publish
 
+      - name: Start strict utf8mb4 MySQL for the packed @zmdb/mysql consumer
+        run: |
+          docker run --detach --name zmdb-issue-671-mysql-ci \
+            --env MYSQL_ROOT_PASSWORD=zmdb671 \
+            --env MYSQL_DATABASE=zmdb671 \
+            --publish 3306:3306 \
+            mysql:8.4.11 \
+            --character-set-server=utf8mb4 \
+            --collation-server=utf8mb4_0900_ai_ci \
+            --sql-mode=STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION
+          for attempt in $(seq 1 60); do
+            if docker exec zmdb-issue-671-mysql-ci mysqladmin ping --password=zmdb671 --silent; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs zmdb-issue-671-mysql-ci
+          exit 1
+
+      - name: Verify the packed MySQL consumer against the real server
+        env:
+          ZMDB_MYSQL_URL: mysql://root:zmdb671@127.0.0.1:3306/zmdb671
+        run: yarn verify:mysql-live
+
+      - name: Remove the issue 671 MySQL service
+        if: always()
+        run: docker rm --force zmdb-issue-671-mysql-ci || true
+
       # The builder DSL is gone. This imports every published subpath and reads its export
       # names, so a builder cannot come back through a re-export, and it scans for callers
       # including files not yet committed. What it replaces is `verify:codemod`, which

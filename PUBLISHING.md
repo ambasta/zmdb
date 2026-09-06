@@ -153,8 +153,8 @@ Release verification reports every problem in deterministic package/path order a
 - **`registry-url: https://registry.npmjs.org`** on `setup-node` — set.
 - **`package.json` `repository.url` must exactly match the GitHub repo** — it is `git+https://github.com/ambasta/zmdb.git` for every package.
 - Packages are built to conventional ESM `.js` + `.d.ts` and the manifests are repointed to `dist` before publish (see the build steps).
-- The publish job provides PostgreSQL, NATS, RabbitMQ, and Redis services. `yarn verify:server-integrations` requires all four URLs and fails the release if any installed optional integration skips or
-  cannot execute its public API.
+- The publish job provides PostgreSQL, NATS, RabbitMQ, Redis, and strict `utf8mb4` MySQL services. `yarn verify:server-integrations` requires the first four URLs, while `yarn verify:mysql-live`
+  requires MySQL and runs the packed `@zmdb/mysql` consumer; neither lane may silently skip.
 
 ## One-time setup (you, on npmjs.com)
 
@@ -199,8 +199,8 @@ Release verification reports every problem in deterministic package/path order a
 ## Releasing after trusted publishers are configured
 
 Use the release-preparation commands above. In the Actions tab, _Publish @zmdb packages to npm_ → _Run workflow_ is always a dry run: it builds, verifies, executes every optional server integration
-against its live peer, repoints only the disposable checkout and runs `npm pack --dry-run`. Only the exact pushed `v<version>` tag starts a real publish. The workflow uses the derived plan and OIDC;
-it embeds neither a package inventory nor an npm token.
+and the packed MySQL vertical against their live peers, repoints only the disposable checkout and runs `npm pack --dry-run`. Only the exact pushed `v<version>` tag starts a real publish. The workflow
+uses the derived plan and OIDC; it embeds neither a package inventory nor an npm token.
 
 ## What ends up in each tarball
 

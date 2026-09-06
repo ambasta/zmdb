@@ -34,6 +34,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/jobs               | 1.0.0-alpha.4 | jobs            | required                                       | `npm add @zmdb/jobs@1.0.0-alpha.4`                                                                               | Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.                                                                                                    | web-queues                   |
 | @zmdb/jobs-postgres      | 1.0.0-alpha.4 | jobs-postgres   | integration: PostgreSQL job storage            | `npm add @zmdb/jobs-postgres@1.0.0-alpha.4 pg@^8.23.0`                                                           | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                                                           | web-queues                   |
 | @zmdb/mcp                | 1.0.0-alpha.4 | mcp             | integration: Model Context Protocol            | `npm add @zmdb/mcp@1.0.0-alpha.4`                                                                                | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp                      |
+| @zmdb/mysql              | 1.0.0-alpha.4 | mysql           | integration: MySQL                             | `npm add @zmdb/mysql@1.0.0-alpha.4`                                                                              | Complete MySQL compiler, migrations, introspection, and structural mysql2 driver vertical for zmdb.                                                                                                                     | dialect-mysql                |
 | @zmdb/next               | 1.0.0-alpha.4 | next            | integration: Next.js                           | `npm add @zmdb/next@1.0.0-alpha.4 'next@>=16.3.0 <17.0.0' 'react@>=19.2.0 <20.0.0' 'react-dom@>=19.2.0 <20.0.0'` | Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.                                                                                                                            | framework-integrations       |
 | @zmdb/nuxt               | 1.0.0-alpha.4 | nuxt            | integration: Nuxt 4                            | `npm add @zmdb/nuxt@1.0.0-alpha.4 'nuxt@>=4.5.0 <5.0.0' 'vue@>=3.5.0 <4.0.0'`                                    | Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.                                                                                                             | framework-integrations       |
 | @zmdb/otel               | 1.0.0-alpha.4 | otel            | integration: OpenTelemetry                     | `npm add @zmdb/otel@1.0.0-alpha.4 @opentelemetry/api@^1.9.0`                                                     | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability            |
@@ -308,6 +309,25 @@ Transport-neutral MCP client and server cores with validated tool dispatch, auth
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-mcp
 
+### `@zmdb/mysql`
+
+Complete MySQL compiler, migrations, introspection, and structural mysql2 driver vertical for zmdb.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/query-compiler` → `workspace:^`
+  - `@zmdb/repository` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:**
+  - `mysql2` → `^3.24.3`
+- **Required peers:** None.
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/database-mysql
+
 ### `@zmdb/next`
 
 Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.
@@ -418,7 +438,7 @@ SQL-first, dialect-aware query compiler with catalog introspection, declaration 
   - `./comments` → `./src/comments/index.ts`
   - `./fts` → `./src/fts/index.ts`
   - `./introspect` → `./src/introspect/index.ts`
-  - `./introspect/runtime` → `./src/introspect/common.ts`
+  - `./introspect/runtime` → `./src/introspect/runtime.ts`
   - `./joins` → `./src/joins/index.ts`
   - `./migrations` → `./src/migrations/index.ts`
   - `./migrations/embedded` → `./src/migrations/embedded.ts`

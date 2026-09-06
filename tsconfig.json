@@ -67,6 +67,7 @@
       "@zmdb/repository/*": ["./packages/repository/src/*/index.ts"],
       "@zmdb/sqlite": ["./packages/sqlite/src/index.ts"],
       "@zmdb/sqlite/*": ["./packages/sqlite/src/*.ts"],
+      "@zmdb/mysql": ["./packages/mysql/src/index.ts"],
       "@zmdb/app": ["./packages/app/src/index.ts"],
       "@zmdb/app/lifecycle": ["./packages/app/src/lifecycle.ts"],
       "@zmdb/app/*": ["./packages/app/src/*/index.ts"],

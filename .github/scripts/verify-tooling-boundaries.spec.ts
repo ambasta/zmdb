@@ -18,12 +18,12 @@ describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
     const result = analyseToolingBoundaries();
     expect(result.problems).toEqual([]);
-    expect(result.inventory.actualCount).toBe(152);
+    expect(result.inventory.actualCount).toBe(153);
     expect(result.inventory.ownerCounts).toEqual({
       compiler: 30,
       migrations: 20,
       cli: 21,
-      runtime: 28,
+      runtime: 29,
       facade: 13,
       'optional-integration': 4,
       'test-only': 35,
@@ -43,7 +43,7 @@ describe('the tooling-boundary verifier', () => {
     ]);
     expect(result.generatedViolations).toHaveLength(3);
     expect(result.embeddedViolations).toEqual([]);
-    expect(result.packageGraph.edges).toHaveLength(54);
+    expect(result.packageGraph.edges).toHaveLength(56);
   });
 
   it('rejects a planted compiler import from a runtime root', () => {

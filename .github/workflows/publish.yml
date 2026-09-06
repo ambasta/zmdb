@@ -120,6 +120,34 @@ jobs:
           ZMDB_REDIS_URL: redis://127.0.0.1:6379
         run: yarn verify:server-integrations
 
+      - name: Start strict utf8mb4 MySQL for the packed @zmdb/mysql consumer
+        run: |
+          docker run --detach --name zmdb-issue-671-mysql-publish \
+            --env MYSQL_ROOT_PASSWORD=zmdb671 \
+            --env MYSQL_DATABASE=zmdb671 \
+            --publish 3306:3306 \
+            mysql:8.4.11 \
+            --character-set-server=utf8mb4 \
+            --collation-server=utf8mb4_0900_ai_ci \
+            --sql-mode=STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION
+          for attempt in $(seq 1 60); do
+            if docker exec zmdb-issue-671-mysql-publish mysqladmin ping --password=zmdb671 --silent; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs zmdb-issue-671-mysql-publish
+          exit 1
+
+      - name: Verify the packed MySQL consumer against the real server
+        env:
+          ZMDB_MYSQL_URL: mysql://root:zmdb671@127.0.0.1:3306/zmdb671
+        run: yarn verify:mysql-live
+
+      - name: Remove the issue 671 MySQL service
+        if: always()
+        run: docker rm --force zmdb-issue-671-mysql-publish || true
+
       - name: Materialize the verified release plan
         run: |
           node scripts/release/plan.mjs --json > "$RUNNER_TEMP/zmdb-release-plan.json"

@@ -1,0 +1,261 @@
+{
+  "provenance": {
+    "capturedOn": "2026-09-04",
+    "captureFormat": "filtered deterministic subset of mysql --batch --raw capture; every retained non-NULL catalog cell is text",
+    "image": "docker.io/library/mysql:8.4",
+    "imageCreated": "2026-07-27T22:08:26.634911873Z",
+    "imageDigest": "sha256:1d6b6a8fcee8ff758ff151d017f5203cd06792a0e698f0a593c9dfcb14609cf0",
+    "imageId": "bced325a4ab7aec848f4688371c7433351dcb5dba26fbcc29c67727d898ae5cb",
+    "schema": "zmdb430",
+    "server": {
+      "version": "8.4.11",
+      "versionComment": "MySQL Community Server - GPL",
+      "versionCompileMachine": "x86_64",
+      "versionCompileOs": "Linux"
+    }
+  },
+  "rows": {
+    "tables": [
+      {
+        "TABLE_SCHEMA": "zmdb430",
+        "TABLE_NAME": "accounts",
+        "TABLE_TYPE": "BASE TABLE",
+        "ENGINE": "InnoDB"
+      },
+      {
+        "TABLE_SCHEMA": "zmdb430",
+        "TABLE_NAME": "memberships",
+        "TABLE_TYPE": "BASE TABLE",
+        "ENGINE": "InnoDB"
+      },
+      {
+        "TABLE_SCHEMA": "zmdb430",
+        "TABLE_NAME": "posts",
+        "TABLE_TYPE": "BASE TABLE",
+        "ENGINE": "InnoDB"
+      }
+    ],
+    "columns": [
+      {
+        "TABLE_NAME": "accounts",
+        "ORDINAL_POSITION": "1",
+        "COLUMN_NAME": "id",
+        "IS_NULLABLE": "NO",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": null,
+        "NUMERIC_PRECISION": "19",
+        "NUMERIC_SCALE": "0",
+        "COLUMN_DEFAULT": null,
+        "EXTRA": "auto_increment",
+        "GENERATION_EXPRESSION": ""
+      },
+      {
+        "TABLE_NAME": "accounts",
+        "ORDINAL_POSITION": "2",
+        "COLUMN_NAME": "email",
+        "IS_NULLABLE": "NO",
+        "DATA_TYPE": "varchar",
+        "COLUMN_TYPE": "varchar(255)",
+        "CHARACTER_MAXIMUM_LENGTH": "255",
+        "NUMERIC_PRECISION": null,
+        "NUMERIC_SCALE": null,
+        "COLUMN_DEFAULT": null,
+        "EXTRA": "",
+        "GENERATION_EXPRESSION": ""
+      },
+      {
+        "TABLE_NAME": "memberships",
+        "ORDINAL_POSITION": "1",
+        "COLUMN_NAME": "tenant_id",
+        "IS_NULLABLE": "NO",
+        "DATA_TYPE": "int",
+        "COLUMN_TYPE": "int",
+        "CHARACTER_MAXIMUM_LENGTH": null,
+        "NUMERIC_PRECISION": "10",
+        "NUMERIC_SCALE": "0",
+        "COLUMN_DEFAULT": null,
+        "EXTRA": "",
+        "GENERATION_EXPRESSION": ""
+      },
+      {
+        "TABLE_NAME": "memberships",
+        "ORDINAL_POSITION": "2",
+        "COLUMN_NAME": "user_id",
+        "IS_NULLABLE": "NO",
+        "DATA_TYPE": "int",
+        "COLUMN_TYPE": "int",
+        "CHARACTER_MAXIMUM_LENGTH": null,
+        "NUMERIC_PRECISION": "10",
+        "NUMERIC_SCALE": "0",
+        "COLUMN_DEFAULT": null,
+        "EXTRA": "",
+        "GENERATION_EXPRESSION": ""
+      },
+      {
+        "TABLE_NAME": "posts",
+        "ORDINAL_POSITION": "1",
+        "COLUMN_NAME": "id",
+        "IS_NULLABLE": "NO",
+        "DATA_TYPE": "int",
+        "COLUMN_TYPE": "int",
+        "CHARACTER_MAXIMUM_LENGTH": null,
+        "NUMERIC_PRECISION": "10",
+        "NUMERIC_SCALE": "0",
+        "COLUMN_DEFAULT": null,
+        "EXTRA": "auto_increment",
+        "GENERATION_EXPRESSION": ""
+      },
+      {
+        "TABLE_NAME": "posts",
+        "ORDINAL_POSITION": "2",
+        "COLUMN_NAME": "account_id",
+        "IS_NULLABLE": "NO",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": null,
+        "NUMERIC_PRECISION": "19",
+        "NUMERIC_SCALE": "0",
+        "COLUMN_DEFAULT": null,
+        "EXTRA": "",
+        "GENERATION_EXPRESSION": ""
+      },
+      {
+        "TABLE_NAME": "posts",
+        "ORDINAL_POSITION": "3",
+        "COLUMN_NAME": "slug",
+        "IS_NULLABLE": "NO",
+        "DATA_TYPE": "varchar",
+        "COLUMN_TYPE": "varchar(120)",
+        "CHARACTER_MAXIMUM_LENGTH": "120",
+        "NUMERIC_PRECISION": null,
+        "NUMERIC_SCALE": null,
+        "COLUMN_DEFAULT": null,
+        "EXTRA": "",
+        "GENERATION_EXPRESSION": ""
+      }
+    ],
+    "statistics": [
+      {
+        "TABLE_NAME": "accounts",
+        "INDEX_NAME": "accounts_email_uq",
+        "NON_UNIQUE": "0",
+        "SEQ_IN_INDEX": "1",
+        "COLUMN_NAME": "email",
+        "EXPRESSION": null,
+        "INDEX_TYPE": "BTREE"
+      },
+      {
+        "TABLE_NAME": "accounts",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": "0",
+        "SEQ_IN_INDEX": "1",
+        "COLUMN_NAME": "id",
+        "EXPRESSION": null,
+        "INDEX_TYPE": "BTREE"
+      },
+      {
+        "TABLE_NAME": "memberships",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": "0",
+        "SEQ_IN_INDEX": "1",
+        "COLUMN_NAME": "user_id",
+        "EXPRESSION": null,
+        "INDEX_TYPE": "BTREE"
+      },
+      {
+        "TABLE_NAME": "memberships",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": "0",
+        "SEQ_IN_INDEX": "2",
+        "COLUMN_NAME": "tenant_id",
+        "EXPRESSION": null,
+        "INDEX_TYPE": "BTREE"
+      },
+      {
+        "TABLE_NAME": "posts",
+        "INDEX_NAME": "posts_account_idx",
+        "NON_UNIQUE": "1",
+        "SEQ_IN_INDEX": "1",
+        "COLUMN_NAME": "account_id",
+        "EXPRESSION": null,
+        "INDEX_TYPE": "BTREE"
+      },
+      {
+        "TABLE_NAME": "posts",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": "0",
+        "SEQ_IN_INDEX": "1",
+        "COLUMN_NAME": "id",
+        "EXPRESSION": null,
+        "INDEX_TYPE": "BTREE"
+      }
+    ],
+    "keyColumnUsage": [
+      {
+        "TABLE_NAME": "accounts",
+        "CONSTRAINT_NAME": "accounts_email_uq",
+        "ORDINAL_POSITION": "1",
+        "POSITION_IN_UNIQUE_CONSTRAINT": null,
+        "COLUMN_NAME": "email",
+        "REFERENCED_TABLE_NAME": null,
+        "REFERENCED_COLUMN_NAME": null
+      },
+      {
+        "TABLE_NAME": "accounts",
+        "CONSTRAINT_NAME": "PRIMARY",
+        "ORDINAL_POSITION": "1",
+        "POSITION_IN_UNIQUE_CONSTRAINT": null,
+        "COLUMN_NAME": "id",
+        "REFERENCED_TABLE_NAME": null,
+        "REFERENCED_COLUMN_NAME": null
+      },
+      {
+        "TABLE_NAME": "memberships",
+        "CONSTRAINT_NAME": "PRIMARY",
+        "ORDINAL_POSITION": "1",
+        "POSITION_IN_UNIQUE_CONSTRAINT": null,
+        "COLUMN_NAME": "user_id",
+        "REFERENCED_TABLE_NAME": null,
+        "REFERENCED_COLUMN_NAME": null
+      },
+      {
+        "TABLE_NAME": "memberships",
+        "CONSTRAINT_NAME": "PRIMARY",
+        "ORDINAL_POSITION": "2",
+        "POSITION_IN_UNIQUE_CONSTRAINT": null,
+        "COLUMN_NAME": "tenant_id",
+        "REFERENCED_TABLE_NAME": null,
+        "REFERENCED_COLUMN_NAME": null
+      },
+      {
+        "TABLE_NAME": "posts",
+        "CONSTRAINT_NAME": "posts_account_fkey",
+        "ORDINAL_POSITION": "1",
+        "POSITION_IN_UNIQUE_CONSTRAINT": "1",
+        "COLUMN_NAME": "account_id",
+        "REFERENCED_TABLE_NAME": "accounts",
+        "REFERENCED_COLUMN_NAME": "id"
+      },
+      {
+        "TABLE_NAME": "posts",
+        "CONSTRAINT_NAME": "PRIMARY",
+        "ORDINAL_POSITION": "1",
+        "POSITION_IN_UNIQUE_CONSTRAINT": null,
+        "COLUMN_NAME": "id",
+        "REFERENCED_TABLE_NAME": null,
+        "REFERENCED_COLUMN_NAME": null
+      }
+    ],
+    "referentialConstraints": [
+      {
+        "TABLE_NAME": "posts",
+        "CONSTRAINT_NAME": "posts_account_fkey",
+        "UNIQUE_CONSTRAINT_NAME": "PRIMARY",
+        "MATCH_OPTION": "NONE",
+        "UPDATE_RULE": "RESTRICT",
+        "DELETE_RULE": "CASCADE"
+      }
+    ]
+  }
+}

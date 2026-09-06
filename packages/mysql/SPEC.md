@@ -1,6 +1,6 @@
 # `@zmdb/mysql` — complete MySQL vertical
 
-> Status: frozen by issue #666 for implementation in #671. This directory contains specification only.
+> Status: implemented by issue #671. This specification remains the public contract and qualification checklist.
 
 ## Public contract
 

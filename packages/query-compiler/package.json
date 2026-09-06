@@ -37,7 +37,7 @@
     "./joins": "./src/joins/index.ts",
     "./aggregations": "./src/aggregations/index.ts",
     "./introspect": "./src/introspect/index.ts",
-    "./introspect/runtime": "./src/introspect/common.ts",
+    "./introspect/runtime": "./src/introspect/runtime.ts",
     "./migrations": "./src/migrations/index.ts",
     "./migrations/embedded": "./src/migrations/embedded.ts",
     "./migrations/runner": "./src/migrations/runner.ts",

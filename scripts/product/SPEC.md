@@ -61,12 +61,12 @@ repository root explicitly.
 
 ## 3. Measured package inventory
 
-At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #691, #692, #693, #694, #657,
-#658, #659, #660, #661, #695, #696, #697, #698, and #699 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`,
+At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #691, #692, #693, #694,
+#657, #658, #659, #660, #661, #695, #696, #697, #698, and #699 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`,
 `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,
-`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, `@zmdb/nuxt`, and `@zmdb/sveltekit`. The catalog now
-accounts for all thirty-two manifest-backed packages exactly once. Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather than release
-order:
+`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/postgres`, `@zmdb/mysql`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, `@zmdb/nuxt`, and `@zmdb/sveltekit`. The
+catalog now accounts for all thirty-three manifest-backed packages exactly once. Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather
+than release order:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                       |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------- |
@@ -92,6 +92,7 @@ order:
 | `packages/repository`         | `@zmdb/repository`         | `orm`               | Root ORM names and the temporary SQL Server subpath            |
 | `packages/postgres`           | `@zmdb/postgres`           | `postgres`          | `zmdb/drivers/pg` compatibility facade                         |
 | `packages/sqlite`             | `@zmdb/sqlite`             | `sqlite`            | `zmdb/drivers/sqlite` during the facade cutover                |
+| `packages/mysql`              | `@zmdb/mysql`              | `mysql`             | None; selected database vertical with no facade export         |
 | `packages/app`                | `@zmdb/app`                | `app`               | None; the current `zmdb/web` aggregate is owned by web         |
 | `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None until the server facade lands in #651                     |
 | `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL job adapter with no facade export    |
@@ -103,8 +104,8 @@ order:
 | `packages/web`                | `@zmdb/web`                | `web`               | `zmdb/web`                                                     |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, `config`, `cli`, and the executable          |
 
-This table is review evidence, not the canonical machine source. The thirty-two rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
-the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
+This table is review evidence, not the canonical machine source. The thirty-three rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit
+plus the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers
 

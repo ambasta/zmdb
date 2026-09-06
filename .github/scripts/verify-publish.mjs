@@ -51,6 +51,7 @@ const PEERS = [
   'typescript',
   'svelte',
   'pg',
+  'mysql2',
   '@types/node',
   '@types/pg',
   '@types/react',

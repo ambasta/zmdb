@@ -127,7 +127,7 @@ packages/repository/src/jobs/index.ts
 
 Issue #709 moved the three MCP production files directly to `packages/mcp/src/`, so no old foundation file remains in this destination.
 
-### `@zmdb/migrations` — 10
+### `@zmdb/migrations` — 11
 
 ```text
 packages/query-compiler/src/introspect/common.ts
@@ -136,13 +136,14 @@ packages/query-compiler/src/introspect/emit.ts
 packages/query-compiler/src/introspect/index.ts
 packages/query-compiler/src/introspect/mysql.ts
 packages/query-compiler/src/introspect/postgres.ts
+packages/query-compiler/src/introspect/runtime.ts
 packages/query-compiler/src/introspect/tagged-property.ts
 packages/query-compiler/src/migrations/embedded.ts
 packages/query-compiler/src/migrations/index.ts
 packages/query-compiler/src/migrations/runner.ts
 ```
 
-The SQLite introspector has moved to `@zmdb/sqlite`. The ten files above remain the current generic migration/introspection ownership set until the tooling-package cutover.
+The SQLite introspector has moved to `@zmdb/sqlite`. The eleven files above remain the current generic migration/introspection ownership set until the tooling-package cutover.
 
 ### `@zmdb/mssql` — 1
 
