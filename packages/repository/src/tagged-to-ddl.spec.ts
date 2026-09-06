@@ -16,7 +16,7 @@
 
 import { schemasFrom } from '@zmdb/compiler/testing';
 import { diff, emitUp, snapshot, type SchemaSnapshot } from '@zmdb/migrations';
-import type { CompiledQuery, Dialect, DialectTarget } from '@zmdb/query-compiler';
+import type { CompiledQuery, DialectTarget } from '@zmdb/query-compiler';
 import type { CoreSchema, CreateDTO, PrimaryKeyOf, TaggedSchema } from '@zmdb/schema-core';
 import type { ColumnKeys, DeclaredTable } from '@zmdb/schema-core/derive';
 import type { WhereDTO } from '@zmdb/schema-core/dto';
@@ -40,8 +40,13 @@ import type {
 } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { mssql } from '../../mssql/src/index.js';
 import { defineRepository, type Driver } from './index.js';
+import {
+  mysqlDialect,
+  officialDialects,
+  singlestoreDialect,
+  type OfficialDialectName,
+} from './testing/official-dialects.fixture.js';
 
 /** The payload of the json column. Erased in a column map; carried in the IR. */
 export interface Settings {
@@ -93,11 +98,11 @@ const {
   'VectorItem',
 ]);
 
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
+const DIALECTS: readonly OfficialDialectName[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
 const EMPTY: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 
-function target(dialect: Dialect): DialectTarget {
-  return dialect === 'mssql' ? mssql : dialect;
+function target(dialect: OfficialDialectName): DialectTarget {
+  return officialDialects[dialect];
 }
 
 /**
@@ -121,11 +126,12 @@ interface Probe<T extends DeclaredTable> {
 /** Every read this repository can run, as SQL, for one schema. */
 async function everySql<T extends DeclaredTable>(
   schema: TaggedSchema<T>,
-  dialect: Dialect,
+  dialect: OfficialDialectName,
   { pk, column, where, operator }: Probe<T>,
 ): Promise<readonly unknown[]> {
   const compiled: unknown[] = [];
   const driver: Driver = {
+    dialect: target(dialect),
     execute: async query => {
       compiled.push(query);
       // One row back, so a method that reads its result keeps going instead of
@@ -149,10 +155,8 @@ async function everySql<T extends DeclaredTable>(
 }
 
 /** The `CREATE TABLE` a migration would write for one schema, in one dialect. */
-function ddl(schema: CoreSchema<string>, dialect: Dialect): readonly string[] {
-  return diff(EMPTY, snapshot([schema]), { dialect: target(dialect) }).map(op =>
-    dialect === 'mssql' ? mssql.migrations.emitUp(op) : emitUp(op, dialect),
-  );
+function ddl(schema: CoreSchema<string>, dialect: OfficialDialectName): readonly string[] {
+  return diff(EMPTY, snapshot([schema]), { dialect: target(dialect) }).map(op => emitUp(op, target(dialect)));
 }
 
 describe('the DDL a tagged declaration reaches the database as', () => {
@@ -174,7 +178,8 @@ describe('the DDL a tagged declaration reaches the database as', () => {
   it('renders every column type for mysql', () => {
     expect(ddl(Users, 'mysql')).toEqual([
       'CREATE TABLE `users` (`active` TINYINT(1) NOT NULL, `age` INT NOT NULL, `bio` TEXT, ' +
-        '`createdAt` DATETIME(3) NOT NULL, `email` VARCHAR(255) NOT NULL, `id` INT AUTO_INCREMENT PRIMARY KEY, ' +
+        '`createdAt` DATETIME(3) NOT NULL, `email` VARCHAR(255) NOT NULL UNIQUE, ' +
+        '`id` INT AUTO_INCREMENT PRIMARY KEY, ' +
         '`passwordHash` TEXT NOT NULL, `role` TEXT NOT NULL, `score` DECIMAL, `settings` JSON NOT NULL, ' +
         '`visits` BIGINT NOT NULL)',
     ]);
@@ -226,11 +231,12 @@ describe('the DDL a tagged declaration reaches the database as', () => {
     }
   });
 
-  it('keeps unique constraints as a separate migration gap while emitting foreign keys', () => {
+  it('emits database-owned unique and foreign-key constraints', () => {
     expect(Users.columns.email?.flags.unique).toBe(true);
     expect(Memberships.ir.columns.find(column => column.name === 'userId')?.references).toBe('users.id');
     for (const dialect of DIALECTS) {
-      expect(ddl(Users, dialect)[0], dialect).not.toContain('UNIQUE');
+      if (dialect === 'mysql') expect(ddl(Users, dialect)[0], dialect).toContain('UNIQUE');
+      else expect(ddl(Users, dialect)[0], dialect).not.toContain('UNIQUE');
       const statements = ddl(Memberships, dialect).join('; ');
       expect(statements, dialect).toContain('REFERENCES');
       expect(statements, dialect).toContain('ON DELETE NO ACTION ON UPDATE NO ACTION');
@@ -245,7 +251,9 @@ describe('the DDL a tagged declaration reaches the database as', () => {
     );
     expect(ddl(Memberships, 'mysql')[0]).toBe(
       'CREATE TABLE `memberships` (`groupId` INT NOT NULL, `note` TEXT, `userId` INT NOT NULL, ' +
-        'PRIMARY KEY (`userId`, `groupId`))',
+        'PRIMARY KEY (`userId`, `groupId`), INDEX `memberships_userId_fkey_idx` (`userId`), ' +
+        'CONSTRAINT `memberships_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users` (`id`) ' +
+        'ON DELETE NO ACTION ON UPDATE NO ACTION)',
     );
     expect(ddl(Memberships, 'sqlite')[0]).toBe(
       'CREATE TABLE "memberships" ("groupId" INTEGER NOT NULL, "note" TEXT, "userId" INTEGER NOT NULL, ' +
@@ -272,13 +280,13 @@ describe('the DDL a tagged declaration reaches the database as', () => {
 it('executes a MySQL repository delete without unsupported RETURNING', async () => {
   const calls: CompiledQuery[] = [];
   const driver: Driver = {
-    dialect: 'mysql',
+    dialect: mysqlDialect,
     execute(query) {
       calls.push(query);
       return Promise.resolve([{ affectedRows: 1 }]);
     },
   };
-  const repo = defineRepository(Users, driver, { dialect: 'mysql' });
+  const repo = defineRepository(Users, driver, { dialect: mysqlDialect });
 
   await expect(repo.delete(7)).resolves.toBe(true);
   expect(calls).toEqual([
@@ -292,13 +300,13 @@ it('executes a MySQL repository delete without unsupported RETURNING', async () 
 it('executes a SingleStore repository delete with inherited MySQL semantics', async () => {
   const calls: CompiledQuery[] = [];
   const driver: Driver = {
-    dialect: 'singlestore',
+    dialect: singlestoreDialect,
     execute(query) {
       calls.push(query);
       return Promise.resolve([{ affectedRows: 1 }]);
     },
   };
-  const repo = defineRepository(Users, driver, { dialect: 'singlestore' });
+  const repo = defineRepository(Users, driver, { dialect: singlestoreDialect });
 
   await expect(repo.delete(7)).resolves.toBe(true);
   expect(calls).toEqual([
@@ -337,6 +345,7 @@ function everyOperationCompiles<T extends DeclaredTable>(schema: TaggedSchema<T>
       // the object instead of stopping at "it is one".
       const compiled: unknown[] = [];
       const driver: Driver = {
+        dialect: officialDialects.postgres,
         execute: async query => {
           compiled.push(query);
           return [{ ...probe.create, id: 1 }];

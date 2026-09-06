@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { aggregateSelectFrom } from './index.js';
 
 // #91: groupBy + having (dedicated coverage).
 
 describe('groupBy', () => {
   it('groups by multiple columns', () => {
-    const q = aggregateSelectFrom('orders')
+    const q = aggregateSelectFrom('orders', postgresDialect)
       .select(['customer_id', 'ship_country'])
       .count('id', 'n')
       .groupBy('customer_id', 'ship_country')
@@ -19,7 +20,7 @@ describe('groupBy', () => {
 
 describe('joins and wheres with groupBy and having', () => {
   it('places JOIN and WHERE clauses before GROUP BY and HAVING in compiled SQL', () => {
-    const q = aggregateSelectFrom('orders')
+    const q = aggregateSelectFrom('orders', postgresDialect)
       .innerJoin('categories', 'orders.category_id', 'categories.id')
       .select(['categories.name'])
       .count('orders.id', 'n')
@@ -39,7 +40,7 @@ describe('joins and wheres with groupBy and having', () => {
 
 describe('having', () => {
   it('multiple HAVING predicates are AND-joined and parameterized', () => {
-    const q = aggregateSelectFrom('order_details')
+    const q = aggregateSelectFrom('order_details', postgresDialect)
       .sum('quantity', 'qty')
       .groupBy('order_id')
       .having('order_id', '>', 100)
@@ -52,7 +53,7 @@ describe('having', () => {
   });
 
   it('groupBy + having + orderBy + pagination compose in the right order', () => {
-    const q = aggregateSelectFrom('orders')
+    const q = aggregateSelectFrom('orders', postgresDialect)
       .select(['customer_id'])
       .count('id', 'n')
       .groupBy('customer_id')

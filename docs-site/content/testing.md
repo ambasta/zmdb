@@ -5,9 +5,10 @@ zmdb is unusually easy to test, for two structural reasons: `compile()` produces
 ```ts
 import { expect, it } from 'vitest';
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
 it('filters by email', () => {
-  const q = createQueryCompiler('postgres').selectFrom('users').where('email', '=', 'a@b.c').compile();
+  const q = createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@b.c').compile();
   expect(q).toEqual({ text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: ['a@b.c'] });
 });
 ```
@@ -18,9 +19,10 @@ Microseconds, no setup. Assert on the whole `CompiledQuery` rather than a substr
 
 ```ts
 import type { Driver } from '@zmdb/repository';
+import { postgres } from '@zmdb/postgres';
 
-const driver: Driver = { execute: async () => [{ id: 1, email: 'a@b.c', active: true }] };
-const repo = defineRepository(users, driver, { dialect: 'postgres' });
+const driver: Driver = { dialect: postgres, execute: async () => [{ id: 1, email: 'a@b.c', active: true }] };
+const repo = defineRepository(users, driver);
 
 it('finds a user', async () => {
   expect(await repo.findById(1)).toEqual({ id: 1, email: 'a@b.c', active: true });
@@ -58,12 +60,15 @@ A regression here is invisible in a functional test — the results stay correct
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { diff, emitUp, snapshot } from 'zmdb/migrations';
+import { diff, snapshot } from 'zmdb/migrations';
+import { sqlite } from 'zmdb/sqlite';
 
 export function freshDb() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON');
-  for (const op of diff({ tables: {} }, snapshot(allSchemas))) db.exec(emitUp(op, 'sqlite'));
+  for (const op of diff({ tables: {} }, snapshot(allSchemas), { dialect: sqlite })) {
+    db.exec(sqlite.migrations.emitUp(op));
+  }
   return db;
 }
 

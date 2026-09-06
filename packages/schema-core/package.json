@@ -54,6 +54,9 @@
   "devDependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/compiler": "workspace:^",
+    "@zmdb/mysql": "workspace:^",
+    "@zmdb/postgres": "workspace:^",
+    "@zmdb/sqlite": "workspace:^",
     "oxfmt": "0.66.0",
     "typescript": "7.0.2"
   },

@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { usePostgres } from '../../postgres/src/testing/fixture.js';
 import { BaseRepository, ValidationError, type Driver } from './index.js';
+import { officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 // #25: repository CRUD + validation interception.
 
@@ -46,6 +47,7 @@ class UserRepository extends BaseRepository<User> {
 function fakeDriver(rows: Record<string, unknown>[] = []): Driver & { calls: unknown[] } {
   const calls: unknown[] = [];
   return {
+    dialect: postgresDialect,
     calls,
     execute: vi.fn(async q => {
       calls.push(q);
@@ -60,7 +62,9 @@ function telemetryDriver(enabled: boolean): Driver & { calls: CompiledQuery[] } 
     calls.push(query);
     return Promise.resolve([{ id: 1, email: 'a@b.com', role: 'user' }]);
   };
-  return enabled ? { calls, queryTelemetry: true, execute } : { calls, execute };
+  return enabled
+    ? { dialect: postgresDialect, calls, queryTelemetry: true, execute }
+    : { dialect: postgresDialect, calls, execute };
 }
 
 async function exerciseEveryRepositoryQueryBuilder(repo: UserRepository): Promise<void> {
@@ -423,7 +427,7 @@ async function routineCompiler(dialect: 'postgres' | 'mysql' | 'sqlite' | 'cockr
   if (typeof create !== 'function') {
     throw new Error('@zmdb/query-compiler exports no createQueryCompiler');
   }
-  const compiler: unknown = Reflect.apply(create, undefined, [dialect]);
+  const compiler: unknown = Reflect.apply(create, undefined, [officialDialects[dialect]]);
   if (typeof compiler !== 'object' || compiler === null || !isRoutineCompiler(compiler)) {
     throw new Error(`createQueryCompiler("${dialect}") exposes no ${CALL_EXPORTS.join(', ')}`);
   }
@@ -517,7 +521,7 @@ describe('stored routine SQL calls (frozen: repository/SPEC.md 4a)', () => {
     );
 
     const driver = fakeDriver();
-    const repo = new UserRepository(driver, 'sqlite');
+    const repo = new UserRepository(driver, sqliteDialect);
     await expect(callRoutine(repo, archiveRoutine, [new Date()])).rejects.toThrow(
       /sqlite.*archive_old_orders|archive_old_orders.*sqlite/i,
     );

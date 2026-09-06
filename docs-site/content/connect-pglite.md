@@ -23,7 +23,7 @@ audited boundary, and a driver that asserts here only hides a mismatch.
 Then use the Postgres dialect, because it _is_ Postgres:
 
 ```ts
-const repo = defineRepository(users, driver, { dialect: 'postgres' });
+const repo = defineRepository(users, driver);
 ```
 
 ## Why this is the best test database for a Postgres project
@@ -81,7 +81,9 @@ await pg.exec('CREATE EXTENSION IF NOT EXISTS vector');
 The whole read path works client-side, because the compiler is pure string manipulation:
 
 ```ts
-const q = createQueryCompiler('postgres').selectFrom('users').where('active', '=', true).compile();
+import { postgres } from '@zmdb/postgres';
+
+const q = createQueryCompiler(postgres).selectFrom('users').where('active', '=', true).compile();
 const rows = await pg.query(q.text, [...q.parameters]);
 ```
 

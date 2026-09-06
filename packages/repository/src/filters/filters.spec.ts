@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/compiler/testing';
 import { diff, emitUp, snapshot } from '@zmdb/migrations';
-import { type CompiledQuery, type Dialect, type DialectTarget } from '@zmdb/query-compiler';
+import { type CompiledQuery, type DialectTarget } from '@zmdb/query-compiler';
 import {
   BaseRepository,
   createLoaderScope,
@@ -17,7 +17,15 @@ import type { OneToMany, PrimaryKey, References, Serial, SoftDelete, Sql, Table 
 import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
 
-import { mssql } from '../../../mssql/src/index.js';
+import {
+  cockroachDialect,
+  mssqlDialect,
+  mysqlDialect,
+  postgresDialect,
+  singlestoreDialect,
+  sqliteDialect,
+  type OfficialDialectName,
+} from '../testing/official-dialects.fixture.js';
 
 export interface FilterUser extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -86,15 +94,15 @@ const DIALECT_VARIANTS = [
   'mssql',
   'cockroach',
   'singlestore',
-] as const satisfies readonly Dialect[];
+] as const satisfies readonly OfficialDialectName[];
 const DIALECT_TARGETS = {
-  postgres: 'postgres',
-  mysql: 'mysql',
-  sqlite: 'sqlite',
-  mssql,
-  cockroach: 'cockroach',
-  singlestore: 'singlestore',
-} as const satisfies Readonly<Record<Dialect, DialectTarget>>;
+  postgres: postgresDialect,
+  mysql: mysqlDialect,
+  sqlite: sqliteDialect,
+  mssql: mssqlDialect,
+  cockroach: cockroachDialect,
+  singlestore: singlestoreDialect,
+} as const satisfies Readonly<Record<OfficialDialectName, DialectTarget>>;
 const PostSchema = schemaFromIR({
   table: 'posts',
   physicalTable: 'posts',
@@ -219,6 +227,7 @@ interface RecordingDriver extends Driver {
 function recordingDriver(rows: readonly Record<string, unknown>[] = []): RecordingDriver {
   const calls: CompiledQuery[] = [];
   return {
+    dialect: postgresDialect,
     calls,
     execute: query => {
       calls.push(query);
@@ -435,7 +444,7 @@ describe('declared repository filters', () => {
 
   it('accepts read filters supplied through RepositoryOptions', async () => {
     const driver = recordingDriver();
-    const repo = new PlainUsers(driver, 'postgres', { filters: [activeFilter] });
+    const repo = new PlainUsers(driver, postgresDialect, { filters: [activeFilter] });
 
     await repo.findAll();
 
@@ -510,6 +519,7 @@ describe('declared repository filters', () => {
   it('passes target-filter parameters through findAllWithMany', async () => {
     const calls: CompiledQuery[] = [];
     const driver: Driver = {
+      dialect: postgresDialect,
       execute(query) {
         calls.push(query);
         return Promise.resolve(
@@ -533,7 +543,7 @@ describe('declared repository filters', () => {
   it('reports the final SQL and applied filter names through onQuery', async () => {
     const driver = recordingDriver();
     const observations: { readonly query: CompiledQuery; readonly meta: QueryMeta }[] = [];
-    const repo = new ActiveUsers(driver, 'postgres', {
+    const repo = new ActiveUsers(driver, postgresDialect, {
       onQuery(query, meta) {
         observations.push({ query, meta });
       },
@@ -556,8 +566,8 @@ describe('declared repository filters', () => {
     const store = memoryStore();
     const firstDriver = recordingDriver([{ id: 1, tenantId: 42, role: 'admin', active: true, deletedAt: null }]);
     const secondDriver = recordingDriver([{ id: 2, tenantId: 42, role: 'user', active: true, deletedAt: null }]);
-    const active = new ActiveUsers(firstDriver, 'postgres', { cacheStore: store });
-    const visible = new VisibleUsers(secondDriver, 'postgres', { cacheStore: store });
+    const active = new ActiveUsers(firstDriver, postgresDialect, { cacheStore: store });
+    const visible = new VisibleUsers(secondDriver, postgresDialect, { cacheStore: store });
 
     expect((await active.findAll({ cache: { ttlMs: 1_000 } }))[0]?.id).toBe(1);
     expect((await visible.findAll({ cache: { ttlMs: 1_000 } }))[0]?.id).toBe(2);
@@ -624,6 +634,7 @@ describe('declared repository filters', () => {
     const calls: CompiledQuery[] = [];
     const observedFilters: (readonly string[])[] = [];
     const driver: Driver = {
+      dialect: postgresDialect,
       execute(query) {
         calls.push(query);
         if (query.text.startsWith('SELECT * FROM "users"')) {
@@ -632,7 +643,7 @@ describe('declared repository filters', () => {
         return Promise.resolve([]);
       },
     };
-    const repo = new UsersWithTargetFilters(driver, 'postgres', {
+    const repo = new UsersWithTargetFilters(driver, postgresDialect, {
       onQuery(_query, meta) {
         observedFilters.push(meta.filters);
       },
@@ -713,7 +724,7 @@ function recordedSqlite(db: DatabaseSync): { readonly driver: Driver; readonly c
   return {
     calls,
     driver: {
-      dialect: 'sqlite',
+      dialect: sqliteDialect,
       execute: query => {
         calls.push(query);
         return inner.execute(query);
@@ -738,7 +749,7 @@ describe('soft delete against real SQLite', () => {
     try {
       db.exec("INSERT INTO users VALUES (1, 7, 'user', 1, NULL)");
       const { driver, calls } = recordedSqlite(db);
-      const repo = new SoftDeleteUsers(driver, 'sqlite');
+      const repo = new SoftDeleteUsers(driver, sqliteDialect);
 
       expect(await repo.delete(1)).toBe(true);
       const firstDeletedAt = db.prepare('SELECT deletedAt FROM users WHERE id = 1').get()?.['deletedAt'];
@@ -770,7 +781,7 @@ describe('soft delete against real SQLite', () => {
     try {
       db.exec("INSERT INTO users VALUES (1, 7, 'one', 1, NULL), (2, 7, 'two', 1, NULL), (3, 8, 'three', 1, NULL)");
       const { driver, calls } = recordedSqlite(db);
-      const repo = new SoftDeleteUsers(driver, 'sqlite');
+      const repo = new SoftDeleteUsers(driver, sqliteDialect);
 
       expect(await repo.deleteMany({ tenantId: 7 })).toBe(2);
 
@@ -795,7 +806,7 @@ describe('soft delete against real SQLite', () => {
     try {
       db.exec("INSERT INTO users VALUES (1, 7, 'live', 1, NULL), (2, 7, 'deleted', 1, '2026-09-01T00:00:00.000Z')");
       const { driver, calls } = recordedSqlite(db);
-      const repo = new SoftDeleteUsers(driver, 'sqlite');
+      const repo = new SoftDeleteUsers(driver, sqliteDialect);
 
       expect(await repo.hardDelete(1)).toBe(true);
       expect(await repo.hardDelete(2)).toBe(false);
@@ -826,7 +837,7 @@ describe('soft delete against real SQLite', () => {
     try {
       db.exec("INSERT INTO users VALUES (2, 7, 'deleted', 1, '2026-09-01T00:00:00.000Z')");
       const { driver, calls } = recordedSqlite(db);
-      const repo = new TenantSoftDeleteUsers(driver, 'sqlite');
+      const repo = new TenantSoftDeleteUsers(driver, sqliteDialect);
 
       expect(await repo.restore(2, { filters: { tenant: { tenantId: 8 } } })).toBe(false);
       expect(await repo.restore(2, { filters: { tenant: { tenantId: 7 } } })).toBe(true);
@@ -870,7 +881,7 @@ describe('soft delete against real SQLite', () => {
           hooks.push('update');
         }
       }
-      const repo = new HookedSoftDeleteUsers(driver, 'sqlite');
+      const repo = new HookedSoftDeleteUsers(driver, sqliteDialect);
 
       await repo.delete(1);
       await repo.hardDelete(2);
@@ -889,7 +900,7 @@ describe('soft delete against real SQLite', () => {
           "INSERT INTO users VALUES (1, 7, 'same', 1, '2026-09-01T00:00:00.000Z')",
       );
       const { driver } = recordedSqlite(full);
-      const repo = new SoftDeleteUsers(driver, 'sqlite');
+      const repo = new SoftDeleteUsers(driver, sqliteDialect);
 
       await expect(repo.create({ tenantId: 7, role: 'same', active: true })).rejects.toThrow(/UNIQUE/);
     } finally {
@@ -903,7 +914,7 @@ describe('soft delete against real SQLite', () => {
           "INSERT INTO users VALUES (1, 7, 'same', 1, '2026-09-01T00:00:00.000Z')",
       );
       const { driver } = recordedSqlite(partial);
-      const repo = new SoftDeleteUsers(driver, 'sqlite');
+      const repo = new SoftDeleteUsers(driver, sqliteDialect);
 
       const created = await repo.create({ tenantId: 7, role: 'same', active: true });
       expect(created).toMatchObject({ id: 2, role: 'same', deletedAt: null });
@@ -921,7 +932,7 @@ describe('soft delete against real SQLite', () => {
           "INSERT INTO users VALUES (1, 7, 'same', 1, '2026-09-01T00:00:00.000Z')",
       );
       const { driver, calls } = recordedSqlite(db);
-      const repo = new SoftDeleteUsers(driver, 'sqlite');
+      const repo = new SoftDeleteUsers(driver, sqliteDialect);
 
       const restored = await repo.upsert({ tenantId: 9, role: 'same', active: false }, { target: 'role' });
 
@@ -944,7 +955,7 @@ describe('soft delete against real SQLite', () => {
     try {
       db.exec("INSERT INTO users VALUES (1, 7, 'user', 1, '2026-09-01T00:00:00.000Z')");
       const { driver, calls } = recordedSqlite(db);
-      const repo = new SoftDeleteUsers(driver, 'sqlite');
+      const repo = new SoftDeleteUsers(driver, sqliteDialect);
       const hidden = await repo.findById(1);
       const visible = await repo.findById(1, { filters: { softDelete: false } });
 
@@ -976,7 +987,7 @@ describe('soft delete against real SQLite', () => {
         insert.run(id, `user-${id}`, id <= 3 ? '2026-09-01T00:00:00.000Z' : null);
       }
       const { driver, calls } = recordedSqlite(db);
-      const repo = new SoftDeleteUsers(driver, 'sqlite');
+      const repo = new SoftDeleteUsers(driver, sqliteDialect);
 
       const result = await repo.list({ page: { limit: 10, offset: 0 } });
 
@@ -1011,7 +1022,7 @@ describe('soft-delete declaration and timestamp contract', () => {
       mssql: '[deletedAt] DATETIMEOFFSET(3)',
       cockroach: '"deletedAt" TIMESTAMPTZ',
       singlestore: '`deletedAt` DATETIME(6)',
-    } satisfies Record<Dialect, string>;
+    } satisfies Record<OfficialDialectName, string>;
 
     for (const dialect of DIALECT_VARIANTS) {
       const schema =
@@ -1021,9 +1032,7 @@ describe('soft-delete declaration and timestamp contract', () => {
       const operations = diff({ version: 1, tables: [], extensions: [] }, snapshot([schema]), {
         dialect: DIALECT_TARGETS[dialect],
       });
-      const emittedStatements = operations.map(operation =>
-        dialect === 'mssql' ? mssql.migrations.emitUp(operation) : emitUp(operation, dialect),
-      );
+      const emittedStatements = operations.map(operation => emitUp(operation, DIALECT_TARGETS[dialect]));
       expect(emittedStatements.join('\n')).toContain(expectedTimestamp[dialect]);
     }
   });
@@ -1036,7 +1045,7 @@ describe('soft-delete declaration and timestamp contract', () => {
       mssql: 'UPDATE [users] SET [deletedAt] = @p1 OUTPUT INSERTED.[id] WHERE [id] = @p2 AND [deletedAt] IS NULL',
       cockroach: 'UPDATE "users" SET "deletedAt" = $1 WHERE "id" = $2 AND "deletedAt" IS NULL RETURNING "id"',
       singlestore: 'UPDATE `users` SET `deletedAt` = ? WHERE `id` = ? AND `deletedAt` IS NULL',
-    } satisfies Record<Dialect, string>;
+    } satisfies Record<OfficialDialectName, string>;
 
     for (const dialect of DIALECT_VARIANTS) {
       const rows = dialect === 'mysql' || dialect === 'singlestore' ? [{ affectedRows: 1 }] : [{ id: 1 }];
@@ -1088,7 +1097,7 @@ describe('soft-delete declaration and timestamp contract', () => {
       ],
       cockroach: postgresFamily,
       singlestore: mysqlFamily,
-    } satisfies Record<Dialect, readonly string[]>;
+    } satisfies Record<OfficialDialectName, readonly string[]>;
 
     for (const dialect of DIALECT_VARIANTS) {
       const driver = recordingDriver([

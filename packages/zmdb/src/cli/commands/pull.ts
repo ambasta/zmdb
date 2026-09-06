@@ -6,7 +6,7 @@ import {
 
 import type { ResolvedConfig } from '../../config/index.js';
 import { configuredIntrospector } from '../database.js';
-import { migrationProject } from '../migration-project.js';
+import { configuredMigrationDriver, migrationProject } from '../migration-project.js';
 
 export type {
   PullExecution,
@@ -21,11 +21,11 @@ export async function pullDeclarations(config: ResolvedConfig, options: PullOpti
   if (config.driver === undefined) {
     throw new TypeError('the config must declare a driver thunk before pull can connect');
   }
-  const driver = await config.driver();
+  const driver = await configuredMigrationDriver(config);
   return pullProjectDeclarations(
     migrationProject(config, {
       driver,
-      introspector: configuredIntrospector(driver.dialect ?? config.dialect),
+      introspector: configuredIntrospector(driver.dialect),
     }),
     options,
   );

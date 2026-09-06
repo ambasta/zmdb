@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { joinableSelectFrom } from './index.js';
 
 // RED PHASE (#84 spec freeze): join grammar + golden SQL.
 
 describe('JOIN compilation (postgres golden)', () => {
   it('left join with qualified on-columns', () => {
-    const q = joinableSelectFrom('products')
+    const q = joinableSelectFrom('products', postgresDialect)
       .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
       .where('products.id', '=', 7)
       .compile();
@@ -17,7 +18,7 @@ describe('JOIN compilation (postgres golden)', () => {
   });
 
   it('self-join with aliases', () => {
-    const q = joinableSelectFrom('employees as e')
+    const q = joinableSelectFrom('employees as e', postgresDialect)
       .leftJoin('employees as r', 'r.id', 'e.recipient_id')
       .where('e.id', '=', 5)
       .compile();
@@ -28,12 +29,12 @@ describe('JOIN compilation (postgres golden)', () => {
   });
 
   it('inner join basic', () => {
-    const q = joinableSelectFrom('a').innerJoin('b', 'b.a_id', 'a.id').compile();
+    const q = joinableSelectFrom('a', postgresDialect).innerJoin('b', 'b.a_id', 'a.id').compile();
     expect(q.text).toBe('SELECT * FROM "a" INNER JOIN "b" ON "b"."a_id" = "a"."id"');
   });
 
   it('joins a relation on every column of a composite parent key', () => {
-    const q = joinableSelectFrom('memberships as m')
+    const q = joinableSelectFrom('memberships as m', postgresDialect)
       .innerJoin('users as u', [
         { leftCol: 'm.tenant_id', rightCol: 'u.tenant_id' },
         { leftCol: 'm.user_id', rightCol: 'u.id' },
@@ -46,7 +47,7 @@ describe('JOIN compilation (postgres golden)', () => {
   });
 
   it('right-joins the target table, keeping rows with no match on the left', () => {
-    const q = joinableSelectFrom('products')
+    const q = joinableSelectFrom('products', postgresDialect)
       .rightJoin('suppliers', 'suppliers.id', 'products.supplier_id')
       .orderBy('suppliers.id', 'asc')
       .compile();
@@ -60,13 +61,15 @@ describe('JOIN compilation (postgres golden)', () => {
 
 describe('JOIN compile-time telemetry', () => {
   it('keeps telemetry absent from the default compiled query', () => {
-    const q = joinableSelectFrom('products').leftJoin('suppliers', 'suppliers.id', 'products.supplier_id').compile();
+    const q = joinableSelectFrom('products', postgresDialect)
+      .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
+      .compile();
     expect(Object.keys(q)).toEqual(['text', 'parameters']);
     expect(q.telemetry).toBeUndefined();
   });
 
   it('attaches the compile-known SELECT and primary table when opted in', () => {
-    const q = joinableSelectFrom('products', 'postgres', { telemetry: true })
+    const q = joinableSelectFrom('products', postgresDialect, { telemetry: true })
       .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
       .compile();
     expect(q.telemetry).toEqual({

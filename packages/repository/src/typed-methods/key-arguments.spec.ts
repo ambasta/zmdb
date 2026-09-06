@@ -2,7 +2,7 @@ import { schemaFromIR, type SchemaIR } from '@zmdb/schema-core/ir';
 import { describe, it, expect } from 'vitest';
 
 import { BaseRepository, IncompleteKeyError, ValidationError } from '../index.js';
-import { ProductsRepo, recorder, TenantUsersRepo } from './fixtures.js';
+import { ProductsRepo, recorder, TenantUsersRepo } from './typed-methods.fixture.js';
 
 // What a keyed method accepts as a key, and what it says when it will not. Tests freeze for the
 // epic "Composite primary keys and expression indexes" (#407 / spec freeze #408); the frozen text

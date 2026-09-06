@@ -60,7 +60,9 @@ const where: WhereDTO<User> = { ...(q.minAge === undefined ? {} : { age: { gte: 
 Reassign — the builder is immutable, so a bare call is discarded:
 
 ```ts
-let b = createQueryCompiler('postgres').selectFrom('users');
+import { postgres } from '@zmdb/postgres';
+
+let b = createQueryCompiler(postgres).selectFrom('users');
 
 if (q.minAge !== undefined) b = b.where('age', '>=', q.minAge);
 if (q.name !== undefined) b = b.andWhere('name', 'ilike', `%${q.name}%`);
@@ -72,7 +74,7 @@ const { text, parameters } = b.orderBy('id', 'asc').limit(20).compile();
 Note `where` for the first predicate and `andWhere` after. If the first filter is conditional, you cannot know which is which — so start from a predicate that is always true:
 
 ```ts
-let b = createQueryCompiler('postgres').selectFrom('users').where('deleted_at', 'is null', null);
+let b = createQueryCompiler(postgres).selectFrom('users').where('deleted_at', 'is null', null);
 // every subsequent filter is andWhere
 ```
 

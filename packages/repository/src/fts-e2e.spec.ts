@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { usePostgres } from '../../postgres/src/testing/fixture.js';
 import { BaseRepository } from './index.js';
+import { postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 const pg = usePostgres(async pool => {
   await pool.query('DROP TABLE IF EXISTS fts_docs');
@@ -60,12 +61,12 @@ describe('FTS repository integration (real Postgres)', () => {
       console.warn('[skip] Postgres not reachable');
       return;
     }
-    await expectLtdMatches(new DocRepository(pg.driver(), 'postgres'));
+    await expectLtdMatches(new DocRepository(pg.driver(), postgresDialect));
   });
 
   it('findByFullText excludes non-matching rows', async () => {
     if (!pg.reachable()) return;
-    const repo = new DocRepository(pg.driver(), 'postgres');
+    const repo = new DocRepository(pg.driver(), postgresDialect);
     const hits = await repo.findByFullText('company_name', 'globex');
     expect(hits.map(r => r.company_name)).toEqual(['Globex Corporation']);
   });
@@ -84,7 +85,7 @@ describe('FTS repository integration (real SQLite with FTS5)', () => {
         (1, 'Acme Trading Ltd'), (2, 'Globex Corporation'), (3, 'Initech Ltd'), (4, 'Umbrella Foods (Special - 100%)')`,
     );
     sqliteDb.exec('INSERT INTO fts_docs_fts(rowid, company_name) SELECT id, company_name FROM fts_docs');
-    repo = new DocRepository(sqliteDriver(sqliteDb), 'sqlite');
+    repo = new DocRepository(sqliteDriver(sqliteDb), sqliteDialect);
   });
 
   it('findByFullText returns rows matching the term via FTS5 virtual table join', async () => {
@@ -103,7 +104,7 @@ describe('FTS repository integration (real SQLite with FTS5)', () => {
   });
 
   it('findByFullText on plain SQLite table without ftsTable declared throws UnsupportedFeatureError', async () => {
-    const plainRepo = new PlainDocRepository(sqliteDriver(sqliteDb), 'sqlite');
+    const plainRepo = new PlainDocRepository(sqliteDriver(sqliteDb), sqliteDialect);
     await expect(plainRepo.findByFullText('company_name', 'ltd')).rejects.toThrow(
       'full-text search is not supported on dialect "sqlite"',
     );

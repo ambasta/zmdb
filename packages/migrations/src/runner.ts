@@ -3,15 +3,8 @@
 // adapted database driver, recording applied versions in _zmdb_migrations.
 
 import {
-  createQueryCompiler,
-  dialectCapabilities,
-  dialectFamily,
   dialectName,
-  isSqlDialect,
-  formatPlaceholder,
-  quoteTable,
   type CompiledQuery,
-  type DialectTarget,
   type MigrationDriver as DialectMigrationDriver,
   type SqlDialect,
 } from '@zmdb/query-compiler';
@@ -47,7 +40,7 @@ export interface MigrationConnection {
 
 // Interface matching any runtime database driver (e.g. from @zmdb/repository).
 export interface MigrationDriver {
-  readonly dialect?: DialectTarget;
+  readonly dialect: SqlDialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
   transaction?<T>(run: (driver: MigrationDriver) => Promise<T>): Promise<T>;
 }
@@ -104,103 +97,10 @@ function dialectMigrationDriver<Name extends string>(
  */
 export function driverMigrationConnection(
   driver: MigrationDriver,
-  dialect: DialectTarget = driver.dialect ?? 'postgres',
+  dialect: SqlDialect = driver.dialect,
   options: MigrationTableOptions = {},
 ): MigrationConnection {
-  if (isSqlDialect(dialect)) {
-    return dialect.migrations.connection(dialectMigrationDriver(dialect, driver), options);
-  }
-  const qb = createQueryCompiler(dialect);
-  const capabilities = dialectCapabilities(dialect);
-  const selectedName = dialectName(dialect);
-  const tableName = options.table ?? '_zmdb_migrations';
-  const qualifiedTableName = options.schema === undefined ? tableName : `${options.schema}.${tableName}`;
-  const table = quoteTable(dialect, qualifiedTableName);
-  const placeholder = (position: number): string => formatPlaceholder(dialect, position);
-
-  async function execute(
-    text: string,
-    parameters: readonly unknown[] = [],
-  ): Promise<readonly Record<string, unknown>[]> {
-    return driver.execute({ text, parameters });
-  }
-
-  async function appliedMigrations(): Promise<readonly AppliedMigration[]> {
-    const rows = await execute(`SELECT version, name, checksum FROM ${table} ORDER BY version`);
-    return rows.map((row, index) => {
-      const version = row.version;
-      const migrationName = row.name;
-      const checksum = row.checksum;
-      if (
-        (typeof version !== 'number' && typeof version !== 'bigint' && typeof version !== 'string') ||
-        typeof migrationName !== 'string' ||
-        (checksum !== null && typeof checksum !== 'string')
-      ) {
-        throw new TypeError(`migration ledger row ${String(index)} has an invalid version, name or checksum`);
-      }
-      const numericVersion = Number(version);
-      if (!Number.isSafeInteger(numericVersion)) {
-        throw new TypeError(`migration ledger row ${String(index)} version is not a safe integer`);
-      }
-      return { version: numericVersion, name: migrationName, checksum };
-    });
-  }
-
-  async function transaction<T>(run: (connection?: MigrationConnection) => Promise<T>): Promise<T> {
-    if (!capabilities.transactionalDdl) return run();
-    if (driver.transaction !== undefined) {
-      return driver.transaction(transactionDriver =>
-        run(driverMigrationConnection(transactionDriver, dialect, options)),
-      );
-    }
-    throw new Error(
-      `${selectedName} migrations require a transactional driver; ` +
-        'the driver must pin every callback query to one database transaction',
-    );
-  }
-
-  return {
-    dialect,
-    transactionalDdl: capabilities.transactionalDdl,
-    async exec(sql: string): Promise<void> {
-      await execute(sql);
-    },
-    async appliedVersions(): Promise<readonly number[]> {
-      return (await appliedMigrations()).map(row => row.version);
-    },
-    appliedMigrations,
-    async recordApplied(version: number, migrationName: string, checksum?: string): Promise<void> {
-      await execute(
-        `INSERT INTO ${table} (version, name, applied_at, checksum) VALUES (` +
-          `${placeholder(1)}, ${placeholder(2)}, ${placeholder(3)}, ${placeholder(4)})`,
-        [version, migrationName, Date.now(), checksum ?? null],
-      );
-    },
-    async recordReverted(version: number): Promise<void> {
-      const query = qb.deleteFrom(qualifiedTableName).where('version', '=', version);
-      await driver.execute(query.compile());
-    },
-    async ensureVersionTable(): Promise<void> {
-      const versionType = selectedName === 'sqlite' ? 'INTEGER' : 'BIGINT';
-      await execute(
-        `CREATE TABLE IF NOT EXISTS ${table} (` +
-          `version ${versionType} PRIMARY KEY, ` +
-          'name TEXT NOT NULL, applied_at BIGINT NOT NULL, checksum TEXT)',
-      );
-      if (dialectFamily(dialect) === 'postgres') {
-        await execute(`ALTER TABLE ${table} ALTER COLUMN version TYPE BIGINT`);
-      } else if (dialectFamily(dialect) === 'mysql') {
-        await execute(`ALTER TABLE ${table} MODIFY COLUMN version BIGINT NOT NULL`);
-      }
-      try {
-        await execute(`SELECT checksum FROM ${table} WHERE 1 = 0`);
-      } catch {
-        await execute(`ALTER TABLE ${table} ADD COLUMN checksum TEXT`);
-      }
-    },
-    checksum: migrationChecksum,
-    transaction,
-  };
+  return dialect.migrations.connection(dialectMigrationDriver(dialect, driver), options);
 }
 
 export async function ensureVersionTable(conn: MigrationConnection): Promise<void> {
@@ -347,13 +247,6 @@ async function verifiedLedger(
     }
   }
   return rows;
-}
-
-async function migrationChecksum(sql: string): Promise<string> {
-  const bytes = new TextEncoder().encode(sql);
-  const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', bytes));
-  const hex = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
-  return `sha256:${hex}`;
 }
 
 function assertUniqueVersions(migrations: readonly Migration[]): void {

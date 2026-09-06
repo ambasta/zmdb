@@ -82,7 +82,7 @@ export async function checkProject(project: MigrationProject): Promise<CheckResu
     });
   }
 
-  if (project.dialect === 'sqlite') {
+  if (project.dialect.migrations.embedded) {
     const embeddedPath = embeddedOutputPath(project);
     const embedded = await optionalFile(embeddedPath);
     if (embedded !== undefined) {

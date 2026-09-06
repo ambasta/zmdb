@@ -26,7 +26,7 @@ The product is built around two goals:
 2. **Zero-overhead runtime** — no `reflect-metadata`, no proxies, no identity map, no change tracking, no runtime parser, no dynamic route lookup. What ships is the code the developer would have
    written by hand.
 
-Thirty-seven published packages. The data, application, and HTTP stack remains one product facade (`zmdb`) combined with the application's selected database vertical; `@zmdb/sqlite` is the complete
+Thirty-eight published packages. The data, application, and HTTP stack remains one product facade (`zmdb`) combined with the application's selected database vertical; `@zmdb/sqlite` is the complete
 zero-third-party-client SQLite option, `@zmdb/postgres` owns the complete PostgreSQL vertical behind an optional `pg` peer, `@zmdb/mysql` owns the complete MySQL compiler-to-mysql2 vertical,
 `@zmdb/mssql` owns the complete SQL Server vertical, `@zmdb/cockroach` extends PostgreSQL one-way, and `@zmdb/singlestore` extends MySQL one-way. Provider-neutral AI tooling is exposed from `@zmdb/ai`
 without a provider or framework SDK dependency, Anthropic, LangChain, and Vercel integrations ship as separate opt-in packages, transport-neutral MCP client/server cores ship from `@zmdb/mcp` without
@@ -204,9 +204,13 @@ Performance claims use upstream benchmark harnesses and the actual competitor li
 @zmdb/aot-validator    (compiler-free runtime; direct schema-core dependency)
         ├────────▶ @zmdb/compiler     (tooling leaf; also depends on ai, query-compiler, schema-core)
         ▼
-        @zmdb/repository   (+ direct schema-core/query-compiler deps; SQL Server compatibility adapter)
+        @zmdb/repository   (+ direct schema-core/query-compiler deps; vendor-neutral driver protocols)
+               ├────────▶ @zmdb/sqlite               (complete selected vertical; node:sqlite)
                ├────────▶ @zmdb/postgres             (complete selected vertical; pg optional)
                ├────────▶ @zmdb/mysql                (complete selected vertical; mysql2 optional)
+               ├────────▶ @zmdb/mssql                (complete selected vertical; mssql optional)
+               ├────────▶ @zmdb/cockroach            (PostgreSQL-family selected vertical)
+               ├────────▶ @zmdb/singlestore          (MySQL-family selected vertical)
                ▼
         @zmdb/app          (+ direct aot/schema-core/query-compiler deps; one protocol-neutral app graph)
                ├────────▶ @zmdb/jobs               (queues, workers, schedules; depends inward on app)
@@ -241,7 +245,7 @@ repository and alone declares the optional SQL Server client peer. Jobs and both
 | `@zmdb/sveltekit`          | application-local SvelteKit glue       | Request-local `event.fetch`, explicit credential forwarding, typed loads, native framework errors, Svelte-store reuse, and navigation cancellation                         | client, svelte; `@sveltejs/kit`, `svelte` (required peers)                                                                      |
 | `@zmdb/solid`              | application-local Solid client glue    | Context, native resources, owner cancellation, stale-result suppression, and native Suspense/error propagation                                                             | client; `solid-js` (required peer)                                                                                              |
 | `@zmdb/schema-core`        | MikroORM entities, Zod/TypeBox schemas | Schema DSL, compile-time type derivation (Entity / Create / Update / read DTOs), relations, custom types, seeding, and OpenAPI                                             | query-compiler                                                                                                                  |
-| `@zmdb/query-compiler`     | **Kysely**                             | SQL-first compiler: select/insert/update/delete, joins, aggregations, FTS, set ops, schema-object DDL, dialect protocols, and remaining built-in dialect definitions       | none                                                                                                                            |
+| `@zmdb/query-compiler`     | **Kysely**                             | SQL-first compiler: select/insert/update/delete, joins, aggregations, FTS, set ops, schema-object DDL, and vendor-neutral dialect protocols                                | none                                                                                                                            |
 | `@zmdb/migrations`         | MikroORM/Kysely schema lifecycle       | Schema snapshots, deterministic diffs and DDL plans, migration files, ledger and embedded runners, catalog introspection, drift detection, and declaration emission        | query-compiler; oxfmt (declaration entry only)                                                                                  |
 | `@zmdb/ai`                 | provider-neutral AI infrastructure     | Tool documents and dialects, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools                                                     | schema-core                                                                                                                     |
 | `@zmdb/ai-anthropic`       | Anthropic SDK integration              | Translation between the provider-neutral chat contract and Anthropic Messages requests, responses, tool calls, and opaque provider blocks                                  | ai; `@anthropic-ai/sdk` (optional peer)                                                                                         |
@@ -254,6 +258,7 @@ repository and alone declares the optional SQL Server client peer. Jobs and both
 | `@zmdb/repository`         | **MikroORM** EM/repos                  | Auto-validating typed CRUD, `defineRepository`, transactions, populate, read replicas, lifecycle events, entity modeling, and vendor-neutral driver protocols              | aot-validator, schema-core, query-compiler                                                                                      |
 | `@zmdb/mssql`              | SQL Server implementation vertical     | T-SQL traits, migrations, exact catalog introspection, capability/refusal metadata, and a structural node-mssql driver                                                     | migrations, query-compiler, repository; `mssql` (optional peer)                                                                 |
 | `@zmdb/postgres`           | PostgreSQL implementation vertical     | PostgreSQL SQL, migrations, catalog introspection, structural pg driver, streaming, cancellation, and family extension points                                              | migrations, query-compiler, repository; `pg` (optional peer)                                                                    |
+| `@zmdb/cockroach`          | CockroachDB implementation vertical    | PostgreSQL-family SQL extensions, migrations, catalog normalization, retries, refusals, and structural pg driver                                                           | migrations, postgres, query-compiler, repository; `pg` (optional peer)                                                          |
 | `@zmdb/sqlite`             | SQLite implementation vertical         | SQLite SQL, migrations, introspection, embedded migration runner, declarations, and structural `node:sqlite` driver                                                        | migrations, query-compiler, repository                                                                                          |
 | `@zmdb/mysql`              | MySQL implementation vertical          | MySQL SQL/refusals, DDL/migrations, catalog introspection, structural mysql2 driver, capabilities, and mandatory packed live acceptance                                    | migrations, query-compiler, repository; `mysql2` (optional peer)                                                                |
 | `@zmdb/singlestore`        | SingleStore implementation vertical    | MySQL-family SQL, storage/distribution migrations, catalog adaptation, conservative refusals, structural mysql2 driver, and mandatory packed live acceptance               | migrations, mysql, query-compiler, repository; `mysql2` (optional peer)                                                         |
@@ -346,7 +351,7 @@ yes/no question — holds, and is the part REQ-AV-2 states directly.
 
 | ID           | Requirement                                                                                                                                                              | AC                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **REQ-RP-1** | A fully typed repository is obtained in **one call** — `defineRepository(Schema, driver, { dialect })` — with `BaseRepository` subclassing available for domain methods. | Quickstart compiles in ≤ 3 lines after the schema; no hand-written CRUD.                                                                                                                                                                                                                                                                                                                                                                                             |
+| **REQ-RP-1** | A fully typed repository is obtained in **one call** — `defineRepository(Schema, driver)` — with `BaseRepository` subclassing available for domain methods.              | Quickstart compiles in ≤ 3 lines after the schema; no hand-written CRUD.                                                                                                                                                                                                                                                                                                                                                                                             |
 | **REQ-RP-2** | Inherited CRUD: `findById`, `find`, `list`, `create`, `update`, `delete`, plus batch/set-op and aggregate/populate variants — all typed off the schema.                  | `findById` returns `Entity<S> \| undefined`; `find` takes `WhereDTO<S>`.                                                                                                                                                                                                                                                                                                                                                                                             |
 | **REQ-RP-3** | Write methods accept `unknown` at the boundary and **validate against the derived DTO before touching the database**, throwing `ValidationError` with a structured path. | `create({ ...valid, bogus: 1 })` and `create({ ...valid, id: 5 })` on a serial `id` both reject at runtime with a path naming the offending key, _and_ fail `tsc` when typed (`packages/repository/src/repository.spec.ts`). The check is the payload's own type — `objectTypeFromShape` of the `create`/`update` shape — walked by `@zmdb/aot-validator`, so a write enforces every bound the schema declares and nothing is validated twice from two vocabularies. |
 | **REQ-RP-4** | **No proxies, no identity map, no change tracking.** Reads return plain inert objects.                                                                                   | `Object.getPrototypeOf(row) === Object.prototype`; no dirty-flag properties.                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -600,7 +605,7 @@ export interface Orders extends Table<'orders'> {
 // ─────────────────────────────────────────────────────────────────────────────
 import { DatabaseSync } from 'node:sqlite';
 import { schemaOf } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { sqliteDriver } from 'zmdb/sqlite';
 import { BaseRepository } from 'zmdb/orm';
 
 // The one build-time call: the transformer reads `Orders` and replaces this with a
@@ -616,7 +621,7 @@ export class OrderRepository extends BaseRepository<Orders> {
   }
 }
 
-export const orders = new OrderRepository(sqliteDriver(new DatabaseSync('app.db')), 'sqlite');
+export const orders = new OrderRepository(sqliteDriver(new DatabaseSync('app.db')));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. DOMAIN INVARIANTS — illegal transitions are tsc errors, 0 bytes at runtime
@@ -709,7 +714,7 @@ The declaration in section 1 has that property by construction, which is a large
 ### 8.1 Add a new domain to the stack
 
 1. Write **one** `interface` extending `Table<'name'>`, with the tags the columns need.
-2. `defineRepository(schemaOf<T>(), driver, { dialect })` (one call) — or subclass `BaseRepository` for domain queries.
+2. `defineRepository(schemaOf<T>(), driver)` (one call) — or subclass `BaseRepository` for domain queries.
 3. Write a controller whose bodies/responses are the derived DTOs.
 4. Register both in a `@Module`.
 
@@ -958,7 +963,7 @@ The unified product is "done" for a release when **all** hold:
 1. Every REQ above is either met with a passing test or explicitly listed as a gap with an owner and an issue.
 2. **0 DNF** in both upstream harnesses (ORM routes, validation cases), with each remaining trade-off enumerated individually.
 3. The `@zmdb/web` contract check passes and same-machine peer numbers are refreshed.
-4. A greenfield app — schema → repository → controller → served OpenAPI — is buildable from the quickstart with **`npm add zmdb` and nothing else** (`node:sqlite` driver).
+4. A greenfield app — schema → repository → controller → served OpenAPI — is buildable from the quickstart with **`npm add zmdb @zmdb/sqlite`** (`node:sqlite` driver).
 5. Consumer-facing code in every doc example contains **zero `as`** (✅ **0 violations** — §9.4).
 6. Every framework assertion is covered by a `// boundary:` comment (✅ **53 assertions, 54 boundary comments** — §9.4) **and the CI counter is wired** (✅ `yarn verify:escape-hatches`, 2026-09-02)
    and the runtime-code-generation guard passes (✅ **0 sites**, checked by the same script, §9.5).

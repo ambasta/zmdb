@@ -44,7 +44,9 @@ not remove write serialisation. A write-heavy workload will queue.
 Set a generous busy timeout if the client exposes one, and prefer batched writes over many small ones:
 
 ```ts
-const q = createQueryCompiler('sqlite').insertInto('events').values(rows).compile();
+import { sqlite } from '@zmdb/sqlite';
+
+const q = createQueryCompiler(sqlite).insertInto('events').values(rows).compile();
 await driver.execute(q);
 ```
 

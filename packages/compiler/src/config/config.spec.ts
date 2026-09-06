@@ -1,9 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { mssql } from '@zmdb/mssql';
+import { sqlite } from '@zmdb/sqlite';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { inspectConfigContract } from '../../../../.github/scripts/verify-config-contract.mjs';
@@ -32,6 +34,7 @@ const inspectProjectConfig = (overlays = new Map<string, string>()) =>
   inspectConfigContract(ROOT, overlays, { architecture: ARCHITECTURE });
 const CONFIG_ENTRY = join(ROOT, 'packages', 'compiler', 'src', 'config', 'index.ts');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
+const CONFIG_DIALECT_IMPORTS = "import { mssql } from '@zmdb/mssql';\nimport { sqlite } from '@zmdb/sqlite';\n";
 const directories: string[] = [];
 
 interface Project {
@@ -57,6 +60,7 @@ function project(configSource: string): Project {
   const tsconfig = join(root, 'tsconfig.json');
   const config = join(root, 'zmdb.config.ts');
   write(join(root, 'package.json'), '{"private":true,"type":"module"}\n');
+  symlinkSync(join(ROOT, 'node_modules'), join(root, 'node_modules'), 'dir');
   write(schema, 'export interface Fixture { readonly id: number; }\n');
   write(
     tsconfig,
@@ -76,7 +80,7 @@ function project(configSource: string): Project {
       2,
     )}\n`,
   );
-  write(config, configSource);
+  write(config, `${CONFIG_DIALECT_IMPORTS}${configSource}`);
   return { root, config, schema };
 }
 
@@ -118,7 +122,7 @@ describe('the zmdb config loader', () => {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   out: './migrations',
 };
@@ -137,7 +141,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   http: {
     contracts: './src/schema.ts#HTTP_CONTRACT',
@@ -159,7 +163,7 @@ export default {
     const empty = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   http: {
     contracts: [],
     openApi: { out: './openapi.json' },
@@ -172,7 +176,7 @@ export default {
     const missingExport = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   http: {
     contracts: './src/schema.ts',
     openApi: { out: './openapi.json' },
@@ -185,7 +189,7 @@ export default {
     const duplicate = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   http: {
     contracts: ['./src/schema.ts#HTTP_CONTRACT', './src/schema.ts#HTTP_CONTRACT'],
     openApi: { out: './openapi.json' },
@@ -198,7 +202,7 @@ export default {
     const external = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   http: {
     contracts: './outside.ts#HTTP_CONTRACT',
     openApi: { out: './openapi.json' },
@@ -213,7 +217,7 @@ export default {
     const wrongOutput = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   http: {
     contracts: './src/schema.ts#HTTP_CONTRACT',
     openApi: { out: './openapi.json' },
@@ -238,14 +242,14 @@ export default {
   dialect: 17,
 };
 `);
-    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/dialect.*(?:string|postgres|mysql|sqlite)/i);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/dialect.*SqlDialect object/i);
   });
 
   it('walks up to find a config file', async () => {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 `);
     const nested = join(fixture.root, 'src', 'nested', 'deeper');
@@ -258,16 +262,16 @@ export default {
     const discovered = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   out: './discovered',
 };
 `);
     const explicit = join(discovered.root, 'configs', 'explicit.mjs');
     write(
       explicit,
-      `export default {
+      `${CONFIG_DIALECT_IMPORTS}export default {
   schema: '../src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: '../tsconfig.json',
   out: './chosen',
 };\n`,
@@ -282,7 +286,7 @@ export default {
   });
 
   it('defineConfig is the identity function', async () => {
-    const value = { schema: 'src/*.ts', dialect: 'sqlite' };
+    const value = { schema: 'src/*.ts', dialect: sqlite };
     const defineConfig = exported(await configModule(), 'defineConfig');
     expect(canonicalDefineConfig).toBe(contractDefineConfig);
     expect(productDefineConfig).toBe(contractDefineConfig);
@@ -350,7 +354,7 @@ export default {
     const fixture = project(`
 export const config = {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 `);
     expect((await loadConfig({ cwd: fixture.root })).configPath).toBe(fixture.config);
@@ -360,7 +364,7 @@ export const config = {
     const fixture = project(`
 export default Promise.resolve({
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 });
 `);
     expect((await loadConfig({ cwd: fixture.root })).schemaFiles).toEqual([fixture.schema]);
@@ -370,7 +374,7 @@ export default Promise.resolve({
     const fixture = project(`
 const config = {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 void config;
 `);
@@ -381,7 +385,7 @@ void config;
     const fixture = project(`
 export const config = {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 export default config;
 `);
@@ -392,17 +396,17 @@ export default config;
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   out: './typescript',
 };
 `);
     write(
       join(fixture.root, 'zmdb.config.mjs'),
-      `export default { schema: 'src/*.ts', dialect: 'sqlite', out: './mjs' };\n`,
+      `${CONFIG_DIALECT_IMPORTS}export default { schema: 'src/*.ts', dialect: sqlite, out: './mjs' };\n`,
     );
     write(
       join(fixture.root, 'zmdb.config.js'),
-      `export default { schema: 'src/*.ts', dialect: 'sqlite', out: './js' };\n`,
+      `${CONFIG_DIALECT_IMPORTS}export default { schema: 'src/*.ts', dialect: sqlite, out: './js' };\n`,
     );
 
     expect((await loadConfig({ cwd: fixture.root })).outDir).toBe(join(fixture.root, 'typescript'));
@@ -412,7 +416,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 `);
     const child = join(fixture.root, 'packages', 'child');
@@ -435,10 +439,10 @@ export default {
 
   it('loads two project configs in one process without cache cross-talk', async () => {
     const first = project(`
-export default { schema: 'src/*.ts', dialect: 'sqlite', out: './first' };
+export default { schema: 'src/*.ts', dialect: sqlite, out: './first' };
 `);
     const second = project(`
-export default { schema: 'src/*.ts', dialect: 'sqlite', out: './second' };
+export default { schema: 'src/*.ts', dialect: sqlite, out: './second' };
 `);
 
     const [a, b] = await Promise.all([loadConfig({ cwd: first.root }), loadConfig({ cwd: second.root })]);
@@ -462,7 +466,7 @@ export default {
     } catch (error) {
       expected = error instanceof Error ? error.message : String(error);
     }
-    expect(expected).toMatch(/Invalid config .*dialect.*(?:string|postgres|mysql|sqlite)/i);
+    expect(expected).toMatch(/Invalid config .*dialect.*SqlDialect object/i);
 
     await expect(productLoadConfig({ cwd: fixture.root })).rejects.toThrow(expected);
     await expect(zmdbAot({ cwd: fixture.root })).rejects.toThrow(expected);
@@ -504,7 +508,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 `);
     const marker = join(fixture.root, 'config-loaded.txt');
@@ -517,12 +521,13 @@ throw new Error('runtime application imported project config');
     );
     const webEntry = pathToFileURL(join(ROOT, 'packages', 'zmdb', 'src', 'web.ts')).href;
     const contractEntry = pathToFileURL(join(ROOT, 'packages', 'compiler', 'src', 'config', 'contract.ts')).href;
-    const source = `const [{ createRouter }, { defineConfig }] = await Promise.all([
+    const source = `const [{ createRouter }, { defineConfig }, { sqlite }] = await Promise.all([
   import(${JSON.stringify(webEntry)}),
   import(${JSON.stringify(contractEntry)}),
+  import('@zmdb/sqlite'),
 ]);
 createRouter();
-defineConfig({ schema: 'src/*.ts', dialect: 'sqlite' });
+defineConfig({ schema: 'src/*.ts', dialect: sqlite });
 process.stdout.write('bootstrapped');
 `;
     const result = spawnSync(process.execPath, [`--import=${HOOK}`, '--input-type=module', '--eval', source], {
@@ -612,17 +617,17 @@ export { loadConfig } from '../../zmdb/src/config/index.js';
 
   it('caches one resolved config by its absolute path', async () => {
     const fixture = project(`
-export default { schema: 'src/*.ts', dialect: 'sqlite' };
+export default { schema: 'src/*.ts', dialect: sqlite };
 `);
     const marker = join(fixture.root, 'loads.txt');
     write(
       fixture.config,
-      `
+      `${CONFIG_DIALECT_IMPORTS}
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 const marker = ${JSON.stringify(marker)};
 const count = existsSync(marker) ? Number(readFileSync(marker, 'utf8')) : 0;
 writeFileSync(marker, String(count + 1));
-export default { schema: 'src/*.ts', dialect: 'sqlite' };
+export default { schema: 'src/*.ts', dialect: sqlite };
 `,
     );
 
@@ -636,7 +641,7 @@ export default { schema: 'src/*.ts', dialect: 'sqlite' };
     const fixture = project(`
 export default {
   schema: ['src/*.ts', 'src/schema.ts'],
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 `);
     const other = join(fixture.root, 'src', 'another.ts');
@@ -649,7 +654,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'missing/**/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 `);
     await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/schema glob.*matched no files/i);
@@ -659,7 +664,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'outside.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
 };
 `);
     const outside = join(fixture.root, 'outside.ts');
@@ -674,7 +679,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './missing-tsconfig.json',
 };
 `);
@@ -690,7 +695,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   driver: () => ({ execute: async () => [] }),
   namingStrategy: {
     table: name => name.toUpperCase(),
@@ -709,7 +714,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   naming: 'snake_case_plural',
 };
 `);
@@ -723,7 +728,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   driver: 17,
 };
 `);
@@ -734,7 +739,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   namingStrategy: { table: 'snake' },
 };
 `);
@@ -745,7 +750,7 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   introspect: { include: [17] },
 };
 `);
@@ -756,36 +761,34 @@ export default {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   migrations: { schema: 'app' },
 };
 `);
-    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(
-      /migrations\.schema.*PostgreSQL-family.*SQL Server.*sqlite/i,
-    );
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/migrations\.schema.*not supported by sqlite/i);
   });
 
   it('accepts migrations.schema for SQL Server', async () => {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
-  dialect: 'mssql',
+  dialect: mssql,
   migrations: { schema: 'app' },
 };
 `);
     await expect(loadConfig({ cwd: fixture.root })).resolves.toMatchObject({
-      dialect: 'mssql',
+      dialect: mssql,
       migrations: { schema: 'app' },
     });
   });
 
   it('resolveConfig applies the same validation and path rules to an imported object', async () => {
     const fixture = project(`
-export default { schema: 'src/*.ts', dialect: 'sqlite' };
+export default { schema: 'src/*.ts', dialect: sqlite };
 `);
     const resolveConfig = exported(await configModule(), 'resolveConfig');
     const loaded = await resolveConfig(
-      { schema: 'src/*.ts', dialect: 'sqlite', out: './resolved-directly' },
+      { schema: 'src/*.ts', dialect: sqlite, out: './resolved-directly' },
       fixture.config,
     );
     const resolved = Object.fromEntries(Object.entries(Object(loaded)));
@@ -796,7 +799,7 @@ export default { schema: 'src/*.ts', dialect: 'sqlite' };
   it('adds the Node .js-to-.ts resolution hint without hiding the import error', async () => {
     const fixture = project(`
 import './missing.js';
-export default { schema: 'src/*.ts', dialect: 'sqlite' };
+export default { schema: 'src/*.ts', dialect: sqlite };
 `);
     await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/missing\.js.*does not remap.*\.js.*\.ts/s);
   });

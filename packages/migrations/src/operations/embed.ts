@@ -1,5 +1,7 @@
 import { dirname, join, resolve } from 'node:path';
 
+import { dialectName } from '@zmdb/query-compiler';
+
 import { readMigrations, writeTextAtomically } from '../file-io.js';
 import { MigrationProjectError, requiredSourceFormatter, type MigrationProject } from '../project.js';
 
@@ -67,9 +69,9 @@ export async function renderEmbeddedModule(
 }
 
 export async function embedMigrations(project: MigrationProject, options: EmbedOptions = {}): Promise<EmbedResult> {
-  if (project.dialect !== 'sqlite') {
+  if (!project.dialect.migrations.embedded) {
     throw new MigrationProjectError(
-      `embedded migrations execute SQLite, but ${project.configPath} configures ${project.dialect}`,
+      `embedded migrations are not supported by ${dialectName(project.dialect)} in ${project.configPath}`,
     );
   }
   const rendered = await renderEmbeddedModule(project, options);

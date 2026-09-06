@@ -1,4 +1,4 @@
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
 import type { DeclaredTable, Entity, PrimaryKeyOf } from '@zmdb/schema-core';
 import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema-core/ir';
 import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
@@ -12,6 +12,7 @@ import {
   type Driver,
   type RepositoryOptions,
 } from '../index.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { resultCacheKey } from './index.js';
 
 function findByIdWithCache<T extends DeclaredTable>(
@@ -34,7 +35,7 @@ function findByIdWithUntypedCache<Row>(
 
 type RepositoryConstructor<T extends DeclaredTable> = new (
   driver: Driver,
-  dialect?: Dialect,
+  dialect?: SqlDialect,
   options?: RepositoryOptions,
 ) => BaseRepository<T>;
 
@@ -42,7 +43,7 @@ function repositoryWithStore<T extends DeclaredTable>(
   Repository: RepositoryConstructor<T>,
   driver: Driver,
   store: CacheStore,
-  dialect: Dialect = 'postgres',
+  dialect: SqlDialect = postgresDialect,
 ): BaseRepository<T> {
   return new Repository(driver, dialect, { cacheStore: store });
 }
@@ -137,6 +138,7 @@ type DriverAnswer = (
 function recordingDriver(answer: DriverAnswer): RecordingDriver {
   const calls: CompiledQuery[] = [];
   return {
+    dialect: postgresDialect,
     calls,
     async execute(query) {
       const call = calls.length;
@@ -233,7 +235,7 @@ describe('opt-in repository result cache (frozen: repository/SPEC.md 3d)', () =>
   it('serializes object parameters in stable key order', () => {
     const keyFor = (parameter: unknown) =>
       resultCacheKey({
-        dialect: 'postgres',
+        dialect: postgresDialect,
         schema: USER_IR,
         table: 'users',
         query: { text: 'SELECT $1', parameters: [parameter] },

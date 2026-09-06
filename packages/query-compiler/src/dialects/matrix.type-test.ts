@@ -1,28 +1,36 @@
 import type { ChangeOp, TableSnapshot } from '@zmdb/migrations';
 
-// Type-level half of issue #506's six-dialect matrix.
-//
-// The frozen six-member public surface. These equalities make widening or
-// accidentally dropping a dialect a typecheck failure.
-//
-// No declaration-only value is used here. Every value below is a real initializer,
-// so the file cannot claim a callable boundary exists without asking the real API.
-import { mssql } from '../../../mssql/src/index.js';
-import { DIALECT_PARAM_LIMITS, createQueryCompiler, type BuiltInDialect, type Dialect } from '../index.js';
+import { createQueryCompiler, type SqlDialect } from '../index.js';
+import {
+  cockroachDialect,
+  mssqlDialect,
+  mysqlDialect,
+  officialDialects,
+  postgresDialect,
+  singlestoreDialect,
+  sqliteDialect,
+  type OfficialDialectName,
+} from '../testing/official-dialects.fixture.js';
 
 type Expect<T extends true> = T;
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 type FrozenDialect = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore';
+export type _DialectNamesAreTheFrozenSix = Expect<Equal<OfficialDialectName, FrozenDialect>>;
 
-export type _DialectIsTheFrozenSix = Expect<Equal<Dialect, FrozenDialect>>;
+export const frozenBuiltInParameterLimits: Readonly<Record<OfficialDialectName, number>> = Object.freeze({
+  cockroach: cockroachDialect.traits.paramLimit,
+  mssql: mssqlDialect.traits.paramLimit,
+  mysql: mysqlDialect.traits.paramLimit,
+  postgres: postgresDialect.traits.paramLimit,
+  singlestore: singlestoreDialect.traits.paramLimit,
+  sqlite: sqliteDialect.traits.paramLimit,
+});
 
-export const frozenBuiltInParameterLimits: Readonly<Record<BuiltInDialect, number>> = DIALECT_PARAM_LIMITS;
-export const mssqlParameterLimit: number = mssql.traits.paramLimit;
-
-export const mssqlCompiler = createQueryCompiler(mssql);
-export const cockroachCompiler = createQueryCompiler('cockroach');
-export const singlestoreCompiler = createQueryCompiler('singlestore');
+export const officialDialectObjects: Readonly<Record<OfficialDialectName, SqlDialect>> = officialDialects;
+export const officialCompilers = Object.fromEntries(
+  Object.entries(officialDialects).map(([name, dialect]) => [name, createQueryCompiler(dialect)]),
+) as Readonly<Record<OfficialDialectName, ReturnType<typeof createQueryCompiler>>>;
 
 interface FrozenTableOptions {
   readonly shardKey?: readonly string[];
@@ -31,8 +39,7 @@ interface FrozenTableOptions {
 }
 
 export type _SnapshotCarriesTableOptions = Expect<Equal<TableSnapshot['tableOptions'], FrozenTableOptions | undefined>>;
-
 type CreateTable = Extract<ChangeOp, { kind: 'create_table' }>;
-
-type CreateTableOptions = CreateTable['tableOptions'];
-export type _CreateTableCarriesTableOptions = Expect<Equal<CreateTableOptions, FrozenTableOptions | undefined>>;
+export type _CreateTableCarriesTableOptions = Expect<
+  Equal<CreateTable['tableOptions'], FrozenTableOptions | undefined>
+>;

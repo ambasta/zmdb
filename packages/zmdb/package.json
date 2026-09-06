@@ -44,9 +44,12 @@
     "./derive": "./src/derive.ts",
     "./dto": "./src/dto.ts",
     "./relations": "./src/relations.ts",
-    "./drivers/sqlite": "./src/drivers-sqlite.ts",
-    "./drivers/pg": "./src/drivers-pg.ts",
-    "./drivers/mssql": "./src/drivers-mssql.ts",
+    "./sqlite": "./src/database-sqlite.ts",
+    "./postgres": "./src/database-postgres.ts",
+    "./mysql": "./src/database-mysql.ts",
+    "./mssql": "./src/database-mssql.ts",
+    "./cockroach": "./src/database-cockroach.ts",
+    "./singlestore": "./src/database-singlestore.ts",
     "./app": "./src/app.ts",
     "./app/commands": "./src/app-commands.ts",
     "./app/cqrs": "./src/app-cqrs.ts",
@@ -99,26 +102,45 @@
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
-    "@zmdb/sqlite": "workspace:^",
     "@zmdb/web": "workspace:^",
     "esbuild": "^0.28.2",
     "oxfmt": "0.66.0"
   },
   "devDependencies": {
     "@zmdb/ai": "workspace:^",
+    "@zmdb/cockroach": "workspace:^",
     "@zmdb/mssql": "workspace:^",
+    "@zmdb/mysql": "workspace:^",
     "@zmdb/postgres": "workspace:^",
+    "@zmdb/singlestore": "workspace:^",
+    "@zmdb/sqlite": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@zmdb/cockroach": "workspace:^",
     "@zmdb/mssql": "workspace:^",
-    "@zmdb/postgres": "workspace:^"
+    "@zmdb/mysql": "workspace:^",
+    "@zmdb/postgres": "workspace:^",
+    "@zmdb/singlestore": "workspace:^",
+    "@zmdb/sqlite": "workspace:^"
   },
   "peerDependenciesMeta": {
+    "@zmdb/cockroach": {
+      "optional": true
+    },
     "@zmdb/mssql": {
       "optional": true
     },
+    "@zmdb/mysql": {
+      "optional": true
+    },
     "@zmdb/postgres": {
+      "optional": true
+    },
+    "@zmdb/singlestore": {
+      "optional": true
+    },
+    "@zmdb/sqlite": {
       "optional": true
     }
   },

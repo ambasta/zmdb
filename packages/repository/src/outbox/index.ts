@@ -1,4 +1,4 @@
-import { createQueryCompiler } from '@zmdb/query-compiler';
+import { createQueryCompiler, type DialectTarget } from '@zmdb/query-compiler';
 import {
   outboxCandidatesQuery,
   outboxClaimQuery,
@@ -13,6 +13,11 @@ import type { HasDefault, PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags'
 
 import type { Driver } from '../index.js';
 import type { TransactionContext } from '../transactions/index.js';
+
+function requiredDialect(dialect: DialectTarget | undefined, owner: string) {
+  if (dialect === undefined) throw new TypeError(`${owner} requires an explicit database dialect object`);
+  return dialect;
+}
 
 export type OutboxStatus = 'pending' | 'delivered' | 'dead';
 
@@ -141,7 +146,7 @@ export interface OutboxWriter {
 }
 
 export function outboxWriter(tx: TransactionContext): OutboxWriter {
-  const dialect = tx.dialect ?? 'postgres';
+  const dialect = requiredDialect(tx.dialect, 'outboxWriter');
   return {
     async write(topic, payload) {
       const id = globalThis.crypto.randomUUID();
@@ -252,7 +257,7 @@ function timerDelay(name: string, value: number): number {
 }
 
 export function createOutboxDispatcher(options: OutboxDispatcherOptions): OutboxDispatcher {
-  const dialect = options.driver.dialect ?? 'postgres';
+  const dialect = requiredDialect(options.driver.dialect, 'createOutboxDispatcher');
   const batch = positiveInteger('batch', options.batch ?? 100);
   const leaseMs = positiveInteger('leaseMs', options.leaseMs ?? 30_000);
   const idleMs = timerDelay('idleMs', options.idleMs ?? 1_000);

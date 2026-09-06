@@ -47,8 +47,9 @@ The same constructor works directly with the query compiler:
 
 ```ts
 import { createQueryCompiler, inc } from 'zmdb/sql';
+import { postgres } from 'zmdb/postgres';
 
-const query = createQueryCompiler('postgres')
+const query = createQueryCompiler(postgres)
   .updateTable('posts')
   .set({ views: inc(1) })
   .where('id', '=', id)

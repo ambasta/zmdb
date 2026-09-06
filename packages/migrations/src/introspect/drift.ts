@@ -1,9 +1,8 @@
 import {
-  dialectFamily,
   type ChangeOp,
   type ColumnSnapshot,
-  type DialectTarget,
   type SchemaSnapshot,
+  type SqlDialect,
   type TableSnapshot,
 } from '@zmdb/query-compiler';
 
@@ -16,11 +15,13 @@ export interface DriftOptions {
    * Supplying the list replaces that default, matching introspection selection.
    */
   readonly exclude?: readonly string[];
+  /** The selected database product whose migration rules compare the snapshots. */
+  readonly dialect: SqlDialect;
   /**
-   * Enables dialect-owned noise rules. MySQL may create an otherwise undeclared
-   * btree index solely to support a foreign key.
+   * Database-owned catalog normalization. MySQL-family introspectors set this
+   * because their servers may create an undeclared btree index for a foreign key.
    */
-  readonly dialect?: DialectTarget;
+  readonly omitForeignKeySupportIndexes?: boolean;
 }
 
 export interface DriftReport {
@@ -92,10 +93,10 @@ function isMySqlForeignKeySupportingIndex(
 function normalizeIndexes(
   table: DriftTableSnapshot,
   role: SnapshotRole,
-  dialect: DialectTarget | undefined,
+  omitForeignKeySupportIndexes: boolean,
 ): readonly CatalogIndexSnapshot[] | undefined {
   if (table.indexes === undefined) return undefined;
-  if (role !== 'live' || dialect === undefined || dialectFamily(dialect) !== 'mysql') return table.indexes;
+  if (role !== 'live' || !omitForeignKeySupportIndexes) return table.indexes;
   const foreignKeys = table.foreignKeys ?? [];
   return table.indexes.filter(index => !isMySqlForeignKeySupportingIndex(index, foreignKeys));
 }
@@ -109,14 +110,14 @@ function normalizeIndexes(
 export function normalizeDriftSnapshot(
   snapshot: SchemaSnapshot,
   role: SnapshotRole,
-  options: DriftOptions = {},
+  options: Pick<DriftOptions, 'exclude' | 'omitForeignKeySupportIndexes'> = {},
 ): NormalizedDriftSnapshot {
   const comparable: DriftComparableSnapshot = snapshot;
   const selection = options.exclude === undefined ? {} : { exclude: options.exclude };
   const tables = comparable.tables
     .filter(table => tableSelected(table.name, selection))
     .map(table => {
-      const indexes = normalizeIndexes(table, role, options.dialect);
+      const indexes = normalizeIndexes(table, role, options.omitForeignKeySupportIndexes ?? false);
       const normalized: NormalizedDriftTableSnapshot = {
         name: table.name,
         // Catalog spellings and default expressions are evidence, not drift:
@@ -142,7 +143,7 @@ export function normalizeDriftSnapshot(
  * Compare an introspected snapshot and declared snapshot through the migration
  * comparator in both directions.
  */
-export function detectDrift(live: SchemaSnapshot, declared: SchemaSnapshot, options: DriftOptions = {}): DriftReport {
+export function detectDrift(live: SchemaSnapshot, declared: SchemaSnapshot, options: DriftOptions): DriftReport {
   const normalizedLive = normalizeDriftSnapshot(live, 'live', options);
   const normalizedDeclared = normalizeDriftSnapshot(declared, 'declared', options);
   const onlyInDatabase = diff(normalizedDeclared, normalizedLive, { dialect: options.dialect });

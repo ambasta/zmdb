@@ -51,11 +51,13 @@ The zmdb column takes the declared interface, not `typeof` a value — the decla
 Drizzle's `db.select().from(users).where(eq(users.email, x))` becomes either a repository call or a compiler call:
 
 ```ts
+import { postgres } from '@zmdb/postgres';
+
 // repository — typed against the schema
 await repo.findOne({ email: { eq: 'a@b.c' } });
 
 // compiler — SQL text, no connection
-createQueryCompiler('postgres').selectFrom('users').where('email', '=', 'a@b.c').compile();
+createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@b.c').compile();
 ```
 
 Note the two operator vocabularies: the [DTO](./filters.html) uses `eq` / `gte` / `in`, the [builder](./select.html) uses `'='` / `'>='` / `'in'`. The DTO one is typed per column; the builder one is

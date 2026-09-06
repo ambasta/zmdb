@@ -1,5 +1,5 @@
 import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
-import type { Driver, TransactionalDriver } from '@zmdb/repository';
+import type { SelectedDriver, TransactionalDriver } from '@zmdb/repository';
 
 /** The node-mssql Request surface used by the adapter. */
 export interface MssqlRequest {
@@ -41,7 +41,7 @@ function requestDriver(
   dialect: SqlDialect<'mssql'>,
   source: MssqlRequestSource,
   options: MssqlOptions,
-): Driver<'mssql'> {
+): SelectedDriver<'mssql'> {
   return {
     dialect,
     ...(options.queryTelemetry === true ? { queryTelemetry: true as const } : {}),
@@ -66,7 +66,8 @@ export function createMssqlDriver(
   const driver = requestDriver(dialect, pool, options);
   return {
     ...driver,
-    async transaction<Result>(run: (driver: Driver<'mssql'>) => Promise<Result>): Promise<Result> {
+    dialect,
+    async transaction<Result>(run: (driver: SelectedDriver<'mssql'>) => Promise<Result>): Promise<Result> {
       const transaction = pool.transaction();
       await transaction.begin();
       try {

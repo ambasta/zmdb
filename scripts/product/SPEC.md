@@ -97,12 +97,12 @@ manifest-backed packages exactly once. Publication derives its dependency-first 
 | `packages/aot-validator`      | `@zmdb/aot-validator`      | `validator`         | Root validator defaults and `zmdb/validator`                               |
 | `packages/compiler`           | `@zmdb/compiler`           | `compiler`          | Root config authoring names; `compiler`, `config`, `testing`, `unplugin`   |
 | `packages/repository`         | `@zmdb/repository`         | `orm`               | Root repository defaults and `zmdb/orm`                                    |
-| `packages/mssql`              | `@zmdb/mssql`              | `mssql`             | `zmdb/drivers/mssql` during the facade cutover                             |
-| `packages/postgres`           | `@zmdb/postgres`           | `postgres`          | `zmdb/drivers/pg` compatibility facade                                     |
-| `packages/cockroach`          | `@zmdb/cockroach`          | `cockroach`         | None; selected CockroachDB vertical with no facade export                  |
-| `packages/sqlite`             | `@zmdb/sqlite`             | `sqlite`            | `zmdb/drivers/sqlite` during the facade cutover                            |
-| `packages/mysql`              | `@zmdb/mysql`              | `mysql`             | None; selected database vertical with no facade export                     |
-| `packages/singlestore`        | `@zmdb/singlestore`        | `singlestore`       | None; selected SingleStore vertical with no facade export                  |
+| `packages/mssql`              | `@zmdb/mssql`              | `mssql`             | `zmdb/mssql`                                                               |
+| `packages/postgres`           | `@zmdb/postgres`           | `postgres`          | `zmdb/postgres`                                                            |
+| `packages/cockroach`          | `@zmdb/cockroach`          | `cockroach`         | `zmdb/cockroach`                                                           |
+| `packages/sqlite`             | `@zmdb/sqlite`             | `sqlite`            | `zmdb/sqlite`                                                              |
+| `packages/mysql`              | `@zmdb/mysql`              | `mysql`             | `zmdb/mysql`                                                               |
+| `packages/singlestore`        | `@zmdb/singlestore`        | `singlestore`       | `zmdb/singlestore`                                                         |
 | `packages/app`                | `@zmdb/app`                | `app`               | Root application names and `zmdb/app/*`                                    |
 | `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None; selected first-party capability with no facade export                |
 | `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL job adapter with no facade export                |

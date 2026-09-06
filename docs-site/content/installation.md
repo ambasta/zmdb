@@ -7,17 +7,18 @@ integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmd
 ## Recommended: one product install
 
 ```bash
-npm add zmdb@alpha
+npm add zmdb@alpha @zmdb/sqlite@alpha
 ```
 
 ```ts
 import { defineRepository, is, schemaOf, type CreateDTO, type Entity, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { sqliteDriver } from 'zmdb/sqlite';
 ```
 
-The `zmdb` package depends on nine required workspace packages and exposes their application defaults at the root. Complete concerns live under `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`,
-`zmdb/web`, `zmdb/compiler`, `zmdb/migrations`, and `zmdb/testing`. The `zmdb/drivers/sqlite` entry delegates to the bundled SQLite vertical; `zmdb/drivers/pg` and `zmdb/drivers/mssql` delegate
-through optional database-package peers selected by the application.
+The `zmdb` package re-exports the curated public API of its eight required workspace dependencies, with complete concerns under `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`, `zmdb/web`,
+`zmdb/compiler`, `zmdb/migrations`, and `zmdb/testing`. Database selection is explicit: each database package owns its compiler traits, migrations, introspection, and structural driver. The matching
+`zmdb/sqlite`, `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach`, and `zmdb/singlestore` facades resolve only when that optional database package is installed. The `zmdb/web` facade
+combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
 
 The older `zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`, and `zmdb/relations` paths remain as compatibility entries. Type-only imports from either the root or those paths disappear from emitted
 JavaScript.
@@ -232,8 +233,9 @@ The query compiler is plain runtime code, so it verifies the install without the
 
 ```ts
 import { createQueryCompiler } from 'zmdb/sql';
+import { sqlite } from 'zmdb/sqlite';
 
-const q = createQueryCompiler('sqlite').selectFrom('users').select(['id']).compile();
+const q = createQueryCompiler(sqlite).selectFrom('users').select(['id']).compile();
 console.log(q.text); // SELECT "id" FROM "users"
 ```
 

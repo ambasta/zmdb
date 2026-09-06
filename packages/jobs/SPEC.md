@@ -35,7 +35,7 @@ Every package relevant to the three journeys has one class:
 | `@zmdb/repository`                                               | default core                    | ORM and transaction contracts                                                |
 | `@zmdb/app`                                                      | default core                    | application kernel                                                           |
 | `@zmdb/web`                                                      | default core                    | HTTP framework                                                               |
-| `@zmdb/sqlite`                                                   | concrete provider               | deliberately included by the opinionated default SQLite journey              |
+| `@zmdb/sqlite`                                                   | concrete provider               | selected explicitly for the SQLite journey                                   |
 | `@zmdb/migrations`, `esbuild`, `oxfmt`                           | development-only                | explicit migration, CLI, config, compiler, or formatting entries             |
 | `@esbuild/linux-x64`, `@oxfmt/binding-linux-x64-gnu`, `tinypool` | private                         | non-catalog transitive implementation packages in these measured journeys    |
 | `@zmdb/jobs`                                                     | selected first-party capability | currently also selects SQLite transitively; that coupling is removed by #756 |
@@ -56,8 +56,8 @@ The current jobs-related public entries are:
 
 ## 2. Product-selection contract
 
-The default product is the opinionated `zmdb` schema, ORM, validation, application-kernel, SQLite, and HTTP journey. Installing `zmdb` must install the metadata-declared default closure and must not
-install `@zmdb/jobs`, a jobs provider, or `pg`.
+The default product is the opinionated `zmdb` schema, ORM, validation, application-kernel, and HTTP journey. Installing `zmdb` must install the metadata-declared default closure and must not install a
+database package, `@zmdb/jobs`, a jobs provider, or `pg`.
 
 Jobs is one **selected first-party capability**. It is cohesive without being mandatory:
 
@@ -76,8 +76,7 @@ default:
 zmdb
  ├─ schema / validator / ORM packages
  ├─ @zmdb/app
- ├─ @zmdb/web
- └─ @zmdb/sqlite                 (opinionated default database provider)
+ └─ @zmdb/web
 
 selected jobs:
 
@@ -252,12 +251,12 @@ discovery is not a JavaScript export and adds no `zmdb` dependency.
 ### Default
 
 ```sh
-npm install zmdb@alpha
+npm install zmdb@alpha @zmdb/sqlite@alpha
 ```
 
 ```ts
 import { assert, defineRepository, schemaOf } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { sqliteDriver } from 'zmdb/sqlite';
 import { Controller, Get, createApp } from 'zmdb/web';
 ```
 

@@ -78,7 +78,7 @@ import { tracedDriver } from '@zmdb/app/observability';
 
 async function list(ctx: Ctx) {
   const driver = tracedDriver(baseDriver, observability, ctx.span);
-  const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
+  const users = defineRepository(UserSchema, driver);
   return users.findAll();
 }
 ```

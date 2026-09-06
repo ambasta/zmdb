@@ -2,7 +2,7 @@ import type { PrimaryKeyOf } from '@zmdb/schema-core';
 import { describe, it, expect } from 'vitest';
 
 import { IncompleteKeyError, ValidationError } from '../index.js';
-import { ProductsRepo, recorder, TenantUsersRepo, type TenantUser } from './fixtures.js';
+import { ProductsRepo, recorder, TenantUsersRepo, type TenantUser } from './typed-methods.fixture.js';
 
 describe('Composite Primary Key Repository Operations', () => {
   it('findById compiles parameterized multi-column SQL predicates', async () => {

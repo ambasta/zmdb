@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
 import type { Driver, ExecuteOptions } from '../index.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { withReplicas, isWrite } from './index.js';
 
 function tagDriver(tag: string, log: string[]): Driver {
-  return { execute: async q => (log.push(`${tag}:${q.text.slice(0, 6)}`), []) };
+  return { dialect: postgresDialect, execute: async q => (log.push(`${tag}:${q.text.slice(0, 6)}`), []) };
 }
 const q = (text: string) => ({ text, parameters: [] });
 
@@ -38,6 +39,7 @@ describe('read replicas (#128)', () => {
   it('forwards execute and stream options to the selected driver', async () => {
     const observed: (ExecuteOptions | undefined)[] = [];
     const streaming = (tag: string): Driver => ({
+      dialect: postgresDialect,
       execute(_query, options) {
         observed.push(options);
         return Promise.resolve([]);
@@ -69,12 +71,14 @@ describe('read replicas (#128)', () => {
 
   it('advertises streaming only when every routed driver has a callable method', () => {
     const primary: Driver = {
+      dialect: postgresDialect,
       execute: () => Promise.resolve([]),
       stream: () => ({
         async *[Symbol.asyncIterator]() {},
       }),
     };
     const malformedReplica: Driver = {
+      dialect: postgresDialect,
       execute: () => Promise.resolve([]),
       // @ts-expect-error — runtime capability checks must reject malformed
       // JavaScript adapters instead of advertising a method that will crash.

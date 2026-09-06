@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { aggregateSelectFrom } from './index.js';
 
 // RED PHASE (#89 spec freeze): aggregate / GROUP BY / HAVING golden SQL.
 
 describe('aggregate compilation (postgres golden)', () => {
   it('COUNT + GROUP BY + ORDER BY + pagination', () => {
-    const q = aggregateSelectFrom('orders')
+    const q = aggregateSelectFrom('orders', postgresDialect)
       .select(['orders.id'])
       .count('order_details.product_id', 'products_count')
       .groupBy('orders.id')
@@ -20,7 +21,7 @@ describe('aggregate compilation (postgres golden)', () => {
   });
 
   it('SUM + HAVING (parameterized)', () => {
-    const q = aggregateSelectFrom('order_details')
+    const q = aggregateSelectFrom('order_details', postgresDialect)
       .sum('quantity', 'qty')
       .having('quantity', '>', 0)
       .groupBy('order_id')
@@ -32,7 +33,7 @@ describe('aggregate compilation (postgres golden)', () => {
   });
 
   it('count, sum, avg, min and max each project one aggregate with its alias', () => {
-    const q = aggregateSelectFrom('order_details')
+    const q = aggregateSelectFrom('order_details', postgresDialect)
       .select(['order_id'])
       .count('id', 'lines')
       .sum('quantity', 'qty')
@@ -49,7 +50,7 @@ describe('aggregate compilation (postgres golden)', () => {
   });
 
   it('groupBy + having + orderBy + pagination compose in the right order', () => {
-    const q = aggregateSelectFrom('order_details')
+    const q = aggregateSelectFrom('order_details', postgresDialect)
       .select(['order_id'])
       .sum('quantity', 'qty')
       .groupBy('order_id')
@@ -66,7 +67,7 @@ describe('aggregate compilation (postgres golden)', () => {
   });
 
   it('multiple HAVING predicates are AND-joined and parameterized', () => {
-    const q = aggregateSelectFrom('order_details')
+    const q = aggregateSelectFrom('order_details', postgresDialect)
       .sum('quantity', 'qty')
       .groupBy('order_id')
       .having('quantity', '>', 0)
@@ -80,7 +81,7 @@ describe('aggregate compilation (postgres golden)', () => {
   });
 
   it('groups by multiple columns', () => {
-    const q = aggregateSelectFrom('order_details')
+    const q = aggregateSelectFrom('order_details', postgresDialect)
       .select(['order_id', 'product_id'])
       .count('id', 'n')
       .groupBy('order_id')
@@ -92,7 +93,7 @@ describe('aggregate compilation (postgres golden)', () => {
   });
 
   it('expr() emits a raw computed expression with alias', () => {
-    const q = aggregateSelectFrom('order_details')
+    const q = aggregateSelectFrom('order_details', postgresDialect)
       .expr('sum(quantity * unit_price)::real', 'total')
       .groupBy('order_id')
       .compile();
@@ -102,13 +103,13 @@ describe('aggregate compilation (postgres golden)', () => {
 
 describe('aggregate compile-time telemetry', () => {
   it('keeps telemetry absent from the default compiled query', () => {
-    const q = aggregateSelectFrom('orders').count('id', 'count').compile();
+    const q = aggregateSelectFrom('orders', postgresDialect).count('id', 'count').compile();
     expect(Object.keys(q)).toEqual(['text', 'parameters']);
     expect(q.telemetry).toBeUndefined();
   });
 
   it('attaches the compile-known SELECT and primary table when opted in', () => {
-    const q = aggregateSelectFrom('orders', 'postgres', { telemetry: true }).count('id', 'count').compile();
+    const q = aggregateSelectFrom('orders', postgresDialect, { telemetry: true }).count('id', 'count').compile();
     expect(q.telemetry).toEqual({
       system: 'postgresql',
       operation: 'SELECT',

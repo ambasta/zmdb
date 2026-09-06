@@ -33,7 +33,7 @@ export interface OrderSummary extends Table<'order_summary'> {
 }
 
 // 3. a repository over it
-export const orderSummaryRepo = defineRepository(schemaOf<OrderSummary>(), driver, { dialect: 'postgres' });
+export const orderSummaryRepo = defineRepository(schemaOf<OrderSummary>(), driver);
 ```
 
 Note the `PrimaryKey` on `id`: a view has no key, but every declaration needs one, because `findById` builds its `WHERE` out of it and an empty key compiles to a statement with no conditions. Pick the

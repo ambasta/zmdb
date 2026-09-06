@@ -1,12 +1,13 @@
 # Introspection: catalog → snapshot → declaration — Spec (frozen)
 
-> Part of `@zmdb/migrations`: catalog reading and drift live under `./introspect`, while declaration emission lives under `./declarations`. The behavioral contract remains frozen.
+> Generic catalog protocols and drift live under `@zmdb/migrations/introspect`, declaration emission lives under `@zmdb/migrations/declarations`, and official catalog readers live in the selected
+> database packages. The behavioral contract remains frozen.
 
 ## Issue #629 ownership extraction
 
-The generic catalog readers, row validation, drift normalization, and selection rules now live at `@zmdb/migrations/introspect`. The narrow `@zmdb/migrations/introspect/runtime` entry exposes shared
-row helpers and drift normalization without loading a concrete catalog reader. Declaration emission and its formatter dependency live at `@zmdb/migrations/declarations`. Generated declarations import
-`@zmdb/schema-core/tags`, and `@zmdb/query-compiler` cannot reach introspection or `oxfmt`.
+Catalog result types, row validation, generic drift comparison, and selection helpers live at `@zmdb/migrations/introspect`. The narrow `@zmdb/migrations/introspect/runtime` entry exposes shared row
+helpers and drift normalization without loading a concrete catalog reader. Declaration emission and its formatter dependency live at `@zmdb/migrations/declarations`. Official readers and
+database-specific normalization live in database packages. Generated declarations import `@zmdb/schema-core/tags`, and `@zmdb/query-compiler` cannot reach introspection or `oxfmt`.
 
 ## 1. Why the reverse direction is not the forward one inverted
 
@@ -35,13 +36,11 @@ export interface IntrospectionDriver {
 
 export interface Introspector<Name extends string = string> {
   readonly name: Name;
-  /** Temporary compatibility alias used by the six-name factory. */
-  readonly dialect?: Name;
   snapshot(driver: IntrospectionDriver, opts?: IntrospectOptions): Promise<CatalogSchemaSnapshot>;
   normalizeForDrift(snapshot: CatalogSchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot;
 }
 
-export declare function createIntrospector(dialect: Dialect): Introspector<Dialect>;
+export declare function createIntrospector<Name extends string>(dialect: SqlDialect<Name>): Introspector<Name>;
 
 export interface IntrospectOptions {
   readonly schemas?: readonly string[]; // default: the dialect's default schema
@@ -59,7 +58,7 @@ export interface EmitDeclarationsResult {
 }
 export interface EmitOptions {
   /** Required because SchemaSnapshot is deliberately dialect-neutral. */
-  readonly dialect: Dialect;
+  readonly dialect: SqlDialect;
 }
 export declare function emitDeclarations(snapshot: SchemaSnapshot, opts: EmitOptions): Promise<EmitDeclarationsResult>;
 
@@ -67,23 +66,23 @@ export interface DriftOptions {
   /** Table-name globs. Default: `['_zmdb_migrations']`; an explicit list replaces it. */
   readonly exclude?: readonly string[];
   /** Enables dialect-owned noise rules, currently the MySQL foreign-key support index rule. */
-  readonly dialect?: Dialect;
+  readonly dialect: SqlDialect;
 }
 export interface DriftReport {
   readonly onlyInDatabase: readonly ChangeOp[];
   readonly onlyInDeclarations: readonly ChangeOp[];
   readonly clean: boolean;
 }
-export declare function detectDrift(live: SchemaSnapshot, declared: SchemaSnapshot, opts?: DriftOptions): DriftReport;
+export declare function detectDrift(live: SchemaSnapshot, declared: SchemaSnapshot, opts: DriftOptions): DriftReport;
 ```
 
 `CatalogSchemaSnapshot` is structurally a `SchemaSnapshot` and adds the catalog-only evidence plus the ordered keys, foreign keys, indexes and extensions already frozen by the dependent migration
 epics. Ordered primary keys and foreign keys now participate in migration diffing; indexes remain catalog evidence until their corresponding migration operation lands.
 
 `IntrospectionDriver` is the structural slice of the driver the repository already injects: `execute(query: CompiledQuery)`. It is declared here because `@zmdb/query-compiler` sits below
-`@zmdb/repository` and cannot import its `Driver` without reversing the package graph. An injected `SqlDialect` carries its introspector directly. `createIntrospector` remains the temporary six-name
-adapter for built-in callers; external object consumers do not register with or pass through it. Catalog queries are ordinary `CompiledQuery` values with parameters, never concatenated strings: the
-schema list and the globs are caller input, and this is a module whose entire job is to send SQL naming things the caller chose.
+`@zmdb/repository` and cannot import its `Driver` without reversing the package graph. An injected `SqlDialect` carries its introspector directly. `createIntrospector` accepts that explicit object and
+does not resolve an official name or registry. Catalog queries are ordinary `CompiledQuery` values with parameters, never concatenated strings: the schema list and the globs are caller input, and this
+is a module whose entire job is to send SQL naming things the caller chose.
 
 The package DAG keeps `@zmdb/migrations` below `@zmdb/schema-core` and independent of `@zmdb/aot-validator`. Catalog rows are therefore validated here by explicit field validators rather than asserted
 or imported through a forbidden upward or sibling edge. Declaration formatting is the one third-party runtime dependency in this package: `oxfmt`, invoked on generated source so checked-in output
@@ -316,7 +315,7 @@ Normalization has three explicit rules:
    also names the ledger when it should remain excluded.
 2. `catalogType` and `default` are removed from the compared copies. Catalog aliases have already collapsed into the abstract `type`, and §4 makes defaults evidence rather than a compared field.
    Neither input snapshot is mutated.
-3. With `{ dialect: 'mysql' }`, a live non-unique btree index is omitted only when its name is the foreign key name or `<foreign-key>_idx` and its plain column list exactly equals that foreign key's
+3. With `{ dialect: mysql }`, a live non-unique btree index is omitted only when its name is the foreign key name or `<foreign-key>_idx` and its plain column list exactly equals that foreign key's
    columns. That is the index InnoDB creates or zmdb emits solely to support the constraint. A differently named, partial, expression, unique or differently shaped index remains.
 
 The shipped migration comparator currently reports table presence, column presence, normalized type changes, declared extensions, ordered primary keys and foreign keys. Index evidence is preserved by
@@ -355,13 +354,13 @@ resolved config (#492). Neither side keeps a private copy of the catalog SQL.
 
 ## 11. Database-package boundary (issue #666)
 
-This section supersedes the central `createIntrospector(dialect: Dialect)` dispatch for the epic #665 target. Issue #668 implements direct object consumption through `dialect.introspector`; the
-central dispatch remains only as six-name compatibility until the database readers move.
+This section supersedes the central `createIntrospector(dialect: Dialect)` dispatch for the epic #665 target. Direct object consumption through `dialect.introspector` is now the only selection path;
+the six-name compatibility dispatch has been removed.
 
 ### 11.1 Vendor-neutral protocol
 
-At database-package extraction completion, `@zmdb/migrations/introspect` keeps the catalog result types, strict row-field helpers and two-snapshot drift algorithm, while
-`@zmdb/migrations/declarations` keeps the declaration emitter. The generic entry will export no official database reader and know no official database name.
+`@zmdb/migrations/introspect` keeps the catalog result types, strict row-field helpers and two-snapshot drift algorithm, while `@zmdb/migrations/declarations` keeps the declaration emitter. The
+generic entry will export no official database reader and know no official database name.
 
 ```ts
 export interface IntrospectionDriver {
@@ -382,15 +381,14 @@ export interface Introspector<Name extends string = string> {
 ```
 
 The selected `SqlDialect<Name>` carries one `Introspector<Name>`. Object callers use `dialect.introspector.snapshot(...)`; that path has no factory, registry, string switch, dynamic package lookup or
-import-side-effect registration. `normalizeForDrift` owns catalog noise that only one database can identify. `detectDrift` remains generic and compares the two normalized snapshots. The temporary
-factory still switches among the built-in readers for string callers.
+import-side-effect registration. `normalizeForDrift` owns catalog noise that only one database can identify. `detectDrift` remains generic and compares the two normalized snapshots.
 
-At extraction completion, `emitDeclarations` receives the selected `SqlDialect` rather than a string. Issue #668 leaves its built-in string option intact because config and CLI selection have not
-moved yet. The final object path uses `dialect.name` only in generated provenance and consumes already-normalized catalog facts; it does not dispatch catalog parsing or reverse type maps.
+`emitDeclarations` receives the selected `SqlDialect`. It uses `dialect.name` only in generated provenance and consumes already-normalized catalog facts; it does not dispatch catalog parsing or
+reverse type maps.
 
 ### 11.2 One owner for every current catalog path
 
-| Current unit                                                         | Future owner                                                                                              |
+| Current unit                                                         | Owner                                                                                                     |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `common.ts` catalog snapshots, errors and strict row helpers         | `@zmdb/migrations/introspect/runtime`, re-exported by `@zmdb/migrations/introspect`                       |
 | `emit.ts` and `tagged-property.ts` deterministic TypeScript emission | `@zmdb/migrations/declarations`                                                                           |

@@ -58,8 +58,8 @@ const driver = {
   },
 };
 
-export const userRepo = defineRepository(users, driver, { dialect: 'postgres' });
-export const postRepo = defineRepository(posts, driver, { dialect: 'postgres' });
+export const userRepo = defineRepository(users, driver);
+export const postRepo = defineRepository(posts, driver);
 ```
 
 `import 'server-only'` is the guard that matters. Without it, importing this from a client component is a build-time-successful, runtime-broken bundle — and it would ship your connection string to the

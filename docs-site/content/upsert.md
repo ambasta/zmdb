@@ -35,7 +35,9 @@ than it looks.
 **`doUpdate()` — every non-target column takes the value this INSERT tried to write.** This is what `repo.upsert` calls.
 
 ```ts
-createQueryCompiler('postgres').insertInto('users').values(row).onConflict('id').doUpdate().compile();
+import { postgres } from '@zmdb/postgres';
+
+createQueryCompiler(postgres).insertInto('users').values(row).onConflict('id').doUpdate().compile();
 // INSERT INTO "users" ("id", "email", "name", "hits") VALUES ($1, $2, $3, $4)
 //   ON CONFLICT ("id") DO UPDATE SET "email" = EXCLUDED."email", "name" = EXCLUDED."name", "hits" = EXCLUDED."hits"
 ```
@@ -102,7 +104,7 @@ Omitting the target lets the server infer it: `onConflict()` emits a bare `ON CO
 > With one unique index, the behavior is equivalent. With several unique constraints, Postgres raises when a non-target index conflicts, while MySQL updates the row for whichever unique index matched.
 > An upsert that relies on a particular conflict target is therefore not portable to MySQL.
 
-**Why the API permits an explicit target on MySQL.** The compiler knows its dialect and could reject `createQueryCompiler('mysql').insertInto(…).onConflict('email')`.
+**Why the API permits an explicit target on MySQL.** The compiler knows its dialect and could reject `createQueryCompiler(mysql).insertInto(…).onConflict('email')`.
 
 The call remains valid because the database dialect is often selected at deployment time. Rejecting it would make the same repository code compile for one environment and fail for another.
 
@@ -132,7 +134,7 @@ MySQL also has no `RETURNING`. An ordinary repository upsert refuses before driv
 `BaseRepository.upsert` always calls `doUpdate`. There is no `repo.upsertOrIgnore`, so `DO NOTHING` is only reachable through the compiler:
 
 ```ts
-const q = createQueryCompiler('postgres').insertInto('users').values(clean).onConflict('email').doNothing().returning(['*']).compile();
+const q = createQueryCompiler(postgres).insertInto('users').values(clean).onConflict('email').doNothing().returning(['*']).compile();
 
 await driver.execute(q);
 ```

@@ -12,11 +12,12 @@ Point `http.contracts` at the exported contract object the router registers, the
 
 ```ts
 // zmdb.config.ts
+import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 
 export default defineConfig({
   schema: './src/schema.ts',
-  dialect: 'postgres',
+  dialect: postgres,
   project: './tsconfig.json',
   http: {
     contracts: './src/account.contract.ts#ACCOUNT_HTTP_CONTRACT',

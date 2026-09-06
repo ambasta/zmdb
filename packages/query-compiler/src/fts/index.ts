@@ -148,7 +148,7 @@ function make(d: DialectTarget, s: State, telemetry: boolean): FtsSelect {
 
 export function ftsSelectFrom(
   table: string,
-  dialect: DialectTarget = 'postgres',
+  dialect: DialectTarget,
   options?: FtsOptions | string | boolean,
 ): FtsSelect {
   const ftsTable = typeof options === 'string' || typeof options === 'boolean' ? options : options?.ftsTable;

@@ -4,7 +4,7 @@ import { createQueryCompiler, distance } from '@zmdb/query-compiler';
 import type { Ext, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it, vi } from 'vitest';
 
-import { postgresDriver, type PgQueryable } from './index.js';
+import { postgres, postgresDriver, type PgQueryable } from './index.js';
 
 interface PgVectorItem extends Table<'pgvector_items'> {
   readonly embedding: readonly number[] & Ext<'vector', 'vector', [3]>;
@@ -22,7 +22,7 @@ function preparePgValue(value: unknown): unknown {
 describe('postgresDriver', () => {
   it('serializes a compiler-bound pgvector parameter through the real node-postgres path', () => {
     const vector = [0.1, 0.2, 0.3] as const;
-    const query = createQueryCompiler('postgres')
+    const query = createQueryCompiler(postgres)
       .selectFrom('pgvector_items')
       .orderBy(distance<PgVectorItem>('embedding', 'cosine', vector), 'asc')
       .compile();

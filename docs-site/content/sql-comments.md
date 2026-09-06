@@ -42,7 +42,7 @@ const driver = tracedDriver(baseDriver, observability, ctx.span, () => ({
   route: '/users/:id',
   action: 'get',
 }));
-const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
+const users = defineRepository(UserSchema, driver);
 ```
 
 The configuration is an allowlist: the callback may return more closed keys, but only `keys` are emitted. When `traceparent` is selected, `tracedDriver` uses the query span it just created (or the

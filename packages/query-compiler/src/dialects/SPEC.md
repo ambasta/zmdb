@@ -152,6 +152,8 @@ every entry would mean six copies of nine booleans, and the fifth one to be adde
 
 ### 2.1 Resolution is a module-level merge, because `Dialect` is not only a compiler argument
 
+This subsection records the pre-#675 built-in-name implementation measured for the original dialect-matrix work; §11 is the current object-only architecture.
+
 `createQueryCompiler(dialect)` is not the only door. `quoteIdentifier`, `ddlType`, `emitUp`, `emitDown`, `setOperation`, `createIndexDdl`, `createViewDdl`, `enableRlsDdl`, `ftsSelectFrom`,
 `joinableSelectFrom` and `aggregateSelectFrom` are all exported and all take a `Dialect` string rather than a compiler instance, and `@zmdb/repository` calls several of them that way — its IN-list
 chunkers index `DIALECT_PARAM_LIMITS[this.dialect]` directly.
@@ -696,18 +698,18 @@ possible" is easy to promise and hard to cash:
 Not available, and deliberately not pursued: **parameterising the builders by dialect.** A `QueryCompiler<'mssql'>` whose `.limit()` returned a type that only `.orderBy()` could compile would catch
 §3.3's refusal at the type level, which is the single most valuable compile-time check in this epic.
 
-It is rejected because the dialect is not a literal at the boundary — it arrives from a config file as `Dialect` — so the type parameter would widen to the full union at the exact place it needed to
-be narrow, while threading through every builder interface, every `Repo` method and `defineRepository`.
+It is rejected because the selected `SqlDialect` object already carries the runtime strategy, while threading a dialect type parameter through every builder interface, every repository method and
+`defineRepository` would add type-system cost without changing that runtime refusal boundary.
 
 The runtime refusal is acceptable because `compile()` is pure: a test asserting a refusal costs precisely what a test asserting golden SQL costs, and §7 requires both in the same table.
 
 ## 7. The test matrix
 
-**Every construct, every dialect, one table, no gaps.** The pattern is not invented here; it is already in the repository at `../../../zmdb/src/three-types.spec.ts:63`, where a timestamp column's DDL
-is asserted against a `Readonly<Record<Dialect, string>>` iterated per dialect.
+**Every construct, every official dialect fixture, one table, no gaps.** The pattern is not invented here; it is already in the repository at `../../../zmdb/src/three-types.spec.ts`, where a timestamp
+column's DDL is asserted against a `Readonly<Record<OfficialDialectName, string>>` iterated over explicitly imported database-package objects.
 
 Two properties of that test are the reason it generalises: the expectation is the whole statement rather than a fragment (the comment there explains why — `TIMESTAMPTZ` contains `TIMESTAMP`, so half
-the obvious assertions pass either way), and the table is keyed by `Dialect`, so a missing dialect is a compile error.
+the obvious assertions pass either way), and the test-only table is keyed by `OfficialDialectName`, so a missing fixture is a compile error without adding an official registry to production code.
 
 The generalisation:
 
@@ -740,8 +742,8 @@ titles only.
 
 ## 8. What "supported" means, per dialect
 
-The epic requires this to be stated honestly. Six temporary built-in dialect names still ship, and all six databases now live in complete extracted verticals; the generic repository retains no
-database adapter. "Supported" means the selected package owns compiler behavior, migrations, introspection, an official structural adapter, and real-server evidence.
+The epic requires this to be stated honestly. All six databases live in complete extracted verticals, and the generic repository retains no database adapter or official-name registry. "Supported"
+means the selected package owns compiler behavior, migrations, introspection, an official structural adapter, and real-server evidence.
 
 | Dialect       | Official driver     | Always-on CI database                                    | Coverage                                                                  |
 | ------------- | ------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -793,25 +795,23 @@ evidence.
 - **Parameterising builders by dialect (`QueryCompiler<'mssql'>`).** §6 — the dialect is not a literal at the boundary, so the type would widen exactly where it needed to narrow.
 - **`Partial<Record<Dialect, …>>` for any dialect table, including test expectation tables.** §1.1, §6, §7 — it is the only compile-time guarantee in the package.
 
-## 11. Database vertical extraction contract (issues #666 and #668)
+## 11. Database vertical extraction result (issues #666, #668 and #675)
 
-Issue #666 froze the target owned by epic #665. Issue #668 implements its vendor-neutral object seam while preserving the six-name compatibility implementation. Sections 1–10 remain the measured
-history and the retained built-in/name compatibility contract; where they prescribe a global `Dialect` union, `DIALECTS`, `TRAITS`, module-load resolution, or string-only dispatch, this section
-supersedes them for the injected path and final architecture.
+Issue #666 froze the target owned by epic #665, issue #668 introduced the vendor-neutral object seam, and #675 completed the cutover. Sections 1–10 retain measured historical design evidence; where
+they prescribe a global `Dialect` union, `DIALECTS`, `TRAITS`, module-load resolution, or string-only dispatch, this section supersedes them as the current architecture.
 
 ### 11.1 Measured starting point
 
 At commit `94164c53`, the official names were declared together in `index.ts`, the compiler defaulted to the string `'postgres'`, `createIntrospector` switched over all six names, repository drivers
-carried optional string names, and config/CLI surfaces passed those strings through. Issues #669, #670, #671, #672, #673, and #674 have since moved all six drivers, migration strategies, catalog
-adaptation and real-server qualification into their vertical packages. The compatibility tree retains the frozen names and dispatch seams until #675, but child-specific driver and catalog behavior is
-package-owned.
+carried optional string names, and config/CLI surfaces passed those strings through. Issues #669, #670, #671, #672, #673, #674 and #675 moved all six drivers, migration strategies, catalog adaptation,
+selection surfaces and real-server qualification into their vertical packages.
 
 Those facts describe the migration source, not the support state promised by the target packages.
 
-Issue #668 adds a registry-free `dialects/protocol.ts` containing `SqlDialect`, its total traits and capabilities, migration and introspection protocols, and `defineSqlDialect` / `extendSqlDialect`.
+Issue #668 added a registry-free `dialects/protocol.ts` containing `SqlDialect`, its total traits and capabilities, migration and introspection protocols, and `defineSqlDialect` / `extendSqlDialect`.
 The compiler and helpers accept that object, migration wrappers and the runner delegate through its migration implementation, callers use its introspector directly, and the repository derives and
-caches the same object's behavior. Issues #669, #670, and #672 move the SQLite, PostgreSQL, and SQL Server readers and adapters into their vertical packages; the legacy six-name definitions, string
-overloads, config values, and remaining database implementations stay until their extraction children and #675 complete the cutover.
+caches the same object's behavior. Official implementations live only in the selected database packages; generic packages retain protocols and algorithms rather than string overloads or vendor
+registries.
 
 ### 11.2 Generic public contract
 
@@ -906,8 +906,7 @@ const sql = createQueryCompiler(postgres);
 ```
 
 The injected protocol module has no official-name union, no `Record<OfficialDatabase, …>`, no `registerDialect`, no mutable registry, no import-for-side-effect convention and no discovery by package
-name. The temporary compatibility module still owns the six built-in records until extraction. Importing an external dialect can construct and freeze its own constants, but must not mutate
-process-global state.
+name. Importing an external dialect can construct and freeze its own constants, but must not mutate process-global state.
 
 Only two database-package dependency edges exist:
 
@@ -917,29 +916,26 @@ Only two database-package dependency edges exist:
 The parent never imports its child. A child calls `extendSqlDialect` once and supplies only real differences. It may reuse a public parent driver/catalog primitive, but it cannot import a parent
 private path, copy a parent implementation, mutate a parent object, or defer trait lookup to every statement.
 
-### 11.4 String-to-object migration
+### 11.4 Object-only result
 
-Issue #668 lands the object column while retaining a measured compatibility column for the extraction sequence:
+The extraction sequence is complete:
 
-| Surface          | Shipped after #668                                                                                                                                      | Extraction completion target                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Compiler         | accepts `SqlDialect<Name>`; temporary name overload and implicit Postgres default remain                                                                | object required; no default                                                                                           |
-| Compiler helpers | accept the selected object or a temporary built-in name; object calls read its resolved strategies                                                      | object or already-resolved strategy only                                                                              |
-| Migrations       | wrappers accept `MigrationDialect`; the driver adapter delegates an object to `dialect.migrations.connection`; legacy string emitters/adapters remain   | generic algorithms receive only the selected object's migration implementation                                        |
-| Introspection    | object consumers call `dialect.introspector`; the central six-name factory remains for compatibility                                                    | factory and switch disappear                                                                                          |
-| Repository       | `Driver.dialect` may be an object or built-in name; repository derives it before the Postgres fallback and caches limits, retries and returning support | every `Driver<Name>` has one required object; no separate dialect argument                                            |
-| Config           | AOT-validated dialect string                                                                                                                            | explicitly imported object, structurally checked outside the plain-data validator                                     |
-| CLI              | forwards the config string and contains SQLite/name branches                                                                                            | consumes `config.dialect`, `.migrations` and `.introspector`; generated projects import one selected database package |
-| Facade           | old driver-only subpaths                                                                                                                                | optional identity re-exports for complete database verticals; no root eager selection and no bundled database clients |
-
-Temporary string overloads may exist only inside the implementation cut-over and must be gone before #675 completes. They are not a compatibility promise.
+| Surface          | Current contract                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Compiler         | requires `SqlDialect<Name>`; no name overload or implicit default                                                   |
+| Compiler helpers | accept the selected object or an already-resolved strategy                                                          |
+| Migrations       | generic algorithms consume only the selected object's migration implementation                                      |
+| Introspection    | callers use `dialect.introspector`; generic code has no official-reader factory or switch                           |
+| Repository       | every `Driver<Name>` has one required object; repositories derive behavior from it                                  |
+| Config and CLI   | consume an explicitly imported object and its migrations/introspector                                               |
+| Facade           | `zmdb/sqlite`, `/postgres`, `/mysql`, `/mssql`, `/cockroach`, and `/singlestore` expose complete selected verticals |
 
 ### 11.5 Complete ownership inventory
 
-“Move” below means move the named implementation or per-database case, not necessarily the entire mixed file. Generic algorithms and shared test harnesses stay in their current generic package. Every
-vendor-owned unit has one owner:
+The pre-cutover column names the implementation or per-database case that changed ownership, not necessarily an entire mixed file. Generic algorithms and shared test harnesses remain in their generic
+package. Every vendor-owned unit has one current owner:
 
-| Current unit                                                                                                                                                        | Future owner                                                                                                                             | Generic remainder                                                        |
+| Pre-cutover unit                                                                                                                                                    | Current owner                                                                                                                            | Generic remainder                                                        |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `dialects/index.ts`: PostgreSQL definition, type map, limits, retry codes                                                                                           | `@zmdb/postgres`                                                                                                                         | protocol types and `defineSqlDialect` / `extendSqlDialect`               |
 | `dialects/index.ts`: MySQL definition, type map, limits, retry codes                                                                                                | `@zmdb/mysql`                                                                                                                            | same                                                                     |
@@ -976,22 +972,22 @@ vendor-owned unit has one owner:
 | `repository/package.json`: one remaining driver subpath and SQL Server client test dependencies; SQLite and PostgreSQL already moved                                | database package manifests/exports own their adapter                                                                                     | generic repository manifest retains no vendor subpath or client          |
 | `zmdb/src/config/index.ts` and generated validator/witness artifacts: closed name validation and PostgreSQL-family schema branch                                    | selected dialect object and its migration validation; `zmdb` remains the config consumer                                                 | config discovery, paths and plain-data validation                        |
 | `zmdb/src/cli/**` and `zmdb/src/studio/index.ts`: string propagation, SQLite-only branches, templates and fixtures                                                  | `zmdb` consumes one explicit database object; database behavior belongs to the selected package                                          | command/studio workflow, argument handling and generated-project UX      |
-| `zmdb/src/index.ts`, `zmdb/src/drivers-{sqlite,pg,mssql}.ts` and `zmdb/package.json`: `Dialect`/driver facade exports                                               | optional identity/compatibility re-exports only; implementations belong to the selected database package                                 | facade policy remains `zmdb`                                             |
+| `zmdb/src/index.ts`, `zmdb/src/drivers-{sqlite,pg,mssql}.ts` and `zmdb/package.json`: old driver facades                                                            | `zmdb/sqlite`, `/postgres`, `/mysql`, `/mssql`, `/cockroach`, and `/singlestore` expose complete selected verticals                      | facade policy remains `zmdb`                                             |
 
 The test move follows the same unit boundary:
 
-| Current tests                                                                                                                                                                                                                          | Future owner                                                                                                                                                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dialects.spec.ts`, `dialects/index.spec.ts`, `dialects/matrix.{spec,type-test}.ts`, `dialects/mssql.spec.ts`, `dialects/variants.spec.ts`, `query-compiler.spec.ts`, `quoting.spec.ts`, expression/aggregation/join/FTS/set-op suites | each database's expectation and refusal rows move to that database package; the generic synthetic-dialect harness stays in `@zmdb/query-compiler`           |
-| `migrations/{composite-keys,ddl-dialects,migrations,runner,sql-types,referential-actions}*`, schema-object suites and `outbox/outbox.spec.ts`                                                                                          | per-database DDL cells/refusals move to their package; snapshot/diff/order/checksum tests stay generic                                                      |
-| `introspect/introspect.spec.ts`, `introspect/postgres.spec.ts`, `introspect/emit.spec.ts`, `introspect/drift.type-test.ts`                                                                                                             | catalog-reader and database-normalization cases move to their package; common row validation, declaration printing and generic drift reporting stay generic |
-| `repository/src/drivers/*.spec.ts`, `mssql-e2e.spec.ts` and database-backed SQLite/PostgreSQL cases                                                                                                                                    | move with the corresponding driver/database package                                                                                                         |
-| repository suites that merely use SQLite as a deterministic fixture                                                                                                                                                                    | stay in `@zmdb/repository`; using a database to test generic repository semantics does not transfer ownership                                               |
-| repository matrix rows for MySQL-family writes, SQL Server limiting, parameter limits or retry codes                                                                                                                                   | move to the database package that supplies the strategy; generic repository conformance stays                                                               |
-| `zmdb/src/three-types.spec.ts`, config/CLI string fixtures and facade re-export tests                                                                                                                                                  | product-consumer tests stay in `zmdb`, but import explicit package objects and contain no vendor implementation                                             |
+| Pre-cutover tests                                                                                                                                                                                                                      | Current owner                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dialects.spec.ts`, `dialects/index.spec.ts`, `dialects/matrix.{spec,type-test}.ts`, `dialects/mssql.spec.ts`, `dialects/variants.spec.ts`, `query-compiler.spec.ts`, `quoting.spec.ts`, expression/aggregation/join/FTS/set-op suites | each database package owns its expectation and refusal rows; the generic synthetic-dialect harness remains in `@zmdb/query-compiler`                 |
+| `migrations/{composite-keys,ddl-dialects,migrations,runner,sql-types,referential-actions}*`, schema-object suites and `outbox/outbox.spec.ts`                                                                                          | each database package owns its DDL cells/refusals; snapshot/diff/order/checksum tests remain generic                                                 |
+| `introspect/introspect.spec.ts`, `introspect/postgres.spec.ts`, `introspect/emit.spec.ts`, `introspect/drift.type-test.ts`                                                                                                             | database packages own catalog-reader and normalization cases; common row validation, declaration printing and generic drift reporting remain generic |
+| `repository/src/drivers/*.spec.ts`, `mssql-e2e.spec.ts` and database-backed SQLite/PostgreSQL cases                                                                                                                                    | the corresponding database package owns them                                                                                                         |
+| repository suites that merely use SQLite as a deterministic fixture                                                                                                                                                                    | remain in `@zmdb/repository`; using a database to test generic repository semantics does not transfer ownership                                      |
+| repository matrix rows for MySQL-family writes, SQL Server limiting, parameter limits or retry codes                                                                                                                                   | the database package supplying the strategy owns them; generic repository conformance remains                                                        |
+| `zmdb/src/three-types.spec.ts`, config/CLI string fixtures and facade re-export tests                                                                                                                                                  | product-consumer tests remain in `zmdb`, import explicit package objects and contain no vendor implementation                                        |
 
-The test-freeze issue must encode the inventory as an AST/source-boundary check. A path is not considered transferred while a generic shipped file still contains an official name, a database client
-import, or an equivalent vendor branch hidden behind a family comparison.
+The test freeze encodes the inventory as an AST/source-boundary check. A path is not considered transferred while a generic shipped file still contains an official name, a database client import, or
+an equivalent vendor branch hidden behind a family comparison.
 
 ### 11.6 Capability and refusal evidence
 

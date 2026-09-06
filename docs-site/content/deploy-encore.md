@@ -89,7 +89,7 @@ function txDriver(tx: Transaction): Driver {
   };
 }
 
-const repo = defineRepository(posts, txDriver(tx), { dialect: 'postgres' });
+const repo = defineRepository(posts, txDriver(tx));
 ```
 
 The repository is an object over a driver, so constructing one per transaction costs nothing. This is the general pattern for any framework that owns its own transaction handle. See

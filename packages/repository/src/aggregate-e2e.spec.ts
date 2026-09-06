@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 
 import { usePostgres } from '../../postgres/src/testing/fixture.js';
 import { BaseRepository } from './index.js';
+import { postgresDialect } from './testing/official-dialects.fixture.js';
 
 // #92: aggregation repository integration + E2E on REAL PostgreSQL.
 
@@ -35,7 +36,7 @@ describe('aggregation repository integration (real Postgres)', () => {
       console.warn('[skip] Postgres not reachable');
       return;
     }
-    const repo = new SalesRepository(pg.driver(), 'postgres');
+    const repo = new SalesRepository(pg.driver(), postgresDialect);
     const rows = await repo.aggregate<{ region: string; n: number; total: number }>(agg =>
       agg.select(['region']).count('id', 'n').sum('amount', 'total').groupBy('region').orderBy('region', 'asc'),
     );
@@ -54,7 +55,7 @@ describe('aggregation repository integration (real Postgres)', () => {
 
   it('having filters grouped results', async () => {
     if (!pg.reachable()) return;
-    const repo = new SalesRepository(pg.driver(), 'postgres');
+    const repo = new SalesRepository(pg.driver(), postgresDialect);
     const rows = await repo.aggregate<{ region: string }>(agg =>
       agg.select(['region']).count('id', 'n').groupBy('region').having('region', '=', 'north'),
     );

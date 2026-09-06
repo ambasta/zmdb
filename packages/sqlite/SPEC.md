@@ -1,7 +1,7 @@
 # `@zmdb/sqlite` — complete SQLite vertical
 
-> Status: the package implementation for issue #669 is complete and qualified. The temporary generic string-dialect compatibility implementation remains until #675, so final sole ownership is not yet
-> earned. Runtime, type-level, live in-memory, and packed-consumer evidence is mandatory and unskipped.
+> Status: the package implementation for issue #669 is complete and qualified, and #675 removes the generic string-dialect implementation. Runtime, type-level, live in-memory, and packed-consumer
+> evidence is mandatory and unskipped.
 
 ## Public contract
 
@@ -48,8 +48,7 @@ operations are refusals rather than plausible SQL.
 
 ## Canonical ownership and final-purge target
 
-`@zmdb/sqlite` is the canonical SQLite package. The temporary generic compatibility branches remain only to let the parallel database packages land independently; #675 removes those branches and earns
-final sole ownership.
+`@zmdb/sqlite` is the canonical and sole SQLite implementation package.
 
 `@zmdb/sqlite` owns:
 

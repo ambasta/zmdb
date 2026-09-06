@@ -122,7 +122,7 @@ Each application imports the same type and derives its own schema value:
 import { defineRepository, schemaOf } from 'zmdb';
 import type { Post } from '@acme/domain';
 
-const posts = defineRepository(schemaOf<Post>(), driver, { dialect: 'postgres' });
+const posts = defineRepository(schemaOf<Post>(), driver);
 ```
 
 `schemaOf<Post>()` is transformed in the consuming package. Keep the AOT adapter configured in every package that calls a transformed function, and retain a small canary such as:

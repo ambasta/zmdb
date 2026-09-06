@@ -5,6 +5,7 @@ import type { OneToMany, PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
 import { BaseRepository, type Driver, type FilterDef } from './index.js';
+import { postgresDialect } from './testing/official-dialects.fixture.js';
 
 interface NamedUser extends Table<'userAccount'> {
   id: number & Sql<'integer'> & PrimaryKey;
@@ -132,6 +133,7 @@ interface RecordingDriver extends Driver {
 function recordingDriver(rows: readonly Record<string, unknown>[] = []): RecordingDriver {
   const calls: CompiledQuery[] = [];
   return {
+    dialect: postgresDialect,
     calls,
     execute(query) {
       calls.push(query);
@@ -143,6 +145,7 @@ function recordingDriver(rows: readonly Record<string, unknown>[] = []): Recordi
 function sequenceDriver(results: readonly (readonly Record<string, unknown>[])[]): RecordingDriver {
   const calls: CompiledQuery[] = [];
   return {
+    dialect: postgresDialect,
     calls,
     execute(query) {
       calls.push(query);
@@ -268,7 +271,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
       [{ id: 7, displayName: 'Ada', createdAt: new Date('2026-01-01T00:00:00.000Z') }],
       [{ id: 11, userId: 7, title: 'Physical names' }],
     ]);
-    const users = new NamedUsers(driver, 'postgres', { schemas: [NamedPostSchema] });
+    const users = new NamedUsers(driver, postgresDialect, { schemas: [NamedPostSchema] });
 
     await users.findAll({ populate: ['posts'] });
 
@@ -289,7 +292,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
       { id: 12, tenantId: 't2', userId: 7, title: 'Second tenant' },
     ];
     const driver = sequenceDriver([parents, children]);
-    const users = new NamedTenantUsers(driver, 'postgres', { schemas: [NamedTenantPostSchema] });
+    const users = new NamedTenantUsers(driver, postgresDialect, { schemas: [NamedTenantPostSchema] });
 
     const populated = await users.findAll({ populate: ['posts'] });
 
@@ -309,7 +312,7 @@ describe('repository physical-name boundary (frozen: schema-core/ir/SPEC.md §4.
 
   it('joins composite relations with every physical key pair', async () => {
     const driver = recordingDriver([{ count: 2 }]);
-    const users = new NamedTenantUsers(driver, 'postgres', { schemas: [NamedTenantPostSchema] });
+    const users = new NamedTenantUsers(driver, postgresDialect, { schemas: [NamedTenantPostSchema] });
 
     await users.aggregate(aggregate => aggregate.joinRelation('posts').count('id', 'count'));
 

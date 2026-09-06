@@ -1,14 +1,11 @@
 import {
   createQueryCompiler,
-  dialectFamily,
-  dialectName,
   dialectTraits,
   type CompiledQuery,
   type DialectOutbox,
   type DialectTarget,
 } from '../index.js';
 import { quoteIdentifier } from '../quoting.js';
-import { createIndexDdl } from '../schema-objects/index.js';
 
 export const OUTBOX_TABLE = 'zmdb_outbox';
 export type OutboxStatus = 'pending' | 'delivered' | 'dead';
@@ -34,7 +31,6 @@ export function outboxPendingIndexDdl(dialect: DialectTarget): string {
     columns: ['status', 'lease_until', 'created_at'],
     ...(outboxDialect(dialect).pendingIndex === 'full' ? {} : { where: "status = 'pending'" }),
   };
-  if (typeof dialect === 'string') return createIndexDdl(definition, dialect);
   const statements = dialect.migrations.emitSchemaObject({
     kind: 'create_index',
     definition,
@@ -45,30 +41,11 @@ export function outboxPendingIndexDdl(dialect: DialectTarget): string {
   return statements[0];
 }
 
-function defaultOutboxDialect(dialect: DialectTarget): DialectOutbox {
-  const family = dialectFamily(dialect);
-  const singlestore = dialectName(dialect) === 'singlestore';
-  return Object.freeze({
-    createTable: singlestore ? 'CREATE ROWSTORE TABLE' : 'CREATE TABLE',
-    pendingIndex: family === 'mysql' ? 'full' : 'filtered',
-    epochLiteral: singlestore
-      ? "'1970-01-01 00:00:00.000000'"
-      : family === 'mysql'
-        ? "'1970-01-01 00:00:00.000'"
-        : "'1970-01-01T00:00:00.000Z'",
-    createdAtDefault: singlestore
-      ? 'CURRENT_TIMESTAMP(6)'
-      : family === 'mysql'
-        ? 'CURRENT_TIMESTAMP(3)'
-        : family === 'sqlite'
-          ? "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
-          : 'CURRENT_TIMESTAMP',
-    boundedTextType: (length: number) => (family === 'mysql' ? `VARCHAR(${String(length)})` : 'TEXT'),
-  });
-}
-
 function outboxDialect(dialect: DialectTarget): DialectOutbox {
-  return typeof dialect === 'string' || dialect.outbox === undefined ? defaultOutboxDialect(dialect) : dialect.outbox;
+  if (dialect.outbox === undefined) {
+    throw new TypeError(`${dialect.name} does not provide an outbox DDL strategy`);
+  }
+  return dialect.outbox;
 }
 
 /** The declared outbox table's migration DDL, including the defaults its type tags cannot carry. */

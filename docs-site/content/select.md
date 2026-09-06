@@ -93,7 +93,9 @@ The same builder emits dialect-correct SQL. Identifiers and placeholders differ:
 | mssql    | `[col]`         | `@p1, @p2, …` |
 
 ```ts
-createQueryCompiler('mysql').selectFrom('users').where('id', '=', 1).compile();
+import { mysql } from '@zmdb/mysql';
+
+createQueryCompiler(mysql).selectFrom('users').where('id', '=', 1).compile();
 // text: SELECT * FROM `users` WHERE `id` = ?   parameters: [1]
 ```
 

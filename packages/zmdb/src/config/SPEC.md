@@ -35,7 +35,7 @@ project.
 Release versioning, changelog, tags, publish order, and partial-release behavior are not configuration concerns. They are owned by architecture-governance EPIC #721 and its release implementation
 #728.
 
-## 1. Two shapes, because half of it cannot be validated
+## 1. Two shapes, because the complete contract cannot be generated
 
 The issue that proposed this asks for one `ZmdbConfig` and for the loaded object to be checked with the project's own validator, "deliberate dogfooding: the config is external data at a boundary". The
 intent is right and the shape is not, for a reason that is measured rather than stylistic. `@zmdb/compiler`'s reflector refuses an object type with a callable property:
@@ -43,7 +43,8 @@ intent is right and the shape is not, for a reason that is measured rather than 
 > `` `X` has a method (`driver`); only data types can be checked ``
 
 so a `ZmdbConfig` carrying `driver?: () => ToolingDriver` cannot be reflected at all, let alone checked. And `naming?: NamingStrategy | 'snake_case' | 'snake_case_plural'` is refused twice over: the
-object arm is a type whose members are functions.
+object arm is a type whose members are functions. The explicit `SqlDialect` object is another runtime boundary: the generated validator owns only serializable config data, while the loader validates
+the imported dialect object with `isSqlDialect`.
 
 So the config is two types, and the split is exactly the line the validator draws:
 
@@ -52,7 +53,6 @@ So the config is two types, and the split is exactly the line the validator draw
 export interface ZmdbConfigData {
   /** Globs, resolved against the config file's directory (§3). */
   readonly schema: string | readonly string[];
-  readonly dialect: Dialect;
   /** The tsconfig the globs are read through. Default `./tsconfig.json` (§4). */
   readonly project?: string;
   /** Where migration files and the snapshot live. Default `./migrations`. */
@@ -68,13 +68,15 @@ export interface ZmdbConfigData {
 
 /** Structural database boundary; the compiler does not depend on the ORM. */
 export interface ToolingDriver {
-  readonly dialect?: DialectTarget;
+  readonly dialect: SqlDialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
   transaction?<T>(run: (driver: ToolingDriver) => Promise<T>): Promise<T>;
 }
 
 /** What `defineConfig` takes. */
 export interface ZmdbConfig extends ZmdbConfigData {
+  /** An explicit database-product object, checked by the loader. */
+  readonly dialect: SqlDialect;
   /** Checked with `typeof === 'function'`, not validated. */
   readonly driver?: () => ToolingDriver | Promise<ToolingDriver>;
   /** A custom strategy, where the two named ones do not fit. */
@@ -211,11 +213,12 @@ architecture currently does without".
 
 ```ts
 // zmdb.config.ts
+import { postgres } from '@zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 
 export default defineConfig({
   schema: ['src/**/*.schema.ts'],
-  dialect: 'postgres',
+  dialect: postgres,
   driver: () => import('./src/db.ts').then(m => m.driver),
 });
 ```

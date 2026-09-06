@@ -1,7 +1,8 @@
 import { SQL_TYPES } from '@zmdb/schema-core/ir';
 import { describe, it, expect } from 'vitest';
 
-import { DDL_TYPES, ddlType, emitUp, snapshot, type ChangeOp, type ColumnSnapshot } from './index.js';
+import { ddlType, emitUp, snapshot, type ChangeOp, type ColumnSnapshot } from './index.js';
+import { mysqlDialect, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 // The DDL type map: what each dialect calls each abstract column type.
 //
@@ -34,50 +35,50 @@ const TYPES: Readonly<Record<string, readonly [string, string, string]>> = {
 };
 
 describe('ddlType', () => {
-  it('keeps DDL_TYPES exhaustive over SqlType', () => {
-    for (const dialect of ['postgres', 'mysql', 'sqlite'] as const) {
-      expect(Object.keys(DDL_TYPES[dialect]).toSorted()).toEqual([...SQL_TYPES].toSorted());
+  it('keeps every database-owned type map exhaustive over SqlType', () => {
+    for (const dialect of [postgresDialect, mysqlDialect, sqliteDialect] as const) {
+      expect(Object.keys(dialect.traits.types).toSorted()).toEqual([...SQL_TYPES].toSorted());
     }
   });
 
   for (const [type, [postgres, mysql, sqlite]] of Object.entries(TYPES)) {
     it(`renders ${type} per dialect`, () => {
-      expect(ddlType('postgres', col(type))).toBe(postgres);
-      expect(ddlType('mysql', col(type))).toBe(mysql);
-      expect(ddlType('sqlite', col(type))).toBe(sqlite);
+      expect(ddlType(postgresDialect, col(type))).toBe(postgres);
+      expect(ddlType(mysqlDialect, col(type))).toBe(mysql);
+      expect(ddlType(sqliteDialect, col(type))).toBe(sqlite);
     });
   }
 
   it('puts a varchar length inside the type, where the dialect has one', () => {
-    expect(ddlType('postgres', col('varchar', { length: 255 }))).toBe('VARCHAR(255)');
-    expect(ddlType('mysql', col('varchar', { length: 255 }))).toBe('VARCHAR(255)');
+    expect(ddlType(postgresDialect, col('varchar', { length: 255 }))).toBe('VARCHAR(255)');
+    expect(ddlType(mysqlDialect, col('varchar', { length: 255 }))).toBe('VARCHAR(255)');
     // No parameterised string type: SQLite's `TEXT` has no length, and declaring one
     // would be decoration — the affinity ignores it.
-    expect(ddlType('sqlite', col('varchar', { length: 255 }))).toBe('TEXT');
+    expect(ddlType(sqliteDialect, col('varchar', { length: 255 }))).toBe('TEXT');
   });
 
   it('degrades a length-less varchar to something each dialect can run', () => {
     // Legal in Postgres, and unlimited. A syntax error in MySQL, so `TEXT` instead:
     // emitting DDL that cannot execute is the one outcome with no defence.
-    expect(ddlType('postgres', col('varchar'))).toBe('VARCHAR');
-    expect(ddlType('mysql', col('varchar'))).toBe('TEXT');
-    expect(ddlType('sqlite', col('varchar'))).toBe('TEXT');
+    expect(ddlType(postgresDialect, col('varchar'))).toBe('VARCHAR');
+    expect(ddlType(mysqlDialect, col('varchar'))).toBe('TEXT');
+    expect(ddlType(sqliteDialect, col('varchar'))).toBe('TEXT');
   });
 
   it('keys a MySQL auto-increment column, one way or the other', () => {
     // MySQL requires an AUTO_INCREMENT column to be part of a key. It is the primary key
     // in almost every schema; a non-primary `serial()` is legal, and gets the unique key
     // spelled out rather than quietly losing the auto-increment.
-    expect(ddlType('mysql', col('serial', { primaryKey: true }))).toBe('INT AUTO_INCREMENT');
-    expect(ddlType('mysql', col('serial'))).toBe('INT AUTO_INCREMENT UNIQUE');
+    expect(ddlType(mysqlDialect, col('serial', { primaryKey: true }))).toBe('INT AUTO_INCREMENT');
+    expect(ddlType(mysqlDialect, col('serial'))).toBe('INT AUTO_INCREMENT UNIQUE');
   });
 
   it('passes an unrecognised type through unchanged', () => {
     // A hand-written snapshot, or a column type added to the schema DSL before this map
     // hears about it. Passing it through is wrong in a way the database will report;
     // mapping it to a guess is wrong in a way nobody will.
-    expect(ddlType('postgres', col('citext'))).toBe('citext');
-    expect(ddlType('mysql', col('GEOMETRY'))).toBe('GEOMETRY');
+    expect(ddlType(postgresDialect, col('citext'))).toBe('citext');
+    expect(ddlType(mysqlDialect, col('GEOMETRY'))).toBe('GEOMETRY');
   });
 });
 
@@ -95,19 +96,19 @@ describe('emitUp uses the map', () => {
   };
 
   it('postgres', () => {
-    expect(emitUp(create, 'postgres')).toBe(
+    expect(emitUp(create, postgresDialect)).toBe(
       'CREATE TABLE "events" ("id" SERIAL PRIMARY KEY, "name" VARCHAR(60) NOT NULL, "at" TIMESTAMPTZ)',
     );
   });
 
   it('mysql', () => {
-    expect(emitUp(create, 'mysql')).toBe(
+    expect(emitUp(create, mysqlDialect)).toBe(
       'CREATE TABLE `events` (`id` INT AUTO_INCREMENT PRIMARY KEY, `name` VARCHAR(60) NOT NULL, `at` DATETIME(3))',
     );
   });
 
   it('sqlite', () => {
-    expect(emitUp(create, 'sqlite')).toBe(
+    expect(emitUp(create, sqliteDialect)).toBe(
       'CREATE TABLE "events" ("id" INTEGER PRIMARY KEY, "name" TEXT NOT NULL, "at" TEXT)',
     );
   });
@@ -122,9 +123,9 @@ describe('emitUp uses the map', () => {
       fromNullable: false,
       toNullable: false,
     };
-    expect(emitUp(alter, 'postgres')).toContain('TYPE TIMESTAMPTZ');
-    expect(emitUp(alter, 'mysql')).toContain('MODIFY COLUMN `at` DATETIME(3)');
-    expect(() => emitUp(alter, 'sqlite')).toThrow('sqlite cannot alter a column type in place');
+    expect(emitUp(alter, postgresDialect)).toContain('TYPE TIMESTAMPTZ');
+    expect(emitUp(alter, mysqlDialect)).toContain('MODIFY COLUMN `at` DATETIME(3)');
+    expect(() => emitUp(alter, sqliteDialect)).toThrow('sqlite cannot alter a column type in place');
   });
 });
 

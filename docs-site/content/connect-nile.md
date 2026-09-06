@@ -81,7 +81,7 @@ Then build repositories per request:
 const tenantId = ctx.headers['x-tenant-id'];
 if (tenantId === undefined) throw new ValidationError('missing tenant', []);
 
-const repo = defineRepository(todos, tenantDriver(tenantId), { dialect: 'postgres' });
+const repo = defineRepository(todos, tenantDriver(tenantId));
 ```
 
 > [!WARNING] `SET LOCAL` is transaction-scoped, so the pattern above only holds if the statement and the `SET` are in the same transaction — with a checked-out client and no explicit `BEGIN`, each

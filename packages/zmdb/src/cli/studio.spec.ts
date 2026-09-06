@@ -5,6 +5,8 @@ import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema-core/ir
 import { describe, expect, it } from 'vitest';
 import { runCli } from 'zmdb/cli';
 
+import { sqliteDialect } from '../testing/official-dialects.fixture.js';
+
 // Tests freeze for zmdb CLI SPEC §14 (#499, epic #497).
 //
 // RED ON PURPOSE. At HEAD 83cb5c25 neither future file named by #502 exists:
@@ -209,7 +211,7 @@ interface RecordingDriver extends Driver {
 function recordingDriver(): RecordingDriver {
   const queries: CompiledQuery[] = [];
   return {
-    dialect: 'sqlite',
+    dialect: sqliteDialect,
     queries,
     execute(query) {
       queries.push(query);
@@ -287,7 +289,7 @@ describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
   it('keeps declared names in the browser and physical names inside compiled SQL', async () => {
     const queries: CompiledQuery[] = [];
     const driver: Driver = {
-      dialect: 'sqlite',
+      dialect: sqliteDialect,
       execute(query) {
         queries.push(query);
         return Promise.resolve(
@@ -472,7 +474,7 @@ describe('zmdb studio HTTP surface (frozen: CLI SPEC §14.1-§14.2)', () => {
       { id: 11, tenant_id: 't2', user_id: 1, title: 'Wrong tenant' },
     ];
     const driver: Driver = {
-      dialect: 'sqlite',
+      dialect: sqliteDialect,
       execute(query) {
         queries.push(query);
         if (query.text.includes('tenant_users')) return Promise.resolve([parent]);

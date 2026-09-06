@@ -87,8 +87,9 @@ For a declared `geometry` column, `stDWithin<T>(column, point, distance)` suppli
 
 ```ts
 import { createQueryCompiler, stDWithin } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const nearby = createQueryCompiler('postgres')
+const nearby = createQueryCompiler(postgres)
   .selectFrom('venues')
   .where(stDWithin<Venue>('location', point, 0.05))
   .compile();
@@ -125,7 +126,7 @@ const candidatePolygon: GeoJsonPolygon = {
   ],
 };
 
-const contained = createQueryCompiler('postgres').selectFrom('regions').where(stContains<Region>('area', candidatePolygon)).compile();
+const contained = createQueryCompiler(postgres).selectFrom('regions').where(stContains<Region>('area', candidatePolygon)).compile();
 ```
 
 The compiler emits only the closed PostGIS function names and binds the GeoJSON arguments. Every non-PostgreSQL dialect refuses these predicates.

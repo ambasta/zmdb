@@ -57,7 +57,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 export const driver: Driver = {/* ... */};
 
 export async function handler(event: unknown) {
-  const repo = defineRepository(users, driver, { dialect: 'postgres' }); // cheap, per invocation
+  const repo = defineRepository(users, driver); // cheap, per invocation
   return repo.list({ page: { limit: 20 } });
 }
 ```

@@ -43,8 +43,9 @@ The lower SQL layer is available when validation is deliberately owned elsewhere
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const calls = createQueryCompiler('postgres');
+const calls = createQueryCompiler(postgres);
 await driver.execute(calls.callFunction('archive_old_orders', [cutoff]));
 await driver.execute(calls.callProcedure('rebuild_search_index', []));
 ```

@@ -66,7 +66,7 @@ async function main(): Promise<void> {
     const empty: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
     const declared = snapshot([schemaOf<Embedding>()]);
 
-    for (const op of diff(empty, declared, { dialect: 'postgres' })) {
+    for (const op of diff(empty, declared, { dialect: postgres })) {
       await driver.execute({ text: postgres.migrations.emitUp(op), parameters: [] });
     }
 

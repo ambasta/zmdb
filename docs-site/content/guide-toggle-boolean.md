@@ -44,8 +44,9 @@ It is also the more common bug in practice: a double-clicked button sends two re
 
 ```ts
 import { createQueryCompiler, not } from 'zmdb/sql';
+import { postgres } from 'zmdb/postgres';
 
-const query = createQueryCompiler('postgres').updateTable('users').set({ active: not() }).where('id', '=', id).compile();
+const query = createQueryCompiler(postgres).updateTable('users').set({ active: not() }).where('id', '=', id).compile();
 
 await driver.execute(query);
 ```

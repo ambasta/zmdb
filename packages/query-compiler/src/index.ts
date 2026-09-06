@@ -1,11 +1,8 @@
 import type { CompiledQuery } from './compiled-query.js';
 // @zmdb/query-compiler — implementation.
 import {
-  TRAITS,
   dialectName,
   dialectTraits,
-  type Dialect,
-  type BuiltInDialect,
   type DialectReturningSql,
   type DialectTarget,
   type ReturningStatement,
@@ -16,8 +13,6 @@ import { UnsupportedFeatureError } from './errors.js';
 export { QueryCompilerError, UnsupportedFeatureError } from './errors.js';
 export type { CompiledQuery, QueryTelemetry } from './compiled-query.js';
 export {
-  DIALECTS,
-  TRAITS,
   defineSqlDialect,
   dialectCapabilities,
   dialectFamily,
@@ -29,11 +24,8 @@ export {
 } from './dialects/index.js';
 export type {
   AppliedMigration,
-  BuiltInDialect,
   DatabaseCapabilities,
-  Dialect,
   DialectCompiler,
-  DialectFamily,
   DialectFeature,
   DialectOutbox,
   DialectReturningColumn,
@@ -41,7 +33,6 @@ export type {
   DialectReturningSql,
   DialectSqlType,
   DialectTarget,
-  DialectTraits,
   DialectTypeMap,
   DialectUpsertConflict,
   DialectUpsertContext,
@@ -57,7 +48,6 @@ export type {
   PaginationTail,
   PlaceholderStyle,
   ResolvedDialectTraits,
-  ResolvedTraits,
   ReturningCapability,
   ReturningStatement,
   ReturningStyle,
@@ -166,21 +156,6 @@ type ReturningColumn = string | AliasedColumn;
 function isAliasedColumn(column: SelectedColumn | ReturningColumn): column is AliasedColumn {
   return typeof column === 'object' && 'column' in column && 'alias' in column;
 }
-
-/**
- * Heuristic element-count chunk thresholds per SQL dialect for IN-list expansion.
- * These conservative limits (30,000 for SQLite and 60,000 for
- * Postgres/MySQL) serve as
- * list-length heuristics, leaving headroom below maximum driver parameter limits
- * (32,766 for SQLite, 65,535 for Postgres/MySQL) for any additional query parameters.
- */
-export const DIALECT_PARAM_LIMITS: Readonly<Record<BuiltInDialect, number>> = Object.freeze({
-  postgres: TRAITS.postgres.paramLimit,
-  mysql: TRAITS.mysql.paramLimit,
-  sqlite: TRAITS.sqlite.paramLimit,
-  cockroach: TRAITS.cockroach.paramLimit,
-  singlestore: TRAITS.singlestore.paramLimit,
-});
 
 /**
  * Collection utility that deduplicates keys while preserving insertion order AND
@@ -696,12 +671,7 @@ export function createQueryCompiler<Name extends string>(
   dialect: SqlDialect<Name>,
   options?: QueryCompilerOptions,
 ): QueryCompiler;
-export function createQueryCompiler(dialect?: Dialect, options?: QueryCompilerOptions): QueryCompiler;
-export function createQueryCompiler(dialect: DialectTarget, options?: QueryCompilerOptions): QueryCompiler;
-export function createQueryCompiler(
-  dialect: DialectTarget = 'postgres',
-  options?: QueryCompilerOptions,
-): QueryCompiler {
+export function createQueryCompiler(dialect: DialectTarget, options?: QueryCompilerOptions): QueryCompiler {
   const telemetry = options?.telemetry === true;
   return {
     selectFrom: table => makeSelect(dialect, { table, wheres: [], orderBys: [] }, telemetry),

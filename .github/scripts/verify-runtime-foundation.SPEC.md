@@ -87,7 +87,7 @@ structural `introspect/types.ts` and `migrations/types.ts` protocols listed unde
 
 Issue #672 moved the SQL Server driver directly to `packages/mssql/src/driver.ts`, so no old foundation file remains in this destination.
 
-### `@zmdb/orm` — 17
+### `@zmdb/orm` — 19
 
 ```text
 packages/query-compiler/src/outbox/index.ts
@@ -103,9 +103,10 @@ packages/repository/src/outbox/index.ts
 packages/repository/src/replicas/index.ts
 packages/repository/src/seeding/index.ts
 packages/repository/src/streaming/index.ts
+packages/repository/src/testing/official-dialects.fixture.ts
 packages/repository/src/transactions/index.ts
 packages/repository/src/transactions/recording-conn.ts
-packages/repository/src/typed-methods/fixtures.ts
+packages/repository/src/typed-methods/typed-methods.fixture.ts
 packages/repository/src/typed-populate/fixtures.ts
 ```
 
@@ -141,7 +142,7 @@ packages/schema-core/src/tags/index.ts
 The three fixture/`__testing__` files remain schema-test-owned and must stop being published. `dto/index.ts`, `relations/index.ts`, and the current root are mixed files; §3 assigns every exported
 member before those files are split.
 
-### `@zmdb/sql` — 22
+### `@zmdb/sql` — 23
 
 ```text
 packages/query-compiler/src/aggregations/index.ts
@@ -166,6 +167,7 @@ packages/query-compiler/src/set-ops/index.ts
 packages/query-compiler/src/testing/capability-matrix.ts
 packages/query-compiler/src/testing/database-vertical.ts
 packages/query-compiler/src/testing/external-dialect.fixture.ts
+packages/query-compiler/src/testing/official-dialects.fixture.ts
 ```
 
 The generic package owns the injected dialect protocol and algorithms. Official vendor values may move to database verticals only by extracting them from these files; the generic definitions may not

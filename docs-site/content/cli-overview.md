@@ -9,7 +9,7 @@ The schema commands are thin packaged wrappers over the public reflection, snaps
 | `emitUp(op, dialect)`           | `@zmdb/migrations`              | one operation → SQL                       |
 | `emitDown(op, dialect)`         | `@zmdb/migrations`              | the reverse                               |
 | `sqliteIntrospector`            | `@zmdb/sqlite`                  | SQLite catalog → normalized snapshot      |
-| `createIntrospector(dialect)`   | `@zmdb/migrations/introspect`   | temporary non-SQLite built-in dispatch    |
+| `database.introspector`         | selected database package       | database-owned catalog reader             |
 | `emitDeclarations(snapshot, …)` | `@zmdb/migrations/declarations` | snapshot → generated TypeScript files     |
 | `runCli(cmd, conn, migrations)` | `@zmdb/migrations/runner`       | applies / reverts, records versions       |
 | `runEmbedded(conn, migrations)` | `@zmdb/migrations/embedded`     | applies bundle-resident SQLite migrations |

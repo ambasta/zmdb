@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createQueue, createWorker, type Clock, type JobHandler, type JobStore, type WorkerOptions } from '@zmdb/jobs';
+import { postgres as postgresDialect } from '@zmdb/postgres';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -141,7 +142,7 @@ describe('@zmdb/jobs-postgres (#661)', () => {
     if (postgres === undefined) return;
     const store = createPgJobStore(postgres);
 
-    expect(store.dialect).toBe('postgres');
+    expect(store.dialect).toBe(postgresDialect);
     await expect(store.execute({ text: 'SELECT $1::int AS answer', parameters: [42] })).resolves.toEqual([
       { answer: 42 },
     ]);

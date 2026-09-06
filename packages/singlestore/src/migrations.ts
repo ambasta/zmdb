@@ -221,6 +221,8 @@ function generatedColumn(operation: Extract<SchemaObjectOperation, { readonly ki
 
 export const singlestoreMigrations: MigrationDialect<'singlestore'> = Object.freeze({
   name: 'singlestore',
+  foreignKeyMode: 'deferred',
+  embedded: false,
   validateSnapshot(snapshot: SchemaSnapshot): void {
     validateSnapshot(snapshot);
     parent.validateSnapshot(snapshot);

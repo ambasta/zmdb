@@ -1,6 +1,6 @@
 // @zmdb/jobs-postgres — caller-owned node-postgres adapter for JobStore.
 import type { JobStore } from '@zmdb/jobs';
-import { postgresDriver } from '@zmdb/postgres';
+import { postgres, postgresDriver } from '@zmdb/postgres';
 import type { Client, Pool, PoolClient } from 'pg';
 
 /** The node-postgres clients whose query method can back a job store. */
@@ -22,7 +22,7 @@ export interface PgJobStoreOptions {
 export function createPgJobStore(client: PgJobClient, options?: PgJobStoreOptions): JobStore {
   const driver = postgresDriver(client, options);
   return {
-    dialect: 'postgres',
+    dialect: postgres,
     execute: query => driver.execute(query),
   };
 }

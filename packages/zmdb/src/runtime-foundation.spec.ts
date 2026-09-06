@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { validate } from '@zmdb/aot-validator/utilities';
 import { mssql } from '@zmdb/mssql';
-import { createQueryCompiler, UnsupportedFeatureError, type CompiledQuery, type Dialect } from '@zmdb/query-compiler';
+import { createQueryCompiler, UnsupportedFeatureError, type CompiledQuery } from '@zmdb/query-compiler';
 import { BaseRepository, ValidationError, type Driver } from '@zmdb/repository';
 import { jsonSchemaFromIR, objectTypeFromIR, schemaFromIR, type SchemaIR, type TypeIR } from '@zmdb/schema-core/ir';
 import { compilePopulate } from '@zmdb/schema-core/relations';
@@ -14,6 +14,7 @@ import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   withPackedBuildLock,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
+import { officialDialects, sqliteDialect, type OfficialDialectName } from './testing/official-dialects.fixture.js';
 
 const ROOT = process.cwd();
 const PACKED_VERIFIER = join(ROOT, 'fixtures', 'consumer-runtime-foundation', 'verify-installed.mjs');
@@ -233,7 +234,7 @@ describe('runtime foundation package cutover (#636)', () => {
   });
 
   it('pins SQL text and parameters for every currently supported dialect before the move', () => {
-    const expected: Readonly<Record<Dialect, string>> = {
+    const expected: Readonly<Record<OfficialDialectName, string>> = {
       postgres: 'SELECT "id", "email" FROM "users" WHERE "email" = $1 ORDER BY "id" ASC LIMIT 2',
       mysql: 'SELECT `id`, `email` FROM `users` WHERE `email` = ? ORDER BY `id` ASC LIMIT 2',
       sqlite: 'SELECT "id", "email" FROM "users" WHERE "email" = ? ORDER BY "id" ASC LIMIT 2',
@@ -243,8 +244,8 @@ describe('runtime foundation package cutover (#636)', () => {
       singlestore: 'SELECT `id`, `email` FROM `users` WHERE `email` = ? ORDER BY `id` ASC LIMIT 2',
     };
 
-    for (const dialect of Object.keys(expected) as Dialect[]) {
-      const target = dialect === 'mssql' ? mssql : dialect;
+    for (const dialect of Object.keys(expected) as OfficialDialectName[]) {
+      const target = officialDialects[dialect];
       expect(
         createQueryCompiler(target)
           .selectFrom('users')
@@ -328,7 +329,7 @@ describe('runtime foundation package cutover (#636)', () => {
   it('pins ORM validation and structural-driver SQL before the move', async () => {
     const queries: CompiledQuery[] = [];
     const driver: Driver = {
-      dialect: 'sqlite',
+      dialect: sqliteDialect,
       execute(query) {
         queries.push(query);
         return Promise.resolve(
@@ -343,7 +344,7 @@ describe('runtime foundation package cutover (#636)', () => {
       static override readonly schema = schema;
     }
 
-    const users = new Users(driver, 'sqlite');
+    const users = new Users(driver, sqliteDialect);
     await expect(users.create({ email: 'a@example.test' })).resolves.toEqual({
       id: 1,
       email: 'a@example.test',

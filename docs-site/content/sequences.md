@@ -63,8 +63,9 @@ To use a sequence in your application, call `nextval()` to retrieve the next val
 ```ts
 // Generating next sequence value via query compiler
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 
 const nextValQuery = compiler.selectFrom('order_number_seq').select(['nextval']).compile();
 

@@ -1,7 +1,7 @@
-All six temporary dialect values have catalog readers that produce a normalized `CatalogSchemaSnapshot`. Cockroach layers its `SHOW INDEXES`/`SHOW CREATE` evidence and `unique_rowid()` normalization
-over the public PostgreSQL-family reader; SingleStore layers storage, shard/sort, computed-column and physical-index normalization over the public MySQL-family reader. `emitDeclarations()` turns the
-snapshot into deterministic TypeScript, and `detectDrift()` compares that live snapshot with reviewed declarations in both directions. Those library APIs are the supported adoption path; `zmdb pull`
-packages the reader and emitter behind project configuration.
+All six database packages export dialect objects carrying catalog readers that produce a normalized `CatalogSchemaSnapshot`. Cockroach layers its `SHOW INDEXES`/`SHOW CREATE` evidence and
+`unique_rowid()` normalization over the public PostgreSQL-family reader; SingleStore layers storage, shard/sort, computed-column and physical-index normalization over the public MySQL-family reader.
+`emitDeclarations()` turns the snapshot into deterministic TypeScript, and `detectDrift()` compares that live snapshot with reviewed declarations in both directions. Those library APIs are the
+supported adoption path; `zmdb pull` packages the reader and emitter behind project configuration.
 
 ## What "schema first" means here
 
@@ -22,12 +22,12 @@ and emitter remain public library APIs when a caller needs a different destinati
    import { dirname, join } from 'node:path';
 
    import { emitDeclarations } from '@zmdb/migrations/declarations';
-   import { createIntrospector } from '@zmdb/migrations/introspect';
+   import { postgres } from '@zmdb/postgres';
 
-   const live = await createIntrospector('postgres').snapshot(driver, {
+   const live = await postgres.introspector.snapshot(driver, {
      schemas: ['public'],
    });
-   const emitted = await emitDeclarations(live, { dialect: 'postgres' });
+   const emitted = await emitDeclarations(live, { dialect: postgres });
 
    for (const file of emitted.files) {
      const path = join('.zmdb/introspected', file.path);
@@ -51,21 +51,22 @@ and emitter remain public library APIs when a caller needs a different destinati
 3. **Compare the reviewed declaration with the catalog snapshot.** Everything downstream — DDL, DTOs, validators, and OpenAPI — inherits a declaration mistake, so check both directions:
 
    ```ts
-   import { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
+   import { detectDrift } from '@zmdb/migrations/introspect';
+   import { postgres } from '@zmdb/postgres';
    import { snapshot } from 'zmdb/migrations';
    import { expect } from 'vitest';
 
-   const live = await createIntrospector('postgres').snapshot(driver, {
+   const live = await postgres.introspector.snapshot(driver, {
      schemas: ['public'],
    });
    const declared = snapshot([schemaOf<LegacyUser>()]);
-   const report = detectDrift(live, declared, { dialect: 'postgres' });
+   const report = detectDrift(live, declared, { dialect: postgres });
 
    expect(report.clean, JSON.stringify(report, null, 2)).toBe(true);
    ```
 
    Run this against a restored production dump in CI. The two typed finding lists contain migration `ChangeOp` values, so a failure names the table, column and type difference. Defaults and catalog
-   aliases are normalized as evidence rather than drift; pass `{ dialect: 'mysql' }` to omit an InnoDB index whose sole purpose is supporting its foreign key.
+   aliases are normalized as evidence rather than drift; pass `{ dialect: mysql }` to omit an InnoDB index whose sole purpose is supporting its foreign key.
 
    The report deliberately inherits the current migration `diff` coverage: table and column presence, normalized type changes, extensions, ordered primary keys, and foreign keys with referential
    actions. General indexes become reportable when their migration operation slice lands; drift does not maintain a second comparator.
@@ -74,11 +75,12 @@ and emitter remain public library APIs when a caller needs a different destinati
 
 ## Limits and drift noise
 
-The three readers use `information_schema` plus `pg_catalog` for PostgreSQL, `information_schema` for MySQL, and bound table-valued PRAGMAs for SQLite. They retain catalog evidence even when no
-declaration can express it. The emitter then omits unsafe mappings, returns warnings structurally, and puts the same warning in the generated file.
+The PostgreSQL, MySQL, and SQLite root readers use `information_schema` plus `pg_catalog`, `information_schema`, and bound table-valued PRAGMAs respectively. CockroachDB and SingleStore extend their
+public family readers, while SQL Server owns its catalog reader. They retain catalog evidence even when no declaration can express it. The emitter then omits unsafe mappings, returns warnings
+structurally, and puts the same warning in the generated file.
 
 - Defaults and catalog type aliases are retained as evidence but normalized out of drift comparison; servers routinely rewrite their spelling.
-- Pass `{ dialect: 'mysql' }` so the live-side normalization can omit a strict foreign-key support-index shape. Other indexes are preserved.
+- Pass `{ dialect: mysql }` so the live-side normalization can omit a strict foreign-key support-index shape. Other indexes are preserved.
 - A custom `exclude` list replaces the default, so include `_zmdb_migrations` yourself when adding project bookkeeping patterns.
 - Catalog visibility follows the connecting role. An object the role cannot see looks absent, so run CI with a role whose visibility matches the scope you intend to check.
 - Views, triggers, stored routine bodies, grants and policies are not emitted as table declarations. Keep their SQL and review process separate.

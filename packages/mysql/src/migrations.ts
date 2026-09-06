@@ -615,6 +615,8 @@ export function mysqlFamilyMigrations<Name extends string>(
         });
   const migrations: MigrationDialect<Name> = {
     name,
+    foreignKeyMode: 'deferred',
+    embedded: false,
     validateSnapshot: (snapshot: SchemaSnapshot) => validateSnapshot(name, types, tableExtension, snapshot),
     validatePlan(plan: MigrationPlan) {
       validateSnapshot(name, types, tableExtension, plan.before);

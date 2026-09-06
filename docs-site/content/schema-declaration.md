@@ -158,9 +158,10 @@ parameter at runtime, so the shape reached nothing downstream.
 
 ```ts
 import { createQueryCompiler } from 'zmdb/sql';
+import { postgres } from 'zmdb/postgres';
 
 const schema = schemaOf<User>();
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 const query = compiler.selectFrom(schema.table).select(['id', 'email']).where('role', '=', 'admin').compile();
 ```
 

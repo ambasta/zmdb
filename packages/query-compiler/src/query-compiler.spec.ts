@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 
-import { mssql } from '../../mssql/src/index.js';
 import { OP_MAP, chunkArray, createQueryCompiler, distance, sanitizeKeys, stContains, stDWithin } from './index.js';
+import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
 describe('postgres SELECT compilation', () => {
   it('aliases a physical column back to its property name in the select list', () => {
-    const query = createQueryCompiler('postgres')
+    const query = createQueryCompiler(postgresDialect)
       .selectFrom('user_accounts')
       .select([{ column: 'created_at', alias: 'createdAt' }, 'id'])
       .compile();
@@ -19,14 +19,14 @@ describe('postgres SELECT compilation', () => {
   });
 
   it('compiles where + orderBy + limit', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const q = qb.selectFrom('users').where('email', '=', 'a@b.com').orderBy('createdAt', 'desc').limit(10).compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "email" = $1 ORDER BY "createdAt" DESC LIMIT 10');
     expect(q.parameters).toEqual(['a@b.com']);
   });
 
   it('compiles andWhere with sequential placeholders', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .selectFrom('users')
       .where('role', '=', 'admin')
       .andWhere('active', '=', true)
@@ -36,7 +36,7 @@ describe('postgres SELECT compilation', () => {
   });
 
   it('compiles whereIn, andWhereIn, and orWhereIn', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .selectFrom('orders')
       .whereIn('status', ['pending', 'shipped'])
       .orWhereIn('userId', [1, 2])
@@ -46,7 +46,7 @@ describe('postgres SELECT compilation', () => {
   });
 
   it('compiles whereNotIn, andWhereNotIn, and orWhereNotIn', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .selectFrom('users')
       .where('active', '=', true)
       .andWhereNotIn('role', ['banned', 'guest'])
@@ -56,30 +56,30 @@ describe('postgres SELECT compilation', () => {
   });
 
   it('compiles whereNotIn filtering null and undefined values to prevent three-valued logic traps', () => {
-    const q1 = createQueryCompiler('postgres')
+    const q1 = createQueryCompiler(postgresDialect)
       .selectFrom('users')
       .whereNotIn('role', ['banned', null, undefined, 'guest'])
       .compile();
     expect(q1.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
     expect(q1.parameters).toEqual(['banned', 'guest']);
 
-    const q2 = createQueryCompiler('postgres').selectFrom('users').whereNotIn('role', [null, undefined]).compile();
+    const q2 = createQueryCompiler(postgresDialect).selectFrom('users').whereNotIn('role', [null, undefined]).compile();
     expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
     expect(q2.parameters).toEqual([]);
   });
 
   it('compiles empty whereIn to 1 = 0 and empty whereNotIn to 1 = 1', () => {
-    const qIn = createQueryCompiler('postgres').selectFrom('users').whereIn('id', []).compile();
+    const qIn = createQueryCompiler(postgresDialect).selectFrom('users').whereIn('id', []).compile();
     expect(qIn.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
     expect(qIn.parameters).toEqual([]);
 
-    const qNotIn = createQueryCompiler('postgres').selectFrom('users').whereNotIn('id', []).compile();
+    const qNotIn = createQueryCompiler(postgresDialect).selectFrom('users').whereNotIn('id', []).compile();
     expect(qNotIn.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
     expect(qNotIn.parameters).toEqual([]);
   });
 
   it('compile() is pure (twice → equal)', () => {
-    const b = createQueryCompiler('postgres').selectFrom('users').where('id', '=', 1);
+    const b = createQueryCompiler(postgresDialect).selectFrom('users').where('id', '=', 1);
     expect(b.compile()).toEqual(b.compile());
   });
 });
@@ -89,13 +89,13 @@ describe('aliased write results', () => {
 
   it('aliases RETURNING columns for the Postgres family and SQLite', () => {
     expect(
-      createQueryCompiler('postgres').insertInto('users').values({ created_at: 1 }).returning(returned).compile(),
+      createQueryCompiler(postgresDialect).insertInto('users').values({ created_at: 1 }).returning(returned).compile(),
     ).toEqual({
       text: 'INSERT INTO "users" ("created_at") VALUES ($1) RETURNING "created_at" AS "createdAt"',
       parameters: [1],
     });
     expect(
-      createQueryCompiler('sqlite')
+      createQueryCompiler(sqliteDialect)
         .updateTable('users')
         .set({ created_at: 2 })
         .where('id', '=', 1)
@@ -115,12 +115,12 @@ describe('zero-operand null predicates', () => {
   // `is not null` has the same defect: it binds its ignored value and shifts the
   // following placeholder.
   it('compiles zero-operand null predicates without shifting later parameters', () => {
-    const isNull = createQueryCompiler('postgres')
+    const isNull = createQueryCompiler(postgresDialect)
       .selectFrom('users')
       .where('deletedAt', 'is null', 'ignored')
       .andWhere('tenantId', '=', 7)
       .compile();
-    const isNotNull = createQueryCompiler('postgres')
+    const isNotNull = createQueryCompiler(postgresDialect)
       .selectFrom('users')
       .where('deletedAt', 'is not null', 123)
       .andWhere('active', '=', true)
@@ -135,7 +135,7 @@ describe('zero-operand null predicates', () => {
 
 describe('optional compile-time telemetry', () => {
   it('keeps every default CRUD compiled-query object exactly two-keyed', () => {
-    const compiler = createQueryCompiler('postgres');
+    const compiler = createQueryCompiler(postgresDialect);
     const queries = [
       compiler.selectFrom('users').compile(),
       compiler.insertInto('users').values({ email: 'a@b.com' }).compile(),
@@ -150,9 +150,9 @@ describe('optional compile-time telemetry', () => {
   });
 
   it('attaches the dialect, operation and collection only when enabled', () => {
-    const postgres = createQueryCompiler('postgres', { telemetry: true });
-    const mysql = createQueryCompiler('mysql', { telemetry: true });
-    const sqlite = createQueryCompiler('sqlite', { telemetry: true });
+    const postgres = createQueryCompiler(postgresDialect, { telemetry: true });
+    const mysql = createQueryCompiler(mysqlDialect, { telemetry: true });
+    const sqlite = createQueryCompiler(sqliteDialect, { telemetry: true });
 
     expect(postgres.selectFrom('users').compile().telemetry).toEqual({
       system: 'postgresql',
@@ -199,7 +199,7 @@ describe('utility functions', () => {
 
 describe('postgres write compilation', () => {
   it('INSERT ... RETURNING', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .insertInto('users')
       .values({ email: 'a@b.com', role: 'user' })
       .returning(['id'])
@@ -209,13 +209,17 @@ describe('postgres write compilation', () => {
   });
 
   it('UPDATE ... SET ... WHERE', () => {
-    const q = createQueryCompiler('postgres').updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile();
+    const q = createQueryCompiler(postgresDialect)
+      .updateTable('users')
+      .set({ role: 'admin' })
+      .where('id', '=', 1)
+      .compile();
     expect(q.text).toBe('UPDATE "users" SET "role" = $1 WHERE "id" = $2');
     expect(q.parameters).toEqual(['admin', 1]);
   });
 
   it('DELETE ... WHERE', () => {
-    const q = createQueryCompiler('postgres').deleteFrom('users').where('id', '=', 1).compile();
+    const q = createQueryCompiler(postgresDialect).deleteFrom('users').where('id', '=', 1).compile();
     expect(q.text).toBe('DELETE FROM "users" WHERE "id" = $1');
     expect(q.parameters).toEqual([1]);
   });
@@ -223,7 +227,7 @@ describe('postgres write compilation', () => {
 
 describe('dialect placeholder + quoting', () => {
   it('mysql uses ? and backticks', () => {
-    const q = createQueryCompiler('mysql')
+    const q = createQueryCompiler(mysqlDialect)
       .selectFrom('users')
       .where('email', '=', 'a@b.com')
       .orderBy('createdAt', 'desc')
@@ -234,7 +238,7 @@ describe('dialect placeholder + quoting', () => {
   });
 
   it('sqlite uses ? and double quotes', () => {
-    const q = createQueryCompiler('sqlite').selectFrom('users').where('id', '=', 1).compile();
+    const q = createQueryCompiler(sqliteDialect).selectFrom('users').where('id', '=', 1).compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "id" = ?');
     expect(q.parameters).toEqual([1]);
   });
@@ -242,7 +246,7 @@ describe('dialect placeholder + quoting', () => {
 
 describe('subquery & EXISTS compilation', () => {
   it('compiles scalar comparison and IN subqueries with sequential parameter offsets', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const sub = qb.selectFrom('orders').select(['user_id']).where('amount', '>', 100);
     const q = qb.selectFrom('users').where('status', '=', 'active').andWhere('id', 'in', sub).compile();
 
@@ -253,7 +257,7 @@ describe('subquery & EXISTS compilation', () => {
   });
 
   it('compiles whereExists and orWhereExists clauses', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const sub1 = qb.selectFrom('orders').where('status', '=', 'shipped');
     const sub2 = qb.selectFrom('logs').where('level', '=', 'error');
     const q = qb.selectFrom('users').where('role', '=', 'admin').whereExists(sub1).orWhereExists(sub2).compile();
@@ -265,7 +269,7 @@ describe('subquery & EXISTS compilation', () => {
   });
 
   it('compiles multi-level nested subqueries with continuous parameter renumbering', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const inner = qb.selectFrom('payments').select(['order_id']).where('status', '=', 'failed');
     const middle = qb.selectFrom('orders').select(['user_id']).where('total', '>', 50).andWhere('id', 'in', inner);
     const outer = qb.selectFrom('users').where('tenant_id', '=', 10).andWhere('id', 'in', middle).compile();
@@ -279,7 +283,7 @@ describe('subquery & EXISTS compilation', () => {
 
 describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
   it('compiles PostgreSQL ON CONFLICT DO UPDATE (default non-target columns)', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com', role: 'user' })
       .onConflict('id')
@@ -293,7 +297,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
   });
 
   it('compiles PostgreSQL ON CONFLICT DO UPDATE with specific update columns', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com', role: 'user' })
       .onConflict('id')
@@ -306,7 +310,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
   });
 
   it('compiles PostgreSQL ON CONFLICT DO UPDATE with custom field values', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com' })
       .onConflict('id')
@@ -319,7 +323,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
   });
 
   it('compiles PostgreSQL ON CONFLICT DO NOTHING with and without target', () => {
-    const q1 = createQueryCompiler('postgres')
+    const q1 = createQueryCompiler(postgresDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com' })
       .onConflict('id')
@@ -327,7 +331,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
       .compile();
     expect(q1.text).toBe('INSERT INTO "users" ("id", "email") VALUES ($1, $2) ON CONFLICT ("id") DO NOTHING');
 
-    const q2 = createQueryCompiler('postgres')
+    const q2 = createQueryCompiler(postgresDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com' })
       .onConflict()
@@ -337,7 +341,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
   });
 
   it('compiles MySQL ON DUPLICATE KEY UPDATE and INSERT IGNORE', () => {
-    const qUpdate = createQueryCompiler('mysql')
+    const qUpdate = createQueryCompiler(mysqlDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com', role: 'user' })
       .onConflict('id')
@@ -348,7 +352,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
     );
     expect(qUpdate.parameters).toEqual([1, 'a@b.com', 'user']);
 
-    const qIgnore = createQueryCompiler('mysql')
+    const qIgnore = createQueryCompiler(mysqlDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com' })
       .onConflict()
@@ -359,7 +363,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
   });
 
   it('compiles SQLite ON CONFLICT DO UPDATE and DO NOTHING', () => {
-    const qUpdate = createQueryCompiler('sqlite')
+    const qUpdate = createQueryCompiler(sqliteDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com', role: 'user' })
       .onConflict('id')
@@ -371,7 +375,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
     );
     expect(qUpdate.parameters).toEqual([1, 'a@b.com', 'user']);
 
-    const qIgnore = createQueryCompiler('sqlite')
+    const qIgnore = createQueryCompiler(sqliteDialect)
       .insertInto('users')
       .values({ id: 1, email: 'a@b.com' })
       .onConflict('id')
@@ -383,7 +387,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
 
   it('throws an error when doUpdate is called with an empty updateFields array', () => {
     expect(() => {
-      createQueryCompiler('postgres')
+      createQueryCompiler(postgresDialect)
         .insertInto('users')
         .values({ id: 1, email: 'a@b.com' })
         .onConflict('id')
@@ -394,7 +398,7 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
 
 describe('array parameter IN expansion', () => {
   it('expands array parameters into parameterized IN clauses for postgres with sequential placeholders', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .selectFrom('users')
       .where('id', 'in', [10, 20, 30])
       .andWhere('status', '=', 'active')
@@ -404,7 +408,7 @@ describe('array parameter IN expansion', () => {
   });
 
   it('correctly renumbers placeholders when an IN list sits between other predicates in postgres', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .selectFrom('orders')
       .where('tenantId', '=', 100)
       .whereIn('status', ['pending', 'shipped'])
@@ -415,7 +419,7 @@ describe('array parameter IN expansion', () => {
   });
 
   it('correctly renumbers placeholders when multiple IN lists sit between standard predicates', () => {
-    const q = createQueryCompiler('postgres')
+    const q = createQueryCompiler(postgresDialect)
       .selectFrom('orders')
       .where('orgId', '=', 1)
       .whereIn('status', ['a', 'b'])
@@ -430,39 +434,42 @@ describe('array parameter IN expansion', () => {
   });
 
   it('expands array parameters into parameterized IN clauses for mysql', () => {
-    const q = createQueryCompiler('mysql').selectFrom('users').whereIn('id', [10, 20]).compile();
+    const q = createQueryCompiler(mysqlDialect).selectFrom('users').whereIn('id', [10, 20]).compile();
     expect(q.text).toBe('SELECT * FROM `users` WHERE `id` IN (?, ?)');
     expect(q.parameters).toEqual([10, 20]);
   });
 
   it('does not silently reinterpret = or != with array parameters as IN or NOT IN', () => {
-    const q1 = createQueryCompiler('postgres').selectFrom('users').where('id', '=', [10, 20]).compile();
+    const q1 = createQueryCompiler(postgresDialect).selectFrom('users').where('id', '=', [10, 20]).compile();
     expect(q1.text).toBe('SELECT * FROM "users" WHERE "id" = $1');
     expect(q1.parameters).toEqual([[10, 20]]);
 
-    const q2 = createQueryCompiler('postgres').selectFrom('users').where('id', '!=', [10, 20]).compile();
+    const q2 = createQueryCompiler(postgresDialect).selectFrom('users').where('id', '!=', [10, 20]).compile();
     expect(q2.text).toBe('SELECT * FROM "users" WHERE "id" != $1');
     expect(q2.parameters).toEqual([[10, 20]]);
   });
 
   it('expands array parameters into parameterized IN clauses for sqlite', () => {
-    const q = createQueryCompiler('sqlite').selectFrom('users').where('id', 'in', [1, 2, 3]).compile();
+    const q = createQueryCompiler(sqliteDialect).selectFrom('users').where('id', 'in', [1, 2, 3]).compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "id" IN (?, ?, ?)');
     expect(q.parameters).toEqual([1, 2, 3]);
   });
 
   it('handles NOT IN / nin array expansion', () => {
-    const q = createQueryCompiler('postgres').selectFrom('users').where('role', 'nin', ['admin', 'super']).compile();
+    const q = createQueryCompiler(postgresDialect)
+      .selectFrom('users')
+      .where('role', 'nin', ['admin', 'super'])
+      .compile();
     expect(q.text).toBe('SELECT * FROM "users" WHERE "role" NOT IN ($1, $2)');
     expect(q.parameters).toEqual(['admin', 'super']);
   });
 
   it('handles empty array parameters cleanly (false / true)', () => {
-    const q1 = createQueryCompiler('postgres').selectFrom('users').where('id', 'in', []).compile();
+    const q1 = createQueryCompiler(postgresDialect).selectFrom('users').where('id', 'in', []).compile();
     expect(q1.text).toBe('SELECT * FROM "users" WHERE 1 = 0');
     expect(q1.parameters).toEqual([]);
 
-    const q2 = createQueryCompiler('postgres').selectFrom('users').where('id', 'nin', []).compile();
+    const q2 = createQueryCompiler(postgresDialect).selectFrom('users').where('id', 'nin', []).compile();
     expect(q2.text).toBe('SELECT * FROM "users" WHERE 1 = 1');
     expect(q2.parameters).toEqual([]);
   });
@@ -470,7 +477,7 @@ describe('array parameter IN expansion', () => {
 
 describe('Operator normalization & bounded dialect operators', () => {
   it('validates normalized canonical operators and produces expected SQL', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const ops: [string, string][] = [
       ['=', '='],
       ['!=', '!='],
@@ -602,7 +609,7 @@ describe('Operator normalization & bounded dialect operators', () => {
     ] as const;
 
     for (const testCase of cases) {
-      const query = createQueryCompiler(testCase.dialect === 'mssql' ? mssql : testCase.dialect)
+      const query = createQueryCompiler(officialDialects[testCase.dialect])
         .selectFrom(testCase.table)
         .where(testCase.column, testCase.operator, testCase.value)
         .compile();
@@ -613,7 +620,7 @@ describe('Operator normalization & bounded dialect operators', () => {
 
   it('refuses the measured request-derived operator injection before returning SQL', () => {
     const compile = () =>
-      createQueryCompiler('postgres').selectFrom('users').where('role', "= 'x' OR 1=1 --", 1).compile();
+      createQueryCompiler(postgresDialect).selectFrom('users').where('role', "= 'x' OR 1=1 --", 1).compile();
 
     expect(compile).toThrow(
       'invalid unmapped SQL operator "= \'x\' OR 1=1 --" for dialect "postgres"; expected one non-comment ' +
@@ -625,7 +632,8 @@ describe('Operator normalization & bounded dialect operators', () => {
     const invalid = ["'", ';', ' @>', '@> ', 'OR 1', '--', '@>--', '/*', '*/', '#'];
 
     for (const operator of invalid) {
-      const compile = () => createQueryCompiler('postgres').selectFrom('users').where('role', operator, 1).compile();
+      const compile = () =>
+        createQueryCompiler(postgresDialect).selectFrom('users').where('role', operator, 1).compile();
       expect(compile, JSON.stringify(operator)).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -641,10 +649,7 @@ describe('Operator normalization & bounded dialect operators', () => {
 
     for (const { dialect, operator } of collisions) {
       const compile = () =>
-        createQueryCompiler(dialect === 'mssql' ? mssql : dialect)
-          .selectFrom('users')
-          .where('payload', operator, 1)
-          .compile();
+        createQueryCompiler(officialDialects[dialect]).selectFrom('users').where('payload', operator, 1).compile();
       expect(compile, `${dialect} ${operator}`).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -658,7 +663,7 @@ describe('Operator normalization & bounded dialect operators', () => {
       const inherited: unknown = Reflect.get(input, 'operator');
       if (typeof inherited !== 'string') throw new TypeError('test input carried no inherited operator string');
       const compile = () =>
-        createQueryCompiler('postgres').selectFrom('users').where('col', inherited, 'val').compile();
+        createQueryCompiler(postgresDialect).selectFrom('users').where('col', inherited, 'val').compile();
       expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
     }
   });
@@ -693,7 +698,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
 
   it('orders by a cosine distance with the query vector parameterised', () => {
     expect(
-      createQueryCompiler('postgres')
+      createQueryCompiler(postgresDialect)
         .selectFrom('items')
         .orderBy(distance<Item>('embedding', 'cosine', queryVector), 'asc')
         .limit(10)
@@ -706,7 +711,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
 
   it('projects a distance as a selected column with an alias', () => {
     expect(
-      createQueryCompiler('postgres')
+      createQueryCompiler(postgresDialect)
         .selectFrom('items')
         .select(['id', distance<Item>('embedding', 'cosine', queryVector).as('distance')])
         .compile(),
@@ -719,7 +724,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
   it('emits ST_DWithin as a predicate with typed arguments', () => {
     const point = { type: 'Point', coordinates: [77.5946, 12.9716] } as const;
     expect(
-      createQueryCompiler('postgres')
+      createQueryCompiler(postgresDialect)
         .selectFrom('venues')
         .where(stDWithin<Venue>('location', point, 500))
         .compile(),
@@ -732,7 +737,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
   it('emits ST_Contains as the second closed spatial predicate', () => {
     const point = { type: 'Point', coordinates: [77.5946, 12.9716] } as const;
     expect(
-      createQueryCompiler('postgres').selectFrom('venues').where(stContains<Venue>('location', point)).compile(),
+      createQueryCompiler(postgresDialect).selectFrom('venues').where(stContains<Venue>('location', point)).compile(),
     ).toEqual({
       text: 'SELECT * FROM "venues" WHERE ST_Contains("location", ST_GeomFromGeoJSON($1))',
       parameters: [point],
@@ -754,7 +759,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
     );
 
     expect(() =>
-      createQueryCompiler('postgres')
+      createQueryCompiler(postgresDialect)
         .selectFrom('items')
         .where('embedding', 'cosine', [0.1, Number.NaN, 0.3])
         .compile(),

@@ -4,6 +4,7 @@ import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
 import { defineRepository } from '../index.js';
+import { sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { UserSchema } from './fixtures.js';
 
 function db() {
@@ -17,7 +18,7 @@ function db() {
 describe('DX quickstart via defineRepository (#222)', () => {
   it('wires a typed repo with no subclass and round-trips CRUD + list + populate', async () => {
     const d = db();
-    const users = defineRepository(UserSchema, sqliteDriver(d), { dialect: 'sqlite' });
+    const users = defineRepository(UserSchema, sqliteDriver(d), { dialect: sqliteDialect });
 
     const u = await users.create({ email: 'a@b.com', age: 30 });
     expect(u.id).toBeGreaterThan(0);

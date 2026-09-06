@@ -27,9 +27,9 @@ export function renderEmbeddedModule(
 }
 
 export function embedMigrations(config: ResolvedConfig, options: EmbedOptions = {}): Promise<EmbedResult> {
-  if (config.dialect !== 'sqlite') {
+  if (!config.dialect.migrations.embedded) {
     throw new CliInvocationError(
-      `embedded migrations execute SQLite, but ${config.configPath} configures ${config.dialect}`,
+      `embedded migrations are not supported by ${config.dialect.name} in ${config.configPath}`,
     );
   }
   return embedProjectMigrations(migrationProject(config), options);

@@ -5,10 +5,11 @@ import { describe, expect, it } from 'vitest';
 
 import { UnsupportedFeatureError } from '../errors.js';
 import { createViewDdl, enableRlsDdl } from '../schema-objects/index.js';
+import { cockroachDialect, singlestoreDialect } from '../testing/official-dialects.fixture.js';
 
 export interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['id']> {
   id: bigint & Sql<'bigint'> & PrimaryKey;
-  customerId: bigint & Sql<'bigint'>;
+  customerId: bigint & Sql<'bigint'> & PrimaryKey;
 }
 
 export interface Session extends Table<'sessions'>, Rowstore {
@@ -61,16 +62,16 @@ describe('CockroachDB and SingleStore dialect variants', () => {
   it('carries shard and sort keys from a declaration through snapshot and DDL', () => {
     const table = onlyTable(OrderSchema);
     expect(table.tableOptions).toEqual({ shardKey: ['customerId'], sortKey: ['id'] });
-    expect(emitUp(createTable(table), 'singlestore')).toBe(
-      'CREATE TABLE `orders` (`customerId` BIGINT NOT NULL, `id` BIGINT PRIMARY KEY, ' +
-        'SHARD KEY (`customerId`), SORT KEY (`id`))',
+    expect(emitUp(createTable(table), singlestoreDialect)).toBe(
+      'CREATE TABLE `orders` (`customerId` BIGINT NOT NULL, `id` BIGINT NOT NULL, ' +
+        'PRIMARY KEY (`id`, `customerId`), SHARD KEY (`customerId`), SORT KEY (`id`))',
     );
   });
 
   it('emits the explicit SingleStore rowstore alternative', () => {
     const table = onlyTable(SessionSchema);
     expect(table.tableOptions).toEqual({ rowstore: true });
-    expect(emitUp(createTable(table), 'singlestore')).toBe(
+    expect(emitUp(createTable(table), singlestoreDialect)).toBe(
       'CREATE ROWSTORE TABLE `sessions` (`id` TEXT PRIMARY KEY, `value` TEXT NOT NULL)',
     );
   });
@@ -83,7 +84,7 @@ describe('CockroachDB and SingleStore dialect variants', () => {
           ...table,
           tableOptions: { rowstore: true, sortKey: ['id'] },
         }),
-        'singlestore',
+        singlestoreDialect,
       ),
     ).toThrow('cannot declare SORT KEY on explicit ROWSTORE table "sessions"');
   });
@@ -96,19 +97,23 @@ describe('CockroachDB and SingleStore dialect variants', () => {
       foreignKeys: [],
     };
 
-    expect(() => emitUp(createTable(table), 'singlestore')).toThrowError(UnsupportedFeatureError);
-    expect(() => emitUp(createTable(table), 'singlestore')).toThrow('must declare ShardKey<…> or Rowstore');
+    expect(() => emitUp(createTable(table), singlestoreDialect)).toThrowError(UnsupportedFeatureError);
+    expect(() => emitUp(createTable(table), singlestoreDialect)).toThrow('must declare ShardKey<…> or Rowstore');
   });
 
   it('refuses foreign keys instead of inheriting MySQL constraint DDL', () => {
     const table = onlyTable(ReferencedOrderSchema);
-    expect(() => emitUp(createTable(table), 'singlestore')).toThrow('singlestore does not enforce foreign keys');
+    expect(() => emitUp(createTable(table), singlestoreDialect)).toThrow(
+      '@zmdb/singlestore does not qualify foreign-key DDL',
+    );
   });
 
   it('refuses a unique column whose index cannot include the whole shard key', () => {
     const table = onlyTable(UniqueUserSchema);
     expect(table.columns.find(column => column.name === 'email')?.unique).toBe(true);
-    expect(() => emitUp(createTable(table), 'singlestore')).toThrow('cannot enforce UNIQUE on "unique_users"."email"');
+    expect(() => emitUp(createTable(table), singlestoreDialect)).toThrow(
+      'cannot enforce UNIQUE on "unique_users"."email"',
+    );
   });
 
   it('refuses a SingleStore table-options change instead of producing an empty diff', () => {
@@ -120,21 +125,21 @@ describe('CockroachDB and SingleStore dialect variants', () => {
       tables: [{ ...table, tableOptions: { shardKey: ['id'], sortKey: ['id'] } }],
     };
 
-    expect(() => diff(before, after, { dialect: 'singlestore' })).toThrow('create a replacement table');
+    expect(() => diff(before, after, { dialect: singlestoreDialect })).toThrow('create a replacement table');
   });
 
   it('emits inherited Cockroach DDL explicitly rather than falling through an unknown dialect', () => {
     const table = onlyTable(OrderSchema);
-    expect(emitUp(createTable(table), 'cockroach')).toBe(
-      'CREATE TABLE "orders" ("customerId" BIGINT NOT NULL, "id" BIGINT PRIMARY KEY)',
+    expect(emitUp(createTable(table), cockroachDialect)).toBe(
+      'CREATE TABLE "orders" ("customerId" BIGINT NOT NULL, "id" BIGINT NOT NULL, PRIMARY KEY ("id", "customerId"))',
     );
-    expect(diff(EMPTY, snapshot([OrderSchema]), { dialect: 'cockroach' })).toHaveLength(1);
+    expect(diff(EMPTY, snapshot([OrderSchema]), { dialect: cockroachDialect })).toHaveLength(1);
   });
 
   it('inherits materialized views but refuses Cockroach row-level security', () => {
-    expect(createViewDdl({ name: 'daily_orders', select: 'SELECT 1', materialized: true }, 'cockroach')).toBe(
+    expect(createViewDdl({ name: 'daily_orders', select: 'SELECT 1', materialized: true }, cockroachDialect)).toBe(
       'CREATE MATERIALIZED VIEW "daily_orders" AS SELECT 1',
     );
-    expect(() => enableRlsDdl('orders', 'cockroach')).toThrowError(UnsupportedFeatureError);
+    expect(() => enableRlsDdl('orders', cockroachDialect)).toThrowError(UnsupportedFeatureError);
   });
 });

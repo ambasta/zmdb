@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import { createMemoryJobStore } from '@zmdb/jobs/memory';
+import { sqlite } from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
 
 describe('@zmdb/jobs memory backend (#588, #650)', () => {
@@ -15,7 +16,7 @@ describe('@zmdb/jobs memory backend (#588, #650)', () => {
       )
       .all();
 
-    expect(store.dialect).toBe('sqlite');
+    expect(store.dialect).toBe(sqlite);
     expect(objects).toEqual([
       { name: 'zmdb_job', type: 'table' },
       { name: 'zmdb_job_done', type: 'table' },

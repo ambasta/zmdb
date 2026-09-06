@@ -463,7 +463,7 @@ describe.skipIf(probe.kind === 'unreachable')('@zmdb/mssql against real SQL Serv
       extensions: [],
     };
 
-    expect(detectDrift(live, declared)).toEqual({
+    expect(detectDrift(live, declared, { dialect: mssql })).toEqual({
       onlyInDatabase: [],
       onlyInDeclarations: [],
       clean: true,

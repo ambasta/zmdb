@@ -6,9 +6,9 @@ Build tools and the schema-command CLI have a separate [`zmdb.config.ts`](./conf
 ## What each layer takes
 
 ```ts
-createQueryCompiler(dialect)                          // SqlDialect object or temporary built-in name
+createQueryCompiler(dialect)                          // imported SqlDialect object
 schemaOf<T>()                                         // the declaration; compiled away at build time
-defineRepository(schema, driver, { dialect?, schemas? })
+defineRepository(schema, driver, { schemas? })
 createApp(rootModule)
 toOpenApi(httpContractIR, { info? })
 ```
@@ -36,8 +36,7 @@ The useful pattern is one module that reads the environment and exports typed va
 // src/config.ts
 import { Pool } from 'pg';
 import { assert } from '@zmdb/aot-validator/utilities';
-import type { Dialect } from '@zmdb/query-compiler';
-import type { Driver } from '@zmdb/repository';
+import { postgresDriver } from 'zmdb/postgres';
 
 interface Env {
   DATABASE_URL: string;
@@ -53,20 +52,13 @@ export const env = assert<Env>({
   DB_POOL_MAX: Number(process.env.DB_POOL_MAX ?? 10),
 });
 
-export const dialect: Dialect = 'postgres';
-
 const pool = new Pool({
   connectionString: env.DATABASE_URL,
   max: env.DB_POOL_MAX,
   statement_timeout: 5_000,
 });
 
-export const driver: Driver = {
-  async execute(query) {
-    const result = await pool.query(query.text, [...query.parameters]);
-    return result.rows;
-  },
-};
+export const driver = postgresDriver(pool);
 ```
 
 Validating the environment once, at import, is the highest-value use of the validator in an application. A missing `DATABASE_URL` fails at startup naming the field, instead of at 3am as `undefined`
@@ -102,7 +94,7 @@ export const USERS = repositoryToken<User>('USERS'); // Token<BaseRepository<Use
 @Module({
   providers: [
     { token: DRIVER, useValue: driver },
-    { token: USERS, useFactory: c => defineRepository(users, c.resolve(DRIVER), { dialect }) },
+    { token: USERS, useFactory: c => defineRepository(users, c.resolve(DRIVER)) },
   ],
   controllers: [UsersController],
 })
@@ -125,19 +117,10 @@ console.log(env); // logs DATABASE_URL, including the password
 
 Log a redacted projection instead, or mark the column [`Sensitive`](./tags-reference.html) and log a `ReadDTO<T>`, which cannot name it.
 
-## Dialect at build time versus runtime
+## Dialect selection
 
-A built-in `Dialect` name is a value, so it can come from the environment — which is how one codebase targets SQLite in tests and Postgres in production:
-
-```ts
-export const dialect = (process.env.DB_DIALECT ?? 'postgres') as Dialect;
-```
-
-The cost is that dialect differences become runtime differences. `ILIKE`, `RETURNING`, `ON CONFLICT` and transactional DDL all vary — see [Dialect: SQLite](./dialect-sqlite.html). Fine for a test
-suite; think carefully before shipping two dialects to production.
-
-A third-party database instead exports a frozen `SqlDialect` object. Pass that same object to `createQueryCompiler` and attach it to the driver; the repository then consumes its already-resolved
-traits, capabilities, migration implementation and introspector without a global registry. The tooling config and CLI still use built-in names until the database-package extraction completes.
+Each database package exports a frozen `SqlDialect` object and drivers carry that object as required state. Pass the same imported object to `createQueryCompiler`; repositories read it from the
+driver. Selecting another database means importing its package and constructing its driver, not passing a free-form string through the environment or a global registry.
 
 ---
 

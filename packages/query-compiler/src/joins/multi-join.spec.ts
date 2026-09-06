@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { joinableSelectFrom } from './index.js';
 
 // #86: self-join + multi-join + aliasing.
 
 describe('multi-join (2+ chained joins)', () => {
   it('chains two joins in order with correct ON clauses', () => {
-    const q = joinableSelectFrom('order_details')
+    const q = joinableSelectFrom('order_details', postgresDialect)
       .innerJoin('orders', 'orders.id', 'order_details.order_id')
       .innerJoin('customers', 'customers.id', 'orders.customer_id')
       .where('customers.id', '=', 7)
@@ -21,7 +22,7 @@ describe('multi-join (2+ chained joins)', () => {
   });
 
   it('mixes left + inner joins with aliases', () => {
-    const q = joinableSelectFrom('products as p')
+    const q = joinableSelectFrom('products as p', postgresDialect)
       .leftJoin('suppliers as s', 's.id', 'p.supplier_id')
       .innerJoin('categories as c', 'c.id', 'p.category_id')
       .compile();
@@ -33,7 +34,7 @@ describe('multi-join (2+ chained joins)', () => {
   });
 
   it('self-join with alias still compiles (regression from #85)', () => {
-    const q = joinableSelectFrom('employees as e')
+    const q = joinableSelectFrom('employees as e', postgresDialect)
       .leftJoin('employees as r', 'r.id', 'e.recipient_id')
       .where('e.id', '=', 5)
       .compile();

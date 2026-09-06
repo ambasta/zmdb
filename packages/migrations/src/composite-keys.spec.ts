@@ -1,10 +1,16 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { mssql } from '@zmdb/mssql';
-import { UnsupportedFeatureError, type Dialect } from '@zmdb/query-compiler';
+import { UnsupportedFeatureError } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
 import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, type TableSnapshot } from './index.js';
+import {
+  mysqlDialect,
+  officialDialects,
+  postgresDialect,
+  sqliteDialect,
+  type OfficialDialectName,
+} from './testing/official-dialects.fixture.js';
 
 // Composite primary keys, at the migration boundary. Tests freeze for the epic
 // "Composite primary keys and expression indexes" (#407 / spec freeze #408).
@@ -13,11 +19,11 @@ import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, t
 // the ordered snapshot field, table-level DDL, reversible key-change operation and SQLite's
 // explicit refusal.
 
-const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly Dialect[];
+const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly OfficialDialectName[];
 type KeyDialect = (typeof DIALECTS)[number];
 
 function emitDialectUp(operation: ChangeOp, dialect: KeyDialect): string {
-  return dialect === 'mssql' ? mssql.migrations.emitUp(operation) : emitUp(operation, dialect);
+  return emitUp(operation, officialDialects[dialect]);
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +74,7 @@ describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
   it('executes the composite CREATE TABLE on sqlite', () => {
     const database = new DatabaseSync(':memory:');
     try {
-      database.exec(emitUp(createMemberships, 'sqlite'));
+      database.exec(emitUp(createMemberships, sqliteDialect));
       expect(
         database.prepare("SELECT name FROM pragma_table_info('memberships') WHERE pk > 0 ORDER BY pk").all(),
       ).toEqual([{ name: 'user_id' }, { name: 'org_id' }]);
@@ -231,16 +237,18 @@ describe('diffing a key change (frozen: migrations/SPEC.md 1.3)', () => {
   });
 
   it('emits one statement per direction for a key change on postgres and mysql', () => {
-    expect(emitUp(alterKey, 'postgres')).toBe(
+    expect(emitUp(alterKey, postgresDialect)).toBe(
       'ALTER TABLE "memberships" DROP CONSTRAINT "memberships_pkey", ADD PRIMARY KEY ("user_id", "org_id")',
     );
-    expect(emitDown(alterKey, 'postgres')).toBe(
+    expect(emitDown(alterKey, postgresDialect)).toBe(
       'ALTER TABLE "memberships" DROP CONSTRAINT "memberships_pkey", ADD PRIMARY KEY ("user_id")',
     );
-    expect(emitUp(alterKey, 'mysql')).toBe(
+    expect(emitUp(alterKey, mysqlDialect)).toBe(
       'ALTER TABLE `memberships` DROP PRIMARY KEY, ADD PRIMARY KEY (`user_id`, `org_id`)',
     );
-    expect(emitDown(alterKey, 'mysql')).toBe('ALTER TABLE `memberships` DROP PRIMARY KEY, ADD PRIMARY KEY (`user_id`)');
+    expect(emitDown(alterKey, mysqlDialect)).toBe(
+      'ALTER TABLE `memberships` DROP PRIMARY KEY, ADD PRIMARY KEY (`user_id`)',
+    );
   });
 
   it('adds and drops a primary key without emitting an empty ALTER clause', () => {
@@ -250,10 +258,10 @@ describe('diffing a key change (frozen: migrations/SPEC.md 1.3)', () => {
       from: [],
       to: ['user_id'],
     };
-    expect(emitUp(addKey, 'postgres')).toBe('ALTER TABLE "memberships" ADD PRIMARY KEY ("user_id")');
-    expect(emitDown(addKey, 'postgres')).toBe('ALTER TABLE "memberships" DROP CONSTRAINT "memberships_pkey"');
-    expect(emitUp(addKey, 'mysql')).toBe('ALTER TABLE `memberships` ADD PRIMARY KEY (`user_id`)');
-    expect(emitDown(addKey, 'mysql')).toBe('ALTER TABLE `memberships` DROP PRIMARY KEY');
+    expect(emitUp(addKey, postgresDialect)).toBe('ALTER TABLE "memberships" ADD PRIMARY KEY ("user_id")');
+    expect(emitDown(addKey, postgresDialect)).toBe('ALTER TABLE "memberships" DROP CONSTRAINT "memberships_pkey"');
+    expect(emitUp(addKey, mysqlDialect)).toBe('ALTER TABLE `memberships` ADD PRIMARY KEY (`user_id`)');
+    expect(emitDown(addKey, mysqlDialect)).toBe('ALTER TABLE `memberships` DROP PRIMARY KEY');
   });
 
   it('orders a replacement key after its added column and before its dropped column', () => {
@@ -306,9 +314,9 @@ describe('diffing a key change (frozen: migrations/SPEC.md 1.3)', () => {
   // em dash; matching the table name and the reason around them keeps the assertion readable
   // and keeps it from failing on a whitespace or punctuation edit to the message.
   it('refuses to alter a primary key on sqlite, naming the table', () => {
-    expect(() => emitUp(alterKey, 'sqlite')).toThrow(UnsupportedFeatureError);
-    expect(() => emitUp(alterKey, 'sqlite')).toThrow(/sqlite cannot alter the primary key of "memberships"/);
-    expect(() => emitUp(alterKey, 'sqlite')).toThrow(/SQLite has no\s+ALTER TABLE form for a key/);
-    expect(() => emitDown(alterKey, 'sqlite')).toThrow(/sqlite cannot alter the primary key of "memberships"/);
+    expect(() => emitUp(alterKey, sqliteDialect)).toThrow(UnsupportedFeatureError);
+    expect(() => emitUp(alterKey, sqliteDialect)).toThrow(/sqlite cannot alter the primary key of "memberships"/);
+    expect(() => emitUp(alterKey, sqliteDialect)).toThrow(/SQLite has no\s+ALTER TABLE form for a key/);
+    expect(() => emitDown(alterKey, sqliteDialect)).toThrow(/sqlite cannot alter the primary key of "memberships"/);
   });
 });

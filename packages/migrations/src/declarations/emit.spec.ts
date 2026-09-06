@@ -1,7 +1,8 @@
-import type { Dialect } from '@zmdb/query-compiler';
+import type { SqlDialect } from '@zmdb/query-compiler';
 import { describe, expect, it } from 'vitest';
 
 import type { ColumnSnapshot, SchemaSnapshot, TableSnapshot } from '../index.js';
+import { postgresDialect, sqliteDialect } from '../testing/official-dialects.fixture.js';
 
 type FrozenIndexColumn =
   | string
@@ -41,7 +42,7 @@ type FrozenSchemaSnapshot = Omit<SchemaSnapshot, 'tables'> & {
 };
 
 interface FrozenEmitOptions {
-  readonly dialect: Dialect;
+  readonly dialect: SqlDialect;
 }
 
 interface FrozenEmitDeclarationsResult {
@@ -95,8 +96,8 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
       ]),
     );
 
-    const first = await emitDeclarations(input, { dialect: 'sqlite' });
-    const second = await emitDeclarations(input, { dialect: 'sqlite' });
+    const first = await emitDeclarations(input, { dialect: sqliteDialect });
+    const second = await emitDeclarations(input, { dialect: sqliteDialect });
     expect(first).toEqual(second);
     expect(first.files.map(file => file.path)).toEqual(['accounts.ts', 'index.ts']);
 
@@ -119,7 +120,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
           { name: 'payload', type: 'bytea', catalogType: 'bytea', nullable: false, primaryKey: false },
         ]),
       ),
-      { dialect: 'postgres' },
+      { dialect: postgresDialect },
     );
     expect(warningResult.warnings).toEqual([
       {
@@ -140,7 +141,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
         { name: 'payload', type: 'bytea', catalogType: 'bytea', nullable: false, primaryKey: false },
       ]),
     );
-    const result = await emitDeclarations(input, { dialect: 'postgres' });
+    const result = await emitDeclarations(input, { dialect: postgresDialect });
     const document = result.files.find(file => file.path === 'documents.ts');
     if (!document) throw new Error('emitter produced no documents.ts');
 
@@ -180,7 +181,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
       extensions: [{ name: 'citext' }, { name: 'vector' }],
     };
 
-    const result = await emitDeclarations(input, { dialect: 'postgres' });
+    const result = await emitDeclarations(input, { dialect: postgresDialect });
     const document = result.files.find(file => file.path === 'documents.ts');
     if (!document) throw new Error('emitter produced no documents.ts');
 
@@ -218,7 +219,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
     };
     const result = await emitDeclarations(
       { version: 1, tables: [posts, accounts], extensions: [] },
-      { dialect: 'sqlite' },
+      { dialect: sqliteDialect },
     );
     const post = result.files.find(file => file.path === 'posts.ts');
     if (!post) throw new Error('emitter produced no posts.ts');
@@ -260,7 +261,7 @@ describe('declaration emission (frozen: introspect/SPEC.md 6-7)', () => {
     };
     const result = await emitDeclarations(
       { version: 1, tables: [posts, users], extensions: [] },
-      { dialect: 'sqlite' },
+      { dialect: sqliteDialect },
     );
     const post = result.files.find(file => file.path === 'posts.ts');
     if (!post) throw new Error('emitter produced no posts.ts');

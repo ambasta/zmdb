@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  cockroachDialect,
+  mysqlDialect,
+  postgresDialect,
+  singlestoreDialect,
+  sqliteDialect,
+} from '../testing/official-dialects.fixture.js';
+import {
   checkConstraintDdl,
   createExtensionDdl,
   createIndexDdl,
@@ -16,20 +23,22 @@ import {
 
 describe('extension DDL (frozen: schema-objects/SPEC.md 7)', () => {
   it('quotes extension identifiers and version literals in the frozen clause order', () => {
-    expect(createExtensionDdl({ name: 'vector' }, 'postgres')).toBe('CREATE EXTENSION IF NOT EXISTS "vector"');
-    expect(createExtensionDdl({ name: 'postgis', schema: 'extensions' }, 'postgres')).toBe(
+    expect(createExtensionDdl({ name: 'vector' }, postgresDialect)).toBe('CREATE EXTENSION IF NOT EXISTS "vector"');
+    expect(createExtensionDdl({ name: 'postgis', schema: 'extensions' }, postgresDialect)).toBe(
       'CREATE EXTENSION IF NOT EXISTS "postgis" WITH SCHEMA "extensions"',
     );
-    expect(createExtensionDdl({ name: 'vector', version: "0.7'0" }, 'postgres')).toBe(
+    expect(createExtensionDdl({ name: 'vector', version: "0.7'0" }, postgresDialect)).toBe(
       "CREATE EXTENSION IF NOT EXISTS \"vector\" VERSION '0.7''0'",
     );
   });
 
   it('refuses extension installation on mysql and sqlite', () => {
-    for (const dialect of ['mysql', 'sqlite'] as const) {
+    for (const dialect of [mysqlDialect, sqliteDialect] as const) {
       expect(() => createExtensionDdl({ name: 'vector' }, dialect)).toThrow(UnsupportedFeatureError);
       expect(() => createExtensionDdl({ name: 'vector' }, dialect)).toThrow(
-        new RegExp(`${dialect} does not support database extensions`),
+        dialect === mysqlDialect
+          ? 'extension "vector" is not supported on dialect "mysql"'
+          : 'sqlite does not support database extensions ("vector")',
       );
     }
   });
@@ -50,13 +59,14 @@ const archiveFunction: RoutineDef = {
 
 describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
   it('quotes routine identifiers with the existing dialect rules', () => {
-    expect(quoteId('postgres', 'odd"name')).toBe('"odd""name"');
-    expect(quoteId('mysql', 'odd`name')).toBe('`odd``name`');
+    expect(quoteId(postgresDialect, 'odd"name')).toBe('"odd""name"');
+    expect(quoteId(mysqlDialect, 'odd`name')).toBe('`odd``name`');
   });
 
   it('renders routine parameter types through the existing column type map', () => {
-    expect(ddlType('postgres', 'timestamp')).toBe('TIMESTAMPTZ');
-    expect(ddlType('mysql', 'timestamp')).toBe('DATETIME(3)');
+    const timestamp = { name: 'value', type: 'timestamp', nullable: false, primaryKey: false } as const;
+    expect(ddlType(postgresDialect, timestamp)).toBe('TIMESTAMPTZ');
+    expect(ddlType(mysqlDialect, timestamp)).toBe('DATETIME(3)');
     const serialRoutine: RoutineDef = {
       kind: 'function',
       name: 'identity',
@@ -65,7 +75,7 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
       language: 'sql',
       body: 'SELECT value;',
     };
-    expect(createRoutineDdl(serialRoutine, 'postgres')).toContain('"value" INTEGER) RETURNS INTEGER');
+    expect(createRoutineDdl(serialRoutine, postgresDialect)).toContain('"value" INTEGER) RETURNS INTEGER');
     expect(
       createRoutineDdl(
         {
@@ -75,13 +85,13 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
           returns: { type: 'serial' },
           body: 'RETURN value;',
         },
-        'mysql',
+        mysqlDialect,
       ),
     ).not.toContain('AUTO_INCREMENT');
   });
 
   it('emits CREATE OR REPLACE FUNCTION with a dollar-quoted body', () => {
-    expect(createRoutineDdl(archiveFunction, 'postgres')).toBe(
+    expect(createRoutineDdl(archiveFunction, postgresDialect)).toBe(
       'CREATE OR REPLACE FUNCTION "archive_old_orders"("cutoff" TIMESTAMPTZ) ' +
         'RETURNS INTEGER LANGUAGE plpgsql AS $zmdb$\n' +
         'DECLARE moved INTEGER;\n' +
@@ -97,7 +107,7 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
   // smallest safe stable delimiter is `$zmdb1$`.
   it('chooses a safe dollar-quote tag when the body contains $$', () => {
     const body = "BEGIN\n  PERFORM $$nested$$;\n  PERFORM '$zmdb$';\nEND;";
-    expect(createRoutineDdl({ ...archiveFunction, body }, 'postgres')).toBe(
+    expect(createRoutineDdl({ ...archiveFunction, body }, postgresDialect)).toBe(
       'CREATE OR REPLACE FUNCTION "archive_old_orders"("cutoff" TIMESTAMPTZ) ' +
         'RETURNS INTEGER LANGUAGE plpgsql AS $zmdb1$\n' +
         `${body}\n` +
@@ -113,26 +123,26 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
       returns: { type: 'integer' },
       body: 'BEGIN\n  RETURN 1;\nEND;',
     };
-    expect(replaceRoutineStatements(undefined, mysqlFunction, 'mysql')).toEqual([
+    expect(replaceRoutineStatements(undefined, mysqlFunction, mysqlDialect)).toEqual([
       'DROP FUNCTION IF EXISTS `archive_old_orders`',
       'CREATE FUNCTION `archive_old_orders`(`cutoff` DATETIME(3)) RETURNS INT ' +
         'NOT DETERMINISTIC MODIFIES SQL DATA SQL SECURITY INVOKER\n' +
         'BEGIN\n  RETURN 1;\nEND;',
     ]);
-    expect(createRoutineDdl({ ...mysqlFunction, deterministic: true }, 'mysql')).toContain(
+    expect(createRoutineDdl({ ...mysqlFunction, deterministic: true }, mysqlDialect)).toContain(
       'RETURNS INT DETERMINISTIC MODIFIES SQL DATA',
     );
   });
 
   it('inherits Postgres routine DDL on CockroachDB', () => {
-    expect(createRoutineDdl(archiveFunction, 'cockroach')).toContain(
+    expect(createRoutineDdl(archiveFunction, cockroachDialect)).toContain(
       'CREATE OR REPLACE FUNCTION "archive_old_orders"("cutoff" TIMESTAMPTZ) RETURNS INT4 LANGUAGE plpgsql',
     );
-    expect(dropRoutineDdl(archiveFunction, 'cockroach')).toBe(
+    expect(dropRoutineDdl(archiveFunction, cockroachDialect)).toBe(
       'DROP FUNCTION IF EXISTS "archive_old_orders"(TIMESTAMPTZ)',
     );
     expect(
-      replaceRoutineStatements(archiveFunction, { ...archiveFunction, body: 'BEGIN RETURN 2; END;' }, 'cockroach'),
+      replaceRoutineStatements(archiveFunction, { ...archiveFunction, body: 'BEGIN RETURN 2; END;' }, cockroachDialect),
     ).toEqual([expect.stringMatching(/^CREATE OR REPLACE FUNCTION /)]);
   });
 
@@ -144,8 +154,8 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
       returns: { type: 'integer' },
       body: archiveFunction.body,
     };
-    expect(() => createRoutineDdl(singleStoreRoutine, 'singlestore')).toThrow(
-      /singlestore stored routines are not modeled.*hand-written migration/i,
+    expect(() => createRoutineDdl(singleStoreRoutine, singlestoreDialect)).toThrow(
+      /singlestore routine declarations do not share MySQL grammar.*hand-written migration/i,
     );
   });
 
@@ -157,7 +167,7 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
         params: [{ name: 'tenant_id', type: 'integer' }],
         body: 'BEGIN\n  DELETE FROM search_index WHERE tenant_id = tenant_id;\n  SELECT 1;\nEND;',
       },
-      'mysql',
+      mysqlDialect,
     );
     expect(ddl).toBe(
       'CREATE PROCEDURE `rebuild_search_index`(`tenant_id` INT) ' +
@@ -176,7 +186,7 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
           params: [],
           body: 'BEGIN\n  DELETE FROM search_index;\nEND;',
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toBe(
       'CREATE OR REPLACE PROCEDURE "rebuild_search_index"() LANGUAGE plpgsql AS $zmdb$\n' +
@@ -193,13 +203,13 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
           language: 'sql',
           body: 'SELECT id FROM users WHERE org_id = org_id;',
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toContain('RETURNS SETOF BIGINT LANGUAGE sql');
   });
 
   it('refuses a MySQL routine with a language, naming the routine', () => {
-    const run = () => createRoutineDdl(archiveFunction, 'mysql');
+    const run = () => createRoutineDdl(archiveFunction, mysqlDialect);
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/mysql/i);
     expect(run).toThrow(/archive_old_orders/);
@@ -216,7 +226,7 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
             params: [{ name: 'total', type: 'integer', mode }],
             body: 'BEGIN\n  total := 1;\nEND;',
           },
-          'postgres',
+          postgresDialect,
         );
       expect(run, mode).toThrow(UnsupportedFeatureError);
       expect(run, mode).toThrow(/total/);
@@ -225,7 +235,7 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
   });
 
   it('refuses a routine on sqlite, naming the routine', () => {
-    const run = () => createRoutineDdl(archiveFunction, 'sqlite');
+    const run = () => createRoutineDdl(archiveFunction, sqliteDialect);
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(
       'sqlite does not support stored routines (function "archive_old_orders"); SQLite has no CREATE FUNCTION, ' +
@@ -239,7 +249,7 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
       ...archiveFunction,
       params: [{ name: 'cutoff', type: 'text' }],
     };
-    const statements = replaceRoutineStatements(archiveFunction, next, 'postgres');
+    const statements = replaceRoutineStatements(archiveFunction, next, postgresDialect);
     expect(statements).toHaveLength(2);
     expect(statements[0]).toBe('DROP FUNCTION IF EXISTS "archive_old_orders"(TIMESTAMPTZ)');
     expect(statements[1]).toContain('CREATE OR REPLACE FUNCTION "archive_old_orders"("cutoff" TEXT)');
@@ -247,12 +257,12 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
 
   it('uses CREATE OR REPLACE when a Postgres signature is unchanged', () => {
     expect(
-      replaceRoutineStatements(archiveFunction, { ...archiveFunction, body: 'BEGIN RETURN 2; END;' }, 'postgres'),
+      replaceRoutineStatements(archiveFunction, { ...archiveFunction, body: 'BEGIN RETURN 2; END;' }, postgresDialect),
     ).toEqual([expect.stringMatching(/^CREATE OR REPLACE FUNCTION /)]);
   });
 
   it('drops routines with each dialect required signature', () => {
-    expect(dropRoutineDdl(archiveFunction, 'postgres')).toBe(
+    expect(dropRoutineDdl(archiveFunction, postgresDialect)).toBe(
       'DROP FUNCTION IF EXISTS "archive_old_orders"(TIMESTAMPTZ)',
     );
     expect(
@@ -263,10 +273,21 @@ describe('stored routine DDL (frozen: schema-objects/SPEC.md 8)', () => {
           params: [{ name: 'tenant_id', type: 'integer' }],
           body: '',
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toBe('DROP PROCEDURE IF EXISTS "rebuild_search_index"(INTEGER)');
-    expect(dropRoutineDdl(archiveFunction, 'mysql')).toBe('DROP FUNCTION IF EXISTS `archive_old_orders`');
+    expect(
+      dropRoutineDdl(
+        {
+          kind: 'function',
+          name: archiveFunction.name,
+          params: archiveFunction.params,
+          ...(archiveFunction.returns === undefined ? {} : { returns: archiveFunction.returns }),
+          body: archiveFunction.body,
+        },
+        mysqlDialect,
+      ),
+    ).toBe('DROP FUNCTION IF EXISTS `archive_old_orders`');
   });
 
   it('fingerprints every declared field and normalizes only trailing whitespace', () => {
@@ -289,7 +310,7 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
           columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
           with: { lists: 100 },
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toBe('CREATE INDEX "items_embedding_l2" ON "items" USING ivfflat ("embedding" vector_l2_ops) WITH (lists = 100)');
   });
@@ -304,7 +325,7 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
           columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
           with: { m: 16, ef_construction: 64 },
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toBe(
       'CREATE INDEX "items_embedding_cos" ON "items" USING hnsw ' +
@@ -322,7 +343,7 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
           columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
           with: { m: 16 },
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toThrow('ivfflat does not take the option `m` ("items_embedding_l2"); ivfflat options are (lists)');
     expect(() =>
@@ -334,13 +355,13 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
           columns: [{ column: 'embedding', opclass: 'vector_l2_ops' }],
           with: { lists: 1.5 },
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toThrow('ivfflat option `lists` must be a non-negative integer');
   });
 
   it('refuses postgres-only methods on mysql and sqlite', () => {
-    for (const dialect of ['mysql', 'sqlite'] as const) {
+    for (const dialect of [mysqlDialect, sqliteDialect] as const) {
       expect(() =>
         createIndexDdl(
           {
@@ -365,7 +386,7 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
             method,
             columns: ['email'],
           },
-          'singlestore',
+          singlestoreDialect,
         ),
       ).toThrow(/method support depends on rowstore versus columnstore storage/);
     }
@@ -376,10 +397,10 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
           table: 'users',
           columns: [{ expr: 'lower(email)' }],
         },
-        'singlestore',
+        singlestoreDialect,
       ),
     ).toThrow(/singlestore does not support an expression index/);
-    expect(() => checkConstraintDdl('users', 'users_email_check', "email <> ''", 'singlestore')).toThrow(
+    expect(() => checkConstraintDdl('users', 'users_email_check', "email <> ''", singlestoreDialect)).toThrow(
       /singlestore does not support CHECK constraint/,
     );
   });
@@ -394,7 +415,7 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
           unique: true,
           columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toThrow('postgres does not support a unique hnsw index ("items_embedding_unique" on "items")');
   });
@@ -408,7 +429,7 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
           method: 'ivfflat',
           columns: [{ column: 'embedding', opclass: 'vector_l2_ops) WHERE true; --' }],
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toThrow('index operator class "vector_l2_ops) WHERE true; --" is not a SQL identifier');
   });

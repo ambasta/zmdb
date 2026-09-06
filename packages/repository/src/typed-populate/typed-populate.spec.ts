@@ -4,6 +4,7 @@ import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
 import { BaseRepository } from '../index.js';
+import { sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { UserSchema, type User } from './fixtures.js';
 
 class UserRepository extends BaseRepository<User> {
@@ -25,7 +26,7 @@ function seed(): DatabaseSync {
 // `o.total` below needs no cast, which is the ergonomic half of the same claim.
 describe('typed populate (#217)', () => {
   it('findById(id, { populate }) attaches the typed to-many relation', async () => {
-    const repo = new UserRepository(sqliteDriver(seed()), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(seed()), sqliteDialect);
     const user = await repo.findById(1, { populate: ['orders'] });
     expect(user?.name).toBe('Ada');
     expect(user?.orders).toHaveLength(2);
@@ -33,20 +34,20 @@ describe('typed populate (#217)', () => {
   });
 
   it('find(where, { populate }) attaches relations to every matching row', async () => {
-    const repo = new UserRepository(sqliteDriver(seed()), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(seed()), sqliteDialect);
     const rows = await repo.find({}, { populate: ['orders'] });
     expect(rows).toHaveLength(2);
     expect(rows.map(r => r.orders.length).toSorted()).toEqual([1, 2]);
   });
 
   it('without populate, the result is a plain entity (no relation key)', async () => {
-    const repo = new UserRepository(sqliteDriver(seed()), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(seed()), sqliteDialect);
     const user = await repo.findById(1);
     expect(user).not.toHaveProperty('orders');
   });
 
   it('an unknown relation name is rejected at runtime too', async () => {
-    const repo = new UserRepository(sqliteDriver(seed()), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(seed()), sqliteDialect);
     // @ts-expect-error — 'nope' is not a relation `User` declares. The runtime
     // guard below is the defence for callers who reach this method untyped.
     await expect(repo.findById(1, { populate: ['nope'] })).rejects.toThrow(/unknown relation "nope"/);

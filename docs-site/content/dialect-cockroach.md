@@ -12,11 +12,10 @@ import { Pool } from 'pg';
 const pool = new Pool({ connectionString: process.env.COCKROACH_URL });
 const driver = cockroachDriver(pool);
 const compiler = createQueryCompiler(cockroach);
-const userRepo = defineRepository(users, driver, { dialect: cockroach });
+const userRepo = defineRepository(users, driver);
 ```
 
-The temporary string target `'cockroach'` remains only for the compatibility cut-over tracked by #675. New code should pass the exported object. The application still selects and owns its
-Postgres-protocol client; `pg` is not a hard dependency of this package.
+The application passes the exported `cockroach` object explicitly and still selects and owns its Postgres-protocol client; `pg` is not a hard dependency of this package.
 
 Ordinary selects, inserts, updates, deletes, joins, subqueries, `RETURNING`, `ON CONFLICT`, cursors, schemas, sequences, generated columns, foreign keys, materialized views, and SQL routines inherit
 the PostgreSQL-family implementation. The Cockroach package binds those operations to its own immutable dialect object and proves the claimed paths against a real server.

@@ -47,7 +47,9 @@ const params = assert<{ sort?: Sortable; dir?: 'asc' | 'desc'; limit?: number }>
 The builder is immutable, so each call returns a new one and you can reassign:
 
 ```ts
-let q = createQueryCompiler('postgres').selectFrom('users');
+import { postgres } from '@zmdb/postgres';
+
+let q = createQueryCompiler(postgres).selectFrom('users');
 if (status !== undefined) q = q.where('status', '=', status);
 if (minAge !== undefined) q = q.andWhere('age', '>=', minAge);
 const { text, parameters } = q.limit(20).compile();
@@ -69,7 +71,7 @@ Allow-list `isRelation` the same way — a caller that can name arbitrary relati
 `WhereDTO` fields are combined with `AND`, so a single search term over three columns needs the builder:
 
 ```ts
-const q = createQueryCompiler('postgres').selectFrom('users').where('name', 'ilike', `%${term}%`).orWhere('email', 'ilike', `%${term}%`).orWhere('bio', 'ilike', `%${term}%`).compile();
+const q = createQueryCompiler(postgres).selectFrom('users').where('name', 'ilike', `%${term}%`).orWhere('email', 'ilike', `%${term}%`).orWhere('bio', 'ilike', `%${term}%`).compile();
 ```
 
 For anything larger than a few columns, use [full-text search](./full-text-search.html) — three `ILIKE`s with a leading wildcard cannot use an index.

@@ -1,12 +1,11 @@
 import { schemasFromFiles } from '@zmdb/compiler/testing';
-import type { MigrationProject, SnapshotableSchema } from '@zmdb/migrations';
+import type { MigrationDriver, MigrationProject, SnapshotableSchema } from '@zmdb/migrations';
 import { emitDeclarations } from '@zmdb/migrations/declarations';
 import { dialectName, type Introspector } from '@zmdb/query-compiler';
-import type { Driver } from '@zmdb/repository';
 import type { FormatConfig } from 'oxfmt';
 
 import type { ResolvedConfig } from '../config/index.js';
-import { configuredDialect, configuredIntrospector } from './database.js';
+import { configuredIntrospector } from './database.js';
 import { CliInvocationError } from './errors.js';
 
 const FORMAT_OPTIONS: FormatConfig = {
@@ -28,7 +27,7 @@ const FORMAT_OPTIONS: FormatConfig = {
 
 interface MigrationProjectOptions {
   readonly schemas?: readonly SnapshotableSchema[];
-  readonly driver?: Driver;
+  readonly driver?: MigrationDriver;
   readonly introspector?: Introspector;
 }
 
@@ -37,7 +36,6 @@ export function migrationProject(config: ResolvedConfig, options: MigrationProje
     configPath: config.configPath,
     outDir: config.outDir,
     dialect: config.dialect,
-    target: configuredDialect(config.dialect),
     schemas: options.schemas ?? [],
     emitDeclarations,
     formatSource,
@@ -57,7 +55,7 @@ async function formatSource(path: string, source: string): Promise<string> {
   return result.code;
 }
 
-export function reflectedMigrationProject(config: ResolvedConfig, driver?: Driver): MigrationProject {
+export function reflectedMigrationProject(config: ResolvedConfig, driver?: MigrationDriver): MigrationProject {
   const schemas = schemasFromFiles(config.schemaFiles, {
     project: config.project,
     naming: config.resolvedNaming,
@@ -65,21 +63,24 @@ export function reflectedMigrationProject(config: ResolvedConfig, driver?: Drive
   return migrationProject(config, {
     schemas,
     ...(driver === undefined ? {} : { driver }),
-    ...(driver === undefined ? {} : { introspector: configuredIntrospector(driver.dialect ?? config.dialect) }),
+    ...(driver === undefined ? {} : { introspector: configuredIntrospector(driver.dialect) }),
   });
 }
 
-export async function configuredMigrationDriver(config: ResolvedConfig): Promise<Driver> {
+export async function configuredMigrationDriver(config: ResolvedConfig): Promise<MigrationDriver> {
   if (config.driver === undefined) {
     throw new CliInvocationError(`config ${config.configPath} needs a driver for this command`);
   }
   const driver = await config.driver();
-  if (driver.dialect !== undefined && dialectName(driver.dialect) !== config.dialect) {
+  if (driver.dialect === undefined) {
+    throw new CliInvocationError(`config ${config.configPath} driver needs an explicit database dialect object`);
+  }
+  if (dialectName(driver.dialect) !== dialectName(config.dialect)) {
     throw new CliInvocationError(
-      `config ${config.configPath} declares ${config.dialect} but its driver declares ${dialectName(driver.dialect)}`,
+      `config ${config.configPath} declares ${dialectName(config.dialect)} but its driver declares ${dialectName(driver.dialect)}`,
     );
   }
-  return driver;
+  return { ...driver, dialect: driver.dialect };
 }
 
 export function rethrowProjectError(error: unknown): never {

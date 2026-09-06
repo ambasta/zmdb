@@ -11,17 +11,17 @@ The shipped/build-input source inventory is every file below `packages/{aot-vali
 `packages/schema-core/src/ir/{validation-shape,vocabulary}.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count
 because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **202 paths**, each exactly once:
+The inventory has **206 paths**, each exactly once:
 
 ```json
 {
   "compiler": 33,
-  "migrations": 23,
+  "migrations": 21,
   "cli": 31,
   "runtime": 30,
-  "facade": 50,
+  "facade": 53,
   "optional-integration": 0,
-  "test-only": 35,
+  "test-only": 38,
   "obsolete": 0
 }
 ```
@@ -76,8 +76,6 @@ migrations	packages/migrations/src/index.ts
 migrations	packages/migrations/src/introspect/common.ts
 migrations	packages/migrations/src/introspect/drift.ts
 migrations	packages/migrations/src/introspect/index.ts
-migrations	packages/migrations/src/introspect/mysql.ts
-migrations	packages/migrations/src/introspect/postgres.ts
 migrations	packages/migrations/src/operations/check.ts
 migrations	packages/migrations/src/operations/embed.ts
 migrations	packages/migrations/src/operations/export.ts
@@ -165,9 +163,12 @@ facade	packages/zmdb/src/app.ts
 facade	packages/zmdb/src/compiler.ts
 facade	packages/zmdb/src/config/index.ts
 facade	packages/zmdb/src/derive.ts
-facade	packages/zmdb/src/drivers-mssql.ts
-facade	packages/zmdb/src/drivers-pg.ts
-facade	packages/zmdb/src/drivers-sqlite.ts
+facade	packages/zmdb/src/database-cockroach.ts
+facade	packages/zmdb/src/database-mssql.ts
+facade	packages/zmdb/src/database-mysql.ts
+facade	packages/zmdb/src/database-postgres.ts
+facade	packages/zmdb/src/database-singlestore.ts
+facade	packages/zmdb/src/database-sqlite.ts
 facade	packages/zmdb/src/dto.ts
 facade	packages/zmdb/src/index.ts
 facade	packages/zmdb/src/ir.ts
@@ -221,9 +222,11 @@ test-only	packages/compiler/src/reflect/__fixtures__/schema-values.ts
 test-only	packages/compiler/src/reflect/__fixtures__/tables.ts
 test-only	packages/compiler/src/reflect/__fixtures__/tsconfig.json
 test-only	packages/migrations/src/introspect/__fixtures__/mysql-8.4.11.json
+test-only	packages/migrations/src/testing/official-dialects.fixture.ts
 test-only	packages/query-compiler/src/testing/capability-matrix.ts
 test-only	packages/query-compiler/src/testing/database-vertical.ts
 test-only	packages/query-compiler/src/testing/external-dialect.fixture.ts
+test-only	packages/query-compiler/src/testing/official-dialects.fixture.ts
 test-only	packages/zmdb/src/cli/__fixtures__/http-client/package.json
 test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/contract.ts
 test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/models.ts
@@ -235,6 +238,7 @@ test-only	packages/zmdb/src/cli/__fixtures__/project/package.json
 test-only	packages/zmdb/src/cli/__fixtures__/project/src/schema.ts
 test-only	packages/zmdb/src/cli/__fixtures__/project/tsconfig.json
 test-only	packages/zmdb/src/cli/__fixtures__/project/zmdb.config.ts
+test-only	packages/zmdb/src/testing/official-dialects.fixture.ts
 ```
 
 `test-only` paths follow the concern they test when implementation moves them; they never become published public APIs. The zero counts are retained as ratchet categories: adding an
@@ -242,7 +246,7 @@ optional-integration or obsolete source path now requires an intentional policy 
 
 ## 3. Public export and executable map
 
-There are **74 current export keys**: 14 AOT validator, 9 query compiler and 51 facade. This count is manifest-derived. The disposition map below also retains release-governed source-owner keys after
+There are **77 current export keys**: 14 AOT validator, 9 query compiler and 54 facade. This count is manifest-derived. The disposition map below also retains release-governed source-owner keys after
 their implementation moves, while #651's server facade keys, #620's concern facades, and #755's selected-jobs boundary are governed by `packages/zmdb/SPEC.md` and `scripts/product/catalog.mjs`.
 
 ```text
@@ -286,9 +290,12 @@ zmdb	./ir	retain	zmdb/ir
 zmdb	./derive	retain	zmdb/derive
 zmdb	./dto	retain	zmdb/dto
 zmdb	./relations	retain	zmdb/relations
-zmdb	./drivers/sqlite	retain-until-database-epic	zmdb/drivers/sqlite
-zmdb	./drivers/pg	retain-until-database-epic	zmdb/drivers/pg
-zmdb	./drivers/mssql	retain-until-database-epic	zmdb/drivers/mssql
+zmdb	./sqlite	retain-product-facade	@zmdb/sqlite
+zmdb	./postgres	retain-product-facade	@zmdb/postgres
+zmdb	./mysql	retain-product-facade	@zmdb/mysql
+zmdb	./mssql	retain-product-facade	@zmdb/mssql
+zmdb	./cockroach	retain-product-facade	@zmdb/cockroach
+zmdb	./singlestore	retain-product-facade	@zmdb/singlestore
 zmdb	./web	retain	zmdb/web
 zmdb	./web/contract	retain	@zmdb/web/contract
 zmdb	./web/contract/compiler	retain	@zmdb/web/contract/compiler

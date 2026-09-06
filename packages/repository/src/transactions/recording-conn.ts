@@ -4,7 +4,7 @@
 // ROLLBACK TO SAVEPOINT s1, COMMIT, in that order — so the connection they run
 // against records instead of executing. Three of them had written the same
 // recorder out longhand.
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import type { CompiledQuery, DialectTarget } from '@zmdb/query-compiler';
 
 import type { TxConnection } from './index.js';
 
@@ -15,7 +15,7 @@ export interface RecordingConn extends TxConnection {
 
 export interface RecordingConnOptions {
   /** Dialect classification exposed to transaction retry policy. */
-  dialect?: Dialect;
+  dialect?: DialectTarget;
   /** What an `execute` writes to the log. Defaults to a bare `EXEC`, for specs that only care about ordering. */
   label?: (query: CompiledQuery) => string;
   /** What an `execute` returns, for specs that go on to assert on the rows. */

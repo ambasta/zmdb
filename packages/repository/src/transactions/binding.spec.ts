@@ -3,6 +3,7 @@ import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
 import { BaseRepository, defineRepository, type Driver } from '../index.js';
+import { sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { createTransactionalDb } from './index.js';
 import { recordingConn } from './recording-conn.js';
 
@@ -53,7 +54,7 @@ describe('transaction-scoped repository binding', () => {
 
     await db.transaction(async tx => {
       // Bind the repository to the transaction: all its SQL runs on tx.
-      const users = new UserRepository({} as Driver).withTransaction(tx);
+      const users = new UserRepository({ dialect: sqliteDialect, execute: async () => [] }).withTransaction(tx);
       await users.findById(1);
     });
 
@@ -69,7 +70,7 @@ describe('transaction-scoped repository binding', () => {
 
     await expect(
       db.transaction(async tx => {
-        const users = new UserRepository({} as Driver).withTransaction(tx);
+        const users = new UserRepository({ dialect: sqliteDialect, execute: async () => [] }).withTransaction(tx);
         await users.findById(1);
         throw new Error('boom');
       }),
@@ -81,7 +82,7 @@ describe('transaction-scoped repository binding', () => {
   it('accesses private instance variables and methods without throwing runtime errors', async () => {
     const conn = boundConn();
     const db = createTransactionalDb(conn);
-    const parent = new CustomRepoWithPrivateState({} as Driver);
+    const parent = new CustomRepoWithPrivateState({ dialect: sqliteDialect, execute: async () => [] });
 
     await db.transaction(async tx => {
       const scoped = parent.withTransaction(tx);
@@ -95,6 +96,7 @@ describe('transaction-scoped repository binding', () => {
   it('leaves parent repository instance and driver state completely unmodified', async () => {
     const parentLog: string[] = [];
     const parentDriver: Driver = {
+      dialect: sqliteDialect,
       async execute(q) {
         parentLog.push(q.text);
         return [];
@@ -120,7 +122,11 @@ describe('transaction-scoped repository binding', () => {
     // has one thing to check now: the schema is where the relations live, so a scoped repo
     // that still has the schema still has them. (`typed-population-join.spec.ts` populates
     // through a transaction, which is the same claim from the other end.)
-    const dynamicParent = defineRepository(UserSchema, {} as Driver, { dialect: 'sqlite' });
+    const dynamicParent = defineRepository(
+      UserSchema,
+      { dialect: sqliteDialect, execute: async () => [] },
+      { dialect: sqliteDialect },
+    );
 
     const conn = boundConn();
     const db = createTransactionalDb(conn);

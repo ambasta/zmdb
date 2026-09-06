@@ -360,7 +360,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     expect(lstatSync(root).isDirectory()).toBe(true);
   });
 
-  it('generates a project that runs its own tests successfully', async () => {
+  it('the CLI generates a runnable SQLite application', async () => {
     const { project, run } = await generatedProject();
     expect(run).toMatchObject({ code: 0, stderr: '' });
 
@@ -374,7 +374,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
       expect((await cli(project, 'new', kind, name)).code).toBe(0);
     }
 
-    runProjectScript(project, 'check');
+    runProjectScript(project, 'test');
     runProjectScript(project, 'build');
   }, 60_000);
 });

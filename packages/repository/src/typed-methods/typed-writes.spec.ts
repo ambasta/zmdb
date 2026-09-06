@@ -4,8 +4,9 @@ import type { CreateDTO, UpdateDTO } from '@zmdb/schema-core';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
-import { BaseRepository, ValidationError, type Driver } from '../index.js';
-import { Users, type User } from './fixtures.js';
+import { BaseRepository, ValidationError } from '../index.js';
+import { officialDialects } from '../testing/official-dialects.fixture.js';
+import { Users, type User } from './typed-methods.fixture.js';
 
 /** The payload type of the `settings` column, named separately because the tests below
  *  cast to it when they hand the column a primitive on purpose. */
@@ -28,7 +29,7 @@ const { ConfigRow: ConfigSchema } = schemasFrom<{ ConfigRow: ConfigRow }>(import
 describe('typed create/update (#206)', () => {
   it('create validates then inserts, returning the row', async () => {
     const execute = vi.fn(async () => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
-    const repo = new Users({ execute } as Driver);
+    const repo = new Users({ dialect: officialDialects.postgres, execute });
     const dto: CreateDTO<User> = { email: 'a@b.com', age: 30 };
     const out = await repo.create(dto);
     expect(execute).toHaveBeenCalledTimes(1);
@@ -37,7 +38,7 @@ describe('typed create/update (#206)', () => {
 
   it('create throws ValidationError and does NOT call the driver on invalid input', async () => {
     const execute = vi.fn(async () => []);
-    const repo = new Users({ execute } as Driver);
+    const repo = new Users({ dialect: officialDialects.postgres, execute });
     // age missing (required, no default) → invalid. The cast is the point of the
     // test: it models untrusted input reaching a typed API at runtime, which is
     // what the validator has to catch. The compile-time half is asserted in
@@ -50,7 +51,7 @@ describe('typed create/update (#206)', () => {
 
   it('update validates a partial patch then updates', async () => {
     const execute = vi.fn(async () => [{ id: 1, email: 'a@b.com', age: 31, role: 'admin' }]);
-    const repo = new Users({ execute } as Driver);
+    const repo = new Users({ dialect: officialDialects.postgres, execute });
     const patch: UpdateDTO<User> = { role: 'admin' };
     const out = await repo.update(1, patch);
     expect(execute).toHaveBeenCalledTimes(1);
@@ -58,7 +59,7 @@ describe('typed create/update (#206)', () => {
   });
   it('update strips explicit undefined properties before payload validation', async () => {
     const execute = vi.fn(async (_q: unknown) => [{ id: 1, email: 'a@b.com', age: 32, role: 'user' }]);
-    const repo = new Users({ execute } as Driver);
+    const repo = new Users({ dialect: officialDialects.postgres, execute });
     // `UpdateDTO<User>` no longer admits `{ email: undefined }` — `{}` already means "leave it
     // alone" and `{ email: null }` means "set it to NULL", so the type offers one spelling of
     // each. The runtime still has to cope, because this is what a parsed request body looks
@@ -84,7 +85,7 @@ describe('typed create/update (#206)', () => {
       const execute = vi.fn(async (): Promise<Record<string, unknown>[]> => [
         { id: 1, settings: { theme: 'dark' }, tags: ['a', 'b'], optionalNotes: null },
       ]);
-      const repo = new ConfigRepo({ execute } as Driver);
+      const repo = new ConfigRepo({ dialect: officialDialects.postgres, execute });
 
       const created = await repo.create({
         settings: { theme: 'dark' },
@@ -108,7 +109,7 @@ describe('typed create/update (#206)', () => {
 
     it('rejects primitive scalar values for json columns on create and update', async () => {
       const execute = vi.fn(async (): Promise<Record<string, unknown>[]> => []);
-      const repo = new ConfigRepo({ execute } as Driver);
+      const repo = new ConfigRepo({ dialect: officialDialects.postgres, execute });
 
       // Number primitive supplied to settings
       await expect(
@@ -137,7 +138,7 @@ describe('typed create/update (#206)', () => {
       const execute = vi.fn(async (): Promise<Record<string, unknown>[]> => [
         { id: 1, settings: { theme: 'dark' }, tags: [], optionalNotes: null },
       ]);
-      const repo = new ConfigRepo({ execute } as Driver);
+      const repo = new ConfigRepo({ dialect: officialDialects.postgres, execute });
 
       await expect(repo.create({ settings: { theme: 'dark' }, tags: [], optionalNotes: null })).resolves.toBeDefined();
 
@@ -169,7 +170,7 @@ describe('typed single-record upsert', () => {
     }
 
     const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
-    const repo = new HookedUsers({ execute } as Driver);
+    const repo = new HookedUsers({ dialect: officialDialects.postgres, execute });
 
     const out = await repo.upsert({ email: 'a@b.com', age: 30 } as CreateDTO<User>);
 
@@ -184,7 +185,7 @@ describe('typed single-record upsert', () => {
 
   it('upsert throws ValidationError prior to query generation & driver execution on invalid input', async () => {
     const execute = vi.fn(async () => []);
-    const repo = new Users({ execute } as Driver);
+    const repo = new Users({ dialect: officialDialects.postgres, execute });
 
     // Missing required field 'age'
     await expect(repo.upsert({ email: 'a@b.com' } as unknown as CreateDTO<User>)).rejects.toBeInstanceOf(
@@ -195,7 +196,7 @@ describe('typed single-record upsert', () => {
 
   it('upsert formats target and updateFields SQL', async () => {
     const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
-    const repo = new Users({ execute } as Driver);
+    const repo = new Users({ dialect: officialDialects.postgres, execute });
 
     await repo.upsert({ email: 'a@b.com', age: 30 } as CreateDTO<User>, { target: 'email', updateFields: ['age'] });
 
@@ -230,13 +231,13 @@ describe('MySQL-family row-returning repository writes (#606)', () => {
         const calls: CompiledQuery[] = [];
         const repo = new Users(
           {
-            dialect,
+            dialect: officialDialects[dialect],
             execute(query) {
               calls.push(query);
               return Promise.resolve([]);
             },
           },
-          dialect,
+          officialDialects[dialect],
         );
 
         const failure = await operation.run(repo).then(
@@ -260,13 +261,13 @@ describe('MySQL-family row-returning repository writes (#606)', () => {
       const calls: CompiledQuery[] = [];
       const repo = new Users(
         {
-          dialect,
+          dialect: officialDialects[dialect],
           execute(query) {
             calls.push(query);
             return Promise.resolve([]);
           },
         },
-        dialect,
+        officialDialects[dialect],
       );
 
       await expect(repo.update(1, { age: inc(1) })).resolves.toBeUndefined();

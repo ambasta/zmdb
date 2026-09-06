@@ -157,11 +157,12 @@ Point the canonical CLI at the exported contract and name both committed artifac
 
 ```ts
 // docs-file: zmdb.config.ts
+import { sqlite } from 'zmdb/sqlite';
 import { defineConfig } from 'zmdb/config';
 
 export default defineConfig({
   schema: './src/schema.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   http: {
     contracts: './src/account.contract.ts#ACCOUNT_HTTP_CONTRACT',

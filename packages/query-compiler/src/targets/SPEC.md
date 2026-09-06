@@ -349,7 +349,7 @@ rather than a spelling.
 
 ### 5.3 What proceeds instead: nothing new, and that is a real answer
 
-Gel exposes a read-mostly Postgres-protocol endpoint, so `createQueryCompiler('postgres')` against it already works today, with Gel's own table naming, links surfaced as columns and link tables, and
+Gel exposes a read-mostly Postgres-protocol endpoint, so `createQueryCompiler(postgres)` against it already works today, with Gel's own table naming, links surfaced as columns and link tables, and
 limited writes. That is not a workaround to apologise for; it is a supported use — reporting and analytics against a Gel database, treated as
 [raw SQL against a foreign schema](../../../../docs-site/content/raw-sql.md). It costs zero new code, and it is currently the third section of a page whose first two are about a missing feature.
 

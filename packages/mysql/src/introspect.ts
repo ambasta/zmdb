@@ -408,7 +408,7 @@ export async function mysqlSnapshot(
 }
 
 function mysqlNormalize(snapshot: SchemaSnapshot, role: 'live' | 'declared'): SchemaSnapshot {
-  return normalizeDriftSnapshot(snapshot, role, { dialect: 'mysql' });
+  return normalizeDriftSnapshot(snapshot, role, { omitForeignKeySupportIndexes: true });
 }
 
 export function mysqlFamilyIntrospector<Name extends string>(

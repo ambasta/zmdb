@@ -57,7 +57,10 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "@zmdb/mssql": "workspace:^",
+    "@zmdb/postgres": "workspace:^",
     "@zmdb/protobuf": "workspace:^",
+    "@zmdb/sqlite": "workspace:^",
     "metro": "0.87.0",
     "metro-babel-transformer": "0.87.0",
     "oxlint": "1.81.0",

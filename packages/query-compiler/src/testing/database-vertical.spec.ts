@@ -96,16 +96,14 @@ describe('database vertical conformance (#668)', () => {
   });
 
   it('does not register a dialect as an import side effect', async () => {
-    const namesBefore = [...Reflect.get(dialectApi, 'DIALECT_NAMES')];
-    const registryBefore = Reflect.get(dialectApi, 'DIALECTS');
-    const resolutionsBefore = exportedFunction(dialectApi, 'dialectTraitResolutionCount')();
+    const exportsBefore = Object.keys(dialectApi).toSorted();
 
     const fixture = await import('./external-dialect.fixture.js');
 
     expect(fixture.externalDialect.name).toBe('acme');
-    expect(Reflect.get(dialectApi, 'DIALECT_NAMES')).toEqual(namesBefore);
-    expect(Reflect.get(dialectApi, 'DIALECTS')).toBe(registryBefore);
-    expect(exportedFunction(dialectApi, 'dialectTraitResolutionCount')()).toBe(resolutionsBefore);
+    expect(Object.keys(dialectApi).toSorted()).toEqual(exportsBefore);
+    expect(Reflect.get(dialectApi, 'DIALECT_NAMES')).toBeUndefined();
+    expect(Reflect.get(dialectApi, 'DIALECTS')).toBeUndefined();
     expect(Reflect.get(dialectApi, 'registerDialect')).toBeUndefined();
   });
 
@@ -152,7 +150,7 @@ describe('database vertical conformance (#668)', () => {
     ) => string;
 
     expect(injectedDdlType(dialect.migrations, column)).toBe('INTEGER');
-    expect(emitUp(dialect.migrations, { kind: 'drop_table', table: 'widgets' })).toBe('ACME UP drop_table');
+    expect(emitUp({ kind: 'drop_table', table: 'widgets' }, dialect)).toBe('ACME UP drop_table');
 
     const queries: string[] = [];
     const connection = driverMigrationConnection(
@@ -181,7 +179,7 @@ describe('database vertical conformance (#668)', () => {
     const normalized = dialect.introspector.normalizeForDrift(catalog, 'live');
 
     expect(queries).toEqual(['SELECT * FROM <acme_catalog>']);
-    expect(detectDrift(normalized, emptySchemaSnapshot())).toEqual({
+    expect(detectDrift(normalized, emptySchemaSnapshot(), { dialect })).toEqual({
       onlyInDatabase: [],
       onlyInDeclarations: [],
       clean: true,

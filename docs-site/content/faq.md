@@ -35,8 +35,9 @@ Yes, and without a database:
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const q = createQueryCompiler('postgres').selectFrom('users').where('email', '=', 'a@example.com').compile();
+const q = createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@example.com').compile();
 
 q.text; // 'SELECT * FROM "users" WHERE "email" = $1'
 q.parameters; // ['a@example.com']

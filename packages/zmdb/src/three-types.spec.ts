@@ -16,8 +16,6 @@
 import { issuesFor } from '@zmdb/aot-validator/utilities';
 import { schemaIrsFrom } from '@zmdb/compiler/testing';
 import { emitUp, snapshot, type ChangeOp } from '@zmdb/migrations';
-import { mssql } from '@zmdb/mssql';
-import type { Dialect } from '@zmdb/query-compiler';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
@@ -31,6 +29,7 @@ import {
   wireTypeOf,
   type ColumnIR,
 } from './ir.js';
+import { officialDialects, type OfficialDialectName } from './testing/official-dialects.fixture.js';
 
 export interface Events extends Table<'events'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -52,7 +51,7 @@ const WHEN = new Date(ISO);
 const ISO_PATTERN = '^\\d{4}-\\d{2}-\\d{2}[Tt ]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$';
 
 /** The `CREATE TABLE` a migration would generate for this schema, in one dialect. */
-function ddl(dialect: Dialect): string {
+function ddl(dialect: OfficialDialectName): string {
   const table = snapshot([events]).tables[0];
   if (!table) throw new Error('no table in the snapshot');
   const create: ChangeOp = {
@@ -62,7 +61,7 @@ function ddl(dialect: Dialect): string {
     primaryKey: table.primaryKey,
     foreignKeys: table.foreignKeys,
   };
-  return dialect === 'mssql' ? mssql.migrations.emitUp(create) : emitUp(create, dialect);
+  return emitUp(create, officialDialects[dialect]);
 }
 
 describe('a timestamp column, in all three of its types', () => {
@@ -71,7 +70,7 @@ describe('a timestamp column, in all three of its types', () => {
   // The whole statement, not a fragment: the abstract word `timestamp` reaching the DDL is
   // the regression, and matching a fragment is how it hid — `TIMESTAMPTZ` contains
   // `TIMESTAMP`, so half the obvious assertions pass either way.
-  const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly Dialect[];
+  const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly OfficialDialectName[];
   type RootDialect = (typeof DIALECTS)[number];
   const DB: Readonly<Record<RootDialect, string>> = {
     postgres: 'CREATE TABLE "events" ("at" TIMESTAMPTZ NOT NULL, "id" SERIAL PRIMARY KEY, "name" TEXT NOT NULL)',

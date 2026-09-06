@@ -1,23 +1,12 @@
-import { UnsupportedFeatureError } from '../errors.js';
-import type { Dialect } from '../index.js';
-import { quoteIdentifier } from '../quoting.js';
+import type { SqlDialect } from '../index.js';
 import type { ExtensionDef } from './types.js';
 
 export type { ExtensionDef } from './types.js';
 
-function quoteLiteral(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`;
-}
-
-export function createExtensionDdl(def: ExtensionDef, dialect: Dialect): string {
-  if (dialect !== 'postgres') {
-    throw new UnsupportedFeatureError(
-      `extension "${def.name}"`,
-      dialect,
-      `${dialect} does not support database extensions ("${def.name}")`,
-    );
+export function createExtensionDdl(definition: ExtensionDef, dialect: SqlDialect): string {
+  const statements = dialect.migrations.emitSchemaObject({ kind: 'create_extension', definition });
+  if (statements.length !== 1 || statements[0] === undefined) {
+    throw new TypeError(`${dialect.name} extension emission must return exactly one statement`);
   }
-  const schema = def.schema === undefined ? '' : ` WITH SCHEMA ${quoteIdentifier(dialect, def.schema)}`;
-  const version = def.version === undefined ? '' : ` VERSION ${quoteLiteral(def.version)}`;
-  return `CREATE EXTENSION IF NOT EXISTS ${quoteIdentifier(dialect, def.name)}${schema}${version}`;
+  return statements[0];
 }

@@ -2,6 +2,7 @@
 import type { DatabaseSync as NodeDatabaseSync } from 'node:sqlite';
 
 import { jobPendingIndexDdl } from '@zmdb/repository/jobs';
+import { sqlite } from '@zmdb/sqlite';
 import type { SqliteDatabase } from '@zmdb/sqlite/node';
 
 import type { JobStore } from '../index.js';
@@ -33,7 +34,7 @@ CREATE TABLE zmdb_job_done (
 
 /** An isolated SQLite queue store. Its database is exposed for deterministic test setup and assertions. */
 export interface MemoryJobStore extends JobStore, Disposable {
-  readonly dialect: 'sqlite';
+  readonly dialect: typeof sqlite;
   readonly database: NodeDatabaseSync;
   close(): void;
 }
@@ -54,7 +55,7 @@ export function createMemoryJobStore(): MemoryJobStore {
   const database = new DatabaseSync(':memory:') satisfies SqliteDatabase;
   const executionDatabase: SqliteDatabase = database;
   database.exec(JOB_SCHEMA);
-  database.exec(jobPendingIndexDdl('sqlite'));
+  database.exec(jobPendingIndexDdl(sqlite));
   let closed = false;
 
   // JobStore needs only the execution subset. Keeping it local prevents the
@@ -83,7 +84,7 @@ export function createMemoryJobStore(): MemoryJobStore {
   };
 
   return {
-    dialect: 'sqlite',
+    dialect: sqlite,
     database,
     execute,
     close,

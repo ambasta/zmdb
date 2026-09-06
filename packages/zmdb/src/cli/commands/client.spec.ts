@@ -22,9 +22,11 @@ async function project(contracts?: readonly string[]): Promise<ResolvedConfig> {
   if (contracts !== undefined) {
     writeFileSync(
       join(root, 'zmdb.config.ts'),
-      `export default {
+      `import { sqlite } from '@zmdb/sqlite';
+
+export default {
   schema: './src/schema.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   http: {
     contracts: ${JSON.stringify(contracts)},

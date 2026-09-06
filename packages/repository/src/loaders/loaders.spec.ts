@@ -1,9 +1,10 @@
-import { DIALECT_PARAM_LIMITS, type CompiledQuery } from '@zmdb/query-compiler';
+import type { CompiledQuery } from '@zmdb/query-compiler';
 import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema-core/ir';
 import type { OneToMany, OneToOne, PrimaryKey, References, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
 import { BaseRepository, createLoaderScope, type Driver } from '../index.js';
+import { postgresDialect, sqliteDialect } from '../testing/official-dialects.fixture.js';
 
 export interface LoaderUser extends Table<'users'> {
   id: number & Sql<'integer'> & PrimaryKey;
@@ -96,6 +97,7 @@ type DriverAnswer = (
 function recordingDriver(answer: DriverAnswer): RecordingDriver {
   const calls: CompiledQuery[] = [];
   return {
+    dialect: postgresDialect,
     calls,
     async execute(query) {
       const call = calls.length;
@@ -239,14 +241,14 @@ describe('request-scoped dataloaders (repository/SPEC.md 3d)', () => {
 
   it('chunks a batch that would exceed the dialect parameter limit', async () => {
     const driver = recordingDriver(rowsForIds);
-    const loader = createLoaderScope().loaderFor(new Users(driver, 'sqlite'));
-    const ids = Array.from({ length: DIALECT_PARAM_LIMITS.sqlite + 1 }, (_, index) => index + 1);
+    const loader = createLoaderScope().loaderFor(new Users(driver, sqliteDialect));
+    const ids = Array.from({ length: sqliteDialect.traits.paramLimit + 1 }, (_, index) => index + 1);
 
     const rows = await Promise.all(ids.map(id => loader.load(id)));
 
     expect(rows).toHaveLength(ids.length);
     expect(driver.calls).toHaveLength(2);
-    expect(driver.calls.map(query => query.parameters.length)).toEqual([DIALECT_PARAM_LIMITS.sqlite, 1]);
+    expect(driver.calls.map(query => query.parameters.length)).toEqual([sqliteDialect.traits.paramLimit, 1]);
   });
 
   it('batches composite primary keys without crossing tuple boundaries', async () => {

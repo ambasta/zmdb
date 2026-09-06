@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
+import { cockroachDialect } from '../testing/official-dialects.fixture.js';
 import { createTransactionalDb } from './index.js';
 import { recordingConn } from './recording-conn.js';
 
@@ -44,7 +45,7 @@ describe('transaction lifecycle', () => {
   });
 
   it('does not retry a transaction unless the caller opts in', async () => {
-    const conn = recordingConn({ dialect: 'cockroach' });
+    const conn = recordingConn({ dialect: cockroachDialect });
     const db = createTransactionalDb(conn);
     let attempts = 0;
 
@@ -60,7 +61,7 @@ describe('transaction lifecycle', () => {
   });
 
   it('retries a serialisation failure the specified number of times', async () => {
-    const conn = recordingConn({ dialect: 'cockroach' });
+    const conn = recordingConn({ dialect: cockroachDialect });
     const db = createTransactionalDb(conn);
     let attempts = 0;
 
@@ -79,7 +80,7 @@ describe('transaction lifecycle', () => {
   });
 
   it('does not retry a code the dialect does not classify as retryable', async () => {
-    const conn = recordingConn({ dialect: 'cockroach' });
+    const conn = recordingConn({ dialect: cockroachDialect });
     const db = createTransactionalDb(conn);
     let attempts = 0;
 

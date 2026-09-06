@@ -62,7 +62,7 @@ function make(d: DialectTarget, s: State, telemetry: boolean): JoinableSelect {
 
 export function joinableSelectFrom(
   table: string,
-  dialect: DialectTarget = 'postgres',
+  dialect: DialectTarget,
   options?: QueryCompilerOptions,
 ): JoinableSelect {
   return make(dialect, { table, joins: [], wheres: [], orderBys: [] }, options?.telemetry === true);

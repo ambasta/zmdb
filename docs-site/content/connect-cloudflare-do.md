@@ -7,9 +7,11 @@ The storage API is synchronous inside the object, so the driver is trivial:
 
 ```ts
 import type { Driver } from '@zmdb/repository';
+import { sqlite } from '@zmdb/sqlite';
 
 export function doDriver(sql: SqlStorage): Driver {
   return {
+    dialect: sqlite,
     async execute(query) {
       return [...sql.exec(query.text, ...query.parameters)] as Record<string, unknown>[];
     },
@@ -24,10 +26,10 @@ export class Room extends DurableObject {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     const driver = doDriver(ctx.storage.sql);
-    for (const op of diff({ tables: {} }, snapshot([messages]))) {
-      ctx.storage.sql.exec(emitUp(op, 'sqlite'));
+    for (const op of diff({ tables: {} }, snapshot([messages]), { dialect: sqlite })) {
+      ctx.storage.sql.exec(sqlite.migrations.emitUp(op));
     }
-    this.repo = defineRepository(messages, driver, { dialect: 'sqlite' });
+    this.repo = defineRepository(messages, driver);
   }
 
   async fetch(request: Request): Promise<Response> {

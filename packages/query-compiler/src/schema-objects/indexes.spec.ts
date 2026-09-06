@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { createIndexDdl, checkConstraintDdl } from './index.js';
 
 describe('indexes & constraints DDL (#100)', () => {
   it('creates a non-unique index', () => {
-    expect(createIndexDdl({ name: 'idx_users_email', table: 'users', columns: ['email'] }, 'postgres')).toBe(
+    expect(createIndexDdl({ name: 'idx_users_email', table: 'users', columns: ['email'] }, postgresDialect)).toBe(
       'CREATE INDEX "idx_users_email" ON "users" ("email")',
     );
   });
@@ -13,13 +14,13 @@ describe('indexes & constraints DDL (#100)', () => {
     expect(
       createIndexDdl(
         { name: 'u_ab', table: 't', columns: ['a', 'b'], unique: true, where: 'a IS NOT NULL' },
-        'postgres',
+        postgresDialect,
       ),
     ).toBe('CREATE UNIQUE INDEX "u_ab" ON "t" ("a", "b") WHERE a IS NOT NULL');
   });
 
   it('check constraint', () => {
-    expect(checkConstraintDdl('orders', 'chk_total', 'total >= 0', 'postgres')).toBe(
+    expect(checkConstraintDdl('orders', 'chk_total', 'total >= 0', postgresDialect)).toBe(
       'ALTER TABLE "orders" ADD CONSTRAINT "chk_total" CHECK (total >= 0)',
     );
   });

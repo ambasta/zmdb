@@ -91,7 +91,7 @@ export function freshDb() {
   sqliteDriver(db);
   const before = { version: 1, tables: [], extensions: [] };
   const after = snapshot(allSchemas);
-  const operations = diff(before, after, { dialect: 'sqlite' });
+  const operations = diff(before, after, { dialect: sqlite });
   for (const operation of operations) db.exec(sqlite.migrations.emitUp(operation));
   return db;
 }

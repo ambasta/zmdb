@@ -1,4 +1,4 @@
-import type { Driver, TransactionalDriver } from '@zmdb/repository';
+import type { SelectedDriver, TransactionalDriver } from '@zmdb/repository';
 
 import { sqlite } from './dialect.js';
 
@@ -141,7 +141,7 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
         },
       };
     },
-    async transaction<Result>(run: (driver: Driver<'sqlite'>) => Promise<Result>): Promise<Result> {
+    async transaction<Result>(run: (driver: SelectedDriver<'sqlite'>) => Promise<Result>): Promise<Result> {
       db.exec('BEGIN');
       try {
         const result = await run(driver);

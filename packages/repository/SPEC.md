@@ -2,19 +2,18 @@
 
 > Status: **FROZEN** for TDD. Implementation (#26–#29) must satisfy this spec. Targets: Node 26+, ESM, TS 7. Depends on schema-core, query-compiler, aot-validator.
 
-## Issue #635 target ownership
+## Issue #635 ownership result
 
-The current package has 19 build-included TypeScript files and 9 export-map entries after the SQLite and PostgreSQL adapters moved to `@zmdb/sqlite` and `@zmdb/postgres`. Sixteen current files move to
-`@zmdb/orm`; SQL Server owns one, web owns the endpoint integration, and jobs owns the job-storage module. The compiler outbox file remains the seventeenth ORM-owned file in the target ownership map.
+The generic repository owns typed CRUD, transactions, population, caching, replicas, outbox orchestration and vendor-neutral driver protocols. SQLite, PostgreSQL, MySQL, SQL Server, CockroachDB and
+SingleStore implementations live in their respective database packages.
 
-`@zmdb/orm` depends exactly on `@zmdb/schema`, `@zmdb/sql`, and `@zmdb/validator`. Concrete database clients, built-ins, web/jobs, compiler, migrations, and AI are not reachable. The old package and
-every `@zmdb/repository/*` import are deleted rather than forwarded.
+The `zmdb/orm` facade delegates to `@zmdb/repository`. Concrete database clients and official database implementations are not reachable from the generic repository.
 
 ## 1. Driver interface (injected)
 
 ```ts
 interface Driver<Name extends string = string> {
-  readonly dialect?: SqlDialect<Name> | Dialect;
+  readonly dialect: SqlDialect<Name>;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
@@ -22,9 +21,8 @@ interface Driver<Name extends string = string> {
 
 The repository never opens connections itself; a `Driver` is injected. Results are plain objects — **no proxies, no identity map**.
 
-`dialect` lets an adapter declare what it wraps, so a repository constructed without an explicit dialect takes the driver's value before the temporary Postgres default. A third-party driver can
-provide one frozen `SqlDialect<Name>`; built-in string names remain accepted during extraction. The repository gives that same object to the compiler and caches its limits, retry codes, capabilities
-and returning behavior once. `opts` and `stream` are §1a. This is the one interface third parties implement, so the additions remain optional and do not break an existing implementation.
+`dialect` declares what the adapter wraps. The repository gives that frozen `SqlDialect<Name>` object to the compiler and caches its limits, retry codes, capabilities and returning behavior once.
+`opts` and `stream` are §1a.
 
 ## 1a. Streaming and cancellation (frozen — epic "Streaming reads and query cancellation")
 
@@ -725,17 +723,17 @@ interface QueryCompiler {
 ```
 
 ```
-createQueryCompiler('postgres').callFunction('archive_old_orders', [cutoff])
+createQueryCompiler(postgres).callFunction('archive_old_orders', [cutoff])
 postgres  SELECT "archive_old_orders"($1) AS "result"     parameters: [cutoff]
-createQueryCompiler('mysql').callFunction('archive_old_orders', [cutoff])
+createQueryCompiler(mysql).callFunction('archive_old_orders', [cutoff])
 mysql     SELECT `archive_old_orders`(?) AS `result`       parameters: [cutoff]
 
-createQueryCompiler('postgres').callTableFunction('active_users', [orgId])
+createQueryCompiler(postgres).callTableFunction('active_users', [orgId])
 postgres  SELECT * FROM "active_users"($1)                 parameters: [orgId]
 
-createQueryCompiler('postgres').callProcedure('rebuild_search_index', [])
+createQueryCompiler(postgres).callProcedure('rebuild_search_index', [])
 postgres  CALL "rebuild_search_index"()                    parameters: []
-createQueryCompiler('mysql').callProcedure('rebuild_search_index', [])
+createQueryCompiler(mysql).callProcedure('rebuild_search_index', [])
 mysql     CALL `rebuild_search_index`()                    parameters: []
 ```
 

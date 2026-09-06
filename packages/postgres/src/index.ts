@@ -81,10 +81,18 @@ export const postgresIntrospector = postgresFamilyIntrospector('postgres');
 export const postgres: SqlDialect<'postgres'> = defineSqlDialect({
   name: 'postgres',
   family: 'postgres',
+  telemetrySystem: 'postgresql',
   traits,
   capabilities,
   migrations: postgresFamilyMigrations('postgres'),
   introspector: postgresIntrospector,
+  outbox: Object.freeze({
+    createTable: 'CREATE TABLE',
+    pendingIndex: 'filtered',
+    epochLiteral: "'1970-01-01T00:00:00.000Z'",
+    createdAtDefault: 'CURRENT_TIMESTAMP',
+    boundedTextType: () => 'TEXT',
+  }),
 });
 
 export function postgresDriver(client: PgQueryable, options?: PgOptions): TransactionalDriver<'postgres'> {

@@ -6,8 +6,9 @@ Every builder ends in `.compile()`, which returns `{ text, parameters }`. No con
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const { text, parameters } = createQueryCompiler('postgres').selectFrom('users').where('age', '>=', 18).orderBy('email', 'asc').limit(10).compile();
+const { text, parameters } = createQueryCompiler(postgres).selectFrom('users').where('age', '>=', 18).orderBy('email', 'asc').limit(10).compile();
 ```
 
 Assert on `text` in a unit test. This is the same value the driver gets.

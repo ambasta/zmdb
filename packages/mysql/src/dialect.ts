@@ -84,8 +84,16 @@ const capabilities: DatabaseCapabilities = {
 export const mysql = defineSqlDialect({
   name: 'mysql',
   family: 'mysql',
+  telemetrySystem: 'mysql',
   traits,
   capabilities,
   migrations: createMysqlMigrations('mysql'),
   introspector: mysqlIntrospector,
+  outbox: Object.freeze({
+    createTable: 'CREATE TABLE',
+    pendingIndex: 'full',
+    epochLiteral: "'1970-01-01 00:00:00.000'",
+    createdAtDefault: 'CURRENT_TIMESTAMP(3)',
+    boundedTextType: (length: number) => `VARCHAR(${String(length)})`,
+  }),
 });

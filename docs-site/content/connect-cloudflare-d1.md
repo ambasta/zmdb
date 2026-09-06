@@ -4,9 +4,11 @@ Dialect: `'sqlite'`. D1 is SQLite at the edge, accessed through a Worker binding
 
 ```ts
 import type { Driver } from '@zmdb/repository';
+import { sqlite } from '@zmdb/sqlite';
 
 export function d1Driver(db: D1Database): Driver {
   return {
+    dialect: sqlite,
     async execute(query) {
       const stmt = db.prepare(query.text).bind(...query.parameters);
       const { results } = await stmt.all<Record<string, unknown>>();
@@ -21,7 +23,7 @@ There is no module-scope client, because the binding only exists inside a reques
 ```ts
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const repo = defineRepository(users, d1Driver(env.DB), { dialect: 'sqlite' });
+    const repo = defineRepository(users, d1Driver(env.DB));
     const { items } = await repo.list({ page: { limit: 20 } });
     return Response.json(items);
   },

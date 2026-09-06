@@ -13,6 +13,7 @@ import {
   type SpanKind,
   type Tracer,
 } from '@zmdb/app/observability';
+import { postgres } from '@zmdb/postgres';
 // Tests for the spans, metrics and trace propagation frozen in ./SPEC.md (#580, epic #578).
 //
 // The tracer double is a recorder, not a mock. `recordingTracer` below keeps every span it
@@ -167,7 +168,7 @@ const telemetryQuery = (text: string, parameters: readonly unknown[], telemetry:
   Object.freeze({ text, parameters, telemetry });
 
 const noRows = (): ExecutingDriver => ({
-  dialect: 'postgres',
+  dialect: postgres,
   execute: () => Promise.resolve([]),
 });
 
@@ -358,7 +359,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     });
     const driver = tracedDriver(
       {
-        dialect: 'postgres',
+        dialect: postgres,
         execute: executed => {
           seen.push(executed);
           return Promise.resolve([]);
@@ -1043,7 +1044,7 @@ describe('spans, metrics and propagation (#580 freeze of observability SPEC)', (
     // §5: `db.response.status_code` is the dialect's own error code on failure, and the span
     // records the exception rather than swallowing it.
     const failing = tracedDriver(
-      { dialect: 'postgres', execute: () => Promise.reject(Object.assign(new Error('deadlock'), { code: '40P01' })) },
+      { dialect: postgres, execute: () => Promise.reject(Object.assign(new Error('deadlock'), { code: '40P01' })) },
       { tracer },
       parent,
     );

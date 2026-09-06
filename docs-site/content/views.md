@@ -80,8 +80,9 @@ Once a view exists in your database, you can query it like a regular table using
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 
 const query = compiler.selectFrom('user_with_post_count').select(['id', 'email', 'post_count']).where('post_count', '>', 5).orderBy('post_count', 'desc').limit(10).compile();
 

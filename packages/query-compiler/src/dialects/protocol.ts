@@ -186,10 +186,13 @@ export interface AppliedMigration {
   readonly checksum: string | null;
 }
 
-export interface MigrationDriver<Name extends string = string> {
+export interface MigrationExecutionDriver<Name extends string = string> {
   readonly dialect: SqlDialect<Name>;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
-  transaction?<Result>(run: (driver: MigrationDriver<Name>) => Promise<Result>): Promise<Result>;
+}
+
+export interface MigrationDriver<Name extends string = string> extends MigrationExecutionDriver<Name> {
+  transaction?<Result>(run: (driver: MigrationExecutionDriver<Name>) => Promise<Result>): Promise<Result>;
 }
 
 export interface MigrationConnection<Name extends string = string> {
@@ -208,6 +211,10 @@ export interface MigrationConnection<Name extends string = string> {
 
 export interface MigrationDialect<Name extends string = string> {
   readonly name: Name;
+  /** Whether CREATE TABLE owns foreign keys or they are emitted as later ALTER statements. */
+  readonly foreignKeyMode: 'inline' | 'deferred';
+  /** Whether this dialect can execute the browser-safe embedded migration format. */
+  readonly embedded: boolean;
   validateSnapshot(snapshot: SchemaSnapshot): void;
   validatePlan(plan: MigrationPlan): void;
   ddlType(column: ColumnSnapshot): string;
@@ -220,6 +227,7 @@ export interface MigrationDialect<Name extends string = string> {
 export interface SqlDialect<Name extends string = string> {
   readonly name: Name;
   readonly family: string;
+  readonly telemetrySystem: string;
   readonly traits: ResolvedDialectTraits;
   readonly capabilities: DatabaseCapabilities;
   readonly migrations: MigrationDialect<Name>;
@@ -232,6 +240,7 @@ export interface SqlDialectDefinition<Name extends string> extends SqlDialect<Na
 
 export interface SqlDialectExtension<Name extends string> {
   readonly name: Name;
+  readonly telemetrySystem?: string;
   readonly traits?: Omit<Partial<ResolvedDialectTraits>, 'returning' | 'types'> & {
     readonly returning?: Partial<ResolvedDialectTraits['returning']>;
     readonly types?: Partial<ResolvedDialectTraits['types']>;
@@ -268,6 +277,9 @@ function requiredFunction(value: object, key: string, label: string): void {
 function assertSqlDialect(dialect: SqlDialect): void {
   if (dialect.name.trim().length === 0) throw new TypeError('dialect name must not be empty');
   if (dialect.family.trim().length === 0) throw new TypeError(`${dialect.name} dialect family must not be empty`);
+  if (dialect.telemetrySystem.trim().length === 0) {
+    throw new TypeError(`${dialect.name} dialect telemetry system must not be empty`);
+  }
   exactKeys('dialect trait', dialect.traits, [
     'placeholder',
     'quote',
@@ -439,6 +451,7 @@ export function extendSqlDialect<Parent extends string, Name extends string>(
   return defineSqlDialect({
     name: extension.name,
     family: parent.family,
+    telemetrySystem: extension.telemetrySystem ?? parent.telemetrySystem,
     traits,
     capabilities,
     migrations: extension.migrations,
@@ -455,6 +468,7 @@ export function isSqlDialect(value: unknown): value is SqlDialect {
   return (
     typeof Reflect.get(value, 'name') === 'string' &&
     typeof Reflect.get(value, 'family') === 'string' &&
+    typeof Reflect.get(value, 'telemetrySystem') === 'string' &&
     Reflect.get(value, 'traits') !== null &&
     typeof Reflect.get(value, 'traits') === 'object' &&
     Reflect.get(value, 'capabilities') !== null &&

@@ -112,6 +112,7 @@ const outbox = Object.freeze({
 export const mssql: SqlDialect<'mssql'> = defineSqlDialect({
   name: 'mssql',
   family: 'mssql',
+  telemetrySystem: 'mssql',
   traits,
   capabilities,
   migrations: mssqlMigrations,

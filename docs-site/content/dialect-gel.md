@@ -8,10 +8,11 @@ reporting, analytics and SQL operations the endpoint supports:
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 
 const pool = new Pool({ connectionString: process.env.GEL_DSN });
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 const query = compiler.selectFrom('users').select(['id', 'name']).compile();
 
 const result = await pool.query({

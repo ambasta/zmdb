@@ -1,9 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { assert } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
 import { schemaFromIR, type SchemaIR } from 'zmdb/ir';
 import { BaseRepository } from 'zmdb/orm';
+import { sqliteDriver } from 'zmdb/sqlite';
 import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 import { Controller, createApp, Get, Module } from 'zmdb/web';
 
@@ -54,7 +54,7 @@ class Orders extends BaseRepository<Order> {
 
 const database = new DatabaseSync(':memory:');
 database.exec('CREATE TABLE orders (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
-const orders = new Orders(sqliteDriver(database), 'sqlite');
+const orders = new Orders(sqliteDriver(database));
 const validatedName = assert<string>('packed default', {
   kind: 'scalar',
   scalar: 'string',

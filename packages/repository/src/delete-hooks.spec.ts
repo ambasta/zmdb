@@ -3,6 +3,7 @@ import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.js';
+import { postgresDialect } from './testing/official-dialects.fixture.js';
 
 // #28: delete + pre/post lifecycle hooks.
 
@@ -14,7 +15,7 @@ export interface User extends Table<'users'> {
 const { User: UserSchema } = schemasFrom<{ User: User }>(import.meta.url, ['User']);
 
 function fakeDriver(rows: Record<string, unknown>[] = []): Driver {
-  return { execute: vi.fn(async () => rows) };
+  return { dialect: postgresDialect, execute: vi.fn(async () => rows) };
 }
 
 describe('delete', () => {

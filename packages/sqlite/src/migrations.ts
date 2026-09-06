@@ -489,6 +489,8 @@ function connection(
 
 export const sqliteMigrations: MigrationDialect<'sqlite'> = {
   name: 'sqlite',
+  foreignKeyMode: 'inline',
+  embedded: true,
   validateSnapshot,
   validatePlan,
   ddlType: sqliteDdlType,

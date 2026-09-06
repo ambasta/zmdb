@@ -8,6 +8,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -101,6 +102,7 @@ function copyProject(): Project {
   directories.push(base);
   const root = join(base, 'project');
   cpSync(FIXTURE, root, { recursive: true });
+  symlinkSync(join(ROOT, 'node_modules'), join(root, 'node_modules'), 'dir');
 
   const tsconfig = join(root, 'tsconfig.json');
   writeFileSync(tsconfig, readFileSync(tsconfig, 'utf8').replaceAll('__ROOT__', ROOT));
@@ -184,7 +186,7 @@ function usersSnapshot(): Record<string, unknown> {
         name: 'users',
         columns: [
           { name: 'email', type: 'text', nullable: false, primaryKey: false },
-          { name: 'id', type: 'integer', nullable: false, primaryKey: true },
+          { name: 'id', type: 'serial', nullable: false, primaryKey: true },
         ],
       },
     ],
@@ -309,9 +311,11 @@ export interface UserAccount extends Table<'userAccount'> {
     );
     write(
       project.config,
-      `export default {
+      `import { sqlite } from '@zmdb/sqlite';
+
+export default {
   schema: 'src/**/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   out: './migrations',
   naming: 'snake_case_plural',
@@ -348,9 +352,11 @@ export interface Item extends Table<'items'> {
     );
     write(
       project.config,
-      `export default {
+      `import { postgres } from '@zmdb/postgres';
+
+export default {
   schema: 'src/**/*.ts',
-  dialect: 'postgres',
+  dialect: postgres,
   project: './tsconfig.json',
   out: './migrations',
 };
@@ -469,13 +475,18 @@ export interface Item extends Table<'items'> {
     const project = copyProject();
     writeFileSync(
       project.config,
-      readFileSync(project.config, 'utf8').replace("dialect: 'sqlite'", "dialect: 'postgres'"),
+      readFileSync(project.config, 'utf8')
+        .replace(
+          "import { sqlite } from '@zmdb/sqlite';",
+          "import { postgres } from '@zmdb/postgres';\nimport { sqlite } from '@zmdb/sqlite';",
+        )
+        .replace('dialect: sqlite', 'dialect: postgres'),
     );
     writeMigration(project, 20260905090400, 'postgres_only', 'SELECT 1;', 'SELECT 1;');
 
     const invocation = run(project, 'embed');
     expect(invocation.status).toBe(2);
-    expect(invocation.stderr).toContain('execute SQLite');
+    expect(invocation.stderr).toContain('embedded migrations are not supported');
     expect(invocation.stderr).toContain('postgres');
     expect(existsSync(join(project.migrations, 'embedded.ts'))).toBe(false);
   });

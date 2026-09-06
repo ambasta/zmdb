@@ -114,12 +114,6 @@ const MAY_READ = new Map([
       'the SQL-owned type renderer turns those normalized facts into DDL.',
   ],
   [
-    'packages/query-compiler/src/schema-objects/index.ts',
-    'the runtime DDL boundary. SQL text is a vocabulary of its own and the IR does not reach into it — ' +
-      "`varchar` takes a length where `text` does not, and `serial` is MySQL's " +
-      '`AUTO_INCREMENT`. This is the one place a `SqlType` becomes something other than a check.',
-  ],
-  [
     'packages/mssql/src/types.ts',
     'the SQL Server DDL boundary. It maps the generic migration snapshot to T-SQL spellings ' +
       'after the schema walk has already produced normalized column facts.',
@@ -133,16 +127,6 @@ const MAY_READ = new Map([
     'packages/postgres/src/migrations.ts',
     'the extracted PostgreSQL DDL boundary. It turns normalized migration snapshots into PostgreSQL ' +
       'types and schema-object SQL while the generic compatibility emitter remains until #675.',
-  ],
-  [
-    'packages/migrations/src/introspect/mysql.ts',
-    'the reverse MySQL catalog boundary. Its input is external catalog text, so no declaration ' +
-      'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
-  ],
-  [
-    'packages/migrations/src/introspect/postgres.ts',
-    'the reverse Postgres catalog boundary. Its input is external catalog text, so no declaration ' +
-      'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
   ],
   [
     'packages/mssql/src/introspect.ts',

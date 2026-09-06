@@ -104,7 +104,7 @@ Queries use `tracedDriver`. Passing `ctx.span` is what parents a query span to t
 
 ```ts
 const driver = tracedDriver(baseDriver, observability, ctx.span);
-const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
+const users = defineRepository(UserSchema, driver);
 ```
 
 The wrapper marks the driver as needing query telemetry. Repositories then ask the compiler to attach an optional `{ system, operation, collection }` object. Without that opt-in a compiled query

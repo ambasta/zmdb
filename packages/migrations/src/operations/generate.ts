@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { isSqlDialect, type DialectTarget } from '@zmdb/query-compiler';
+import type { SqlDialect } from '@zmdb/query-compiler';
 
 import { writeTextAtomically } from '../file-io.js';
 import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot } from '../index.js';
@@ -33,6 +33,7 @@ export async function generateMigration(
   const previous = await readSnapshot(snapshotPath);
   const target = migrationTarget(project);
   const ops = diff(previous, next, { dialect: target });
+  target.migrations.validatePlan({ before: previous, after: next, operations: ops });
   if (ops.length === 0) return { ops };
 
   const name = migrationName(options.name, ops);
@@ -53,13 +54,13 @@ export async function generateMigration(
   };
 }
 
-function downStatements(ops: readonly ChangeOp[], previous: SchemaSnapshot, dialect: DialectTarget): readonly string[] {
+function downStatements(ops: readonly ChangeOp[], previous: SchemaSnapshot, dialect: SqlDialect): readonly string[] {
   return ops
     .toReversed()
     .filter(operation => operation.kind !== 'create_extension')
     .map(operation => {
       if (operation.kind !== 'drop_foreign_key') {
-        return isSqlDialect(dialect) ? emitDown(dialect.migrations, operation) : emitDown(operation, dialect);
+        return emitDown(operation, dialect);
       }
       const table = previous.tables.find(candidate => candidate.name === operation.table);
       const foreignKey = table?.foreignKeys?.find(candidate => candidate.name === operation.name);
@@ -73,8 +74,8 @@ function downStatements(ops: readonly ChangeOp[], previous: SchemaSnapshot, dial
     });
 }
 
-function configuredEmitUp(operation: ChangeOp, dialect: DialectTarget): string {
-  return isSqlDialect(dialect) ? emitUp(dialect.migrations, operation) : emitUp(operation, dialect);
+function configuredEmitUp(operation: ChangeOp, dialect: SqlDialect): string {
+  return emitUp(operation, dialect);
 }
 
 async function readSnapshot(path: string): Promise<SchemaSnapshot> {

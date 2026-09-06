@@ -7,9 +7,11 @@ import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { BaseRepository, type Driver } from './index.js';
+import { sqliteDialect } from './testing/official-dialects.fixture.js';
 
 function sqliteDriver(db: DatabaseSync): Driver {
   return {
+    dialect: sqliteDialect,
     async execute(q) {
       const stmt = db.prepare(q.text);
       const params = q.parameters as readonly unknown[];
@@ -43,7 +45,7 @@ beforeEach(async () => {
   db.exec(
     'CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, age INTEGER NOT NULL, category TEXT NOT NULL)',
   );
-  products = new ProductRepository(sqliteDriver(db), 'sqlite');
+  products = new ProductRepository(sqliteDriver(db), sqliteDialect);
 
   // Insert 25 items with non-unique age values to test composite ordering & PK tie-breaker
   for (let i = 1; i <= 25; i++) {

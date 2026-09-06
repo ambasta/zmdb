@@ -554,6 +554,8 @@ export function postgresFamilyMigrations<Name extends string>(
   });
   return Object.freeze({
     name,
+    foreignKeyMode: 'deferred',
+    embedded: false,
     validateSnapshot(_snapshot: SchemaSnapshot): void {},
     validatePlan(_plan: MigrationPlan): void {},
     ddlType(column: ColumnSnapshot): string {

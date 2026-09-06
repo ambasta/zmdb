@@ -41,7 +41,7 @@ export interface AuthorStats extends Table<'author_stats'> {
   postCount: number & Sql<'integer'>;
 }
 
-export const authorStatsRepo = defineRepository(schemaOf<AuthorStats>(), driver, { dialect: 'postgres' });
+export const authorStatsRepo = defineRepository(schemaOf<AuthorStats>(), driver);
 
 const top = await authorStatsRepo.list({ orderBy: [{ column: 'postCount', dir: 'desc' }], page: { limit: 10 } });
 ```

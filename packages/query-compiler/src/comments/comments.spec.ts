@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createQueryCompiler, type CompiledQuery } from '../index.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { appendComment, serializeComment, withComments, type CommentPairs } from './index.js';
 
 // ./SPEC.md §6: the tag is rendered by the driver decorator at execute time. Where that
@@ -10,7 +11,7 @@ import { appendComment, serializeComment, withComments, type CommentPairs } from
 // structural minimum of `Driver`, so `@zmdb/query-compiler` does not depend on
 // `@zmdb/repository`. §7.7 and §7.8 exercise that public decorator directly.
 interface ExecutingDriver {
-  readonly dialect?: 'postgres' | 'mysql' | 'sqlite';
+  readonly dialect?: typeof postgresDialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
 }
 
@@ -22,7 +23,7 @@ interface RecordingDriver extends ExecutingDriver {
 const recordingDriver = (): RecordingDriver => {
   const seen: string[] = [];
   return {
-    dialect: 'postgres',
+    dialect: postgresDialect,
     seen,
     execute: (query: CompiledQuery) => {
       seen.push(query.text);
@@ -31,7 +32,7 @@ const recordingDriver = (): RecordingDriver => {
   };
 };
 
-const compiler = createQueryCompiler();
+const compiler = createQueryCompiler(postgresDialect);
 const selectUsers = () => compiler.selectFrom('users').select(['id', 'email']).where('id', '=', 1).compile();
 
 const FULL_PAIRS: CommentPairs = {
@@ -257,7 +258,7 @@ describe('sqlcommenter query tagging (#580 freeze of comments SPEC)', () => {
     // §6's smaller point: a decorator spreads the driver it wraps, so `dialect` survives.
     // The original docs sketch returned `{ execute }` and dropped the field `Driver`
     // declares and the repository reads to pick its dialect.
-    expect(tagged.dialect).toBe('postgres');
+    expect(tagged.dialect).toBe(postgresDialect);
     // And the statement the driver actually saw was the tagged one, or nothing was tested.
     expect(driver.seen).toHaveLength(1);
     expect(driver.seen[0]).toContain('/*');

@@ -14,29 +14,30 @@ import {
   createViewDdl,
   quoteId,
 } from './schema-objects/index.js';
+import { mysqlDialect, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 describe('Centralized Identifier Quoting Engine', () => {
   describe('quoteIdentifier', () => {
     it('quotes basic identifiers for PostgreSQL and SQLite using double quotes', () => {
-      expect(quoteIdentifier('postgres', 'users')).toBe('"users"');
-      expect(quoteIdentifier('sqlite', 'users')).toBe('"users"');
+      expect(quoteIdentifier(postgresDialect, 'users')).toBe('"users"');
+      expect(quoteIdentifier(sqliteDialect, 'users')).toBe('"users"');
     });
 
     it('quotes basic identifiers for MySQL using backticks', () => {
-      expect(quoteIdentifier('mysql', 'users')).toBe('`users`');
+      expect(quoteIdentifier(mysqlDialect, 'users')).toBe('`users`');
     });
 
     it('escapes internal double quotes in PostgreSQL and SQLite identifiers', () => {
-      expect(quoteIdentifier('postgres', 'usr"tbl')).toBe('"usr""tbl"');
-      expect(quoteIdentifier('sqlite', 'usr"tbl')).toBe('"usr""tbl"');
-      expect(quoteIdentifier('postgres', 'a"b"c')).toBe('"a""b""c"');
+      expect(quoteIdentifier(postgresDialect, 'usr"tbl')).toBe('"usr""tbl"');
+      expect(quoteIdentifier(sqliteDialect, 'usr"tbl')).toBe('"usr""tbl"');
+      expect(quoteIdentifier(postgresDialect, 'a"b"c')).toBe('"a""b""c"');
     });
 
     it('quoteId is the same function under the name the schema-object DDL publishes', () => {
       // Two exported names for one behaviour is two places a fix can land, so this pins them
       // together: `quoteId` is what a caller writing DDL by hand reaches for, and if it ever
       // stops agreeing with the engine every generated identifier is quoted twice over.
-      for (const dialect of ['postgres', 'mysql', 'sqlite'] as const) {
+      for (const dialect of [postgresDialect, mysqlDialect, sqliteDialect] as const) {
         for (const id of ['users', 'usr"tbl', 'usr`tbl', 'a b', 'users"; DROP TABLE users; --']) {
           expect(quoteId(dialect, id)).toBe(quoteIdentifier(dialect, id));
         }
@@ -44,87 +45,87 @@ describe('Centralized Identifier Quoting Engine', () => {
     });
 
     it('escapes internal backticks in MySQL identifiers', () => {
-      expect(quoteIdentifier('mysql', 'usr`tbl')).toBe('`usr``tbl`');
-      expect(quoteIdentifier('mysql', 'a`b`c')).toBe('`a``b``c`');
+      expect(quoteIdentifier(mysqlDialect, 'usr`tbl')).toBe('`usr``tbl`');
+      expect(quoteIdentifier(mysqlDialect, 'a`b`c')).toBe('`a``b``c`');
     });
 
     it('prevents SQL injection through quote breakout in single identifiers', () => {
       const injectionPg = 'users"; DROP TABLE users; --';
-      expect(quoteIdentifier('postgres', injectionPg)).toBe('"users""; DROP TABLE users; --"');
+      expect(quoteIdentifier(postgresDialect, injectionPg)).toBe('"users""; DROP TABLE users; --"');
 
       const injectionMySql = 'users`; DROP TABLE users; --';
-      expect(quoteIdentifier('mysql', injectionMySql)).toBe('`users``; DROP TABLE users; --`');
+      expect(quoteIdentifier(mysqlDialect, injectionMySql)).toBe('`users``; DROP TABLE users; --`');
     });
   });
 
   describe('quoteColumn', () => {
     it('quotes simple columns', () => {
-      expect(quoteColumn('postgres', 'email')).toBe('"email"');
-      expect(quoteColumn('mysql', 'email')).toBe('`email`');
+      expect(quoteColumn(postgresDialect, 'email')).toBe('"email"');
+      expect(quoteColumn(mysqlDialect, 'email')).toBe('`email`');
     });
 
     it('splits and individually quotes dot-qualified column references', () => {
-      expect(quoteColumn('postgres', 'users.email')).toBe('"users"."email"');
-      expect(quoteColumn('postgres', 'public.users.email')).toBe('"public"."users"."email"');
-      expect(quoteColumn('mysql', 'users.email')).toBe('`users`.`email`');
-      expect(quoteColumn('mysql', 'mydb.users.email')).toBe('`mydb`.`users`.`email`');
+      expect(quoteColumn(postgresDialect, 'users.email')).toBe('"users"."email"');
+      expect(quoteColumn(postgresDialect, 'public.users.email')).toBe('"public"."users"."email"');
+      expect(quoteColumn(mysqlDialect, 'users.email')).toBe('`users`.`email`');
+      expect(quoteColumn(mysqlDialect, 'mydb.users.email')).toBe('`mydb`.`users`.`email`');
     });
 
     it('preserves wildcard * without quoting', () => {
-      expect(quoteColumn('postgres', '*')).toBe('*');
-      expect(quoteColumn('postgres', 'users.*')).toBe('"users".*');
-      expect(quoteColumn('mysql', 'users.*')).toBe('`users`.*');
+      expect(quoteColumn(postgresDialect, '*')).toBe('*');
+      expect(quoteColumn(postgresDialect, 'users.*')).toBe('"users".*');
+      expect(quoteColumn(mysqlDialect, 'users.*')).toBe('`users`.*');
     });
 
     it('escapes internal quote characters in dot-qualified references', () => {
-      expect(quoteColumn('postgres', 'usr"tbl.col"name')).toBe('"usr""tbl"."col""name"');
-      expect(quoteColumn('mysql', 'usr`tbl.col`name')).toBe('`usr``tbl`.`col``name`');
+      expect(quoteColumn(postgresDialect, 'usr"tbl.col"name')).toBe('"usr""tbl"."col""name"');
+      expect(quoteColumn(mysqlDialect, 'usr`tbl.col`name')).toBe('`usr``tbl`.`col``name`');
     });
   });
 
   describe('quoteTable', () => {
     it('quotes simple and dot-qualified table names', () => {
-      expect(quoteTable('postgres', 'users')).toBe('"users"');
-      expect(quoteTable('postgres', 'public.users')).toBe('"public"."users"');
-      expect(quoteTable('mysql', 'users')).toBe('`users`');
-      expect(quoteTable('mysql', 'mydb.users')).toBe('`mydb`.`users`');
+      expect(quoteTable(postgresDialect, 'users')).toBe('"users"');
+      expect(quoteTable(postgresDialect, 'public.users')).toBe('"public"."users"');
+      expect(quoteTable(mysqlDialect, 'users')).toBe('`users`');
+      expect(quoteTable(mysqlDialect, 'mydb.users')).toBe('`mydb`.`users`');
     });
 
     it('parses and quotes table aliasing syntax with as/AS using various whitespace characters', () => {
-      expect(quoteTable('postgres', 'users as u')).toBe('"users" AS "u"');
-      expect(quoteTable('postgres', 'public.users AS u')).toBe('"public"."users" AS "u"');
-      expect(quoteTable('postgres', 'users\fas\fu')).toBe('"users" AS "u"');
-      expect(quoteTable('mysql', 'users as u')).toBe('`users` AS `u`');
-      expect(quoteTable('mysql', 'mydb.users AS u')).toBe('`mydb`.`users` AS `u`');
+      expect(quoteTable(postgresDialect, 'users as u')).toBe('"users" AS "u"');
+      expect(quoteTable(postgresDialect, 'public.users AS u')).toBe('"public"."users" AS "u"');
+      expect(quoteTable(postgresDialect, 'users\fas\fu')).toBe('"users" AS "u"');
+      expect(quoteTable(mysqlDialect, 'users as u')).toBe('`users` AS `u`');
+      expect(quoteTable(mysqlDialect, 'mydb.users AS u')).toBe('`mydb`.`users` AS `u`');
     });
 
     it('escapes quote characters in aliased table expressions', () => {
-      expect(quoteTable('postgres', 'usr"tbl as u"al')).toBe('"usr""tbl" AS "u""al"');
-      expect(quoteTable('mysql', 'usr`tbl as u`al')).toBe('`usr``tbl` AS `u``al`');
+      expect(quoteTable(postgresDialect, 'usr"tbl as u"al')).toBe('"usr""tbl" AS "u""al"');
+      expect(quoteTable(mysqlDialect, 'usr`tbl as u`al')).toBe('`usr``tbl` AS `u``al`');
     });
 
     it('handles long inputs with excessive whitespace in linear time without ReDoS', () => {
       const longPayload = 'users' + ' '.repeat(50000) + 'AS' + ' '.repeat(50000) + 'u';
-      expect(quoteTable('postgres', longPayload)).toBe('"users" AS "u"');
+      expect(quoteTable(postgresDialect, longPayload)).toBe('"users" AS "u"');
     });
   });
 
   describe('formatPlaceholder', () => {
     it('generates numbered $n placeholders for postgres', () => {
-      expect(formatPlaceholder('postgres', 1)).toBe('$1');
-      expect(formatPlaceholder('postgres', 5)).toBe('$5');
+      expect(formatPlaceholder(postgresDialect, 1)).toBe('$1');
+      expect(formatPlaceholder(postgresDialect, 5)).toBe('$5');
     });
 
     it('generates positional ? placeholders for mysql and sqlite', () => {
-      expect(formatPlaceholder('mysql', 1)).toBe('?');
-      expect(formatPlaceholder('sqlite', 3)).toBe('?');
+      expect(formatPlaceholder(mysqlDialect, 1)).toBe('?');
+      expect(formatPlaceholder(sqliteDialect, 3)).toBe('?');
     });
   });
 
   describe('renumberPlaceholders', () => {
     it('renumbers $n placeholders by applying offset', () => {
       const sql = 'SELECT * FROM "users" WHERE "id" = $1 AND "tenant_id" = $2';
-      expect(renumberPlaceholders(sql, 2, 'postgres')).toBe(
+      expect(renumberPlaceholders(sql, 2, postgresDialect)).toBe(
         'SELECT * FROM "users" WHERE "id" = $3 AND "tenant_id" = $4',
       );
     });
@@ -135,7 +136,7 @@ describe('Centralized Identifier Quoting Engine', () => {
       const payloadPg = 'users"; DROP TABLE users; --';
       const colPayloadPg = 'col"; DROP TABLE users; --';
 
-      const q = createQueryCompiler('postgres')
+      const q = createQueryCompiler(postgresDialect)
         .selectFrom(payloadPg)
         .select([colPayloadPg, 'public.user"s.email'])
         .where(colPayloadPg, '=', 'val')
@@ -149,7 +150,7 @@ describe('Centralized Identifier Quoting Engine', () => {
       const payloadMySql = 'users`; DROP TABLE users; --';
       const colPayloadMySql = 'col`; DROP TABLE users; --';
 
-      const qMySql = createQueryCompiler('mysql')
+      const qMySql = createQueryCompiler(mysqlDialect)
         .selectFrom(payloadMySql)
         .select([colPayloadMySql])
         .where(colPayloadMySql, '=', 'val')
@@ -161,7 +162,7 @@ describe('Centralized Identifier Quoting Engine', () => {
     });
 
     it('joins module escapes malicious inputs in tables, aliases, and qualified columns', () => {
-      const q = joinableSelectFrom('orders"tbl as o"alias', 'postgres')
+      const q = joinableSelectFrom('orders"tbl as o"alias', postgresDialect)
         .leftJoin('items"tbl as i"alias', 'o"alias.item"id', 'i"alias.id')
         .where('o"alias.status', '=', 'active')
         .compile();
@@ -172,7 +173,7 @@ describe('Centralized Identifier Quoting Engine', () => {
     });
 
     it('aggregations module escapes malicious inputs in projection items and aliases', () => {
-      const q = aggregateSelectFrom('sales"tbl', 'postgres')
+      const q = aggregateSelectFrom('sales"tbl', postgresDialect)
         .count('item"id', 'count"alias')
         .groupBy('region"col')
         .having('amount"col', '>', 100)
@@ -184,13 +185,13 @@ describe('Centralized Identifier Quoting Engine', () => {
     });
 
     it('full-text search module escapes malicious inputs in search target columns', () => {
-      const qPg = ftsSelectFrom('docs"tbl', 'postgres').whereMatch('title"col', 'search_term').compile();
+      const qPg = ftsSelectFrom('docs"tbl', postgresDialect).whereMatch('title"col', 'search_term').compile();
 
       expect(qPg.text).toBe(
         `SELECT * FROM "docs""tbl" WHERE to_tsvector('english', "title""col") @@ to_tsquery('english', $1)`,
       );
 
-      const qMySql = ftsSelectFrom('docs`tbl', 'mysql').whereMatch('title`col', 'search_term').compile();
+      const qMySql = ftsSelectFrom('docs`tbl', mysqlDialect).whereMatch('title`col', 'search_term').compile();
 
       expect(qMySql.text).toBe(
         'SELECT * FROM `docs``tbl` WHERE MATCH(`title``col`) AGAINST(? IN NATURAL LANGUAGE MODE)',
@@ -206,24 +207,26 @@ describe('Centralized Identifier Quoting Engine', () => {
           primaryKey: ['col"name'],
           foreignKeys: [],
         },
-        'postgres',
+        postgresDialect,
       );
 
       expect(ddl).toBe('CREATE TABLE "user""s" ("col""name" TEXT PRIMARY KEY)');
     });
 
     it('schema-objects module escapes malicious identifiers across DDL statements', () => {
-      expect(createIndexDdl({ name: 'idx"1', table: 'tbl"1', columns: ['col"1', 'col"2'] }, 'postgres')).toBe(
+      expect(createIndexDdl({ name: 'idx"1', table: 'tbl"1', columns: ['col"1', 'col"2'] }, postgresDialect)).toBe(
         'CREATE INDEX "idx""1" ON "tbl""1" ("col""1", "col""2")',
       );
 
-      expect(createViewDdl({ name: 'v"iew', select: 'SELECT 1' }, 'postgres')).toBe('CREATE VIEW "v""iew" AS SELECT 1');
+      expect(createViewDdl({ name: 'v"iew', select: 'SELECT 1' }, postgresDialect)).toBe(
+        'CREATE VIEW "v""iew" AS SELECT 1',
+      );
 
-      expect(createSequenceDdl({ name: 'seq"1' }, 'postgres')).toBe('CREATE SEQUENCE "seq""1"');
+      expect(createSequenceDdl({ name: 'seq"1' }, postgresDialect)).toBe('CREATE SEQUENCE "seq""1"');
 
-      expect(createSchemaDdl('sch"ema', 'postgres')).toBe('CREATE SCHEMA "sch""ema"');
+      expect(createSchemaDdl('sch"ema', postgresDialect)).toBe('CREATE SCHEMA "sch""ema"');
 
-      expect(createPolicyDdl({ name: 'pol"1', table: 'tbl"1', using: 'true' }, 'postgres')).toBe(
+      expect(createPolicyDdl({ name: 'pol"1', table: 'tbl"1', using: 'true' }, postgresDialect)).toBe(
         'CREATE POLICY "pol""1" ON "tbl""1" FOR ALL USING (true)',
       );
     });

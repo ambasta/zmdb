@@ -13,6 +13,7 @@ import {
   type Ctx,
 } from 'zmdb';
 import { loadConfig } from 'zmdb/config';
+import { sqlite } from 'zmdb/sqlite';
 import { bodyText } from 'zmdb/web';
 
 import type { Order } from './schema.js';
@@ -92,7 +93,7 @@ const applied = await applyEmbeddedMigrations(migrationModule, connection(databa
 const configuredDriver = await loaded.driver?.();
 if (configuredDriver === undefined) throw new Error('canonical config did not provide the SQLite driver');
 const OrderSchema = schemaOf<Order>();
-const orders = defineRepository(OrderSchema, configuredDriver, { dialect: 'sqlite' });
+const orders = defineRepository(OrderSchema, configuredDriver, { dialect: sqlite });
 
 class OrdersController {
   async create(ctx: Ctx<Record<never, string>, CreateDTO<Order>>) {

@@ -2,12 +2,10 @@
 // introspection live under `zmdb/migrations`.
 
 export {
-  DIALECTS,
   DISTANCE_OPERATORS,
   EXPR,
   OP_MAP,
   QueryCompilerError,
-  TRAITS,
   UnsupportedFeatureError,
   appendComment,
   coalesce,
@@ -49,12 +47,9 @@ export type {
   CompiledQuery,
   DatabaseCapabilities,
   DeleteBuilder,
-  Dialect,
-  DialectFamily,
   DialectFeature,
   DialectSqlType,
   DialectTarget,
-  DialectTraits,
   DialectTypeMap,
   Direction,
   DistanceExpression,
@@ -74,7 +69,6 @@ export type {
   QueryCompilerOptions,
   QueryTelemetry,
   ResolvedDialectTraits,
-  ResolvedTraits,
   ReturningCapability,
   ReturningStatement,
   ReturningStyle,
@@ -102,7 +96,6 @@ export { SET_KEYWORD, batch, setOperation } from '@zmdb/query-compiler/set-ops';
 export type { BatchHandle, SetOp } from '@zmdb/query-compiler/set-ops';
 
 export {
-  DDL_TYPES,
   checkConstraintDdl,
   createExtensionDdl,
   createIndexDdl,

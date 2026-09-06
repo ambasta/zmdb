@@ -1,10 +1,16 @@
 import type { Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import { BaseRepository, createLoaderScope, type Driver } from '../index.js';
-import { ProductsRepo, TenantUsersRepo, type Product, type TenantUser } from '../typed-methods/fixtures.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
+import {
+  ProductsRepo,
+  TenantUsersRepo,
+  type Product,
+  type TenantUser,
+} from '../typed-methods/typed-methods.fixture.js';
 import { type Order, type Profile, type User, UserSchema } from '../typed-populate/fixtures.js';
 
-const driver: Driver = { execute: async () => [] };
+const driver: Driver = { dialect: postgresDialect, execute: async () => [] };
 const scope = createLoaderScope();
 
 const productLoader = scope.loaderFor(new ProductsRepo(driver));

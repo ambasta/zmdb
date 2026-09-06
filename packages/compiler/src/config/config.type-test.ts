@@ -1,3 +1,6 @@
+import { postgres } from '@zmdb/postgres';
+import { sqlite } from '@zmdb/sqlite';
+
 import type { loadConfig as loadCliConfig, ResolvedConfig as CliResolvedConfig } from '../../../zmdb/src/cli/config.js';
 import { zmdbAot } from '../../../zmdb/src/compiler.js';
 import type {
@@ -40,7 +43,7 @@ export type _ProductConfigUsesTheCanonicalHttpType = Expect<Equal<ProductHttpGen
 
 const config = defineConfig({
   schema: ['src/**/*.schema.ts'],
-  dialect: 'postgres',
+  dialect: postgres,
   project: './tsconfig.json',
   out: './migrations',
   naming: 'snake_case_plural',
@@ -49,7 +52,7 @@ const config = defineConfig({
     openApi: { out: './generated/openapi.json' },
     client: { out: './generated/http-client.generated.ts' },
   },
-  driver: async () => ({ execute: async () => [] }),
+  driver: async () => ({ dialect: postgres, execute: async () => [] }),
   namingStrategy: {
     table: name => name.toLowerCase(),
     column: (name, context) => `${context.table}_${name}`,
@@ -84,7 +87,14 @@ defineConfig({
 
 defineConfig({
   schema: 'src/**/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
+  // @ts-expect-error — tooling drivers carry the same explicit dialect object as the config.
+  driver: () => ({ execute: async () => [] }),
+});
+
+defineConfig({
+  schema: 'src/**/*.ts',
+  dialect: sqlite,
   namingStrategy: {
     // @ts-expect-error — naming hooks return physical names, not numbers.
     table: () => 17,
@@ -93,7 +103,7 @@ defineConfig({
 
 defineConfig({
   schema: 'src/**/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   http: {
     contracts: './src/http-contract.ts#HTTP_CONTRACT',
     openApi: { out: './openapi.json' },

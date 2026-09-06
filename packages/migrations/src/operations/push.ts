@@ -1,5 +1,3 @@
-import { isSqlDialect } from '@zmdb/query-compiler';
-
 import { diff, emitUp, snapshot, type ChangeOp, type ExtensionType, type SchemaSnapshot } from '../index.js';
 import { detectDrift } from '../introspect/index.js';
 import { migrationTarget, requiredDriver, requiredIntrospector, type MigrationProject } from '../project.js';
@@ -28,9 +26,8 @@ export async function planPush(project: MigrationProject): Promise<PushPlan> {
   const target = migrationTarget(project);
   const drift = detectDrift(live, normalizedDeclared, { dialect: project.dialect });
   const ops = diff(live, normalizedDeclared, { dialect: target });
-  const statements = ops.map(operation =>
-    isSqlDialect(target) ? emitUp(target.migrations, operation) : emitUp(operation, target),
-  );
+  target.migrations.validatePlan({ before: live, after: normalizedDeclared, operations: ops });
+  const statements = ops.map(operation => emitUp(operation, target));
   const destructive = ops
     .map((operation, index) => (isDestructive(operation) ? statements[index] : undefined))
     .filter(statement => statement !== undefined);

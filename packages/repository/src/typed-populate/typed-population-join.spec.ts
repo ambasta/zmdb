@@ -4,6 +4,7 @@ import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
 import { BaseRepository, defineRepository } from '../index.js';
+import { sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { OrderSchema, UserSchema, type User } from './fixtures.js';
 
 class UserRepository extends BaseRepository<User> {
@@ -28,7 +29,7 @@ function seedDatabase(): DatabaseSync {
 describe('Balanced Typed Population and Join Derivation', () => {
   it('populates to-many and to-one relations returning widened entity types', async () => {
     const db = seedDatabase();
-    const repo = new UserRepository(sqliteDriver(db), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(db), sqliteDialect);
 
     const userWithOrders = await repo.findById(1, { populate: ['orders'] });
     expect(userWithOrders?.name).toBe('Ada');
@@ -45,7 +46,7 @@ describe('Balanced Typed Population and Join Derivation', () => {
 
   it('enforces declared relation names and returns typed relation collections for batch relation loading', async () => {
     const db = seedDatabase();
-    const repo = new UserRepository(sqliteDriver(db), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(db), sqliteDialect);
 
     const usersWithOrders = await repo.findAllWithMany('orders');
     expect(usersWithOrders).toHaveLength(2);
@@ -57,7 +58,7 @@ describe('Balanced Typed Population and Join Derivation', () => {
 
   it('accepts target schema configurations for join operations and derives typed join result rows', async () => {
     const db = seedDatabase();
-    const repo = new UserRepository(sqliteDriver(db), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(db), sqliteDialect);
 
     const innerJoined = await repo.findJoined(
       { target: OrderSchema, leftCol: 'users.id', rightCol: 'orders.userId', kind: 'inner' },
@@ -81,7 +82,7 @@ describe('Balanced Typed Population and Join Derivation', () => {
 
   it('factory functions retain declared relation types when constructing repository instances', async () => {
     const db = seedDatabase();
-    const repo = defineRepository(UserSchema, sqliteDriver(db), { dialect: 'sqlite' });
+    const repo = defineRepository(UserSchema, sqliteDriver(db), { dialect: sqliteDialect });
 
     const userWithOrders = await repo.findById(1, { populate: ['orders'] });
     expect(userWithOrders?.orders).toHaveLength(2);
@@ -92,7 +93,7 @@ describe('Balanced Typed Population and Join Derivation', () => {
     // relations, and a read that did not ask for them comes back without the keys — not
     // with an empty array, not with a getter that would fetch on access.
     const db = seedDatabase();
-    const repo = new UserRepository(sqliteDriver(db), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(db), sqliteDialect);
 
     const user = await repo.findById(1);
     expect(user?.name).toBe('Ada');
@@ -105,7 +106,7 @@ describe('Balanced Typed Population and Join Derivation', () => {
 
   it('preserves generic relation declarations across transaction helpers', async () => {
     const db = seedDatabase();
-    const repo = new UserRepository(sqliteDriver(db), 'sqlite');
+    const repo = new UserRepository(sqliteDriver(db), sqliteDialect);
 
     const txRepo = repo.withTransaction({
       execute: q => sqliteDriver(db).execute(q),

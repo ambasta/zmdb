@@ -33,7 +33,9 @@ for (const row of seedRows(userSchema, { count: 50, seed: 1 })) {
 Fifty round trips. For a large seed, batch through the compiler instead:
 
 ```ts
-const q = createQueryCompiler('postgres').insertInto('users').values(rows).compile();
+import { postgres } from '@zmdb/postgres';
+
+const q = createQueryCompiler(postgres).insertInto('users').values(rows).compile();
 await driver.execute(q);
 ```
 

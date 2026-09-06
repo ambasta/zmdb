@@ -31,6 +31,7 @@ export function withReplicas(opts: ReplicaOptions): Driver {
   const canStream =
     typeof primary.stream === 'function' && replicas.every(driver => typeof driver.stream === 'function');
   return {
+    dialect: primary.dialect,
     execute(query, executeOpts) {
       return pick(query).execute(query, executeOpts);
     },

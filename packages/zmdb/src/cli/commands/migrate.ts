@@ -1,3 +1,4 @@
+import type { MigrationDriver } from '@zmdb/migrations';
 import {
   migrate as migrateProject,
   migrationStatus as projectMigrationStatus,
@@ -7,7 +8,6 @@ import {
   type RollbackResult,
   type StatusResult,
 } from '@zmdb/migrations/files';
-import type { Driver } from '@zmdb/repository';
 
 import type { ResolvedConfig } from '../../config/index.js';
 import { configuredMigrationDriver, migrationProject } from '../migration-project.js';
@@ -33,6 +33,6 @@ export async function migrationStatus(config: ResolvedConfig): Promise<StatusRes
   return projectMigrationStatus(migrationProject(config, { driver }));
 }
 
-export function configuredDriver(config: ResolvedConfig): Promise<Driver> {
+export function configuredDriver(config: ResolvedConfig): Promise<MigrationDriver> {
   return configuredMigrationDriver(config);
 }

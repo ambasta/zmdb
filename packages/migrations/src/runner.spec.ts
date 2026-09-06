@@ -16,6 +16,7 @@ import {
   type MigrationDriver,
   up,
 } from './runner.js';
+import { cockroachDialect, singlestoreDialect } from './testing/official-dialects.fixture.js';
 
 // #44: async migration runner + CLI + version tracking + E2E (real SQLite & PG adapter).
 
@@ -432,21 +433,22 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
     const singleStoreQueries: string[] = [];
     const singleStore = driverMigrationConnection(
       {
-        dialect: 'singlestore',
+        dialect: singlestoreDialect,
         async execute(query): Promise<readonly Record<string, unknown>[]> {
           singleStoreQueries.push(query.text);
           return [];
         },
       },
-      'singlestore',
+      singlestoreDialect,
     );
 
     await ensureVersionTable(singleStore);
     await expect(singleStore.transaction?.(async () => 'direct')).resolves.toBe('direct');
     expect(singleStore.transactionalDdl).toBe(false);
     expect(singleStoreQueries).toEqual([
-      'CREATE TABLE IF NOT EXISTS `_zmdb_migrations` (' +
-        'version BIGINT PRIMARY KEY, name TEXT NOT NULL, applied_at BIGINT NOT NULL, checksum TEXT)',
+      'CREATE ROWSTORE TABLE IF NOT EXISTS `_zmdb_migrations` (' +
+        'version BIGINT PRIMARY KEY, name TEXT NOT NULL, applied_at BIGINT NOT NULL, checksum TEXT, ' +
+        'SHARD KEY (`version`))',
       'ALTER TABLE `_zmdb_migrations` MODIFY COLUMN version BIGINT NOT NULL',
       'SELECT checksum FROM `_zmdb_migrations` WHERE 1 = 0',
     ]);
@@ -454,7 +456,7 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
     const cockroachQueries: string[] = [];
     let transactionCalls = 0;
     const cockroachDriver: MigrationDriver = {
-      dialect: 'cockroach' as const,
+      dialect: cockroachDialect,
       async execute(query: { readonly text: string }): Promise<readonly Record<string, unknown>[]> {
         cockroachQueries.push(query.text);
         return [];
@@ -464,10 +466,10 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
         return run(cockroachDriver);
       },
     };
-    const cockroach = driverMigrationConnection(cockroachDriver, 'cockroach');
+    const cockroach = driverMigrationConnection(cockroachDriver, cockroachDialect);
 
     await ensureVersionTable(cockroach);
-    await expect(cockroach.transaction?.(async () => 'direct')).resolves.toBe('direct');
+    expect(cockroach.transaction).toBeUndefined();
     expect(cockroach.transactionalDdl).toBe(false);
     expect(transactionCalls).toBe(0);
     expect(cockroachQueries).toEqual([

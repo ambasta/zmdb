@@ -3,7 +3,7 @@ import {
   type CommentKey,
   type CommentPairs,
   type CompiledQuery,
-  type Dialect,
+  type SqlDialect,
 } from '@zmdb/query-compiler';
 import type { ExecuteOptions } from '@zmdb/repository';
 
@@ -29,7 +29,7 @@ export type {
 
 /** Structural driver surface instrumented without importing a concrete driver. */
 export interface ExecutingDriver {
-  readonly dialect?: Dialect;
+  readonly dialect?: SqlDialect;
   readonly queryTelemetry?: true;
   execute(query: CompiledQuery, options?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, options?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;

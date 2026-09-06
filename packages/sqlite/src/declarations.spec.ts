@@ -63,7 +63,7 @@ describe('SQLite declaration ownership', () => {
     try {
       database.exec(sqlite.migrations.emitUp(create));
       const live = await sqlite.introspector.snapshot(sqliteDriver(database));
-      const emitted = await emitDeclarations(live, { dialect: 'sqlite' });
+      const emitted = await emitDeclarations(live, { dialect: sqlite });
 
       for (const file of emitted.files) {
         const path = join(scratch, file.path);

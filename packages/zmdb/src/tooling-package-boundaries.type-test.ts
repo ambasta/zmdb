@@ -45,7 +45,7 @@ import type {
 import type { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
 import type { CatalogSchemaSnapshot, normalizeDriftSnapshot } from '@zmdb/migrations/introspect/runtime';
 import type { Migration, MigrationConnection, MigrationStatus, down, status, up } from '@zmdb/migrations/runner';
-import type { Dialect } from '@zmdb/query-compiler';
+import type { SqlDialect } from '@zmdb/query-compiler';
 import type { Equal, Expect, Extends } from '@zmdb/schema-core';
 import type { NamingStrategy } from '@zmdb/schema-core/naming';
 
@@ -70,6 +70,7 @@ import type {
   loadConfig,
   resolveConfig,
 } from './config/index.js';
+import { sqliteDialect } from './testing/official-dialects.fixture.js';
 
 type ExportSet<Values extends string, Types extends string> = {
   readonly values: Values;
@@ -199,7 +200,7 @@ type PlanMigration = (
   previous: SchemaSnapshot,
   next: SchemaSnapshot,
   database: {
-    readonly dialect: Dialect;
+    readonly dialect: SqlDialect;
     emitUp(operation: ChangeOp): string;
     emitDown(operation: ChangeOp): string;
   },
@@ -462,7 +463,7 @@ void planMigration(
   { version: 1, tables: [], extensions: [] },
   { version: 1, tables: [], extensions: [] },
   {
-    dialect: 'sqlite',
+    dialect: sqliteDialect,
     emitUp: _operation => '',
     emitDown: _operation => '',
   },

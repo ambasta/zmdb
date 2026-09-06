@@ -85,6 +85,8 @@ export interface FrozenMigrationDriver<Name extends string = string> {
 
 export interface FrozenMigrationDialect<Name extends string = string> {
   readonly name: Name;
+  readonly foreignKeyMode: 'inline' | 'deferred';
+  readonly embedded: boolean;
   validateSnapshot(snapshot: SchemaSnapshot): void;
   validatePlan(plan: {
     readonly before: SchemaSnapshot;
@@ -101,6 +103,7 @@ export interface FrozenMigrationDialect<Name extends string = string> {
 export interface FrozenSqlDialect<Name extends string = string> {
   readonly name: Name;
   readonly family: string;
+  readonly telemetrySystem: string;
   readonly traits: FrozenResolvedDialectTraits;
   readonly capabilities: FrozenDatabaseCapabilities;
   readonly migrations: FrozenMigrationDialect<Name>;
@@ -109,6 +112,7 @@ export interface FrozenSqlDialect<Name extends string = string> {
 
 export interface FrozenSqlDialectExtension<Name extends string> {
   readonly name: Name;
+  readonly telemetrySystem?: string;
   readonly traits?: Omit<Partial<FrozenResolvedDialectTraits>, 'returning' | 'types'> & {
     readonly returning?: Partial<FrozenResolvedDialectTraits['returning']>;
     readonly types?: Partial<FrozenResolvedDialectTraits['types']>;
@@ -216,6 +220,8 @@ export function makeSyntheticDialect(name = 'acme', options: { readonly paramLim
 
   const migrations: FrozenMigrationDialect = Object.freeze({
     name,
+    foreignKeyMode: 'deferred',
+    embedded: false,
     validateSnapshot: () => undefined,
     validatePlan: () => undefined,
     ddlType: (column: ColumnSnapshot) => renderedType(column.type),
@@ -228,6 +234,7 @@ export function makeSyntheticDialect(name = 'acme', options: { readonly paramLim
   const definition: FrozenSqlDialect = {
     name,
     family: 'acme',
+    telemetrySystem: 'acme',
     traits: Object.freeze({
       placeholder: 'numbered',
       quote: Object.freeze(['<', '>'] as const),

@@ -7,8 +7,9 @@ Create a batch handle from compiled statements:
 
 ```ts
 import { batch, createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 
 const stmt1 = compiler.insertInto('users').values({ name: 'Alice', email: 'alice@example.com' }).compile();
 

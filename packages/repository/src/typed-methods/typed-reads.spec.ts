@@ -1,7 +1,7 @@
 import type { WhereDTO } from '@zmdb/schema-core/dto';
 import { describe, it, expect } from 'vitest';
 
-import { recorder, Users, type User } from './fixtures.js';
+import { recorder, Users, type User } from './typed-methods.fixture.js';
 
 // The method signatures these tests exercise are asserted in
 // `typed-methods.type-test.ts` — this file covers the SQL and the runtime shape.

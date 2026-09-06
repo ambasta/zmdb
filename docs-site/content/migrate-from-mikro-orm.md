@@ -44,11 +44,12 @@ snapshot.
 Put a shared convention in `zmdb.config.ts`:
 
 ```ts
+import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 
 export default defineConfig({
   schema: 'src/**/*.schema.ts',
-  dialect: 'postgres',
+  dialect: postgres,
   naming: 'snake_case',
 });
 ```

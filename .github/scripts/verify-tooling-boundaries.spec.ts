@@ -24,22 +24,22 @@ describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
     const result = analyse();
     expect(result.problems).toEqual([]);
-    expect(result.inventory.actualCount).toBe(202);
+    expect(result.inventory.actualCount).toBe(206);
     expect(result.inventory.ownerCounts).toEqual({
       compiler: 33,
-      migrations: 23,
+      migrations: 21,
       cli: 31,
       runtime: 30,
-      facade: 50,
+      facade: 53,
       'optional-integration': 0,
-      'test-only': 35,
+      'test-only': 38,
       obsolete: 0,
     });
     expect(result.runtimeViolations).toEqual([]);
     expect(result.generatedViolations).toHaveLength(3);
     expect(result.embeddedViolations).toEqual([]);
     expect(result.formatterViolations).toEqual([]);
-    expect(result.packageGraph.edges).toHaveLength(74);
+    expect(result.packageGraph.edges).toHaveLength(73);
   });
 
   it('rejects a planted compiler import from a runtime root', () => {

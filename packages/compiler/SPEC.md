@@ -131,7 +131,7 @@ The config's driver is structural, so the compiler does not depend on `@zmdb/rep
 
 ```ts
 export interface ToolingDriver {
-  readonly dialect?: DialectTarget;
+  readonly dialect: SqlDialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
   transaction?<T>(run: (driver: ToolingDriver) => Promise<T>): Promise<T>;
 }

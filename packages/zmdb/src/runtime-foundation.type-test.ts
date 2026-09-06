@@ -16,7 +16,13 @@ import type {
   validateShallow,
   ValidateResult,
 } from '@zmdb/aot-validator/utilities';
-import type { createQueryCompiler, CompiledQuery, Dialect, QueryCompiler, SelectBuilder } from '@zmdb/query-compiler';
+import type {
+  createQueryCompiler,
+  CompiledQuery,
+  QueryCompiler,
+  SelectBuilder,
+  SqlDialect,
+} from '@zmdb/query-compiler';
 import type { appendComment, serializeComment, withComments } from '@zmdb/query-compiler/comments';
 import type { ftsSelectFrom } from '@zmdb/query-compiler/fts';
 import type { joinableSelectFrom } from '@zmdb/query-compiler/joins';
@@ -334,7 +340,7 @@ export type _SchemaTypeSignatures<T extends DeclaredTable> = [
   SchemaIR,
   TypeIR,
 ];
-export type _SqlTypeSignatures = [CompiledQuery, Dialect, QueryCompiler, SelectBuilder<unknown>];
+export type _SqlTypeSignatures = [CompiledQuery, SqlDialect, QueryCompiler, SelectBuilder<unknown>];
 export type _ValidatorTypeSignatures<T> = [ValidateResult<T>];
 export type _OrmTypeSignatures<T extends DeclaredTable> = [
   Driver,

@@ -1,5 +1,3 @@
-import { isSqlDialect } from '@zmdb/query-compiler';
-
 import { diff, emitUp, snapshot, type ChangeOp, type SchemaSnapshot } from '../index.js';
 import { migrationTarget, type MigrationProject } from '../project.js';
 
@@ -13,11 +11,11 @@ export interface ExportResult {
 /** Reflect declarations and hand the resulting plan directly to the DDL emitter. */
 export function exportSchema(project: MigrationProject): ExportResult {
   const target = migrationTarget(project);
-  const ops = diff(EMPTY_SNAPSHOT, snapshot(project.schemas), { dialect: target });
+  const next = snapshot(project.schemas);
+  const ops = diff(EMPTY_SNAPSHOT, next, { dialect: target });
+  target.migrations.validatePlan({ before: EMPTY_SNAPSHOT, after: next, operations: ops });
   return {
     ops,
-    statements: ops.map(operation =>
-      isSqlDialect(target) ? emitUp(target.migrations, operation) : emitUp(operation, target),
-    ),
+    statements: ops.map(operation => emitUp(operation, target)),
   };
 }

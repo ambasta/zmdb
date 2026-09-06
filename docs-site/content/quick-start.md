@@ -7,12 +7,12 @@ issued a typed query.
 ## 1. Install
 
 ```bash
-npm add zmdb@alpha
+npm add zmdb@alpha @zmdb/sqlite@alpha
 ```
 
-`zmdb` exposes the cohesive product API and its built-in SQLite path. (Prefer granular installs? See [Installation](./installation.html).) Then wire the transformer once — see
-[AOT setup](./aot-setup.html). It is not an optimisation you can skip: `schemaOf<T>()` and the validators read a type argument, which does not exist at runtime, so an untransformed build throws rather
-than quietly checking nothing.
+`zmdb` exposes the cohesive product API, while `@zmdb/sqlite` supplies the selected SQLite implementation and is also available through `zmdb/sqlite`. (Prefer granular installs? See
+[Installation](./installation.html).) Then wire the transformer once — see [AOT setup](./aot-setup.html). It is not an optimisation you can skip: `schemaOf<T>()` and the validators read a type
+argument, which does not exist at runtime, so an untransformed build throws rather than quietly checking nothing.
 
 ## 2. Declare your table once
 
@@ -61,16 +61,16 @@ type UpdateUser = UpdateDTO<User>; //  Partial<CreateUser>
 
 ## 4. CRUD through a repository
 
-A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the built-in `node:sqlite` driver — a genuinely
+A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the `@zmdb/sqlite` `node:sqlite` driver — a genuinely
 zero-dependency setup:
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
 import { defineRepository, schemaOf } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { sqliteDriver } from 'zmdb/sqlite';
 
 const db = new DatabaseSync('app.db'); // or ':memory:'
-const users = defineRepository(schemaOf<User>(), sqliteDriver(db), { dialect: 'sqlite' });
+const users = defineRepository(schemaOf<User>(), sqliteDriver(db));
 
 const u = await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
 const one = await users.findById(u.id); // Entity<S> | undefined
@@ -89,7 +89,7 @@ const userSchema = schemaOf<User>();
 class UserRepository extends BaseRepository<User> {
   static readonly schema = userSchema;
 }
-const users = new UserRepository(sqliteDriver(db), 'sqlite');
+const users = new UserRepository(sqliteDriver(db));
 ```
 
 > [!IMPORTANT] `schemaOf<T>()` is a **compile-time** call — the answer is a function of a type argument, and type arguments do not exist at runtime. The transformer replaces it with a frozen object

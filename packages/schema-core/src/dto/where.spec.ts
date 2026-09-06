@@ -1,3 +1,4 @@
+import { postgres } from '@zmdb/postgres';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
@@ -85,7 +86,7 @@ describe('WhereDTO + operator set (#179)', () => {
       ['and', 'embedding', 'ip', queryVector],
     ]);
 
-    const vectorBuilder = createQueryCompiler('postgres').selectFrom('vector_items');
+    const vectorBuilder = createQueryCompiler(postgres).selectFrom('vector_items');
     const cosineWhere: WhereDTO<VectorItem> = { embedding: { cosine: queryVector } };
     expect(compileWhere<VectorItem, typeof vectorBuilder>(vectorBuilder, cosineWhere).compile()).toEqual({
       text: 'SELECT * FROM "vector_items" WHERE "embedding" <=> $1',
@@ -124,7 +125,7 @@ describe('WhereDTO + operator set (#179)', () => {
   });
 
   it('subquery comparison operators in FieldOps', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgres);
     const sub = qb.selectFrom('orders').select(['user_id']).where('total', '>', 100);
     const builder = compileWhere(qb.selectFrom('users'), {
       id: { in: sub },
@@ -139,7 +140,7 @@ describe('WhereDTO + operator set (#179)', () => {
   });
 
   it('EXISTS operator containing nested filter definitions and subqueries', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgres);
     const builder = compileWhere(qb.selectFrom('users'), {
       role: 'admin',
       exists: {
@@ -159,6 +160,7 @@ describe('WhereDTO + operator set (#179)', () => {
 
   it('throws an error if builder lacks whereExists support', () => {
     const fakeBuilder = {
+      dialect: postgres,
       where: () => fakeBuilder,
       orWhere: () => fakeBuilder,
     };

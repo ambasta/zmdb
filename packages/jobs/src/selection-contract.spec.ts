@@ -47,7 +47,6 @@ const DEFAULT_CLOSURE = [
   '@zmdb/query-compiler',
   '@zmdb/repository',
   '@zmdb/schema-core',
-  '@zmdb/sqlite',
   '@zmdb/web',
   'zmdb',
 ] as const;
@@ -404,20 +403,24 @@ function installConsumer(options: {
   readonly workspace: ReadonlyMap<string, WorkspacePackage>;
   readonly tarballs: ReadonlyMap<string, PackedTarball>;
   readonly directory: string;
+  readonly selectedOfficial?: readonly string[];
   readonly dependencies?: Readonly<Record<string, string>>;
   readonly devDependencies?: Readonly<Record<string, string>>;
   readonly sources: Readonly<Record<string, string>>;
   readonly configs: Readonly<Record<string, readonly string[]>>;
 }): Consumer {
-  const closure = workspaceClosure(options.workspace, [options.root]);
+  const selectedOfficial = [options.root, ...(options.selectedOfficial ?? [])];
+  const closure = workspaceClosure(options.workspace, selectedOfficial);
   const application = join(options.directory, 'consumers', options.label);
   mkdirSync(application, { recursive: true });
-  const rootTarball = options.tarballs.get(options.root);
-  if (rootTarball === undefined) throw new Error(`SELECTION_PROVIDER_MISSING: no tarball for ${options.root}`);
-  const dependencies = {
-    [options.root]: `file:${rootTarball.path}`,
-    ...options.dependencies,
-  };
+  const selectedDependencies = Object.fromEntries(
+    selectedOfficial.map(name => {
+      const tarball = options.tarballs.get(name);
+      if (tarball === undefined) throw new Error(`SELECTION_PROVIDER_MISSING: no tarball for ${name}`);
+      return [name, `file:${tarball.path}`];
+    }),
+  );
+  const dependencies = { ...selectedDependencies, ...options.dependencies };
   writeFileSync(
     join(application, 'package.json'),
     `${JSON.stringify(
@@ -472,12 +475,14 @@ function installConsumer(options: {
   assertPackedInstall(application, options.tarballs, closure);
 
   const consumerManifest = readManifest(join(application, 'package.json'));
-  const selectedOfficial = Object.keys(consumerManifest.dependencies ?? {}).filter(
+  const installedSelections = Object.keys(consumerManifest.dependencies ?? {}).filter(
     name => name === 'zmdb' || name.startsWith('@zmdb/'),
   );
-  if (JSON.stringify(selectedOfficial) !== JSON.stringify([options.root])) {
+  if (JSON.stringify(installedSelections) !== JSON.stringify(selectedOfficial)) {
     throw new Error(
-      `consumer selected official packages ${JSON.stringify(selectedOfficial)}, expected ${options.root}`,
+      `consumer selected official packages ${JSON.stringify(installedSelections)}, expected ${JSON.stringify(
+        selectedOfficial,
+      )}`,
     );
   }
 
@@ -514,6 +519,7 @@ function prepareMatrix(): PackedMatrix {
       workspace,
       tarballs,
       directory,
+      selectedOfficial: ['@zmdb/sqlite'],
       devDependencies: commonDevDependencies,
       sources: {
         'default.ts': source('default.ts'),
@@ -799,7 +805,7 @@ afterAll(() => {
 });
 
 describe('default dependency graph and opt-in identity boundaries (#754)', () => {
-  it('installs the packed default product without selected jobs or job-store providers', () => {
+  it('keeps the packed product graph free of database and jobs edges when SQLite is selected explicitly', () => {
     expect(matrix.defaultConsumer.graph.closure.filter(official).toSorted()).toEqual(DEFAULT_CLOSURE);
     expect(selectionDiagnostics(matrix.defaultConsumer.graph)).toEqual([]);
     for (const name of [...JOBS_PACKAGES, 'pg']) {

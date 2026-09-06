@@ -1,5 +1,7 @@
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 
+import { sqlite } from '@zmdb/sqlite';
+
 const databasePath = process.env.ZMDB_TEST_DATABASE;
 if (databasePath === undefined) throw new Error('ZMDB_TEST_DATABASE is required');
 
@@ -19,13 +21,13 @@ function sqliteValue(value: unknown): SQLInputValue {
 
 export default {
   schema: 'src/**/*.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   out: './migrations',
   driver: () => {
     const database = new DatabaseSync(databasePath);
     const driver = {
-      dialect: 'sqlite' as const,
+      dialect: sqlite,
       async execute(query: { readonly text: string; readonly parameters: readonly unknown[] }) {
         const read = /^\s*(?:PRAGMA|SELECT|WITH)\b/i.test(query.text) || /\bRETURNING\b/i.test(query.text);
         const parameters = query.parameters.map(sqliteValue);

@@ -7,8 +7,9 @@ Combine rows from two or more SELECT statements. Use `union` for distinct rows, 
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 
 const query1 = compiler.selectFrom('users').select(['id', 'name']).where('active', '=', true).compile();
 
@@ -44,8 +45,9 @@ When you need to run multiple independent statements in one database round-trip,
 
 ```ts
 import { batch, createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 
 const stmt1 = compiler.insertInto('users').values({ name: 'Alice', email: 'alice@example.com' }).compile();
 

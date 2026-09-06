@@ -52,7 +52,7 @@ function setup() {
   db.exec(
     'CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, total NUMERIC NOT NULL)',
   );
-  const repo = defineRepository(OrderSchema, sqliteDriver(db), { dialect: 'sqlite' });
+  const repo = defineRepository(OrderSchema, sqliteDriver(db));
   const container = new Container();
   container.register(OrderRepoToken, repo);
   const controller = container.build(OrdersController);
@@ -189,7 +189,7 @@ describe('@zmdb/web data: an ISO body persisted and returned (node:sqlite)', () 
       'CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, at TEXT NOT NULL, seq INTEGER NOT NULL)',
     );
     const container = new Container();
-    container.register(EventRepoToken, defineRepository(EventSchema, sqliteDriver(db), { dialect: 'sqlite' }));
+    container.register(EventRepoToken, defineRepository(EventSchema, sqliteDriver(db)));
     const router = createRouter();
     const decode = wireDecoder(EventSchema, 'create');
     router.register(container.build(EventsController), {
@@ -215,7 +215,7 @@ describe('@zmdb/web data: an ISO body persisted and returned (node:sqlite)', () 
       'CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, at TEXT NOT NULL, seq INTEGER NOT NULL)',
     );
     const container = new Container();
-    container.register(EventRepoToken, defineRepository(EventSchema, sqliteDriver(db), { dialect: 'sqlite' }));
+    container.register(EventRepoToken, defineRepository(EventSchema, sqliteDriver(db)));
     const router = createRouter();
     const decode = wireDecoder(EventSchema, 'create');
     router.register(container.build(EventsController), {

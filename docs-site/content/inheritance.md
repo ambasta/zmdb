@@ -97,8 +97,9 @@ Query the base table and filter by discriminator to get specific subtypes.
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 
 // Get all concerts
 const concerts = compiler.selectFrom('events').select(['id', 'title', 'venue', 'artist']).where('type', '=', 'concert').compile();

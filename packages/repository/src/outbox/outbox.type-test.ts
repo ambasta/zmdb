@@ -12,6 +12,7 @@ import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
 import type { HasDefault, PrimaryKey, Sql } from '@zmdb/schema-core/tags';
 
 import type { Driver } from '../index.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import type { TransactionContext } from '../transactions/index.js';
 import {
   outboxWriter,
@@ -137,9 +138,9 @@ type _ShutdownIsAwaitable = Expect<Equal<ReturnType<OutboxDispatcher['onShutdown
 // compile-telemetry marker, and streaming method do not make an object literal
 // stop being a driver, which is what makes the fake driver in ./outbox.spec.ts
 // legal without a mocking library.
-const structuralDriver: Driver = { execute: () => Promise.resolve([]) };
+const structuralDriver: Driver = { dialect: postgresDialect, execute: () => Promise.resolve([]) };
 void structuralDriver;
-type _DriverKeepsExecuteAsItsOnlyRequiredMethod = Expect<
+type _DriverRequiresAnExplicitDialect = Expect<
   Mutual<keyof Driver, 'dialect' | 'queryTelemetry' | 'execute' | 'stream'>
 >;
 

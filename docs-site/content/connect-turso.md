@@ -118,7 +118,7 @@ const clientFor = (tenant: string) =>
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
 
-const repo = defineRepository(users, driverFor(clientFor(tenant)), { dialect: 'sqlite' });
+const repo = defineRepository(users, driverFor(clientFor(tenant)));
 ```
 
 The cost is that migrations must run against every tenant database. `runCli` takes a connection, so that is a loop — and a loop that must be resumable, because failing halfway through a thousand

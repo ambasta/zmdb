@@ -18,7 +18,7 @@ npm add zmdb@alpha
 - Application defaults: `zmdb`
 - Product concerns: `zmdb/schema`, `zmdb/sql`, `zmdb/validator`, `zmdb/orm`, `zmdb/web`
 - Build and operational concerns: `zmdb/compiler`, `zmdb/migrations`, `zmdb/testing`, `zmdb/config`, `zmdb/cli`
-- Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/drivers/mssql`
+- Database verticals: `zmdb/sqlite`, `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach`, `zmdb/singlestore`
 - Application kernel: `zmdb/app` and `zmdb/app/{commands,cqrs,data,di,events,health,lifecycle,messaging,modules,observability,state}`
 - HTTP: `zmdb/web`, `zmdb/web/contract`, `zmdb/web/contract/compiler`, and the focused `zmdb/web/*` HTTP concern entries
 - Compatibility subpaths: `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`, `zmdb/unplugin`, `zmdb/web/contract`, `zmdb/web/contract/compiler`
@@ -34,11 +34,10 @@ npm add @zmdb/jobs@alpha
 Import queues, workers, schedules, and `jobsExtension` from `@zmdb/jobs`. The default product neither installs jobs nor exposes a `zmdb/jobs` facade; the selected package still composes through the
 same `@zmdb/app` lifecycle.
 
-Every facade entry delegates to its owning implementation package by identity and contains no mutable state or implementation logic. AI providers, frontend bindings, observability, and transports are
-separate opt-in packages and are not reachable from the default root.
+Every facade entry delegates to its owning implementation package by identity and contains no mutable state or implementation logic. AI providers, frontend bindings, observability, transports, and
+database verticals are separate opt-in packages and are not reachable from the default root.
 
-`zmdb/drivers/pg` is a compatibility facade over the optional `@zmdb/postgres` peer. Install `@zmdb/postgres` and `pg` in applications that select PostgreSQL; neither is pulled into the default
-product dependency closure.
+Each database subpath is an identity facade over its optional `@zmdb/*` peer. For PostgreSQL, install `@zmdb/postgres` and `pg`; neither is pulled into the default product dependency closure.
 
 ## Generate HTTP artifacts
 

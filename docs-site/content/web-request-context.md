@@ -64,7 +64,7 @@ function driverFor(tenant: string): Driver {
 
 @Get('/posts')
 async list(ctx: Ctx) {
-  const repo = defineRepository(posts, driverFor(tenantFrom(ctx.headers)), { dialect: 'postgres' });
+  const repo = defineRepository(posts, driverFor(tenantFrom(ctx.headers)));
   return repo.list({ page: { limit: 20 } });
 }
 ```
@@ -95,7 +95,7 @@ function scopeFor(ctx: Ctx<Record<string, string>, unknown>): RequestScope {
     tenant: claims.tenant,
     userId: claims.sub,
     requestId: ctx.headers['x-request-id'] ?? crypto.randomUUID(),
-    posts: defineRepository(posts, driver, { dialect: 'postgres' }),
+    posts: defineRepository(posts, driver),
     loaders: createLoaderScope(),
   };
 }

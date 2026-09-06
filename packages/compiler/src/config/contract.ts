@@ -1,4 +1,4 @@
-import type { CompiledQuery, Dialect, DialectTarget, IntrospectOptions } from '@zmdb/query-compiler';
+import type { CompiledQuery, IntrospectOptions, SqlDialect } from '@zmdb/query-compiler';
 import type { NamingStrategy } from '@zmdb/schema-core/naming';
 
 export type { IntrospectOptions } from '@zmdb/query-compiler';
@@ -16,7 +16,7 @@ export interface HttpGenerationConfig {
 
 /** Structural database boundary shared by compiler tools without importing the ORM. */
 export interface ToolingDriver {
-  readonly dialect?: DialectTarget;
+  readonly dialect: SqlDialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
   transaction?<T>(run: (driver: ToolingDriver) => Promise<T>): Promise<T>;
 }
@@ -24,7 +24,6 @@ export interface ToolingDriver {
 /** The plain-data half of a config, validated by the generated AOT checker. */
 export interface ZmdbConfigData {
   readonly schema: string | readonly string[];
-  readonly dialect: Dialect;
   readonly project?: string;
   readonly out?: string;
   readonly naming?: 'snake_case' | 'snake_case_plural';
@@ -38,6 +37,7 @@ export interface ZmdbConfigData {
 
 /** The complete author-facing config, including the two callable boundaries. */
 export interface ZmdbConfig extends ZmdbConfigData {
+  readonly dialect: SqlDialect;
   readonly driver?: () => ToolingDriver | Promise<ToolingDriver>;
   readonly namingStrategy?: NamingStrategy;
 }

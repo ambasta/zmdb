@@ -1,6 +1,6 @@
 # `@zmdb/mssql` — complete SQL Server vertical
 
-> Status: implemented by issue #672 against the current generic injection seams. SQL Server implementation is package-owned now; #675 removes only the frozen name/config/CLI compatibility surface.
+> Status: implemented by issue #672 against the generic injection seam. SQL Server implementation is package-owned, and #675 removes the frozen name/config/CLI compatibility surface.
 
 ## Public contract
 
@@ -47,8 +47,8 @@ values such as `output` and `merge`; the database-boundary verifier audits those
 
 ## Catalog contract
 
-`mssqlIntrospector` reads and normalizes tables, columns, nullability, defaults, identity, primary keys, foreign keys, indexes, filtered predicates and computed columns. Object consumers use
-`createIntrospector(mssql)` or the named export. The temporary string factory remains compatibility dispatch until #675.
+`mssqlIntrospector` reads and normalizes tables, columns, nullability, defaults, identity, primary keys, foreign keys, indexes, filtered predicates and computed columns. Object consumers use Consumers
+use `mssql.introspector` or the named `mssqlIntrospector` export; there is no generic name-based factory.
 
 Catalog rows are validated before use, and a fact that cannot be represented exactly is an explicit error or warning under the generic introspection policy. Silent omission is not allowed.
 

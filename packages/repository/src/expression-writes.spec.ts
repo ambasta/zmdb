@@ -7,6 +7,8 @@ import type { Pattern, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/
 import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
 
+import { mysqlDialect, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
+
 export interface ExpressionPost extends Table<'expression_posts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   views: number & Sql<'integer'>;
@@ -36,6 +38,7 @@ function uncheckedPatch(patch: Record<string, unknown>): UpdatePatch<ExpressionP
 function recordingDriver(rows: readonly Record<string, unknown>[]): Driver & { readonly calls: CompiledQuery[] } {
   const calls: CompiledQuery[] = [];
   return {
+    dialect: postgresDialect,
     calls,
     execute(query) {
       calls.push(query);
@@ -111,13 +114,13 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
       const sqlite = sqliteDriver(db);
       const calls: CompiledQuery[] = [];
       const driver: Driver = {
-        dialect: 'sqlite',
+        dialect: sqliteDialect,
         execute(query) {
           calls.push(query);
           return sqlite.execute(query);
         },
       };
-      const posts = new ExpressionPosts(driver, 'sqlite');
+      const posts = new ExpressionPosts(driver, sqliteDialect);
 
       await posts.update(1, { views: inc() });
       await posts.update(1, { views: inc() });
@@ -204,7 +207,7 @@ describe('repository expression-valued writes (frozen: repository/SPEC.md 3b)', 
 
   it('omits unsupported MySQL RETURNING for expression repository writes', async () => {
     const driver = recordingDriver([]);
-    const posts = new ExpressionPosts(driver, 'mysql');
+    const posts = new ExpressionPosts(driver, mysqlDialect);
 
     await expect(posts.increment(1, 'views')).resolves.toBeUndefined();
     await expect(posts.updateMany({ published: false }, { views: inc(2) })).resolves.toBeUndefined();

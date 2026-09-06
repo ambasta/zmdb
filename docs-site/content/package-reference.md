@@ -285,7 +285,8 @@ CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, 
 - **Engines:**
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
-- **Facade exposure:** None.
+- **Facade exposure:**
+  - `zmdb/cockroach`
 - **External proof:** fixtures/database-cockroach
 
 ### `@zmdb/compiler`
@@ -430,7 +431,7 @@ Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
-  - `zmdb/drivers/mssql`
+  - `zmdb/mssql`
 - **External proof:** fixtures/database-mssql
 
 ### `@zmdb/mysql`
@@ -450,7 +451,8 @@ Complete MySQL compiler, migrations, introspection, and structural mysql2 driver
 - **Engines:**
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
-- **Facade exposure:** None.
+- **Facade exposure:**
+  - `zmdb/mysql`
 - **External proof:** fixtures/database-mysql
 
 ### `@zmdb/next`
@@ -534,7 +536,7 @@ The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspe
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
-  - `zmdb/drivers/pg`
+  - `zmdb/postgres`
 - **External proof:** fixtures/database-postgres
 
 ### `@zmdb/protobuf`
@@ -719,7 +721,8 @@ SingleStore vertical for zmdb: MySQL-family compilation, storage-aware migration
 - **Engines:**
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
-- **Facade exposure:** None.
+- **Facade exposure:**
+  - `zmdb/singlestore`
 - **External proof:** fixtures/database-singlestore
 
 ### `@zmdb/solid`
@@ -759,7 +762,7 @@ Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embed
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
-  - `zmdb/drivers/sqlite`
+  - `zmdb/sqlite`
 - **External proof:** fixtures/database-sqlite
 
 ### `@zmdb/svelte`
@@ -987,19 +990,22 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `./app/observability` → `./src/app-observability.ts`
   - `./app/state` → `./src/app-state.ts`
   - `./cli` → `./src/cli/index.ts`
+  - `./cockroach` → `./src/database-cockroach.ts`
   - `./compiler` → `./src/compiler.ts`
   - `./config` → `./src/config/index.ts`
   - `./derive` → `./src/derive.ts`
-  - `./drivers/mssql` → `./src/drivers-mssql.ts`
-  - `./drivers/pg` → `./src/drivers-pg.ts`
-  - `./drivers/sqlite` → `./src/drivers-sqlite.ts`
   - `./dto` → `./src/dto.ts`
   - `./ir` → `./src/ir.ts`
   - `./migrations` → `./src/migrations.ts`
+  - `./mssql` → `./src/database-mssql.ts`
+  - `./mysql` → `./src/database-mysql.ts`
   - `./orm` → `./src/orm.ts`
+  - `./postgres` → `./src/database-postgres.ts`
   - `./relations` → `./src/relations.ts`
   - `./schema` → `./src/schema.ts`
+  - `./singlestore` → `./src/database-singlestore.ts`
   - `./sql` → `./src/sql.ts`
+  - `./sqlite` → `./src/database-sqlite.ts`
   - `./tags` → `./src/tags.ts`
   - `./testing` → `./src/testing.ts`
   - `./unplugin` → `./src/unplugin.ts`
@@ -1032,14 +1038,17 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
   - `@zmdb/schema-core` → `workspace:^`
-  - `@zmdb/sqlite` → `workspace:^`
   - `@zmdb/web` → `workspace:^`
   - `esbuild` → `^0.28.2`
   - `oxfmt` → `0.66.0`
 - **Optional dependencies:** None.
 - **Optional peers:**
+  - `@zmdb/cockroach` → `workspace:^`
   - `@zmdb/mssql` → `workspace:^`
+  - `@zmdb/mysql` → `workspace:^`
   - `@zmdb/postgres` → `workspace:^`
+  - `@zmdb/singlestore` → `workspace:^`
+  - `@zmdb/sqlite` → `workspace:^`
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`

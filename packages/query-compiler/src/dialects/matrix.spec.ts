@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { mssql } from '../../../mssql/src/index.js';
 import { UnsupportedFeatureError, type CompiledQuery } from '../index.js';
+import { officialDialects } from '../testing/official-dialects.fixture.js';
 
 // Tests freeze for issue #506 and ./SPEC.md §7.
 //
@@ -174,7 +174,7 @@ function invoke(api: object, name: string, args: readonly unknown[]): unknown {
 }
 
 function target(dialect: FrozenDialect): unknown {
-  return dialect === 'mssql' ? mssql : dialect;
+  return officialDialects[dialect];
 }
 
 function compiler(dialect: FrozenDialect): FrozenQueryCompiler {
@@ -218,15 +218,11 @@ function ddlType(dialect: FrozenDialect, type: (typeof SQL_TYPES)[number]): stri
     nullable: false,
     primaryKey: type === 'serial',
   };
-  return dialect === 'mssql'
-    ? mssql.migrations.ddlType(column)
-    : stringResult(invoke(migrationApi, 'ddlType', [dialect, column]), 'ddlType');
+  return stringResult(invoke(migrationApi, 'ddlType', [target(dialect), column]), 'ddlType');
 }
 
 function emitUp(op: FrozenChangeOp, dialect: FrozenDialect): string {
-  return dialect === 'mssql'
-    ? stringResult(Reflect.apply(mssql.migrations.emitUp, mssql.migrations, [op]), 'mssql emitUp')
-    : stringResult(invoke(migrationApi, 'emitUp', [op, dialect]), 'emitUp');
+  return stringResult(invoke(migrationApi, 'emitUp', [op, target(dialect)]), 'emitUp');
 }
 
 const FROZEN_EXPRESSION = Symbol('zmdb.tests.dialect-matrix-expression');
@@ -900,8 +896,8 @@ const MATRIX: readonly MatrixCase[] = [
     build: dialect => emitUp(createEvents, dialect),
     expected: {
       postgres: value('CREATE TABLE "events" ("id" SERIAL PRIMARY KEY)'),
-      mysql: value('CREATE TABLE `events` (`id` INT AUTO_INCREMENT PRIMARY KEY)'),
-      sqlite: value('CREATE TABLE "events" ("id" INTEGER PRIMARY KEY)'),
+      mysql: refused('table options on "events"', 'mysql'),
+      sqlite: refused('table options on "events"', 'sqlite'),
       mssql: value('CREATE TABLE [events] ([id] INT IDENTITY(1,1) PRIMARY KEY)'),
       cockroach: value('CREATE TABLE "events" ("id" INT8 DEFAULT unique_rowid() PRIMARY KEY)'),
       singlestore: value(
@@ -970,11 +966,11 @@ const MATRIX: readonly MatrixCase[] = [
       ),
     expected: {
       postgres: value('ALTER TABLE "events" ALTER COLUMN "at" TYPE TIMESTAMPTZ'),
-      mysql: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(3)'),
+      mysql: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(3) NOT NULL'),
       sqlite: refused('alter column type', 'sqlite'),
       mssql: value('ALTER TABLE [events] ALTER COLUMN [at] DATETIMEOFFSET(3) NOT NULL'),
       cockroach: value('ALTER TABLE "events" ALTER COLUMN "at" TYPE TIMESTAMPTZ'),
-      singlestore: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(6)'),
+      singlestore: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(6) NOT NULL'),
     },
   },
 ];

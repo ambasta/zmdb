@@ -61,6 +61,7 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "@zmdb/postgres": "workspace:^",
     "typescript": "7.0.2"
   },
   "engines": {

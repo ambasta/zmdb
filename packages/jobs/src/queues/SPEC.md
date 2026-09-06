@@ -43,7 +43,7 @@ export interface Clock {
 
 /** The store port. Structural; supported adapters are separate opt-in subpaths — §3. */
 export interface JobStore {
-  readonly dialect?: Dialect;
+  readonly dialect: SqlDialect;
   execute(query: { readonly text: string; readonly parameters: readonly unknown[] }): Promise<readonly Record<string, unknown>[]>;
 }
 

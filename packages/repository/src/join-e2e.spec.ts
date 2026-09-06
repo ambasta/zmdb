@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 
 import { usePostgres } from '../../postgres/src/testing/fixture.js';
 import { BaseRepository } from './index.js';
+import { postgresDialect } from './testing/official-dialects.fixture.js';
 
 // #87: JOIN repository integration + E2E on REAL PostgreSQL.
 
@@ -36,7 +37,7 @@ describe('JOIN repository integration (real Postgres)', () => {
       console.warn('[skip] Postgres not reachable');
       return;
     }
-    const repo = new ProductRepository(pg.driver(), 'postgres');
+    const repo = new ProductRepository(pg.driver(), postgresDialect);
     const rows = await repo.findJoined(
       { target: 'j_suppliers', leftCol: 'j_suppliers.id', rightCol: 'j_products.supplier_id', kind: 'left' },
       { col: 'j_products.id', op: '=', value: 10 },
@@ -50,7 +51,7 @@ describe('JOIN repository integration (real Postgres)', () => {
 
   it('left join keeps the orphan product (null supplier)', async () => {
     if (!pg.reachable()) return;
-    const repo = new ProductRepository(pg.driver(), 'postgres');
+    const repo = new ProductRepository(pg.driver(), postgresDialect);
     const rows = await repo.findJoined(
       { target: 'j_suppliers', leftCol: 'j_suppliers.id', rightCol: 'j_products.supplier_id', kind: 'left' },
       { col: 'j_products.id', op: '=', value: 12 },

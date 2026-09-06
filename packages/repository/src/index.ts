@@ -114,15 +114,17 @@ export interface ExecuteOptions {
 }
 
 export interface Driver<Name extends string = string> {
-  readonly dialect?: DialectTarget<Name>;
+  readonly dialect: DialectTarget<Name>;
   /** Enables compile-time query attributes when an execution wrapper consumes them. */
   readonly queryTelemetry?: true;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
 
-export interface TransactionalDriver<Name extends string = string> extends Driver<Name> {
-  transaction<Result>(run: (driver: Driver<Name>) => Promise<Result>): Promise<Result>;
+export type SelectedDriver<Name extends string = string> = Driver<Name>;
+
+export interface TransactionalDriver<Name extends string = string> extends SelectedDriver<Name> {
+  transaction<Result>(run: (driver: SelectedDriver<Name>) => Promise<Result>): Promise<Result>;
 }
 
 export interface DatabaseVertical<Name extends string, Connection, Options = undefined> {
@@ -582,7 +584,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   readonly #entityLoaders = new WeakMap<object, EntityLoader<T>>();
   readonly #relationLoaders = new WeakMap<object, RelationLoaderMap<T>>();
 
-  constructor(driver: Driver, dialect: DialectTarget = driver.dialect ?? 'postgres', options?: RepositoryOptions) {
+  constructor(driver: Driver, dialect: DialectTarget | undefined = driver.dialect, options?: RepositoryOptions) {
+    if (dialect === undefined) {
+      throw new TypeError('repository construction requires an explicit database dialect object');
+    }
     this.driver = driver;
     this.dialect = dialect;
     this.dialectCapabilities = dialectCapabilities(dialect);
@@ -2628,7 +2633,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 // relations are on `T`, which `schema` carries, so passing them again was the second
 // spelling this design exists to remove.
 export interface DefineRepositoryOptions extends RepositoryOptions {
-  dialect?: DialectTarget;
+  readonly dialect?: SqlDialect;
 }
 export function defineRepository<T extends DeclaredTable>(
   schema: TaggedSchema<T>,
@@ -2640,7 +2645,7 @@ export function defineRepository<T extends DeclaredTable>(
   class Repo extends BaseRepository<T> {
     static override readonly schema = schema;
   }
-  return new Repo(driver, opts?.dialect ?? driver.dialect ?? 'postgres', opts);
+  return new Repo(driver, opts?.dialect ?? driver.dialect, opts);
 }
 
 export { memoryStore, type CacheInvalidationOptions, type CacheOptions, type CacheStore } from './cache/index.js';

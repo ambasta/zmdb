@@ -129,7 +129,9 @@ async function seedDatabase(repo: UserRepository, count: number) {
 `count` round trips. For a large seed, batch through the compiler instead:
 
 ```ts
-const q = createQueryCompiler('postgres').insertInto('users').values(rows).compile();
+import { postgres } from '@zmdb/postgres';
+
+const q = createQueryCompiler(postgres).insertInto('users').values(rows).compile();
 await driver.execute(q);
 ```
 

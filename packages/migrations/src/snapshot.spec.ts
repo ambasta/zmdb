@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { diff, emitDown, emitUp, snapshot, type SchemaSnapshot } from './index.js';
+import { postgresDialect } from './testing/official-dialects.fixture.js';
 
 // #41: schema snapshot serializer.
 
@@ -39,8 +40,8 @@ describe('snapshot serializer', () => {
     const empty: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
     const firstSnapshot = snapshot([UserSchema]);
     const secondSnapshot = snapshot([UserSchema]);
-    const firstDiff = diff(empty, firstSnapshot, { dialect: 'postgres' });
-    const secondDiff = diff(empty, secondSnapshot, { dialect: 'postgres' });
+    const firstDiff = diff(empty, firstSnapshot, { dialect: postgresDialect });
+    const secondDiff = diff(empty, secondSnapshot, { dialect: postgresDialect });
 
     const snapshotBytes =
       '{"version":1,"tables":[{"name":"users","columns":[{"name":"email","type":"text","nullable":false,"primaryKey":false},{"name":"id","type":"serial","nullable":false,"primaryKey":true}],"primaryKey":["id"],"foreignKeys":[]}],"extensions":[]}';
@@ -51,15 +52,17 @@ describe('snapshot serializer', () => {
     expect(JSON.stringify(secondSnapshot)).toBe(snapshotBytes);
     expect(JSON.stringify(firstDiff)).toBe(diffBytes);
     expect(JSON.stringify(secondDiff)).toBe(diffBytes);
-    expect(firstDiff.map(operation => emitUp(operation, 'postgres'))).toEqual([
+    expect(firstDiff.map(operation => emitUp(operation, postgresDialect))).toEqual([
       'CREATE TABLE "users" ("email" TEXT NOT NULL, "id" SERIAL PRIMARY KEY)',
     ]);
-    expect(firstDiff.toReversed().map(operation => emitDown(operation, 'postgres'))).toEqual(['DROP TABLE "users"']);
-    expect(firstDiff.map(operation => emitUp(operation, 'postgres'))).toEqual(
-      secondDiff.map(operation => emitUp(operation, 'postgres')),
+    expect(firstDiff.toReversed().map(operation => emitDown(operation, postgresDialect))).toEqual([
+      'DROP TABLE "users"',
+    ]);
+    expect(firstDiff.map(operation => emitUp(operation, postgresDialect))).toEqual(
+      secondDiff.map(operation => emitUp(operation, postgresDialect)),
     );
-    expect(firstDiff.toReversed().map(operation => emitDown(operation, 'postgres'))).toEqual(
-      secondDiff.toReversed().map(operation => emitDown(operation, 'postgres')),
+    expect(firstDiff.toReversed().map(operation => emitDown(operation, postgresDialect))).toEqual(
+      secondDiff.toReversed().map(operation => emitDown(operation, postgresDialect)),
     );
   });
 });

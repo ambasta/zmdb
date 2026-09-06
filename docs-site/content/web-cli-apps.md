@@ -73,9 +73,7 @@ const driver = await config.driver();
   providers: [
     {
       token: POSTS,
-      useValue: defineRepository(schemaOf<Post>(), driver, {
-        dialect: driver.dialect ?? config.dialect,
-      }),
+      useValue: defineRepository(schemaOf<Post>(), driver),
     },
   ],
   commands: [BackfillSlugs],

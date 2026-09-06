@@ -1,11 +1,12 @@
 import type { Entity, Equal, Expect } from '@zmdb/schema-core';
 
 import { memoryStore, type CacheStore, type Driver } from '../index.js';
-import { ProductsRepo, type Product } from '../typed-methods/fixtures.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
+import { ProductsRepo, type Product } from '../typed-methods/typed-methods.fixture.js';
 
-const driver: Driver = { execute: async () => [] };
+const driver: Driver = { dialect: postgresDialect, execute: async () => [] };
 const store: CacheStore = memoryStore({ maxEntries: 32 });
-const products = new ProductsRepo(driver, 'postgres', { cacheStore: store });
+const products = new ProductsRepo(driver, postgresDialect, { cacheStore: store });
 
 const cached = products.findById(1, { cache: { ttlMs: 1_000, tags: ['product:1'] } });
 const bypassed = products.findById(1, { cache: false });

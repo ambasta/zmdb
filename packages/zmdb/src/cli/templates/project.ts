@@ -21,6 +21,7 @@ export const projectTemplate: TemplateFactory = ({ name, packageVersion }) => ({
           typecheck: 'tsc --noEmit',
         },
         dependencies: {
+          '@zmdb/sqlite': `^${packageVersion}`,
           zmdb: `^${packageVersion}`,
         },
         devDependencies: {
@@ -137,13 +138,13 @@ export default defineConfig({
 import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { sqlite, sqliteDriver } from 'zmdb/sqlite';
 
 const databasePath = fileURLToPath(new URL('./database.sqlite', import.meta.url));
 
 export default defineConfig({
   schema: ['src/**/*.ts'],
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   out: './migrations',
   driver: () => sqliteDriver(new DatabaseSync(databasePath)),

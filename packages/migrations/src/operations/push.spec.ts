@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ChangeOp } from '../index.js';
 import type { MigrationConnection } from '../runner.js';
+import { sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { applyPush, isDestructive, type PushPlan } from './push.js';
 
 const column = { name: 'value', type: 'text', nullable: true, primaryKey: false } as const;
@@ -85,6 +86,7 @@ describe('push destructive-operation classification', () => {
       statements: ['CREATE TABLE first (id INTEGER)', 'CREATE TABLE second (id INTEGER)'],
       destructive: [],
       driver: {
+        dialect: sqliteDialect,
         async execute() {
           return [];
         },

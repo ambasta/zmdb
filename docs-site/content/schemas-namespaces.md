@@ -41,8 +41,9 @@ Use the qualified table name when compiling queries that span schemas.
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 
 // Query a table in a specific schema
 const query = compiler.selectFrom('analytics.events').select(['event_id', 'event_type', 'occurred_at']).where('event_type', '=', 'page_view').limit(100).compile();

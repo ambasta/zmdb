@@ -394,6 +394,8 @@ function validatePlan(plan: MigrationPlan): void {
 
 export const mssqlMigrations: MigrationDialect<'mssql'> = Object.freeze({
   name: 'mssql',
+  foreignKeyMode: 'deferred',
+  embedded: false,
   validateSnapshot,
   validatePlan,
   ddlType: mssqlDdlType,

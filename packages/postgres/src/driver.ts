@@ -1,5 +1,5 @@
 import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
-import type { Driver, ExecuteOptions, TransactionalDriver } from '@zmdb/repository';
+import type { ExecuteOptions, SelectedDriver, TransactionalDriver } from '@zmdb/repository';
 
 export interface PgQueryable {
   query(text: string, params?: readonly unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
@@ -163,7 +163,7 @@ function createPostgresDriver<Name extends string>(
           },
         }
       : {}),
-    async transaction<Result>(run: (transaction: Driver<Name>) => Promise<Result>): Promise<Result> {
+    async transaction<Result>(run: (transaction: SelectedDriver<Name>) => Promise<Result>): Promise<Result> {
       if (!isPool(client)) {
         return runTransaction(dialect, client, options, preparedStates, run);
       }
@@ -183,7 +183,7 @@ async function runTransaction<Name extends string, Result>(
   connection: PgQueryable,
   options: PgOptions | undefined,
   preparedStates: WeakMap<PgQueryable, PreparedState>,
-  run: (transaction: Driver<Name>) => Promise<Result>,
+  run: (transaction: SelectedDriver<Name>) => Promise<Result>,
 ): Promise<Result> {
   const transactionDriver = createPostgresDriver(dialect, connection, options, true, preparedStates);
   await connection.query('BEGIN');

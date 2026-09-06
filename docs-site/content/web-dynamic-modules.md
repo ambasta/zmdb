@@ -68,7 +68,7 @@ The same function, parameterised per feature. A repository module is the common 
 ```ts
 export function repositoryModule<S extends Schema>(token: Token<Repo<S>>, schema: S): ModuleClass {
   @Module({
-    providers: [{ token, useFactory: c => defineRepository(schema, c.resolve(DRIVER), { dialect: 'postgres' }) }],
+    providers: [{ token, useFactory: c => defineRepository(schema, c.resolve(DRIVER)) }],
   })
   class FeatureModule {}
 

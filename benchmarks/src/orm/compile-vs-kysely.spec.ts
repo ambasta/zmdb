@@ -1,3 +1,4 @@
+import { postgres } from '@zmdb/postgres';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { Kysely, DummyDriver, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 import { describe, it, expect } from 'vitest';
@@ -29,7 +30,7 @@ const k = new Kysely<DB>({
 
 describe('query compilation vs Kysely', () => {
   it('both compile a SELECT to equivalent parameterized SQL', () => {
-    const zmdb = createQueryCompiler('postgres').selectFrom('users').where('email', '=', 'a@b.com').compile();
+    const zmdb = createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@b.com').compile();
     const kc = k.selectFrom('users').selectAll().where('email', '=', 'a@b.com').compile();
 
     // Same parameters and same essential SQL shape.

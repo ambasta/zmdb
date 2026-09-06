@@ -52,10 +52,12 @@ Only deploy the shape above **server to server**, inside a trust boundary, with 
 For anything a client can reach, do not accept SQL. Accept a name and typed arguments, and compile server-side:
 
 ```ts
-const QUERIES = {
-  activeUsers: (args: { limit: number }) => createQueryCompiler('postgres').selectFrom('users').where('active', '=', true).limit(args.limit).compile(),
+import { postgres } from '@zmdb/postgres';
 
-  userById: (args: { id: number }) => createQueryCompiler('postgres').selectFrom('users').where('id', '=', args.id).compile(),
+const QUERIES = {
+  activeUsers: (args: { limit: number }) => createQueryCompiler(postgres).selectFrom('users').where('active', '=', true).limit(args.limit).compile(),
+
+  userById: (args: { id: number }) => createQueryCompiler(postgres).selectFrom('users').where('id', '=', args.id).compile(),
 } as const;
 
 @Controller('/query')

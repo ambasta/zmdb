@@ -2,11 +2,13 @@ import type { CompiledQuery } from '@zmdb/query-compiler';
 import type { Entity, Equal, Expect } from '@zmdb/schema-core';
 
 import type { Driver, ExecuteOptions } from '../index.js';
-import { ProductsRepo, type Product } from '../typed-methods/fixtures.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
+import { ProductsRepo, type Product } from '../typed-methods/typed-methods.fixture.js';
 
 // The Driver change is additive: an adapter compiled against the old one-method
 // shape remains assignable without accepting or inspecting ExecuteOptions.
 const oldShapeDriver = {
+  dialect: postgresDialect,
   execute(_query: CompiledQuery): Promise<readonly Record<string, unknown>[]> {
     return Promise.resolve([]);
   },

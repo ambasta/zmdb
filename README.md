@@ -10,9 +10,9 @@
 
 ## Product and packages
 
-Install `zmdb` for the cohesive schema, validation, typed ORM, migration, HTTP, configuration, and CLI product facade, including the bundled SQLite path. Applications that select another database add
-its vertical explicitly; MySQL applications, for example, install `@zmdb/mysql` with `mysql2`. The other independently installable `@zmdb/*` packages are advanced dependency firebreaks, integrations,
-and tooling rather than a second beginner setup. Their membership, product roles, facade exposure, documentation ownership, and external-consumer evidence come from the
+Install `zmdb` for the cohesive schema, validation, typed ORM, migration, HTTP, configuration, and CLI product facade, then add the selected database vertical explicitly. SQLite applications install
+`@zmdb/sqlite`; MySQL applications install `@zmdb/mysql` with `mysql2`. The other independently installable `@zmdb/*` packages are advanced dependency firebreaks, integrations, and tooling rather than
+a second beginner setup. Their membership, product roles, facade exposure, documentation ownership, and external-consumer evidence come from the
 [canonical product catalog](./scripts/product/catalog.mjs); the [package reference](./docs-site/content/package-reference.md) renders that inventory.
 
 CockroachDB is selected through `@zmdb/cockroach`, a one-way child of `@zmdb/postgres` that owns Cockroach-specific types, migrations, catalog normalization, retries, and its real-server acceptance.
@@ -67,7 +67,7 @@ validation runtime.
 Compiler tooling is independently usable: install `@zmdb/compiler` when a build, linter, Metro project, or no-bundler workflow needs the TypeScript front end directly. The
 [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
-> The workspace publishes **38 packages** across **153 export-map entry points**. The current suite has **3,351 passing tests** across 313 files, plus **58 expected failures** that describe work still
+> The workspace publishes **38 packages** across **185 export-map entry points**. The current suite has **3,346 passing tests** across 312 files, plus **57 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 271 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 
@@ -96,7 +96,7 @@ npx zmdb migrate
 ```typescript
 import { DatabaseSync } from 'node:sqlite';
 import { defineRepository, schemaOf, type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { sqliteDriver } from 'zmdb/sqlite';
 
 // A table is a TypeScript type. Tags carry the database details that TypeScript
 // cannot express on its own, and disappear from the emitted JavaScript.
@@ -107,7 +107,7 @@ export interface User extends Table<'users'> {
 }
 
 // Create a typed repository without a subclass.
-const users = defineRepository(schemaOf<User>(), sqliteDriver(new DatabaseSync('app.db')), { dialect: 'sqlite' });
+const users = defineRepository(schemaOf<User>(), sqliteDriver(new DatabaseSync('app.db')));
 
 await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
 const admins = await users.find({ role: 'admin' }); // typed WhereDTO<S>

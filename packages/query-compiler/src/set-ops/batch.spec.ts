@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { createQueryCompiler } from '../index.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 import { batch } from './index.js';
 
-const qc = createQueryCompiler('postgres');
+const qc = createQueryCompiler(postgresDialect);
 const a = qc.selectFrom('users').compile();
 const b = qc.insertInto('users').values({ email: 'x@y.com' }).compile();
 

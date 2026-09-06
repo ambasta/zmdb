@@ -7,6 +7,7 @@ import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { BaseRepository, ValidationError } from './index.js';
+import { sqliteDialect } from './testing/official-dialects.fixture.js';
 
 interface FrozenStreamOptions {
   readonly signal?: AbortSignal;
@@ -77,7 +78,7 @@ let users: UserRepository;
 beforeEach(() => {
   db = new DatabaseSync(':memory:');
   db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, role TEXT)');
-  users = new UserRepository(sqliteDriver(db), 'sqlite');
+  users = new UserRepository(sqliteDriver(db), sqliteDialect);
 });
 
 describe('repository E2E (real SQLite)', () => {
@@ -173,7 +174,7 @@ describe('repository E2E (real SQLite)', () => {
         };
       },
     };
-    const measuredUsers = new UserRepository(sqliteDriver(measuredDb), 'sqlite');
+    const measuredUsers = new UserRepository(sqliteDriver(measuredDb), sqliteDialect);
     const streamed: User[] = [];
 
     for await (const user of repositoryStream<User>(measuredUsers, undefined, {
@@ -196,7 +197,7 @@ describe('repository E2E (real SQLite)', () => {
     db.exec(
       'CREATE TABLE sensitive_users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, passwordHash TEXT NOT NULL)',
     );
-    const sRepo = new SensitiveRepo(sqliteDriver(db), 'sqlite');
+    const sRepo = new SensitiveRepo(sqliteDriver(db), sqliteDialect);
 
     // Validation failure if required sensitive field is missing
     await expect(sRepo.create({ email: 'user@test.com' } as never)).rejects.toBeInstanceOf(ValidationError);
@@ -332,7 +333,7 @@ describe('repository E2E: the db layer of a timestamp and a bigint (SQLite)', ()
     db.exec(
       'CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, at TEXT NOT NULL, seq INTEGER NOT NULL, closedAt TEXT)',
     );
-    events = new EventRepository(sqliteDriver(db), 'sqlite');
+    events = new EventRepository(sqliteDriver(db), sqliteDialect);
   });
 
   it('writes a Date and reads a Date back', async () => {

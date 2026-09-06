@@ -136,7 +136,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     expect(report.typeNames).toEqual(TARGET_ROOT_TYPES);
     expect(report.missingSubpaths).toEqual([]);
     expect(report.facadeImplementationProblems).toEqual([]);
-    expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(44);
+    expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(47);
   }, 15_000);
 
   // The migration namespace is reachable only through `zmdb/migrations`, so
@@ -454,7 +454,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
 
     expect(derived.root).toHaveLength(71);
-    expect(derived.subpaths).toHaveLength(50);
+    expect(derived.subpaths).toHaveLength(53);
     expect(actual.root).toEqual(derived.root);
     expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
     expect(verifyFacadeOwnership(PRODUCT_CATALOG, actual)).toEqual([]);

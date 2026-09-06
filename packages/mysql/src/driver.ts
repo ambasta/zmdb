@@ -1,5 +1,5 @@
 import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
-import type { Driver, ExecuteOptions, TransactionalDriver } from '@zmdb/repository';
+import type { ExecuteOptions, SelectedDriver, TransactionalDriver } from '@zmdb/repository';
 
 export interface MysqlResultHeader {
   readonly affectedRows: number;
@@ -144,7 +144,7 @@ async function runTransaction<Name extends string, Result>(
   dialect: SqlDialect<Name>,
   connection: MysqlConnection,
   options: MysqlOptions | undefined,
-  run: (driver: Driver<Name>) => Promise<Result>,
+  run: (driver: SelectedDriver<Name>) => Promise<Result>,
 ): Promise<Result> {
   await connection.beginTransaction();
   const transactionDriver = createMysqlDriver(dialect, connection, options, true);
@@ -188,7 +188,7 @@ function createMysqlDriver<Name extends string>(
       const result = await driver.executeResult(query, executeOptions);
       return result.kind === 'rows' ? result.rows : [];
     },
-    async transaction<Result>(run: (transactionDriver: Driver<Name>) => Promise<Result>): Promise<Result> {
+    async transaction<Result>(run: (transactionDriver: SelectedDriver<Name>) => Promise<Result>): Promise<Result> {
       if (pinned) {
         if (!isConnection(client)) throw new TypeError('a pinned mysql transaction lost its connection');
         return runTransaction(dialect, client, options, run);

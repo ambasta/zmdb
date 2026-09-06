@@ -7,11 +7,12 @@ It does not initialise an application. Repositories still receive an explicit dr
 
 ```ts
 // zmdb.config.ts
+import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 
 export default defineConfig({
   schema: ['src/**/*.schema.ts'],
-  dialect: 'postgres',
+  dialect: postgres,
 });
 ```
 
@@ -48,21 +49,21 @@ Under `--json`, the same path is the top-level `config` value. An explicit `--co
 
 ## Fields
 
-| Field               | Type                                            | Default            | Resolution                                       |
-| ------------------- | ----------------------------------------------- | ------------------ | ------------------------------------------------ |
-| `schema`            | `string \| readonly string[]`                   | required           | globs relative to the config file                |
-| `dialect`           | `Dialect`                                       | required           | six current SQL dialects                         |
-| `project`           | `string`                                        | `./tsconfig.json`  | relative to the config file                      |
-| `out`               | `string`                                        | `./migrations`     | relative to the config file                      |
-| `naming`            | `'snake_case' \| 'snake_case_plural'`           | absent             | resolved once for reflection                     |
-| `namingStrategy`    | `NamingStrategy`                                | absent             | custom strategy; wins over `naming`              |
-| `driver`            | `() => ToolingDriver \| Promise<ToolingDriver>` | absent             | structural callable boundary, checked separately |
-| `migrations.table`  | `string`                                        | `_zmdb_migrations` | —                                                |
-| `migrations.schema` | `string`                                        | dialect default    | PostgreSQL family only                           |
-| `introspect`        | `{ schemas?, include?, exclude? }`              | command-specific   | names/globs, not filesystem paths                |
-| `http.contracts`    | `string \| readonly string[]`                   | absent             | `<path>#<export>` from the project               |
-| `http.openApi.out`  | `string`                                        | required with HTTP | generated `.json`, relative to config            |
-| `http.client.out`   | `string`                                        | required with HTTP | generated `.ts`, relative to config              |
+| Field               | Type                                            | Default            | Resolution                                                |
+| ------------------- | ----------------------------------------------- | ------------------ | --------------------------------------------------------- |
+| `schema`            | `string \| readonly string[]`                   | required           | globs relative to the config file                         |
+| `dialect`           | `SqlDialect`                                    | required           | explicitly imported database-product object               |
+| `project`           | `string`                                        | `./tsconfig.json`  | relative to the config file                               |
+| `out`               | `string`                                        | `./migrations`     | relative to the config file                               |
+| `naming`            | `'snake_case' \| 'snake_case_plural'`           | absent             | resolved once for reflection                              |
+| `namingStrategy`    | `NamingStrategy`                                | absent             | custom strategy; wins over `naming`                       |
+| `driver`            | `() => ToolingDriver \| Promise<ToolingDriver>` | absent             | structural callable boundary with the same dialect object |
+| `migrations.table`  | `string`                                        | `_zmdb_migrations` | —                                                         |
+| `migrations.schema` | `string`                                        | dialect default    | PostgreSQL family only                                    |
+| `introspect`        | `{ schemas?, include?, exclude? }`              | command-specific   | names/globs, not filesystem paths                         |
+| `http.contracts`    | `string \| readonly string[]`                   | absent             | `<path>#<export>` from the project                        |
+| `http.openApi.out`  | `string`                                        | required with HTTP | generated `.json`, relative to config                     |
+| `http.client.out`   | `string`                                        | required with HTTP | generated `.ts`, relative to config                       |
 
 `loadConfig` also returns `resolvedNaming`: the selected built-in singleton, the custom `namingStrategy` by identity, or an empty identity strategy. Every database command passes that object into
 schema reflection. `@zmdb/compiler` project compilation and `zmdb/unplugin` discover the same config and pass the same value to the compiler APIs; the committed consumer fixtures exercise both routes
@@ -71,9 +72,12 @@ against byte-identical config files.
 Every glob must match at least one file, and every matched file must belong to the configured TypeScript project. A match outside the project is an error rather than a silently omitted table.
 
 ```ts
+import { postgres } from 'zmdb/postgres';
+import { defineConfig } from 'zmdb/config';
+
 export default defineConfig({
   schema: ['src/accounts.schema.ts', 'src/billing/**/*.schema.ts'],
-  dialect: 'postgres',
+  dialect: postgres,
   project: './tsconfig.build.json',
   out: './database/migrations',
   migrations: {
@@ -94,9 +98,12 @@ export default defineConfig({
 HTTP generation is explicit and inert:
 
 ```ts
+import { postgres } from 'zmdb/postgres';
+import { defineConfig } from 'zmdb/config';
+
 export default defineConfig({
   schema: './src/schema.ts',
-  dialect: 'postgres',
+  dialect: postgres,
   project: './tsconfig.json',
   http: {
     contracts: ['./src/accounts.contract.ts#ACCOUNTS_HTTP_CONTRACT', './src/billing.contract.ts#BILLING_HTTP_CONTRACT'],
@@ -153,17 +160,21 @@ errors also explain the `.js`-specifier case.
 
 Plain data is checked by a generated `@zmdb/aot-validator` validator. Errors name the field, including nested paths such as `introspect.include`.
 
-Functions cannot be validated as data. The loader therefore separates the two callable fields and checks their boundary explicitly:
+Functions and imported dialect objects cannot be validated as plain data. The loader separates those runtime boundaries and checks them explicitly:
 
+- `dialect` must be an imported `SqlDialect` object;
 - `driver` must be a function;
 - each present `namingStrategy.column`, `.table`, and `.index` member must be a function.
 
 The following example demonstrates callable-boundary validation and the custom strategy path:
 
 ```ts
+import { postgres } from 'zmdb/postgres';
+import { defineConfig } from 'zmdb/config';
+
 export default defineConfig({
   schema: 'src/**/*.schema.ts',
-  dialect: 'postgres',
+  dialect: postgres,
   driver: () => import('./src/database.js').then(module => module.driver),
   namingStrategy: {
     table: declared => declared.toLowerCase(),
@@ -174,8 +185,8 @@ export default defineConfig({
 
 When both `naming` and `namingStrategy` are present, the custom object wins. That choice is made while loading the config, not once per table or query.
 
-The driver is a thunk so the CLI can avoid opening a database for commands that only inspect declarations. `check` opens it only for the live-drift check; with no driver configured, that check is
-reported as skipped.
+The driver is a thunk so the CLI can avoid opening a database for commands that only inspect declarations. When a database command invokes it, the returned `ToolingDriver` must carry the same explicit
+dialect object as the config. `check` opens it only for the live-drift check; with no driver configured, that check is reported as skipped.
 
 ## Process-local cache
 

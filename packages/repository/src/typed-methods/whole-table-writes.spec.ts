@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { ValidationError } from '../index.js';
-import { ProductsRepo, recorder, TenantUsersRepo } from './fixtures.js';
+import { ProductsRepo, recorder, TenantUsersRepo } from './typed-methods.fixture.js';
 
 // #608 — a keyed write whose `WHERE` disappeared.
 //

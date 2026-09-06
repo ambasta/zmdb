@@ -5,7 +5,9 @@
 `SelectBuilder` has nine `EXISTS` methods — `whereExists`, `andWhereExists`, `orWhereExists` and the `NotExists` counterparts:
 
 ```ts
-const c = createQueryCompiler('postgres');
+import { postgres } from '@zmdb/postgres';
+
+const c = createQueryCompiler(postgres);
 
 const authorsWithPosts = c
   .selectFrom('users')

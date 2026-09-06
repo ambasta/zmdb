@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
+import { mysqlDialect, postgresDialect, sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { enableRlsDdl, createPolicyDdl, UnsupportedFeatureError } from './index.js';
 
 /** RLS is Postgres-only, so every other dialect must refuse by name rather than emit something. */
@@ -18,23 +19,23 @@ function expectRefused(dialect: string, emit: () => unknown) {
 
 describe('RLS DDL (#115)', () => {
   it('enables RLS on a table (pg)', () => {
-    expect(enableRlsDdl('documents', 'postgres')).toBe('ALTER TABLE "documents" ENABLE ROW LEVEL SECURITY');
+    expect(enableRlsDdl('documents', postgresDialect)).toBe('ALTER TABLE "documents" ENABLE ROW LEVEL SECURITY');
   });
 
   it('creates a policy (default command ALL)', () => {
     expect(
-      createPolicyDdl({ name: 'owner', table: 'documents', using: 'owner_id = current_user_id()' }, 'postgres'),
+      createPolicyDdl({ name: 'owner', table: 'documents', using: 'owner_id = current_user_id()' }, postgresDialect),
     ).toBe('CREATE POLICY "owner" ON "documents" FOR ALL USING (owner_id = current_user_id())');
   });
 
   it('creates a policy for a specific command', () => {
-    expect(createPolicyDdl({ name: 'sel', table: 't', using: 'a = 1', command: 'SELECT' }, 'postgres')).toBe(
+    expect(createPolicyDdl({ name: 'sel', table: 't', using: 'a = 1', command: 'SELECT' }, postgresDialect)).toBe(
       'CREATE POLICY "sel" ON "t" FOR SELECT USING (a = 1)',
     );
   });
 
   it('RLS on non-postgres throws', () => {
-    expectRefused('mysql', () => enableRlsDdl('t', 'mysql'));
-    expectRefused('sqlite', () => createPolicyDdl({ name: 'p', table: 't', using: 'x' }, 'sqlite'));
+    expectRefused('mysql', () => enableRlsDdl('t', mysqlDialect));
+    expectRefused('sqlite', () => createPolicyDdl({ name: 'p', table: 't', using: 'x' }, sqliteDialect));
   });
 });

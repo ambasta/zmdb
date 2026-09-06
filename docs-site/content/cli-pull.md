@@ -29,12 +29,13 @@ import { dirname, join } from 'node:path';
 
 import { emitDeclarations } from '@zmdb/migrations/declarations';
 import { createIntrospector } from '@zmdb/migrations/introspect';
+import { postgres } from '@zmdb/postgres';
 
-const live = await createIntrospector('postgres').snapshot(driver, {
+const live = await createIntrospector(postgres).snapshot(driver, {
   schemas: ['public'],
   exclude: ['audit_*'],
 });
-const emitted = await emitDeclarations(live, { dialect: 'postgres' });
+const emitted = await emitDeclarations(live, { dialect: postgres });
 
 const output = 'src/schema';
 for (const file of emitted.files) {
@@ -72,14 +73,15 @@ Generate the declarations, review every `TODO`, make any application-specific ed
 
 ```ts
 import { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
+import { postgres } from '@zmdb/postgres';
 import { snapshot } from 'zmdb/migrations';
 
 it('declarations match the live database', async () => {
-  const live = await createIntrospector('postgres').snapshot(driver, {
+  const live = await createIntrospector(postgres).snapshot(driver, {
     schemas: ['public'],
   });
   const declared = snapshot([schemaOf<User>(), schemaOf<Order>()]);
-  const report = detectDrift(live, declared, { dialect: 'postgres' });
+  const report = detectDrift(live, declared, { dialect: postgres });
 
   expect(report.clean, JSON.stringify(report, null, 2)).toBe(true);
 });

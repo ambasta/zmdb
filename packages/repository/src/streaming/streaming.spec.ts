@@ -1,10 +1,10 @@
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import type { CompiledQuery } from '@zmdb/query-compiler';
 import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema-core/ir';
 import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
-import { mssql } from '../../../mssql/src/index.js';
 import { BaseRepository, defineRepository, type Driver } from '../index.js';
+import { officialDialects, type OfficialDialectName } from '../testing/official-dialects.fixture.js';
 import { createTransactionalDb, type TxConnection } from '../transactions/index.js';
 
 // Tests freeze for #460, retired by #461 against repository/SPEC.md §1a.
@@ -121,6 +121,7 @@ type RecordingEvent =
  * consume-the-driver-stream-before-yielding, and omit cleanup on early exit.
  */
 class RecordingStreamingDriver implements Driver {
+  readonly dialect = officialDialects.postgres;
   readonly events: RecordingEvent[] = [];
 
   constructor(private readonly source: RowSource) {}
@@ -237,12 +238,13 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
       mssql: 'SELECT * FROM [stream_records] WHERE [id] = @p1',
       cockroach: 'SELECT * FROM "stream_records" WHERE "id" = $1',
       singlestore: 'SELECT * FROM `stream_records` WHERE `id` = ?',
-    } satisfies Record<Dialect, string>;
+    } satisfies Record<OfficialDialectName, string>;
 
-    for (const dialect of Object.keys(expected) as Dialect[]) {
+    for (const dialect of Object.keys(expected) as OfficialDialectName[]) {
       let observedQuery: CompiledQuery | undefined;
       let observedOptions: FrozenExecuteOptions | undefined;
       const driver: Driver = {
+        dialect: officialDialects[dialect],
         execute: () => Promise.resolve([]),
         stream(query, options) {
           observedQuery = query;
@@ -255,7 +257,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
 
       await collect(
         repositoryStream<StreamRecord>(
-          new StreamRecords(driver, dialect === 'mssql' ? mssql : dialect),
+          new StreamRecords(driver, officialDialects[dialect]),
           { id: 7 },
           { batchSize: 17 },
         ),
@@ -324,6 +326,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
   it('disposes an unstarted stream without opening a cursor', async () => {
     let opens = 0;
     const driver: Driver = {
+      dialect: officialDialects.postgres,
       execute: () => Promise.resolve([]),
       stream() {
         opens++;
@@ -435,6 +438,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     const gate = Promise.withResolvers<void>();
     let observed: FrozenExecuteOptions | undefined;
     const driver: Driver = {
+      dialect: officialDialects.postgres,
       async execute(_query: CompiledQuery, options?: FrozenExecuteOptions) {
         observed = options;
         await gate.promise;
@@ -463,6 +467,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     const events: string[] = [];
     let observedSignal: AbortSignal | undefined;
     const driver: Driver = {
+      dialect: officialDialects.postgres,
       execute(_query: CompiledQuery, options?: FrozenExecuteOptions) {
         events.push('execute');
         observedSignal = options?.signal;
@@ -496,6 +501,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
   // onQuery receives `{ buffered: true }`; the library does not write to stderr.
   it('buffers with a warning when the driver has no stream method', async () => {
     class ExecuteOnlyDriver implements Driver {
+      readonly dialect = officialDialects.postgres;
       readonly calls: CompiledQuery[] = [];
 
       execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]> {
@@ -515,7 +521,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
       StreamRecordSchema,
       driver,
       {
-        dialect: 'postgres',
+        dialect: officialDialects.postgres,
         onQuery(query: CompiledQuery, meta: QueryMeta) {
           observations.push({ query, meta });
         },
@@ -562,6 +568,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
 
   it('treats only a callable stream member as cursor capability', async () => {
     const driver: Driver = {
+      dialect: officialDialects.postgres,
       execute: () => Promise.resolve([{ id: 1, payload: 'buffered', at: ISO, seq: '7' }]),
       // @ts-expect-error — JavaScript adapters can still expose malformed
       // capability metadata; the runtime check must not call a non-function.
@@ -577,6 +584,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
   it('threads one AbortSignal through every repository read', async () => {
     const observed: (FrozenExecuteOptions | undefined)[] = [];
     const driver: Driver = {
+      dialect: officialDialects.postgres,
       execute(_query, options) {
         observed.push(options);
         return Promise.resolve([]);
@@ -614,6 +622,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     let calls = 0;
     let compiled = 0;
     const driver: Driver = {
+      dialect: officialDialects.postgres,
       execute() {
         calls++;
         return Promise.resolve([]);
@@ -623,7 +632,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
       StreamRecordSchema,
       driver,
       {
-        dialect: 'postgres',
+        dialect: officialDialects.postgres,
         onQuery() {
           compiled++;
         },
@@ -685,6 +694,7 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
     const connection = new StreamingConnection();
     const db = createTransactionalDb(connection);
     const parent = new StreamRecords({
+      dialect: officialDialects.postgres,
       execute: () => Promise.resolve([]),
     });
     let heldIterator: AsyncIterator<StreamRecord> | undefined;

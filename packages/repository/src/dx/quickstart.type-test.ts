@@ -7,6 +7,7 @@
 import type { CreateDTO, Entity, Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import { defineRepository, type Driver, type UpdatePatch } from '../index.js';
+import { sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { UserSchema, type Order, type User } from './fixtures.js';
 
 declare const driver: Driver;
@@ -15,7 +16,7 @@ declare const driver: Driver;
 // One call, and it takes the schema and the driver. There used to be a second wiring — the
 // same call with `relations: userRelations` — because populate keys came from that literal;
 // they come from `User`, so the two wirings were the same wiring.
-const users = defineRepository(UserSchema, driver, { dialect: 'sqlite' });
+const users = defineRepository(UserSchema, driver, { dialect: sqliteDialect });
 export type _Dx1 = Expect<Equal<Parameters<typeof users.create>[0], CreateDTO<User>>>;
 export type _Dx2 = Expect<Equal<Awaited<ReturnType<typeof users.create>>, Entity<User>>>;
 export type _Dx3 = Expect<Equal<Parameters<typeof users.update>[1], UpdatePatch<User>>>;

@@ -3,7 +3,7 @@ import { dirname, isAbsolute, join, normalize, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { AssertError } from '@zmdb/aot-validator/errors';
-import { TRAITS } from '@zmdb/query-compiler';
+import { isSqlDialect } from '@zmdb/query-compiler';
 import { isRecord } from '@zmdb/schema-core';
 import { resolveNaming, type NamingStrategy } from '@zmdb/schema-core/naming';
 
@@ -154,7 +154,7 @@ function validateConfig(input: unknown, configPath: string): ZmdbConfig {
     throw new Error(`Invalid config ${configPath}: expected an object`, { cause: input });
   }
 
-  const { driver, namingStrategy, ...dataInput } = input;
+  const { dialect, driver, namingStrategy, ...dataInput } = input;
   let data: ZmdbConfigData;
   try {
     data = zmdbAssertZmdbConfigData(dataInput);
@@ -170,6 +170,9 @@ function validateConfig(input: unknown, configPath: string): ZmdbConfig {
   if (driver !== undefined && !isDriverFactory(driver)) {
     throw new Error(`Invalid config ${configPath}: driver must be a function`);
   }
+  if (!isSqlDialect(dialect)) {
+    throw new Error(`Invalid config ${configPath}: dialect must be an imported SqlDialect object`);
+  }
   if (namingStrategy !== undefined && !isNamingStrategy(namingStrategy)) {
     throw new Error(
       `Invalid config ${configPath}: namingStrategy must be an object whose column, table and index members are functions`,
@@ -178,6 +181,7 @@ function validateConfig(input: unknown, configPath: string): ZmdbConfig {
 
   return {
     ...data,
+    dialect,
     ...(driver === undefined ? {} : { driver }),
     ...(namingStrategy === undefined ? {} : { namingStrategy }),
   };
@@ -192,12 +196,10 @@ async function resolveValidatedConfig(config: ZmdbConfig, configPath: string): P
 
   if (
     config.migrations?.schema !== undefined &&
-    config.dialect !== 'mssql' &&
-    TRAITS[config.dialect].family !== 'postgres'
+    config.dialect.family !== 'mssql' &&
+    config.dialect.family !== 'postgres'
   ) {
-    throw new Error(
-      `Invalid config ${configPath}: migrations.schema is supported only by PostgreSQL-family dialects and SQL Server, not ${config.dialect}`,
-    );
+    throw new Error(`Invalid config ${configPath}: migrations.schema is not supported by ${config.dialect.name}`);
   }
 
   let projectFiles: readonly string[];

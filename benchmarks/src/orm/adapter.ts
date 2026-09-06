@@ -5,6 +5,7 @@
 // DNF(not implemented) rather than faked. Anti-pattern cases are
 // DNF(anti-pattern).
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { sqlite } from '@zmdb/sqlite';
 
 import type { BenchResult } from '../results.js';
 
@@ -60,7 +61,7 @@ export function seed(engine: OrmEngine, customers = 50, ordersPerCustomer = 4): 
   }
 }
 
-const qc = createQueryCompiler('sqlite');
+const qc = createQueryCompiler(sqlite);
 
 // The supported query set (mirrors drizzle-benchmarks classes).
 export const zmdbQueries = {

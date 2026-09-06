@@ -10,7 +10,7 @@
 //
 // Everything here appends its own leading space and returns '' when it has
 // nothing to render, so callers concatenate unconditionally.
-import { dialectFamily, dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
+import { dialectName, dialectTraits, type DialectTarget } from './dialects/index.js';
 import { UnsupportedFeatureError } from './errors.js';
 import {
   DISTANCE_OPERATORS,
@@ -108,16 +108,8 @@ export const OP_MAP: Readonly<Record<string, string>> = Object.freeze(
  * would be parsed as parameters. Slash is absent, so block-comment openers
  * cannot be formed.
  */
-const UNMAPPED_OPERATOR_TOKEN = /^(?!.*--)[A-Za-z@<>=!~*&|?-]{1,4}$/;
-
 function isUnmappedOperatorToken(op: string, dialect: DialectTarget): boolean {
-  const traits = dialectTraits(dialect);
-  if (typeof dialect !== 'string') return traits.acceptsOperator(op);
-  if (op === '#>' || op === '#>>') return dialectFamily(dialect) === 'postgres';
-  if (!UNMAPPED_OPERATOR_TOKEN.test(op)) return false;
-  if (traits.placeholder === 'positional' && op.includes('?')) return false;
-  if (traits.placeholder === 'named' && op.includes('@')) return false;
-  return true;
+  return dialectTraits(dialect).acceptsOperator(op);
 }
 
 /**
@@ -141,7 +133,7 @@ export function isSubqueryTarget(value: unknown): value is { compile(): Compiled
  * Normalizes known operators to canonical SQL keywords and admits an unmapped
  * operator only when it is one bounded SQL token.
  */
-export function sqlOperator(op: string, dialect: DialectTarget = 'postgres'): string {
+export function sqlOperator(op: string, dialect: DialectTarget): string {
   const normalized = op.toLowerCase().trim();
   if (isDistanceOp(normalized) && !dialectTraits(dialect).vectorDistance) {
     throw new UnsupportedFeatureError(normalized, dialectName(dialect));
@@ -300,9 +292,8 @@ export function queryTelemetry(
   enabled: boolean,
 ): QueryTelemetry | undefined {
   if (!enabled) return undefined;
-  const family = dialectFamily(dialect);
   return Object.freeze({
-    system: family === 'postgres' ? 'postgresql' : family,
+    system: dialect.telemetrySystem,
     operation,
     collection: unaliasedTable(collection),
   });

@@ -5,7 +5,7 @@
 // migrations slices extracted, this gate still has two jobs while CLI remains:
 //
 // 1. turn #626's ownership policy, amended through the package extractions,
-//    #674, #621, #620, #651, and #755, into an executable,
+//    #674, #621, #620, #651, #755, and #675, into an executable,
 //    bijective inventory; and
 // 2. prevent the known runtime/generated-import violations from growing while
 //    the expected-failure tests freeze the zero-violation target.
@@ -104,12 +104,12 @@ const EXTRA_INVENTORY_PATHS = [
 const INVENTORY_EXTENSIONS = new Set(['.ts', '.js', '.json', '.proto']);
 const EXPECTED_OWNER_COUNTS = Object.freeze({
   compiler: 33,
-  migrations: 23,
+  migrations: 21,
   cli: 31,
   runtime: 30,
-  facade: 50,
+  facade: 53,
   'optional-integration': 0,
-  'test-only': 35,
+  'test-only': 38,
   obsolete: 0,
 });
 

@@ -1,3 +1,5 @@
+import { postgres } from '@zmdb/postgres';
+import { sqlite } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
 import { RELATION_KINDS, type ColumnIR, type SchemaIR } from '../ir/index.js';
@@ -123,7 +125,7 @@ describe('the relation vocabulary', () => {
 
 describe('compilePopulate', () => {
   it('compiles a to-one as an INNER JOIN on the resolved pair of columns', () => {
-    const q = compilePopulate(PostSchema.ir, 'author', 'postgres');
+    const q = compilePopulate(PostSchema.ir, 'author', postgres);
     expect(q.kind).toBe('join');
     expect(q.sql).toBe('SELECT * FROM "posts" INNER JOIN "users" ON "posts"."userId" = "users"."id"');
   });
@@ -132,31 +134,31 @@ describe('compilePopulate', () => {
     // The old signature took a `RelationMeta`, which named a target and an `fk` and left the
     // join to assume `target.id` — so this relation compiled to `users.userId = profiles.id`,
     // against a column `users` does not have.
-    const q = compilePopulate(UserSchema.ir, 'profile', 'postgres');
+    const q = compilePopulate(UserSchema.ir, 'profile', postgres);
     expect(q.sql).toBe('SELECT * FROM "users" INNER JOIN "profiles" ON "users"."id" = "profiles"."userId"');
   });
 
   it('compiles a to-many as a batched IN() select', () => {
-    const q = compilePopulate(UserSchema.ir, 'posts', 'postgres', [1, 2, 3]);
+    const q = compilePopulate(UserSchema.ir, 'posts', postgres, [1, 2, 3]);
     expect(q.kind).toBe('batched');
     expect(q.sql).toBe('SELECT * FROM "posts" WHERE "userId" IN ($1, $2, $3)');
     expect(q.parameters).toEqual([1, 2, 3]);
   });
 
   it('matches nothing for no parent keys, rather than every row', () => {
-    const q = compilePopulate(UserSchema.ir, 'posts', 'postgres', []);
+    const q = compilePopulate(UserSchema.ir, 'posts', postgres, []);
     expect(q.sql).toBe('SELECT * FROM "posts" WHERE 1 = 0');
     expect(q.parameters).toEqual([]);
   });
 
   it('drops duplicate and nullish parent keys', () => {
-    const q = compilePopulate(UserSchema.ir, 'posts', 'sqlite', [1, 1, null, 2, undefined]);
+    const q = compilePopulate(UserSchema.ir, 'posts', sqlite, [1, 1, null, 2, undefined]);
     expect(q.sql).toBe('SELECT * FROM "posts" WHERE "userId" IN (?, ?)');
     expect(q.parameters).toEqual([1, 2]);
   });
 
   it('applies the target filter when populating a to-one relation', () => {
-    const q = compilePopulate(PostSchema.ir, 'author', 'postgres', [], [{ col: 'users.tenantId', op: '=', value: 42 }]);
+    const q = compilePopulate(PostSchema.ir, 'author', postgres, [], [{ col: 'users.tenantId', op: '=', value: 42 }]);
 
     expect(q.kind).toBe('join');
     expect(q.sql).toBe(
@@ -169,7 +171,7 @@ describe('compilePopulate', () => {
     const q = compilePopulate(
       UserSchema.ir,
       'posts',
-      'postgres',
+      postgres,
       [1, 2],
       [{ col: 'posts.deletedAt', op: 'is null', value: undefined }],
     );
@@ -183,7 +185,7 @@ describe('compilePopulate', () => {
     const q = compilePopulate(
       PostSchema.ir,
       'author',
-      'postgres',
+      postgres,
       [],
       [
         { col: 'users.active', op: '=', value: true },
@@ -243,7 +245,7 @@ describe('compilePopulate', () => {
     const q = compilePopulate(
       users,
       'posts',
-      'postgres',
+      postgres,
       [1, 2],
       [{ col: 'blogPost.deletedAt', op: 'is null', value: undefined }],
       [users, posts],
@@ -295,8 +297,8 @@ describe('compilePopulate', () => {
       foreignKeys: [],
     };
 
-    const joined = compilePopulate(memberships, 'account', 'postgres', [], [], [memberships, accounts]);
-    const batched = compilePopulate(accounts, 'memberships', 'postgres', [['t1', 7]], [], [accounts, memberships]);
+    const joined = compilePopulate(memberships, 'account', postgres, [], [], [memberships, accounts]);
+    const batched = compilePopulate(accounts, 'memberships', postgres, [['t1', 7]], [], [accounts, memberships]);
 
     expect(joined.sql).toBe(
       'SELECT * FROM "member_rows" INNER JOIN "account_rows" ' +

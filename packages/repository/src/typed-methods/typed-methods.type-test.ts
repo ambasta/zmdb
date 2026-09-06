@@ -11,7 +11,7 @@ import type { CreateDTO, Entity, Equal, Expect, Mutual } from '@zmdb/schema-core
 import type { ListResult, WhereDTO } from '@zmdb/schema-core/dto';
 
 import type { UpdatePatch } from '../index.js';
-import type { User, Users } from './fixtures.js';
+import type { User, Users } from './typed-methods.fixture.js';
 
 declare const repo: Users;
 

@@ -5,11 +5,11 @@
 
 ## Issue #635 ownership exit
 
-`Driver`, `ExecuteOptions`, and `TransactionalDriver` remain structural contracts in `@zmdb/orm`. Concrete adapters move to `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql`. Their client peers and
-acceptance fixtures move with them. ORM does not import, probe, register, or re-export a concrete adapter.
+`Driver`, `ExecuteOptions`, and `TransactionalDriver` remain structural contracts in `@zmdb/repository`, exposed through `zmdb/orm`. Concrete adapters live in the six database packages with their
+client peers and acceptance fixtures. The generic repository does not import, probe, register, or re-export a concrete adapter.
 
-Epic #209. Ships official `Driver` implementations so users don't hand-write one. The `Driver` interface itself is `../../SPEC.md` §1 — one required method, `execute`, plus an optional `dialect` and
-or temporary built-in name and an optional `stream` (§1a there). Adapters are thin, dependency-injected wrappers — the repository still never opens connections itself.
+Epic #209 shipped official `Driver` implementations so users do not hand-write one. The `Driver` interface itself is `../../SPEC.md` §1 — a required `SqlDialect` object and `execute`, plus optional
+`stream` (§1a there). Adapters are thin, dependency-injected wrappers — the repository still never opens connections itself.
 
 ## API
 
@@ -146,10 +146,10 @@ rather than half-applying it.
 - SQL Server driver: package-owned unit tests record the `p1…pn` bindings, recordset return and transaction-owned requests. Package live and packed-consumer lanes run DDL, CRUD, migrations,
   introspection and transactional rollback through SQL Server. Ordinary local runs visibly skip without `ZMDB_MSSQL_URL`; mandatory qualification sets `ZMDB_MSSQL_REQUIRED=1`.
 
-## Database vertical target (issue #666)
+## Database vertical result (issue #666)
 
-The historical sections above freeze adapter behavior that originated in the repository. SQLite completed extraction in #669, PostgreSQL in #670, and SQL Server in #672. Issue #668 implemented the
-runtime object seam while preserving optional built-in names and the separate dialect argument for compatibility. The generic repository now owns only the vendor-neutral driver protocols.
+The historical sections above freeze adapter behavior that originated in the repository. SQLite completed extraction in #669, PostgreSQL in #670, and SQL Server in #672. The generic repository now
+owns only the vendor-neutral driver protocols, and every driver carries its required explicit dialect object.
 
 ### Generic repository protocol
 
@@ -189,13 +189,12 @@ sqlite.introspector === sqliteIntrospector;
 The other packages use the same naming pattern: `postgres` / `postgresDriver` / `postgresIntrospector` / `postgresVertical`, and correspondingly for MySQL, MSSQL, Cockroach and SingleStore. The short
 package-named value is the normal compiler/config import; the `*Vertical` value proves the complete package contract and supports advanced composition.
 
-At extraction completion, a repository constructor receives a `Driver<Name>` and no separate dialect argument. The #668 object path already constructs its compiler from the selected driver object,
-reads limits/retries/returning support from that same frozen object, and preserves it across `withTransaction`, loaders and caches. The separate argument, built-in names and Postgres fallback remain
-temporary compatibility surfaces. A transactional callback driver cannot change the selected dialect.
+A repository constructor receives a `Driver<Name>`, constructs its compiler from `driver.dialect`, reads limits/retries/returning support from that same frozen object, and preserves it across
+`withTransaction`, loaders and caches. There is no string-name or Postgres fallback. A transactional callback driver cannot change the selected dialect.
 
 ### Adapter ownership and dependencies
 
-| Current implementation                | Target owner                                                 | Client policy                                                                         |
+| Historical implementation             | Current owner                                                | Client policy                                                                         |
 | ------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `sqlite.ts`                           | `@zmdb/sqlite` Node-specific export                          | `node:sqlite`; no third-party dependency                                              |
 | `pg.ts`                               | `@zmdb/postgres`                                             | structural `pg` client; `pg` optional peer and development dependency                 |

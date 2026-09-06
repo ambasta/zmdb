@@ -7,6 +7,7 @@ import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { BaseRepository, defineRepository, type Driver, type FilterDef } from './index.js';
+import { postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 export interface Category extends Table<'categories'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -68,6 +69,7 @@ function recordingDriver(
 ): Driver & { queries: { text: string; parameters: readonly unknown[] }[] } {
   const queries: { text: string; parameters: readonly unknown[] }[] = [];
   return {
+    dialect: postgresDialect,
     queries,
     execute: vi.fn(async q => {
       queries.push({ text: q.text, parameters: q.parameters });
@@ -99,7 +101,7 @@ function onlyRow<T>(rows: readonly T[]): T {
 describe('Relation-Aware Repository Aggregations', () => {
   it('builder joinRelation auto-resolves join metadata without manual ON clauses in a single roundtrip', async () => {
     const driver = recordingDriver([{ 'category.name': 'Electronics', count: 2, sum: 1500 }]);
-    const repo = new ProductRepository(driver, 'postgres');
+    const repo = new ProductRepository(driver, postgresDialect);
 
     const rows = await repo.aggregate(agg =>
       agg
@@ -116,7 +118,7 @@ describe('Relation-Aware Repository Aggregations', () => {
 
   it('AggregateSpec auto-resolves joins from relation references or explicit spec.joins in a single roundtrip', async () => {
     const driver = recordingDriver([{ 'category.name': 'Books', count: 1, sum: 20 }]);
-    const repo = new ProductRepository(driver, 'sqlite');
+    const repo = new ProductRepository(driver, sqliteDialect);
 
     const spec: AggregateSpec<Product> = {
       joins: ['category'],
@@ -135,7 +137,7 @@ describe('Relation-Aware Repository Aggregations', () => {
 
   it('conjoins every composite relation pair in one aggregate join', async () => {
     const driver = recordingDriver([{ count: 1 }]);
-    const repo = new MembershipRepository(driver, 'postgres');
+    const repo = new MembershipRepository(driver, postgresDialect);
 
     await repo.aggregate(aggregate => aggregate.joinRelation('account').count('memberships.id', 'count'));
 
@@ -150,7 +152,7 @@ describe('Relation-Aware Repository Aggregations', () => {
 
   it('throws a descriptive error when referencing an undeclared relation', async () => {
     const driver = recordingDriver();
-    const repo = new ProductRepository(driver, 'postgres');
+    const repo = new ProductRepository(driver, postgresDialect);
 
     await expect(repo.aggregate(agg => agg.joinRelation('nonExistentRelation'))).rejects.toThrow(
       'unknown relation "nonExistentRelation" on products',
@@ -182,7 +184,7 @@ describe('Relation-Aware Repository Aggregations', () => {
           (103, 'Novel', 2, 20);
       `);
 
-      repo = defineRepository(ProductSchema, sqliteDriver(db), { dialect: 'sqlite' });
+      repo = defineRepository(ProductSchema, sqliteDriver(db), { dialect: sqliteDialect });
     });
 
     it('summarizes child metrics grouped by parent attributes in a single SQLite query', async () => {

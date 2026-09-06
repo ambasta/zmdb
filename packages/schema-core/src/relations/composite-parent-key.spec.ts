@@ -1,5 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
+import { mysql } from '@zmdb/mysql';
+import { postgres } from '@zmdb/postgres';
+import { sqlite } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
 import type { SchemaIR } from '../ir/index.js';
@@ -214,7 +217,7 @@ describe('populate over a composite key (relations/SPEC.md 2.1)', () => {
   // — one equality, and its left side is a quoted identifier with a comma in it, which no dialect
   // has a column named.
   it('conjoins every pair in the ON clause of a to-one join', () => {
-    expect(compilePopulate(posts, 'authorBoth', 'postgres')).toEqual({
+    expect(compilePopulate(posts, 'authorBoth', postgres)).toEqual({
       kind: 'join',
       sql:
         'SELECT * FROM "posts" INNER JOIN "users" ON "posts"."tenantId" = "users"."tenantId" ' +
@@ -233,7 +236,7 @@ describe('populate over a composite key (relations/SPEC.md 2.1)', () => {
   // compares a column against an array.
   it('batches a to-many populate over a composite key with a tuple IN', () => {
     expect(
-      compilePopulate(users, 'postsBoth', 'postgres', [
+      compilePopulate(users, 'postsBoth', postgres, [
         ['t1', 1],
         ['t1', 2],
       ]),
@@ -251,10 +254,10 @@ describe('populate over a composite key (relations/SPEC.md 2.1)', () => {
   //   mysql   SELECT * FROM `posts` WHERE `userId` IN (?)      parameters [["t1",1]]
   //   sqlite  SELECT * FROM "posts" WHERE "userId" IN (?)      parameters [["t1",1]]
   it('emits the same tuple IN on mysql and sqlite', () => {
-    expect(compilePopulate(users, 'postsBoth', 'mysql', [['t1', 1]]).sql).toBe(
+    expect(compilePopulate(users, 'postsBoth', mysql, [['t1', 1]]).sql).toBe(
       'SELECT * FROM `posts` WHERE (`tenantId`, `userId`) IN ((?, ?))',
     );
-    expect(compilePopulate(users, 'postsBoth', 'sqlite', [['t1', 1]]).sql).toBe(
+    expect(compilePopulate(users, 'postsBoth', sqlite, [['t1', 1]]).sql).toBe(
       'SELECT * FROM "posts" WHERE ("tenantId", "userId") IN ((?, ?))',
     );
   });
@@ -269,7 +272,7 @@ describe('populate over a composite key (relations/SPEC.md 2.1)', () => {
           (20, 't1', 2),
           (30, 't2', 1);
       `);
-      const query = compilePopulate(users, 'postsBoth', 'sqlite', [['t1', 1]]);
+      const query = compilePopulate(users, 'postsBoth', sqlite, [['t1', 1]]);
       const tenantId = query.parameters[0];
       const userId = query.parameters[1];
       if (typeof tenantId !== 'string' || typeof userId !== 'number') {
@@ -285,7 +288,7 @@ describe('populate over a composite key (relations/SPEC.md 2.1)', () => {
   // MySQL, and not a skipped query, which would leave the relation unset rather than empty. Green
   // today and §2.1 keeps it verbatim.
   it('still emits WHERE 1 = 0 for an empty batch', () => {
-    expect(compilePopulate(users, 'postsBoth', 'postgres', [])).toEqual({
+    expect(compilePopulate(users, 'postsBoth', postgres, [])).toEqual({
       kind: 'batched',
       sql: 'SELECT * FROM "posts" WHERE 1 = 0',
       parameters: [],

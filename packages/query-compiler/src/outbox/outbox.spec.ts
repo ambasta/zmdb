@@ -9,10 +9,18 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, expect, it } from 'vitest';
 
-import { mssql } from '../../../mssql/src/index.js';
 import { createQueryCompiler, quoteIdentifier } from '../index.js';
-import type { CompiledQuery, Dialect, DialectTarget } from '../index.js';
+import type { CompiledQuery, DialectTarget } from '../index.js';
 import { createIndexDdl } from '../schema-objects/index.js';
+import {
+  cockroachDialect,
+  mysqlDialect,
+  officialDialects,
+  postgresDialect,
+  singlestoreDialect,
+  sqliteDialect,
+  type OfficialDialectName,
+} from '../testing/official-dialects.fixture.js';
 import {
   OUTBOX_TABLE,
   outboxCandidatesQuery,
@@ -30,7 +38,7 @@ import {
 // ---------------------------------------------------------------------------
 // fixtures
 // ---------------------------------------------------------------------------
-const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'];
+const DIALECTS: readonly OfficialDialectName[] = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'];
 
 const EPOCH = new Date(0);
 const NOW = new Date('2026-06-01T00:00:00.000Z');
@@ -40,14 +48,14 @@ const CREATED_AT = new Date('2026-01-01T00:00:00.000Z');
 
 const PENDING: OutboxStatus = 'pending';
 
-function target(dialect: Dialect): DialectTarget {
-  return dialect === 'mssql' ? mssql : dialect;
+function target(dialect: OfficialDialectName): DialectTarget {
+  return officialDialects[dialect];
 }
 
 // The three claim statements of §4.2, hand-built from the shipped builders. This is what the
 // frozen helpers have to produce, and having it here twice — once as a golden string, once as a
 // runnable protocol — is the point: the strings pin the SQL and the protocol pins the meaning.
-function candidatesByHand(dialect: Dialect, now: Date, batch: number): CompiledQuery {
+function candidatesByHand(dialect: OfficialDialectName, now: Date, batch: number): CompiledQuery {
   return (
     createQueryCompiler(target(dialect))
       .selectFrom(OUTBOX_TABLE)
@@ -63,7 +71,7 @@ function candidatesByHand(dialect: Dialect, now: Date, batch: number): CompiledQ
   );
 }
 
-function claimByHand(dialect: Dialect, now: Date, token: string, leaseUntil: Date, ids: readonly string[]) {
+function claimByHand(dialect: OfficialDialectName, now: Date, token: string, leaseUntil: Date, ids: readonly string[]) {
   return createQueryCompiler(target(dialect))
     .updateTable(OUTBOX_TABLE)
     .set({ lease_owner: token, lease_until: leaseUntil })
@@ -73,7 +81,7 @@ function claimByHand(dialect: Dialect, now: Date, token: string, leaseUntil: Dat
     .compile();
 }
 
-function readBackByHand(dialect: Dialect, token: string): CompiledQuery {
+function readBackByHand(dialect: OfficialDialectName, token: string): CompiledQuery {
   return createQueryCompiler(target(dialect))
     .selectFrom(OUTBOX_TABLE)
     .select(['id', 'topic', 'payload', 'attempts'])
@@ -133,7 +141,7 @@ function seedPending(db: DatabaseSync, ids: readonly string[]): void {
   const run = sink(db);
   ids.forEach((id, i) => {
     run(
-      createQueryCompiler('sqlite')
+      createQueryCompiler(sqliteDialect)
         .insertInto(OUTBOX_TABLE)
         .values({
           id,
@@ -154,21 +162,25 @@ function readRow(db: DatabaseSync, id: string): Record<string, unknown> {
 
 describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
   it('uses each dialect timestamp type and creates the pending index', () => {
-    expect(outboxTableDdl('postgres')).toContain('"created_at" TIMESTAMPTZ');
-    expect(outboxTableDdl('mysql')).toContain('`id` VARCHAR(36) PRIMARY KEY');
-    expect(outboxTableDdl('mysql')).toContain('`status` VARCHAR(16)');
-    expect(outboxTableDdl('mysql')).toContain('`lease_owner` VARCHAR(36)');
-    expect(outboxTableDdl('mysql')).toContain('`created_at` DATETIME(3)');
-    expect(outboxTableDdl('sqlite')).toContain('"created_at" TEXT');
-    expect(outboxTableDdl('sqlite')).toContain(
+    expect(outboxTableDdl(postgresDialect)).toContain('"created_at" TIMESTAMPTZ');
+    expect(outboxTableDdl(mysqlDialect)).toContain('`id` VARCHAR(36) PRIMARY KEY');
+    expect(outboxTableDdl(mysqlDialect)).toContain('`status` VARCHAR(16)');
+    expect(outboxTableDdl(mysqlDialect)).toContain('`lease_owner` VARCHAR(36)');
+    expect(outboxTableDdl(mysqlDialect)).toContain('`created_at` DATETIME(3)');
+    expect(outboxTableDdl(sqliteDialect)).toContain('"created_at" TEXT');
+    expect(outboxTableDdl(sqliteDialect)).toContain(
       `"created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
     );
-    expect(outboxTableDdl(mssql)).toContain('[id] NVARCHAR(36) PRIMARY KEY');
-    expect(outboxTableDdl(mssql)).toContain('[created_at] DATETIMEOFFSET(3) NOT NULL DEFAULT SYSDATETIMEOFFSET()');
-    expect(outboxTableDdl('cockroach')).toContain('"attempts" INT4 NOT NULL DEFAULT 0');
-    expect(outboxTableDdl('singlestore')).toMatch(/^CREATE ROWSTORE TABLE `zmdb_outbox`/);
-    expect(outboxTableDdl('singlestore')).toContain('`created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)');
-    expect(outboxTableDdl('singlestore')).toContain(
+    expect(outboxTableDdl(officialDialects.mssql)).toContain('[id] NVARCHAR(36) PRIMARY KEY');
+    expect(outboxTableDdl(officialDialects.mssql)).toContain(
+      '[created_at] DATETIMEOFFSET(3) NOT NULL DEFAULT SYSDATETIMEOFFSET()',
+    );
+    expect(outboxTableDdl(cockroachDialect)).toContain('"attempts" INT4 NOT NULL DEFAULT 0');
+    expect(outboxTableDdl(singlestoreDialect)).toMatch(/^CREATE ROWSTORE TABLE `zmdb_outbox`/);
+    expect(outboxTableDdl(singlestoreDialect)).toContain(
+      '`created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)',
+    );
+    expect(outboxTableDdl(singlestoreDialect)).toContain(
       "`lease_until` DATETIME(6) NOT NULL DEFAULT '1970-01-01 00:00:00.000000'",
     );
     for (const dialect of DIALECTS) {
@@ -182,7 +194,7 @@ describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
 
   it('applies as a real sqlite migration with defaults and the partial index', () => {
     const db = new DatabaseSync(':memory:');
-    const migration = outboxMigration(1, 'sqlite');
+    const migration = outboxMigration(1, sqliteDialect);
     db.exec(migration.up);
     db.prepare(`INSERT INTO ${OUTBOX_TABLE} (id, topic, payload) VALUES (?, ?, ?)`).run('r1', 't', '{}');
 
@@ -203,8 +215,8 @@ describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
 
   it('uses the pending index for the sqlite candidate query', () => {
     const db = new DatabaseSync(':memory:');
-    db.exec(outboxMigration(1, 'sqlite').up);
-    const query = outboxCandidatesQuery('sqlite', { now: NOW, batch: 100 });
+    db.exec(outboxMigration(1, sqliteDialect).up);
+    const query = outboxCandidatesQuery(sqliteDialect, { now: NOW, batch: 100 });
     const plan = db
       .prepare(`EXPLAIN QUERY PLAN ${query.text}`)
       .all(...query.parameters.map(bindable)) as readonly Record<string, unknown>[];
@@ -218,14 +230,14 @@ describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
 // ===========================================================================
 describe('outbox: the pending index (#593, SPEC §3, §9 item 8)', () => {
   it('the pending index is partial on postgres', () => {
-    expect(outboxPendingIndexDdl('postgres')).toBe(
+    expect(outboxPendingIndexDdl(postgresDialect)).toBe(
       'CREATE INDEX "zmdb_outbox_pending" ON "zmdb_outbox" ("status", "lease_until", "created_at") ' +
         "WHERE status = 'pending'",
     );
   });
 
   it('the pending index is partial on sqlite', () => {
-    expect(outboxPendingIndexDdl('sqlite')).toBe(
+    expect(outboxPendingIndexDdl(sqliteDialect)).toBe(
       'CREATE INDEX "zmdb_outbox_pending" ON "zmdb_outbox" ("status", "lease_until", "created_at") ' +
         "WHERE status = 'pending'",
     );
@@ -241,19 +253,16 @@ describe('outbox: the pending index (#593, SPEC §3, §9 item 8)', () => {
     // which is a syntax error on MySQL. SPEC §3 asserts "On MySQL the `where` is dropped and
     // the same index is created in full"; that is not what the shipped emitter does. See the
     // green companion below, and NOTES.md.
-    expect(outboxPendingIndexDdl('mysql')).toBe(
+    expect(outboxPendingIndexDdl(mysqlDialect)).toBe(
       'CREATE INDEX `zmdb_outbox_pending` ON `zmdb_outbox` (`status`, `lease_until`, `created_at`)',
     );
-    expect(outboxPendingIndexDdl('singlestore')).toBe(
+    expect(outboxPendingIndexDdl(singlestoreDialect)).toBe(
       'CREATE INDEX `zmdb_outbox_pending` ON `zmdb_outbox` (`status`, `lease_until`, `created_at`)',
     );
   });
 
-  it('createIndexDdl does not drop a partial predicate on mysql today', () => {
-    // The defect SPEC §3 assumes away, pinned so the `it.fails` above cannot be closed by
-    // asserting the wrong thing. Whoever implements `outboxPendingIndexDdl` either guards the
-    // dialect there or fixes `createIndexDdl` and deletes this test.
-    expect(
+  it('createIndexDdl refuses a partial predicate on mysql', () => {
+    expect(() =>
       createIndexDdl(
         {
           name: 'zmdb_outbox_pending',
@@ -261,12 +270,9 @@ describe('outbox: the pending index (#593, SPEC §3, §9 item 8)', () => {
           columns: ['status', 'lease_until', 'created_at'],
           where: "status = 'pending'",
         },
-        'mysql',
+        mysqlDialect,
       ),
-    ).toBe(
-      'CREATE INDEX `zmdb_outbox_pending` ON `zmdb_outbox` (`status`, `lease_until`, `created_at`) ' +
-        "WHERE status = 'pending'",
-    );
+    ).toThrow('mysql does not support the partial index "zmdb_outbox_pending"');
   });
 
   it('status leads the index, so the mysql full form still seeks to the pending rows', () => {
@@ -280,7 +286,7 @@ describe('outbox: the pending index (#593, SPEC §3, §9 item 8)', () => {
         columns: ['status', 'lease_until', 'created_at'],
         where: "status = 'pending'",
       },
-      'postgres',
+      postgresDialect,
     );
     expect(ddl.indexOf('"status"')).toBeLessThan(ddl.indexOf('"created_at"'));
   });
@@ -293,17 +299,17 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   it('the candidate query is the same three-clause select on every dialect', () => {
     // The expected text is what the shipped builders produce for §4.2 statement 1 — note that
     // the literals in SPEC §4.2 are hand-written prose: the real statement binds them.
-    expect(outboxCandidatesQuery('postgres', { now: NOW, batch: 100 })).toEqual({
+    expect(outboxCandidatesQuery(postgresDialect, { now: NOW, batch: 100 })).toEqual({
       text:
         'SELECT "id" FROM "zmdb_outbox" WHERE "status" = $1 AND "lease_until" < $2 ' +
         'ORDER BY "created_at" ASC LIMIT 100',
       parameters: [PENDING, NOW],
     });
-    expect(outboxCandidatesQuery('mysql', { now: NOW, batch: 100 }).text).toBe(
+    expect(outboxCandidatesQuery(mysqlDialect, { now: NOW, batch: 100 }).text).toBe(
       'SELECT `id` FROM `zmdb_outbox` WHERE `status` = ? AND `lease_until` < ? ' +
         'ORDER BY `created_at` ASC LIMIT 100',
     );
-    expect(outboxCandidatesQuery('sqlite', { now: NOW, batch: 100 }).text).toBe(
+    expect(outboxCandidatesQuery(sqliteDialect, { now: NOW, batch: 100 }).text).toBe(
       'SELECT "id" FROM "zmdb_outbox" WHERE "status" = ? AND "lease_until" < ? ' +
         'ORDER BY "created_at" ASC LIMIT 100',
     );
@@ -312,7 +318,9 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   it('the claim statement is one conditional UPDATE with the candidate ids bound in', () => {
     // `set()` values are pushed before the where parameters (../index.ts:323-329), which is why
     // the token and the lease take $1 and $2 rather than the last two slots.
-    expect(outboxClaimQuery('postgres', { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['a', 'b'] })).toEqual({
+    expect(
+      outboxClaimQuery(postgresDialect, { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['a', 'b'] }),
+    ).toEqual({
       text:
         'UPDATE "zmdb_outbox" SET "lease_owner" = $1, "lease_until" = $2 ' +
         'WHERE "status" = $3 AND "lease_until" < $4 AND "id" IN ($5, $6)',
@@ -321,7 +329,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   });
 
   it('the read-back selects by lease owner and is what says which rows were won', () => {
-    expect(outboxReadBackQuery('postgres', { token: 'tok' })).toEqual({
+    expect(outboxReadBackQuery(postgresDialect, { token: 'tok' })).toEqual({
       text: 'SELECT "id", "topic", "payload", "attempts" FROM "zmdb_outbox" WHERE "lease_owner" = $1',
       parameters: ['tok'],
     });
@@ -331,15 +339,15 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     // SPEC §4.3: without `AND "lease_owner" = :token` a dispatcher whose lease expired mid-publish
     // would still write, which loses the `attempts` count.
     const marks = [
-      outboxMarkDeliveredQuery('postgres', { id: 'r1', token: 'tok', deliveredAt: NOW, attempts: 1 }),
-      outboxMarkRetryQuery('postgres', {
+      outboxMarkDeliveredQuery(postgresDialect, { id: 'r1', token: 'tok', deliveredAt: NOW, attempts: 1 }),
+      outboxMarkRetryQuery(postgresDialect, {
         id: 'r1',
         token: 'tok',
         attempts: 1,
         lastError: 'boom',
         leaseUntil: LEASE_UNTIL,
       }),
-      outboxMarkDeadQuery('postgres', { id: 'r1', token: 'tok', attempts: 10, lastError: 'boom' }),
+      outboxMarkDeadQuery(postgresDialect, { id: 'r1', token: 'tok', attempts: 10, lastError: 'boom' }),
     ];
     for (const mark of marks) {
       expect(mark.text).toContain('AND "lease_owner" = ');
@@ -348,7 +356,9 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   });
 
   it('the delivered mark sets status, deliveredAt and an incremented attempts', () => {
-    expect(outboxMarkDeliveredQuery('postgres', { id: 'r1', token: 'tok', deliveredAt: NOW, attempts: 1 })).toEqual({
+    expect(
+      outboxMarkDeliveredQuery(postgresDialect, { id: 'r1', token: 'tok', deliveredAt: NOW, attempts: 1 }),
+    ).toEqual({
       text:
         'UPDATE "zmdb_outbox" SET "status" = $1, "delivered_at" = $2, "attempts" = $3 ' +
         'WHERE "id" = $4 AND "lease_owner" = $5',
@@ -359,7 +369,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   it('the retry mark pushes leaseUntil into the future and leaves status pending', () => {
     // SPEC §5: the backoff and the lease are the same column, so a retried row is invisible for
     // exactly the backoff using the ordered comparison the candidate query already has.
-    const q = outboxMarkRetryQuery('postgres', {
+    const q = outboxMarkRetryQuery(postgresDialect, {
       id: 'r1',
       token: 'tok',
       attempts: 1,
@@ -374,7 +384,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
   });
 
   it('the dead mark is the terminal state and sets no lease', () => {
-    const q = outboxMarkDeadQuery('postgres', { id: 'r1', token: 'tok', attempts: 10, lastError: 'boom' });
+    const q = outboxMarkDeadQuery(postgresDialect, { id: 'r1', token: 'tok', attempts: 10, lastError: 'boom' });
     expect(q.text).toBe(
       'UPDATE "zmdb_outbox" SET "status" = $1, "attempts" = $2, "last_error" = $3 ' +
         'WHERE "id" = $4 AND "lease_owner" = $5',
@@ -394,7 +404,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
 
   it('the explicit `is null` operator emits no bound parameter', () => {
     expect(
-      createQueryCompiler('postgres')
+      createQueryCompiler(postgresDialect)
         .selectFrom(OUTBOX_TABLE)
         .select(['id'])
         .where('deliveredAt', 'is null', null)
@@ -426,7 +436,7 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
 
   it('refuses RETURNING on mysql instead of emitting SQL the server rejects', () => {
     expect(() =>
-      createQueryCompiler('mysql')
+      createQueryCompiler(mysqlDialect)
         .updateTable(OUTBOX_TABLE)
         .set({ status: 'delivered' })
         .where('id', '=', 'r1')
@@ -459,16 +469,16 @@ describe('outbox: claiming, against a real sqlite database (#593, SPEC §4.2, §
     seedPending(db, ['r1']);
     const run = sink(db);
 
-    const candidatesA = run(outboxCandidatesQuery('sqlite', { now: NOW, batch: 100 })).map(r => String(r['id']));
-    const candidatesB = run(outboxCandidatesQuery('sqlite', { now: NOW, batch: 100 })).map(r => String(r['id']));
+    const candidatesA = run(outboxCandidatesQuery(sqliteDialect, { now: NOW, batch: 100 })).map(r => String(r['id']));
+    const candidatesB = run(outboxCandidatesQuery(sqliteDialect, { now: NOW, batch: 100 })).map(r => String(r['id']));
     expect(candidatesA).toEqual(['r1']);
     expect(candidatesB).toEqual(['r1']);
 
-    run(outboxClaimQuery('sqlite', { now: NOW, token: 'token-A', leaseUntil: LEASE_UNTIL, ids: candidatesA }));
-    run(outboxClaimQuery('sqlite', { now: NOW, token: 'token-B', leaseUntil: LEASE_UNTIL, ids: candidatesB }));
+    run(outboxClaimQuery(sqliteDialect, { now: NOW, token: 'token-A', leaseUntil: LEASE_UNTIL, ids: candidatesA }));
+    run(outboxClaimQuery(sqliteDialect, { now: NOW, token: 'token-B', leaseUntil: LEASE_UNTIL, ids: candidatesB }));
 
-    expect(run(outboxReadBackQuery('sqlite', { token: 'token-A' })).map(r => r['id'])).toEqual(['r1']);
-    expect(run(outboxReadBackQuery('sqlite', { token: 'token-B' }))).toEqual([]);
+    expect(run(outboxReadBackQuery(sqliteDialect, { token: 'token-A' })).map(r => r['id'])).toEqual(['r1']);
+    expect(run(outboxReadBackQuery(sqliteDialect, { token: 'token-B' }))).toEqual([]);
   });
 
   it('a lapsed lease is reclaimable', () => {
@@ -478,13 +488,13 @@ describe('outbox: claiming, against a real sqlite database (#593, SPEC §4.2, §
     seedPending(db, ['r1']);
     const run = sink(db);
 
-    run(outboxClaimQuery('sqlite', { now: NOW, token: 'token-A', leaseUntil: LEASE_UNTIL, ids: ['r1'] }));
-    expect(run(outboxCandidatesQuery('sqlite', { now: NOW, batch: 100 }))).toEqual([]);
+    run(outboxClaimQuery(sqliteDialect, { now: NOW, token: 'token-A', leaseUntil: LEASE_UNTIL, ids: ['r1'] }));
+    expect(run(outboxCandidatesQuery(sqliteDialect, { now: NOW, batch: 100 }))).toEqual([]);
 
-    expect(run(outboxCandidatesQuery('sqlite', { now: LAPSED, batch: 100 })).map(r => r['id'])).toEqual(['r1']);
-    run(outboxClaimQuery('sqlite', { now: LAPSED, token: 'token-C', leaseUntil: LAPSED, ids: ['r1'] }));
-    expect(run(outboxReadBackQuery('sqlite', { token: 'token-C' })).map(r => r['id'])).toEqual(['r1']);
-    expect(run(outboxReadBackQuery('sqlite', { token: 'token-A' }))).toEqual([]);
+    expect(run(outboxCandidatesQuery(sqliteDialect, { now: LAPSED, batch: 100 })).map(r => r['id'])).toEqual(['r1']);
+    run(outboxClaimQuery(sqliteDialect, { now: LAPSED, token: 'token-C', leaseUntil: LAPSED, ids: ['r1'] }));
+    expect(run(outboxReadBackQuery(sqliteDialect, { token: 'token-C' })).map(r => r['id'])).toEqual(['r1']);
+    expect(run(outboxReadBackQuery(sqliteDialect, { token: 'token-A' }))).toEqual([]);
   });
 
   it('a mark whose lease was stolen writes nothing', () => {
@@ -494,10 +504,10 @@ describe('outbox: claiming, against a real sqlite database (#593, SPEC §4.2, §
     seedPending(db, ['r1']);
     const run = sink(db);
 
-    run(outboxClaimQuery('sqlite', { now: NOW, token: 'token-A', leaseUntil: LEASE_UNTIL, ids: ['r1'] }));
-    run(outboxClaimQuery('sqlite', { now: LAPSED, token: 'token-C', leaseUntil: LAPSED, ids: ['r1'] }));
+    run(outboxClaimQuery(sqliteDialect, { now: NOW, token: 'token-A', leaseUntil: LEASE_UNTIL, ids: ['r1'] }));
+    run(outboxClaimQuery(sqliteDialect, { now: LAPSED, token: 'token-C', leaseUntil: LAPSED, ids: ['r1'] }));
 
-    run(outboxMarkDeliveredQuery('sqlite', { id: 'r1', token: 'token-A', deliveredAt: LAPSED, attempts: 1 }));
+    run(outboxMarkDeliveredQuery(sqliteDialect, { id: 'r1', token: 'token-A', deliveredAt: LAPSED, attempts: 1 }));
     const row = readRow(db, 'r1');
     expect(row['status']).toBe('pending');
     expect(row['attempts']).toBe(0);
@@ -511,10 +521,10 @@ describe('outbox: claiming, against a real sqlite database (#593, SPEC §4.2, §
     seedPending(db, ['r1', 'r2']);
     const run = sink(db);
 
-    run(outboxClaimQuery('sqlite', { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['r1'] }));
-    run(outboxMarkDeadQuery('sqlite', { id: 'r1', token: 'tok', attempts: 10, lastError: 'boom' }));
+    run(outboxClaimQuery(sqliteDialect, { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['r1'] }));
+    run(outboxMarkDeadQuery(sqliteDialect, { id: 'r1', token: 'tok', attempts: 10, lastError: 'boom' }));
 
-    expect(run(outboxCandidatesQuery('sqlite', { now: LAPSED, batch: 100 })).map(r => r['id'])).toEqual(['r2']);
+    expect(run(outboxCandidatesQuery(sqliteDialect, { now: LAPSED, batch: 100 })).map(r => r['id'])).toEqual(['r2']);
   });
 
   it('the predicate alone is the mutual exclusion, with no lock clause anywhere', () => {

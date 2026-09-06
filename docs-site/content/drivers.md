@@ -1,11 +1,11 @@
-A `Driver` is the whole database abstraction: one required method that runs a compiled query and returns rows, plus optional streaming and capability metadata. Everything above it — repositories,
-transactions, replicas, logging, caching and observability — composes around that boundary.
+A `Driver` is the whole database abstraction: one required dialect object, one method that runs a compiled query and returns rows, plus optional streaming and capability metadata. Everything above it
+— repositories, transactions, replicas, logging, caching and observability — composes around that boundary.
 
 ```ts
-import type { CompiledQuery, Dialect, SqlDialect } from '@zmdb/query-compiler';
+import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
 
 export interface Driver<Name extends string = string> {
-  readonly dialect?: SqlDialect<Name> | Dialect;
+  readonly dialect: SqlDialect<Name>;
   readonly queryTelemetry?: true;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
@@ -71,8 +71,8 @@ All four accept **structural** types — `SqliteDatabase` is `{ exec(sql); prepa
 database client; `node:sqlite` is built in. `@zmdb/mysql` and `@zmdb/mssql` declare their clients only as optional peers. Install `mysql2`, `pg`, or `mssql` in the application that selects the
 corresponding adapter.
 
-> [!NOTE] First-party drivers declare their dialect object. `defineRepository` uses an explicit option first, then `driver.dialect`, then the temporary `'postgres'` fallback. Driver wrappers must
-> preserve the wrapped dialect. A third-party driver can attach a frozen `SqlDialect` object, and the repository uses that same object for compilation, limits, retries and returning behavior.
+> [!NOTE] Every driver declares its dialect object. Driver wrappers must preserve the wrapped dialect. The repository uses that same frozen `SqlDialect` object for compilation, limits, retries and
+> returning behavior.
 
 The SQLite and Postgres drivers cache prepared statements keyed by SQL text, LRU-evicting at `maxCacheSize` (1000 by default). Since the compiler emits one text per query shape and parameterises the
 values, that cache has a bounded number of entries — unless you build SQL by string concatenation, which you should not be doing.
@@ -114,7 +114,8 @@ Three rules for a correct driver:
 
 ## Composing drivers
 
-Because a driver has one required method, a wrapper is a driver. Wrappers must forward the optional execute options so cancellation is not lost:
+Because a driver has one execution method plus its required dialect object, a wrapper is a driver. Wrappers must preserve `dialect` and forward the optional execute options so cancellation is not
+lost:
 
 ```ts
 const driver = loggingDriver(cachingDriver(withReplicas({ primary, replicas }), store, 5_000), sink);
@@ -130,14 +131,10 @@ workers and CLI scripts alike rather than just the HTTP path. Retrying a whole t
 Either form works. `defineRepository` recovers the declared type from the schema, and its relations with it:
 
 ```ts
-const users = defineRepository(UserSchema, driver, { dialect: 'postgres' });
-```
-
-When `driver.dialect` is present, the explicit option is unnecessary:
-
-```ts
 const users = defineRepository(UserSchema, driver);
 ```
+
+The driver carries the required dialect object, so repository construction needs no separate database selector.
 
 Or a subclass, when you want to add methods or [lifecycle hooks](./lifecycle-hooks.html):
 
@@ -151,8 +148,7 @@ class UserRepository extends BaseRepository<User> {
 const users = new UserRepository(driver); // derives driver.dialect
 ```
 
-The compatibility constructor is `(driver: Driver, dialect: DialectTarget = driver.dialect ?? 'postgres')`. Database-package extraction will make the object on `driver.dialect` required and remove the
-separate argument.
+Repository construction uses `driver.dialect`; there is no implicit database or string-name fallback.
 
 ## Transactions
 
@@ -163,7 +159,10 @@ const client = await pool.connect();
 try {
   await client.query('BEGIN');
 
-  const tx = { execute: (q: CompiledQuery) => client.query(q.text, [...q.parameters]).then(r => r.rows) };
+  const tx = {
+    dialect: driver.dialect,
+    execute: (q: CompiledQuery) => client.query(q.text, [...q.parameters]).then(r => r.rows),
+  };
   const txUsers = users.withTransaction(tx);
   const txAccounts = accounts.withTransaction(tx);
 
@@ -208,8 +207,10 @@ Pool sizing, PgBouncer and serverless connection limits are on [Connect to Postg
 A driver is a function, so a fake is three lines:
 
 ```ts
+import { postgres } from '@zmdb/postgres';
+
 const calls: CompiledQuery[] = [];
-const spy: Driver = { dialect: 'postgres', execute: async q => (calls.push(q), []) };
+const spy: Driver = { dialect: postgres, execute: async q => (calls.push(q), []) };
 
 await defineRepository(users, spy).findAll();
 expect(calls[0]?.text).toContain('SELECT');

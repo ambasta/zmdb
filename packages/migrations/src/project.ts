@@ -1,10 +1,9 @@
 import {
   dialectName,
-  type Dialect,
-  type DialectTarget,
   type Introspector,
   type IntrospectOptions,
   type SchemaSnapshot,
+  type SqlDialect,
 } from '@zmdb/query-compiler';
 
 import type { SnapshotableSchema } from './index.js';
@@ -14,9 +13,7 @@ import type { MigrationDriver } from './runner.js';
 export interface MigrationProject {
   readonly configPath: string;
   readonly outDir: string;
-  readonly dialect: Dialect;
-  /** Object-owned runtime dialect selected by the caller, or the legacy name by default. */
-  readonly target?: DialectTarget;
+  readonly dialect: SqlDialect;
   readonly schemas: readonly SnapshotableSchema[];
   readonly migrations?: {
     readonly table?: string;
@@ -32,7 +29,7 @@ export interface MigrationProject {
    */
   readonly emitDeclarations?: (
     snapshot: SchemaSnapshot,
-    options: { readonly dialect: Dialect },
+    options: { readonly dialect: SqlDialect },
   ) => Promise<{
     readonly files: readonly { readonly path: string; readonly source: string }[];
     readonly warnings: readonly CatalogWarning[];
@@ -57,16 +54,16 @@ export function requiredDriver(project: MigrationProject): MigrationDriver {
   if (driver === undefined) {
     throw new MigrationProjectError(`config ${project.configPath} needs a driver for this operation`);
   }
-  if (driver.dialect !== undefined && dialectName(driver.dialect) !== project.dialect) {
+  if (dialectName(driver.dialect) !== dialectName(project.dialect)) {
     throw new MigrationProjectError(
-      `config ${project.configPath} declares ${project.dialect} but its driver declares ${dialectName(driver.dialect)}`,
+      `config ${project.configPath} declares ${dialectName(project.dialect)} but its driver declares ${dialectName(driver.dialect)}`,
     );
   }
   return driver;
 }
 
-export function migrationTarget(project: MigrationProject): DialectTarget {
-  return project.target ?? project.dialect;
+export function migrationTarget(project: MigrationProject): SqlDialect {
+  return project.dialect;
 }
 
 export function requiredDeclarationEmitter(

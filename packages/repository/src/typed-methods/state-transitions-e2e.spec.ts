@@ -7,10 +7,10 @@ import {
   BaseRepository,
   createTransactionalDb,
   markTransactionClosed,
-  type Driver,
   type TransactionContext,
   type ActiveTransactionContext,
 } from '../index.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 
 // ---------------------------------------------------------------------------
 // Domain Workflow 1: Order Processing Lifecycle
@@ -80,7 +80,7 @@ describe('Core Domain Workflows: Opt-In Type-State Validation', () => {
       return [];
     });
 
-    const repo = new OrderRepository({ execute } as Driver);
+    const repo = new OrderRepository({ dialect: postgresDialect, execute });
 
     // 1. Valid transition from 'draft' to 'pending'
     const pendingPayload = orderStateMachine.createUpdatePayload('draft', 'pending', {
@@ -118,7 +118,7 @@ describe('Core Domain Workflows: Opt-In Type-State Validation', () => {
     };
 
     const txDb = createTransactionalDb(mockConn);
-    const repo = new ArticleRepository({ execute: q => mockConn.execute(q) } as Driver);
+    const repo = new ArticleRepository({ dialect: postgresDialect, execute: q => mockConn.execute(q) });
 
     await txDb.transaction(async (tx: TransactionContext<'active'>) => {
       const txRepo = repo.withTransaction(tx);

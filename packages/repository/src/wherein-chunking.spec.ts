@@ -7,6 +7,7 @@ import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect } from 'vitest';
 
 import { defineRepository, type Driver } from './index.js';
+import { postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 export interface Users extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -24,7 +25,7 @@ const { Users: UsersSchema } = schemasFrom<{ Users: Users; Orders: Orders }>(imp
 
 describe('Native Builder whereIn with Parameter Chunking', () => {
   it('exposes dedicated set-matching methods that output parameterized SQL IN clauses', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
 
     const selectQuery = qb
       .selectFrom('users')
@@ -49,6 +50,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
   it('filters out null and undefined key values before query building in batch relation queries', async () => {
     const executedQueries: string[] = [];
     const mockDriver: Driver = {
+      dialect: postgresDialect,
       async execute(q) {
         executedQueries.push(q.text);
         if (q.text.includes('orders')) {
@@ -91,6 +93,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
   it('deduplicates duplicate key values before query construction', async () => {
     const executedQueries: { text: string; params: readonly unknown[] }[] = [];
     const mockDriver: Driver = {
+      dialect: postgresDialect,
       async execute(q) {
         executedQueries.push({ text: q.text, params: q.parameters });
         return [];
@@ -120,6 +123,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
   it('issues set-based IN queries instead of OR condition chains during relational population', async () => {
     const executedQueries: string[] = [];
     const mockDriver: Driver = {
+      dialect: postgresDialect,
       async execute(q) {
         executedQueries.push(q.text);
         return [];
@@ -141,6 +145,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     let queryCount = 0;
 
     const mockDriver: Driver = {
+      dialect: postgresDialect,
       async execute(q) {
         queryCount++;
         const currentQuery = queryCount;
@@ -186,7 +191,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     `);
 
     const driver = sqliteDriver(db);
-    const userRepo = defineRepository(UsersSchema, driver, { dialect: 'sqlite' });
+    const userRepo = defineRepository(UsersSchema, driver, { dialect: sqliteDialect });
 
     // Create 2,500 users and corresponding orders
     const totalUsers = 2500;
@@ -234,7 +239,7 @@ describe('Native Builder whereIn with Parameter Chunking', () => {
     `);
 
     const driver = sqliteDriver(db);
-    const userRepo = defineRepository(UsersSchema, driver, { dialect: 'sqlite' });
+    const userRepo = defineRepository(UsersSchema, driver, { dialect: sqliteDialect });
 
     const totalUsers = 1500;
     const insertUser = db.prepare('INSERT INTO users (id, name) VALUES (?, ?)');

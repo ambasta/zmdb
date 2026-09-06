@@ -49,6 +49,7 @@ const returningCapabilities = Object.freeze({
 export const sqlite = defineSqlDialect({
   name: 'sqlite',
   family: 'sqlite',
+  telemetrySystem: 'sqlite',
   traits: {
     placeholder: 'positional',
     quote: Object.freeze(['"', '"']),
@@ -84,4 +85,11 @@ export const sqlite = defineSqlDialect({
   },
   migrations: sqliteMigrations,
   introspector: sqliteIntrospector,
+  outbox: Object.freeze({
+    createTable: 'CREATE TABLE',
+    pendingIndex: 'filtered',
+    epochLiteral: "'1970-01-01T00:00:00.000Z'",
+    createdAtDefault: "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+    boundedTextType: () => 'TEXT',
+  }),
 });

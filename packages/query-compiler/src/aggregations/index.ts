@@ -116,7 +116,7 @@ function make(d: DialectTarget, s: State, telemetry: boolean): AggregateSelect {
 
 export function aggregateSelectFrom(
   table: string,
-  dialect: DialectTarget = 'postgres',
+  dialect: DialectTarget,
   options?: QueryCompilerOptions,
 ): AggregateSelect {
   return make(

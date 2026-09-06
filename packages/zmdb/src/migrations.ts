@@ -5,7 +5,6 @@
 export {
   CHANGE_PHASES,
   ddlType,
-  DDL_TYPES,
   diff,
   down,
   downTo,
@@ -96,5 +95,4 @@ export type {
   IntrospectionDriver,
   Introspector,
   IntrospectOptions,
-  LegacyIntrospector,
 } from '@zmdb/migrations/introspect';

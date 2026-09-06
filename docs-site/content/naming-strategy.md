@@ -57,11 +57,12 @@ the built-in rules.
 
 ```ts
 // zmdb.config.ts
+import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 
 export default defineConfig({
   schema: 'src/**/*.schema.ts',
-  dialect: 'postgres',
+  dialect: postgres,
   naming: 'snake_case_plural',
 });
 ```
@@ -77,7 +78,7 @@ A custom object wins if both config fields are present:
 ```ts
 export default defineConfig({
   schema: 'src/**/*.schema.ts',
-  dialect: 'postgres',
+  dialect: postgres,
   namingStrategy: {
     table: declared => `app_${declared.toLowerCase()}`,
     column: property => property.replaceAll(/[A-Z]/g, letter => `_${letter.toLowerCase()}`),

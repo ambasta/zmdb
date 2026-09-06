@@ -19,6 +19,7 @@ import { sqliteDriver } from '@zmdb/sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Driver } from '../index.js';
+import { postgresDialect, sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { createTransactionalDb } from '../transactions/index.js';
 import type { TxConnection } from '../transactions/index.js';
 import { createOutboxDispatcher, OutboxSchema, outboxWriter, type DeadOutboxRow } from './index.js';
@@ -27,12 +28,12 @@ import { createOutboxDispatcher, OutboxSchema, outboxWriter, type DeadOutboxRow 
 // fixtures
 // ---------------------------------------------------------------------------
 const NOW = new Date('2026-06-01T00:00:00.000Z');
-const qb = createQueryCompiler('sqlite');
+const qb = createQueryCompiler(sqliteDialect);
 
 function txConn(db: DatabaseSync): TxConnection {
   const driver = sqliteDriver(db);
   return {
-    dialect: 'sqlite',
+    dialect: sqliteDialect,
     async raw(sql: string) {
       db.exec(sql);
     },
@@ -83,7 +84,7 @@ function fakeDriver(): FakeDriver {
   const replies = new Map<string, readonly Record<string, unknown>[]>();
   const rejections = new Map<string, Error>();
   return {
-    dialect: 'sqlite',
+    dialect: sqliteDialect,
     calls,
     reply(match, rowsForMatch) {
       replies.set(match, rowsForMatch);
@@ -619,7 +620,7 @@ describe('outbox: the dispatcher loop (#593, SPEC §5, §9 items 11 and 12)', ()
     // SPEC §1 and §4.1: the seam is `Driver`, and the whole point of the split is that no new
     // dependency is needed in either direction. A bare object literal with one method is enough.
     const dispatcher = createOutboxDispatcher({
-      driver: { execute: () => Promise.resolve([]) },
+      driver: { dialect: postgresDialect, execute: () => Promise.resolve([]) },
       publish: () => Promise.resolve(),
     });
     expect(typeof dispatcher.runOnce).toBe('function');

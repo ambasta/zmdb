@@ -185,12 +185,14 @@ async function smokeStudio(app, binPath) {
   const configPath = join(app, 'zmdb.config.mjs');
   writeFileSync(
     configPath,
-    `export default {
+    `import { sqlite } from 'zmdb/sqlite';
+
+export default {
   schema: './schema.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   driver: () => ({
-    dialect: 'sqlite',
+    dialect: sqlite,
     execute: () => Promise.resolve([]),
   }),
   http: {
@@ -237,9 +239,10 @@ export const WIDGET_HTTP_CONTRACT = {};
       '--eval',
       `import { join } from 'node:path';
 const configModule = await import('zmdb/config');
+const { sqlite } = await import('zmdb/sqlite');
 const authored = {
   schema: './schema.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   out: './migrations',
   http: {
@@ -608,6 +611,7 @@ writeFileSync(
   type ResolvedConfig,
   type ZmdbConfig,
 } from 'zmdb/config';
+import { sqlite } from 'zmdb/sqlite';
 
 const http = {
   contracts: './src/http.contract.ts#HTTP_CONTRACT',
@@ -617,7 +621,7 @@ const http = {
 
 export const config = defineConfig({
   schema: './src/schema.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   http,
 });
 

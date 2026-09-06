@@ -18,10 +18,7 @@ export const ${name.constant}_REPOSITORY = repositoryToken<${name.pascal}>('${na
 export function ${name.camel}RepositoryProvider(driver: Driver): ProviderDef<BaseRepository<${name.pascal}>> {
   return {
     token: ${name.constant}_REPOSITORY,
-    useFactory: () =>
-      defineRepository(${name.camel}Schema, driver, {
-        dialect: driver.dialect ?? 'sqlite',
-      }),
+    useFactory: () => defineRepository(${name.camel}Schema, driver),
   };
 }
 `,
@@ -30,7 +27,7 @@ export function ${name.camel}RepositoryProvider(driver: Driver): ProviderDef<Bas
       path: `src/${name.fileStem}.repository.spec.ts`,
       source: `import { DatabaseSync } from 'node:sqlite';
 
-import { sqliteDriver } from 'zmdb/drivers/sqlite';
+import { sqliteDriver } from 'zmdb/sqlite';
 import { createTestApp } from 'zmdb/testing';
 import { Module } from 'zmdb';
 import { describe, expect, it } from 'vitest';

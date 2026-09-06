@@ -1,7 +1,7 @@
 # `@zmdb/postgres` — complete PostgreSQL vertical
 
-> Status: implemented by #670. The package-owned object path, driver, catalog parser, packed consumer, and PostgreSQL 18 acceptance are executable. The temporary six-name compatibility registry in
-> `@zmdb/query-compiler` remains until #675.
+> Status: implemented by #670. The package-owned object path, driver, catalog parser, packed consumer, and PostgreSQL 18 acceptance are executable; #675 removes the generic six-name compatibility
+> registry.
 
 ## Public contract
 
@@ -52,7 +52,7 @@ documentation must state those prerequisites and tests must cover both configure
 - the PostgreSQL root traits, type map, parameter limit, retry codes and every PostgreSQL matrix cell;
 - PostgreSQL quoting/placeholders, `ON CONFLICT`, returning, FTS, operators and table-function support;
 - PostgreSQL DDL, migrations, extensions, expression indexes, schemas, sequences, RLS, routines and outbox spellings;
-- an independent PostgreSQL catalog parser and tests (the generic six-name parser remains compatibility residue until #675);
+- an independent PostgreSQL catalog parser and tests;
 - the former `repository/src/drivers/pg.ts` behavior: per-client prepared statements, cursor streaming, cancellation and pinned transactions; and
 - PostgreSQL-specific live fixtures, package capability rows and packed-consumer tests.
 

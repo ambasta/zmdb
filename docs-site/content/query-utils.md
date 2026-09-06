@@ -3,7 +3,9 @@ Small helpers around the compiler and the DTO types. All of them are ordinary fu
 ## The compiled query is inspectable
 
 ```ts
-const q = createQueryCompiler('postgres').selectFrom('users').where('id', '=', 1).compile();
+import { postgres } from '@zmdb/postgres';
+
+const q = createQueryCompiler(postgres).selectFrom('users').where('id', '=', 1).compile();
 q.text; // 'SELECT * FROM "users" WHERE "id" = $1'
 q.parameters; // [1]
 ```
@@ -17,7 +19,7 @@ expect(q).toEqual({ text: 'SELECT * FROM "users" WHERE "id" = $1', parameters: [
 Observability can opt into a third, optional compile-time field:
 
 ```ts
-const observed = createQueryCompiler('postgres', { telemetry: true }).selectFrom('users').compile();
+const observed = createQueryCompiler(postgres, { telemetry: true }).selectFrom('users').compile();
 observed.telemetry; // { system: 'postgresql', operation: 'SELECT', collection: 'users' }
 ```
 

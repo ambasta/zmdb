@@ -605,13 +605,20 @@ process.stdout.write(JSON.stringify({
 const { emitDeclarations } = await import('@zmdb/migrations/declarations');
 const { runEmbedded } = await import('@zmdb/migrations/embedded');
 const { readMigrations } = await import('@zmdb/migrations/files');
-const { createIntrospector } = await import('@zmdb/migrations/introspect');
-let sqliteIntrospectionRefused = false;
-try {
-  createIntrospector('sqlite');
-} catch (error) {
-  sqliteIntrospectionRefused = error instanceof Error && error.message.includes('@zmdb/sqlite');
-}
+const introspectionApi = await import('@zmdb/migrations/introspect');
+const fixtureDialect = {
+  name: 'fixture',
+  migrations: {
+    foreignKeyMode: 'inline',
+    validatePlan() {},
+  },
+};
+const officialIntrospectionRegistryAbsent = [
+  'postgres',
+  'postgresIntrospector',
+  'mysql',
+  'mysqlIntrospector',
+].every(name => !(name in introspectionApi));
 const previous = snapshot([]);
 const next = snapshot([{
   table: 'widgets',
@@ -620,11 +627,11 @@ const next = snapshot([{
 }]);
 const operations = diff(previous, next);
 const plan = planMigration(previous, next, {
-  dialect: 'sqlite',
+  dialect: fixtureDialect,
   emitUp: operation => 'up:' + operation.kind,
   emitDown: operation => 'down:' + operation.kind,
 });
-const declarations = await emitDeclarations(previous, { dialect: 'sqlite' });
+const declarations = await emitDeclarations(previous, { dialect: fixtureDialect });
 const files = await readMigrations(${JSON.stringify(join(fixture.migrationsApp, 'missing-migrations'))});
 const ledger = [];
 let ready = false;
@@ -647,8 +654,8 @@ process.stdout.write(JSON.stringify({
   plan: plan.operations.length,
   declarations: declarations.files.length,
   files: files.length,
-  dialect: createIntrospector('postgres').dialect,
-  sqliteIntrospectionRefused,
+  dialect: fixtureDialect.name,
+  officialIntrospectionRegistryAbsent,
   applied,
 }));
 `,
@@ -791,8 +798,8 @@ describe('standalone tooling package fixtures (#627)', () => {
       stderr: '',
     });
     expect.soft(migrationsSmoke?.stdout).toContain('"applied":[1,2]');
-    expect.soft(migrationsSmoke?.stdout).toContain('"dialect":"postgres"');
-    expect.soft(migrationsSmoke?.stdout).toContain('"sqliteIntrospectionRefused":true');
+    expect.soft(migrationsSmoke?.stdout).toContain('"dialect":"fixture"');
+    expect.soft(migrationsSmoke?.stdout).toContain('"officialIntrospectionRegistryAbsent":true');
     expect.soft(analyseTooling().embeddedViolations).toEqual([]);
     expect.soft(analyseTooling().formatterViolations).toEqual([]);
   });

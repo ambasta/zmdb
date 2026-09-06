@@ -4501,6 +4501,7 @@ __metadata:
   resolution: "@zmdb/app@workspace:packages/app"
   dependencies:
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/postgres": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
@@ -4527,7 +4528,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/cockroach@workspace:packages/cockroach":
+"@zmdb/cockroach@workspace:^, @zmdb/cockroach@workspace:packages/cockroach":
   version: 0.0.0-use.local
   resolution: "@zmdb/cockroach@workspace:packages/cockroach"
   dependencies:
@@ -4547,9 +4548,12 @@ __metadata:
   dependencies:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/mssql": "workspace:^"
+    "@zmdb/postgres": "workspace:^"
     "@zmdb/protobuf": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
     metro: "npm:0.87.0"
     metro-babel-transformer: "npm:0.87.0"
     oxlint: "npm:1.81.0"
@@ -4801,13 +4805,16 @@ __metadata:
   dependencies:
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/compiler": "workspace:^"
+    "@zmdb/mysql": "workspace:^"
+    "@zmdb/postgres": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft
 
-"@zmdb/singlestore@workspace:packages/singlestore":
+"@zmdb/singlestore@workspace:^, @zmdb/singlestore@workspace:packages/singlestore":
   version: 0.0.0-use.local
   resolution: "@zmdb/singlestore@workspace:packages/singlestore"
   dependencies:
@@ -12671,25 +12678,40 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
+    "@zmdb/cockroach": "workspace:^"
     "@zmdb/compiler": "workspace:^"
     "@zmdb/migrations": "workspace:^"
     "@zmdb/mssql": "workspace:^"
+    "@zmdb/mysql": "workspace:^"
     "@zmdb/postgres": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
+    "@zmdb/singlestore": "workspace:^"
     "@zmdb/sqlite": "workspace:^"
     "@zmdb/web": "workspace:^"
     esbuild: "npm:^0.28.2"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/cockroach": "workspace:^"
     "@zmdb/mssql": "workspace:^"
+    "@zmdb/mysql": "workspace:^"
     "@zmdb/postgres": "workspace:^"
+    "@zmdb/singlestore": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
   peerDependenciesMeta:
+    "@zmdb/cockroach":
+      optional: true
     "@zmdb/mssql":
       optional: true
+    "@zmdb/mysql":
+      optional: true
     "@zmdb/postgres":
+      optional: true
+    "@zmdb/singlestore":
+      optional: true
+    "@zmdb/sqlite":
       optional: true
   bin:
     zmdb: ./src/cli/bin.ts

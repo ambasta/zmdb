@@ -4,103 +4,53 @@ import { UnsupportedFeatureError } from '../errors.js';
 import { createQueryCompiler } from '../index.js';
 import { quoteIdentifier } from '../quoting.js';
 import {
-  BUILT_IN_DIALECT_NAMES,
-  DIALECT_SQL_TYPES,
-  DIALECTS,
-  TRAITS,
-  dialectTraitResolutionCount,
-  requireDialectFeature,
-  resolveDialectRegistry,
-  type DialectTraits,
-} from './index.js';
+  cockroachDialect,
+  mysqlDialect,
+  officialDialects,
+  postgresDialect,
+  singlestoreDialect,
+  sqliteDialect,
+} from '../testing/official-dialects.fixture.js';
+import { dialectCapabilities, dialectFamily, dialectName, dialectTraits, requireDialectFeature } from './index.js';
 
-describe('dialect traits', () => {
-  it('resolves dialect traits once rather than per statement', () => {
-    const resolutions = dialectTraitResolutionCount();
-    const postgres = TRAITS.postgres;
-
-    createQueryCompiler('postgres').selectFrom('users').where('id', '=', 1).compile();
-    createQueryCompiler('mysql').insertInto('users').values({ id: 1 }).compile();
-    quoteIdentifier('sqlite', 'users');
-
-    expect(resolutions).toBe(BUILT_IN_DIALECT_NAMES.length);
-    expect(dialectTraitResolutionCount()).toBe(resolutions);
-    expect(TRAITS.postgres).toBe(postgres);
-    expect(Object.isFrozen(TRAITS.postgres)).toBe(true);
-    expect(Object.isFrozen(TRAITS.postgres.returning)).toBe(true);
-    expect(Object.isFrozen(TRAITS.postgres.types)).toBe(true);
-    expect(Object.isFrozen(TRAITS.postgres.features)).toBe(true);
-    expect(TRAITS.cockroach.family).toBe('postgres');
-    expect(TRAITS.singlestore.family).toBe('mysql');
-  });
-
-  it('merges inherited scalar, feature, type and statement-specific returning traits', () => {
-    const definitions: Readonly<Record<(typeof BUILT_IN_DIALECT_NAMES)[number], DialectTraits>> = {
-      postgres: DIALECTS.postgres,
-      mysql: {
-        parent: 'postgres',
-        placeholder: 'positional',
-        // MariaDB is not a public dialect, but the capability can represent an
-        // INSERT-only child without pretending UPDATE, DELETE or every upsert form follows.
-        returning: { upsert: 'none', update: 'none', delete: 'none' },
-        types: { timestamp: 'DATETIME(3)' },
-        features: { rowLevelSecurity: false },
-      },
-      sqlite: DIALECTS.sqlite,
-      cockroach: DIALECTS.cockroach,
-      singlestore: DIALECTS.singlestore,
-    };
-
-    const resolved = resolveDialectRegistry(definitions);
-
-    expect(resolved.mysql.quote).toEqual(resolved.postgres.quote);
-    expect(resolved.mysql.placeholder).toBe('positional');
-    expect(resolved.mysql.returning).toEqual({
-      insert: 'suffix',
-      upsert: 'none',
-      update: 'none',
-      delete: 'none',
-    });
-    expect(resolved.mysql.types.text).toBe('TEXT');
-    expect(resolved.mysql.types.timestamp).toBe('DATETIME(3)');
-    expect(resolved.mysql.features.materializedView).toBe(true);
-    expect(resolved.mysql.features.rowLevelSecurity).toBe(false);
-    expect(resolved.cockroach.family).toBe('postgres');
-    expect(resolved.singlestore.family).toBe('postgres');
-  });
-
-  it('turns a false feature trait into a structured refusal', () => {
-    let caught: unknown;
-    try {
-      requireDialectFeature('mysql', 'materializedView', 'materialized views');
-    } catch (error) {
-      caught = error;
+describe('explicit dialect objects', () => {
+  it('carry immutable compiler, capability and migration ownership', () => {
+    for (const dialect of Object.values(officialDialects)) {
+      expect(dialectName(dialect)).toBe(dialect.name);
+      expect(dialectFamily(dialect)).toBe(dialect.family);
+      expect(dialectTraits(dialect)).toBe(dialect.traits);
+      expect(dialectCapabilities(dialect)).toBe(dialect.capabilities);
+      expect(dialect.migrations.name).toBe(dialect.name);
+      expect(dialect.introspector.name).toBe(dialect.name);
+      expect(Object.isFrozen(dialect)).toBe(true);
+      expect(Object.isFrozen(dialect.traits)).toBe(true);
+      expect(Object.isFrozen(dialect.capabilities)).toBe(true);
     }
-
-    expect(caught).toBeInstanceOf(UnsupportedFeatureError);
-    if (!(caught instanceof UnsupportedFeatureError)) throw new Error('expected UnsupportedFeatureError');
-    expect(caught.feature).toBe('materialized views');
-    expect(caught.dialect).toBe('mysql');
-    expect(caught.message).toBe('materialized views is not supported on dialect "mysql"');
   });
 
-  it('rejects a parent cycle during eager resolution', () => {
-    const definitions: Readonly<Record<(typeof BUILT_IN_DIALECT_NAMES)[number], DialectTraits>> = {
-      postgres: { parent: 'mysql' },
-      mysql: { parent: 'postgres' },
-      sqlite: DIALECTS.sqlite,
-      cockroach: DIALECTS.cockroach,
-      singlestore: DIALECTS.singlestore,
-    };
-
-    expect(() => resolveDialectRegistry(definitions)).toThrow('Dialect trait parent cycle includes "postgres"');
+  it('uses the selected object directly without resolving a generic registry', () => {
+    expect(createQueryCompiler(postgresDialect).selectFrom('users').where('id', '=', 1).compile().text).toBe(
+      'SELECT * FROM "users" WHERE "id" = $1',
+    );
+    expect(createQueryCompiler(mysqlDialect).insertInto('users').values({ id: 1 }).compile().text).toBe(
+      'INSERT INTO `users` (`id`) VALUES (?)',
+    );
+    expect(quoteIdentifier(sqliteDialect, 'users')).toBe('"users"');
   });
 
-  it('resolves every abstract SQL type for every built-in dialect', () => {
-    for (const dialect of BUILT_IN_DIALECT_NAMES) {
-      for (const type of DIALECT_SQL_TYPES) {
-        expect(TRAITS[dialect].types[type], `${dialect}: ${type}`).toBeTypeOf('string');
-      }
-    }
+  it('keeps family inheritance inside database-owned objects', () => {
+    expect(cockroachDialect.family).toBe('postgres');
+    expect(singlestoreDialect.family).toBe('mysql');
+    expect(cockroachDialect.traits.quote).toEqual(postgresDialect.traits.quote);
+    expect(singlestoreDialect.traits.quote).toEqual(mysqlDialect.traits.quote);
+  });
+
+  it('turns a false feature capability into a structured refusal', () => {
+    expect(() => requireDialectFeature(mysqlDialect, 'materializedView', 'materialized views')).toThrow(
+      UnsupportedFeatureError,
+    );
+    expect(() => requireDialectFeature(mysqlDialect, 'materializedView', 'materialized views')).toThrow(
+      'materialized views is not supported on dialect "mysql"',
+    );
   });
 });

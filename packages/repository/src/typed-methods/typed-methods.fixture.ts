@@ -1,4 +1,4 @@
-// Schemas, repositories and the recording driver the typed-methods files share.
+// Schemas, repositories and the recording driver the typed-methods tests share.
 //
 // Six files here exercise the same three schemas — one with a single-column
 // primary key, one with a composite key, one plain — across runtime specs and
@@ -9,6 +9,7 @@ import { schemasFrom } from '@zmdb/compiler/testing';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 import { BaseRepository, type Driver } from '../index.js';
+import { postgresDialect } from '../testing/official-dialects.fixture.js';
 
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -61,6 +62,7 @@ export interface Recorder {
 export function recorder(rows: Record<string, unknown>[] = []): Recorder {
   const calls: { text: string; parameters: readonly unknown[] }[] = [];
   const driver: Driver = {
+    dialect: postgresDialect,
     execute: async q => (calls.push({ text: q.text, parameters: q.parameters }), rows),
   };
   return { driver, calls };

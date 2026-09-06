@@ -450,13 +450,16 @@ export const PACKAGE_POLICY = Object.freeze({
       'query-compiler',
       'repository',
       'schema-core',
-      'sqlite',
       'web',
     ],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
-      '@zmdb/mssql': ['./cli', './drivers/mssql', 'bin:zmdb'],
-      '@zmdb/postgres': ['./drivers/pg'],
+      '@zmdb/cockroach': ['./cockroach'],
+      '@zmdb/mysql': ['./mysql'],
+      '@zmdb/mssql': ['./mssql'],
+      '@zmdb/postgres': ['./postgres'],
+      '@zmdb/singlestore': ['./singlestore'],
+      '@zmdb/sqlite': ['./sqlite'],
     },
     toolingEntries: [
       // CLI orchestration, scaffolding, embedding, and application loading.

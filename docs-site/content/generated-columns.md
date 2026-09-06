@@ -107,8 +107,9 @@ Generated columns can be selected like regular columns. They're computed automat
 
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
+import { postgres } from '@zmdb/postgres';
 
-const compiler = createQueryCompiler('postgres');
+const compiler = createQueryCompiler(postgres);
 
 const query = compiler.selectFrom('orders').select(['id', 'unit_price', 'quantity', 'total_price']).compile();
 

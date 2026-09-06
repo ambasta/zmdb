@@ -1,6 +1,8 @@
+import { sqlite } from '@zmdb/sqlite';
+
 export default {
   schema: './src/schema.ts',
-  dialect: 'sqlite',
+  dialect: sqlite,
   project: './tsconfig.json',
   http: {
     contracts: './src/contract.ts#HTTP_CONTRACT',

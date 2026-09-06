@@ -158,7 +158,7 @@ production data, so `diff` does not guess. It is told:
 ```ts
 type RenameOp = { kind: 'rename_table'; from: string; to: string } | { kind: 'rename_column'; table: string; from: string; to: string };
 
-function diff(prev: SchemaSnapshot, next: SchemaSnapshot, opts?: { readonly renames?: readonly RenameOp[]; readonly dialect?: Dialect }): readonly ChangeOp[];
+function diff(prev: SchemaSnapshot, next: SchemaSnapshot, opts?: { readonly renames?: readonly RenameOp[]; readonly dialect?: SqlDialect }): readonly ChangeOp[];
 ```
 
 The renames a caller passes in are the same values that come back out in the plan, so there is one vocabulary for "this column became that one" rather than an input shape and an output shape that have
@@ -413,9 +413,9 @@ create_table users(id serial pk)
   down: DROP TABLE "users"
 ```
 
-**Both the identifiers and the types are dialect-specific.** A snapshot names the abstract type (`timestamp`, `varchar`); `ddlType(dialect, column)` renders it. The map is in `index.ts` and pinned by
-`sql-types.spec.ts` dialect by dialect; the row that matters most is `timestamp` → `TIMESTAMPTZ` on Postgres, because plain `TIMESTAMP` there discards the offset of every `Date` written through it. An
-abstract type the map does not know is passed through unchanged rather than guessed at.
+**Both the identifiers and the types are dialect-specific.** A snapshot names the abstract type (`timestamp`, `varchar`); `ddlType(dialect, column)` delegates to the selected database package. Package
+tests pin each mapping; the row that matters most is `timestamp` → `TIMESTAMPTZ` on Postgres, because plain `TIMESTAMP` there discards the offset of every `Date` written through it. An abstract type
+the selected mapping does not know is passed through unchanged rather than guessed at.
 
 **"Per dialect" used to be less true of this emitter than the heading claimed**, and the audit that found it is in `../../query-compiler/src/dialects/SPEC.md` §1. SQL Server now emits `ADD`, not
 `ADD COLUMN`, and `ALTER COLUMN c t NULL|NOT NULL`, with no Postgres `TYPE` keyword. The same dispatch fixes the existing MySQL spelling to `MODIFY COLUMN` and makes SQLite refuse an in-place type
@@ -646,9 +646,9 @@ records the remaining platform boundary as an application-selected SQLite bindin
 
 ## 7. Injected migration dialect (issue #666)
 
-This section froze the epic #665 target. Issue #668 now ships the object seam: migration helpers delegate to an injected `MigrationDialect`, and the driver adapter delegates an injected `SqlDialect`
-to `dialect.migrations.connection`. The snapshot shape, deterministic `diff`, migration ordering, checksums and ledger state machine remain generic. Database SQL, validation, schema-object grammar and
-connection adaptation do not. Temporary six-name emitters and connection adaptation remain as the extraction source for the built-in dialects.
+This section froze the epic #665 target. Migration helpers delegate to an injected `MigrationDialect`, and the driver adapter delegates an injected `SqlDialect` to `dialect.migrations.connection`. The
+snapshot shape, deterministic `diff`, migration ordering, checksums and ledger state machine remain generic. Database SQL, validation, schema-object grammar and connection adaptation live in the
+selected database package.
 
 ### 7.1 Protocol
 
@@ -724,8 +724,8 @@ emitSchemaObject(dialect.migrations, operation);
 ```
 
 On the injected path, generic migration code delegates without inspecting `dialect.name`, `dialect.family`, an official package, or a database client. A missing hook is a construction error. An
-unsupported operation throws `UnsupportedFeatureError` during validation or emission, before any call to `exec` or `execute`. The temporary string path still contains the built-in SQL and name
-branches that later extraction issues move.
+unsupported operation throws `UnsupportedFeatureError` during validation or emission, before any call to `exec` or `execute`. Generic migrations contain no official-database registry or vendor SQL
+fallback.
 
 ### 7.2 Ownership after extraction
 
@@ -751,8 +751,7 @@ database-specific refusal, transactional-DDL expectation and connection-adapter 
 
 ### 7.3 Connection and transaction rules
 
-For an injected object, `MigrationDialect.connection` is the sole place that knows ledger DDL, placeholder spelling, quoted table names and whether DDL can roll back. The legacy six-name adapter still
-owns those decisions until extraction. The generic runner:
+`MigrationDialect.connection` is the sole place that knows ledger DDL, placeholder spelling, quoted table names and whether DDL can roll back. The generic runner:
 
 - trusts the connection's required `transactionalDdl` boolean instead of looking up a name;
 - warns before applying a non-transactional plan;

@@ -6,6 +6,7 @@ import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { BaseRepository } from './index.js';
+import { sqliteDialect } from './testing/official-dialects.fixture.js';
 
 // #34: integrate populate() into the repository + E2E (real SQLite).
 
@@ -70,8 +71,8 @@ beforeEach(() => {
 describe('populate to-many E2E (real SQLite)', () => {
   it('attaches child orders to each user, as plain rows (no shared refs)', async () => {
     const driver = sqliteDriver(db);
-    const users = new UserRepository(driver, 'sqlite');
-    const orders = new OrderRepository(driver, 'sqlite');
+    const users = new UserRepository(driver, sqliteDialect);
+    const orders = new OrderRepository(driver, sqliteDialect);
 
     const u1 = await users.create({ email: 'a@b.com' });
     const u2 = await users.create({ email: 'c@d.com' });
@@ -113,8 +114,8 @@ describe('populate to-many E2E (real SQLite)', () => {
     `);
 
     const driver = sqliteDriver(db);
-    const users = new TenantUserRepository(driver, 'sqlite');
-    const posts = new TenantPostRepository(driver, 'sqlite');
+    const users = new TenantUserRepository(driver, sqliteDialect);
+    const posts = new TenantPostRepository(driver, sqliteDialect);
     const populatedUsers = await users.findAll({ populate: ['posts'] });
     const populatedPosts = await posts.findAll({ populate: ['author'] });
     const userByTenant = new Map(populatedUsers.map(user => [user.tenantId, user]));

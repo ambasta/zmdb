@@ -29,7 +29,7 @@ export class AppModule {}
 A factory receives the `Container`, so a provider can depend on another:
 
 ```ts
-{ token: POSTS, useFactory: (c) => defineRepository(posts, c.resolve(DRIVER), { dialect: 'postgres' }) }
+{ token: POSTS, useFactory: (c) => defineRepository(posts, c.resolve(DRIVER)) }
 ```
 
 `scope` only applies to `useFactory`. A `'singleton'` factory runs once and the result is cached; a `'transient'` factory runs on every `resolve`.
@@ -62,7 +62,7 @@ Build the dependency per request in the handler. A repository is an object over 
 ```ts
 @Get('/')
 async list(ctx: Ctx<Record<never, string>, unknown>) {
-  const repo = defineRepository(posts, driverFor(tenantFrom(ctx.headers)), { dialect: 'postgres' });
+  const repo = defineRepository(posts, driverFor(tenantFrom(ctx.headers)));
   return repo.list({ page: { limit: 20 } });
 }
 ```

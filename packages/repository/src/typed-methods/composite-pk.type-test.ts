@@ -10,7 +10,7 @@
 import type { Equal, Expect, Mutual } from '@zmdb/schema-core';
 
 import type { Driver } from '../index.js';
-import { ProductsRepo, TenantUsersRepo } from './fixtures.js';
+import { ProductsRepo, TenantUsersRepo } from './typed-methods.fixture.js';
 
 declare const driver: Driver;
 const compRepo = new TenantUsersRepo(driver);

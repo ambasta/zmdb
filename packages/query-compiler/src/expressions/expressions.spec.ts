@@ -9,19 +9,24 @@ import {
   not,
   proposed,
   type CompiledQuery,
-  type Dialect,
 } from '@zmdb/query-compiler';
 import { describe, expect, it } from 'vitest';
 
-import { mssql } from '../../../mssql/src/index.js';
+import { mssqlDialect, mysqlDialect, postgresDialect, sqliteDialect } from '../testing/official-dialects.fixture.js';
 
-const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly Dialect[];
+const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const;
 type ExpressionDialect = (typeof DIALECTS)[number];
+const DIALECT_OBJECTS = {
+  postgres: postgresDialect,
+  mysql: mysqlDialect,
+  sqlite: sqliteDialect,
+  mssql: mssqlDialect,
+} as const;
 
 type Golden = Readonly<Record<ExpressionDialect, CompiledQuery>>;
 
 function createQueryCompiler(dialect: ExpressionDialect) {
-  return createCompiler(dialect === 'mssql' ? mssql : dialect);
+  return createCompiler(DIALECT_OBJECTS[dialect]);
 }
 
 function expectAcrossDialects(build: (dialect: ExpressionDialect) => CompiledQuery, golden: Golden): void {

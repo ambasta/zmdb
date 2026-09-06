@@ -164,7 +164,7 @@ claim path can see it:
 ```ts
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
-const replay = createQueryCompiler(driver.dialect ?? 'postgres')
+const replay = createQueryCompiler(driver.dialect)
   .updateTable('zmdb_outbox')
   .set({
     status: 'pending',

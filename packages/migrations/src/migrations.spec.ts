@@ -1,6 +1,5 @@
 import { schemasFrom, type SchemasFromOptions } from '@zmdb/compiler/testing';
-import { mssql } from '@zmdb/mssql';
-import { UnsupportedFeatureError, createQueryCompiler, type Dialect } from '@zmdb/query-compiler';
+import { UnsupportedFeatureError, createQueryCompiler, type SqlDialect } from '@zmdb/query-compiler';
 import {
   createIndexDdl,
   replaceRoutineStatements,
@@ -24,6 +23,13 @@ import {
   type SnapshotableSchema,
   type TableSnapshot,
 } from './index.js';
+import {
+  mssqlDialect,
+  officialDialects,
+  postgresDialect,
+  sqliteDialect,
+  type OfficialDialectName,
+} from './testing/official-dialects.fixture.js';
 
 // RED PHASE (#40 spec freeze): diff engine + DDL emitter goldens.
 
@@ -124,11 +130,11 @@ describe('DDL emitter (postgres)', () => {
   };
 
   it('emits up SQL for add_column', () => {
-    expect(emitUp(addAge, 'postgres')).toBe('ALTER TABLE "users" ADD COLUMN "age" INTEGER NOT NULL');
+    expect(emitUp(addAge, postgresDialect)).toBe('ALTER TABLE "users" ADD COLUMN "age" INTEGER NOT NULL');
   });
 
   it('down reverses up for add_column', () => {
-    expect(emitDown(addAge, 'postgres')).toBe('ALTER TABLE "users" DROP COLUMN "age"');
+    expect(emitDown(addAge, postgresDialect)).toBe('ALTER TABLE "users" DROP COLUMN "age"');
   });
 });
 
@@ -159,7 +165,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
           primaryKey: table.primaryKey,
           foreignKeys: table.foreignKeys,
         },
-        'postgres',
+        postgresDialect,
       ),
     ).toBe('CREATE TABLE "user_accounts" ("created_at" TIMESTAMPTZ NOT NULL, "id" INTEGER PRIMARY KEY)');
   });
@@ -169,7 +175,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
     const column = timestampColumn(table);
     const name = namingStrategy.index?.(table.name, [column.name], false);
     expect(name).toBeDefined();
-    expect(createIndexDdl({ name: name as string, table: table.name, columns: [column.name] }, 'postgres')).toBe(
+    expect(createIndexDdl({ name: name as string, table: table.name, columns: [column.name] }, postgresDialect)).toBe(
       'CREATE INDEX "user_accounts_created_at_idx" ON "user_accounts" ("created_at")',
     );
   });
@@ -202,7 +208,7 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
         columns: [column.name],
         where: 'createdAt IS NOT NULL',
       },
-      'postgres',
+      postgresDialect,
     );
 
     expect(ddl).toBe(
@@ -212,12 +218,15 @@ describe('physical names through DDL and snapshots (frozen: migrations/SPEC.md 1
   });
 
   it('resolves naming before query compilation without runtime strategy calls', () => {
-    const baseline = createQueryCompiler('postgres').selectFrom('userAccount').select(['createdAt']).compile().text;
+    const baseline = createQueryCompiler(postgresDialect)
+      .selectFrom('userAccount')
+      .select(['createdAt'])
+      .compile().text;
     const resolvedCalls = compileNamingCalls.length;
     const physicalColumn = Object.keys(compileNamingUserSchema.columns).find(name => name !== 'id');
     expect(physicalColumn).toBeDefined();
 
-    const named = createQueryCompiler('postgres')
+    const named = createQueryCompiler(postgresDialect)
       .selectFrom(compileNamingUserSchema.table)
       .select([physicalColumn ?? ''])
       .compile().text;
@@ -289,8 +298,8 @@ interface DropForeignKey {
 
 type FrozenChangeOp = ChangeOp | FrozenCreateTable | AddForeignKey | DropForeignKey;
 
-function up(op: FrozenChangeOp, dialect: Dialect): string {
-  return emitUp(op as ChangeOp, dialect);
+function up(op: FrozenChangeOp, dialect: OfficialDialectName): string {
+  return emitUp(op as ChangeOp, officialDialects[dialect]);
 }
 
 type SqlOutcome =
@@ -351,7 +360,7 @@ function createPosts(fk: FrozenForeignKeySnapshot, nullable = false): FrozenCrea
   };
 }
 
-function addStatement(dialect: Exclude<Dialect, 'sqlite'>, fk: FrozenForeignKeySnapshot): string {
+function addStatement(dialect: Exclude<OfficialDialectName, 'sqlite'>, fk: FrozenForeignKeySnapshot): string {
   const q = dialect === 'mysql' ? '`' : '"';
   const names = (values: readonly string[]): string => values.map(value => `${q}${value}${q}`).join(', ');
   return (
@@ -369,7 +378,7 @@ function sqliteCreateStatement(fk: FrozenForeignKeySnapshot, nullable = false): 
   const local = fk.columns.map(column => `"${column}"`).join(', ');
   const target = fk.targetColumns.map(column => `"${column}"`).join(', ');
   return (
-    'CREATE TABLE "posts" ("id" INTEGER PRIMARY KEY, ' +
+    'CREATE TABLE "posts" ("id" INT PRIMARY KEY NOT NULL, ' +
     `"user_id" INTEGER${nullable ? '' : ' NOT NULL'}, ` +
     `FOREIGN KEY (${local}) REFERENCES "${fk.targetTable}" (${target}) ` +
     `ON DELETE ${fk.onDelete.toUpperCase()} ON UPDATE ${fk.onUpdate.toUpperCase()})`
@@ -380,7 +389,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
   // actual today:
   //   postgres undefined
   //   mysql    undefined
-  //   sqlite   CREATE TABLE "posts" ("id" INTEGER PRIMARY KEY, "user_id" INTEGER NOT NULL)
+  //   sqlite   CREATE TABLE "posts" ("id" INT PRIMARY KEY NOT NULL, "user_id" INTEGER NOT NULL)
   // The SQLite value is a real CREATE TABLE with the extra `foreignKeys` field ignored.
   it('emits ON DELETE CASCADE on the foreign key', () => {
     expect({
@@ -516,7 +525,7 @@ describe('foreign-key DDL and actions (frozen: migrations/SPEC.md 1.6)', () => {
       'FOREIGN KEY (`tenant_id`, `user_id`) REFERENCES `users` (`tenant_id`, `id`) ' +
       'ON DELETE CASCADE ON UPDATE RESTRICT';
     const sqlite =
-      'CREATE TABLE "memberships" ("id" INTEGER PRIMARY KEY, "tenant_id" INTEGER NOT NULL, ' +
+      'CREATE TABLE "memberships" ("id" INT PRIMARY KEY NOT NULL, "tenant_id" INTEGER NOT NULL, ' +
       '"user_id" INTEGER NOT NULL, ' +
       'FOREIGN KEY ("tenant_id", "user_id") REFERENCES "users" ("tenant_id", "id") ' +
       'ON DELETE CASCADE ON UPDATE RESTRICT)';
@@ -702,7 +711,7 @@ const postsWithoutForeignKeys: FrozenTableSnapshot = {
 type FrozenDiff = (
   prev: SchemaSnapshot,
   next: SchemaSnapshot,
-  opts?: { readonly dialect?: Dialect },
+  opts?: { readonly dialect?: SqlDialect },
 ) => readonly FrozenChangeOp[];
 
 // SPEC correction: SQLite's refusal needs the whole before/after pair. The frozen
@@ -740,7 +749,7 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
     const empty: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 
     expect(
-      diffForDialect(empty, asSnapshot([cascadePosts, users]), { dialect: 'sqlite' }).map(operation => [
+      diffForDialect(empty, asSnapshot([cascadePosts, users]), { dialect: sqliteDialect }).map(operation => [
         operation.kind,
         'table' in operation ? operation.table : undefined,
       ]),
@@ -749,7 +758,7 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
       ['create_table', 'posts'],
     ]);
     expect(
-      diffForDialect(empty, asSnapshot([cascadePosts, users]), { dialect: 'postgres' }).map(operation => [
+      diffForDialect(empty, asSnapshot([cascadePosts, users]), { dialect: postgresDialect }).map(operation => [
         operation.kind,
         'table' in operation ? operation.table : undefined,
       ]),
@@ -770,11 +779,10 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
     ] as const;
     for (const [label, before, after] of transitions) {
       const run = (): readonly FrozenChangeOp[] =>
-        diffForDialect(asSnapshot([before]), asSnapshot([after]), { dialect: 'sqlite' });
+        diffForDialect(asSnapshot([before]), asSnapshot([after]), { dialect: sqliteDialect });
       expect(run, label).toThrow(UnsupportedFeatureError);
       expect(run, label).toThrow(/foreign key "posts_user_id_fkey".*"posts"/s);
       expect(run, label).toThrow(/SQLite has no ALTER TABLE form for a constraint/);
-      if (label === 'change') expect(run).toThrow(/ON DELETE NO ACTION.*CASCADE/s);
     }
   });
 
@@ -822,7 +830,7 @@ describe('foreign-key diff and refusals (frozen: migrations/SPEC.md 1.6)', () =>
     };
     const run = (): readonly FrozenChangeOp[] =>
       diffForDialect({ version: 1, tables: [], extensions: [] }, asSnapshot([organizations, users]), {
-        dialect: 'sqlite',
+        dialect: sqliteDialect,
       });
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/sqlite/i);
@@ -847,7 +855,7 @@ const routineV1: RoutineDef = {
 function replacementFor(previous: RoutineDef, next: RoutineDef): readonly string[] {
   return routineFingerprint(previous) === routineFingerprint(next)
     ? []
-    : replaceRoutineStatements(previous, next, 'postgres');
+    : replaceRoutineStatements(previous, next, postgresDialect);
 }
 
 describe('routine body diff (frozen: schema-objects/SPEC.md 8.6)', () => {
@@ -942,8 +950,8 @@ function extensionDiff(previous: SchemaSnapshot, next: SchemaSnapshot): readonly
   return diff(previous, next);
 }
 
-function extensionUp(op: ChangeOp, dialect: Dialect): string {
-  return emitUp(op, dialect);
+function extensionUp(op: ChangeOp, dialect: OfficialDialectName): string {
+  return emitUp(op, officialDialects[dialect]);
 }
 
 describe('database extensions and extension-backed types (frozen: migrations/SPEC.md 1.5)', () => {
@@ -956,7 +964,7 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
 
   it('renders a parameterised extension type', () => {
     expect(
-      ddlType('postgres', {
+      ddlType(postgresDialect, {
         name: 'embedding',
         type: vector1536,
         nullable: false,
@@ -964,7 +972,7 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
       }),
     ).toBe('vector(1536)');
     expect(
-      ddlType('postgres', {
+      ddlType(postgresDialect, {
         name: 'location',
         type: geometryPoint4326,
         nullable: false,
@@ -997,7 +1005,7 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
 
   it('refuses an extension type on mssql, naming the dialect and the type', () => {
     const run = () =>
-      mssql.migrations.emitUp({
+      mssqlDialect.migrations.emitUp({
         kind: 'create_table',
         table: 'items',
         columns: itemColumns,

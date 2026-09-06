@@ -190,7 +190,7 @@ describe('@zmdb/sqlite vertical', () => {
 
       expect(normalizedLive).toMatchObject(USERS);
       expect(normalizedLive).toEqual(normalizedDeclared);
-      expect(detectDrift(normalizedLive, USERS)).toMatchObject({
+      expect(detectDrift(normalizedLive, USERS, { dialect: sqlite })).toMatchObject({
         clean: true,
         onlyInDatabase: [],
         onlyInDeclarations: [],

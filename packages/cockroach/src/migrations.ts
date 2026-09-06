@@ -105,6 +105,8 @@ function validateSchemaObject(operation: SchemaObjectOperation): void {
 
 export const cockroachMigrations: MigrationDialect<'cockroach'> = Object.freeze({
   name: 'cockroach',
+  foreignKeyMode: 'deferred',
+  embedded: false,
   validateSnapshot(snapshot: SchemaSnapshot): void {
     parent.validateSnapshot(snapshot);
     validateSnapshot(snapshot);
