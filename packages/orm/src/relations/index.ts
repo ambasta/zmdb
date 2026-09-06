@@ -21,6 +21,8 @@ export interface PopulateQuery {
   readonly kind: 'join' | 'batched';
   readonly sql: string;
   readonly parameters: readonly unknown[];
+  readonly pivotQuery?: PopulateQuery | undefined;
+  readonly targetQuery?: ((intermediateTargetIds: readonly unknown[]) => PopulateQuery) | undefined;
 }
 
 function sanitizeKeys<T>(keys: readonly T[]): T[] {
@@ -114,6 +116,55 @@ export function compilePopulate(
     const grouped = targetFilters.some((predicate, index) => index > 0 && predicate.connector === 'OR');
     return `AND ${grouped ? `(${body})` : body}`;
   };
+
+  if (rel.isManyToMany) {
+    const sanitized = sanitizeKeys(parentIds);
+    const through = rel.through ?? '';
+    const baseFk = rel.baseFk ?? '';
+    const targetKey = targetKeys[0] ?? 'id';
+
+    let pivotSql: string;
+    let pivotParameters: readonly unknown[];
+    if (sanitized.length === 0) {
+      pivotSql = `SELECT * FROM ${q(through)} WHERE 1 = 0`;
+      pivotParameters = [];
+    } else {
+      const inList = sanitized.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
+      pivotSql = `SELECT * FROM ${q(through)} WHERE ${q(baseFk)} IN (${inList})`;
+      pivotParameters = [...sanitized];
+    }
+
+    const pivotQuery: PopulateQuery = { kind: 'batched', sql: pivotSql, parameters: pivotParameters };
+
+    const targetQuery = (intermediateTargetIds: readonly unknown[] = []): PopulateQuery => {
+      const sanitizedTargets = sanitizeKeys(intermediateTargetIds);
+      if (sanitizedTargets.length === 0) {
+        return {
+          kind: 'batched',
+          sql: `SELECT * FROM ${q(targetTable)} WHERE 1 = 0`,
+          parameters: [],
+        };
+      }
+      const parameters: unknown[] = [...sanitizedTargets];
+      const whereFilters = renderFilters(parameters);
+      const inList = sanitizedTargets.map((_, i) => formatPlaceholder(dialect, i + 1)).join(', ');
+      return {
+        kind: 'batched',
+        sql: `SELECT * FROM ${q(targetTable)} WHERE ${q(targetKey)} IN (${inList})${
+          whereFilters.length === 0 ? '' : ` ${whereFilters}`
+        }`,
+        parameters,
+      };
+    };
+
+    return {
+      kind: 'batched',
+      sql: pivotSql,
+      parameters: pivotParameters,
+      pivotQuery,
+      targetQuery,
+    };
+  }
   if (!rel.toMany) {
     const parameters: unknown[] = [];
     const filtered = physicalFilters.length > 0;
