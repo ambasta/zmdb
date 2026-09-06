@@ -164,31 +164,35 @@ describe('zmdb client generate', { timeout: 30_000 }, () => {
     const config = await project();
     const stop = Promise.withResolvers<void>();
     const generations: HttpArtifactGeneration[] = [];
-    using session = ReflectSession.open({ project: config.project });
-    const watching = watchHttpArtifacts(config, {
-      session,
-      until: stop.promise,
-      debounceMs: 10,
-      log: generation => generations.push(generation),
-    });
-    await waitFor(() => generations.length === 1);
+    const session = ReflectSession.open({ project: config.project });
+    try {
+      const watching = watchHttpArtifacts(config, {
+        session,
+        until: stop.promise,
+        debounceMs: 10,
+        log: generation => generations.push(generation),
+      });
+      await waitFor(() => generations.length === 1);
 
-    const root = dirname(config.configPath);
-    writeFileSync(join(root, 'src', 'unrelated.ts'), "export const unrelated = 'changed';\n");
-    await new Promise(resolve => setTimeout(resolve, 150));
-    expect(generations).toHaveLength(1);
+      const root = dirname(config.configPath);
+      writeFileSync(join(root, 'src', 'unrelated.ts'), "export const unrelated = 'changed';\n");
+      await new Promise(resolve => setTimeout(resolve, 150));
+      expect(generations).toHaveLength(1);
 
-    const models = join(root, 'src', 'models.ts');
-    writeFileSync(
-      models,
-      readFileSync(models, 'utf8').replace('readonly displayName: string;', 'readonly displayName: number;'),
-    );
-    await waitFor(() => generations.length === 2);
-    stop.resolve();
-    await watching;
+      const models = join(root, 'src', 'models.ts');
+      writeFileSync(
+        models,
+        readFileSync(models, 'utf8').replace('readonly displayName: string;', 'readonly displayName: number;'),
+      );
+      await waitFor(() => generations.length === 2);
+      stop.resolve();
+      await watching;
 
-    expect(session.updates).toEqual(['open', 'refresh']);
-    expect(generations[1]?.dependencies).toContain(models);
-    expect(generations[1]?.result.changed).toBe(true);
+      expect(session.updates).toEqual(['open', 'refresh']);
+      expect(generations[1]?.dependencies).toContain(models);
+      expect(generations[1]?.result.changed).toBe(true);
+    } finally {
+      session.close();
+    }
   });
 });
