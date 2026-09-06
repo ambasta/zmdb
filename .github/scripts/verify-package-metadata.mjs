@@ -728,7 +728,7 @@ function publishedManifestDiagnostics(packageRecord, commonVersion, catalogByNam
   const diagnostics = [];
   let published;
   try {
-    published = publishManifest(packageRecord.manifest);
+    published = publishManifest(packageRecord.manifest, commonVersion);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return [metadataDiagnostic(packageRecord, 'publish manifest', `transform failed: ${message}`)];
@@ -947,7 +947,7 @@ function assertPublishTransform() {
     peerDependencies: { '@fixture/peer': 'workspace:^' },
     devDependencies: { fixture: '1.0.0' },
   };
-  const prerelease = publishManifest(source);
+  const prerelease = publishManifest(source, source.version);
   const expectedPrerelease = '2.0.0-beta.3';
   for (const [section, dependency] of [
     ['dependencies', '@fixture/dependency'],
@@ -963,22 +963,25 @@ function assertPublishTransform() {
   }
   if (Object.hasOwn(prerelease, 'devDependencies')) throw new Error('publish manifest retained devDependencies');
 
-  const subpathsOnly = publishManifest({
-    ...source,
-    exports: {
-      './client': './src/client.ts',
-      './server': './src/server.ts',
+  const subpathsOnly = publishManifest(
+    {
+      ...source,
+      exports: {
+        './client': './src/client.ts',
+        './server': './src/server.ts',
+      },
     },
-  });
+    source.version,
+  );
   if (Object.hasOwn(subpathsOnly, 'main') || Object.hasOwn(subpathsOnly, 'types')) {
     throw new Error('subpath-only publish manifest invented a root entry');
   }
 
-  const stable = publishManifest({ ...source, version: '2.0.0' });
+  const stable = publishManifest({ ...source, version: '2.0.0' }, '2.0.0');
   if (stable.dependencies?.['@fixture/dependency'] !== '^2.0.0') {
     throw new Error('stable workspace dependency did not publish as ^2.0.0');
   }
-  const stableBuild = publishManifest({ ...source, version: '2.0.0+build-3' });
+  const stableBuild = publishManifest({ ...source, version: '2.0.0+build-3' }, '2.0.0+build-3');
   if (stableBuild.dependencies?.['@fixture/dependency'] !== '^2.0.0+build-3') {
     throw new Error('stable build metadata was mistaken for a prerelease');
   }

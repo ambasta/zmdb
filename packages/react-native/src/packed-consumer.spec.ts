@@ -5,8 +5,10 @@ import { join, relative, sep } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ROOT, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { ROOT, publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import { runPackedProject, type PackedProjectResult } from '../../../fixtures/client-adapters/src/packed-project.js';
+
+const RELEASE_VERSION = publishTrain(ROOT).version;
 
 const FIXTURE_SOURCES = [
   'conformance-cases.ts',
@@ -87,15 +89,15 @@ describe('@zmdb/react-native packed consumer', () => {
       packages: [
         {
           directory: join(buildRoot, 'packages', 'client'),
-          manifest: publishManifest(readManifest('client')),
+          manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
         },
         {
           directory: join(buildRoot, 'packages', 'react'),
-          manifest: publishManifest(readManifest('react')),
+          manifest: publishManifest(readManifest('react'), RELEASE_VERSION),
         },
         {
           directory: join(buildRoot, 'packages', 'react-native'),
-          manifest: publishManifest(readManifest('react-native')),
+          manifest: publishManifest(readManifest('react-native'), RELEASE_VERSION),
         },
       ],
       dependencies: {

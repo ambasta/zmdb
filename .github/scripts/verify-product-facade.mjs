@@ -24,6 +24,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { PRODUCT_CATALOG } from '../../scripts/product/catalog.mjs';
+import { releasePlan } from '../../scripts/release/plan.mjs';
 import { publishManifest } from './lib/publish-manifest.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -483,6 +484,7 @@ await build({
 export function runPackedProductConsumer(root = ROOT, fixture = join(root, 'fixtures', 'consumer-product')) {
   const build = spawnSync('yarn', ['build'], { cwd: root, encoding: 'utf8' });
   if (build.status !== 0) return failure('build', build);
+  const commonVersion = releasePlan(root).version;
 
   const temporary = mkdtempSync(join(tmpdir(), 'zmdb-product-consumer-'));
   const stage = join(temporary, 'stage');
@@ -500,7 +502,7 @@ export function runPackedProductConsumer(root = ROOT, fixture = join(root, 'fixt
         dereference: true,
         filter: path => !path.includes(join(source, 'node_modules')),
       });
-      const manifest = publishManifest(JSON.parse(readFileSync(join(source, 'package.json'), 'utf8')));
+      const manifest = publishManifest(JSON.parse(readFileSync(join(source, 'package.json'), 'utf8')), commonVersion);
       writeFileSync(join(staged, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
       const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', temporary], {

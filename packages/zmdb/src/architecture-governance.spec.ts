@@ -1,5 +1,16 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -10,6 +21,7 @@ import { createImportGraph } from '../../../.github/scripts/lib/import-graph.mjs
 import {
   createDependencyGraph,
   loadArchitecture,
+  loadArchitectureSync,
   lookupExport,
   lookupPackage,
   policyMembershipDiagnostics,
@@ -17,9 +29,11 @@ import {
 } from '../../../scripts/architecture/index.mjs';
 import type { PackagePolicy } from '../../../scripts/architecture/policy.mjs';
 import { PRODUCT_CATALOG } from '../../../scripts/product/catalog.mjs';
+import { releasePlan } from '../../../scripts/release/plan.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const FIXTURES = join(ROOT, 'scripts', 'architecture', '__fixtures__');
+const BUMP = join(ROOT, 'scripts', 'release', 'bump.mjs');
 
 const VERIFIERS = {
   architecture: join(ROOT, '.github', 'scripts', 'verify-architecture-zones.mjs'),
@@ -262,6 +276,42 @@ function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`);
 }
 
+function fakeYarn(root: string): { readonly bin: string; readonly log: string } {
+  const bin = join(root, 'fake-bin');
+  const log = join(root, 'fake-yarn.log');
+  mkdirSync(bin);
+  const executable = join(bin, 'yarn');
+  writeFileSync(
+    executable,
+    `#!/bin/sh
+printf '%s\\n' "$*" > "$FAKE_YARN_LOG"
+printf 'updated-by-fake-yarn\\n' > yarn.lock
+exit "$FAKE_YARN_EXIT"
+`,
+  );
+  chmodSync(executable, 0o755);
+  return { bin, log };
+}
+
+function runBump(root: string, version: string, exitCode = 0): VerifierResult {
+  const fake = fakeYarn(root);
+  const result = spawnSync(process.execPath, [BUMP, version, '--root', root, '--date', '2026-09-06'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      FAKE_YARN_EXIT: String(exitCode),
+      FAKE_YARN_LOG: fake.log,
+      PATH: `${fake.bin}:${process.env['PATH'] ?? ''}`,
+    },
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
 describe('architecture and release governance fixtures', () => {
   it('keeps every fixture self-contained and limited to its named mutation', async () => {
     for (const name of FIXTURE_NAMES) await assertFixtureSkeleton(name);
@@ -279,6 +329,7 @@ describe('architecture and release governance fixtures', () => {
   it('accepts the canonical package graph fixture', async () => {
     const root = fixtureRoot('valid');
     const architecture = await loadArchitecture(root);
+    const synchronous = loadArchitectureSync(root);
     const live = await loadArchitecture(ROOT);
 
     const liveIds = live.packages.map(packageRecord => packageRecord.id);
@@ -365,6 +416,7 @@ describe('architecture and release governance fixtures', () => {
     });
 
     expect(architecture.packages.map(packageRecord => packageRecord.id)).toEqual(['core', 'app']);
+    expect(synchronous.packages.map(packageRecord => packageRecord.id)).toEqual(['core', 'app']);
     expect(createDependencyGraph(architecture)).toEqual({
       core: [],
       app: ['core'],
@@ -492,7 +544,7 @@ describe('architecture and release governance fixtures', () => {
   // #725 retires the cycle, forbidden-edge and missing-manifest expected failures.
   // #726 retires the runtime reachability failures and adds stale-exemption coverage.
   // #727 retires metadata and version drift and adds optional-peer metadata coverage.
-  // The two remaining `it.fails` cases belong to #728.
+  // #728 retires the release failures and adds deterministic planning and bump rollback.
   it('rejects a runtime export reaching a tooling module', () => {
     const result = runVerifier(VERIFIERS.runtime, fixtureRoot('tooling-leak'));
     expect(result.status).toBe(1);
@@ -572,7 +624,7 @@ describe('architecture and release governance fixtures', () => {
     }
   });
 
-  it.fails('rejects a release version absent from CHANGELOG.md', () => {
+  it('rejects a release version absent from CHANGELOG.md', () => {
     const result = runVerifier(VERIFIERS.release, fixtureRoot('changelog-drift'));
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
@@ -580,7 +632,7 @@ describe('architecture and release governance fixtures', () => {
     ]);
   });
 
-  it.fails('rejects a tag that disagrees with package versions', () => {
+  it('rejects a tag that disagrees with package versions', () => {
     const result = runVerifier(VERIFIERS.release, fixtureRoot('valid'), '--tag', 'v1.0.0-alpha.5');
     expect(result.status).toBe(1);
     expect(diagnosticLines(result)).toEqual([
@@ -591,9 +643,11 @@ describe('architecture and release governance fixtures', () => {
   it('derives topological publish order from the package graph', async () => {
     const architecture = await loadArchitecture(fixtureRoot('valid'));
     const order = topologicalOrder(createDependencyGraph(architecture));
+    const plan = releasePlan(fixtureRoot('valid'));
 
     expect(order).toEqual(['core', 'app']);
     expect(order.map(id => lookupPackage(architecture, id)?.npmName)).toEqual(['@fixture/core', '@fixture/app']);
+    expect(plan.publishOrder).toEqual(['@fixture/core', '@fixture/app']);
     expect(
       topologicalOrder(
         Object.freeze({
@@ -603,5 +657,77 @@ describe('architecture and release governance fixtures', () => {
         }),
       ),
     ).toEqual(['alpha', 'middle', 'zeta']);
+  });
+
+  it('produces the same release plan twice', () => {
+    const first = releasePlan(ROOT);
+    const second = releasePlan(ROOT);
+    const firstCommand = spawnSync(process.execPath, [join(ROOT, 'scripts', 'release', 'plan.mjs'), '--json'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    const secondCommand = spawnSync(process.execPath, [join(ROOT, 'scripts', 'release', 'plan.mjs'), '--json'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+
+    expect(second).toEqual(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.packages)).toBe(true);
+    expect(Object.isFrozen(first.publishOrder)).toBe(true);
+    expect(firstCommand).toMatchObject({ status: 0, stderr: '' });
+    expect(secondCommand).toMatchObject({ status: 0, stderr: '' });
+    expect(secondCommand.stdout).toBe(firstCommand.stdout);
+  });
+
+  it('bumps every catalog manifest and changelog as one train', () => {
+    const root = mkdtempSync(join(tmpdir(), 'zmdb-release-bump-'));
+    try {
+      cpSync(fixtureRoot('valid'), root, { recursive: true });
+      writeFileSync(join(root, 'yarn.lock'), 'original-lockfile\n');
+
+      const result = runBump(root, '1.0.0-alpha.5');
+      expect(result).toMatchObject({ status: 0, stderr: '' });
+      expect(result.stdout).toContain('Prepared 1.0.0-alpha.5 across 2 catalog packages.');
+      expect(readFileSync(join(root, 'fake-yarn.log'), 'utf8')).toBe('install --mode=update-lockfile\n');
+      expect(readFileSync(join(root, 'yarn.lock'), 'utf8')).toBe('updated-by-fake-yarn\n');
+      expect(releasePlan(root)).toMatchObject({
+        version: '1.0.0-alpha.5',
+        packages: ['@fixture/app', '@fixture/core'],
+        publishOrder: ['@fixture/core', '@fixture/app'],
+      });
+      for (const id of ['app', 'core']) {
+        const manifest = readJson<{ version: string; publishConfig: { tag: string } }>(
+          join(root, 'packages', id, 'package.json'),
+        );
+        expect(manifest).toMatchObject({
+          version: '1.0.0-alpha.5',
+          publishConfig: { tag: 'alpha' },
+        });
+      }
+      const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
+      expect(changelog).toContain('## [Unreleased]\n\n## [1.0.0-alpha.5] - 2026-09-06');
+      expect(changelog).toContain('- **product:** reserve pending fixture changes.');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('restores the complete train when lockfile regeneration fails', () => {
+    const root = mkdtempSync(join(tmpdir(), 'zmdb-release-rollback-'));
+    try {
+      cpSync(fixtureRoot('valid'), root, { recursive: true });
+      const watched = ['CHANGELOG.md', 'yarn.lock', 'packages/app/package.json', 'packages/core/package.json'];
+      writeFileSync(join(root, 'yarn.lock'), 'original-lockfile\n');
+      const before = new Map(watched.map(path => [path, readFileSync(join(root, path), 'utf8')]));
+
+      const result = runBump(root, '1.0.0-alpha.5', 7);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('yarn install --mode=update-lockfile failed with status 7');
+      for (const path of watched) expect(readFileSync(join(root, path), 'utf8'), path).toBe(before.get(path));
+      expect(releasePlan(root).version).toBe('1.0.0-alpha.4');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

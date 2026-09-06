@@ -9,40 +9,10 @@
 //        node .github/scripts/set-latest-tag.mjs --dry-run  (print only)
 import { execFileSync } from 'node:child_process';
 
-const PACKAGES = [
-  '@zmdb/client',
-  '@zmdb/react',
-  '@zmdb/react-native',
-  '@zmdb/angular',
-  '@zmdb/vue',
-  '@zmdb/svelte',
-  '@zmdb/sveltekit',
-  '@zmdb/next',
-  '@zmdb/nuxt',
-  '@zmdb/solid',
-  '@zmdb/query-compiler',
-  '@zmdb/schema-core',
-  '@zmdb/ai',
-  '@zmdb/ai-anthropic',
-  '@zmdb/ai-langchain',
-  '@zmdb/ai-vercel',
-  '@zmdb/mcp',
-  '@zmdb/protobuf',
-  '@zmdb/aot-validator',
-  '@zmdb/repository',
-  '@zmdb/sqlite',
-  '@zmdb/app',
-  '@zmdb/jobs',
-  '@zmdb/jobs-postgres',
-  '@zmdb/otel',
-  '@zmdb/transport-grpc',
-  '@zmdb/transport-nats',
-  '@zmdb/transport-rabbitmq',
-  '@zmdb/transport-redis',
-  '@zmdb/web',
-  'zmdb',
-];
+import { ROOT, publishTrain } from './lib/publish-manifest.mjs';
+
 const DRY = process.argv.includes('--dry-run');
+const release = publishTrain(ROOT);
 
 // precedence rank of a version's channel: higher = preferred for `latest`.
 function rank(v) {
@@ -84,7 +54,7 @@ function chooseLatest(versions) {
   })[0];
 }
 
-for (const pkg of PACKAGES) {
+for (const { npmName: pkg } of release.packages) {
   let versions;
   try {
     versions = JSON.parse(execFileSync('npm', ['view', pkg, 'versions', '--json'], { encoding: 'utf8' }));

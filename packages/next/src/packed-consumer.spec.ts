@@ -4,12 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ROOT, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { ROOT, publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 import type { PackedProjectResult } from '../../../fixtures/client-adapters/src/packed-project.js';
+
+const RELEASE_VERSION = publishTrain(ROOT).version;
 
 const FIXTURE_FILES = [
   'app/api/scope/route.ts',
@@ -64,15 +66,15 @@ describe('@zmdb/next packed App Router consumer', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client')),
+            manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'react'),
-            manifest: publishManifest(readManifest('react')),
+            manifest: publishManifest(readManifest('react'), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'next'),
-            manifest: publishManifest(readManifest('next')),
+            manifest: publishManifest(readManifest('next'), RELEASE_VERSION),
           },
         ],
         dependencies: {

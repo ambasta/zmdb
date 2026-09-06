@@ -6,9 +6,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const RELEASE_VERSION = publishTrain(ROOT).version;
 const FIXTURE = join(ROOT, 'fixtures', 'database-sqlite');
 const PACKAGE_ROOT = join(ROOT, 'packages');
 const BUILD_ORDER = [
@@ -64,7 +65,7 @@ function pack(allPackages, scratch) {
     const stage = join(scratch, 'stage', name.replaceAll('/', '__'));
     mkdirSync(dirname(stage), { recursive: true });
     copyForPack(pkg.directory, stage);
-    const manifest = publishManifest(pkg.manifest);
+    const manifest = publishManifest(pkg.manifest, RELEASE_VERSION);
     manifest.dependencies = Object.fromEntries(
       Object.entries(manifest.dependencies ?? {}).map(([dependency, range]) => {
         const archive = archives.get(dependency);

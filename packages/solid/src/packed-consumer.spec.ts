@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { publishManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest, publishTrain } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
@@ -13,6 +13,7 @@ import {
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const RELEASE_VERSION = publishTrain(ROOT).version;
 const CLIENT = join(ROOT, 'packages/client');
 const SOLID = join(ROOT, 'packages/solid');
 const HARNESS = join(ROOT, 'fixtures/client-adapters/src');
@@ -88,7 +89,7 @@ export interface AdapterConformanceBinding<Client> {
 `;
 
 function manifest(directory: string): Readonly<Record<string, unknown>> {
-  return publishManifest(JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')));
+  return publishManifest(JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')), RELEASE_VERSION);
 }
 
 function build(packageName: string): void {

@@ -7,9 +7,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const RELEASE_VERSION = publishTrain(ROOT).version;
 const FIXTURE = join(ROOT, 'fixtures', 'consumer-server-core');
 const PACKAGES_DIR = join(ROOT, 'packages');
 const JOBS_ROOTS = ['@zmdb/jobs'];
@@ -141,7 +142,10 @@ function packWorkspace(packages, names, scratch) {
     if (pkg === undefined) throw new Error(`cannot pack absent workspace package ${name}`);
     const destination = join(stage, pkg.dir.slice(PACKAGES_DIR.length + 1));
     copyForPack(pkg.dir, destination);
-    writeFileSync(join(destination, 'package.json'), `${JSON.stringify(publishManifest(pkg.manifest), null, 2)}\n`);
+    writeFileSync(
+      join(destination, 'package.json'),
+      `${JSON.stringify(publishManifest(pkg.manifest, RELEASE_VERSION), null, 2)}\n`,
+    );
     const packed = run('npm', ['pack', '--json', '--pack-destination', scratch], {
       cwd: destination,
       env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },

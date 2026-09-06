@@ -55,6 +55,7 @@
     "verify:package-metadata": "node .github/scripts/verify-package-metadata.mjs && node .github/scripts/verify-package-metadata.mjs --self-test",
     "verify:product-catalog": "node .github/scripts/verify-product-catalog.mjs",
     "verify:publish": "yarn verify:package-metadata && node .github/scripts/verify-publish.mjs",
+    "verify:release-governance": "node .github/scripts/verify-release-governance.mjs && node .github/scripts/verify-release-governance.mjs --self-test && node .github/scripts/publish-package.mjs --self-test",
     "verify:runtime-reachability": "node .github/scripts/verify-runtime-reachability.mjs && node .github/scripts/verify-runtime-reachability.mjs --self-test",
     "verify:server-integrations": "node fixtures/consumer-server-integrations/verify-installed.mjs --integrations --require-services",
     "verify:tf-acceptance": "node .github/scripts/verify-tf-acceptance.mjs",

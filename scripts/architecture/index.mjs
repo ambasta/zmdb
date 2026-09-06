@@ -5,8 +5,11 @@
 // tags, publication state, and mutation remain outside this module.
 
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+const require = createRequire(import.meta.url);
 
 const POLICY_FIELDS = [
   'allowedRuntimeDependencies',
@@ -150,6 +153,11 @@ async function moduleExport(root, path, name) {
   return namespace[name];
 }
 
+function moduleExportSync(root, path, name) {
+  const modulePath = resolveInside(root, path, path);
+  return require(modulePath)[name];
+}
+
 function defaultBinName(npmName) {
   return npmName.split('/').at(-1);
 }
@@ -231,11 +239,7 @@ export function policyMembershipDiagnostics(catalog, policy) {
   return freezeArray(diagnostics.toSorted(compareText));
 }
 
-export async function loadArchitecture(root) {
-  const resolvedRoot = resolve(root);
-  const catalog = await moduleExport(resolvedRoot, 'scripts/product/catalog.mjs', 'PRODUCT_CATALOG');
-  const policy = await moduleExport(resolvedRoot, 'scripts/architecture/policy.mjs', 'PACKAGE_POLICY');
-
+function architectureFromModules(resolvedRoot, catalog, policy) {
   if (!Array.isArray(catalog)) throw new TypeError('scripts/product/catalog.mjs must export PRODUCT_CATALOG');
   if (!isRecord(policy)) throw new TypeError('scripts/architecture/policy.mjs must export PACKAGE_POLICY');
   if (!isDeeplyFrozen(catalog)) throw new TypeError('PRODUCT_CATALOG must be deeply frozen');
@@ -275,6 +279,20 @@ export async function loadArchitecture(root) {
     policy,
     packages: Object.freeze(packages),
   });
+}
+
+export async function loadArchitecture(root) {
+  const resolvedRoot = resolve(root);
+  const catalog = await moduleExport(resolvedRoot, 'scripts/product/catalog.mjs', 'PRODUCT_CATALOG');
+  const policy = await moduleExport(resolvedRoot, 'scripts/architecture/policy.mjs', 'PACKAGE_POLICY');
+  return architectureFromModules(resolvedRoot, catalog, policy);
+}
+
+export function loadArchitectureSync(root) {
+  const resolvedRoot = resolve(root);
+  const catalog = moduleExportSync(resolvedRoot, 'scripts/product/catalog.mjs', 'PRODUCT_CATALOG');
+  const policy = moduleExportSync(resolvedRoot, 'scripts/architecture/policy.mjs', 'PACKAGE_POLICY');
+  return architectureFromModules(resolvedRoot, catalog, policy);
 }
 
 export function lookupPackage(architecture, identity) {

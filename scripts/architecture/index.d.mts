@@ -58,6 +58,8 @@ export function policyMembershipDiagnostics(
 
 export function loadArchitecture(root: string): Promise<Architecture>;
 
+export function loadArchitectureSync(root: string): Architecture;
+
 export function lookupPackage(architecture: Architecture, identity: string): ArchitecturePackage | undefined;
 
 export function lookupExport(architecture: Architecture, specifier: string): PackageExport | undefined;

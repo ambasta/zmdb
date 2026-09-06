@@ -14,19 +14,17 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  PACKAGES,
-  publishManifest,
-  readManifest as readPublishManifest,
-} from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
 import { SERVER_PACKAGES as SERVER_TARGETS } from '../../.github/scripts/verify-server-boundaries.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const RELEASE = publishTrain(ROOT);
+const RELEASE_VERSION = RELEASE.version;
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-server-integrations');
 const PACKAGES_DIR = join(ROOT, 'packages');
 const SERVER_PACKAGES = SERVER_TARGETS.map(target => target.name);
 const SERVER_PEERS = SERVER_TARGETS.flatMap(target => (target.peer === undefined ? [] : [target.peer.name]));
-const PUBLISH_PACKAGE_NAMES = PACKAGES.map(directory => readPublishManifest(directory).name);
+const PUBLISH_PACKAGE_NAMES = RELEASE.packages.map(packageRecord => packageRecord.npmName);
 const REQUIRED_SERVICE_ENV = new Map([
   ['@zmdb/jobs-postgres', 'ZMDB_PG'],
   ['@zmdb/transport-nats', 'ZMDB_NATS_URL'],
@@ -109,7 +107,10 @@ function packWorkspace(packages, names, scratch) {
     if (pkg === undefined) throw new Error(`cannot pack absent workspace package ${name}`);
     const destination = join(stage, pkg.dir.slice(PACKAGES_DIR.length + 1));
     copyForPack(pkg.dir, destination);
-    writeFileSync(join(destination, 'package.json'), `${JSON.stringify(publishManifest(pkg.manifest), null, 2)}\n`);
+    writeFileSync(
+      join(destination, 'package.json'),
+      `${JSON.stringify(publishManifest(pkg.manifest, RELEASE_VERSION), null, 2)}\n`,
+    );
 
     const packed = run('npm', ['pack', '--json', '--pack-destination', scratch], {
       cwd: destination,

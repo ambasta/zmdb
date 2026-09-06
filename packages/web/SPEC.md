@@ -40,8 +40,8 @@ At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in t
 ### Build & publish wiring
 
 - `tsconfig.build.json` mirrors `src` into `dist`; every public root and subpath is declared in the package `exports` map and repointed to emitted `.js` during publishing.
-- Registered in `.github/scripts/prepare-publish.mjs` `META` (description + keywords) and in `.github/scripts/lib/publish-manifest.mjs` `PACKAGES`, ordered **after `repository`** and **before `zmdb`**
-  (DAG order).
+- Admitted once through `scripts/product/catalog.mjs`; release tooling maps that catalog row through architecture policy, so publish membership and dependency-first order are not repeated in package
+  scripts.
 - Re-exported from the `zmdb` umbrella as **`zmdb/web`** (a new subpath entry in `packages/zmdb`).
 
 ### Baseline symbol

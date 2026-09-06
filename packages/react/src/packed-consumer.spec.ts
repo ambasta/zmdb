@@ -4,12 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ROOT, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { ROOT, publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
   type PackedProjectResult,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
+
+const RELEASE_VERSION = publishTrain(ROOT).version;
 
 const FIXTURE_SOURCES = [
   'conformance-cases.ts',
@@ -62,11 +64,11 @@ describe('@zmdb/react packed consumer', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client')),
+            manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'react'),
-            manifest: publishManifest(readManifest('react')),
+            manifest: publishManifest(readManifest('react'), RELEASE_VERSION),
           },
         ],
         dependencies: {

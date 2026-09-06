@@ -7,9 +7,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const RELEASE_VERSION = publishTrain(ROOT).version;
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-runtime-foundation');
 const PACKAGES = join(ROOT, 'packages');
 const TARGETS = ['@zmdb/schema', '@zmdb/sql', '@zmdb/validator', '@zmdb/orm'];
@@ -67,7 +68,10 @@ function pack(packages, names, scratch) {
     const stage = join(scratch, 'stage', name.replaceAll('/', '__'));
     mkdirSync(dirname(stage), { recursive: true });
     copyForPack(pkg.directory, stage);
-    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(pkg.manifest), null, 2)}\n`);
+    writeFileSync(
+      join(stage, 'package.json'),
+      `${JSON.stringify(publishManifest(pkg.manifest, RELEASE_VERSION), null, 2)}\n`,
+    );
     const packed = run('npm', ['pack', '--json', '--pack-destination', scratch], {
       cwd: stage,
       env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },

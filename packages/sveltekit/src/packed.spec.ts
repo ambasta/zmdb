@@ -4,13 +4,14 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const ROOT = join(import.meta.dirname, '../../..');
+const RELEASE_VERSION = publishTrain(ROOT).version;
 const FIXTURE = join(ROOT, 'fixtures', 'client-adapters', 'sveltekit-packed');
 const FIXTURE_FILES = [
   '.npmrc',
@@ -57,15 +58,15 @@ describe('@zmdb/sveltekit packed consumers', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client')),
+            manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'svelte'),
-            manifest: publishManifest(readManifest('svelte')),
+            manifest: publishManifest(readManifest('svelte'), RELEASE_VERSION),
           },
           {
             directory: join(ROOT, 'packages', 'sveltekit'),
-            manifest: publishManifest(readManifest('sveltekit')),
+            manifest: publishManifest(readManifest('sveltekit'), RELEASE_VERSION),
           },
         ],
         dependencies: {

@@ -11,16 +11,17 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { PACKAGES, ROOT, publishManifest } from './lib/publish-manifest.mjs';
+import { ROOT, publishManifest, publishTrain } from './lib/publish-manifest.mjs';
 
+const release = publishTrain(ROOT);
 let missing = 0;
-for (const name of PACKAGES) {
-  const pkgDir = join(ROOT, 'packages', name);
+for (const packageRecord of release.packages) {
+  const pkgDir = join(ROOT, packageRecord.directory);
   const pkgPath = join(pkgDir, 'package.json');
-  const pkg = publishManifest(JSON.parse(readFileSync(pkgPath, 'utf8')));
+  const pkg = publishManifest(JSON.parse(readFileSync(pkgPath, 'utf8')), release.version);
 
-  for (const [subpath, entry] of Object.entries(pkg.exports)) {
-    for (const target of [entry.types, entry.import]) {
+  for (const [subpath, exportEntry] of Object.entries(pkg.exports)) {
+    for (const target of [exportEntry.types, exportEntry.import]) {
       if (!existsSync(join(pkgDir, target))) {
         console.error(`[ERROR] ${pkg.name} export "${subpath}" → ${target} does not exist. Did \`yarn build\` run?`);
         missing++;

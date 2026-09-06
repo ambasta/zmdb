@@ -2,8 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ROOT, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { ROOT, publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import { runPackedProject } from '../src/packed-project.js';
+
+const RELEASE_VERSION = publishTrain(ROOT).version;
 
 function run(command, arguments_, cwd = ROOT) {
   const result = spawnSync(command, arguments_, { cwd, encoding: 'utf8', stdio: 'inherit' });
@@ -23,11 +25,11 @@ const result = runPackedProject({
   packages: [
     {
       directory: join(ROOT, 'packages/client'),
-      manifest: publishManifest(readManifest('client')),
+      manifest: publishManifest(readManifest('client'), RELEASE_VERSION),
     },
     {
       directory: join(ROOT, 'packages/angular'),
-      manifest: publishManifest(readManifest('angular')),
+      manifest: publishManifest(readManifest('angular'), RELEASE_VERSION),
     },
   ],
   dependencies: {

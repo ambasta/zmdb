@@ -16,7 +16,7 @@ The catalog does not contain or mutate:
 - publish order or dependency-ring policy;
 - compatibility, deprecation, or partial-release decisions.
 
-Those are owned by architecture-governance EPIC #721. #728 may read catalog membership, but derives release order from the architecture policy and reads versions from authoritative manifests.
+Those are owned by architecture-governance EPIC #721. The #728 release model reads catalog membership, derives release order from architecture policy and reads versions from authoritative manifests.
 
 ## 2. Canonical record
 
@@ -65,7 +65,7 @@ At the #618 baseline, six directories under `packages/` contained publishable ma
 #659, #660, #661, #695, #696, #697, #698, and #699 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`,
 `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
 `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, `@zmdb/nuxt`, and `@zmdb/sveltekit`. The catalog now accounts for all thirty-one manifest-backed
-packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
+packages exactly once. Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather than release order:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                       |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------- |
@@ -114,7 +114,7 @@ The following surfaces consume the catalog directly:
 4. **Packed-consumer inventory** — discovers each package's fixture or verifies its explicit no-fixture reason.
 5. **Architecture policy** — `scripts/architecture/policy.mjs` attaches exactly one zone/ring policy row to each catalog member, while `scripts/architecture/index.mjs` rejects missing or stale rows
    without recreating membership.
-6. **Release governance** — #728 reads membership only. Versions, changelog, tags, graph-derived order, and publish actions remain outside the catalog.
+6. **Release governance** — the release model reads membership only. Versions, changelog, tags, graph-derived order, and publish actions remain outside the catalog.
 
 Generated consumers compare bytes in tests and write only when their explicit generation command is run. Verification is read-only and fails on drift.
 

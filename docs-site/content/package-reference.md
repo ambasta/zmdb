@@ -831,5 +831,5 @@ at compile time.
 
 <!-- /generated: product-catalog package-reference -->
 
-Release versions, changelog entries, npm tags, and publish order are not product catalog fields. See the architecture and publishing references; that policy is owned by architecture-governance EPIC
-#721 and #728.
+Release versions, changelog entries, npm tags, and publish order are not product catalog fields. The release model combines this catalog membership with architecture-policy edges, package manifests
+and the root changelog.

@@ -515,18 +515,18 @@ product role, root/subpath facade visibility, product optionality, documentation
 consumer-fixture discovery consume that catalog instead of copying package lists.
 
 The catalog deliberately does not own versions, dependency ranges, changelogs, npm tags, publication credentials, publish order, compatibility timing or partial-release behavior. Those policies belong
-to architecture-governance EPIC #721 and its release implementation #728; release tooling may read catalog membership only.
+to architecture-governance EPIC #721; the #728 release tooling reads catalog membership only.
 
 The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
 ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the thirty-one-package inventory plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
-### 3.10 Canonical architecture policy and enforcement (#722, #724, #725, #726, #727)
+### 3.10 Canonical architecture policy and enforcement (#722, #724, #725, #726, #727, #728)
 
-The canonical policy, read-only architecture model, workspace-edge verifier, runtime-reachability verifier and package-metadata verifier now exist; release governance remains a later slice of epic
-#721. Product membership stays owned by the product catalog in [`scripts/product/catalog.mjs`](./scripts/product/catalog.mjs). [`scripts/architecture/policy.mjs`](./scripts/architecture/policy.mjs)
-attaches exactly one constraint row to every admitted package, and [`scripts/architecture/index.mjs`](./scripts/architecture/index.mjs) rejects missing or stale rows without discovering a second
-package list from the filesystem, a workflow loop or a publish script.
+The canonical policy, read-only architecture model, workspace-edge verifier, runtime-reachability verifier, package-metadata verifier and lockstep release verifier now exist. Product membership stays
+owned by the product catalog in [`scripts/product/catalog.mjs`](./scripts/product/catalog.mjs). [`scripts/architecture/policy.mjs`](./scripts/architecture/policy.mjs) attaches exactly one constraint
+row to every admitted package, and [`scripts/architecture/index.mjs`](./scripts/architecture/index.mjs) rejects missing or stale rows without discovering a second package list from the filesystem, a
+workflow loop or a publish script.
 
 Zones are ordered from inward to outward:
 
@@ -589,7 +589,8 @@ All catalog packages form one lockstep release train. They carry one version, us
 must agree with an exact `v<version>` release tag. Product membership, architecture constraints, release content and npm credentials remain four separate authorities.
 
 The complete `PackagePolicy` schema, all thirty-one rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
-[`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication ordering remain separately frozen in [PUBLISHING.md](./PUBLISHING.md) for #728.
+[`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). Changelog, release-plan, tag and publication order are implemented under [`scripts/release/`](./scripts/release/) and documented in
+[PUBLISHING.md](./PUBLISHING.md).
 
 ### 3.11 Frozen tooling-package target (#626)
 

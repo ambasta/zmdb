@@ -8,10 +8,9 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 
 > **Do not create an automation token.** npm itself recommends Trusted Publishing over tokens for CI. There is no `NPM_TOKEN` secret in this setup.
 
-## Frozen lockstep governance target (#722)
+## Lockstep release governance
 
-This section is the normative target for epic #721. The current workflow still repeats thirty-one package names in release scripts and has no root `CHANGELOG.md` or release-plan module; #728
-implements this contract and removes those repetitions.
+Issue #728 implements the release portion of epic #721. The executable contract is frozen in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md).
 
 ### Authorities and release plan
 
@@ -45,7 +44,7 @@ id as the tie-breaker. `changelogEntry` is the exact Markdown body of the matchi
   selected package.
 - `publishConfig.access` is `public`. A prerelease channel is `alpha`, `beta` or `rc`; a stable release uses `latest`. The existing highest-precedence `latest` decision remains a publication concern,
   not a product-catalog field.
-- The lockfile is regenerated after a bump and must agree with every committed workspace range before a release plan is valid.
+- The lockfile is regenerated after a bump and must agree with every committed workspace range before release governance passes.
 
 ### One project changelog
 
@@ -60,7 +59,7 @@ The repository has exactly one release changelog, `CHANGELOG.md`; catalog packag
 
 - **product:** describe the pending user-visible change
 
-## [1.0.0-alpha.5] - 2026-09-05
+## [1.0.0-alpha.5] - 2026-09-06
 
 ### Fixed
 
@@ -132,15 +131,19 @@ Release verification reports every problem in deterministic package/path order a
    > yarn install --immutable
    > yarn build
    > yarn verify:publish
+   > node scripts/release/plan.mjs --json > /tmp/zmdb-release-plan.json
+   > node scripts/release/plan.mjs --publish-tsv > /tmp/zmdb-publish-order.tsv
    > node .github/scripts/repoint-dist.mjs
+   > VER=$(node -e "const fs=require('node:fs'); console.log(JSON.parse(fs.readFileSync(process.argv[1], 'utf8')).version)" /tmp/zmdb-release-plan.json)
    >
-   > packages=(
-   >   client react react-native angular vue svelte sveltekit next nuxt solid query-compiler schema-core ai ai-anthropic ai-langchain ai-vercel
-   >   mcp protobuf aot-validator repository sqlite app jobs jobs-postgres otel transport-grpc transport-nats transport-rabbitmq transport-redis web zmdb
-   > )
-   > for p in "${packages[@]}"; do
-   >   (cd "packages/$p" && COREPACK_ENABLE_PROJECT_SPEC=0 npm publish --access public --tag alpha)
-   > done
+   > while IFS=$'\t' read -r directory package_name; do
+   >   node .github/scripts/publish-package.mjs \
+   >     --directory "$directory" \
+   >     --package "$package_name" \
+   >     --version "$VER" \
+   >     --tag alpha \
+   >     --pack-destination /tmp/zmdb-release-tarballs
+   > done < /tmp/zmdb-publish-order.tsv
    > ```
    >
    > The order matches the package dependency graph. npm may ask for a normal two-factor authentication code. Once every name exists, configure its Trusted Publisher; later releases use OIDC and need
@@ -151,14 +154,18 @@ Release verification reports every problem in deterministic package/path order a
 
 ## Releasing (after trusted publishers are configured)
 
-- **Dry run** (recommended): Actions tab → _Publish @zmdb packages to npm_ → Run workflow → leave `dry_run = true`. Builds, installs and executes every optional server integration against its live
-  peer, then runs `npm pack --dry-run` for each package.
-- **Real publish**: run with `dry_run = false`, or push a tag:
+- **Prepare the train:** add reviewed bullets below `Unreleased`, then run `node scripts/release/bump.mjs <version>`. This moves those notes, updates every catalog manifest and refreshes `yarn.lock`;
+  it does not commit, tag or publish.
+- **Verify locally:** run `yarn verify:release-governance` and `yarn verify:publish` with the ordinary repository gate.
+- **Dry run:** Actions tab → _Publish @zmdb packages to npm_ → Run workflow. Manual dispatch always builds, verifies, executes every optional server integration against its live peer, repoints only
+  the disposable checkout and runs `npm pack --dry-run`.
+- **Real publish:** commit the complete train and push its exact tag:
   ```bash
-  git tag v1.0.0-alpha.0 && git push --tags
+  git tag v1.0.0-alpha.N
+  git push origin v1.0.0-alpha.N
   ```
-  The workflow installs → tests → builds `dist` (topological) → verifies the packed packages install and load → executes the seven installed optional server consumers against their required peers →
-  repoints manifests → `npm publish` each via OIDC. No secrets involved.
+  The workflow rejects any tag/version/changelog disagreement before it builds, verifies the packed packages from outside the workspace, materializes the policy-derived order, executes the seven
+  installed optional server consumers against their required peers, repoints manifests and publishes each package via OIDC. No package inventory or npm token is embedded in the workflow.
 
 ## What ends up in each tarball
 
@@ -208,18 +215,6 @@ npm view @zmdb/repository dependencies
   `id-token: write` must be present.
 - **repository.url mismatch** → publishing via OIDC requires `package.json` `repository.url` to match the GitHub repo exactly (it does here).
 - Provenance is **not** generated for private repos (n/a — this repo is public).
-
-## Cutting a release (current flow; superseded by #728)
-
-Future releases are fully automated via CI OIDC — no token, no manual build:
-
-1. Bump the version in all thirty-one published `packages/*/package.json` files (and `VERSION` in `prepare-publish.mjs`), commit.
-2. Tag and push:
-   ```bash
-   git tag v1.0.0-alpha.N && git push origin v1.0.0-alpha.N
-   ```
-   The `publish.yml` workflow builds → verifies → repoints → publishes each package via OIDC under the `alpha` tag, with automatic provenance. (A tag push always publishes; a manual
-   `workflow_dispatch` defaults to a dry run.)
 
 > **dist-tag policy:** before publishing, CI compares the new version with those already on npm. If the new version has the highest precedence (stable > rc > beta > alpha), it is published under
 > `latest`; otherwise it uses its channel tag. npm's OIDC permission covers `npm publish`, but not a later `npm dist-tag` command.

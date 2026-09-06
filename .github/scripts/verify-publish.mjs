@@ -33,7 +33,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, syml
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { PACKAGES, ROOT, publishManifest, readManifest } from './lib/publish-manifest.mjs';
+import { ROOT, publishManifest, publishTrain, readManifest } from './lib/publish-manifest.mjs';
 import { inspectProductConsumerFixture } from './verify-product-facade.mjs';
 import {
   TARGET_PRODUCT_TOOLING_EXPORTS,
@@ -78,7 +78,10 @@ const HTTP_CLIENT_DOCS_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 
 const HTTP_CLIENT_DOCS_PAGE = join(ROOT, 'docs-site', 'content', 'generated-client.md');
 const HTTP_CLIENT_DOCS_TSCONFIG = join(ROOT, 'fixtures', 'consumer-http-client', 'tsconfig.docs.json');
 const HTTP_CLIENT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'verify-installed.mjs');
-const ADMITTED_PACKAGE_NAMES = new Set(PACKAGES.map(name => readManifest(name).name));
+const RELEASE = publishTrain(ROOT);
+const PUBLISH_PACKAGES = RELEASE.packages;
+const RELEASE_VERSION = RELEASE.version;
+const ADMITTED_PACKAGE_NAMES = new Set(PUBLISH_PACKAGES.map(packageRecord => packageRecord.npmName));
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
 
@@ -344,10 +347,10 @@ for (const peer of PEERS) {
 const specifiers = [];
 const packedTarballs = new Map();
 let studioBin;
-for (const name of PACKAGES) {
-  const pkg = publishManifest(readManifest(name));
-  const src = join(ROOT, 'packages', name);
-  const dst = join(stage, name);
+for (const packageRecord of PUBLISH_PACKAGES) {
+  const pkg = publishManifest(readManifest(packageRecord.id), RELEASE_VERSION);
+  const src = join(ROOT, packageRecord.directory);
+  const dst = join(stage, packageRecord.id);
 
   cpSync(src, dst, {
     recursive: true,
@@ -788,4 +791,6 @@ if (errors > 0) {
   process.exit(1);
 }
 rmSync(tmp, { recursive: true, force: true });
-console.log(`\n[SUCCESS] ${PACKAGES.length} packages pack, install, import and typecheck from outside the repo.`);
+console.log(
+  `\n[SUCCESS] ${String(PUBLISH_PACKAGES.length)} packages pack, install, import and typecheck from outside the repo.`,
+);

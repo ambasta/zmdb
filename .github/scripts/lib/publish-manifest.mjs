@@ -9,43 +9,23 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+import { releaseModel } from '../../../scripts/release/model.mjs';
 
-// Dependency order, so `npm publish` of a dependent finds its dependencies already on
-// the registry. `publish.yml`'s loop uses the same order.
-export const PACKAGES = [
-  'client',
-  'react',
-  'react-native',
-  'angular',
-  'vue',
-  'svelte',
-  'sveltekit',
-  'next',
-  'nuxt',
-  'solid',
-  'query-compiler',
-  'schema-core',
-  'ai',
-  'ai-anthropic',
-  'ai-langchain',
-  'ai-vercel',
-  'mcp',
-  'protobuf',
-  'aot-validator',
-  'repository',
-  'sqlite',
-  'app',
-  'jobs',
-  'jobs-postgres',
-  'otel',
-  'transport-grpc',
-  'transport-nats',
-  'transport-rabbitmq',
-  'transport-redis',
-  'web',
-  'zmdb',
-];
+export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+let defaultTrain;
+
+export function publishTrain(root = ROOT) {
+  const release = releaseModel(root);
+  return Object.freeze({
+    packages: release.entries,
+    version: release.plan.version,
+  });
+}
+
+function defaultPublishTrain() {
+  defaultTrain ??= publishTrain(ROOT);
+  return defaultTrain;
+}
 
 /**
  * `./src/ir/index.ts` → `./dist/ir/index.js`.
@@ -62,8 +42,14 @@ export function toDist(target, ext) {
   return `./dist/${match[1]}${ext}`;
 }
 
-/** The manifest that ships, given the committed one. Pure — it does not read `dist`. */
-export function publishManifest(pkg) {
+/** The manifest that ships, given the committed one and the verified whole-train version. */
+export function publishManifest(pkg, commonVersion) {
+  if (typeof commonVersion !== 'string' || commonVersion.length === 0) {
+    throw new Error('publishManifest requires the verified common release version');
+  }
+  if (pkg.version !== commonVersion) {
+    throw new Error(`${String(pkg.name)} version ${String(pkg.version)} disagrees with release ${commonVersion}`);
+  }
   const next = { ...pkg };
 
   next.exports = {};
@@ -106,8 +92,8 @@ export function publishManifest(pkg) {
   // `workspace:^` is a yarn protocol; plain `npm publish` would leave it in the tarball.
   // Prereleases pin the exact version — `^1.0.0-alpha.4` is not reliably satisfied by a
   // sibling prerelease across resolvers.
-  const versionWithoutBuild = pkg.version.split('+', 1)[0];
-  const range = versionWithoutBuild.includes('-') ? pkg.version : `^${pkg.version}`;
+  const versionWithoutBuild = commonVersion.split('+', 1)[0];
+  const range = versionWithoutBuild.includes('-') ? commonVersion : `^${commonVersion}`;
   for (const section of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
     if (!pkg[section]) continue;
     next[section] = Object.fromEntries(
@@ -123,7 +109,12 @@ export function publishManifest(pkg) {
   return next;
 }
 
-/** The committed manifest for a workspace package directory name. */
-export function readManifest(name) {
-  return JSON.parse(readFileSync(join(ROOT, 'packages', name, 'package.json'), 'utf8'));
+/** The committed manifest for a catalog id, npm name, or repository-relative package directory. */
+export function readManifest(identity) {
+  const entry = defaultPublishTrain().packages.find(
+    packageRecord =>
+      packageRecord.id === identity || packageRecord.directory === identity || packageRecord.npmName === identity,
+  );
+  if (entry === undefined) throw new Error(`unknown catalog package ${identity}`);
+  return JSON.parse(readFileSync(join(ROOT, entry.directory, 'package.json'), 'utf8'));
 }

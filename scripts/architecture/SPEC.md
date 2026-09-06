@@ -3,7 +3,7 @@
 > **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #692, #693, #694,
 > #695, #696, #657, #658, #659, #660, #661, #697, #698, #699, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery and graph APIs; #725 implements
 > architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime, tooling and optional-peer
-> reachability; only the release verifier remains a later slice. The original measured baseline is commit `5adba11e` on 2026-09-05.
+> reachability; #728 implements the release plan, changelog, bump and publication-governance boundary. The original measured baseline is commit `5adba11e` on 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -74,6 +74,7 @@ mutation. Functions that inspect a repository receive its root explicitly.
 
 - `loadArchitecture(root)` imports that root's `PRODUCT_CATALOG` and `PACKAGE_POLICY`, rejects missing, stale or directory-mismatched policy rows, and resolves exactly those catalog directories to
   manifests;
+- `loadArchitectureSync(root)` provides the same validated snapshot synchronously for the exact synchronous release-plan boundary;
 - `policyMembershipDiagnostics(catalog, policy)` performs the same membership check without filesystem access;
 - `lookupPackage(architecture, identity)` finds a package by catalog id, npm name, repository-relative directory or resolved directory;
 - `lookupExport(architecture, specifier)` resolves an exact public package specifier to its manifest selector and source target;
@@ -81,7 +82,7 @@ mutation. Functions that inspect a repository receive its root explicitly.
 - `topologicalOrder(graph)` returns dependency-first catalog ids with catalog id as the deterministic tie-breaker and rejects a cycle rather than returning a partial order.
 
 The model never enumerates `packages/*` to create membership and never infers policy from manifests or imports. It does not read versions, changelog content, tags, credentials or publication state.
-Issue #728 may map the returned ids to catalog npm names and combine that order with separate release authorities.
+The release model maps the returned ids to catalog npm names and combines that order with separate release authorities.
 
 ## 3. Zones, rings and dependency direction
 
@@ -602,6 +603,9 @@ Violations: membership/order duplication or drift, version/range drift, absent/i
 
 Remediation: use the whole-train bump, repair the root changelog, regenerate the lockfile, create the exact tag, or consume the release plan instead of a handwritten loop.
 
+[`verify-release-governance.mjs`](../../.github/scripts/verify-release-governance.mjs) implements this boundary. `yarn verify:release-governance` checks the live tree plus deterministic fixture,
+changelog, order and tag mutations, and CI runs it before packed publication.
+
 ## 8. Stable diagnostic codes and exact remediation
 
 | Code                         | Required measured subject                                      | Required remediation text/action                                                 |
@@ -625,9 +629,12 @@ Remediation: use the whole-train bump, repair the root changelog, regenerate the
 | `PACKAGE_VERSION_DRIFT`      | every distinct version and owning package ids                  | run one whole-train bump                                                         |
 | `PACKAGE_WORKSPACE_RANGE`    | package, dependency and measured range                         | use `workspace:^` in source and regenerate the publish manifest                  |
 | `RELEASE_CHANGELOG_MISSING`  | common version and changelog path                              | add one non-empty exact version section                                          |
+| `RELEASE_CHANGELOG_FORMAT`   | malformed heading, category, ordering or bullet                | restore the one-project changelog shape                                          |
+| `RELEASE_CHANGELOG_OWNER`    | version and unknown release-note owner                         | use the owning catalog id or `product`                                           |
 | `RELEASE_TAG_MISMATCH`       | triggering tag and common version                              | tag the verified commit exactly `v<version>`                                     |
 | `RELEASE_MEMBERSHIP_DRIFT`   | missing, duplicate or handwritten release member               | consume the product catalog                                                      |
 | `RELEASE_ORDER_DRIFT`        | expected and measured publish order                            | consume the policy-derived topological order                                     |
+| `RELEASE_EXISTING_MISMATCH`  | package/version and local versus registry integrity            | stop and investigate the immutable registry conflict                             |
 
 Diagnostics include facts, not guesses. When several rules fail for one edge, the structural cause is reported before consequences: membership, declaration, zone/ring, cycle, then reachability.
 
@@ -665,13 +672,14 @@ The frozen test titles are:
 - `rejects versions that differ across the lockstep train`;
 - `rejects an optional peer without optional metadata`;
 - `rejects a release version absent from CHANGELOG.md`;
-- `rejects a tag that disagrees with package versions`; and
-- `derives topological publish order from the package graph`.
+- `rejects a tag that disagrees with package versions`;
+- `derives topological publish order from the package graph`; and
+- `produces the same release plan twice`.
 
 #725 retires the three expected failures for cycles, forbidden policy edges and workspace imports absent from the manifest, and adds executable stale-edge, non-canonical-ring and private-import
 coverage. #726 retires the tooling- and optional-peer-reachability expected failures, adds executable stale-exemption coverage and wires the generic command into CI. #727 retires the
-incomplete-metadata and lockstep-version expected failures and adds executable optional-peer metadata coverage. #728 still owns the two release expected failures, deterministic release plans and the
-remaining release CI command.
+incomplete-metadata and lockstep-version expected failures and adds executable optional-peer metadata coverage. #728 retires the two release expected failures and adds deterministic release plans,
+rollback-safe whole-train bumps and the release CI command.
 
 ## 10. Explicit refusals
 

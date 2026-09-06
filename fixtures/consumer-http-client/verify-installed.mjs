@@ -16,10 +16,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(FIXTURE, '../..');
+const RELEASE_VERSION = publishTrain(ROOT).version;
 const CLIENT = join(ROOT, 'packages', 'client');
 const TSC = join(ROOT, 'node_modules', '.bin', 'tsc');
 const ESBUILD = join(ROOT, 'node_modules', '.bin', 'esbuild');
@@ -74,7 +75,10 @@ function buildClientTarball(temporary) {
   );
 
   const committed = JSON.parse(readFileSync(join(CLIENT, 'package.json'), 'utf8'));
-  writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(committed), null, 2)}\n`);
+  writeFileSync(
+    join(stage, 'package.json'),
+    `${JSON.stringify(publishManifest(committed, RELEASE_VERSION), null, 2)}\n`,
+  );
   const packed = run('npm', ['pack', '--json', '--pack-destination', temporary], {
     cwd: stage,
     env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },

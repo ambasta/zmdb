@@ -508,11 +508,10 @@ The order satisfies §4 plus the existing product edges. It is measured review e
 membership comes from `scripts/product/catalog.mjs` and whose order comes from `scripts/architecture/policy.mjs`. Package npm names are read from the catalog rather than synthesized as
 `@zmdb/<directory>`, because the final entry is the unscoped `zmdb` package.
 
-The hard-coded release surfaces that must change are:
+The release surfaces that consume the shared catalog/policy-derived model, and must continue to do so after the tooling split, are:
 
 ```text
 .github/scripts/lib/publish-manifest.mjs
-.github/scripts/prepare-publish.mjs
 .github/scripts/verify-publish.mjs
 .github/workflows/publish.yml
 PUBLISHING.md
