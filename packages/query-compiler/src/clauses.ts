@@ -17,6 +17,7 @@ import {
   encodePgVector,
   isDistanceOp,
   renderSpatialPredicate,
+  requirePostgres,
   type SpatialPredicateNode,
 } from './extensions/index.js';
 import type { CompiledQuery, QueryTelemetry } from './index.js';
@@ -169,6 +170,7 @@ export function renderPredicate(dialect: DialectTarget, p: Predicate, params: un
   }
 
   if (isDistanceOp(normalized)) {
+    requirePostgres(normalized, dialect);
     params.push(encodePgVector(p.value));
     return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
   }
