@@ -2,6 +2,7 @@ import type { CompiledQuery } from './compiled-query.js';
 import {
   dialectName,
   dialectTraits,
+  isSqlDialect,
   type DialectReturningSql,
   type DialectTarget,
   type ReturningStatement,
@@ -195,12 +196,9 @@ export interface CteSpec {
   readonly recursive?: boolean;
 }
 
-const SUPPORTED_DIALECTS: ReadonlySet<string> = new Set(['postgres', 'mysql', 'sqlite']);
-
 export function checkDialectCapability(dialect: DialectTarget, feature: string): void {
-  const name = dialectName(dialect);
-  if (!SUPPORTED_DIALECTS.has(name)) {
-    throw new UnsupportedFeatureError(feature, name);
+  if (!isSqlDialect(dialect)) {
+    throw new UnsupportedFeatureError(feature, dialectName(dialect));
   }
 }
 

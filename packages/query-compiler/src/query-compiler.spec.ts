@@ -12,15 +12,9 @@ import {
   stContains,
   stDWithin,
   windowFunction,
-  type Dialect,
+  type DialectTarget,
 } from './index.js';
-import {
-  mssqlDialect,
-  mysqlDialect,
-  officialDialects,
-  postgresDialect,
-  sqliteDialect,
-} from './testing/official-dialects.fixture.js';
+import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
 
@@ -788,7 +782,7 @@ describe('distance expressions and spatial predicates (frozen: query-compiler/SP
 
 describe('Common Table Expressions (CTEs)', () => {
   it('compiles non-recursive CTE with sequential parameter offsets on postgres', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const deptCte = qb.selectFrom('departments').where('active', '=', true);
     const q = qb.selectFrom('dept_summary').with('dept_summary', deptCte).where('min_salary', '>', 50000).compile();
 
@@ -799,7 +793,7 @@ describe('Common Table Expressions (CTEs)', () => {
   });
 
   it('compiles multiple CTEs with callback builders and sequential parameter offsets', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const q = qb
       .selectFrom('final_view')
       .with('active_users', b => b.selectFrom('users').where('status', '=', 'active'))
@@ -814,7 +808,7 @@ describe('Common Table Expressions (CTEs)', () => {
   });
 
   it('compiles recursive CTEs using WITH RECURSIVE for hierarchical queries', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
     const baseNav = qb.selectFrom('org').where('manager_id', '=', null);
     const q = qb.selectFrom('hierarchy').withRecursive('hierarchy', baseNav).where('depth', '<', 5).compile();
 
@@ -825,7 +819,7 @@ describe('Common Table Expressions (CTEs)', () => {
   });
 
   it('compiles CTEs correctly on MySQL and SQLite dialects with ? placeholders', () => {
-    const mysqlCompiler = createQueryCompiler('mysql');
+    const mysqlCompiler = createQueryCompiler(mysqlDialect);
     const subMysql = mysqlCompiler.selectFrom('users').where('age', '>=', 21);
     const qMysql = mysqlCompiler.selectFrom('adults').with('adults', subMysql).where('city', '=', 'NYC').compile();
 
@@ -834,7 +828,7 @@ describe('Common Table Expressions (CTEs)', () => {
     );
     expect(qMysql.parameters).toEqual([21, 'NYC']);
 
-    const sqliteCompiler = createQueryCompiler('sqlite');
+    const sqliteCompiler = createQueryCompiler(sqliteDialect);
     const subSqlite = sqliteCompiler.selectFrom('items').where('stock', '>', 0);
     const qSqlite = sqliteCompiler
       .selectFrom('available')
@@ -851,7 +845,7 @@ describe('Common Table Expressions (CTEs)', () => {
 
 describe('Window Functions & Projection AST extension', () => {
   it('compiles ROW_NUMBER, RANK, SUM window functions with PARTITION BY and ORDER BY', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
 
     const rowNum = windowFunction('ROW_NUMBER').partitionBy('department_id').orderBy('salary', 'desc').as('rank');
     const runningTotal = windowFunction('SUM', ['amount'])
@@ -868,7 +862,7 @@ describe('Window Functions & Projection AST extension', () => {
   });
 
   it('compiles selectWindow and window functions on MySQL and SQLite', () => {
-    const mysqlQb = createQueryCompiler('mysql');
+    const mysqlQb = createQueryCompiler(mysqlDialect);
     const wfMysql = windowFunction('RANK').partitionBy(['dept', 'region']).orderBy('score', 'desc').as('dept_rank');
 
     const qMysql = mysqlQb.selectFrom('scores').selectWindow(wfMysql).where('year', '=', 2026).compile();
@@ -879,7 +873,7 @@ describe('Window Functions & Projection AST extension', () => {
   });
 
   it('throws QueryCompilerError when window functions are attempted outside projection selection lists', () => {
-    const qb = createQueryCompiler('postgres');
+    const qb = createQueryCompiler(postgresDialect);
 
     expect(() => {
       qb.selectFrom('users')
@@ -898,11 +892,11 @@ describe('Window Functions & Projection AST extension', () => {
 
   it('throws UnsupportedFeatureError when unsupported capability is requested on restricted dialect', () => {
     expect(() => {
-      checkDialectCapability('oracle' as unknown as Dialect, 'window functions');
+      checkDialectCapability({ name: 'oracle' } as unknown as DialectTarget, 'window functions');
     }).toThrow(UnsupportedFeatureError);
 
     expect(() => {
-      checkDialectCapability('oracle' as unknown as Dialect, 'common table expressions');
+      checkDialectCapability({ name: 'oracle' } as unknown as DialectTarget, 'common table expressions');
     }).toThrow(UnsupportedFeatureError);
   });
 });
