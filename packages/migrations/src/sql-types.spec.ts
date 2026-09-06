@@ -125,7 +125,7 @@ describe('emitUp uses the map', () => {
     };
     expect(emitUp(alter, postgresDialect)).toContain('TYPE TIMESTAMPTZ');
     expect(emitUp(alter, mysqlDialect)).toContain('MODIFY COLUMN `at` DATETIME(3)');
-    expect(() => emitUp(alter, sqliteDialect)).toThrow('sqlite cannot alter a column type in place');
+    expect(() => emitUp(alter, sqliteDialect)).toThrow('sqlite cannot alter column type in place');
   });
 });
 

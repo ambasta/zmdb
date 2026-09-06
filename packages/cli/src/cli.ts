@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 
-import type { SnapshotableSchema, SqlDialect } from '@zmdb/migrations';
+import type { SnapshotableSchema } from '@zmdb/migrations';
 import { driverMigrationConnection, runCli } from '@zmdb/migrations';
 import { sqliteDriver } from '@zmdb/sqlite';
 

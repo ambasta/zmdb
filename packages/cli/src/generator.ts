@@ -1,8 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { sqlite } from '@zmdb/sqlite';
-
 import {
   diff,
   emitDown,
@@ -14,6 +12,7 @@ import {
   type SnapshotableSchema,
   type SqlDialect,
 } from '@zmdb/migrations';
+import { sqlite } from '@zmdb/sqlite';
 
 export type DialectInput = SqlDialect | string;
 

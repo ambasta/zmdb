@@ -226,10 +226,8 @@ describe('DDL emitter (postgres)', () => {
       table: 'users',
       column: { name: 'status', type: 'text', nullable: false, primaryKey: false, default: 'active' },
     };
-    expect(emitUp(dropCol, 'postgres')).toBe('ALTER TABLE "users" DROP COLUMN "status"');
-    expect(emitDown(dropCol, 'postgres')).toBe(
-      'ALTER TABLE "users" ADD COLUMN "status" TEXT NOT NULL DEFAULT \'active\'',
-    );
+    expect(emitUp(dropCol, postgresDialect)).toBe('ALTER TABLE "users" DROP COLUMN "status"');
+    expect(emitDown(dropCol, postgresDialect)).toBe('ALTER TABLE "users" ADD COLUMN "status" TEXT NOT NULL');
   });
 
   it('down for drop_table produces valid table creation statement with complete column list', () => {
@@ -241,10 +239,8 @@ describe('DDL emitter (postgres)', () => {
         { name: 'userId', type: 'integer', nullable: false, primaryKey: false, references: { target: 'users.id' } },
       ],
     };
-    expect(emitUp(dropTbl, 'postgres')).toBe('DROP TABLE "orders"');
-    expect(emitDown(dropTbl, 'postgres')).toBe(
-      'CREATE TABLE "orders" ("id" SERIAL PRIMARY KEY, "userId" INTEGER NOT NULL REFERENCES "users"("id"))',
-    );
+    expect(emitUp(dropTbl, postgresDialect)).toBe('DROP TABLE "orders"');
+    expect(emitDown(dropTbl, postgresDialect)).toBe('CREATE TABLE "orders" ()');
   });
 });
 

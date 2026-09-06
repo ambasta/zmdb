@@ -2,6 +2,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { SnapshotableSchema } from '@zmdb/migrations';
+import { sqlite } from '@zmdb/sqlite';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { main } from './cli.js';
@@ -35,7 +36,7 @@ describe('@zmdb/cli generator and commands', () => {
     const res = generateMigration({
       dir: testDir,
       name: 'create_users',
-      dialect: 'sqlite',
+      dialect: sqlite,
       schemas: [userSchema],
     });
 
@@ -63,14 +64,14 @@ describe('@zmdb/cli generator and commands', () => {
     generateMigration({
       dir: testDir,
       name: 'v1',
-      dialect: 'sqlite',
+      dialect: sqlite,
       schemas: [userSchema],
     });
 
     const secondRes = generateMigration({
       dir: testDir,
       name: 'v2',
-      dialect: 'sqlite',
+      dialect: sqlite,
       schemas: [userSchema],
     });
 

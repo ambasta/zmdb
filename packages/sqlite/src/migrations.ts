@@ -90,7 +90,8 @@ function columnDdl(
   const rowidPrimaryKey = key.inline && column.type === 'serial';
   const primaryKey = key.inline ? ' PRIMARY KEY' : '';
   const notNull = rowidPrimaryKey || (!key.inline && column.nullable && !key.tableLevel) ? '' : ' NOT NULL';
-  return `${q(column.name)} ${type}${primaryKey}${notNull}`;
+  const unique = column.unique ? ' UNIQUE' : '';
+  return `${q(column.name)} ${type}${primaryKey}${notNull}${unique}`;
 }
 
 function primaryKeyDdl(columns: readonly string[]): string {
