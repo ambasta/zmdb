@@ -382,26 +382,71 @@ export function applyOrderBy<B extends OrderTarget>(
   return b;
 }
 
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder('utf-8');
+const B64URL_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const B64URL_LOOKUP = new Int8Array(128).fill(-1);
+for (let i = 0; i < 64; i++) {
+  const code = B64URL_CHARS.charCodeAt(i);
+  if (code !== undefined) B64URL_LOOKUP[code] = i;
+}
+
 function base64Encode(str: string): string {
-  if (globalThis.Buffer) {
-    return globalThis.Buffer.from(str, 'utf-8').toString('base64url');
+  const bytes = textEncoder.encode(str);
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const b0 = bytes[i] ?? 0;
+    const b1 = bytes[i + 1] ?? 0;
+    const b2 = bytes[i + 2] ?? 0;
+    const triple = (b0 << 16) | (b1 << 8) | b2;
+    result +=
+      (B64URL_CHARS[(triple >> 18) & 63] ?? '') +
+      (B64URL_CHARS[(triple >> 12) & 63] ?? '') +
+      (B64URL_CHARS[(triple >> 6) & 63] ?? '') +
+      (B64URL_CHARS[triple & 63] ?? '');
   }
-  if (globalThis.btoa) {
-    return globalThis.btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  if (i < bytes.length) {
+    const b0 = bytes[i] ?? 0;
+    if (bytes.length - i === 1) {
+      const single = b0 << 16;
+      result += (B64URL_CHARS[(single >> 18) & 63] ?? '') + (B64URL_CHARS[(single >> 12) & 63] ?? '');
+    } else {
+      const b1 = bytes[i + 1] ?? 0;
+      const double = (b0 << 16) | (b1 << 8);
+      result +=
+        (B64URL_CHARS[(double >> 18) & 63] ?? '') +
+        (B64URL_CHARS[(double >> 12) & 63] ?? '') +
+        (B64URL_CHARS[(double >> 6) & 63] ?? '');
+    }
   }
-  throw new Error('No base64 encoder available');
+  return result;
 }
 
 function base64Decode(str: string): string {
-  if (globalThis.Buffer) {
-    return globalThis.Buffer.from(str, 'base64url').toString('utf-8');
+  const len = str.length;
+  if (len === 0) return '';
+  const bufferLen = Math.floor((len * 3) / 4);
+  const bytes = new Uint8Array(bufferLen);
+  let p = 0;
+  for (let i = 0; i < len;) {
+    const code1 = str.charCodeAt(i++);
+    const code2 = str.charCodeAt(i++);
+    const has3 = i < len;
+    const code3 = has3 ? str.charCodeAt(i++) : 0;
+    const has4 = i < len;
+    const code4 = has4 ? str.charCodeAt(i++) : 0;
+    const c1 = code1 !== undefined ? (B64URL_LOOKUP[code1] ?? -1) : -1;
+    const c2 = code2 !== undefined ? (B64URL_LOOKUP[code2] ?? -1) : -1;
+    const c3 = has3 ? (B64URL_LOOKUP[code3] ?? -1) : 0;
+    const c4 = has4 ? (B64URL_LOOKUP[code4] ?? -1) : 0;
+    if (c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0) throw new Error('Invalid base64url string');
+    const triple = (c1 << 18) | (c2 << 12) | ((c3 & 63) << 6) | (c4 & 63);
+    if (p < bytes.length) bytes[p++] = (triple >> 16) & 255;
+    if (p < bytes.length) bytes[p++] = (triple >> 8) & 255;
+    if (p < bytes.length) bytes[p++] = triple & 255;
   }
-  if (globalThis.atob) {
-    let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) base64 += '=';
-    return globalThis.atob(base64);
-  }
-  throw new Error('No base64 decoder available');
+  return textDecoder.decode(bytes.subarray(0, p));
 }
 
 export function encodeCursor(payload: Record<string, unknown>): string {
