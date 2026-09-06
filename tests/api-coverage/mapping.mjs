@@ -371,7 +371,7 @@ export const kysely = {
   'execute > executeTakeFirstOrThrow': 'findOne adds LIMIT 1',
   'execute > Kysely.executeQuery': 'executes migration CRUD upsert and rollback against live in-memory SQLite',
   'raw-query > raw queries': 'calls query(text, params) and returns rows by default (prepared: false)',
-  'raw-sql > raw sql': 'allows bounded dialect-specific operator tokens and keeps every value parameterized',
+  'raw-sql > raw sql': 'allows raw or unmapped operators when explicitly wrapped in unsafeOperator',
   'sql-injection > select': [
     'main query compiler escapes malicious inputs in table, columns, and wheres',
     'prevents SQL injection through quote breakout in single identifiers',
@@ -496,8 +496,8 @@ export const drizzle = {
   ),
   'select sql': 'expr() emits a raw computed expression with alias',
   'select typed sql': 'expr() emits a raw computed expression with alias',
-  'select from sql': 'allows bounded dialect-specific operator tokens and keeps every value parameterized',
-  'select from raw sql*': 'allows bounded dialect-specific operator tokens and keeps every value parameterized',
+  'select from sql': 'allows raw or unmapped operators when explicitly wrapped in unsafeOperator',
+  'select from raw sql*': 'allows raw or unmapped operators when explicitly wrapped in unsafeOperator',
   'select from alias': 'self-join with aliases',
   'select a field without joining its table': 'left join with qualified on-columns',
   'table selection with single table': 'findById compiles a SELECT and maps the row',
@@ -516,8 +516,7 @@ export const drizzle = {
   'orderBy with aliased column': 'compiles where + orderBy + limit',
   'limit 0': 'compiles where + orderBy + limit',
   'limit -1': 'compiles where + orderBy + limit',
-  'test if method with sql operators':
-    'allows bounded dialect-specific operator tokens and keeps every value parameterized',
+  'test if method with sql operators': 'allows raw or unmapped operators when explicitly wrapped in unsafeOperator',
   'select for': oos(NO_DIALECT_ONLY_SYNTAX, 'dialect-postgres'),
   'select + .get() for empty result': 'findOne adds LIMIT 1',
   'sql.identifier escape': 'escapes internal double quotes in PostgreSQL and SQLite identifiers',
@@ -743,7 +742,7 @@ export const mikroOrm = {
   'view-entities': ['creates a plain view', 'creates a materialized view (pg)'],
   'virtual-entities': 'creates a plain view',
   'raw-queries': [
-    'allows bounded dialect-specific operator tokens and keeps every value parameterized',
+    'allows raw or unmapped operators when explicitly wrapped in unsafeOperator',
     'projects a distance as a selected column with an alias',
     'emits ST_DWithin as a predicate with typed arguments',
     'refuses a caller-supplied distance operator string',

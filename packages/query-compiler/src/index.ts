@@ -84,13 +84,16 @@ export type {
 
 import {
   frozenQuery,
+  isUnsafeOperator,
   queryTelemetry,
   tailClause,
   tailMethods,
+  unsafeOperator,
   whereClause,
   type ComparisonPredicate,
   type Predicate,
   type PredicateGroup,
+  type UnsafeOperator,
 } from './clauses.js';
 import { emitColumnExpr, isColumnExpr } from './expressions/index.js';
 import {
@@ -101,6 +104,7 @@ import {
   renderDistanceExpression,
   type AliasedDistanceExpression,
   type DistanceExpression,
+  type DistanceOp,
   type SpatialPredicate,
 } from './extensions/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
@@ -120,9 +124,12 @@ export type {
   VectorColumnOf,
 } from './extensions/index.js';
 export { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders };
+export { isUnsafeOperator, unsafeOperator, type UnsafeOperator };
+
 export type Operator =
   | '='
   | '!='
+  | '<>'
   | '<'
   | '<='
   | '>'
@@ -135,8 +142,7 @@ export type Operator =
   | 'exists'
   | 'not exists'
   | 'is null'
-  | 'is not null'
-  | (string & {});
+  | 'is not null';
 
 export { OP_MAP } from './clauses.js';
 export { renderPredicate } from './clauses.js';
@@ -209,11 +215,11 @@ interface SelectState {
 export interface SelectBuilder<T = unknown> {
   select(columns?: readonly SelectedColumn[]): SelectBuilder<T>;
   where(predicate: SpatialPredicate): SelectBuilder<T>;
-  where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  andWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
+  orWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
   whereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   orWhereGroup(predicates: readonly ComparisonPredicate[]): SelectBuilder<T>;
   whereIn(col: string, values: readonly unknown[]): SelectBuilder<T>;
@@ -238,7 +244,7 @@ export interface SelectBuilder<T = unknown> {
 
 function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry: boolean): SelectBuilder<T> {
   const next = (patch: Partial<SelectState>): SelectBuilder<T> => makeSelect(d, { ...state, ...patch }, telemetry);
-  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator, value: unknown) =>
+  const addWhere = (connector: 'AND' | 'OR', col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown) =>
     next({ wheres: [...state.wheres, { col, op, value, connector }] });
   const addSpatial = (connector: 'AND' | 'OR', predicate: SpatialPredicate) =>
     next({ wheres: [...state.wheres, { ...predicate, connector }] });
@@ -246,24 +252,36 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
     next({ wheres: [...state.wheres, { kind: 'group', predicates, connector } satisfies PredicateGroup] });
 
   function where(predicate: SpatialPredicate): SelectBuilder<T>;
-  function where(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function where(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
+  function where(
+    first: string | SpatialPredicate,
+    op?: Operator | UnsafeOperator | DistanceOp,
+    value?: unknown,
+  ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
     if (op === undefined) throw new TypeError('where(column, operator, value) requires an operator');
     return addWhere('AND', first, op, value);
   }
 
   function andWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function andWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function andWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function andWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
+  function andWhere(
+    first: string | SpatialPredicate,
+    op?: Operator | UnsafeOperator | DistanceOp,
+    value?: unknown,
+  ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('AND', first);
     if (op === undefined) throw new TypeError('andWhere(column, operator, value) requires an operator');
     return addWhere('AND', first, op, value);
   }
 
   function orWhere(predicate: SpatialPredicate): SelectBuilder<T>;
-  function orWhere(col: string, op: Operator, value: unknown): SelectBuilder<T>;
-  function orWhere(first: string | SpatialPredicate, op?: Operator, value?: unknown): SelectBuilder<T> {
+  function orWhere(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): SelectBuilder<T>;
+  function orWhere(
+    first: string | SpatialPredicate,
+    op?: Operator | UnsafeOperator | DistanceOp,
+    value?: unknown,
+  ): SelectBuilder<T> {
     if (isSpatialPredicate(first)) return addSpatial('OR', first);
     if (op === undefined) throw new TypeError('orWhere(column, operator, value) requires an operator');
     return addWhere('OR', first, op, value);
@@ -284,12 +302,12 @@ function makeSelect<T = unknown>(d: DialectTarget, state: SelectState, telemetry
     whereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
     andWhereNotIn: (col, values) => addWhere('AND', col, 'not in', values),
     orWhereNotIn: (col, values) => addWhere('OR', col, 'not in', values),
-    whereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
-    andWhereExists: subquery => addWhere('AND', '', 'EXISTS', subquery),
-    orWhereExists: subquery => addWhere('OR', '', 'EXISTS', subquery),
-    whereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
-    andWhereNotExists: subquery => addWhere('AND', '', 'NOT EXISTS', subquery),
-    orWhereNotExists: subquery => addWhere('OR', '', 'NOT EXISTS', subquery),
+    whereExists: subquery => addWhere('AND', '', 'exists', subquery),
+    andWhereExists: subquery => addWhere('AND', '', 'exists', subquery),
+    orWhereExists: subquery => addWhere('OR', '', 'exists', subquery),
+    whereNotExists: subquery => addWhere('AND', '', 'not exists', subquery),
+    andWhereNotExists: subquery => addWhere('AND', '', 'not exists', subquery),
+    orWhereNotExists: subquery => addWhere('OR', '', 'not exists', subquery),
     compile: () => {
       const params: unknown[] = [];
       const cols =
@@ -343,8 +361,8 @@ export interface InsertBuilder {
 }
 export interface UpdateBuilder {
   set(row: Record<string, unknown>): UpdateBuilder;
-  where(col: string, op: Operator, value: unknown): UpdateBuilder;
-  orWhere(col: string, op: Operator, value: unknown): UpdateBuilder;
+  where(col: string, op: Operator | UnsafeOperator, value: unknown): UpdateBuilder;
+  orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): UpdateBuilder;
   whereGroup(predicates: readonly ComparisonPredicate[]): UpdateBuilder;
   whereIn(col: string, values: readonly unknown[]): UpdateBuilder;
   whereNotIn(col: string, values: readonly unknown[]): UpdateBuilder;
@@ -352,8 +370,8 @@ export interface UpdateBuilder {
   compile(): CompiledQuery;
 }
 export interface DeleteBuilder {
-  where(col: string, op: Operator, value: unknown): DeleteBuilder;
-  orWhere(col: string, op: Operator, value: unknown): DeleteBuilder;
+  where(col: string, op: Operator | UnsafeOperator, value: unknown): DeleteBuilder;
+  orWhere(col: string, op: Operator | UnsafeOperator, value: unknown): DeleteBuilder;
   whereGroup(predicates: readonly ComparisonPredicate[]): DeleteBuilder;
   whereIn(col: string, values: readonly unknown[]): DeleteBuilder;
   whereNotIn(col: string, values: readonly unknown[]): DeleteBuilder;

@@ -23,6 +23,7 @@ export {
   formatPlaceholder,
   inc,
   isSqlDialect,
+  isUnsafeOperator,
   mul,
   not,
   proposed,
@@ -34,6 +35,7 @@ export {
   serializeComment,
   stContains,
   stDWithin,
+  unsafeOperator,
   withComments,
 } from '@zmdb/query-compiler';
 export type {
@@ -79,6 +81,7 @@ export type {
   SqlDialect,
   SqlDialectDefinition,
   SqlDialectExtension,
+  UnsafeOperator,
   UpdateBuilder,
   VectorColumnOf,
 } from '@zmdb/query-compiler';

@@ -12,7 +12,7 @@ import {
   whereClause,
 } from '../clauses.js';
 import type { DialectTarget } from '../dialects/index.js';
-import type { CompiledQuery, QueryCompilerOptions } from '../index.js';
+import type { CompiledQuery, DistanceOp, Operator, QueryCompilerOptions, UnsafeOperator } from '../index.js';
 import { quoteTable } from '../quoting.js';
 
 export type { JoinCondition, JoinKind } from '../clauses.js';
@@ -27,13 +27,14 @@ interface State {
 }
 
 export interface JoinableSelect {
+  readonly dialect: DialectTarget;
   innerJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
   innerJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): JoinableSelect;
   leftJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
   leftJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): JoinableSelect;
   rightJoin(target: string, leftCol: string, rightCol: string, on?: readonly Predicate[]): JoinableSelect;
   rightJoin(target: string, conditions: readonly JoinCondition[], on?: readonly Predicate[]): JoinableSelect;
-  where(col: string, op: string, value: unknown): JoinableSelect;
+  where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): JoinableSelect;
   whereGroup(predicates: readonly ComparisonPredicate[]): JoinableSelect;
   orderBy(col: string, dir: 'asc' | 'desc'): JoinableSelect;
   limit(n: number): JoinableSelect;
@@ -44,6 +45,7 @@ export interface JoinableSelect {
 function make(d: DialectTarget, s: State, telemetry: boolean): JoinableSelect {
   const next = (patch: Partial<State>): JoinableSelect => make(d, { ...s, ...patch }, telemetry);
   return {
+    dialect: d,
     ...joinMethods(s.joins, next),
     ...tailMethods(s, next),
     where: (col, op, value) => next({ wheres: [...s.wheres, { col, op, value }] }),

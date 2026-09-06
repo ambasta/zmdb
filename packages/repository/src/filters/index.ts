@@ -1,12 +1,12 @@
 import { issuesFor } from '@zmdb/aot-validator/utilities';
-import type { Predicate } from '@zmdb/query-compiler';
+import type { DistanceOp, Operator, Predicate, UnsafeOperator } from '@zmdb/query-compiler';
 import { isRecord, type CoreSchema, ValidationError } from '@zmdb/schema-core';
 import { appTypeOf, type ColumnIR } from '@zmdb/schema-core/ir';
 
 /** One compiler predicate contributed by a named repository filter. */
 export interface FilterPredicate {
   readonly col: string;
-  readonly op: string;
+  readonly op: Operator | UnsafeOperator | DistanceOp;
   readonly value: unknown;
   readonly connector?: 'AND' | 'OR';
 }
@@ -61,8 +61,8 @@ export interface ResolveFiltersOptions {
 }
 
 export interface FilterTarget {
-  where(col: string, op: string, value: unknown): this;
-  orWhere?(col: string, op: string, value: unknown): this;
+  where(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): this;
+  orWhere?(col: string, op: Operator | UnsafeOperator | DistanceOp, value: unknown): this;
   whereGroup?(predicates: readonly FilterPredicate[]): this;
 }
 

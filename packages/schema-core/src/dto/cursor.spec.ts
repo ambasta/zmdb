@@ -17,8 +17,8 @@ import {
 function createWhereRecorder() {
   const calls: [string, ...unknown[]][] = [];
   const mk = (): WhereTarget => ({
-    where: (col: string, op: string, value: unknown) => (calls.push(['where', col, op, value]), mk()),
-    orWhere: (col: string, op: string, value: unknown) => (calls.push(['orWhere', col, op, value]), mk()),
+    where: (col: string, op: unknown, value: unknown) => (calls.push(['where', col, op, value]), mk()),
+    orWhere: (col: string, op: unknown, value: unknown) => (calls.push(['orWhere', col, op, value]), mk()),
   });
   return { builder: mk(), calls };
 }
