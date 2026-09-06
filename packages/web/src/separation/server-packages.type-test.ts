@@ -125,7 +125,7 @@ export type _PublishedWebApplicationOwnKeys = Expect<
   Equal<Exclude<keyof WebPackageApplication, keyof AppPackageApplication>, 'fetch' | 'handle'>
 >;
 export type _PublishedWebOptionsOwnKeys = Expect<
-  Equal<keyof WebPackageApplicationOptions, keyof AppPackageApplicationOptions | 'guardRegistry' | 'versioning'>
+  Equal<keyof WebPackageApplicationOptions, keyof AppPackageApplicationOptions | 'cors' | 'guardRegistry' | 'security' | 'versioning'>
 >;
 export type _PublishedCreateAppParameters = Expect<
   Equal<Parameters<PublishedCreateApp>, [FrozenModuleClass, (WebPackageApplicationOptions | undefined)?]>
