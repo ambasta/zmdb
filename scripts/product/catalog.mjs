@@ -71,7 +71,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'angular',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'Angular generated-client bindings' },
-    docsOwner: 'framework-integrations',
+    docsOwner: 'client-angular',
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
@@ -117,7 +117,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'client',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'generated HTTP clients' },
-    docsOwner: 'web-http-client',
+    docsOwner: 'generated-client',
     consumer: { fixture: 'fixtures/consumer-http-client' },
   }),
   productPackage({
@@ -197,7 +197,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'next',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'Next.js' },
-    docsOwner: 'framework-integrations',
+    docsOwner: 'client-next',
     consumer: { fixture: 'fixtures/next-app-router' },
   }),
   productPackage({
@@ -207,7 +207,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'nuxt',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'Nuxt 4' },
-    docsOwner: 'framework-integrations',
+    docsOwner: 'client-nuxt',
     consumer: { fixture: 'fixtures/client-adapters/nuxt' },
   }),
   productPackage({
@@ -283,7 +283,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'react',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'React' },
-    docsOwner: 'framework-integrations',
+    docsOwner: 'client-react',
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
@@ -293,7 +293,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'react-native',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'React Native' },
-    docsOwner: 'connect-react-native',
+    docsOwner: 'client-react-native',
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
@@ -367,7 +367,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'solid',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'Solid client resources' },
-    docsOwner: 'framework-integrations',
+    docsOwner: 'client-solid',
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
@@ -387,7 +387,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'svelte',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'Svelte 5' },
-    docsOwner: 'framework-integrations',
+    docsOwner: 'client-svelte',
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
@@ -397,7 +397,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'sveltekit',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'SvelteKit' },
-    docsOwner: 'framework-integrations',
+    docsOwner: 'client-sveltekit',
     consumer: { fixture: 'fixtures/client-adapters/sveltekit-packed' },
   }),
   productPackage({
@@ -447,7 +447,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'vue',
     facade: { root: [], subpaths: [] },
     optionality: { kind: 'integration', technology: 'Vue 3' },
-    docsOwner: 'framework-integrations',
+    docsOwner: 'client-vue',
     consumer: { fixture: 'fixtures/client-adapters/vue' },
   }),
   productPackage({

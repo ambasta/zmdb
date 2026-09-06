@@ -1,7 +1,7 @@
 # Documentation product journey — frozen specification
 
-> Status: **FROZEN** by GitHub sub-issue #713. Later issue-scoped changes implement the registry and generated sections; #686 amends the Client applications journey with one supported
-> `generated-client` page and executable packed samples, and #729 publishes the policy-generated architecture and executable governance workflows.
+> Status: **FROZEN** by GitHub sub-issue #713. Later issue-scoped changes implement the registry and generated sections; #686 adds one supported `generated-client` page and executable packed samples,
+> #701 adds nine framework-native guides over that client, and #729 publishes the policy-generated architecture and executable governance workflows.
 
 ## 1. Purpose and boundary
 
@@ -18,8 +18,8 @@ This specification freezes:
 - the structured framework-integration record;
 - the metadata and verification semantics of TypeScript documentation samples.
 
-The original #713 freeze did **not** rewrite page prose, implement navigation, generate content, compile samples, or emit redirect files. #686 is limited to its generated-client prose, registry entry,
-and executable sample proof.
+The original #713 freeze did **not** rewrite page prose, implement navigation, generate content, compile samples, or emit redirect files. #686 owns the generated-client prose and sample proof. #701
+owns the Client Applications overview, nine framework guides, support metadata, catalog ownership, and packed compilation of every canonical framework example.
 
 ## 2. Measured baseline
 
@@ -72,8 +72,8 @@ The plan has these invariants:
 - Every canonical slug occurs exactly once.
 - Every current non-GraphQL slug remains unchanged.
 - The twelve `web-graphql*` slugs remain live, unchanged pages.
-- `graphql` remains only a planning placeholder for those pages; `package-reference` and the #686 `generated-client` journey are the implemented canonical additions.
-- The target has 264 retained current pages plus three new pages: **267 canonical pages**.
+- `graphql` remains only a planning placeholder for those pages; `package-reference`, the #686 `generated-client` page, and the nine #701 framework guides are the implemented canonical additions.
+- The target has 264 retained current pages plus twelve new pages: **276 canonical pages**.
 - No GraphQL redirect artifacts are emitted.
 - `PAGE_META` owns title, status and optional note. NAV owns group and order; `group` is derived from NAV and is not hand-written a second time in `PAGE_META`.
 - A missing, duplicate, unregistered or orphaned slug is a build and verification failure.
@@ -83,7 +83,8 @@ The reading order is intentional: install the product, build with it, learn sche
 then use reference material.
 
 The ten group names and every non-GraphQL page position are live. The `graphql` planning position expands to the twelve existing `web-graphql*` pages in `LEGACY_REDIRECTS` order. #718 is closed
-wontfix, so the existing pages remain unchanged and no canonical replacement or redirect set is promised. With #686's supported page, the live registry contains 278 pages.
+wontfix, so the existing pages remain unchanged and no canonical replacement or redirect set is promised. With #686's generated-client page and #701's nine framework guides, the live registry contains
+287 pages.
 
 ## 4. GraphQL remains outside the migration
 
@@ -170,7 +171,16 @@ Additional invariants:
 - Prose mentions do not cause a row to be inferred.
 - React, Angular, Vue, Svelte, Solid, React Native, Next.js, Nuxt and SvelteKit each have exactly one row. Until implementation evidence exists, a row must not claim `built-in` or `optional`.
 
-### 5.3 Executable architecture views
+### 5.3 Client Applications support and samples
+
+`docs-site/client-applications.mjs` owns the release-scoped CSR, SSR, hydration, cancellation, native-lifecycle, canonical-example, and packed-test facts for the nine official client integrations.
+Package names and guide slugs are read from `docs-site/integrations.mjs`; package-reference ownership is read from `scripts/product/catalog.mjs`.
+
+Every guide has the same eight sections: Install, Provide, Query, Mutate, Cancellation, Errors, SSR, and Testing. Its canonical TypeScript fence names one checked-in
+`fixtures/client-adapters/docs/*.ts` source. `client-applications-docs.spec.ts` rejects prose/source drift, compares every support row with the #700 conformance metadata, proves recipe-only
+integrations have no package, rejects duplicated URL/authentication/validation implementation, and compiles all nine examples together against packed `@zmdb/client` and adapter tarballs.
+
+### 5.4 Executable architecture views
 
 `ARCHITECTURE.md` and `docs-site/content/architecture.md` carry the same `architecture policy-graph` generated region. Its authorities are:
 

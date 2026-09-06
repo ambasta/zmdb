@@ -1,6 +1,8 @@
 > [!NOTE] React Native and Expo use `@zmdb/react-native` for generated HTTP-client lifecycle, the existing Metro transform for ahead-of-time validation, and an application-selected structural SQLite
 > adapter for local storage. `node:sqlite` does not exist on device, and zmdb deliberately does not select NetInfo, credential storage, `expo-sqlite`, or `op-sqlite` for the application.
 
+The [React Native Client](./client-react-native.html) guide is the concise generated-client path; this page owns the Metro and embedded-SQLite details.
+
 ## Generated-client lifecycle
 
 Install the native adapter with its required React and React Native peers:
@@ -156,4 +158,4 @@ path.
 
 ---
 
-See also: [Web & Mobile Migrations](./migrations-web-mobile.html) · [Dialect: SQLite](./dialect-sqlite.html) · [AOT Setup](./aot-setup.html)
+See also: [React Native Client](./client-react-native.html) · [Web & Mobile Migrations](./migrations-web-mobile.html) · [Dialect: SQLite](./dialect-sqlite.html) · [AOT Setup](./aot-setup.html)

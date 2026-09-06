@@ -46,7 +46,8 @@ module.exports = withZmdb(getDefaultConfig(__dirname));
 ```
 
 The supported range is Metro `>=0.87.0 <0.88.0`. `withZmdb` keeps Expo's or the application's existing Babel transformer and delegates to it after the shared zmdb transform. See
-[React Native & Expo](./connect-react-native.html) for the bare-RN form, worker-memory tuning, the cache key, and the one dev-server case that needs a reset.
+[React Native Client](./client-react-native.html) for generated-client lifecycle and [React Native & Expo](./connect-react-native.html) for the bare-RN form, embedded SQLite boundary, worker-memory
+tuning, the cache key, and the one dev-server case that needs a reset.
 
 ## ts-patch Alternative
 
@@ -176,5 +177,6 @@ the build plugin or `zmdb-codegen` for the generic forms.
 
 - [Pure TypeScript](./pure-typescript.html) — runtime-only validation
 - [Validation](./validators-is.html) — validation API surface
+- [React Native Client](./client-react-native.html) — generated-client lifecycle around the Metro build
 - [Lint Rules](./lint-rules.html) — syntactic declaration and query checks
 - [Benchmarks](./benchmarks.html) — performance numbers

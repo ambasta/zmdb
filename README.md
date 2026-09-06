@@ -40,6 +40,9 @@ Nuxt is opt-in too: install `@zmdb/nuxt` for request-scoped Nitro transport, nat
 
 Solid is opt-in too: install `@zmdb/solid` with Solid 1 when a generated client needs typed context, native resources, owner cancellation, and native Suspense/error propagation.
 
+All nine UI and meta-framework packages consume the same generated HTTP client. The [Client Applications guide](./docs-site/content/framework-integrations.md) compares their CSR, SSR, hydration,
+cancellation, and native-lifecycle ownership before linking to one framework-native guide per package.
+
 Optional server integrations stay outside the `zmdb` default install:
 
 - `@zmdb/protobuf` has no peer or external resource; the build transform emits its artifacts.
@@ -56,7 +59,7 @@ Optional server integrations stay outside the `zmdb` default install:
 it as a development dependency. The [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
 > The workspace publishes **36 packages** across **143 export-map entry points**. The current suite has **3,299 passing tests** across 309 files, plus **74 expected failures** that describe work still
-> to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO pages, and
+> to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 271 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 
 ## Quick Start

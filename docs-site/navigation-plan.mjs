@@ -1,5 +1,5 @@
 // Frozen target for issue #713. The live registry derives from this data;
-// #686 amends it with the generated-client journey.
+// #686 adds the generated-client journey and #701 adds its nine adapters.
 
 export const DOCUMENTATION_BASELINE = {
   measuredOn: '2026-09-05',
@@ -25,9 +25,9 @@ export const DOCUMENTATION_BASELINE = {
   },
   target: {
     groups: 10,
-    canonicalPages: 267,
+    canonicalPages: 276,
     retainedCurrentPages: 264,
-    addedCanonicalPages: 3,
+    addedCanonicalPages: 12,
     redirectArtifacts: 12,
   },
 };
@@ -240,6 +240,15 @@ export const PRODUCT_JOURNEY = [
     pages: [
       'generated-client',
       'framework-integrations',
+      'client-react',
+      'client-angular',
+      'client-vue',
+      'client-svelte',
+      'client-solid',
+      'client-react-native',
+      'client-next',
+      'client-nuxt',
+      'client-sveltekit',
       'web-http-client',
       'web-templates',
       'connect-react-native',
@@ -353,6 +362,51 @@ export const PRODUCT_JOURNEY = [
 ];
 
 export const CANONICAL_PAGE_ADDITIONS = {
+  'client-angular': {
+    title: 'Angular Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
+  'client-next': {
+    title: 'Next.js Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
+  'client-nuxt': {
+    title: 'Nuxt Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
+  'client-react': {
+    title: 'React Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
+  'client-react-native': {
+    title: 'React Native Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
+  'client-solid': {
+    title: 'Solid Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
+  'client-svelte': {
+    title: 'Svelte Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
+  'client-sveltekit': {
+    title: 'SvelteKit Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
+  'client-vue': {
+    title: 'Vue Client',
+    group: 'Client applications',
+    status: 'supported',
+  },
   'generated-client': {
     title: 'Generated HTTP Client',
     group: 'Client applications',

@@ -1,336 +1,69 @@
-The generated matrix below reports support in the current release. It does not turn a frozen design or open implementation issue into shipped code.
+Generate one client from the server contract, then consume that same module everywhere: server handlers, browser applications, SSR requests, hydration, and native devices. Framework packages do not
+generate a second client and do not reimplement HTTP behavior.
 
-`optional` means an official package is installed only by applications using that framework. `documented` means a repository-backed recipe exists over current public packages. `not-planned` means this
-release has no official framework adapter; use the generated HTTP client through the framework's ordinary request and lifecycle primitives.
+The [generated HTTP client](./generated-client.html) and `@zmdb/client` own URL construction, transport, authentication patches, request/response validation, stable errors, and cancellation signals.
+Framework adapters own only the framework boundary:
+
+- base adapters own DI/context, reactive query/mutation state, and framework lifecycle cleanup;
+- React Native additionally owns AppState/connectivity policy and injected credential-store ports;
+- meta-framework adapters own request-local fetch/credentials, SSR isolation, hydration, and server/browser separation.
+
+## Official packages
+
+The generated matrix below reports support in the current release. `optional` means the package is installed only by applications using that framework.
 
 <!-- generated: integrations framework-integrations -->
 
-| Framework    | Status   | Public package     | Framework peers            | Documentation                                           | Repository evidence                                                                                                                                                         |
-| ------------ | -------- | ------------------ | -------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Angular      | optional | @zmdb/angular      | @angular/core<br>rxjs      | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`packages/angular/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/angular`   |
-| Next.js      | optional | @zmdb/next         | next<br>react<br>react-dom | [framework-integrations](./framework-integrations.html) | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`packages/next/src/packed-consumer.spec.ts`<br>`fixtures/next-app-router`                       |
-| Nuxt         | optional | @zmdb/nuxt         | nuxt<br>vue                | [framework-integrations](./framework-integrations.html) | `packages/nuxt/src/client/client.spec.ts`<br>`packages/nuxt/src/server/server.spec.ts`<br>`packages/nuxt/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/nuxt`    |
-| React        | optional | @zmdb/react        | react                      | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`packages/react/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters`                                                            |
-| React Native | optional | @zmdb/react-native | react<br>react-native      | [connect-react-native](./connect-react-native.html)     | `packages/react-native/src/index.spec.ts`<br>`packages/react-native/src/metro.spec.ts`<br>`packages/react-native/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters` |
-| Solid        | optional | @zmdb/solid        | solid-js                   | [framework-integrations](./framework-integrations.html) | `packages/solid/SPEC.md`<br>`packages/solid/src/solid.spec.ts`<br>`packages/solid/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/src/solid-binding.ts`           |
-| Svelte       | optional | @zmdb/svelte       | svelte                     | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`packages/svelte/src/packed.spec.ts`<br>`fixtures/client-adapters/svelte-packed`                       |
-| SvelteKit    | optional | @zmdb/sveltekit    | @sveltejs/kit<br>svelte    | [framework-integrations](./framework-integrations.html) | `packages/sveltekit/SPEC.md`<br>`packages/sveltekit/src/server.spec.ts`<br>`packages/sveltekit/src/client.spec.ts`<br>`fixtures/client-adapters/sveltekit-packed`           |
-| Vue          | optional | @zmdb/vue          | vue                        | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`packages/vue/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/vue`                   |
+| Framework    | Status   | Public package     | Framework peers            | Documentation                                     | Repository evidence                                                                                                                                                         |
+| ------------ | -------- | ------------------ | -------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Angular      | optional | @zmdb/angular      | @angular/core<br>rxjs      | [client-angular](./client-angular.html)           | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`packages/angular/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/angular`   |
+| Next.js      | optional | @zmdb/next         | next<br>react<br>react-dom | [client-next](./client-next.html)                 | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`packages/next/src/packed-consumer.spec.ts`<br>`fixtures/next-app-router`                       |
+| Nuxt         | optional | @zmdb/nuxt         | nuxt<br>vue                | [client-nuxt](./client-nuxt.html)                 | `packages/nuxt/src/client/client.spec.ts`<br>`packages/nuxt/src/server/server.spec.ts`<br>`packages/nuxt/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/nuxt`    |
+| React        | optional | @zmdb/react        | react                      | [client-react](./client-react.html)               | `packages/react/src/react.spec.ts`<br>`packages/react/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters`                                                            |
+| React Native | optional | @zmdb/react-native | react<br>react-native      | [client-react-native](./client-react-native.html) | `packages/react-native/src/index.spec.ts`<br>`packages/react-native/src/metro.spec.ts`<br>`packages/react-native/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters` |
+| Solid        | optional | @zmdb/solid        | solid-js                   | [client-solid](./client-solid.html)               | `packages/solid/SPEC.md`<br>`packages/solid/src/solid.spec.ts`<br>`packages/solid/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/src/solid-binding.ts`           |
+| Svelte       | optional | @zmdb/svelte       | svelte                     | [client-svelte](./client-svelte.html)             | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`packages/svelte/src/packed.spec.ts`<br>`fixtures/client-adapters/svelte-packed`                       |
+| SvelteKit    | optional | @zmdb/sveltekit    | @sveltejs/kit<br>svelte    | [client-sveltekit](./client-sveltekit.html)       | `packages/sveltekit/SPEC.md`<br>`packages/sveltekit/src/server.spec.ts`<br>`packages/sveltekit/src/client.spec.ts`<br>`fixtures/client-adapters/sveltekit-packed`           |
+| Vue          | optional | @zmdb/vue          | vue                        | [client-vue](./client-vue.html)                   | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`packages/vue/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/vue`                   |
 
 <!-- /generated: integrations framework-integrations -->
 
-The #700 qualification suite pairs a shared matrix with packed tests that install all nine adapters from tarballs, use one generated fixture client across every framework, run common lifecycle
-semantics for the five base adapters, check concurrent credentials for all eight SSR-capable adapters, and inspect the Next.js, Nuxt, and SvelteKit browser boundaries. Framework-specific packed tests
-remain the source of native build and runtime evidence.
-
-## Angular
-
-Install the generated-client runtime, Angular adapter, and its required framework peers:
-
-```bash
-npm add @zmdb/client@alpha @zmdb/angular@alpha @angular/core@">=22.1.0 <23.0.0" rxjs@">=7.4.0 <8.0.0"
-```
-
-Create one typed binding namespace for the application's generated client:
-
-```ts
-import { createZmdbAngular } from '@zmdb/angular';
-import type { ApiClient } from './generated/api.js';
-
-export const apiAngular = createZmdbAngular<ApiClient>('AccountApi');
-```
-
-`apiAngular.provideZmdbClient(client)` follows Angular injector hierarchy; `apiAngular.zmdbQuery` and `apiAngular.zmdbMutation` expose signal state and abort through the owning `DestroyRef`; and
-`apiAngular.zmdbObservable` aborts its exact request when the subscription ends. SSR applications create one environment injector and generated client per request. The package does not import
-`@angular/common/http` or require `HttpClient`.
-
-## React
-
-Install the generated-client binding with its required React peer:
-
-```bash
-npm add @zmdb/react@alpha react@19
-```
-
-Create one binding for the generated client type, then provide a client instance to the matching tree:
-
-```ts
-import { createZmdbReact } from '@zmdb/react';
-import type { ApiClient } from './generated/http-client.generated.js';
-
-export const apiReact = createZmdbReact<ApiClient>('AccountApi');
-```
-
-```ts
-const account = apiReact.useZmdbQuery((client, signal) => client.getAccount({ id: accountId }, { signal }), [accountId]);
-
-const rename = apiReact.useZmdbMutation((client, input: { id: string; name: string }, signal) => client.renameAccount(input, { signal }));
-```
-
-Queries begin after effect activation, abort on dependency changes and unmount, and suppress stale completion even when a transport ignores cancellation. Mutations remain independent and abort on
-unmount. The package adds no shared cache, implicit retry, polling, focus refetch, or server-render request; those policies stay explicit in the application.
-
-React Native uses the separate `@zmdb/react-native` adapter documented in [Connect React Native](./connect-react-native.html); it reuses these React bindings and adds native lifecycle policy.
-
-## Vue
-
-Install the official Vue 3 integration beside its required framework peer:
-
-```bash
-npm add @zmdb/vue@alpha vue@^3.5
-```
-
-Create a binding namespace for the generated client type, then install one client on each application:
-
-```ts
-import { createZmdbVue } from '@zmdb/vue';
-import { createApp } from 'vue';
-
-import App from './App.js';
-import { createApiClient } from './generated/api.generated.js';
-import type { ApiClient } from './generated/api.generated.js';
-
-export const zmdb = createZmdbVue<ApiClient>();
-
-const client = createApiClient({ baseUrl: '/api' });
-createApp(App).use(zmdb.createZmdbPlugin(client)).mount('#app');
-```
-
-Inside component setup, pass a ref, computed ref, or getter to `useZmdbQuery`:
-
-```ts
-import { ref } from 'vue';
-
-import { zmdb } from './zmdb.js';
-
-const widgetId = ref('one');
-const widget = zmdb.useZmdbQuery(
-  () => ({ id: widgetId.value }),
-  (client, input, signal) => client.getWidget(input, { signal }),
-);
-
-const rename = zmdb.useZmdbMutation((client, input: { id: string; name: string }, signal) => client.renameWidget(input, { signal }));
-```
-
-The query exposes read-only `data`, `error`, and `loading` refs plus `refresh()`. The mutation exposes read-only `error` and `pending` refs plus `mutate(input)`. Watcher changes abort the old query
-and generation guards suppress stale completion. Vue `onScopeDispose` aborts active queries and mutations. Generated-client errors are published without wrapping or changing object identity.
-
-Creating bindings or installing the plugin performs no request. For SSR, create one generated client and one `createSSRApp` per request and install that request's client on its application. The
-binding namespace retains only an injection key, so concurrent applications do not share clients, credentials, query state, or mutation state.
-
-## Nuxt
-
-Install the Nuxt 4 integration beside its Vue base adapter and required framework peers:
-
-```bash
-npm add @zmdb/nuxt@alpha @zmdb/vue@alpha nuxt@^4.5 vue@^3.5
-```
-
-Create one application integration module that exports the generated-client factory and typed Nuxt bindings:
-
-```ts
-import { createZmdbNuxt } from '@zmdb/nuxt/client';
-import { useAsyncData } from '#app';
-
-import { createApiClient } from './generated/api.generated.js';
-import type { ApiClient } from './generated/api.generated.js';
-
-export { createApiClient };
-export const zmdb = createZmdbNuxt<ApiClient>({ useAsyncData });
-```
-
-Register the module with the integration path, API base URL, and only the incoming credentials the server may forward:
-
-```ts
-export default defineNuxtConfig({
-  modules: [
-    [
-      '@zmdb/nuxt',
-      {
-        integration: '~/app/zmdb.ts',
-        baseUrl: '/api',
-        forwardHeaders: ['authorization', 'x-tenant-id'],
-        forwardCookies: ['session'],
-      },
-    ],
-  ],
-});
-```
-
-The module generates separate server and browser plugins. Each SSR plugin invocation creates a request-local generated client over Nitro local fetch, snapshots only allow-listed header and cookie
-values, and installs that client on the request's Vue application. The browser plugin constructs a browser-fetch client for navigation. Empty allow-lists forward no incoming credentials.
-
-`zmdb.useZmdbAsyncData(operationKey, input, load)` derives a stable key from the explicit operation name and serializable input, then delegates payload storage, de-duplication, abort signals,
-hydration, and navigation behavior to Nuxt's native `useAsyncData`. A matching server payload is consumed without dispatching the browser handler. The inherited client, query, and mutation composables
-are the real `@zmdb/vue` bindings rather than a copied state implementation.
-
-## Svelte 5
-
-Install the native adapter beside its required framework peer:
-
-```bash
-npm add @zmdb/svelte@alpha svelte@^5.57.0
-```
-
-Create one typed context namespace for the generated client:
-
-```ts
-import { createZmdbSvelte } from '@zmdb/svelte';
-
-import type { ApiClient } from './generated/api.js';
-
-export const zmdb = createZmdbSvelte<ApiClient>();
-```
-
-Set a tree- or request-local client during provider component initialisation. Descendants call `zmdb.query(input, load)` and `zmdb.mutation(run)`. Query stores make no request until their first
-subscription, abort after their final unsubscribe, restart for a later subscriber, and suppress stale completions after an input-store change. Context-owned stores also register component destruction
-cleanup. Direct `createQueryStore(...)` and `createMutationStore(...)` exports support owners outside component context and the later SvelteKit integration.
-
-## SvelteKit
-
-Install the request-local SvelteKit adapter with its base Svelte integration and required framework peers:
-
-```bash
-npm add @zmdb/client@alpha @zmdb/svelte@alpha @zmdb/sveltekit@alpha @sveltejs/kit@">=2.70.0 <3.0.0" svelte@">=5.0.0 <6.0.0"
-```
-
-Create one generated client per server load. Nothing from the incoming request is forwarded unless its name is explicitly selected:
-
-```ts
-import { createSvelteKitServerLoad } from '@zmdb/sveltekit/server';
-
-import { createApiClient } from '$lib/generated/api.js';
-import type { PageServerLoad } from './$types.js';
-
-export const load = createSvelteKitServerLoad({
-  key: 'account:current',
-  createClient: createApiClient,
-  clientOptions: {
-    baseUrl: '/api',
-    forward: {
-      headers: ['authorization'],
-      cookies: ['session'],
-    },
-  },
-  load: async (client, _event, signal) => ({
-    account: await client.getCurrentAccount({}, { signal }),
-  }),
-}) satisfies PageServerLoad;
-```
-
-The server helper invokes the current `event.fetch` with `credentials: 'omit'`, copies only the selected header and cookie values, calls `event.depends(key)`, and passes `event.request.signal`. Each
-invocation owns a distinct client and fetch wrapper. Redirects, status errors, generated-client errors, and abort reasons pass through without wrapping.
-
-For universal browser loads, track SvelteKit navigation at the root and use the client entry:
-
-```ts
-import { createSvelteKitClientLoad, createSvelteKitNavigationScope } from '@zmdb/sveltekit/client';
-
-import { createApiClient } from '$lib/generated/api.js';
-
-export const navigation = createSvelteKitNavigationScope();
-
-export const loadAccount = createSvelteKitClientLoad({
-  key: 'account:current',
-  navigation,
-  createClient: createApiClient,
-  clientOptions: { baseUrl: '/api' },
-  load: async (client, _event, signal) => ({
-    account: await client.getCurrentAccount({}, { signal }),
-  }),
-});
-```
-
-```svelte
-<script lang="ts">
-  import { onNavigate } from '$app/navigation';
-  import { navigation } from '$lib/zmdb.js';
-
-  onNavigate(value => {
-    navigation.track(value);
-  });
-</script>
-```
-
-The client helper always uses the current load event's fetch, so browser navigation uses browser fetch and SvelteKit hydration semantics. If `navigation.complete` rejects, in-flight work aborts with
-that exact rejection as `signal.reason`. The `./client` entry also re-exports `createZmdbSvelte`, `createQueryStore`, and `createMutationStore`; the physically separate `./server` entry cannot enter a
-browser bundle.
-
-## Next.js
-
-Install the App Router adapter with its required framework peers:
-
-```bash
-npm add @zmdb/next@alpha next@16 react@19 react-dom@19
-```
-
-Create a request-owned generated client in a server component or route handler. Only explicitly selected incoming credentials are forwarded:
-
-```ts
-import { createNextServerClient } from '@zmdb/next/server';
-import { createApiClient } from './generated/http-client.generated.js';
-
-const apiOrigin = process.env['API_ORIGIN'];
-if (apiOrigin === undefined) throw new Error('API_ORIGIN is required');
-
-const request = await createNextServerClient({
-  createClient: createApiClient,
-  baseUrl: apiOrigin,
-  fetch: globalThis.fetch,
-  forward: {
-    headers: ['authorization', 'x-tenant-id'],
-    cookies: ['session'],
-  },
-  fetchPolicy: { cache: 'no-store' },
-});
-```
-
-`request.memoize(load, key)` de-duplicates duplicate RSC work only inside that request scope. Another request receives another client and memo table. Use `fetchPolicy.cache` or
-`fetchPolicy.next = { revalidate, tags }` to pass an explicit Next cache policy through unchanged.
-
-Client components import only the browser entry, which is the existing React binding:
-
-```ts
-'use client';
-
-import { createZmdbNextClient } from '@zmdb/next/client';
-import type { ApiClient } from './generated/http-client.generated.js';
-
-export const apiNext = createZmdbNextClient<ApiClient>('AccountApi');
-```
-
-The package has no mixed root export. `@zmdb/next/server` carries the real `server-only` boundary, while `@zmdb/next/client` cannot reach Next request APIs or server credentials.
-
-React Native remains a separate opt-in package because device lifecycle, connectivity, and credential storage are native concerns rather than Next.js concerns.
-
-## Solid
-
-Install the generated-client binding with its required Solid peer:
-
-```bash
-npm add @zmdb/solid@alpha solid-js@1
-```
-
-Create one binding for the generated client type and provide a client to each application or server owner:
-
-```ts
-import { createZmdbSolid } from '@zmdb/solid';
-import { createSignal } from 'solid-js';
-
-import type { ApiClient } from './generated/http-client.generated.js';
-
-export const apiSolid = createZmdbSolid<ApiClient>();
-
-function Account() {
-  const [accountId] = createSignal('current');
-  const account = apiSolid.query(
-    () => ({ id: accountId() }),
-    (client, input, signal) => client.getAccount(input, { signal }),
-  );
-
-  return account.data()?.name;
-}
-```
-
-Render `Account` beneath `<apiSolid.Provider client={client}>`. The returned `data` is a native Solid resource, so reads retain native Suspense and error-boundary behaviour. Source changes abort the
-older request and suppress stale completion; owner disposal aborts the active query and every active mutation. The package adds no shared cache, implicit retry, polling, or module-level client.
+## Support matrix
+
+| Framework    | CSR    | SSR | Hydration       | Cancellation | Native lifecycle |
+| ------------ | ------ | --- | --------------- | ------------ | ---------------- |
+| React        | yes    | yes | framework-owned | yes          | no               |
+| Angular      | yes    | yes | framework-owned | yes          | no               |
+| Vue          | yes    | yes | framework-owned | yes          | no               |
+| Svelte       | yes    | yes | framework-owned | yes          | no               |
+| Solid        | yes    | yes | framework-owned | yes          | no               |
+| React Native | native | no  | n/a             | yes          | yes              |
+| Next.js      | yes    | yes | yes             | yes          | no               |
+| Nuxt         | yes    | yes | yes             | yes          | no               |
+| SvelteKit    | yes    | yes | yes             | yes          | no               |
+
+“Framework-owned” means the base adapter is safe in independently created SSR application trees while the host framework decides how state is serialized and hydrated. Meta-framework packages have a
+dedicated hydration contract. React Native is a device lifecycle rather than a browser/SSR lifecycle.
+
+## Qualification and ownership
+
+A framework receives a package only when zmdb must own a framework-specific DI, lifecycle, SSR/hydration, native, or build boundary. Each official package has source-level conformance checks and a
+packed consumer that installs publish-shaped tarballs. All nine documentation examples compile in one external packed consumer against the same generated fixture client.
+
+Choose the guide for the owning application:
+
+- [React](./client-react.html)
+- [Angular](./client-angular.html)
+- [Vue](./client-vue.html)
+- [Svelte](./client-svelte.html)
+- [Solid](./client-solid.html)
+- [React Native](./client-react-native.html)
+- [Next.js](./client-next.html)
+- [Nuxt](./client-nuxt.html)
+- [SvelteKit](./client-sveltekit.html)
+
+## Recipe-only integrations
+
+Astro, Electron, Ember, Lit, Qwik, and Remix do not currently earn framework packages. Create the generated client at the framework's ordinary request or context boundary, pass its methods through the
+framework's own lifecycle primitives, and forward cancellation signals to each operation. These are recipes, not package or conformance claims: there is no `@zmdb/astro`, `@zmdb/electron`,
+`@zmdb/ember`, `@zmdb/lit`, `@zmdb/qwik`, or `@zmdb/remix` package.

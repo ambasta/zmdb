@@ -36,7 +36,7 @@ Create that scope inside the server component, route handler, or server action t
 client, credential, or result map across requests. `cache: 'no-store'`, `cache: 'force-cache'`, and `next: { revalidate, tags }` pass through to the supplied Next fetch unchanged.
 
 Client components import only `@zmdb/next/client`. It reuses the `@zmdb/react` provider and hooks; the package has no mixed root barrel, and the guarded server entry cannot enter a client component.
-See [Framework Integrations](./framework-integrations.html) for the client binding.
+See [Next.js Client](./client-next.html) for the complete client binding, cancellation, error, SSR, and testing path.
 
 ## Direct database access
 
@@ -132,8 +132,10 @@ A server action is a public endpoint. `FormData` is entirely attacker-controlled
 
 ## The transformer
 
-This is the part that bites. Next.js compiles with SWC or Turbopack, and **the zmdb TypeScript transformer does not run in either**. So `assert<T>` in a route handler or server action silently
-validates nothing.
+This warning applies to direct generic AOT calls such as `assert<T>` in repository-backed routes. The generated HTTP client does not depend on a Next transformer: its response validators were emitted
+ahead of time by `zmdb client generate` and are exercised through `@zmdb/next`.
+
+For direct database access, Next.js compiles with SWC or Turbopack, and **the zmdb TypeScript transformer does not run in either**. An untransformed `assert<T>` call throws instead of validating.
 
 Two workable answers:
 
@@ -180,4 +182,4 @@ From CI or a release step, never from a route handler or `instrumentation.ts`. S
 
 ---
 
-See also: [Vercel](./deploy-vercel.html) · [AOT Setup](./aot-setup.html) · [Zod](./interop-zod.html)
+See also: [Next.js Client](./client-next.html) · [Vercel](./deploy-vercel.html) · [AOT Setup](./aot-setup.html) · [Zod](./interop-zod.html)

@@ -710,7 +710,43 @@ export const PAGE_META = {
     status: 'supported',
   },
   'framework-integrations': {
-    title: 'Framework Integrations',
+    title: 'Client Applications',
+    status: 'supported',
+  },
+  'client-react': {
+    title: 'React Client',
+    status: 'supported',
+  },
+  'client-angular': {
+    title: 'Angular Client',
+    status: 'supported',
+  },
+  'client-vue': {
+    title: 'Vue Client',
+    status: 'supported',
+  },
+  'client-svelte': {
+    title: 'Svelte Client',
+    status: 'supported',
+  },
+  'client-solid': {
+    title: 'Solid Client',
+    status: 'supported',
+  },
+  'client-react-native': {
+    title: 'React Native Client',
+    status: 'supported',
+  },
+  'client-next': {
+    title: 'Next.js Client',
+    status: 'supported',
+  },
+  'client-nuxt': {
+    title: 'Nuxt Client',
+    status: 'supported',
+  },
+  'client-sveltekit': {
+    title: 'SvelteKit Client',
     status: 'supported',
   },
   guides: {

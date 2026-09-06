@@ -40,6 +40,23 @@ authorId: number & Sql<'integer'> & References<'users.id'>;
 | [Railway](./deploy-railway.html)                       | A long-running container, which is the easy case |
 | [Encore](./deploy-encore.html)                         | Infrastructure-from-code, and where it conflicts |
 
+## Client applications
+
+Start with [one generated HTTP client](./generated-client.html), then choose the framework guide that owns the application lifecycle:
+
+|                                                      |                                                     |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| [Client Applications](./framework-integrations.html) | support and ownership across all nine integrations  |
+| [React](./client-react.html)                         | context, hooks, cancellation, and request-local SSR |
+| [Angular](./client-angular.html)                     | DI, signals, `DestroyRef`, and RxJS cancellation    |
+| [Vue](./client-vue.html)                             | plugin injection, reactive state, and SSR isolation |
+| [Svelte](./client-svelte.html)                       | context, lazy stores, and subscriber teardown       |
+| [Solid](./client-solid.html)                         | resources, owner disposal, Suspense, and errors     |
+| [React Native](./client-react-native.html)           | AppState, connectivity, credentials, and Metro      |
+| [Next.js](./client-next.html)                        | App Router request scopes and browser separation    |
+| [Nuxt](./client-nuxt.html)                           | Nitro request clients and native hydration          |
+| [SvelteKit](./client-sveltekit.html)                 | event fetch, load helpers, and navigation aborts    |
+
 ## Local development
 
 |                                               |                                                |

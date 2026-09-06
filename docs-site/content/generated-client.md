@@ -376,5 +376,5 @@ runtime boundary, a small policy-owning Fetch wrapper, or that provider's suppor
 
 ---
 
-See also: [HTTP contracts and third-party clients](./web-http-client.html) · [OpenAPI Generation](./web-openapi.html) · [Operations & Responses](./web-openapi-operations.html) ·
-[Security Schemes](./web-openapi-security.html) · [API Versioning](./web-versioning.html) · [CLI Overview](./cli-overview.html)
+See also: [Client Applications](./framework-integrations.html) · [HTTP contracts and third-party clients](./web-http-client.html) · [OpenAPI Generation](./web-openapi.html) ·
+[Operations & Responses](./web-openapi-operations.html) · [Security Schemes](./web-openapi-security.html) · [API Versioning](./web-versioning.html) · [CLI Overview](./cli-overview.html)

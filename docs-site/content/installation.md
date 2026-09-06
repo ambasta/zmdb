@@ -35,6 +35,9 @@ SDK/framework peer.
 Applications that publish an HTTP API add the independently installable `@zmdb/client` runtime beside their generated module. The [Generated HTTP Client](./generated-client.html) guide shows one
 contract feeding runtime routing, OpenAPI, and browser/Node client output.
 
+Applications then add only the framework adapter that owns their UI lifecycle or request boundary. The [Client Applications](./framework-integrations.html) guide starts from that one generated client,
+compares all nine official packages, and links to their framework-native lifecycle, SSR, hydration, cancellation, and testing recipes.
+
 ## Optional server integrations
 
 `npm add zmdb@alpha` installs none of the packages or peers below. Add only the integration selected by the application:
@@ -125,6 +128,9 @@ npm install @zmdb/client
 # React generated-client lifecycle bindings
 npm install @zmdb/react react@19
 
+# React Native AppState, connectivity, and credential-store lifecycle
+npm install @zmdb/react-native react@19 react-native@0.87
+
 # Angular dependency injection, signals, and Observable cancellation
 npm install @zmdb/angular @angular/core@22 rxjs@7
 
@@ -133,6 +139,9 @@ npm install @zmdb/vue vue@^3.5
 
 # Svelte context and lifecycle-aware stores
 npm install @zmdb/svelte svelte@^5.57
+
+# SvelteKit request-local server/client loads and navigation cancellation
+npm install @zmdb/sveltekit @sveltejs/kit@^2.70 svelte@^5.57
 
 # Next App Router request scopes and browser bindings
 npm install @zmdb/next next@16 react@19 react-dom@19
@@ -290,3 +299,4 @@ If that throws instead of printing, the plugin is not running over this file.
 - [AOT Setup](./aot-setup.html) — configure the transformer
 - [Pure TypeScript](./pure-typescript.html) — what works with no build step
 - [Generated HTTP Client](./generated-client.html) — emit OpenAPI and a typed client from one HTTP contract
+- [Client Applications](./framework-integrations.html) — use that one client through React, Angular, Vue, Svelte, Solid, React Native, Next.js, Nuxt, or SvelteKit

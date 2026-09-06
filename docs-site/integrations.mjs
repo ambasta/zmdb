@@ -18,7 +18,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/angular',
     status: 'optional',
     peers: ['@angular/core', 'rxjs'],
-    docs: 'framework-integrations',
+    docs: 'client-angular',
     evidence: [
       'packages/angular/src/index.spec.ts',
       'packages/angular/src/index.type-test.ts',
@@ -31,7 +31,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/next',
     status: 'optional',
     peers: ['next', 'react', 'react-dom'],
-    docs: 'framework-integrations',
+    docs: 'client-next',
     evidence: [
       'packages/next/src/client.spec.ts',
       'packages/next/src/server.spec.ts',
@@ -44,7 +44,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/nuxt',
     status: 'optional',
     peers: ['nuxt', 'vue'],
-    docs: 'framework-integrations',
+    docs: 'client-nuxt',
     evidence: [
       'packages/nuxt/src/client/client.spec.ts',
       'packages/nuxt/src/server/server.spec.ts',
@@ -57,7 +57,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/react',
     status: 'optional',
     peers: ['react'],
-    docs: 'framework-integrations',
+    docs: 'client-react',
     evidence: [
       'packages/react/src/react.spec.ts',
       'packages/react/src/packed-consumer.spec.ts',
@@ -69,7 +69,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/react-native',
     status: 'optional',
     peers: ['react', 'react-native'],
-    docs: 'connect-react-native',
+    docs: 'client-react-native',
     evidence: [
       'packages/react-native/src/index.spec.ts',
       'packages/react-native/src/metro.spec.ts',
@@ -82,7 +82,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/solid',
     status: 'optional',
     peers: ['solid-js'],
-    docs: 'framework-integrations',
+    docs: 'client-solid',
     evidence: [
       'packages/solid/SPEC.md',
       'packages/solid/src/solid.spec.ts',
@@ -95,7 +95,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/svelte',
     status: 'optional',
     peers: ['svelte'],
-    docs: 'framework-integrations',
+    docs: 'client-svelte',
     evidence: [
       'packages/svelte/SPEC.md',
       'packages/svelte/src/svelte.spec.ts',
@@ -108,7 +108,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/sveltekit',
     status: 'optional',
     peers: ['@sveltejs/kit', 'svelte'],
-    docs: 'framework-integrations',
+    docs: 'client-sveltekit',
     evidence: [
       'packages/sveltekit/SPEC.md',
       'packages/sveltekit/src/server.spec.ts',
@@ -121,7 +121,7 @@ export const INTEGRATIONS = Object.freeze([
     package: '@zmdb/vue',
     status: 'optional',
     peers: ['vue'],
-    docs: 'framework-integrations',
+    docs: 'client-vue',
     evidence: [
       'packages/vue/src/index.spec.ts',
       'packages/vue/src/index.type-test.ts',

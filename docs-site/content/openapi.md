@@ -5,6 +5,9 @@ interoperability.
 
 > [!NOTE] OpenAPI schemas are derived at build time from your table declarations. There's no runtime reflection — the generation is deterministic and happens during the build process.
 
+For an HTTP API owned by the application, OpenAPI and the [generated HTTP client](./generated-client.html) are sibling outputs from the same compiled contract. zmdb does not parse the emitted OpenAPI
+document back into nine framework clients; the [Client Applications](./framework-integrations.html) guides consume that one generated module.
+
 ## Generating Components
 
 The `toOpenApiComponents` function generates a map of schemas ready for OpenAPI specification:
@@ -230,5 +233,7 @@ const searchSchema = toSearchSchema(userSchema);
 ```
 
 - [json-schema](./json-schema.html) — JSON Schema generation
+- [generated-client](./generated-client.html) — emit OpenAPI and one typed HTTP client from the same contract
+- [framework-integrations](./framework-integrations.html) — consume that client through official UI and meta-framework adapters
 - [validators-tags](./validators-tags.html) — validation tags
 - [random](./random.html) — test data generation

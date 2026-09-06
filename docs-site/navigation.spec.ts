@@ -36,8 +36,8 @@ function occurrences(values: readonly string[]): ReadonlyMap<string, number> {
 
 describe('the frozen documentation product journey', () => {
   // #718 is closed wontfix, so the `graphql` planning position expands to the
-  // twelve retained source pages. #686 adds one supported generated-client page,
-  // so all 278 live pages still need exactly one owner.
+  // twelve retained source pages. #686 adds the generated-client journey and
+  // #701 adds nine framework guides, so all 287 live pages need one owner.
   it('assigns every registered page to exactly one product-journey group', () => {
     const liveCounts = occurrences(liveSlugs);
     const problems: string[] = [];
@@ -78,10 +78,23 @@ describe('the frozen documentation product journey', () => {
     expect(retainedLive).toHaveLength(DOCUMENTATION_BASELINE.target.retainedCurrentPages);
   });
 
-  it('freezes 267 unique canonical pages with exactly the three declared additions', () => {
+  it('freezes 276 unique canonical pages with exactly the twelve declared additions', () => {
     expect(targetSlugs).toHaveLength(DOCUMENTATION_BASELINE.target.canonicalPages);
     expect(new Set(targetSlugs).size).toBe(DOCUMENTATION_BASELINE.target.canonicalPages);
-    expect(sorted(additionSlugs)).toEqual(['generated-client', 'graphql', 'package-reference']);
+    expect(sorted(additionSlugs)).toEqual([
+      'client-angular',
+      'client-next',
+      'client-nuxt',
+      'client-react',
+      'client-react-native',
+      'client-solid',
+      'client-svelte',
+      'client-sveltekit',
+      'client-vue',
+      'generated-client',
+      'graphql',
+      'package-reference',
+    ]);
     expect(targetSlugs.filter(slug => legacySet.has(slug))).toEqual([]);
     expect(legacySlugs).toHaveLength(DOCUMENTATION_BASELINE.target.redirectArtifacts);
     expect(new Set(legacySlugs).size).toBe(DOCUMENTATION_BASELINE.target.redirectArtifacts);
