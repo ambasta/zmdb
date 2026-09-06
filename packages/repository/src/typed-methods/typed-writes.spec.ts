@@ -5,7 +5,7 @@ import type { CreateDTO, UpdateDTO, TaggedSchema, DeclaredTable } from '@zmdb/sc
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect, vi } from 'vitest';
 
-import { BaseRepository, ValidationError, type Driver, defineRepository } from '../index.js';
+import { BaseRepository, ValidationError, defineRepository } from '../index.js';
 import { officialDialects } from '../testing/official-dialects.fixture.js';
 import { Users, type User } from './typed-methods.fixture.js';
 
@@ -169,7 +169,7 @@ describe('typed create/update (#206)', () => {
 
     it('validates custom-typed domain objects and encodes them prior to SQL compilation', async () => {
       const execute = vi.fn(async (_q: CompiledQuery) => [{ id: 1, total: '100:USD', discount: null }]);
-      const repo = defineRepository(OrderSchema, { execute } as Driver);
+      const repo = defineRepository(OrderSchema, { dialect: officialDialects.postgres, execute });
 
       await repo.create({
         total: { amount: 100, currency: 'USD' },
@@ -193,7 +193,7 @@ describe('typed create/update (#206)', () => {
 
     it('rejects custom-typed write payloads that fail custom validation rules', async () => {
       const execute = vi.fn(async () => []);
-      const repo = defineRepository(OrderSchema, { execute } as Driver);
+      const repo = defineRepository(OrderSchema, { dialect: officialDialects.postgres, execute });
 
       // Validation returns error message ("money amount must be positive")
       await expect(
@@ -217,7 +217,7 @@ describe('typed create/update (#206)', () => {
 
     it('rejects custom-typed write payloads when write encoding (toDb) throws an exception', async () => {
       const execute = vi.fn(async () => []);
-      const repo = defineRepository(OrderSchema, { execute } as Driver);
+      const repo = defineRepository(OrderSchema, { dialect: officialDialects.postgres, execute });
 
       await expect(
         repo.create({
@@ -231,7 +231,7 @@ describe('typed create/update (#206)', () => {
 
     it('enforces nullability rules on custom-typed columns', async () => {
       const execute = vi.fn(async () => []);
-      const repo = defineRepository(OrderSchema, { execute } as Driver);
+      const repo = defineRepository(OrderSchema, { dialect: officialDialects.postgres, execute });
 
       // Non-nullable total column provided null
       await expect(
