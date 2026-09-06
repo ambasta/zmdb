@@ -83,7 +83,7 @@ These are not preferences; they are invariants. A change that violates one is re
 
 > The public API is assertion-free. Framework internals use a documented exception list for places where runtime data crosses into a TypeScript type.
 >
-> As of 2026-09-06, the 269 shipped files covered by `verify:escape-hatches` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`,
+> As of 2026-09-06, the 270 shipped files covered by `verify:escape-hatches` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`,
 > and one lint suppression. The consumer documentation contains no required casts.
 >
 > The count rose from 28 during the type-first work. Of the 53 current assertions, 26 are in `aot-validator`, mainly around checker values, parsed JSON, and validated return values. Each assertion
@@ -507,7 +507,8 @@ Importing the root must not reach the CLI, config loader, compiler, migration fi
 
 `zmdb/config` is the sole public project-configuration contract. CLI commands, compiler adapters, schema discovery, naming, migrations, introspection, Studio and scaffolding consume the same resolved
 configuration rather than declaring another `ZmdbConfig`, repeating discovery or applying private defaults. The implementation may move between tooling packages while the public entry point remains
-stable.
+stable. Its dependency-light authoring identity is separate from the filesystem-backed loader, and `yarn verify:config-contract` rejects duplicate declarations, loaders, public entries and runtime
+dependencies in that authoring boundary.
 
 The read-only catalog at `scripts/product/catalog.mjs` is the sole authority for official package membership and product exposure. Each row identifies the package directory and npm name, its unique
 product role, root/subpath facade visibility, product optionality, documentation owner and packed-consumer evidence. Facade verification, package-reference generation, support matrices and

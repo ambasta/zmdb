@@ -15,7 +15,9 @@ export default defineConfig({
 });
 ```
 
-`defineConfig` is an identity function for type inference and completion. Validation happens in `loadConfig`, including for a module that exports a plain object without calling `defineConfig`.
+`defineConfig` is an identity function for type inference and completion. Validation happens in `loadConfig`, including for a module that exports a plain object without calling `defineConfig`. The
+identity and author-facing types live in a dependency-light contract module; discovery, execution, validation, defaults, path resolution and caching live only in the loader behind this same public
+entry.
 
 ```ts
 import { loadConfig } from 'zmdb/config';
@@ -28,8 +30,9 @@ config.schemaFiles; // absolute files, expanded eagerly
 config.outDir; // absolute migration output directory
 ```
 
-The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, and `client generate` commands consume this loader. `up` is deliberately refused because
-it is ambiguous between migration application and snapshot upgrade.
+The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, `client generate`, and `studio` commands consume this loader. `zmdb-codegen` and
+`zmdb/unplugin` use the same resolved project and naming strategy. `zmdb new project` emits this public import and a build adapter that delegates discovery to `zmdb/unplugin`; the generated runtime
+entry never imports the loader. `up` is deliberately refused because it is ambiguous between migration application and snapshot upgrade.
 
 ## The resolved path is observable
 
@@ -183,6 +186,9 @@ entries; there is no cross-package ambient config.
 
 The application does not automatically read this file. Construct the driver you want and pass it to repositories or the DI container. The config thunk can delegate to that same application module,
 keeping one source of connection truth without introducing an implicit initialisation step.
+
+Repository verification rejects another exported `defineConfig`, `loadConfig`, `ResolvedConfig`, or related project-config declaration outside the canonical owner and its approved facade. It also
+rejects runtime imports from the dependency-light authoring module.
 
 ---
 

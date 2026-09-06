@@ -1,12 +1,27 @@
 import type { loadConfig as loadCliConfig, ResolvedConfig as CliResolvedConfig } from '../cli/config.js';
 import { zmdbAot } from '../unplugin.js';
-import { defineConfig, loadConfig, resolveConfig, type ResolvedConfig, type ZmdbConfig } from './index.js';
+import type {
+  defineConfig as contractDefineConfig,
+  HttpGenerationConfig as ContractHttpGenerationConfig,
+  ZmdbConfig as ContractZmdbConfig,
+} from './contract.js';
+import {
+  defineConfig,
+  loadConfig,
+  resolveConfig,
+  type HttpGenerationConfig,
+  type ResolvedConfig,
+  type ZmdbConfig,
+} from './index.js';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
 
 export type _CliUsesTheCanonicalLoader = Expect<Equal<typeof loadCliConfig, typeof loadConfig>>;
 export type _CliUsesTheCanonicalResolvedConfig = Expect<Equal<CliResolvedConfig, ResolvedConfig>>;
+export type _PublicConfigUsesTheAuthoringIdentity = Expect<Equal<typeof contractDefineConfig, typeof defineConfig>>;
+export type _PublicConfigUsesTheAuthoringType = Expect<Equal<ContractZmdbConfig, ZmdbConfig>>;
+export type _PublicConfigUsesTheHttpAuthoringType = Expect<Equal<ContractHttpGenerationConfig, HttpGenerationConfig>>;
 
 const config = defineConfig({
   schema: ['src/**/*.schema.ts'],

@@ -6,6 +6,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { inspectConfigContract } from './verify-config-contract.mjs';
 import { verifyRuntimeReachability } from './verify-runtime-reachability.mjs';
 import { TARGET_TOOLING_BIN, TARGET_TOOLING_EXPORTS } from './verify-tooling-boundaries.mjs';
 
@@ -132,6 +133,15 @@ if (existsSync(UMBRELLA_SRC)) {
       }
     }
   }
+}
+
+const configContract = inspectConfigContract(ROOT);
+for (const problem of configContract.problems) {
+  console.error(`[ERROR] ${problem}`);
+  errorsCount++;
+}
+if (configContract.problems.length === 0) {
+  console.log(`  project config authoring ${configContract.authoringOwner}; loader ${configContract.owner}`);
 }
 
 // Keep the historical export verifier entry point responsible for manifest

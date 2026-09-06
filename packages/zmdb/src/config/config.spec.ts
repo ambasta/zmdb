@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -6,15 +7,21 @@ import { pathToFileURL } from 'node:url';
 import { codegen } from '@zmdb/aot-validator/codegen';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { inspectConfigContract } from '../../../../.github/scripts/verify-config-contract.mjs';
 import { loadConfig as cliLoadConfig } from '../cli/config.js';
+import { runCli } from '../cli/index.js';
+import { scaffold } from '../cli/scaffold.js';
 import { zmdbAot } from '../unplugin.js';
-import { loadConfig as canonicalLoadConfig } from './index.js';
+import { defineConfig as contractDefineConfig } from './contract.js';
+import { defineConfig as canonicalDefineConfig, loadConfig as canonicalLoadConfig } from './index.js';
 
-// The five load-bearing titles frozen in #491 stay exact. #492 promotes them
-// from expected failures and adds the boundary cases the loader now owns.
+// Historical loader coverage remains here; the five load-bearing titles named
+// by #621 stay exact because they are part of the public config contract.
 
 const ROOT = process.env.ZMDB_REPOSITORY_ROOT ?? process.cwd();
 const CONFIG_ENTRY = join(ROOT, 'packages', 'zmdb', 'src', 'config', 'index.ts');
+const CODEGEN_ENTRY = join(ROOT, 'packages', 'aot-validator', 'src', 'cli', 'bin.ts');
+const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const directories: string[] = [];
 
 interface Project {
@@ -267,10 +274,12 @@ export default {
   it('defineConfig is the identity function', async () => {
     const value = { schema: 'src/*.ts', dialect: 'sqlite' };
     const defineConfig = exported(await configModule(), 'defineConfig');
+    expect(canonicalDefineConfig).toBe(contractDefineConfig);
+    expect(defineConfig).toBe(contractDefineConfig);
     expect(defineConfig(value)).toBe(value);
   });
 
-  it('loads one config through the CLI and compiler with identical resolved paths and naming', async () => {
+  it('resolves identical schema files, project, output and naming for CLI and compiler consumers', async () => {
     const fixture = join(ROOT, 'fixtures', 'consumer-plugin');
     const model = join(fixture, 'src', 'model.ts');
     const orders = join(fixture, 'src', 'orders.ts');
@@ -280,6 +289,8 @@ export default {
     expect(loaded.configPath).toBe(join(fixture, 'zmdb.config.ts'));
     expect(loaded.project).toBe(join(fixture, 'tsconfig.json'));
     expect(loaded.schemaFiles).toEqual([model]);
+    expect(loaded.out).toBe(join(fixture, 'migrations'));
+    expect(loaded.outDir).toBe(join(fixture, 'migrations'));
 
     const plugin = await zmdbAot({ cwd: fixture });
     try {
@@ -398,7 +409,7 @@ export default {
     await expect(loadConfig({ cwd: root, path: './missing.ts', optional: true })).rejects.toThrow(/missing\.ts/i);
   });
 
-  it('loads two different configs in one process without cross-talk', async () => {
+  it('loads two project configs in one process without cache cross-talk', async () => {
     const first = project(`
 export default { schema: 'src/*.ts', dialect: 'sqlite', out: './first' };
 `);
@@ -411,6 +422,184 @@ export default { schema: 'src/*.ts', dialect: 'sqlite', out: './second' };
     expect(a.outDir).toBe(join(first.root, 'first'));
     expect(b.configPath).toBe(second.config);
     expect(b.outDir).toBe(join(second.root, 'second'));
+  });
+
+  it('reports one field-level validation error shape through every command and adapter', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 17,
+};
+`);
+
+    let expected = '';
+    try {
+      await canonicalLoadConfig({ cwd: fixture.root });
+    } catch (error) {
+      expected = error instanceof Error ? error.message : String(error);
+    }
+    expect(expected).toMatch(/Invalid config .*dialect.*(?:string|postgres|mysql|sqlite)/i);
+
+    await expect(zmdbAot({ cwd: fixture.root })).rejects.toThrow(expected);
+
+    symlinkSync(join(ROOT, 'node_modules'), join(fixture.root, 'node_modules'), 'dir');
+    const codegenResult = spawnSync(
+      process.execPath,
+      [`--import=${HOOK}`, CODEGEN_ENTRY, '--config', fixture.config, '--check'],
+      {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      },
+    );
+    expect(codegenResult.status, codegenResult.stderr).toBe(2);
+    expect(codegenResult.stdout).toBe('');
+    expect(codegenResult.stderr).toContain(expected);
+
+    const commands = [
+      { label: 'check', argv: ['check'] },
+      { label: 'client generate', argv: ['client', 'generate'] },
+      { label: 'embed', argv: ['embed'] },
+      { label: 'export', argv: ['export'] },
+      { label: 'generate', argv: ['generate'] },
+      { label: 'migrate', argv: ['migrate'] },
+      { label: 'pull', argv: ['pull'] },
+      { label: 'push', argv: ['push'] },
+      { label: 'rollback', argv: ['rollback'] },
+      { label: 'status', argv: ['status'] },
+      { label: 'studio', argv: ['studio'] },
+      { label: 'upgrade', argv: ['upgrade'] },
+    ] as const;
+    for (const command of commands) {
+      let stdout = '';
+      let stderr = '';
+      const exitCode = await runCli([...command.argv, '--config', fixture.config], {
+        cwd: fixture.root,
+        stdinIsTTY: false,
+        stdout: text => {
+          stdout += text;
+        },
+        stderr: text => {
+          stderr += text;
+        },
+      });
+      expect(exitCode, command.label).toBe(2);
+      expect(stdout, command.label).toBe('');
+      expect(stderr, command.label).toContain(expected);
+    }
+  });
+
+  it('keeps runtime application bootstrap independent of ambient project config loading', () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'sqlite',
+};
+`);
+    const marker = join(fixture.root, 'config-loaded.txt');
+    write(
+      fixture.config,
+      `import { writeFileSync } from 'node:fs';
+writeFileSync(${JSON.stringify(marker)}, 'loaded');
+throw new Error('runtime application imported project config');
+`,
+    );
+    const webEntry = pathToFileURL(join(ROOT, 'packages', 'zmdb', 'src', 'web.ts')).href;
+    const contractEntry = pathToFileURL(join(ROOT, 'packages', 'zmdb', 'src', 'config', 'contract.ts')).href;
+    const source = `const [{ createRouter }, { defineConfig }] = await Promise.all([
+  import(${JSON.stringify(webEntry)}),
+  import(${JSON.stringify(contractEntry)}),
+]);
+createRouter();
+defineConfig({ schema: 'src/*.ts', dialect: 'sqlite' });
+process.stdout.write('bootstrapped');
+`;
+    const result = spawnSync(process.execPath, [`--import=${HOOK}`, '--input-type=module', '--eval', source], {
+      cwd: fixture.root,
+      encoding: 'utf8',
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe('bootstrapped');
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it('rejects a second public project-config declaration outside the canonical owner', () => {
+    expect(inspectConfigContract(ROOT)).toEqual({
+      owner: 'packages/zmdb/src/config/index.ts',
+      authoringOwner: 'packages/zmdb/src/config/contract.ts',
+      facade: 'packages/zmdb/src/config/index.ts',
+      problems: [],
+    });
+
+    const planted = join(ROOT, 'packages', 'schema-core', 'src', 'index.ts');
+    const source = readFileSync(planted, 'utf8');
+    const report = inspectConfigContract(
+      ROOT,
+      new Map([
+        [
+          planted,
+          `${source}
+interface LoadConfigOptions { readonly planted: true }
+export interface ResolvedConfig { readonly planted: true }
+export function defineConfig(value: unknown): unknown { return value; }
+export async function loadConfig(): Promise<never> { throw new Error('planted'); }
+`,
+        ],
+      ]),
+    );
+    expect(report.problems).toEqual([
+      'packages/schema-core/src/index.ts declares exported ResolvedConfig; canonical owner is packages/zmdb/src/config/index.ts',
+      'packages/schema-core/src/index.ts declares exported defineConfig; canonical owner is packages/zmdb/src/config/contract.ts',
+      'packages/schema-core/src/index.ts declares exported loadConfig; canonical owner is packages/zmdb/src/config/index.ts',
+      'packages/schema-core/src/index.ts declares private LoadConfigOptions; canonical owner is packages/zmdb/src/config/index.ts',
+    ]);
+
+    expect(
+      inspectConfigContract(
+        ROOT,
+        new Map([
+          [
+            planted,
+            `${source}
+export { loadConfig } from '../../zmdb/src/config/index.js';
+`,
+          ],
+        ]),
+      ).problems,
+    ).toContain(
+      'packages/schema-core/src/index.ts publishes loadConfig through @zmdb/schema-core instead of zmdb/config',
+    );
+
+    const authoringOwner = join(ROOT, 'packages', 'zmdb', 'src', 'config', 'contract.ts');
+    const authoringSource = readFileSync(authoringOwner, 'utf8');
+    expect(
+      inspectConfigContract(
+        ROOT,
+        new Map([[authoringOwner, `import { readFileSync } from 'node:fs';\n${authoringSource}`]]),
+      ).problems,
+    ).toContain(
+      'packages/zmdb/src/config/contract.ts imports node:fs at runtime; the authoring contract must be dependency-free',
+    );
+  });
+
+  it('scaffolds only the canonical project config and build-adapter entry points', async () => {
+    const cwd = temporaryDirectory('zmdb-config-scaffold-');
+    const result = await scaffold({
+      cwd,
+      kind: 'project',
+      name: 'orders',
+      dryRun: true,
+    });
+    const files = new Map(result.files.map(file => [file.path, file.source]));
+    const config = files.get('orders/zmdb.config.ts');
+    const build = files.get('orders/scripts/build.mjs');
+    const runtime = files.get('orders/src/main.ts');
+
+    expect(config).toContain("from 'zmdb/config'");
+    expect(build).toContain("from 'zmdb/unplugin'");
+    expect(build).toContain('zmdbAot({ cwd: root })');
+    expect(runtime).not.toContain('zmdb/config');
+    expect(runtime).not.toContain('loadConfig');
   });
 
   it('caches one resolved config by its absolute path', async () => {

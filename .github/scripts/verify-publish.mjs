@@ -146,6 +146,11 @@ async function smokeStudio(app, binPath) {
     dialect: 'sqlite',
     execute: () => Promise.resolve([]),
   }),
+  http: {
+    contracts: './schema.ts#WIDGET_HTTP_CONTRACT',
+    openApi: { out: './generated/openapi.json' },
+    client: { out: './generated/http-client.generated.ts' },
+  },
 };
 `,
   );
@@ -156,6 +161,8 @@ async function smokeStudio(app, binPath) {
 export interface Widget extends Table<'widgets'> {
   id: number & Sql<'integer'> & PrimaryKey;
 }
+
+export const WIDGET_HTTP_CONTRACT = {};
 `,
   );
   writeFileSync(
@@ -175,6 +182,54 @@ export interface Widget extends Table<'widgets'> {
       2,
     )}\n`,
   );
+
+  const configProbe = run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `import { join } from 'node:path';
+const configModule = await import('zmdb/config');
+const authored = {
+  schema: './schema.ts',
+  dialect: 'sqlite',
+  project: './tsconfig.json',
+  out: './migrations',
+  http: {
+    contracts: './schema.ts#WIDGET_HTTP_CONTRACT',
+    openApi: { out: './generated/openapi.json' },
+    client: { out: './generated/http-client.generated.ts' },
+  },
+};
+if (configModule.defineConfig(authored) !== authored) throw new Error('defineConfig lost identity');
+const first = await configModule.loadConfig({ cwd: process.cwd() });
+const second = await configModule.loadConfig({ cwd: process.cwd(), path: './zmdb.config.mjs' });
+if (first !== second) throw new Error('path-keyed config cache lost identity');
+const direct = await configModule.resolveConfig(authored, join(process.cwd(), 'zmdb.config.mjs'));
+for (const loaded of [first, direct]) {
+  if (loaded.project !== join(process.cwd(), 'tsconfig.json')) throw new Error('project path was not canonical');
+  if (loaded.outDir !== join(process.cwd(), 'migrations')) throw new Error('output path was not canonical');
+  if (loaded.http?.contracts[0]?.file !== join(process.cwd(), 'schema.ts')) {
+    throw new Error('HTTP contract path was not canonical');
+  }
+  if (loaded.http?.contracts[0]?.exportName !== 'WIDGET_HTTP_CONTRACT') {
+    throw new Error('HTTP contract export was not preserved');
+  }
+  if (loaded.http?.openApiOut !== join(process.cwd(), 'generated', 'openapi.json')) {
+    throw new Error('OpenAPI output path was not canonical');
+  }
+  if (loaded.http?.clientOut !== join(process.cwd(), 'generated', 'http-client.generated.ts')) {
+    throw new Error('client output path was not canonical');
+  }
+}
+process.stdout.write('packed-config-contract-ok');
+`,
+    ],
+    { cwd: app },
+  );
+  if (configProbe.status !== 0 || configProbe.stdout !== 'packed-config-contract-ok') {
+    throw new Error(`packed config contract failed: ${configProbe.stdout}${configProbe.stderr}`);
+  }
 
   const child = spawn(process.execPath, [binPath, 'studio', '--config', configPath, '--port', '0'], {
     cwd: app,
@@ -494,6 +549,35 @@ writeFileSync(
     `export type Surface = [${strictSpecifiers.map((_, i) => `typeof ns${i}`).join(', ')}];`,
   ].join('\n')}\n`,
 );
+writeFileSync(
+  join(app, 'config-consumer.ts'),
+  `import {
+  defineConfig,
+  type HttpGenerationConfig,
+  type ResolvedConfig,
+  type ZmdbConfig,
+} from 'zmdb/config';
+
+const http = {
+  contracts: './src/http.contract.ts#HTTP_CONTRACT',
+  openApi: { out: './generated/openapi.json' },
+  client: { out: './generated/http-client.generated.ts' },
+} satisfies HttpGenerationConfig;
+
+export const config = defineConfig({
+  schema: './src/schema.ts',
+  dialect: 'sqlite',
+  http,
+});
+
+const accepted: ZmdbConfig = config;
+declare const resolved: ResolvedConfig;
+void accepted;
+void resolved.http?.contracts[0]?.exportName;
+void resolved.http?.openApiOut;
+void resolved.http?.clientOut;
+`,
+);
 // This is deliberately copied outside the repository before compilation. It
 // implements the custom transport contract using only published subpaths, so a
 // private relative import or a source-only named export cannot pass here.
@@ -514,7 +598,7 @@ writeFileSync(
         noEmit: true,
         types: ['node'],
       },
-      include: ['consumer.ts', 'app-custom-transport.ts'],
+      include: ['config-consumer.ts', 'consumer.ts', 'app-custom-transport.ts'],
     },
     null,
     2,

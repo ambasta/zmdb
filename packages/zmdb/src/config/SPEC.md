@@ -14,6 +14,23 @@ configuration; it must not call that object another `ZmdbConfig`.
 The `zmdb` root may re-export `defineConfig` and the author-facing `ZmdbConfig` type from a dependency-free contract module. It must not re-export the loader module itself, because a root import may
 not reach filesystem, compiler, migration, or CLI code. `loadConfig`, `resolveConfig`, `ResolvedConfig`, and `LoadConfigOptions` remain on `zmdb/config`.
 
+The current authoring owner is `contract.ts`. It contains the identity helper and author-facing types, uses type-only dependency imports, and performs no discovery, validation, defaulting, path
+resolution, caching, or module execution. `index.ts` is the one loader owner and re-exports those authoring identities, so `zmdb/config` exposes one contract while a runtime facade can reuse the
+dependency-light half without importing tooling.
+
+The consumer inventory is deliberate:
+
+| Consumer                                                                 | Project-config route                                                                                         | Explicit non-project options                                                                         |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| database commands, migrations, introspection, HTTP generation and Studio | one `ResolvedConfig` from `loadConfig`; `--project` is reapplied through `resolveConfig`                     | confirmation, check/watch, migration name/target, generated output override, dry-run and Studio port |
+| `zmdb/unplugin`                                                          | optional `loadConfig`, then the canonical `project` and `resolvedNaming`                                     | caller-owned compiler session, emit settings and diagnostic callback                                 |
+| `zmdb-codegen`                                                           | dynamically resolves the installed `zmdb/config` entry and calls its `loadConfig`                            | `--check`, `--watch` and an explicit `--project` override                                            |
+| `zmdb new project`                                                       | emits a config importing `defineConfig` from `zmdb/config`; its generated build adapter uses `zmdb/unplugin` | scaffold kind, name, workspace package and dry-run                                                   |
+| application/runtime APIs                                                 | never load project config                                                                                    | drivers, base URLs, authentication, retries, DI values and all other runtime settings                |
+
+These invocation and runtime objects are not alternate `ZmdbConfig` declarations. They stay explicit because they select one operation or one running application rather than describe the shared schema
+project.
+
 Release versioning, changelog, tags, publish order, and partial-release behavior are not configuration concerns. They are owned by architecture-governance EPIC #721 and its release implementation
 #728.
 
@@ -200,7 +217,7 @@ connection. `check` runs its file and snapshot checks without one and reports li
 
 ## 7a. HTTP contracts and generated-client output (#679)
 
-#685 adds this plain-data field to `ZmdbConfigData`:
+The canonical plain-data contract includes this field:
 
 ```ts
 readonly http?: {

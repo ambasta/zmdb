@@ -1,14 +1,15 @@
 # Tooling ownership policy — verifier contract
 
 > Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, remeasured for #681, amended by #656 after the protobuf runtime/public-owner
-> extraction, remeasured for #668 after the generic dialect protocol/type split, amended by #669 for the SQLite owner move, and amended by #685 for the generated-client command and its CLI fixtures.
+> extraction, remeasured for #668 after the generic dialect protocol/type split, amended by #669 for the SQLite owner move, amended by #685 for the generated-client command and its CLI fixtures, and
+> amended by #621 for the dependency-light config authoring contract.
 
 ## 1. Extraction rule and totals
 
 The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
 and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **151 paths**, each exactly once:
+The inventory has **152 paths**, each exactly once:
 
 ```json
 {
@@ -16,7 +17,7 @@ The inventory has **151 paths**, each exactly once:
   "migrations": 20,
   "cli": 21,
   "runtime": 28,
-  "facade": 12,
+  "facade": 13,
   "optional-integration": 4,
   "test-only": 35,
   "obsolete": 1
@@ -129,6 +130,7 @@ runtime	packages/query-compiler/src/schema-objects/extensions.ts
 runtime	packages/query-compiler/src/schema-objects/index.ts
 runtime	packages/query-compiler/src/schema-objects/types.ts
 runtime	packages/query-compiler/src/set-ops/index.ts
+facade	packages/zmdb/src/config/contract.ts
 facade	packages/zmdb/src/derive.ts
 facade	packages/zmdb/src/drivers-mssql.ts
 facade	packages/zmdb/src/drivers-pg.ts
