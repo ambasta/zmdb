@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { createRequestData } from '@zmdb/app/data';
 import { describe, expect, it } from 'vitest';
+import '@zmdb/app';
 
 import { type Ctx, type Guard, type QueryValues } from '../index.js';
 
