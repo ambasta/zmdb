@@ -89,7 +89,7 @@ export type { FtsOptions, FtsSelect, FtsTableOptions } from '@zmdb/query-compile
 export { joinableSelectFrom } from '@zmdb/query-compiler/joins';
 export type { JoinCondition, JoinKind, JoinableSelect } from '@zmdb/query-compiler/joins';
 
-export { aggregateSelectFrom } from '@zmdb/query-compiler/aggregations';
+export { aggregateSelectFrom, avg, count, max, min, sum } from '@zmdb/query-compiler/aggregations';
 export type { AggregateSelect } from '@zmdb/query-compiler/aggregations';
 
 export { SET_KEYWORD, batch, setOperation } from '@zmdb/query-compiler/set-ops';
