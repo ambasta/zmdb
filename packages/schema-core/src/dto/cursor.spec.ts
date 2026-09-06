@@ -136,6 +136,29 @@ describe('Composite Keyset Cursor Utilities', () => {
         /Invalid cursor: missing value for column "id"/,
       );
     });
+
+    it('returns target builder directly without creating wrapper targets', () => {
+      const calls: [string, ...unknown[]][] = [];
+      const builder: WhereTarget = {
+        where(col, op, value) {
+          calls.push(['where', col, op, value]);
+          return this;
+        },
+        orWhere(col, op, value) {
+          calls.push(['orWhere', col, op, value]);
+          return this;
+        },
+      };
+
+      const result = applyKeysetFilter(builder, cursorValues, orderBy);
+
+      expect(result).toBe(builder);
+      expect(calls).toEqual([
+        ['where', 'age', '<', 30],
+        ['orWhere', 'age', '=', 30],
+        ['where', 'id', '>', 100],
+      ]);
+    });
   });
 
   describe('buildListResult cursor derivation', () => {
