@@ -21,10 +21,25 @@ export interface ConfigRow extends Table<'configs'> {
   optionalNotes: ({ note: string } & Sql<'json'>) | null;
 }
 
-const { ConfigRow: ConfigSchema } = schemasFrom<{ ConfigRow: ConfigRow }>(import.meta.url, ['ConfigRow']);
+export interface PrimitivesRow extends Table<'primitives'> {
+  guid: string & Sql<'uuid'> & PrimaryKey;
+  birthDate: (Date | string) & Sql<'date'>;
+  alarmTime: string & Sql<'time'>;
+  price: (string | number) & Sql<'decimal'>;
+  data: Uint8Array & Sql<'blob'>;
+}
+
+const { ConfigRow: ConfigSchema, PrimitivesRow: PrimitiveSchema } = schemasFrom<{
+  ConfigRow: ConfigRow;
+  PrimitivesRow: PrimitivesRow;
+}>(import.meta.url, ['ConfigRow', 'PrimitivesRow']);
 
 // The DTO signatures these tests exercise are asserted in
 // `typed-methods.type-test.ts` — this file covers validation and the driver calls.
+class PrimitivesRepo extends BaseRepository<PrimitivesRow> {
+  static override readonly schema = PrimitiveSchema;
+}
+
 describe('typed create/update (#206)', () => {
   it('create validates then inserts, returning the row', async () => {
     const execute = vi.fn(async () => [{ id: 1, email: 'a@b.com', age: 30, role: 'user' }]);
@@ -33,6 +48,48 @@ describe('typed create/update (#206)', () => {
     const out = await repo.create(dto);
     expect(execute).toHaveBeenCalledTimes(1);
     expect(out.id).toBe(1);
+  });
+
+  it('create validates native primitive column types successfully', async () => {
+    const validPayload = {
+      guid: '123e4567-e89b-12d3-a456-426614174000',
+      birthDate: new Date('1990-01-01'),
+      alarmTime: '07:30:00',
+      price: '19.99',
+      data: new Uint8Array([1, 2, 3]),
+    };
+    const execute = vi.fn(async () => [validPayload]);
+    const repo = new PrimitivesRepo({ execute } as Driver);
+    const out = await repo.create(validPayload as unknown as CreateDTO<PrimitivesRow>);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(out.guid).toBe('123e4567-e89b-12d3-a456-426614174000');
+  });
+
+  it('rejects invalid uuid during write', async () => {
+    const execute = vi.fn(async () => []);
+    const repo = new PrimitivesRepo({ execute } as Driver);
+    const invalidPayload = {
+      guid: 'not-a-valid-uuid',
+      birthDate: new Date(),
+      alarmTime: '07:30:00',
+      price: '19.99',
+      data: new Uint8Array([1]),
+    };
+    await expect(repo.create(invalidPayload as unknown as CreateDTO<PrimitivesRow>)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid time string during update', async () => {
+    const execute = vi.fn(async () => []);
+    const repo = new PrimitivesRepo({ execute } as Driver);
+    await expect(
+      repo.update('123e4567-e89b-12d3-a456-426614174000', {
+        alarmTime: 'invalid-time',
+      } as unknown as UpdateDTO<PrimitivesRow>),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(execute).not.toHaveBeenCalled();
   });
 
   it('create throws ValidationError and does NOT call the driver on invalid input', async () => {

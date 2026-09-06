@@ -31,6 +31,11 @@ export const SQL_TYPE_KEYS = [
   'timestamp',
   'json',
   'jsonEnum',
+  'uuid',
+  'date',
+  'time',
+  'decimal',
+  'blob',
 ] as const;
 
 export type SqlTypeKey = (typeof SQL_TYPE_KEYS)[number];
@@ -79,6 +84,11 @@ const POSTGRES_TYPES = {
   timestamp: expectation('TIMESTAMPTZ'),
   json: expectation('JSONB'),
   jsonEnum: expectation('TEXT'),
+  uuid: expectation('uuid'),
+  date: expectation('date'),
+  time: expectation('time'),
+  decimal: expectation('decimal'),
+  blob: expectation('bytea'),
 } satisfies DatabaseCapabilityRow['sqlTypes'];
 
 const MYSQL_TYPES = {
@@ -92,6 +102,11 @@ const MYSQL_TYPES = {
   timestamp: expectation('DATETIME(3)'),
   json: expectation('JSON'),
   jsonEnum: expectation('TEXT'),
+  uuid: expectation('char(36)'),
+  date: expectation('date'),
+  time: expectation('time'),
+  decimal: expectation('decimal'),
+  blob: expectation('blob'),
 } satisfies DatabaseCapabilityRow['sqlTypes'];
 
 const SQLITE_TYPES = {
@@ -105,6 +120,11 @@ const SQLITE_TYPES = {
   timestamp: expectation('TEXT'),
   json: expectation('TEXT'),
   jsonEnum: expectation('TEXT'),
+  uuid: expectation('text'),
+  date: expectation('date'),
+  time: expectation('time'),
+  decimal: expectation('decimal'),
+  blob: expectation('blob'),
 } satisfies DatabaseCapabilityRow['sqlTypes'];
 
 const MSSQL_TYPES = {
@@ -118,6 +138,11 @@ const MSSQL_TYPES = {
   timestamp: expectation('DATETIMEOFFSET(3)'),
   json: expectation('NVARCHAR(MAX)'),
   jsonEnum: expectation('NVARCHAR(MAX)'),
+  uuid: expectation('UNIQUEIDENTIFIER'),
+  date: expectation('DATE'),
+  time: expectation('TIME'),
+  decimal: expectation('DECIMAL'),
+  blob: expectation('VARBINARY(MAX)'),
 } satisfies DatabaseCapabilityRow['sqlTypes'];
 
 function completeVerticals(): DatabaseCapabilityRow['verticals'] {

@@ -151,7 +151,7 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
     });
   });
 
-  it('publishes all ten SQL type mappings including SQL Server temporal, bit and Unicode storage', () => {
+  it('publishes all SQL type mappings including SQL Server temporal, bit and Unicode storage', () => {
     expect(MSSQL_TYPES).toEqual({
       serial: 'INT IDENTITY(1,1)',
       integer: 'INT',
@@ -163,6 +163,11 @@ describe('@zmdb/mssql dialect contract (#672)', () => {
       timestamp: 'DATETIMEOFFSET(3)',
       json: 'NVARCHAR(MAX)',
       jsonEnum: 'NVARCHAR(MAX)',
+      uuid: 'UNIQUEIDENTIFIER',
+      date: 'DATE',
+      time: 'TIME',
+      decimal: 'DECIMAL',
+      blob: 'VARBINARY(MAX)',
     });
   });
 
