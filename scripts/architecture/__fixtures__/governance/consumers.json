@@ -1,0 +1,141 @@
+{
+  "groups": [
+    {
+      "id": "architecture-model",
+      "paths": ["scripts/architecture/index.mjs"]
+    },
+    {
+      "id": "primary-architecture-verifiers",
+      "paths": [
+        ".github/scripts/verify-architecture-zones.mjs",
+        ".github/scripts/verify-runtime-reachability.mjs",
+        ".github/scripts/verify-package-metadata.mjs"
+      ]
+    },
+    {
+      "id": "specialized-gates",
+      "paths": [
+        ".github/scripts/verify-exports.mjs",
+        ".github/scripts/verify-devtools-boundary.mjs",
+        ".github/scripts/verify-config-contract.mjs",
+        ".github/scripts/verify-database-boundaries.mjs",
+        ".github/scripts/verify-http-client-boundary.mjs",
+        ".github/scripts/verify-operator-boundary.mjs",
+        ".github/scripts/verify-runtime-foundation.mjs",
+        ".github/scripts/verify-server-boundaries.mjs",
+        ".github/scripts/verify-tooling-boundaries.mjs",
+        ".github/scripts/verify-build-budget.mjs"
+      ]
+    },
+    {
+      "id": "catalog-facade-consumers",
+      "paths": [
+        ".github/scripts/verify-product-catalog.mjs",
+        ".github/scripts/verify-product-facade.mjs",
+        "packages/zmdb/src/product-surface.spec.ts",
+        "packages/zmdb/src/architecture-governance.spec.ts",
+        "packages/zmdb/src/cli/cli-boundary.spec.ts",
+        "packages/zmdb/src/client-integrations/adapter-qualification.spec.ts"
+      ]
+    },
+    {
+      "id": "release-model",
+      "paths": [
+        "scripts/release/model.mjs",
+        "scripts/release/plan.mjs",
+        "scripts/release/bump.mjs",
+        ".github/scripts/verify-release-governance.mjs"
+      ]
+    },
+    {
+      "id": "release-consumers",
+      "paths": [
+        ".github/scripts/lib/publish-manifest.mjs",
+        ".github/scripts/repoint-dist.mjs",
+        ".github/scripts/publish-package.mjs",
+        ".github/scripts/set-latest-tag.mjs",
+        ".github/scripts/verify-publish.mjs",
+        ".github/workflows/publish.yml"
+      ]
+    },
+    {
+      "id": "generated-docs",
+      "paths": [
+        "docs-site/integrations.mjs",
+        "docs-site/generated.mjs",
+        ".github/scripts/verify-docs-generated.mjs",
+        "docs-site/generated-content.spec.ts"
+      ]
+    },
+    {
+      "id": "generated-projections",
+      "paths": [
+        "ARCHITECTURE.md",
+        "docs-site/content/architecture.md",
+        "docs-site/content/package-reference.md",
+        "docs-site/content/framework-integrations.md"
+      ]
+    },
+    {
+      "id": "temporary-baselines",
+      "paths": [
+        ".github/scripts/database-boundary-baseline.json",
+        ".github/scripts/runtime-foundation-baseline.json",
+        ".github/scripts/server-boundaries-baseline.json",
+        ".github/scripts/verify-tooling-boundaries.mjs"
+      ],
+      "expectedFindings": 113
+    },
+    {
+      "id": "roadmap-plan",
+      "paths": ["scripts/roadmap/check.mjs", "scripts/roadmap/epics"]
+    },
+    {
+      "id": "roadmap-filing",
+      "paths": ["scripts/roadmap/file-issues.mjs", "scripts/roadmap/render.mjs"]
+    },
+    {
+      "id": "handover-operations",
+      "paths": [
+        "zmdb-handover/tools/unblocked.mjs",
+        "zmdb-handover/tools/unblocked2.mjs",
+        "zmdb-handover/tools/close-sub.mjs",
+        "zmdb-handover/tools/sync-blocks.mjs",
+        "zmdb-handover/tools/sync-labels.mjs",
+        "zmdb-handover/tools/stale-blocks.mjs"
+      ],
+      "externalRoot": "/home/amitprakash/foss/zmdb-handover"
+    },
+    {
+      "id": "legacy-filers",
+      "paths": [
+        ".github/scripts/file-web-epics.mjs",
+        ".github/scripts/file-umbrella-epic.mjs",
+        ".github/scripts/file-dx-epics.mjs"
+      ]
+    },
+    {
+      "id": "operator-docs",
+      "paths": ["zmdb-handover/HANDOVER.md", "zmdb-handover/PROMPT.md"],
+      "externalRoot": "/home/amitprakash/foss/zmdb-handover"
+    }
+  ],
+  "commands": [
+    "verify:product-catalog",
+    "verify:architecture-zones",
+    "verify:runtime-reachability",
+    "verify:package-metadata",
+    "verify:release-governance",
+    "verify:exports",
+    "verify:devtools-boundary",
+    "verify:docs-generated",
+    "verify:build-budget",
+    "verify:publish"
+  ],
+  "generatedOutputs": [
+    "ARCHITECTURE.md",
+    "docs-site/content/architecture.md",
+    "docs-site/content/package-reference.md",
+    "docs-site/content/framework-integrations.md"
+  ]
+}

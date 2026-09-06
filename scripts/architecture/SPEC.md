@@ -954,19 +954,24 @@ bytes agree, and rejects disagreement. A fixture may contain recorded API respon
 
 At the corrected live #732 authority audit on 2026-09-06 at 14:51 IST:
 
-| Measurement                                             | Result |
-| ------------------------------------------------------- | -----: |
-| Open sub-issues                                         |     50 |
-| Open sub-issues with a native parent                    |     49 |
-| Open sub-issues with open native blockers               |     39 |
-| Direct open native blocker edges                        |     51 |
-| Open sub-issues carrying `blocked`                      |     40 |
-| Issue bodies with literal `(blocked by #…)` projections |     40 |
-| Open/closed split of those projections                  |  20/20 |
-| Open epic/non-epic split of those projections           |  10/10 |
-| Issue bodies containing `blocked by` prose in any form  |    138 |
-| Open/closed split of that broader prose inventory       | 21/117 |
-| Pre-backfill native computation reporting as actionable |     11 |
+| Measurement                                                   | Result |
+| ------------------------------------------------------------- | -----: |
+| Open sub-issues                                               |     50 |
+| Open sub-issues with a native parent                          |     49 |
+| Open sub-issues with open native blockers                     |     39 |
+| Direct open native blocker edges                              |     51 |
+| Open sub-issues carrying `blocked`                            |     40 |
+| Issue bodies containing literal `(blocked by #…)` projections |     40 |
+| Open/closed split of those affected bodies                    |  20/20 |
+| Open epic/non-epic split of those affected bodies             |  10/10 |
+| Literal `(blocked by #…)` occurrences                         |    116 |
+| Open/closed split of those occurrences                        |  50/66 |
+| Checklist suffix occurrences across 30 epic bodies            |    106 |
+| Open/closed split of those checklist suffix occurrences       |  40/66 |
+| Occurrences across the 10 open non-epic affected bodies       |     10 |
+| Issue bodies containing `blocked by` prose in any form        |    138 |
+| Open/closed split of that broader prose inventory             | 21/117 |
+| Pre-backfill native computation reporting as actionable       |     11 |
 
 The exact native-blocked set was:
 
@@ -982,17 +987,49 @@ The exact pre-backfill native computation reported:
 
 That eleven-issue set is not the accepted target actionability set. #730 was the sole incomplete native record: it had labels `sub-issue` and `blocked`, its body named parent epic #644 and blocker
 #652, but live native data returned `parent = null`, `blockedBy = []` and `blocking = []`. The reviewed #736 backfill therefore adds exactly `#644 -> child #730` and `#730 blockedBy #652` before any
-projection deletion. After re-query, the required target is 50/50 native parents, 40 open sub-issues with open native blockers across 52 direct open blocker edges, and these ten actionable issues:
+projection deletion. Applying that repair to the recorded 14:51 snapshot before either prerequisite closes produces the deterministic fixture result 50/50 native parents, 40 open sub-issues with open
+native blockers across 52 direct open blocker edges, and these ten actionable issues:
 
 ```text
 620 628 651 674 701 717 732 739 746 753
 ```
 
+That 50/40/52/10 result is test evidence only, not #736's future live deletion state. The prerequisite closures produce these deterministic transitions from the same recorded graph:
+
+| Transition                | Open sub-issues | Native parents | Native-blocked | Open blocker edges | Actionable |
+| ------------------------- | --------------: | -------------: | -------------: | -----------------: | ---------: |
+| After #732 closes         |              49 |             48 |             38 |                 50 |         11 |
+| After #733 closes         |              48 |             47 |             35 |                 47 |         13 |
+| After #730 repair in #736 |              48 |             48 |             36 |                 48 |         12 |
+
+After #732 closes:
+
+```text
+620 628 651 674 701 717 730 733 739 746 753
+```
+
+After #733 closes:
+
+```text
+620 628 651 674 701 717 730 734 735 736 739 746 753
+```
+
+After #736 repairs #730:
+
+```text
+620 628 651 674 701 717 734 735 736 739 746 753
+```
+
 #730 remains deferred benchmark work after the backfill. The repository label `blocked` existed with description `Has unmet dependencies; cannot start until its blockers close`; #730 was both the sole
-missing parent and sole extra label relative to the observed native graph. The 40 explicitly targeted parenthesized projections comprise 20 open and 20 closed bodies; the open half comprises 10 epic
-bodies and 10 non-epic/sub-issue bodies. The broader phrase `blocked by` appears in 138 bodies, split 21 open and 117 closed; #736 audits that prose for active instructions but does not treat
-historical prose as dependency data. These measurements and the reviewed backfill are migration evidence; after the two native links are written and re-queried, only the native graph determines
-actionability.
+missing parent and sole extra label relative to the observed native graph. The 40 affected bodies contained 116 literal parenthesized blocker occurrences: 106 checklist suffix rows across 30 epic
+bodies, split 40 open and 66 closed, plus one occurrence in each of 10 open non-epic/sub-issue bodies. The affected bodies themselves split 20 open/20 closed and, within the open half, 10 epic/10
+non-epic. After #732 closed, `close-sub.mjs` removed exactly the #733 checklist suffix from #731, leaving the same 40 bodies but 115 occurrences: 105 epic checklist suffixes split 39 open/66 closed
+plus the same 10 open non-epic occurrences. Closing #733 removes the #734, #735 and #736 suffixes from #731, leaving 40 affected bodies but 112 occurrences: 102 checklist suffixes split 36 open/66
+closed plus the same 10 open non-epic occurrences. The `blocked` label count transitions from 40 at the 14:51 baseline to 39 after #732 and 36 after #733. The broader phrase `blocked by` appears in
+138 bodies, split 21 open and 117 closed. Twenty of the 21 open bodies are the open parenthesized-projection bodies; the sole extra is #730's `**Blocked by:** #652` field. After #730's native edge is
+backfilled, #736 removes that field and every open parenthesized occurrence so zero open issue bodies retain blocker prose. Closed historical narrative may remain unless it is one of the 66
+parenthesized checklist suffixes explicitly slated for removal. Historical prose is never dependency data. These measurements and the reviewed backfill are migration evidence; after the two native
+links are written and re-queried, only the native graph determines actionability.
 
 ## 15. #733 parity, backfill and #736 removal gates
 
@@ -1013,10 +1050,16 @@ actionability.
 7. **Helper parity:** the native actionability report replaces `unblocked*.mjs`; `file-issues.mjs` still creates the same native parent and direct blocked-by edges; `close-sub.mjs` still checks earned
    tasks and parent completion without needing unrelated issue edits.
 8. **Live-audit backfill:** the recorded 14:51 IST fixture reproduces all 50 open sub-issues, 49 native parents, the exact 39 pre-backfill native-blocked issue numbers, all 51 open blocker edges, the
-   eleven-issue pre-backfill computed set, 40 label assignments, all 40 parenthesized projections with their 20-open/20-closed and 10-open-epic/10-open-non-epic splits, the 138-body broader prose
-   inventory with its 21-open/117-closed split, and #730 as the sole missing parent/extra label.
-9. **Required #730 repair:** a migration fixture applies only parent `#644` and blocker `#652` to #730, then proves 50 native parents, 40 natively blocked open sub-issues, 52 direct open blocker edges
-   and the exact ten-issue target actionability set. Label or body changes cannot satisfy this test.
+   eleven-issue pre-backfill computed set, 40 label assignments, all 40 affected bodies with their 20-open/20-closed and 10-open-epic/10-open-non-epic splits, all 116 parenthesized occurrences with
+   their 50-open/66-closed split, the 106 checklist suffix rows with their 40-open/66-closed split, the 10 open non-epic occurrences, the 138-body broader prose inventory with its 21-open/117-closed
+   split, and #730 as the sole missing parent, extra label and open blocker-prose body outside the parenthesized inventory. A second recorded state proves that closing #732 removed only the #733
+   suffix from #731, leaving 40 bodies and 115 occurrences.
+9. **Prerequisite-close transitions:** closing #732 produces 49 open sub-issues, 48 native parents, 38 natively blocked issues, 50 open blocker edges and the exact eleven-issue set above. Closing #733
+   then produces 48 open sub-issues, 47 native parents, 35 natively blocked issues, 47 open blocker edges and the exact thirteen-issue set above. Projection fixtures record 39 then 36 labels and 115
+   then 112 parenthesized occurrences without treating either projection as authority.
+10. **Required #730 repair:** applying only parent `#644` and blocker `#652` to the pre-close fixture proves the retained 50/50-parent, 40-blocked, 52-edge and ten-actionable result. Applying the same
+    repair after #732 and #733 close proves #736's live target: 48 open sub-issues, 48 native parents, 36 natively blocked issues, 48 open blocker edges and the exact twelve-issue set above. Label or
+    body changes cannot satisfy either test.
 
 The parity harness normalises only presentation details. It must not discard a code, stable scope, issue number, package id, selector, path, edge, state or remediation. Counts are reported per
 consumer and in aggregate, with the before/after command lines and exit status.
@@ -1031,13 +1074,15 @@ Backfill is a reviewed write plan, not an inference from a label or suffix:
 3. Produce a deterministic manifest of proposed missing native relationships with issue numbers and the authored-plan key that justifies each edge.
 4. Refuse application while any issue is absent, any parent is ambiguous, any blocker is missing, any cycle exists or the API result is incomplete.
 5. The #732-reviewed manifest contains the known #730 repair: attach #730 to parent #644 and add direct blocker #652. No projection deletion may precede those two writes.
-6. After explicit application in #736, re-query from GitHub and require exact set equality with the reviewed manifest plus all pre-existing native relationships.
+6. After explicit application in #736, re-query from GitHub and require exact set equality with the reviewed manifest plus all pre-existing native relationships, then require the transition-aware live
+   result of 48 open sub-issues, 48 native parents, 36 natively blocked issues, 48 open blocker edges and the exact twelve actionable issues frozen above.
 
 ### 15.3 Strict preconditions for deleting projections in #736
 
 #736 must not remove a label, suffix or helper until all of these are true in one exact-head run:
 
-1. The complete native graph passes §14, #730 has parent #644 and direct blocker #652, and all 50 open roadmap sub-issues have their intended parent and direct blocker set.
+1. A fresh complete native re-query passes §14 after #732 and #733 are closed: 48 open roadmap sub-issues, all 48 with their intended parent, 36 with open native blockers across 48 open blocker edges,
+   and #730 with parent #644 and direct blocker #652.
 2. Native actionability has zero mismatches against the reviewed backfill manifest. A shadow comparison with the temporary projections is reported for migration evidence; any mismatch is resolved by
    reviewing and correcting native relationships, never by making projections authoritative.
 3. Every reader and writer in §12 has been migrated, archived or deleted. Repository and `zmdb-handover` searches report zero active code or operator instructions that derive actionability from the
@@ -1046,14 +1091,19 @@ Backfill is a reviewed write plan, not an inference from a label or suffix:
 5. `unblocked.mjs`, `unblocked2.mjs` and `close-sub.mjs` use the native adapter. Closing one issue does not edit unrelated epic bodies or labels.
 6. `sync-blocks.mjs`, `sync-labels.mjs` and `stale-blocks.mjs` have zero remaining callers. Their deletion is in the same #736 change as the final projection removal, not in #732 or #733.
 7. No workflow, saved contributor command, `HANDOVER.md`, `PROMPT.md` or active filing helper filters, adds, removes or explains actionability through the label or prose.
-8. A dry-run records the exact 40 label assignments and all 40 parenthesized projections measured at 14:51 IST, including the 20-open/20-closed and 10-open-epic/10-open-non-epic splits, plus checksums
-   for every affected body, the 138-body broader prose audit, the 49-parent/51-edge pre-backfill graph and the 50-parent/52-edge post-backfill target. Drift since that audit requires a fresh
+8. A dry-run records the exact 40 label assignments and all 40 affected bodies measured at 14:51 IST, including all 116 parenthesized occurrences, their 50-open/66-closed split, all 106 checklist
+   suffix rows with their 40-open/66-closed split, the 10 open non-epic occurrences and checksums for every affected body. It also records the post-#732 40-body/115-occurrence state, the 138-body
+   broader prose audit with its 21 open bodies, #730 as the sole open non-parenthesized blocker-prose body, the 49-parent/51-edge pre-close graph, the retained 50-parent/52-edge pre-close repair
+   fixture, the post-#732 49/48-parent/38-blocked/50-edge transition, the post-#733 48/47-parent/35-blocked/47-edge transition, and #736's 48/48-parent/36-blocked/48-edge live target. It also records
+   the post-#733 projection state of 36 labels, 40 affected bodies, 112 occurrences and 102 checklist suffixes. Drift since either audit requires a fresh body, occurrence, label and native-graph
    measurement.
-9. The destructive GitHub mutation is explicit and fail-closed: remove all 40 parenthesized projections and all label assignments, verify zero parenthesized projections and zero active label/prose
-   readers or writers remain, then delete the repository label. A failed intermediate verification stops before label deletion.
-10. Immediately before deletion, every consumer/helper reports native relationships as its only authority: zero label or suffix readers, zero label or suffix writers, 40 natively blocked open
-    sub-issues and exactly the ten target actionable issue numbers. A final native re-query then produces byte-identical actionability to the post-backfill/pre-removal native result, and the full
-    non-benchmark gate is green.
+9. The destructive GitHub mutation is explicit and fail-closed: remove every current literal parenthesized blocker occurrence from every affected body and remove all label assignments, verify zero
+   `(blocked by #…)` occurrences, remove #730's `**Blocked by:** #652` field after its native edge exists, and verify zero open issue bodies contain blocker prose and zero active label/prose readers
+   or writers remain before deleting the repository label. Closed historical narrative outside the 66 targeted checklist suffixes is retained. A failed intermediate verification stops before label
+   deletion.
+10. Immediately before deletion, every consumer/helper reports native relationships as its only authority: zero label or suffix readers, zero label or suffix writers, 36 natively blocked open
+    sub-issues and exactly these twelve actionable issue numbers: `620 628 651 674 701 717 734 735 736 739 746 753`. A final fresh native re-query produces byte-identical actionability to the
+    post-backfill/pre-removal native result, and the full non-benchmark gate is green.
 
 Until all ten conditions pass, the current label, body projections and sync machinery remain intact even though they are non-authoritative.
 

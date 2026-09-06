@@ -1,0 +1,4 @@
+governance architecture report v1
+package app @fixture/app ring=1 dependencies=core
+package core @fixture/core ring=0 dependencies=-
+findings 0
