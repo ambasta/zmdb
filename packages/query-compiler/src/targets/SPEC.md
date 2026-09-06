@@ -112,7 +112,7 @@ Both are in `@zmdb/repository`, and both would break silently rather than loudly
 | `repository/src/transactions/{index,recording-conn}`                               | 6    | `TransactionContext`, `TxConnection`, the goldens |
 | `repository/src/replicas/index.ts`                                                 | 2    | `isWrite`'s caller                                |
 | `schema-core/src/dto/index.ts`                                                     | 2    | **`SubqueryTarget`**                              |
-| `zmdb/src/sql.ts`                                                                  | 1    | the product-facade re-export                      |
+| `zmdb/src/index.ts`                                                                | 1    | the umbrella re-export                            |
 
 ### 3.1 A type parameter — `CompiledQuery<Q>` / `Target<Q>` — is the expensive one, and the expense is measured
 
