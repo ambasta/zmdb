@@ -56,7 +56,7 @@ under `@zmdb/query-compiler`.
 ```ts
 export declare function snapshot(schemas: readonly SnapshotableSchema[]): SchemaSnapshot;
 export declare function diff(previous: SchemaSnapshot, next: SchemaSnapshot, options?: DiffOptions): readonly ChangeOp[];
-export declare function planMigration(previous: SchemaSnapshot, next: SchemaSnapshot, database: MigrationDialect): MigrationPlan;
+export declare function planMigration(previous: SchemaSnapshot, next: SchemaSnapshot, database: MigrationPlanDialect): MigrationPlan;
 ```
 
 `MigrationPlan` is data: ordered operations plus deterministic `up` and `down` statements. It does not execute a connection, open a file or load config. The detailed snapshot and migration contracts
