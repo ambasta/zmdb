@@ -149,6 +149,9 @@ describe('@zmdb/postgres vertical', () => {
     expect(createQueryCompiler(postgres).selectFrom('users').where('email', '=', 'a@example.test').compile()).toEqual({
       text: 'SELECT * FROM "users" WHERE "email" = $1',
       parameters: ['a@example.test'],
+      returnsRows: true,
+      operation: 'select',
+      isWrite: false,
     });
 
     const catalog = await postgresIntrospector.snapshot(catalogDriver(), { schemas: ['app'] });

@@ -166,6 +166,9 @@ describe('@zmdb/singlestore vertical', () => {
     expect(ftsSelectFrom('documents', singlestore).whereMatch('body', 'single').compile()).toEqual({
       text: 'SELECT * FROM `documents` WHERE MATCH(`body`) AGAINST(?)',
       parameters: ['single'],
+      returnsRows: true,
+      operation: 'select',
+      isWrite: false,
     });
   });
 
