@@ -261,16 +261,42 @@ export function openPreparedSession(options: SessionOptions, prepare: PreparePro
  * the session snapshot.
  */
 export function projectSourceFileNames(project: string): readonly string[] {
-  using session = ReflectSession.open({ project });
-  return [...session.sourceFileNames()];
+  return withSession({ project }, session => [...session.sourceFileNames()]);
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return typeof value === 'object' && value !== null && 'then' in value && typeof value.then === 'function';
 }
 
 /** `try`/`finally` around a session, for callers that cannot use `using`. */
-export function withSession<T>(options: SessionOptions, fn: (session: ReflectSession) => T): T {
+export function withSession<T>(options: SessionOptions, fn: (session: ReflectSession) => Promise<T>): Promise<T>;
+export function withSession<T>(options: SessionOptions, fn: (session: ReflectSession) => T): T;
+export function withSession<T>(
+  options: SessionOptions,
+  fn: (session: ReflectSession) => T | Promise<T>,
+): T | Promise<T> {
+  // boundary: withSession safely manages session cleanup for synchronous and promise results
   const session = ReflectSession.open(options);
+  let isPromise = false;
   try {
-    return fn(session);
+    const result = fn(session);
+    if (isPromiseLike(result)) {
+      isPromise = true;
+      return result.then(
+        val => {
+          session.close();
+          return val;
+        },
+        err => {
+          session.close();
+          throw err;
+        },
+      );
+    }
+    return result;
   } finally {
-    session.close();
+    if (!isPromise) {
+      session.close();
+    }
   }
 }
