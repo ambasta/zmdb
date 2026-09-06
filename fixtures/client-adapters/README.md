@@ -46,8 +46,8 @@ network or global registration added by an adapter package.
 not workspace symlinks, and then runs the supplied framework build/runtime commands in order. Callers must provide a publish-ready manifest when a committed manifest still contains `workspace:`
 ranges.
 
-This helper is orchestration, not qualification evidence by itself. Issues #691–#695 and #699 combine it with the real React, Angular, Vue, Svelte, Solid, and SvelteKit packages, native lifecycle
-bindings, published manifests, external typechecks, and common runtime cases. Issue #697 adds a packed Next App Router application with physical server/browser boundaries, request-local runtime
-evidence, and browser-output inspection. Issue #698 adds a packed Nuxt 4.5.2 application that installs `@zmdb/client`, `@zmdb/vue`, and `@zmdb/nuxt` tarballs, builds the real module, renders
-concurrent requests with isolated credentials, observes native Nuxt payload data, and exercises the browser plugin. Issue #700 remains responsible for cross-adapter qualification that no
-framework-specific slice can earn alone.
+This helper is orchestration, not qualification evidence by itself. Issues #691–#699 combine it with all nine real adapter packages, native lifecycle bindings, published manifests, external
+typechecks, common runtime cases, and framework-native browser or server applications. Issue #700 adds the cross-adapter oracle in
+`packages/zmdb/src/client-integrations/adapter-qualification.spec.ts`: it keeps the official package and consumer-fixture inventories aligned, verifies every packed consumer uses the same generated
+client, rejects generated-client implementation inside adapters, enforces peers and native ownership, checks the three browser/server boundaries, and runs concurrent credential isolation for all eight
+SSR-capable adapters.

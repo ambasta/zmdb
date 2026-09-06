@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, extname, join, relative, resolve } from 'node:path';
 
 import type { AdapterPackageExpectation } from './package-matrix.js';
 
@@ -350,6 +350,215 @@ function sourceFiles(directory: string): readonly string[] {
 
 function isTestFile(path: string): boolean {
   return /\.(?:spec|test|type-test)\.[cm]?[jt]s$/.test(path);
+}
+
+const GENERATED_CLIENT_IMPLEMENTATION_TOKENS = [
+  'CLIENT_RUNTIME_ABI',
+  'ClientOperationResponse',
+  'DecodeResult<',
+  'GeneratedOperation<',
+  'ResponseValidationError',
+  'UnexpectedStatusError',
+  '.body.json(',
+  '.unexpectedStatus(',
+  'operationId:',
+  'runtime.call(',
+] as const;
+
+const BASE_ADAPTER_TRANSPORT_TOKENS = [
+  'createFetchTransport',
+  'encodeURIComponent(',
+  'globalThis.fetch(',
+  'new URL(',
+] as const;
+
+function existingFiles(path: string): readonly string[] {
+  if (!existsSync(path)) return [];
+  return statSync(path).isDirectory() ? sourceFiles(path) : [path];
+}
+
+function qualificationText(root: string, paths: readonly string[]): string {
+  return paths
+    .flatMap(path => existingFiles(join(root, path)))
+    .map(path => readFileSync(path, 'utf8'))
+    .join('\n');
+}
+
+export function adapterClientImplementationProblems(
+  root: string,
+  expectation: AdapterPackageExpectation,
+): readonly string[] {
+  const problems: string[] = [];
+  const source = join(root, 'packages', expectation.directory, 'src');
+  const tokens =
+    expectation.qualification.kind === 'meta-framework'
+      ? GENERATED_CLIENT_IMPLEMENTATION_TOKENS
+      : [...GENERATED_CLIENT_IMPLEMENTATION_TOKENS, ...BASE_ADAPTER_TRANSPORT_TOKENS];
+
+  for (const path of sourceFiles(source)) {
+    if (isTestFile(path)) continue;
+    const contents = readFileSync(path, 'utf8');
+    for (const token of tokens) {
+      if (contents.includes(token)) {
+        problems.push(`${relative(root, path)} contains generated-client implementation token ${token}`);
+      }
+    }
+  }
+
+  return Object.freeze(problems.toSorted());
+}
+
+function importSpecifiers(source: string): readonly string[] {
+  const specifiers: string[] = [];
+  const patterns = [
+    /\b(?:export|import)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/gu,
+    /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/gu,
+  ];
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      if (match[1] !== undefined) specifiers.push(match[1]);
+    }
+  }
+  return Object.freeze(specifiers);
+}
+
+function relativeImportTarget(path: string, specifier: string): string | undefined {
+  const target = resolve(dirname(path), specifier);
+  const extension = extname(target);
+  const candidates =
+    extension === '.js'
+      ? [`${target.slice(0, -extension.length)}.ts`, `${target.slice(0, -extension.length)}.tsx`]
+      : extension === '.mjs'
+        ? [`${target.slice(0, -extension.length)}.mts`]
+        : extension.length === 0
+          ? [`${target}.ts`, `${target}.tsx`, join(target, 'index.ts'), join(target, 'index.tsx')]
+          : [target];
+  return candidates.find(candidate => existsSync(candidate) && statSync(candidate).isFile());
+}
+
+function browserSourceGraph(entry: string): readonly string[] {
+  const visited = new Set<string>();
+  const visit = (path: string): void => {
+    if (visited.has(path)) return;
+    visited.add(path);
+    const source = readFileSync(path, 'utf8');
+    for (const specifier of importSpecifiers(source)) {
+      if (!specifier.startsWith('.')) continue;
+      const target = relativeImportTarget(path, specifier);
+      if (target !== undefined) visit(target);
+    }
+  };
+  visit(entry);
+  return Object.freeze([...visited].toSorted());
+}
+
+export function adapterBrowserBoundaryProblems(
+  root: string,
+  expectation: AdapterPackageExpectation,
+): readonly string[] {
+  const boundary = expectation.qualification.browserBoundary;
+  if (boundary === undefined) return [];
+
+  const problems: string[] = [];
+  const clientEntry = join(root, boundary.clientEntry);
+  const serverEntry = join(root, boundary.serverEntry);
+  const verifier = join(root, boundary.packedVerifier);
+  for (const [label, path] of [
+    ['client entry', clientEntry],
+    ['server entry', serverEntry],
+    ['packed verifier', verifier],
+  ] as const) {
+    if (!existsSync(path)) problems.push(`${label} is missing at ${relative(root, path)}`);
+  }
+  if (problems.length > 0) return Object.freeze(problems);
+
+  const graph = browserSourceGraph(clientEntry);
+  if (graph.includes(serverEntry)) {
+    problems.push(`${boundary.clientEntry} reaches ${boundary.serverEntry}`);
+  }
+  for (const path of graph) {
+    const source = readFileSync(path, 'utf8');
+    for (const specifier of importSpecifiers(source)) {
+      if (specifier.startsWith('node:')) {
+        problems.push(`${relative(root, path)} imports browser-incompatible ${specifier}`);
+      }
+    }
+    for (const token of boundary.forbiddenBrowserTokens) {
+      if (source.includes(token)) {
+        problems.push(`${relative(root, path)} reaches server token ${token}`);
+      }
+    }
+  }
+
+  const verifierSource = readFileSync(verifier, 'utf8');
+  for (const token of boundary.forbiddenBrowserTokens) {
+    if (!verifierSource.includes(token)) {
+      problems.push(`${boundary.packedVerifier} does not inspect browser output for ${token}`);
+    }
+  }
+  const packedTestSource = readFileSync(join(root, expectation.qualification.packedTest), 'utf8');
+  const verifierName = boundary.packedVerifier.split('/').at(-1);
+  if (verifierName === undefined || !packedTestSource.includes(verifierName)) {
+    problems.push(`${expectation.qualification.packedTest} does not execute ${boundary.packedVerifier}`);
+  }
+
+  return Object.freeze(problems.toSorted());
+}
+
+export function adapterQualificationProblems(root: string, expectation: AdapterPackageExpectation): readonly string[] {
+  const problems: string[] = [];
+  const qualification = expectation.qualification;
+  const requiredPaths = [
+    qualification.packedTest,
+    qualification.fixture,
+    qualification.generatedClient,
+    ...(qualification.commonConformance === undefined ? [] : [qualification.commonConformance]),
+    ...qualification.sourceEvidence.map(evidence => evidence.path),
+  ];
+  for (const path of requiredPaths) {
+    if (!existsSync(join(root, path))) problems.push(`qualification evidence is missing at ${path}`);
+  }
+  if (problems.length > 0) return Object.freeze(problems.toSorted());
+
+  const generatedClient = readFileSync(join(root, qualification.generatedClient), 'utf8');
+  for (const copy of qualification.generatedClientCopies ?? []) {
+    const path = join(root, copy);
+    if (!existsSync(path)) {
+      problems.push(`generated-client copy is missing at ${copy}`);
+    } else if (readFileSync(path, 'utf8') !== generatedClient) {
+      problems.push(`${copy} differs from ${qualification.generatedClient}`);
+    }
+  }
+
+  const packedEvidence = qualificationText(root, [
+    qualification.packedTest,
+    qualification.fixture,
+    ...(qualification.commonConformance === undefined ? [] : [qualification.commonConformance]),
+  ]);
+  if (!packedEvidence.includes('runPackedProject')) {
+    problems.push(`${expectation.name} has no packed tarball consumer`);
+  }
+  if (!packedEvidence.includes('api.generated.ts')) {
+    problems.push(`${expectation.name} packed evidence does not install the shared generated fixture client`);
+  }
+  if (qualification.kind === 'base') {
+    for (const marker of ['assertPendingAndSuccess', 'assertIndependentMutations', 'assertSsrCredentialIsolation']) {
+      if (!packedEvidence.includes(marker)) {
+        problems.push(`${expectation.name} packed evidence omits common conformance marker ${marker}`);
+      }
+    }
+  }
+
+  for (const evidence of qualification.sourceEvidence) {
+    const source = readFileSync(join(root, evidence.path), 'utf8');
+    for (const marker of evidence.markers) {
+      if (!source.includes(marker)) {
+        problems.push(`${evidence.path} does not demonstrate ${expectation.name} ownership marker ${marker}`);
+      }
+    }
+  }
+
+  return Object.freeze(problems.toSorted());
 }
 
 export function privateHarnessProductionLeaks(root: string): readonly string[] {

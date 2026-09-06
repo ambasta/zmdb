@@ -21,6 +21,16 @@ const FIXTURE_FILES = [
   'contracts.ts',
   'tsconfig.json',
 ] as const;
+const HARNESS_SOURCES = [
+  'conformance-cases.ts',
+  'conformance.ts',
+  'controllable-transport.ts',
+  'generated/api.generated.ts',
+  'package-matrix.ts',
+  'packed-svelte.ts',
+  'ssr.ts',
+  'svelte-binding.ts',
+] as const;
 
 function buildPackage(name: '@zmdb/client' | '@zmdb/svelte'): void {
   const result = spawnSync('yarn', ['workspace', name, 'build'], {
@@ -61,10 +71,58 @@ describe('@zmdb/svelte packed consumers', () => {
           svelte: '5.57.0',
         },
         devDependencies: {
+          '@types/node': '26.4.1',
           esbuild: '0.28.2',
           typescript: '7.0.2',
         },
-        files: Object.fromEntries(FIXTURE_FILES.map(path => [path, readFileSync(join(FIXTURE, path), 'utf8')])),
+        files: {
+          ...Object.fromEntries(FIXTURE_FILES.map(path => [path, readFileSync(join(FIXTURE, path), 'utf8')])),
+          ...Object.fromEntries(
+            HARNESS_SOURCES.map(path => [
+              `src/${path}`,
+              readFileSync(join(ROOT, 'fixtures', 'client-adapters', 'src', path), 'utf8'),
+            ]),
+          ),
+          'src/lifecycles.ts': `import type { AdapterLifecycle } from './package-matrix.js';
+
+export type RegisterCleanup = (cleanup: () => void) => void;
+
+export interface ActivatedLifecycle<Value> {
+  readonly value: Value;
+  dispose(): Promise<void>;
+}
+
+export interface LifecycleHarness {
+  readonly name: AdapterLifecycle;
+  activate<Value>(
+    setup: (registerCleanup: RegisterCleanup) => Value,
+  ): Promise<ActivatedLifecycle<Value>>;
+}
+`,
+          'conformance-tsconfig.json': `${JSON.stringify(
+            {
+              compilerOptions: {
+                allowImportingTsExtensions: false,
+                exactOptionalPropertyTypes: true,
+                lib: ['ESNext', 'DOM', 'DOM.Iterable'],
+                module: 'NodeNext',
+                moduleResolution: 'NodeNext',
+                noEmitOnError: true,
+                noUncheckedIndexedAccess: true,
+                outDir: 'dist',
+                rootDir: 'src',
+                skipLibCheck: false,
+                strict: true,
+                target: 'ESNext',
+                types: ['node'],
+                verbatimModuleSyntax: true,
+              },
+              include: ['src/**/*.ts'],
+            },
+            null,
+            2,
+          )}\n`,
+        },
         commands: [
           {
             label: 'packed Svelte browser and SSR build',
@@ -76,18 +134,33 @@ describe('@zmdb/svelte packed consumers', () => {
             command: process.execPath,
             arguments: ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.json'],
           },
+          {
+            label: 'packed Svelte common conformance typecheck',
+            command: process.execPath,
+            arguments: ['node_modules/typescript/bin/tsc', '-p', 'conformance-tsconfig.json'],
+          },
+          {
+            label: 'packed Svelte common conformance',
+            command: process.execPath,
+            arguments: ['dist/packed-svelte.js'],
+          },
         ],
       });
 
       try {
         expect([...result.tarballs.keys()].toSorted()).toEqual(['@zmdb/client', '@zmdb/svelte']);
-        expect(result.commands.map(command => command.status)).toEqual([0, 0]);
+        expect(result.commands.map(command => command.status)).toEqual([0, 0, 0, 0]);
         const output: unknown = JSON.parse(result.commands[0]?.stdout.trim() ?? '');
         expect(output).toMatchObject({
           serverRenders: [true, true],
         });
         if (!isRecord(output)) throw new Error('packed Svelte build returned a non-object result');
         expect(output['browserBytes']).toBeGreaterThan(0);
+        expect(JSON.parse(result.commands[3]?.stdout ?? '')).toEqual({
+          package: '@zmdb/svelte',
+          cases: 11,
+          source: 'packed-tarballs',
+        });
       } finally {
         result.cleanup();
       }

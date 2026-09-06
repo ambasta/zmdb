@@ -52,6 +52,10 @@ stable serializable hydration keys, and native `useAsyncData` payload reuse.
 `@zmdb/sveltekit` implements the Svelte meta-framework row through physically separate browser and server exports, request-local `event.fetch`, explicit credential allow-lists, typed server/browser
 loads, native framework errors, navigation cancellation, and direct reuse of the Svelte stores.
 
+Issue #700 applies the seven named cross-framework qualification tests to all nine rows. The package matrix records each real packed consumer, the shared generated fixture client, framework-native
+source evidence, SSR capability, and meta-framework browser boundary. Package-local packed tests remain the runtime evidence; the cross-framework oracle prevents one adapter from silently using a
+different generated contract or weaker qualification rule.
+
 The shared generated-client conformance suite now executes all nine landed rows as ordinary passing tests. The Svelte and Solid packed fixtures install real client and adapter tarballs, exercise
 browser and server conditions, check public inference, and prove request-isolated server ownership. The Next packed fixture builds and runs a real App Router application, checks the server-only
 boundary, and inspects browser output for server credentials and server package code. The React Native packed fixture installs real client, React, and native-adapter tarballs and executes both common
@@ -133,8 +137,8 @@ An integration earns a package only when every statement below is true:
 5. **No duplicated client.** Its shipped source contains no URL construction, request serialization, authentication policy, status dispatch or response validation.
 6. **No import effect.** Importing the package and creating its binding namespace performs no request, installs no global client and registers no process-global state.
 
-#700 applies the test to the implementation, not merely to this design. A proposed package that cannot demonstrate its qualifying behaviour is deleted from the package and publish lists and replaced
-by a documentation recipe.
+The #700 qualification oracle applies the test to the implementation, not merely to this design. A proposed package that cannot demonstrate its qualifying behaviour is deleted from the package and
+publish lists and replaced by a documentation recipe.
 
 ### 2.2 What remains a recipe
 
@@ -164,7 +168,8 @@ Recipes are still supported documentation. They simply do not create another pac
 | `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
 | `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
-This table is a design qualification, not a blanket support claim. All nine packages have earned their rows through native, shared-conformance, packed-consumer, and bundle qualification in #691–#699.
+This table is a design qualification, not a blanket support claim. All nine packages have earned their rows through native, shared-conformance, packed-consumer, bundle, and cross-adapter qualification
+in #691–#700.
 
 ## 3. Common query and mutation semantics
 
@@ -282,8 +287,8 @@ than duplicating React's runtime peer or type ownership.
 | `@sveltejs/kit` | `2.70.3`              | `>=2.70.0 <3.0.0`  |
 
 `@angular/common`, Angular `HttpClient`, NetInfo, AsyncStorage and native credential vaults are not peers because the adapters do not import them. Their application-owned structural bridges remain
-recipes. SvelteKit 2.70.3 currently advertises an optional TypeScript peer only through TypeScript 6; #700 must prove the repository's TypeScript 7 fixture works rather than treating an optional peer
-warning as compatibility evidence.
+recipes. SvelteKit 2.70.3 currently advertises an optional TypeScript peer only through TypeScript 6; the packed TypeScript 7 fixture is the measured compatibility evidence rather than the optional
+peer warning.
 
 ### 4.2 Dependency and export matrix
 
@@ -431,7 +436,7 @@ The tests freeze in #689 must name and execute at least:
 - `every proposed package names framework behaviour unavailable from @zmdb/client alone`;
 - `the dependency graph from meta-framework to base adapter is acyclic`.
 
-#700 must additionally prove the complete retained cross-framework matrix from packed applications; individual package fixtures, including Svelte's, supply reusable package-local evidence:
+#700 additionally proves the complete retained cross-framework matrix from packed applications; individual package fixtures, including Svelte's, supply reusable package-local evidence:
 
 - each retained package exercises the qualifying native behaviour in §2.3;
 - every public export imports in its intended environment;

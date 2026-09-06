@@ -50,11 +50,21 @@ export {
   type LifecycleHarness,
   type RegisterCleanup,
 } from './lifecycles.js';
-export { ADAPTER_PACKAGES, type AdapterLifecycle, type AdapterPackageExpectation } from './package-matrix.js';
 export {
+  ADAPTER_PACKAGES,
+  type AdapterBrowserBoundaryEvidence,
+  type AdapterLifecycle,
+  type AdapterPackageExpectation,
+  type AdapterQualificationEvidence,
+  type AdapterQualificationSourceEvidence,
+} from './package-matrix.js';
+export {
+  adapterBrowserBoundaryProblems,
+  adapterClientImplementationProblems,
   adapterExportSpecifiers,
   adapterManifestProblems,
   adapterPackageCycle,
+  adapterQualificationProblems,
   assertAdapterImportsWithoutEffects,
   assertAdapterPackageManifest,
   privateHarnessProductionLeaks,

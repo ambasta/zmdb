@@ -1,5 +1,21 @@
 import { spawn } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { join } from 'node:path';
+
+function filesUnder(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? filesUnder(path) : [path];
+  });
+}
+
+const browserFiles = filesUnder('.output/public').filter(path => /\.(?:m?js)$/u.test(path));
+if (browserFiles.length === 0) throw new Error('packed Nuxt build emitted no browser JavaScript');
+const browserSource = browserFiles.map(path => readFileSync(path, 'utf8')).join('\n');
+for (const token of ['@zmdb/nuxt/server', 'createNuxtServerTransport', 'createZmdbNuxtServerPlugin']) {
+  if (browserSource.includes(token)) throw new Error(`packed Nuxt browser output contains server token ${token}`);
+}
 
 function availablePort() {
   return new Promise((resolve, reject) => {
@@ -119,6 +135,7 @@ try {
   }
   process.stdout.write(
     JSON.stringify({
+      browserChunks: browserFiles.length,
       observations: observations.length,
       payload: true,
       requests: ['first', 'second'],

@@ -116,4 +116,4 @@ Issue #692 proves:
 - import success without `@angular/common` or `HttpClient`; and
 - a packed browser bundle plus a packed Node SSR consumer using tarballs rather than workspace links.
 
-Issue #700 may add broader application-level qualification, but it must not replace or weaken these package-owned checks.
+Issue #700 adds broader application-level qualification without replacing or weakening these package-owned checks.

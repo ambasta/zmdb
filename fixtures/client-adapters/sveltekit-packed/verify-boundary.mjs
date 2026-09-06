@@ -15,6 +15,9 @@ const output = result.outputFiles[0];
 assert.ok(output);
 const source = output.text;
 assert.ok(source.length > 0);
+for (const token of ['@zmdb/sveltekit/server', 'createSvelteKitServerClient', 'createSvelteKitServerLoad']) {
+  assert.ok(!source.includes(token), `packed SvelteKit browser output contains server token ${token}`);
+}
 assert.doesNotMatch(source, /createSvelteKitServerFetch/);
 assert.doesNotMatch(source, /credentials:\s*["']omit["']/);
 assert.doesNotMatch(source, /forwards .* explicit cookie allow-list/);

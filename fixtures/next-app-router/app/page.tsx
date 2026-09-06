@@ -1,15 +1,20 @@
 import { ClientProbe } from '@fixture/app/client-probe';
-import { createFixtureScope } from '@fixture/lib/server';
+import { createFixtureScope, readFixtureObservation } from '@fixture/lib/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
   const scope = await createFixtureScope({ cache: 'no-store' });
-  const getProbe = scope.memoize(
-    (client, id: string) => client.getProbe({ id }),
+  const getWidget = scope.memoize(
+    (client, id: string) => client.getWidget({ id }),
     id => id,
   );
-  const [first, duplicate] = await Promise.all([getProbe('server-component'), getProbe('server-component')]);
+  const [firstWidget, duplicateWidget] = await Promise.all([
+    getWidget('server-component'),
+    getWidget('server-component'),
+  ]);
+  const first = readFixtureObservation(firstWidget);
+  const duplicate = readFixtureObservation(duplicateWidget);
 
   return (
     <main

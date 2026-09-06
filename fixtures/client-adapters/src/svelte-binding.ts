@@ -1,5 +1,5 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { createMutationStore, createQueryStore } from '@zmdb/svelte';
@@ -11,17 +11,15 @@ import type { Unsubscriber } from 'svelte/store';
 
 import type {
   AdapterConformanceBinding,
-  ApiClient,
   ConformanceMutation,
   ConformanceQuery,
   MutationRunner,
   MutationSnapshot,
   QueryLoader,
   QuerySnapshot,
-} from './index.js';
+} from './conformance.js';
+import type { ApiClient } from './generated/api.generated.js';
 import { ADAPTER_PACKAGES } from './package-matrix.js';
-
-const ROOT = join(import.meta.dirname, '../../..');
 
 type SsrProbe = Component<{
   readonly client: ApiClient;
@@ -29,6 +27,18 @@ type SsrProbe = Component<{
 }>;
 
 let ssrProbePromise: Promise<SsrProbe> | undefined;
+
+function projectRoot(): string {
+  let current = import.meta.dirname;
+  while (true) {
+    if (existsSync(join(current, 'node_modules', '@zmdb', 'svelte'))) return current;
+    const parent = dirname(current);
+    if (parent === current) {
+      throw new Error('Svelte conformance could not locate the installed @zmdb/svelte package');
+    }
+    current = parent;
+  }
+}
 
 function svelteExpectation() {
   const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/svelte');
@@ -127,7 +137,7 @@ function prepareMutation<Input, Output>(options: {
 }
 
 async function compileSsrProbe(): Promise<SsrProbe> {
-  const directory = mkdtempSync(join(ROOT, '.svelte-conformance-'));
+  const directory = mkdtempSync(join(projectRoot(), '.svelte-conformance-'));
   try {
     writeFileSync(
       join(directory, 'bindings.mjs'),

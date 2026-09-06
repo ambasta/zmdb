@@ -15,7 +15,7 @@ const RELEASE_VERSION = publishTrain(ROOT).version;
 
 const FIXTURE_FILES = [
   'app/api/scope/route.ts',
-  'app/api/upstream/probes/[id]/route.ts',
+  'app/api/upstream/widgets/[id]/route.ts',
   'app/client-probe.tsx',
   'app/layout.tsx',
   'app/page.tsx',

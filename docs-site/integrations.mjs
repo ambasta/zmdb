@@ -22,6 +22,7 @@ export const INTEGRATIONS = Object.freeze([
     evidence: [
       'packages/angular/src/index.spec.ts',
       'packages/angular/src/index.type-test.ts',
+      'packages/angular/src/packed-consumer.spec.ts',
       'fixtures/client-adapters/angular',
     ],
   }),
@@ -31,7 +32,12 @@ export const INTEGRATIONS = Object.freeze([
     status: 'optional',
     peers: ['next', 'react', 'react-dom'],
     docs: 'framework-integrations',
-    evidence: ['packages/next/src/client.spec.ts', 'packages/next/src/server.spec.ts', 'fixtures/next-app-router'],
+    evidence: [
+      'packages/next/src/client.spec.ts',
+      'packages/next/src/server.spec.ts',
+      'packages/next/src/packed-consumer.spec.ts',
+      'fixtures/next-app-router',
+    ],
   }),
   integration({
     capability: 'Nuxt',
@@ -52,7 +58,11 @@ export const INTEGRATIONS = Object.freeze([
     status: 'optional',
     peers: ['react'],
     docs: 'framework-integrations',
-    evidence: ['packages/react/src/react.spec.ts', 'fixtures/client-adapters'],
+    evidence: [
+      'packages/react/src/react.spec.ts',
+      'packages/react/src/packed-consumer.spec.ts',
+      'fixtures/client-adapters',
+    ],
   }),
   integration({
     capability: 'React Native',
@@ -89,6 +99,7 @@ export const INTEGRATIONS = Object.freeze([
     evidence: [
       'packages/svelte/SPEC.md',
       'packages/svelte/src/svelte.spec.ts',
+      'packages/svelte/src/packed.spec.ts',
       'fixtures/client-adapters/svelte-packed',
     ],
   }),
@@ -111,6 +122,11 @@ export const INTEGRATIONS = Object.freeze([
     status: 'optional',
     peers: ['vue'],
     docs: 'framework-integrations',
-    evidence: ['packages/vue/src/index.spec.ts', 'packages/vue/src/index.type-test.ts', 'fixtures/client-adapters/vue'],
+    evidence: [
+      'packages/vue/src/index.spec.ts',
+      'packages/vue/src/index.type-test.ts',
+      'packages/vue/src/packed-consumer.spec.ts',
+      'fixtures/client-adapters/vue',
+    ],
   }),
 ]);

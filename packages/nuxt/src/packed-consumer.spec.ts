@@ -122,6 +122,7 @@ describe('@zmdb/nuxt packed consumers', () => {
         ['packed Nuxt browser navigation', 0],
       ]);
       expect(JSON.parse(result.commands[1]?.stdout ?? '')).toEqual({
+        browserChunks: expect.any(Number),
         observations: 2,
         payload: true,
         requests: ['first', 'second'],

@@ -9,7 +9,7 @@ const bindings = createZmdbNextClient<ApiClient>('NextFixture');
 
 function ClientStatus() {
   const client = bindings.useZmdbClient();
-  return <span id="client-ready">{typeof client.getProbe === 'function' ? 'client-ready' : 'client-missing'}</span>;
+  return <span id="client-ready">{typeof client.getWidget === 'function' ? 'client-ready' : 'client-missing'}</span>;
 }
 
 export function ClientProbe() {
