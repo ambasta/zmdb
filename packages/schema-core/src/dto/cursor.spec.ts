@@ -44,10 +44,25 @@ describe('Composite Keyset Cursor Utilities', () => {
       expect(decoded).toEqual(payload);
     });
 
-    it('throws on empty or non-string input', () => {
+    it('accepts direct object payloads during cursor decoding', () => {
+      const payload = { category: 'electronics', id: 42 };
+      const decoded = decodeCursor(payload);
+      expect(decoded).toEqual(payload);
+    });
+
+    it('produces 100% byte-level payload compatible base64url strings', () => {
+      const payload = { price: 99.99, id: 5 };
+      const cursor = encodeCursor(payload);
+      const expectedBase64Url = globalThis.Buffer.from(JSON.stringify(payload)).toString('base64url');
+      expect(cursor).toBe(expectedBase64Url);
+    });
+
+    it('throws on empty or non-string/non-object input', () => {
       expect(() => decodeCursor('')).toThrow(/Invalid cursor/);
       // @ts-expect-error invalid input type
       expect(() => decodeCursor(123)).toThrow(/Invalid cursor/);
+      // @ts-expect-error invalid input type
+      expect(() => decodeCursor(null)).toThrow(/Invalid cursor/);
     });
 
     it('throws clear validation error on malformed base64 / JSON string', () => {

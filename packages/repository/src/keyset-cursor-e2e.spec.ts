@@ -121,6 +121,14 @@ describe('Composite Keyset Cursor Pipeline E2E', () => {
     expect(new Set(allFetchedIds).size).toBe(12);
   });
 
+  it('accepts both base64url cursor strings and plain object payloads when processing page requests', async () => {
+    const pageWithObject = await products.list({
+      page: { limit: 5, after: { id: 10 } },
+    });
+    expect(pageWithObject.items.length).toBeGreaterThan(0);
+    expect(pageWithObject.items.every(item => item.id > 10)).toBe(true);
+  });
+
   it('handles malformed cursor parameter gracefully by throwing a clear validation error', async () => {
     await expect(
       products.list({
