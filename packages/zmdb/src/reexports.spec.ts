@@ -1,4 +1,4 @@
-import { assert as ownerAssert } from '@zmdb/aot-validator/utilities';
+import { AssertError as ownerAssertError, assert as ownerAssert } from '@zmdb/aot-validator/utilities';
 import { Module as ownerModule } from '@zmdb/app/modules';
 import {
   driverMigrationConnection as srcDMC,
@@ -13,12 +13,13 @@ import { createApp as ownerCreateApp } from '@zmdb/web/app';
 import { Controller as ownerController } from '@zmdb/web/routing';
 import { describe, expect, it } from 'vitest';
 
-import { Controller, Module, assert, createApp, defineRepository, schemaOf } from './index.js';
+import { AssertError, Controller, Module, assert, createApp, defineRepository, schemaOf } from './index.js';
 
 describe('zmdb product re-exports (#227, #620)', () => {
   it('keeps the curated root values identical to their owners', () => {
     expect(schemaOf).toBe(ownerSchemaOf);
     expect(assert).toBe(ownerAssert);
+    expect(AssertError).toBe(ownerAssertError);
     expect(defineRepository).toBe(ownerDefineRepository);
     expect(Module).toBe(ownerModule);
     expect(Controller).toBe(ownerController);
