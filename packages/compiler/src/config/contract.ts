@@ -16,7 +16,7 @@ export interface HttpGenerationConfig {
 
 /** Structural database boundary shared by compiler tools without importing the ORM. */
 export interface ToolingDriver {
-  readonly dialect: SqlDialect;
+  readonly dialect?: SqlDialect | undefined;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
   transaction?<T>(run: (driver: ToolingDriver) => Promise<T>): Promise<T>;
 }
