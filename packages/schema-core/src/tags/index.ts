@@ -241,8 +241,19 @@ export type OneToMany<Target extends string, Fk extends string> = {
 export type OneToOne<Target extends string, Fk extends string> = {
   readonly [zmdbRelation]?: { readonly kind: 'oneToOne'; readonly target: Target; readonly fk: Fk };
 };
-export type ManyToMany<Target extends string, Through extends string> = {
-  readonly [zmdbRelation]?: { readonly kind: 'manyToMany'; readonly target: Target; readonly through: Through };
+export type ManyToMany<
+  Target extends string,
+  Through extends string,
+  Fk extends string = string,
+  MappedBy extends string = string,
+> = {
+  readonly [zmdbRelation]?: {
+    readonly kind: 'manyToMany';
+    readonly target: Target;
+    readonly through: Through;
+    readonly fk?: Fk;
+    readonly mappedBy?: MappedBy;
+  };
 };
 
 // ---------------------------------------------------------------------------

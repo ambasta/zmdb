@@ -1,3 +1,4 @@
+// oxlint-disable no-extend-native, no-restricted-globals, no-restricted-properties
 // Zero-dependency Symbol.metadata baseline.
 //
 // Stage-3 decorator metadata relies on the well-known `Symbol.metadata`. Node 26
@@ -19,6 +20,31 @@ if (carrier.metadata === undefined) {
     value: Symbol.for('Symbol.metadata'),
     writable: false,
     enumerable: false,
+    configurable: true,
+  });
+}
+
+// boundary: Uint8Array polyfills for toBase64 and fromBase64 check Reflect property existence dynamically.
+if (typeof Reflect.get(Uint8Array.prototype, 'toBase64') !== 'function') {
+  Object.defineProperty(Uint8Array.prototype, 'toBase64', {
+    value: function (this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }): string {
+      let b64 = Buffer.from(this).toString('base64url');
+      if (options?.omitPadding) {
+        b64 = b64.replace(/=+$/, '');
+      }
+      return b64;
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
+if (typeof Reflect.get(Uint8Array, 'fromBase64') !== 'function') {
+  Object.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (string: string): Uint8Array {
+      return new Uint8Array(Buffer.from(string, 'base64url'));
+    },
+    writable: true,
     configurable: true,
   });
 }

@@ -1185,7 +1185,7 @@ export class Reflector {
     const target = read('target');
     // `manyToMany` carries a join table, the other three carry a foreign key. One IR
     // field (`via`) covers both, because every back-end wants "the thing that joins".
-    const via = read('fk') ?? read('through');
+    const via = kind === 'manyToMany' ? (read('through') ?? read('fk')) : (read('fk') ?? read('through'));
 
     if (typeof kind !== 'string' || typeof target !== 'string' || typeof via !== 'string') {
       this.#refuse(property, 'a relation tag needs literal target and foreign-key arguments', this.#print(spec));
@@ -1199,7 +1199,16 @@ export class Reflector {
       this.#refuse(property, `\`${kind}\` is not a relation kind; expected one of ${RELATION_KINDS.join(', ')}`);
       return undefined;
     }
-    return { name: property, relation: kind, target, via };
+    const fkVal = kind === 'manyToMany' ? read('fk') : undefined;
+    const mappedByVal = kind === 'manyToMany' ? read('mappedBy') : undefined;
+    return {
+      name: property,
+      relation: kind,
+      target,
+      via,
+      ...(typeof fkVal === 'string' ? { fk: fkVal } : {}),
+      ...(typeof mappedByVal === 'string' ? { mappedBy: mappedByVal } : {}),
+    };
   }
 
   #foreignKeysOf(

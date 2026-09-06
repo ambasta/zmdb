@@ -183,6 +183,8 @@ export interface RelationIR {
   readonly target: string;
   /** The foreign-key column, or the join table for `manyToMany`. */
   readonly via: string;
+  readonly fk?: string;
+  readonly mappedBy?: string;
 }
 
 export interface ForeignKeyIR {

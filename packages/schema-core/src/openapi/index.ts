@@ -30,8 +30,7 @@ export type { JsonSchemaObject, Variant };
  * thing the call exists to compute. A build that skipped the transform should fail
  * loudly at the first call, not serve a plausible document.
  */
-// oxlint-disable-next-line no-unused-vars -- `T` is the whole input; it has nowhere else to appear
-export function toJsonSchema<T>(): JsonSchemaObject;
+export function toJsonSchema<_T>(): JsonSchemaObject;
 /** The document for a schema value and a named variant. */
 export function toJsonSchema(schema: CoreSchema<string>, variant?: Variant): JsonSchemaObject;
 export function toJsonSchema(schema?: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
@@ -45,6 +44,7 @@ export function toJsonSchema(schema?: CoreSchema<string>, variant: Variant = 'en
   return jsonSchemaFromIR(schema.ir, variant);
 }
 
+export { singularizeWord } from '../naming/index.js';
 /**
  * The `components.schemas` key for a table, and the target of every `$ref` that points at
  * it: singularized, then PascalCase. `user_addresses` → `UserAddress`.
