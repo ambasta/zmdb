@@ -115,7 +115,7 @@ export interface TypeImport {
  * line is what makes the read sound rather than the cast.
  */
 function exported(node: Node): boolean {
-  const modifiers = (node as { modifiers?: readonly Node[] }).modifiers;
+  const modifiers = 'modifiers' in node ? (node as { modifiers?: readonly Node[] }).modifiers : undefined;
   return Array.isArray(modifiers) && modifiers.some(modifier => isExportKeyword(modifier));
 }
 
