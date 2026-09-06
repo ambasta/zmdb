@@ -183,6 +183,7 @@ const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
       'packages/sqlite/src/migrations.ts',
       'packages/zmdb/src/cli/database.ts',
       'packages/zmdb/src/cli/migration-project.ts',
+      'packages/zmdb/src/query.ts',
       'packages/zmdb/src/sql.ts',
       'packages/zmdb/src/studio/index.ts',
     ],
@@ -266,13 +267,17 @@ const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
     ],
     641,
   ],
-  ['@zmdb/repository/entity-modeling', ['packages/zmdb/src/orm.ts'], 641],
-  ['@zmdb/repository/integrations', ['packages/zmdb/src/orm.ts'], 641],
+  ['@zmdb/repository/entity-modeling', ['packages/zmdb/src/entity-modeling.ts', 'packages/zmdb/src/orm.ts'], 641],
+  ['@zmdb/repository/integrations', ['packages/zmdb/src/integrations.ts', 'packages/zmdb/src/orm.ts'], 641],
   ['@zmdb/repository/jobs', ['packages/jobs/src/queues/backends/memory.ts', 'packages/zmdb/src/orm.ts'], 641],
   ['@zmdb/repository/outbox', ['packages/app/src/events/index.ts', 'packages/zmdb/src/orm.ts'], 641],
-  ['@zmdb/repository/replicas', ['packages/zmdb/src/orm.ts'], 641],
-  ['@zmdb/repository/seeding', ['packages/zmdb/src/orm.ts'], 641],
-  ['@zmdb/repository/transactions', ['packages/app/src/cqrs/index.ts', 'packages/app/src/events/index.ts'], 641],
+  ['@zmdb/repository/replicas', ['packages/zmdb/src/orm.ts', 'packages/zmdb/src/replicas.ts'], 641],
+  ['@zmdb/repository/seeding', ['packages/zmdb/src/orm.ts', 'packages/zmdb/src/seeding.ts'], 641],
+  [
+    '@zmdb/repository/transactions',
+    ['packages/app/src/cqrs/index.ts', 'packages/app/src/events/index.ts', 'packages/zmdb/src/transactions.ts'],
+    641,
+  ],
   [
     '@zmdb/schema-core',
     [
@@ -303,7 +308,7 @@ const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
     ],
     638,
   ],
-  ['@zmdb/schema-core/custom-types', ['packages/zmdb/src/schema.ts'], 638],
+  ['@zmdb/schema-core/custom-types', ['packages/zmdb/src/custom-types.ts', 'packages/zmdb/src/schema.ts'], 638],
   [
     '@zmdb/schema-core/derive',
     [
@@ -364,7 +369,13 @@ const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
   ],
   [
     '@zmdb/schema-core/openapi',
-    ['packages/ai/src/http/parse.ts', 'packages/zmdb/src/schema.ts', 'packages/zmdb/src/studio/index.ts'],
+    [
+      'packages/ai/src/http/parse.ts',
+      'packages/zmdb/src/llm.ts',
+      'packages/zmdb/src/openapi.ts',
+      'packages/zmdb/src/schema.ts',
+      'packages/zmdb/src/studio/index.ts',
+    ],
     638,
   ],
   ['@zmdb/schema-core/relations', ['packages/zmdb/src/relations.ts', 'packages/zmdb/src/studio/index.ts'], 638],

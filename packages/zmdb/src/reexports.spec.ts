@@ -1,5 +1,19 @@
-import { assert as ownerAssert } from '@zmdb/aot-validator/utilities';
+import { lenientParse as srcLenientParse, toolFromSchema as srcToolFromSchema } from '@zmdb/ai';
+import {
+  ValidationError as srcValidationError,
+  getCachedRegExp as srcGetCachedRegExp,
+  getEnumSet as srcGetEnumSet,
+  getRegExp as srcGetRegExp,
+  tags as srcTags,
+  validatePatternComplexity as srcValidatePatternComplexity,
+} from '@zmdb/aot-validator';
+import { assert as ownerAssert, validate as ownerValidate } from '@zmdb/aot-validator/utilities';
 import { Module as ownerModule } from '@zmdb/app/modules';
+import {
+  transformCode as srcUnpluginTransformCode,
+  transformTypeChecks as srcUnpluginTransformTypeChecks,
+  type UnpluginLike as SrcUnpluginLike,
+} from '@zmdb/compiler/unplugin';
 import {
   driverMigrationConnection as srcDMC,
   up as srcUp,
@@ -7,13 +21,100 @@ import {
   status as srcStatus,
   runCli as srcRunCli,
 } from '@zmdb/migrations';
+import {
+  OP_MAP as srcOP_MAP,
+  QueryCompilerError as srcQueryCompilerError,
+  UnsupportedFeatureError as srcUFE,
+  chunkArray as srcChunkArray,
+  formatPlaceholder as srcFormatPlaceholder,
+  createQueryCompiler as srcCreateQC,
+  quoteColumn as srcQuoteColumn,
+  quoteIdentifier as srcQuoteIdentifier,
+  quoteTable as srcQuoteTable,
+  renumberPlaceholders as srcRenumberPlaceholders,
+  sanitizeKeys as srcSanitizeKeys,
+} from '@zmdb/query-compiler';
 import { defineRepository as ownerDefineRepository } from '@zmdb/repository';
+import {
+  EventBus as srcEventBus,
+  discriminatorFor as srcDiscriminatorFor,
+  flattenEmbeddable as srcFlattenEmbeddable,
+  liftEmbeddable as srcLiftEmbeddable,
+  rowToSubtype as srcRowToSubtype,
+} from '@zmdb/repository/entity-modeling';
+import { makeEndpoint as srcMakeEndpoint } from '@zmdb/repository/integrations';
+import { isWrite as srcIsWrite, withReplicas as srcWithReplicas } from '@zmdb/repository/replicas';
+import { makeRng as srcMakeRng, seedRows as srcSeedRows } from '@zmdb/repository/seeding';
+import {
+  batch as srcBatch,
+  createTransactionalDb as srcCreateTransactionalDb,
+  markTransactionClosed as srcMarkTransactionClosedTx,
+} from '@zmdb/repository/transactions';
 import { schemaOf as ownerSchemaOf } from '@zmdb/schema-core';
+import {
+  decodeValue as srcDecodeValue,
+  defineType as srcDefineType,
+  encodeValue as srcEncodeValue,
+} from '@zmdb/schema-core/custom-types';
+import {
+  toJsonSchema as srcLLMToJsonSchema,
+  toJsonSchema as srcToJsonSchema,
+  toJsonSchemaWithRelations as srcToJsonSchemaWithRelations,
+  toListSchema as srcToListSchema,
+  toOpenApiComponents as srcToOpenApiComponents,
+  toSearchSchema as srcToSearchSchema,
+} from '@zmdb/schema-core/openapi';
+import {
+  sqliteDriver as srcSqliteDriver,
+  type SqliteDatabase as SrcSqliteDatabase,
+  type SqliteOptions as SrcSqliteOptions,
+  type SqliteStatement as SrcSqliteStatement,
+} from '@zmdb/sqlite';
 import { createApp as ownerCreateApp } from '@zmdb/web/app';
 import { Controller as ownerController } from '@zmdb/web/routing';
 import { describe, expect, it } from 'vitest';
 
+import { decodeValue, defineType, encodeValue } from './custom-types.js';
+import { sqliteDriver, type SqliteDatabase, type SqliteOptions, type SqliteStatement } from './database-sqlite.js';
+import { EventBus, discriminatorFor, flattenEmbeddable, liftEmbeddable, rowToSubtype } from './entity-modeling.js';
 import { Controller, Module, assert, createApp, defineRepository, schemaOf } from './index.js';
+import { makeEndpoint } from './integrations.js';
+import { lenientParse, toJsonSchema as llmToJsonSchema, toolFromSchema } from './llm.js';
+import {
+  toJsonSchema,
+  toJsonSchemaWithRelations,
+  toListSchema,
+  toOpenApiComponents,
+  toSearchSchema,
+} from './openapi.js';
+import {
+  OP_MAP,
+  QueryCompilerError,
+  UnsupportedFeatureError as QueryUnsupportedFeatureError,
+  chunkArray,
+  createQueryCompiler as createQC,
+  formatPlaceholder,
+  quoteColumn,
+  quoteIdentifier,
+  quoteTable,
+  renumberPlaceholders,
+  sanitizeKeys,
+} from './query.js';
+import { isWrite, withReplicas } from './replicas.js';
+import { makeRng, seedRows } from './seeding.js';
+import { batch, createTransactionalDb, markTransactionClosed as markTxClosed } from './transactions.js';
+import { transformCode as unpluginTransformCode, transformTypeChecks, zmdbAot, type UnpluginLike } from './unplugin.js';
+import {
+  ValidationError,
+  getCachedRegExp,
+  getEnumSet,
+  getRegExp,
+  tags as validatorTags,
+  validate as validatorValidate,
+  validatePatternComplexity,
+} from './validator.js';
+
+type Expect<T extends true> = T;
 
 describe('zmdb product re-exports (#227, #620)', () => {
   it('keeps the curated root values identical to their owners', () => {
@@ -148,5 +249,111 @@ describe('zmdb product re-exports (#227, #620)', () => {
     const [tags, derive] = await Promise.all([import('./tags.js'), import('./derive.js')]);
     expect(Object.keys(tags)).toEqual([]);
     expect(Object.keys(derive)).toEqual([]);
+  });
+
+  it('re-exports sqlite driver subpath with values and types', () => {
+    expect(sqliteDriver).toBe(srcSqliteDriver);
+    type _T1 = Expect<
+      [SqliteDatabase] extends [SrcSqliteDatabase]
+        ? [SrcSqliteDatabase] extends [SqliteDatabase]
+          ? true
+          : false
+        : false
+    >;
+    type _T2 = Expect<
+      [SqliteOptions] extends [SrcSqliteOptions] ? ([SrcSqliteOptions] extends [SqliteOptions] ? true : false) : false
+    >;
+    type _T3 = Expect<
+      [SqliteStatement] extends [SrcSqliteStatement]
+        ? [SrcSqliteStatement] extends [SqliteStatement]
+          ? true
+          : false
+        : false
+    >;
+    const _check: _T1 & _T2 & _T3 = true;
+    expect(_check).toBe(true);
+  });
+
+  it('re-exports unplugin build plugin subpath (zmdbAot, transformTypeChecks, transformCode)', () => {
+    expect(typeof zmdbAot).toBe('function');
+    expect(transformTypeChecks).toBe(srcUnpluginTransformTypeChecks);
+    expect(unpluginTransformCode).toBe(srcUnpluginTransformCode);
+    type _T1 = Expect<
+      [UnpluginLike] extends [SrcUnpluginLike] ? ([SrcUnpluginLike] extends [UnpluginLike] ? true : false) : false
+    >;
+    const _check: _T1 = true;
+    expect(_check).toBe(true);
+  });
+
+  it('re-exports openapi subpath', () => {
+    expect(toJsonSchema).toBe(srcToJsonSchema);
+    expect(toJsonSchemaWithRelations).toBe(srcToJsonSchemaWithRelations);
+    expect(toOpenApiComponents).toBe(srcToOpenApiComponents);
+    expect(toListSchema).toBe(srcToListSchema);
+    expect(toSearchSchema).toBe(srcToSearchSchema);
+  });
+
+  it('re-exports seeding subpath', () => {
+    expect(makeRng).toBe(srcMakeRng);
+    expect(seedRows).toBe(srcSeedRows);
+  });
+
+  it('re-exports custom-types subpath', () => {
+    expect(defineType).toBe(srcDefineType);
+    expect(encodeValue).toBe(srcEncodeValue);
+    expect(decodeValue).toBe(srcDecodeValue);
+  });
+
+  it('re-exports llm subpath', () => {
+    expect(toolFromSchema).toBe(srcToolFromSchema);
+    expect(lenientParse).toBe(srcLenientParse);
+    expect(llmToJsonSchema).toBe(srcLLMToJsonSchema);
+  });
+
+  it('re-exports transactions subpath', () => {
+    expect(markTxClosed).toBe(srcMarkTransactionClosedTx);
+    expect(createTransactionalDb).toBe(srcCreateTransactionalDb);
+    expect(batch).toBe(srcBatch);
+  });
+
+  it('re-exports replicas subpath', () => {
+    expect(isWrite).toBe(srcIsWrite);
+    expect(withReplicas).toBe(srcWithReplicas);
+  });
+
+  it('re-exports integrations subpath', () => {
+    expect(makeEndpoint).toBe(srcMakeEndpoint);
+  });
+
+  it('re-exports entity-modeling subpath', () => {
+    expect(EventBus).toBe(srcEventBus);
+    expect(flattenEmbeddable).toBe(srcFlattenEmbeddable);
+    expect(liftEmbeddable).toBe(srcLiftEmbeddable);
+    expect(discriminatorFor).toBe(srcDiscriminatorFor);
+    expect(rowToSubtype).toBe(srcRowToSubtype);
+  });
+
+  it('re-exports query subpath', () => {
+    expect(createQC).toBe(srcCreateQC);
+    expect(QueryCompilerError).toBe(srcQueryCompilerError);
+    expect(QueryUnsupportedFeatureError).toBe(srcUFE);
+    expect(formatPlaceholder).toBe(srcFormatPlaceholder);
+    expect(quoteColumn).toBe(srcQuoteColumn);
+    expect(quoteIdentifier).toBe(srcQuoteIdentifier);
+    expect(quoteTable).toBe(srcQuoteTable);
+    expect(renumberPlaceholders).toBe(srcRenumberPlaceholders);
+    expect(OP_MAP).toBe(srcOP_MAP);
+    expect(sanitizeKeys).toBe(srcSanitizeKeys);
+    expect(chunkArray).toBe(srcChunkArray);
+  });
+
+  it('re-exports validator subpath', () => {
+    expect(ValidationError).toBe(srcValidationError);
+    expect(validatorTags).toBe(srcTags);
+    expect(getRegExp).toBe(srcGetRegExp);
+    expect(getEnumSet).toBe(srcGetEnumSet);
+    expect(validatorValidate).toBe(ownerValidate);
+    expect(validatePatternComplexity).toBe(srcValidatePatternComplexity);
+    expect(getCachedRegExp).toBe(srcGetCachedRegExp);
   });
 });

@@ -16,6 +16,8 @@ import type { EmitOptions } from '../emit/index.js';
 import { ReflectSession } from '../reflect/session.js';
 import { transformCode, transformFile, type TransformDiagnostic } from '../transform/index.js';
 
+export { transformCode } from '../transform/index.js';
+
 /** Inline `validate(tags.X(…), …)` with no compiler. Type arguments need `transformFile`. */
 export function transformTypeChecks(code: string): string {
   return transformCode(code);

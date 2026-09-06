@@ -11,7 +11,7 @@ The shipped/build-input source inventory is every file below `packages/{aot-vali
 `packages/schema-core/src/ir/{validation-shape,vocabulary}.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count
 because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **206 paths**, each exactly once:
+The inventory has **215 paths**, each exactly once:
 
 ```json
 {
@@ -19,7 +19,7 @@ The inventory has **206 paths**, each exactly once:
   "migrations": 21,
   "cli": 31,
   "runtime": 30,
-  "facade": 53,
+  "facade": 62,
   "optional-integration": 0,
   "test-only": 38,
   "obsolete": 0
@@ -162,6 +162,7 @@ facade	packages/zmdb/src/app-state.ts
 facade	packages/zmdb/src/app.ts
 facade	packages/zmdb/src/compiler.ts
 facade	packages/zmdb/src/config/index.ts
+facade	packages/zmdb/src/custom-types.ts
 facade	packages/zmdb/src/derive.ts
 facade	packages/zmdb/src/database-cockroach.ts
 facade	packages/zmdb/src/database-mssql.ts
@@ -170,19 +171,27 @@ facade	packages/zmdb/src/database-postgres.ts
 facade	packages/zmdb/src/database-singlestore.ts
 facade	packages/zmdb/src/database-sqlite.ts
 facade	packages/zmdb/src/dto.ts
+facade	packages/zmdb/src/entity-modeling.ts
 facade	packages/zmdb/src/index.ts
+facade	packages/zmdb/src/integrations.ts
 facade	packages/zmdb/src/ir.ts
+facade	packages/zmdb/src/llm.ts
 facade	packages/zmdb/src/migrations.ts
+facade	packages/zmdb/src/openapi.ts
 facade	packages/zmdb/src/orm.ts
+facade	packages/zmdb/src/query.ts
 facade	packages/zmdb/src/relations.ts
+facade	packages/zmdb/src/replicas.ts
 facade	packages/zmdb/src/schema.ts
+facade	packages/zmdb/src/seeding.ts
 facade	packages/zmdb/src/sql.ts
 facade	packages/zmdb/src/tags.ts
+facade	packages/zmdb/src/testing.ts
+facade	packages/zmdb/src/transactions.ts
 facade	packages/zmdb/src/unplugin.ts
 facade	packages/zmdb/src/web-app.ts
 facade	packages/zmdb/src/web-compression.ts
 facade	packages/zmdb/src/web-context.ts
-facade	packages/zmdb/src/testing.ts
 facade	packages/zmdb/src/validator.ts
 facade	packages/zmdb/src/web-contract-compiler.ts
 facade	packages/zmdb/src/web-contract.ts

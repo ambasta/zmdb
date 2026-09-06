@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { loadConfig } from '@zmdb/compiler/config';
 import { zmdbAot as createAotPlugin, type UnpluginLike, type ZmdbAotOptions } from '@zmdb/compiler/unplugin';
 
+export { transformCode, transformTypeChecks } from '@zmdb/compiler/unplugin';
 export type { UnpluginLike, ZmdbAotOptions } from '@zmdb/compiler/unplugin';
 
 export interface ConfiguredZmdbAotOptions extends ZmdbAotOptions {

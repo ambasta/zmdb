@@ -149,6 +149,7 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
     typescript: peer('>=7.0.2 <8.0.0', '7.0.2', PUBLISH),
   }),
   zmdb: releasePackage('core', 'fixtures/consumer-product', [
+    'ai',
     'cockroach',
     'compiler',
     'migrations',

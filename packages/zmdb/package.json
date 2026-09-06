@@ -50,6 +50,15 @@
     "./mssql": "./src/database-mssql.ts",
     "./cockroach": "./src/database-cockroach.ts",
     "./singlestore": "./src/database-singlestore.ts",
+    "./openapi": "./src/openapi.ts",
+    "./seeding": "./src/seeding.ts",
+    "./custom-types": "./src/custom-types.ts",
+    "./llm": "./src/llm.ts",
+    "./transactions": "./src/transactions.ts",
+    "./replicas": "./src/replicas.ts",
+    "./integrations": "./src/integrations.ts",
+    "./entity-modeling": "./src/entity-modeling.ts",
+    "./query": "./src/query.ts",
     "./app": "./src/app.ts",
     "./app/commands": "./src/app-commands.ts",
     "./app/cqrs": "./src/app-cqrs.ts",
@@ -95,6 +104,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@zmdb/ai": "workspace:1.0.0-alpha.4",
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
     "@zmdb/compiler": "workspace:1.0.0-alpha.4",
@@ -107,7 +117,6 @@
     "oxfmt": "0.66.0"
   },
   "devDependencies": {
-    "@zmdb/ai": "workspace:^",
     "@zmdb/cockroach": "workspace:^",
     "@zmdb/mssql": "workspace:^",
     "@zmdb/mysql": "workspace:^",

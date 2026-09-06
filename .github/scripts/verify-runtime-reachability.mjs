@@ -214,7 +214,7 @@ function conformancePeerUses(root, architecture, graph) {
     const importedPackages = new Set();
     const visit = directory => {
       for (const entry of readdirSync(directory, { withFileTypes: true })) {
-        if (entry.name === 'node_modules' || entry.name === 'dist') continue;
+        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name.startsWith('.')) continue;
         const path = join(directory, entry.name);
         if (entry.isDirectory()) {
           visit(path);
