@@ -1,6 +1,5 @@
 // zmdb/query — explicit named re-exports.
 export {
-  DIALECT_PARAM_LIMITS,
   OP_MAP,
   QueryCompilerError,
   UnsupportedFeatureError,
@@ -16,7 +15,6 @@ export {
 export type {
   CompiledQuery,
   DeleteBuilder,
-  Dialect,
   Direction,
   InsertBuilder,
   OnConflictBuilder,

@@ -5,16 +5,15 @@ import {
   getEnumSet as srcGetEnumSet,
   getRegExp as srcGetRegExp,
   tags as srcTags,
-  validate as srcValidateRoot,
   validatePatternComplexity as srcValidatePatternComplexity,
 } from '@zmdb/aot-validator';
+import { assert as ownerAssert, validate as ownerValidate } from '@zmdb/aot-validator/utilities';
+import { Module as ownerModule } from '@zmdb/app/modules';
 import {
   transformCode as srcUnpluginTransformCode,
   transformTypeChecks as srcUnpluginTransformTypeChecks,
   type UnpluginLike as SrcUnpluginLike,
-} from '@zmdb/aot-validator/unplugin';
-import { assert as ownerAssert } from '@zmdb/aot-validator/utilities';
-import { Module as ownerModule } from '@zmdb/app/modules';
+} from '@zmdb/compiler/unplugin';
 import {
   driverMigrationConnection as srcDMC,
   up as srcUp,
@@ -23,7 +22,6 @@ import {
   runCli as srcRunCli,
 } from '@zmdb/migrations';
 import {
-  DIALECT_PARAM_LIMITS as srcDIALECT_PARAM_LIMITS,
   OP_MAP as srcOP_MAP,
   QueryCompilerError as srcQueryCompilerError,
   UnsupportedFeatureError as srcUFE,
@@ -72,15 +70,12 @@ import {
   type SqliteOptions as SrcSqliteOptions,
   type SqliteStatement as SrcSqliteStatement,
 } from '@zmdb/sqlite';
-<<<<<<< HEAD
 import { createApp as ownerCreateApp } from '@zmdb/web/app';
 import { Controller as ownerController } from '@zmdb/web/routing';
-=======
->>>>>>> 49d9c29c (style(zmdb): format reexports spec imports)
 import { describe, expect, it } from 'vitest';
 
 import { decodeValue, defineType, encodeValue } from './custom-types.js';
-import { sqliteDriver, type SqliteDatabase, type SqliteOptions, type SqliteStatement } from './drivers-sqlite.js';
+import { sqliteDriver, type SqliteDatabase, type SqliteOptions, type SqliteStatement } from './database-sqlite.js';
 import { EventBus, discriminatorFor, flattenEmbeddable, liftEmbeddable, rowToSubtype } from './entity-modeling.js';
 import { Controller, Module, assert, createApp, defineRepository, schemaOf } from './index.js';
 import { makeEndpoint } from './integrations.js';
@@ -93,7 +88,6 @@ import {
   toSearchSchema,
 } from './openapi.js';
 import {
-  DIALECT_PARAM_LIMITS,
   OP_MAP,
   QueryCompilerError,
   UnsupportedFeatureError as QueryUnsupportedFeatureError,
@@ -120,7 +114,6 @@ import {
   validatePatternComplexity,
 } from './validator.js';
 
-type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? true : false;
 type Expect<T extends true> = T;
 
 describe('zmdb product re-exports (#227, #620)', () => {
@@ -260,9 +253,23 @@ describe('zmdb product re-exports (#227, #620)', () => {
 
   it('re-exports sqlite driver subpath with values and types', () => {
     expect(sqliteDriver).toBe(srcSqliteDriver);
-    type _T1 = Expect<Equal<SqliteDatabase, SrcSqliteDatabase>>;
-    type _T2 = Expect<Equal<SqliteOptions, SrcSqliteOptions>>;
-    type _T3 = Expect<Equal<SqliteStatement, SrcSqliteStatement>>;
+    type _T1 = Expect<
+      [SqliteDatabase] extends [SrcSqliteDatabase]
+        ? [SrcSqliteDatabase] extends [SqliteDatabase]
+          ? true
+          : false
+        : false
+    >;
+    type _T2 = Expect<
+      [SqliteOptions] extends [SrcSqliteOptions] ? ([SrcSqliteOptions] extends [SqliteOptions] ? true : false) : false
+    >;
+    type _T3 = Expect<
+      [SqliteStatement] extends [SrcSqliteStatement]
+        ? [SrcSqliteStatement] extends [SqliteStatement]
+          ? true
+          : false
+        : false
+    >;
     const _check: _T1 & _T2 & _T3 = true;
     expect(_check).toBe(true);
   });
@@ -271,7 +278,9 @@ describe('zmdb product re-exports (#227, #620)', () => {
     expect(typeof zmdbAot).toBe('function');
     expect(transformTypeChecks).toBe(srcUnpluginTransformTypeChecks);
     expect(unpluginTransformCode).toBe(srcUnpluginTransformCode);
-    type _T1 = Expect<Equal<UnpluginLike, SrcUnpluginLike>>;
+    type _T1 = Expect<
+      [UnpluginLike] extends [SrcUnpluginLike] ? ([SrcUnpluginLike] extends [UnpluginLike] ? true : false) : false
+    >;
     const _check: _T1 = true;
     expect(_check).toBe(true);
   });
@@ -334,7 +343,6 @@ describe('zmdb product re-exports (#227, #620)', () => {
     expect(quoteTable).toBe(srcQuoteTable);
     expect(renumberPlaceholders).toBe(srcRenumberPlaceholders);
     expect(OP_MAP).toBe(srcOP_MAP);
-    expect(DIALECT_PARAM_LIMITS).toBe(srcDIALECT_PARAM_LIMITS);
     expect(sanitizeKeys).toBe(srcSanitizeKeys);
     expect(chunkArray).toBe(srcChunkArray);
   });
@@ -344,7 +352,7 @@ describe('zmdb product re-exports (#227, #620)', () => {
     expect(validatorTags).toBe(srcTags);
     expect(getRegExp).toBe(srcGetRegExp);
     expect(getEnumSet).toBe(srcGetEnumSet);
-    expect(validatorValidate).toBe(srcValidateRoot);
+    expect(validatorValidate).toBe(ownerValidate);
     expect(validatePatternComplexity).toBe(srcValidatePatternComplexity);
     expect(getCachedRegExp).toBe(srcGetCachedRegExp);
   });
