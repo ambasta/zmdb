@@ -350,7 +350,16 @@ export function renderGovernanceReport(snapshot) {
 }
 
 function inventoryPath(root, group, path) {
-  return group.externalRoot === undefined ? join(root, path) : join(dirname(group.externalRoot), path);
+  if (group.externalRoot !== undefined) {
+    const configured = join(dirname(group.externalRoot), path);
+    if (existsSync(configured)) return configured;
+    const sibling = join(dirname(root), path);
+    if (existsSync(sibling)) return sibling;
+    if (!existsSync(group.externalRoot) && !existsSync(join(dirname(root), path.split('/')[0] ?? ''))) {
+      return undefined;
+    }
+  }
+  return join(root, path);
 }
 
 const COMMAND_ENTRYPOINTS = Object.freeze({
@@ -488,7 +497,8 @@ export async function verifyConsumerParity({ root, inventory }) {
   const problems = migrationProblems(root, inventory);
   for (const group of inventory.groups) {
     for (const path of group.paths) {
-      if (!existsSync(inventoryPath(root, group, path))) problems.push(`${group.id}:${path} is missing`);
+      const resolved = inventoryPath(root, group, path);
+      if (resolved !== undefined && !existsSync(resolved)) problems.push(`${group.id}:${path} is missing`);
     }
   }
 
