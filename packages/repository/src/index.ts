@@ -2059,7 +2059,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (spec.computed) {
         for (const [alias, comp] of Object.entries(spec.computed)) {
           if (comp.raw) {
-            builder = builder.expr(comp.raw, alias);
+            builder = builder.expr(comp.raw, alias, comp.params);
           } else {
             const fnLower = comp.fn.toLowerCase();
             const col = comp.column ? this.aggregateColumn(String(comp.column)) : '*';

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { postgresDialect } from '../testing/official-dialects.fixture.js';
+import { mysqlDialect, postgresDialect, sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { aggregateSelectFrom } from './index.js';
 
 // RED PHASE (#89 spec freeze): aggregate / GROUP BY / HAVING golden SQL.
@@ -92,12 +92,65 @@ describe('aggregate compilation (postgres golden)', () => {
     );
   });
 
-  it('expr() emits a raw computed expression with alias', () => {
+  it('expr() emits a sanitized computed expression with alias and quoted column identifiers', () => {
     const q = aggregateSelectFrom('order_details', postgresDialect)
       .expr('sum(quantity * unit_price)::real', 'total')
       .groupBy('order_id')
       .compile();
-    expect(q.text).toContain('sum(quantity * unit_price)::real AS "total"');
+    expect(q.text).toContain('sum("quantity" * "unit_price")::real AS "total"');
+  });
+
+  it('quotes dot-qualified column identifiers in raw expressions', () => {
+    const q = aggregateSelectFrom('order_details', postgresDialect)
+      .expr('sum(order_details.quantity * order_details.unit_price)', 'total')
+      .groupBy('order_id')
+      .compile();
+    expect(q.text).toContain('sum("order_details"."quantity" * "order_details"."unit_price") AS "total"');
+  });
+
+  it('extracts positional parameter placeholders (?) into query bindings', () => {
+    const q = aggregateSelectFrom('order_details', postgresDialect)
+      .expr('sum(quantity * ?) * ?', 'discounted_total', [0.9, 100])
+      .groupBy('order_id')
+      .compile();
+    expect(q.text).toContain('sum("quantity" * $1) * $2 AS "discounted_total"');
+    expect(q.parameters).toEqual([0.9, 100]);
+  });
+
+  it('extracts named parameter placeholders (:name) into query bindings', () => {
+    const q = aggregateSelectFrom('order_details', postgresDialect)
+      .expr('sum(quantity * :multiplier) + :offset', 'adjusted_total', { multiplier: 1.5, offset: 50 })
+      .groupBy('order_id')
+      .compile();
+    expect(q.text).toContain('sum("quantity" * $1) + $2 AS "adjusted_total"');
+    expect(q.parameters).toEqual([1.5, 50]);
+  });
+
+  it('extracts numeric and string literals in raw expressions into positional parameter bindings', () => {
+    const q = aggregateSelectFrom('products', postgresDialect)
+      .expr("CASE WHEN status = 'active' THEN price * 1.1 ELSE price END", 'discounted_price')
+      .compile();
+    expect(q.text).toContain('CASE WHEN "status" = $1 THEN "price" * $2 ELSE "price" END AS "discounted_price"');
+    expect(q.parameters).toEqual(['active', 1.1]);
+  });
+
+  it('neutralizes injected SQL payloads by binding them strictly as scalar parameters', () => {
+    const maliciousInput = '1; DROP TABLE users; --';
+    const q = aggregateSelectFrom('orders', postgresDialect).expr('title = ?', 'matched', [maliciousInput]).compile();
+    expect(q.text).toBe('SELECT "title" = $1 AS "matched" FROM "orders"');
+    expect(q.parameters).toEqual(['1; DROP TABLE users; --']);
+  });
+
+  it('supports dialect-aware column identifier escaping for MySQL and SQLite', () => {
+    const qMysql = aggregateSelectFrom('order_details', mysqlDialect)
+      .expr('sum(quantity * unit_price)', 'total', [1.0])
+      .compile();
+    expect(qMysql.text).toContain('sum(`quantity` * `unit_price`) AS `total`');
+
+    const qSqlite = aggregateSelectFrom('order_details', sqliteDialect)
+      .expr('sum(quantity * unit_price)', 'total')
+      .compile();
+    expect(qSqlite.text).toContain('sum("quantity" * "unit_price") AS "total"');
   });
 });
 

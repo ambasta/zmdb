@@ -212,7 +212,7 @@ export const kysely = {
       'the statement; expressing this would mean a nested clause builder for one function family.',
     'aggregations',
   ),
-  'expression > expressions': 'expr() emits a raw computed expression with alias',
+  'expression > expressions': 'expr() emits a sanitized computed expression with alias and quoted column identifiers',
   case: oos(
     'A CASE expression is a conditional evaluated by the database. zmdb projects columns and ' +
       'aggregates, and a computed projection goes through expr(), which takes the SQL you wrote ' +
@@ -494,8 +494,8 @@ export const drizzle = {
       'A bare DISTINCT is usually a missing GROUP BY, and the aggregate builder is where it goes.',
     'aggregations',
   ),
-  'select sql': 'expr() emits a raw computed expression with alias',
-  'select typed sql': 'expr() emits a raw computed expression with alias',
+  'select sql': 'expr() emits a sanitized computed expression with alias and quoted column identifiers',
+  'select typed sql': 'expr() emits a sanitized computed expression with alias and quoted column identifiers',
   'select from sql': 'allows bounded dialect-specific operator tokens and keeps every value parameterized',
   'select from raw sql*': 'allows bounded dialect-specific operator tokens and keeps every value parameterized',
   'select from alias': 'self-join with aliases',

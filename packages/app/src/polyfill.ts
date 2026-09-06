@@ -22,3 +22,66 @@ if (carrier.metadata === undefined) {
     configurable: true,
   });
 }
+
+if (!('toBase64' in Uint8Array.prototype) || typeof Reflect.get(Uint8Array.prototype, 'toBase64') !== 'function') {
+  const b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const b64urlchars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+  Reflect.set(
+    Uint8Array.prototype,
+    'toBase64',
+    function (this: Uint8Array, options?: { alphabet?: 'base64' | 'base64url'; omitPadding?: boolean }): string {
+      const alphabet = options?.alphabet === 'base64url' ? b64urlchars : b64chars;
+      const omitPadding = options?.omitPadding ?? false;
+      let result = '';
+      const len = this.length;
+      for (let i = 0; i < len; i += 3) {
+        const b1 = this[i] ?? 0;
+        const b2 = i + 1 < len ? (this[i + 1] ?? 0) : 0;
+        const b3 = i + 2 < len ? (this[i + 2] ?? 0) : 0;
+        const c1 = b1 >> 2;
+        const c2 = ((b1 & 3) << 4) | (b2 >> 4);
+        const c3 = ((b2 & 15) << 2) | (b3 >> 6);
+        const c4 = b3 & 63;
+        result += alphabet.charAt(c1) + alphabet.charAt(c2);
+        if (i + 1 < len) result += alphabet.charAt(c3);
+        else if (!omitPadding) result += '=';
+        if (i + 2 < len) result += alphabet.charAt(c4);
+        else if (!omitPadding) result += '=';
+      }
+      return result;
+    },
+  );
+
+  Object.defineProperty(Uint8Array, 'fromBase64', {
+    value: function (string: string, options?: { alphabet?: 'base64' | 'base64url' }): Uint8Array {
+      const alphabet = options?.alphabet === 'base64url' ? b64urlchars : b64chars;
+      const map = new Map<string, number>();
+      for (let i = 0; i < alphabet.length; i += 1) map.set(alphabet.charAt(i), i);
+      const clean = string.replace(/=/g, '');
+      const bytes: number[] = [];
+      let i = 0;
+      while (i < clean.length) {
+        const char1 = clean[i++];
+        const char2 = clean[i++];
+        const char3 = clean[i++];
+        const char4 = clean[i++];
+        const c1 = char1 !== undefined ? map.get(char1) : undefined;
+        const c2 = char2 !== undefined ? map.get(char2) : undefined;
+        const c3 = char3 !== undefined ? map.get(char3) : undefined;
+        const c4 = char4 !== undefined ? map.get(char4) : undefined;
+        if (c1 === undefined || c2 === undefined) break;
+        bytes.push((c1 << 2) | (c2 >> 4));
+        if (c3 !== undefined) {
+          bytes.push(((c2 & 15) << 4) | (c3 >> 2));
+          if (c4 !== undefined) {
+            bytes.push(((c3 & 3) << 6) | c4);
+          }
+        }
+      }
+      return new Uint8Array(bytes);
+    },
+    writable: true,
+    configurable: true,
+  });
+}
