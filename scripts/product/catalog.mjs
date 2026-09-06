@@ -136,6 +136,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { reason: PUBLISH_VERIFIER_REASON },
   }),
   productPackage({
+    id: 'cli',
+    directory: 'packages/cli',
+    npmName: '@zmdb/cli',
+    role: 'cli',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'database management CLI' },
+    docsOwner: 'cli-overview',
+    consumer: { fixture: 'fixtures/consumer-cli' },
+  }),
+  productPackage({
     id: 'client',
     directory: 'packages/client',
     npmName: '@zmdb/client',

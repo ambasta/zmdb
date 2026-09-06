@@ -134,7 +134,9 @@ function columnDdl(
 ): string {
   const primaryKey = options.inlinePrimaryKey ? ' PRIMARY KEY' : '';
   const notNull = !options.inlinePrimaryKey && (!column.nullable || options.tablePrimaryKey) ? ' NOT NULL' : '';
-  return `${identifier(column.name)} ${mssqlDdlType(column)}${primaryKey}${notNull}`;
+  const unique = column.unique ? ' UNIQUE' : '';
+  const references = column.references ? ` REFERENCES ${formatReference(column.references.target)}` : '';
+  return `${identifier(column.name)} ${mssqlDdlType(column)}${primaryKey}${notNull}${unique}${references}`;
 }
 
 function action(actionName: ForeignKeySnapshot['onDelete']): string {
@@ -203,6 +205,21 @@ function primaryKeyRefusal(operation: Extract<ChangeOp, { readonly kind: 'alter_
   );
 }
 
+function formatDefault(value: unknown): string {
+  if (value === null) return 'NULL';
+  if (typeof value === 'string') return `'${value.replaceAll("'", "''")}'`;
+  if (typeof value === 'boolean') return value ? '1' : '0';
+  return String(value);
+}
+
+function formatReference(target: string): string {
+  const parts = target.split('.');
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return `${table(parts[0])}(${identifier(parts[1])})`;
+  }
+  return table(target);
+}
+
 function emitUp(operation: ChangeOp): string {
   switch (operation.kind) {
     case 'create_extension':
@@ -220,13 +237,30 @@ function emitUp(operation: ChangeOp): string {
         inlinePrimaryKey: operation.column.primaryKey,
         tablePrimaryKey: false,
       })}`;
-    case 'drop_column':
-      return `ALTER TABLE ${table(operation.table)} DROP COLUMN ${identifier(operation.column)}`;
+    case 'drop_column': {
+      const columnName = typeof operation.column === 'string' ? operation.column : operation.column.name;
+      return `ALTER TABLE ${table(operation.table)} DROP COLUMN ${identifier(columnName)}`;
+    }
     case 'alter_column_type':
       return (
         `ALTER TABLE ${table(operation.table)} ALTER COLUMN ${identifier(operation.column)} ` +
         `${alteredType(operation, 'up')}${alterNullability(operation, 'up')}`
       );
+    case 'alter_column_default':
+      if (operation.to !== undefined) {
+        return `ALTER TABLE ${table(operation.table)} ADD CONSTRAINT ${identifier(`${operation.table}_${operation.column}_def`)} DEFAULT ${formatDefault(operation.to)} FOR ${identifier(operation.column)}`;
+      }
+      return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(`${operation.table}_${operation.column}_def`)}`;
+    case 'alter_column_unique':
+      if (operation.to) {
+        return `ALTER TABLE ${table(operation.table)} ADD CONSTRAINT ${identifier(`${operation.table}_${operation.column}_unique`)} UNIQUE (${identifier(operation.column)})`;
+      }
+      return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(`${operation.table}_${operation.column}_unique`)}`;
+    case 'alter_column_references':
+      if (operation.to) {
+        return `ALTER TABLE ${table(operation.table)} ADD CONSTRAINT ${identifier(`${operation.table}_${operation.column}_fk`)} FOREIGN KEY (${identifier(operation.column)}) REFERENCES ${formatReference(operation.to.target)}`;
+      }
+      return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(`${operation.table}_${operation.column}_fk`)}`;
     case 'alter_primary_key':
       return primaryKeyRefusal(operation);
     case 'add_foreign_key':
@@ -246,6 +280,15 @@ function emitDown(operation: ChangeOp): string {
     case 'create_table':
       return `DROP TABLE ${table(operation.table)}`;
     case 'drop_table':
+      if (operation.columns && operation.columns.length > 0) {
+        return createTable({
+          kind: 'create_table',
+          table: operation.table,
+          columns: operation.columns,
+          primaryKey: operation.columns.filter(c => c.primaryKey).map(c => c.name),
+          foreignKeys: [],
+        });
+      }
       throw new UnsupportedFeatureError(
         `recreating dropped table "${operation.table}"`,
         'mssql',
@@ -255,16 +298,37 @@ function emitDown(operation: ChangeOp): string {
     case 'add_column':
       return `ALTER TABLE ${table(operation.table)} DROP COLUMN ${identifier(operation.column.name)}`;
     case 'drop_column':
-      throw new UnsupportedFeatureError(
-        `recreating dropped column "${operation.table}"."${operation.column}"`,
-        'mssql',
-        'the drop operation carries no SQL type or nullability; write the down migration by hand',
-      );
+      if (typeof operation.column === 'string') {
+        throw new UnsupportedFeatureError(
+          `recreating dropped column "${operation.table}"."${operation.column}"`,
+          'mssql',
+          'the drop operation carries no SQL type or nullability; write the down migration by hand',
+        );
+      }
+      return `ALTER TABLE ${table(operation.table)} ADD ${columnDdl(operation.column, {
+        inlinePrimaryKey: operation.column.primaryKey,
+        tablePrimaryKey: false,
+      })}`;
     case 'alter_column_type':
       return (
         `ALTER TABLE ${table(operation.table)} ALTER COLUMN ${identifier(operation.column)} ` +
         `${alteredType(operation, 'down')}${alterNullability(operation, 'down')}`
       );
+    case 'alter_column_default':
+      if (operation.from !== undefined) {
+        return `ALTER TABLE ${table(operation.table)} ADD CONSTRAINT ${identifier(`${operation.table}_${operation.column}_def`)} DEFAULT ${formatDefault(operation.from)} FOR ${identifier(operation.column)}`;
+      }
+      return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(`${operation.table}_${operation.column}_def`)}`;
+    case 'alter_column_unique':
+      if (operation.from) {
+        return `ALTER TABLE ${table(operation.table)} ADD CONSTRAINT ${identifier(`${operation.table}_${operation.column}_unique`)} UNIQUE (${identifier(operation.column)})`;
+      }
+      return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(`${operation.table}_${operation.column}_unique`)}`;
+    case 'alter_column_references':
+      if (operation.from) {
+        return `ALTER TABLE ${table(operation.table)} ADD CONSTRAINT ${identifier(`${operation.table}_${operation.column}_fk`)} FOREIGN KEY (${identifier(operation.column)}) REFERENCES ${formatReference(operation.from.target)}`;
+      }
+      return `ALTER TABLE ${table(operation.table)} DROP CONSTRAINT ${identifier(`${operation.table}_${operation.column}_fk`)}`;
     case 'alter_primary_key':
       return primaryKeyRefusal({
         ...operation,

@@ -1,5 +1,3 @@
-import { once } from 'node:events';
-
 import {
   Client,
   Metadata,
@@ -57,12 +55,12 @@ interface ServerCallSurface {
   readonly metadata: Metadata;
   getDeadline(): Date | number;
   getPeer(): string;
-  on(event: string, listener: () => void): this;
-  removeListener(event: string, listener: () => void): this;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  removeListener(event: string, listener: (...args: unknown[]) => void): this;
 }
 
 interface WritableResponseCall extends ServerCallSurface {
-  write(value: unknown): boolean;
+  write(value: unknown, cb?: (error?: Error | null) => void): boolean;
   end(metadata?: Metadata): void;
   destroy(error: Error): void;
   once(event: 'drain', listener: () => void): this;
@@ -375,45 +373,74 @@ async function runBidi<S extends GrpcServiceDef>(
   }
 }
 
-function requestValue(decoded: DecodedRequest): unknown {
-  if (!decoded.ok) {
+function isDecodedRequest(decoded: unknown): decoded is DecodedRequest {
+  return typeof decoded === 'object' && decoded !== null && 'ok' in decoded;
+}
+
+function requestValue(decoded: unknown): unknown {
+  if (!isDecodedRequest(decoded) || !decoded.ok) {
     throw new GrpcError('INVALID_ARGUMENT', 'invalid request');
   }
   return decoded.value;
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
+  type Item = { readonly done: false; readonly value: unknown } | { readonly done: true } | { readonly error: unknown };
+  const queue: Item[] = [];
+  let notify: (() => void) | undefined;
+  let ended = false;
+
+  const push = (item: Item): void => {
+    queue.push(item);
+    notify?.();
+  };
+
+  const onData = (value: unknown): void => push({ done: false, value });
+  const onEnd = (): void => {
+    if (!ended) {
+      ended = true;
+      push({ done: true });
+    }
+  };
+  const onError = (error: unknown): void => {
+    if (!ended) {
+      ended = true;
+      push({ error });
+    }
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
   try {
     for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
+      if (scope.signal.aborted) throw scope.reason();
+      if (queue.length === 0) {
+        await new Promise<void>(resolve => {
+          const onAbort = (): void => {
+            notify = undefined;
+            resolve();
+          };
+          scope.signal.addEventListener('abort', onAbort, { once: true });
+          notify = () => {
+            scope.signal.removeEventListener('abort', onAbort);
+            notify = undefined;
+            resolve();
+          };
+        });
+      }
+      if (scope.signal.aborted) throw scope.reason();
+      const item = queue.shift();
+      if (item === undefined) continue;
+      if ('error' in item) throw item.error;
+      if (item.done) return;
+      yield requestValue(item.value);
     }
   } finally {
-    await iterator.return?.();
-  }
-}
-
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
-  try {
-    return await Promise.race([iterator.next(), aborted]);
-  } finally {
-    removeAbort();
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
   }
 }
 
@@ -426,30 +453,31 @@ async function writeResponses(
   for await (const response of responses) {
     if (scope.signal.aborted) throw scope.reason();
     const valid = method.validateResponse(response);
-    if (!call.write(valid)) {
-      await waitForDrain(call, scope);
-    }
+    const written = new Promise<void>((resolve, reject) => {
+      if (scope.signal.aborted) {
+        reject(scope.reason());
+        return;
+      }
+      const onAbort = (): void => {
+        reject(scope.reason());
+      };
+      scope.signal.addEventListener('abort', onAbort, { once: true });
+      const ok = call.write(valid, (error: Error | null | undefined) => {
+        scope.signal.removeEventListener('abort', onAbort);
+        if (error !== null && error !== undefined) reject(error);
+        else resolve();
+      });
+      if (ok) {
+        scope.signal.removeEventListener('abort', onAbort);
+        resolve();
+      }
+    });
+    await written;
   }
 }
 
 function handlerAt<T>(handlers: object, name: string): T {
   return Reflect.get(handlers, name);
-}
-
-function waitForDrain(call: WritableResponseCall, scope: CallScope): Promise<void> {
-  if (scope.signal.aborted) return Promise.reject(scope.reason());
-  return new Promise<void>((resolve, reject) => {
-    const onDrain = (): void => {
-      scope.signal.removeEventListener('abort', onAbort);
-      resolve();
-    };
-    const onAbort = (): void => {
-      call.removeListener('drain', onDrain);
-      reject(scope.reason());
-    };
-    call.once('drain', onDrain);
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-  });
 }
 
 function grpcCall<T, S extends GrpcServiceDef>(
@@ -801,6 +829,7 @@ function serverStreamCall<S extends GrpcServiceDef>(
   return clientResponses(call, observation, removeAbort);
 }
 
+// boundary: gRPC duplex stream state requires autoDestroy disabled and half-open allowed
 function bidiCall<S extends GrpcServiceDef>(
   client: Client,
   method: RuntimeMethod,
@@ -816,6 +845,15 @@ function bidiCall<S extends GrpcServiceDef>(
     outboundMetadata(callOptions?.metadata),
     { deadline: Date.now() + deadlineMs },
   );
+  const readableState = Reflect.get(call, '_readableState');
+  if (typeof readableState === 'object' && readableState !== null) {
+    Reflect.set(readableState, 'autoDestroy', false);
+  }
+  const writableState = Reflect.get(call, '_writableState');
+  if (typeof writableState === 'object' && writableState !== null) {
+    Reflect.set(writableState, 'autoDestroy', false);
+    Reflect.set(writableState, 'allowHalfOpen', true);
+  }
   const observation = new ClientObservation(call, options.validateMetadata, callOptions);
   const removeAbort = attachAbort(call, callOptions?.signal);
   const pumping = requestPump(call, payload, method);
@@ -835,7 +873,14 @@ async function pumpRequests(
 ): Promise<void> {
   for await (const request of requests) {
     const valid = method.validateRequest(request);
-    if (!call.write(valid)) await once(call, 'drain');
+    const written = new Promise<void>((resolve, reject) => {
+      const ok = call.write(valid, (error: Error | null | undefined) => {
+        if (error !== null && error !== undefined) reject(error);
+        else resolve();
+      });
+      if (ok) resolve();
+    });
+    await written;
   }
   call.end();
 }

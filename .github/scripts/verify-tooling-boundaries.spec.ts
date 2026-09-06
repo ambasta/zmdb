@@ -159,9 +159,9 @@ runtime	packages/example/src/index.ts
         optionalPeers: [],
       },
       '@zmdb/cli': {
-        dependencies: ['@zmdb/compiler', '@zmdb/migrations', 'oxfmt'],
-        peerDependencies: ['@zmdb/web', 'esbuild'],
-        optionalPeers: ['@zmdb/web', 'esbuild'],
+        dependencies: ['@zmdb/migrations', '@zmdb/sqlite'],
+        peerDependencies: [],
+        optionalPeers: [],
       },
     });
     expect(
