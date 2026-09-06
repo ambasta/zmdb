@@ -65,5 +65,6 @@ export default defineConfig({
       },
     ],
     passWithNoTests: false,
+    setupFiles: ['./scripts/vitest-setup.ts'],
   },
 });
