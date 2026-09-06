@@ -12,6 +12,7 @@ export {
   ValidationError,
   getCachedRegExp,
   getCachedRegExp as getRegExp,
+  MAX_REGEX_CACHE_SIZE,
   validatePatternComplexity,
 } from './regex-complexity.js';
 
