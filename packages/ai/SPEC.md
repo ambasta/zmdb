@@ -53,8 +53,9 @@ The graph has these hard rules:
 3. `@zmdb/mcp` depends on `@zmdb/ai` plus platform APIs. It has no dependency on an MCP SDK, a provider SDK or `@zmdb/schema-core`.
 4. `@zmdb/aot-validator` depends directly on both `@zmdb/schema-core` and `@zmdb/ai`: schema reflection comes from the former, while `toolFor` types and provider-document helpers come from the latter.
 5. `@zmdb/schema-core` never depends on any package in this slice. No provider or framework package depends on a sibling integration package.
-6. Internal workspace edges use `workspace:^`. External SDKs are peers of exactly one integration package and never dependencies or peers of `@zmdb/ai`, `@zmdb/schema-core`, `@zmdb/mcp` or
-   `@zmdb/aot-validator`.
+6. The implemented #710 manifests use `workspace:^`. The #746 release target supersedes that range form: same-core edges alone retain `workspace:^`, while every edge in this integration slice uses the
+   explicit cross-unit compatibility range and core imports become required peers plus workspace development dependencies. External SDKs are peers of exactly one integration package and never
+   dependencies or peers of `@zmdb/ai`, `@zmdb/schema-core`, `@zmdb/mcp` or `@zmdb/aot-validator`.
 
 ## 3. Exact public entry points
 
@@ -176,24 +177,26 @@ file. The `@zmdb/ai` implementation issue owns deleting it.
 
 ## 5. Manifest and peer policy
 
-Every new package manifest is ESM-only, sets `sideEffects: false`, requires Node 26+, publishes `src`, `README.md` and `LICENSE`, and uses the repository release version. Each has one root `SPEC.md`;
-each README states its install command, public entry points, direct dependency, peer requirement and explicit non-goals.
+Every package manifest is ESM-only, sets `sideEffects: false`, requires Node 26+, publishes `src`, `README.md` and `LICENSE`, and currently carries the common `1.0.0-alpha.4` baseline. Under the #746
+release target, each package in this slice is an independently versioned integration. Each has one root `SPEC.md`; each README states its install command, public entry points, direct dependency, peer
+requirement and explicit non-goals.
 
 The external peer table is final:
 
-| Package              | Sole external peer  | Final peer range | Optional | Versions the consumer tests must install                             |
-| -------------------- | ------------------- | ---------------- | -------- | -------------------------------------------------------------------- |
-| `@zmdb/ai-anthropic` | `@anthropic-ai/sdk` | `0.124.0`        | yes      | `0.124.0`                                                            |
-| `@zmdb/ai-langchain` | `@langchain/core`   | `^1.2.9`         | yes      | lower bound and current measured version, both presently `1.2.9`     |
-| `@zmdb/ai-vercel`    | `ai`                | `^7.0.83`        | yes      | lower bound `7.0.83` and current measured installed version `7.0.93` |
+| Package              | Sole external peer  | Final peer range | Optional | Versions the consumer tests must install                         |
+| -------------------- | ------------------- | ---------------- | -------- | ---------------------------------------------------------------- |
+| `@zmdb/ai-anthropic` | `@anthropic-ai/sdk` | `0.124.0`        | yes      | `0.124.0`                                                        |
+| `@zmdb/ai-langchain` | `@langchain/core`   | `^1.2.9`         | yes      | lower bound and current measured version, both presently `1.2.9` |
+| `@zmdb/ai-vercel`    | `ai`                | `^7.0.93`        | yes      | supported and tested floor `7.0.93`                              |
 
 Issue #706 makes the Anthropic peer optional because the shipped implementation imports only SDK types and accepts a structural client; real-SDK conformance is compiled through the matching
 development dependency. Issue #707 likewise makes the LangChain peer optional because the structural adapter imports no LangChain runtime; the real-package fixture proves compatibility at `1.2.9`. The
 Vercel peer is optional for the same structural reason: the adapter receives the installed SDK's branded `jsonSchema` factory and never imports the SDK. Exact tested versions are development/fixture
 dependencies, never runtime dependencies.
 
-A claimed peer range ships only after packed-consumer tests pass at both its lower bound and the repository's current pinned version. If the Vercel lower-bound fixture cannot pass, the manifest
-narrows to `^7.0.93`; the docs may not call `7.0.83` supported based only on the old declaration.
+A claimed peer range ships only after packed-consumer tests pass at its exact lower bound and every additional version named by the compatibility policy. Issue #746 resolved the earlier Vercel
+condition: exact `ai@7.0.93` passed from packed tarballs in an external consumer, so `^7.0.93` is the frozen range and `7.0.93` is the supported and tested floor. The checked-in manifest and
+lower-bound alias remain unchanged until issue #748; neither is evidence that `7.0.83` is supported.
 
 `@zmdb/mcp` has no external peer. In particular, no `@modelcontextprotocol/*` package appears in its manifest.
 
@@ -255,7 +258,8 @@ The release graph publishes dependencies before consumers:
       -> @zmdb/mcp
 ```
 
-The five packages after `@zmdb/ai` are peers in the publish graph and may publish in parallel. The wider repository continues from those edges according to its own dependency graph.
+The five packages after `@zmdb/ai` are peers in the dependency graph. The current lockstep tooling may publish them in parallel after their dependency; under the #746 target each is its own release
+unit and does not publish merely because `@zmdb/ai` or a sibling moves.
 
 Before any package is published, qualification must prove:
 
@@ -263,7 +267,7 @@ Before any package is published, qualification must prove:
 - package roots do not eagerly resolve sibling subpaths or external peers;
 - exact runtime and type-level contracts at the new package names;
 - packed consumers install only declared dependencies and the selected integration peer;
-- the two-version peer matrix in §5;
+- the exact peer-version matrix in §5;
 - AOT `toolFor` witness generation from `@zmdb/ai`;
 - generated OpenAPI-tool modules compile from `@zmdb/ai/http`; and
 - a repository search satisfies every final-removal condition in §8.

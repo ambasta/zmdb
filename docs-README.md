@@ -71,16 +71,17 @@ async findAdmins() {
 
 ## Architecture
 
-zmdb is one product released as one lockstep train through focused package firebreaks. The product catalog owns official membership, and architecture policy owns dependency direction and publish
-order:
+zmdb is one product delivered through focused package firebreaks. The frozen release target keeps the eight-package core cohesive while versioning 27 integrations and one tooling package
+independently. The product catalog owns official membership, architecture policy owns dependency direction, and release policy owns release groups and compatibility ranges:
 
 - `@zmdb/schema-core` — the tag vocabulary, the IR, and type derivation
 - `@zmdb/query-compiler` — builder to `{ text, parameters }`, never a connection
 - `@zmdb/aot-validator` — TypeScript transformer for inlined validation
 - `@zmdb/repository` — BaseRepository with auto-validation
 
-The complete current graph, canonical rings, optional-peer boundaries, package-admission workflow and release workflow are generated or checked in [`ARCHITECTURE.md`](./ARCHITECTURE.md),
-[`docs-site/content/architecture.md`](./docs-site/content/architecture.md), and [`PUBLISHING.md`](./PUBLISHING.md).
+The complete current graph, canonical rings, optional-peer boundaries, package-admission workflow, current publication workflow, and frozen target contract are generated or checked in
+[`ARCHITECTURE.md`](./ARCHITECTURE.md), [`docs-site/content/architecture.md`](./docs-site/content/architecture.md), [`PUBLISHING.md`](./PUBLISHING.md), and
+[`scripts/release/SPEC.md`](./scripts/release/SPEC.md).
 
 ## Requirements
 

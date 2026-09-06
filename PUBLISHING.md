@@ -8,13 +8,18 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 
 > **Do not create an automation token.** npm itself recommends Trusted Publishing over tokens for CI. There is no `NPM_TOKEN` secret in this setup.
 
-## Lockstep release governance
+## Current executable release governance
 
-Issue #728 implements the release portion of epic #721. The executable contract is frozen in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md).
+Issue #728 implements the release tooling that is checked in today: all 36 public packages move as one train under one `v<version>` tag. Issue #746 freezes its replacement in
+[`scripts/release/SPEC.md`](./scripts/release/SPEC.md): eight core packages remain cohesive, 27 integrations and one tooling package become independent release units, and compatibility ranges come
+from one release-policy authority.
+
+Issues #747–#750 have not implemented that target yet. Until they do, every command and diagnostic in this page describes the current all-package workflow. Do not use the current scripts to prepare or
+publish a partial train, and do not infer target compatibility guarantees from the current manifests.
 
 ### Authorities and release plan
 
-Four sources have non-overlapping ownership:
+The current implementation has four sources with non-overlapping ownership:
 
 1. `scripts/product/catalog.mjs` owns release membership and npm identity only.
 2. `scripts/architecture/policy.mjs` owns dependency constraints and therefore publish order.
@@ -35,7 +40,7 @@ export function releasePlan(root: string): {
 `packages` contains every catalog npm name in catalog-id order. `publishOrder` contains the same names exactly once in deterministic topological order, with dependencies before consumers and catalog
 id as the tie-breaker. `changelogEntry` is the exact Markdown body of the matching version section. The function performs no write, network request, registry lookup, build, tag or publish.
 
-### Admit a package to the train
+### Admit a package to the current train
 
 Admission is atomic. A new publishable package is not official, policy-governed, or releasable until one change supplies all of these:
 
@@ -58,10 +63,11 @@ yarn verify:release-governance
 yarn verify:docs-generated
 ```
 
-The release plan admits the package automatically only after the catalog, policy and manifest agree. `yarn verify:architecture-zones` rejects missing, extra, upward, cyclic, private or non-canonical
-edges; `yarn verify:runtime-reachability` rejects tooling and optional-peer leakage per public entry; and `yarn verify:package-metadata` rejects release/version/range drift.
+The current release plan admits the package automatically only after the catalog, policy and manifest agree. The target contract additionally requires one same-id release-policy classification and
+measured compatibility entries; issue #749 owns that machine-readable authority. `yarn verify:architecture-zones` rejects missing, extra, upward, cyclic, private or non-canonical edges;
+`yarn verify:runtime-reachability` rejects tooling and optional-peer leakage per public entry; and `yarn verify:package-metadata` rejects current release/version/range drift.
 
-### Lockstep version and manifest rules
+### Current lockstep version and manifest rules
 
 - Every catalog package has one identical valid SemVer version. Independent package versions, partial trains and compatibility exceptions are refused.
 - Every committed dependency, optional dependency or peer dependency on another catalog package creates a policy edge. Committed `dependencies` and `optionalDependencies` use exactly `workspace:^`; a

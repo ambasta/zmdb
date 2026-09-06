@@ -10,6 +10,7 @@
 
 ### Changed
 
+- **product:** freeze cohesive core, independent integration and tooling releases, compatibility guarantees, and measured peer floors.
 - **product:** update the tested Anthropic SDK, Vercel AI SDK, Rolldown, and Metro Babel toolchain versions.
 
 ## [1.0.0-alpha.4] - 2026-08-30

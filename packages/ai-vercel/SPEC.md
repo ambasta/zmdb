@@ -1,6 +1,8 @@
 # @zmdb/ai-vercel — Vercel AI SDK tool integration specification
 
-> **Status:** implemented by issue #708. The package owns the adapter, its real-SDK and packed-consumer tests, and the `ai` peer; the old schema-core adapter path is removed.
+> **Status:** implemented by issue #708, with the compatibility floor frozen by issue #746. The package owns the adapter, its real-SDK and packed-consumer tests, and the `ai` peer; the old schema-core
+> adapter path is removed. The supported and tested AI SDK floor is `7.0.93`. The checked-in manifest still contains the pre-freeze `^7.0.83` range and `7.0.83` test alias until issue #748 changes
+> that metadata.
 
 ## 1. Responsibility
 
@@ -39,13 +41,19 @@ The caller passes the installed SDK's `jsonSchema` function. The package neither
 
 ## 3. Dependencies and peer
 
-- Direct workspace dependency: `@zmdb/ai` at `workspace:^`.
-- Sole external peer: `ai` at `^7.0.83`, marked optional because shipped source never imports it and receives the branded factory from the caller.
-- Tested development versions: `ai` `7.0.93` and the `ai-lower-bound` alias at `7.0.83`.
-- No runtime dependency on `@zmdb/schema-core`, `@ai-sdk/*`, Zod, a provider SDK or another integration package. `zod` is a development-only entry that satisfies the AI SDK's own peer while both
-  versions compile and execute.
+- Current direct workspace dependency: `@zmdb/ai` at `workspace:^`. The frozen release target replaces that cross-unit source range with the explicit compatibility range owned by release policy.
+- Target sole external peer: `ai` at `^7.0.93`, marked optional because shipped source never imports it and receives the branded factory from the caller.
+- Supported and tested floor: exact `ai@7.0.93`.
+- No runtime dependency on `@zmdb/schema-core`, `@ai-sdk/*`, Zod, a provider SDK or another integration package. `zod` is a development-only entry that satisfies the AI SDK's own peer while both the
+  adapter and SDK declarations compile.
 
-The packed fixture executes both `7.0.83` and `7.0.93`, so the declared lower bound is proven. Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
+Issue #746 built and packed `@zmdb/query-compiler`, `@zmdb/schema-core`, `@zmdb/ai`, and `@zmdb/ai-vercel`, installed those tarballs with exact `ai@7.0.93` in a project outside the repository,
+resolved both imports from that project's `node_modules`, typechecked representative public use with `exactOptionalPropertyTypes: true` and the documented `skipLibCheck: true`, and executed the real
+`description`, `execute`, and `inputSchema` fields. The stricter `skipLibCheck: false` attempt reached upstream `@ai-sdk/provider-utils` declaration errors, so the proof does not claim that
+configuration. Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
+
+The existing `^7.0.83` manifest range and `ai-lower-bound` alias are transition state, not evidence that `7.0.83` is supported. Issue #748 owns narrowing the manifest and removing the alias; issue
+#746 does not alter either.
 
 ## 4. Migration and qualification
 
@@ -65,12 +73,12 @@ Qualification must prove:
 - the field name is `inputSchema`, not the pre-v5 `parameters`;
 - validation failures return the bounded value-free string;
 - handler failures propagate unchanged;
-- packed consumers pass at both peer-matrix versions; and
+- a packed consumer passes at exact `ai@7.0.93` with no workspace links or TypeScript path aliases; and
 - importing `@zmdb/ai` or another integration does not resolve `ai`.
 
 ## 5. README and non-goals
 
-The README states `yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.83`, shows `jsonSchema` injection and the caller-owned validator, and names the two versions exercised by the packed fixture.
+The README states `yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.93`, shows `jsonSchema` injection and the caller-owned validator, and names exact `7.0.93` as the supported and tested floor.
 
 No `LanguageModel` wrapper, provider package, streaming UI state, persistence adapter, `useChat` store or runtime schema library belongs here.
 

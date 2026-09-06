@@ -14,9 +14,12 @@ The catalog does not contain or mutate:
 - changelog entries or release notes;
 - npm tags or publication credentials;
 - publish order or dependency-ring policy;
-- compatibility, deprecation, or partial-release decisions.
+- release-group, compatibility, deprecation, or partial-release decisions.
 
-Those are owned by architecture-governance EPIC #721. The #728 release model reads catalog membership, derives release order from architecture policy and reads versions from authoritative manifests.
+Architecture policy owns dependency direction and publish order. The release-group and compatibility contract frozen by #746 is owned by `scripts/release/SPEC.md`; its future
+`scripts/release/policy.mjs` attaches exactly one release row to each catalog id and rejects a missing or stale row. The currently implemented #728 release model remains the pre-#746 lockstep baseline
+until #749 replaces it.
+
 Issue #732's `GovernanceSnapshot` composes this catalog without absorbing it: package membership, npm identity, product role, facade ownership, optionality, docs ownership and consumer evidence remain
 catalog facts, and no architecture, release, exception or issue-relationship consumer may recreate them.
 
@@ -122,7 +125,8 @@ The following surfaces consume the catalog directly:
 4. **Packed-consumer inventory** — discovers each package's fixture or verifies its explicit no-fixture reason.
 5. **Architecture policy** — `scripts/architecture/policy.mjs` attaches exactly one zone/ring policy row to each catalog member, while `scripts/architecture/index.mjs` rejects missing or stale rows
    without recreating membership.
-6. **Release governance** — the release model reads membership only. Versions, changelog, tags, graph-derived order, and publish actions remain outside the catalog.
+6. **Release governance** — release policy attaches exactly one group and compatibility row to every catalog id. The release model reads catalog membership only; versions, changelog, tags,
+   graph-derived order, ranges, compatibility evidence, and publish actions remain outside the catalog.
 
 Generated consumers compare bytes in tests and write only when their explicit generation command is run. Verification is read-only and fails on drift.
 

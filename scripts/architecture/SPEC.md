@@ -1,11 +1,12 @@
-# Package architecture and release governance — specification
+# Package architecture and dependency governance — specification
 
 > **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #691, #692,
 > #693, #694, #695, #696, #657, #658, #659, #660, #661, #672, #673, #697, #698, #699, #629, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery and
 > graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime,
-> tooling and optional-peer reachability; #728 implements the release plan, changelog, bump and publication-governance boundary. The original measured baseline is commit `5adba11e` on 2026-09-05.
-> Issue #732 freezes the composed governance snapshot, structured-exception lifecycle, native GitHub relationship semantics and current-contract/ADR boundary in §§11–16. It changes no verifier,
-> tracker projection or GitHub state; #733–#737 implement and prove that target.
+> tooling and optional-peer reachability; #728 implements the original release plan, changelog, bump and publication-governance boundary. Issue #746 supersedes only the release clauses with
+> `scripts/release/SPEC.md`: architecture still owns dependency direction and reachability, while release groups, versions, ranges, and compatibility floors move to release policy. The original
+> measured baseline is commit `5adba11e` on 2026-09-05. Issue #732 freezes the composed governance snapshot, structured-exception lifecycle, native GitHub relationship semantics and
+> current-contract/ADR boundary in §§11–16. It changes no verifier, tracker projection or GitHub state; #733–#737 implement and prove that target.
 
 ## 1. Authority, scope and measured baseline
 
@@ -46,7 +47,6 @@ export interface PackagePolicy {
   readonly allowedRuntimeDependencies: readonly string[];
   readonly optionalPeerEntries: Readonly<Record<string, readonly string[]>>;
   readonly toolingEntries: readonly string[];
-  readonly release: 'lockstep';
 }
 
 export const PACKAGE_POLICY: Readonly<Record<string, PackagePolicy>>;
@@ -70,6 +70,9 @@ Selectors are unique and sorted. Every selector must resolve in the matching com
 
 All arrays and record keys are deterministic, duplicate-free and deeply read-only. Module evaluation performs no filesystem write, network access, subprocess launch, package import or environment
 mutation. Functions that inspect a repository receive its root explicitly.
+
+The checked-in `policy.mjs` still carries the legacy `release: 'lockstep'` field because #749 has not implemented the #746 release policy yet. That field is observed implementation state, not
+architecture authority, and must disappear when `scripts/release/policy.mjs` lands.
 
 ### 2.1 Read-only discovery and graph API
 
@@ -140,7 +143,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: ['./testing'],
-    release: 'lockstep',
   },
   react: {
     directory: 'packages/react',
@@ -150,7 +152,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   'react-native': {
     directory: 'packages/react-native',
@@ -160,7 +161,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   angular: {
     directory: 'packages/angular',
@@ -170,7 +170,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   vue: {
     directory: 'packages/vue',
@@ -180,7 +179,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   svelte: {
     directory: 'packages/svelte',
@@ -190,7 +188,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   next: {
     directory: 'packages/next',
@@ -200,7 +197,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: ['server-only'],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   nuxt: {
     directory: 'packages/nuxt',
@@ -210,7 +206,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   solid: {
     directory: 'packages/solid',
@@ -220,7 +215,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   'query-compiler': {
     directory: 'packages/query-compiler',
@@ -230,7 +224,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   migrations: {
     directory: 'packages/migrations',
@@ -240,7 +233,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: ['./declarations', './files', './testing'],
-    release: 'lockstep',
   },
   'schema-core': {
     directory: 'packages/schema-core',
@@ -250,7 +242,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   ai: {
     directory: 'packages/ai',
@@ -260,7 +251,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: ['./compiler'],
-    release: 'lockstep',
   },
   'ai-anthropic': {
     directory: 'packages/ai-anthropic',
@@ -272,7 +262,6 @@ export const PACKAGE_POLICY = {
       '@anthropic-ai/sdk': ['.'],
     },
     toolingEntries: [],
-    release: 'lockstep',
   },
   'ai-langchain': {
     directory: 'packages/ai-langchain',
@@ -284,7 +273,6 @@ export const PACKAGE_POLICY = {
       '@langchain/core': ['.'],
     },
     toolingEntries: [],
-    release: 'lockstep',
   },
   'ai-vercel': {
     directory: 'packages/ai-vercel',
@@ -296,7 +284,6 @@ export const PACKAGE_POLICY = {
       ai: ['.'],
     },
     toolingEntries: [],
-    release: 'lockstep',
   },
   mcp: {
     directory: 'packages/mcp',
@@ -306,7 +293,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   protobuf: {
     directory: 'packages/protobuf',
@@ -316,7 +302,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   'aot-validator': {
     directory: 'packages/aot-validator',
@@ -331,7 +316,6 @@ export const PACKAGE_POLICY = {
       typescript: ['./codegen', './metro', './plugin', './reflect', './testing', './transformer', './unplugin', 'bin:zmdb-codegen'],
     },
     toolingEntries: ['./codegen', './emit', './lint', './metro', './plugin', './reflect', './testing', './transformer', './unplugin', 'bin:zmdb-codegen'],
-    release: 'lockstep',
   },
   repository: {
     directory: 'packages/repository',
@@ -341,7 +325,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   mssql: {
     directory: 'packages/mssql',
@@ -353,7 +336,6 @@ export const PACKAGE_POLICY = {
       mssql: ['.'],
     },
     toolingEntries: [],
-    release: 'lockstep',
   },
   postgres: {
     directory: 'packages/postgres',
@@ -365,7 +347,6 @@ export const PACKAGE_POLICY = {
       pg: ['.'],
     },
     toolingEntries: [],
-    release: 'lockstep',
   },
   cockroach: {
     directory: 'packages/cockroach',
@@ -375,7 +356,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   sqlite: {
     directory: 'packages/sqlite',
@@ -385,7 +365,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   mysql: {
     directory: 'packages/mysql',
@@ -397,7 +376,6 @@ export const PACKAGE_POLICY = {
       mysql2: ['.'],
     },
     toolingEntries: [],
-    release: 'lockstep',
   },
   app: {
     directory: 'packages/app',
@@ -407,7 +385,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   otel: {
     directory: 'packages/otel',
@@ -417,7 +394,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   jobs: {
     directory: 'packages/jobs',
@@ -427,7 +403,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   'transport-grpc': {
     directory: 'packages/transport-grpc',
@@ -437,7 +412,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   'transport-nats': {
     directory: 'packages/transport-nats',
@@ -447,7 +421,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   'transport-rabbitmq': {
     directory: 'packages/transport-rabbitmq',
@@ -457,7 +430,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   'transport-redis': {
     directory: 'packages/transport-redis',
@@ -467,7 +439,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   'jobs-postgres': {
     directory: 'packages/jobs-postgres',
@@ -477,7 +448,6 @@ export const PACKAGE_POLICY = {
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
-    release: 'lockstep',
   },
   web: {
     directory: 'packages/web',
@@ -489,7 +459,6 @@ export const PACKAGE_POLICY = {
       typescript: ['./contract/compiler'],
     },
     toolingEntries: ['./contract/compiler', './devtools', './testing'],
-    release: 'lockstep',
   },
   zmdb: {
     directory: 'packages/zmdb',
@@ -502,7 +471,6 @@ export const PACKAGE_POLICY = {
       '@zmdb/postgres': ['./drivers/pg'],
     },
     toolingEntries: ['./cli', './config', './migrations', './unplugin', './web/contract/compiler', 'bin:zmdb'],
-    release: 'lockstep',
   },
 } as const;
 ```
@@ -584,12 +552,12 @@ A technology-selected catalog package in the `integration` zone may instead decl
 be reached by that integration's runtime exports. This is permitted only when the product catalog marks the package as an integration for that technology and a packed fixture proves the peer range. A
 foundation, runtime, application, tooling or facade package cannot make an external technology peer required.
 
-## 6. Manifest and lockstep release contract
+## 6. Manifest metadata and release-policy handoff
 
 Every catalog directory contains `package.json`, `README.md`, `LICENSE`, root `SPEC.md`, `tsconfig.json` and `tsconfig.build.json`. The manifest must satisfy all of these:
 
 - `name` equals catalog `npmName`, and `repository.directory` equals both catalog and policy `directory`;
-- `version` is valid SemVer and byte-identical across the catalog;
+- `version` is valid SemVer and agrees with release policy: core versions are byte-identical, while integration and tooling versions are independently owned;
 - `description` is non-empty; `keywords` is a sorted non-empty unique array containing `zmdb`;
 - `homepage` is `https://github.com/ambasta/zmdb#readme`;
 - `bugs.url` is `https://github.com/ambasta/zmdb/issues`;
@@ -598,16 +566,26 @@ Every catalog directory contains `package.json`, `README.md`, `LICENSE`, root `S
 - committed `files` is exactly `src`, `README.md`, `LICENSE`; the publish transform adds `dist`;
 - `exports` is non-empty, explicit and wildcard-free; every committed target is a package-local existing `./src/*.ts` file;
 - every `bin` target is package-local, exists, has a Node shebang and is named by a policy selector;
-- `publishConfig.access` is `public`, and its channel agrees with the common version;
+- `publishConfig.access` is `public`, and its channel agrees with that package's version;
 - `scripts.build` invokes the canonical package build and `scripts.test` runs Vitest; and
 - dependency, peer and dev-dependency sections are sorted and contain no duplicate ownership or stale entry; the optional package-specific `zmdb` extension, when present, is a sorted non-empty
   string-valued record.
 
-Every direct production workspace edge uses `workspace:^` in the committed manifest. The publish transform uses the exact common version for a prerelease and `^<version>` for a stable release.
-Published manifests omit dev dependencies, point exports and bins at existing `dist` `.js`/`.d.ts` files, repoint any side-effect allowlist to `dist` `.js`, and preserve the package's metadata.
+Manifest range form is derived by joining architecture edges with release policy:
 
-Every policy row has `release: 'lockstep'`; no other value, missing value or package-specific release train exists. The complete changelog, release-plan, tag, retry and publication-order contract is
-normative in [`PUBLISHING.md`](../../PUBLISHING.md).
+- a core-to-core production edge uses exactly `workspace:^`;
+- an ordinary edge crossing release units uses `workspace:<explicit-range>`, where the suffix equals the matching release-policy compatibility range;
+- an independently versioned integration or tooling package that imports core declares the core package as a peer at the explicit compatibility range and as a `workspace:^` development dependency for
+  local qualification; and
+- every third-party peer range, optionality flag, exact floor, tested-version set, and packed evidence case agrees with release policy.
+
+The publish transform writes the exact common core version for same-core prerelease edges and `^<core-version>` for same-core stable edges. For a crossing edge it removes only the `workspace:`
+protocol and preserves the explicit range. Published manifests omit development dependencies, point exports and bins at existing `dist` `.js`/`.d.ts` files, repoint any side-effect allowlist to `dist`
+`.js`, and preserve package-owned metadata.
+
+Target state requires architecture policy to carry no release-group field. The measured current `policy.mjs` still carries legacy `release: 'lockstep'` on every row until #749 removes that projection
+when `scripts/release/policy.mjs` lands. The complete group inventory, compatibility ranges, prerelease behavior, changelog identity, tag form, retry rules, and publication units are normative in
+[`scripts/release/SPEC.md`](../release/SPEC.md). The current executable lockstep implementation is a migration baseline until #749, not an exception to that target.
 
 ## 7. Verifier boundaries
 
@@ -651,52 +629,60 @@ ownership list.
 
 ### 7.3 `verify-package-metadata`
 
-Inputs: catalog, policy, committed manifests and required package files.
+Inputs: catalog, architecture policy, release policy, committed manifests and required package files.
 
-Violations: any missing, malformed, inconsistent or stale field; missing files; broken export/bin targets; wrong internal range; version drift; incomplete peer metadata.
+Violations: any missing, malformed, inconsistent or stale field; missing files; broken export/bin targets; wrong same-core or cross-unit range; core version drift; independent-package version
+ownership drift; or incomplete peer-floor metadata.
 
-Remediation: make the manifest agree with catalog/policy and regenerate it through the canonical metadata path. Never edit generated publish manifests as the source of truth.
+Remediation: make the manifest agree with catalog, architecture, and release policy and regenerate it through the canonical metadata path. Never edit generated publish manifests as the source of
+truth.
 
 ### 7.4 `verify-release-governance`
 
-Inputs: read-only release plan, catalog membership, policy DAG, common manifest version, root changelog, lockfile and optional triggering tag.
+Inputs: read-only release plan, catalog membership, architecture DAG, release policy, selected release target, authoritative manifest versions and ranges, root changelog, lockfile, compatibility
+cases, and optional triggering tag.
 
-Violations: membership/order duplication or drift, version/range drift, absent/invalid changelog section, tag mismatch, partial train and non-deterministic plans.
+Violations: membership/order duplication or drift, unclassified packages, core version drift, unrelated independent-package movement, range/floor/evidence drift, absent or invalid target changelog
+section, tag mismatch, invalid release-unit selection, and non-deterministic plans.
 
-Remediation: use the whole-train bump, repair the root changelog, regenerate the lockfile, create the exact tag, or consume the release plan instead of a handwritten loop.
+Remediation: prepare exactly one core or independent release target, repair its changelog section, regenerate the lockfile and compatibility cases, create the exact target tag, or consume the release
+plan instead of a handwritten loop.
 
-[`verify-release-governance.mjs`](../../.github/scripts/verify-release-governance.mjs) implements this boundary. `yarn verify:release-governance` checks the live tree plus deterministic fixture,
-changelog, order and tag mutations, and CI runs it before packed publication.
+The checked-in `verify-release-governance.mjs` still implements the earlier whole-catalog contract. Issue #749 replaces that implementation; #747 freezes the target failures first.
 
 ## 8. Stable diagnostic codes and exact remediation
 
-| Code                         | Required measured subject                                      | Required remediation text/action                                                 |
-| ---------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `ARCH_POLICY_MISSING`        | catalog id and npm name with no row                            | add the row under that catalog id                                                |
-| `ARCH_POLICY_STALE`          | row key absent from the catalog                                | delete it or admit the package in the catalog in the same change                 |
-| `ARCH_DIRECTORY_MISMATCH`    | catalog, policy and manifest directories                       | make all three equal to the real repository-relative directory                   |
-| `ARCH_CYCLE`                 | complete shortest `a -> b -> ... -> a` cycle                   | remove or reverse an ownership edge; do not raise rings                          |
-| `ARCH_EDGE_FORBIDDEN`        | consumer, dependency and source import                         | use an existing inward public contract or review manifest and policy together    |
-| `ARCH_EDGE_UNDECLARED`       | import path with no production manifest edge                   | add the intended direct dependency and policy id, or remove the import           |
-| `ARCH_EDGE_STALE`            | policy/manifest edge unused by production source               | remove the stale edge from both authorities                                      |
-| `ARCH_ZONE_DIRECTION`        | consumer and dependency zones                                  | move ownership inward or introduce an explicit lower-layer contract              |
-| `ARCH_RING_INVALID`          | declared and calculated canonical ring                         | set the canonical ring after fixing all edges                                    |
-| `ARCH_PRIVATE_IMPORT`        | full private cross-package import path                         | publish/use the owning package's public export                                   |
-| `ARCH_TOOLING_LEAK`          | runtime entry and shortest path to the tooling sink            | move the sink behind a tooling entry or split the tool owner                     |
-| `ARCH_PEER_LEAK`             | peer, unassigned entry and shortest path                       | route through an assigned integration entry or move it to an integration package |
-| `ARCH_DEPENDENCY_UNDECLARED` | external specifier and shortest import path                    | declare it at the correct manifest boundary or remove the import                 |
-| `ARCH_EXEMPTION_STALE`       | unused runtime dependency, tooling selector or peer assignment | remove the exemption                                                             |
-| `PACKAGE_METADATA_INVALID`   | package, field and measured value                              | restore the exact schema value or required file                                  |
-| `PACKAGE_PEER_METADATA`      | peer range/meta/dev-fixture mismatch                           | align the declaration and prove the range with the real peer                     |
-| `PACKAGE_VERSION_DRIFT`      | every distinct version and owning package ids                  | run one whole-train bump                                                         |
-| `PACKAGE_WORKSPACE_RANGE`    | package, dependency and measured range                         | use `workspace:^` in source and regenerate the publish manifest                  |
-| `RELEASE_CHANGELOG_MISSING`  | common version and changelog path                              | add one non-empty exact version section                                          |
-| `RELEASE_CHANGELOG_FORMAT`   | malformed heading, category, ordering or bullet                | restore the one-project changelog shape                                          |
-| `RELEASE_CHANGELOG_OWNER`    | version and unknown release-note owner                         | use the owning catalog id or `product`                                           |
-| `RELEASE_TAG_MISMATCH`       | triggering tag and common version                              | tag the verified commit exactly `v<version>`                                     |
-| `RELEASE_MEMBERSHIP_DRIFT`   | missing, duplicate or handwritten release member               | consume the product catalog                                                      |
-| `RELEASE_ORDER_DRIFT`        | expected and measured publish order                            | consume the policy-derived topological order                                     |
-| `RELEASE_EXISTING_MISMATCH`  | package/version and local versus registry integrity            | stop and investigate the immutable registry conflict                             |
+| Code                          | Required measured subject                                        | Required remediation text/action                                                 |
+| ----------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `ARCH_POLICY_MISSING`         | catalog id and npm name with no row                              | add the row under that catalog id                                                |
+| `ARCH_POLICY_STALE`           | row key absent from the catalog                                  | delete it or admit the package in the catalog in the same change                 |
+| `ARCH_DIRECTORY_MISMATCH`     | catalog, policy and manifest directories                         | make all three equal to the real repository-relative directory                   |
+| `ARCH_CYCLE`                  | complete shortest `a -> b -> ... -> a` cycle                     | remove or reverse an ownership edge; do not raise rings                          |
+| `ARCH_EDGE_FORBIDDEN`         | consumer, dependency and source import                           | use an existing inward public contract or review manifest and policy together    |
+| `ARCH_EDGE_UNDECLARED`        | import path with no production manifest edge                     | add the intended direct dependency and policy id, or remove the import           |
+| `ARCH_EDGE_STALE`             | policy/manifest edge unused by production source                 | remove the stale edge from both authorities                                      |
+| `ARCH_ZONE_DIRECTION`         | consumer and dependency zones                                    | move ownership inward or introduce an explicit lower-layer contract              |
+| `ARCH_RING_INVALID`           | declared and calculated canonical ring                           | set the canonical ring after fixing all edges                                    |
+| `ARCH_PRIVATE_IMPORT`         | full private cross-package import path                           | publish/use the owning package's public export                                   |
+| `ARCH_TOOLING_LEAK`           | runtime entry and shortest path to the tooling sink              | move the sink behind a tooling entry or split the tool owner                     |
+| `ARCH_PEER_LEAK`              | peer, unassigned entry and shortest path                         | route through an assigned integration entry or move it to an integration package |
+| `ARCH_DEPENDENCY_UNDECLARED`  | external specifier and shortest import path                      | declare it at the correct manifest boundary or remove the import                 |
+| `ARCH_EXEMPTION_STALE`        | unused runtime dependency, tooling selector or peer assignment   | remove the exemption                                                             |
+| `PACKAGE_METADATA_INVALID`    | package, field and measured value                                | restore the exact schema value or required file                                  |
+| `PACKAGE_PEER_METADATA`       | peer range/meta/dev-fixture mismatch                             | align the declaration and prove the range with the real peer                     |
+| `PACKAGE_VERSION_DRIFT`       | distinct core versions and owning package ids                    | run one core-train bump; do not move an independent package                      |
+| `PACKAGE_WORKSPACE_RANGE`     | package, dependency, release units and measured range            | use the same-core or explicit cross-unit range from release policy               |
+| `RELEASE_GROUP_MISSING`       | public package and absent or duplicate release row               | classify the catalog id exactly once in release policy                           |
+| `RELEASE_COMPATIBILITY_DRIFT` | package, dependency/peer, policy range, floor and manifest range | align the manifest with the measured compatibility policy                        |
+| `RELEASE_EVIDENCE_MISSING`    | package, exact floor/current version and expected matrix case    | add a clean packed-consumer case for that exact version                          |
+| `RELEASE_UNRELATED_CHANGE`    | selected release id and unrelated changed package/version        | restrict the plan to core or the one selected independent package                |
+| `RELEASE_CHANGELOG_MISSING`   | release id, version and changelog path                           | add one non-empty exact release-unit section                                     |
+| `RELEASE_CHANGELOG_FORMAT`    | malformed heading, category, ordering or bullet                  | restore the one-project changelog shape                                          |
+| `RELEASE_CHANGELOG_OWNER`     | version and unknown release-note owner                           | use the owning catalog id or `product`                                           |
+| `RELEASE_TAG_MISMATCH`        | triggering tag, release id and version                           | use `core-v<version>` or `<catalog-id>-v<version>` exactly                       |
+| `RELEASE_MEMBERSHIP_DRIFT`    | missing, duplicate or handwritten release member                 | consume the product catalog                                                      |
+| `RELEASE_ORDER_DRIFT`         | expected and measured publish order                              | consume the policy-derived topological order                                     |
+| `RELEASE_EXISTING_MISMATCH`   | package/version and local versus registry integrity              | stop and investigate the immutable registry conflict                             |
 
 Diagnostics include facts, not guesses. When several rules fail for one edge, the structural cause is reported before consequences: membership, declaration, zone/ring, cycle, then reachability.
 
@@ -711,6 +697,7 @@ Every verifier and pure discovery/graph/release function operates against an arb
   packages/<fixture-package>/src/*.ts
   scripts/product/catalog.mjs
   scripts/architecture/policy.mjs
+  scripts/release/policy.mjs
   CHANGELOG.md
 ```
 
@@ -731,7 +718,10 @@ The frozen test titles are:
 - `rejects a dependency absent from the manifest`;
 - `rejects a stale tooling or peer exemption`;
 - `rejects incomplete or inconsistent package metadata`;
-- `rejects versions that differ across the lockstep train`;
+- `rejects versions that differ across the core train`;
+- `accepts an integration version change without moving unrelated core packages`;
+- `rejects a peer range below its packed-consumer floor`;
+- `rejects a publishable package missing from release policy`;
 - `rejects an optional peer without optional metadata`;
 - `rejects a release version absent from CHANGELOG.md`;
 - `rejects a tag that disagrees with package versions`;
@@ -740,8 +730,9 @@ The frozen test titles are:
 
 #725 retires the three expected failures for cycles, forbidden policy edges and workspace imports absent from the manifest, and adds executable stale-edge, non-canonical-ring and private-import
 coverage. #726 retires the tooling- and optional-peer-reachability expected failures, adds executable stale-exemption coverage and wires the generic command into CI. #727 retires the
-incomplete-metadata and lockstep-version expected failures and adds executable optional-peer metadata coverage. #728 retires the two release expected failures and adds deterministic release plans,
-rollback-safe whole-train bumps and the release CI command.
+incomplete-metadata and lockstep-version expected failures and adds executable optional-peer metadata coverage. #728 retires the two original release expected failures and adds deterministic
+whole-catalog release plans, rollback-safe bumps, and the original release CI command. #746 supersedes that release shape; #747 freezes the group, independent-version, and packed-floor failures before
+#749 and #750 replace the implementation.
 
 ## 10. Explicit refusals
 
@@ -749,7 +740,10 @@ This architecture refuses:
 
 - a second package-membership array or a manually maintained publish order;
 - inferring policy from the current imports and thereby legalising a defect;
-- package-specific versions, changelogs, tags or partial releases;
+- an unclassified public package, duplicate release membership, or private package in public release policy;
+- a core package version, changelog, or tag moving independently from the core train;
+- an integration or tooling release that moves an unrelated package;
+- an advertised compatibility range without exact packed floor and current-version evidence;
 - a cycle hidden by dynamic import, type-only import, peer dependency or inflated ring;
 - a private cross-package source import even when TypeScript path mapping resolves it;
 - runtime access to TypeScript, esbuild, oxfmt, REPL/devtools or an unassigned optional peer;
