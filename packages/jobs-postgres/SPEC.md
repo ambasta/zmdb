@@ -1,11 +1,21 @@
-# `@zmdb/jobs-postgres` — node-postgres `JobStore` adapter
+# `@zmdb/jobs-postgres` — explicit PostgreSQL jobs provider
 
-> Frozen by #654 for epic #653 and implemented by #661. Issue #650 removed the former `@zmdb/web/queues/backends/pg` implementation and peer rather than retaining a forwarding bridge.
+> Frozen by #654 for the first adapter, then superseded by issue #753's complete provider boundary. At the measured baseline the package adapts only the SQL-shaped `JobStore`; #756 moves all
+> PostgreSQL jobs persistence into this package.
 
-## 1. Boundary and exports
+## 1. Package boundary
+
+The root is the only export. Direct production dependencies are exactly `@zmdb/jobs` and `@zmdb/postgres` at `workspace:^`. The package has no `optionalDependencies` and declares exactly one required
+peer, `pg@^8.23.0`.
+
+It owns PostgreSQL implementations of the public `JobStore`, `LeaseStore`, `JobEnqueuer`, and `JobStoreResource` contracts. It also owns the PostgreSQL queue/marker/lease schema, SQL, transaction
+boundaries, prepared-statement options, and cancellation. It does not own queue behavior, workers, retries, scheduling semantics, migrations execution, or a second state machine.
+
+The exact root surface is:
 
 ```ts
 export type PgJobClient = Pool | PoolClient | Client;
+export type PgJobTransactionClient = PoolClient | Client;
 
 export interface PgJobStoreOptions {
   readonly prepared?: boolean;
@@ -13,35 +23,69 @@ export interface PgJobStoreOptions {
   readonly cancelVia?: PgJobClient;
 }
 
-export function createPgJobStore(client: PgJobClient, options?: PgJobStoreOptions): JobStore;
+export interface PgJobStore extends JobStore, LeaseStore, JobStoreResource {}
+
+export function createPgJobStore(client: PgJobClient, options?: PgJobStoreOptions): PgJobStore;
+
+export function pgJobEnqueuer(client: PgJobTransactionClient, options?: PgJobStoreOptions): JobEnqueuer;
+
+export const jobsPostgresMigrations: readonly JobStoreMigration[];
 ```
 
-The root is the only export. It depends on `@zmdb/jobs` and `@zmdb/postgres` at `workspace:^` and declares one required external peer, `pg@^8.23.0`; release tests use `pg@8.23.0` and
-`@types/pg@^8.23.1`.
+`JobStoreMigration` is the structural `{ version, name, up, down }` record frozen in `packages/jobs/SPEC.md`.
 
-The package implements the structural `JobStore` port by delegating to the public `@zmdb/postgres` adapter. It does not own queue SQL, workers, scheduling, migrations or a second job state machine.
+## 2. Transactions and atomicity
 
-## 2. Lifecycle
+`pgJobEnqueuer` accepts only a pinned `PoolClient` or `Client`. It rejects `Pool`, because two calls through a pool are not guaranteed to use the transaction connection. The adapter executes on the
+supplied client and never begins, commits, rolls back, releases, or ends it. Queue insertion therefore commits or rolls back with the caller's transaction.
 
-The caller creates and owns the `Pool`, `PoolClient` or `Client`. The adapter creates no connection and exposes no close method; it neither calls `end()` nor releases a supplied client.
+`createPgJobStore` accepts a `Pool`, `PoolClient`, or `Client`:
 
-Every execution preserves the input SQL and parameters, returns the peer's rows and reports `dialect: 'postgres'`. Prepared-statement caching and cancellation retain the bounded options of the
-official node-postgres driver without importing private repository source.
+- with a `Pool`, a multi-statement atomic operation acquires one client, issues `BEGIN`, commits or rolls back, and releases only that internally acquired client;
+- with a `PoolClient` or `Client`, a multi-statement atomic operation issues its own `BEGIN`, commits or rolls back on the supplied pinned connection, and never calls `release()` or `end()`; and
+- prepared-statement caching and cancellation retain the public `@zmdb/postgres` behavior and options without importing private source.
 
-## 3. Migration and installation
+Single-statement store calls rely on PostgreSQL statement atomicity. A caller must not invoke an ordinary store call on a `PoolClient` or `Client` that already has a caller-managed transaction: the
+store does not join it or create a savepoint. Transactional application work uses `pgJobEnqueuer` instead. Claim is conditional on pending state and lease expiry. Settlement is conditional on the
+current holder. A lost lease returns `false`; it never overwrites another worker's claim.
 
-`@zmdb/web/queues/backends/pg` is removed with no forwarding subpath. Core `@zmdb/jobs` retains its SQLite memory backend and declares no `pg` peer.
+## 3. Migrations
+
+The package exports PostgreSQL SQL for exactly:
+
+|          Version | Name                  | Behavior                                                                              |
+| ---------------: | --------------------- | ------------------------------------------------------------------------------------- |
+| `20260906000100` | `jobs_queue`          | creates queue/completion tables, dedupe constraint, pending/lease/dead-letter indexes |
+| `20260906000200` | `jobs_schedule_lease` | creates renewable schedule leases and expiry lookup                                   |
+
+The bundle uses PostgreSQL types, partial indexes, and transactional DDL where appropriate, with reversible `down` SQL. Constructing or importing the provider never applies migrations. Applications
+register `jobsPostgresMigrations` through their selected migration path before workers or cluster schedules start.
+
+The SQLite and PostgreSQL bundles share logical versions and names so the state-machine schema is auditable across providers, but an application registers only the bundle for the target database.
+
+## 4. Resource ownership and shutdown
+
+The caller owns every supplied `Pool`, `PoolClient`, `Client`, and `cancelVia` resource. `PgJobStore.close()` is idempotent, clears only adapter-owned caches/state, and never calls `end()` or
+`release()` on a supplied resource. A pool/client remains usable after adapter and application shutdown.
+
+Internally acquired pool clients are always released on success, failure, cancellation, and shutdown. No query or borrowed client survives the bounded port call that acquired it.
+
+When the store is supplied to `jobsExtension({ stores: [...] })`, extension shutdown stops schedulers, then workers, then closes the adapter under the one remaining application deadline.
+
+## 5. Installation, refusals, and evidence
 
 ```sh
-yarn add @zmdb/jobs-postgres pg
+npm install zmdb@alpha @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
 ```
 
-## 4. Required evidence
+The package must not:
 
-1. Type tests accept `Pool`, `PoolClient` and `Client`, reject an arbitrary `JobStore`, and expose the exact return type.
-2. A required release lane connects to PostgreSQL, executes a parameterized query through the adapter, then proves the same caller-owned pool remains usable. The warn-and-return path when PostgreSQL
-   is unreachable is local convenience, not release evidence.
-3. The real-server lane proves `prepared: true` reuses a stable server-side statement name and `maxCacheSize` evicts the least-recently-used statement.
-4. Two workers sharing one store claim disjoint jobs while their handler executions overlap.
-5. A packed external jobs app installs the peer, imports the root and typechecks/runs without repository or web source mappings.
-6. Manifest and graph checks prove that this package alone owns the `pg` peer for jobs, core packages do not declare it, and no old web backend or forwarding export remains.
+- appear in the packed `@zmdb/jobs` or `zmdb` closure;
+- depend on SQLite, `@zmdb/jobs-sqlite`, or another jobs provider;
+- make `pg` optional, bundle it, or import it through an undeclared path;
+- auto-migrate;
+- release/end a caller-supplied client or pool; or
+- accept `Pool` as a transaction enqueuer.
+
+Packed evidence must cover the exact peer range, ordinary and transaction enqueue/rollback, disjoint concurrent claims, retry, dead-letter/replay, dedupe completion, scheduled leases,
+prepared-statement bounds, cancellation, migrations, borrowed-resource survival, internally acquired client release, and bounded shutdown.

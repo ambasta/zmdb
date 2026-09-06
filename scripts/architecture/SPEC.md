@@ -6,7 +6,8 @@
 > tooling and optional-peer reachability; #728 implements the original release plan, changelog, bump and publication-governance boundary. Issue #746 supersedes only the release clauses with
 > `scripts/release/SPEC.md`: architecture still owns dependency direction and reachability, while release groups, versions, ranges, and compatibility floors move to release policy. The original
 > measured baseline is commit `5adba11e` on 2026-09-05. Issue #732 freezes the composed governance snapshot, structured-exception lifecycle, native GitHub relationship semantics and
-> current-contract/ADR boundary in §§11–16. It changes no verifier, tracker projection or GitHub state; #733–#737 implement and prove that target.
+> current-contract/ADR boundary in §§11–16. It changes no verifier, tracker projection or GitHub state; #733–#737 implement and prove that target. Issue #753 adds the successor jobs-selection graph in
+> §17.
 
 ## 1. Authority, scope and measured baseline
 
@@ -130,8 +131,9 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current thirty-six catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
-renaming a catalog member requires the catalog and policy key sets to change atomically.
+The following object is normative for the current thirty-six catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or renaming a
+catalog member requires the catalog and policy key sets to change atomically. For the #752 split, §17 supersedes only the `jobs`, `jobs-postgres`, future `jobs-sqlite`, and jobs-related `zmdb` edges
+when #755/#756 land; this object remains accurate evidence for commit `961aaae0b0c9b4e29fc864f41454707933154a0e`.
 
 ```ts
 export const PACKAGE_POLICY = {
@@ -1146,3 +1148,104 @@ Migration of a historical SPEC section is lossless:
 
 When an ADR and a current SPEC disagree, the SPEC governs and verification fails until the ADR is marked superseded or its `Current contract` link is corrected. Historical prose cannot weaken a
 current gate, reopen an exception, restore a removed label projection or authorise a package/release edge. #732 freezes this boundary only; it does not move historical sections before #737.
+
+## 17. Selected-capability installed graph (#753)
+
+Product selection is catalog metadata; dependency legality remains architecture policy; the installed graph is resolved from packed manifests. No one source substitutes for the other two.
+
+The section number intentionally follows the governance contract frozen in current §§11–16 by #732 and refined by #733/#736. The #753 policy follows those sections and does not duplicate or replace
+them.
+
+### 17.1 Successor policy rows
+
+After #755/#756, these are the exact affected rows:
+
+```ts
+jobs: {
+  directory: 'packages/jobs',
+  zone: 'application',
+  ring: 6,
+  allowedWorkspaceDependencies: ['app'],
+  allowedRuntimeDependencies: [],
+  optionalPeerEntries: {},
+  toolingEntries: [],
+},
+'jobs-sqlite': {
+  directory: 'packages/jobs-sqlite',
+  zone: 'integration',
+  ring: 7,
+  allowedWorkspaceDependencies: ['jobs', 'sqlite'],
+  allowedRuntimeDependencies: [],
+  optionalPeerEntries: {},
+  toolingEntries: [],
+},
+'jobs-postgres': {
+  directory: 'packages/jobs-postgres',
+  zone: 'integration',
+  ring: 7,
+  allowedWorkspaceDependencies: ['jobs', 'postgres'],
+  allowedRuntimeDependencies: [],
+  optionalPeerEntries: {},
+  toolingEntries: [],
+},
+```
+
+The `zmdb` row retains its current default package edges and contains no jobs id. `jobs-sqlite` is admitted only when its manifest and product-catalog row land in the same implementation change.
+`jobs-postgres` keeps required-peer handling under §5.4 for `pg@^8.23.0`; it does not put `pg` in `allowedRuntimeDependencies` or `optionalPeerEntries`. Release-group and compatibility fields are
+absent from these successor architecture rows; `scripts/release/SPEC.md` and the #749 release-policy projection own them.
+
+The following edges are forbidden regardless of ring arithmetic:
+
+```text
+zmdb -> jobs | jobs-sqlite | jobs-postgres
+jobs -> sqlite | postgres | migrations | query-compiler | repository
+jobs-sqlite -> postgres | jobs-postgres
+jobs-postgres -> sqlite | jobs-sqlite
+```
+
+Runtime imports of `pg` from `jobs` or `jobs-sqlite`, a private workspace source import, and any provider import from a `zmdb` facade entry are equivalent violations.
+
+### 17.2 Installed-closure algorithm
+
+`verify-selection-graph` operates on packed tarballs installed in a fresh directory with no workspace links or inherited root `devDependencies`:
+
+1. Read the journey root from the product catalog and install its tarball plus only the peer packages named by that fixture.
+2. Starting at the installed root manifest, follow `dependencies` and `optionalDependencies` recursively by resolved package identity.
+3. Follow a peer only when the clean consumer manifest declares it; record missing required peers separately.
+4. Map installed official packages back to catalog rows by exact npm name. Classify non-catalog transitive packages as `private` unless reachability policy marks their owning entry development-only.
+5. Compare every catalog package in the closure with its `optionality` record and compare every direct official edge with architecture policy.
+6. Print sorted installed package names, direct edges, catalog closure, external closure, peers, and the shortest path for every forbidden package.
+
+The verifier never accepts workspace `package.json` inspection as installed proof, never uses Yarn hoisting as an edge, never counts the root consumer package, and cleans tarballs, install state,
+caches, and databases on both success and failure.
+
+### 17.3 Exact budgets
+
+The current app closure makes the target budgets:
+
+| Journey                            |                        Direct official edges | Official installed closure | Required selection assertions                                                                 |
+| ---------------------------------- | -------------------------------------------: | -------------------------: | --------------------------------------------------------------------------------------------- |
+| default `zmdb`                     |                             manifest-derived |    10 at commit `961aaae0` | no `capability: jobs`, no jobs provider, no `pg`                                              |
+| portable `@zmdb/jobs`              |                                            1 |                          7 | exactly `jobs -> app`; no provider, external runtime dependency, optional dependency, or peer |
+| `@zmdb/jobs-sqlite`                |                                            2 |                         10 | exactly one jobs provider; no PostgreSQL package or peer                                      |
+| `@zmdb/jobs-postgres` before peers |                                            2 |                         10 | exactly one jobs provider; no SQLite jobs provider                                            |
+| PostgreSQL consumer                | preceding closure plus explicit peer closure |           metadata-derived | consumer declares `pg@^8.23.0`; installed version satisfies it                                |
+
+The official counts are review budgets frozen from metadata. The verifier also compares exact identities and paths, so replacing one forbidden package with another cannot pass by preserving a count.
+External peer transitives are reported by name but are not a fixed count because the peer's own compatible release may change them.
+
+### 17.4 Diagnostics and tests
+
+Stable diagnostics are:
+
+| Code                          | Meaning                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `SELECTION_DEFAULT_LEAK`      | selected jobs capability/provider is reachable from `zmdb`                                       |
+| `SELECTION_PROVIDER_LEAK`     | portable jobs reaches any concrete provider or provider peer                                     |
+| `SELECTION_PROVIDER_MISMATCH` | a provider does not point to its catalog capability owner or reaches another provider technology |
+| `SELECTION_BUDGET_DRIFT`      | direct-edge or official-closure count differs from metadata                                      |
+| `SELECTION_PEER_MISSING`      | a required provider peer is absent or outside its declared range                                 |
+| `SELECTION_FACADE_FORBIDDEN`  | `zmdb/jobs*` exists or a default facade reaches jobs                                             |
+
+Issue #754 freezes clean packed fixtures for default, jobs-only, SQLite jobs, and PostgreSQL jobs plus negative mutations for each diagnostic. A missing provider is proved by portable import success
+followed by explicit queue/worker construction requiring a `JobStore`; it is not proved by manufacturing a module-resolution error inside core.

@@ -515,13 +515,14 @@ The current source layout does not define ownership. These mixed files must be s
 ### Migration and no-forwarder rule
 
 Moved old subpaths are deleted from `@zmdb/web` in the same changes that add their new owners. No source forwarding module, deprecated export alias, tombstone package or runtime warning remains.
-Consumers migrate by changing import specifiers; runtime values reached through `zmdb/app`, `zmdb/web` and `zmdb/jobs` are direct re-exports and preserve `===` identity.
+Consumers migrate by changing import specifiers. Runtime values reached through the default `zmdb/app` and `zmdb/web` facades are direct re-exports and preserve `===` identity. Issue #753 removes the
+planned runtime `zmdb/jobs` facade: selected jobs values are imported directly from `@zmdb/jobs`, and storage values come from the selected provider.
 
 ### Evidence
 
 Implementation must prove:
 
-- the exact acyclic package DAG and empty third-party peer sets for app/web/jobs;
+- the exact acyclic package DAG, the empty third-party peer sets for app/web/portable jobs, and absence of jobs from the default `zmdb` graph;
 - every old path is absent and every new path imports from packed tarballs outside the workspace;
 - `createApp` uses the same application/container/lifecycle identities as `createApplication`;
 - route handling performs no extension walk or package-boundary wrapper per request;

@@ -551,7 +551,7 @@ The catalog deliberately does not own versions, dependency ranges, changelogs, n
 owns dependency direction and publish order. Release groups, version movement, and compatibility floors are frozen in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md); release tooling reads
 catalog membership only.
 
-The exact measured 74-symbol root inventory, 13-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
+The exact current 70-symbol root inventory, 16-entry export map, target root/subpath taxonomy and eager-import rules are frozen in [`packages/zmdb/SPEC.md`](./packages/zmdb/SPEC.md). Configuration
 ownership is frozen in [`packages/zmdb/src/config/SPEC.md`](./packages/zmdb/src/config/SPEC.md), and the current package inventory plus required catalog consumers and rejection rules are frozen in
 [`scripts/product/SPEC.md`](./scripts/product/SPEC.md). The catalog-backed documentation surface begins at [`docs-site/content/package-reference.md`](./docs-site/content/package-reference.md).
 
@@ -738,10 +738,11 @@ The package contracts are [`packages/compiler/SPEC.md`](./packages/compiler/SPEC
 [`packages/cli/SPEC.md`](./packages/cli/SPEC.md). Until their manifests exist they remain roadmap-only directories under §3.10. Their manifests, product-catalog rows and architecture-policy rows must
 be admitted atomically; release membership and deterministic publish order then come only from the catalog and policy DAG, never from a second tooling-package list.
 
-### 3.12 Target server package DAG and facade (#645)
+### 3.12 Target server package DAG and selection (#645, #753)
 
 Before the server split, `@zmdb/web` had outgrown the sub-module default: its measured public surface was 36 manifest entries, 318 distinct symbols and 58 shipped non-test/non-generated source files.
-Those symbols spanned three independently usable responsibilities and six third-party peers. The app, jobs and integration extractions plus #649's final HTTP cutover now enforce the target below:
+Those symbols spanned three independently usable responsibilities and six third-party peers. The app, jobs and integration extractions plus #649's final HTTP cutover establish the ownership split;
+#753 then makes jobs selected and storage-provider-neutral:
 
 ```text
 @zmdb/query-compiler
@@ -755,41 +756,48 @@ Those symbols spanned three independently usable responsibilities and six third-
 @zmdb/app ----------------------.
   |                              |
   +--> @zmdb/web                 +--> @zmdb/jobs
-  |      (HTTP only)                   (queues/scheduling)
+  |      (HTTP only)                   (portable queues/scheduling)
   |
   +--> optional transports / OpenTelemetry
 
+@zmdb/jobs-sqlite --> @zmdb/jobs, @zmdb/sqlite
 @zmdb/jobs-postgres --> @zmdb/jobs, @zmdb/postgres
-zmdb --> @zmdb/app, @zmdb/web and @zmdb/jobs by explicit re-export only
+zmdb --> @zmdb/app, @zmdb/web and the existing default product packages
+zmdb -/-> @zmdb/jobs or either jobs provider
 ```
 
 The exact direct edges are:
 
-| Package               | Allowed direct workspace runtime dependencies                              | Third-party runtime peers |
-| --------------------- | -------------------------------------------------------------------------- | ------------------------- |
-| `@zmdb/app`           | aot-validator, query-compiler, repository, schema-core                     | none                      |
-| `@zmdb/web`           | app, aot-validator, schema-core                                            | none                      |
-| `@zmdb/jobs`          | app, query-compiler, repository, sqlite                                    | none                      |
-| `@zmdb/jobs-postgres` | jobs, postgres                                                             | pg (required peer)        |
-| `zmdb`                | app, web, jobs plus the existing product packages it explicitly re-exports | none                      |
+| Package               | Allowed direct workspace runtime dependencies                                | Third-party runtime peers |
+| --------------------- | ---------------------------------------------------------------------------- | ------------------------- |
+| `@zmdb/app`           | aot-validator, query-compiler, repository, schema-core                       | none                      |
+| `@zmdb/web`           | app, aot-validator, schema-core                                              | none                      |
+| `@zmdb/jobs`          | app                                                                          | none                      |
+| `@zmdb/jobs-sqlite`   | jobs, sqlite                                                                 | none                      |
+| `@zmdb/jobs-postgres` | jobs, postgres                                                               | pg (required peer)        |
+| `zmdb`                | app, web plus the existing default product packages it explicitly re-exports | none                      |
 
-`app -> web`, `app -> jobs`, `web -> jobs`, `jobs -> web`, any core-to-optional edge, and any server package importing another package's private source are forbidden. Optional integrations depend
-inward on the one core SPI they adapt; the core never imports back out.
+`app -> web`, `app -> jobs`, `web -> jobs`, `jobs -> web`, `jobs ->` a concrete database/provider, `zmdb -> jobs`, any core-to-optional edge, and any server package importing another package's private
+source are forbidden. Optional integrations and providers depend inward on the one public SPI they adapt; the core never imports back out.
 
 Ownership is semantic, not directory-based:
 
 - **app** owns metadata, DI, modules, lifecycle, command applications, events, CQRS, state machines, observability ports, health checks and transport-neutral messaging;
 - **web** owns only HTTP request/response concerns, including HTTP-aware testing and devtools;
-- **jobs** owns queueing, workers, dead letters, leases, scheduling and the built-in SQLite memory backend;
-- **optional packages** own protobuf/gRPC, NATS, RabbitMQ, Redis, PostgreSQL jobs and OpenTelemetry;
+- **jobs** owns provider-neutral queueing, workers, retries, dead letters, `JobStore`/transaction-enqueuer ports, leases and scheduling;
+- **jobs-sqlite** owns SQLite queue/lease SQL, migrations, transaction adapters and the explicit memory convenience store;
+- **jobs-postgres** owns PostgreSQL queue/lease SQL, migrations and transaction/resource adapters;
+- **optional packages** own protobuf/gRPC, NATS, RabbitMQ, Redis and OpenTelemetry;
 - benchmark helpers remain repository-private.
 
 `createApplication` is the single protocol-neutral lifecycle engine. Extensions start in declaration order after application bootstrap, roll back and stop in reverse order, receive one remaining
 application-wide grace budget, and cannot add work to a request hot path. `createApp` composes one router over that same application; it does not create another container or lifecycle. `jobsExtension`
-snapshots one application's explicit workers and schedulers, starts workers before schedulers, and stops schedulers before workers under that same remaining grace budget.
+snapshots one application's explicit workers, schedulers and store resources, starts workers before schedulers, and stops schedulers, workers and stores in that order under the same remaining grace
+budget. Provider adapters never close caller-owned database resources.
 
-Moved implementations are deleted from their old locations. Old package subpaths do not forward, warn or survive as deprecated aliases. The `zmdb`, `zmdb/app`, `zmdb/web` and `zmdb/jobs` surfaces use
-explicit re-exports, so direct-package and facade runtime values are identical (`===`) and type declarations have one canonical owner.
+Moved implementations are deleted from their old locations. Old package subpaths do not forward, warn or survive as deprecated aliases. The default `zmdb`, `zmdb/app` and `zmdb/web` surfaces use
+explicit re-exports, so direct-package and facade runtime values are identical (`===`) and type declarations have one canonical owner. Jobs has no `zmdb/jobs` facade; consumers import `@zmdb/jobs` and
+one provider directly.
 
 ### 3.13 Target runtime foundation — issue #635
 
@@ -815,6 +823,27 @@ Arrows point from a dependency to its consumer.
 The cutover deletes `@zmdb/schema-core`, `@zmdb/query-compiler`, `@zmdb/aot-validator`, and `@zmdb/repository` and all of their old subpaths. They do not survive as forwarding packages. After #656
 extracted protobuf and #710 extracted the remaining AI source, the measured 126-file and 47-foundation-subpath move map is normative in
 [`.github/scripts/verify-runtime-foundation.SPEC.md`](./.github/scripts/verify-runtime-foundation.SPEC.md).
+
+### 3.14 Default runtime and selected jobs (#753)
+
+The default product is the packed `zmdb` schema/ORM/validation/application/web journey, including its opinionated SQLite database provider. Jobs is a selected first-party capability: it shares product
+identity, APIs, tooling, generated documentation and release governance, but it is absent from the default production dependency graph.
+
+At commit `961aaae0b0c9b4e29fc864f41454707933154a0e`, clean packed installs measured:
+
+| Direct install                         | Official packages | Total installed packages | Current defect exposed by the graph                                                        |
+| -------------------------------------- | ----------------: | -----------------------: | ------------------------------------------------------------------------------------------ |
+| `zmdb`                                 |                10 |                       15 | none for jobs; no jobs package/provider is present                                         |
+| `@zmdb/jobs`                           |                 9 |                       12 | core jobs selects SQLite and migration tooling                                             |
+| `@zmdb/jobs-postgres` without its peer |                11 |                       14 | PostgreSQL jobs also carries SQLite through core; `pg` correctly remains consumer-selected |
+
+The target reduces portable jobs to the seven-package current app closure, with one direct edge to `@zmdb/app`. Each provider adds exactly itself and its database/migration closure. `zmdb` has no
+runtime `jobs` export and no static, optional, dynamic, or private-source route to jobs.
+
+Catalog `optionality` identifies required/default packages, selected capabilities, providers, development-only entries, and provider inclusion in the opinionated default. Architecture policy
+constrains direct edges. A clean tarball installer follows resolved installed manifests to prove the actual closure and required peers. Exact algorithms, counts, forbidden edges, diagnostic codes,
+interfaces, migrations, and all three install/import journeys are frozen in [`packages/jobs/SPEC.md`](./packages/jobs/SPEC.md), [`packages/jobs-sqlite/SPEC.md`](./packages/jobs-sqlite/SPEC.md),
+[`packages/jobs-postgres/SPEC.md`](./packages/jobs-postgres/SPEC.md), [`scripts/product/SPEC.md`](./scripts/product/SPEC.md), and [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md).
 
 ---
 

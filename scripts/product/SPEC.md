@@ -42,8 +42,19 @@ export interface ProductPackage {
     readonly root: readonly string[];
     readonly subpaths: readonly `zmdb/${string}`[];
   };
-  /** Whether one-install users always receive it or choose the technology explicitly. */
-  readonly optionality: { readonly kind: 'required' } | { readonly kind: 'tooling' } | { readonly kind: 'integration'; readonly technology: string };
+  /** How this package enters a product journey. */
+  readonly optionality:
+    | { readonly kind: 'required' }
+    | { readonly kind: 'tooling' }
+    | { readonly kind: 'integration'; readonly technology: string }
+    | { readonly kind: 'capability'; readonly capability: string }
+    | {
+        readonly kind: 'provider';
+        readonly capability: string;
+        readonly capabilityOwner: string;
+        readonly technology: string;
+        readonly includedInDefault: boolean;
+      };
   /** Docs slug whose generated package section owns the role and install guidance. */
   readonly docsOwner: string;
   /** Packed external proof, or a machine-checked reason why no fixture is appropriate. */
@@ -60,6 +71,14 @@ official package has no direct facade exposure, not that its metadata was forgot
   landed package extraction is documented with its direct install until the facade dependency lands.
 - `tooling` is product-owned but may only be reached through an explicit build/CLI/migration subpath or executable.
 - `integration` is selected only when the consumer chooses that technology. Its external dependencies must remain confined to its assigned entry point.
+- `capability` is a cohesive first-party feature selected by a direct install. Its API, docs, tooling, fixtures, and providers share the stable `capability` id, but neither `zmdb` nor another
+  `required` package may install it transitively.
+- `provider` is one concrete implementation of the named capability. `capabilityOwner` is the exact catalog id that owns the product-level choice. It names either the matching `capability` row or a
+  `required` product row that owns an opinionated provider slot. All providers for one capability name the same owner. `includedInDefault: true` is permitted only when that owner is `required` and the
+  product deliberately selects exactly one default provider, such as SQLite for `zmdb`; otherwise the provider must be selected directly.
+
+`private` is a derived installed-graph class rather than a catalog value: it identifies a non-catalog transitive implementation package with no user selection or public product-facade ownership in
+that journey. This lets packed-install reports classify platform bindings and helper dependencies without admitting them as official product packages.
 
 The catalog is deeply read-only, deterministic, and import-side-effect free. It does not read the filesystem at module evaluation and exposes no mutator. Consumers that need manifest data receive the
 repository root explicitly.
@@ -88,7 +107,7 @@ dependency-first sequence from architecture policy; the catalog still owns membe
 | `packages/nuxt`               | `@zmdb/nuxt`               | `nuxt`              | None; selected Nuxt generated-client SSR/hydration integration  |
 | `packages/sveltekit`          | `@zmdb/sveltekit`          | `sveltekit`         | None; selected SvelteKit generated-client load integration      |
 | `packages/solid`              | `@zmdb/solid`              | `solid`             | None; selected Solid generated-client lifecycle integration     |
-| `packages/ai`                 | `@zmdb/ai`                 | `ai`                | None; installed and imported independently                      |
+| `packages/ai`                 | `@zmdb/ai`                 | `ai`                | None; current default transitive through `@zmdb/aot-validator`  |
 | `packages/ai-anthropic`       | `@zmdb/ai-anthropic`       | `anthropic`         | None; selected integration with no facade export                |
 | `packages/ai-langchain`       | `@zmdb/ai-langchain`       | `langchain`         | None; selected integration with no facade export                |
 | `packages/ai-vercel`          | `@zmdb/ai-vercel`          | `vercel-ai`         | None; selected integration with no facade export                |
@@ -102,8 +121,8 @@ dependency-first sequence from architecture policy; the catalog still owns membe
 | `packages/sqlite`             | `@zmdb/sqlite`             | `sqlite`            | `zmdb/drivers/sqlite` during the facade cutover                 |
 | `packages/mysql`              | `@zmdb/mysql`              | `mysql`             | None; selected database vertical with no facade export          |
 | `packages/app`                | `@zmdb/app`                | `app`               | None; the current `zmdb/web` aggregate is owned by web          |
-| `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None until the server facade lands in #651                      |
-| `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL job adapter with no facade export     |
+| `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None; selected capability uses its direct package identity      |
+| `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL jobs provider with no facade export   |
 | `packages/otel`               | `@zmdb/otel`               | `otel`              | None; selected OpenTelemetry integration with no facade export  |
 | `packages/transport-grpc`     | `@zmdb/transport-grpc`     | `grpc`              | None; selected gRPC integration with no facade export           |
 | `packages/transport-nats`     | `@zmdb/transport-nats`     | `transport-nats`    | None; selected core NATS integration with no facade export      |
@@ -115,6 +134,25 @@ dependency-first sequence from architecture policy; the catalog still owns membe
 This table is review evidence, not the canonical machine source. The thirty-six rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
 the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
+### 3.1 Jobs selection amendment (#753)
+
+The implementation issues apply these exact metadata classifications:
+
+| Catalog id                                                                                 | Selection metadata                                                                                                          | Facade                            |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `zmdb`, `ai`, `schema-core`, `query-compiler`, `aot-validator`, `repository`, `app`, `web` | `{ kind: 'required' }`                                                                                                      | current/default product ownership |
+| `sqlite`                                                                                   | `{ kind: 'provider', capability: 'database', capabilityOwner: 'zmdb', technology: 'SQLite', includedInDefault: true }`      | `zmdb/drivers/sqlite`             |
+| `postgres`                                                                                 | `{ kind: 'provider', capability: 'database', capabilityOwner: 'zmdb', technology: 'PostgreSQL', includedInDefault: false }` | `zmdb/drivers/pg`                 |
+| `jobs`                                                                                     | `{ kind: 'capability', capability: 'jobs' }`                                                                                | none                              |
+| `jobs-sqlite`                                                                              | `{ kind: 'provider', capability: 'jobs', capabilityOwner: 'jobs', technology: 'SQLite', includedInDefault: false }`         | none                              |
+| `jobs-postgres`                                                                            | `{ kind: 'provider', capability: 'jobs', capabilityOwner: 'jobs', technology: 'PostgreSQL', includedInDefault: false }`     | none                              |
+
+`jobs-sqlite` is roadmap metadata only until `packages/jobs-sqlite/package.json` exists. #756 admits its catalog and architecture-policy rows atomically with that manifest; adding a catalog row before
+then remains invalid.
+
+The catalog contains no `zmdb/jobs` facade row. Generated package-reference and support-matrix content groups `jobs`, `jobs-sqlite`, and `jobs-postgres` by the `jobs` capability id at tooling time;
+that grouping does not create a runtime export or dependency.
+
 ## 4. Required consumers
 
 The following surfaces consume the catalog directly:
@@ -122,7 +160,8 @@ The following surfaces consume the catalog directly:
 1. **Facade ownership verifier/generator** — checks every root symbol and `zmdb/*` subpath has exactly one owner, and that `packages/zmdb` delegates rather than implements it.
 2. **Package reference generator** — emits role, install mode, facade exposure, docs link, and manifest-derived package name/version into `docs-site/content/package-reference.md`.
 3. **Support/integration matrix generator** — combines catalog optionality with each integration's authoritative support record; it does not hand-copy package names.
-4. **Packed-consumer inventory** — discovers each package's fixture or verifies its explicit no-fixture reason.
+4. **Packed-consumer inventory and selection graph** — discovers each package's fixture or verifies its explicit no-fixture reason, then classifies the resolved packed production closure from catalog
+   optionality plus installed manifests.
 5. **Architecture policy** — `scripts/architecture/policy.mjs` attaches exactly one zone/ring policy row to each catalog member, while `scripts/architecture/index.mjs` rejects missing or stale rows
    without recreating membership.
 6. **Release governance** — release policy attaches exactly one group and compatibility row to every catalog id. The release model reads catalog membership only; versions, changelog, tags,
@@ -141,6 +180,10 @@ Generated consumers compare bytes in tests and write only when their explicit ge
 - an empty/missing docs owner, or a docs owner absent from the page registry;
 - a package with neither a real external fixture nor a non-empty reason;
 - an integration marked `required`, or an optional external dependency reachable outside its assigned integration entry point;
+- a `capability` reachable from the installed `zmdb` production closure;
+- a `provider` whose `capabilityOwner` is absent, names no catalog row, names neither a matching `capability` row nor a `required` row, disagrees with another provider for the same capability, has an
+  empty technology, or whose `includedInDefault` value disagrees with the packed default closure;
+- a jobs capability/provider with any `zmdb/jobs` facade exposure, or a jobs provider reachable through portable `@zmdb/jobs`;
 - version, changelog, tag, publish-order, credential, or mutation fields in a catalog row;
 - a handwritten product-package table in the facade docs, package reference, support matrix, or packed-consumer inventory.
 

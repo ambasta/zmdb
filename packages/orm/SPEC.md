@@ -10,7 +10,8 @@ structural driver contracts, loaders, filters, caching, streaming, entity hooks/
 The package exports `.`, `./dto`, `./relations`, `./seeding`, `./transactions`, `./outbox`, `./replicas`, and `./entity-modeling`. Test fixtures remain ORM-owned but are excluded from builds and
 tarballs.
 
-Concrete SQLite, PostgreSQL, and SQL Server adapters live in their database packages. Framework endpoint integration lives in `@zmdb/web`; background-job storage belongs to `@zmdb/jobs`.
+Concrete SQLite, PostgreSQL, and SQL Server adapters live in their database packages. Framework endpoint integration lives in `@zmdb/web`; background-job storage belongs to explicit jobs-provider
+packages (`@zmdb/jobs-sqlite` and `@zmdb/jobs-postgres`), while provider-neutral queue behavior and ports belong to `@zmdb/jobs`.
 
 ## Dependency contract
 
