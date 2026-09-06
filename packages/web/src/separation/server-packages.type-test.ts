@@ -74,6 +74,8 @@ interface FrozenWebResponse {
 }
 
 interface FrozenWebApplicationOptions extends FrozenApplicationOptions {
+  readonly maxBodySize?: number;
+  readonly maxBodyBytes?: number;
   readonly guardRegistry?: FrozenGuardRegistry;
   readonly versioning?: FrozenVersionStrategy;
 }
@@ -111,7 +113,10 @@ export type _WebApplicationOwnKeys = Expect<
   Equal<Exclude<keyof FrozenWebApplication, keyof FrozenApplication>, 'fetch' | 'handle'>
 >;
 export type _WebOptionsOwnKeys = Expect<
-  Equal<Exclude<keyof FrozenWebApplicationOptions, keyof FrozenApplicationOptions>, 'guardRegistry' | 'versioning'>
+  Equal<
+    Exclude<keyof FrozenWebApplicationOptions, keyof FrozenApplicationOptions>,
+    'guardRegistry' | 'maxBodyBytes' | 'maxBodySize' | 'versioning'
+  >
 >;
 export type _CreateAppParameters = Expect<
   Equal<Parameters<FrozenCreateApp>, [FrozenModuleClass, (FrozenWebApplicationOptions | undefined)?]>
@@ -124,7 +129,10 @@ export type _PublishedWebApplicationOwnKeys = Expect<
   Equal<Exclude<keyof WebPackageApplication, keyof AppPackageApplication>, 'fetch' | 'handle'>
 >;
 export type _PublishedWebOptionsOwnKeys = Expect<
-  Equal<keyof WebPackageApplicationOptions, keyof AppPackageApplicationOptions | 'guardRegistry' | 'versioning'>
+  Equal<
+    keyof WebPackageApplicationOptions,
+    keyof AppPackageApplicationOptions | 'guardRegistry' | 'maxBodyBytes' | 'maxBodySize' | 'versioning'
+  >
 >;
 export type _PublishedCreateAppParameters = Expect<
   Equal<Parameters<PublishedCreateApp>, [FrozenModuleClass, (WebPackageApplicationOptions | undefined)?]>
