@@ -40,6 +40,9 @@ function createIsolatedBuildRoot(): string {
   const buildRoot = mkdtempSync(join(tmpdir(), 'zmdb-react-native-build-'));
   mkdirSync(join(buildRoot, 'packages'), { recursive: true });
   mkdirSync(join(buildRoot, 'scripts'), { recursive: true });
+  copyFileSync(join(ROOT, 'package.json'), join(buildRoot, 'package.json'));
+  copyFileSync(join(ROOT, 'yarn.lock'), join(buildRoot, 'yarn.lock'));
+  copyFileSync(join(ROOT, '.yarnrc.yml'), join(buildRoot, '.yarnrc.yml'));
   copyFileSync(join(ROOT, 'tsconfig.json'), join(buildRoot, 'tsconfig.json'));
   copyFileSync(join(ROOT, 'tsconfig.build.json'), join(buildRoot, 'tsconfig.build.json'));
   copyFileSync(join(ROOT, 'scripts', 'build-package.mjs'), join(buildRoot, 'scripts', 'build-package.mjs'));

@@ -15,19 +15,21 @@ library, choose credential persistence, import a database or server package, or 
 `createZmdbReactNative<Client, Credential>(options)` receives three application-owned ports:
 
 ```ts
+export type NativeAppStateStatus = string | null | undefined;
+export type NativeConnectivityState = 'offline' | 'online';
+
+export interface NativeSubscription {
+  remove(): void;
+}
+
 export interface NativeAppState {
-  readonly currentState: string | null | undefined;
-  addEventListener(
-    type: 'change',
-    listener: (state: string | null | undefined) => void,
-  ): {
-    remove(): void;
-  };
+  readonly currentState: NativeAppStateStatus;
+  addEventListener(type: 'change', listener: (state: NativeAppStateStatus) => void): NativeSubscription;
 }
 
 export interface NativeConnectivity {
-  readonly currentState: 'offline' | 'online';
-  subscribe(listener: (state: 'offline' | 'online') => void): () => void;
+  readonly currentState: NativeConnectivityState;
+  subscribe(listener: (state: NativeConnectivityState) => void): () => void;
 }
 
 export interface NativeCredentialStore<Credential> {
