@@ -9,6 +9,7 @@ import {
   type MigrationDriver as DialectMigrationDriver,
   type SqlDialect,
 } from '@zmdb/query-compiler';
+
 import { diff, snapshot, type SchemaSnapshot, type SnapshotableSchema } from './index.js';
 
 export { SnapshotMismatchError };
