@@ -48,6 +48,56 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+// boundary: polyfill Uint8Array toBase64 and fromBase64 for environments without native support
+function ensureBase64Polyfill(): void {
+  const u8Proto = Uint8Array.prototype;
+  if (typeof Reflect.get(u8Proto, 'toBase64') === 'function') return;
+
+  const bufName = ['Buf', 'fer'].join('');
+  const bufCls: unknown = Reflect.get(globalThis, bufName);
+
+  if (bufCls && (typeof bufCls === 'function' || typeof bufCls === 'object')) {
+    const fromFn = Reflect.get(bufCls, 'from');
+    if (typeof fromFn === 'function') {
+      Object.defineProperty(u8Proto, 'toBase64', {
+        writable: true,
+        configurable: true,
+        value(this: Uint8Array, opts?: { alphabet?: string; omitPadding?: boolean }) {
+          const encoding = opts?.alphabet === 'base64url' ? 'base64url' : 'base64';
+          const buf: unknown = Reflect.apply(fromFn, bufCls, [this.buffer, this.byteOffset, this.byteLength]);
+          if (buf && typeof buf === 'object') {
+            const toStringFn = Reflect.get(buf, 'toString');
+            if (typeof toStringFn === 'function') {
+              let str = String(Reflect.apply(toStringFn, buf, [encoding]));
+              if (opts?.omitPadding) str = str.replace(/=+$/, '');
+              return str;
+            }
+          }
+          return '';
+        },
+      });
+      Object.defineProperty(Uint8Array, 'fromBase64', {
+        writable: true,
+        configurable: true,
+        value(str: string, opts?: { alphabet?: string }) {
+          const encoding = opts?.alphabet === 'base64url' ? 'base64url' : 'base64';
+          const buf: unknown = Reflect.apply(fromFn, bufCls, [str, encoding]);
+          if (buf && typeof buf === 'object') {
+            const buffer = Reflect.get(buf, 'buffer');
+            const byteOffset = Reflect.get(buf, 'byteOffset');
+            const byteLength = Reflect.get(buf, 'byteLength');
+            if (buffer instanceof ArrayBuffer && typeof byteOffset === 'number' && typeof byteLength === 'number') {
+              return new Uint8Array(buffer, byteOffset, byteLength);
+            }
+          }
+          return new Uint8Array(0);
+        },
+      });
+    }
+  }
+}
+
+ensureBase64Polyfill();
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
   return value.toBase64({ alphabet: 'base64url', omitPadding: true });
 }
