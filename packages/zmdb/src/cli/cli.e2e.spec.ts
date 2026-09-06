@@ -122,7 +122,7 @@ function run(project: Project, ...argv: readonly string[]): Run {
   const result = spawnSync(process.execPath, ['--import', project.hook, BIN, ...argv], {
     cwd: project.root,
     encoding: 'utf8',
-    env: { ...process.env, ZMDB_TEST_DATABASE: project.database },
+    env: { ...process.env, NODE_NO_WARNINGS: '1', ZMDB_TEST_DATABASE: project.database },
     input: '',
     timeout: 30_000,
   });
