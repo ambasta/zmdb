@@ -633,7 +633,8 @@ const pay = transition(Pending, Paid, order => ({ ...order, status: 'paid' as co
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. WEB LAYER — Stage 3 decorators, typed Ctx, token DI, zero reflection
 // ─────────────────────────────────────────────────────────────────────────────
-import { Controller, Get, Post, Inject, Module, createApp, repositoryToken, type Ctx } from 'zmdb/web';
+import { repositoryToken } from 'zmdb/app/data';
+import { Controller, Get, Post, Inject, Module, createApp, type Ctx } from 'zmdb/web';
 import type { CreateDTO } from 'zmdb/derive';
 
 const OrdersRepo = repositoryToken<Orders>('OrdersRepo');

@@ -60,7 +60,7 @@ import { Pool } from 'pg';
 import { postgresDriver } from '@zmdb/postgres';
 import { defineRepository } from '@zmdb/repository';
 import type { Driver } from '@zmdb/repository';
-import { repositoryToken } from '@zmdb/web/data';
+import { repositoryToken } from '@zmdb/app/data';
 
 export const DRIVER = createToken<Driver>('DRIVER');
 export const USERS = repositoryToken<User>('USERS');

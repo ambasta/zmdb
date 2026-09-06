@@ -1,8 +1,8 @@
 // @zmdb/jobs/memory — supported ephemeral queue storage for tests and local execution.
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync as NodeDatabaseSync } from 'node:sqlite';
 
 import { jobPendingIndexDdl } from '@zmdb/repository/jobs';
-import { sqliteDriver } from '@zmdb/sqlite';
+import type { SqliteDatabase } from '@zmdb/sqlite/node';
 
 import type { JobStore } from '../index.js';
 
@@ -34,8 +34,12 @@ CREATE TABLE zmdb_job_done (
 /** An isolated SQLite queue store. Its database is exposed for deterministic test setup and assertions. */
 export interface MemoryJobStore extends JobStore, Disposable {
   readonly dialect: 'sqlite';
-  readonly database: DatabaseSync;
+  readonly database: NodeDatabaseSync;
   close(): void;
+}
+
+function isRow(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -46,11 +50,31 @@ export interface MemoryJobStore extends JobStore, Disposable {
  * JobStore implementation.
  */
 export function createMemoryJobStore(): MemoryJobStore {
-  const database = new DatabaseSync(':memory:');
+  const { DatabaseSync } = process.getBuiltinModule('node:sqlite');
+  const database = new DatabaseSync(':memory:') satisfies SqliteDatabase;
+  const executionDatabase: SqliteDatabase = database;
   database.exec(JOB_SCHEMA);
   database.exec(jobPendingIndexDdl('sqlite'));
-  const driver = sqliteDriver(database);
   let closed = false;
+
+  // JobStore needs only the execution subset. Keeping it local prevents the
+  // default product root from evaluating SQLite migration and introspection code.
+  const execute: JobStore['execute'] = async query => {
+    const statement = executionDatabase.prepare(query.text);
+    const parameters = query.parameters.map(value => (value instanceof Date ? value.toISOString() : value));
+    const columns = statement.columns?.();
+    const isRead =
+      columns === undefined
+        ? /^\s*(?:SELECT|PRAGMA)\b/i.test(query.text) || /RETURNING/i.test(query.text)
+        : columns.length > 0;
+    if (isRead) {
+      const rows = statement.all(...parameters);
+      if (!rows.every(isRow)) throw new TypeError('node:sqlite returned a non-record row');
+      return rows;
+    }
+    statement.run(...parameters);
+    return [];
+  };
 
   const close = (): void => {
     if (closed) return;
@@ -61,7 +85,7 @@ export function createMemoryJobStore(): MemoryJobStore {
   return {
     dialect: 'sqlite',
     database,
-    execute: query => driver.execute(query),
+    execute,
     close,
     [Symbol.dispose]: close,
   };

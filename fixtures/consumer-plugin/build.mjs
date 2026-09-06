@@ -14,7 +14,7 @@
 // error.
 
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { build } from 'esbuild';
@@ -23,6 +23,7 @@ import { zmdbAot } from 'zmdb/unplugin';
 const here = dirname(fileURLToPath(import.meta.url));
 const outdir = process.argv[2] ?? join(here, 'dist');
 const plugin = await zmdbAot({ cwd: here });
+const sourceRoot = join(here, 'src');
 
 /** `plugin.transform` as an esbuild plugin. The whole adapter. */
 const asEsbuildPlugin = unplugin => ({
@@ -30,7 +31,9 @@ const asEsbuildPlugin = unplugin => ({
   setup(esbuild) {
     esbuild.onLoad({ filter: /\.[cm]?tsx?$/ }, async ({ path }) => {
       const code = await readFile(path, 'utf8');
-      const result = unplugin.transform(code, path);
+      const sourcePath = relative(sourceRoot, path);
+      const isProjectSource = !isAbsolute(sourcePath) && sourcePath !== '..' && !sourcePath.startsWith(`..${sep}`);
+      const result = isProjectSource ? unplugin.transform(code, path) : null;
       return { contents: result ? result.code : code, loader: 'ts' };
     });
     esbuild.onEnd(() => unplugin.buildEnd?.());

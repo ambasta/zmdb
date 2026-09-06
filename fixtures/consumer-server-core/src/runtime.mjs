@@ -18,6 +18,8 @@ const pairs = [
   ['@zmdb/web/app', 'zmdb/web/app'],
   ['@zmdb/web/compression', 'zmdb/web/compression'],
   ['@zmdb/web/context', 'zmdb/web/context'],
+  ['@zmdb/web/contract', 'zmdb/web/contract'],
+  ['@zmdb/web/contract/compiler', 'zmdb/web/contract/compiler'],
   ['@zmdb/web/csrf', 'zmdb/web/csrf'],
   ['@zmdb/web/data', 'zmdb/web/data'],
   ['@zmdb/web/devtools', 'zmdb/web/devtools'],
@@ -49,12 +51,36 @@ for (const [directName, facadeName] of pairs) {
 
 const product = await import('zmdb');
 const app = await import('@zmdb/app');
+const appCommands = await import('@zmdb/app/commands');
+const appData = await import('@zmdb/app/data');
+const appEvents = await import('@zmdb/app/events');
+const appMessaging = await import('@zmdb/app/messaging');
 const web = await import('@zmdb/web');
 const jobs = await import('@zmdb/jobs');
 for (const [owner, names] of [
-  [app, ['Container', 'Module', 'createApplication', 'createToken', 'repositoryToken']],
-  [web, ['Controller', 'Get', 'createApp']],
-  [jobs, ['createMemoryJobStore', 'createQueue', 'createScheduler', 'createWorker']],
+  [app, ['Container', 'Inject', 'Module', 'createApplication', 'createToken']],
+  [appCommands, ['Command', 'createCommandApp']],
+  [appData, ['repositoryToken']],
+  [appEvents, ['OnEvent', 'createEvents']],
+  [appMessaging, ['EventPattern', 'MessagePattern']],
+  [
+    web,
+    [
+      'Controller',
+      'Delete',
+      'Gateway',
+      'Get',
+      'Patch',
+      'Post',
+      'Public',
+      'Put',
+      'Subscribe',
+      'Version',
+      'VersionNeutral',
+      'createApp',
+    ],
+  ],
+  [jobs, ['Cron', 'Interval', 'createMemoryJobStore', 'createQueue', 'createScheduler', 'createWorker']],
 ]) {
   for (const name of names) {
     if (product[name] !== owner[name]) {

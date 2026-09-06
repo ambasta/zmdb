@@ -4,7 +4,7 @@
 // The package extraction itself belongs to #628-#630, so this gate has two jobs
 // before those packages exist:
 //
-// 1. turn #626's ownership policy, amended to 165 paths after #667, #681, #656, #668, #669, #671, #672, #673, #674, #685, and #621, into an executable,
+// 1. turn #626's ownership policy, amended to 197 paths after #667, #681, #656, #668, #669, #671, #672, #673, #674, #685, #621, and #651, into an executable,
 //    bijective inventory; and
 // 2. prevent the known runtime/generated-import violations from growing while
 //    the expected-failure tests freeze the zero-violation target.
@@ -87,7 +87,7 @@ const EXPECTED_OWNER_COUNTS = Object.freeze({
   migrations: 23,
   cli: 31,
   runtime: 27,
-  facade: 14,
+  facade: 46,
   'optional-integration': 4,
   'test-only': 35,
   obsolete: 1,
@@ -105,8 +105,9 @@ const RUNTIME_FOUNDATIONS = new Set(RUNTIME_ROOTS.filter(packageName => packageN
 const TARGET_TOOLING_PACKAGES = new Set(Object.keys(TARGET_TOOLING_MANIFESTS));
 
 // Remeasured by #629 after migration tooling left every runtime root. These are
-// exact remaining compiler edges. Deleting one is accepted; adding another
-// route into the same category is not.
+// the ratcheted compiler-edge ceiling: deleting one is accepted, while adding
+// another route into the same category is not. #651's runtime-mode walk retires
+// the @zmdb/web type-only edge without rewriting the historical ceiling.
 const BASELINE_RUNTIME_VIOLATIONS = new Set([
   '@zmdb/repository|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
   '@zmdb/web|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
@@ -280,7 +281,7 @@ function runtimeViolations(root, catalog, overlays) {
         overlays.get(current.file) ?? (existsSync(current.file) ? readFileSync(current.file, 'utf8') : undefined);
       if (source === undefined) continue;
       seen.add(current.file);
-      for (const imported of graph.importsOf(current.file, source)) {
+      for (const imported of graph.importsOf(current.file, source, 'runtime')) {
         const category = runtimeCategory(imported, owners);
         if (category !== undefined) {
           const sourcePath = relative(root, current.file);

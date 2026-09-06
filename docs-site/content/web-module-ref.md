@@ -22,7 +22,7 @@ export class Container {
 `resolve` is typed by the token, so `resolve(POSTS)` returns the repository with no cast — that is what the phantom type parameter on `Token<T>` buys:
 
 ```ts
-import { repositoryToken } from '@zmdb/web/data';
+import { repositoryToken } from '@zmdb/app/data';
 export const POSTS = repositoryToken<Post>('POSTS'); // Token<BaseRepository<Post>>
 ```
 

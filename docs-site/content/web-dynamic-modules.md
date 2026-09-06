@@ -84,7 +84,7 @@ export function repositoryModule<S extends Schema>(token: Token<Repo<S>>, schema
 export class AppModule {}
 ```
 
-Distinct tokens avoid that declaration conflict. `repositoryToken<S>(name)` from `@zmdb/web/data` gives you a typed token in one call — see [Repository Providers](./web-data-integration.html).
+Distinct tokens avoid that declaration conflict. `repositoryToken<S>(name)` from `@zmdb/app/data` gives you a typed token in one call — see [Repository Providers](./web-data-integration.html).
 
 ## Ordering
 

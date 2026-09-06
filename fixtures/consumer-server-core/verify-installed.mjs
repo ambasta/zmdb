@@ -67,6 +67,18 @@ export function inspectServerCoreFixture(fixture = FIXTURE) {
       problems.push(`${name} has non-registry range ${JSON.stringify(range)}`);
     }
   }
+  const expectedDevDependencies = ['@types/node', 'typescript'];
+  const devDependencies = Object.keys(manifest.devDependencies ?? {}).toSorted();
+  if (JSON.stringify(devDependencies) !== JSON.stringify(expectedDevDependencies)) {
+    problems.push(
+      `fixture devDependencies ${JSON.stringify(devDependencies)}, expected ${JSON.stringify(expectedDevDependencies)}`,
+    );
+  }
+  for (const [name, range] of Object.entries(manifest.devDependencies ?? {})) {
+    if (typeof range !== 'string' || /^(?:file|link|patch|portal|workspace):/.test(range) || range.includes('/')) {
+      problems.push(`${name} has non-registry dev range ${JSON.stringify(range)}`);
+    }
+  }
 
   const tsconfig = JSON.parse(readFileSync(join(fixture, 'tsconfig.consumer.json'), 'utf8'));
   if (tsconfig.compilerOptions?.paths !== undefined) problems.push('fixture tsconfig declares compilerOptions.paths');
@@ -80,6 +92,16 @@ export function inspectServerCoreFixture(fixture = FIXTURE) {
   }
   if (JSON.stringify(jobsTsconfig.include) !== JSON.stringify(['src/jobs-contracts.ts'])) {
     problems.push('jobs fixture must include only src/jobs-contracts.ts');
+  }
+  const runtimeTsconfig = JSON.parse(readFileSync(join(fixture, 'tsconfig.runtime.json'), 'utf8'));
+  if (runtimeTsconfig.extends !== './tsconfig.consumer.json') {
+    problems.push('runtime fixture must extend tsconfig.consumer.json');
+  }
+  if (JSON.stringify(runtimeTsconfig.include) !== JSON.stringify(['src/journey.ts'])) {
+    problems.push('runtime fixture must include only src/journey.ts');
+  }
+  if (runtimeTsconfig.compilerOptions?.noEmit !== false || runtimeTsconfig.compilerOptions?.target !== 'ES2022') {
+    problems.push('runtime fixture must emit decorator-lowered ES2022');
   }
 
   for (const path of allFiles(fixture)) {
@@ -193,11 +215,12 @@ function installedPackageNames(nodeModules) {
   return names;
 }
 
-function installConsumer(tarballs, scratch) {
+function installConsumer(tarballs, scratch, options = {}) {
   const app = join(scratch, 'consumer');
   copyForPack(FIXTURE, app);
   const manifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
   manifest.dependencies = Object.fromEntries([...tarballs].map(([name, path]) => [name, `file:${path}`]));
+  if (options.includeTypecheckTools !== true) delete manifest.devDependencies;
   writeFileSync(join(app, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   const installed = run(
     'npm',
@@ -230,7 +253,7 @@ function assertWorkspaceClosure(app, expected) {
 
 function verifyPlain(packages, scratch) {
   const names = workspaceClosure(packages, ['zmdb']);
-  const app = installConsumer(packWorkspace(packages, names, scratch), scratch);
+  const app = installConsumer(packWorkspace(packages, names, scratch), scratch, { includeTypecheckTools: false });
   assertNoOptionalServerPackages(app, names.length);
 }
 
@@ -245,13 +268,13 @@ function verifyJobs(packages, scratch) {
   if (built.status !== 0) throw new Error('jobs dependency closure build failed before installed verification');
 
   const names = workspaceClosure(packages, JOBS_ROOTS);
-  const app = installConsumer(packWorkspace(packages, names, scratch), scratch);
+  const app = installConsumer(packWorkspace(packages, names, scratch), scratch, { includeTypecheckTools: true });
   assertNoOptionalServerPackages(app, names.length, 'jobs');
   assertWorkspaceClosure(app, names);
 
   const typecheck = run(
     join(ROOT, 'node_modules', '.bin', 'tsc'),
-    ['--noEmit', '-p', join(app, 'tsconfig.jobs.json'), '--typeRoots', join(ROOT, 'node_modules', '@types')],
+    ['--noEmit', '-p', join(app, 'tsconfig.jobs.json')],
     { cwd: app },
   );
   if (typecheck.status !== 0) throw new Error(`installed jobs declarations failed: ${output(typecheck)}`);
@@ -271,8 +294,9 @@ function verifyTarget(packages, scratch) {
   if (built.status !== 0) throw new Error('yarn build failed before installed server verification');
 
   const names = workspaceClosure(packages, TARGET_ROOTS);
-  const app = installConsumer(packWorkspace(packages, names, scratch), scratch);
+  const app = installConsumer(packWorkspace(packages, names, scratch), scratch, { includeTypecheckTools: true });
   assertNoOptionalServerPackages(app, names.length);
+  assertWorkspaceClosure(app, names);
 
   const typecheck = run(
     join(ROOT, 'node_modules', '.bin', 'tsc'),
@@ -284,6 +308,15 @@ function verifyTarget(packages, scratch) {
   const runtime = run(process.execPath, [join(app, 'src', 'runtime.mjs')], { cwd: app });
   if (runtime.status !== 0) throw new Error(`installed server runtime failed: ${output(runtime)}`);
   process.stdout.write(runtime.stdout);
+
+  const compiled = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', join(app, 'tsconfig.runtime.json')], {
+    cwd: app,
+  });
+  if (compiled.status !== 0) throw new Error(`installed cohesive journey failed to compile: ${output(compiled)}`);
+
+  const journey = run(process.execPath, [join(app, 'dist', 'journey.js')], { cwd: app });
+  if (journey.status !== 0) throw new Error(`installed cohesive journey failed: ${output(journey)}`);
+  process.stdout.write(journey.stdout);
 }
 
 function main() {

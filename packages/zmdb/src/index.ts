@@ -109,3 +109,37 @@ export type {
   UpdatePatch,
   UpsertOptions,
 } from '@zmdb/repository';
+
+// Application kernel. The product root carries the one-call application
+// vocabulary; the complete concern surfaces remain under `zmdb/app/*`.
+export { Container, Inject, Module, createApplication, createToken } from '@zmdb/app';
+export type {
+  Application,
+  ApplicationExtension,
+  ApplicationExtensionContext,
+  ApplicationOptions,
+  ModuleClass,
+  Token,
+} from '@zmdb/app';
+export { Command, createCommandApp } from '@zmdb/app/commands';
+export type { CommandApp } from '@zmdb/app/commands';
+export { repositoryToken } from '@zmdb/app/data';
+export { OnEvent, createEvents } from '@zmdb/app/events';
+export { EventPattern, MessagePattern } from '@zmdb/app/messaging';
+export type { TransportStrategy } from '@zmdb/app/messaging';
+export type { Observability } from '@zmdb/app/observability';
+
+// HTTP. @zmdb/web stays HTTP-only; these are direct identities from that
+// package, composed with the application kernel only at the product facade.
+export { Controller, Delete, Get, Patch, Post, Public, Put } from '@zmdb/web/routing';
+export { Gateway, Subscribe } from '@zmdb/web/gateways';
+export { Version, VersionNeutral } from '@zmdb/web/versioning';
+export { createApp } from '@zmdb/web/app';
+export type { WebApplication, WebApplicationOptions } from '@zmdb/web/app';
+export type { Ctx } from '@zmdb/web/context';
+export type { WebRequest, WebResponse } from '@zmdb/web/pipeline';
+
+// Background work. Optional durable stores remain independently selected;
+// the default product includes only the built-in SQLite memory path.
+export { Cron, Interval, createMemoryJobStore, createQueue, createScheduler, createWorker } from '@zmdb/jobs';
+export type { MemoryJobStore, Queue, Scheduler, Worker } from '@zmdb/jobs';

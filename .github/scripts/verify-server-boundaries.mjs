@@ -4,7 +4,7 @@
 // The default invocation compares the live tree with the checked-in tests-freeze
 // baseline. That makes this useful before the packages exist: a new leak fails,
 // while each implementation slice retires its own recorded finding. `--strict`
-// is the target state and succeeds only when no finding remains.
+// succeeds only when no finding remains.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -747,7 +747,9 @@ function runCli() {
     );
   } else {
     console.log(
-      `server boundaries: ${String(actual.length)} frozen finding(s) match the tests-freeze baseline; strict target remains red.`,
+      actual.length === 0
+        ? 'server boundaries: 0 frozen finding(s) match the tests-freeze baseline; strict target is clean.'
+        : `server boundaries: ${String(actual.length)} frozen finding(s) match the tests-freeze baseline; strict target remains red.`,
     );
   }
 }

@@ -1,6 +1,3 @@
 {
-  "problems": [
-    "zmdb is missing core server dependencies [@zmdb/jobs]",
-    "zmdb is missing core server facade subpaths [./app, ./app/commands, ./app/cqrs, ./app/data, ./app/di, ./app/events, ./app/health, ./app/lifecycle, ./app/messaging, ./app/modules, ./app/observability, ./app/state, ./jobs, ./jobs/memory, ./jobs/schedule, ./web/app, ./web/compression, ./web/context, ./web/csrf, ./web/data, ./web/devtools, ./web/dto-pipes, ./web/gateways, ./web/health, ./web/middleware, ./web/openapi, ./web/pipeline, ./web/routing, ./web/static, ./web/testing, ./web/upload, ./web/versioning]"
-  ]
+  "problems": []
 }

@@ -5,7 +5,8 @@ export const repositoryTemplate: TemplateFactory = ({ name }) => ({
     {
       path: `src/${name.fileStem}.repository.ts`,
       source: `import { defineRepository, schemaOf, type BaseRepository, type Driver } from 'zmdb';
-import { repositoryToken, type ProviderDef } from 'zmdb/web';
+import { repositoryToken } from 'zmdb/app/data';
+import type { ProviderDef } from 'zmdb/app/modules';
 
 import type { ${name.pascal} } from './${name.fileStem}.js';
 

@@ -444,6 +444,7 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: [
       'app',
       'aot-validator',
+      'jobs',
       'migrations',
       'mssql',
       'postgres',
@@ -469,6 +470,10 @@ export const PACKAGE_POLICY = Object.freeze({
       './unplugin',
       // Curated facade over the HTTP contract compiler.
       './web/contract/compiler',
+      // Curated facade over HTTP runtime inspection and diagnostics.
+      './web/devtools',
+      // Curated facade over HTTP test doubles and harness helpers.
+      './web/testing',
       // The sole product command-line executable.
       'bin:zmdb',
     ],

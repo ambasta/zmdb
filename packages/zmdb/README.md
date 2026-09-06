@@ -17,7 +17,16 @@ npm add zmdb@alpha
 - Core APIs: `zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`
 - Schema lifecycle: `zmdb/migrations`
 - Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/drivers/mssql`
-- Application tooling: `zmdb/web`, `zmdb/web/contract`, `zmdb/web/contract/compiler`, `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
+- Application kernel: `zmdb/app` and `zmdb/app/{commands,cqrs,data,di,events,health,lifecycle,messaging,modules,observability,state}`
+- HTTP: `zmdb/web`, `zmdb/web/contract`, `zmdb/web/contract/compiler`, and the focused `zmdb/web/*` HTTP concern entries
+- Jobs: `zmdb/jobs`, `zmdb/jobs/memory`, `zmdb/jobs/schedule`
+- Application tooling: `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
+
+`zmdb/web` composes the application kernel and HTTP package by identity for the common server import. The direct `@zmdb/web` package remains HTTP-only, while advanced consumers can select `@zmdb/app`,
+`@zmdb/web`, or `@zmdb/jobs` independently.
+
+The default product includes the built-in `node:sqlite` in-memory job store. Durable jobs, brokers, gRPC, and telemetry remain separately installed integrations and do not add their third-party peers
+to a plain `zmdb` installation.
 
 `zmdb/drivers/pg` is a compatibility facade over the optional `@zmdb/postgres` peer. Install `@zmdb/postgres` and `pg` in applications that select PostgreSQL; neither is pulled into the default
 umbrella dependency closure.

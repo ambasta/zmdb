@@ -45,8 +45,8 @@ const DEVTOOLS_DIR = join(PACKAGES_DIR, 'web', 'src', 'devtools');
 /** The two packages a consumer installs, which are the only entry points §9.3 walks from. */
 const GUARDED_PACKAGES: readonly string[] = ['@zmdb/web', 'zmdb'];
 
-/** The two tool-only subpaths allowed to reach the inspector. */
-const EXEMPT_ENTRIES: ReadonlySet<string> = new Set(['@zmdb/web#./devtools', 'zmdb#./cli']);
+/** The three tool-only subpaths allowed to reach the inspector. */
+const EXEMPT_ENTRIES: ReadonlySet<string> = new Set(['@zmdb/web#./devtools', 'zmdb#./cli', 'zmdb#./web/devtools']);
 
 interface WorkspacePackage {
   readonly name: string;
@@ -371,6 +371,12 @@ describe('the devtools boundary', () => {
     const manifest: unknown = JSON.parse(readFileSync(join(PACKAGES_DIR, 'web', 'package.json'), 'utf8'));
     const record: { exports?: Record<string, unknown> } = Object(manifest);
     expect(record.exports?.['./devtools']).toBe('./src/devtools/index.ts');
+  });
+
+  it('publishes ./web/devtools as a separate zmdb product subpath', () => {
+    const manifest: unknown = JSON.parse(readFileSync(join(PACKAGES_DIR, 'zmdb', 'package.json'), 'utf8'));
+    const record: { exports?: Record<string, unknown> } = Object(manifest);
+    expect(record.exports?.['./web/devtools']).toBe('./src/web-devtools.ts');
   });
 
   // §9.1's other half of the first barrier, and the one that is not a manifest fact: nothing under

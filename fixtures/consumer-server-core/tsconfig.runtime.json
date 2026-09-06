@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.consumer.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "target": "ES2022"
+  },
+  "include": ["src/journey.ts"]
+}

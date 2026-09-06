@@ -1,8 +1,8 @@
 // Compile-only freeze for the app/web/jobs package split (#646).
 //
 // The local declarations below transcribe the exact shared lifecycle ABI from
-// the #645 SPECs. The direct app and jobs package imports are live; only #651's
-// product-facade diagnostics remain intentionally unresolved.
+// the #645 SPECs. Direct package and product-facade imports must remain the same
+// types after #651 wires the installed experience.
 
 import type {
   Application as AppPackageApplication,
@@ -19,10 +19,8 @@ import type {
   WebApplication as WebPackageApplication,
   WebApplicationOptions as WebPackageApplicationOptions,
 } from '@zmdb/web/app';
-// @ts-expect-error #651 supplies the application facade
-import type { Application as MissingAppFacadeApplication } from 'zmdb/app';
-// @ts-expect-error #651 supplies the jobs facade
-import type { Worker as MissingJobsFacadeWorker } from 'zmdb/jobs';
+import type { Application as AppFacadeApplication } from 'zmdb/app';
+import type { Worker as JobsFacadeWorker } from 'zmdb/jobs';
 
 interface FrozenContainer {}
 interface FrozenLazyModuleHandle {
@@ -131,11 +129,13 @@ export type _PublishedCreateAppParameters = Expect<
   Equal<Parameters<PublishedCreateApp>, [FrozenModuleClass, (WebPackageApplicationOptions | undefined)?]>
 >;
 export type _PublishedCreateAppReturn = Expect<Equal<ReturnType<PublishedCreateApp>, WebPackageApplication>>;
-export type _MissingPackageRetirementTriggers = [
+export type _AppFacadeIdentity = Expect<Equal<AppFacadeApplication, AppPackageApplication>>;
+export type _JobsFacadeIdentity = Expect<Equal<JobsFacadeWorker, JobsPackageWorker>>;
+export type _PackageRetirementTriggers = [
   AppPackageApplication,
   JobsPackageWorker,
   RemovedWebApp,
   RemovedWebAppOptions,
-  MissingAppFacadeApplication,
-  MissingJobsFacadeWorker,
+  AppFacadeApplication,
+  JobsFacadeWorker,
 ];

@@ -46,9 +46,9 @@ function catalogReport(): ReturnType<typeof inspectProductCatalog> {
 }
 
 describe('the one-product facade and catalog (#619, #622)', () => {
-  // Current measured state: the root exposes 42 runtime values and 32
-  // type-only declarations, while the frozen target is 19 values and 27 types.
-  // Seven of the thirteen required concern/driver subpaths are also absent.
+  // The server facade adds 30 runtime values, 18 type-only declarations and 32
+  // manifest entries to the still-broader historical product root. The frozen
+  // final target now composes 40 values, 42 types and 47 stable subpaths.
   it.fails('imports the complete application surface from zmdb without internal package imports', () => {
     const report = facadeReport();
 
@@ -56,7 +56,7 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     expect(report.runtimeNames).toEqual(TARGET_ROOT_VALUES);
     expect(report.typeNames).toEqual(TARGET_ROOT_TYPES);
     expect(report.missingSubpaths).toEqual([]);
-    expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(13);
+    expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(47);
   });
 
   // The migration namespace is reachable only through `zmdb/migrations`, so
@@ -193,8 +193,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const actual = readFacadeOwnership(ROOT);
     const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
 
-    expect(derived.root).toHaveLength(70);
-    expect(derived.subpaths).toHaveLength(15);
+    expect(derived.root).toHaveLength(118);
+    expect(derived.subpaths).toHaveLength(47);
     expect(actual.root).toEqual(derived.root);
     expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
     expect(verifyFacadeOwnership(PRODUCT_CATALOG, actual)).toEqual([]);
@@ -205,7 +205,9 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const report = await catalogReport();
     expect(report.generatedProblems).toEqual([]);
     expect(report.packageReferenceBytes).toContain('@zmdb/schema-core');
-    expect(report.packageReferenceBytes).toContain('npm add @zmdb/jobs@1.0.0-alpha.4');
+    const jobsRow = report.packageReferenceBytes.split('\n').find(line => line.startsWith('| @zmdb/jobs '));
+    expect(jobsRow).toContain('`npm add zmdb@1.0.0-alpha.4`');
+    expect(jobsRow).not.toContain('npm add @zmdb/jobs');
     expect(report.packageReferenceBytes).toMatch(/\|\s+zmdb\s+\|/);
     expect(handwrittenInventoryProblems(ROOT, PRODUCT_CATALOG)).toEqual([]);
 

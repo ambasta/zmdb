@@ -94,7 +94,7 @@ export const settings = perEnv[env.NODE_ENV] ?? perEnv.development;
 Put the driver in DI so tests can replace it:
 
 ```ts
-import { repositoryToken } from '@zmdb/web/data';
+import { repositoryToken } from '@zmdb/app/data';
 
 export const DRIVER = createToken<Driver>('DRIVER');
 export const USERS = repositoryToken<User>('USERS'); // Token<BaseRepository<User>>

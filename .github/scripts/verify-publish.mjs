@@ -33,6 +33,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, syml
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { inspectServerCoreFixture } from '../../fixtures/consumer-server-core/verify-installed.mjs';
 import { ROOT, publishManifest, publishTrain, readManifest } from './lib/publish-manifest.mjs';
 import { inspectProductConsumerFixture } from './verify-product-facade.mjs';
 import {
@@ -76,6 +77,7 @@ const PEERS = [
 ];
 const CUSTOM_TRANSPORT_FIXTURE = join(ROOT, 'fixtures', 'app-custom-transport.ts');
 const PRODUCT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
+const SERVER_CORE_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-server-core');
 const HTTP_CLIENT_DOCS_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'docs');
 const HTTP_CLIENT_DOCS_PAGE = join(ROOT, 'docs-site', 'content', 'generated-client.md');
 const HTTP_CLIENT_DOCS_TSCONFIG = join(ROOT, 'fixtures', 'consumer-http-client', 'tsconfig.docs.json');
@@ -137,6 +139,46 @@ function generatedClientExamples() {
     examples.push({ file, source: `${code.join('\n').trimEnd()}\n` });
   }
   return examples;
+}
+
+function verifyServerCoreConsumer(app) {
+  for (const problem of inspectServerCoreFixture(SERVER_CORE_CONSUMER_FIXTURE)) {
+    fail(problem);
+  }
+
+  const consumer = join(app, 'server-core-consumer');
+  cpSync(SERVER_CORE_CONSUMER_FIXTURE, consumer, { recursive: true });
+
+  console.log('Typechecking every app, HTTP, jobs, and facade subpath against packed declarations...');
+  const typecheck = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig.consumer.json'], {
+    cwd: consumer,
+    stdio: 'inherit',
+  });
+  if (typecheck.status !== 0) {
+    fail('the packed core-server declarations do not typecheck from the installed consumer');
+    return;
+  }
+
+  console.log('Checking packed app, HTTP, jobs, and facade runtime identity...');
+  const identity = run(process.execPath, ['src/runtime.mjs'], { cwd: consumer, stdio: 'inherit' });
+  if (identity.status !== 0) {
+    fail('the packed core-server facade does not preserve runtime identity');
+    return;
+  }
+
+  console.log('Executing the packed HTTP, command, and in-memory job journey...');
+  const compiled = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig.runtime.json'], {
+    cwd: consumer,
+    stdio: 'inherit',
+  });
+  if (compiled.status !== 0) {
+    fail('the packed cohesive server journey does not compile');
+    return;
+  }
+  const journey = run(process.execPath, ['dist/journey.js'], { cwd: consumer, stdio: 'inherit' });
+  if (journey.status !== 0) {
+    fail('the packed cohesive server journey does not execute');
+  }
 }
 
 async function smokeStudio(app, binPath) {
@@ -716,6 +758,12 @@ const generatedClientDocsTsc = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['
 if (generatedClientDocsTsc.status !== 0) {
   fail('a generated-client documentation example does not typecheck against packed declarations');
 }
+
+// The cohesive server fixture imports and typechecks every direct app/web/jobs
+// package entry and its stable zmdb facade counterpart from this packed tree.
+// Its emitted journey then serves HTTP, runs a command and consumes one job
+// through the default in-memory backend.
+verifyServerCoreConsumer(app);
 
 // The one-install product fixture remains an expected-failure runtime journey
 // until #620–#623 land, but its external-package boundary is already part of

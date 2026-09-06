@@ -1,6 +1,6 @@
 // The one-product import statement, compiled exactly as an application writes
-// it. The missing names are intentionally suppressed until #620 supplies the
-// facade; each identity assertion below is against the real owning package.
+// it. Names still missing from the broader #620 facade are intentionally
+// suppressed; the #651 server names below are live owner identities.
 
 import type {
   AssertError as OwnerAssertError,
@@ -58,26 +58,17 @@ import {
   AssertError,
   // @ts-expect-error -- #620 adds Body to the root facade.
   Body,
-  // @ts-expect-error -- #620 adds Controller to the root facade.
   Controller,
-  // @ts-expect-error -- #620 adds Delete to the root facade.
   Delete,
-  // @ts-expect-error -- #620 adds Get to the root facade.
   Get,
   IncompleteKeyError,
-  // @ts-expect-error -- #620 adds Module to the root facade.
   Module,
-  // @ts-expect-error -- #620 adds Patch to the root facade.
   Patch,
-  // @ts-expect-error -- #620 adds Post to the root facade.
   Post,
-  // @ts-expect-error -- #620 adds Public to the root facade.
   Public,
-  // @ts-expect-error -- #620 adds Put to the root facade.
   Put,
   ValidationError,
   assert,
-  // @ts-expect-error -- #620 adds createApp to the root facade.
   createApp,
   // @ts-expect-error -- #620 adds defineConfig to the root facade.
   defineConfig,
@@ -85,10 +76,8 @@ import {
   is,
   schemaOf,
   validate,
-  // @ts-expect-error -- #620 adds WebApplication to the root facade.
   type WebApplication,
   type CreateDTO,
-  // @ts-expect-error -- #620 adds Ctx to the root facade.
   type Ctx,
   type Driver,
   type Entity,
@@ -102,7 +91,6 @@ import {
   type Min,
   // @ts-expect-error -- #620 adds MinLength to the root facade.
   type MinLength,
-  // @ts-expect-error -- #620 adds ModuleClass to the root facade.
   type ModuleClass,
   // @ts-expect-error -- #620 adds Pattern to the root facade.
   type Pattern,
@@ -255,7 +243,6 @@ export type _RepositoryAndValidatorTypes = Expect<
 >;
 
 export type _WebTypes = Expect<
-  // @ts-expect-error -- #620 adds the web application type identities to the root.
   Equal<
     [WebApplication, Ctx<{ id: string }>, ModuleClass],
     [OwnerWebApplication, OwnerCtx<{ id: string }>, OwnerModuleClass]

@@ -9,11 +9,6 @@ in `../../../query-compiler/src/outbox/SPEC.md` and is not restated. This file i
 
 > **Ownership target frozen by #654:** #650 moved this queue/worker contract and the SQLite memory backend to `@zmdb/jobs`. The node-postgres adapter lives in `@zmdb/jobs-postgres`, whose only
 > required peer is `pg@^8.23.0`; it borrows a caller-owned pool/client and never closes it. `@zmdb/web/queues/backends/pg` is removed with no forwarding subpath.
->
-> **Storage-boundary supersession (#753):** the SQL-shaped `JobStore`, `JobDialect`, built-in memory backend, and storage ownership described below are the implemented baseline, not the split target.
-> [`../../SPEC.md`](../../SPEC.md) is normative for the provider-neutral domain port: core jobs depends only on `@zmdb/app`; `@zmdb/jobs/memory` moves without a forwarder to `@zmdb/jobs-sqlite`;
-> SQLite and PostgreSQL providers own SQL, transactions, migrations, leases, and resource adaptation. All handler, retry, idempotency, claim/settlement, dead-letter, replay, ordering, clock, drain,
-> and scheduling semantics in this file remain unchanged unless that target spec says otherwise.
 
 ## 1. Three of the four hard decisions are already frozen, and this file inherits them
 
@@ -216,7 +211,7 @@ directly.
 
 The enqueue side, the worker loop, `listDead`, `replay` and the clock are absent from the sketch entirely and are §§3-9.
 
-## 3. Baseline storage port and provider supersession
+## 3. The store is a port, with a supported memory backend and an external PostgreSQL owner
 
 `JobStore` is declared locally and structurally. A `TransactionContext` (`packages/repository/src/transactions/index.ts`) satisfies it with no adapter, and so does a repository `Driver`. The queue
 implementation itself depends on `@zmdb/query-compiler` for dialect-aware placeholders and identifier quoting, but consumers do not have to import or construct a compiler type to pass a store.
@@ -225,26 +220,25 @@ The port is not decoration. Naming a concrete repository driver would couple the
 purpose-built adapter pass straight through while the package manifest declares only the dependencies the implementation actually loads.
 
 The original freeze then made a wrong inference: it treated that port as satisfying the epic's optional-backend constraint by itself. #588 corrected the shipped web package: its
-`packages/web/src/queues/backends/` had to contain a supported in-memory backend and one real adapter, with the adapter's client as an optional peer. #654 moved that implemented baseline into core
-jobs and made `pg` required only when `@zmdb/jobs-postgres` is selected. #753 supersedes the storage half of that placement: portable jobs retains the domain-shaped port but no storage implementation,
-while `@zmdb/jobs-sqlite` owns the memory backend.
+`packages/web/src/queues/backends/` had to contain a supported in-memory backend and one real adapter, with the adapter's client as an optional peer. #654 supersedes only that package placement: core
+jobs keeps memory storage and `@zmdb/jobs-postgres` makes `pg` required once that adapter is selected.
 
 The smallest adapter consistent with the SQL-shaped `JobStore` is node-postgres, not Redis. #650 deletes the former web-owned adapter and its optional peer rather than copying or forwarding them.
 `@zmdb/jobs-postgres` owns the node-postgres implementation and makes `pg` the selected adapter package's required peer.
 
-In the implemented baseline, `createMemoryJobStore()` is the other supported backend. It owns one isolated `node:sqlite` `:memory:` database, installs `zmdb_job`, `zmdb_job_done`, the unique
-enqueue-dedupe constraint and `zmdb_job_pending`, and exposes the database for deterministic test setup and assertions. It is explicitly ephemeral; a durable deployment still creates the declared
-repository rows through its migration path. The #753 target preserves that behavior and moves its owner, without a forwarder, to the root of `@zmdb/jobs-sqlite`.
+`createMemoryJobStore()` is the other supported backend. It resolves `node:sqlite` only when called, owns one isolated `:memory:` database, installs `zmdb_job`, `zmdb_job_done`, the unique
+enqueue-dedupe constraint and `zmdb_job_pending`, and exposes the database for deterministic test setup and assertions. Importing jobs or the product facade therefore does not resolve a Node built-in
+until the selected backend is constructed. It is explicitly ephemeral; a durable deployment still creates the declared repository rows through its migration path.
 
 The split:
 
-| Piece                                                     | Implemented #654 owner                            | #753 target owner                             |
-| --------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------- |
-| `JobHandler`, `JobContext`, `createQueue`, `createWorker` | `@zmdb/jobs`                                      | `@zmdb/jobs`                                  |
-| supported ephemeral SQLite storage                        | `@zmdb/jobs/memory`                               | `@zmdb/jobs-sqlite`                           |
-| node-postgres adapter                                     | `@zmdb/jobs-postgres`, required peer              | `@zmdb/jobs-postgres`, required peer          |
-| durable `zmdb_job` rows and pending index declaration     | jobs migration contract                           | selected provider migration bundle            |
-| the three claim statements                                | worker SQL, following the protocol in outbox §4.2 | selected provider's `JobStore` implementation |
+| Piece                                                     | Final owner                                       |
+| --------------------------------------------------------- | ------------------------------------------------- |
+| `JobHandler`, `JobContext`, `createQueue`, `createWorker` | `@zmdb/jobs`                                      |
+| supported ephemeral SQLite storage                        | `@zmdb/jobs`                                      |
+| node-postgres adapter                                     | `@zmdb/jobs-postgres`, required peer              |
+| durable `zmdb_job` rows and pending index declaration     | jobs migration contract                           |
+| the three claim statements                                | worker SQL, following the protocol in outbox §4.2 |
 
 **`zmdb_job` is a second table with the outbox's shape, not the outbox table reused.** The temptation is strong and `web-queues.md` predicts it.
 
@@ -564,10 +558,10 @@ horizon; #594 owns lifecycle discovery for plain providers because its live disp
 - **A logger, or a `log` on `JobContext`.** `onHandlerError` is the sink, for the reason `../../../app/src/events/SPEC.md` §3 requires `onError`; `web-logging` argues the rest.
 - **Metrics emitted from this module.** `RunReport` is the numbers; wiring an observability implementation here would create a second telemetry pipeline instead of using the app-owned port.
 
-## Package ownership amendments (#645, #753)
+## Package ownership amendment (#645)
 
-The queue, worker, dead-letter and retry surface is owned by `@zmdb/jobs`. At the implemented #645 baseline, `createMemoryJobStore` and `MemoryJobStore` are owned by `@zmdb/jobs/memory`. The #753
-target removes that subpath without forwarding and moves both names to the root of `@zmdb/jobs-sqlite`; the process-local implementation remains SQLite `:memory:` via `node:sqlite`.
+The queue, worker, dead-letter and retry surface is owned by `@zmdb/jobs`. `createMemoryJobStore` and `MemoryJobStore` are owned by `@zmdb/jobs/memory`; the process-local implementation remains SQLite
+`:memory:` via `node:sqlite`.
 
 `createPgJobStore`, `PgJobClient` and `PgJobStoreOptions` live in `@zmdb/jobs-postgres`, the sole owner of the `pg` peer. Core jobs has no third-party peer.
 

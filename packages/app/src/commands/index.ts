@@ -3,7 +3,7 @@
 // createApplication, with argv validation at the terminal boundary and no
 // runtime reflection or HTTP router.
 
-import { parseArgs } from 'node:util';
+import type { ParseArgsConfig } from 'node:util';
 
 import { coerce } from '@zmdb/aot-validator/advanced';
 import type { JsonSchemaObject } from '@zmdb/schema-core/ir';
@@ -308,9 +308,13 @@ function requestsHelp(argv: readonly string[]): boolean {
   return beforeTerminator.includes('--help');
 }
 
+function parseCommandArgs<T extends ParseArgsConfig>(config: T) {
+  return process.getBuiltinModule('node:util').parseArgs(config);
+}
+
 function commandArguments(command: RegisteredCommand, argv: readonly string[]): unknown {
   if (command.definition.args === undefined) {
-    const parsed = parseArgs({
+    const parsed = parseCommandArgs({
       args: argv,
       allowNegative: true,
       allowPositionals: true,
@@ -337,7 +341,7 @@ function commandArguments(command: RegisteredCommand, argv: readonly string[]): 
     }
   }
 
-  const parsed = parseArgs({
+  const parsed = parseCommandArgs({
     args: argv,
     allowNegative: command.properties.some(property => property.parseType === 'boolean'),
     allowPositionals: true,

@@ -61,7 +61,7 @@ Optional server integrations stay outside the `zmdb` default install:
 `@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/aot-validator` remains the build-time reflector and emitter, so projects authoring protobuf calls add
 it as a development dependency. The [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
-> The workspace publishes **37 packages** across **144 export-map entry points**. The current suite has **3,322 passing tests** across 312 files, plus **73 expected failures** that describe work still
+> The workspace publishes **37 packages** across **144 export-map entry points**. The current suite has **3,327 passing tests** across 312 files, plus **71 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 271 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

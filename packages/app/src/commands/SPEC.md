@@ -145,8 +145,9 @@ A command with no `args` skips all of this. `parseArgs` runs in non-strict mode 
 
 ## 4. argv to DTO, with the conventions named individually
 
-`parseArgs` from `node:util` does the parsing — a Node built-in, no dependency, and the thing both `web-cli.md` and `web-cli-apps.md` already recommend by name. The mapping rules, each of which has a
-conventional meaning that is wrong to get wrong:
+`parseArgs` from `node:util` does the parsing — a Node built-in, no dependency, and the thing both `web-cli.md` and `web-cli-apps.md` already recommend by name. The command module resolves that
+built-in only when `CommandApp.run` parses argv. Importing `Command` or `createCommandApp` through the product facade must not make an unrelated bundle resolve a Node-only parser before a command is
+run. The mapping rules, each of which has a conventional meaning that is wrong to get wrong:
 
 | Argv               | Becomes                                                                        |
 | ------------------ | ------------------------------------------------------------------------------ |

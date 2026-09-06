@@ -299,8 +299,8 @@ describe('core server package boundaries (#646)', () => {
     expect(output).toMatch(/0 optional server packages or peers/);
   }, 180_000);
 
-  it.fails(
-    'installed app, HTTP, jobs, and facade runtime and declarations share one boundary',
+  it(
+    'a default installed consumer serves HTTP and runs an in-memory worker',
     () => {
       const result = withPackedBuildLock(ROOT, () =>
         spawnSync(process.execPath, [CONSUMER, '--target'], {
@@ -308,7 +308,11 @@ describe('core server package boundaries (#646)', () => {
           encoding: 'utf8',
         }),
       );
-      expect(result.status, result.stderr).toBe(0);
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      expect(result.stdout).toContain('"facadePairs":35');
+      expect(result.stdout).toContain('"httpStatus":200');
+      expect(result.stdout).toContain('"commandExit":0');
+      expect(result.stdout).toContain('"jobDone":1');
     },
     PACKED_BUILD_TEST_TIMEOUT_MS,
   );
@@ -696,26 +700,61 @@ describe('server facade and reflection identity (#646)', () => {
     expect(facadeMetadataOf(carrier)).toBe(metadata);
   });
 
-  it.fails('preserves app, jobs, concern-facade, and curated-root runtime identity', async () => {
-    const [appValue, appFacadeValue, jobsValue, jobsFacadeValue, productValue] = await Promise.all([
+  it('preserves app concern-facade and curated-root runtime identity', async () => {
+    const [appValue, appFacadeValue, productValue] = await Promise.all([
       loadModule(APP_SPECIFIER),
       loadModule('zmdb/app'),
-      loadModule(JOBS_SPECIFIER),
-      loadModule('zmdb/jobs'),
       loadModule('zmdb'),
     ]);
     const app = moduleRecord(appValue, APP_SPECIFIER);
     const appFacade = moduleRecord(appFacadeValue, 'zmdb/app');
+    const product = moduleRecord(productValue, 'zmdb');
+
+    for (const name of Object.keys(app)) {
+      expect(appFacade[name], `zmdb/app#${name}`).toBe(app[name]);
+    }
+    for (const name of ['Container', 'Module', 'createApplication', 'createToken']) {
+      expect(product[name], `zmdb#${name}`).toBe(app[name]);
+    }
+  });
+
+  it('zmdb/web exports app and HTTP values by identity', async () => {
+    const [appValue, webValue, webFacadeValue, productValue] = await Promise.all([
+      loadModule(APP_SPECIFIER),
+      loadModule(WEB_SPECIFIER),
+      loadModule('zmdb/web'),
+      loadModule('zmdb'),
+    ]);
+    const app = moduleRecord(appValue, APP_SPECIFIER);
+    const web = moduleRecord(webValue, WEB_SPECIFIER);
+    const facade = moduleRecord(webFacadeValue, 'zmdb/web');
+    const product = moduleRecord(productValue, 'zmdb');
+
+    for (const name of Object.keys(app)) {
+      expect(facade[name], `zmdb/web#${name}`).toBe(app[name]);
+    }
+    for (const name of Object.keys(web)) {
+      expect(facade[name], `zmdb/web#${name}`).toBe(web[name]);
+    }
+    for (const name of ['Controller', 'Get', 'createApp']) {
+      expect(product[name], `zmdb#${name}`).toBe(web[name]);
+    }
+  });
+
+  it('zmdb/jobs exports job values by identity', async () => {
+    const [jobsValue, jobsFacadeValue, productValue] = await Promise.all([
+      loadModule(JOBS_SPECIFIER),
+      loadModule('zmdb/jobs'),
+      loadModule('zmdb'),
+    ]);
     const jobs = moduleRecord(jobsValue, JOBS_SPECIFIER);
     const jobsFacade = moduleRecord(jobsFacadeValue, 'zmdb/jobs');
     const product = moduleRecord(productValue, 'zmdb');
 
-    for (const name of ['Container', 'Module', 'createApplication', 'createToken', 'metadataOf']) {
-      expect(appFacade[name], `zmdb/app#${name}`).toBe(app[name]);
-      if (name !== 'metadataOf') expect(product[name], `zmdb#${name}`).toBe(app[name]);
+    for (const name of Object.keys(jobs)) {
+      expect(jobsFacade[name], `zmdb/jobs#${name}`).toBe(jobs[name]);
     }
     for (const name of ['createMemoryJobStore', 'createQueue', 'createScheduler', 'createWorker']) {
-      expect(jobsFacade[name], `zmdb/jobs#${name}`).toBe(jobs[name]);
       expect(product[name], `zmdb#${name}`).toBe(jobs[name]);
     }
   });

@@ -9,7 +9,8 @@ The arguments are an ordinary DTO. Its emitted JSON Schema defines the flat argv
 import { assert, defineRepository, schemaOf, type BaseRepository } from 'zmdb';
 import { Command, createCommandApp } from '@zmdb/app/commands';
 import { toJsonSchema } from '@zmdb/schema-core/openapi';
-import { Inject, Module, repositoryToken } from 'zmdb/web';
+import { repositoryToken } from 'zmdb/app/data';
+import { Inject, Module } from 'zmdb/web';
 
 import config from '../zmdb.config.js';
 import type { Post } from '../src/post.js';
