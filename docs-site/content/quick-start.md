@@ -18,22 +18,7 @@ argument, which does not exist at runtime, so an untransformed build throws rath
 
 A table is a TypeScript type. That declaration is the single source of truth, and everything else derives from it.
 
-```ts
-import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from 'zmdb';
-
-export interface User extends Table<'users'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;
-  role: ('admin' | 'user') & HasDefault;
-  createdAt: Date & Sql<'timestamp'> & HasDefault;
-}
-
-export interface Order extends Table<'orders'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey;
-  userId: number & Sql<'integer'> & References<'users.id'>;
-  total: number & Sql<'numeric'> & Min<0>;
-}
-```
+<!-- snippet: quick-start.ts#snippet-1 -->
 
 Each property is its **app type** intersected with **tags**. The app type is what your code sees; the tags say what TypeScript has no syntax for. Tags are phantom `unique symbol` slots, so they erase
 completely — this file compiles to no JavaScript at all.
@@ -42,17 +27,7 @@ There is no builder DSL and no global registry. If you have a codebase full of `
 
 ## 3. Types derive automatically
 
-```ts
-import type { CreateDTO, Entity, UpdateDTO } from 'zmdb';
-
-type Row = Entity<User>;
-//   { id: number; email: string; role: 'admin' | 'user'; createdAt: Date }
-
-type CreateUser = CreateDTO<User>;
-//   { email: string; role?: 'admin' | 'user'; createdAt?: Date }   ← id absent (Serial); HasDefault → optional
-
-type UpdateUser = UpdateDTO<User>; //  Partial<CreateUser>
-```
+<!-- snippet: quick-start.ts#snippet-2 -->
 
 > [!TIP] Change a column and every derived type updates. Any call site that no longer satisfies them **fails to compile** — that compile error is the anti-drift guarantee. See
 > [Type derivation](./type-derivation.html).
@@ -64,33 +39,11 @@ type UpdateUser = UpdateDTO<User>; //  Partial<CreateUser>
 A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the `@zmdb/sqlite` `node:sqlite` driver — a genuinely
 zero-dependency setup:
 
-```ts
-import { DatabaseSync } from 'node:sqlite';
-import { defineRepository, schemaOf } from 'zmdb';
-import { sqliteDriver } from 'zmdb/sqlite';
-
-const db = new DatabaseSync('app.db'); // or ':memory:'
-const users = defineRepository(schemaOf<User>(), sqliteDriver(db));
-
-const u = await users.create({ email: 'a@b.com' }); // validated vs CreateDTO<S>
-const one = await users.findById(u.id); // Entity<S> | undefined
-const admins = await users.find({ role: 'admin' }); // typed WhereDTO<S>
-const page = await users.list({ page: { limit: 20 } }); // ListResult<Entity<S>>
-const updated = await users.update(u.id, { role: 'admin' }); // UpdatePatch<S>; plain values validate as UpdateDTO<S>
-const gone = await users.delete(u.id); // boolean
-```
+<!-- snippet: quick-start.ts#snippet-3 -->
 
 Prefer a class? Subclassing works identically:
 
-```ts
-import { BaseRepository } from 'zmdb/orm';
-
-const userSchema = schemaOf<User>();
-class UserRepository extends BaseRepository<User> {
-  static readonly schema = userSchema;
-}
-const users = new UserRepository(sqliteDriver(db));
-```
+<!-- snippet: quick-start.ts#snippet-4 -->
 
 > [!IMPORTANT] `schemaOf<T>()` is a **compile-time** call — the answer is a function of a type argument, and type arguments do not exist at runtime. The transformer replaces it with a frozen object
 > literal. An untransformed build throws a message saying exactly that; it does not hand back an empty schema. Wire up the [plugin](./aot-setup.html) or the [codegen CLI](./cli-codegen.html).
@@ -103,15 +56,7 @@ const users = new UserRepository(sqliteDriver(db));
 
 ## 5. Query your data (typed)
 
-```ts
-import { applyOrderBy, buildListResult, compileWhere } from 'zmdb/schema';
-
-let qb = users.query.selectFrom('users');
-qb = compileWhere(qb, { role: 'admin', createdAt: { gte: since } });
-qb = applyOrderBy(qb, [{ column: 'createdAt', dir: 'desc' }]);
-const rows = await driver.execute(qb.limit(21).compile());
-const page = buildListResult(rows, { limit: 20 }); // { items, hasMore }
-```
+<!-- snippet: quick-start.ts#snippet-5 -->
 
 ```sql
 SELECT * FROM "users"
@@ -124,27 +69,11 @@ The filter, ordering and pagination are all typed against `User`. See [Filters](
 
 ## 6. Atomic writes with transactions
 
-```ts
-import { createTransactionalDb } from 'zmdb/orm';
-
-const db = createTransactionalDb(connection);
-await db.transaction(async tx => {
-  // withTransaction re-binds a repository onto the transaction's connection
-  const user = await users.withTransaction(tx).create({ email: 'a@b.com' });
-  const order = await orders.withTransaction(tx).create({ userId: user.id, total: 42 });
-  // throw here → ROLLBACK; clean return → COMMIT
-});
-```
+<!-- snippet: quick-start.ts#snippet-6 -->
 
 ## 7. Validate at the boundary
 
-```ts
-import { assert, type CreateDTO } from 'zmdb';
-
-// In an HTTP handler: validate the inbound body against the derived Create DTO.
-const payload = assert<CreateDTO<User>>(await req.json());
-const user = await users.create(payload);
-```
+<!-- snippet: quick-start.ts#snippet-7 -->
 
 ## Where to go next
 

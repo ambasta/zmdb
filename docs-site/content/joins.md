@@ -4,11 +4,7 @@ The examples use `orders(id, userId, status)` joined to `users(id, email)`.
 
 ## Inner join
 
-```ts
-import { joinableSelectFrom } from '@zmdb/query-compiler/joins';
-
-joinableSelectFrom('orders', 'postgres').innerJoin('users', 'orders.userId', 'users.id').where('orders.status', '=', 'shipped').compile();
-```
+<!-- snippet: joins.ts#snippet-1 -->
 
 ```sql
 SELECT * FROM "orders"
@@ -20,9 +16,7 @@ WHERE "orders"."status" = $1
 
 A left join keeps base rows even when there is no match — the joined columns may be null (reflected by `JoinRow<Base, Joined, 'left'>`).
 
-```ts
-joinableSelectFrom('employees as e', 'postgres').leftJoin('employees as r', 'r.id', 'e.recipient_id').where('e.id', '=', 1).compile();
-```
+<!-- snippet: joins.ts#snippet-2 -->
 
 ```sql
 SELECT * FROM "employees" AS "e"
@@ -36,9 +30,7 @@ As above, table aliases (`table as alias`) let a table join itself. Use [`aliasR
 
 ## Through the repository
 
-```ts
-await orders.findJoined({ target: 'users', leftCol: 'orders.userId', rightCol: 'users.id', kind: 'inner' }, { col: 'orders.status', op: '=', value: 'shipped' });
-```
+<!-- snippet: joins.ts#snippet-3 -->
 
 > [!TIP] Joined rows come back as **flat plain objects** (no nested proxies). For typed nested relation shapes use [populate](./relations.html); for a typed flat join row use
 > [`JoinRow`](./populate-results.html).

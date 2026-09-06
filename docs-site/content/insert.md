@@ -2,9 +2,7 @@ Insert rows with the query builder, or (preferably) through a repository's `crea
 
 ## Basic insert
 
-```ts
-qc.insertInto('users').values({ email: 'a@b.com', role: 'user' }).compile();
-```
+<!-- snippet: insert.ts#snippet-1 -->
 
 ```sql
 INSERT INTO "users" ("email", "role") VALUES ($1, $2)
@@ -13,9 +11,7 @@ INSERT INTO "users" ("email", "role") VALUES ($1, $2)
 
 ## Returning the inserted row
 
-```ts
-qc.insertInto('users').values({ email: 'a@b.com' }).returning(['id', 'createdAt']).compile();
-```
+<!-- snippet: insert.ts#snippet-2 -->
 
 ```sql
 INSERT INTO "users" ("email") VALUES ($1) RETURNING "id", "createdAt"
@@ -34,10 +30,7 @@ INSERT without `returning()`, validate the payload explicitly, and perform the r
 
 ## Through the repository (validated)
 
-```ts
-const user = await users.create({ email: 'a@b.com' }); // role defaults applied
-// returns Entity<User>
-```
+<!-- snippet: insert.ts#snippet-3 -->
 
 > [!IMPORTANT] If the payload is invalid, `create` throws a structured `ValidationError` and **no SQL runs** — the driver is never called. Auto-increment PKs and defaulted columns may be omitted from
 > the payload (that is what `CreateDTO` encodes).

@@ -5,45 +5,19 @@ projections to fetched rows.
 
 The repository's read methods accept a `select` option that narrows the returned row type. This is type-safe — only valid column keys from the schema are allowed.
 
-```ts
-import type { Entity } from '@zmdb/schema-core';
-
-// Given `interface User` with columns: id, email, role, createdAt
-type UserRow = Entity<User>;
-// UserRow = { id: number; email: string; role: string; createdAt: Date }
-
-// Select only email and role — type narrows automatically
-const minimal = await users.findById(1, { select: ['email', 'role'] as const });
-// Type: { email: string; role: string } | undefined
-```
+<!-- snippet: projections.ts#snippet-1 -->
 
 ## Runtime Projection Helper
 
 The `project()` function applies a column selection to a fetched row, returning a new object with only the specified keys.
 
-```ts
-import { project } from '@zmdb/schema-core/dto';
-
-const row = { id: 1, email: 'a@b.com', role: 'admin', createdAt: new Date() };
-
-const narrow = project(row, ['email', 'role'] as const);
-// narrow = { email: 'a@b.com', role: 'admin' }
-
-// Passing undefined returns the row unchanged
-const full = project(row, undefined);
-// full = { id: 1, email: 'a@b.com', role: 'admin', createdAt: ... }
-```
+<!-- snippet: projections.ts#snippet-2 -->
 
 ## SQL Emitted
 
 When you specify `select` in a repository call, the compiler emits only those columns in the SELECT clause.
 
-```ts
-const q = qb.selectFrom('users').select(['email', 'role']).where('id', '=', 1).compile();
-
-console.log(q.text);
-// SELECT "email", "role" FROM "users" WHERE "id" = $1
-```
+<!-- snippet: projections.ts#snippet-3 -->
 
 > [!IMPORTANT] Projections are compile-time checked against the schema. If you reference a column that doesn't exist, TypeScript will error before your code runs.
 
@@ -53,13 +27,7 @@ console.log(q.text);
 - Dashboard queries fetching only display columns
 - Reducing memory footprint for large result sets
 
-```ts
-// Expose only public-safe user data
-const publicUser = await users.findById(id, {
-  select: ['id', 'email', 'role'] as const,
-});
-// Never leaks internal fields like password_hash
-```
+<!-- snippet: projections.ts#snippet-4 -->
 
 > [!TIP] Combine projections with pagination to minimize data transfer. Fetch only what you display.
 

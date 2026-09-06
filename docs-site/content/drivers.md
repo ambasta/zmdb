@@ -1,61 +1,16 @@
 A `Driver` is the whole database abstraction: one required dialect object, one method that runs a compiled query and returns rows, plus optional streaming and capability metadata. Everything above it
 — repositories, transactions, replicas, logging, caching and observability — composes around that boundary.
 
-```ts
-import type { CompiledQuery, SqlDialect } from '@zmdb/query-compiler';
-
-export interface Driver<Name extends string = string> {
-  readonly dialect: SqlDialect<Name>;
-  readonly queryTelemetry?: true;
-  execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
-  stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
-}
-```
+<!-- snippet: drivers.ts#snippet-1 -->
 
 `CompiledQuery` always has `text` and `parameters`. It may also have optional compile-time `telemetry` when an observing wrapper requests it. An ordinary driver hands the text and parameters to the
 client and returns rows; it does not parse SQL. `Driver` lives in `@zmdb/repository`, not in the compiler.
 
 ## First-party drivers
 
-```ts
-// node:sqlite — no external dependency
-import { DatabaseSync } from 'node:sqlite';
-import { defineRepository } from '@zmdb/repository';
-import { sqliteDriver } from '@zmdb/sqlite';
+<!-- snippet: drivers.ts#snippet-2 -->
 
-const db = new DatabaseSync('app.db');
-const users = defineRepository(UserSchema, sqliteDriver(db));
-```
-
-```ts
-// mysql2 — selected by the application
-import mysql2 from 'mysql2/promise';
-import { mysqlDriver } from '@zmdb/mysql';
-import { defineRepository } from '@zmdb/repository';
-
-const pool = mysql2.createPool({
-  uri: process.env.DATABASE_URL,
-  charset: 'utf8mb4',
-  supportBigNumbers: true,
-  bigNumberStrings: true,
-});
-const users = defineRepository(UserSchema, mysqlDriver(pool));
-```
-
-```ts
-// pg (node-postgres)
-import { Pool } from 'pg';
-import { postgresDriver } from '@zmdb/postgres';
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const users = defineRepository(UserSchema, postgresDriver(pool));
-
-// opt-in server-side prepared statements (caches the plan per SQL text)
-const fast = postgresDriver(pool, { prepared: true });
-
-// active AbortSignal cancellation; the pool must have a spare connection
-const cancellable = postgresDriver(pool, { cancelVia: pool });
-```
+<!-- snippet: drivers.ts#snippet-3 -->
 
 ```ts
 // node-mssql — pass an already-connected pool
@@ -87,23 +42,7 @@ on iterator cleanup. A bare Postgres `Client` and the SQL Server adapter omit `s
 
 Any database with a client that takes SQL plus parameters:
 
-```ts
-import type { Driver } from '@zmdb/repository';
-import { sqlite } from '@zmdb/sqlite';
-
-export function d1Driver(db: D1Database): Driver {
-  return {
-    dialect: sqlite,
-    async execute(query) {
-      const { results } = await db
-        .prepare(query.text)
-        .bind(...query.parameters)
-        .all();
-      return results;
-    },
-  };
-}
-```
+<!-- snippet: drivers.ts#snippet-4 -->
 
 Three rules for a correct driver:
 
@@ -117,9 +56,7 @@ Three rules for a correct driver:
 Because a driver has one execution method plus its required dialect object, a wrapper is a driver. Wrappers must preserve `dialect` and forward the optional execute options so cancellation is not
 lost:
 
-```ts
-const driver = loggingDriver(cachingDriver(withReplicas({ primary, replicas }), store, 5_000), sink);
-```
+<!-- snippet: drivers.ts#snippet-5 -->
 
 This is the extension point the framework leans on hardest. Logging, tracing, metrics, a query budget, replica routing and per-tenant connections are driver wrappers, so each one covers handlers,
 workers and CLI scripts alike rather than just the HTTP path. Retrying a whole transaction is different: the transaction helper owns the callback and replays it only after explicit opt-in.
@@ -130,23 +67,13 @@ workers and CLI scripts alike rather than just the HTTP path. Retrying a whole t
 
 Either form works. `defineRepository` recovers the declared type from the schema, and its relations with it:
 
-```ts
-const users = defineRepository(UserSchema, driver);
-```
+<!-- snippet: drivers.ts#snippet-6 -->
 
 The driver carries the required dialect object, so repository construction needs no separate database selector.
 
 Or a subclass, when you want to add methods or [lifecycle hooks](./lifecycle-hooks.html):
 
-```ts
-import { BaseRepository } from '@zmdb/repository';
-
-class UserRepository extends BaseRepository<User> {
-  static override readonly schema = UserSchema;
-}
-
-const users = new UserRepository(driver); // derives driver.dialect
-```
+<!-- snippet: drivers.ts#snippet-7 -->
 
 Repository construction uses `driver.dialect`; there is no implicit database or string-name fallback.
 
@@ -154,29 +81,7 @@ Repository construction uses `driver.dialect`; there is no implicit database or 
 
 A transaction is a driver bound to one connection. `withTransaction` re-binds a repository onto it, so every method on the returned repository runs inside the transaction:
 
-```ts
-const client = await pool.connect();
-try {
-  await client.query('BEGIN');
-
-  const tx = {
-    dialect: driver.dialect,
-    execute: (q: CompiledQuery) => client.query(q.text, [...q.parameters]).then(r => r.rows),
-  };
-  const txUsers = users.withTransaction(tx);
-  const txAccounts = accounts.withTransaction(tx);
-
-  await txUsers.create({ email: 'ada@example.com' });
-  await txAccounts.update(1, { status: 'active' });
-
-  await client.query('COMMIT');
-} catch (error) {
-  await client.query('ROLLBACK');
-  throw error;
-} finally {
-  client.release();
-}
-```
+<!-- snippet: drivers.ts#snippet-8 -->
 
 Two things to be careful about:
 
@@ -193,9 +98,7 @@ Two things to be careful about:
 
 zmdb parses none — that is your client's job, and every client already does it. `new Pool({ connectionString })` and `createPool({ uri })` both accept a URL directly.
 
-```ts
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 10 });
-```
+<!-- snippet: drivers.ts#snippet-9 -->
 
 > [!WARNING] Read credentials from the environment or a secret manager, never from source. And never `ssl: { rejectUnauthorized: false }` — it disables certificate verification entirely, which turns
 > TLS into obfuscation and makes a man-in-the-middle attack on your database traffic trivial. Supply the CA certificate instead.
@@ -206,15 +109,7 @@ Pool sizing, PgBouncer and serverless connection limits are on [Connect to Postg
 
 A driver is a function, so a fake is three lines:
 
-```ts
-import { postgres } from '@zmdb/postgres';
-
-const calls: CompiledQuery[] = [];
-const spy: Driver = { dialect: postgres, execute: async q => (calls.push(q), []) };
-
-await defineRepository(users, spy).findAll();
-expect(calls[0]?.text).toContain('SELECT');
-```
+<!-- snippet: drivers.ts#snippet-10 -->
 
 Asserting on the compiled SQL is the fastest test in the suite and catches the mistakes that matter — a missing `WHERE`, a wrong join, an unparameterised value. For end-to-end coverage, `node:sqlite`
 gives you a real database with no server; see [Testing](./testing.html).

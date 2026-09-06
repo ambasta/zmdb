@@ -3,16 +3,7 @@ development environments.
 
 ## Basic Usage
 
-```ts
-import { seedRows } from '@zmdb/repository/seeding';
-import { userSchema } from './schemas.js';
-
-// Generate 100 rows with the default seed (1)
-const rows = seedRows(userSchema, { count: 100 });
-
-// rows => CreateDTO<User>[]
-// [{ name: 's3k1w9d', email: 's2m5p8k', age: 34, active: true }, ...]
-```
+<!-- snippet: seeding.ts#snippet-1 -->
 
 `seedRows` takes the **schema value** — `schemaOf<User>()` — rather than the type, and reads the declared type back off it: a `TaggedSchema<User>` carries `User` in its type, so the return is
 `CreateDTO<User>[]` and the rows go into `repo.create` with no cast.
@@ -21,25 +12,14 @@ const rows = seedRows(userSchema, { count: 100 });
 
 Pass a seed for reproducible output:
 
-```ts
-// Same seed = same rows every time
-const rows1 = seedRows(userSchema, { seed: 42, count: 10 });
-const rows2 = seedRows(userSchema, { seed: 42, count: 10 });
-
-// rows1 and rows2 are structurally equal
-```
+<!-- snippet: seeding.ts#snippet-2 -->
 
 The PRNG is mulberry32 — fast, deterministic, and seedable. Nothing in the generator reaches for `Math.random`, so a seeded run is reproducible across processes and runtimes, which is what makes a
 seeded failure debuggable from the test output alone.
 
 ## Seed Options
 
-```ts
-interface SeedOptions {
-  seed?: number; // PRNG seed (default: 1)
-  count: number; // number of rows to generate
-}
-```
+<!-- snippet: seeding.ts#snippet-3 -->
 
 ## What a generated value satisfies
 
@@ -66,34 +46,17 @@ failed the table's own validator inside a test whose subject was something else.
 Auto-increment and defaulted columns are **absent**, because `CreateDTO<T>` does not have the first and treats the second as optional — and a seeded value over a database default makes a row that does
 not resemble an inserted one:
 
-```ts
-export interface Thing extends Table<'things'> {
-  id: number & Sql<'integer'> & Serial & PrimaryKey; // absent — the database assigns it
-  createdAt: Date & Sql<'timestamp'> & HasDefault; //    absent — the default assigns it
-  name: string & Sql<'text'>; //                         generated
-  active: boolean & Sql<'boolean'>; //                   generated
-}
-```
+<!-- snippet: seeding.ts#snippet-4 -->
 
 ## What it refuses
 
 A column the sampler cannot satisfy is a thrown refusal that names the column and the reason, rather than a value that will be rejected downstream. The case that occurs in practice is `Pattern<…>`:
 
-```ts
-export interface Account extends Table<'accounts'> {
-  slug: string & Sql<'text'> & Pattern<'^[a-z]+$'>;
-}
-
-seedRows(accountSchema, { count: 1 });
-// Error: cannot sample `.slug`: a sample cannot be built from a pattern;
-//        nothing here inverts a regular expression
-```
+<!-- snippet: seeding.ts#snippet-5 -->
 
 Inverting a regular expression is a real problem and this does not solve it — it says so instead. Where you need such a table seeded, write that column yourself:
 
-```ts
-const accounts = Array.from({ length: 10 }, (_, i) => ({ slug: `account-${i}` }));
-```
+<!-- snippet: seeding.ts#snippet-6 -->
 
 or drop the pattern from the column and check the value at the boundary that receives one. The other refusals — contradictory bounds, a type that recurs with no terminating arm — are listed under
 [`random()`](./random.html).
@@ -102,38 +65,17 @@ or drop the pattern from the column and check the value at the boundary that rec
 
 `makeRng(seed)` is exported because a seed script usually needs more than rows — picking an existing id, choosing a category, deciding whether an optional field is set:
 
-```ts
-import { makeRng, seedRows } from '@zmdb/repository/seeding';
-
-const rng = makeRng(42);
-const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)]!;
-
-const authorIds = (await authorRepo.findAll()).map(a => a.id);
-for (const post of seedRows(postSchema, { count: 500, seed: 42 })) {
-  await postRepo.create({ ...post, authorId: pick(authorIds) });
-}
-```
+<!-- snippet: seeding.ts#snippet-7 -->
 
 Using the same seed for `makeRng` and `seedRows` keeps the whole script reproducible, including the join keys.
 
 ## Integration with Repository
 
-```ts
-async function seedDatabase(repo: UserRepository, count: number) {
-  for (const row of seedRows(userSchema, { count })) {
-    await repo.create(row);
-  }
-}
-```
+<!-- snippet: seeding.ts#snippet-8 -->
 
 `count` round trips. For a large seed, batch through the compiler instead:
 
-```ts
-import { postgres } from '@zmdb/postgres';
-
-const q = createQueryCompiler(postgres).insertInto('users').values(rows).compile();
-await driver.execute(q);
-```
+<!-- snippet: seeding.ts#snippet-9 -->
 
 > [!TIP] Use a transaction for bulk seeds to improve performance and ensure atomicity.
 
