@@ -12,9 +12,9 @@ Issue #688, parent #687. This is the architecture contract for the optional UI a
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-This file originally froze all nine packages before implementation. Issues #691–#695 and #697 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, and `@zmdb/next`; the
-other three remain implementation targets. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport, wire
-format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issues #691–#695, #697, and #698 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/next`,
+and `@zmdb/nuxt`; the other two remain implementation targets. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request
+transport, wire format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
 
 ## 0. Measured starting point
 
@@ -42,10 +42,13 @@ and source-change cancellation, stale-result guards, and native Suspense/error p
 `@zmdb/next` implements the first meta-framework row through physically separate browser and server exports, React binding reuse, request-scoped credential forwarding, request-local RSC memoization,
 and explicit Next fetch policy.
 
-The shared generated-client conformance suite now executes all six landed rows as ordinary passing tests. The remaining three adapter rows retain executable missing-package expected failures until
+`@zmdb/nuxt` implements the Vue meta-framework row through a root Nuxt module, physically separate client and server exports, request-scoped Nitro local fetch, allow-listed incoming credentials,
+stable serializable hydration keys, and native `useAsyncData` payload reuse.
+
+The shared generated-client conformance suite now executes all seven landed rows as ordinary passing tests. The remaining two adapter rows retain executable missing-package expected failures until
 their own implementation issues land. The Svelte and Solid packed fixtures install real client and adapter tarballs, exercise browser and server conditions, check public inference, and prove
 request-isolated server ownership. The Next packed fixture builds and runs a real App Router application, checks the server-only boundary, and inspects browser output for server credentials and server
-package code.
+package code. The Nuxt packed fixture builds the real module, renders concurrent SSR requests with isolated credentials, observes native payload reuse, and exercises the browser plugin.
 
 ## 1. Ownership boundary
 
@@ -152,8 +155,8 @@ Recipes are still supported documentation. They simply do not create another pac
 | `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
 | `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
-This table is a design qualification, not a blanket support claim. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/next` have earned their rows through native and packed
-qualification fixtures in #691–#694 and #697; each remaining row stays conditional on its implementation and packed qualification evidence.
+This table is a design qualification, not a blanket support claim. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/next`, and `@zmdb/nuxt` have earned their rows
+through native and packed qualification fixtures in #691–#695, #697, and #698; each remaining row stays conditional on its implementation and packed qualification evidence.
 
 ## 3. Common query and mutation semantics
 
@@ -395,8 +398,8 @@ credential literal is reachable from `./client`.
 
 ### 6.8 Nuxt
 
-The module installs request-local server and browser plugins. The server entry uses the current Nitro event's fetch and allow-listed credentials. The client entry reuses `@zmdb/vue`. `useAsyncData`
-integration uses explicit stable keys and native payload hydration rather than a second cache.
+The module installs request-local server and browser plugins. The server entry combines Nitro local fetch with allow-listed credentials snapshotted from the current request. The client entry reuses
+`@zmdb/vue`. `useAsyncData` integration uses explicit stable keys and native payload hydration rather than a second cache. Issue #698 implements this contract in [`@zmdb/nuxt`](../../../nuxt/SPEC.md).
 
 ### 6.9 SvelteKit
 

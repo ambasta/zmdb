@@ -30,6 +30,7 @@ import {
   createApiClient,
   createControllableAdapterTransport,
   createNextConformanceBinding,
+  createNuxtConformanceBinding,
   createReactConformanceBinding,
   createSvelteAdapterConformanceBinding,
   createVueConformanceBinding,
@@ -119,7 +120,8 @@ const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(
     expectation.name !== '@zmdb/vue' &&
     expectation.name !== '@zmdb/svelte' &&
     expectation.name !== '@zmdb/solid' &&
-    expectation.name !== '@zmdb/next',
+    expectation.name !== '@zmdb/next' &&
+    expectation.name !== '@zmdb/nuxt',
 );
 
 describe('the shared generated adapter fixture (#689, #690)', () => {
@@ -343,6 +345,10 @@ describe('@zmdb/angular executable adapter contract', () => {
 
 describe('@zmdb/vue executable adapter contract', () => {
   registerExecutableAdapterContract(it, createVueConformanceBinding<ApiClient>());
+});
+
+describe('@zmdb/nuxt executable adapter contract', () => {
+  registerExecutableAdapterContract(it, createNuxtConformanceBinding<ApiClient>());
 });
 
 describe('@zmdb/svelte executable adapter contract', () => {

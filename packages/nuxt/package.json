@@ -1,0 +1,62 @@
+{
+  "name": "@zmdb/nuxt",
+  "version": "1.0.0-alpha.4",
+  "description": "Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.",
+  "keywords": [
+    "client",
+    "nitro",
+    "nuxt",
+    "ssr",
+    "typescript",
+    "vue",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/nuxt"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client/index.ts",
+    "./server": "./src/server/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/client": "workspace:^",
+    "@zmdb/vue": "workspace:^"
+  },
+  "devDependencies": {
+    "nuxt": "4.5.2",
+    "rolldown": "1.2.2",
+    "typescript": "7.0.2",
+    "vue": "3.5.42"
+  },
+  "peerDependencies": {
+    "nuxt": ">=4.5.0 <5.0.0",
+    "vue": ">=3.5.0 <4.0.0"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

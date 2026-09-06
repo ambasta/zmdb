@@ -35,6 +35,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/jobs-postgres      | 1.0.0-alpha.4 | jobs-postgres   | integration: PostgreSQL job storage            | `npm add @zmdb/jobs-postgres@1.0.0-alpha.4`      | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                                                           | web-queues                   |
 | @zmdb/mcp                | 1.0.0-alpha.4 | mcp             | integration: Model Context Protocol            | `npm add @zmdb/mcp@1.0.0-alpha.4`                | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp                      |
 | @zmdb/next               | 1.0.0-alpha.4 | next            | integration: Next.js                           | `npm add @zmdb/next@1.0.0-alpha.4`               | Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.                                                                                                                            | framework-integrations       |
+| @zmdb/nuxt               | 1.0.0-alpha.4 | nuxt            | integration: Nuxt 4                            | `npm add @zmdb/nuxt@1.0.0-alpha.4`               | Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.                                                                                                             | framework-integrations       |
 | @zmdb/otel               | 1.0.0-alpha.4 | otel            | integration: OpenTelemetry                     | `npm add @zmdb/otel@1.0.0-alpha.4`               | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability            |
 | @zmdb/protobuf           | 1.0.0-alpha.4 | protobuf        | integration: Protocol Buffers                  | `npm add @zmdb/protobuf@1.0.0-alpha.4`           | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                           | protobuf-message             |
 | @zmdb/query-compiler     | 1.0.0-alpha.4 | sql             | required                                       | `npm add zmdb@1.0.0-alpha.4`                     | SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.                                                                                     | raw-sql                      |
@@ -326,6 +327,28 @@ Request-scoped Next.js server clients and React browser bindings for generated z
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/next-app-router
+
+### `@zmdb/nuxt`
+
+Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+  - `./client` → `./src/client/index.ts`
+  - `./server` → `./src/server/index.ts`
+- **Dependencies:**
+  - `@zmdb/client` → `workspace:^`
+  - `@zmdb/vue` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `nuxt` → `>=4.5.0 <5.0.0`
+  - `vue` → `>=3.5.0 <4.0.0`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/client-adapters/nuxt
 
 ### `@zmdb/otel`
 

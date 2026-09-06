@@ -20,8 +20,8 @@ dispose. The common cases then run the same generated client through that bindin
 | Nuxt           | Vue client scope or one Nitro request/plugin instance                 | Vue refs or request-local `useAsyncData` input/key change | scope stop or end of the Nitro request            |
 | SvelteKit      | Svelte subscription or one `RequestEvent` load                        | store change or a new navigation/load                     | unsubscribe or navigation/request cancellation    |
 
-The `bindPreparedAdapterSubject` bridge exists only to keep #689's missing-package `it.fails` cases executable. React, Angular, Vue, Svelte, and Next now use their real framework bindings through the
-corresponding fixture modules; the remaining missing adapters still use the bridge as retirement triggers. No implementation copies the bridge into production.
+The `bindPreparedAdapterSubject` bridge exists only to keep #689's missing-package `it.fails` cases executable. React, Angular, Vue, Svelte, Solid, Next, and Nuxt now use their real framework
+lifecycles through the corresponding fixture modules; the remaining missing adapters still use the bridge as retirement triggers. No implementation copies the bridge into production.
 
 `svelte-packed/` separately installs the client and Svelte tarballs, compiles browser and server component graphs, renders isolated server trees, and typechecks only public package declarations.
 
@@ -33,7 +33,7 @@ corresponding fixture modules; the remaining missing adapters still use the brid
 - `conformance-cases.ts` contains the shared query, mutation, error, cancellation, stale-result, and no-retry assertions.
 - `ssr.ts` starts two concurrent authenticated requests and compares the credentials and results by request URL.
 - `package-rules.ts` enforces the package matrix, framework peers, import purity, and the absence of server, ORM, database, or competing HTTP dependencies. Vue's three framework-owned runtime hooks
-  are an explicit package-matrix allowance; adapter-created globals remain failures.
+  are an explicit package-matrix allowance, and Nuxt's root/client/server entries are checked independently; adapter-created globals remain failures.
 
 Import purity is measured after loading the adapter's required framework peers. This separates effects owned by a framework runtime—Angular core itself installs `ngDevMode` and devtools globals—from
 network or global registration added by an adapter package.
@@ -46,4 +46,5 @@ ranges.
 
 This helper is orchestration, not qualification evidence by itself. Issues #691–#694 combine it with the real React, Angular, Vue, and Svelte packages, native lifecycle bindings, published manifests,
 external typechecks, and common runtime cases. Issue #697 adds a packed Next App Router application with physical server/browser boundaries, request-local runtime evidence, and browser-output
-inspection. Issue #700 remains responsible for cross-adapter qualification that no framework-specific slice can earn alone.
+inspection. Issue #698 adds a packed Nuxt 4.5.2 application that installs `@zmdb/client`, `@zmdb/vue`, and `@zmdb/nuxt` tarballs, builds the real module, renders concurrent requests with isolated
+credentials, observes native Nuxt payload data, and exercises the browser plugin. Issue #700 remains responsible for cross-adapter qualification that no framework-specific slice can earn alone.

@@ -1,5 +1,5 @@
 import { createZmdbVue } from '@zmdb/vue';
-import type { VueMutationState, VueQueryState } from '@zmdb/vue';
+import type { VueMutationState, VueQueryState, ZmdbVueBindings } from '@zmdb/vue';
 import { createSSRApp, effectScope, shallowRef } from 'vue';
 import type { EffectScope } from 'vue';
 
@@ -15,9 +15,9 @@ import type {
 import { ADAPTER_PACKAGES } from './package-matrix.js';
 import type { AdapterPackageExpectation } from './package-matrix.js';
 
-function vueExpectation(): AdapterPackageExpectation {
-  const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === '@zmdb/vue');
-  if (expectation === undefined) throw new Error('the adapter matrix omitted @zmdb/vue');
+function vueExpectation(name: '@zmdb/nuxt' | '@zmdb/vue'): AdapterPackageExpectation {
+  const expectation = ADAPTER_PACKAGES.find(candidate => candidate.name === name);
+  if (expectation === undefined) throw new Error(`the adapter matrix omitted ${name}`);
   return expectation;
 }
 
@@ -43,11 +43,12 @@ function mutationSnapshot<Input, Output>(state: VueMutationState<Input, Output> 
 }
 
 function prepareVueQuery<Client extends object, Input, Output>(
+  createBindings: () => ZmdbVueBindings<Client>,
   client: Client,
   initialInput: Input,
   load: QueryLoader<Client, Input, Output>,
 ): ConformanceQuery<Input, Output> {
-  const bindings = createZmdbVue<Client>('@zmdb/vue conformance');
+  const bindings = createBindings();
   const input = shallowRef<Input>(initialInput);
   const app = createSSRApp({ render: () => null });
   app.use(bindings.createZmdbPlugin(client));
@@ -98,10 +99,11 @@ function prepareVueQuery<Client extends object, Input, Output>(
 }
 
 function prepareVueMutation<Client extends object, Input, Output>(
+  createBindings: () => ZmdbVueBindings<Client>,
   client: Client,
   run: MutationRunner<Client, Input, Output>,
 ): ConformanceMutation<Input, Output> {
-  const bindings = createZmdbVue<Client>('@zmdb/vue conformance');
+  const bindings = createBindings();
   const app = createSSRApp({ render: () => null });
   app.use(bindings.createZmdbPlugin(client));
   let scope: EffectScope | undefined;
@@ -130,17 +132,20 @@ function prepareVueMutation<Client extends object, Input, Output>(
   };
 }
 
-export function createVueConformanceBinding<Client extends object>(): AdapterConformanceBinding<Client> {
+export function createVueFamilyConformanceBinding<Client extends object>(
+  packageName: '@zmdb/nuxt' | '@zmdb/vue',
+  createBindings: () => ZmdbVueBindings<Client>,
+): AdapterConformanceBinding<Client> {
   return {
-    package: vueExpectation(),
+    package: vueExpectation(packageName),
     prepareQuery(options) {
-      return prepareVueQuery(options.client, options.input, options.load);
+      return prepareVueQuery(createBindings, options.client, options.input, options.load);
     },
     prepareMutation(options) {
-      return prepareVueMutation(options.client, options.run);
+      return prepareVueMutation(createBindings, options.client, options.run);
     },
     runSsrQuery(options) {
-      const bindings = createZmdbVue<Client>('@zmdb/vue SSR conformance');
+      const bindings = createBindings();
       const app = createSSRApp({ render: () => null });
       app.use(bindings.createZmdbPlugin(options.client));
       return app.runWithContext(() =>
@@ -148,4 +153,8 @@ export function createVueConformanceBinding<Client extends object>(): AdapterCon
       );
     },
   };
+}
+
+export function createVueConformanceBinding<Client extends object>(): AdapterConformanceBinding<Client> {
+  return createVueFamilyConformanceBinding('@zmdb/vue', () => createZmdbVue<Client>('@zmdb/vue conformance'));
 }

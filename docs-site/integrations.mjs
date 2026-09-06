@@ -35,10 +35,16 @@ export const INTEGRATIONS = Object.freeze([
   }),
   integration({
     capability: 'Nuxt',
-    package: null,
-    status: 'not-planned',
+    package: '@zmdb/nuxt',
+    status: 'optional',
+    peers: ['nuxt', 'vue'],
     docs: 'framework-integrations',
-    evidence: ['packages/zmdb/src/client-integrations/SPEC.md'],
+    evidence: [
+      'packages/nuxt/src/client/client.spec.ts',
+      'packages/nuxt/src/server/server.spec.ts',
+      'packages/nuxt/src/packed-consumer.spec.ts',
+      'fixtures/client-adapters/nuxt',
+    ],
   }),
   integration({
     capability: 'React',

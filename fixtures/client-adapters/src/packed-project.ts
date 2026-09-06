@@ -65,7 +65,10 @@ interface PackageManifest {
 }
 
 const PACKED_BUILD_WAIT = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
-const PACKED_BUILD_LOCK_TIMEOUT_MS = 300_000;
+// The full gate runs every packed framework consumer in parallel while package
+// builds are intentionally serialized. With Nuxt added to the matrix, the
+// measured queue can exceed five minutes even though each holder completes.
+const PACKED_BUILD_LOCK_TIMEOUT_MS = 600_000;
 export const PACKED_BUILD_TEST_TIMEOUT_MS = PACKED_BUILD_LOCK_TIMEOUT_MS * 2;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

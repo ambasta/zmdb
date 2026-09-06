@@ -33,6 +33,11 @@ const META = {
     description: 'Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.',
     keywords: ['client', 'nextjs', 'react', 'typescript', 'zmdb'],
   },
+  nuxt: {
+    description:
+      'Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration for generated zmdb clients.',
+    keywords: ['client', 'nuxt', 'nitro', 'ssr', 'typescript', 'vue', 'zmdb'],
+  },
   solid: {
     description: 'Solid context, resource and owner-lifetime bindings for generated zmdb clients.',
     keywords: ['client', 'solid', 'solidjs', 'typescript', 'zmdb'],

@@ -161,6 +161,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/next-app-router' },
   }),
   productPackage({
+    id: 'nuxt',
+    directory: 'packages/nuxt',
+    npmName: '@zmdb/nuxt',
+    role: 'nuxt',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'Nuxt 4' },
+    docsOwner: 'framework-integrations',
+    consumer: { fixture: 'fixtures/client-adapters/nuxt' },
+  }),
+  productPackage({
     id: 'otel',
     directory: 'packages/otel',
     npmName: '@zmdb/otel',

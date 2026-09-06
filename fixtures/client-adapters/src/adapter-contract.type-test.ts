@@ -1,6 +1,6 @@
 // Compile-only framework inference freeze for #689.
 //
-// React, Angular, Vue, Svelte, Solid, and Next now use their real public types. The remaining namespace imports are
+// React, Angular, Vue, Svelte, Solid, Next, and Nuxt now use their real public types. The remaining namespace imports are
 // retirement triggers: each implementation issue makes its directive unused,
 // at which point that package's native bridge below must be replaced by the
 // real public types rather than leaving a structural stand-in behind.
@@ -10,15 +10,10 @@ import { createZmdbAngular } from '@zmdb/angular';
 import type { ZmdbAngularBindings, ZmdbClientRef } from '@zmdb/angular';
 import { createZmdbNextClient } from '@zmdb/next/client';
 import type { NextServerClient } from '@zmdb/next/server';
-// @ts-expect-error #698 supplies the Nuxt root entry
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #698
-import type * as MissingNuxtAdapter from '@zmdb/nuxt';
-// @ts-expect-error #698 supplies the Nuxt client entry
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #698
-import type * as MissingNuxtClientAdapter from '@zmdb/nuxt/client';
-// @ts-expect-error #698 supplies the Nuxt server entry
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #698
-import type * as MissingNuxtServerAdapter from '@zmdb/nuxt/server';
+import nuxtModule from '@zmdb/nuxt';
+import { createNuxtDataKey, createZmdbNuxt } from '@zmdb/nuxt/client';
+import type { ZmdbNuxtAsyncData, ZmdbNuxtBindings } from '@zmdb/nuxt/client';
+import { createNuxtServerTransport } from '@zmdb/nuxt/server';
 import { createZmdbReact } from '@zmdb/react';
 import type { ZmdbReactBindings } from '@zmdb/react';
 // @ts-expect-error #696 supplies the React Native adapter package
@@ -35,6 +30,7 @@ import type * as MissingSvelteKitClientAdapter from '@zmdb/sveltekit/client';
 import type * as MissingSvelteKitServerAdapter from '@zmdb/sveltekit/server';
 import { createZmdbVue } from '@zmdb/vue';
 import type { ZmdbVueBindings } from '@zmdb/vue';
+import { useAsyncData } from 'nuxt/app';
 import type { Observable } from 'rxjs';
 import type { Readable } from 'svelte/store';
 
@@ -141,6 +137,21 @@ function vueInference(bindings: VueBindings<ApiClient>): void {
   mutation.mutate satisfies (input: RenameWidgetInput) => Promise<Widget>;
 }
 
+function nuxtInference(bindings: ZmdbNuxtBindings<ApiClient>): void {
+  bindings.useZmdbClient().getWidget satisfies ApiClient['getWidget'];
+  bindings.useZmdbQuery satisfies VueBindings<ApiClient>['useZmdbQuery'];
+  bindings.useZmdbMutation satisfies VueBindings<ApiClient>['useZmdbMutation'];
+
+  const data = bindings.useZmdbAsyncData('getWidget', { id: 'one' } satisfies GetWidgetInput, (client, input, signal) =>
+    client.getWidget(input, { signal }),
+  );
+  data satisfies ZmdbNuxtAsyncData<Widget>;
+  data.data.value satisfies Widget | undefined;
+  data.pending.value satisfies boolean;
+  createNuxtDataKey('getWidget', { id: 'one' }) satisfies string;
+  createNuxtServerTransport(globalThis.fetch, new Headers()) satisfies ReturnType<typeof createNuxtServerTransport>;
+}
+
 function svelteInference(client: ApiClient): void {
   const bindings = createZmdbSvelte<ApiClient>();
   const query = bindings.query({ id: 'one' }, (api, input, signal) => api.getWidget(input, { signal }));
@@ -216,7 +227,7 @@ type NativeBindingsByPackage = {
   readonly '@zmdb/solid': SolidBindings<ApiClient>;
   readonly '@zmdb/react-native': ReactBindings<ApiClient>;
   readonly '@zmdb/next': ReactBindings<ApiClient>;
-  readonly '@zmdb/nuxt': VueBindings<ApiClient>;
+  readonly '@zmdb/nuxt': ZmdbNuxtBindings<ApiClient>;
   readonly '@zmdb/sveltekit': SvelteBindings<ApiClient>;
 };
 
@@ -238,14 +249,11 @@ export type _AllAdapterTypeBridges = Expect<
 export type _MetaFrameworksReuseNativeBaseShapes = [
   Expect<Equal<NativeBindingsByPackage['@zmdb/react-native'], NativeBindingsByPackage['@zmdb/react']>>,
   Expect<Equal<NativeBindingsByPackage['@zmdb/next'], NativeBindingsByPackage['@zmdb/react']>>,
-  Expect<Equal<NativeBindingsByPackage['@zmdb/nuxt'], NativeBindingsByPackage['@zmdb/vue']>>,
+  Expect<NativeBindingsByPackage['@zmdb/nuxt'] extends NativeBindingsByPackage['@zmdb/vue'] ? true : false>,
   Expect<Equal<NativeBindingsByPackage['@zmdb/sveltekit'], NativeBindingsByPackage['@zmdb/svelte']>>,
 ];
 
 export type _MissingPackageRetirementTriggers = [
-  keyof typeof MissingNuxtAdapter,
-  keyof typeof MissingNuxtClientAdapter,
-  keyof typeof MissingNuxtServerAdapter,
   keyof typeof MissingReactNativeAdapter,
   keyof typeof MissingSvelteKitClientAdapter,
   keyof typeof MissingSvelteKitServerAdapter,
@@ -254,12 +262,15 @@ export type _MissingPackageRetirementTriggers = [
 createZmdbReact<ApiClient>() satisfies ReactBindings<ApiClient>;
 createZmdbVue<ApiClient>() satisfies VueBindings<ApiClient>;
 createZmdbNextClient<ApiClient>() satisfies ReactBindings<ApiClient>;
+createZmdbNuxt<ApiClient>({ useAsyncData }) satisfies ZmdbNuxtBindings<ApiClient>;
 createZmdbSolid<ApiClient>() satisfies SolidBindings<ApiClient>;
+nuxtModule satisfies object;
 void reactInference;
 void nextInference;
 void angularInference;
 void createZmdbAngular<ApiClient>;
 void vueInference;
+void nuxtInference;
 void svelteInference;
 void solidInference;
 void conformanceBindingInference;

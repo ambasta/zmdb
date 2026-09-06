@@ -90,6 +90,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  nuxt: packagePolicy({
+    directory: 'packages/nuxt',
+    zone: 'integration',
+    ring: 2,
+    allowedWorkspaceDependencies: ['client', 'vue'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   'query-compiler': packagePolicy({
     directory: 'packages/query-compiler',
     zone: 'foundation',

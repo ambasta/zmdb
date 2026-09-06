@@ -31,6 +31,8 @@ Svelte is opt-in too: install `@zmdb/svelte` only when a generated client needs 
 
 Next.js is opt-in: install `@zmdb/next` for request-scoped App Router server clients and browser bindings over `@zmdb/react`, without adding Next or React to the default product.
 
+Nuxt is opt-in too: install `@zmdb/nuxt` for request-scoped Nitro transport, native hydration, and browser bindings over `@zmdb/vue`, without adding Nuxt or Vue to the default product.
+
 Solid is opt-in too: install `@zmdb/solid` with Solid 1 when a generated client needs typed context, native resources, owner cancellation, and native Suspense/error propagation.
 
 Typed gRPC is opt-in: install `@zmdb/transport-grpc` with grpc-js when an application needs generated protobuf services, streaming clients and a bounded server extension.
@@ -41,7 +43,7 @@ Redis Pub/Sub is opt-in: install `@zmdb/transport-redis` with `redis`; neither t
 
 PostgreSQL job storage is opt-in: install `@zmdb/jobs-postgres` with `pg` when workers use a caller-owned PostgreSQL pool or client.
 
-> The workspace publishes **28 packages** across **132 export-map entry points**. The current suite has **3,116 passing tests** across 284 files, plus **90 expected failures** that describe work still
+> The workspace publishes **29 packages** across **135 export-map entry points**. The current suite has **3,138 passing tests** across 287 files, plus **77 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

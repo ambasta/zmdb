@@ -324,6 +324,27 @@ describe('architecture and release governance fixtures', () => {
       target: './src/server.ts',
     });
 
+    const nuxt = lookupPackage(live, 'nuxt');
+    if (nuxt === undefined) throw new Error('canonical catalog omitted the nuxt package id');
+    expect(nuxt.npmName).toBe('@zmdb/nuxt');
+    expect(nuxt.policy.allowedWorkspaceDependencies).toEqual(['client', 'vue']);
+    expect(lookupExport(live, 'nuxt')).toBeUndefined();
+    expect(lookupExport(live, '@zmdb/nuxt')).toMatchObject({
+      package: { id: 'nuxt', npmName: '@zmdb/nuxt' },
+      selector: '.',
+      target: './src/index.ts',
+    });
+    expect(lookupExport(live, '@zmdb/nuxt/client')).toMatchObject({
+      package: { id: 'nuxt', npmName: '@zmdb/nuxt' },
+      selector: './client',
+      target: './src/client/index.ts',
+    });
+    expect(lookupExport(live, '@zmdb/nuxt/server')).toMatchObject({
+      package: { id: 'nuxt', npmName: '@zmdb/nuxt' },
+      selector: './server',
+      target: './src/server/index.ts',
+    });
+
     const solid = lookupPackage(live, 'solid');
     if (solid === undefined) throw new Error('canonical catalog omitted the solid package id');
     expect(solid.npmName).toBe('@zmdb/solid');
@@ -376,7 +397,7 @@ describe('architecture and release governance fixtures', () => {
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 28 catalog packages, 46 workspace edges, and canonical rings verified.',
+      'architecture zones: 29 catalog packages, 48 workspace edges, and canonical rings verified.',
     );
   });
 

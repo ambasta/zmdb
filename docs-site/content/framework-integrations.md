@@ -5,17 +5,17 @@ release has no official framework adapter; use the generated HTTP client through
 
 <!-- generated: integrations framework-integrations -->
 
-| Framework    | Status      | Public package      | Framework peers            | Documentation                                           | Repository evidence                                                                                                                                               |
-| ------------ | ----------- | ------------------- | -------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Angular      | optional    | @zmdb/angular       | @angular/core<br>rxjs      | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`fixtures/client-adapters/angular`                                           |
-| Next.js      | optional    | @zmdb/next          | next<br>react<br>react-dom | [framework-integrations](./framework-integrations.html) | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`fixtures/next-app-router`                                                            |
-| Nuxt         | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                                                                   |
-| React        | optional    | @zmdb/react         | react                      | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                                                                  |
-| React Native | documented  | @zmdb/aot-validator | —                          | [connect-react-native](./connect-react-native.html)     | `packages/aot-validator/src/plugin/metro.spec.ts`<br>`fixtures/consumer-metro`                                                                                    |
-| Solid        | optional    | @zmdb/solid         | solid-js                   | [framework-integrations](./framework-integrations.html) | `packages/solid/SPEC.md`<br>`packages/solid/src/solid.spec.ts`<br>`packages/solid/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/src/solid-binding.ts` |
-| Svelte       | optional    | @zmdb/svelte        | svelte                     | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`                                                     |
-| SvelteKit    | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                                                                   |
-| Vue          | optional    | @zmdb/vue           | vue                        | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`                                                       |
+| Framework    | Status      | Public package      | Framework peers            | Documentation                                           | Repository evidence                                                                                                                                                      |
+| ------------ | ----------- | ------------------- | -------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Angular      | optional    | @zmdb/angular       | @angular/core<br>rxjs      | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`fixtures/client-adapters/angular`                                                  |
+| Next.js      | optional    | @zmdb/next          | next<br>react<br>react-dom | [framework-integrations](./framework-integrations.html) | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`fixtures/next-app-router`                                                                   |
+| Nuxt         | optional    | @zmdb/nuxt          | nuxt<br>vue                | [framework-integrations](./framework-integrations.html) | `packages/nuxt/src/client/client.spec.ts`<br>`packages/nuxt/src/server/server.spec.ts`<br>`packages/nuxt/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/nuxt` |
+| React        | optional    | @zmdb/react         | react                      | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                                                                         |
+| React Native | documented  | @zmdb/aot-validator | —                          | [connect-react-native](./connect-react-native.html)     | `packages/aot-validator/src/plugin/metro.spec.ts`<br>`fixtures/consumer-metro`                                                                                           |
+| Solid        | optional    | @zmdb/solid         | solid-js                   | [framework-integrations](./framework-integrations.html) | `packages/solid/SPEC.md`<br>`packages/solid/src/solid.spec.ts`<br>`packages/solid/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/src/solid-binding.ts`        |
+| Svelte       | optional    | @zmdb/svelte        | svelte                     | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`                                                            |
+| SvelteKit    | not-planned | —                   | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                                                                          |
+| Vue          | optional    | @zmdb/vue           | vue                        | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`                                                              |
 
 <!-- /generated: integrations framework-integrations -->
 
@@ -66,7 +66,7 @@ const rename = apiReact.useZmdbMutation((client, input: { id: string; name: stri
 Queries begin after effect activation, abort on dependency changes and unmount, and suppress stale completion even when a transport ignores cancellation. Mutations remain independent and abort on
 unmount. The package adds no shared cache, implicit retry, polling, focus refetch, or server-render request; those policies stay explicit in the application.
 
-Nuxt and SvelteKit remain pending. React Native remains documented because its current recipe uses shipped package boundaries without claiming the future adapter.
+SvelteKit remains pending. React Native remains documented because its current recipe uses shipped package boundaries without claiming the future adapter.
 
 ## Vue
 
@@ -113,6 +113,52 @@ and generation guards suppress stale completion. Vue `onScopeDispose` aborts act
 
 Creating bindings or installing the plugin performs no request. For SSR, create one generated client and one `createSSRApp` per request and install that request's client on its application. The
 binding namespace retains only an injection key, so concurrent applications do not share clients, credentials, query state, or mutation state.
+
+## Nuxt
+
+Install the Nuxt 4 integration beside its Vue base adapter and required framework peers:
+
+```bash
+npm add @zmdb/nuxt@alpha @zmdb/vue@alpha nuxt@^4.5 vue@^3.5
+```
+
+Create one application integration module that exports the generated-client factory and typed Nuxt bindings:
+
+```ts
+import { createZmdbNuxt } from '@zmdb/nuxt/client';
+import { useAsyncData } from '#app';
+
+import { createApiClient } from './generated/api.generated.js';
+import type { ApiClient } from './generated/api.generated.js';
+
+export { createApiClient };
+export const zmdb = createZmdbNuxt<ApiClient>({ useAsyncData });
+```
+
+Register the module with the integration path, API base URL, and only the incoming credentials the server may forward:
+
+```ts
+export default defineNuxtConfig({
+  modules: [
+    [
+      '@zmdb/nuxt',
+      {
+        integration: '~/app/zmdb.ts',
+        baseUrl: '/api',
+        forwardHeaders: ['authorization', 'x-tenant-id'],
+        forwardCookies: ['session'],
+      },
+    ],
+  ],
+});
+```
+
+The module generates separate server and browser plugins. Each SSR plugin invocation creates a request-local generated client over Nitro local fetch, snapshots only allow-listed header and cookie
+values, and installs that client on the request's Vue application. The browser plugin constructs a browser-fetch client for navigation. Empty allow-lists forward no incoming credentials.
+
+`zmdb.useZmdbAsyncData(operationKey, input, load)` derives a stable key from the explicit operation name and serializable input, then delegates payload storage, de-duplication, abort signals,
+hydration, and navigation behavior to Nuxt's native `useAsyncData`. A matching server payload is consumed without dispatching the browser handler. The inherited client, query, and mutation composables
+are the real `@zmdb/vue` bindings rather than a copied state implementation.
 
 ## Svelte 5
 

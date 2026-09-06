@@ -125,6 +125,7 @@ const FORBIDDEN_SPECIFIERS = [
   /^react(?:\/|$)/,
   /^@angular\//,
   /^vue(?:\/|$)/,
+  /^nuxt(?:\/|$)/,
   /^svelte(?:\/|$)/,
 ];
 

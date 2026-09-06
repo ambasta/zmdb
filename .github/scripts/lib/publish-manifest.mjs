@@ -20,6 +20,7 @@ export const PACKAGES = [
   'vue',
   'svelte',
   'next',
+  'nuxt',
   'solid',
   'query-compiler',
   'schema-core',
