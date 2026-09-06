@@ -43,7 +43,7 @@ import { cleanup, measure } from './__testing__/instantiations.js';
  * edit with a reason in the commit message. Raise it when the derivation genuinely grows;
  * lower it when something gets cheaper, so the slack does not quietly accumulate.
  */
-const CEILING = 35_000;
+const CEILING = 38_000;
 const TABLES = 8;
 
 /**

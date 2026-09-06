@@ -6,11 +6,13 @@
 import { issuesFor } from '@zmdb/aot-validator/utilities';
 import type {
   AliasedColumn,
+  Col,
   ColumnExpr,
   ComparisonPredicate,
   CompiledQuery,
   DialectTarget,
   Predicate,
+  QueryCompiler,
   SelectBuilder,
   SetValue,
   SqlDialect,
@@ -329,7 +331,7 @@ type UpsertUpdateFields<T extends DeclaredTable> = [T] extends [never]
   : readonly (keyof UpdateDTO<T> & string)[] | UpdatePatch<T>;
 
 export interface UpsertOptions<T extends DeclaredTable = never> extends CacheInvalidationOptions {
-  readonly target?: string | readonly string[] | undefined;
+  readonly target?: Col<Entity<T>> | readonly Col<Entity<T>>[] | readonly string[] | undefined;
   readonly updateFields?: UpsertUpdateFields<T> | undefined;
 }
 
@@ -558,10 +560,11 @@ function expressionOperand(expression: ColumnExpr<unknown>): unknown | typeof NO
 export abstract class BaseRepository<T extends DeclaredTable> {
   static readonly schema: CoreSchema<string>;
   protected driver: Driver;
-  protected readonly qb: ReturnType<typeof createQueryCompiler>;
+  protected readonly qb: QueryCompiler<Entity<T>>;
   protected readonly dialect: DialectTarget;
   protected readonly dialectCapabilities: ReturnType<typeof dialectCapabilities>;
   protected readonly dialectTraits: ReturnType<typeof dialectTraits>;
+  readonly #untypedQb: QueryCompiler<unknown>;
   /** Ordered primary-key columns, resolved once because a repository's schema cannot change. */
   private readonly keyColumns: readonly string[];
   private readonly physicalKeyColumns: readonly string[];
@@ -644,7 +647,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }),
     );
     this.#onQuery = options?.onQuery;
-    this.qb = createQueryCompiler(dialect, driver.queryTelemetry === true ? { telemetry: true } : undefined);
+    const qbOpts = driver.queryTelemetry === true ? ({ telemetry: true } as const) : undefined;
+    this.qb = createQueryCompiler<Entity<T>>(dialect, qbOpts);
+    this.#untypedQb = createQueryCompiler(dialect, qbOpts);
     this.keyColumns = this.#rootSqlNames.keyColumns;
     this.physicalKeyColumns = this.#rootSqlNames.physicalKeyColumns;
 
@@ -657,6 +662,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       }
       seen.add(identity);
     }
+  }
+
+  public get query(): QueryCompiler<Entity<T>> {
+    return this.qb;
   }
 
   [LOADER_FOR_SCOPE](scope: object): EntityLoader<T> {
@@ -789,10 +798,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
     const query =
       definition.kind === 'procedure'
-        ? this.qb.callProcedure(definition.name, args)
+        ? this.#untypedQb.callProcedure(definition.name, args)
         : definition.returns?.setof === true
-          ? this.qb.callTableFunction(definition.name, args)
-          : this.qb.callFunction(definition.name, args);
+          ? this.#untypedQb.callTableFunction(definition.name, args)
+          : this.#untypedQb.callFunction(definition.name, args);
     const rows = await this.driver.execute(query);
 
     if (definition.kind === 'procedure' || definition.returns === undefined || definition.returns.type === 'void') {
@@ -870,7 +879,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   private selectEntity(names: SchemaSqlNames = this.#rootSqlNames): SelectBuilder {
-    const builder = this.qb.selectFrom(names.schema.table);
+    const builder = this.#untypedQb.selectFrom(names.schema.table);
     return names.entityProjection === undefined ? builder : builder.select(names.entityProjection);
   }
 
@@ -883,7 +892,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       const physical = this.physicalColumn(property, names);
       selected.push(physical === property ? physical : { column: physical, alias: property });
     }
-    return selected.length === 0 ? this.selectEntity(names) : this.qb.selectFrom(names.schema.table).select(selected);
+    return selected.length === 0
+      ? this.selectEntity(names)
+      : this.#untypedQb.selectFrom(names.schema.table).select(selected);
   }
 
   private entityReturning(names: SchemaSqlNames = this.#rootSqlNames): readonly (string | AliasedColumn)[] {
@@ -1242,7 +1253,8 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   /** Add the deterministic order required by dialects whose pagination grammar needs one. */
-  private limitOne(builder: SelectBuilder): SelectBuilder {
+  // boundary: column is a resolved physical key column name for entity S.
+  private limitOne<S>(builder: SelectBuilder<S>): SelectBuilder<S> {
     if (!this.dialectTraits.paginationRequiresOrder) return builder.limit(1);
 
     const fallback = this.schema.ir.columns[0]?.physicalName;
@@ -1253,7 +1265,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
 
     let ordered = builder;
-    for (const column of order) ordered = ordered.orderBy(column, 'asc');
+    for (const column of order) ordered = ordered.orderBy(column as Col<S>, 'asc');
     return ordered.limit(1);
   }
 
@@ -1391,7 +1403,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const physicalKeys =
       names === undefined ? childKeys : childKeys.map(childKey => this.physicalColumn(childKey, names));
     for (const chunk of chunks) {
-      let builder = names === undefined ? this.qb.selectFrom(physicalTable) : this.selectEntity(names);
+      let builder = names === undefined ? this.#untypedQb.selectFrom(physicalTable) : this.selectEntity(names);
       if (physicalKeys.length === 1) {
         const [physicalKey] = physicalKeys;
         if (physicalKey === undefined) throw new Error(`relation to ${childTable} resolved an empty target key`);
@@ -1572,7 +1584,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const firstColumn = this.physicalKeyColumns[0] ?? this.schema.ir.columns[0]?.physicalName;
     if (firstColumn === undefined) throw new Error(`schema ${this.tableName} has no column to test for existence`);
     const query = this.compileRead('exists', options, () => {
-      let builder = this.qb.selectFrom(this.tableName).select([firstColumn]);
+      let builder = this.#untypedQb.selectFrom(this.tableName).select([firstColumn]);
       if (where !== undefined) builder = compileWhere(builder, where, column => this.physicalColumn(column));
       return this.limitOne(builder);
     });
@@ -2202,7 +2214,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     this.preInsert(clean);
     const physical = this.physicalRecord(clean);
     const rows = await this.rows<EntityRow<T>>(
-      this.qb.insertInto(this.tableName).values(physical).returning(this.entityReturning()).compile(),
+      this.#untypedQb.insertInto(this.tableName).values(physical).returning(this.entityReturning()).compile(),
     );
     await this.invalidateCache(options);
     const row = rows[0];
@@ -2224,7 +2236,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const physicalTarget =
       typeof target === 'string' ? this.physicalColumn(target) : target.map(column => this.physicalColumn(column));
     const physicalUpdateFields = this.physicalFields(resolvedUpdateFields);
-    const ib = this.qb
+    const ib = this.#untypedQb
       .insertInto(this.tableName)
       .values(this.physicalRecord(clean))
       .onConflict(physicalTarget)
@@ -2262,7 +2274,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
     const physical = this.physicalRecord(clean);
     const build = () =>
-      compileWhere(this.qb.updateTable(this.tableName).set(physical), where, column => this.physicalColumn(column));
+      compileWhere(this.#untypedQb.updateTable(this.tableName).set(physical), where, column =>
+        this.physicalColumn(column),
+      );
     if (!this.dialectCapabilities.returning.update) {
       await this.driver.execute(this.compileWrite('updateMany', options, build));
       await this.invalidateCache(options);
@@ -2320,7 +2334,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       return this.firstResult(query);
     }
     const physical = this.physicalRecord(clean);
-    const build = () => this.keyWhere(this.qb.updateTable(this.tableName).set(physical), id, 'update');
+    const build = () => this.keyWhere(this.#untypedQb.updateTable(this.tableName).set(physical), id, 'update');
     if (!this.dialectCapabilities.returning.update && this.hasColumnExpression(physical)) {
       await this.driver.execute(this.assertKeyed(this.compileWrite('update', options, build), 'update'));
       await this.invalidateCache(options);
@@ -2360,10 +2374,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const softDelete = this.schema.ir.softDelete;
     const build =
       softDelete === undefined
-        ? () => this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'delete')
+        ? () => this.keyWhere(this.#untypedQb.deleteFrom(this.tableName), id, 'delete')
         : () =>
             this.keyWhere(
-              this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: new Date() }),
+              this.#untypedQb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: new Date() }),
               id,
               'delete',
             );
@@ -2380,10 +2394,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const softDelete = this.schema.ir.softDelete;
     const build =
       softDelete === undefined
-        ? () => compileWhere(this.qb.deleteFrom(this.tableName), where, column => this.physicalColumn(column))
+        ? () => compileWhere(this.#untypedQb.deleteFrom(this.tableName), where, column => this.physicalColumn(column))
         : () =>
             compileWhere(
-              this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: new Date() }),
+              this.#untypedQb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: new Date() }),
               where,
               column => this.physicalColumn(column),
             );
@@ -2403,7 +2417,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
 
   async hardDelete(id: PrimaryKeyOf<T>, options?: WriteOptions): Promise<boolean> {
     this.preDelete(id);
-    const build = () => this.keyWhere(this.qb.deleteFrom(this.tableName), id, 'hardDelete');
+    const build = () => this.keyWhere(this.#untypedQb.deleteFrom(this.tableName), id, 'hardDelete');
     const query = !this.dialectCapabilities.returning.delete
       ? this.compileWrite('hardDelete', options, build)
       : this.compileWrite('hardDelete', options, () => build().returning(this.physicalKeyColumns));
@@ -2419,7 +2433,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
     const build = () =>
       this.keyWhere(
-        this.qb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: null }),
+        this.#untypedQb.updateTable(this.tableName).set({ [this.physicalColumn(softDelete.column)]: null }),
         id,
         'restore',
       );
