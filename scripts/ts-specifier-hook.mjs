@@ -30,6 +30,8 @@ registerHooks({
     if (context.parentURL !== undefined && RELATIVE_JS.test(specifier)) {
       const asJs = new URL(specifier, context.parentURL);
       if (!existsSync(fileURLToPath(asJs))) {
+        const asMjs = new URL(`${specifier.slice(0, -'.js'.length)}.mjs`, context.parentURL);
+        if (existsSync(fileURLToPath(asMjs))) return { url: asMjs.href, shortCircuit: true };
         const asTs = new URL(`${specifier.slice(0, -'.js'.length)}.ts`, context.parentURL);
         if (existsSync(fileURLToPath(asTs))) return { url: asTs.href, shortCircuit: true };
       }
