@@ -44,6 +44,7 @@
       "@zmdb/ai-vercel": ["./packages/ai-vercel/dist/index.d.ts"],
       "@zmdb/mcp": ["./packages/mcp/dist/index.d.ts"],
       "@zmdb/compiler": ["./packages/compiler/dist/index.d.ts"],
+      "@zmdb/compiler/config/contract": ["./packages/compiler/dist/config/contract.d.ts"],
       "@zmdb/compiler/errors": ["./packages/compiler/dist/errors.d.ts"],
       "@zmdb/compiler/metro": ["./packages/compiler/dist/metro/metro.d.ts"],
       "@zmdb/compiler/transform": ["./packages/compiler/dist/transform/index.d.ts"],
