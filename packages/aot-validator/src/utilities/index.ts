@@ -152,12 +152,18 @@ function scalarMatches(scalar: ScalarIR['scalar'], value: unknown): boolean {
  */
 function constraintsMatch(constraints: Constraints | undefined, value: unknown): boolean {
   if (!constraints) return true;
-  if (constraints.minimum !== undefined && !((value as number) >= constraints.minimum)) return false;
-  if (constraints.maximum !== undefined && !((value as number) <= constraints.maximum)) return false;
-  const length = (value as { length?: number }).length;
-  if (constraints.minLength !== undefined && !((length as number) >= constraints.minLength)) return false;
-  if (constraints.maxLength !== undefined && !((length as number) <= constraints.maxLength)) return false;
-  if (constraints.pattern !== undefined && !getCachedRegExp(constraints.pattern).test(value as string)) return false;
+  if (typeof value === 'number') {
+    if (constraints.minimum !== undefined && !(value >= constraints.minimum)) return false;
+    if (constraints.maximum !== undefined && !(value <= constraints.maximum)) return false;
+  }
+  if (typeof value === 'string' || Array.isArray(value)) {
+    const length = value.length;
+    if (constraints.minLength !== undefined && !(length >= constraints.minLength)) return false;
+    if (constraints.maxLength !== undefined && !(length <= constraints.maxLength)) return false;
+  }
+  if (typeof value === 'string') {
+    if (constraints.pattern !== undefined && !getCachedRegExp(constraints.pattern).test(value)) return false;
+  }
   return true;
 }
 
@@ -266,21 +272,27 @@ function constraintIssues(
   const check = (keyword: ConstraintKeyword, ok: boolean, bound: number | string): void => {
     if (!ok) report(out, path, expectedForConstraint(keyword, bound), value);
   };
-  const length = (value as { length?: number }).length;
-  if (constraints.minimum !== undefined) {
-    check('minimum', (value as number) >= constraints.minimum, constraints.minimum);
+  if (typeof value === 'number') {
+    if (constraints.minimum !== undefined) {
+      check('minimum', value >= constraints.minimum, constraints.minimum);
+    }
+    if (constraints.maximum !== undefined) {
+      check('maximum', value <= constraints.maximum, constraints.maximum);
+    }
   }
-  if (constraints.maximum !== undefined) {
-    check('maximum', (value as number) <= constraints.maximum, constraints.maximum);
+  if (typeof value === 'string' || Array.isArray(value)) {
+    const length = value.length;
+    if (constraints.minLength !== undefined) {
+      check('minLength', length >= constraints.minLength, constraints.minLength);
+    }
+    if (constraints.maxLength !== undefined) {
+      check('maxLength', length <= constraints.maxLength, constraints.maxLength);
+    }
   }
-  if (constraints.minLength !== undefined) {
-    check('minLength', (length as number) >= constraints.minLength, constraints.minLength);
-  }
-  if (constraints.maxLength !== undefined) {
-    check('maxLength', (length as number) <= constraints.maxLength, constraints.maxLength);
-  }
-  if (constraints.pattern !== undefined) {
-    check('pattern', getCachedRegExp(constraints.pattern).test(value as string), constraints.pattern);
+  if (typeof value === 'string') {
+    if (constraints.pattern !== undefined) {
+      check('pattern', getCachedRegExp(constraints.pattern).test(value), constraints.pattern);
+    }
   }
 }
 

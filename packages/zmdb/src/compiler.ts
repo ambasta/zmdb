@@ -64,5 +64,16 @@ export type {
   SourceFileHandle,
 } from '@zmdb/compiler/reflect';
 
-export { CALLEES, Rewriter, transformCode, transformFile } from '@zmdb/compiler/transform';
+export {
+  CALLEES,
+  Rewriter,
+  emitCheckFromDescriptor,
+  emitCheckFromIR,
+  emitEqualsCheckFromDescriptor,
+  emitEqualsCheckFromIR,
+  transformCode,
+  transformFile,
+  tsTypeToTypeDescriptor,
+  tsTypeToTypeIR,
+} from '@zmdb/compiler/transform';
 export type { TransformContext, TransformDiagnostic, TransformResult } from '@zmdb/compiler/transform';
