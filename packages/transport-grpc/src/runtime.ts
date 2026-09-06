@@ -1,5 +1,3 @@
-import { once } from 'node:events';
-
 import {
   Client,
   Metadata,
@@ -354,6 +352,18 @@ async function runServerStream<S extends GrpcServiceDef>(
   }
 }
 
+function enableHalfOpenStream(stream: object): void {
+  const readable = Reflect.get(stream, '_readableState');
+  if (readable && typeof readable === 'object') {
+    Reflect.set(readable, 'allowHalfOpen', true);
+    Reflect.set(readable, 'autoDestroy', false);
+  }
+  const writable = Reflect.get(stream, '_writableState');
+  if (writable && typeof writable === 'object') {
+    Reflect.set(writable, 'autoDestroy', false);
+  }
+}
+
 async function runBidi<S extends GrpcServiceDef>(
   call: ServerDuplexStream<DecodedRequest, unknown>,
   name: string,
@@ -361,6 +371,7 @@ async function runBidi<S extends GrpcServiceDef>(
   spec: GrpcServiceSpec<S>,
   handlers: GrpcHandlers<S>,
 ): Promise<void> {
+  enableHalfOpenStream(call);
   const scope = callScope(call, spec.maxDurationMs);
   try {
     const requests = requestStream(call, scope);
@@ -417,6 +428,14 @@ async function nextRequest(
   }
 }
 
+function writeChunk(call: WritableResponseCall, chunk: unknown, scope: CallScope): Promise<void> {
+  if (scope.signal.aborted) return Promise.reject(scope.reason());
+  if (!call.write(chunk)) {
+    return waitForDrain(call, scope);
+  }
+  return Promise.resolve();
+}
+
 async function writeResponses(
   call: WritableResponseCall,
   responses: AsyncIterable<unknown>,
@@ -426,9 +445,7 @@ async function writeResponses(
   for await (const response of responses) {
     if (scope.signal.aborted) throw scope.reason();
     const valid = method.validateResponse(response);
-    if (!call.write(valid)) {
-      await waitForDrain(call, scope);
-    }
+    await writeChunk(call, valid, scope);
   }
 }
 
@@ -816,6 +833,7 @@ function bidiCall<S extends GrpcServiceDef>(
     outboundMetadata(callOptions?.metadata),
     { deadline: Date.now() + deadlineMs },
   );
+  enableHalfOpenStream(call);
   const observation = new ClientObservation(call, options.validateMetadata, callOptions);
   const removeAbort = attachAbort(call, callOptions?.signal);
   const pumping = requestPump(call, payload, method);
@@ -828,6 +846,31 @@ function callDeadline(defaultMs: number, options?: GrpcClientCallOptions): numbe
   return value;
 }
 
+function waitForClientDrain(call: ClientWritableStream<unknown> | ClientDuplexStream<unknown, unknown>): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const onDrain = (): void => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err: Error): void => {
+      cleanup();
+      reject(err);
+    };
+    const onClose = (): void => {
+      cleanup();
+      resolve();
+    };
+    const cleanup = (): void => {
+      call.removeListener('drain', onDrain);
+      call.removeListener('error', onError);
+      call.removeListener('close', onClose);
+    };
+    call.once('drain', onDrain);
+    call.once('error', onError);
+    call.once('close', onClose);
+  });
+}
+
 async function pumpRequests(
   call: ClientWritableStream<unknown> | ClientDuplexStream<unknown, unknown>,
   requests: AsyncIterable<unknown>,
@@ -835,7 +878,7 @@ async function pumpRequests(
 ): Promise<void> {
   for await (const request of requests) {
     const valid = method.validateRequest(request);
-    if (!call.write(valid)) await once(call, 'drain');
+    if (!call.write(valid)) await waitForClientDrain(call);
   }
   call.end();
 }
