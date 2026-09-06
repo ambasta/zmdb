@@ -27,7 +27,7 @@
     "react-dom": "19.2.8",
     "react-native": "0.87.1",
     "react-test-renderer": "19.2.8",
-    "rolldown": "1.2.2",
+    "rolldown": "1.2.7",
     "rxjs": "7.8.2",
     "solid-js": "1.9.15",
     "svelte": "5.57.0",

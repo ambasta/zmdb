@@ -41,11 +41,11 @@ The caller passes the installed SDK's `jsonSchema` function. The package neither
 
 - Direct workspace dependency: `@zmdb/ai` at `workspace:^`.
 - Sole external peer: `ai` at `^7.0.83`, marked optional because shipped source never imports it and receives the branded factory from the caller.
-- Tested development versions: `ai` `7.0.92` and the `ai-lower-bound` alias at `7.0.83`.
+- Tested development versions: `ai` `7.0.93` and the `ai-lower-bound` alias at `7.0.83`.
 - No runtime dependency on `@zmdb/schema-core`, `@ai-sdk/*`, Zod, a provider SDK or another integration package. `zod` is a development-only entry that satisfies the AI SDK's own peer while both
   versions compile and execute.
 
-The packed fixture executes both `7.0.83` and `7.0.92`, so the declared lower bound is proven. Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
+The packed fixture executes both `7.0.83` and `7.0.93`, so the declared lower bound is proven. Applications that do not install `@zmdb/ai-vercel` receive no `ai` peer.
 
 ## 4. Migration and qualification
 

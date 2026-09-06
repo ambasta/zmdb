@@ -183,9 +183,9 @@ The external peer table is final:
 
 | Package              | Sole external peer  | Final peer range | Optional | Versions the consumer tests must install                             |
 | -------------------- | ------------------- | ---------------- | -------- | -------------------------------------------------------------------- |
-| `@zmdb/ai-anthropic` | `@anthropic-ai/sdk` | `0.123.0`        | yes      | `0.123.0`                                                            |
+| `@zmdb/ai-anthropic` | `@anthropic-ai/sdk` | `0.124.0`        | yes      | `0.124.0`                                                            |
 | `@zmdb/ai-langchain` | `@langchain/core`   | `^1.2.9`         | yes      | lower bound and current measured version, both presently `1.2.9`     |
-| `@zmdb/ai-vercel`    | `ai`                | `^7.0.83`        | yes      | lower bound `7.0.83` and current measured installed version `7.0.92` |
+| `@zmdb/ai-vercel`    | `ai`                | `^7.0.83`        | yes      | lower bound `7.0.83` and current measured installed version `7.0.93` |
 
 Issue #706 makes the Anthropic peer optional because the shipped implementation imports only SDK types and accepts a structural client; real-SDK conformance is compiled through the matching
 development dependency. Issue #707 likewise makes the LangChain peer optional because the structural adapter imports no LangChain runtime; the real-package fixture proves compatibility at `1.2.9`. The
@@ -193,7 +193,7 @@ Vercel peer is optional for the same structural reason: the adapter receives the
 dependencies, never runtime dependencies.
 
 A claimed peer range ships only after packed-consumer tests pass at both its lower bound and the repository's current pinned version. If the Vercel lower-bound fixture cannot pass, the manifest
-narrows to `^7.0.92`; the docs may not call `7.0.83` supported based only on the old declaration.
+narrows to `^7.0.93`; the docs may not call `7.0.83` supported based only on the old declaration.
 
 `@zmdb/mcp` has no external peer. In particular, no `@modelcontextprotocol/*` package appears in its manifest.
 

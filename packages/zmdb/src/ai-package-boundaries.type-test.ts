@@ -165,7 +165,7 @@ type FinalDependencies = {
 type FinalPeers = {
   readonly '@zmdb/schema-core': never;
   readonly '@zmdb/ai': never;
-  readonly '@zmdb/ai-anthropic': '@anthropic-ai/sdk@0.123.0';
+  readonly '@zmdb/ai-anthropic': '@anthropic-ai/sdk@0.124.0';
   readonly '@zmdb/ai-langchain': '@langchain/core@^1.2.9';
   readonly '@zmdb/ai-vercel': 'ai@^7.0.83';
   readonly '@zmdb/mcp': never;
@@ -232,7 +232,7 @@ export type _OnlyIntegrationPackagesOwnSdkPeers = Expect<
       readonly vercel: FinalPeers['@zmdb/ai-vercel'];
     },
     {
-      readonly anthropic: '@anthropic-ai/sdk@0.123.0';
+      readonly anthropic: '@anthropic-ai/sdk@0.124.0';
       readonly langchain: '@langchain/core@^1.2.9';
       readonly vercel: 'ai@^7.0.83';
     }

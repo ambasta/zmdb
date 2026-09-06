@@ -42,8 +42,8 @@ The caller constructs and injects the client. Importing this package reads no en
 ## 3. Dependencies and peer
 
 - Direct workspace dependency: `@zmdb/ai` at `workspace:^`.
-- Sole external peer: optional `@anthropic-ai/sdk` at exactly `0.123.0`.
-- Exact development/fixture version: `0.123.0`, which is both declared and resolved in the measured starting tree.
+- Sole external peer: optional `@anthropic-ai/sdk` at exactly `0.124.0`.
+- Exact development/fixture version: `0.124.0`, which is both declared and resolved in the current tree.
 - No direct dependency on `@zmdb/schema-core`, `@zmdb/aot-validator` or another integration package.
 
 The SDK peer is optional because shipped runtime code keeps the import type-only and receives a structural client. The real SDK remains a development dependency so its request and response types are
@@ -64,11 +64,11 @@ Qualification must use the real installed SDK types without network I/O and prov
 - supported text, tool-use and passthrough blocks round-trip;
 - an unknown passthrough block is refused before `client.messages.create` is called;
 - the provider-neutral package entry points do not reach `@anthropic-ai/sdk`; and
-- a packed consumer imports this root without resolving the optional peer, while its declarations typecheck with `0.123.0` installed.
+- a packed consumer imports this root without resolving the optional peer, while its declarations typecheck with `0.124.0` installed.
 
 ## 5. README and non-goals
 
-The package README states `npm add @zmdb/ai-anthropic@alpha @anthropic-ai/sdk@0.123.0`, shows client injection, and links to the provider-neutral chat contract. It must not suggest that API keys are
+The package README states `npm add @zmdb/ai-anthropic@alpha @anthropic-ai/sdk@0.124.0`, shows client injection, and links to the provider-neutral chat contract. It must not suggest that API keys are
 read automatically.
 
 This package does not expose a generic provider abstraction, HTTP retry policy, streaming driver, model registry, cost table or environment helper.

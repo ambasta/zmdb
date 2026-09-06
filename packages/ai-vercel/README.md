@@ -10,7 +10,7 @@ yarn add @zmdb/ai @zmdb/ai-vercel ai@^7.0.83
 ```
 
 > **Prerelease** (`1.0.0-alpha.4`, configured for the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. The peer range is tested against its lower bound, `7.0.83`, and the current
-> repository version, `7.0.92`.
+> repository version, `7.0.93`.
 
 ## Usage
 

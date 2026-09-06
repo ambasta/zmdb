@@ -26,7 +26,7 @@ The only runtime dependency is `@zmdb/schema-core`. This package has no external
 
 ## Optional integrations
 
-- Anthropic chat driver: `npm add @zmdb/ai-anthropic@alpha @anthropic-ai/sdk@0.123.0`
+- Anthropic chat driver: `npm add @zmdb/ai-anthropic@alpha @anthropic-ai/sdk@0.124.0`
 - LangChain tool adapter: `npm add @zmdb/ai-langchain@alpha @langchain/core@^1.2.9`
 - Vercel AI SDK tool adapter: `npm add @zmdb/ai-vercel@alpha ai@^7.0.83`
 - MCP client and server cores: `npm add @zmdb/mcp@alpha`

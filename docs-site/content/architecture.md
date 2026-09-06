@@ -53,7 +53,7 @@ Entry-specific runtime, tooling, and optional-peer reachability assignments:
 | `@zmdb/query-compiler` | tooling boundary            | tooling-only code                          | `./introspect`                                                                                                                                        |
 | `@zmdb/ai`             | tooling boundary            | tooling-only code                          | `./compiler`                                                                                                                                          |
 | `@zmdb/next`           | ordinary runtime dependency | `server-only`                              | ordinary runtime entries                                                                                                                              |
-| `@zmdb/ai-anthropic`   | optional peer               | `@anthropic-ai/sdk@0.123.0`                | `.`                                                                                                                                                   |
+| `@zmdb/ai-anthropic`   | optional peer               | `@anthropic-ai/sdk@0.124.0`                | `.`                                                                                                                                                   |
 | `@zmdb/ai-langchain`   | optional peer               | `@langchain/core@^1.2.9`                   | `.`                                                                                                                                                   |
 | `@zmdb/ai-vercel`      | optional peer               | `ai@^7.0.83`                               | `.`                                                                                                                                                   |
 | `@zmdb/aot-validator`  | tooling boundary            | tooling-only code                          | `./codegen`<br>`./emit`<br>`./lint`<br>`./metro`<br>`./plugin`<br>`./reflect`<br>`./testing`<br>`./transformer`<br>`./unplugin`<br>`bin:zmdb-codegen` |
@@ -185,7 +185,7 @@ with one optional SDK/framework peer each. Importing the provider-neutral root, 
 
 `@langchain/core` is absent from both schema-core and the provider-neutral AI manifest.
 
-The Vercel adapter's packed-consumer matrix exercises both the declared lower bound, `7.0.83`, and the current repository version, `7.0.92`.
+The Vercel adapter's packed-consumer matrix exercises both the declared lower bound, `7.0.83`, and the current repository version, `7.0.93`.
 
 `@zmdb/mcp` has one runtime workspace dependency, `@zmdb/ai`, and no external dependency or peer. Importing its root does not install an MCP or provider SDK.
 

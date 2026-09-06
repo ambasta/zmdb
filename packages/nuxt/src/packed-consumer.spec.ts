@@ -81,7 +81,7 @@ describe('@zmdb/nuxt packed consumers', () => {
           ],
           dependencies: {
             nuxt: '4.5.2',
-            rolldown: '1.2.2',
+            rolldown: '1.2.7',
             vue: '3.5.42',
           },
           devDependencies: {

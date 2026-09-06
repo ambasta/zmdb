@@ -480,8 +480,8 @@ describe('AI package ownership and isolation (#704, #705, #706, #707, #708, #709
 
     expect.soft(packageOwner(entry)).toBe('@zmdb/ai-anthropic');
     expect.soft(manifest.dependencies).toEqual({ '@zmdb/ai': 'workspace:^' });
-    expect.soft(manifest.peerDependencies).toEqual({ '@anthropic-ai/sdk': '0.123.0' });
-    expect.soft(manifest.devDependencies?.['@anthropic-ai/sdk']).toBe('0.123.0');
+    expect.soft(manifest.peerDependencies).toEqual({ '@anthropic-ai/sdk': '0.124.0' });
+    expect.soft(manifest.devDependencies?.['@anthropic-ai/sdk']).toBe('0.124.0');
     expect.soft(manifest.peerDependenciesMeta).toEqual({
       '@anthropic-ai/sdk': { optional: true },
     });

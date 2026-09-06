@@ -87,7 +87,7 @@ Anthropic Messages API chat driver for the provider-neutral @zmdb/ai runtime.
   - `@zmdb/ai` → `workspace:^`
 - **Optional dependencies:** None.
 - **Optional peers:**
-  - `@anthropic-ai/sdk` → `0.123.0`
+  - `@anthropic-ai/sdk` → `0.124.0`
 - **Required peers:** None.
 - **Engines:**
   - `node` → `>=26`

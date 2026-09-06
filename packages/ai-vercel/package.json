@@ -42,7 +42,7 @@
     "@zmdb/ai": "workspace:^"
   },
   "devDependencies": {
-    "ai": "7.0.92",
+    "ai": "7.0.93",
     "ai-lower-bound": "npm:ai@7.0.83",
     "oxfmt": "0.66.0",
     "typescript": "7.0.2",

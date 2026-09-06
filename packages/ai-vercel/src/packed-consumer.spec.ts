@@ -11,7 +11,7 @@ const PACKAGE = join(ROOT, 'packages', 'ai-vercel');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const PEERS = [
   { module: 'ai-lower-bound', version: '7.0.83' },
-  { module: 'ai', version: '7.0.92' },
+  { module: 'ai', version: '7.0.93' },
 ] as const;
 
 let scratch = '';

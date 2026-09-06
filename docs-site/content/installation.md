@@ -149,7 +149,7 @@ npm install @zmdb/transport-redis redis@^6.2.1
 npm install @zmdb/ai
 
 # Optional Anthropic chat driver
-npm install @zmdb/ai-anthropic @anthropic-ai/sdk@0.123.0
+npm install @zmdb/ai-anthropic @anthropic-ai/sdk@0.124.0
 
 # LangChain structured-tool integration
 npm install @zmdb/ai @zmdb/ai-langchain @langchain/core@^1.2.9
