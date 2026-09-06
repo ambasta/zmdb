@@ -561,9 +561,12 @@ owned by the product catalog in [`scripts/product/catalog.mjs`](./scripts/produc
 row to every admitted package, and [`scripts/architecture/index.mjs`](./scripts/architecture/index.mjs) rejects missing or stale rows without discovering a second package list from the filesystem, a
 workflow loop or a publish script.
 
-Issue #732 freezes the next governance boundary in [`scripts/architecture/SPEC.md` §§11–16](./scripts/architecture/SPEC.md): one read-only snapshot composes these independent authorities, temporary
-findings become owned structured exceptions, and GitHub's native parent/sub-issue and blocked-by relationships are the sole actionability authority. The existing `blocked` label, body suffixes and
-sync helpers remain temporarily for display and are not removed until #736 passes the native parity/backfill preconditions.
+Issue #732 froze the next governance boundary in [`scripts/architecture/SPEC.md` §§11–16](./scripts/architecture/SPEC.md): one read-only snapshot composes these independent authorities, temporary
+findings become owned structured exceptions, and GitHub's native parent/sub-issue and blocked-by relationships are the sole actionability authority. Issue #736 implements the repository side of that
+cutover in [`scripts/roadmap/native-relationships.mjs`](./scripts/roadmap/native-relationships.mjs): the live reader paginates open issues, consults child and blocker endpoints only for issues whose
+native REST total counters report those relationships, retains closed referenced rows for parent-completion decisions, and computes actionability without labels or body prose. The canonical roadmap
+filer writes native links and plain task rows only; the three older projection-writing filers are archived. Operational planning and close helpers use the same native reader, while blocker suffixes,
+issue label assignments, the repository `blocked` label and their three synchronizer/staleness helpers are removed.
 
 Zones are ordered from inward to outward:
 

@@ -99,10 +99,7 @@
       "paths": [
         "zmdb-handover/tools/unblocked.mjs",
         "zmdb-handover/tools/unblocked2.mjs",
-        "zmdb-handover/tools/close-sub.mjs",
-        "zmdb-handover/tools/sync-blocks.mjs",
-        "zmdb-handover/tools/sync-labels.mjs",
-        "zmdb-handover/tools/stale-blocks.mjs"
+        "zmdb-handover/tools/close-sub.mjs"
       ],
       "externalRoot": "/home/amitprakash/foss/zmdb-handover"
     },

@@ -113,7 +113,6 @@ const ALLOWED = new Set([
   // editing it would falsify a record rather than fix a reference. They have already run, they
   // are imported by nothing, and none of them can bring a builder back.
   '.github/scripts/gen-subissues.mjs',
-  '.github/scripts/file-umbrella-epic.mjs',
   '.github/scripts/close-tier5-issues.mjs',
   '.github/scripts/close-impl-issues.mjs',
   // The docs nav manifest, for one page title: `Codemod: defineSchema → a type`. It is prose, but

@@ -787,6 +787,9 @@ export interface NativeIssue {
   readonly parent: number | null;
   readonly subIssues: readonly number[];
   readonly blockedBy: readonly number[];
+  readonly title?: string;
+  readonly labels?: readonly string[];
+  readonly isSubIssue?: boolean;
 }
 
 export interface NativeRelationshipSnapshot {
@@ -795,6 +798,15 @@ export interface NativeRelationshipSnapshot {
   readonly complete: true;
   readonly issues: readonly NativeIssue[];
 }
+
+export function readGitHubNativeRelationshipSnapshot(input: { readonly repository: 'ambasta/zmdb' }): Promise<NativeRelationshipSnapshot>;
+
+export function computeActionability(snapshot: NativeRelationshipSnapshot): {
+  readonly actionable: readonly number[];
+  readonly blocked: readonly number[];
+};
+
+export function renderActionabilityReport(snapshot: NativeRelationshipSnapshot): string;
 
 export interface GovernanceInput {
   readonly root: string;
@@ -841,11 +853,14 @@ export function loadGovernanceSnapshot(input: GovernanceInput): Promise<Governan
 ```
 
 Local-only consumers may omit `relationships`, in which case `issues` is `null`. Asking for issue actionability without a complete relationship snapshot is `GOV_RELATIONSHIPS_REQUIRED`; absence is
-never interpreted as an empty graph or an unblocked issue. The network adapter is outside this pure boundary. It paginates GitHub's native REST resources, normalises them to
-`NativeRelationshipSnapshot`, fails closed on any partial response and then calls this loader.
+never interpreted as an empty graph or an unblocked issue. The network adapter is outside this pure boundary. It paginates the open issue collection, uses `sub_issues_summary.total` and
+`issue_dependencies_summary.total_blocked_by` to read only relationship-bearing child and blocker endpoints, merges their complete rows before validation so closed referenced children and blockers
+retain state and title, normalises the result to `NativeRelationshipSnapshot`, fails closed on any partial response or disagreement and then calls this loader. Recorded sources without those relevance
+flags remain exhaustive so pagination fixtures exercise every endpoint.
 
 The returned object, nested arrays, records and maps are deeply read-only. Module evaluation and snapshot construction perform no write, GitHub mutation, registry lookup, credential access or
-subprocess launch. Filesystem and relationship inputs are explicit. A caller cannot inject labels, issue bodies or rendered checklists because those fields do not exist in the input type.
+subprocess launch. Filesystem and relationship inputs are explicit. Optional labels are display metadata and never affect actionability; issue bodies and rendered checklists are absent from the input
+type.
 
 ### 11.1 Stable findings
 
@@ -877,9 +892,10 @@ release order, exception parser or actionability algorithm.
 | `ARCHITECTURE.md`, `docs-site/content/architecture.md`, `docs-site/content/package-reference.md`, `docs-site/content/framework-integrations.md`                                                                                                                                                                                                                                                                                                                                      | Generated or authored projections. They are outputs, never model inputs. Marker-owned regions remain byte-stable projections.                                                                                                                                     |
 | `.github/scripts/database-boundary-baseline.json`, `.github/scripts/runtime-foundation-baseline.json`, `.github/scripts/server-boundaries-baseline.json`, `BASELINE_RUNTIME_VIOLATIONS` and `BASELINE_GENERATED_VIOLATIONS` in `.github/scripts/verify-tooling-boundaries.mjs`                                                                                                                                                                                                       | 113 temporary findings at the #732 baseline: 30 database, 75 runtime-foundation, 2 server and 6 tooling findings. #735 maps every entry to one structured exception before deleting any old baseline. `BASELINE_BIN_OWNERS` is positive policy, not an exception. |
 | `scripts/roadmap/check.mjs` and `scripts/roadmap/epics/*.mjs`                                                                                                                                                                                                                                                                                                                                                                                                                        | Authored filing plan. `blockedBy` keys may remain as pre-filing input that is resolved into native links, but they are never post-filing issue state or actionability.                                                                                            |
-| `scripts/roadmap/file-issues.mjs` and `scripts/roadmap/render.mjs`                                                                                                                                                                                                                                                                                                                                                                                                                   | Today they create native links and also write the `blocked` label and checklist suffix. #736 keeps native parent/blocked-by writes and task checkboxes, but removes both projections.                                                                             |
-| `zmdb-handover/tools/unblocked.mjs`, `unblocked2.mjs`, `close-sub.mjs`, `sync-blocks.mjs`, `sync-labels.mjs`, `stale-blocks.mjs`                                                                                                                                                                                                                                                                                                                                                     | Current operational readers/writers. #736 replaces actionability reads with the paginated native snapshot, removes close-time projection sync and deletes the three sync/staleness helpers only after the removal preconditions pass.                             |
-| `.github/scripts/file-web-epics.mjs`, `.github/scripts/file-umbrella-epic.mjs`, `.github/scripts/file-dx-epics.mjs`                                                                                                                                                                                                                                                                                                                                                                  | Older filing helpers that still encode labels or suffixes. #736 must migrate, archive or delete them; leaving a dormant writer is not zero-consumer proof.                                                                                                        |
+| `scripts/roadmap/file-issues.mjs` and `scripts/roadmap/render.mjs`                                                                                                                                                                                                                                                                                                                                                                                                                   | Create native parent/blocked-by links and plain task checkboxes. They do not add a blocked label or render blocker suffixes.                                                                                                                                      |
+| `zmdb-handover/tools/unblocked.mjs`, `unblocked2.mjs`, `close-sub.mjs`                                                                                                                                                                                                                                                                                                                                                                                                               | Operational helpers read the paginated native snapshot. Closing a child ticks only earned task rows and may close a completed native parent; it does not synchronize labels or blocker prose.                                                                     |
+| Deleted `zmdb-handover/tools/sync-blocks.mjs`, `sync-labels.mjs`, `stale-blocks.mjs`                                                                                                                                                                                                                                                                                                                                                                                                 | No remaining consumer. They were projection authorities and are removed by #736 rather than retained as compatibility paths.                                                                                                                                      |
+| `.github/scripts/file-web-epics.mjs`, `.github/scripts/file-umbrella-epic.mjs`, `.github/scripts/file-dx-epics.mjs`                                                                                                                                                                                                                                                                                                                                                                  | Archived compatibility paths that fail with a pointer to the canonical filer; they contain no GitHub writer and cannot recreate labels or blocker prose.                                                                                                          |
 | `zmdb-handover/HANDOVER.md`, `zmdb-handover/PROMPT.md` and any operator prompt that recommends a `blocked` label filter or body parser                                                                                                                                                                                                                                                                                                                                               | Operational documentation projections. #736 updates them in the same cutover so the deleted representation is not recreated manually.                                                                                                                             |
 
 `#733` freezes a parity test for every row above. `#734`, `#735` and `#736` perform the implementation migrations; #733 must not delete or rewrite a current consumer.
@@ -947,10 +963,14 @@ Only GitHub's native parent/sub-issue links, native direct blocked-by links and 
   prose do not alter that result.
 - A missing referenced blocker is an error, never presumed closed. A direct self-edge or any dependency cycle is an error; cycle diagnostics report the deterministic shortest cycle.
 - Closing one blocker can change only issues that directly or transitively depend on that blocker through the native graph. The computation itself performs no mutation.
-- Labels and issue bodies may be retained temporarily for display, but changing either must produce zero change in the computed result.
+- Optional `title`, `labels` and `isSubIssue` metadata may be preserved for operator display and scoping, but changing labels or body prose produces zero change in the computed result. Repository
+  writers do not emit blocker projections.
 
-The read adapter paginates the issue collection, every parent/sub-issue collection and every blocked-by collection. It preserves issue numbers and states, removes duplicate API rows only when their
-bytes agree, and rejects disagreement. A fixture may contain recorded API responses, but production actionability never reads a checked-in snapshot as current GitHub state.
+The generic read adapter paginates every collection exposed by an unscoped fixture source. The live GitHub source paginates open issues, then reads a parent/sub-issue collection only when
+`sub_issues_summary.total > 0` and a blocked-by collection only when `issue_dependencies_summary.total_blocked_by > 0`. The total counter deliberately includes closed blockers so the native edge is
+preserved after it stops blocking work. Endpoint rows are normalised and merged into the issue map before validation, so a just-closed child remains available to a parent-completion caller and closed
+blockers remain explicit. It preserves issue numbers, states and optional display metadata, removes duplicate API rows only when their bytes agree, and rejects disagreement or an open referenced issue
+missing from the top-level pagination. A fixture may contain recorded API responses, but production actionability never reads a checked-in snapshot as current GitHub state.
 
 At the corrected live #732 authority audit on 2026-09-06 at 14:51 IST:
 

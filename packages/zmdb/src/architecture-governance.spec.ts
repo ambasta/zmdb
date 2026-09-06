@@ -883,6 +883,9 @@ interface NativeIssue {
   readonly parent: number | null;
   readonly subIssues: readonly number[];
   readonly blockedBy: readonly number[];
+  readonly title?: string;
+  readonly labels?: readonly string[];
+  readonly isSubIssue?: boolean;
 }
 
 interface NativeRelationshipSnapshot {
@@ -923,6 +926,7 @@ interface Page<T> {
 
 interface RecordedRelationshipSource {
   listIssues(page: number): Promise<Page<{ readonly number: number; readonly state: IssueState }>>;
+  getIssue?(issue: number): Promise<{ readonly number: number; readonly state: IssueState }>;
   listSubIssues(issue: number, page: number): Promise<Page<{ readonly number: number }>>;
   listBlockedBy(issue: number, page: number): Promise<Page<{ readonly number: number }>>;
 }
@@ -932,6 +936,9 @@ interface NativeRelationshipTarget {
     readonly repository: 'ambasta/zmdb';
     readonly capturedAt: string;
     readonly source: RecordedRelationshipSource;
+  }): Promise<NativeRelationshipSnapshot>;
+  readGitHubNativeRelationshipSnapshot(input: {
+    readonly repository: 'ambasta/zmdb';
   }): Promise<NativeRelationshipSnapshot>;
   computeActionability(snapshot: NativeRelationshipSnapshot): {
     readonly actionable: readonly number[];
@@ -1129,8 +1136,8 @@ function symmetricDifference(left: readonly number[], right: readonly number[]):
   );
 }
 
-// Measured at 696feb9739183341025a6dcc2bcf28eedda394b0: these three target modules do not exist.
-// Each `it.fails` therefore retires only when the implementation issue supplies the frozen API and behavior.
+// Measured at 696feb9739183341025a6dcc2bcf28eedda394b0: the three target modules did not exist.
+// #736 retires only the native-relationship failures; #734 governance and #735 exception cases stay expected-failing.
 describe('composed governance tests freeze (#733)', () => {
   it('records the exact #732 relationship baseline and #730 repair target', () => {
     const audit = relationshipAudit();
@@ -1318,7 +1325,7 @@ describe('composed governance tests freeze (#733)', () => {
     expect(report.generatedOutputs).toEqual(inventory.generatedOutputs);
   });
 
-  it.fails('paginates native issues, children and blockers before computing actionability', async () => {
+  it('paginates native issues, children and blockers before computing actionability', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const recorded = recordedRelationshipSource(audit.paginationCase);
@@ -1333,7 +1340,140 @@ describe('composed governance tests freeze (#733)', () => {
     expect(recorded.calls).toContain('blockedBy:103:2');
   });
 
-  it.fails('computes actionability only from native blocked-by relationships', async () => {
+  it('limits live-style reads to relation-bearing issues and retains closed endpoint rows', async () => {
+    const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
+    const calls: string[] = [];
+    const source = {
+      async listIssues(page: number) {
+        calls.push(`issues:${String(page)}`);
+        return {
+          items:
+            page === 1
+              ? [
+                  {
+                    number: 900,
+                    state: 'OPEN' as const,
+                    title: 'Open epic',
+                    isSubIssue: false,
+                    relationshipReads: { subIssues: true, blockedBy: false },
+                  },
+                  {
+                    number: 101,
+                    state: 'OPEN' as const,
+                    title: 'Open child',
+                    parent: 900,
+                    isSubIssue: true,
+                    relationshipReads: { subIssues: false, blockedBy: true },
+                  },
+                  {
+                    number: 777,
+                    state: 'OPEN' as const,
+                    title: 'Unrelated standalone issue',
+                    isSubIssue: false,
+                    relationshipReads: { subIssues: false, blockedBy: false },
+                  },
+                ]
+              : [],
+          nextPage: null,
+        };
+      },
+      async listSubIssues(issue: number, page: number) {
+        calls.push(`subIssues:${String(issue)}:${String(page)}`);
+        if (issue !== 900 || page !== 1) throw new Error('unexpected sub-issue read');
+        return {
+          items: [
+            {
+              number: 100,
+              state: 'CLOSED' as const,
+              title: 'Just-closed child',
+              labels: ['sub-issue'],
+              relationshipReads: { subIssues: false, blockedBy: false },
+            },
+            {
+              number: 101,
+              state: 'OPEN' as const,
+              title: 'Open child',
+              parent: 900,
+              isSubIssue: true,
+              relationshipReads: { subIssues: false, blockedBy: true },
+            },
+          ],
+          nextPage: null,
+        };
+      },
+      async listBlockedBy(issue: number, page: number) {
+        calls.push(`blockedBy:${String(issue)}:${String(page)}`);
+        if (issue !== 101 || page !== 1) throw new Error('unexpected blocked-by read');
+        return {
+          items: [
+            {
+              number: 99,
+              state: 'CLOSED' as const,
+              title: 'Closed blocker',
+              labels: ['sub-issue'],
+              relationshipReads: { subIssues: false, blockedBy: false },
+            },
+          ],
+          nextPage: null,
+        };
+      },
+    };
+
+    const snapshot = await target.readNativeRelationshipSnapshot({
+      repository: 'ambasta/zmdb',
+      capturedAt: '2026-09-06T10:30:00.000Z',
+      source,
+    });
+    expect(calls).toEqual(['issues:1', 'subIssues:900:1', 'blockedBy:101:1']);
+    expect(snapshot.issues.find(issue => issue.number === 100)).toMatchObject({
+      state: 'CLOSED',
+      title: 'Just-closed child',
+      parent: 900,
+      isSubIssue: true,
+    });
+    expect(snapshot.issues.find(issue => issue.number === 99)).toMatchObject({
+      state: 'CLOSED',
+      title: 'Closed blocker',
+    });
+    expect(target.computeActionability(snapshot).actionable).toEqual([101]);
+
+    await expect(
+      target.readNativeRelationshipSnapshot({
+        repository: 'ambasta/zmdb',
+        capturedAt: '2026-09-06T10:31:00.000Z',
+        source: {
+          async listIssues() {
+            return {
+              items: [
+                {
+                  number: 101,
+                  state: 'OPEN' as const,
+                  parent: 900,
+                  isSubIssue: true,
+                  relationshipReads: { subIssues: false, blockedBy: false },
+                },
+              ],
+              nextPage: null,
+            };
+          },
+          async getIssue() {
+            return {
+              number: 900,
+              state: 'OPEN' as const,
+            };
+          },
+          async listSubIssues() {
+            throw new Error('missing open parent must fail before a relationship read');
+          },
+          async listBlockedBy() {
+            throw new Error('missing open parent must fail before a relationship read');
+          },
+        },
+      }),
+    ).rejects.toThrow('paginated open issue collection omitted referenced parent #900');
+  });
+
+  it('computes actionability only from native blocked-by relationships', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const snapshot = baselineNativeSnapshot(audit);
@@ -1354,7 +1494,7 @@ describe('composed governance tests freeze (#733)', () => {
     expect(target.renderActionabilityReport(projectionMutated)).toBe(target.renderActionabilityReport(snapshot));
   });
 
-  it.fails('changes actionability only for a closed issue and its native dependants', async () => {
+  it('changes actionability only for a closed issue and its native dependants', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const baseline = target.computeActionability(baselineNativeSnapshot(audit));
@@ -1372,7 +1512,7 @@ describe('composed governance tests freeze (#733)', () => {
     expect(symmetricDifference(after732.actionable, after733.actionable)).toEqual([733, 734, 735, 736]);
   });
 
-  it.fails('reproduces the #732 baseline as byte-stable native actionability output', async () => {
+  it('reproduces the #732 baseline as byte-stable native actionability output', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const snapshot = baselineNativeSnapshot(audit);
@@ -1386,7 +1526,7 @@ describe('composed governance tests freeze (#733)', () => {
     expect(target.renderActionabilityReport(snapshot)).toBe(expected);
   });
 
-  it.fails('applies only the reviewed #730 parent and blocker backfill', async () => {
+  it('applies only the reviewed #730 parent and blocker backfill', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const before = baselineNativeSnapshot(audit, { closedIssues: audit.afterClosing733.closedIssues });
@@ -1400,7 +1540,7 @@ describe('composed governance tests freeze (#733)', () => {
     expect(target.computeActionability(after).actionable).toEqual(audit.repair.liveExpected.actionable);
   });
 
-  it.fails('rejects a native child whose parent and parent sub-issue collection disagree', async () => {
+  it('rejects a native child whose parent and parent sub-issue collection disagree', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const fixture = audit.invalidCases['missingParent'];
@@ -1414,7 +1554,7 @@ describe('composed governance tests freeze (#733)', () => {
     expect(report.diagnostics.map(diagnostic => diagnostic.code)).toEqual([fixture.expectedCode]);
   });
 
-  it.fails('reports one shortest dependency cycle deterministically', async () => {
+  it('reports one shortest dependency cycle deterministically', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const fixture = audit.invalidCases['cycle'];
@@ -1435,7 +1575,7 @@ describe('composed governance tests freeze (#733)', () => {
     );
   });
 
-  it.fails('refuses projection removal while #730 lacks its native parent and blocker', async () => {
+  it('refuses projection removal while #730 lacks its native parent and blocker', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const result = target.planProjectionRemoval({
@@ -1448,7 +1588,7 @@ describe('composed governance tests freeze (#733)', () => {
     });
   });
 
-  it.fails('plans projection removal only from the repaired post-#732/#733 native snapshot', async () => {
+  it('plans projection removal only from the repaired post-#732/#733 native snapshot', async () => {
     const audit = relationshipAudit();
     const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
     const result = target.planProjectionRemoval({
@@ -1469,6 +1609,67 @@ describe('composed governance tests freeze (#733)', () => {
         retainClosedHistoricalNarrative: true,
       },
     });
+  });
+
+  it('keeps repository roadmap consumers native-only and archives projection writers', async () => {
+    const target = await importTarget<NativeRelationshipTarget>(RELATIONSHIP_MODEL);
+    expect(target.readGitHubNativeRelationshipSnapshot).toBeTypeOf('function');
+
+    const renderer = await importTarget<{
+      renderChecklist(children: readonly Readonly<Record<string, unknown>>[]): string;
+    }>(join(ROOT, 'scripts', 'roadmap', 'render.mjs'));
+    expect(
+      renderer.renderChecklist([
+        { number: 734, shortTitle: 'governance model', blockedByNumbers: [733] },
+        { number: 736, shortTitle: 'native cutover', blockedByNumbers: [733] },
+      ]),
+    ).toBe('- [ ] #734 — governance model\n- [ ] #736 — native cutover');
+
+    const canonicalFiler = readFileSync(join(ROOT, 'scripts', 'roadmap', 'file-issues.mjs'), 'utf8');
+    expect(canonicalFiler).toContain('issues/${numbers.get(key)}/dependencies/blocked_by');
+    expect(canonicalFiler).toContain('issues/${parent.number}/sub_issues');
+    expect(canonicalFiler).not.toContain("labels.push('blocked')");
+    expect(canonicalFiler).not.toContain('blockedByNumbers:');
+    const nativeReader = readFileSync(RELATIONSHIP_MODEL, 'utf8');
+    expect(nativeReader).toContain("'issues?state=open'");
+    expect(nativeReader).toContain('issue.sub_issues_summary?.total');
+    expect(nativeReader).toContain('issue.issue_dependencies_summary?.total_blocked_by');
+    expect(nativeReader).not.toContain('issue.issue_dependencies_summary?.blocked_by');
+    expect(nativeReader).not.toContain("'issues?state=all'");
+
+    for (const path of [
+      '.github/scripts/file-web-epics.mjs',
+      '.github/scripts/file-umbrella-epic.mjs',
+      '.github/scripts/file-dx-epics.mjs',
+    ]) {
+      const source = readFileSync(join(ROOT, path), 'utf8');
+      expect(source, path).toContain('scripts/roadmap/file-issues.mjs');
+      expect(source, path).not.toContain("from 'node:child_process'");
+      expect(source, path).not.toMatch(/['"]blocked['"]/);
+      expect(source, path).not.toContain('(blocked by');
+    }
+  });
+
+  it('prints CLI help without invoking GitHub', () => {
+    const temporary = mkdtempSync(join(tmpdir(), 'zmdb-native-help-'));
+    try {
+      const bin = join(temporary, 'bin');
+      const marker = join(temporary, 'gh-called');
+      mkdirSync(bin);
+      const executable = join(bin, 'gh');
+      writeFileSync(executable, `#!/bin/sh\nprintf called > "$GH_CALLED_MARKER"\nexit 97\n`);
+      chmodSync(executable, 0o755);
+      const result = spawnSync(process.execPath, [RELATIONSHIP_MODEL, '--help'], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        env: { ...process.env, GH_CALLED_MARKER: marker, PATH: bin },
+      });
+      expect(result).toMatchObject({ status: 0, stderr: '' });
+      expect(result.stdout).toBe('usage: node scripts/roadmap/native-relationships.mjs [--repository owner/repo]\n');
+      expect(existsSync(marker)).toBe(false);
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
   });
 
   it.fails.each(readJson<ExceptionFixture>(join(GOVERNANCE_FIXTURES, 'exceptions.json')).cases)(

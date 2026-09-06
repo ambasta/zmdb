@@ -60,7 +60,7 @@ export function renderEpic(epic) {
         'lands tests that fail for the right reason. Every implementation slice after that is independently ' +
         'shippable and leaves the suite green.\n\n' +
         'This epic is independent of every other epic: it can be picked up without waiting on one. Individual ' +
-        'sub-issues may still be blocked by sub-issues elsewhere, and those blockers are named on each one.',
+        'sub-issue dependencies are recorded only through GitHub native blocked-by relationships.',
     ),
     epic.nonGoals?.length ? section('Non-goals', bullets(epic.nonGoals)) : '',
     section('Sub-issues', '_Filled in by `scripts/roadmap/file-issues.mjs` once the children exist._'),
@@ -97,12 +97,5 @@ export function renderSub(sub, epic, epicNumber) {
 
 /** The `- [ ] #12 title` list appended to an epic once its children have numbers. */
 export function renderChecklist(children) {
-  return children
-    .map(c => {
-      const blockers = c.blockedByNumbers?.length
-        ? ` (blocked by ${c.blockedByNumbers.map(n => `#${n}`).join(', ')})`
-        : '';
-      return `- [ ] #${c.number} — ${c.shortTitle}${blockers}`;
-    })
-    .join('\n');
+  return children.map(c => `- [ ] #${c.number} — ${c.shortTitle}`).join('\n');
 }

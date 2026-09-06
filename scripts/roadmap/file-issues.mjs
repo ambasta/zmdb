@@ -186,7 +186,6 @@ for (const epic of EPICS) {
     const title = `[sub-issue] ${sub.title}`;
     const body = renderSub(sub, epic, created.number);
     const labels = ['sub-issue', ...(sub.labels ?? []), ...(epic.labels ?? []).filter(l => l.startsWith('area:'))];
-    if (sub.blockedBy?.length) labels.push('blocked');
     const ref = await ensureIssue(existing, title, body, [...new Set(labels)], { refreshable: true });
     numbers.set(`${epic.key}:${sub.key}`, ref.number);
     ids.set(`${epic.key}:${sub.key}`, ref.id);
@@ -236,7 +235,6 @@ for (const epic of EPICS) {
   const children = epic.subs.map(sub => ({
     number: numbers.get(`${epic.key}:${sub.key}`),
     shortTitle: sub.title,
-    blockedByNumbers: (sub.blockedBy ?? []).map(r => numbers.get(resolveKey(r, epic.key))),
   }));
   const body = renderEpic(epic).replace(
     '_Filled in by `scripts/roadmap/file-issues.mjs` once the children exist._',
