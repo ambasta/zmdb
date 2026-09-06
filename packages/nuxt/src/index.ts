@@ -93,7 +93,7 @@ export const zmdbNuxtModule = defineNuxtModule<ZmdbNuxtModuleOptions>({
     name: '@zmdb/nuxt',
     configKey: 'zmdb',
     compatibility: {
-      nuxt: '>=4.5.0 <5.0.0',
+      nuxt: '>=4.5.2 <5.0.0',
     },
   },
   async setup(options) {

@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@zmdb/query-compiler": "1.0.0-alpha.4",
+    "@zmdb/repository": "1.0.0-alpha.4",
     "@zmdb/sqlite": "1.0.0-alpha.4"
   },
   "devDependencies": {

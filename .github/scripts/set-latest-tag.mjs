@@ -9,10 +9,10 @@
 //        node .github/scripts/set-latest-tag.mjs --dry-run  (print only)
 import { execFileSync } from 'node:child_process';
 
-import { ROOT, publishTrain } from './lib/publish-manifest.mjs';
+import { ROOT, publishCatalog } from './lib/publish-manifest.mjs';
 
 const DRY = process.argv.includes('--dry-run');
-const release = await publishTrain(ROOT);
+const packages = await publishCatalog(ROOT);
 
 // precedence rank of a version's channel: higher = preferred for `latest`.
 function rank(v) {
@@ -54,7 +54,7 @@ function chooseLatest(versions) {
   })[0];
 }
 
-for (const { npmName: pkg } of release.packages) {
+for (const { npmName: pkg } of packages) {
   let versions;
   try {
     versions = JSON.parse(execFileSync('npm', ['view', pkg, 'versions', '--json'], { encoding: 'utf8' }));

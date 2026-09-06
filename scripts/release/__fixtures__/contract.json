@@ -1,6 +1,8 @@
 {
   "versions": {
     "core": "1.0.0-alpha.4",
+    "corePatch": "1.0.1",
+    "corePrereleaseNext": "1.0.0-alpha.5",
     "integrationNext": "1.0.0-alpha.5",
     "peerFloor": "7.0.93",
     "peerCurrent": "7.0.93",
@@ -55,6 +57,11 @@
       "expected": "[RELEASE_PEER_FLOOR] adapter (@fixture/adapter) peer ai: policy range ^7.0.93 has floor 7.0.93 but peerDependencies declares ^7.0.83. Remediation: set peerDependencies.ai to ^7.0.93 and prove exact ai@7.0.93 in a packed consumer."
     },
     {
+      "name": "policy range starts below the tested floor",
+      "mutation": "policy-floor",
+      "expected": "[RELEASE_COMPATIBILITY_INVALID] adapter (@fixture/adapter) peer ai: range ^7.0.83 starts at 7.0.83, expected declared floor 7.0.93. Remediation: make the advertised range start exactly at its tested floor."
+    },
+    {
       "name": "workspace-only compatibility alias",
       "mutation": "alias",
       "expected": "[RELEASE_PEER_ALIAS] adapter (@fixture/adapter): devDependencies.ai-unsupported-fixture aliases npm:ai@7.0.83 outside the declared ai policy. Remediation: remove the alias and install each exact tested ai version in an isolated consumer."
@@ -63,6 +70,11 @@
       "name": "prerelease range admitting an untested version",
       "mutation": "prerelease",
       "expected": "[RELEASE_PRERELEASE_RANGE] adapter (@fixture/adapter) -> core-b: range ^1.0.0-alpha.4 admits untested 1.0.0-alpha.5 while tested contains only 1.0.0-alpha.4. Remediation: use 1.0.0-alpha.4 until another exact prerelease passes, then list an explicit union."
+    },
+    {
+      "name": "prerelease range admitting a version after the tested current",
+      "mutation": "prerelease-current",
+      "expected": "[RELEASE_PRERELEASE_RANGE] adapter (@fixture/adapter) -> core-b: range ^1.0.0-alpha.4 admits untested 1.0.0-alpha.6 while tested contains 1.0.0-alpha.4, 1.0.0-alpha.5. Remediation: use 1.0.0-alpha.4 until another exact prerelease passes, then list an explicit union."
     },
     {
       "name": "packed import absent from the manifest",

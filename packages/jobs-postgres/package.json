@@ -41,15 +41,16 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/jobs": "workspace:^",
-    "@zmdb/postgres": "workspace:^"
+    "@zmdb/postgres": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
+    "@zmdb/jobs": "workspace:^",
     "pg": "8.23.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@zmdb/jobs": "1.0.0-alpha.4",
     "pg": "^8.23.0"
   },
   "engines": {

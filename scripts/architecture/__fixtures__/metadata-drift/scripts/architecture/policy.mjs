@@ -9,7 +9,6 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedRuntimeDependencies: freezeArray([]),
     optionalPeerEntries: Object.freeze({}),
     toolingEntries: freezeArray([]),
-    release: 'lockstep',
   }),
   app: Object.freeze({
     directory: 'packages/app',
@@ -21,6 +20,5 @@ export const PACKAGE_POLICY = Object.freeze({
       'fixture-peer': freezeArray(['./peer']),
     }),
     toolingEntries: freezeArray(['./cli']),
-    release: 'lockstep',
   }),
 });

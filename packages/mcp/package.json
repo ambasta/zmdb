@@ -41,7 +41,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/ai": "workspace:^"
+    "@zmdb/ai": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
     "@zmdb/aot-validator": "workspace:^",

@@ -54,12 +54,12 @@ Optional server integrations stay outside the `zmdb` default install:
 - `@zmdb/mssql` requires `mssql@^12.7.0`; the application constructs and owns the pool while the package supplies the complete T-SQL compiler, migration, structural-driver, and catalog-introspection
   vertical.
 - `@zmdb/singlestore` accepts a consumer-owned `mysql2@^3.24.3` pool and binds it to the SingleStore dialect without installing the client as a hard dependency.
-- `@zmdb/transport-grpc` requires `@grpc/grpc-js@^1.14.0`; the application owns the server extension and the caller closes each client.
+- `@zmdb/transport-grpc` requires `@grpc/grpc-js@^1.14.4`; the application owns the server extension and the caller closes each client.
 - `@zmdb/transport-nats` requires `@nats-io/transport-node@^3.4.0`; the application extension starts, drains, and closes its connection.
 - `@zmdb/transport-rabbitmq` requires `amqplib@^2.0.1`; the application extension owns its connection, channels, retry, and dead-letter setup.
 - `@zmdb/transport-redis` requires `redis@^6.2.1`; the application extension owns its publisher/subscriber clients and bounded drain.
 - `@zmdb/jobs-postgres` requires `pg@^8.23.0`; the caller owns the pool/client and the adapter never closes or releases it.
-- `@zmdb/otel` requires `@opentelemetry/api@^1.9.0`; the caller owns providers, exporters, tracers, meters, and shutdown.
+- `@zmdb/otel` requires `@opentelemetry/api@^1.9.1`; the caller owns providers, exporters, tracers, meters, and shutdown.
 
 `@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/compiler` owns build-time reflection and emission, while `@zmdb/aot-validator` is the compiler-free
 validation runtime.
@@ -67,7 +67,7 @@ validation runtime.
 Compiler tooling is independently usable: install `@zmdb/compiler` when a build, linter, Metro project, or no-bundler workflow needs the TypeScript front end directly. The
 [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
-> The workspace publishes **38 packages** across **185 export-map entry points**. The current suite has **3,363 passing tests** across 313 files, plus **50 expected failures** that describe work still
+> The workspace publishes **38 packages** across **185 export-map entry points**. The current suite has **3,381 passing tests** across 313 files, plus **41 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 271 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

@@ -4,10 +4,11 @@
 > #693, #694, #695, #696, #657, #658, #659, #660, #661, #672, #673, #697, #698, #699, #628, #629, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery
 > and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime,
 > tooling and optional-peer reachability; #728 implements the original release plan, changelog, bump and publication-governance boundary. Issue #746 supersedes only the release clauses with
-> `scripts/release/SPEC.md`: architecture still owns dependency direction and reachability, while release groups, versions, ranges, and compatibility floors move to release policy. The original
-> measured baseline is commit `5adba11e` on 2026-09-05. Issue #732 freezes the composed governance snapshot, structured-exception lifecycle, native GitHub relationship semantics and
-> current-contract/ADR boundary in §§11–16. It changes no verifier, tracker projection or GitHub state; #733 freezes parity, #734 implements the composed snapshot, #735 implements owned expiring
-> exceptions, and #736/#737 complete the native-relationship and ADR migrations. Issue #753 adds the successor jobs-selection graph in §17.
+> `scripts/release/SPEC.md`: architecture still owns dependency direction and reachability, while release groups, versions, ranges, and compatibility floors move to release policy. Issue #749
+> implements that replacement policy and its manifest/release consumers. The original measured baseline is commit `5adba11e` on 2026-09-05. Issue #732 freezes the composed governance snapshot,
+> structured-exception lifecycle, native GitHub relationship semantics and current-contract/ADR boundary in §§11–16. It changes no verifier, tracker projection or GitHub state; #733 freezes parity,
+> #734 implements the composed snapshot, #735 implements owned expiring exceptions, and #736/#737 complete the native-relationship and ADR migrations. Issue #753 adds the successor jobs-selection
+> graph in §17.
 
 ## 1. Authority, scope and measured baseline
 
@@ -32,8 +33,8 @@ Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #
 `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`,
 `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
 `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/compiler`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, #674 adds `@zmdb/singlestore`, #697 adds `@zmdb/next`, #698 adds
-`@zmdb/nuxt`, and #699 adds `@zmdb/sveltekit`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current thirty-eight manifests keep `1.0.0-alpha.4`, declare 74 direct non-dev
-workspace edges, and declare 36 peer dependencies: 14 optional peer entries plus 22 required peer entries confined to their selected integration and tooling packages.
+`@zmdb/nuxt`, and #699 adds `@zmdb/sveltekit`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current thirty-eight manifests keep `1.0.0-alpha.4`, declare 73 direct non-dev
+workspace edges, and declare 63 peer dependencies: 18 optional peer entries plus 45 required peer entries projected from release policy.
 
 ## 2. Canonical policy API
 
@@ -72,8 +73,8 @@ Selectors are unique and sorted. Every selector must resolve in the matching com
 All arrays and record keys are deterministic, duplicate-free and deeply read-only. Module evaluation performs no filesystem write, network access, subprocess launch, package import or environment
 mutation. Functions that inspect a repository receive its root explicitly.
 
-The checked-in `policy.mjs` still carries the legacy `release: 'lockstep'` field because #749 has not implemented the #746 release policy yet. That field is observed implementation state, not
-architecture authority, and must disappear when `scripts/release/policy.mjs` lands.
+The checked-in `policy.mjs` carries no release-group field. `scripts/release/policy.mjs` owns release classification and compatibility ranges without changing architecture membership, dependency
+direction, rings, or reachability.
 
 ### 2.1 Read-only discovery and graph API
 
@@ -608,9 +609,8 @@ The publish transform writes the exact common core version for same-core prerele
 protocol and preserves the explicit range. Published manifests omit development dependencies, point exports and bins at existing `dist` `.js`/`.d.ts` files, repoint any side-effect allowlist to `dist`
 `.js`, and preserve package-owned metadata.
 
-Target state requires architecture policy to carry no release-group field. The measured current `policy.mjs` still carries legacy `release: 'lockstep'` on every row until #749 removes that projection
-when `scripts/release/policy.mjs` lands. The complete group inventory, compatibility ranges, prerelease behavior, changelog identity, tag form, retry rules, and publication units are normative in
-[`scripts/release/SPEC.md`](../release/SPEC.md). The current executable lockstep implementation is a migration baseline until #749, not an exception to that target.
+Architecture policy carries no release-group field. The complete group inventory, compatibility ranges, prerelease behavior, changelog identity, tag form, retry rules, and publication units are
+normative in [`scripts/release/SPEC.md`](../release/SPEC.md) and executable through `scripts/release/policy.mjs` plus the snapshot-backed release model.
 
 ## 7. Verifier boundaries
 
@@ -673,7 +673,8 @@ section, tag mismatch, invalid release-unit selection, and non-deterministic pla
 Remediation: prepare exactly one core or independent release target, repair its changelog section, regenerate the lockfile and compatibility cases, create the exact target tag, or consume the release
 plan instead of a handwritten loop.
 
-The checked-in `verify-release-governance.mjs` still implements the earlier whole-catalog contract. Issue #749 replaces that implementation; #747 freezes the target failures first.
+The checked-in `verify-release-governance.mjs` implements selected core or independent release units, validates release-policy projections, and rejects unrelated version movement. Issue #747 froze the
+target failures before this implementation.
 
 ## 8. Stable diagnostic codes and exact remediation
 
@@ -756,8 +757,8 @@ The frozen test titles are:
 #725 retires the three expected failures for cycles, forbidden policy edges and workspace imports absent from the manifest, and adds executable stale-edge, non-canonical-ring and private-import
 coverage. #726 retires the tooling- and optional-peer-reachability expected failures, adds executable stale-exemption coverage and wires the generic command into CI. #727 retires the
 incomplete-metadata and lockstep-version expected failures and adds executable optional-peer metadata coverage. #728 retires the two original release expected failures and adds deterministic
-whole-catalog release plans, rollback-safe bumps, and the original release CI command. #746 supersedes that release shape; #747 freezes the group, independent-version, and packed-floor failures before
-#749 and #750 replace the implementation.
+whole-catalog release plans, rollback-safe bumps, and the original release CI command. #746 supersedes that release shape; #747 freezes the group, independent-version, and packed-floor failures, #749
+implements the structural release model, and #750 completes packed compatibility qualification.
 
 ## 10. Explicit refusals
 

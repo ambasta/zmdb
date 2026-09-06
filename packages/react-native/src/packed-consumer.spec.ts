@@ -5,11 +5,10 @@ import { join, relative, sep } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ROOT, publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { ROOT, publishCatalog, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import { runPackedProject, type PackedProjectResult } from '../../../fixtures/client-adapters/src/packed-project.js';
 
-const RELEASE = await publishTrain(ROOT);
-const RELEASE_VERSION = RELEASE.version;
+const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 
 const FIXTURE_SOURCES = [
   'conformance-cases.ts',
@@ -90,15 +89,15 @@ describe('@zmdb/react-native packed consumer', () => {
       packages: [
         {
           directory: join(buildRoot, 'packages', 'client'),
-          manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
+          manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
         },
         {
           directory: join(buildRoot, 'packages', 'react'),
-          manifest: publishManifest(readManifest('react', RELEASE), RELEASE_VERSION),
+          manifest: publishManifest(readManifest('react', PUBLISH_PACKAGES)),
         },
         {
           directory: join(buildRoot, 'packages', 'react-native'),
-          manifest: publishManifest(readManifest('react-native', RELEASE), RELEASE_VERSION),
+          manifest: publishManifest(readManifest('react-native', PUBLISH_PACKAGES)),
         },
       ],
       dependencies: {

@@ -319,7 +319,7 @@ describe('@zmdb/cockroach vertical', () => {
       ),
     );
 
-    expect(childManifest.dependencies['@zmdb/postgres']).toBe('workspace:^');
+    expect(childManifest.dependencies['@zmdb/postgres']).toBe('workspace:1.0.0-alpha.4');
     expect(parentManifest.dependencies?.['@zmdb/cockroach']).toBeUndefined();
     expect(sources.join('\n')).not.toMatch(/@zmdb\/postgres(?:\/src|\/[^'"]+)/);
     expect(fixtureRuntime).toContain("from '@zmdb/cockroach'");

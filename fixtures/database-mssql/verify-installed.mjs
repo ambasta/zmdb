@@ -6,10 +6,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const FIXTURE = join(ROOT, 'fixtures', 'database-mssql');
 const PACKAGES = join(ROOT, 'packages');
 const ROOTS = ['@zmdb/mssql', '@zmdb/query-compiler', '@zmdb/repository'];
@@ -93,6 +92,14 @@ function workspacePackages() {
   return packages;
 }
 
+function workspaceInstallDependencies(packages, pkg) {
+  const dependencies = Object.keys(pkg.manifest.dependencies ?? {}).filter(name => packages.has(name));
+  const requiredPeers = Object.keys(pkg.manifest.peerDependencies ?? {}).filter(
+    name => packages.has(name) && pkg.manifest.peerDependenciesMeta?.[name]?.optional !== true,
+  );
+  return [...new Set([...dependencies, ...requiredPeers])].toSorted();
+}
+
 function closure(packages, roots) {
   const names = new Set();
   const queue = [...roots];
@@ -102,9 +109,7 @@ function closure(packages, roots) {
     const current = packages.get(name);
     if (current === undefined) throw new Error(`workspace package ${name} has no manifest`);
     names.add(name);
-    for (const dependency of Object.keys(current.manifest.dependencies ?? {})) {
-      if (packages.has(dependency)) queue.push(dependency);
-    }
+    queue.push(...workspaceInstallDependencies(packages, current));
   }
   return [...names].toSorted();
 }
@@ -125,10 +130,7 @@ function packWorkspace(packages, names, scratch) {
     const stage = join(scratch, 'stage', name.replaceAll('/', '__'));
     mkdirSync(dirname(stage), { recursive: true });
     copyForPack(current.directory, stage);
-    writeFileSync(
-      join(stage, 'package.json'),
-      `${JSON.stringify(publishManifest(current.manifest, RELEASE_VERSION), null, 2)}\n`,
-    );
+    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(current.manifest), null, 2)}\n`);
     const packed = run('npm', ['pack', '--json', '--pack-destination', scratch], {
       cwd: stage,
       env: { ...process.env, COREPACK_ENABLE_PROJECT_SPEC: '0' },

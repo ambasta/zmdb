@@ -39,14 +39,13 @@
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@zmdb/app": "workspace:^"
-  },
   "devDependencies": {
+    "@zmdb/app": "workspace:^",
     "amqplib": "2.0.1",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@zmdb/app": "1.0.0-alpha.4",
     "amqplib": "^2.0.1"
   },
   "engines": {

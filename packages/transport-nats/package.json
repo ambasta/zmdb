@@ -39,15 +39,14 @@
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@zmdb/app": "workspace:^"
-  },
   "devDependencies": {
     "@nats-io/transport-node": "3.4.0",
+    "@zmdb/app": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@nats-io/transport-node": "^3.4.0"
+    "@nats-io/transport-node": "^3.4.0",
+    "@zmdb/app": "1.0.0-alpha.4"
   },
   "engines": {
     "node": ">=26"

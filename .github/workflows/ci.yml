@@ -36,13 +36,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/roadmap/native-relationships.mjs --json > "$RUNNER_TEMP/zmdb-native-relationships.json"
 
-      - name: Verify the composed architecture and release governance snapshot
+      - name: Verify the composed architecture, exception, and release governance snapshot
         run: yarn verify:governance --relationships "$RUNNER_TEMP/zmdb-native-relationships.json"
 
-      - name: Verify package metadata and lockstep versions
+      - name: Verify package metadata and release-policy projections
         run: yarn verify:package-metadata
 
-      - name: Verify lockstep release plan, changelog, and publish order
+      - name: Verify release units, changelog, and publish order
         run: yarn verify:release-governance
 
       # The root config loads @zmdb/compiler/lint through its source adapter and enables

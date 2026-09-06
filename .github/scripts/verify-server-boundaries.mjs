@@ -32,7 +32,7 @@ export const SERVER_PACKAGES = [
     name: '@zmdb/transport-grpc',
     dir: 'transport-grpc',
     dependencies: { '@zmdb/app': 'workspace:^', '@zmdb/protobuf': 'workspace:^' },
-    peer: { name: '@grpc/grpc-js', range: '^1.14.0' },
+    peer: { name: '@grpc/grpc-js', range: '^1.14.4' },
     exports: ['.'],
   },
   {
@@ -67,7 +67,7 @@ export const SERVER_PACKAGES = [
     name: '@zmdb/otel',
     dir: 'otel',
     dependencies: { '@zmdb/app': 'workspace:^' },
-    peer: { name: '@opentelemetry/api', range: '^1.9.0' },
+    peer: { name: '@opentelemetry/api', range: '^1.9.1' },
     exports: ['.'],
   },
 ];
@@ -107,8 +107,8 @@ export const CORE_SERVER_PACKAGES = [
       '@zmdb/schema-core': 'workspace:^',
     },
     buildTimePeers: {
-      '@zmdb/compiler': 'workspace:^',
-      typescript: '>=7.0.0',
+      '@zmdb/compiler': '1.0.0-alpha.4',
+      typescript: '>=7.0.2 <8.0.0',
     },
     exports: [
       '.',
@@ -262,6 +262,10 @@ function sameEntries(actual, expected) {
   return JSON.stringify(Object.entries(actual).toSorted()) === JSON.stringify(Object.entries(expected).toSorted());
 }
 
+function sameKeys(actual, expected) {
+  return JSON.stringify(sortedKeys(actual)) === JSON.stringify(sortedKeys(expected));
+}
+
 function display(values) {
   return `[${values.toSorted().join(', ')}]`;
 }
@@ -359,7 +363,14 @@ function packageDirectory(root, file) {
   return path.split(/[\\/]/)[0] ?? null;
 }
 
-function targetProblems(root, graph, architecture, target, requireAll) {
+function releasePeerRange(architecture, release, packageName, peer, fallback) {
+  if (release === undefined) return fallback;
+  const packageRecord = architecture.packages.find(candidate => candidate.npmName === packageName);
+  const range = packageRecord === undefined ? undefined : release.releasePolicy[packageRecord.id]?.peers?.[peer]?.range;
+  return typeof range === 'string' ? range : fallback;
+}
+
+function targetProblems(root, graph, architecture, target, requireAll, release) {
   const problems = [];
   const packageRecord = workspacePackage(architecture, target.name);
   const path = packageRecord?.manifestPath ?? join(root, 'packages', target.dir, 'package.json');
@@ -379,23 +390,45 @@ function targetProblems(root, graph, architecture, target, requireAll) {
   }
 
   const dependencies = record(manifest.dependencies);
-  if (!sameEntries(dependencies, target.dependencies)) {
+  const peers = record(manifest.peerDependencies);
+  const isWorkspaceName = name => name === 'zmdb' || name.startsWith('@zmdb/');
+  const workspaceEdges = Object.fromEntries(
+    [...Object.entries(dependencies), ...Object.entries(peers)].filter(([name]) => isWorkspaceName(name)),
+  );
+  if (!sameKeys(workspaceEdges, target.dependencies)) {
     problems.push(
-      `${target.name} dependencies ${JSON.stringify(dependencies)}, expected ${JSON.stringify(target.dependencies)}`,
+      `${target.name} workspace edges ${JSON.stringify(workspaceEdges)}, expected ${JSON.stringify(target.dependencies)}`,
     );
   }
+  const externalDependencies = Object.fromEntries(
+    Object.entries(dependencies).filter(([name]) => !isWorkspaceName(name)),
+  );
+  if (!sameEntries(externalDependencies, {})) {
+    problems.push(`${target.name} external dependencies ${JSON.stringify(externalDependencies)}, expected {}`);
+  }
 
-  const peers = record(manifest.peerDependencies);
-  const expectedPeers = target.peer === undefined ? {} : { [target.peer.name]: target.peer.range };
-  if (!sameEntries(peers, expectedPeers)) {
-    problems.push(`${target.name} peers ${JSON.stringify(peers)}, expected ${JSON.stringify(expectedPeers)}`);
+  const externalPeers = Object.fromEntries(Object.entries(peers).filter(([name]) => !isWorkspaceName(name)));
+  const expectedExternalPeers =
+    target.peer === undefined
+      ? {}
+      : {
+          [target.peer.name]: releasePeerRange(architecture, release, target.name, target.peer.name, target.peer.range),
+        };
+  const externalPeersMatch =
+    release === undefined
+      ? sameKeys(externalPeers, expectedExternalPeers)
+      : sameEntries(externalPeers, expectedExternalPeers);
+  if (!externalPeersMatch) {
+    problems.push(
+      `${target.name} external peers ${JSON.stringify(externalPeers)}, expected ${JSON.stringify(expectedExternalPeers)}`,
+    );
   }
 
   const peerMeta = record(manifest.peerDependenciesMeta);
   if (target.peer !== undefined && record(peerMeta[target.peer.name]).optional === true) {
     problems.push(`${target.name} marks required peer ${target.peer.name} optional`);
   }
-  const staleMeta = sortedKeys(peerMeta).filter(name => target.peer === undefined || name !== target.peer.name);
+  const staleMeta = sortedKeys(peerMeta).filter(name => peers[name] === undefined);
   if (staleMeta.length > 0) {
     problems.push(`${target.name} has peer metadata for undeclared peers ${display(staleMeta)}`);
   }
@@ -417,7 +450,7 @@ function targetProblems(root, graph, architecture, target, requireAll) {
   return problems;
 }
 
-function coreTargetProblems(root, graph, architecture, target, requireAll) {
+function coreTargetProblems(root, graph, architecture, target, requireAll, release) {
   const problems = [];
   const packageRecord = workspacePackage(architecture, target.name);
   const path = packageRecord?.manifestPath ?? join(root, 'packages', target.dir, 'package.json');
@@ -437,7 +470,7 @@ function coreTargetProblems(root, graph, architecture, target, requireAll) {
   }
 
   const dependencies = record(manifest.dependencies);
-  if (!sameEntries(dependencies, target.dependencies)) {
+  if (!sameKeys(dependencies, target.dependencies)) {
     problems.push(
       `${target.name} core dependencies ${JSON.stringify(dependencies)}, expected ${JSON.stringify(target.dependencies)}`,
     );
@@ -449,8 +482,14 @@ function coreTargetProblems(root, graph, architecture, target, requireAll) {
   }
 
   const peers = record(manifest.peerDependencies);
-  const expectedPeers = target.buildTimePeers ?? {};
-  if (!sameEntries(peers, expectedPeers)) {
+  const expectedPeers = Object.fromEntries(
+    Object.entries(target.buildTimePeers ?? {}).map(([peer, range]) => [
+      peer,
+      releasePeerRange(architecture, release, target.name, peer, range),
+    ]),
+  );
+  const peersMatch = release === undefined ? sameKeys(peers, expectedPeers) : sameEntries(peers, expectedPeers);
+  if (!peersMatch) {
     problems.push(
       `${target.name} core peerDependencies ${JSON.stringify(peers)}, expected ${JSON.stringify(expectedPeers)}`,
     );
@@ -538,7 +577,7 @@ function metadataOwnershipProblems(root, architecture) {
 }
 
 export function analyzeAppKernelBoundary(root = SCRIPT_ROOT, options = {}) {
-  const { architecture } = options;
+  const { architecture, release } = options;
   if (architecture === undefined) {
     throw new TypeError('analyzeAppKernelBoundary requires architecture from loadGovernanceSnapshot({ root })');
   }
@@ -548,7 +587,7 @@ export function analyzeAppKernelBoundary(root = SCRIPT_ROOT, options = {}) {
     exports: APP_KERNEL_EXPORTS,
   };
   return [
-    ...coreTargetProblems(root, graph, architecture, target, true),
+    ...coreTargetProblems(root, graph, architecture, target, true, release),
     ...appKernelMoveProblems(root),
     ...metadataOwnershipProblems(root, architecture),
   ].toSorted();
@@ -639,7 +678,7 @@ export function findServerPackageCycle(edges) {
 }
 
 export function analyzeCoreServerBoundaries(root = SCRIPT_ROOT, options = {}) {
-  const { architecture } = options;
+  const { architecture, release } = options;
   if (architecture === undefined) {
     throw new TypeError('analyzeCoreServerBoundaries requires architecture from loadGovernanceSnapshot({ root })');
   }
@@ -648,7 +687,7 @@ export function analyzeCoreServerBoundaries(root = SCRIPT_ROOT, options = {}) {
   const packageProblems = new Map(
     CORE_SERVER_PACKAGES.map(target => [
       target.name,
-      coreTargetProblems(root, graph, architecture, target, requireAll),
+      coreTargetProblems(root, graph, architecture, target, requireAll, release),
     ]),
   );
   packageProblems.set('zmdb', productServerProblems(root, graph, architecture));
@@ -659,13 +698,15 @@ export function analyzeCoreServerBoundaries(root = SCRIPT_ROOT, options = {}) {
 }
 
 export function analyzeOptionalServerPackages(root = SCRIPT_ROOT, options = {}) {
-  const { architecture } = options;
+  const { architecture, release } = options;
   if (architecture === undefined) {
     throw new TypeError('analyzeOptionalServerPackages requires architecture from loadGovernanceSnapshot({ root })');
   }
   const requireAll = options.requireAll !== false;
   const graph = createImportGraph(root, architecture);
-  return SERVER_PACKAGES.flatMap(target => targetProblems(root, graph, architecture, target, requireAll)).toSorted();
+  return SERVER_PACKAGES.flatMap(target =>
+    targetProblems(root, graph, architecture, target, requireAll, release),
+  ).toSorted();
 }
 
 function coreProblems(root, graph, architecture) {
@@ -707,19 +748,19 @@ function coreProblems(root, graph, architecture) {
 }
 
 export function analyzeServerBoundaries(root = SCRIPT_ROOT, options = {}) {
-  const { architecture } = options;
+  const { architecture, release } = options;
   if (architecture === undefined) {
     throw new TypeError('analyzeServerBoundaries requires architecture from loadGovernanceSnapshot({ root })');
   }
   const requireAll = options.requireAll !== false;
   const graph = createImportGraph(root, architecture);
-  const core = analyzeCoreServerBoundaries(root, { architecture, requireAll });
+  const core = analyzeCoreServerBoundaries(root, { architecture, release, requireAll });
   return [
-    ...SERVER_PACKAGES.flatMap(target => targetProblems(root, graph, architecture, target, requireAll)),
+    ...SERVER_PACKAGES.flatMap(target => targetProblems(root, graph, architecture, target, requireAll, release)),
     ...coreProblems(root, graph, architecture),
     ...[...core.packageProblems.values()].flat(),
     ...core.graphProblems,
-    ...(hasPublishedAppKernel(architecture) ? analyzeAppKernelBoundary(root, { architecture }) : []),
+    ...(hasPublishedAppKernel(architecture) ? analyzeAppKernelBoundary(root, { architecture, release }) : []),
   ].toSorted();
 }
 
@@ -748,11 +789,22 @@ function parseArgs(argv) {
 async function runCli() {
   const { root, strict, requireAll, optionalPackagesOnly } = parseArgs(process.argv.slice(2));
   const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
-  const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
+  const snapshot = await loadGovernanceSnapshot({
+    root,
+    checks: existsSync(join(root, 'scripts', 'release', 'policy.mjs')) ? ['release'] : [],
+  });
   if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
   const actual = optionalPackagesOnly
-    ? analyzeOptionalServerPackages(root, { architecture: snapshot.architecture, requireAll })
-    : analyzeServerBoundaries(root, { architecture: snapshot.architecture, requireAll });
+    ? analyzeOptionalServerPackages(root, {
+        architecture: snapshot.architecture,
+        release: snapshot.queries.release,
+        requireAll,
+      })
+    : analyzeServerBoundaries(root, {
+        architecture: snapshot.architecture,
+        release: snapshot.queries.release,
+        requireAll,
+      });
   const rawFindings = actual.map(serverBoundaryProblemFinding);
   const exceptionReport =
     strict || optionalPackagesOnly

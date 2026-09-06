@@ -4,15 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { ROOT, publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { ROOT, publishCatalog, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
   type PackedProjectResult,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
-const RELEASE = await publishTrain(ROOT);
-const RELEASE_VERSION = RELEASE.version;
+const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 
 const HARNESS_SOURCES = [
   'conformance-cases.ts',
@@ -86,11 +85,11 @@ describe('@zmdb/vue packed consumers', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'vue'),
-            manifest: publishManifest(readManifest('vue', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('vue', PUBLISH_PACKAGES)),
           },
         ],
         dependencies: {

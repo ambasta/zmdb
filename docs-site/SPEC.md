@@ -289,7 +289,7 @@ The implementation children add exact tests for these frozen statements:
 - all twelve legacy GraphQL slugs redirect to `graphql`;
 - package and integration output is deterministic and sourced as specified;
 - architecture graph, rings and entry assignments are deterministic and sourced from catalog, policy and manifests;
-- package admission and the current lockstep release commands remain present, the frozen release-group contract is linked as target state, and copied package inventories remain absent;
+- package admission and the target-scoped core/integration release commands remain present, the release-group contract is linked as executable policy, and copied package inventories remain absent;
 - every retained typed fence is classified;
 - compile samples compile, expected-error samples fail for their declared diagnostics, and illustrative samples carry a reason.
 

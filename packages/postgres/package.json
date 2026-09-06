@@ -41,16 +41,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/migrations": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/repository": "workspace:^",
     "pg": "8.23.0",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@zmdb/query-compiler": "1.0.0-alpha.4",
+    "@zmdb/repository": "1.0.0-alpha.4",
     "pg": "^8.23.0"
   },
   "peerDependenciesMeta": {

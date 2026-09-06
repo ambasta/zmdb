@@ -41,17 +41,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/migrations": "workspace:^",
-    "@zmdb/mysql": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4",
+    "@zmdb/mysql": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/repository": "workspace:^",
     "mysql2": "3.24.3",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@zmdb/query-compiler": "1.0.0-alpha.4",
+    "@zmdb/repository": "1.0.0-alpha.4",
     "mysql2": "^3.24.3"
   },
   "peerDependenciesMeta": {

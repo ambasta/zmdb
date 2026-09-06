@@ -6,10 +6,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { publishManifest, publishTrain } from '../../.github/scripts/lib/publish-manifest.mjs';
+import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const RELEASE_VERSION = (await publishTrain(ROOT)).version;
 const FIXTURE = join(ROOT, 'fixtures', 'database-sqlite');
 const PACKAGE_ROOT = join(ROOT, 'packages');
 const BUILD_ORDER = [
@@ -66,7 +65,7 @@ function pack(allPackages, scratch) {
     const stage = join(scratch, 'stage', name.replaceAll('/', '__'));
     mkdirSync(dirname(stage), { recursive: true });
     copyForPack(pkg.directory, stage);
-    const manifest = publishManifest(pkg.manifest, RELEASE_VERSION);
+    const manifest = publishManifest(pkg.manifest);
     manifest.dependencies = Object.fromEntries(
       Object.entries(manifest.dependencies ?? {}).map(([dependency, range]) => {
         const archive = archives.get(dependency);
@@ -91,8 +90,13 @@ function pack(allPackages, scratch) {
 
 function verifyInstalledTree(app) {
   const appManifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
-  if (JSON.stringify(Object.keys(appManifest.dependencies ?? {})) !== JSON.stringify(['@zmdb/sqlite'])) {
-    throw new Error('packed consumer must declare only @zmdb/sqlite');
+  const consumerDependencies = Object.keys(appManifest.dependencies ?? {}).toSorted();
+  const expectedConsumerDependencies = ['@zmdb/query-compiler', '@zmdb/repository', '@zmdb/sqlite'];
+  if (JSON.stringify(consumerDependencies) !== JSON.stringify(expectedConsumerDependencies)) {
+    throw new Error(
+      `packed consumer dependencies are [${consumerDependencies.join(', ')}], ` +
+        `expected [${expectedConsumerDependencies.join(', ')}]`,
+    );
   }
   const installedRoot = join(app, 'node_modules', '@zmdb', 'sqlite');
   const manifest = JSON.parse(readFileSync(join(installedRoot, 'package.json'), 'utf8'));
@@ -102,11 +106,16 @@ function verifyInstalledTree(app) {
     }
   }
   const dependencies = Object.keys(manifest.dependencies ?? {}).toSorted();
-  const expectedDependencies = ['@zmdb/migrations', '@zmdb/query-compiler', '@zmdb/repository'];
+  const expectedDependencies = ['@zmdb/migrations'];
   if (JSON.stringify(dependencies) !== JSON.stringify(expectedDependencies)) {
     throw new Error(
       `@zmdb/sqlite dependencies are [${dependencies.join(', ')}], expected [${expectedDependencies.join(', ')}]`,
     );
+  }
+  const peers = Object.keys(manifest.peerDependencies ?? {}).toSorted();
+  const expectedPeers = ['@zmdb/query-compiler', '@zmdb/repository'];
+  if (JSON.stringify(peers) !== JSON.stringify(expectedPeers)) {
+    throw new Error(`@zmdb/sqlite peers are [${peers.join(', ')}], expected [${expectedPeers.join(', ')}]`);
   }
   const exports = Object.keys(manifest.exports ?? {}).toSorted();
   const expectedExports = ['.', './embedded', './node'];
@@ -128,9 +137,14 @@ function main() {
     const app = join(scratch, 'app');
     copyForPack(FIXTURE, app);
     const manifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
-    const sqliteArchive = archives.get('@zmdb/sqlite');
-    if (sqliteArchive === undefined) throw new Error('@zmdb/sqlite archive is missing');
-    manifest.dependencies = { '@zmdb/sqlite': `file:${sqliteArchive}` };
+    const consumerPackages = ['@zmdb/query-compiler', '@zmdb/repository', '@zmdb/sqlite'];
+    manifest.dependencies = Object.fromEntries(
+      consumerPackages.map(name => {
+        const archive = archives.get(name);
+        if (archive === undefined) throw new Error(`${name} archive is missing`);
+        return [name, `file:${archive}`];
+      }),
+    );
     writeFileSync(join(app, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
     const installed = run(

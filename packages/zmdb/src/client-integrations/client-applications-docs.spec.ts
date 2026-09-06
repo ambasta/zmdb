@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  publishCatalog,
   ROOT,
   publishManifest,
-  publishTrain,
   readManifest,
 } from '../../../../.github/scripts/lib/publish-manifest.mjs';
 import {
@@ -22,9 +22,8 @@ import {
   runPackedProject,
 } from '../../../../fixtures/client-adapters/src/packed-project.js';
 
-const RELEASE = await publishTrain(ROOT);
-const RELEASE_VERSION = RELEASE.version;
-const PRODUCT_CATALOG = RELEASE.packages.map(packageRecord => packageRecord.catalog);
+const PUBLISH_PACKAGES = await publishCatalog(ROOT);
+const PRODUCT_CATALOG = PUBLISH_PACKAGES.map(packageRecord => packageRecord.catalog);
 const OVERVIEW = source('docs-site/content/framework-integrations.md');
 
 function source(path: string): string {
@@ -133,11 +132,11 @@ describe('Client Applications documentation (#701)', () => {
         packages: [
           {
             directory: join(ROOT, 'packages/client'),
-            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
           },
           ...ADAPTER_PACKAGES.map(expectation => ({
             directory: join(ROOT, 'packages', expectation.directory),
-            manifest: publishManifest(readManifest(expectation.directory, RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest(expectation.directory, PUBLISH_PACKAGES)),
           })),
         ],
         dependencies: {

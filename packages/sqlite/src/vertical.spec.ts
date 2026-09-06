@@ -646,9 +646,7 @@ describe('@zmdb/sqlite vertical', () => {
       readFileSync(resolve(new URL('../package.json', import.meta.url).pathname), 'utf8'),
     ) as { dependencies?: Readonly<Record<string, string>> };
     expect(manifest.dependencies).toEqual({
-      '@zmdb/migrations': 'workspace:^',
-      '@zmdb/query-compiler': 'workspace:^',
-      '@zmdb/repository': 'workspace:^',
+      '@zmdb/migrations': 'workspace:1.0.0-alpha.4',
     });
   });
 });

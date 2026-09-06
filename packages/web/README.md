@@ -28,11 +28,11 @@ leases, and the SQLite memory backend live in `@zmdb/jobs`; the removed web path
 pool or client.
 
 Stage-3 metadata, dependency injection, modules, lifecycle, messaging, commands, events, CQRS, state machines, health contracts, and dependency-free observability ports live in `@zmdb/app`. Install
-`@zmdb/otel@alpha` with `@opentelemetry/api@^1.9.0` to adapt caller-owned tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
+`@zmdb/otel@alpha` with `@opentelemetry/api@^1.9.1` to adapt caller-owned tracers and meters; web has no OpenTelemetry peer or forwarding subpath.
 
 `@zmdb/web/versioning` provides version decorators and the path, header, and media-type strategies used by the router and OpenAPI generator.
 
-Install each selected transport package with its required peer: grpc-js `^1.14.0`, the Node NATS transport `^3.4.0`, amqplib `^2.0.1`, or redis `^6.2.1`. `@zmdb/web` declares no third-party runtime
+Install each selected transport package with its required peer: grpc-js `^1.14.4`, the Node NATS transport `^3.4.0`, amqplib `^2.0.1`, or redis `^6.2.1`. `@zmdb/web` declares no third-party runtime
 peer and publishes no broker or benchmark-helper subpath. Its optional TypeScript peer is reached only by the build-time `/contract/compiler` entry.
 
 ## Documentation

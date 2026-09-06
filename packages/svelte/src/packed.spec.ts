@@ -4,15 +4,14 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { publishManifest, publishTrain, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
+import { publishCatalog, publishManifest, readManifest } from '../../../.github/scripts/lib/publish-manifest.mjs';
 import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   runPackedProject,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const ROOT = join(import.meta.dirname, '../../..');
-const RELEASE = await publishTrain(ROOT);
-const RELEASE_VERSION = RELEASE.version;
+const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 const FIXTURE = join(ROOT, 'fixtures', 'client-adapters', 'svelte-packed');
 const FIXTURE_FILES = [
   'App.svelte',
@@ -61,11 +60,11 @@ describe('@zmdb/svelte packed consumers', () => {
         packages: [
           {
             directory: join(ROOT, 'packages', 'client'),
-            manifest: publishManifest(readManifest('client', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('client', PUBLISH_PACKAGES)),
           },
           {
             directory: join(ROOT, 'packages', 'svelte'),
-            manifest: publishManifest(readManifest('svelte', RELEASE), RELEASE_VERSION),
+            manifest: publishManifest(readManifest('svelte', PUBLISH_PACKAGES)),
           },
         ],
         dependencies: {

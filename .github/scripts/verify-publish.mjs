@@ -34,7 +34,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { inspectServerCoreFixture } from '../../fixtures/consumer-server-core/verify-installed.mjs';
-import { ROOT, publishManifest, publishTrain, readManifest } from './lib/publish-manifest.mjs';
+import { ROOT, publishCatalog, publishManifest, readManifest } from './lib/publish-manifest.mjs';
 import { inspectProductConsumerFixture } from './verify-product-facade.mjs';
 import {
   TARGET_PRODUCT_TOOLING_EXPORTS,
@@ -82,9 +82,7 @@ const HTTP_CLIENT_DOCS_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 
 const HTTP_CLIENT_DOCS_PAGE = join(ROOT, 'docs-site', 'content', 'generated-client.md');
 const HTTP_CLIENT_DOCS_TSCONFIG = join(ROOT, 'fixtures', 'consumer-http-client', 'tsconfig.docs.json');
 const HTTP_CLIENT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'verify-installed.mjs');
-const RELEASE = await publishTrain(ROOT);
-const PUBLISH_PACKAGES = RELEASE.packages;
-const RELEASE_VERSION = RELEASE.version;
+const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 const ADMITTED_PACKAGE_NAMES = new Set(PUBLISH_PACKAGES.map(packageRecord => packageRecord.npmName));
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
@@ -395,7 +393,7 @@ const specifiers = [];
 const packedTarballs = new Map();
 let studioBin;
 for (const packageRecord of PUBLISH_PACKAGES) {
-  const pkg = publishManifest(readManifest(packageRecord.id, RELEASE), RELEASE_VERSION);
+  const pkg = publishManifest(readManifest(packageRecord.id, PUBLISH_PACKAGES));
   const src = join(ROOT, packageRecord.directory);
   const dst = join(stage, packageRecord.id);
 

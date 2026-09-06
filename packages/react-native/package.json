@@ -40,8 +40,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/client": "workspace:^",
-    "@zmdb/react": "workspace:^"
+    "@zmdb/client": "workspace:1.0.0-alpha.4",
+    "@zmdb/react": "workspace:1.0.0-alpha.4"
   },
   "devDependencies": {
     "@types/react": "19.2.18",
@@ -53,8 +53,8 @@
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "react": ">=19.2.0 <20.0.0",
-    "react-native": ">=0.87.0 <0.88.0"
+    "react": ">=19.2.8 <20.0.0",
+    "react-native": ">=0.87.1 <0.88.0"
   },
   "engines": {
     "node": ">=26"

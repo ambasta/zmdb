@@ -5,7 +5,7 @@
 > ownership amendment assigns the generic ports and database instrumentation to `@zmdb/app/observability`; HTTP spans remain web-owned. The registry below remains a dependency-free alternative; values
 > exported through the framework `Meter` use the conventional names and seconds units documented below.
 
-`@zmdb/app/observability` and the HTTP instrumentation have no OpenTelemetry dependency. To adapt application-owned OpenTelemetry objects, install `@zmdb/otel@alpha @opentelemetry/api@^1.9.0`. Neither
+`@zmdb/app/observability` and the HTTP instrumentation have no OpenTelemetry dependency. To adapt application-owned OpenTelemetry objects, install `@zmdb/otel@alpha @opentelemetry/api@^1.9.1`. Neither
 is part of the `zmdb` default install. The adapter owns no provider, processor, exporter, collector client, global registration, or shutdown hook.
 
 ## The four things worth measuring

@@ -40,7 +40,7 @@ compares all nine official packages, and links to their framework-native lifecyc
 | Capability         | Install                                                                         | Lifecycle and ownership                                                   |
 | ------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Protobuf artifacts | `npm add @zmdb/protobuf@alpha && npm add --save-dev @zmdb/compiler@alpha`       | no runtime peer or external resource; compiler emits the artifacts        |
-| Typed gRPC         | `npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.0` | app owns server extension; caller closes clients                          |
+| Typed gRPC         | `npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.4` | app owns server extension; caller closes clients                          |
 | Core NATS          | `npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0`             | app starts, drains, and closes the strategy connection                    |
 | RabbitMQ           | `npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1`                         | app owns connection, channels, retry, and dead-letter topology            |
 | Redis Pub/Sub      | `npm add @zmdb/transport-redis@alpha redis@^6.2.1`                              | app owns publisher/subscriber clients and bounded drain                   |
@@ -57,7 +57,7 @@ compatibility facade or automatically install jobs.
 ## Prerequisites
 
 - **Node.js** 26.0.0 or later
-- **TypeScript** 7.0.0 or later
+- **TypeScript** 7.0.2 or later
 - **ESM** — your `package.json` must have `"type": "module"`
 
 ```json

@@ -25,6 +25,10 @@ export interface ManifestEntry {
   readonly [field: string]: unknown;
 }
 
+export interface ReleaseProjection {
+  readonly releasePolicy: Readonly<Record<string, { readonly group: string }>>;
+}
+
 export type CatalogConsumerAssignment =
   | {
       readonly npmName: string;
@@ -73,6 +77,7 @@ export function compareGeneratedRegion(
 export function renderPackageReferenceRows(
   rows: readonly CatalogRow[],
   manifests: ReadonlyMap<string, ManifestEntry>,
+  releasePolicy: ReleaseProjection['releasePolicy'],
 ): string;
 export function renderIntegrationRows(records: readonly IntegrationRecord[]): string;
 export function verifyIntegrationRecords(
@@ -95,5 +100,5 @@ export function discoverCatalogConsumers(root: string, rows: readonly CatalogRow
 export function handwrittenInventoryProblems(root: string, rows: readonly CatalogRow[]): readonly string[];
 export function inspectProductCatalog(
   root: string | undefined,
-  options: { readonly architecture: Architecture },
+  options: { readonly architecture: Architecture; readonly release: ReleaseProjection },
 ): Promise<ProductCatalogReport>;

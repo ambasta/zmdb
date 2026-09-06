@@ -40,7 +40,7 @@ function createFixture(): string {
   for (const file of ['package.json', 'yarn.lock', 'tsconfig.json', '.yarnrc.yml']) {
     symlinkSync(join(ROOT, file), join(root, file), 'file');
   }
-  for (const file of ['ARCHITECTURE.md', 'PUBLISHING.md', 'docs-README.md']) {
+  for (const file of ['ARCHITECTURE.md', 'CHANGELOG.md', 'PUBLISHING.md', 'docs-README.md']) {
     cpSync(join(ROOT, file), join(root, file));
   }
   return root;

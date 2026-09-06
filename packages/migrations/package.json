@@ -48,17 +48,20 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/query-compiler": "workspace:^",
     "oxfmt": "0.66.0"
   },
   "devDependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/mssql": "workspace:^",
     "@zmdb/postgres": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
     "@zmdb/sqlite": "workspace:^",
     "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "@zmdb/query-compiler": "1.0.0-alpha.4"
   },
   "engines": {
     "node": ">=26"

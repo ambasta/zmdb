@@ -19,9 +19,13 @@ import { PALETTE_HTML, SHELL_CSS, THEME_BOOT, searchIndexScript, shellJs, topbar
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const { loadGovernanceSnapshot } = await import('../scripts/architecture/governance.mjs');
-const governance = await loadGovernanceSnapshot({ root, checks: [] });
+const governance = await loadGovernanceSnapshot({ root, checks: ['release'] });
 if (governance.architecture === null) throw new Error('governance snapshot has no architecture');
-generateDocumentation(root, { architecture: governance.architecture });
+if (governance.queries.release === undefined) throw new Error('governance snapshot has no release model');
+generateDocumentation(root, {
+  architecture: governance.architecture,
+  release: governance.queries.release,
+});
 const { NAV, PAGES } = await import('./manifest.mjs');
 const OUT = join(here, '..', 'site');
 const DASH = join(here, '..', 'benchmarks', 'site'); // existing benchmarks dashboard

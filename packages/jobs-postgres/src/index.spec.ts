@@ -14,6 +14,7 @@ const START = Date.parse('2026-09-05T00:00:00.000Z');
 
 interface PackageManifest {
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly devDependencies?: Readonly<Record<string, string>>;
   readonly exports?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
   readonly peerDependenciesMeta?: Readonly<Record<string, unknown>>;
@@ -180,10 +181,15 @@ describe('@zmdb/jobs-postgres (#661)', () => {
     const root = process.cwd();
     const adapter = readManifest(join(root, 'packages', 'jobs-postgres', 'package.json'));
     expect(adapter.dependencies).toEqual({
-      '@zmdb/jobs': 'workspace:^',
-      '@zmdb/postgres': 'workspace:^',
+      '@zmdb/postgres': 'workspace:1.0.0-alpha.4',
     });
-    expect(adapter.peerDependencies).toEqual({ pg: '^8.23.0' });
+    expect(adapter.devDependencies).toMatchObject({
+      '@zmdb/jobs': 'workspace:^',
+    });
+    expect(adapter.peerDependencies).toEqual({
+      '@zmdb/jobs': '1.0.0-alpha.4',
+      pg: '^8.23.0',
+    });
     expect(adapter.peerDependenciesMeta).toBeUndefined();
 
     for (const name of ['aot-validator', 'app', 'jobs', 'repository', 'web', 'zmdb']) {

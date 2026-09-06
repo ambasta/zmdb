@@ -1,34 +1,33 @@
 # Release groups and compatibility guarantees
 
-> **Status:** target contract frozen by issue #746 on 2026-09-06 and extended by issues #674 and #628 to classify the admitted `@zmdb/singlestore` and `@zmdb/compiler` packages. Issues #747–#750
-> implement and qualify this contract. The checked-in release scripts still enforce the current 38-package lockstep train until those implementation issues land. This specification does not authorize
-> a partial release with the current tooling.
+> **Status:** target contract frozen by issue #746 on 2026-09-06, extended by issues #674 and #628 to classify the admitted `@zmdb/singlestore` and `@zmdb/compiler` packages, and implemented
+> structurally by issue #749. Issue #750 still owns packed compatibility-matrix qualification.
 
 This directory owns release-group classification, version movement, internal package ranges, third-party compatibility floors, changelog identity, release tags, and release planning. It does not own
 product membership, npm identity, dependency direction, package exports, registry state, credentials, or publication side effects.
 
 - `scripts/product/catalog.mjs` remains the sole authority for public package membership and npm identity.
 - `scripts/architecture/policy.mjs` remains the sole authority for direct workspace edges, zones, rings, tooling selectors, and peer reachability.
-- the future `scripts/release/policy.mjs` is the sole authority for release-group classification and compatibility ranges.
+- `scripts/release/policy.mjs` is the sole authority for release-group classification and compatibility ranges.
 - package manifests are checked projections of those authorities, not another policy source.
 - root `CHANGELOG.md` remains the sole release-note file.
 
 No workflow, documentation generator, compatibility fixture, or publish helper may carry another handwritten package inventory.
 
 Issue #732's `GovernanceSnapshot` exposes this release projection to other read-only consumers without changing ownership: the product catalog and architecture policy retain membership and dependency
-authority, the target release policy owns group and compatibility decisions, current manifests remain the authoritative implementation projection until #749, and `CHANGELOG.md` still owns release
-notes. Native issue relationships and architecture exceptions cannot alter a release plan.
+authority, release policy owns group and compatibility decisions, manifests are checked implementation projections, and `CHANGELOG.md` still owns release notes. Native issue relationships and
+architecture exceptions cannot alter a release plan.
 
 ## 1. Measured baseline and evidence boundary
 
-The baseline contains:
+The current structurally implemented state contains:
 
 - 38 public catalog packages, all currently at `1.0.0-alpha.4`;
-- 74 direct non-development workspace edges: 20 within the cohesive core and 54 crossing release units;
-- 36 peer entries: 33 third-party peers and three internal optional peers;
+- 73 direct non-development workspace edges: 20 within the cohesive core and 53 crossing release units;
+- 63 peer entries: 33 third-party and 30 internal, split into 18 optional and 45 required entries;
 - six private root workspaces;
 - six `packages/*` roadmap directories with no manifest; and
-- one implemented release model that currently requires all 38 public packages to move together.
+- one implemented release model with an eight-package cohesive core, 28 independent integrations, and two independent tooling packages.
 
 The release groups below are a policy decision over that measured inventory. Existing common versions are evidence of the starting state, not justification for keeping every package lockstep.
 
@@ -55,7 +54,7 @@ justifies advertising an older floor. The supported and tested zmdb floor is **A
 
 ## 2. Machine-readable authority
 
-Issue #749 adds `scripts/release/policy.mjs` with this public shape:
+The #749 implementation adds `scripts/release/policy.mjs` with this public shape:
 
 ```ts
 export type ReleaseGroup = 'core' | 'integration' | 'tooling';
@@ -236,8 +235,8 @@ compile in the workspace.
 
 Except for the directly qualified Vercel row, the frozen ranges below use the exact versions pinned by current development or consumer fixtures as their deliberate target floor. A pin, workspace test,
 or compile-only fixture identifies the version to test; it does not prove support. Issue #750 must install every exact floor from packed zmdb tarballs in a clean consumer before the release policy is
-qualified. Issue #749 projects these frozen targets into policy and manifests; if a #750 packed case fails, its advertised range and floor must be corrected before #750 closes. Issue #746 changes no
-manifest.
+qualified. The #749 implementation projects these frozen targets into policy and manifests; if a #750 packed case fails, its advertised range and floor must be corrected before #750 closes. Issue #746
+changes no manifest.
 
 | Package                    | Third-party peer(s): frozen range; exact floor/current matrix version                                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -267,7 +266,8 @@ manifest.
 | `@zmdb/web`                | `typescript@>=7.0.2 <8.0.0`; `7.0.2`                                                                                                                                |
 
 Packages absent from the table have no third-party peer. `zmdb` additionally has internal optional peers on `@zmdb/mssql` and `@zmdb/postgres`; their measured current manifest ranges are both
-`workspace:^`. Target-state compatibility policy requires both peers to use the explicit cross-unit alpha range `1.0.0-alpha.4` until a wider range is proven, with manifest projection owned by #749.
+`workspace:^`. The implemented compatibility policy requires both peers to use the explicit cross-unit alpha range `1.0.0-alpha.4` until a wider range is proven, with manifest projection owned by the
+release model.
 
 `tested` contains exact versions, never tags such as `latest`, ranges, workspace aliases, or npm aliases. The floor is always present in `tested`. A current-version case may equal the floor; if it
 differs, both exact versions are installed in separate consumers.
