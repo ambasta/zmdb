@@ -54,25 +54,41 @@ for (let i = 0; i < BASE64URL_CHARS.length; i += 1) {
   BASE64URL_LOOKUP[BASE64URL_CHARS.charCodeAt(i)] = i;
 }
 
+interface Base64UrlCapable {
+  toBase64(options: { alphabet: string; omitPadding: boolean }): string;
+}
+
+interface Uint8ArrayConstructorWithBase64 {
+  fromBase64(str: string, options: { alphabet: string }): Uint8Array<ArrayBuffer>;
+}
+
+function isBase64Capable(value: object): value is Base64UrlCapable {
+  return typeof Reflect.get(value, 'toBase64') === 'function';
+}
+
+function hasFromBase64(ctor: object): ctor is Uint8ArrayConstructorWithBase64 {
+  return typeof Reflect.get(ctor, 'fromBase64') === 'function';
+}
+
 function bytesToBase64Url(bytes: Uint8Array<ArrayBuffer>): string {
   let result = '';
   let i = 0;
   const len = bytes.length;
   while (i < len) {
-    const b0 = bytes[i++]!;
-    const b1 = i < len ? bytes[i++]! : NaN;
-    const b2 = i < len ? bytes[i++]! : NaN;
+    const b0 = bytes[i++] ?? 0;
+    const b1 = i < len ? (bytes[i++] ?? NaN) : NaN;
+    const b2 = i < len ? (bytes[i++] ?? NaN) : NaN;
 
-    result += BASE64URL_CHARS[b0 >> 2]!;
+    result += BASE64URL_CHARS[b0 >> 2] ?? '';
     if (Number.isNaN(b1)) {
-      result += BASE64URL_CHARS[(b0 & 3) << 4]!;
+      result += BASE64URL_CHARS[(b0 & 3) << 4] ?? '';
     } else if (Number.isNaN(b2)) {
-      result += BASE64URL_CHARS[((b0 & 3) << 4) | (b1 >> 4)]!;
-      result += BASE64URL_CHARS[(b1 & 15) << 2]!;
+      result += BASE64URL_CHARS[((b0 & 3) << 4) | (b1 >> 4)] ?? '';
+      result += BASE64URL_CHARS[(b1 & 15) << 2] ?? '';
     } else {
-      result += BASE64URL_CHARS[((b0 & 3) << 4) | (b1 >> 4)]!;
-      result += BASE64URL_CHARS[((b1 & 15) << 2) | (b2 >> 6)]!;
-      result += BASE64URL_CHARS[b2 & 63]!;
+      result += BASE64URL_CHARS[((b0 & 3) << 4) | (b1 >> 4)] ?? '';
+      result += BASE64URL_CHARS[((b1 & 15) << 2) | (b2 >> 6)] ?? '';
+      result += BASE64URL_CHARS[b2 & 63] ?? '';
     }
   }
   return result;
@@ -102,12 +118,8 @@ function base64UrlToBytes(str: string): Uint8Array<ArrayBuffer> {
 }
 
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  const method = Reflect.get(value, 'toBase64');
-  if (typeof method === 'function') {
-    return (method as (options: { alphabet: string; omitPadding: boolean }) => string).call(value, {
-      alphabet: 'base64url',
-      omitPadding: true,
-    });
+  if (isBase64Capable(value)) {
+    return value.toBase64({ alphabet: 'base64url', omitPadding: true });
   }
   return bytesToBase64Url(value);
 }
@@ -117,13 +129,9 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const fromBase64 = Reflect.get(Uint8Array, 'fromBase64');
-    const decoded =
-      typeof fromBase64 === 'function'
-        ? (fromBase64 as (str: string, options: { alphabet: string }) => Uint8Array<ArrayBuffer>)(value, {
-            alphabet: 'base64url',
-          })
-        : base64UrlToBytes(value);
+    const decoded = hasFromBase64(Uint8Array)
+      ? Uint8Array.fromBase64(value, { alphabet: 'base64url' })
+      : base64UrlToBytes(value);
     return encodeBase64Url(decoded) === value ? decoded : undefined;
   } catch {
     return undefined;
