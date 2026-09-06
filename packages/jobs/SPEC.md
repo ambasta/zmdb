@@ -134,6 +134,7 @@ subpath exports `createMemoryJobStore`, `MemoryJobStore`, or `JobDialect`.
 The target store seam is domain-shaped:
 
 ```ts
+// proposal
 export interface JobEnqueue {
   readonly id: string;
   readonly name: string;

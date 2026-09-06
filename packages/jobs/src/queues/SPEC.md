@@ -41,9 +41,11 @@ export interface Clock {
   sleep(ms: number, signal: AbortSignal): Promise<void>;
 }
 
+export type JobDialect = SqlDialect;
+
 /** The store port. Structural; supported adapters are separate opt-in subpaths — §3. */
 export interface JobStore {
-  readonly dialect: SqlDialect;
+  readonly dialect?: JobDialect;
   execute(query: { readonly text: string; readonly parameters: readonly unknown[] }): Promise<readonly Record<string, unknown>[]>;
 }
 

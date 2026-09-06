@@ -9,7 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { delimiter, join, relative } from 'node:path';
+import { delimiter, dirname, join, relative } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { runCli } from 'zmdb/cli';
@@ -134,6 +134,10 @@ function runGate(command: 'tsc' | 'oxlint' | 'oxfmt', args: readonly string[], c
   execFileSync(join(ROOT, 'node_modules', '.bin', command), args, {
     cwd,
     encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${join(ROOT, 'node_modules', '.bin')}${delimiter}${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ''}`,
+    },
     stdio: 'pipe',
     timeout: 30_000,
   });
@@ -154,7 +158,7 @@ function runProjectScript(project: string, name: string): void {
       NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${join(ROOT, 'scripts', 'ts-specifier-hook.mjs')}`]
         .filter(value => value !== undefined && value.length > 0)
         .join(' '),
-      PATH: `${join(ROOT, 'node_modules', '.bin')}${delimiter}${process.env.PATH ?? ''}`,
+      PATH: `${join(ROOT, 'node_modules', '.bin')}${delimiter}${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ''}`,
     },
     stdio: 'pipe',
     timeout: 60_000,
@@ -169,7 +173,7 @@ describe('zmdb new scaffolds (frozen: zmdb CLI SPEC §13)', () => {
     runGate('tsc', ['--noEmit', '--project', join(project, 'tsconfig.json')], project);
     runGate('oxlint', ['.'], project);
     runGate('oxfmt', ['--check', '.'], project);
-  });
+  }, 60_000);
 
   it('generates the complete project file set and nothing else', async () => {
     const { project, run } = await generatedProject();

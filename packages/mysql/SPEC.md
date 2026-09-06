@@ -7,7 +7,7 @@
 ```ts
 export const mysql: SqlDialect<'mysql'>;
 export const mysqlIntrospector: Introspector<'mysql'>;
-export function mysqlDriver(client: MysqlQueryable, options?: MysqlOptions): TransactionalDriver<'mysql'>;
+export function mysqlDriver(client: MysqlQueryable, options?: MysqlOptions): MysqlDriver<'mysql'>;
 export const mysqlVertical: DatabaseVertical<'mysql', MysqlQueryable, MysqlOptions>;
 
 export function mysqlFamilyDriver<Name extends string>(dialect: SqlDialect<Name>, client: MysqlQueryable, options?: MysqlOptions): TransactionalDriver<Name>;

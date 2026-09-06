@@ -57,11 +57,17 @@ export type ProviderNode =
       readonly dependencies: readonly string[] | null;
     };
 
+export interface RouteNode {
+  readonly method: HttpMethod;
+  readonly path: string;
+  readonly handler: string;
+}
+
 export interface ClassNode {
   readonly id: string;
   readonly name: string;
   readonly module: string;
-  readonly routes: readonly { readonly method: HttpMethod; readonly path: string; readonly handler: string }[];
+  readonly routes: readonly RouteNode[];
   readonly dependencies: readonly string[];
 }
 

@@ -14,7 +14,7 @@ export {
   UnexpectedStatusError,
 } from './errors/index.js';
 export { CLIENT_RUNTIME_ABI, createClientRuntime } from './runtime.js';
-export { createFetchTransport } from './transport/index.js';
+export { createFetchTransport, type FetchLike } from './transport/index.js';
 export { stringifyClientScalar, substituteClientPath } from './url/index.js';
 export type {
   AuthenticationContext,
