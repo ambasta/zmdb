@@ -41,7 +41,7 @@
     "verify:docs-generated": "node .github/scripts/verify-docs-generated.mjs",
     "verify:docs-samples": "node docs-site/samples.mjs",
     "verify:exports": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-exports.mjs",
-    "verify:fixtures": "node --import ./scripts/ts-specifier-hook.mjs scripts/compiler-codegen.mjs --project fixtures/consumer-cli/tsconfig.json --check && vitest run packages/compiler/src/codegen/consumer-fixtures.spec.ts packages/compiler/src/metro/metro.spec.ts && node fixtures/consumer-mcp/verify-installed.mjs && node fixtures/database-sqlite/verify-installed.mjs",
+    "verify:fixtures": "node --import ./scripts/ts-specifier-hook.mjs scripts/compiler-codegen.mjs --project fixtures/consumer-cli/tsconfig.json --check && vitest run packages/compiler/src/codegen/consumer-fixtures.spec.ts packages/compiler/src/metro/metro.spec.ts && node --import ./scripts/ts-specifier-hook.mjs fixtures/consumer-mcp/verify-installed.mjs && node fixtures/database-sqlite/verify-installed.mjs",
     "verify:mssql-acceptance": "node fixtures/database-mssql/verify-installed.mjs",
     "verify:mysql-live": "vitest run packages/mysql/src/live.spec.ts",
     "verify:package-metadata": "node .github/scripts/verify-package-metadata.mjs && node .github/scripts/verify-package-metadata.mjs --self-test",
