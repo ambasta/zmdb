@@ -27,6 +27,7 @@ export {
   formatPlaceholder,
   inc,
   isSqlDialect,
+  isUnsafeOperator,
   mul,
   not,
   proposed,
@@ -38,6 +39,7 @@ export {
   serializeComment,
   stContains,
   stDWithin,
+  unsafeOperator,
   withComments,
 } from '@zmdb/sql';
 export {
@@ -84,6 +86,7 @@ export {
   type SqlDialect,
   type SqlDialectDefinition,
   type SqlDialectExtension,
+  type UnsafeOperator,
   type UpdateBuilder,
   type VectorColumnOf,
 } from '@zmdb/sql';
