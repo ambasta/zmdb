@@ -1,6 +1,9 @@
 One application can own HTTP routing, custom or packaged Redis, NATS and RabbitMQ strategies, and typed gRPC bindings. They share one container and one bounded lifecycle; the host still owns the HTTP
 listening socket.
 
+Install only the selected adapters and peers: grpc-js `^1.14.0`, the Node NATS transport `^3.4.0`, amqplib `^2.0.1`, or redis `^6.2.1`. None is part of the `zmdb` default install. HTTP socket shutdown
+remains host-owned; broker strategies and the gRPC server are application extensions; gRPC clients remain caller-owned.
+
 ## One application, two transport surfaces
 
 Attach message transports through the public app extension:

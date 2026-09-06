@@ -7,10 +7,12 @@ The adapter creates no connection and exposes no close method. The caller retain
 ## Install
 
 ```bash
-npm add @zmdb/jobs-postgres@alpha pg
+npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
 ```
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+
+The sole peer is `pg@^8.23.0`. Neither it nor this adapter is installed by `npm add zmdb@alpha`; `@zmdb/jobs` remains the owner of queues, workers, schemas, retries, and scheduling.
 
 ## Usage
 
@@ -18,17 +20,21 @@ npm add @zmdb/jobs-postgres@alpha pg
 import { Pool } from 'pg';
 import { createPgJobStore } from '@zmdb/jobs-postgres';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL;
+if (connectionString === undefined) throw new Error('DATABASE_URL is required');
+
+const pool = new Pool({ connectionString });
 const store = createPgJobStore(pool, {
   prepared: true,
   maxCacheSize: 128,
 });
 
 // Pass store to createQueue/createWorker. The application still owns pool.
+void store;
 ```
 
 `prepared` and `maxCacheSize` preserve the bounded prepared-statement behavior of the zmdb PostgreSQL driver. `cancelVia` may name a caller-owned client that can cancel work through a second
-connection.
+connection. The adapter never calls `end()` or `release()`; the caller performs that shutdown after workers have drained.
 
 ## Entry points
 

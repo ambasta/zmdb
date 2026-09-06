@@ -150,6 +150,11 @@ function manifestValue(value) {
   return JSON.stringify(value, Object.keys(value ?? {}).toSorted());
 }
 
+function shellArgument(value) {
+  if (/^[A-Za-z0-9@_./:+^~-]+$/.test(value)) return value;
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
 function manifestEntries(value) {
   return typeof value === 'object' && value !== null
     ? Object.entries(value).toSorted(([left], [right]) => left.localeCompare(right))
@@ -196,7 +201,10 @@ function installCommand(row, manifest, productManifest) {
     return `npm add --save-dev ${String(manifest.name ?? row.npmName)}@${version}`;
   }
   if (row.optionality?.kind === 'integration') {
-    return `npm add ${String(manifest.name ?? row.npmName)}@${version}`;
+    const peers = requiredPeerEntries(manifest).map(([name, range]) =>
+      shellArgument(`${name}@${manifestValue(range)}`),
+    );
+    return `npm add ${[`${String(manifest.name ?? row.npmName)}@${version}`, ...peers].join(' ')}`;
   }
   const productVersion = typeof productManifest.version === 'string' ? productManifest.version : 'missing';
   const productDependencies = productManifest.dependencies ?? {};

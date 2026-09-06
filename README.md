@@ -17,10 +17,6 @@ external-consumer evidence come from the [canonical product catalog](./scripts/p
 AI and MCP stay outside the umbrella: install provider-neutral `@zmdb/ai`, then add only the Anthropic, LangChain, Vercel AI SDK, or MCP package the application uses. The
 [LLM package and migration guide](./docs-site/content/llm-strategy.md) lists the exact installs, optional peers, and replacements for every removed schema-core LLM subpath.
 
-OpenTelemetry is also opt-in: install `@zmdb/otel` only when adapting caller-owned tracers and meters to the application observability ports.
-
-Core NATS messaging is opt-in: install `@zmdb/transport-nats` with `@nats-io/transport-node`; neither the application kernel nor the HTTP package owns that peer.
-
 React is opt-in as well: install `@zmdb/react` only when a generated client needs React context and component-lifecycle ownership.
 
 React Native is opt-in too: install `@zmdb/react-native` with React and React Native when the same generated client needs AppState cancellation, explicit offline policy, and application-selected
@@ -41,15 +37,20 @@ Nuxt is opt-in too: install `@zmdb/nuxt` for request-scoped Nitro transport, nat
 
 Solid is opt-in too: install `@zmdb/solid` with Solid 1 when a generated client needs typed context, native resources, owner cancellation, and native Suspense/error propagation.
 
-Typed gRPC is opt-in: install `@zmdb/transport-grpc` with grpc-js when an application needs generated protobuf services, streaming clients and a bounded server extension.
+Optional server integrations stay outside the `zmdb` default install:
 
-RabbitMQ is opt-in too: install `@zmdb/transport-rabbitmq` with `amqplib` only when an application selects its confirmed retry and dead-letter transport.
+- `@zmdb/protobuf` has no peer or external resource; the build transform emits its artifacts.
+- `@zmdb/transport-grpc` requires `@grpc/grpc-js@^1.14.0`; the application owns the server extension and the caller closes each client.
+- `@zmdb/transport-nats` requires `@nats-io/transport-node@^3.4.0`; the application extension starts, drains, and closes its connection.
+- `@zmdb/transport-rabbitmq` requires `amqplib@^2.0.1`; the application extension owns its connection, channels, retry, and dead-letter setup.
+- `@zmdb/transport-redis` requires `redis@^6.2.1`; the application extension owns its publisher/subscriber clients and bounded drain.
+- `@zmdb/jobs-postgres` requires `pg@^8.23.0`; the caller owns the pool/client and the adapter never closes or releases it.
+- `@zmdb/otel` requires `@opentelemetry/api@^1.9.0`; the caller owns providers, exporters, tracers, meters, and shutdown.
 
-Redis Pub/Sub is opt-in: install `@zmdb/transport-redis` with `redis`; neither the application kernel nor the HTTP package owns that peer.
+`@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/aot-validator` remains the build-time reflector and emitter, so projects authoring protobuf calls add
+it as a development dependency. The [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
-PostgreSQL job storage is opt-in: install `@zmdb/jobs-postgres` with `pg` when workers use a caller-owned PostgreSQL pool or client.
-
-> The workspace publishes **31 packages** across **138 export-map entry points**. The current suite has **3,190 passing tests** across 293 files, plus **51 expected failures** that describe work still
+> The workspace publishes **31 packages** across **138 export-map entry points**. The current suite has **3,193 passing tests** across 294 files, plus **51 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

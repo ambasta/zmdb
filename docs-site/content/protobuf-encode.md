@@ -1,6 +1,9 @@
 > **Supported.** `protoEncode<T>(value)` is replaced at build time with a straight-line proto3 message encoder. The matching [`protoDecode<T>()`](./protobuf-decode.html) is emitted from the same
 > checked TypeIR.
 
+Install the dependency-free call and wire runtime with `npm add @zmdb/protobuf@alpha`; add `@zmdb/aot-validator@alpha` as a development dependency for the build transform or code generator.
+`@zmdb/protobuf` is not included in the `zmdb` default install and declares no peer.
+
 ## Encode a tagged message
 
 Give every property a stable field number and select an integer width whenever the field is not a protobuf `double`:

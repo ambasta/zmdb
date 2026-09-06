@@ -1,6 +1,16 @@
 > **Supported.** `ProtoField<N>` and `Proto<K>` define a proto3 message contract. `protoDescriptor<T>()`, [`protoEncode<T>()`](./protobuf-encode.html) and [`protoDecode<T>()`](./protobuf-decode.html)
 > are emitted at build time from the same checked TypeIR.
 
+## Install and ownership
+
+```bash
+npm add @zmdb/protobuf@alpha
+npm add --save-dev @zmdb/aot-validator@alpha
+```
+
+`@zmdb/protobuf` has no runtime dependency or peer dependency and is not part of the `zmdb` default install. It owns the source calls, typed gRPC service artifacts, and generated-code wire ABI.
+`@zmdb/aot-validator` owns TypeScript reflection and emission; its transform or code generator replaces the calls before execution. Neither package loads a `.proto` parser at runtime.
+
 ## Field numbers are the wire contract
 
 ```ts

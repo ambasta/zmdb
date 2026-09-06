@@ -6,25 +6,50 @@ application shutdown without parsing `.proto` files at runtime.
 ## Install
 
 ```bash
-npm add @zmdb/transport-grpc@alpha @grpc/grpc-js
+npm add @zmdb/app@alpha @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.0
+npm add --save-dev @zmdb/aot-validator@alpha
 ```
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
+The sole peer is `@grpc/grpc-js@^1.14.0`. The package is not installed by `npm add zmdb@alpha`; `@zmdb/protobuf` supplies the source-level service artifact and `@zmdb/aot-validator` emits it at build
+time.
+
 ## Usage
 
 ```ts
-import { createApplication } from '@zmdb/app';
-import { bindGrpcService, grpcExtension } from '@zmdb/transport-grpc';
+import { Module, createApplication } from '@zmdb/app';
+import { loadGrpcService } from '@zmdb/protobuf';
+import type { ProtoField } from '@zmdb/schema-core/tags';
+import { bindGrpcService, grpcExtension, type GrpcMetadata } from '@zmdb/transport-grpc';
+
+interface GetOrder {
+  readonly id: string & ProtoField<1>;
+}
+
+interface Order {
+  readonly id: string & ProtoField<1>;
+}
+
+type Orders = {
+  readonly get: { readonly request: GetOrder; readonly response: Order };
+};
+
+const ordersService = loadGrpcService<Orders>('Orders', 'orders');
 
 const orders = bindGrpcService(
   {
     definition: ordersService,
-    validateMetadata,
-    onError: failure => errors.report(failure),
+    validateMetadata: (metadata: GrpcMetadata) => metadata,
+    onError: failure => console.error(failure.error),
   },
-  handlers,
+  {
+    get: async call => ({ id: call.payload.id }),
+  },
 );
+
+@Module({})
+class AppModule {}
 
 await using app = createApplication(AppModule, {
   extensions: [
@@ -40,7 +65,7 @@ await app.init();
 ```
 
 The caller owns every client returned by `createGrpcClient` and closes it with `close()` or `Symbol.dispose`. The application owns the server extension and applies its configured grace budget during
-shutdown.
+shutdown. The extension owns its grpc-js server; it attempts graceful shutdown, then forces closure when the grace budget expires.
 
 ## Entry points
 

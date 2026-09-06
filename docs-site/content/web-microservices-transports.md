@@ -1,6 +1,9 @@
 Redis Pub/Sub, core NATS and RabbitMQ implement one public strategy contract, but they do not pretend to offer equivalent durability. Choose from the settlement matrix below before choosing from
 familiarity.
 
+The adapters and peers are opt-in; `npm add zmdb@alpha` installs none of them. `@zmdb/app/messaging` owns the broker-neutral contract and application lifecycle, while each adapter owns only its
+protocol client, framing, subscriptions, replies, and settlement.
+
 ## The strategy boundary
 
 A strategy owns broker framing, subscriptions, replies and settlement. The application owns payload validation, handler invocation and retry policy:
@@ -41,9 +44,9 @@ Capability order is `redelivery / deadLetter / requestResponse`. Redis and core 
 The neutral `@zmdb/app/messaging` entry imports no broker client. Install the optional peer alongside the adapter you use:
 
 ```bash
-npm add @zmdb/transport-redis redis
-npm add @zmdb/transport-nats @nats-io/transport-node
-npm add @zmdb/transport-rabbitmq amqplib
+npm add @zmdb/transport-redis@alpha redis@^6.2.1
+npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0
+npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1
 ```
 
 ```ts

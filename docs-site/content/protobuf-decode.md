@@ -1,5 +1,8 @@
 > **Supported.** `protoDecode<T>(bytes)` is replaced at build time with a field-number-dispatched proto3 message decoder over a bounded byte reader.
 
+Install the dependency-free call and wire runtime with `npm add @zmdb/protobuf@alpha`; add `@zmdb/aot-validator@alpha` as a development dependency for the build transform or code generator.
+`@zmdb/protobuf` is not included in the `zmdb` default install and declares no peer.
+
 ## Decode a tagged message
 
 ```ts

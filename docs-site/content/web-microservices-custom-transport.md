@@ -1,6 +1,9 @@
 The public custom-transport contract is exercised from outside `packages/app` by `fixtures/app-custom-transport.ts`. The publish gate compiles that fixture against packed packages, and the runtime
 suite proves dispatch, stopped intake, bounded drain and connection close through the same public surface shown here.
 
+Custom transports implement `TransportStrategy` from `@zmdb/app/messaging`; there is no web transport subpath or required broker peer. The application owns the strategy through `transportExtension`,
+while the implementation owns its protocol connection and must stop intake, drain accepted dispatches, and close within the supplied grace budget.
+
 ## Implementing the public contract
 
 Use only the public microservices and observability entry points:

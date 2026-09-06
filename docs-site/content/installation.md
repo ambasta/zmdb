@@ -30,6 +30,23 @@ SDK/framework peer.
 Applications that publish an HTTP API add the independently installable `@zmdb/client` runtime beside their generated module. The [Generated HTTP Client](./generated-client.html) guide shows one
 contract feeding runtime routing, OpenAPI, and browser/Node client output.
 
+## Optional server integrations
+
+`npm add zmdb@alpha` installs none of the packages or peers below. Add only the integration selected by the application:
+
+| Capability         | Install                                                                         | Lifecycle and ownership                                                                |
+| ------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Protobuf artifacts | `npm add @zmdb/protobuf@alpha`                                                  | no peer or external resource; add `@zmdb/aot-validator@alpha` as a build-time dev tool |
+| Typed gRPC         | `npm add @zmdb/protobuf@alpha @zmdb/transport-grpc@alpha @grpc/grpc-js@^1.14.0` | app owns server extension; caller closes clients                                       |
+| Core NATS          | `npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0`             | app starts, drains, and closes the strategy connection                                 |
+| RabbitMQ           | `npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1`                         | app owns connection, channels, retry, and dead-letter topology                         |
+| Redis Pub/Sub      | `npm add @zmdb/transport-redis@alpha redis@^6.2.1`                              | app owns publisher/subscriber clients and bounded drain                                |
+| PostgreSQL jobs    | `npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0`                 | caller owns and closes/releases the pool or client                                     |
+| OpenTelemetry      | `npm add @zmdb/otel@alpha @opentelemetry/api@^1.9.0`                            | caller owns providers, exporters, tracers, meters, and shutdown                        |
+
+The package owns the adapter; the peer owns the external protocol client. `@zmdb/app` owns transport-neutral messaging and observability ports, while `@zmdb/jobs` owns queue and worker behavior.
+`@zmdb/aot-validator` owns TypeScript reflection and emission; `@zmdb/protobuf` owns the calls, service-artifact types, and generated wire runtime that emitted code imports.
+
 ## Prerequisites
 
 - **Node.js** 26.0.0 or later
@@ -83,7 +100,7 @@ npm install @zmdb/web
 npm install @zmdb/jobs
 
 # Optional PostgreSQL jobs adapter
-npm install @zmdb/jobs-postgres pg
+npm install @zmdb/jobs @zmdb/jobs-postgres pg@^8.23.0
 
 # Dependency-free generated-client runtime
 npm install @zmdb/client
@@ -106,20 +123,23 @@ npm install @zmdb/next next@16 react@19 react-dom@19
 # Solid context, resources, and owner-lifetime cancellation
 npm install @zmdb/solid solid-js@1
 
+# Nuxt module, request-scoped Nitro transport, and Vue hydration
+npm install @zmdb/nuxt nuxt@^4.5 vue@^3.5
+
 # Dependency-free protobuf and typed gRPC artifacts
 npm install @zmdb/protobuf
 
 # Typed gRPC server and client adapter
-npm install @zmdb/transport-grpc @grpc/grpc-js
+npm install @zmdb/protobuf @zmdb/transport-grpc @grpc/grpc-js@^1.14.0
 
 # Core NATS transport strategy
-npm install @zmdb/transport-nats @nats-io/transport-node
+npm install @zmdb/transport-nats @nats-io/transport-node@^3.4.0
 
 # RabbitMQ transport strategy
-npm install @zmdb/transport-rabbitmq amqplib
+npm install @zmdb/transport-rabbitmq amqplib@^2.0.1
 
 # Redis Pub/Sub transport strategy
-npm install @zmdb/transport-redis redis
+npm install @zmdb/transport-redis redis@^6.2.1
 
 # Provider-neutral AI tools + bounded chat
 npm install @zmdb/ai
@@ -137,10 +157,10 @@ npm install @zmdb/ai @zmdb/ai-vercel ai@^7.0.83
 npm install @zmdb/ai @zmdb/mcp
 
 # OpenTelemetry API adapter
-npm install @zmdb/otel @opentelemetry/api
+npm install @zmdb/otel @opentelemetry/api@^1.9.0
 ```
 
-> [!NOTE] Workspace packages declare their direct `@zmdb/*` runtime dependencies. Provider and framework SDKs remain opt-in at their integration boundaries.
+> [!NOTE] Workspace packages declare their direct `@zmdb/*` runtime dependencies. Provider, framework, broker, database-client, and telemetry peers remain opt-in at their integration boundaries.
 
 ## TypeScript Configuration
 

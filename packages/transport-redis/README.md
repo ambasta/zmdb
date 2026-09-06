@@ -8,10 +8,12 @@ startup requires an `onUndeliverable` sink.
 ## Install
 
 ```bash
-npm add @zmdb/transport-redis@alpha redis
+npm add @zmdb/transport-redis@alpha redis@^6.2.1
 ```
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+
+The sole peer is `redis@^6.2.1`. Neither it nor this package is installed by `npm add zmdb@alpha`.
 
 ## Usage
 
@@ -19,26 +21,33 @@ npm add @zmdb/transport-redis@alpha redis
 import { transportExtension } from '@zmdb/app/messaging';
 import { createRedisStrategy } from '@zmdb/transport-redis';
 
+const connection = process.env.REDIS_URL;
+if (connection === undefined) throw new Error('REDIS_URL is required');
+
 const redis = createRedisStrategy({
-  connection: { url: process.env.REDIS_URL },
+  connection: { url: connection },
   channels: ['orders.get'],
   channelPatterns: ['orders.events.*'],
-  onError: error => transportErrors.report(error),
+  onError: error => console.error(error),
 });
 
 const extension = transportExtension({
   transports: [redis],
   dispatcher: {
-    onUnhandled: message => audit.unhandled(message),
-    onInvalidPayload: (message, error) => audit.invalid(message, error),
-    onHandlerError: (message, error) => audit.failed(message, error),
-    onUndeliverable: (message, settlement) => audit.dropped(message, settlement),
+    onUnhandled: message => console.warn('unhandled', message.pattern),
+    onInvalidPayload: (message, error) => console.error('invalid', message.pattern, error),
+    onHandlerError: (message, error) => console.error('handler', message.pattern, error),
+    onUndeliverable: (message, settlement) => console.error('dropped', message.pattern, settlement),
   },
 });
+
+void extension;
 ```
 
 Exact channels and Redis glob subscriptions dispatch the concrete delivered channel. Requests use a generated process-owned reply-channel prefix and the correlation id supplied by the app messaging
 client.
+
+`transportExtension` owns startup and bounded shutdown. The strategy creates separate publisher and subscriber clients, unsubscribes, drains accepted dispatches, then closes both clients.
 
 ## Entry points
 

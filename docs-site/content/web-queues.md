@@ -21,6 +21,9 @@ enqueue and duplicate delivery matter.
 Marker cleanup is deliberately application policy. Retention must exceed the retry and manual-replay horizon, and the framework cannot infer either value. The shipped scheduler can trigger cleanup,
 but it does not choose the retention interval.
 
+`@zmdb/jobs` owns queue, worker, retry, dead-letter, scheduling, and lifecycle behavior. It has no `pg` peer. PostgreSQL storage is separately installed as `@zmdb/jobs-postgres` with its sole peer
+`pg@^8.23.0`; neither is part of the `zmdb` default install.
+
 ## What ships
 
 The queue has two public constructors:
@@ -54,7 +57,7 @@ For durable storage, pass the same structural `Driver` or transaction connection
 For a caller-owned node-postgres pool, install the dedicated adapter:
 
 ```bash
-npm add @zmdb/jobs-postgres pg
+npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
 ```
 
 ```ts
@@ -68,8 +71,8 @@ const store = createPgJobStore(pool, {
 });
 ```
 
-The adapter delegates parameterized and prepared execution to the repository PostgreSQL driver but does not create, end, or release the supplied pool/client. The application remains responsible for
-pool shutdown.
+The adapter delegates parameterized and prepared execution to the repository PostgreSQL driver but does not create, end, or release the supplied pool/client. Stop and drain workers first; the
+application then closes or releases the caller-owned PostgreSQL resource.
 
 ## Registering typed work
 

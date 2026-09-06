@@ -1,6 +1,15 @@
 `@zmdb/app/messaging` ships the transport-neutral message layer and typed request and event clients. Core NATS ships from `@zmdb/transport-nats`, RabbitMQ ships from `@zmdb/transport-rabbitmq`, Redis
 Pub/Sub ships from `@zmdb/transport-redis`, and typed gRPC ships from `@zmdb/transport-grpc`. Applications own those transports through the same module graph and bounded lifecycle as HTTP.
 
+None of those four adapters or their peers is installed by `npm add zmdb@alpha`. The exact optional edges are:
+
+| Adapter                    | Required peer                    | Lifecycle owner                                                          |
+| -------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
+| `@zmdb/transport-grpc`     | `@grpc/grpc-js@^1.14.0`          | application owns server extension; caller closes each created client     |
+| `@zmdb/transport-nats`     | `@nats-io/transport-node@^3.4.0` | application starts, drains, and closes the strategy connection           |
+| `@zmdb/transport-rabbitmq` | `amqplib@^2.0.1`                 | application owns connection, channels, retry, and dead-letter topology   |
+| `@zmdb/transport-redis`    | `redis@^6.2.1`                   | application owns publisher/subscriber clients and their bounded shutdown |
+
 ## The public seam
 
 Import the broker-neutral API from `@zmdb/app/messaging`:
@@ -135,9 +144,9 @@ refusing strategy and every earlier strategy in reverse order. Disposal closes t
 Install only the client used by the selected strategy:
 
 ```bash
-npm add @zmdb/transport-redis redis
-npm add @zmdb/transport-nats @nats-io/transport-node
-npm add @zmdb/transport-rabbitmq amqplib
+npm add @zmdb/transport-redis@alpha redis@^6.2.1
+npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0
+npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1
 ```
 
 Import each adapter from its dedicated package:

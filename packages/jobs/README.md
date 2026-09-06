@@ -18,6 +18,8 @@ The package is ESM-only and requires Node.js 26 or later. It has no third-party 
 
 Workers and schedulers are explicit instances. Pass them to `jobsExtension({ workers, schedulers })` to start after application bootstrap and stop under the application's bounded grace period.
 
+The default package has no `pg` peer. PostgreSQL-backed workers add `@zmdb/jobs-postgres@alpha` and `pg@^8.23.0`; that adapter borrows a caller-owned pool or client and never closes or releases it.
+
 ## License
 
 GNU General Public License v3.0 or later (GPL-3.0-or-later).
