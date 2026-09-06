@@ -41,6 +41,7 @@ export interface Clock {
   sleep(ms: number, signal: AbortSignal): Promise<void>;
 }
 
+
 export type Backoff = { readonly kind: 'fixed'; readonly delayMs: number } | { readonly kind: 'exponential'; readonly baseMs: number; readonly ceilingMs: number };
 
 export interface RetryPolicy {
