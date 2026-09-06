@@ -36,7 +36,7 @@ The four manifests contain 17 dependency entries: 5 `dependencies` and 12 `devDe
 
 Issues #670 and #672 add `@zmdb/postgres` and `@zmdb/mssql` before the hard foundation cutover. Their current inward package edges are explicit transitional boundaries; the ratchet does not recurse
 through those old package roots while checking the optional verticals. Every other non-foundation edge remains forbidden. Old-package imports in the database packages and packed fixtures stay explicit
-baseline findings until the coordinated foundation and final database purge remove the compatibility packages.
+owned exception records until the coordinated foundation and final database purge remove the compatibility packages.
 
 ## 2. Exact file ownership
 
@@ -374,8 +374,8 @@ Generated code is part of the runtime graph. These are the required replacements
 | `@zmdb/query-compiler/migrations*`            | `@zmdb/migrations*`      |
 
 At the #636 baseline there were 41 measured fixed old-package specifier occurrences to rewrite. Issue #656 completed the protobuf/gRPC rows, and #710 completed the two LLM rows. The runtime-foundation
-baseline now owns the exact remaining old-package import inventory; the verifier also checks every dynamically copied source specifier in produced output. A generated comment naming an old package
-does not satisfy the import check.
+records in `scripts/architecture/exceptions.mjs` now own the exact remaining old-package import inventory with measured ceilings and removal issues; the verifier also checks every dynamically copied
+source specifier in produced output. A generated comment naming an old package does not satisfy the import check.
 
 Issue #621 adds `packages/zmdb/src/config/contract.ts` as the dependency-light authoring owner for `zmdb/config`. Its imports from the old foundation packages are type-only, so they add no emitted
 runtime reachability, but they remain deliberately measured here because source and declaration ownership includes production type-only imports.

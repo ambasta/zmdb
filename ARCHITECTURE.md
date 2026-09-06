@@ -584,11 +584,15 @@ implementation until #749; the generated tables below therefore describe observe
 Issue #732 froze the next governance boundary in [`scripts/architecture/SPEC.md` §§11–16](./scripts/architecture/SPEC.md): one read-only snapshot composes these independent authorities, temporary
 findings become owned structured exceptions, and GitHub's native parent/sub-issue and blocked-by relationships are the sole actionability authority. The implemented architecture portion now loads
 catalog, policy, workspace manifests, graph facts, reachability, metadata, product documentation, and the current release plan once through `loadGovernanceSnapshot({ root })`. `yarn verify:governance`
-runs those five domain queries together; the focused commands call the same queries with the same snapshot records. Issue #736 implements the repository side of the native relationship cutover in
-[`scripts/roadmap/native-relationships.mjs`](./scripts/roadmap/native-relationships.mjs): the live reader paginates open issues, consults child and blocker endpoints only for issues whose native REST
-total counters report those relationships, retains closed referenced rows for parent-completion decisions, and computes actionability without labels or body prose. The canonical roadmap filer writes
-native links and plain task rows only; the three older projection-writing filers are archived. Operational planning and close helpers use the same native reader, while blocker suffixes, issue label
-assignments, the repository `blocked` label and their three synchronizer/staleness helpers are removed.
+runs those five domain queries plus the owned-exception query together; the focused commands call the same queries with the same snapshot records. Issue #735 implements the exception side in
+[`scripts/architecture/exceptions.mjs`](./scripts/architecture/exceptions.mjs): 81 exact live records replace zero database, 78 runtime-foundation, zero server, and 3 tooling findings at the
+`958a67ff` base. Issue #675 had already removed every database finding, so its closed issue owns no live exception. Issue #628 had removed every runtime tooling violation; #735 preserves that
+extraction and assigns the three remaining generated private-source findings to their open runtime package owners. All 81 current opaque entries are therefore accounted for without preserving dead
+debt. Adding, lowering, and removing records follows [`scripts/architecture/EXCEPTIONS.md`](./scripts/architecture/EXCEPTIONS.md). Issue #736 implements the repository side of the native relationship
+cutover in [`scripts/roadmap/native-relationships.mjs`](./scripts/roadmap/native-relationships.mjs): the live reader paginates open issues, consults child and blocker endpoints only for issues whose
+native REST total counters report those relationships, retains closed referenced rows for parent-completion decisions, and computes actionability without labels or body prose. The canonical roadmap
+filer writes native links and plain task rows only; the three older projection-writing filers are archived. Operational planning and close helpers use the same native reader, while blocker suffixes,
+issue label assignments, the repository `blocked` label and their three synchronizer/staleness helpers are removed.
 
 Zones are ordered from inward to outward:
 

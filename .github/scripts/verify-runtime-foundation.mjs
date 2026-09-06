@@ -1,22 +1,27 @@
 #!/usr/bin/env node
 // Freeze the hard runtime-foundation cutover from issues #635 and #636.
 //
-// Default mode is a ratchet over today's tree. It accepts only the exact checked-in
-// baseline: a newly introduced inversion fails, and a retired finding also fails until
-// the implementation issue updates the baseline deliberately. `--strict` is the final
-// state and succeeds only when the old packages and every recorded reachability gap are
-// gone.
+// Default mode is a ratchet over today's tree. It accepts only exact owned
+// exception records: a newly introduced inversion fails, and a retired finding
+// also fails until the implementation issue deletes its record deliberately.
+// `--strict` is the final state and succeeds only when the old packages and
+// every recorded reachability gap are gone.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
+import {
+  governanceExceptionsForSource,
+  runtimeFoundationOptionalFinding,
+  runtimeFoundationProblemFinding,
+  verifyGovernanceSnapshotExceptionSource,
+} from '../../scripts/architecture/exceptions.mjs';
 import { createImportGraph } from './lib/import-graph.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-const DEFAULT_BASELINE = join(ROOT, '.github', 'scripts', 'runtime-foundation-baseline.json');
+const STRUCTURED_EXCEPTIONS = join(ROOT, 'scripts', 'architecture', 'exceptions.mjs');
 const OWNERSHIP_SPEC = '.github/scripts/verify-runtime-foundation.SPEC.md';
 const CONSUMER_ROOT = 'fixtures/consumer-runtime-foundation';
 const OLD_PACKAGES = ['@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/repository', '@zmdb/schema-core'];
@@ -325,8 +330,8 @@ function oldPackageProblems(root, architecture) {
   return problems;
 }
 
-function optionalDirectionProblems(root, graph) {
-  const problems = [];
+function optionalDirectionFindings(root, graph) {
+  const findings = [];
   for (const target of OPTIONAL_TARGETS) {
     const pkg = graph.packages.get(target);
     if (pkg === undefined) continue;
@@ -345,7 +350,15 @@ function optionalDirectionProblems(root, graph) {
         continue;
       }
       if (reached.startsWith('@zmdb/')) {
-        problems.push(`${target} reaches non-foundation workspace package ${reached}`);
+        findings.push({
+          problem: `${target} reaches non-foundation workspace package ${reached}`,
+          finding: runtimeFoundationOptionalFinding({
+            target,
+            reached,
+            path: relative(root, imported.file),
+            specifier: imported.specifier,
+          }),
+        });
       }
     }
   }
@@ -356,11 +369,15 @@ function optionalDirectionProblems(root, graph) {
     for (const imported of reachableImports(graph, packageEntryFiles(pkg))) {
       const reached = packageRoot(imported.specifier);
       if (FORBIDDEN_RUNTIME_PACKAGES.has(reached)) {
-        problems.push(`${foundation.name} reaches outward integration ${reached}`);
+        const problem = `${foundation.name} reaches outward integration ${reached}`;
+        findings.push({
+          problem,
+          finding: runtimeFoundationProblemFinding(problem),
+        });
       }
     }
   }
-  return problems;
+  return findings;
 }
 
 function consumerProblems(root, requireAll) {
@@ -402,38 +419,36 @@ function consumerProblems(root, requireAll) {
   return problems;
 }
 
-export function analyzeRuntimeFoundation(root = ROOT, options = {}) {
+export function inspectRuntimeFoundation(root = ROOT, options = {}) {
   const { architecture } = options;
   if (architecture === undefined) {
-    throw new TypeError('analyzeRuntimeFoundation requires architecture from loadGovernanceSnapshot({ root })');
+    throw new TypeError('inspectRuntimeFoundation requires architecture from loadGovernanceSnapshot({ root })');
   }
   const requireAll = options.requireAll !== false;
   const graph = createImportGraph(root, architecture);
-  return [
+  const ordinaryProblems = [
     ...(options.checkOwnership === false ? [] : ownershipProblems(root)),
     ...FOUNDATION_PACKAGES.flatMap(target => manifestProblems(root, graph, architecture, target, requireAll)),
     ...(options.checkLegacy === false ? [] : oldPackageProblems(root, architecture)),
-    ...optionalDirectionProblems(root, graph),
     ...(options.checkConsumers === false ? [] : consumerProblems(root, requireAll)),
-  ].toSorted();
+  ];
+  const optional = optionalDirectionFindings(root, graph);
+  return Object.freeze({
+    problems: Object.freeze([...ordinaryProblems, ...optional.map(item => item.problem)].toSorted()),
+    findings: Object.freeze(
+      [...ordinaryProblems.map(runtimeFoundationProblemFinding), ...optional.map(item => item.finding)].toSorted(
+        (left, right) => left.id.localeCompare(right.id),
+      ),
+    ),
+  });
 }
 
-export function readRuntimeFoundationBaseline(path = DEFAULT_BASELINE) {
-  const parsed = readJson(path);
-  if (!Array.isArray(parsed.problems) || parsed.problems.some(problem => typeof problem !== 'string')) {
-    throw new Error(`${path} must contain a string-array "problems" field`);
-  }
-  return parsed.problems.toSorted();
-}
-
-function difference(left, right) {
-  const rightSet = new Set(right);
-  return left.filter(value => !rightSet.has(value));
+export function analyzeRuntimeFoundation(root = ROOT, options = {}) {
+  return inspectRuntimeFoundation(root, options).problems;
 }
 
 function parseArgs(argv) {
   let root = ROOT;
-  let baseline = DEFAULT_BASELINE;
   let strict = false;
   let requireAll = true;
   for (let index = 0; index < argv.length; index++) {
@@ -441,33 +456,46 @@ function parseArgs(argv) {
     if (argument === '--strict') strict = true;
     else if (argument === '--partial') requireAll = false;
     else if (argument === '--root') root = resolve(argv[++index] ?? '');
-    else if (argument === '--baseline') baseline = resolve(argv[++index] ?? '');
-    else throw new Error(`unknown argument: ${argument}`);
+    else if (argument === '--baseline') {
+      const supplied = resolve(argv[++index] ?? '');
+      if (supplied !== STRUCTURED_EXCEPTIONS) {
+        throw new Error(`--baseline now accepts only the structured registry ${STRUCTURED_EXCEPTIONS}`);
+      }
+    } else throw new Error(`unknown argument: ${argument}`);
   }
-  return { root, baseline, strict, requireAll };
+  return { root, strict, requireAll };
 }
 
 async function runCli() {
-  const { root, baseline, strict, requireAll } = parseArgs(process.argv.slice(2));
+  const { root, strict, requireAll } = parseArgs(process.argv.slice(2));
+  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
   const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
   if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
-  const actual = analyzeRuntimeFoundation(root, { architecture: snapshot.architecture, requireAll });
-  const expected = strict ? [] : readRuntimeFoundationBaseline(baseline);
-  const added = difference(actual, expected);
-  const retired = difference(expected, actual);
+  const report = inspectRuntimeFoundation(root, { architecture: snapshot.architecture, requireAll });
+  const exceptionReport = strict
+    ? { diagnostics: [], findings: report.findings }
+    : verifyGovernanceSnapshotExceptionSource({
+        snapshot,
+        source: 'runtime-foundation',
+        rawFindings: report.findings,
+        requireOwnerStates: false,
+      });
 
-  if (added.length > 0 || retired.length > 0) {
-    console.error(`runtime foundation verification failed: ${String(actual.length)} current finding(s)`);
-    for (const problem of added) console.error(`  NEW: ${problem}`);
-    for (const problem of retired) console.error(`  RETIRED (update the baseline): ${problem}`);
+  if ((strict && report.findings.length > 0) || exceptionReport.diagnostics.length > 0) {
+    console.error(`runtime foundation verification failed: ${String(report.findings.length)} current finding(s)`);
+    for (const problem of report.problems) console.error(`  FINDING: ${problem}`);
+    for (const diagnostic of exceptionReport.diagnostics) console.error(`  ${diagnostic.message}`);
     process.exit(1);
   }
 
   if (strict) {
     console.log('runtime foundation: strict four-package DAG and hard cutover verified.');
   } else {
+    const exceptions = governanceExceptionsForSource('runtime-foundation', snapshot.exceptions);
     console.log(
-      `runtime foundation: ${String(actual.length)} frozen finding(s) match the checked-in #636/#629 baseline; strict target remains red.`,
+      `runtime foundation: ${String(exceptions.length)} owned exception record(s) exactly classify ` +
+        `${String(report.findings.reduce((total, finding) => total + finding.count, 0))} measured occurrence(s); ` +
+        'strict target remains red.',
     );
   }
 }

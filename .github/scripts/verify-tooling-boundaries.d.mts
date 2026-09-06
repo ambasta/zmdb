@@ -1,3 +1,5 @@
+import type { GovernanceExceptionReport } from '../../scripts/architecture/exceptions.mjs';
+import type { GovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import type { Architecture } from '../../scripts/architecture/index.mjs';
 
 export const ROOT: string;
@@ -6,6 +8,7 @@ export const TARGET_TOOLING_EXPORTS: Readonly<{
   readonly '@zmdb/compiler': readonly [
     '.',
     './config',
+    './config/contract',
     './emit',
     './errors',
     './lint',
@@ -87,6 +90,18 @@ export interface ToolingViolation {
   readonly reason?: string;
 }
 
+export interface ToolingRuntimeViolation extends ToolingViolation {
+  readonly entry: string;
+  readonly source: string;
+  readonly specifier: string;
+}
+
+export interface ToolingGeneratedViolation extends ToolingViolation {
+  readonly path: string;
+  readonly specifier: string;
+  readonly reason: string;
+}
+
 export interface ToolingBoundaryResult {
   readonly problems: readonly string[];
   readonly inventory: {
@@ -99,11 +114,12 @@ export interface ToolingBoundaryResult {
     readonly edges: readonly (readonly [string, string])[];
     readonly problems: readonly string[];
   };
-  readonly runtimeViolations: readonly ToolingViolation[];
-  readonly generatedViolations: readonly ToolingViolation[];
+  readonly runtimeViolations: readonly ToolingRuntimeViolation[];
+  readonly generatedViolations: readonly ToolingGeneratedViolation[];
   readonly embeddedViolations: readonly ToolingViolation[];
   readonly formatterViolations: readonly ToolingViolation[];
   readonly binOwners: readonly string[];
+  readonly exceptionReport: GovernanceExceptionReport;
 }
 
 export function findPackageCycle(edges: readonly (readonly [string, string])[]): readonly string[] | null;
@@ -111,5 +127,14 @@ export function parseOwnershipCatalog(source: string): readonly OwnershipEntry[]
 export function analyseToolingBoundaries(options: {
   readonly root?: string;
   readonly architecture: Architecture;
+  readonly snapshot: GovernanceSnapshot;
+  readonly classifyExceptions?: true;
+  readonly overlays?: ReadonlyMap<string, string>;
+}): ToolingBoundaryResult;
+export function analyseToolingBoundaries(options: {
+  readonly root?: string;
+  readonly architecture: Architecture;
+  readonly snapshot?: GovernanceSnapshot;
+  readonly classifyExceptions: false;
   readonly overlays?: ReadonlyMap<string, string>;
 }): ToolingBoundaryResult;

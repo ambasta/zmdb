@@ -10,12 +10,13 @@ import {
   analyzeRuntimeFoundation,
   CONSUMER_FIXTURES,
   FOUNDATION_PACKAGES,
-  readRuntimeFoundationBaseline,
+  inspectRuntimeFoundation,
 } from './verify-runtime-foundation.mjs';
 
 const ROOT = process.cwd();
 const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
+const ARCHITECTURE = GOVERNANCE.architecture;
+if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
 const SCRIPT = join(ROOT, '.github', 'scripts', 'verify-runtime-foundation.mjs');
 const scratch: string[] = [];
 
@@ -138,7 +139,7 @@ describe('runtime foundation boundary verifier (#636)', () => {
   });
 
   it('defines four consumers without workspace aliases or compiler paths', () => {
-    const problems = analyzeRuntimeFoundation(ROOT, { architecture: GOVERNANCE.architecture }).filter(
+    const problems = analyzeRuntimeFoundation(ROOT, { architecture: ARCHITECTURE }).filter(
       problem =>
         problem.includes('packed consumer') ||
         problem.includes('workspace alias') ||
@@ -148,10 +149,14 @@ describe('runtime foundation boundary verifier (#636)', () => {
     expect(problems).toEqual([]);
   });
 
-  it('matches the checked-in live-tree ratchet', () => {
+  it('matches the owned live-tree exception registry', () => {
     const output = execFileSync(process.execPath, [SCRIPT], { cwd: ROOT, encoding: 'utf8' });
-    const baseline = readRuntimeFoundationBaseline();
-    expect(output).toContain(`${String(baseline.length)} frozen finding(s)`);
+    const report = inspectRuntimeFoundation(ROOT, { architecture: ARCHITECTURE });
+    expect(report.findings).toHaveLength(78);
+    expect(output).toContain('78 owned exception record(s)');
+    expect(output).toContain(
+      `${String(report.findings.reduce((total, finding) => total + finding.count, 0))} measured occurrence(s)`,
+    );
   });
 
   it.fails('loads no compiler, formatter, provider, concrete external driver or CLI from foundation roots', () => {

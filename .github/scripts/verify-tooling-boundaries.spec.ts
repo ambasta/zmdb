@@ -17,8 +17,10 @@ import {
 } from './verify-tooling-boundaries.mjs';
 
 const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
-const analyse = (options = {}) => analyseToolingBoundaries({ ...options, architecture: GOVERNANCE.architecture });
+const ARCHITECTURE = GOVERNANCE.architecture;
+if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
+const analyse = (options = {}) =>
+  analyseToolingBoundaries({ ...options, architecture: ARCHITECTURE, snapshot: GOVERNANCE });
 
 describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
@@ -46,8 +48,11 @@ describe('the tooling-boundary verifier', () => {
     const entry = join(ROOT, 'packages', 'schema-core', 'src', 'index.ts');
     const overlays = new Map([[entry, `import 'typescript';\n${readFileSync(entry, 'utf8')}`]]);
     const result = analyse({ overlays });
-    expect(result.problems).toContain(
-      'new runtime tooling reachability @zmdb/schema-core|typescript|packages/schema-core/src/index.ts|typescript: packages/schema-core/src/index.ts -> typescript',
+    expect(result.problems).toContainEqual(
+      expect.stringContaining(
+        '[GOV_EXCEPTION_UNOWNED_FINDING] TOOLING_RUNTIME_REACHABILITY/entry/' +
+          'schema-core%3Apackages%2Fschema-core%2Fsrc%2Findex.ts%3Atypescript',
+      ),
     );
   });
 
@@ -57,8 +62,10 @@ describe('the tooling-boundary verifier', () => {
     const file = join(ROOT, path ?? '');
     const overlays = new Map([[file, `import '@zmdb/compiler';\n${readFileSync(file, 'utf8')}`]]);
     const result = analyse({ overlays });
-    expect(result.problems).toContain(
-      `new generated import violation ${String(path)} -> @zmdb/compiler (tooling-subpath)`,
+    expect(result.problems).toContainEqual(
+      expect.stringContaining(
+        `[GOV_EXCEPTION_UNOWNED_FINDING] TOOLING_GENERATED_IMPORT/path/${encodeURIComponent(String(path))}`,
+      ),
     );
   });
 

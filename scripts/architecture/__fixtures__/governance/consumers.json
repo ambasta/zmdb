@@ -77,14 +77,9 @@
       ]
     },
     {
-      "id": "temporary-baselines",
-      "paths": [
-        ".github/scripts/database-boundary-baseline.json",
-        ".github/scripts/runtime-foundation-baseline.json",
-        ".github/scripts/server-boundaries-baseline.json",
-        ".github/scripts/verify-tooling-boundaries.mjs"
-      ],
-      "expectedFindings": 113
+      "id": "owned-exceptions",
+      "paths": ["scripts/architecture/exceptions.mjs", "scripts/architecture/exceptions.d.mts"],
+      "expectedFindings": 81
     },
     {
       "id": "roadmap-plan",

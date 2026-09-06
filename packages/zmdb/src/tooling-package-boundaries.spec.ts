@@ -31,7 +31,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
 const ARCHITECTURE = GOVERNANCE.architecture;
 if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
-const analyseTooling = () => analyseToolingBoundaries({ architecture: ARCHITECTURE });
+const analyseTooling = () => analyseToolingBoundaries({ architecture: ARCHITECTURE, snapshot: GOVERNANCE });
 const PACKAGES = join(ROOT, 'packages');
 const FIXTURES = join(ROOT, 'fixtures');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
