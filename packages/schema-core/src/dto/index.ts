@@ -1,12 +1,15 @@
 // Read/Query DTO family — see ./SPEC.md.
 // Types are compile-time only. `compileWhere` is the one runtime artifact.
 // TDD: types + stubs land with the tests (red); impl fills the stubs (green).
-import type { ComparisonPredicate, CompiledQuery, SelectBuilder, SqlDialect } from '@zmdb/query-compiler';
+import type { ComparisonPredicate, CompiledQuery, Operator, SelectBuilder, SqlDialect } from '@zmdb/query-compiler';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
 import type { DeclaredTable, RelationKeys } from '../derive/index.js';
 import type { Entity } from '../index.js';
 import { isRecord, ValidationError } from '../index.js';
+import type { Table } from '../tags/index.js';
+
+export type { Operator };
 
 // ---------------------------------------------------------------------------
 // WhereDTO + operator set
@@ -21,8 +24,8 @@ import { isRecord, ValidationError } from '../index.js';
  * `Record<string, unknown>` so that it stays the one corner of the query surface that is
  * keyed by string; everything else is keyed by the interface the table was declared as.
  */
-export interface UnknownRow {
-  readonly [column: string]: string | number | boolean | bigint | Date | null;
+export interface UnknownRow extends Table<string> {
+  readonly [column: string]: string | number | boolean | bigint | Date | null | undefined;
 }
 
 export type SubqueryTarget<V = unknown> =
@@ -42,23 +45,58 @@ type VectorOperand<V> =
     ? readonly number[]
     : never;
 
-export interface FieldOps<V> {
+export interface BaseFieldOps<V> {
   eq?: V | SubqueryTarget<V>;
   ne?: V | SubqueryTarget<V>;
-  lt?: V | SubqueryTarget<V>;
-  lte?: V | SubqueryTarget<V>;
-  gt?: V | SubqueryTarget<V>;
-  gte?: V | SubqueryTarget<V>;
-  in?: readonly V[] | SubqueryTarget<V>;
-  nin?: readonly V[] | SubqueryTarget<V>;
-  like?: V extends string ? string | SubqueryTarget<string> : never;
-  ilike?: V extends string ? string | SubqueryTarget<string> : never;
   l2?: VectorOperand<V>;
   cosine?: VectorOperand<V>;
   ip?: VectorOperand<V>;
   isNull?: boolean;
   notNull?: boolean;
 }
+
+export interface InFieldOps<V> {
+  in?: readonly V[] | SubqueryTarget<V>;
+  nin?: readonly V[] | SubqueryTarget<V>;
+}
+
+export interface RangeFieldOps<V> {
+  lt?: V | SubqueryTarget<V>;
+  lte?: V | SubqueryTarget<V>;
+  gt?: V | SubqueryTarget<V>;
+  gte?: V | SubqueryTarget<V>;
+}
+
+export interface PatternFieldOps {
+  like?: string | SubqueryTarget<string>;
+  ilike?: string | SubqueryTarget<string>;
+}
+
+export interface DisallowedInOps {
+  in?: never;
+  nin?: never;
+}
+
+export interface DisallowedRangeOps {
+  lt?: never;
+  lte?: never;
+  gt?: never;
+  gte?: never;
+}
+
+export interface DisallowedPatternOps {
+  like?: never;
+  ilike?: never;
+}
+
+export type FieldOps<V, U = NonNullable<V>> = BaseFieldOps<V> &
+  ([U] extends [boolean]
+    ? InFieldOps<V> & DisallowedRangeOps & DisallowedPatternOps
+    : [U] extends [number | bigint | Date]
+      ? InFieldOps<V> & RangeFieldOps<V> & DisallowedPatternOps
+      : [U] extends [string]
+        ? InFieldOps<V> & RangeFieldOps<V> & PatternFieldOps
+        : InFieldOps<V> & RangeFieldOps<V> & PatternFieldOps);
 
 export type WhereDTO<T extends DeclaredTable> = {
   [K in keyof Entity<T>]?: Entity<T>[K] | FieldOps<Entity<T>[K]>;
@@ -78,8 +116,8 @@ export type WhereDTO<T extends DeclaredTable> = {
  * every helper ended in `return b as B`.
  */
 export interface WhereTarget {
-  where(col: string, op: string, value: unknown): this;
-  orWhere(col: string, op: string, value: unknown): this;
+  where(col: string, op: Operator, value: unknown): this;
+  orWhere(col: string, op: Operator, value: unknown): this;
   whereGroup?(predicates: readonly ComparisonPredicate[]): this;
   orWhereGroup?(predicates: readonly ComparisonPredicate[]): this;
   whereExists?(subquery: unknown): this;
@@ -104,7 +142,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return isRecord(value) ? value : undefined;
 }
 
-const OP_SQL: Record<string, string> = {
+const OP_SQL: Record<string, Operator> = {
   eq: '=',
   ne: '!=',
   lt: '<',
@@ -118,11 +156,38 @@ const OP_SQL: Record<string, string> = {
   l2: 'l2',
   cosine: 'cosine',
   ip: 'ip',
+  '=': '=',
+  '!=': '!=',
+  '<': '<',
+  '<=': '<=',
+  '>': '>',
+  '>=': '>=',
+  'not in': 'not in',
+  'is null': 'is null',
+  'is not null': 'is not null',
+  EXISTS: 'EXISTS',
+  'NOT EXISTS': 'NOT EXISTS',
+  exists: 'exists',
+  'not exists': 'not exists',
 };
 
-// Every operator `applyField` accepts, for the error an unrecognised one raises.
-// `isNull`/`notNull` are handled ahead of the map, so they are not keys of it.
-const KNOWN_OPERATORS: readonly string[] = [...Object.keys(OP_SQL), 'isNull', 'notNull'];
+const KNOWN_OPERATORS: readonly string[] = [
+  'eq',
+  'ne',
+  'lt',
+  'lte',
+  'gt',
+  'gte',
+  'in',
+  'nin',
+  'like',
+  'ilike',
+  'l2',
+  'cosine',
+  'ip',
+  'isNull',
+  'notNull',
+];
 
 /**
  * A `{ table, select?, where? }` literal in a DTO, compiled into a subquery builder.
@@ -184,7 +249,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
 
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
     const resolvedColumn = resolveColumn(col);
-    const add = (op: string, rawVal: unknown) => {
+    const add = (op: Operator, rawVal: unknown) => {
       const value = resolveSubqueryTarget(rawVal, dialect);
       if (connector === 'or') {
         b = b.orWhere(resolvedColumn, op, value);
@@ -437,7 +502,7 @@ class BranchTarget implements WhereTarget {
     this.firstCallInBranch = !isFirstBranch;
   }
 
-  where(col: string, op: string, value: unknown): this {
+  where(col: string, op: Operator, value: unknown): this {
     if (this.firstCallInBranch) {
       this.firstCallInBranch = false;
       this.b = this.b.orWhere(col, op, value);
@@ -452,7 +517,7 @@ class BranchTarget implements WhereTarget {
   // Repository filters use `whereGroup` below to preserve their own OR boundary;
   // compileWhere's user-authored `or` tree is still flat and remains a separate
   // predicate-tree problem.
-  orWhere(col: string, op: string, value: unknown): this {
+  orWhere(col: string, op: Operator, value: unknown): this {
     return this.where(col, op, value);
   }
 
@@ -710,7 +775,7 @@ export interface AggregateSpec<T extends DeclaredTable> {
   where?: WhereDTO<T> | Record<string, unknown>;
   groupBy?: readonly AggregateColumn<T>[];
   computed: Record<string, ComputedSpec<T>>;
-  having?: Readonly<{ column: AggregateColumn<T>; op: string; value: unknown }>;
+  having?: Readonly<{ column: AggregateColumn<T>; op: Operator; value: unknown }>;
   orderBy?: ReadonlyArray<{ column: AggregateColumn<T>; dir?: OrderDir }>;
   limit?: number;
   offset?: number;

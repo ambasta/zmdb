@@ -10,6 +10,7 @@ import type {
   ComparisonPredicate,
   CompiledQuery,
   DialectTarget,
+  Operator,
   Predicate,
   SelectBuilder,
   SetValue,
@@ -23,6 +24,7 @@ import {
   EXPR,
   inc,
   proposed,
+  QueryCompilerError,
   sanitizeKeys,
 } from '@zmdb/query-compiler';
 import { aggregateSelectFrom, type AggregateSelect } from '@zmdb/query-compiler/aggregations';
@@ -275,6 +277,32 @@ function schemaSqlNames(schema: CoreSchema<string>): SchemaSqlNames {
 
 type RelationLoaderMap<T extends DeclaredTable> = {
   [K in RelationKeys<T> & string]?: RelationLoader<T, K>;
+};
+
+const OP_MAP: Record<string, Operator> = {
+  eq: '=',
+  ne: '!=',
+  lt: '<',
+  lte: '<=',
+  gt: '>',
+  gte: '>=',
+  in: 'in',
+  nin: 'not in',
+  like: 'like',
+  ilike: 'ilike',
+  '=': '=',
+  '!=': '!=',
+  '<': '<',
+  '<=': '<=',
+  '>': '>',
+  '>=': '>=',
+  'not in': 'not in',
+  'is null': 'is null',
+  'is not null': 'is not null',
+  EXISTS: 'EXISTS',
+  'NOT EXISTS': 'NOT EXISTS',
+  exists: 'exists',
+  'not exists': 'not exists',
 };
 
 export interface RepositoryAggregateBuilder extends ReturnType<typeof aggregateSelectFrom> {
@@ -1743,17 +1771,17 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   // objects — no proxies). Uses the query-compiler JOIN builder.
   async findJoined<Target extends DeclaredTable, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: TaggedSchema<Target>; leftCol: string; rightCol: string; kind?: Kind },
-    where?: { col: string; op: string; value: unknown },
+    where?: { col: string; op: Operator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly JoinRow<Entity<T>, Entity<Target>, Kind>[]>;
   async findJoined<Joined = Record<string, unknown>, Kind extends 'inner' | 'left' = 'left'>(
     join: { target: string; leftCol: string; rightCol: string; kind?: Kind },
-    where?: { col: string; op: string; value: unknown },
+    where?: { col: string; op: Operator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly JoinRow<Entity<T>, Joined, Kind>[]>;
   async findJoined(
     join: { target: string | CoreSchema<string>; leftCol: string; rightCol: string; kind?: 'inner' | 'left' },
-    where?: { col: string; op: string; value: unknown },
+    where?: { col: string; op: Operator; value: unknown },
     options?: ReadOptions,
   ): Promise<readonly Record<string, unknown>[]> {
     const targetTable = typeof join.target === 'string' ? join.target : join.target.table;
@@ -2077,7 +2105,11 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           const physicalColumn = this.aggregateColumn(col);
           if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
             for (const [op, opVal] of Object.entries(val)) {
-              builder = builder.where(physicalColumn, op === 'eq' ? '=' : op, opVal);
+              const sqlOp = OP_MAP[op];
+              if (sqlOp === undefined) {
+                throw new QueryCompilerError(`Unsupported operator '${op}' in where clause for column '${col}'`);
+              }
+              builder = builder.where(physicalColumn, sqlOp, opVal);
             }
           } else {
             builder = builder.where(physicalColumn, '=', val);
