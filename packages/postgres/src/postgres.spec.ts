@@ -152,6 +152,9 @@ describe('@zmdb/postgres vertical', () => {
       effects: { operation: 'SELECT', requiresPrimary: false, returnsRows: true },
       text: 'SELECT * FROM "users" WHERE "email" = $1',
       parameters: ['a@example.test'],
+      returnsRows: true,
+      operation: 'select',
+      isWrite: false,
     });
 
     const catalog = await postgresIntrospector.snapshot(catalogDriver(), { schemas: ['app'] });

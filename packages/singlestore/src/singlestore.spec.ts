@@ -173,6 +173,9 @@ describe('@zmdb/singlestore vertical', () => {
     ).toMatchObject({
       text: 'SELECT * FROM `documents` WHERE MATCH(`body`) AGAINST(?)',
       parameters: ['single'],
+      returnsRows: true,
+      operation: 'select',
+      isWrite: false,
     });
   });
 

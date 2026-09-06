@@ -20,6 +20,9 @@ describe('MySQL compiler and capabilities', () => {
     ).toMatchObject({
       text: 'SELECT `id` FROM `users` WHERE `email` = ? LIMIT 18446744073709551615 OFFSET 5',
       parameters: ['a@b.test'],
+      returnsRows: true,
+      operation: 'select',
+      isWrite: false,
     });
     expect(
       compiler
@@ -31,6 +34,9 @@ describe('MySQL compiler and capabilities', () => {
     ).toMatchObject({
       text: 'INSERT INTO `users` (`id`, `email`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `email` = VALUES(`email`)',
       parameters: [1, 'a@b.test'],
+      returnsRows: false,
+      operation: 'insert',
+      isWrite: true,
     });
   });
 
