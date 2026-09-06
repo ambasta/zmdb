@@ -150,7 +150,7 @@ export function sqlOperator(op: Operator | UnsafeOperator | string, dialect: Dia
   if (isUnsafeOperator(op)) {
     return op.op;
   }
-  const opStr = typeof op === 'string' ? op : (op as string);
+  const opStr = op;
   const opNorm = opStr.toLowerCase().trim();
   if (isDistanceOp(opNorm) && !dialectTraits(dialect).vectorDistance) {
     throw new UnsupportedFeatureError(opNorm, dialectName(dialect));
