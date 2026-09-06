@@ -64,7 +64,7 @@ const AMBIGUOUS_APP = 'packages/web/src/modules/__fixtures__/large-graph.ts#Ambi
  *
  * `--import ./scripts/ts-specifier-hook.mjs` is not optional and is not a test-only convenience:
  * the sources name their siblings as `./x.js` and Node will not map that to `./x.ts` on its own, so
- * the hook is how the existing `packages/aot-validator/src/cli/bin.ts` is invoked from the root
+ * the hook is how the repository invokes source-exported TypeScript tooling from the root
  * manifest today. Running the bin any other way would be testing an invocation nobody uses.
  *
  * `input: ''` closes stdin, which matters for the `repl` rows: an inherited stdin is a TTY under an

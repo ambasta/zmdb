@@ -227,7 +227,7 @@ export const PACKAGE_POLICY = Object.freeze({
   mssql: packagePolicy({
     directory: 'packages/mssql',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
@@ -238,7 +238,7 @@ export const PACKAGE_POLICY = Object.freeze({
   otel: packagePolicy({
     directory: 'packages/otel',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -256,51 +256,50 @@ export const PACKAGE_POLICY = Object.freeze({
   'aot-validator': packagePolicy({
     directory: 'packages/aot-validator',
     zone: 'runtime',
+    ring: 2,
+    allowedWorkspaceDependencies: ['schema-core'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
+  compiler: packagePolicy({
+    directory: 'packages/compiler',
+    zone: 'tooling',
     ring: 3,
-    allowedWorkspaceDependencies: ['ai', 'schema-core'],
+    allowedWorkspaceDependencies: ['ai', 'aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       metro: ['./metro'],
       'metro-babel-transformer': ['./metro'],
       oxlint: ['./lint'],
-      typescript: [
-        './codegen',
-        './metro',
-        './plugin',
-        './reflect',
-        './testing',
-        './transformer',
-        './unplugin',
-        'bin:zmdb-codegen',
-      ],
     },
     toolingEntries: [
-      // Programmatic AOT source generation.
-      './codegen',
+      // Project compilation and generated-artifact materialisation.
+      '.',
+      // Filesystem-backed project configuration.
+      './config',
       // Generated source and declaration emission.
       './emit',
+      // Compiler diagnostic types.
+      './errors',
       // Oxlint plugin integration.
       './lint',
       // Metro build-pipeline adapter.
       './metro',
-      // TypeScript compiler plugin entry.
-      './plugin',
       // TypeScript program reflection.
       './reflect',
       // Compiler-oriented test utilities.
       './testing',
       // TypeScript source transformer.
-      './transformer',
+      './transform',
       // Bundler build-pipeline adapter.
       './unplugin',
-      // Command-line AOT code generation.
-      'bin:zmdb-codegen',
     ],
   }),
   repository: packagePolicy({
     directory: 'packages/repository',
     zone: 'runtime',
-    ring: 4,
+    ring: 3,
     allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -309,7 +308,7 @@ export const PACKAGE_POLICY = Object.freeze({
   postgres: packagePolicy({
     directory: 'packages/postgres',
     zone: 'runtime',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
@@ -320,7 +319,7 @@ export const PACKAGE_POLICY = Object.freeze({
   cockroach: packagePolicy({
     directory: 'packages/cockroach',
     zone: 'runtime',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['migrations', 'postgres', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -329,7 +328,7 @@ export const PACKAGE_POLICY = Object.freeze({
   singlestore: packagePolicy({
     directory: 'packages/singlestore',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['migrations', 'mysql', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
@@ -340,7 +339,7 @@ export const PACKAGE_POLICY = Object.freeze({
   sqlite: packagePolicy({
     directory: 'packages/sqlite',
     zone: 'runtime',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -349,7 +348,7 @@ export const PACKAGE_POLICY = Object.freeze({
   mysql: packagePolicy({
     directory: 'packages/mysql',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
@@ -360,7 +359,7 @@ export const PACKAGE_POLICY = Object.freeze({
   app: packagePolicy({
     directory: 'packages/app',
     zone: 'application',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'repository', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -369,7 +368,7 @@ export const PACKAGE_POLICY = Object.freeze({
   jobs: packagePolicy({
     directory: 'packages/jobs',
     zone: 'application',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app', 'query-compiler', 'repository', 'sqlite'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -378,7 +377,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'transport-grpc': packagePolicy({
     directory: 'packages/transport-grpc',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app', 'protobuf'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -387,7 +386,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'transport-nats': packagePolicy({
     directory: 'packages/transport-nats',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -396,7 +395,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'transport-rabbitmq': packagePolicy({
     directory: 'packages/transport-rabbitmq',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -405,7 +404,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'transport-redis': packagePolicy({
     directory: 'packages/transport-redis',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -414,7 +413,7 @@ export const PACKAGE_POLICY = Object.freeze({
   'jobs-postgres': packagePolicy({
     directory: 'packages/jobs-postgres',
     zone: 'integration',
-    ring: 7,
+    ring: 6,
     allowedWorkspaceDependencies: ['jobs', 'postgres'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -423,10 +422,11 @@ export const PACKAGE_POLICY = Object.freeze({
   web: packagePolicy({
     directory: 'packages/web',
     zone: 'application',
-    ring: 6,
-    allowedWorkspaceDependencies: ['app', 'aot-validator', 'schema-core'],
+    ring: 5,
+    allowedWorkspaceDependencies: ['app', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
+      '@zmdb/compiler': ['./contract/compiler'],
       typescript: ['./contract/compiler'],
     },
     toolingEntries: [
@@ -441,13 +441,12 @@ export const PACKAGE_POLICY = Object.freeze({
   zmdb: packagePolicy({
     directory: 'packages/zmdb',
     zone: 'facade',
-    ring: 7,
+    ring: 6,
     allowedWorkspaceDependencies: [
       'app',
       'aot-validator',
+      'compiler',
       'migrations',
-      'mssql',
-      'postgres',
       'query-compiler',
       'repository',
       'schema-core',
@@ -462,7 +461,7 @@ export const PACKAGE_POLICY = Object.freeze({
     toolingEntries: [
       // CLI orchestration, scaffolding, embedding, and application loading.
       './cli',
-      // Compiler, reflection, lint, bundler, and Metro integrations.
+      // Curated facade over project compilation.
       './compiler',
       // Filesystem-backed project configuration for build and CLI consumers.
       './config',
@@ -470,7 +469,7 @@ export const PACKAGE_POLICY = Object.freeze({
       './migrations',
       // Cross-package test fixtures and harness helpers.
       './testing',
-      // Public bundler integration delegated to the validator package.
+      // Public bundler integration delegated to the compiler package.
       './unplugin',
       // Curated facade over the HTTP contract compiler.
       './web/contract/compiler',

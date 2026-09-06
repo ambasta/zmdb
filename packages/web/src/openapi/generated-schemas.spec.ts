@@ -6,7 +6,7 @@
 
 import { readFileSync } from 'node:fs';
 
-import { zmdbAot } from '@zmdb/aot-validator/plugin';
+import { zmdbAot } from '@zmdb/compiler/unplugin';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { HttpContractIR, HttpTypeIR } from '../contract/index.js';

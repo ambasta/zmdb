@@ -37,8 +37,8 @@ export function toJsonSchema(schema: CoreSchema<string>, variant?: Variant): Jso
 export function toJsonSchema(schema?: CoreSchema<string>, variant: Variant = 'entity'): JsonSchemaObject {
   if (!schema) {
     throw new Error(
-      'toJsonSchema<T>() was not replaced at build time. It is compiled away by the zmdb transform ' +
-        '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+      'toJsonSchema<T>() was not replaced at build time. It is compiled away by @zmdb/compiler ' +
+        '(the unplugin, Metro adapter, or project compiler), which did not run over this file — a type argument cannot ' +
         'be read at runtime, so there is nothing to fall back to.',
     );
   }

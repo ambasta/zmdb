@@ -49,7 +49,7 @@
     "verify:docs-generated": "node .github/scripts/verify-docs-generated.mjs",
     "verify:escape-hatches": "node .github/scripts/verify-escape-hatches.mjs",
     "verify:exports": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-exports.mjs",
-    "verify:fixtures": "node --import ./scripts/ts-specifier-hook.mjs packages/aot-validator/src/cli/bin.ts --project fixtures/consumer-cli/tsconfig.json --check && vitest run packages/aot-validator/src/cli/consumer-fixtures.spec.ts packages/aot-validator/src/plugin/metro.spec.ts && node fixtures/consumer-mcp/verify-installed.mjs && node fixtures/database-sqlite/verify-installed.mjs",
+    "verify:fixtures": "node --import ./scripts/ts-specifier-hook.mjs scripts/compiler-codegen.mjs --project fixtures/consumer-cli/tsconfig.json --check && vitest run packages/compiler/src/codegen/consumer-fixtures.spec.ts packages/compiler/src/metro/metro.spec.ts && node fixtures/consumer-mcp/verify-installed.mjs && node fixtures/database-sqlite/verify-installed.mjs",
     "verify:governance": "node scripts/architecture/governance.mjs",
     "verify:instantiations": "node .github/scripts/verify-instantiations.mjs",
     "verify:mssql-acceptance": "node fixtures/database-mssql/verify-installed.mjs",

@@ -104,10 +104,10 @@ const ALLOWED = new Set([
   // This gate. It has to name what it forbids.
   '.github/scripts/verify-no-defineschema.mjs',
   'scripts/codemod-tagged-schema.mjs',
-  'packages/aot-validator/src/reflect/__fixtures__/legacy-dsl.ts',
-  'packages/aot-validator/src/reflect/__fixtures__/codemod-corpus.ts',
-  'packages/aot-validator/src/reflect/__fixtures__/codemod-tables.ts',
-  'packages/aot-validator/src/reflect/__fixtures__/codemod-refusals.ts',
+  'packages/compiler/src/reflect/__fixtures__/legacy-dsl.ts',
+  'packages/compiler/src/reflect/__fixtures__/codemod-corpus.ts',
+  'packages/compiler/src/reflect/__fixtures__/codemod-tables.ts',
+  'packages/compiler/src/reflect/__fixtures__/codemod-refusals.ts',
   // These four posted specific GitHub issues and comments, and the text is hard-coded. It quotes
   // what was filed at the time — `defineSchema` is in the *title* of one of the issues — so
   // editing it would falsify a record rather than fix a reference. They have already run, they

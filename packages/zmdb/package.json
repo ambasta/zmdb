@@ -94,6 +94,7 @@
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
+    "@zmdb/compiler": "workspace:^",
     "@zmdb/migrations": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",

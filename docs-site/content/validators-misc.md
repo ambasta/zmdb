@@ -1,5 +1,5 @@
-The rest of `@zmdb/aot-validator/utilities`. Each takes its shape from its type argument, which the transformer replaces with emitted code at build time; an untransformed call has nothing to work from
-and throws. See [AOT Setup](./aot-setup.html).
+The rest of `@zmdb/aot-validator/utilities`. Each takes its shape from its type argument, which `@zmdb/compiler` replaces with emitted code at build time; an untransformed call has nothing to work
+from and throws. See [AOT Setup](./aot-setup.html).
 
 ## `equals` / `assertEquals` — reject unknown keys
 

@@ -1,0 +1,87 @@
+{
+  "name": "@zmdb/compiler",
+  "version": "1.0.0-alpha.4",
+  "description": "The single TypeScript front end for zmdb reflection, AOT emission, code generation, build adapters, lint rules, and project configuration.",
+  "keywords": [
+    "aot",
+    "codegen",
+    "compiler",
+    "reflection",
+    "typescript",
+    "validation",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/compiler"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config/index.ts",
+    "./config/contract": "./src/config/contract.ts",
+    "./emit": "./src/emit/index.ts",
+    "./errors": "./src/errors.ts",
+    "./lint": "./src/lint/index.ts",
+    "./metro": "./src/metro/metro.ts",
+    "./reflect": "./src/reflect/index.ts",
+    "./testing": "./src/testing/index.ts",
+    "./transform": "./src/transform/index.ts",
+    "./unplugin": "./src/unplugin/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/ai": "workspace:^",
+    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/query-compiler": "workspace:^",
+    "@zmdb/schema-core": "workspace:^"
+  },
+  "devDependencies": {
+    "@zmdb/protobuf": "workspace:^",
+    "metro": "0.87.0",
+    "metro-babel-transformer": "0.87.0",
+    "oxlint": "1.81.0",
+    "protobufjs": "8.8.0",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "metro": ">=0.87.0 <0.88.0",
+    "metro-babel-transformer": ">=0.87.0 <0.88.0",
+    "oxlint": ">=1.81.0 <1.82.0",
+    "typescript": ">=7.0.2 <8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "metro": {
+      "optional": true
+    },
+    "metro-babel-transformer": {
+      "optional": true
+    },
+    "oxlint": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

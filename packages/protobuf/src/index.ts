@@ -7,8 +7,8 @@
  */
 export function protoEncode<T>(_value: T): Uint8Array {
   throw new Error(
-    'protoEncode<T>(value) was not replaced at build time. It is compiled away by the zmdb transform ' +
-      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+    'protoEncode<T>(value) was not replaced at build time. It is compiled away by @zmdb/compiler ' +
+      '(the unplugin, Metro adapter, or project compiler), which did not run over this file — a type argument cannot ' +
       'be read at runtime, so there is no protobuf wire contract to fall back to.',
   );
 }
@@ -22,8 +22,8 @@ export function protoEncode<T>(_value: T): Uint8Array {
  */
 export function protoDecode<T>(_bytes: Uint8Array): T {
   throw new Error(
-    'protoDecode<T>(bytes) was not replaced at build time. It is compiled away by the zmdb transform ' +
-      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+    'protoDecode<T>(bytes) was not replaced at build time. It is compiled away by @zmdb/compiler ' +
+      '(the unplugin, Metro adapter, or project compiler), which did not run over this file — a type argument cannot ' +
       'be read at runtime, so there is no protobuf wire contract to fall back to.',
   );
 }
@@ -36,8 +36,8 @@ export function protoDecode<T>(_bytes: Uint8Array): T {
  */
 export function protoDescriptor<_T>(): string {
   throw new Error(
-    'protoDescriptor<T>() was not replaced at build time. It is compiled away by the zmdb transform ' +
-      '(the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument cannot ' +
+    'protoDescriptor<T>() was not replaced at build time. It is compiled away by @zmdb/compiler ' +
+      '(the unplugin, Metro adapter, or project compiler), which did not run over this file — a type argument cannot ' +
       'be read at runtime, so there is no descriptor to fall back to.',
   );
 }
@@ -87,8 +87,8 @@ export interface GrpcLoadedService<S extends GrpcServiceDef> {
  */
 export function grpcDescriptor<_S extends GrpcServiceDef>(_service: string, _package: string): string {
   throw new Error(
-    'grpcDescriptor<S>(service, package) was not replaced at build time. It is compiled away by the zmdb ' +
-      'transform (the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument ' +
+    'grpcDescriptor<S>(service, package) was not replaced at build time. It is compiled away by ' +
+      '@zmdb/compiler (the unplugin, Metro adapter, or project compiler), which did not run over this file — a type argument ' +
       'cannot be read at runtime, so there is no gRPC descriptor to fall back to.',
   );
 }
@@ -101,8 +101,8 @@ export function grpcDescriptor<_S extends GrpcServiceDef>(_service: string, _pac
  */
 export function loadGrpcService<S extends GrpcServiceDef>(_service: string, _package: string): GrpcLoadedService<S> {
   throw new Error(
-    'loadGrpcService<S>(service, package) was not replaced at build time. It is compiled away by the zmdb ' +
-      'transform (the unplugin, or `zmdb-codegen`), which did not run over this file — a type argument ' +
+    'loadGrpcService<S>(service, package) was not replaced at build time. It is compiled away by ' +
+      '@zmdb/compiler (the unplugin, Metro adapter, or project compiler), which did not run over this file — a type argument ' +
       'cannot be read at runtime, so there is no gRPC service definition to fall back to.',
   );
 }

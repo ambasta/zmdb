@@ -3,7 +3,7 @@
 // `quickstart-e2e.spec.ts` runs them against in-memory sqlite and
 // `quickstart.type-test.ts` asserts what `defineRepository` derives from them.
 // Both are claims about the same wiring, so they read it from one place.
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type { OneToMany, PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 import { OrderSchema, type Order } from '../orders-fixture.js';

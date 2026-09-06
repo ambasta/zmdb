@@ -1,4 +1,4 @@
-import { schemasFrom, type SchemasFromOptions } from '@zmdb/aot-validator/testing';
+import { schemasFrom, type SchemasFromOptions } from '@zmdb/compiler/testing';
 import { mssql } from '@zmdb/mssql';
 import { UnsupportedFeatureError, createQueryCompiler, type Dialect } from '@zmdb/query-compiler';
 import {

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Tooling-package boundary ratchet for #627.
 //
-// The package extraction itself belongs to #628-#630, so this gate has two jobs
-// before those packages exist:
+// The package extraction itself belongs to #628-#630. With the compiler and
+// migrations slices extracted, this gate still has two jobs while CLI remains:
 //
-// 1. turn #626's ownership policy, amended to 200 paths after the package extractions, #674, #621, #620, #651, and #755, into an executable,
+// 1. turn #626's ownership policy, amended through the package extractions,
+//    #674, #621, #620, #651, and #755, into an executable,
 //    bijective inventory; and
 // 2. prevent the known runtime/generated-import violations from growing while
 //    the expected-failure tests freeze the zero-violation target.
@@ -24,6 +25,7 @@ export const TARGET_TOOLING_EXPORTS = Object.freeze({
   '@zmdb/compiler': Object.freeze([
     '.',
     './config',
+    './config/contract',
     './emit',
     './errors',
     './lint',
@@ -51,6 +53,18 @@ export const TARGET_TOOLING_BIN = Object.freeze({
   command: 'zmdb',
 });
 
+export const RETIRED_AOT_TOOLING_EXPORTS = Object.freeze([
+  './codegen',
+  './emit',
+  './lint',
+  './metro',
+  './plugin',
+  './reflect',
+  './testing',
+  './transformer',
+  './unplugin',
+]);
+
 export const TARGET_PRODUCT_TOOLING_EXPORTS = Object.freeze({
   '@zmdb/compiler': Object.freeze(['./compiler', './config']),
   '@zmdb/migrations': Object.freeze(['./migrations']),
@@ -59,7 +73,7 @@ export const TARGET_PRODUCT_TOOLING_EXPORTS = Object.freeze({
 
 export const TARGET_TOOLING_MANIFESTS = Object.freeze({
   '@zmdb/compiler': Object.freeze({
-    dependencies: Object.freeze(['@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/schema-core']),
+    dependencies: Object.freeze(['@zmdb/ai', '@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/schema-core']),
     peerDependencies: Object.freeze(['metro', 'metro-babel-transformer', 'oxlint', 'typescript']),
     optionalPeers: Object.freeze(['metro', 'metro-babel-transformer', 'oxlint']),
   }),
@@ -78,20 +92,25 @@ export const TARGET_TOOLING_MANIFESTS = Object.freeze({
 const POLICY_PATH = '.github/scripts/verify-tooling-ownership.SPEC.md';
 const INVENTORY_ROOTS = [
   'packages/aot-validator/src',
+  'packages/compiler/src',
   'packages/migrations/src',
   'packages/query-compiler/src',
   'packages/zmdb/src',
 ];
+const EXTRA_INVENTORY_PATHS = [
+  'packages/schema-core/src/ir/validation-shape.ts',
+  'packages/schema-core/src/ir/vocabulary.ts',
+];
 const INVENTORY_EXTENSIONS = new Set(['.ts', '.js', '.json', '.proto']);
 const EXPECTED_OWNER_COUNTS = Object.freeze({
-  compiler: 30,
+  compiler: 33,
   migrations: 23,
   cli: 31,
-  runtime: 27,
-  facade: 49,
-  'optional-integration': 4,
+  runtime: 30,
+  facade: 50,
+  'optional-integration': 0,
   'test-only': 35,
-  obsolete: 1,
+  obsolete: 0,
 });
 
 const RUNTIME_ROOTS = Object.freeze([
@@ -105,15 +124,10 @@ const RUNTIME_ROOTS = Object.freeze([
 const RUNTIME_FOUNDATIONS = new Set(RUNTIME_ROOTS.filter(packageName => packageName !== 'zmdb'));
 const TARGET_TOOLING_PACKAGES = new Set(Object.keys(TARGET_TOOLING_MANIFESTS));
 
-// Remeasured by #629 after migration tooling left every runtime root. These are
-// the ratcheted compiler-edge ceiling: deleting one is accepted, while adding
-// another route into the same category is not. #651's runtime-mode walk retires
-// the @zmdb/web type-only edge without rewriting the historical ceiling.
-const BASELINE_RUNTIME_VIOLATIONS = new Set([
-  '@zmdb/repository|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-  '@zmdb/web|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-  'zmdb|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-]);
+// Remeasured after #628 and #629 removed the compiler and migration-tooling
+// paths from ordinary runtime roots. New routes into either category are not
+// accepted.
+const BASELINE_RUNTIME_VIOLATIONS = new Set();
 
 const RUNTIME_EXTERNAL_TOOLING = Object.freeze([
   ['typescript', /^typescript(?:\/|$)/],
@@ -134,18 +148,18 @@ export const GENERATED_ARTIFACTS = Object.freeze([
   'fixtures/consumer-cli/src/orders.zmdb.generated.d.ts',
   'fixtures/consumer-cli/src/orders.zmdb.generated.js',
   'fixtures/consumer-cli/src/orders.zmdb.witness.ts',
-  'packages/zmdb/src/config/index.zmdb.generated.d.ts',
-  'packages/zmdb/src/config/index.zmdb.generated.js',
-  'packages/zmdb/src/config/index.zmdb.witness.ts',
+  'packages/compiler/src/config/index.zmdb.generated.d.ts',
+  'packages/compiler/src/config/index.zmdb.generated.js',
+  'packages/compiler/src/config/index.zmdb.witness.ts',
 ]);
 
 const BASELINE_GENERATED_VIOLATIONS = new Set([
-  'benchmarks/harness/framework/model.zmdb.generated.js|../../../packages/aot-validator/src/utilities/index.ts|private-source',
+  'benchmarks/harness/framework/model.zmdb.generated.js|../../../packages/aot-validator/src/utilities/index.js|private-source',
   'benchmarks/harness/framework/model.zmdb.witness.ts|../../../packages/aot-validator/src/utilities/index.js|private-source',
   'benchmarks/harness/validation/model.generated.ts|../../../packages/schema-core/src/ir/index.js|private-source',
 ]);
 
-const BASELINE_BIN_OWNERS = new Set(['@zmdb/aot-validator|zmdb-codegen', 'zmdb|zmdb']);
+const BASELINE_BIN_OWNERS = new Set(['zmdb|zmdb']);
 const GENERATED_EXTERNAL_TOOLING = [
   /^typescript(?:\/|$)/,
   /^oxlint(?:\/|$)/,
@@ -213,7 +227,9 @@ function ownershipInventory(root) {
     filesUnder(join(root, directory))
       .filter(isInventoryPath)
       .map(path => relative(root, path)),
-  ).toSorted();
+  )
+    .concat(EXTRA_INVENTORY_PATHS)
+    .toSorted();
   const actualPaths = new Set(actual);
   const problems = [];
 
@@ -385,7 +401,9 @@ function packageGraphProblems(manifests) {
     if (manifest === undefined) continue;
     for (const field of ['dependencies', 'peerDependencies']) {
       for (const dependency of Object.keys(manifest[field] ?? {})) {
-        if (TARGET_TOOLING_PACKAGES.has(dependency)) {
+        const optionalPeer =
+          field === 'peerDependencies' && manifest.peerDependenciesMeta?.[dependency]?.optional === true;
+        if (TARGET_TOOLING_PACKAGES.has(dependency) && !optionalPeer) {
           problems.push(`${packageName} ${field} reaches tooling package ${dependency}`);
         }
       }
@@ -587,6 +605,20 @@ function targetPackageProblems(architecture) {
     packageRecord => packageRecord.manifest.name === 'zmdb',
   )?.manifest;
   if (product === undefined) return ['zmdb is absent from the governance workspace manifest inventory'];
+  const validator = architecture.workspacePackages.find(
+    packageRecord => packageRecord.manifest.name === '@zmdb/aot-validator',
+  )?.manifest;
+  if (validator === undefined) {
+    problems.push('@zmdb/aot-validator is absent from the governance workspace manifest inventory');
+  }
+  for (const subpath of RETIRED_AOT_TOOLING_EXPORTS) {
+    if (validator?.exports?.[subpath] !== undefined) {
+      problems.push(`@zmdb/aot-validator still publishes retired compiler subpath ${subpath}`);
+    }
+  }
+  if (validator !== undefined && Object.keys(normalizeBins(validator)).length > 0) {
+    problems.push('@zmdb/aot-validator must not publish an executable');
+  }
   for (const [packageName, expected] of Object.entries(TARGET_TOOLING_EXPORTS)) {
     const packageRecord = architecture.workspacePackages.find(candidate => candidate.manifest.name === packageName);
     if (packageRecord === undefined) continue;

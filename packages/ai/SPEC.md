@@ -42,7 +42,9 @@ In this diagram `A --> B` means “A has a direct runtime dependency on B”:
 @zmdb/ai-vercel ─────┤         ▲
 @zmdb/mcp ───────────┘         │
                                │
-@zmdb/aot-validator ───────────┘
+@zmdb/compiler ────────────────┘
+         ├────────────────────> @zmdb/aot-validator ──> @zmdb/schema-core
+         ├────────────────────> @zmdb/query-compiler
          └────────────────────> @zmdb/schema-core
 ```
 
@@ -51,11 +53,12 @@ The graph has these hard rules:
 1. `@zmdb/ai` is the only owner of provider-neutral tool documents, provider dialect data, parsing, bounded chat orchestration, shared tool invocation and OpenAPI-derived tools.
 2. `@zmdb/ai-anthropic`, `@zmdb/ai-langchain` and `@zmdb/ai-vercel` each depend on `@zmdb/ai` and own one external integration. They do not depend directly on `@zmdb/schema-core`.
 3. `@zmdb/mcp` depends on `@zmdb/ai` plus platform APIs. It has no dependency on an MCP SDK, a provider SDK or `@zmdb/schema-core`.
-4. `@zmdb/aot-validator` depends directly on both `@zmdb/schema-core` and `@zmdb/ai`: schema reflection comes from the former, while `toolFor` types and provider-document helpers come from the latter.
+4. `@zmdb/compiler` depends directly on `@zmdb/ai`, `@zmdb/aot-validator`, `@zmdb/query-compiler`, and `@zmdb/schema-core`: reflection consumes schema IR, generated validators target the runtime ABI,
+   and `toolFor` compilation consumes provider-neutral AI documents. `@zmdb/aot-validator` depends only on `@zmdb/schema-core`.
 5. `@zmdb/schema-core` never depends on any package in this slice. No provider or framework package depends on a sibling integration package.
 6. The implemented #710 manifests use `workspace:^`. The #746 release target supersedes that range form: same-core edges alone retain `workspace:^`, while every edge in this integration slice uses the
    explicit cross-unit compatibility range and core imports become required peers plus workspace development dependencies. External SDKs are peers of exactly one integration package and never
-   dependencies or peers of `@zmdb/ai`, `@zmdb/schema-core`, `@zmdb/mcp` or `@zmdb/aot-validator`.
+   dependencies or peers of `@zmdb/ai`, `@zmdb/schema-core`, `@zmdb/mcp` or `@zmdb/aot-validator`, and they are not compiler dependencies.
 
 ## 3. Exact public entry points
 
@@ -103,7 +106,7 @@ implementation details. This subpath is public and semver-governed; there is no 
 
 ### 3.5 `@zmdb/ai/compiler`
 
-This is the narrow build-time boundary used by `@zmdb/aot-validator`. It keeps runtime and AOT provider documents on one producer without exposing AI source paths:
+This is the narrow build-time boundary used by `@zmdb/compiler`. It keeps runtime and AOT provider documents on one producer without exposing AI source paths:
 
 ```ts
 export { ToolSpecRefusalError, toolSchemaForProvider } from '@zmdb/ai/compiler';
@@ -203,12 +206,12 @@ condition by measuring exact `ai@7.0.93`; issue #748 then set the manifest to `^
 
 `toolFor<T>()` remains one of the AOT transformer's named callees. Extraction changes its source package, not its compile-time behavior:
 
-1. `packages/aot-validator/src/transformer.ts` imports `ToolProvider` from `@zmdb/ai`.
-2. `packages/aot-validator/src/emit/index.ts` imports `ToolProvider` from `@zmdb/ai` and imports `toolSchemaForProvider` plus `ToolSpecRefusalError` from `@zmdb/ai/compiler`.
-3. `packages/aot-validator/src/cli/scan.ts` maps `toolFor` to `@zmdb/ai`.
+1. `packages/compiler/src/transform/index.ts` imports `ToolProvider` from `@zmdb/ai`.
+2. `packages/compiler/src/emit/index.ts` imports `ToolProvider` from `@zmdb/ai` and imports `toolSchemaForProvider` plus `ToolSpecRefusalError` from `@zmdb/ai/compiler`.
+3. `packages/compiler/src/codegen/scan.ts` maps `toolFor` to `@zmdb/ai`.
 4. Codegen witnesses import `ToolOptions`, `ToolProvider` and `ToolSpecFor` from `@zmdb/ai`.
 5. The callable-surface test imports `@zmdb/ai` when proving every `CALLEES` member is callable.
-6. `@zmdb/aot-validator/package.json` declares both `@zmdb/schema-core` and `@zmdb/ai` with `workspace:^`.
+6. `@zmdb/compiler/package.json` declares both `@zmdb/schema-core` and `@zmdb/ai` with `workspace:^`.
 
 A successfully transformed `toolFor<T>()` call still contains no runtime call to `toolFor`, no schema walk and no provider SDK import.
 

@@ -5,8 +5,8 @@
 ## Position in the architecture
 
 At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/repository` in the dependency DAG (ARCHITECTURE.md §3) and depended on `@zmdb/schema-core`, `@zmdb/aot-validator`,
-`@zmdb/query-compiler` and `@zmdb/repository`. The current package is the HTTP adapter over `@zmdb/app`; its direct runtime dependencies are exactly `@zmdb/app`, `@zmdb/aot-validator` and
-`@zmdb/schema-core`. It declares no third-party runtime dependency or runtime peer. TypeScript remains an optional build-time peer reached only by `./contract/compiler`.
+`@zmdb/query-compiler` and `@zmdb/repository`. The current package is the HTTP adapter over `@zmdb/app`; its direct runtime dependencies are exactly `@zmdb/app` and `@zmdb/schema-core`. It declares no
+third-party runtime dependency or runtime peer. `@zmdb/compiler` and TypeScript are optional build-time peers reached only by `./contract/compiler`.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -76,12 +76,11 @@ Direct runtime dependencies are exactly the following workspace packages:
 
 ```text
 @zmdb/app
-@zmdb/aot-validator
 @zmdb/schema-core
 ```
 
-The package declares no third-party runtime dependency, optional dependency or runtime peer. Its only peer is optional `typescript@>=7`, reached exclusively from the build-time `./contract/compiler`
-entry. Optional technology adapters are separately installed packages. `@zmdb/web` must not import `@zmdb/jobs` or any optional integration package.
+The package declares no third-party runtime dependency, optional dependency or runtime peer. Its only peers are optional `@zmdb/compiler` and `typescript@>=7`, reached exclusively from the build-time
+`./contract/compiler` entry. Optional technology adapters are separately installed packages. `@zmdb/web` must not import `@zmdb/jobs` or any optional integration package.
 
 The target public entries are:
 

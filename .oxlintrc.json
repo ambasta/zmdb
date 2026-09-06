@@ -51,7 +51,7 @@
     {
       // Rule fixtures must contain the spelling their own RuleTester case rejects. Disable only
       // that rule; every other general and zmdb rule still checks each fixture.
-      "files": ["packages/aot-validator/src/lint/__fixtures__/nullable-tags.input.ts"],
+      "files": ["packages/compiler/src/lint/__fixtures__/nullable-tags.input.ts"],
       "rules": {
         "zmdb/no-distributed-nullable-tags": "off"
       }
@@ -60,7 +60,7 @@
       // The first file is the invalid fixture; the second is a compile-only proof that
       // `unknown & Sql<'json'>` collapses. Both are intentional instances of this one rule.
       "files": [
-        "packages/aot-validator/src/lint/__fixtures__/unknown-json.input.ts",
+        "packages/compiler/src/lint/__fixtures__/unknown-json.input.ts",
         "packages/schema-core/src/json.type-test.ts"
       ],
       "rules": {

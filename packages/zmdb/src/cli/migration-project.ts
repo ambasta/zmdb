@@ -1,4 +1,4 @@
-import { schemasFromFiles } from '@zmdb/aot-validator/testing';
+import { schemasFromFiles } from '@zmdb/compiler/testing';
 import type { MigrationProject, SnapshotableSchema } from '@zmdb/migrations';
 import { emitDeclarations } from '@zmdb/migrations/declarations';
 import { dialectName, type Introspector } from '@zmdb/query-compiler';

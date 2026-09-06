@@ -123,6 +123,7 @@ const PACKAGES = [
   'mcp',
   'migrations',
   'aot-validator',
+  'compiler',
   'protobuf',
   'repository',
   'query-compiler',
@@ -298,8 +299,8 @@ async function auditStringSourceEmission() {
   const problems = [];
   const advanced = resolve(ROOT, 'packages/aot-validator/src/advanced');
   const entries = [
-    resolve(ROOT, 'packages/aot-validator/src/transformer.ts'),
-    resolve(ROOT, 'packages/aot-validator/src/emit/index.ts'),
+    resolve(ROOT, 'packages/compiler/src/transform/index.ts'),
+    resolve(ROOT, 'packages/compiler/src/emit/index.ts'),
   ];
   const graph = createImportGraph(ROOT, GOVERNANCE);
 
@@ -316,7 +317,7 @@ async function auditStringSourceEmission() {
 
   await import(pathToFileURL(resolve(ROOT, 'scripts/ts-specifier-hook.mjs')).href);
   const { CALLEES, transformCode } = await import(
-    pathToFileURL(resolve(ROOT, 'packages/aot-validator/src/transformer.ts')).href
+    pathToFileURL(resolve(ROOT, 'packages/compiler/src/transform/index.ts')).href
   );
 
   for (const name of STRING_SOURCE_APIS) {

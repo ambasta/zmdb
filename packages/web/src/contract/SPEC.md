@@ -25,8 +25,8 @@ The final ownership is:
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `@zmdb/web/contract`          | Public declaration helpers, `HttpContractIR`, wire metadata, deterministic normalisation, and contract diagnostics          |
 | `@zmdb/web/contract/compiler` | Build-time collection through one `ReflectSession`, plus deterministic typed-client generation and AOT response validation  |
-| `@zmdb/aot-validator/reflect` | The only TypeScript type front-end: TypeScript `Type` to `TypeIR`                                                           |
-| `@zmdb/aot-validator/emit`    | Precomputed request decoders, response validators, and wire codecs generated from `TypeIR`                                  |
+| `@zmdb/compiler/reflect`      | The only TypeScript type front-end: TypeScript `Type` to `TypeIR`                                                           |
+| `@zmdb/compiler/emit`         | Precomputed request decoders, response validators, and wire codecs generated from `TypeIR`                                  |
 | `@zmdb/web` routing           | Binding compiled operations to controller methods and dispatching them                                                      |
 | `@zmdb/web/openapi`           | A pure `HttpContractIR` to OpenAPI 3.1 emitter                                                                              |
 | `@zmdb/client`                | Dependency-free transport, request execution, body limits, cancellation, authentication injection, and stable error classes |
@@ -38,7 +38,7 @@ The dependency direction is acyclic:
 ```text
 @zmdb/schema-core/ir
           │
-          ├──────────────> @zmdb/aot-validator/{reflect,emit}
+          ├──────────────> @zmdb/compiler/{reflect,emit}
           │                                  │
           └──────────────> @zmdb/web/contract/compiler
                                              │
@@ -55,9 +55,9 @@ The dependency direction is acyclic:
                                                 @zmdb/client
 ```
 
-`@zmdb/aot-validator` does not import `@zmdb/web`, even as a type-only edge. The web compiler calls the existing public reflect and emit back-ends. The runtime `@zmdb/web/contract` entry does not
-reach TypeScript, the compiler session, the filesystem, or the build-time compiler subpath. TypeScript is an optional peer assigned only to `@zmdb/web/contract/compiler` in the canonical architecture
-policy.
+`@zmdb/compiler` does not import `@zmdb/web`, even as a type-only edge. The web compiler calls the existing public reflect and emit back-ends. The runtime `@zmdb/web/contract` entry does not reach
+TypeScript, the compiler session, the filesystem, or the build-time compiler subpath. TypeScript and `@zmdb/compiler` are optional peers assigned only to `@zmdb/web/contract/compiler` in the canonical
+architecture policy.
 
 ## 3. One explicit declaration
 

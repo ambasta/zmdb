@@ -15,6 +15,7 @@ import { createImportGraph } from './lib/import-graph.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PRODUCT_CONFIG = 'zmdb/config';
 const COMPILER_CONFIG = '@zmdb/compiler/config';
+const COMPILER_AUTHORING_CONFIG = '@zmdb/compiler/config/contract';
 const PRODUCT_ROOT = 'zmdb';
 const AUTHORING_NAMES = new Set(['HttpGenerationConfig', 'ZmdbConfig', 'ZmdbConfigData', 'defineConfig']);
 const PROTECTED_NAMES = new Set([
@@ -159,7 +160,9 @@ function declarationOwner(root, start, name, graph, overlays, seen = new Set()) 
 
 function isApprovedPublicExport(specifiers, name) {
   return specifiers.every(specifier => {
-    if (specifier === PRODUCT_CONFIG || specifier === COMPILER_CONFIG) return true;
+    if (specifier === PRODUCT_CONFIG || specifier === COMPILER_CONFIG || specifier === COMPILER_AUTHORING_CONFIG) {
+      return true;
+    }
     return specifier === PRODUCT_ROOT && ROOT_AUTHORING_NAMES.has(name);
   });
 }

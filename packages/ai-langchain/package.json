@@ -45,6 +45,7 @@
   "devDependencies": {
     "@langchain/core": "1.2.9",
     "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/compiler": "workspace:^",
     "@zmdb/schema-core": "workspace:^",
     "oxfmt": "0.66.0",
     "typescript": "7.0.2"

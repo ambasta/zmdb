@@ -1,8 +1,8 @@
 # Release groups and compatibility guarantees
 
-> **Status:** target contract frozen by issue #746 on 2026-09-06 and extended by issue #674 to classify the admitted `@zmdb/singlestore` package. Issues #747–#750 implement and qualify this contract.
-> The checked-in release scripts still enforce the earlier 37-package lockstep train until those implementation issues land. This specification does not authorize a partial release with the current
-> tooling.
+> **Status:** target contract frozen by issue #746 on 2026-09-06 and extended by issues #674 and #628 to classify the admitted `@zmdb/singlestore` and `@zmdb/compiler` packages. Issues #747–#750
+> implement and qualify this contract. The checked-in release scripts still enforce the current 38-package lockstep train until those implementation issues land. This specification does not authorize
+> a partial release with the current tooling.
 
 This directory owns release-group classification, version movement, internal package ranges, third-party compatibility floors, changelog identity, release tags, and release planning. It does not own
 product membership, npm identity, dependency direction, package exports, registry state, credentials, or publication side effects.
@@ -23,12 +23,12 @@ notes. Native issue relationships and architecture exceptions cannot alter a rel
 
 The baseline contains:
 
-- 37 public catalog packages, all currently at `1.0.0-alpha.4`;
-- 73 direct non-development workspace edges: 21 within the cohesive core and 52 crossing release units;
-- 35 peer entries: 33 third-party peers and two internal optional peers;
+- 38 public catalog packages, all currently at `1.0.0-alpha.4`;
+- 74 direct non-development workspace edges: 20 within the cohesive core and 54 crossing release units;
+- 36 peer entries: 33 third-party peers and three internal optional peers;
 - six private root workspaces;
 - six `packages/*` roadmap directories with no manifest; and
-- one implemented release model that currently requires all 37 public packages to move together.
+- one implemented release model that currently requires all 38 public packages to move together.
 
 The release groups below are a policy decision over that measured inventory. Existing common versions are evidence of the starting state, not justification for keeping every package lockstep.
 
@@ -105,10 +105,11 @@ The current public inventory is classified exactly once:
 | `ai-langchain`       | `@zmdb/ai-langchain`       | integration   | `fixtures/llm-adapters`                     |
 | `ai-vercel`          | `@zmdb/ai-vercel`          | integration   | `fixtures/llm-adapters` plus the #746 probe |
 | `angular`            | `@zmdb/angular`            | integration   | `fixtures/client-adapters`                  |
-| `aot-validator`      | `@zmdb/aot-validator`      | core          | `fixtures/consumer-metro`                   |
+| `aot-validator`      | `@zmdb/aot-validator`      | core          | `yarn verify:publish`                       |
 | `app`                | `@zmdb/app`                | core          | `yarn verify:publish`                       |
 | `client`             | `@zmdb/client`             | integration   | `fixtures/consumer-http-client`             |
 | `cockroach`          | `@zmdb/cockroach`          | integration   | `fixtures/database-cockroach`               |
+| `compiler`           | `@zmdb/compiler`           | tooling       | `fixtures/consumer-compiler`                |
 | `jobs`               | `@zmdb/jobs`               | core          | `fixtures/consumer-server-core`             |
 | `jobs-postgres`      | `@zmdb/jobs-postgres`      | integration   | `fixtures/consumer-server-integrations`     |
 | `mcp`                | `@zmdb/mcp`                | integration   | `fixtures/consumer-mcp`                     |
@@ -138,7 +139,7 @@ The current public inventory is classified exactly once:
 | `web`                | `@zmdb/web`                | core          | `yarn verify:publish`                       |
 | `zmdb`               | `zmdb`                     | core          | `fixtures/consumer-product`                 |
 
-Counts are therefore eight core packages, 28 independently versioned integrations, and one independently versioned tooling package.
+Counts are therefore eight core packages, 28 independently versioned integrations, and two independently versioned tooling packages.
 
 The six private root workspaces are:
 
@@ -151,9 +152,9 @@ The six private root workspaces are:
 | `fixtures/llm-adapters/package.json`    | `@zmdb-fixture/llm-adapters`    |
 | `fixtures/next-app-router/package.json` | `@zmdb-fixture/next-app-router` |
 
-Nested fixture manifests are test assets outside the root workspace set and are already `private: true`; they are not release candidates. `packages/cli`, `packages/compiler`, `packages/orm`,
-`packages/schema`, `packages/sql`, and `packages/validator` have no manifest and are not packages. Adding a public manifest to any `packages/*` directory makes classification mandatory in the same
-change.
+Nested fixture manifests are test assets outside the root workspace set and are already `private: true`; they are not release candidates. `packages/cli`, `packages/orm`, `packages/schema`,
+`packages/jobs-sqlite`, `packages/sql`, and `packages/validator` have no manifest and are not packages. Adding a public manifest to any `packages/*` directory makes classification mandatory in the
+same change.
 
 ## 4. Version ownership and movement
 
@@ -189,8 +190,9 @@ is exactly the range in `internalCompatibility`. Publication removes only the `w
 
 ### 4.3 Tooling
 
-`@zmdb/migrations` is a public tooling release unit with its own version. It may release without a core or integration bump. Its direct query-compiler relationship is a required core peer with an
-explicit compatibility range and an exact workspace development dependency.
+`@zmdb/migrations` and `@zmdb/compiler` are public tooling release units with independent versions. Either may release without a core, integration, or unrelated tooling bump. Migrations' direct
+query-compiler relationship is a required core peer with an explicit compatibility range and an exact workspace development dependency. Compiler's direct aot-validator, query-compiler, and schema-core
+relationships are required core peers under the same rule; its AI relationship is an explicit cross-unit dependency.
 
 No benchmark, fixture, generated project, repository script, or root workspace is publishable tooling. Those remain private.
 
@@ -243,7 +245,7 @@ manifest.
 | `@zmdb/ai-langchain`       | `@langchain/core@^1.2.9`; `1.2.9`                                                                                                                                   |
 | `@zmdb/ai-vercel`          | `ai@^7.0.93`; `7.0.93`                                                                                                                                              |
 | `@zmdb/angular`            | `@angular/core@>=22.1.5 <23.0.0`; `22.1.5`; `rxjs@>=7.8.2 <8.0.0`; `7.8.2`                                                                                          |
-| `@zmdb/aot-validator`      | `metro@>=0.87.0 <0.88.0`; `0.87.0`; `metro-babel-transformer@>=0.87.0 <0.88.0`; `0.87.0`; `oxlint@>=1.81.0 <1.82.0`; `1.81.0`; `typescript@>=7.0.2 <8.0.0`; `7.0.2` |
+| `@zmdb/compiler`           | `metro@>=0.87.0 <0.88.0`; `0.87.0`; `metro-babel-transformer@>=0.87.0 <0.88.0`; `0.87.0`; `oxlint@>=1.81.0 <1.82.0`; `1.81.0`; `typescript@>=7.0.2 <8.0.0`; `7.0.2` |
 | `@zmdb/jobs-postgres`      | `pg@^8.23.0`; `8.23.0`                                                                                                                                              |
 | `@zmdb/mssql`              | `mssql@^12.7.0`; `12.7.0`                                                                                                                                           |
 | `@zmdb/mysql`              | `mysql2@^3.24.3`; `3.24.3`                                                                                                                                          |

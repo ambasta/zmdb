@@ -1,16 +1,19 @@
 // @zmdb/aot-validator — the runtime half.
 //
 // Nothing reachable from this entry point may import `typescript`. The compiler is a
-// 100 MB build-time dependency, and an application that imports `tags` to declare a
-// constraint should not pull it into a browser bundle. `transformCode` and
-// `transformFile` therefore live in `./transformer.ts` and are reached through the
-// `./plugin` and `./transformer` subpaths, which are build-time by contract;
-// `.github/scripts/verify-exports.mjs` enforces the split.
+// build-time dependency, and an application that imports `tags` to declare a
+// constraint must not pull it into a runtime bundle. Compiler ownership lives in
+// `@zmdb/compiler`; `.github/scripts/verify-exports.mjs` enforces the split.
 
 import { getCachedRegExp, MAX_REGEX_CACHE_SIZE, validatePatternComplexity } from './regex-complexity.js';
 
 export { AssertError, failWith } from './errors.js';
-export { ValidationError, getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
+export {
+  ValidationError,
+  getCachedRegExp,
+  MAX_REGEX_CACHE_SIZE,
+  validatePatternComplexity,
+} from './regex-complexity.js';
 
 export interface Rule {
   readonly kind: string;

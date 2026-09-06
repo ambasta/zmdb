@@ -18,7 +18,7 @@ import { compilePopulate, resolveRelation, type ResolvedRelation } from './index
 //
 // Written as IR literals rather than added to `./fixtures.ts`, because a tagged interface with a
 // two-column key cannot be turned into a schema value today: `schemasFrom` goes through
-// `@zmdb/aot-validator`'s reflector, which builds `primaryKey` by filtering the per-column flag
+// `@zmdb/compiler`'s reflector, which builds `primaryKey` by filtering the per-column flag
 // and refuses a table with none. `resolveRelation` and `compilePopulate` both take `SchemaIR`
 // directly, so nothing is lost. The type-level half lives in `composite-parent-key.type-test.ts`,
 // where the tagged form costs nothing because it is never evaluated.

@@ -6,7 +6,7 @@
 //
 // There are two copies of this file, one per fixture, and they differ in exactly one way: in
 // `consumer-cli/` the seven calls below have already been replaced by the generated wrappers
-// next door, because that is what `zmdb-codegen` does to a source file. In `consumer-plugin/`
+// next door, because that is what `@zmdb/compiler` project compilation does to a source file. In `consumer-plugin/`
 // they are still as written, and the bundler's copy of the plugin rewrites them on the way
 // into the bundle. Same program either way — that is the thing being tested.
 

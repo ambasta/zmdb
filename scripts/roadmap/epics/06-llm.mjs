@@ -141,7 +141,7 @@ export declare function toolFor<P extends ToolProvider>(
         files: [
           '`packages/schema-core/src/llm/providers.ts` (new)',
           '`packages/schema-core/src/llm/index.ts` — export `toolFor`, keep `toolFromSchema` as the `json-schema` provider.',
-          '`packages/aot-validator/src/emit/` — the emission path for the inlined spec.',
+          '`packages/compiler/src/emit/` — the emission path for the inlined spec.',
         ],
         steps: [
           'Implement the three dialects as transformations of the IR, not post-processing of the generic JSON Schema. Post-processing cannot know that an optional field must become nullable-and-required, because that information is in the IR and lost in the generic output.',

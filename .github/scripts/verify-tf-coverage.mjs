@@ -56,16 +56,21 @@ import { fileURLToPath } from 'node:url';
 import { SyntaxKind } from 'typescript/unstable/ast';
 import { API } from 'typescript/unstable/sync';
 
-import { KNOWN_CONSTRAINT_KINDS, TAG_NAMES } from '../../packages/schema-core/src/ir/index.ts';
+// This verifier is one of the handover's direct `node` gates, so it cannot rely on a
+// package-script `--import` flag. Register the repository's canonical `.js` -> `.ts`
+// source resolver before dynamically loading the shipped vocabulary.
+await import('../../scripts/ts-specifier-hook.mjs');
+const { KNOWN_CONSTRAINT_KINDS, TAG_NAMES } = await import('../../packages/schema-core/src/ir/vocabulary.js');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 const TAGS = 'packages/schema-core/src/tags/index.ts';
 const VOCABULARY = 'packages/schema-core/src/ir/vocabulary.type-test.ts';
-const REFLECT = 'packages/aot-validator/src/reflect/index.ts';
-const FIXTURES = 'packages/aot-validator/src/reflect/__fixtures__/';
+const REFLECT = 'packages/compiler/src/reflect/index.ts';
+const FIXTURES = 'packages/compiler/src/reflect/__fixtures__/';
 const RUNTIME = 'packages/aot-validator/src/index.ts';
-const INLINER = 'packages/aot-validator/src/transformer.ts';
+const INLINER = 'packages/compiler/src/transform/index.ts';
+const COMPILER_SOURCE_ROOT = resolve(ROOT, 'packages/compiler/src');
 
 /**
  * The one tag that deliberately does not participate in the TagField ↔ marker bijection.
@@ -503,6 +508,7 @@ const notes = [];
 
 const core = programOf('schema-core');
 const validator = programOf('aot-validator');
+const compiler = programOf('compiler');
 
 try {
   const file = (program, path) => {
@@ -562,7 +568,7 @@ try {
     );
   }
 
-  const reflectFile = file(validator.program, REFLECT);
+  const reflectFile = file(compiler.program, REFLECT);
   const markerValue = stringConstant(reflectFile, PHYSICAL_TAG.markerConstant);
   if (markerValue !== PHYSICAL_TAG.marker) {
     problems.push(
@@ -680,11 +686,11 @@ try {
   const fixtureRoot = resolve(ROOT, FIXTURES);
   const written = new Set();
   const writtenAnywhere = new Set();
-  for (const fileName of validator.program.getSourceFileNames()) {
+  for (const fileName of compiler.program.getSourceFileNames()) {
     const isFixture = fileName.startsWith(fixtureRoot);
     const isTest = TEST_FILE.some(pattern => pattern.test(fileName));
     if (!isFixture && !isTest) continue;
-    const sourceFile = validator.program.getSourceFile(fileName);
+    const sourceFile = compiler.program.getSourceFile(fileName);
     if (!sourceFile) continue;
     for (const name of typeReferencesIn(sourceFile)) {
       writtenAnywhere.add(name);
@@ -727,9 +733,12 @@ try {
   for (const { program, label } of [
     { program: core.program, label: 'schema-core' },
     { program: validator.program, label: 'aot-validator' },
+    { program: compiler.program, label: 'compiler' },
   ]) {
-    void label;
     for (const fileName of program.getSourceFileNames()) {
+      // The compiler project includes workspace dependencies in its TypeScript program.
+      // Only compiler-owned sources extend this verifier's existing scan surface.
+      if (label === 'compiler' && !fileName.startsWith(`${COMPILER_SOURCE_ROOT}/`)) continue;
       if (!shipped(fileName)) continue;
       const sourceFile = program.getSourceFile(fileName);
       if (!sourceFile) continue;
@@ -763,7 +772,7 @@ try {
   const runtimeFile = file(validator.program, RUNTIME);
   const builders = runtimeRuleNames(runtimeFile);
   const fallbackCases = caseLiteralsIn(runtimeFile);
-  const inlineCases = caseLiteralsIn(file(validator.program, INLINER));
+  const inlineCases = caseLiteralsIn(file(compiler.program, INLINER));
   for (const [kind, tag] of constraintTags) {
     if (!builders.has(tag)) {
       problems.push(`${RUNTIME}: \`tags\` has no \`${tag}\` builder, so \`${kind}\` cannot be written at runtime.`);
@@ -810,6 +819,7 @@ try {
 } finally {
   core.api.close();
   validator.api.close();
+  compiler.api.close();
 }
 
 if (problems.length > 0) {

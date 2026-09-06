@@ -7,11 +7,11 @@
 // comes from `schemaOf<User>()`, which the transform replaces with the schema value it
 // reflected at compile time — see `fixtures/consumer-cli` for that path end to end. This file
 // runs under `node --experimental-strip-types` with nothing in front of it, so it asks for the
-// same reflection at startup instead, through `@zmdb/aot-validator/testing`. Same reflection,
+// same reflection at startup instead, through `@zmdb/compiler/testing`. Same reflection,
 // same schema; it just pays about 80ms to open the project rather than nothing at all.
 import { DatabaseSync } from 'node:sqlite';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { defineRepository } from '@zmdb/repository';
 import type { OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';

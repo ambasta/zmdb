@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635, amended by #656, #668, #669, #705, #706, #707, #708, #709, #710, #621, #670, #672 and #629
+# Runtime foundation boundary policy — issue #635, amended by #656, #668, #669, #705, #706, #707, #708, #709, #710, #621, #670, #672, #628 and #629
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -11,28 +11,28 @@ The inventory command is:
 find packages/schema-core/src packages/query-compiler/src \
   packages/aot-validator/src packages/repository/src \
   -type f -name '*.ts' ! -name '*.spec.ts' ! -name '*.type-test.ts' \
-  ! -path '*/__generated__/*'
+  ! -path '*/__generated__/*' ! -path '*/__budget__/*'
 ```
 
 Those are exactly the TypeScript files included by the four current `tsconfig.build.json` files. Fixtures and `__testing__` helpers are included because the build configuration does not currently
-exclude them; the ownership map therefore cannot pretend they are not shipped. Gitignored `__generated__` directories are test-owned scratch space, not checked-in build inputs.
+exclude them; the ownership map therefore cannot pretend they are not shipped. Gitignored `__generated__` and `__budget__` directories are test-owned scratch space, not checked-in build inputs.
 
 Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The three database-boundary support files added by #667 are included by `query-compiler/tsconfig.build.json`. Issue #656 then
 moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`; #705 added the provider-neutral AI edge used by the compiler; #706 and
 #707 moved the Anthropic and LangChain peers; #708 moved the Vercel adapter, export and peer out of schema-core; #709 moved the MCP client/server implementation and export; #710 moved the final
 provider-neutral and LangChain implementations out of schema-core and removed its four LLM exports; #669 moved the SQLite introspector and driver into its database package; #670 moved the PostgreSQL
-driver and fixture out of repository; #672 moved SQL Server implementation out of the generic compiler and repository; and #629 moved the eleven generic lifecycle/introspection implementations into
-`@zmdb/migrations` while retaining only their structural protocols in query-compiler:
+driver and fixture out of repository; #672 moved SQL Server implementation out of the generic compiler and repository; #628 moved the TypeScript front end into `@zmdb/compiler`; and #629 moved the
+generic lifecycle/introspection implementations into `@zmdb/migrations` while retaining only their structural protocols in query-compiler:
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
-| `@zmdb/schema-core`    |                              14 |                  9 |
+| `@zmdb/schema-core`    |                              16 |                  9 |
 | `@zmdb/query-compiler` |                              24 |                  9 |
-| `@zmdb/aot-validator`  |                              54 |                 14 |
+| `@zmdb/aot-validator`  |                               6 |                  5 |
 | `@zmdb/repository`     |                              18 |                  8 |
-| **Total**              |                         **110** |             **40** |
+| **Total**              |                          **64** |             **31** |
 
-The four manifests contain 25 dependency entries: 6 `dependencies`, 4 `peerDependencies`, and 15 `devDependencies`. They contain no `optionalDependencies`.
+The four manifests contain 17 dependency entries: 5 `dependencies` and 12 `devDependencies`. They contain no `peerDependencies` or `optionalDependencies`.
 
 Issues #670 and #672 add `@zmdb/postgres` and `@zmdb/mssql` before the hard foundation cutover. Their current inward package edges are explicit transitional boundaries; the ratchet does not recurse
 through those old package roots while checking the optional verticals. Every other non-foundation edge remains forbidden. Old-package imports in the database packages and packed fixtures stay explicit
@@ -40,7 +40,7 @@ baseline findings until the coordinated foundation and final database purge remo
 
 ## 2. Exact file ownership
 
-Every one of the 110 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
+Every one of the 64 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
 path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql` sections also record their package-owned production
 files outside that legacy input inventory.
 
@@ -60,67 +60,13 @@ Issue #710 moved the LangChain implementation directly to `packages/ai-langchain
 
 Issue #708 moved the sole Vercel adapter directly to `packages/ai-vercel/src/index.ts`, so no old foundation file remains in this destination.
 
-### `@zmdb/cli` — 1
+### `@zmdb/cli` — 0
 
-```text
-packages/aot-validator/src/cli/bin.ts
-```
+#628 deleted the old `zmdb-codegen` executable. #630 owns the later `zmdb codegen` command in the sole unified CLI.
 
-The old `zmdb-codegen` executable is deleted. Its argument parsing becomes the `zmdb codegen` command; the callable code-generation library belongs to `@zmdb/compiler`.
+### `@zmdb/compiler` — 0
 
-### `@zmdb/compiler` — 47
-
-```text
-packages/aot-validator/src/cli/index.ts
-packages/aot-validator/src/cli/scan.ts
-packages/aot-validator/src/cli/witness.ts
-packages/aot-validator/src/emit/__testing__/project.ts
-packages/aot-validator/src/emit/index.ts
-packages/aot-validator/src/emit/shape.ts
-packages/aot-validator/src/lint/__fixtures__/nullable-tags.fixed.ts
-packages/aot-validator/src/lint/__fixtures__/nullable-tags.input.ts
-packages/aot-validator/src/lint/__fixtures__/rule-tester.ts
-packages/aot-validator/src/lint/__fixtures__/unknown-json.input.ts
-packages/aot-validator/src/lint/__fixtures__/unknown-json.suggested.ts
-packages/aot-validator/src/lint/__fixtures__/valid-near-misses.ts
-packages/aot-validator/src/lint/ast.ts
-packages/aot-validator/src/lint/host-types.ts
-packages/aot-validator/src/lint/index.ts
-packages/aot-validator/src/lint/rules/no-distributed-nullable-tags.ts
-packages/aot-validator/src/lint/rules/no-empty-patch.ts
-packages/aot-validator/src/lint/rules/no-interpolated-sql.ts
-packages/aot-validator/src/lint/rules/no-unbounded-find.ts
-packages/aot-validator/src/lint/rules/no-unknown-json-column.ts
-packages/aot-validator/src/lint/rules/require-sql-on-number.ts
-packages/aot-validator/src/lint/types.ts
-packages/aot-validator/src/plugin/index.ts
-packages/aot-validator/src/plugin/inline-bench.ts
-packages/aot-validator/src/plugin/metro.ts
-packages/aot-validator/src/protobuf/__testing__/fixture.ts
-packages/aot-validator/src/protobuf/decode.ts
-packages/aot-validator/src/protobuf/descriptor.ts
-packages/aot-validator/src/protobuf/encode.ts
-packages/aot-validator/src/protobuf/grpc-ir.ts
-packages/aot-validator/src/reflect/__fixtures__/codemod-corpus.ts
-packages/aot-validator/src/reflect/__fixtures__/codemod-refusals.ts
-packages/aot-validator/src/reflect/__fixtures__/codemod-tables.ts
-packages/aot-validator/src/reflect/__fixtures__/constructs.ts
-packages/aot-validator/src/reflect/__fixtures__/documents.ts
-packages/aot-validator/src/reflect/__fixtures__/legacy-dsl.ts
-packages/aot-validator/src/reflect/__fixtures__/naming-strategy.ts
-packages/aot-validator/src/reflect/__fixtures__/payloads.ts
-packages/aot-validator/src/reflect/__fixtures__/schema-values-refusals.ts
-packages/aot-validator/src/reflect/__fixtures__/schema-values.ts
-packages/aot-validator/src/reflect/__fixtures__/tables.ts
-packages/aot-validator/src/reflect/callsites.ts
-packages/aot-validator/src/reflect/index.ts
-packages/aot-validator/src/reflect/session.ts
-packages/aot-validator/src/testing/index.ts
-packages/aot-validator/src/transformer.ts
-packages/aot-validator/src/unplugin.ts
-```
-
-The fixture and `__testing__` paths remain owned by compiler tests but must be excluded from the published build after the move.
+#628 moved the TypeScript front end, compiler fixtures, and compiler test support into `packages/compiler`; those files are no longer members of this four-package runtime-foundation inventory.
 
 ### `@zmdb/jobs` — 1
 
@@ -170,7 +116,7 @@ The five fixture/support files remain owned by ORM tests and must stop being pub
 Issue #670 moved the former repository driver to `packages/postgres/src/driver.ts` and its fixture to `packages/postgres/src/testing/fixture.ts`. The fixture remains package acceptance-test support
 and is excluded from the tarball.
 
-### `@zmdb/schema` — 15
+### `@zmdb/schema` — 17
 
 ```text
 packages/query-compiler/src/naming/index.ts
@@ -182,6 +128,8 @@ packages/schema-core/src/dto/fixtures.ts
 packages/schema-core/src/dto/index.ts
 packages/schema-core/src/index.ts
 packages/schema-core/src/ir/index.ts
+packages/schema-core/src/ir/validation-shape.ts
+packages/schema-core/src/ir/vocabulary.ts
 packages/schema-core/src/naming/index.ts
 packages/schema-core/src/openapi/index.ts
 packages/schema-core/src/relations/fixtures.ts
@@ -274,7 +222,7 @@ No symbol may be temporarily exported from both destinations. A move and its imp
 
 ## 4. Public export map
 
-All 46 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
+All 36 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
 
 ### Current `@zmdb/schema-core` — 9
 
@@ -315,24 +263,15 @@ All 46 current export entries across the four foundation candidates have one dis
 | `./set-ops`             | `@zmdb/sql/set-ops`                   |
 | `./schema-objects`      | `@zmdb/sql/schema-objects`            |
 
-### Current `@zmdb/aot-validator` — 14
+### Current `@zmdb/aot-validator` — 5
 
 | Old subpath       | Final public owner              |
 | ----------------- | ------------------------------- |
 | `.`               | `@zmdb/validator`               |
 | `./advanced`      | `@zmdb/validator/advanced`      |
-| `./emit`          | `@zmdb/compiler/emit`           |
 | `./errors`        | `@zmdb/validator/errors`        |
-| `./lint`          | `@zmdb/compiler/lint`           |
 | `./serialization` | `@zmdb/validator/serialization` |
 | `./utilities`     | `@zmdb/validator`               |
-| `./metro`         | `@zmdb/compiler/metro`          |
-| `./plugin`        | `@zmdb/compiler/plugin`         |
-| `./reflect`       | `@zmdb/compiler/reflect`        |
-| `./testing`       | `@zmdb/compiler/testing`        |
-| `./codegen`       | `@zmdb/compiler/codegen`        |
-| `./transformer`   | `@zmdb/compiler/transformer`    |
-| `./unplugin`      | `@zmdb/compiler/unplugin`       |
 
 ### Current `@zmdb/repository` — 8
 
@@ -348,7 +287,7 @@ All 46 current export entries across the four foundation candidates have one dis
 | `./jobs`            | `@zmdb/jobs`                                                                        |
 
 Issues #670 and #672 removed `@zmdb/repository/drivers/pg` and `@zmdb/repository/drivers/mssql`; their database packages now own those public runtimes. After cutover, the four old package names and
-the remaining 45 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed consumers. `@zmdb/mcp` remains
+the remaining 36 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed consumers. `@zmdb/mcp` remains
 independently published. There are no forwarding packages and no `exports` aliases.
 
 ## 5. Manifest dependency disposition
@@ -358,27 +297,19 @@ Every current manifest entry has one disposition:
 | Current manifest section and entry              | Final disposition                                                  |
 | ----------------------------------------------- | ------------------------------------------------------------------ |
 | `schema-core dependencies @zmdb/query-compiler` | deleted; DTO/populate SQL moves to ORM and naming moves to schema  |
-| `schema-core peers @anthropic-ai/sdk`           | `@zmdb/ai-anthropic` peer only                                     |
-| `schema-core peers @langchain/core`             | `@zmdb/ai-langchain` peer only                                     |
-| `schema-core dev @anthropic-ai/sdk`             | `@zmdb/ai-anthropic` dev dependency                                |
-| `schema-core dev @zmdb/aot-validator`           | compiler/schema test fixture dependency; not a schema runtime edge |
+| `schema-core dev @zmdb/aot-validator`           | schema test fixture dependency; not a schema runtime edge          |
+| `schema-core dev @zmdb/compiler`                | compiler/schema test fixture dependency; not a schema runtime edge |
 | `schema-core dev oxfmt`                         | root/tooling formatter only; absent from `@zmdb/schema`            |
 | `schema-core dev typescript`                    | build/test-only dependency permitted on `@zmdb/schema`             |
 | `query-compiler dependencies oxfmt`             | `@zmdb/migrations` dependency only                                 |
+| `query-compiler dev @zmdb/compiler`             | compiler/query test fixture dependency; not a SQL runtime edge     |
 | `query-compiler dev typescript`                 | build/test-only dependency permitted on `@zmdb/sql`                |
-| `aot-validator dependencies @zmdb/ai`           | `@zmdb/compiler` build-time dependency; never a foundation edge    |
 | `aot-validator dependencies @zmdb/schema-core`  | becomes `@zmdb/validator -> @zmdb/schema`                          |
-| `aot-validator peers oxlint`                    | `@zmdb/compiler` peer only                                         |
-| `aot-validator peers typescript`                | `@zmdb/compiler` peer only                                         |
-| `aot-validator dev oxlint`                      | `@zmdb/compiler` dev dependency                                    |
-| `aot-validator dev @zmdb/protobuf`              | compiler boundary-test dev dependency; never a runtime edge        |
-| `aot-validator dev protobufjs`                  | compiler protobuf-conformance dev dependency; never a runtime edge |
-| `aot-validator dev typescript`                  | `@zmdb/compiler` dev dependency                                    |
+| `aot-validator dev typescript`                  | build/test-only dependency permitted on `@zmdb/validator`          |
 | `repository dependencies @zmdb/aot-validator`   | becomes `@zmdb/orm -> @zmdb/validator`                             |
 | `repository dependencies @zmdb/query-compiler`  | becomes `@zmdb/orm -> @zmdb/sql`                                   |
 | `repository dependencies @zmdb/schema-core`     | becomes `@zmdb/orm -> @zmdb/schema`                                |
-| `repository dev @types/mssql`                   | `@zmdb/mssql` dev dependency                                       |
-| `repository dev mssql`                          | `@zmdb/mssql` dev dependency and peer                              |
+| `repository dev @zmdb/compiler`                 | compiler/ORM test fixture dependency; not an ORM runtime edge      |
 | `repository dev typescript`                     | build/test-only dependency permitted on `@zmdb/orm`                |
 
 For a foundation package, “zero external dependencies” means:

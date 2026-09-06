@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { toolFromSchema } from '@zmdb/ai';
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { ValidationError } from '@zmdb/schema-core';
 import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from '@zmdb/schema-core/tags';
 import { describe, expect, it, vi } from 'vitest';

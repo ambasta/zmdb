@@ -7,6 +7,7 @@ import {
   validate as ownerValidate,
 } from '@zmdb/aot-validator/utilities';
 import { Module as ownerModule } from '@zmdb/app/modules';
+import { defineConfig as ownerDefineConfig } from '@zmdb/compiler/config/contract';
 import {
   IncompleteKeyError as ownerIncompleteKeyError,
   ValidationError as ownerValidationError,
@@ -53,7 +54,6 @@ import {
   withPackedBuildLock,
 } from '../../../fixtures/client-adapters/src/packed-project.js';
 import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
-import { defineConfig as ownerDefineConfig } from './config/contract.js';
 import {
   AssertError,
   Controller,
@@ -212,7 +212,15 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
           '@zmdb/schema-core/custom-types',
           '@zmdb/schema-core/naming',
         ],
-        excluded: new Set(['TAG_NAMES']),
+        excluded: new Set([
+          'TAG_NAMES',
+          'discriminantOf',
+          'expectedForConstraint',
+          'expectedForDiscriminant',
+          'expectedOf',
+          'hasExcessCheck',
+          'messageFor',
+        ]),
       },
       {
         facade: 'zmdb/sql',
@@ -254,14 +262,15 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
       {
         facade: 'zmdb/compiler',
         owners: [
-          '@zmdb/aot-validator/unplugin',
-          '@zmdb/aot-validator/metro',
-          '@zmdb/aot-validator/codegen',
-          '@zmdb/aot-validator/emit',
-          '@zmdb/aot-validator/reflect',
-          '@zmdb/aot-validator/transformer',
+          '@zmdb/compiler',
+          '@zmdb/compiler/emit',
+          '@zmdb/compiler/lint',
+          '@zmdb/compiler/metro',
+          '@zmdb/compiler/reflect',
+          '@zmdb/compiler/transform',
+          '@zmdb/compiler/unplugin',
         ],
-        excluded: new Set(['zmdbAot']),
+        excluded: new Set(['default', 'zmdbAot']),
       },
       {
         facade: 'zmdb/migrations',
@@ -283,7 +292,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
       },
       {
         facade: 'zmdb/testing',
-        owners: ['@zmdb/aot-validator/testing', '@zmdb/web/testing'],
+        owners: ['@zmdb/compiler/testing', '@zmdb/web/testing'],
         excluded: new Set<string>(),
       },
     ] as const;
@@ -299,11 +308,11 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
       }
     }
 
-    const compiler: Readonly<Record<string, unknown>> = await import('zmdb/compiler');
-    const lint: Readonly<Record<string, unknown>> = await import('@zmdb/aot-validator/lint');
-    const productCompiler: Readonly<Record<string, unknown>> = await import('./unplugin.js');
     const validator: Readonly<Record<string, unknown>> = await import('zmdb/validator');
     const utilities: Readonly<Record<string, unknown>> = await import('@zmdb/aot-validator/utilities');
+    const compiler: Readonly<Record<string, unknown>> = await import('zmdb/compiler');
+    const lint: Readonly<Record<string, unknown>> = await import('@zmdb/compiler/lint');
+    const productCompiler: Readonly<Record<string, unknown>> = await import('./unplugin.js');
     expect(compiler.lintPlugin).toBe(lint.default);
     expect(compiler.zmdbAot).toBe(productCompiler.zmdbAot);
     expect(validator.validate).toBe(utilities.validate);
@@ -419,8 +428,8 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
   it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
     const report = await catalogReport();
     expect(report.membershipProblems).toEqual([]);
-    expect(report.rows).toHaveLength(37);
-    expect(report.manifests.size).toBe(37);
+    expect(report.rows).toHaveLength(38);
+    expect(report.manifests.size).toBe(38);
 
     const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
     const staleManifests = new Map(report.manifests);
@@ -481,9 +490,9 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
 
     expect(report.problems).toEqual([]);
-    expect(report.assignments).toHaveLength(37);
+    expect(report.assignments).toHaveLength(38);
     expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(28);
-    expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(9);
+    expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(10);
   });
 
   it('rejects an undocumented package, duplicate public role, or facade export with no owner', async () => {

@@ -85,7 +85,7 @@ export default defineConfig({
 });
 ```
 
-Database commands, `zmdb-codegen`, and the product compiler entry all pass `resolvedNaming` into reflection automatically:
+Database commands, `@zmdb/compiler` project compilation, and the product compiler entry all pass `resolvedNaming` into reflection automatically:
 
 ```ts
 import { zmdbAot } from 'zmdb/compiler';
@@ -93,8 +93,8 @@ import { zmdbAot } from 'zmdb/compiler';
 const plugin = await zmdbAot();
 ```
 
-The lower-level `@zmdb/aot-validator` APIs still accept an explicit `naming` option for tools that own config loading. The build plugin and `zmdb-codegen` resolve the same project config, so both emit
-the same physical names.
+The lower-level `@zmdb/compiler` APIs accept an explicit `naming` option for tools that own config loading. The build plugin and project compiler resolve the same project config, so both emit the same
+physical names.
 
 ## Explicit overrides
 

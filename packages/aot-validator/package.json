@@ -1,7 +1,7 @@
 {
   "name": "@zmdb/aot-validator",
   "version": "1.0.0-alpha.4",
-  "description": "Ahead-of-time compiled validation and JSON Ser/De: is/assert/validate/equals/random, unions, transforms — inlined to straight-line JavaScript at build time, no runtime parser.",
+  "description": "Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/validate/equals/random, unions, transforms, and generated-code errors.",
   "keywords": [
     "aot",
     "json",
@@ -22,9 +22,6 @@
     "url": "git+https://github.com/ambasta/zmdb.git",
     "directory": "packages/aot-validator"
   },
-  "bin": {
-    "zmdb-codegen": "./src/cli/bin.ts"
-  },
   "files": [
     "src",
     "README.md",
@@ -35,18 +32,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./advanced": "./src/advanced/index.ts",
-    "./emit": "./src/emit/index.ts",
     "./errors": "./src/errors.ts",
-    "./lint": "./src/lint/index.ts",
     "./serialization": "./src/serialization/index.ts",
-    "./utilities": "./src/utilities/index.ts",
-    "./metro": "./src/plugin/metro.ts",
-    "./plugin": "./src/plugin/index.ts",
-    "./reflect": "./src/reflect/index.ts",
-    "./testing": "./src/testing/index.ts",
-    "./codegen": "./src/cli/index.ts",
-    "./transformer": "./src/transformer.ts",
-    "./unplugin": "./src/unplugin.ts"
+    "./utilities": "./src/utilities/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -57,41 +45,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/ai": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
-    "@zmdb/protobuf": "workspace:^",
-    "metro": "0.87.0",
-    "metro-babel-transformer": "0.87.0",
-    "oxlint": "1.81.0",
-    "protobufjs": "8.8.0",
     "typescript": "7.0.2"
-  },
-  "peerDependencies": {
-    "metro": ">=0.87.0 <0.88.0",
-    "metro-babel-transformer": ">=0.87.0 <0.88.0",
-    "oxlint": ">=1.81.0 <1.82.0",
-    "typescript": ">=7.0.0"
-  },
-  "peerDependenciesMeta": {
-    "metro": {
-      "optional": true
-    },
-    "metro-babel-transformer": {
-      "optional": true
-    },
-    "oxlint": {
-      "optional": true
-    },
-    "typescript": {
-      "optional": true
-    }
   },
   "engines": {
     "node": ">=26"
-  },
-  "zmdb": {
-    "supportedMetro": ">=0.87.0 <0.88.0"
   }
 }

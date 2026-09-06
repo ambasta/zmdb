@@ -111,7 +111,7 @@ instances and checks that the live route, guard, security, and version declarati
 // docs-file: src/runtime.ts
 import { fileURLToPath } from 'node:url';
 
-import { ReflectSession } from '@zmdb/aot-validator/reflect';
+import { ReflectSession } from '@zmdb/compiler/reflect';
 import { createRouter, type Guard } from '@zmdb/web';
 import { compileHttpContracts } from '@zmdb/web/contract/compiler';
 

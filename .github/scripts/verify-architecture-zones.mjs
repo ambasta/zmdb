@@ -92,6 +92,9 @@ function manifestWorkspaceEdges(architecture, packageRecord) {
     const dependencies = packageRecord.manifest[field];
     if (!isRecord(dependencies)) continue;
     for (const dependencyName of Object.keys(dependencies)) {
+      if (field === 'peerDependencies' && Object.hasOwn(packageRecord.policy.optionalPeerEntries, dependencyName)) {
+        continue;
+      }
       const dependency = architecture.packages.find(candidate => candidate.npmName === dependencyName);
       if (dependency !== undefined) edges.set(dependency.id, dependency);
     }
@@ -151,7 +154,8 @@ function ownershipImports(root, architecture, packageRecord, graph) {
         continue;
       }
 
-      addImport(imports, dependency, sourcePath, reference.specifier);
+      const optionalWorkspacePeer = Object.hasOwn(packageRecord.policy.optionalPeerEntries, dependency.npmName);
+      if (!optionalWorkspacePeer) addImport(imports, dependency, sourcePath, reference.specifier);
       if (lookupExport(architecture, reference.specifier) === undefined) {
         addPrivateImport(privateImports, dependency, sourcePath, reference.specifier);
       }

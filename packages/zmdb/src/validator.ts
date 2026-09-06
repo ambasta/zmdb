@@ -41,6 +41,7 @@ export { assertStringify, decode, parse, stringify } from '@zmdb/aot-validator/s
 export type { ParseResult } from '@zmdb/aot-validator/serialization';
 
 export {
+  MAX_REGEX_CACHE_SIZE,
   ValidationError,
   getCachedRegExp,
   getEnumSet,

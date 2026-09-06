@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
-import { apiInstanceCount, ReflectSession } from '@zmdb/aot-validator/reflect';
+import { apiInstanceCount, ReflectSession } from '@zmdb/compiler/reflect';
 import { jsonSchemaFromTypeIR } from '@zmdb/schema-core/ir';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

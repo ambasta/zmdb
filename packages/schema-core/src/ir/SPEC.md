@@ -8,7 +8,7 @@ The repo grew four independent walkers over the same column metadata, each with 
 
 | Walker                        | Location                                     |
 | ----------------------------- | -------------------------------------------- |
-| AOT emitter                   | `aot-validator/src/transformer.ts`           |
+| AOT emitter                   | `compiler/src/emit/index.ts`                 |
 | AOT runtime fallback          | `aot-validator/src/utilities/index.ts`       |
 | JSON Schema (`scalarSchema`)  | `schema-core/src/openapi/` — **now deleted** |
 | Repository payload validation | `repository/src/index.ts`                    |
@@ -168,7 +168,7 @@ And one hard rule, which is the whole cost argument in a sentence: **nothing out
 the query compiler, not in a repository, not per row.
 
 A naming strategy that is reachable at runtime is a function call per column per row, forever, and every other ORM's naming support is exactly that call (§1 north star 1). Here it runs once per column
-per build; see `aot-validator/src/reflect/SPEC.md` §7a for where.
+per build; see `../../../compiler/src/reflect/SPEC.md` §7a for where.
 
 `schemaFromIR` (§5) is the one place the vocabulary switches. It keys `columns` by `physicalName` and sets `table` to `physicalTable`, so a `CoreSchema` value is entirely in SQL vocabulary, while the
 `ir` it carries is entirely in declaration vocabulary. Every existing consumer is already on the correct side of that line by accident of what it reads: the DDL emitter and `snapshot` take the value,

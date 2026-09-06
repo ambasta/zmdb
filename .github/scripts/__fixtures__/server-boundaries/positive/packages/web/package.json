@@ -25,14 +25,17 @@
     "./versioning": "./src/index.ts"
   },
   "dependencies": {
-    "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
     "@zmdb/schema-core": "workspace:^"
   },
   "peerDependencies": {
+    "@zmdb/compiler": "workspace:^",
     "typescript": ">=7.0.0"
   },
   "peerDependenciesMeta": {
+    "@zmdb/compiler": {
+      "optional": true
+    },
     "typescript": {
       "optional": true
     }

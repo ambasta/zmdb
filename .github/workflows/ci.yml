@@ -39,7 +39,7 @@ jobs:
       - name: Verify lockstep release plan, changelog, and publish order
         run: yarn verify:release-governance
 
-      # The root config loads @zmdb/aot-validator/lint through its source adapter and enables
+      # The root config loads @zmdb/compiler/lint through its source adapter and enables
       # the complete recommended config. This is one oxlint invocation, not a second linter pass.
       - name: Lint (oxlint + zmdb recommended rules)
         run: yarn lint
@@ -184,9 +184,9 @@ jobs:
         run: yarn bench:validation:generate:check
 
       # `fixtures/consumer-cli/` has its generated validator committed, the way a project that
-      # runs `zmdb-codegen` in a pre-commit hook would. This runs the published binary rather
-      # than the library behind it — argv, exit code and all — and writes nothing.
-      - name: Verify the committed CLI fixture is current
+      # runs no-bundler project compilation in a pre-commit hook would. This exercises the
+      # repository-only compiler wrapper in check mode and writes nothing.
+      - name: Verify the committed no-bundler fixture is current
         run: yarn verify:fixtures
 
       - name: Unit + integration tests (incl. node:sqlite E2E)

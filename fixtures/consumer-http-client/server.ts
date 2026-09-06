@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 
-import { ReflectSession } from '@zmdb/aot-validator/reflect';
+import { ReflectSession } from '@zmdb/compiler/reflect';
 import { createRouter, toNodeHandler, type Guard } from '@zmdb/web';
 import { compileHttpContracts } from '@zmdb/web/contract/compiler';
 

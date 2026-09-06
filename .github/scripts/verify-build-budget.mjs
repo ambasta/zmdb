@@ -15,14 +15,14 @@
 //
 //   - **One `API` instance for the whole run.** `reflect/session.ts` counts every compiler
 //     server this process has started, and a 64-module build has to move that counter by
-//     exactly one. `plugin.spec.ts` already asserts this for the bundler path; the CLI —
-//     which is the path that sees whole projects rather than one module at a time — had
+//     exactly one. `plugin.spec.ts` already asserts this for the bundler path; project
+//     compilation — which sees whole projects rather than one module at a time — had
 //     nothing watching it.
 //   - **Snapshot updates do not grow with the file count.** This is the sharper one, and it
 //     is what "not once per file" actually means. `ReflectSession` logs every update, so the
 //     same project is generated at 8 modules and at 64 and the two logs must be *identical*.
 //     Telling the compiler about a file is a re-check; doing it per generated witness would
-//     make a hundred-file project a hundred re-checks, which is why `cli/index.ts` writes
+//     make a hundred-file project a hundred re-checks, which is why `codegen/index.ts` writes
 //     every witness before transforming any of them. That ordering is load-bearing and reads
 //     like an arbitrary choice, so this is the test that fails if somebody tidies it.
 //
@@ -57,15 +57,15 @@
 //
 // The measurement runs the real `codegen()` plus one HTTP contract collection on the same
 // session, on a generated project inside the repository so workspace packages resolve the way
-// they do for a consumer. The artifacts are the ones `zmdb-codegen` would write. `.budget/` is
+// they do for a consumer. The artifacts are the ones `@zmdb/compiler` would write. `.budget/` is
 // gitignored and removed in a `finally`.
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { codegen } from '../../packages/aot-validator/src/cli/index.js';
-import { apiInstanceCount, ReflectSession } from '../../packages/aot-validator/src/reflect/session.js';
+import { codegen } from '../../packages/compiler/src/codegen/index.js';
+import { apiInstanceCount, ReflectSession } from '../../packages/compiler/src/reflect/session.js';
 import { compileHttpContracts } from '../../packages/web/src/contract/compiler/index.js';
 import { defineHttpContract, httpOperation } from '../../packages/web/src/contract/index.js';
 import { Controller, Get, Public } from '../../packages/web/src/routing/index.js';
@@ -443,7 +443,7 @@ if (small.updates.join(',') !== big.updates.join(',')) {
   problems.push(
     `the update log depends on the number of files: ${SMALL} modules gave [${log(small.updates)}] and ` +
       `${MODULES} gave [${log(big.updates)}]. "Once per build, not once per file" is exactly this ` +
-      'comparison — `cli/index.ts` writes every witness before transforming any of them for this reason.',
+      'comparison — `codegen/index.ts` writes every witness before transforming any of them for this reason.',
   );
 }
 if (problems.length > 0) {

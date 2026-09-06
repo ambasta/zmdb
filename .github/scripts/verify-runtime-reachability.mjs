@@ -30,7 +30,10 @@ function record(value) {
 
 function ownsRequiredPeer(packageRecord) {
   const kind = packageRecord.catalog.optionality?.kind;
-  return packageRecord.policy.zone === 'integration' && (kind === 'integration' || kind === 'provider');
+  return (
+    (packageRecord.policy.zone === 'integration' && (kind === 'integration' || kind === 'provider')) ||
+    (packageRecord.policy.zone === 'tooling' && kind === 'tooling')
+  );
 }
 
 function isInside(root, path) {
@@ -391,7 +394,19 @@ export function analyzeRuntimeReachability(root, architecture, graph = createImp
         const dependency = imported.packageName;
         if (dependency === undefined) continue;
         if (workspacePackages.has(dependency)) {
+          const assignments = current.context.package.policy.optionalPeerEntries[dependency];
           const kind = dependencyKind(current.context.package, dependency);
+          if (assignments !== undefined) {
+            if (assignments.includes(current.context.selector)) {
+              optionalPeerUses.add(`${current.context.package.id}\u0000${dependency}\u0000${current.context.selector}`);
+            } else {
+              addPeerLeak(entry, dependency, trail);
+            }
+            if (kind === 'missing' || kind === 'devDependency') {
+              addUndeclared(entry, current.context.package, dependency, trail);
+            }
+            continue;
+          }
           if (kind === 'missing' || kind === 'devDependency') {
             addUndeclared(entry, current.context.package, dependency, trail);
           }

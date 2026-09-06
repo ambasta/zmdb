@@ -2,19 +2,19 @@
 
 `@zmdb/protobuf` provides the source calls, typed gRPC service artifacts, and zero-dependency wire runtime used by zmdb's ahead-of-time protobuf compiler.
 
-Reflection, descriptor emission, and codec generation remain build-time responsibilities of `@zmdb/aot-validator`; this package contains no schema parser or TypeScript compiler.
+Reflection, descriptor emission, and codec generation are build-time responsibilities of `@zmdb/compiler`; this package contains no schema parser or TypeScript compiler.
 
 ## Install
 
 ```bash
 npm add @zmdb/protobuf@alpha
-npm add --save-dev @zmdb/aot-validator@alpha
+npm add --save-dev @zmdb/compiler@alpha typescript@^7
 ```
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-`@zmdb/protobuf` has no runtime dependency or peer dependency and is not installed by `npm add zmdb@alpha`. The development dependency is the build-time reflector/emitter; generated code imports the
-wire runtime from this package.
+`@zmdb/protobuf` has no runtime dependency or peer dependency and is not installed by `npm add zmdb@alpha`. Its development dependency is `@zmdb/compiler`, the build-time reflector/emitter; generated
+code imports the wire runtime from this package.
 
 ## Usage
 
@@ -33,7 +33,7 @@ const bytes = protoEncode<OrderMessage>({ id: 'o1', total: 42 });
 void [descriptor, bytes];
 ```
 
-The source calls above must pass through the zmdb build transform or code generator. The package owns no compiler process, file watcher, connection, or shutdown hook.
+The source calls above must pass through the `@zmdb/compiler` build transform or project compiler. The package owns no compiler process, file watcher, connection, or shutdown hook.
 
 ## Entry points
 

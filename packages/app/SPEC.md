@@ -173,7 +173,7 @@ Every moved declaration is moved once. No implementation remains under `packages
 
 ## 8. Reflection and hot-path invariants
 
-- The TypeScript checker in `@zmdb/aot-validator` remains the sole TypeIR/reflection front-end. App decorators read only metadata they wrote.
+- The TypeScript checker in `@zmdb/compiler` remains the sole TypeIR/reflection front-end. App decorators read only metadata they wrote.
 - Extension dispatch occurs only during startup and shutdown. No extension list is walked per HTTP request, job claim, message dispatch or repository query.
 - `createApplication` adds no ambient global registry. All application state is owned by the returned instance.
 - Concern-only code stays behind its named subpath. In particular, the package root does not import command parsing, optional transports, OpenTelemetry, gRPC, jobs, HTTP, devtools or benchmark code.

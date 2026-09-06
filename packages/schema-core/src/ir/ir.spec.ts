@@ -19,10 +19,10 @@
 // And `probe` changed meaning. It used to build a one-column schema and read the IR back out of
 // it, which made every assertion about a consumer also an assertion about the front end. It now
 // writes the `ColumnIR` directly. That is the honest shape for this file: the front end has its
-// own golden in `aot-validator/src/reflect/reflect.spec.ts`, and what is left here is what the
+// own golden in `compiler/src/reflect/reflect.spec.ts`, and what is left here is what the
 // back-ends do with an IR however it arrived.
 
-import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
+import { schemaIrsFrom } from '@zmdb/compiler/testing';
 import { describe, expect, it } from 'vitest';
 
 import type {

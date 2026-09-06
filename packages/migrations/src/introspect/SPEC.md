@@ -222,9 +222,9 @@ outcome.
 A default in a catalog is a SQL expression string — `now()`, `CURRENT_TIMESTAMP`, `'user'::text`, `uuid_generate_v4()`, `nextval('users_id_seq')` — and none of those is a value. Evaluating one means
 running it, which introspection must not do, and a faithful round trip has to reproduce the _expression_ rather than a photograph of what it returned once.
 
-It lives on the snapshot and not on the IR, and that is the asymmetry `reflect/SPEC.md` §8 already records from the other side: `HasDefault` says a column has a default, not which one, because a tag
-payload is a type-level literal and a default may be any expression the dialect accepts. So a declaration emitted from a snapshot carries `HasDefault` plus a comment holding the expression, and
-re-stating it in DDL is a deliberate human act rather than something a generator guesses.
+It lives on the snapshot and not on the IR, and that is the asymmetry [`../../compiler/src/reflect/SPEC.md`](../../compiler/src/reflect/SPEC.md) §8 already records from the other side: `HasDefault`
+says a column has a default, not which one, because a tag payload is a type-level literal and a default may be any expression the dialect accepts. So a declaration emitted from a snapshot carries
+`HasDefault` plus a comment holding the expression, and re-stating it in DDL is a deliberate human act rather than something a generator guesses.
 
 `nextval('…')` is not recorded as a default at all. It is how Postgres spells `serial`, it is consumed by §5, and recording it twice would make `push` emit both a `SERIAL` and a redundant `DEFAULT`.
 

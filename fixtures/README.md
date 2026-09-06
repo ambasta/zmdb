@@ -6,7 +6,7 @@ Consumer projects use zmdb the way somebody who installed it would, kept here so
 
 |                   | `consumer-cli/`                                        | `consumer-plugin/`                      |
 | ----------------- | ------------------------------------------------------ | --------------------------------------- |
-| build step        | config-aware `zmdb-codegen`                            | a bundler with config-aware `zmdbAot()` |
+| build step        | config-aware project compilation                       | a bundler with config-aware `zmdbAot()` |
 | what is committed | the generated `.js`/`.d.ts`/witness, beside the source | nothing generated                       |
 | what runs it      | `node src/probe.ts`, no tooling at all                 | the bundle esbuild wrote                |
 
@@ -20,7 +20,7 @@ without one.
 `consumer-metro/` is the third supported route. It runs a real Metro 0.87 bundle, preserves a pre-existing Babel transformer, checks the package and project-fingerprint cache key, and has a separate
 unconfigured control that reaches the current runtime refusal. The same fixture proves bare React Native and Expo use the same `withZmdb` config shape.
 
-`packages/aot-validator/src/cli/consumer-fixtures.spec.ts` is what holds that pair together, and what stops two directories from quietly becoming two different programs. It builds the plugin fixture
+`packages/compiler/src/codegen/consumer-fixtures.spec.ts` is what holds that pair together, and what stops two directories from quietly becoming two different programs. It builds the plugin fixture
 into a temp directory, runs `--check` over the committed one, and then asserts that the non-generated sources are byte-identical, that the committed witness makes the same calls the plugin fixture's
 source still makes, that both print the same bytes, and that both compile to the same check — measuring each, since by then they are known to be the same code.
 
@@ -28,9 +28,9 @@ source still makes, that both print the same bytes, and that both compile to the
 framework dependencies belong to that private consumer fixture. LangChain is an optional peer only of `@zmdb/ai-langchain`; neither framework reaches the provider-neutral `@zmdb/ai` manifest.
 
 `consumer-compiler/` and `consumer-migrations/` freeze the standalone package contracts selected by #626. Their manifests use versioned dependencies, their configs have no `paths` map or
-`skipLibCheck`, and #627 typechecks them against tarballs under the future package names. Those typechecks are expected failures until the extraction issues create the packages and every frozen
-subpath. `consumer-cli/tsconfig.installed.json` does the same for the future installed `@zmdb/cli` boundary while the existing files in that directory continue to prove today's no-bundler codegen
-route.
+`skipLibCheck`, and #627 typechecks them against tarballs under the target package names. The compiler fixture compiles one real `is<T>()` call from the packed package, materialises its four changed
+paths, reruns check mode to zero stale paths, and executes good/bad values; migrations remains an expected failure until its extraction issue lands. `consumer-cli/tsconfig.installed.json` does the
+same for the future installed `@zmdb/cli` boundary while the existing files in that directory continue to prove today's no-bundler compiler route.
 
 `database-mysql/` packs the complete MySQL vertical and its transitive workspace closure, installs those tarballs with the real `mysql2` peer in a temporary project, typechecks only the published
 declarations, then runs migrations, transactions, binding, bigint, strict `utf8mb4`, generated-column, index, foreign-key, and catalog-introspection acceptance against the configured MySQL server.
@@ -58,7 +58,7 @@ still owns cross-adapter installed-framework and bundle checks beyond the packag
 `consumer-plugin/` is the one to edit. `consumer-cli/` is derived:
 
 ```sh
-node --import ./scripts/ts-specifier-hook.mjs packages/aot-validator/src/cli/bin.ts \
+node --import ./scripts/ts-specifier-hook.mjs scripts/compiler-codegen.mjs \
   --config fixtures/consumer-cli/zmdb.config.ts
 ```
 

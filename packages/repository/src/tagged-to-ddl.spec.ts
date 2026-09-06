@@ -14,7 +14,7 @@
 // DDL; the composite key is preserved as one ordered table constraint. The old version could
 // not have noticed any of it, because both sides of the comparison were wrong in the same way.
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { diff, emitUp, snapshot, type SchemaSnapshot } from '@zmdb/migrations';
 import type { CompiledQuery, Dialect, DialectTarget } from '@zmdb/query-compiler';
 import type { CoreSchema, CreateDTO, PrimaryKeyOf, TaggedSchema } from '@zmdb/schema-core';

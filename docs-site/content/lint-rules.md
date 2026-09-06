@@ -1,5 +1,5 @@
-`@zmdb/aot-validator/lint` ships six syntactic rules for mistakes that TypeScript accepts or reports later than a linter can. The same plugin object loads in Oxlint and ESLint. This repository uses
-Oxlint and runs the complete `recommended` set in its ordinary CI lint step.
+`@zmdb/compiler/lint` ships six syntactic rules for mistakes that TypeScript accepts or reports later than a linter can. The same plugin object loads in Oxlint and ESLint. This repository uses Oxlint
+and runs the complete `recommended` set in its ordinary CI lint step.
 
 The rules deliberately do not use type information. Oxlint JavaScript plugins receive no parser services, so a rule that must resolve an alias, inspect a schema, or read a bundler configuration does
 not ship as a noisy approximation.
@@ -7,7 +7,7 @@ not ship as a noisy approximation.
 ## Install with Oxlint
 
 ```bash
-npm add --save-dev @zmdb/aot-validator oxlint@1.81
+npm add --save-dev @zmdb/compiler oxlint@1.81 typescript@^7
 ```
 
 Load the published subpath and spell out the recommended severities in `.oxlintrc.json`:
@@ -18,7 +18,7 @@ Load the published subpath and spell out the recommended severities in `.oxlintr
   "jsPlugins": [
     {
       "name": "zmdb",
-      "specifier": "@zmdb/aot-validator/lint",
+      "specifier": "@zmdb/compiler/lint",
     },
   ],
   "rules": {
@@ -42,7 +42,7 @@ The package also exports ESLint-shaped flat configs:
 
 ```js
 // eslint.config.mjs
-import { configs as zmdb } from '@zmdb/aot-validator/lint';
+import { configs as zmdb } from '@zmdb/compiler/lint';
 
 export default [...zmdb.recommended];
 // Or: export default [...zmdb.strict];
@@ -238,7 +238,7 @@ Some useful-sounding rules cannot meet the precision bar without type or build c
 
 - `no-truthiness-in-where-builder` is better handled by `@typescript-eslint/strict-boolean-expressions`.
 - `no-select-star-with-sensitive` and `no-find-by-id-without-key` require resolved schema types.
-- `no-untransformed-schema-of` cannot prove whether Vite, Rollup, webpack, ts-patch, or `zmdb-codegen` performs the rewrite.
+- `no-untransformed-schema-of` cannot prove whether Vite, Rollup, webpack, Metro, or direct project compilation performs the rewrite.
 
 For the last case, add a build smoke test that calls `schemaOf<YourTable>()`. An untransformed call throws instead of returning a plausible empty schema. See [AOT Setup](./aot-setup.html).
 

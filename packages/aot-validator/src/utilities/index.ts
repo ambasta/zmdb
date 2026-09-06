@@ -17,15 +17,13 @@
 //     accepted `NaN`, and the runtime pattern check threw above 10 000 characters. The
 //     descriptor and the `toIR` bridge that normalised it are both gone.
 //  2. **One set of decisions.** Every `expected` string, and the question of whether a
-//     union has a discriminant, comes from `../emit/shape.ts` — imported by the emitter
-//     too. Those are the parts that would otherwise be written twice and drift.
+//     union has a discriminant, comes from `@zmdb/schema-core/ir` — imported by the
+//     compiler emitter too. Those are the parts that would otherwise drift.
 //
 // The differential suite (`differential.spec.ts`) feeds both paths the same corpora and
 // asserts the two answers are identical, so the claim above is measured.
 
 import type { ValidationIssue } from '@zmdb/schema-core';
-import type { Constraints, ObjectIR, ScalarIR, TypeIR, UnionIR } from '@zmdb/schema-core/ir';
-
 import {
   discriminantOf,
   expectedForConstraint,
@@ -33,8 +31,14 @@ import {
   expectedOf,
   hasExcessCheck,
   messageFor,
+  type Constraints,
   type ConstraintKeyword,
-} from '../emit/shape.js';
+  type ObjectIR,
+  type ScalarIR,
+  type TypeIR,
+  type UnionIR,
+} from '@zmdb/schema-core/ir';
+
 import { failWith } from '../errors.js';
 import { getCachedRegExp } from '../regex-complexity.js';
 

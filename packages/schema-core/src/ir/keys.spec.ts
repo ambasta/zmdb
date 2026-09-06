@@ -13,7 +13,7 @@ import { schemaFromIR, type ColumnIR, type SchemaIR } from './index.js';
 // says is not legal.
 //
 // The reflector's half of §4.1 (declaration order, and the two refusals it owns) is in
-// `@zmdb/aot-validator`'s `src/reflect/keys.spec.ts`, because that is where a key is derived from a
+// `@zmdb/compiler`'s `src/reflect/keys.spec.ts`, because that is where a key is derived from a
 // declaration.
 //
 // The invariant tests began as `it.fails` and were converted when #410 made the ordered list

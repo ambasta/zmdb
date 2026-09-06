@@ -1,9 +1,9 @@
 # @zmdb/aot-validator
 
-`@zmdb/aot-validator` generates validation, serialization, protobuf, and typed gRPC artifacts during the build. It owns the single TypeScript reflection and emission front end; source-level protobuf
-calls, service-artifact types, and the generated-code wire ABI are published separately by `@zmdb/protobuf`.
+`@zmdb/aot-validator` is zmdb's compiler-free validation and serialization runtime. Generated application code calls this package's errors and helpers; it does not load TypeScript, filesystem tooling,
+build plugins, Metro, or lint hosts.
 
-It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
+Part of **[zmdb](https://github.com/ambasta/zmdb)**. The TypeScript front end, reflection, emitters, project compilation, and host adapters live in `@zmdb/compiler`.
 
 ## Install
 
@@ -11,12 +11,21 @@ It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript sche
 npm add @zmdb/aot-validator@alpha
 ```
 
-> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
+> **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**.
 
 ## Entry points
 
-- Runtime APIs: `@zmdb/aot-validator`, `/advanced`, `/emit`, `/errors`, `/serialization`, `/utilities`
-- Build tooling: `/plugin`, `/reflect`, `/testing`, `/codegen`, `/transformer`, `/unplugin`
+- `@zmdb/aot-validator`
+- `@zmdb/aot-validator/advanced`
+- `@zmdb/aot-validator/errors`
+- `@zmdb/aot-validator/serialization`
+- `@zmdb/aot-validator/utilities`
+
+For build-time reflection and AOT compilation:
+
+```bash
+npm add --save-dev @zmdb/compiler@alpha typescript@^7
+```
 
 ## Documentation
 

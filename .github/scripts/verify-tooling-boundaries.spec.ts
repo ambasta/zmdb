@@ -9,6 +9,7 @@ import {
   GENERATED_ARTIFACTS,
   findPackageCycle,
   parseOwnershipCatalog,
+  RETIRED_AOT_TOOLING_EXPORTS,
   ROOT,
   TARGET_PRODUCT_TOOLING_EXPORTS,
   TARGET_TOOLING_EXPORTS,
@@ -23,25 +24,22 @@ describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
     const result = analyse();
     expect(result.problems).toEqual([]);
-    expect(result.inventory.actualCount).toBe(200);
+    expect(result.inventory.actualCount).toBe(202);
     expect(result.inventory.ownerCounts).toEqual({
-      compiler: 30,
+      compiler: 33,
       migrations: 23,
       cli: 31,
-      runtime: 27,
-      facade: 49,
-      'optional-integration': 4,
+      runtime: 30,
+      facade: 50,
+      'optional-integration': 0,
       'test-only': 35,
-      obsolete: 1,
+      obsolete: 0,
     });
-    expect(result.runtimeViolations.map(violation => violation.id).toSorted()).toEqual([
-      '@zmdb/repository|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-      'zmdb|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-    ]);
+    expect(result.runtimeViolations).toEqual([]);
     expect(result.generatedViolations).toHaveLength(3);
     expect(result.embeddedViolations).toEqual([]);
     expect(result.formatterViolations).toEqual([]);
-    expect(result.packageGraph.edges).toHaveLength(71);
+    expect(result.packageGraph.edges).toHaveLength(74);
   });
 
   it('rejects a planted compiler import from a runtime root', () => {
@@ -80,10 +78,22 @@ describe('the tooling-boundary verifier', () => {
   });
 
   it('freezes exact future package exports and refuses duplicate ownership rows', () => {
+    expect(RETIRED_AOT_TOOLING_EXPORTS).toEqual([
+      './codegen',
+      './emit',
+      './lint',
+      './metro',
+      './plugin',
+      './reflect',
+      './testing',
+      './transformer',
+      './unplugin',
+    ]);
     expect(TARGET_TOOLING_EXPORTS).toEqual({
       '@zmdb/compiler': [
         '.',
         './config',
+        './config/contract',
         './emit',
         './errors',
         './lint',
@@ -124,7 +134,7 @@ runtime	packages/example/src/index.ts
     });
     expect(TARGET_TOOLING_MANIFESTS).toEqual({
       '@zmdb/compiler': {
-        dependencies: ['@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/schema-core'],
+        dependencies: ['@zmdb/ai', '@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/schema-core'],
         peerDependencies: ['metro', 'metro-babel-transformer', 'oxlint', 'typescript'],
         optionalPeers: ['metro', 'metro-babel-transformer', 'oxlint'],
       },

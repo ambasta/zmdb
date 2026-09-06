@@ -1,5 +1,5 @@
 {
-  "//": "The program `zmdb-codegen` compiles `model.ts` in. Two files, not the directory: `app.ts` next door imports `packages/web/dist`, which is gitignored build output, so a project that included it would not resolve in a fresh checkout — which is the whole reason the declaration lives in `model.ts` instead of in the app.",
+  "//": "The program `@zmdb/compiler` compiles `model.ts` in. Two files, not the directory: `app.ts` next door imports `packages/web/dist`, which is gitignored build output, so a project that included it would not resolve in a fresh checkout — which is the whole reason the declaration lives in `model.ts` instead of in the app.",
   "extends": "../../../tsconfig.json",
   "compilerOptions": {},
   "files": ["model.ts", "model.zmdb.witness.ts"]

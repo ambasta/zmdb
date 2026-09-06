@@ -53,7 +53,10 @@ const isRecord = value => typeof value === 'object' && value !== null && !Array.
 
 function ownsRequiredPeer(packageRecord) {
   const kind = packageRecord.catalog.optionality?.kind;
-  return packageRecord.policy.zone === 'integration' && (kind === 'integration' || kind === 'provider');
+  return (
+    (packageRecord.policy.zone === 'integration' && (kind === 'integration' || kind === 'provider')) ||
+    (packageRecord.policy.zone === 'tooling' && kind === 'tooling')
+  );
 }
 
 function canonicalValue(value) {
@@ -711,7 +714,7 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
     if (!optionalPeers.has(peer)) {
       if (!ownsRequiredPeer(packageRecord)) {
         diagnostics.push(
-          peerDiagnostic(packageRecord, peer, 'required peer is owned by a non-integration/provider package'),
+          peerDiagnostic(packageRecord, peer, 'required peer is owned by a non-integration/provider/tooling package'),
         );
       }
       if (metadata !== undefined) {

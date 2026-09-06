@@ -11,7 +11,7 @@
 // and the cardinality of each relation, once as a tag and once as `childTable`/`childFk`/
 // `parentKey`. Two of the three existed only to give one repository fewer populate keys than
 // another over the same table, which is not something a table can be two ways about.
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type {
   ManyToOne,
   OneToMany,

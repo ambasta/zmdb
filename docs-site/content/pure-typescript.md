@@ -1,4 +1,4 @@
-What works with no build plugin, and what does not. The short version: a validator call that gets its shape from a **type argument** needs the transformer, because a type argument does not exist at
+What works with no build plugin, and what does not. The short version: a validator call that gets its shape from a **type argument** needs `@zmdb/compiler`, because a type argument does not exist at
 runtime. Everything that gets its shape from a **value** does not.
 
 ## The part that needs the build step
@@ -17,7 +17,7 @@ gRPC artifact calls name the build transform that should have replaced them.
 `toolFor<T>()` is imported from the independently installed `@zmdb/ai` package. That provider-neutral package adds no provider SDK peer; the other transformed calls retain the package imports shown
 throughout this guide.
 
-The five protobuf and gRPC artifact calls are imported from `@zmdb/protobuf`; reflection and emission still run once through `@zmdb/aot-validator`.
+The five protobuf and gRPC artifact calls are imported from `@zmdb/protobuf`; reflection and emission run once through `@zmdb/compiler`.
 
 > [!IMPORTANT] There is no fallback that inspects `T` at runtime, because there is nothing to inspect. An earlier version of this page described the untransformed path as "slower but working"; it
 > fails open, which is worse than failing, so it now throws. See [AOT Setup](./aot-setup.html).

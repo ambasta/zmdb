@@ -39,7 +39,7 @@ if (res.status !== 0) {
   process.exit(res.status ?? 1);
 }
 
-// `zmdb-codegen` writes executable JavaScript beside a checked TypeScript witness.
+// `@zmdb/compiler` writes executable JavaScript beside a checked TypeScript witness.
 // TypeScript follows the sibling `.d.ts` while compiling but does not copy either
 // checked-in file to `outDir`, so a package source that imports its generated module
 // would otherwise build an import whose target is absent. Preserve those generated

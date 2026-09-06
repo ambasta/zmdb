@@ -41,7 +41,7 @@ submodule to pristine.
 Two participants, deliberately not one:
 
 - **`zmdb`** — the runtime validator walking a `TypeIR`. No transformer.
-- **`zmdb-aot`** — the same public API with `@zmdb/aot-validator`'s transformer applied.
+- **`zmdb-aot`** — the same public API with `@zmdb/compiler`'s transformer applied.
 
 Reporting them separately is the point: collapsing them into one row would let the AOT number stand in for the runtime path that most callers get by default.
 

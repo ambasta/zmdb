@@ -33,6 +33,18 @@ export const TARGET_TOOLING_BIN: Readonly<{
   readonly command: 'zmdb';
 }>;
 
+export const RETIRED_AOT_TOOLING_EXPORTS: readonly [
+  './codegen',
+  './emit',
+  './lint',
+  './metro',
+  './plugin',
+  './reflect',
+  './testing',
+  './transformer',
+  './unplugin',
+];
+
 export const TARGET_PRODUCT_TOOLING_EXPORTS: Readonly<{
   readonly '@zmdb/compiler': readonly ['./compiler', './config'];
   readonly '@zmdb/migrations': readonly ['./migrations'];
@@ -41,7 +53,7 @@ export const TARGET_PRODUCT_TOOLING_EXPORTS: Readonly<{
 
 export const TARGET_TOOLING_MANIFESTS: Readonly<{
   readonly '@zmdb/compiler': Readonly<{
-    readonly dependencies: readonly ['@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/schema-core'];
+    readonly dependencies: readonly ['@zmdb/ai', '@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/schema-core'];
     readonly peerDependencies: readonly ['metro', 'metro-babel-transformer', 'oxlint', 'typescript'];
     readonly optionalPeers: readonly ['metro', 'metro-babel-transformer', 'oxlint'];
   }>;

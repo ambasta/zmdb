@@ -10,7 +10,7 @@
 // There used to be an `ordersRelation` const here as well — the users → orders relation as a
 // map entry, for a subclass static and for `defineRepository`. The relation is a property of
 // `users`, and each `users` declares it: `orders?: Order[] & OneToMany<'orders', 'userId'>`.
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type { PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 
 export interface Order extends Table<'orders'> {

@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { diff, emitUp, snapshot } from '@zmdb/migrations';
 import { type CompiledQuery, type Dialect, type DialectTarget } from '@zmdb/query-compiler';
 import {

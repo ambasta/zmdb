@@ -7,7 +7,7 @@
 // document — that the key a component is filed under and the `$ref` that points at it are
 // the same string.
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { describe, expect, it } from 'vitest';
 
 import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from '../tags/index.js';

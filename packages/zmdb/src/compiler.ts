@@ -1,22 +1,23 @@
-// AOT code generation, bundler adapters, reflection, linting, and emit tooling.
+// Logic-free product facade for project compilation and compiler integrations.
 
 export { zmdbAot } from './unplugin.js';
 export type { ConfiguredZmdbAotOptions } from './unplugin.js';
 
-export { transformCode, transformFile, transformTypeChecks } from '@zmdb/aot-validator/unplugin';
+export { compileProject, writeCompileResult } from '@zmdb/compiler';
 export type {
-  TransformContext,
-  TransformDiagnostic,
-  TransformResult,
-  UnpluginLike,
-  ZmdbAotOptions,
-} from '@zmdb/aot-validator/unplugin';
+  CompiledArtifact,
+  CompileProjectOptions,
+  CompileResult,
+  CompilerDiagnostic,
+  WriteCompileResult,
+  WriteCompileResultOptions,
+} from '@zmdb/compiler';
 
-export { getCacheKey, transform, withZmdb } from '@zmdb/aot-validator/metro';
-export type { MetroOptions } from '@zmdb/aot-validator/metro';
+export { transformTypeChecks } from '@zmdb/compiler/unplugin';
+export type { UnpluginLike, WatchChange, ZmdbAotOptions } from '@zmdb/compiler/unplugin';
 
-export { codegen, watchCodegen } from '@zmdb/aot-validator/codegen';
-export type { CodegenOptions, CodegenResult, WatchOptions } from '@zmdb/aot-validator/codegen';
+export { getCacheKey, transform, withZmdb } from '@zmdb/compiler/metro';
+export type { MetroOptions } from '@zmdb/compiler/metro';
 
 export {
   Emitter,
@@ -27,7 +28,7 @@ export {
   expectedOf,
   hasExcessCheck,
   messageFor,
-} from '@zmdb/aot-validator/emit';
+} from '@zmdb/compiler/emit';
 export type {
   ConstraintKeyword,
   Discriminant,
@@ -35,10 +36,10 @@ export type {
   EmitDiagnostic,
   EmitOptions,
   EmitTarget,
-} from '@zmdb/aot-validator/emit';
+} from '@zmdb/compiler/emit';
 
-export { configs, default as lintPlugin } from '@zmdb/aot-validator/lint';
-export type { LintRule } from '@zmdb/aot-validator/lint';
+export { configs, default as lintPlugin } from '@zmdb/compiler/lint';
+export type { LintRule } from '@zmdb/compiler/lint';
 
 export {
   DEFAULT_LIMITS,
@@ -49,7 +50,7 @@ export {
   projectSourceFileNames,
   schemaIrFromType,
   withSession,
-} from '@zmdb/aot-validator/reflect';
+} from '@zmdb/compiler/reflect';
 export type {
   GrpcMethodIR,
   GrpcServiceIR,
@@ -61,7 +62,7 @@ export type {
   SessionOptions,
   SessionUpdate,
   SourceFileHandle,
-} from '@zmdb/aot-validator/reflect';
+} from '@zmdb/compiler/reflect';
 
-export { CALLEES, Rewriter } from '@zmdb/aot-validator/transformer';
-export type { WatchChange } from '@zmdb/aot-validator/plugin';
+export { CALLEES, Rewriter, transformCode, transformFile } from '@zmdb/compiler/transform';
+export type { TransformContext, TransformDiagnostic, TransformResult } from '@zmdb/compiler/transform';

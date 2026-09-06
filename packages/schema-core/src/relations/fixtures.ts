@@ -8,8 +8,8 @@
 // and they only test the same claim while they agree about the shape.
 //
 // The declaration is the interface; the schema values below are read off it the way a
-// build would. See `@zmdb/aot-validator/testing`.
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+// build would. See `@zmdb/compiler/testing`.
+import { schemasFrom } from '@zmdb/compiler/testing';
 
 import type {
   ManyToMany,

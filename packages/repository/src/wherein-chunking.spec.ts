@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import type { OneToMany, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { sqliteDriver } from '@zmdb/sqlite';

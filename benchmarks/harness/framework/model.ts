@@ -3,7 +3,7 @@
 // It lives beside `app.ts` rather than in it for one reason: `app.ts` imports
 // `packages/web/dist`, which is gitignored build output, so no compiler can be pointed at it
 // in a fresh checkout — and the codegen needs a compiler. This file imports nothing but zmdb
-// sources, so `tsconfig.json` next door can hold it and `zmdb-codegen` can read it.
+// sources, so `tsconfig.json` next door can hold it and `@zmdb/compiler` can read it.
 //
 // `assertUserCreate` below is written as a call with a type argument and nothing else. The
 // codegen replaces it with a call into `model.zmdb.generated.js`, which is straight-line
@@ -13,7 +13,7 @@
 // the fastest thing available before a type could be compiled.
 //
 // Regenerate with:
-//   node packages/aot-validator/src/cli/bin.ts --project benchmarks/harness/framework/tsconfig.json
+//   node --import ./scripts/ts-specifier-hook.mjs scripts/compiler-codegen.mjs --project benchmarks/harness/framework/tsconfig.json
 // The generated files are committed, which is what lets `run.sh` bundle this with esbuild and
 // no zmdb tool in the loop at all.
 

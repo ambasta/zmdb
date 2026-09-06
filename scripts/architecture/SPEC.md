@@ -1,8 +1,8 @@
 # Package architecture and dependency governance — specification
 
 > **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #691, #692,
-> #693, #694, #695, #696, #657, #658, #659, #660, #661, #672, #673, #697, #698, #699, #629, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery and
-> graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime,
+> #693, #694, #695, #696, #657, #658, #659, #660, #661, #672, #673, #697, #698, #699, #628, #629, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery
+> and graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime,
 > tooling and optional-peer reachability; #728 implements the original release plan, changelog, bump and publication-governance boundary. Issue #746 supersedes only the release clauses with
 > `scripts/release/SPEC.md`: architecture still owns dependency direction and reachability, while release groups, versions, ranges, and compatibility floors move to release policy. The original
 > measured baseline is commit `5adba11e` on 2026-09-05. Issue #732 freezes the composed governance snapshot, structured-exception lifecycle, native GitHub relationship semantics and
@@ -28,12 +28,12 @@ At the measured baseline:
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
-Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #672, #691, #692, #693, #694, #695, #696, #657, #658, #659, #660, #661, and #629 add `@zmdb/protobuf`,
+Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #672, #691, #692, #693, #694, #695, #696, #657, #658, #659, #660, #661, #628, and #629 add `@zmdb/protobuf`,
 `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`,
 `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
-`@zmdb/transport-redis`, `@zmdb/jobs-postgres`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, #674 adds `@zmdb/singlestore`, #697 adds `@zmdb/next`, #698 adds `@zmdb/nuxt`, and #699 adds
-`@zmdb/sveltekit`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current thirty-seven manifests keep `1.0.0-alpha.4`, declare 74 direct non-dev workspace edges, and declare 35
-peer dependencies: 14 optional peer entries plus 21 required peer entries confined to their selected integration packages.
+`@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/compiler`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, #674 adds `@zmdb/singlestore`, #697 adds `@zmdb/next`, #698 adds
+`@zmdb/nuxt`, and #699 adds `@zmdb/sveltekit`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current thirty-eight manifests keep `1.0.0-alpha.4`, declare 74 direct non-dev
+workspace edges, and declare 36 peer dependencies: 14 optional peer entries plus 22 required peer entries confined to their selected integration and tooling packages.
 
 ## 2. Canonical policy API
 
@@ -132,7 +132,7 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative for the current thirty-seven catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or renaming
+The following object is normative for the current thirty-eight catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or renaming
 a catalog member requires the catalog and policy key sets to change atomically. For the #752 split, §17 supersedes only the `jobs`, `jobs-postgres`, future `jobs-sqlite`, and jobs-related `zmdb` edges
 when #755/#756 land; issue #674 otherwise changes this object only by adding the SingleStore package row.
 
@@ -309,21 +309,30 @@ export const PACKAGE_POLICY = {
   'aot-validator': {
     directory: 'packages/aot-validator',
     zone: 'runtime',
+    ring: 2,
+    allowedWorkspaceDependencies: ['schema-core'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+    release: 'lockstep',
+  },
+  compiler: {
+    directory: 'packages/compiler',
+    zone: 'tooling',
     ring: 3,
-    allowedWorkspaceDependencies: ['ai', 'schema-core'],
+    allowedWorkspaceDependencies: ['ai', 'aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       metro: ['./metro'],
       'metro-babel-transformer': ['./metro'],
       oxlint: ['./lint'],
-      typescript: ['./codegen', './metro', './plugin', './reflect', './testing', './transformer', './unplugin', 'bin:zmdb-codegen'],
     },
-    toolingEntries: ['./codegen', './emit', './lint', './metro', './plugin', './reflect', './testing', './transformer', './unplugin', 'bin:zmdb-codegen'],
+    toolingEntries: ['.', './config', './emit', './errors', './lint', './metro', './reflect', './testing', './transform', './unplugin'],
   },
   repository: {
     directory: 'packages/repository',
     zone: 'runtime',
-    ring: 4,
+    ring: 3,
     allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -332,7 +341,7 @@ export const PACKAGE_POLICY = {
   mssql: {
     directory: 'packages/mssql',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
@@ -343,7 +352,7 @@ export const PACKAGE_POLICY = {
   postgres: {
     directory: 'packages/postgres',
     zone: 'runtime',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
@@ -354,7 +363,7 @@ export const PACKAGE_POLICY = {
   cockroach: {
     directory: 'packages/cockroach',
     zone: 'runtime',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['migrations', 'postgres', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -363,7 +372,7 @@ export const PACKAGE_POLICY = {
   singlestore: {
     directory: 'packages/singlestore',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['migrations', 'mysql', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
@@ -374,7 +383,7 @@ export const PACKAGE_POLICY = {
   sqlite: {
     directory: 'packages/sqlite',
     zone: 'runtime',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -383,7 +392,7 @@ export const PACKAGE_POLICY = {
   mysql: {
     directory: 'packages/mysql',
     zone: 'integration',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
@@ -394,7 +403,7 @@ export const PACKAGE_POLICY = {
   app: {
     directory: 'packages/app',
     zone: 'application',
-    ring: 5,
+    ring: 4,
     allowedWorkspaceDependencies: ['aot-validator', 'query-compiler', 'repository', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -403,7 +412,7 @@ export const PACKAGE_POLICY = {
   otel: {
     directory: 'packages/otel',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -412,7 +421,7 @@ export const PACKAGE_POLICY = {
   jobs: {
     directory: 'packages/jobs',
     zone: 'application',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app', 'query-compiler', 'repository', 'sqlite'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -421,7 +430,7 @@ export const PACKAGE_POLICY = {
   'transport-grpc': {
     directory: 'packages/transport-grpc',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app', 'protobuf'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -430,7 +439,7 @@ export const PACKAGE_POLICY = {
   'transport-nats': {
     directory: 'packages/transport-nats',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -439,7 +448,7 @@ export const PACKAGE_POLICY = {
   'transport-rabbitmq': {
     directory: 'packages/transport-rabbitmq',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -448,7 +457,7 @@ export const PACKAGE_POLICY = {
   'transport-redis': {
     directory: 'packages/transport-redis',
     zone: 'integration',
-    ring: 6,
+    ring: 5,
     allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -457,7 +466,7 @@ export const PACKAGE_POLICY = {
   'jobs-postgres': {
     directory: 'packages/jobs-postgres',
     zone: 'integration',
-    ring: 7,
+    ring: 6,
     allowedWorkspaceDependencies: ['jobs', 'postgres'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
@@ -466,10 +475,11 @@ export const PACKAGE_POLICY = {
   web: {
     directory: 'packages/web',
     zone: 'application',
-    ring: 6,
-    allowedWorkspaceDependencies: ['app', 'aot-validator', 'schema-core'],
+    ring: 5,
+    allowedWorkspaceDependencies: ['app', 'schema-core'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
+      '@zmdb/compiler': ['./contract/compiler'],
       typescript: ['./contract/compiler'],
     },
     toolingEntries: ['./contract/compiler', './devtools', './testing'],
@@ -560,11 +570,12 @@ For every `optionalPeerEntries` key:
 4. a real dev dependency or packed/type conformance fixture proves the supported peer range; and
 5. the assignment is rejected as stale if no production declaration, runtime path or conformance fixture uses it.
 
-An optional peer must not also appear in `dependencies` or `optionalDependencies`. An undeclared peer import is an ordinary undeclared-dependency violation, not an implicit new exemption.
+An optional peer must not also appear in `dependencies` or `optionalDependencies`. An optional workspace peer assigned to one tooling selector is governed here rather than becoming a canonical
+package-DAG edge; all unassigned entries remain forbidden. An undeclared peer import is an ordinary undeclared-dependency violation, not an implicit new exemption.
 
-A technology-selected catalog package in the `integration` zone may instead declare one or more required peers. Required peers omit optional metadata, are not listed in `optionalPeerEntries`, and may
-be reached by that integration's runtime exports. This is permitted only when the product catalog marks the package as an integration for that technology and a packed fixture proves the peer range. A
-foundation, runtime, application, tooling or facade package cannot make an external technology peer required.
+A technology-selected catalog package in the `integration` zone or a compiler/build package in the `tooling` zone may instead declare one or more required peers. Required peers omit optional metadata,
+are not listed in `optionalPeerEntries`, and may be reached by that package's assigned runtime or tooling exports. This is permitted only when the catalog optionality matches the package zone and a
+packed fixture proves the peer range. Foundation, runtime, application and facade packages cannot make an external technology peer required.
 
 ## 6. Manifest metadata and release-policy handoff
 
@@ -1240,7 +1251,7 @@ The current app closure makes the target budgets:
 
 | Journey                            |                        Direct official edges | Official installed closure | Required selection assertions                                                                 |
 | ---------------------------------- | -------------------------------------------: | -------------------------: | --------------------------------------------------------------------------------------------- |
-| default `zmdb`                     |                             manifest-derived |    10 at commit `961aaae0` | no `capability: jobs`, no jobs provider, no `pg`                                              |
+| default `zmdb`                     |                             manifest-derived |                         11 | no `capability: jobs`, no jobs provider, no `pg`                                              |
 | portable `@zmdb/jobs`              |                                            1 |                          7 | exactly `jobs -> app`; no provider, external runtime dependency, optional dependency, or peer |
 | `@zmdb/jobs-sqlite`                |                                            2 |                         10 | exactly one jobs provider; no PostgreSQL package or peer                                      |
 | `@zmdb/jobs-postgres` before peers |                                            2 |                         10 | exactly one jobs provider; no SQLite jobs provider                                            |

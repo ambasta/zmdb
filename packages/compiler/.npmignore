@@ -1,0 +1,11 @@
+*.spec.ts
+**/*.spec.ts
+*.type-test.ts
+**/*.type-test.ts
+**/__fixtures__/**
+**/__testing__/**
+SPEC.md
+**/SPEC.md
+tsconfig.json
+tsconfig.build.json
+tsconfig.codegen.json

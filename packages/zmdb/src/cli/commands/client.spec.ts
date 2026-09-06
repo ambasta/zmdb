@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ReflectSession } from '@zmdb/aot-validator/reflect';
+import { ReflectSession } from '@zmdb/compiler/reflect';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadConfig, type ResolvedConfig } from '../../config/index.js';

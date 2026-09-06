@@ -471,7 +471,7 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Thirty-six published packages</h2>
+  <h2>Thirty-seven published packages</h2>
   <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in client/framework, gRPC, NATS, RabbitMQ, Redis, MCP, OpenTelemetry, or another implementation package on its own.</p>
     <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
@@ -493,7 +493,8 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/ai-vercel</code><p>Opt-in Vercel AI SDK tool fields with caller-owned schema branding over <code>@zmdb/ai</code>.</p></div>
     <div class="pkg"><code>@zmdb/mcp</code><p>Transport-neutral MCP client/server cores with authenticated identity, validation, and call budgets.</p></div>
     <div class="pkg"><code>@zmdb/protobuf</code><p>Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts.</p></div>
-    <div class="pkg"><code>@zmdb/aot-validator</code><p>AOT is / assert / validate / equals / random, unions, transforms, and JSON Ser/De — inlined at build time.</p></div>
+    <div class="pkg"><code>@zmdb/aot-validator</code><p>Compiler-free is / assert / validate / equals / random, unions, transforms, JSON Ser/De, errors, and generated-code runtime helpers.</p></div>
+    <div class="pkg"><code>@zmdb/compiler</code><p>The single TypeScript front end for reflection, AOT emission, project compilation, unplugin and Metro adapters, lint rules, and project config.</p></div>
     <div class="pkg"><code>@zmdb/repository</code><p>Auto-validating CRUD, transactions, populate, read-replicas, lifecycle events, framework adapters.</p></div>
     <div class="pkg"><code>@zmdb/mssql</code><p>Complete SQL Server compilation, migrations, structural execution, introspection, refusals, and packed live acceptance.</p></div>
     <div class="pkg"><code>@zmdb/postgres</code><p>Complete PostgreSQL dialect, migrations, catalog introspection, structural <code>pg</code> driver, cursors, and cancellation.</p></div>

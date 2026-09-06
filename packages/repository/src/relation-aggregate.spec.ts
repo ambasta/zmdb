@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type { AggregateSpec } from '@zmdb/schema-core/dto';
 import type { ManyToOne, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { sqliteDriver } from '@zmdb/sqlite';

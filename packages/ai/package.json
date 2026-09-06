@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/compiler": "workspace:^",
     "oxfmt": "0.66.0",
     "typescript": "7.0.2"
   },
