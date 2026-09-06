@@ -311,6 +311,55 @@ jobs:
       - name: Build, pack, install and run the SQL Server consumer
         run: yarn verify:mssql-acceptance
 
+  singlestore-acceptance:
+    name: Packed SingleStore acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: 'yarn'
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Start the official SingleStore Dev Image
+        run: |
+          docker volume create zmdb-issue-674-singlestore-ci-data
+          docker run --detach --name zmdb-issue-674-singlestore-ci \
+            --env ROOT_PASSWORD=zmdb674 \
+            --publish 3306:3306 \
+            --volume zmdb-issue-674-singlestore-ci-data:/var/lib/memsql \
+            ghcr.io/singlestore-labs/singlestoredb-dev@sha256:7ad84887a8a3e0bb1574e38886ff9893b01a4906414bfd105850e740306422fa
+          for attempt in $(seq 1 90); do
+            if docker exec zmdb-issue-674-singlestore-ci \
+              bash -lc "singlestore -uroot -pzmdb674 -e 'SELECT 1'" >/dev/null 2>&1; then
+              docker exec zmdb-issue-674-singlestore-ci \
+                bash -lc "singlestore -uroot -pzmdb674 -e 'CREATE DATABASE IF NOT EXISTS zmdb674'"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs zmdb-issue-674-singlestore-ci
+          exit 1
+
+      - name: Build, pack, install and run the SingleStore consumer
+        env:
+          ZMDB_SINGLESTORE_URL: mysql://root:zmdb674@127.0.0.1:3306/zmdb674
+        run: yarn verify:singlestore-live
+
+      - name: Remove the issue 674 SingleStore service and volume
+        if: always()
+        run: |
+          docker rm --force zmdb-issue-674-singlestore-ci || true
+          docker volume rm --force zmdb-issue-674-singlestore-ci-data || true
+
   docs:
     name: Documentation Site Generation
     runs-on: ubuntu-latest

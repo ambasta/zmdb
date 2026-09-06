@@ -1,12 +1,14 @@
 # `@zmdb/singlestore` — SingleStore MySQL-family vertical
 
-> Status: frozen by issue #666 for implementation in #674. This directory contains specification only.
+> Status: implemented by issue #674. The current evidence combines a packed official-image run with the focused source-bound rerun described under Qualification; exact-head packed requalification
+> remains required before closure.
 
 ## Public contract
 
 ```ts
 export const singlestore: SqlDialect<'singlestore'>;
 export const singlestoreIntrospector: Introspector<'singlestore'>;
+export const singlestoreMigrations: MigrationDialect<'singlestore'>;
 export function singlestoreDriver(client: MysqlQueryable, options?: MysqlOptions): TransactionalDriver<'singlestore'>;
 export const singlestoreVertical: DatabaseVertical<'singlestore', MysqlQueryable, MysqlOptions>;
 ```
@@ -19,6 +21,8 @@ factories that bind the child dialect explicitly.
 The package calls `extendSqlDialect(mysql, overrides)` once and deep-freezes the result. It has `family === 'mysql'`. The measured current overrides are:
 
 - `serial` → `BIGINT AUTO_INCREMENT`;
+- `timestamp` → `DATETIME(6)`, because SingleStore accepts fractional precision 0 or 6 rather than MySQL's inherited 3;
+- full-text matching → parameterized `MATCH(column) AGAINST(?)` without MySQL's unsupported natural-language-mode suffix;
 - foreign keys → false/refusal; and
 - SingleStore-owned rowstore/columnstore, shard-key and sort-key validation/DDL.
 
@@ -49,7 +53,7 @@ The table is deliberately conservative. A server feature does not become a zmdb 
 - `BIGINT AUTO_INCREMENT`, rowstore/columnstore, shard key, sort key and storage-transition behavior;
 - validation that unique indexes are compatible with the shard key;
 - the foreign-key and stored-routine refusals;
-- SingleStore catalog queries/normalization instead of the current blind MySQL wrapper;
+- SingleStore catalog queries/normalization instead of the former blind MySQL wrapper;
 - the SingleStore-bound MySQL-family driver; and
 - all SingleStore live-server, immutable-inheritance and packed-consumer tests.
 
@@ -57,14 +61,14 @@ Ordinary MySQL placeholders, quoting, pagination, compiler assembly, driver life
 
 ## Required refusals
 
-Before execution, the package refuses foreign keys, incompatible unique indexes, unsupported storage transitions, MySQL routine SQL that is not valid SingleStore grammar, returning clauses, standalone
-sequences, partial indexes, RLS, streaming and in-flight cancellation claims.
+Before execution, the package refuses foreign keys, incompatible unique indexes, explicit index methods without table-storage evidence, check constraints, sort keys on explicit rowstore tables,
+unsupported storage transitions, MySQL routine SQL that is not valid SingleStore grammar, returning clauses, standalone sequences, partial indexes, RLS, streaming and in-flight cancellation claims.
 
 Shard/sort/storage declarations must survive schema IR, snapshot, diff, DDL and introspection. Silently dropping one is a correctness failure even if the resulting table can be created.
 
 ## Qualification
 
-The package is not supported until a mandatory real SingleStore lane is available. From the packed consumer it must:
+The mandatory real SingleStore lane starts the digest-pinned official Dev Image, fails closed without `ZMDB_SINGLESTORE_URL`, and from the packed consumer:
 
 1. create rowstore and columnstore tables with shard and sort declarations;
 2. prove the declarations survive migration and introspection;
@@ -73,7 +77,10 @@ The package is not supported until a mandatory real SingleStore lane is availabl
 5. validate every inherited capability/refusal against the real server; and
 6. prove the dependency tree points SingleStore → MySQL with no copied private implementation.
 
-A missing license, service or credentials fails release qualification. Golden SQL without server acceptance is not support evidence.
+The measured packed implementation run used SingleStore 9.0.12 through its MySQL 5.7.32 protocol surface. It observed `INMEMORY_ROWSTORE`/`COLUMNSTORE` storage metadata, shard/sort definitions from
+`SHOW CREATE TABLE`, non-transactional DDL, persisted computed columns, CRUD, rollback, and eight locally packed package archives. A focused source-bound rerun on the same server additionally proved
+exact `DATETIME(6)` migration/CRUD/catalog behavior, the rowstore outbox DDL/index, parameterized full-text SQL, and the storage-dependent index/check-constraint refusal boundaries. A missing service
+or URL fails release qualification; golden SQL does not replace this server evidence.
 
 ## Non-goals
 

@@ -31,9 +31,9 @@ These facts explain the starting state; they are not exemptions. Roadmap-only pa
 Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #672, #691, #692, #693, #694, #695, #696, #657, #658, #659, #660, #661, and #629 add `@zmdb/protobuf`,
 `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`,
 `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
-`@zmdb/transport-redis`, `@zmdb/jobs-postgres`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, #697 adds `@zmdb/next`, #698 adds `@zmdb/nuxt`, and #699 adds `@zmdb/sveltekit`. Issue #710
-removed the temporary LangChain-to-schema-core edge. The current thirty-six manifests keep `1.0.0-alpha.4`, declare 69 direct non-dev workspace edges, and declare 34 peer dependencies: 13 optional
-peer entries plus 21 required peer entries confined to their selected integration packages.
+`@zmdb/transport-redis`, `@zmdb/jobs-postgres`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, #674 adds `@zmdb/singlestore`, #697 adds `@zmdb/next`, #698 adds `@zmdb/nuxt`, and #699 adds
+`@zmdb/sveltekit`. Issue #710 removed the temporary LangChain-to-schema-core edge. The current thirty-seven manifests keep `1.0.0-alpha.4`, declare 73 direct non-dev workspace edges, and declare 35
+peer dependencies: 14 optional peer entries plus 21 required peer entries confined to their selected integration packages.
 
 ## 2. Canonical policy API
 
@@ -131,9 +131,9 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative for the current thirty-six catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or renaming a
-catalog member requires the catalog and policy key sets to change atomically. For the #752 split, §17 supersedes only the `jobs`, `jobs-postgres`, future `jobs-sqlite`, and jobs-related `zmdb` edges
-when #755/#756 land; this object remains accurate evidence for commit `961aaae0b0c9b4e29fc864f41454707933154a0e`.
+The following object is normative for the current thirty-seven catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or renaming
+a catalog member requires the catalog and policy key sets to change atomically. For the #752 split, §17 supersedes only the `jobs`, `jobs-postgres`, future `jobs-sqlite`, and jobs-related `zmdb` edges
+when #755/#756 land; issue #674 otherwise changes this object only by adding the SingleStore package row.
 
 ```ts
 export const PACKAGE_POLICY = {
@@ -357,6 +357,17 @@ export const PACKAGE_POLICY = {
     allowedWorkspaceDependencies: ['migrations', 'postgres', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
+    toolingEntries: [],
+  },
+  singlestore: {
+    directory: 'packages/singlestore',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['migrations', 'mysql', 'query-compiler', 'repository'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {
+      mysql2: ['.'],
+    },
     toolingEntries: [],
   },
   sqlite: {

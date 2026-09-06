@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  checkConstraintDdl,
   createExtensionDdl,
   createIndexDdl,
   createRoutineDdl,
@@ -354,18 +355,20 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
     }
   });
 
-  it('inherits MySQL index methods and expression-index refusal on SingleStore', () => {
-    expect(
-      createIndexDdl(
-        {
-          name: 'users_email',
-          table: 'users',
-          method: 'btree',
-          columns: ['email'],
-        },
-        'singlestore',
-      ),
-    ).toBe('CREATE INDEX `users_email` USING BTREE ON `users` (`email`)');
+  it('refuses storage-dependent index methods, expressions and checks on SingleStore', () => {
+    for (const method of ['btree', 'hash'] as const) {
+      expect(() =>
+        createIndexDdl(
+          {
+            name: `users_email_${method}`,
+            table: 'users',
+            method,
+            columns: ['email'],
+          },
+          'singlestore',
+        ),
+      ).toThrow(/method support depends on rowstore versus columnstore storage/);
+    }
     expect(() =>
       createIndexDdl(
         {
@@ -376,6 +379,9 @@ describe('vector index DDL (frozen: schema-objects/SPEC.md 1.2)', () => {
         'singlestore',
       ),
     ).toThrow(/singlestore does not support an expression index/);
+    expect(() => checkConstraintDdl('users', 'users_email_check', "email <> ''", 'singlestore')).toThrow(
+      /singlestore does not support CHECK constraint/,
+    );
   });
 
   it('refuses a unique vector index before emitting invalid PostgreSQL DDL', () => {

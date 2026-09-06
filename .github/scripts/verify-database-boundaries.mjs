@@ -2,10 +2,11 @@
 // Freeze the database-package extraction boundary from issue #667.
 //
 // The implementation is intentionally a ratchet while the extraction is incomplete:
-// current vendor-owned code in generic packages and absent package/consumer artifacts
-// are recorded in database-boundary-baseline.json. The verifier fails on both a new
-// finding and a stale finding, so every implementation issue has to remove the exact
-// gaps it closes. Tests assert the target zero state with `it.fails`.
+// current vendor-owned code and any package/consumer gaps are recorded in
+// database-boundary-baseline.json. The verifier fails on both a new finding and a stale
+// finding, so every implementation issue has to remove the exact gaps it closes. Tests
+// keep incomplete dimensions as expected failures and completed dimensions as ordinary
+// assertions.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';

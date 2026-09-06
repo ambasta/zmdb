@@ -47,11 +47,18 @@ export function outboxPendingIndexDdl(dialect: DialectTarget): string {
 
 function defaultOutboxDialect(dialect: DialectTarget): DialectOutbox {
   const family = dialectFamily(dialect);
+  const singlestore = dialectName(dialect) === 'singlestore';
   return Object.freeze({
+    createTable: singlestore ? 'CREATE ROWSTORE TABLE' : 'CREATE TABLE',
     pendingIndex: family === 'mysql' ? 'full' : 'filtered',
-    epochLiteral: family === 'mysql' ? "'1970-01-01 00:00:00.000'" : "'1970-01-01T00:00:00.000Z'",
-    createdAtDefault:
-      family === 'mysql'
+    epochLiteral: singlestore
+      ? "'1970-01-01 00:00:00.000000'"
+      : family === 'mysql'
+        ? "'1970-01-01 00:00:00.000'"
+        : "'1970-01-01T00:00:00.000Z'",
+    createdAtDefault: singlestore
+      ? 'CURRENT_TIMESTAMP(6)'
+      : family === 'mysql'
         ? 'CURRENT_TIMESTAMP(3)'
         : family === 'sqlite'
           ? "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
@@ -69,7 +76,6 @@ export function outboxTableDdl(dialect: DialectTarget): string {
   const q = (name: string) => quoteIdentifier(dialect, name);
   const traits = dialectTraits(dialect);
   const outbox = outboxDialect(dialect);
-  const createTable = dialectName(dialect) === 'singlestore' ? 'CREATE ROWSTORE TABLE' : 'CREATE TABLE';
   const timestamp = traits.types.timestamp;
   // MySQL refuses TEXT primary keys and TEXT columns in an index without a prefix
   // length. These three values are bounded by construction, so the migration uses
@@ -79,7 +85,7 @@ export function outboxTableDdl(dialect: DialectTarget): string {
   const statusType = outbox.boundedTextType(16);
   const leaseOwnerType = outbox.boundedTextType(36);
   return (
-    `${createTable} ${q(OUTBOX_TABLE)} (` +
+    `${outbox.createTable} ${q(OUTBOX_TABLE)} (` +
     `${q('id')} ${idType} PRIMARY KEY, ` +
     `${q('topic')} ${text} NOT NULL, ` +
     `${q('payload')} ${text} NOT NULL, ` +

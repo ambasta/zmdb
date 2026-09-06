@@ -361,6 +361,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { reason: PUBLISH_VERIFIER_REASON },
   }),
   productPackage({
+    id: 'singlestore',
+    directory: 'packages/singlestore',
+    npmName: '@zmdb/singlestore',
+    role: 'singlestore',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'SingleStore' },
+    docsOwner: 'dialect-singlestore',
+    consumer: { fixture: 'fixtures/database-singlestore' },
+  }),
+  productPackage({
     id: 'solid',
     directory: 'packages/solid',
     npmName: '@zmdb/solid',

@@ -71,7 +71,7 @@ async findAdmins() {
 
 ## Architecture
 
-zmdb is one product delivered through focused package firebreaks. The frozen release target keeps the eight-package core cohesive while versioning 27 integrations and one tooling package
+zmdb is one product delivered through focused package firebreaks. The frozen release target keeps the eight-package core cohesive while versioning 28 integrations and one tooling package
 independently. The product catalog owns official membership, architecture policy owns dependency direction, and release policy owns release groups and compatibility ranges:
 
 - `@zmdb/schema-core` — the tag vocabulary, the IR, and type derivation

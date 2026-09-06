@@ -26,7 +26,7 @@ function checkConstraintDdl(table: string, name: string, expr: string, dialect):
 ```
 
 - `CREATE [UNIQUE] INDEX "name" ON "table" ("a","b") [WHERE expr]`.
-- Check: `ALTER TABLE "t" ADD CONSTRAINT "n" CHECK (expr)`.
+- Check: `ALTER TABLE "t" ADD CONSTRAINT "n" CHECK (expr)`; SingleStore refuses this before execution because its qualified server rejects the declaration.
 
 ### 1.1 Expression columns (frozen — epic "Composite primary keys and expression indexes")
 
@@ -101,8 +101,8 @@ ivfflat does not take the option `m` ("items_embedding_l2"); ivfflat options are
 ```
 
 Omitting `method` emits no `USING` clause, so every existing golden statement is unchanged. `ivfflat` and `hnsw` are refused on Cockroach, MySQL, SingleStore, SQLite and SQL Server by the same rule as
-the expression form, and `gin`, `gist` and `brin` are refused there too — they are Postgres access methods. The MySQL family's `USING BTREE` / `USING HASH` and SQL Server's accepted `btree`
-declaration are the only non-Postgres method cases.
+the expression form, and `gin`, `gist` and `brin` are refused there too — they are Postgres access methods. MySQL accepts `USING BTREE` / `USING HASH`, while SingleStore refuses explicit methods
+because the valid method depends on rowstore versus columnstore storage and `IndexDef` carries no table-storage evidence. SQL Server accepts only its normalized `btree` form.
 
 ## 2. Views (#102/#103/#104)
 

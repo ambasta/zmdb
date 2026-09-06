@@ -772,9 +772,7 @@ const MATRIX: readonly MatrixCase[] = [
       sqlite: refused('full-text search', 'sqlite'),
       mssql: refused('full-text search', 'mssql'),
       cockroach: refused('full-text search', 'cockroach'),
-      singlestore: query('SELECT * FROM `customers` WHERE MATCH(`company_name`) AGAINST(? IN NATURAL LANGUAGE MODE)', [
-        'ltd',
-      ]),
+      singlestore: query('SELECT * FROM `customers` WHERE MATCH(`company_name`) AGAINST(?)', ['ltd']),
     },
   },
   {
@@ -870,7 +868,7 @@ const MATRIX: readonly MatrixCase[] = [
       sqlite: value('TEXT'),
       mssql: value('DATETIMEOFFSET(3)'),
       cockroach: value('TIMESTAMPTZ'),
-      singlestore: value('DATETIME(3)'),
+      singlestore: value('DATETIME(6)'),
     },
   },
   {
@@ -976,7 +974,7 @@ const MATRIX: readonly MatrixCase[] = [
       sqlite: refused('alter column type', 'sqlite'),
       mssql: value('ALTER TABLE [events] ALTER COLUMN [at] DATETIMEOFFSET(3) NOT NULL'),
       cockroach: value('ALTER TABLE "events" ALTER COLUMN "at" TYPE TIMESTAMPTZ'),
-      singlestore: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(3)'),
+      singlestore: value('ALTER TABLE `events` MODIFY COLUMN `at` DATETIME(6)'),
     },
   },
 ];

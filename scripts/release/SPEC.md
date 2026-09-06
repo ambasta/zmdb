@@ -1,7 +1,8 @@
 # Release groups and compatibility guarantees
 
-> **Status:** target contract frozen by issue #746 on 2026-09-06. Issues #747–#750 implement and qualify this contract. The checked-in release scripts still enforce the earlier 36-package lockstep
-> train until those implementation issues land. This specification does not authorize a partial release with the current tooling.
+> **Status:** target contract frozen by issue #746 on 2026-09-06 and extended by issue #674 to classify the admitted `@zmdb/singlestore` package. Issues #747–#750 implement and qualify this contract.
+> The checked-in release scripts still enforce the earlier 37-package lockstep train until those implementation issues land. This specification does not authorize a partial release with the current
+> tooling.
 
 This directory owns release-group classification, version movement, internal package ranges, third-party compatibility floors, changelog identity, release tags, and release planning. It does not own
 product membership, npm identity, dependency direction, package exports, registry state, credentials, or publication side effects.
@@ -22,12 +23,12 @@ notes. Native issue relationships and architecture exceptions cannot alter a rel
 
 The baseline contains:
 
-- 36 public catalog packages, all currently at `1.0.0-alpha.4`;
-- 69 direct non-development workspace edges: 21 within the cohesive core and 48 crossing release units;
-- 34 peer entries: 32 third-party peers and two internal optional peers;
+- 37 public catalog packages, all currently at `1.0.0-alpha.4`;
+- 73 direct non-development workspace edges: 21 within the cohesive core and 52 crossing release units;
+- 35 peer entries: 33 third-party peers and two internal optional peers;
 - six private root workspaces;
-- seven `packages/*` roadmap directories with no manifest; and
-- one implemented release model that currently requires all 36 public packages to move together.
+- six `packages/*` roadmap directories with no manifest; and
+- one implemented release model that currently requires all 37 public packages to move together.
 
 The release groups below are a policy decision over that measured inventory. Existing common versions are evidence of the starting state, not justification for keeping every package lockstep.
 
@@ -124,6 +125,7 @@ The current public inventory is classified exactly once:
 | `react-native`       | `@zmdb/react-native`       | integration   | `fixtures/client-adapters`                  |
 | `repository`         | `@zmdb/repository`         | core          | `yarn verify:publish`                       |
 | `schema-core`        | `@zmdb/schema-core`        | core          | `yarn verify:publish`                       |
+| `singlestore`        | `@zmdb/singlestore`        | integration   | `fixtures/database-singlestore`             |
 | `solid`              | `@zmdb/solid`              | integration   | `fixtures/client-adapters`                  |
 | `sqlite`             | `@zmdb/sqlite`             | integration   | `fixtures/database-sqlite`                  |
 | `svelte`             | `@zmdb/svelte`             | integration   | `fixtures/client-adapters`                  |
@@ -136,7 +138,7 @@ The current public inventory is classified exactly once:
 | `web`                | `@zmdb/web`                | core          | `yarn verify:publish`                       |
 | `zmdb`               | `zmdb`                     | core          | `fixtures/consumer-product`                 |
 
-Counts are therefore eight core packages, 27 independently versioned integrations, and one independently versioned tooling package.
+Counts are therefore eight core packages, 28 independently versioned integrations, and one independently versioned tooling package.
 
 The six private root workspaces are:
 
@@ -150,8 +152,8 @@ The six private root workspaces are:
 | `fixtures/next-app-router/package.json` | `@zmdb-fixture/next-app-router` |
 
 Nested fixture manifests are test assets outside the root workspace set and are already `private: true`; they are not release candidates. `packages/cli`, `packages/compiler`, `packages/orm`,
-`packages/schema`, `packages/singlestore`, `packages/sql`, and `packages/validator` have no manifest and are not packages. Adding a public manifest to any `packages/*` directory makes classification
-mandatory in the same change.
+`packages/schema`, `packages/sql`, and `packages/validator` have no manifest and are not packages. Adding a public manifest to any `packages/*` directory makes classification mandatory in the same
+change.
 
 ## 4. Version ownership and movement
 
@@ -251,6 +253,7 @@ manifest.
 | `@zmdb/postgres`           | `pg@^8.23.0`; `8.23.0`                                                                                                                                              |
 | `@zmdb/react`              | `react@>=19.2.8 <20.0.0`; `19.2.8`                                                                                                                                  |
 | `@zmdb/react-native`       | `react@>=19.2.8 <20.0.0`; `19.2.8`; `react-native@>=0.87.1 <0.88.0`; `0.87.1`                                                                                       |
+| `@zmdb/singlestore`        | `mysql2@^3.24.3`; `3.24.3`                                                                                                                                          |
 | `@zmdb/solid`              | `solid-js@>=1.9.15 <2.0.0`; `1.9.15`                                                                                                                                |
 | `@zmdb/svelte`             | `svelte@>=5.57.0 <6.0.0`; `5.57.0`                                                                                                                                  |
 | `@zmdb/sveltekit`          | `@sveltejs/kit@>=2.70.3 <3.0.0`; `2.70.3`; `svelte@>=5.57.0 <6.0.0`; `5.57.0`                                                                                       |

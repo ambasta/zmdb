@@ -1,8 +1,8 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-six packages are published today: thirty-five focused packages plus the `zmdb` facade. The
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-seven packages are published today: thirty-six focused packages plus the `zmdb` facade. The
 recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
 `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/migrations`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations,
-`@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
-`@zmdb/jobs-postgres` remain independently installable.
+`@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/singlestore`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
+`@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently installable.
 
 ## Recommended: product plus SQLite
 

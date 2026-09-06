@@ -4630,7 +4630,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@zmdb/mysql@workspace:packages/mysql":
+"@zmdb/mysql@workspace:^, @zmdb/mysql@workspace:packages/mysql":
   version: 0.0.0-use.local
   resolution: "@zmdb/mysql@workspace:packages/mysql"
   dependencies:
@@ -4790,6 +4790,25 @@ __metadata:
     "@zmdb/query-compiler": "workspace:^"
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
+"@zmdb/singlestore@workspace:packages/singlestore":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/singlestore@workspace:packages/singlestore"
+  dependencies:
+    "@types/node": "npm:^26.4.1"
+    "@zmdb/migrations": "workspace:^"
+    "@zmdb/mysql": "workspace:^"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    mysql2: "npm:3.24.3"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    mysql2: ^3.24.3
+  peerDependenciesMeta:
+    mysql2:
+      optional: true
   languageName: unknown
   linkType: soft
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
   inspectDatabaseBoundaries,
@@ -7,9 +7,14 @@ import {
 } from './verify-database-boundaries.mjs';
 
 describe('database boundary verifier (#667)', () => {
-  // Current measured behavior: 57 grouped official-name findings remain in shipped generic source.
-  it.fails('generic production packages contain no official database-name branches', async () => {
-    const report = await inspectDatabaseBoundaries();
+  let report: Awaited<ReturnType<typeof inspectDatabaseBoundaries>>;
+
+  beforeAll(async () => {
+    report = await inspectDatabaseBoundaries();
+  }, 30_000);
+
+  // Current ratcheted behavior: grouped official-name findings remain in shipped generic source.
+  it.fails('generic production packages contain no official database-name branches', () => {
     const vendorFindings = report.findings.filter(finding =>
       ['official-name', 'official-package-import'].includes(finding.kind),
     );
@@ -17,15 +22,13 @@ describe('database boundary verifier (#667)', () => {
     expect(vendorFindings).toEqual([]);
   });
 
-  it('a generic install contains no database client', async () => {
-    const report = await inspectDatabaseBoundaries();
+  it('a generic install contains no database client', () => {
     const runtimeClients = report.findings.filter(finding => finding.kind === 'generic-client-dependency');
 
     expect(runtimeClients).toEqual([]);
   });
 
-  it('separates frozen SQL Server names from executable SQL Server implementation', async () => {
-    const report = await inspectDatabaseBoundaries();
+  it('separates frozen SQL Server names from executable SQL Server implementation', () => {
     const implementation = report.findings.filter(finding => finding.kind === 'sql-server-implementation');
     const compatibilityNames = report.findings.filter(
       finding => finding.kind === 'official-name' && finding.token === 'mssql',
@@ -35,9 +38,8 @@ describe('database boundary verifier (#667)', () => {
     expect(compatibilityNames).not.toEqual([]);
   });
 
-  // Current measured behavior: all six package-specific packed-consumer directories are absent.
-  it.fails('every official database package has a packed consumer fixture', async () => {
-    const report = await inspectDatabaseBoundaries();
+  // Current measured behavior: all six package-specific packed consumers are present and valid.
+  it('every official database package has a packed consumer fixture', () => {
     const missing = report.findings.filter(finding =>
       ['missing-packed-consumer', 'invalid-packed-consumer', 'unbacked-packed-consumer'].includes(finding.kind),
     );

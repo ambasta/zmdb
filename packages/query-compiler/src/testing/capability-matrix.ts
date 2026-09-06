@@ -253,6 +253,7 @@ const matrix = {
     sqlTypes: {
       ...MYSQL_TYPES,
       serial: expectation('BIGINT AUTO_INCREMENT'),
+      timestamp: expectation('DATETIME(6)'),
     },
     verticals: completeVerticals(),
     packedConsumer: 'fixtures/database-singlestore',

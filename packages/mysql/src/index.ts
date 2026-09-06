@@ -17,7 +17,13 @@ export {
   type MysqlResultHeader,
 } from './driver.js';
 export { mysqlFamilyIntrospector, mysqlIntrospector, mysqlSnapshot, type MysqlCatalogOverrides } from './introspect.js';
-export { createMysqlMigrations } from './migrations.js';
+export {
+  createMysqlMigrations,
+  mysqlFamilyMigrations,
+  type MysqlMigrationOverrides,
+  type MysqlTableDdlExtension,
+  type MysqlTableDdlHelpers,
+} from './migrations.js';
 
 export function mysqlDriver(client: MysqlQueryable, options?: MysqlOptions): MysqlDriver<'mysql'> {
   return mysqlFamilyDriver(mysql, client, options);

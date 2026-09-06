@@ -131,6 +131,9 @@ function make(d: DialectTarget, s: State, telemetry: boolean): FtsSelect {
             if (fts === 'match') {
               return `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)} IN NATURAL LANGUAGE MODE)`;
             }
+            if (fts === 'matchPlain') {
+              return `MATCH(${quoteColumn(d, p.col)}) AGAINST(${formatPlaceholder(d, params.length)})`;
+            }
             throw new UnsupportedFeatureError('full-text search', dialectName(d));
           });
           text += ` WHERE ${parts.join(' AND ')}`;

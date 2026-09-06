@@ -89,8 +89,8 @@ At the #618 baseline, six directories under `packages/` contained publishable ma
 #694, #657, #658, #659, #660, #661, #695, #696, #697, #698, #699, and #629 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`,
 `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`,
 `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, `@zmdb/nuxt`,
-`@zmdb/sveltekit`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`. The catalog now accounts for all thirty-six manifest-backed packages exactly once. Publication derives its
-dependency-first sequence from architecture policy; the catalog still owns membership rather than release order:
+`@zmdb/sveltekit`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, and #674 adds `@zmdb/singlestore`. The catalog now accounts for all thirty-seven manifest-backed packages exactly once.
+Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather than release order:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                        |
 | ----------------------------- | -------------------------- | ------------------- | --------------------------------------------------------------- |
@@ -120,6 +120,7 @@ dependency-first sequence from architecture policy; the catalog still owns membe
 | `packages/cockroach`          | `@zmdb/cockroach`          | `cockroach`         | None; selected CockroachDB vertical with no facade export       |
 | `packages/sqlite`             | `@zmdb/sqlite`             | `sqlite`            | `zmdb/drivers/sqlite` during the facade cutover                 |
 | `packages/mysql`              | `@zmdb/mysql`              | `mysql`             | None; selected database vertical with no facade export          |
+| `packages/singlestore`        | `@zmdb/singlestore`        | `singlestore`       | None; selected SingleStore vertical with no facade export       |
 | `packages/app`                | `@zmdb/app`                | `app`               | None; the current `zmdb/web` aggregate is owned by web          |
 | `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None; selected capability uses its direct package identity      |
 | `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL jobs provider with no facade export   |
@@ -131,8 +132,8 @@ dependency-first sequence from architecture policy; the catalog still owns membe
 | `packages/web`                | `@zmdb/web`                | `web`               | `zmdb/web`                                                      |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, `migrations`, `config`, `cli`, and executable |
 
-This table is review evidence, not the canonical machine source. The thirty-six rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
-the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
+This table is review evidence, not the canonical machine source. The thirty-seven rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit
+plus the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ### 3.1 Jobs selection amendment (#753)
 

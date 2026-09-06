@@ -104,6 +104,11 @@ const MAY_READ = new Map([
       'types and column constraints; it does not decide which application values a column admits.',
   ],
   [
+    'packages/singlestore/src/migrations.ts',
+    'the package-owned SingleStore DDL boundary. It consumes normalized migration snapshots to ' +
+      'validate shard-key compatibility and spell server types; it does not walk declarations or decide values.',
+  ],
+  [
     'packages/migrations/src/index.ts',
     'the schema-lifecycle boundary. It snapshots structural declarations and plans changes before ' +
       'the SQL-owned type renderer turns those normalized facts into DDL.',

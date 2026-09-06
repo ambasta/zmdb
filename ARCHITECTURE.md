@@ -116,7 +116,7 @@ Conversely, we **merge** packages that have grown a bidirectional dependency or 
 ### 3.2 The current dependency DAG (must stay acyclic)
 
 This is the shipped graph during the database-vertical extraction frozen in §3.4. SQLite, PostgreSQL, MySQL, and SQL Server are side verticals over query-compiler and repository; CockroachDB extends
-PostgreSQL one-way, and the remaining SingleStore implementation still sits in the generic packages.
+PostgreSQL one-way, and SingleStore extends MySQL one-way.
 
 ```
       ┌────────────────┐
@@ -200,6 +200,9 @@ compatibility facade.
 `@zmdb/mysql` also depends on migrations, query-compiler, and repository. It owns MySQL traits, refusals, DDL, migrations, catalog introspection, the structural `mysql2/promise` adapter, and the
 mandatory packed real-server lane; only that selected package declares the optional `mysql2` peer.
 
+`@zmdb/singlestore` depends one-way on the public MySQL family surface plus migrations, query-compiler, and repository. It owns the SingleStore type/storage overrides, shard/sort validation and DDL,
+catalog adaptation, conservative integrity/routine refusals, child-bound driver, and mandatory packed real-server lane. `@zmdb/mysql` has no reverse edge.
+
 **Rules enforced by this DAG:**
 
 - **query-compiler is the lower-level SQL package.** It owns query compilation, schema-object DDL, and database protocols without a formatter dependency.
@@ -228,6 +231,7 @@ mandatory packed real-server lane; only that selected package declares the optio
 - **mssql is a complete database vertical** — it owns SQL Server traits, DDL/refusals, catalog introspection, migration transactions, and the structural node-mssql adapter.
 - **cockroach is a one-way PostgreSQL-family vertical** — it owns Cockroach-specific traits, refusals, catalog normalization, explicit transaction retry, and packed real-server acceptance without
   copying or changing its parent.
+- **singlestore is a one-way MySQL-family vertical** — it owns storage/distribution semantics, catalog adaptation, and packed real-server acceptance while reusing only the public MySQL family surface.
 - **app sits above repository** — it owns one protocol-neutral metadata, DI, module, lifecycle, messaging, command, event, CQRS, state, health, and observability kernel.
 - **OTel depends only on app.** It adapts caller-owned API objects to the app ports and owns no provider, SDK, exporter, ambient context, or web edge.
 - **NATS depends only on app.** It implements the public transport strategy with a startup-built subject trie and owns only the required NATS client peer.
@@ -295,24 +299,25 @@ The SQLite slice now ships as `@zmdb/sqlite`, with package-owned traits, migrati
 with package-owned traits, migrations, catalog introspection, driver behavior, live-server acceptance, and packed-consumer evidence. The MySQL slice now ships as `@zmdb/mysql`, with package-owned
 traits, migrations, catalog introspection, structural mysql2 behavior, strict `utf8mb4` live-server acceptance, and packed-consumer evidence. CockroachDB ships as the one-way `@zmdb/cockroach` child,
 adding immutable type/capability/retry overrides, Cockroach catalog normalization, a bound driver, and packed real-server acceptance without changing its PostgreSQL parent. The SQL Server slice now
-ships as `@zmdb/mssql`, with package-owned T-SQL compilation, migrations, catalog introspection, structural execution, live-server acceptance, and packed-consumer evidence. SingleStore is the only
-remaining database package. The temporary six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge; generic packages retain no executable PostgreSQL or SQL Server
-implementation. The umbrella's temporary `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, and `zmdb/drivers/mssql` paths delegate to the selected packages while MySQL and Cockroach remain independently
-selected packages with no facade export.
+ships as `@zmdb/mssql`, with package-owned T-SQL compilation, migrations, catalog introspection, structural execution, live-server acceptance, and packed-consumer evidence. SingleStore ships as the
+one-way `@zmdb/singlestore` child, adding storage/distribution DDL, catalog adaptation, conservative refusals, a bound driver, and packed real-server acceptance without changing its MySQL parent. All
+six database verticals are now package-owned. The temporary six-name definitions and overloads remain in `@zmdb/query-compiler` until #675's final purge. The umbrella's temporary
+`zmdb/drivers/sqlite`, `zmdb/drivers/pg`, and `zmdb/drivers/mssql` paths delegate to the selected packages while MySQL, Cockroach, and SingleStore remain independently selected packages with no facade
+export.
 
 A database package is a **complete vertical**, not a syntax table. It owns the database's query traits, DDL and migration behavior, introspector, official driver adapter, capability/refusal metadata,
 golden SQL, real-server qualification and packed-consumer evidence. Generic packages retain the algorithms and protocols that can serve an unknown third-party database.
 
 The complete permitted internal graph is:
 
-| Dependency                                                   | Consumer                                                       | Kind                                                                  |
-| ------------------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `@zmdb/query-compiler`                                       | `@zmdb/repository`                                             | required generic edge                                                 |
-| `@zmdb/query-compiler`, `@zmdb/repository`                   | `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mysql`, `@zmdb/mssql` | required vertical edges                                               |
-| `@zmdb/query-compiler`, `@zmdb/repository`, `@zmdb/postgres` | `@zmdb/cockroach`                                              | required child edge                                                   |
-| `@zmdb/query-compiler`, `@zmdb/repository`, `@zmdb/mysql`    | `@zmdb/singlestore`                                            | required child edge                                                   |
-| current generic product packages                             | `zmdb`                                                         | required facade edges, as in §3.2                                     |
-| a selected database package                                  | `zmdb/<database>`                                              | optional peer identity edge, only if that facade subpath is published |
+| Dependency                                                                       | Consumer                                                       | Kind                                                                  |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `@zmdb/query-compiler`                                                           | `@zmdb/repository`                                             | required generic edge                                                 |
+| `@zmdb/migrations`, `@zmdb/query-compiler`, `@zmdb/repository`                   | `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mysql`, `@zmdb/mssql` | required vertical edges                                               |
+| `@zmdb/migrations`, `@zmdb/query-compiler`, `@zmdb/repository`, `@zmdb/postgres` | `@zmdb/cockroach`                                              | required child edge                                                   |
+| `@zmdb/migrations`, `@zmdb/query-compiler`, `@zmdb/repository`, `@zmdb/mysql`    | `@zmdb/singlestore`                                            | required child edge                                                   |
+| current generic product packages                                                 | `zmdb`                                                         | required facade edges, as in §3.2                                     |
+| a selected database package                                                      | `zmdb/<database>`                                              | optional peer identity edge, only if that facade subpath is published |
 
 The two family edges are the only permitted database-package edges: Cockroach extends PostgreSQL, and SingleStore extends MySQL. A generic package never imports an official database package; a parent
 database package never imports its child; and no database package imports `zmdb`. `zmdb` must not make all six database packages hard dependencies: a database facade subpath, if retained, resolves an
@@ -515,13 +520,15 @@ Resource ownership is explicit:
 Release publication follows the manifest DAG: publish `@zmdb/protobuf`, `@zmdb/app` and `@zmdb/jobs` before their dependants, publish the compiler version that recognises the new protobuf owner only
 after `@zmdb/protobuf` exists, then publish each integration independently. A release is qualified only when every package packs, installs, imports and typechecks outside the workspace; real gRPC,
 NATS, RabbitMQ, Redis and PostgreSQL evidence runs against the named peer, and strict `utf8mb4` MySQL evidence runs through the packed `@zmdb/mysql` consumer. A missing required service fails rather
-than silently skipping. `@zmdb/otel` is proven with real API/SDK objects but owns no collector or exporter. The executable gates are `yarn verify:server-integrations` and `yarn verify:mysql-live`; the
-server-integration gate's local non-required mode prints an explicit skip for each absent service rather than treating absence as runtime evidence.
+than silently skipping. SingleStore evidence runs through the official Dev Image and the packed `@zmdb/singlestore` consumer. `@zmdb/otel` is proven with real API/SDK objects but owns no collector or
+exporter. The executable gates are `yarn verify:server-integrations`, `yarn verify:mysql-live`, and `yarn verify:singlestore-live`; the server-integration gate's local non-required mode prints an
+explicit skip for each absent service rather than treating absence as runtime evidence.
 
 The exact public exports, lifecycle, install commands and evidence are frozen in [`packages/protobuf/SPEC.md`](./packages/protobuf/SPEC.md),
 [`packages/transport-grpc/SPEC.md`](./packages/transport-grpc/SPEC.md), [`packages/transport-nats/SPEC.md`](./packages/transport-nats/SPEC.md),
 [`packages/transport-rabbitmq/SPEC.md`](./packages/transport-rabbitmq/SPEC.md), [`packages/transport-redis/SPEC.md`](./packages/transport-redis/SPEC.md),
-[`packages/jobs-postgres/SPEC.md`](./packages/jobs-postgres/SPEC.md), [`packages/mysql/SPEC.md`](./packages/mysql/SPEC.md), and [`packages/otel/SPEC.md`](./packages/otel/SPEC.md).
+[`packages/jobs-postgres/SPEC.md`](./packages/jobs-postgres/SPEC.md), [`packages/mysql/SPEC.md`](./packages/mysql/SPEC.md), [`packages/singlestore/SPEC.md`](./packages/singlestore/SPEC.md), and
+[`packages/otel/SPEC.md`](./packages/otel/SPEC.md).
 
 ### 3.9 Frozen one-product facade and catalog target (#618)
 
@@ -562,9 +569,9 @@ membership stays owned by [`scripts/product/catalog.mjs`](./scripts/product/cata
 dependency/reachability row to every admitted package, and [`scripts/architecture/index.mjs`](./scripts/architecture/index.mjs) rejects missing or stale rows without discovering a second package list
 from the filesystem, a workflow loop, or a publish script.
 
-Issue #746 supersedes the all-package release policy, but not the dependency graph. Its frozen target is eight lockstep core packages, 27 independently versioned integrations, one independently
-versioned tooling package, and six private root workspaces. The checked-in policy and release scripts still expose the earlier lockstep implementation until #749; the generated tables below therefore
-describe observed manifests and reachability, not the new support policy.
+Issue #746 supersedes the all-package release policy, but not the dependency graph. Its target, extended for the package admitted by #674, is eight lockstep core packages, 28 independently versioned
+integrations, one independently versioned tooling package, and six private root workspaces. The checked-in policy and release scripts still expose the earlier lockstep implementation until #749; the
+generated tables below therefore describe observed manifests and reachability, not the new support policy.
 
 Issue #732 froze the next governance boundary in [`scripts/architecture/SPEC.md` §§11–16](./scripts/architecture/SPEC.md): one read-only snapshot composes these independent authorities, temporary
 findings become owned structured exceptions, and GitHub's native parent/sub-issue and blocked-by relationships are the sole actionability authority. Issue #736 implements the repository side of that
@@ -585,7 +592,7 @@ and entry-specific reachability assignments are generated from the admitted mani
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **36 catalog packages**, **69 direct workspace edges**, and canonical rings **0–7**.
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and the admitted manifests: **37 catalog packages**, **73 direct workspace edges**, and canonical rings **0–7**.
 
 | Ring | Zone        | Package                    | Direct workspace dependencies                                                                                                                                                                           |
 | ---- | ----------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -618,6 +625,7 @@ Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, 
 | 6    | runtime     | `@zmdb/cockroach`          | `@zmdb/migrations`<br>`@zmdb/postgres`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                  |
 | 6    | application | `@zmdb/jobs`               | `@zmdb/app`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/sqlite`                                                                                                                           |
 | 6    | integration | `@zmdb/otel`               | `@zmdb/app`                                                                                                                                                                                             |
+| 6    | integration | `@zmdb/singlestore`        | `@zmdb/migrations`<br>`@zmdb/mysql`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`                                                                                                                     |
 | 6    | integration | `@zmdb/transport-grpc`     | `@zmdb/app`<br>`@zmdb/protobuf`                                                                                                                                                                         |
 | 6    | integration | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                                                                             |
 | 6    | integration | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                                                                             |
@@ -645,6 +653,7 @@ Entry-specific runtime, tooling, and optional-peer reachability assignments:
 | `@zmdb/mssql`         | optional peer               | `mssql@^12.7.0`                            | `.`                                                                                                                                                   |
 | `@zmdb/mysql`         | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                   |
 | `@zmdb/postgres`      | optional peer               | `pg@^8.23.0`                               | `.`                                                                                                                                                   |
+| `@zmdb/singlestore`   | optional peer               | `mysql2@^3.24.3`                           | `.`                                                                                                                                                   |
 | `@zmdb/web`           | tooling boundary            | tooling-only code                          | `./contract/compiler`<br>`./devtools`<br>`./testing`                                                                                                  |
 | `@zmdb/web`           | optional peer               | `typescript@>=7.0.0`                       | `./contract/compiler`                                                                                                                                 |
 | `zmdb`                | tooling boundary            | tooling-only code                          | `./cli`<br>`./config`<br>`./migrations`<br>`./unplugin`<br>`./web/contract/compiler`<br>`bin:zmdb`                                                    |
@@ -693,7 +702,7 @@ entries cannot reach compiler/build tools, REPL/devtools modules or an optional 
 inferred from a directory name, and stale exceptions fail. `verify:exports` delegates reachability to that verifier, while `verify:devtools-boundary` remains a compatibility command over the same
 policy. Relative source imports retain NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 
-The frozen release model has one eight-package lockstep core, 27 independently versioned integrations, one independently versioned tooling package, and private workspaces that never publish. Same-core
+The frozen release model has one eight-package lockstep core, 28 independently versioned integrations, one independently versioned tooling package, and private workspaces that never publish. Same-core
 edges use `workspace:^`; every edge crossing release units carries an explicit measured compatibility range. The root changelog identifies `core` or one independent catalog id, and tags are
 `core-v<version>` or `<catalog-id>-v<version>`. Product membership, architecture constraints, release/compatibility policy, release content, and npm credentials remain separate authorities.
 
@@ -920,7 +929,8 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 ## 7. Superseded
 
 This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the thirty-six-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
+the north-star-driven language policy in §4 here, and it records the thirty-seven-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
 `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/ai`, its opt-in integrations, `@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`,
-`@zmdb/jobs-postgres`, `@zmdb/mssql`, `@zmdb/postgres`, `@zmdb/cockroach`, `@zmdb/sqlite`, `@zmdb/mysql`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
-`@zmdb/transport-redis`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md` and the docs site.
+`@zmdb/jobs-postgres`, `@zmdb/mssql`, `@zmdb/postgres`, `@zmdb/cockroach`, `@zmdb/sqlite`, `@zmdb/mysql`, `@zmdb/singlestore`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,
+`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each package's `SPEC.md`
+and the docs site.

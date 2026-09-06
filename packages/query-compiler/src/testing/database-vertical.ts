@@ -44,7 +44,7 @@ export interface FrozenResolvedDialectTraits {
   readonly rowValueIn: boolean;
   readonly returning: Readonly<Record<FrozenReturningStatement, FrozenReturningStyle>>;
   readonly upsert: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
-  readonly fts: 'tsvector' | 'match' | 'companionTable' | 'none';
+  readonly fts: 'tsvector' | 'match' | 'matchPlain' | 'companionTable' | 'none';
   readonly concat: 'operator' | 'function';
   readonly booleanNot: 'not' | 'bitwise';
   readonly types: Readonly<Record<(typeof SQL_TYPE_KEYS)[number], string>>;

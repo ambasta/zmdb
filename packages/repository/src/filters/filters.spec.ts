@@ -1010,7 +1010,7 @@ describe('soft-delete declaration and timestamp contract', () => {
       sqlite: '"deletedAt" TEXT',
       mssql: '[deletedAt] DATETIMEOFFSET(3)',
       cockroach: '"deletedAt" TIMESTAMPTZ',
-      singlestore: '`deletedAt` DATETIME(3)',
+      singlestore: '`deletedAt` DATETIME(6)',
     } satisfies Record<Dialect, string>;
 
     for (const dialect of DIALECT_VARIANTS) {

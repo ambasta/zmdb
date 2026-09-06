@@ -9,6 +9,7 @@ import type {
 import {
   UnsupportedFeatureError,
   type AppliedMigration,
+  type DialectTypeMap,
   type MigrationConnection,
   type MigrationDialect,
   type MigrationDriver,
@@ -33,6 +34,27 @@ const TYPES = Object.freeze({
 
 const EXTENSION_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+type CreateTableOperation = Extract<ChangeOp, { readonly kind: 'create_table' }>;
+
+export interface MysqlTableDdlHelpers {
+  readonly quote: (identifier: string) => string;
+  readonly keyColumns: (columns: readonly string[]) => string;
+}
+
+export interface MysqlTableDdlExtension {
+  readonly createPrefix: (operation: CreateTableOperation) => string;
+  readonly definitions: (operation: CreateTableOperation, helpers: MysqlTableDdlHelpers) => readonly string[];
+}
+
+export interface MysqlMigrationOverrides {
+  readonly types?: Readonly<Partial<DialectTypeMap>>;
+  readonly table?: MysqlTableDdlExtension;
+  readonly ledger?: {
+    readonly createPrefix: string;
+    readonly definitions?: readonly string[];
+  };
+}
+
 function quote(identifier: string): string {
   return `\`${identifier.replaceAll('`', '``')}\``;
 }
@@ -55,7 +77,7 @@ function unsupported<Name extends string>(name: Name, feature: string, message?:
   return new UnsupportedFeatureError(feature, name, message);
 }
 
-function ddlType<Name extends string>(name: Name, column: ColumnSnapshot): string {
+function ddlType<Name extends string>(name: Name, types: DialectTypeMap, column: ColumnSnapshot): string {
   if (typeof column.type !== 'string') {
     const rendered = extensionType(column.type);
     throw unsupported(
@@ -64,7 +86,7 @@ function ddlType<Name extends string>(name: Name, column: ColumnSnapshot): strin
       `${name} does not support extension type ${rendered} on column "${column.name}"`,
     );
   }
-  const mapped = Reflect.get(TYPES, column.type);
+  const mapped = Reflect.get(types, column.type);
   const scalar = typeof mapped === 'string' ? mapped : column.type;
   if (column.type === 'varchar') {
     if (column.length === undefined) return 'TEXT';
@@ -79,6 +101,7 @@ function ddlType<Name extends string>(name: Name, column: ColumnSnapshot): strin
 
 function columnDdl<Name extends string>(
   name: Name,
+  types: DialectTypeMap,
   table: string,
   column: ColumnSnapshot,
   key: { readonly inline: boolean; readonly tableLevel: boolean },
@@ -86,7 +109,7 @@ function columnDdl<Name extends string>(
   const primary = key.inline ? ' PRIMARY KEY' : '';
   const notNull = !key.inline && (!column.nullable || key.tableLevel) ? ' NOT NULL' : '';
   const unique = column.unique === true && column.type !== 'serial' && !key.inline ? ' UNIQUE' : '';
-  return `${quote(column.name)} ${ddlType(name, column)}${primary}${notNull}${unique}`;
+  return `${quote(column.name)} ${ddlType(name, types, column)}${primary}${notNull}${unique}`;
 }
 
 function keyColumns(columns: readonly string[]): string {
@@ -130,9 +153,11 @@ function foreignKeyConstraint<Name extends string>(name: Name, foreignKey: Forei
 
 function createTable<Name extends string>(
   name: Name,
-  operation: Extract<ChangeOp, { readonly kind: 'create_table' }>,
+  types: DialectTypeMap,
+  tableExtension: MysqlTableDdlExtension | undefined,
+  operation: CreateTableOperation,
 ): string {
-  if (operation.tableOptions !== undefined) {
+  if (operation.tableOptions !== undefined && tableExtension === undefined) {
     throw unsupported(
       name,
       `table options on "${operation.table}"`,
@@ -146,7 +171,7 @@ function createTable<Name extends string>(
   const inline = operation.primaryKey.length === 1 ? operation.primaryKey[0] : undefined;
   const tableLevel = operation.primaryKey.length > 1 ? new Set(operation.primaryKey) : undefined;
   const definitions = operation.columns.map(column =>
-    columnDdl(name, operation.table, column, {
+    columnDdl(name, types, operation.table, column, {
       inline: column.name === inline,
       tableLevel: tableLevel?.has(column.name) === true,
     }),
@@ -165,7 +190,19 @@ function createTable<Name extends string>(
     definitions.push(`INDEX ${quote(supportIndexName(name, foreignKey))} (${keyColumns(foreignKey.columns)})`);
     definitions.push(foreignKeyConstraint(name, foreignKey));
   }
-  return `CREATE TABLE ${quote(operation.table)} (${definitions.join(', ')})`;
+  if (tableExtension !== undefined) {
+    definitions.push(
+      ...tableExtension.definitions(
+        operation,
+        Object.freeze({
+          quote,
+          keyColumns,
+        }),
+      ),
+    );
+  }
+  const prefix = tableExtension?.createPrefix(operation) ?? 'CREATE TABLE';
+  return `${prefix} ${quote(operation.table)} (${definitions.join(', ')})`;
 }
 
 function addForeignKey<Name extends string>(name: Name, table: string, foreignKey: ForeignKeySnapshot): string {
@@ -183,6 +220,7 @@ function dropForeignKey(table: string, constraint: string, supportIndex: boolean
 
 function alteredType<Name extends string>(
   name: Name,
+  types: DialectTypeMap,
   operation: Extract<ChangeOp, { readonly kind: 'alter_column_type' }>,
   direction: 'up' | 'down',
 ): string {
@@ -195,7 +233,7 @@ function alteredType<Name extends string>(
     );
   }
   const type = direction === 'up' ? operation.to : operation.from;
-  return `${ddlType(name, {
+  return `${ddlType(name, types, {
     name: operation.column,
     type,
     nullable,
@@ -211,18 +249,23 @@ function alterPrimaryKey(table: string, from: readonly string[], to: readonly st
   return `ALTER TABLE ${quote(table)} ${clauses.join(', ')}`;
 }
 
-function emitUp<Name extends string>(name: Name, operation: ChangeOp): string {
+function emitUp<Name extends string>(
+  name: Name,
+  types: DialectTypeMap,
+  tableExtension: MysqlTableDdlExtension | undefined,
+  operation: ChangeOp,
+): string {
   switch (operation.kind) {
     case 'create_extension':
       throw unsupported(name, `extension "${operation.name}"`);
     case 'create_table':
-      return createTable(name, operation);
+      return createTable(name, types, tableExtension, operation);
     case 'drop_table':
       return `DROP TABLE ${quote(operation.table)}`;
     case 'add_column':
       return (
         `ALTER TABLE ${quote(operation.table)} ADD COLUMN ` +
-        columnDdl(name, operation.table, operation.column, {
+        columnDdl(name, types, operation.table, operation.column, {
           inline: operation.column.primaryKey,
           tableLevel: false,
         })
@@ -232,7 +275,7 @@ function emitUp<Name extends string>(name: Name, operation: ChangeOp): string {
     case 'alter_column_type':
       return (
         `ALTER TABLE ${quote(operation.table)} MODIFY COLUMN ${quote(operation.column)} ` +
-        alteredType(name, operation, 'up')
+        alteredType(name, types, operation, 'up')
       );
     case 'alter_primary_key':
       return alterPrimaryKey(operation.table, operation.from, operation.to);
@@ -243,7 +286,7 @@ function emitUp<Name extends string>(name: Name, operation: ChangeOp): string {
   }
 }
 
-function emitDown<Name extends string>(name: Name, operation: ChangeOp): string {
+function emitDown<Name extends string>(name: Name, types: DialectTypeMap, operation: ChangeOp): string {
   switch (operation.kind) {
     case 'create_extension':
       throw unsupported(name, `extension "${operation.name}"`);
@@ -266,7 +309,7 @@ function emitDown<Name extends string>(name: Name, operation: ChangeOp): string 
     case 'alter_column_type':
       return (
         `ALTER TABLE ${quote(operation.table)} MODIFY COLUMN ${quote(operation.column)} ` +
-        alteredType(name, operation, 'down')
+        alteredType(name, types, operation, 'down')
       );
     case 'alter_primary_key':
       return alterPrimaryKey(operation.table, operation.to, operation.from);
@@ -320,8 +363,8 @@ function createIndex<Name extends string>(name: Name, definition: IndexDef): str
   );
 }
 
-function routineType(type: RoutineSqlType): string {
-  const mapped = Reflect.get(TYPES, type);
+function routineType(types: DialectTypeMap, type: RoutineSqlType): string {
+  const mapped = Reflect.get(types, type);
   return typeof mapped === 'string' ? (type === 'serial' ? 'INT' : mapped) : type;
 }
 
@@ -352,14 +395,14 @@ function assertRoutine<Name extends string>(name: Name, definition: RoutineDef):
   }
 }
 
-function createRoutine<Name extends string>(name: Name, definition: RoutineDef): string {
+function createRoutine<Name extends string>(name: Name, types: DialectTypeMap, definition: RoutineDef): string {
   assertRoutine(name, definition);
   const parameters = definition.params
-    .map(parameter => `${quote(parameter.name)} ${routineType(parameter.type)}`)
+    .map(parameter => `${quote(parameter.name)} ${routineType(types, parameter.type)}`)
     .join(', ');
   const returnType = definition.kind === 'function' ? definition.returns?.type : undefined;
   if (returnType === 'void') throw unsupported(name, `${routineLabel(definition)} cannot return void`);
-  const returns = returnType === undefined ? '' : ` RETURNS ${routineType(returnType)}`;
+  const returns = returnType === undefined ? '' : ` RETURNS ${routineType(types, returnType)}`;
   const deterministic =
     definition.kind === 'function'
       ? ` ${definition.deterministic === true ? 'DETERMINISTIC' : 'NOT DETERMINISTIC'}`
@@ -375,7 +418,11 @@ function dropRoutine<Name extends string>(name: Name, definition: RoutineDef): s
   return `DROP ${definition.kind.toUpperCase()} IF EXISTS ${quote(definition.name)}`;
 }
 
-function emitSchemaObject<Name extends string>(name: Name, operation: SchemaObjectOperation): readonly string[] {
+function emitSchemaObject<Name extends string>(
+  name: Name,
+  types: DialectTypeMap,
+  operation: SchemaObjectOperation,
+): readonly string[] {
   switch (operation.kind) {
     case 'create_index':
       return [createIndex(name, operation.definition)];
@@ -404,23 +451,28 @@ function emitSchemaObject<Name extends string>(name: Name, operation: SchemaObje
     case 'create_extension':
       throw unsupported(name, `extension "${operation.definition.name}"`);
     case 'create_routine':
-      return [createRoutine(name, operation.definition)];
+      return [createRoutine(name, types, operation.definition)];
     case 'drop_routine':
       return [dropRoutine(name, operation.definition)];
     case 'replace_routine':
-      return [dropRoutine(name, operation.previous ?? operation.next), createRoutine(name, operation.next)];
+      return [dropRoutine(name, operation.previous ?? operation.next), createRoutine(name, types, operation.next)];
   }
 }
 
-function validateSnapshot<Name extends string>(name: Name, snapshot: SchemaSnapshot): void {
+function validateSnapshot<Name extends string>(
+  name: Name,
+  types: DialectTypeMap,
+  tableExtension: MysqlTableDdlExtension | undefined,
+  snapshot: SchemaSnapshot,
+): void {
   if (snapshot.extensions.length > 0) {
     throw unsupported(name, `extension "${snapshot.extensions[0]?.name ?? 'unknown'}"`);
   }
   for (const table of snapshot.tables) {
-    if (table.tableOptions !== undefined) {
+    if (table.tableOptions !== undefined && tableExtension === undefined) {
       throw unsupported(name, `table options on "${table.name}"`);
     }
-    for (const column of table.columns) ddlType(name, column);
+    for (const column of table.columns) ddlType(name, types, column);
     for (const foreignKey of table.foreignKeys) foreignKeyConstraint(name, foreignKey);
   }
 }
@@ -456,6 +508,7 @@ function migrationConnection<Name extends string>(
   name: Name,
   driver: MigrationDriver<Name>,
   options: MigrationTableOptions = {},
+  ledger: MysqlMigrationOverrides['ledger'],
 ): MigrationConnection<Name> {
   const tableName = options.table ?? '_zmdb_migrations';
   const table = options.schema === undefined ? quote(tableName) : `${quote(options.schema)}.${quote(tableName)}`;
@@ -505,9 +558,14 @@ function migrationConnection<Name extends string>(
       await execute(`DELETE FROM ${table} WHERE version = ?`, [version]);
     },
     async ensureVersionTable() {
+      const createPrefix = ledger?.createPrefix ?? 'CREATE TABLE';
+      const extraDefinitions =
+        ledger?.definitions === undefined || ledger.definitions.length === 0
+          ? ''
+          : `, ${ledger.definitions.join(', ')}`;
       await execute(
-        `CREATE TABLE IF NOT EXISTS ${table} (` +
-          'version BIGINT PRIMARY KEY, name TEXT NOT NULL, applied_at BIGINT NOT NULL, checksum TEXT)',
+        `${createPrefix} IF NOT EXISTS ${table} (` +
+          `version BIGINT PRIMARY KEY, name TEXT NOT NULL, applied_at BIGINT NOT NULL, checksum TEXT${extraDefinitions})`,
       );
       await execute(`ALTER TABLE ${table} MODIFY COLUMN version BIGINT NOT NULL`);
       try {
@@ -527,21 +585,52 @@ function migrationConnection<Name extends string>(
   return connection;
 }
 
-export function createMysqlMigrations<Name extends string>(name: Name): MigrationDialect<Name> {
+function resolvedTypes(overrides: MysqlMigrationOverrides): DialectTypeMap {
+  return Object.freeze({
+    ...TYPES,
+    ...overrides.types,
+  });
+}
+
+export function mysqlFamilyMigrations<Name extends string>(
+  name: Name,
+  overrides: MysqlMigrationOverrides = {},
+): MigrationDialect<Name> {
+  const types = resolvedTypes(overrides);
+  const tableExtension =
+    overrides.table === undefined
+      ? undefined
+      : Object.freeze({
+          createPrefix: overrides.table.createPrefix,
+          definitions: overrides.table.definitions,
+        });
+  const ledger =
+    overrides.ledger === undefined
+      ? undefined
+      : Object.freeze({
+          createPrefix: overrides.ledger.createPrefix,
+          ...(overrides.ledger.definitions === undefined
+            ? {}
+            : { definitions: Object.freeze([...overrides.ledger.definitions]) }),
+        });
   const migrations: MigrationDialect<Name> = {
     name,
-    validateSnapshot: (snapshot: SchemaSnapshot) => validateSnapshot(name, snapshot),
+    validateSnapshot: (snapshot: SchemaSnapshot) => validateSnapshot(name, types, tableExtension, snapshot),
     validatePlan(plan: MigrationPlan) {
-      validateSnapshot(name, plan.before);
-      validateSnapshot(name, plan.after);
-      for (const operation of plan.operations) emitUp(name, operation);
+      validateSnapshot(name, types, tableExtension, plan.before);
+      validateSnapshot(name, types, tableExtension, plan.after);
+      for (const operation of plan.operations) emitUp(name, types, tableExtension, operation);
     },
-    ddlType: (column: ColumnSnapshot) => ddlType(name, column),
-    emitUp: (operation: ChangeOp) => emitUp(name, operation),
-    emitDown: (operation: ChangeOp) => emitDown(name, operation),
-    emitSchemaObject: (operation: SchemaObjectOperation) => emitSchemaObject(name, operation),
+    ddlType: (column: ColumnSnapshot) => ddlType(name, types, column),
+    emitUp: (operation: ChangeOp) => emitUp(name, types, tableExtension, operation),
+    emitDown: (operation: ChangeOp) => emitDown(name, types, operation),
+    emitSchemaObject: (operation: SchemaObjectOperation) => emitSchemaObject(name, types, operation),
     connection: (driver: MigrationDriver<Name>, options?: MigrationTableOptions) =>
-      migrationConnection(name, driver, options),
+      migrationConnection(name, driver, options, ledger),
   };
   return Object.freeze(migrations);
+}
+
+export function createMysqlMigrations<Name extends string>(name: Name): MigrationDialect<Name> {
+  return mysqlFamilyMigrations(name);
 }

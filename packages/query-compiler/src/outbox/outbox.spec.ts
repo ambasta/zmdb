@@ -167,7 +167,10 @@ describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
     expect(outboxTableDdl(mssql)).toContain('[created_at] DATETIMEOFFSET(3) NOT NULL DEFAULT SYSDATETIMEOFFSET()');
     expect(outboxTableDdl('cockroach')).toContain('"attempts" INT4 NOT NULL DEFAULT 0');
     expect(outboxTableDdl('singlestore')).toMatch(/^CREATE ROWSTORE TABLE `zmdb_outbox`/);
-    expect(outboxTableDdl('singlestore')).toContain('`created_at` DATETIME(3)');
+    expect(outboxTableDdl('singlestore')).toContain('`created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)');
+    expect(outboxTableDdl('singlestore')).toContain(
+      "`lease_until` DATETIME(6) NOT NULL DEFAULT '1970-01-01 00:00:00.000000'",
+    );
     for (const dialect of DIALECTS) {
       const migration = outboxMigration(42, target(dialect));
       expect(migration.version).toBe(42);

@@ -63,6 +63,7 @@ export interface DialectCompiler {
 }
 
 export interface DialectOutbox {
+  readonly createTable: string;
   readonly pendingIndex: 'filtered' | 'full';
   readonly epochLiteral: string;
   readonly createdAtDefault: string;
@@ -111,7 +112,7 @@ export interface ResolvedDialectTraits {
   readonly rowValueIn: boolean;
   readonly returning: ReturningCapability;
   readonly upsert: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
-  readonly fts: 'tsvector' | 'match' | 'companionTable' | 'none';
+  readonly fts: 'tsvector' | 'match' | 'matchPlain' | 'companionTable' | 'none';
   readonly concat: 'operator' | 'function';
   readonly booleanNot: 'not' | 'bitwise';
   readonly types: DialectTypeMap;
@@ -383,6 +384,7 @@ function assertSqlDialect(dialect: SqlDialect): void {
   }
   if (dialect.outbox !== undefined) {
     exactKeys(`${dialect.name} outbox`, dialect.outbox, [
+      'createTable',
       'pendingIndex',
       'epochLiteral',
       'createdAtDefault',
@@ -391,7 +393,7 @@ function assertSqlDialect(dialect: SqlDialect): void {
     if (dialect.outbox.pendingIndex !== 'filtered' && dialect.outbox.pendingIndex !== 'full') {
       throw new TypeError(`${dialect.name} outbox pendingIndex must be filtered or full`);
     }
-    for (const key of ['epochLiteral', 'createdAtDefault'] as const) {
+    for (const key of ['createTable', 'epochLiteral', 'createdAtDefault'] as const) {
       if (typeof dialect.outbox[key] !== 'string' || dialect.outbox[key].length === 0) {
         throw new TypeError(`${dialect.name} outbox ${key} must be a non-empty string`);
       }

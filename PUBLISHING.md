@@ -10,8 +10,8 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 
 ## Current executable release governance
 
-Issue #728 implements the release tooling that is checked in today: all 36 public packages move as one train under one `v<version>` tag. Issue #746 freezes its replacement in
-[`scripts/release/SPEC.md`](./scripts/release/SPEC.md): eight core packages remain cohesive, 27 integrations and one tooling package become independent release units, and compatibility ranges come
+Issue #728 implements the release tooling that is checked in today: all 37 public packages move as one train under one `v<version>` tag. Issue #746 freezes its replacement in
+[`scripts/release/SPEC.md`](./scripts/release/SPEC.md): eight core packages remain cohesive, 28 integrations and one tooling package become independent release units, and compatibility ranges come
 from one release-policy authority.
 
 Issues #747–#750 have not implemented that target yet. Until they do, every command and diagnostic in this page describes the current all-package workflow. Do not use the current scripts to prepare or

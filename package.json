@@ -43,6 +43,7 @@
     "verify:database-boundaries": "node .github/scripts/verify-database-boundaries.mjs && node .github/scripts/verify-database-boundaries.mjs --self-test",
     "verify:database-cockroach": "node fixtures/database-cockroach/verify-installed.mjs",
     "verify:database-postgres": "node fixtures/database-postgres/verify-installed.mjs",
+    "verify:database-singlestore": "node fixtures/database-singlestore/verify-installed.mjs",
     "verify:devtools-boundary": "node .github/scripts/verify-devtools-boundary.mjs",
     "verify:docs-coverage": "node .github/scripts/verify-docs-coverage.mjs",
     "verify:docs-generated": "node .github/scripts/verify-docs-generated.mjs",
@@ -62,6 +63,7 @@
     "verify:release-governance": "node .github/scripts/verify-release-governance.mjs && node .github/scripts/verify-release-governance.mjs --self-test && node .github/scripts/publish-package.mjs --self-test",
     "verify:runtime-reachability": "node .github/scripts/verify-runtime-reachability.mjs && node .github/scripts/verify-runtime-reachability.mjs --self-test",
     "verify:server-integrations": "node fixtures/consumer-server-integrations/verify-installed.mjs --integrations --require-services",
+    "verify:singlestore-live": "ZMDB_SINGLESTORE_REQUIRED=1 vitest run packages/singlestore/src/singlestore.live.spec.ts",
     "verify:tf-acceptance": "node .github/scripts/verify-tf-acceptance.mjs",
     "verify:tf-coverage": "node .github/scripts/verify-tf-coverage.mjs"
   },

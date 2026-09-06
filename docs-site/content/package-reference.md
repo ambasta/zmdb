@@ -48,6 +48,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/react-native       | 1.0.0-alpha.4 | react-native    | integration: React Native                      | `npm add @zmdb/react-native@1.0.0-alpha.4 'react@>=19.2.0 <20.0.0' 'react-native@>=0.87.0 <0.88.0'`              | React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.                                                                                                                          | client-react-native          |
 | @zmdb/repository         | 1.0.0-alpha.4 | orm             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.                                              | repository                   |
 | @zmdb/schema-core        | 1.0.0-alpha.4 | schema          | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), relations, OpenAPI, and custom types — the single source of truth for a zmdb data layer.                                                    | schema-declaration           |
+| @zmdb/singlestore        | 1.0.0-alpha.4 | singlestore     | integration: SingleStore                       | `npm add @zmdb/singlestore@1.0.0-alpha.4`                                                                        | SingleStore vertical for zmdb: MySQL-family compilation, storage-aware migrations, catalog introspection, and mysql2 driver binding.                                                                                    | dialect-singlestore          |
 | @zmdb/solid              | 1.0.0-alpha.4 | solid           | integration: Solid client resources            | `npm add @zmdb/solid@1.0.0-alpha.4 'solid-js@>=1.9.0 <2.0.0'`                                                    | Solid context, resource and owner-lifetime bindings for generated zmdb clients.                                                                                                                                         | client-solid                 |
 | @zmdb/sqlite             | 1.0.0-alpha.4 | sqlite          | integration: SQLite                            | `npm add @zmdb/sqlite@1.0.0-alpha.4`                                                                             | Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.                                                           | dialect-sqlite               |
 | @zmdb/svelte             | 1.0.0-alpha.4 | svelte          | integration: Svelte 5                          | `npm add @zmdb/svelte@1.0.0-alpha.4 'svelte@>=5.0.0 <6.0.0'`                                                     | Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.                                                                                                        | client-svelte                |
@@ -675,6 +676,27 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `zmdb/relations`
   - `zmdb/tags`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
+
+### `@zmdb/singlestore`
+
+SingleStore vertical for zmdb: MySQL-family compilation, storage-aware migrations, catalog introspection, and mysql2 driver binding.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/migrations` → `workspace:^`
+  - `@zmdb/mysql` → `workspace:^`
+  - `@zmdb/query-compiler` → `workspace:^`
+  - `@zmdb/repository` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:**
+  - `mysql2` → `^3.24.3`
+- **Required peers:** None.
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/database-singlestore
 
 ### `@zmdb/solid`
 

@@ -167,6 +167,37 @@ jobs:
         if: always()
         run: docker rm --force zmdb-issue-671-mysql-publish || true
 
+      - name: Start the official SingleStore Dev Image
+        run: |
+          docker volume create zmdb-issue-674-singlestore-publish-data
+          docker run --detach --name zmdb-issue-674-singlestore-publish \
+            --env ROOT_PASSWORD=zmdb674 \
+            --publish 3306:3306 \
+            --volume zmdb-issue-674-singlestore-publish-data:/var/lib/memsql \
+            ghcr.io/singlestore-labs/singlestoredb-dev@sha256:7ad84887a8a3e0bb1574e38886ff9893b01a4906414bfd105850e740306422fa
+          for attempt in $(seq 1 90); do
+            if docker exec zmdb-issue-674-singlestore-publish \
+              bash -lc "singlestore -uroot -pzmdb674 -e 'SELECT 1'" >/dev/null 2>&1; then
+              docker exec zmdb-issue-674-singlestore-publish \
+                bash -lc "singlestore -uroot -pzmdb674 -e 'CREATE DATABASE IF NOT EXISTS zmdb674'"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs zmdb-issue-674-singlestore-publish
+          exit 1
+
+      - name: Verify the packed SingleStore consumer against the real server
+        env:
+          ZMDB_SINGLESTORE_URL: mysql://root:zmdb674@127.0.0.1:3306/zmdb674
+        run: yarn verify:singlestore-live
+
+      - name: Remove the issue 674 SingleStore service and volume
+        if: always()
+        run: |
+          docker rm --force zmdb-issue-674-singlestore-publish || true
+          docker volume rm --force zmdb-issue-674-singlestore-publish-data || true
+
       - name: Materialize the verified release plan
         run: |
           node scripts/release/plan.mjs --json > "$RUNNER_TEMP/zmdb-release-plan.json"

@@ -259,6 +259,14 @@ export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
   }
   const method = indexMethod(def.method, def);
   assertIndexMethodSupported(method, def, dialect);
+  if (dialect === 'singlestore' && method !== undefined) {
+    throw new UnsupportedFeatureError(
+      `index method ${method} without table-storage evidence`,
+      dialect,
+      `singlestore cannot emit explicit ${method.toUpperCase()} index "${def.name}" because method support depends ` +
+        'on rowstore versus columnstore storage; omit the method or use a reviewed hand-written migration',
+    );
+  }
   const cols = def.columns.map(column => renderIndexColumn(column, def, dialect)).join(', ');
   const unique = def.unique ? 'UNIQUE ' : '';
   const mysqlMethod =
@@ -272,6 +280,13 @@ export function createIndexDdl(def: IndexDef, dialect: Dialect): string {
   );
 }
 export function checkConstraintDdl(table: string, name: string, expr: string, dialect: Dialect): string {
+  if (dialect === 'singlestore') {
+    throw new UnsupportedFeatureError(
+      `check constraint "${name}"`,
+      dialect,
+      `singlestore does not support CHECK constraint "${name}" on "${table}"`,
+    );
+  }
   return `ALTER TABLE ${quoteId(dialect, table)} ADD CONSTRAINT ${quoteId(dialect, name)} CHECK (${expr})`;
 }
 

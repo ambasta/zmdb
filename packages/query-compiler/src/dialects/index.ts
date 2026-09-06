@@ -74,7 +74,7 @@ interface DialectTraitOverrides {
   readonly rowValueIn?: boolean;
   readonly returning?: Readonly<Partial<ReturningCapability>>;
   readonly upsert?: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
-  readonly fts?: 'tsvector' | 'match' | 'companionTable' | 'none';
+  readonly fts?: 'tsvector' | 'match' | 'matchPlain' | 'companionTable' | 'none';
   readonly concat?: 'operator' | 'function';
   readonly booleanNot?: 'not' | 'bitwise';
   readonly types?: Readonly<Partial<DialectTypeMap>>;
@@ -312,7 +312,9 @@ export const DIALECTS: Readonly<Record<BuiltInDialect, DialectTraits>> = Object.
     parent: 'mysql',
     types: Object.freeze({
       serial: 'BIGINT AUTO_INCREMENT',
+      timestamp: 'DATETIME(6)',
     }),
+    fts: 'matchPlain',
     features: Object.freeze({
       foreignKeys: false,
     }),

@@ -325,6 +325,17 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  singlestore: packagePolicy({
+    directory: 'packages/singlestore',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['migrations', 'mysql', 'query-compiler', 'repository'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {
+      mysql2: ['.'],
+    },
+    toolingEntries: [],
+  }),
   sqlite: packagePolicy({
     directory: 'packages/sqlite',
     zone: 'runtime',

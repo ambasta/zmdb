@@ -75,6 +75,19 @@ describe('CockroachDB and SingleStore dialect variants', () => {
     );
   });
 
+  it('refuses a SingleStore sort key on the explicit rowstore alternative', () => {
+    const table = onlyTable(SessionSchema);
+    expect(() =>
+      emitUp(
+        createTable({
+          ...table,
+          tableOptions: { rowstore: true, sortKey: ['id'] },
+        }),
+        'singlestore',
+      ),
+    ).toThrow('cannot declare SORT KEY on explicit ROWSTORE table "sessions"');
+  });
+
   it('refuses a SingleStore table whose storage and distribution were left implicit', () => {
     const table: TableSnapshot = {
       name: 'implicit',

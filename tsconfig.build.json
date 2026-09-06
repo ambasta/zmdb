@@ -70,6 +70,7 @@
       "@zmdb/postgres/*": ["./packages/postgres/dist/*/index.d.ts"],
       "@zmdb/cockroach": ["./packages/cockroach/dist/index.d.ts"],
       "@zmdb/cockroach/*": ["./packages/cockroach/dist/*/index.d.ts"],
+      "@zmdb/singlestore": ["./packages/singlestore/dist/index.d.ts"],
       "@zmdb/repository": ["./packages/repository/dist/index.d.ts"],
       "@zmdb/repository/drivers/*": ["./packages/repository/dist/drivers/*.d.ts"],
       "@zmdb/repository/*": ["./packages/repository/dist/*/index.d.ts"],

@@ -16,6 +16,12 @@ describe('full-text search compilation', () => {
     expect(q.text).toBe('SELECT * FROM `customers` WHERE MATCH(`company_name`) AGAINST(? IN NATURAL LANGUAGE MODE)');
   });
 
+  it('singlestore MATCH ... AGAINST omits MySQL natural-language mode', () => {
+    const q = ftsSelectFrom('customers', 'singlestore').whereMatch('company_name', 'ltd').compile();
+    expect(q.text).toBe('SELECT * FROM `customers` WHERE MATCH(`company_name`) AGAINST(?)');
+    expect(q.parameters).toEqual(['ltd']);
+  });
+
   it('sqlite whereMatch on plain column throws UnsupportedFeatureError', () => {
     expect(() => ftsSelectFrom('customers', 'sqlite').whereMatch('company_name', 'ltd').compile()).toThrow(
       UnsupportedFeatureError,

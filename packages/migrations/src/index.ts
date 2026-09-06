@@ -472,11 +472,12 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
   for (const t of next.tables) {
     const before = prevTables.get(t.name);
     if (!before) continue;
-    if (!sameTableOptions(before.tableOptions, t.tableOptions) && selectedDialect === 'singlestore') {
+    if (!sameTableOptions(before.tableOptions, t.tableOptions)) {
+      const target = selectedDialect ?? 'the selected migration dialect';
       throw new UnsupportedFeatureError(
         'table options change',
-        'singlestore',
-        `singlestore cannot alter the shard key, sort key, or rowstore setting of "${t.name}"; ` +
+        target,
+        `${target} cannot alter the shard key, sort key, or rowstore setting of "${t.name}"; ` +
           'create a replacement table and copy the data',
       );
     }
@@ -668,6 +669,14 @@ function singlestoreTableDefinitions(
       'singlestore',
       `singlestore table "${op.table}" must declare ShardKey<…> or Rowstore; ` +
         'leaving both absent makes storage and distribution an accidental default',
+    );
+  }
+  if (options?.rowstore === true && sortKey !== undefined) {
+    throw new UnsupportedFeatureError(
+      `sort key on rowstore table "${op.table}"`,
+      'singlestore',
+      `singlestore cannot declare SORT KEY on explicit ROWSTORE table "${op.table}"; ` +
+        'use an ordinary rowstore index or remove Rowstore to create a columnstore table',
     );
   }
 

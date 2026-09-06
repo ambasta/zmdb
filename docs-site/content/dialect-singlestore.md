@@ -1,42 +1,43 @@
-Supported dialect variant: `'singlestore'`. It inherits the MySQL query family and adds explicit distribution/storage declarations plus SingleStore-specific refusals. The repository ships no
-MySQL-protocol driver and the automated gate does not run a licensed SingleStore service, so live-server acceptance remains deployment evidence rather than repository evidence.
+Installable database vertical: `@zmdb/singlestore`. It is a one-way child of `@zmdb/mysql`: ordinary MySQL query compilation, quoting, placeholders, connection pinning, and catalog parsing stay in the
+parent, while the child owns SingleStore storage/distribution declarations, catalog adaptation, and conservative refusals. The mandatory packed-consumer lane runs against the official SingleStore Dev
+Image.
 
 ## Using it
 
 ```ts
-import type { Driver } from '@zmdb/repository';
+import { singlestore, singlestoreDriver } from '@zmdb/singlestore';
+import { createQueryCompiler } from '@zmdb/query-compiler';
+import mysql2 from 'mysql2/promise';
 
-const compiler = createQueryCompiler('singlestore');
-const driver: Driver = {
-  dialect: 'singlestore',
-  async execute(query) {
-    const [result] = await pool.execute(query.text, [...query.parameters]);
-    return Array.isArray(result) ? result : [];
-  },
-};
-const userRepo = defineRepository(users, driver, { dialect: 'singlestore' });
+const pool = mysql2.createPool(process.env.SINGLESTORE_URL!);
+const compiler = createQueryCompiler(singlestore);
+const driver = singlestoreDriver(pool);
 ```
 
-Connect with a MySQL-protocol client through the [custom-driver boundary](./custom-driver.html). Everything on the [MySQL dialect page](./dialect-mysql.html) still applies: backtick quoting, `?`
-placeholders, `TINYINT(1)` booleans, `INSERT IGNORE`, `ON DUPLICATE KEY UPDATE`, and no `RETURNING`.
+The application constructs and owns the mysql2-compatible pool. `mysql2` is an optional peer, not a hard dependency. Everything on the [MySQL dialect page](./dialect-mysql.html) still applies where
+SingleStore does not diverge: backtick quoting, `?` placeholders, `TINYINT(1)` booleans, `INSERT IGNORE`, `ON DUPLICATE KEY UPDATE`, and no `RETURNING`.
 
 ## Divergence and refusal matrix
 
 | Construct                   | Emitted SQL / behavior                              | Caveat or refusal                                               |
 | --------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| identifiers / placeholders  | MySQL backticks and `?`                             | supply a MySQL-protocol `Driver`; none is bundled               |
+| identifiers / placeholders  | MySQL backticks and `?`                             | `singlestoreDriver` binds a mysql2-compatible pool              |
 | upsert                      | `ON DUPLICATE KEY UPDATE`                           | the MySQL family has no conflict-target syntax                  |
 | returning rows              | refused                                             | repository paths do not issue a hidden follow-up read           |
 | `serial`                    | `BIGINT AUTO_INCREMENT`                             | allocation is partitioned; `Serial` is still typed as `number`  |
+| `timestamp`                 | `DATETIME(6)`                                       | SingleStore accepts fractional precision 0 or 6, not MySQL's 3  |
 | table storage/distribution  | `SHARD KEY`, `SORT KEY`, or `CREATE ROWSTORE TABLE` | every generated table must declare `ShardKey<…>` or `Rowstore`  |
+| rowstore sort key           | refused before execution                            | explicit rowstore tables cannot use columnstore `SORT KEY`      |
 | table-option change         | refused                                             | create a replacement table and copy the data                    |
-| foreign keys                | refused                                             | enforce referential integrity in the application                |
+| foreign keys                | refused before execution                            | not qualified by this package's frozen capability contract      |
 | unique column               | emitted only when it includes the whole shard key   | otherwise migration generation refuses it                       |
-| indexes                     | inherited `USING BTREE` / `USING HASH`              | expression indexes and operator classes are refused             |
-| full-text search            | inherited MySQL `MATCH … AGAINST`                   | requires the corresponding live-server index                    |
+| indexes                     | ordinary methodless secondary indexes               | explicit methods need unavailable table-storage evidence        |
+| check constraints           | refused before execution                            | SingleStore 9.0.12 rejects `CHECK` constraint DDL               |
+| full-text search            | parameterized `MATCH(column) AGAINST(?)`            | requires a version-1 `FULLTEXT (column)` table declaration      |
 | stored-routine calls        | inherited scalar-function and procedure calls       | set-returning functions are not a MySQL-family shape            |
 | `RoutineDef` DDL            | refused                                             | SingleStore declaration grammar is not MySQL's                  |
-| schema introspection        | the MySQL catalog introspector                      | no live SingleStore qualification exists in this repository     |
+| generated columns           | `AS (...) PERSISTED <type>`                         | syntax and catalog round-trip are server-proven                 |
+| schema introspection        | MySQL parser plus SingleStore catalog adaptation    | storage, shard, sort, computed columns, and physical indexes    |
 | migration transactions      | non-transactional DDL                               | the runner warns because a failed plan can be partially applied |
 | database extensions / types | refused                                             | PostgreSQL-style extension contracts are not assumed            |
 | vector / spatial operators  | refused                                             | the closed pgvector/PostGIS operators are exact-Postgres only   |
@@ -50,7 +51,7 @@ import type { PrimaryKey, ShardKey, SortKey, Sql, Table } from 'zmdb/tags';
 
 export interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['id']> {
   id: bigint & Sql<'bigint'> & PrimaryKey;
-  customerId: bigint & Sql<'bigint'>;
+  customerId: bigint & Sql<'bigint'> & PrimaryKey;
 }
 ```
 
@@ -59,7 +60,8 @@ The tags flow through reflection, the schema IR and the migration snapshot:
 ```sql
 CREATE TABLE `orders` (
   `customerId` BIGINT NOT NULL,
-  `id` BIGINT PRIMARY KEY,
+  `id` BIGINT NOT NULL,
+  PRIMARY KEY (`customerId`, `id`),
   SHARD KEY (`customerId`),
   SORT KEY (`id`)
 )
@@ -81,10 +83,11 @@ rowstore settings are immutable through generated migrations; changing one tells
 
 ## Constraints and generated ids
 
-**Foreign keys are refused.** SingleStore does not enforce them, so a `References<'users.id'>` declaration fails migration generation rather than silently dropping integrity the type promised.
+**Foreign keys are refused by `@zmdb/singlestore`.** This is a package qualification boundary, not a claim that current SingleStore servers lack the feature. A `References<'users.id'>` declaration
+fails migration generation because this vertical has not qualified foreign-key semantics across its storage and distribution model.
 
 **A unique column must include the whole shard key.** A table sharded by `id` cannot declare `email: string & Sql<'text'> & Unique`; generation names the column and shard key before a migration is
-written. Either shard by the unique column or enforce uniqueness in the application, accepting the race that implies.
+written. An explicit rowstore with no shard key cannot add a separate unique column either. Declare a compatible shard key or enforce uniqueness in the application, accepting the race that implies.
 
 **`serial` emits `BIGINT AUTO_INCREMENT`.** Values are allocated per partition in large strides, so an `INT` domain is consumed faster than row count suggests. Ids are unique but not globally
 monotonic; keyset pagination should order by a timestamp plus a tie-break rather than assuming a larger id is newer.
@@ -94,10 +97,13 @@ for its generation rule. That keeps the application type honest.
 
 ## Measured coverage
 
-The automated suite covers every frozen matrix construct for `'singlestore'`, the `BIGINT AUTO_INCREMENT` override, shard/sort/rowstore reflection through snapshot and DDL, inherited MySQL repository
-writes, full-text SQL, migration ledger behavior, and the table-option, foreign-key, uniqueness, expression index, routine-DDL, extension and `RETURNING` refusals.
+The measured packed run uses eight local package archives plus consumer-selected mysql2 against SingleStore 9.0.12. It creates explicit rowstore and columnstore tables, applies a rowstore migration
+ledger, executes CRUD and rollback transactions, observes non-transactional DDL, and round-trips `INMEMORY_ROWSTORE`/`COLUMNSTORE`, shard keys, sort keys, persisted computed columns, and ordinary
+secondary indexes. The same run proves foreign-key, incompatible-unique-key, and storage-transition refusals happen before execution and verifies the dependency direction `@zmdb/singlestore` →
+`@zmdb/mysql` with no private or reverse edge. A focused source-bound rerun on the same server additionally proves exact `DATETIME(6)` migration/CRUD/catalog behavior and the rowstore outbox
+DDL/index, parameterized full-text SQL, and the storage-dependent index/check-constraint refusal boundaries.
 
-No live SingleStore server is started. In particular, server acceptance of the emitted distribution DDL, auto-increment behavior and MySQL-catalog introspection remains deployment qualification.
+CI and release use the digest-pinned official Dev Image and fail closed when the service or `ZMDB_SINGLESTORE_URL` is absent.
 
 ---
 

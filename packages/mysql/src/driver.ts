@@ -26,6 +26,8 @@ export type MysqlParameter =
  */
 export interface MysqlQueryable {
   execute(sql: string, values?: MysqlParameter[]): Promise<readonly [unknown, readonly unknown[]]>;
+  /** Optional mysql2 text protocol for metadata statements that the prepared protocol rejects. */
+  query?(sql: string, values?: MysqlParameter[]): Promise<readonly [unknown, readonly unknown[]]>;
 }
 
 export interface MysqlConnection extends MysqlQueryable {
@@ -167,7 +169,12 @@ function createMysqlDriver<Name extends string>(
     async executeResult(query, executeOptions) {
       const signal = executeOptions?.signal;
       signal?.throwIfAborted();
-      const [result] = await client.execute(query.text, mapParameters(query, options));
+      const parameters = mapParameters(query, options);
+      const textQuery = /^\s*(?:SHOW|DESCRIBE)\b/iu.test(query.text) ? client.query : undefined;
+      const [result] =
+        textQuery === undefined
+          ? await client.execute(query.text, parameters)
+          : await textQuery.call(client, query.text, parameters);
       signal?.throwIfAborted();
       if (Array.isArray(result)) {
         if (result.some(row => row === null || typeof row !== 'object' || Array.isArray(row))) {

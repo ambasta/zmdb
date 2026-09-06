@@ -31,8 +31,8 @@ still disagree about whether they return a `Date` or a string. Decide that conve
 ## Dialect support does not imply the same live-server evidence
 
 The six temporary dialect values all have complete golden-SQL matrix entries, including explicit refusals. SQLite runs in-process. MySQL has a mandatory packed-consumer lane against strict `utf8mb4`
-MySQL 8.4.11. CockroachDB has an always-on CockroachDB v26.2.2 packed lane. SQL Server has an opt-in real-server suite through `ZMDB_MSSQL_URL`. SingleStore still has no live-server suite in this
-repository, so its page separates supported compiler behavior from deployment qualification.
+MySQL 8.4.11. CockroachDB has an always-on CockroachDB v26.2.2 packed lane. SQL Server has an opt-in real-server suite through `ZMDB_MSSQL_URL`. SingleStore has a mandatory packed lane against the
+digest-pinned official Dev Image.
 
 That evidence boundary matters most for the operational differences:
 

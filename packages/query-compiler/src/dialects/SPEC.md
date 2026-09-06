@@ -88,7 +88,7 @@ export interface DialectTraits {
   readonly paginate?: (tail: PaginationTail) => string;
   readonly returning?: Readonly<Partial<ReturningCapability>>;
   readonly upsert?: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
-  readonly fts?: 'tsvector' | 'match' | 'companionTable' | 'none';
+  readonly fts?: 'tsvector' | 'match' | 'matchPlain' | 'companionTable' | 'none';
   readonly concat?: 'operator' | 'function';
   readonly booleanNot?: 'not' | 'bitwise';
   readonly types?: Readonly<Record<string, string>>;
@@ -653,6 +653,11 @@ migration generation refuse a table whose snapshot contains one. Suppressing the
 SingleStore's `CREATE FUNCTION` and `CREATE PROCEDURE` grammar is not MySQL's routine grammar. The schema-object emitter refuses `RoutineDef` DDL instead of shipping a plausible MySQL statement.
 Existing scalar functions and procedures can still be called through the inherited MySQL quoting and placeholders.
 
+### 5.7 Full-text matching omits MySQL's mode suffix
+
+SingleStore accepts parameterized `MATCH(column) AGAINST(?)` against a version-1 `FULLTEXT (column)` declaration, but rejects MySQL's appended `IN NATURAL LANGUAGE MODE`. The child overrides only that
+rendering trait; quoting, placeholder binding and the rest of the full-text builder remain generic.
+
 Everything else on the MySQL page applies unchanged and is inherited: backtick quoting, `?` placeholders, `TINYINT(1)` booleans, no `RETURNING`, `INSERT IGNORE` and `ON DUPLICATE KEY UPDATE`.
 
 ## 6. The refusal mechanism
@@ -735,18 +740,17 @@ titles only.
 
 ## 8. What "supported" means, per dialect
 
-The epic requires this to be stated honestly. Six temporary built-in dialect names still ship. SQLite, PostgreSQL, MySQL, SQL Server, and CockroachDB now live in complete extracted verticals; the
-generic repository retains no database adapter. SingleStore remains a supported compiler dialect without an official adapter. "Supported" means the compiler emits correct SQL, with an official adapter
-where the table says one exists.
+The epic requires this to be stated honestly. Six temporary built-in dialect names still ship, and all six databases now live in complete extracted verticals; the generic repository retains no
+database adapter. "Supported" means the selected package owns compiler behavior, migrations, introspection, an official structural adapter, and real-server evidence.
 
-| Dialect       | Official driver   | Always-on CI database                                    | Coverage                                                                  |
-| ------------- | ----------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `postgres`    | `@zmdb/postgres`  | no; fail-closed packed lane requires `ZMDB_POSTGRES_URL` | golden SQL + packed real-server E2E when invoked                          |
-| `sqlite`      | `@zmdb/sqlite`    | in-process                                               | package goldens + mandatory real and packed E2E                           |
-| `mysql`       | `@zmdb/mysql`     | MySQL 8.4.11                                             | package goldens + mandatory strict packed real-server E2E                 |
-| `mssql`       | `@zmdb/mssql`     | yes; mandatory dedicated SQL Server job                  | package SQL/DDL/refusal tests + captured catalog + packed live acceptance |
-| `cockroach`   | `@zmdb/cockroach` | CockroachDB v26.2.2                                      | package goldens + mandatory packed real-server E2E                        |
-| `singlestore` | none              | no: the image wants a licence key and several gigabytes  | complete golden matrix; live-server qualification remains                 |
+| Dialect       | Official driver     | Always-on CI database                                    | Coverage                                                                  |
+| ------------- | ------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `postgres`    | `@zmdb/postgres`    | no; fail-closed packed lane requires `ZMDB_POSTGRES_URL` | golden SQL + packed real-server E2E when invoked                          |
+| `sqlite`      | `@zmdb/sqlite`      | in-process                                               | package goldens + mandatory real and packed E2E                           |
+| `mysql`       | `@zmdb/mysql`       | MySQL 8.4.11                                             | package goldens + mandatory strict packed real-server E2E                 |
+| `mssql`       | `@zmdb/mssql`       | yes; mandatory dedicated SQL Server job                  | package SQL/DDL/refusal tests + captured catalog + packed live acceptance |
+| `cockroach`   | `@zmdb/cockroach`   | CockroachDB v26.2.2                                      | package goldens + mandatory packed real-server E2E                        |
+| `singlestore` | `@zmdb/singlestore` | official Dev Image, digest pinned                        | package goldens + mandatory packed real-server E2E                        |
 
 SQL Server's package suite executes generated DDL, named-parameter binding, bracket escaping, `OUTPUT`, ordered pagination, `MERGE`, timestamp round-trips and column migrations against a real server.
 An ordinary local run without `ZMDB_MSSQL_URL` emits a visible skip reason; the dedicated CI and packed-consumer lanes set `ZMDB_MSSQL_REQUIRED=1`, so qualification cannot pass without a reachable
@@ -755,11 +759,9 @@ server.
 Cockroach speaks the Postgres wire protocol, so `@zmdb/cockroach` binds its child dialect object through the public `postgresFamilyDriver` primitive. Its always-on lane starts CockroachDB v26.2.2,
 packs the dependency closure, installs it outside the workspace, and executes migrations, CRUD, introspection, cursor streaming, explicit retry, and dependency-direction checks.
 
-SingleStore is the expensive one and the freeze does not pretend otherwise. Its divergences — shard keys, per-partition auto-increment, the unique-index rule — are exactly the kind that a golden file
-cannot verify, because the question is whether the server accepts the DDL.
-
-#509 ships the complete golden matrix and explicit refusal tests, but no licensed live-server suite exists in the repository. The docs page therefore says that server acceptance remains deployment
-qualification. A page that flipped to `supported` while implying CI coverage that does not exist would be worse than the current `todo`, which at least tells the truth.
+SingleStore's divergences — shard keys, sort keys, rowstore/columnstore storage, computed-column grammar, and unique-key compatibility — require server evidence rather than a golden file alone.
+`@zmdb/singlestore` composes the public MySQL family seams, and its mandatory packed lane exercises those differences against SingleStore 9.0.12 from the official Dev Image. The lane also observes
+non-transactional DDL and verifies that the child has no private or reverse MySQL edge.
 
 ## 9. Docs corrections now, support rewrite later
 
@@ -790,7 +792,6 @@ evidence.
 - **Retry logic anywhere in `@zmdb/query-compiler`.** §4.4 — the compiler emits text; the retry policy's shape belongs to the repository's transaction API.
 - **Parameterising builders by dialect (`QueryCompiler<'mssql'>`).** §6 — the dialect is not a literal at the boundary, so the type would widen exactly where it needed to narrow.
 - **`Partial<Record<Dialect, …>>` for any dialect table, including test expectation tables.** §1.1, §6, §7 — it is the only compile-time guarantee in the package.
-- **Claiming CI coverage for `singlestore`.** §8.
 
 ## 11. Database vertical extraction contract (issues #666 and #668)
 
@@ -801,9 +802,9 @@ supersedes them for the injected path and final architecture.
 ### 11.1 Measured starting point
 
 At commit `94164c53`, the official names were declared together in `index.ts`, the compiler defaulted to the string `'postgres'`, `createIntrospector` switched over all six names, repository drivers
-carried optional string names, and config/CLI surfaces passed those strings through. Issues #669, #670, and #672 have since moved the SQLite, PostgreSQL, and SQL Server drivers and catalog readers to
-their vertical packages. The compatibility tree retains the frozen names and dispatch seams plus the central MySQL catalog reader; it contains no official database adapter, no MySQL driver, and no
-executable SQL Server implementation. Cockroach and SingleStore still inherit central records and delegate catalog work to their parents.
+carried optional string names, and config/CLI surfaces passed those strings through. Issues #669, #670, #671, #672, #673, and #674 have since moved all six drivers, migration strategies, catalog
+adaptation and real-server qualification into their vertical packages. The compatibility tree retains the frozen names and dispatch seams until #675, but child-specific driver and catalog behavior is
+package-owned.
 
 Those facts describe the migration source, not the support state promised by the target packages.
 
@@ -841,7 +842,7 @@ export interface ResolvedDialectTraits {
   readonly rowValueIn: boolean;
   readonly returning: Readonly<Record<ReturningStatement, ReturningStyle>>;
   readonly upsert: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
-  readonly fts: 'tsvector' | 'match' | 'companionTable' | 'none';
+  readonly fts: 'tsvector' | 'match' | 'matchPlain' | 'companionTable' | 'none';
   readonly concat: 'operator' | 'function';
   readonly booleanNot: 'not' | 'bitwise';
   readonly types: DialectTypeMap;
@@ -945,7 +946,7 @@ vendor-owned unit has one owner:
 | `dialects/index.ts`: SQLite definition, type map and limits                                                                                                         | `@zmdb/sqlite`                                                                                                                           | same                                                                     |
 | `packages/mssql/src/index.ts`, `compiler.ts` and `types.ts`: SQL Server definition, types, pagination and compiler strategy                                         | `@zmdb/mssql` (completed by #672)                                                                                                        | protocol types, frozen name, and explicit string refusal                 |
 | `dialects/index.ts`: Cockroach overrides (`serial`, `integer`, FTS, RLS, retry `40001`)                                                                             | `@zmdb/cockroach`                                                                                                                        | same                                                                     |
-| `dialects/index.ts`: SingleStore overrides (`serial`, foreign-key refusal)                                                                                          | `@zmdb/singlestore`                                                                                                                      | same                                                                     |
+| `dialects/index.ts`: SingleStore overrides (`serial`, timestamp, full-text mode, foreign-key refusal)                                                               | `@zmdb/singlestore`                                                                                                                      | same                                                                     |
 | `index.ts`: six parameter-limit cells and database-specific RETURNING/upsert/table-function assembly                                                                | the package named by each cell or strategy                                                                                               | immutable builder state and statement assembly                           |
 | `clauses.ts`, `quoting.ts`, `set-ops/index.ts`, `expressions/index.ts`, `aggregations/index.ts`, `joins/index.ts`, `fts/index.ts`, `extensions/index.ts`            | each package owns its own strategy values, operator allow-list, FTS form and refusals                                                    | traversal, parameter collection and strategy invocation                  |
 | `migrations/src/index.ts`: PostgreSQL-family DDL, extensions, types, keys, constraints and ALTER forms                                                              | `@zmdb/postgres`; Cockroach-only overrides in `@zmdb/cockroach`                                                                          | snapshot and ordered diff algorithms                                     |
