@@ -12,6 +12,9 @@ registry state, tags, publication or release notes:
 
 No release helper, workflow or documentation example may repeat the catalog package list or maintain a handwritten publish order.
 
+Issue #732's `GovernanceSnapshot` exposes this release projection to other read-only consumers without changing ownership: catalog and policy still determine membership/order, manifests still own
+versions and ranges, and `CHANGELOG.md` still owns release notes. Native issue relationships and architecture exceptions cannot alter a release plan.
+
 ## 1. Read-only release plan
 
 `plan.mjs` exports exactly this public boundary:

@@ -17,6 +17,8 @@ The catalog does not contain or mutate:
 - compatibility, deprecation, or partial-release decisions.
 
 Those are owned by architecture-governance EPIC #721. The #728 release model reads catalog membership, derives release order from architecture policy and reads versions from authoritative manifests.
+Issue #732's `GovernanceSnapshot` composes this catalog without absorbing it: package membership, npm identity, product role, facade ownership, optionality, docs ownership and consumer evidence remain
+catalog facts, and no architecture, release, exception or issue-relationship consumer may recreate them.
 
 ## 2. Canonical record
 
