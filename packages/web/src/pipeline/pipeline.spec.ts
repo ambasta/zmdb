@@ -1,6 +1,6 @@
 import { StringDecoder } from 'node:string_decoder';
 
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import { ValidationError } from '@zmdb/schema-core';
 import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
 // Tests (#274) for the request pipeline & adapters — RED first (pipeline exports

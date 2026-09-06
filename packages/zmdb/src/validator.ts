@@ -37,7 +37,14 @@ export type {
   UnionRule,
 } from '@zmdb/aot-validator/advanced';
 
-export { assertStringify, decode, parse, stringify } from '@zmdb/aot-validator/serialization';
+export {
+  assertStringify,
+  compileFastStringifier,
+  compileStringifier,
+  decode,
+  parse,
+  stringify,
+} from '@zmdb/aot-validator/serialization';
 export type { ParseResult } from '@zmdb/aot-validator/serialization';
 
 export {

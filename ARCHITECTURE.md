@@ -606,7 +606,7 @@ and entry-specific reachability assignments are generated from the admitted mani
 
 <!-- generated: architecture policy-graph -->
 
-Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, `scripts/release/policy.mjs`, and the admitted manifests: **38 catalog packages**, **73 direct workspace edges**, **8
+Measured from `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, `scripts/release/policy.mjs`, and the admitted manifests: **38 catalog packages**, **74 direct workspace edges**, **8
 core packages**, **28 integration packages**, **2 tooling packages**, and canonical rings **0–6**.
 
 | Ring | Zone        | Release unit | Package                    | Direct workspace dependencies                                                                                                                                        |
@@ -646,7 +646,7 @@ core packages**, **28 integration packages**, **2 tooling packages**, and canoni
 | 5    | integration | integration  | `@zmdb/transport-nats`     | `@zmdb/app`                                                                                                                                                          |
 | 5    | integration | integration  | `@zmdb/transport-rabbitmq` | `@zmdb/app`                                                                                                                                                          |
 | 5    | integration | integration  | `@zmdb/transport-redis`    | `@zmdb/app`                                                                                                                                                          |
-| 5    | application | core         | `@zmdb/web`                | `@zmdb/app`<br>`@zmdb/schema-core`                                                                                                                                   |
+| 5    | application | core         | `@zmdb/web`                | `@zmdb/aot-validator`<br>`@zmdb/app`<br>`@zmdb/schema-core`                                                                                                          |
 | 6    | integration | integration  | `@zmdb/jobs-postgres`      | `@zmdb/jobs`<br>`@zmdb/postgres`                                                                                                                                     |
 | 6    | facade      | core         | `zmdb`                     | `@zmdb/app`<br>`@zmdb/aot-validator`<br>`@zmdb/compiler`<br>`@zmdb/migrations`<br>`@zmdb/query-compiler`<br>`@zmdb/repository`<br>`@zmdb/schema-core`<br>`@zmdb/web` |
 

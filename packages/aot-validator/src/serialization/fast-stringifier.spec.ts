@@ -1,7 +1,7 @@
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
-import { schemasFrom } from '../testing/index.js';
 import { compileFastStringifier, stringify } from './index.js';
 
 export interface User extends Table<'users'> {

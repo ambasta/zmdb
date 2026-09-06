@@ -210,6 +210,7 @@ describe('core server package boundaries (#646)', () => {
         name: '@zmdb/web',
         dir: 'web',
         dependencies: {
+          '@zmdb/aot-validator': 'workspace:^',
           '@zmdb/app': 'workspace:^',
           '@zmdb/schema-core': 'workspace:^',
         },

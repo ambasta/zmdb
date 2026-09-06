@@ -1,4 +1,4 @@
-import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { schemasFrom } from '@zmdb/compiler/testing';
 import type { Table, Sql, Serial, PrimaryKey, Sensitive } from '@zmdb/schema-core/tags';
 // Tests (#299) for DTO validation/serialization pipes — RED first (dto-pipes
 // exports absent). Pipe rejects invalid, serializer emits, dtoChain composes.
