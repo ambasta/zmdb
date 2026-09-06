@@ -151,9 +151,12 @@ function runProjectScript(project: string, name: string): void {
     encoding: 'utf8',
     env: {
       ...process.env,
-      NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${join(ROOT, 'scripts', 'ts-specifier-hook.mjs')}`]
-        .filter(value => value !== undefined && value.length > 0)
-        .join(' '),
+      NODE_OPTIONS: [
+        ...(process.env.NODE_OPTIONS ?? '')
+          .split(' ')
+          .filter(opt => opt.length > 0 && !opt.includes('./scripts/ts-specifier-hook.mjs')),
+        `--import=${join(ROOT, 'scripts', 'ts-specifier-hook.mjs')}`,
+      ].join(' '),
       PATH: `${join(ROOT, 'node_modules', '.bin')}${delimiter}${process.env.PATH ?? ''}`,
     },
     stdio: 'pipe',

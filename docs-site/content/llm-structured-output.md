@@ -49,18 +49,17 @@ When the model returns text rather than a tool call — a smaller model, a strea
 
 ```ts
 import { lenientParse } from '@zmdb/ai';
+import { assert } from '@zmdb/aot-validator/utilities';
 
-const result = lenientParse<CreateDTO<User>>(res.text);
+const result = lenientParse(res.text, v => assert<CreateDTO<User>>(v));
 ```
 
-It strips a leading or trailing markdown code fence and calls `JSON.parse`. That is the whole of it: leading prose, trailing commas and single quotes all come back as
-`{ success: false, errors: [...] }` carrying the `JSON.parse` message. It does not make the _content_ correct either, so validate afterwards:
+It tolerates fenced code blocks, leading prose, trailing commas and single quotes — the specific ways model output deviates from strict JSON. An explicit coercion callback is required for typed
+parsing (`lenientParse<T>`) so caller-side validation catches shape mismatches before they reach downstream logic.
 
-```ts
-const result = lenientParse(res.text);
-if (!result.success) throw new Error(result.errors?.join('; ') ?? 'unparseable model output');
-const dto = assert<CreateDTO<User>>(result.data);
-```
+> [!NOTE] `assert<T>()` relies on the `@zmdb/aot-validator/unplugin` build transform to inject validator descriptors. In projects without the AOT plugin enabled, `assert<T>()` throws an uninitialized
+> descriptor error that `lenientParse` catches as a validation failure. If your build pipeline does not include the AOT plugin, pass a hand-written narrowing function to `coerce` instead (or see
+> [AOT Validator setup](./validators-assert.html)).
 
 Prefer tool use over parsing prose when the API offers it. `lenientParse` is for when it does not.
 
@@ -97,8 +96,7 @@ interface Extraction {
   confidence: number;
 }
 
-const parsed = lenientParse(res.text);
-const out = assert<Extraction>(parsed.success ? parsed.data : undefined);
+const out = lenientParse(res.text, v => assert<Extraction>(v));
 ```
 
 `sentiment` being a union means a model that returns `"mixed"` fails validation rather than flowing into your analytics as an unexpected value.

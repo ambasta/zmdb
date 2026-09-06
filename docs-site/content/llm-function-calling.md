@@ -73,9 +73,10 @@ When the API returns text rather than a structured tool call, `lenientParse` str
 
 ````ts
 import { lenientParse } from '@zmdb/ai';
+import { assert } from '@zmdb/aot-validator/utilities';
 
 const fenced = '```json\n{"email":"alice@example.com"}\n```';
-const result = lenientParse(fenced);
+const result = lenientParse(fenced, value => assert<CreateDTO<User>>(value));
 // => { success: true, data: { email: 'alice@example.com' } }
 ````
 
@@ -91,8 +92,17 @@ if (!result.success) {
 await userRepo.create(result.data);
 ```
 
-`lenientParse` catches a validator exception and returns its message in `errors`. With no coercion function, `lenientParse<T>` does no validation at all: `T` is only the caller's claim, just as it is
-with `JSON.parse`.
+`lenientParse` catches a validator exception and returns its message in `errors`. An explicit `coerce` callback is mandatory when requesting typed results with `lenientParse<T>`.
+
+The `coerce` callback receives `unknown`, which is the honest type for model output. Narrowing it with `assert<T>` rather than a cast is what makes the `<CreateDTO<User>>` type argument true instead
+of aspirational — and because `lenientParse` catches whatever `coerce` throws, the `AssertError` comes back as `{ success: false, errors: [...] }` rather than an exception.
+
+> [!NOTE] `assert<T>()` requires the `@zmdb/aot-validator/unplugin` build transform to generate runtime validator descriptors. In projects without the AOT bundler plugin configured, `assert<T>()`
+> throws an uninitialized descriptor error that `lenientParse` catches as a parse failure. In environments without the AOT plugin, pass a hand-written narrowing function to `coerce` (e.g.
+> `v => { if (isObject(v) && typeof v.email === 'string') return v as CreateDTO<User>; throw new Error('invalid User input'); }`) instead.
+
+> [!WARNING] An explicit `coerce` callback is mandatory when requesting typed results with `lenientParse<T>`. Without `coerce`, a model returning `{"email": 42}` gives you `success: true` and a
+> `number` where your types promised a `string`. Requiring `coerce` forces you to validate the shape so your callback catches field mismatches before they reach downstream logic.
 
 ## Framework adapters
 
