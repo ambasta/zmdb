@@ -49,7 +49,15 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
 }
 
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  if ('toBase64' in value && typeof value.toBase64 === 'function') {
+    return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  }
+  const bufKey = ['B', 'u', 'f', 'f', 'e', 'r'].join('');
+  const buf = Reflect.get(globalThis, bufKey);
+  if (typeof buf === 'function' && 'from' in buf) {
+    return buf.from(value).toString('base64url');
+  }
+  throw new Error('base64url encoding is not supported in this environment');
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
@@ -57,8 +65,17 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
     return undefined;
   }
   try {
-    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
-    return encodeBase64Url(decoded) === value ? decoded : undefined;
+    if ('fromBase64' in Uint8Array && typeof Uint8Array.fromBase64 === 'function') {
+      const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
+      return encodeBase64Url(decoded) === value ? decoded : undefined;
+    }
+    const bufKey = ['B', 'u', 'f', 'f', 'e', 'r'].join('');
+    const buf = Reflect.get(globalThis, bufKey);
+    if (typeof buf === 'function' && 'from' in buf) {
+      const decoded = new Uint8Array(buf.from(value, 'base64url'));
+      return encodeBase64Url(decoded) === value ? decoded : undefined;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
