@@ -9,7 +9,7 @@
 export const singlestore: SqlDialect<'singlestore'>;
 export const singlestoreIntrospector: Introspector<'singlestore'>;
 export const singlestoreMigrations: MigrationDialect<'singlestore'>;
-export function singlestoreDriver(client: MysqlQueryable, options?: MysqlOptions): TransactionalDriver<'singlestore'>;
+export function singlestoreDriver(client: MysqlQueryable, options?: MysqlOptions): MysqlDriver<'singlestore'>;
 export const singlestoreVertical: DatabaseVertical<'singlestore', MysqlQueryable, MysqlOptions>;
 ```
 
