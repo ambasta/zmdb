@@ -28,6 +28,8 @@ by the generated module and neutral client runtime.
 ## 3. Server entry
 
 ```ts
+export type SvelteKitRequestEvent = Pick<RequestEvent, 'cookies' | 'fetch' | 'request'>;
+
 export interface SvelteKitForwarding {
   readonly headers?: readonly string[];
   readonly cookies?: readonly string[];
@@ -37,13 +39,9 @@ export interface SvelteKitServerClientOptions extends SvelteKitClientOptions {
   readonly forward?: SvelteKitForwarding;
 }
 
-export function createSvelteKitServerFetch(event: Pick<RequestEvent, 'cookies' | 'fetch' | 'request'>, forwarding?: SvelteKitForwarding): typeof globalThis.fetch;
+export function createSvelteKitServerFetch(event: SvelteKitRequestEvent, forwarding?: SvelteKitForwarding): typeof globalThis.fetch;
 
-export function createSvelteKitServerClient<Client>(
-  event: Pick<RequestEvent, 'cookies' | 'fetch' | 'request'>,
-  createClient: GeneratedClientFactory<Client>,
-  options: SvelteKitServerClientOptions,
-): Client;
+export function createSvelteKitServerClient<Client>(event: SvelteKitRequestEvent, createClient: GeneratedClientFactory<Client>, options: SvelteKitServerClientOptions): Client;
 ```
 
 The fetch wrapper always invokes the current `event.fetch`. It sets `credentials: 'omit'` so SvelteKit cannot implicitly inherit the page request's cookie or authorization header. It then copies only
