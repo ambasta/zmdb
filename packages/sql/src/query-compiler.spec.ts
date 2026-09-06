@@ -9,15 +9,16 @@ import {
   not,
   concat,
   OP_MAP,
+  InvalidOperatorError,
   chunkArray,
   createQueryCompiler,
   distance,
   sanitizeKeys,
   stContains,
   stDWithin,
+  type Operator,
 } from '@zmdb/sql';
 import { describe, it, expect, expectTypeOf } from 'vitest';
-
 import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
 import { QueryPostSchema, QueryUserSchema, type QueryPost, type QueryUser } from './testing/query-schema.fixture.js';
 
@@ -726,7 +727,7 @@ describe('Operator normalization & bounded dialect operators', () => {
       if (typeof inherited !== 'string') throw new TypeError('test input carried no inherited operator string');
       const compile = () =>
         createQueryCompiler(postgresDialect).selectFrom(trustedTable('users')).where('col', inherited, 'val').compile();
-      expect(compile, operator).toThrow(/invalid unmapped SQL operator/);
+      expect(compile, operator).toThrow(InvalidOperatorError);
     }
   });
 });
