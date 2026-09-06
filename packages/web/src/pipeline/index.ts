@@ -66,10 +66,40 @@ export interface RouteOptions {
   readonly deprecated?: true;
 }
 
-/** Router-wide guard configuration shared with OpenAPI generation. */
+/** Global CORS configuration options. */
+export interface CorsOptions {
+  readonly origin?: string | readonly string[] | boolean | ((origin: string) => string | boolean);
+  readonly methods?: string | readonly string[];
+  readonly allowedHeaders?: string | readonly string[];
+  readonly exposedHeaders?: string | readonly string[];
+  readonly credentials?: boolean;
+  readonly maxAge?: number;
+}
+
+/** Global HTTP security headers configuration options. */
+export interface SecurityHeadersOptions {
+  readonly xContentTypeOptions?: string | boolean;
+  readonly xFrameOptions?: string | boolean;
+  readonly xXssProtection?: string | boolean;
+  readonly referrerPolicy?: string | boolean;
+  readonly strictTransportSecurity?: string | boolean;
+  readonly headers?: Readonly<Record<string, string>>;
+}
+
+/** Router initialization configuration options. */
 export interface RouterOptions extends Observability {
   readonly guardRegistry?: GuardRegistry;
+  readonly cors?: CorsOptions | boolean;
+  readonly security?: SecurityHeadersOptions | boolean;
   readonly versioning?: VersionStrategy;
+}
+
+/** Per-handler pipeline, guard and OpenAPI options. */
+export interface RouteOptions {
+  readonly validateBody?: (raw: unknown) => unknown;
+  readonly guards?: readonly Guard[];
+  readonly security?: readonly SecurityRequirement[];
+  readonly deprecated?: true;
 }
 
 /** A handler takes one Ctx and returns a (possibly async) result. */
@@ -578,6 +608,16 @@ const EMPTY_TEXT: ResponseBody = Object.freeze({ kind: 'text', value: '' });
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
 const STANDARD_HTTP_METHODS = new Set(['CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'TRACE']);
 
+function getHeader(headers: Readonly<Record<string, string>>, name: string): string | undefined {
+  const lowerName = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === lowerName) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 function jsonResponse(
   status: number,
   value: unknown,
@@ -588,6 +628,182 @@ function jsonResponse(
 
 function textBody(value: string): ResponseBody {
   return value.length === 0 ? EMPTY_TEXT : { kind: 'text', value };
+}
+
+function resolveSecurityHeaders(options?: SecurityHeadersOptions | boolean): Record<string, string> {
+  if (!options) return {};
+  const opts: SecurityHeadersOptions = typeof options === 'object' ? options : {};
+  const headers: Record<string, string> = {};
+
+  if (opts.xContentTypeOptions !== false) {
+    headers['x-content-type-options'] =
+      typeof opts.xContentTypeOptions === 'string' ? opts.xContentTypeOptions : 'nosniff';
+  }
+  if (opts.xFrameOptions !== false) {
+    headers['x-frame-options'] = typeof opts.xFrameOptions === 'string' ? opts.xFrameOptions : 'SAMEORIGIN';
+  }
+  if (opts.xXssProtection !== false) {
+    headers['x-xss-protection'] = typeof opts.xXssProtection === 'string' ? opts.xXssProtection : '0';
+  }
+  if (opts.referrerPolicy !== false) {
+    headers['referrer-policy'] = typeof opts.referrerPolicy === 'string' ? opts.referrerPolicy : 'no-referrer';
+  }
+  if (opts.strictTransportSecurity) {
+    headers['strict-transport-security'] =
+      typeof opts.strictTransportSecurity === 'string'
+        ? opts.strictTransportSecurity
+        : 'max-age=15552000; includeSubDomains';
+  }
+  if (opts.headers) {
+    for (const [k, v] of Object.entries(opts.headers)) {
+      headers[k.toLowerCase()] = v;
+    }
+  }
+  return headers;
+}
+
+function resolveCorsHeaders(
+  corsOptions: CorsOptions | boolean | undefined,
+  req: WebRequest,
+  isPreflight: boolean,
+): Record<string, string> {
+  if (!corsOptions) return {};
+  const opts: CorsOptions = typeof corsOptions === 'object' ? corsOptions : {};
+  const headers: Record<string, string> = {};
+  const reqOrigin = getHeader(req.headers, 'origin');
+
+  let allowOrigin: string | undefined;
+  let varyOrigin = false;
+
+  if (opts.origin === undefined || opts.origin === true) {
+    if (opts.credentials && reqOrigin) {
+      allowOrigin = reqOrigin;
+      varyOrigin = true;
+    } else {
+      allowOrigin = '*';
+    }
+  } else if (typeof opts.origin === 'string') {
+    allowOrigin = opts.origin;
+    if (allowOrigin !== '*') {
+      varyOrigin = true;
+    }
+  } else if (Array.isArray(opts.origin)) {
+    if (reqOrigin && opts.origin.includes(reqOrigin)) {
+      allowOrigin = reqOrigin;
+    } else if (opts.origin.length > 0) {
+      allowOrigin = opts.origin[0];
+    }
+    varyOrigin = true;
+  } else if (typeof opts.origin === 'function') {
+    const res = opts.origin(reqOrigin ?? '');
+    if (res === true) {
+      allowOrigin = reqOrigin;
+      varyOrigin = true;
+    } else if (typeof res === 'string') {
+      allowOrigin = res;
+      varyOrigin = true;
+    }
+  }
+
+  if (allowOrigin !== undefined) {
+    headers['access-control-allow-origin'] = allowOrigin;
+  }
+  if (varyOrigin) {
+    headers['vary'] = 'Origin';
+  }
+
+  if (opts.credentials) {
+    headers['access-control-allow-credentials'] = 'true';
+  }
+
+  if (isPreflight) {
+    if (opts.methods) {
+      headers['access-control-allow-methods'] =
+        typeof opts.methods === 'string' ? opts.methods : opts.methods.join(', ');
+    } else {
+      headers['access-control-allow-methods'] = 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS';
+    }
+
+    if (opts.allowedHeaders) {
+      headers['access-control-allow-headers'] =
+        typeof opts.allowedHeaders === 'string' ? opts.allowedHeaders : opts.allowedHeaders.join(', ');
+    } else {
+      const reqHeaders = getHeader(req.headers, 'access-control-request-headers');
+      headers['access-control-allow-headers'] = reqHeaders ?? 'Content-Type, Authorization';
+    }
+
+    if (typeof opts.maxAge === 'number') {
+      headers['access-control-max-age'] = String(opts.maxAge);
+    }
+  } else {
+    if (opts.exposedHeaders) {
+      headers['access-control-expose-headers'] =
+        typeof opts.exposedHeaders === 'string' ? opts.exposedHeaders : opts.exposedHeaders.join(', ');
+    }
+  }
+
+  return headers;
+}
+
+function isResponseBody(val: unknown): val is ResponseBody {
+  return typeof val === 'object' && val !== null && 'kind' in val;
+}
+
+function isWebResponse(
+  val: unknown,
+): val is { status: number; body: unknown; headers: Readonly<Record<string, string>> } {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    'status' in val &&
+    typeof val.status === 'number' &&
+    'body' in val &&
+    'headers' in val &&
+    typeof val.headers === 'object' &&
+    val.headers !== null
+  );
+}
+
+function buildResponse(
+  status: number,
+  body: unknown,
+  req: WebRequest,
+  routerOptions?: RouterOptions,
+  customHeaders?: Readonly<Record<string, string>>,
+  isJson: boolean = true,
+): WebResponse {
+  if (!routerOptions?.security && !routerOptions?.cors && !customHeaders) {
+    return isJson
+      ? jsonResponse(status, body)
+      : { status, body: textBody(typeof body === 'string' ? body : String(body ?? '')), headers: NO_HEADERS };
+  }
+
+  const securityHeaders = resolveSecurityHeaders(routerOptions?.security);
+  const corsHeaders = resolveCorsHeaders(
+    routerOptions?.cors,
+    req,
+    status === 204 && req.method.toUpperCase() === 'OPTIONS',
+  );
+
+  const headers: Record<string, string> = {
+    ...(isJson ? { 'content-type': 'application/json' } : {}),
+    ...securityHeaders,
+    ...corsHeaders,
+  };
+
+  if (customHeaders) {
+    for (const [k, v] of Object.entries(customHeaders)) {
+      headers[k.toLowerCase()] = v;
+    }
+  }
+
+  const responseBody = isJson ? (JSON.stringify(body) ?? '') : typeof body === 'string' ? body : String(body ?? '');
+
+  return {
+    status,
+    body: textBody(responseBody),
+    headers,
+  };
 }
 
 // ---- Handler-controlled responses ------------------------------------------
@@ -1377,6 +1593,10 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
         return handleObserved(req);
       }
       const method = req.method.toUpperCase();
+      if (method === 'OPTIONS' && (routerOptions?.cors !== undefined || routerOptions?.security !== undefined)) {
+        return buildResponse(204, '', req, routerOptions, undefined, false);
+      }
+
       const segmentCount = countSegments(req.path);
       const requestVersion =
         requestVersioning === undefined
@@ -1417,15 +1637,48 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           } catch (error) {
             const message = messageOf(error);
             const issues = validationIssuesOf(error);
-            return jsonResponse(400, issues ? { error: message, issues } : { error: message });
+            return buildResponse(400, issues ? { error: message, issues } : { error: message }, req, routerOptions);
           }
         }
         try {
           const result = await bound.handler(ctx);
-          // One symbol check on the hot path, no extra allocation: a handler that
-          // returns a plain value takes exactly the path it took before.
+          if (isTaggedResponse(result) || isWebResponse(result)) {
+            const body: ResponseBody =
+              typeof result.body === 'string'
+                ? textBody(result.body)
+                : isResponseBody(result.body)
+                  ? result.body
+                  : textBody('');
+            if (!routerOptions?.security && !routerOptions?.cors) {
+              return mediaVersionedResponse(
+                {
+                  status: result.status,
+                  body,
+                  headers: result.headers,
+                },
+                bound.versionJsonHeaders,
+              );
+            }
+            const securityHeaders = resolveSecurityHeaders(routerOptions?.security);
+            const corsHeaders = resolveCorsHeaders(routerOptions?.cors, req, false);
+            const mergedHeaders: Record<string, string> = {
+              ...securityHeaders,
+              ...corsHeaders,
+            };
+            for (const [k, v] of Object.entries(result.headers)) {
+              mergedHeaders[k.toLowerCase()] = v;
+            }
+            return mediaVersionedResponse(
+              {
+                status: result.status,
+                body,
+                headers: mergedHeaders,
+              },
+              bound.versionJsonHeaders,
+            );
+          }
           return mediaVersionedResponse(
-            isTaggedResponse(result) ? result : jsonResponse(200, result, bound.versionJsonHeaders ?? JSON_HEADERS),
+            buildResponse(200, result, req, routerOptions, bound.versionJsonHeaders),
             bound.versionJsonHeaders,
           );
         } catch (error) {
@@ -1438,9 +1691,9 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           if (error instanceof ValidationError || claimsValidationIssues(error)) {
             const message = messageOf(error);
             const issues = validationIssuesOf(error);
-            return jsonResponse(400, issues ? { error: message, issues } : { error: message });
+            return buildResponse(400, issues ? { error: message, issues } : { error: message }, req, routerOptions);
           }
-          return jsonResponse(500, { error: messageOf(error) });
+          return buildResponse(500, { error: messageOf(error) }, req, routerOptions);
         }
       }
       if (requestVersion !== undefined && requestVersioning !== undefined) {
@@ -1449,7 +1702,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
           return unsupportedVersion(requestVersioning, requestVersion, supported, req.headers, mediaTypeKey);
         }
       }
-      return jsonResponse(404, { error: `no route for ${method} ${req.path}` });
+      return buildResponse(404, { error: `no route for ${method} ${req.path}` }, req, routerOptions);
     },
   };
 }
