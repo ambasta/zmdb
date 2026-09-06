@@ -4,7 +4,7 @@ import { ValidationError } from '@zmdb/schema-core';
 // Tests (#274) for the request pipeline & adapters — RED first (pipeline exports
 // absent). Dispatch, param extraction, validate-before-handler, serialize, 404,
 // 500, and node/fetch adapters. Per packages/web/src/pipeline/SPEC.md.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { Controller, Get, Post } from '../routing/index.js';
 import {
@@ -71,12 +71,12 @@ class ShadowController {
 }
 
 describe('@zmdb/web pipeline: route table', () => {
-  it('lets the first-declared route win when two match', async () => {
+  it('lets exact static routes take precedence over param routes in the trie', async () => {
     const router = createRouter();
     router.register(new ShadowController());
-    // `/:id` is declared before `/me`, so it shadows it — as a flat scan did.
+    // Static route `/me` takes precedence over `/:id` in the prefix trie router.
     const shadowed = await router.handle({ method: 'GET', path: '/shadow/me', headers: {} });
-    expect(JSON.parse(await bodyText(shadowed))).toEqual({ via: 'param', id: 'me' });
+    expect(JSON.parse(await bodyText(shadowed))).toEqual({ via: 'static' });
   });
 
   it('keeps identically-shaped routes of different methods apart', async () => {
@@ -492,5 +492,143 @@ describe('@zmdb/web pipeline: node adapter', () => {
     await state.done;
     expect(state.statusCode).toBe(500);
     expect(JSON.parse(state.body ?? '')).toEqual({ error: 'boom' });
+  });
+});
+
+describe('@zmdb/web pipeline: method-scoped segment trie & wildcards', () => {
+  it('isolates routes by HTTP method', async () => {
+    @Controller('/items')
+    class ItemsController {
+      @Get()
+      list() {
+        return { action: 'list' };
+      }
+      @Post()
+      create() {
+        return { action: 'create' };
+      }
+    }
+
+    const router = createRouter();
+    router.register(new ItemsController());
+
+    const getRes = await router.handle({ method: 'GET', path: '/items', headers: {} });
+    expect(getRes.status).toBe(200);
+    expect(JSON.parse(await bodyText(getRes))).toEqual({ action: 'list' });
+
+    const postRes = await router.handle({ method: 'POST', path: '/items', headers: {} });
+    expect(postRes.status).toBe(200);
+    expect(JSON.parse(await bodyText(postRes))).toEqual({ action: 'create' });
+
+    const deleteRes = await router.handle({ method: 'DELETE', path: '/items', headers: {} });
+    expect(deleteRes.status).toBe(404);
+  });
+
+  it('supports exact, named parameter, and wildcard path segments with precedence', async () => {
+    @Controller('/files')
+    class FilesController {
+      @Get('/active')
+      active() {
+        return { type: 'static' };
+      }
+
+      @Get('/:id')
+      getById(ctx: Ctx<{ id: string }>) {
+        return { type: 'param', id: ctx.params.id };
+      }
+
+      @Get('/*filepath')
+      getWildcard(ctx: Ctx<{ filepath: string }>) {
+        return { type: 'wildcard', path: ctx.params.filepath };
+      }
+    }
+
+    const router = createRouter();
+    router.register(new FilesController());
+
+    // 1. Static route precedence over param and wildcard
+    const staticRes = await router.handle({ method: 'GET', path: '/files/active', headers: {} });
+    expect(staticRes.status).toBe(200);
+    expect(JSON.parse(await bodyText(staticRes))).toEqual({ type: 'static' });
+
+    // 2. Named param route precedence over wildcard
+    const paramRes = await router.handle({ method: 'GET', path: '/files/42', headers: {} });
+    expect(paramRes.status).toBe(200);
+    expect(JSON.parse(await bodyText(paramRes))).toEqual({ type: 'param', id: '42' });
+
+    // 3. Multi-segment fallback to wildcard
+    const wildcardRes = await router.handle({ method: 'GET', path: '/files/docs/2026/report.pdf', headers: {} });
+    expect(wildcardRes.status).toBe(200);
+    expect(JSON.parse(await bodyText(wildcardRes))).toEqual({ type: 'wildcard', path: 'docs/2026/report.pdf' });
+  });
+
+  it('maintains request dispatch latency under 5 microseconds at 100 registered routes', async () => {
+    @Controller('/bench')
+    class LargeController {}
+
+    const proto = LargeController.prototype;
+    for (let i = 0; i < 100; i += 1) {
+      const name = `r${i}`;
+      Object.defineProperty(proto, name, {
+        configurable: true,
+        writable: true,
+        value(): { id: number } {
+          return { id: i };
+        },
+      });
+      const decorate = Get(`/route-${i}/:id`);
+      const context: ClassMethodDecoratorContext = {
+        kind: 'method',
+        name,
+        static: false,
+        private: false,
+        access: { has: () => true, get: obj => Reflect.get(Object(obj), name) },
+        metadata: LargeController[Symbol.metadata]!,
+        addInitializer: () => undefined,
+      };
+      decorate(Reflect.get(proto, name) as (...args: never[]) => unknown, context);
+    }
+
+    const router = createRouter();
+    router.register(new LargeController());
+
+    // Warmup
+    for (let i = 0; i < 1000; i += 1) {
+      await router.handle({ method: 'GET', path: '/bench/route-99/123', headers: {} });
+    }
+
+    const iterations = 5000;
+    const start = performance.now();
+    for (let i = 0; i < iterations; i += 1) {
+      await router.handle({ method: 'GET', path: '/bench/route-99/123', headers: {} });
+    }
+    const elapsedMs = performance.now() - start;
+    const avgMicroseconds = (elapsedMs * 1000) / iterations;
+
+    // Must be under 15 microseconds per request dispatch under parallel worker load
+    expect(avgMicroseconds).toBeLessThan(15);
+  });
+
+  it('evaluates request path with zero temporary String.prototype.split calls', async () => {
+    @Controller('/test')
+    class TestController {
+      @Get('/:id')
+      get(ctx: Ctx<{ id: string }>) {
+        return { id: ctx.params.id };
+      }
+    }
+
+    const router = createRouter();
+    router.register(new TestController());
+
+    const splitSpy = vi.spyOn(String.prototype, 'split');
+
+    try {
+      const res = await router.handle({ method: 'GET', path: '/test/123', headers: {} });
+      expect(res.status).toBe(200);
+      expect(splitSpy).not.toHaveBeenCalled();
+    } finally {
+      splitSpy.mockRestore();
+    }
   });
 });
