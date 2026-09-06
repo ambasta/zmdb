@@ -50,6 +50,7 @@
       "@zmdb/ai-vercel": ["./packages/ai-vercel/src/index.ts"],
       "@zmdb/mcp": ["./packages/mcp/src/index.ts"],
       "@zmdb/compiler": ["./packages/compiler/src/index.ts"],
+      "@zmdb/compiler/config/contract": ["./packages/compiler/src/config/contract.ts"],
       "@zmdb/compiler/errors": ["./packages/compiler/src/errors.ts"],
       "@zmdb/compiler/metro": ["./packages/compiler/src/metro/metro.ts"],
       "@zmdb/compiler/*": ["./packages/compiler/src/*/index.ts"],

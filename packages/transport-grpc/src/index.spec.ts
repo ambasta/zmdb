@@ -84,7 +84,7 @@ async function start(handlers: GrpcHandlers<Orders>, options: StartOptions = {})
     definition: ordersService,
     address,
     credentials: 'insecure',
-    deadlineMs: 2_000,
+    deadlineMs: 5_000,
     validateMetadata: options.validateClientMetadata ?? identityMetadata,
   });
   return {

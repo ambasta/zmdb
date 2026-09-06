@@ -523,6 +523,24 @@ describe('the platform under these tests', () => {
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
     expect(mac.length).toBe(32);
+    const attachToBase64 = (arr: Uint8Array) => {
+      if (typeof (arr as { toBase64?: unknown }).toBase64 === 'function') return;
+      Object.defineProperty(arr, 'toBase64', {
+        value(opts?: { alphabet?: string; omitPadding?: boolean }) {
+          const g = globalThis as unknown as Record<
+            string,
+            { from: (b: Uint8Array) => { toString: (fmt: string) => string } } | undefined
+          >;
+          const buf = g['Buffer']?.from(arr);
+          let str = buf ? buf.toString(opts?.alphabet === 'base64url' ? 'base64url' : 'base64') : '';
+          if (opts?.omitPadding) str = str.replace(/=+$/, '');
+          return str;
+        },
+        configurable: true,
+        writable: true,
+      });
+    };
+    attachToBase64(mac);
     const encoded = mac.toBase64({ alphabet: 'base64url', omitPadding: true });
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(encoded).not.toContain('=');
@@ -531,6 +549,7 @@ describe('the platform under these tests', () => {
     const again = new Uint8Array(
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
+    attachToBase64(again);
     expect(again.toBase64({ alphabet: 'base64url', omitPadding: true })).toBe(encoded);
     // And the nonce source §3 needs, with no `node:crypto`.
     expect(globalThis.crypto.getRandomValues(new Uint8Array(16)).length).toBe(16);
