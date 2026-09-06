@@ -85,6 +85,15 @@
       "rules": {
         "zmdb/no-unbounded-find": "off"
       }
+    },
+    {
+      "files": ["scripts/vitest-setup.ts", "scripts/ts-specifier-hook.mjs", "vitest.config.ts"],
+      "rules": {
+        "eslint/no-extend-native": "off",
+        "no-restricted-globals": "off",
+        "no-restricted-properties": "off",
+        "typescript/no-explicit-any": "off"
+      }
     }
   ],
   "rules": {

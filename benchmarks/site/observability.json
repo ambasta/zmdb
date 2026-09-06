@@ -22,7 +22,7 @@
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",
-        "sha256": "cbeeabe5ec40042868bab6f56325529ac85fe664195c30ffb925d112a043e61f"
+        "sha256": "8ec6752818e5a01214845405c630f69f1a7f030fdf5baa99f6d82e01514f60ca"
       },
       {
         "path": "packages/query-compiler/package.json",
