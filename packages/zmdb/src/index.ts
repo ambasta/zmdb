@@ -23,7 +23,7 @@ export type { TransportStrategy } from '@zmdb/app/messaging';
 export type { Observability } from '@zmdb/app/observability';
 
 export { defineRepository, IncompleteKeyError, ValidationError } from '@zmdb/repository';
-export type { Driver, UpdatePatch } from '@zmdb/repository';
+export type { CreateGraphDTO, Driver, UpdateGraphDTO, UpdatePatch } from '@zmdb/repository';
 
 export { schemaOf } from '@zmdb/schema-core';
 export type { CreateDTO, Entity, PrimaryKeyOf, ReadDTO, UpdateDTO, ValidationIssue } from '@zmdb/schema-core';
