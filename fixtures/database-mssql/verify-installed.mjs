@@ -11,7 +11,7 @@ import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURE = join(ROOT, 'fixtures', 'database-mssql');
 const PACKAGES = join(ROOT, 'packages');
-const ROOTS = ['@zmdb/mssql', '@zmdb/query-compiler', '@zmdb/repository'];
+const ROOTS = ['@zmdb/migrations', '@zmdb/mssql', '@zmdb/query-compiler', '@zmdb/repository'];
 const EXPECTED_DEPENDENCIES = [...ROOTS, 'mssql'].toSorted();
 
 function run(command, args, options = {}) {
