@@ -679,9 +679,9 @@ export type SchemaObjectOperation =
     };
 
 export interface MigrationPlan {
-  readonly before: SchemaSnapshot;
-  readonly after: SchemaSnapshot;
   readonly operations: readonly ChangeOp[];
+  readonly up: readonly string[];
+  readonly down: readonly string[];
 }
 
 export interface MigrationDriver<Name extends string = string> {
