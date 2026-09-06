@@ -1,0 +1,14 @@
+{
+  "name": "@zmdb-fixture/database-mssql",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@zmdb/mssql": "1.0.0-alpha.4",
+    "@zmdb/query-compiler": "1.0.0-alpha.4",
+    "@zmdb/repository": "1.0.0-alpha.4",
+    "mssql": "12.7.0"
+  },
+  "devDependencies": {
+    "@types/mssql": "12.3.0"
+  }
+}

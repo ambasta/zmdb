@@ -5,7 +5,8 @@
 //
 // No declaration-only value is used here. Every value below is a real initializer,
 // so the file cannot claim a callable boundary exists without asking the real API.
-import { DIALECT_PARAM_LIMITS, createQueryCompiler, type Dialect } from '../index.js';
+import { mssql } from '../../../mssql/src/index.js';
+import { DIALECT_PARAM_LIMITS, createQueryCompiler, type BuiltInDialect, type Dialect } from '../index.js';
 import type { ChangeOp, TableSnapshot } from '../migrations/index.js';
 
 type Expect<T extends true> = T;
@@ -15,9 +16,10 @@ type FrozenDialect = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | '
 
 export type _DialectIsTheFrozenSix = Expect<Equal<Dialect, FrozenDialect>>;
 
-export const frozenParameterLimits: Readonly<Record<FrozenDialect, number>> = DIALECT_PARAM_LIMITS;
+export const frozenBuiltInParameterLimits: Readonly<Record<BuiltInDialect, number>> = DIALECT_PARAM_LIMITS;
+export const mssqlParameterLimit: number = mssql.traits.paramLimit;
 
-export const mssqlCompiler = createQueryCompiler('mssql');
+export const mssqlCompiler = createQueryCompiler(mssql);
 export const cockroachCompiler = createQueryCompiler('cockroach');
 export const singlestoreCompiler = createQueryCompiler('singlestore');
 

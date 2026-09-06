@@ -3,6 +3,7 @@ import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema-core/ir
 import type { PrimaryKey, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
+import { mssql } from '../../../mssql/src/index.js';
 import { BaseRepository, defineRepository, type Driver } from '../index.js';
 import { createTransactionalDb, type TxConnection } from '../transactions/index.js';
 
@@ -252,7 +253,13 @@ describe('repository streaming and cancellation (frozen: repository/SPEC.md 1a)'
         },
       };
 
-      await collect(repositoryStream<StreamRecord>(new StreamRecords(driver, dialect), { id: 7 }, { batchSize: 17 }));
+      await collect(
+        repositoryStream<StreamRecord>(
+          new StreamRecords(driver, dialect === 'mssql' ? mssql : dialect),
+          { id: 7 },
+          { batchSize: 17 },
+        ),
+      );
 
       expect(observedQuery).toEqual({ text: expected[dialect], parameters: [7] });
       expect(observedOptions).toEqual({ batchSize: 17 });

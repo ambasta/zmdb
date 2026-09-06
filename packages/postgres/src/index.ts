@@ -34,6 +34,8 @@ const traits: ResolvedDialectTraits = Object.freeze({
     if (offset !== undefined) text += ` OFFSET ${offset}`;
     return text;
   },
+  paginationRequiresOrder: false,
+  rowValueIn: true,
   returning: Object.freeze({
     insert: 'suffix',
     upsert: 'suffix',

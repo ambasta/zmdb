@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { mssql } from '../../../mssql/src/index.js';
 import { UnsupportedFeatureError, type CompiledQuery } from '../index.js';
 
 // Tests freeze for issue #506 and ./SPEC.md §7.
@@ -172,8 +173,12 @@ function invoke(api: object, name: string, args: readonly unknown[]): unknown {
   return Reflect.apply(fn, undefined, args);
 }
 
+function target(dialect: FrozenDialect): unknown {
+  return dialect === 'mssql' ? mssql : dialect;
+}
+
 function compiler(dialect: FrozenDialect): FrozenQueryCompiler {
-  const candidate: unknown = invoke(queryApi, 'createQueryCompiler', [dialect]);
+  const candidate: unknown = invoke(queryApi, 'createQueryCompiler', [target(dialect)]);
   if (!isCompiler(candidate)) {
     throw new TypeError('createQueryCompiler did not return the frozen builder surface');
   }
@@ -191,7 +196,7 @@ function stringResult(candidate: unknown, source: string): string {
 }
 
 function ftsSelectFrom(table: string, dialect: FrozenDialect): FrozenFtsBuilder {
-  const candidate: unknown = invoke(ftsApi, 'ftsSelectFrom', [table, dialect]);
+  const candidate: unknown = invoke(ftsApi, 'ftsSelectFrom', [table, target(dialect)]);
   if (!isFtsBuilder(candidate)) {
     throw new TypeError('ftsSelectFrom did not return the frozen FTS builder surface');
   }
@@ -199,11 +204,11 @@ function ftsSelectFrom(table: string, dialect: FrozenDialect): FrozenFtsBuilder 
 }
 
 function setUnion(queries: readonly CompiledQuery[], dialect: FrozenDialect): CompiledQuery {
-  return compiled(invoke(setOperationApi, 'setOperation', ['union', queries, dialect]), 'setOperation');
+  return compiled(invoke(setOperationApi, 'setOperation', ['union', queries, target(dialect)]), 'setOperation');
 }
 
 function quoteIdentifier(dialect: FrozenDialect, identifier: string): string {
-  return stringResult(invoke(queryApi, 'quoteIdentifier', [dialect, identifier]), 'quoteIdentifier');
+  return stringResult(invoke(queryApi, 'quoteIdentifier', [target(dialect), identifier]), 'quoteIdentifier');
 }
 
 function ddlType(dialect: FrozenDialect, type: (typeof SQL_TYPES)[number]): string {
@@ -213,11 +218,15 @@ function ddlType(dialect: FrozenDialect, type: (typeof SQL_TYPES)[number]): stri
     nullable: false,
     primaryKey: type === 'serial',
   };
-  return stringResult(invoke(migrationApi, 'ddlType', [dialect, column]), 'ddlType');
+  return dialect === 'mssql'
+    ? mssql.migrations.ddlType(column)
+    : stringResult(invoke(migrationApi, 'ddlType', [dialect, column]), 'ddlType');
 }
 
 function emitUp(op: FrozenChangeOp, dialect: FrozenDialect): string {
-  return stringResult(invoke(migrationApi, 'emitUp', [op, dialect]), 'emitUp');
+  return dialect === 'mssql'
+    ? stringResult(Reflect.apply(mssql.migrations.emitUp, mssql.migrations, [op]), 'mssql emitUp')
+    : stringResult(invoke(migrationApi, 'emitUp', [op, dialect]), 'emitUp');
 }
 
 const FROZEN_EXPRESSION = Symbol('zmdb.tests.dialect-matrix-expression');
@@ -268,7 +277,7 @@ function spatialPredicate(
       ? { kind: 'spatial', fn, col: column, value: geometry }
       : { kind: 'spatial', fn, col: column, value: geometry, distance };
   const text: string = stringResult(
-    invoke(clausesApi, 'renderPredicate', [dialect, predicate, parameters]),
+    invoke(clausesApi, 'renderPredicate', [target(dialect), predicate, parameters]),
     'renderPredicate',
   );
   return { text, parameters };

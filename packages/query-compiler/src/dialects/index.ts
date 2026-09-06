@@ -1,5 +1,4 @@
 import { UnsupportedFeatureError } from '../errors.js';
-import { MSSQL_TYPES, mssqlPaginate } from './mssql.js';
 import {
   type DatabaseCapabilities,
   type DialectSqlType,
@@ -17,8 +16,16 @@ export { defineSqlDialect, DIALECT_SQL_TYPES, extendSqlDialect, isSqlDialect } f
 export type {
   AppliedMigration,
   DatabaseCapabilities,
+  DialectCompiler,
+  DialectOutbox,
+  DialectReturningColumn,
+  DialectReturningContext,
+  DialectReturningSql,
   DialectSqlType,
   DialectTypeMap,
+  DialectUpsertConflict,
+  DialectUpsertContext,
+  DialectUpsertReferences,
   IntrospectionDriver,
   Introspector,
   IntrospectOptions,
@@ -41,6 +48,8 @@ export type {
 
 export const DIALECT_NAMES = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const;
 export type Dialect = (typeof DIALECT_NAMES)[number];
+export const BUILT_IN_DIALECT_NAMES = ['postgres', 'mysql', 'sqlite', 'cockroach', 'singlestore'] as const;
+export type BuiltInDialect = (typeof BUILT_IN_DIALECT_NAMES)[number];
 export type DialectFamily = Exclude<Dialect, 'cockroach' | 'singlestore'>;
 
 export type DialectFeature =
@@ -61,6 +70,8 @@ interface DialectTraitOverrides {
   readonly placeholder?: PlaceholderStyle;
   readonly quote?: readonly [open: string, close: string];
   readonly paginate?: (tail: PaginationTail) => string;
+  readonly paginationRequiresOrder?: boolean;
+  readonly rowValueIn?: boolean;
   readonly returning?: Readonly<Partial<ReturningCapability>>;
   readonly upsert?: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
   readonly fts?: 'tsvector' | 'match' | 'companionTable' | 'none';
@@ -79,7 +90,7 @@ interface DialectTraitOverrides {
 }
 
 export type DialectTraits =
-  | ({ readonly parent: Dialect } & DialectTraitOverrides)
+  | ({ readonly parent: BuiltInDialect } & DialectTraitOverrides)
   | ({
       readonly parent?: never;
       readonly types: DialectTypeMap;
@@ -186,14 +197,15 @@ function returningCapability(style: ReturningStyle): ReturningCapability {
 }
 
 const SUFFIX_RETURNING = returningCapability('suffix');
-const OUTPUT_RETURNING = returningCapability('output');
 const NO_RETURNING = returningCapability('none');
 
-export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze({
+export const DIALECTS: Readonly<Record<BuiltInDialect, DialectTraits>> = Object.freeze({
   postgres: Object.freeze({
     placeholder: 'numbered',
     quote: quotePair('"', '"'),
     paginate: standardPaginate,
+    paginationRequiresOrder: false,
+    rowValueIn: true,
     returning: SUFFIX_RETURNING,
     upsert: 'onConflict',
     fts: 'tsvector',
@@ -223,6 +235,8 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     placeholder: 'positional',
     quote: quotePair('`', '`'),
     paginate: mysqlPaginate,
+    paginationRequiresOrder: false,
+    rowValueIn: true,
     returning: NO_RETURNING,
     upsert: 'onDuplicateKey',
     fts: 'match',
@@ -252,6 +266,8 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     placeholder: 'positional',
     quote: quotePair('"', '"'),
     paginate: sqlitePaginate,
+    paginationRequiresOrder: false,
+    rowValueIn: true,
     returning: SUFFIX_RETURNING,
     upsert: 'onConflict',
     fts: 'companionTable',
@@ -271,35 +287,6 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
     paramLimit: 30000,
     retryableCodes: Object.freeze([]),
     acceptsOperator: operatorAcceptance('positional', false),
-    functions: false,
-    procedures: false,
-    tableFunctions: false,
-    vectorDistance: false,
-    spatialPredicates: false,
-  }),
-  mssql: Object.freeze({
-    placeholder: 'named',
-    quote: quotePair('[', ']'),
-    paginate: mssqlPaginate,
-    returning: OUTPUT_RETURNING,
-    upsert: 'merge',
-    fts: 'none',
-    concat: 'function',
-    booleanNot: 'bitwise',
-    types: MSSQL_TYPES,
-    features: Object.freeze({
-      materializedView: false,
-      rowLevelSecurity: false,
-      sequences: true,
-      schemas: true,
-      partialIndex: true,
-      generatedColumns: true,
-      transactionalDdl: true,
-      foreignKeys: true,
-    }),
-    paramLimit: 2000,
-    retryableCodes: Object.freeze(['1205']),
-    acceptsOperator: operatorAcceptance('named', false),
     functions: false,
     procedures: false,
     tableFunctions: false,
@@ -332,20 +319,20 @@ export const DIALECTS: Readonly<Record<Dialect, DialectTraits>> = Object.freeze(
   }),
 });
 
-function missingTrait(dialect: Dialect, trait: keyof RequiredDialectTraits): never {
+function missingTrait(dialect: BuiltInDialect, trait: keyof RequiredDialectTraits): never {
   throw new Error(`Dialect "${dialect}" does not resolve required trait "${trait}"`);
 }
 
-function missingSqlType(dialect: Dialect, type: DialectSqlType): never {
+function missingSqlType(dialect: BuiltInDialect, type: DialectSqlType): never {
   throw new Error(`Dialect "${dialect}" does not resolve SQL type "${type}"`);
 }
 
-function missingReturning(dialect: Dialect, statement: ReturningStatement): never {
+function missingReturning(dialect: BuiltInDialect, statement: ReturningStatement): never {
   throw new Error(`Dialect "${dialect}" does not resolve RETURNING support for "${statement}"`);
 }
 
 function inherited<T>(
-  dialect: Dialect,
+  dialect: BuiltInDialect,
   trait: keyof RequiredDialectTraits,
   own: T | undefined,
   parent: T | undefined,
@@ -354,7 +341,7 @@ function inherited<T>(
 }
 
 function resolveTypes(
-  dialect: Dialect,
+  dialect: BuiltInDialect,
   own: Readonly<Partial<DialectTypeMap>> | undefined,
   parent: DialectTypeMap | undefined,
 ): DialectTypeMap {
@@ -373,7 +360,7 @@ function resolveTypes(
 }
 
 function resolveReturning(
-  dialect: Dialect,
+  dialect: BuiltInDialect,
   own: Readonly<Partial<ReturningCapability>> | undefined,
   parent: ReturningCapability | undefined,
 ): ReturningCapability {
@@ -385,7 +372,7 @@ function resolveReturning(
   });
 }
 
-function rootFamily(dialect: Dialect): DialectFamily {
+function rootFamily(dialect: BuiltInDialect): DialectFamily {
   if (dialect === 'cockroach' || dialect === 'singlestore') {
     throw new Error(`Dialect "${dialect}" declares no parent`);
   }
@@ -393,10 +380,10 @@ function rootFamily(dialect: Dialect): DialectFamily {
 }
 
 function resolveOne(
-  dialect: Dialect,
-  definitions: Readonly<Record<Dialect, DialectTraits>>,
-  cache: Map<Dialect, ResolvedTraits>,
-  resolving: Set<Dialect>,
+  dialect: BuiltInDialect,
+  definitions: Readonly<Record<BuiltInDialect, DialectTraits>>,
+  cache: Map<BuiltInDialect, ResolvedTraits>,
+  resolving: Set<BuiltInDialect>,
   onResolve?: () => void,
 ): ResolvedTraits {
   const cached = cache.get(dialect);
@@ -424,6 +411,13 @@ function resolveOne(
     placeholder: inherited(dialect, 'placeholder', definition.placeholder, parent?.placeholder),
     quote: quotePair(inheritedQuote[0], inheritedQuote[1]),
     paginate: inherited(dialect, 'paginate', definition.paginate, parent?.paginate),
+    paginationRequiresOrder: inherited(
+      dialect,
+      'paginationRequiresOrder',
+      definition.paginationRequiresOrder,
+      parent?.paginationRequiresOrder,
+    ),
+    rowValueIn: inherited(dialect, 'rowValueIn', definition.rowValueIn, parent?.rowValueIn),
     returning: resolveReturning(dialect, definition.returning, parent?.returning),
     upsert: inherited(dialect, 'upsert', definition.upsert, parent?.upsert),
     fts: inherited(dialect, 'fts', definition.fts, parent?.fts),
@@ -457,16 +451,15 @@ function resolveOne(
 }
 
 export function resolveDialectRegistry(
-  definitions: Readonly<Record<Dialect, DialectTraits>>,
+  definitions: Readonly<Record<BuiltInDialect, DialectTraits>>,
   onResolve?: () => void,
-): Readonly<Record<Dialect, ResolvedTraits>> {
-  const cache = new Map<Dialect, ResolvedTraits>();
-  const resolving = new Set<Dialect>();
+): Readonly<Record<BuiltInDialect, ResolvedTraits>> {
+  const cache = new Map<BuiltInDialect, ResolvedTraits>();
+  const resolving = new Set<BuiltInDialect>();
   return Object.freeze({
     postgres: resolveOne('postgres', definitions, cache, resolving, onResolve),
     mysql: resolveOne('mysql', definitions, cache, resolving, onResolve),
     sqlite: resolveOne('sqlite', definitions, cache, resolving, onResolve),
-    mssql: resolveOne('mssql', definitions, cache, resolving, onResolve),
     cockroach: resolveOne('cockroach', definitions, cache, resolving, onResolve),
     singlestore: resolveOne('singlestore', definitions, cache, resolving, onResolve),
   });
@@ -487,17 +480,29 @@ export function dialectName(dialect: DialectTarget): string {
   return typeof dialect === 'string' ? dialect : dialect.name;
 }
 
+export function builtInDialect(dialect: Dialect): BuiltInDialect {
+  if (dialect === 'mssql') {
+    throw new UnsupportedFeatureError(
+      'built-in dialect implementation',
+      dialect,
+      'Dialect "mssql" is package-owned; import { mssql } from "@zmdb/mssql" and pass that SqlDialect object.',
+    );
+  }
+  return dialect;
+}
+
 export function dialectFamily(dialect: DialectTarget): string {
-  return typeof dialect === 'string' ? TRAITS[dialect].family : dialect.family;
+  if (typeof dialect !== 'string') return dialect.family;
+  return dialect === 'mssql' ? dialect : TRAITS[dialect].family;
 }
 
 export function dialectTraits(dialect: DialectTarget): ResolvedDialectTraits {
-  return typeof dialect === 'string' ? TRAITS[dialect] : dialect.traits;
+  return typeof dialect === 'string' ? TRAITS[builtInDialect(dialect)] : dialect.traits;
 }
 
 export function dialectCapabilities(dialect: DialectTarget): DatabaseCapabilities {
   if (typeof dialect !== 'string') return dialect.capabilities;
-  const traits = TRAITS[dialect];
+  const traits = TRAITS[builtInDialect(dialect)];
   return Object.freeze({
     returning: Object.freeze({
       insert: traits.returning.insert !== 'none',
@@ -543,7 +548,8 @@ function objectFeature(dialect: SqlDialect, feature: DialectFeature): boolean {
 }
 
 export function requireDialectFeature(dialect: DialectTarget, feature: DialectFeature, errorFeature: string): void {
-  const supported = typeof dialect === 'string' ? TRAITS[dialect].features[feature] : objectFeature(dialect, feature);
+  const supported =
+    typeof dialect === 'string' ? TRAITS[builtInDialect(dialect)].features[feature] : objectFeature(dialect, feature);
   if (!supported) {
     throw new UnsupportedFeatureError(errorFeature, dialectName(dialect));
   }

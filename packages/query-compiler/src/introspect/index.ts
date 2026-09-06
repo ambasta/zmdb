@@ -1,4 +1,10 @@
-import type { Dialect, Introspector } from '../dialects/index.js';
+import {
+  isSqlDialect,
+  type Dialect,
+  type DialectTarget,
+  type Introspector,
+  type SqlDialect,
+} from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 import { mysqlIntrospector } from './mysql.js';
 import { postgresIntrospector } from './postgres.js';
@@ -50,28 +56,29 @@ function inheritedIntrospector<Name extends string>(name: Name, source: Introspe
   };
 }
 
-/** Temporary six-name adapter. Object consumers use `dialect.introspector` directly. */
-export function createIntrospector(dialect: Dialect): LegacyIntrospector<Dialect> {
-  switch (dialect) {
-    case 'postgres':
-      return postgresIntrospector;
-    case 'cockroach':
-      return inheritedIntrospector(dialect, postgresIntrospector);
-    case 'mysql':
-      return mysqlIntrospector;
-    case 'singlestore':
-      return inheritedIntrospector(dialect, mysqlIntrospector);
-    case 'sqlite':
-      throw new UnsupportedFeatureError(
-        'schema introspection',
-        dialect,
-        'SQLite schema introspection is shipped by @zmdb/sqlite; use sqlite.introspector or sqliteIntrospector',
-      );
-    case 'mssql':
-      throw new UnsupportedFeatureError(
-        'schema introspection',
-        dialect,
-        'schema introspection is not implemented for dialect "mssql"; use a declared schema or a hand-written catalog query',
-      );
+const LEGACY_INTROSPECTORS: Readonly<Partial<Record<Dialect, LegacyIntrospector>>> = Object.freeze({
+  postgres: postgresIntrospector,
+  cockroach: inheritedIntrospector('cockroach', postgresIntrospector),
+  mysql: mysqlIntrospector,
+  singlestore: inheritedIntrospector('singlestore', mysqlIntrospector),
+});
+
+/** Object-first catalog selection plus the temporary built-in-name compatibility path. */
+export function createIntrospector<Name extends string>(dialect: SqlDialect<Name>): Introspector<Name>;
+export function createIntrospector(dialect: Dialect): LegacyIntrospector<Dialect>;
+export function createIntrospector(dialect: DialectTarget): Introspector;
+export function createIntrospector(dialect: DialectTarget): Introspector {
+  if (isSqlDialect(dialect)) return dialect.introspector;
+  const introspector = LEGACY_INTROSPECTORS[dialect];
+  if (introspector !== undefined) return introspector;
+  if (dialect === 'sqlite') {
+    throw new UnsupportedFeatureError(
+      'schema introspection',
+      dialect,
+      'SQLite schema introspection is shipped by @zmdb/sqlite; use sqlite.introspector or sqliteIntrospector',
+    );
   }
+  throw new TypeError(
+    `dialect "${dialect}" has no legacy introspector; pass the injected SqlDialect object from its database package`,
+  );
 }

@@ -58,6 +58,7 @@ const PEERS = [
   '@anthropic-ai/sdk',
   '@langchain/core',
   '@grpc/grpc-js',
+  'mssql',
   '@opentelemetry/api',
   'metro',
   'metro-babel-transformer',

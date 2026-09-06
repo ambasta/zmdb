@@ -32,6 +32,8 @@ export interface FrozenResolvedDialectTraits {
   readonly placeholder: 'numbered' | 'positional' | 'named';
   readonly quote: readonly [open: string, close: string];
   readonly paginate: (tail: PaginationTail) => string;
+  readonly paginationRequiresOrder: boolean;
+  readonly rowValueIn: boolean;
   readonly returning: Readonly<Record<FrozenReturningStatement, FrozenReturningStyle>>;
   readonly upsert: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
   readonly fts: 'tsvector' | 'match' | 'companionTable' | 'none';
@@ -225,6 +227,8 @@ export function makeSyntheticDialect(name = 'acme', options: { readonly paramLim
         `${tail.limit === undefined ? '' : ` LIMIT ${String(tail.limit)}`}${
           tail.offset === undefined ? '' : ` OFFSET ${String(tail.offset)}`
         }`,
+      paginationRequiresOrder: false,
+      rowValueIn: true,
       returning: Object.freeze({
         insert: 'suffix',
         upsert: 'suffix',

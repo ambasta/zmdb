@@ -15,7 +15,7 @@
 // not have noticed any of it, because both sides of the comparison were wrong in the same way.
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
-import type { CompiledQuery, Dialect } from '@zmdb/query-compiler';
+import type { CompiledQuery, Dialect, DialectTarget } from '@zmdb/query-compiler';
 import { diff, emitUp, snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 import type { CoreSchema, CreateDTO, PrimaryKeyOf, TaggedSchema } from '@zmdb/schema-core';
 import type { ColumnKeys, DeclaredTable } from '@zmdb/schema-core/derive';
@@ -40,6 +40,7 @@ import type {
 } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
+import { mssql } from '../../mssql/src/index.js';
 import { defineRepository, type Driver } from './index.js';
 
 /** The payload of the json column. Erased in a column map; carried in the IR. */
@@ -95,6 +96,10 @@ const {
 const DIALECTS: readonly Dialect[] = ['postgres', 'mysql', 'sqlite', 'mssql'];
 const EMPTY: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 
+function target(dialect: Dialect): DialectTarget {
+  return dialect === 'mssql' ? mssql : dialect;
+}
+
 /**
  * What one table has to supply to be driven through every repository method.
  *
@@ -128,7 +133,7 @@ async function everySql<T extends DeclaredTable>(
       return [{ id: 1, userId: 1, groupId: 2, slug: 'a', email: 'a@b.com' }];
     },
   };
-  const repo = defineRepository(schema, driver, { dialect });
+  const repo = defineRepository(schema, driver, { dialect: target(dialect) });
 
   await repo.findById(pk);
   await repo.findAll();
@@ -145,7 +150,9 @@ async function everySql<T extends DeclaredTable>(
 
 /** The `CREATE TABLE` a migration would write for one schema, in one dialect. */
 function ddl(schema: CoreSchema<string>, dialect: Dialect): readonly string[] {
-  return diff(EMPTY, snapshot([schema]), { dialect }).map(op => emitUp(op, dialect));
+  return diff(EMPTY, snapshot([schema]), { dialect: target(dialect) }).map(op =>
+    dialect === 'mssql' ? mssql.migrations.emitUp(op) : emitUp(op, dialect),
+  );
 }
 
 describe('the DDL a tagged declaration reaches the database as', () => {

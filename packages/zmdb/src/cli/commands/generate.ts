@@ -2,10 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { schemasFromFiles } from '@zmdb/aot-validator/testing';
+import { isSqlDialect, type DialectTarget } from '@zmdb/query-compiler';
 import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 
 import type { ResolvedConfig } from '../../config/index.js';
 import { writeTextAtomically } from '../atomic.js';
+import { configuredDialect } from '../database.js';
 
 const EMPTY_SNAPSHOT: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 
@@ -41,8 +43,9 @@ export async function generateMigration(
   const name = migrationName(options.name, ops);
   const versionText = migrationVersion(options.now ?? new Date());
   const migrationPath = join(config.outDir, `${versionText}_${name}.sql`);
-  const up = ops.map(operation => emitUp(operation, config.dialect));
-  const down = downStatements(ops, previous, config.dialect);
+  const dialect = configuredDialect(config.dialect);
+  const up = ops.map(operation => configuredEmitUp(operation, dialect));
+  const down = downStatements(ops, previous, dialect);
   const migration = `-- zmdb:up\n${statements(up)}-- zmdb:down\n${statements(down)}`;
 
   await writeTextAtomically(migrationPath, migration);
@@ -56,16 +59,14 @@ export async function generateMigration(
   };
 }
 
-function downStatements(
-  ops: readonly ChangeOp[],
-  previous: SchemaSnapshot,
-  dialect: ResolvedConfig['dialect'],
-): readonly string[] {
+function downStatements(ops: readonly ChangeOp[], previous: SchemaSnapshot, dialect: DialectTarget): readonly string[] {
   return ops
     .toReversed()
     .filter(operation => operation.kind !== 'create_extension')
     .map(operation => {
-      if (operation.kind !== 'drop_foreign_key') return emitDown(operation, dialect);
+      if (operation.kind !== 'drop_foreign_key') {
+        return isSqlDialect(dialect) ? emitDown(dialect.migrations, operation) : emitDown(operation, dialect);
+      }
       const table = previous.tables.find(candidate => candidate.name === operation.table);
       const foreignKey = table?.foreignKeys?.find(candidate => candidate.name === operation.name);
       if (foreignKey === undefined) {
@@ -74,8 +75,12 @@ function downStatements(
             'the previous snapshot does not contain its columns and referential actions',
         );
       }
-      return emitUp({ kind: 'add_foreign_key', table: operation.table, fk: foreignKey }, dialect);
+      return configuredEmitUp({ kind: 'add_foreign_key', table: operation.table, fk: foreignKey }, dialect);
     });
+}
+
+function configuredEmitUp(operation: ChangeOp, dialect: DialectTarget): string {
+  return isSqlDialect(dialect) ? emitUp(dialect.migrations, operation) : emitUp(operation, dialect);
 }
 
 async function readSnapshot(path: string): Promise<SchemaSnapshot> {

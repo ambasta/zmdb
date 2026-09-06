@@ -1,5 +1,6 @@
 import type { Equal, Expect } from '@zmdb/schema-core';
 
+import type { DialectTarget } from '../index.js';
 import type { ChangeOp, SchemaSnapshot } from '../migrations/index.js';
 import { detectDrift, type DriftOptions, type DriftReport } from './index.js';
 
@@ -7,9 +8,7 @@ export type _DatabaseFindingsAreChangeOps = Expect<Equal<DriftReport['onlyInData
 export type _DeclarationFindingsAreChangeOps = Expect<Equal<DriftReport['onlyInDeclarations'], readonly ChangeOp[]>>;
 export type _DetectDriftReturnsTheReport = Expect<Equal<ReturnType<typeof detectDrift>, DriftReport>>;
 export type _ExcludeIsAReadonlyList = Expect<Equal<DriftOptions['exclude'], readonly string[] | undefined>>;
-export type _DialectSelectsNoiseRules = Expect<
-  Equal<DriftOptions['dialect'], 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore' | undefined>
->;
+export type _DialectSelectsNoiseRules = Expect<Equal<DriftOptions['dialect'], DialectTarget | undefined>>;
 
 const empty: SchemaSnapshot = { version: 1, tables: [], extensions: [] };
 export const _typedReport: DriftReport = detectDrift(empty, empty, {

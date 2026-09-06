@@ -1,7 +1,8 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-three packages are published today: thirty-two focused packages plus the `zmdb` facade. The
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-five packages are published today: thirty-four focused packages plus the `zmdb` facade. The
 recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
 `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`,
-`@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/postgres`, `@zmdb/mysql`, and `@zmdb/jobs-postgres` remain independently installable.
+`@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain
+independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -17,9 +18,10 @@ import type { CreateDTO, Entity } from 'zmdb/derive';
 ```
 
 The `zmdb` package re-exports the curated public API of its seven required workspace dependencies, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`,
-`zmdb/relations`, `zmdb/web`, `zmdb/drivers/pg`, …). Database selection is explicit: `@zmdb/sqlite` owns SQLite compilation traits, migrations, introspection, and the driver, while `@zmdb/postgres`
-owns the complete PostgreSQL vertical and its structural `pg` adapter. The temporary `zmdb/drivers/sqlite` compatibility path delegates to SQLite; `zmdb/drivers/pg` delegates through the optional
-`@zmdb/postgres` peer. The `zmdb/web` facade combines the protocol-neutral `@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
+`zmdb/relations`, `zmdb/web`, `zmdb/drivers/pg`, …). Database selection is explicit: `@zmdb/sqlite` owns SQLite compilation traits, migrations, introspection, and its driver; `@zmdb/postgres` owns the
+complete PostgreSQL vertical and structural `pg` adapter; and `@zmdb/mssql` owns the complete SQL Server vertical and structural node-mssql adapter. The temporary `zmdb/drivers/sqlite` path delegates
+to SQLite, while `zmdb/drivers/pg` and `zmdb/drivers/mssql` delegate through optional database-package peers. The `zmdb/web` facade combines the protocol-neutral `@zmdb/app` kernel with the
+HTTP-specific `@zmdb/web` package.
 
 `@zmdb/ai` and `@zmdb/mcp` are independently installable and are not re-exported by the umbrella root. Anthropic, LangChain, and Vercel AI SDK users add the matching opt-in integration package and its
 SDK/framework peer.
@@ -92,6 +94,9 @@ npm install @zmdb/repository
 
 # Complete SQLite dialect + migrations + introspection + node:sqlite driver
 npm install @zmdb/sqlite
+
+# Complete SQL Server vertical plus the application-selected client
+npm install @zmdb/mssql mssql
 
 # Complete PostgreSQL dialect + migrations + introspection + structural pg driver
 npm install @zmdb/postgres pg
@@ -245,6 +250,7 @@ If that throws instead of printing, the plugin is not running over this file.
 | `@zmdb/query-compiler`     | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                    |
 | `@zmdb/aot-validator`      | Type reflection, full/shallow is/assert/validate, equals/random, serialization                 |
 | `@zmdb/repository`         | Auto-validating CRUD, hooks, transactions, populate                                            |
+| `@zmdb/mssql`              | T-SQL compilation, migrations, structural driver, introspection, and capability refusals       |
 | `@zmdb/postgres`           | PostgreSQL compiler traits, migrations, introspection, structural `pg` driver, and cursors     |
 | `@zmdb/sqlite`             | SQLite compiler traits, migrations, introspection, embedded runner, and `node:sqlite` driver   |
 | `@zmdb/mysql`              | MySQL compilation, migrations, introspection, and structural mysql2 driver                     |

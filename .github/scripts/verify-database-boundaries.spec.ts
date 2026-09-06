@@ -24,6 +24,17 @@ describe('database boundary verifier (#667)', () => {
     expect(runtimeClients).toEqual([]);
   });
 
+  it('separates frozen SQL Server names from executable SQL Server implementation', async () => {
+    const report = await inspectDatabaseBoundaries();
+    const implementation = report.findings.filter(finding => finding.kind === 'sql-server-implementation');
+    const compatibilityNames = report.findings.filter(
+      finding => finding.kind === 'official-name' && finding.token === 'mssql',
+    );
+
+    expect(implementation).toEqual([]);
+    expect(compatibilityNames).not.toEqual([]);
+  });
+
   // Current measured behavior: all six package-specific packed-consumer directories are absent.
   it.fails('every official database package has a packed consumer fixture', async () => {
     const report = await inspectDatabaseBoundaries();
@@ -39,9 +50,11 @@ describe('database boundary verifier (#667)', () => {
     expect(isShippedGenericSource('packages/query-compiler/src/index.spec.ts')).toBe(false);
     expect(isShippedGenericSource('packages/query-compiler/src/__fixtures__/postgres.ts')).toBe(false);
     expect(isShippedGenericSource('packages/query-compiler/src/testing/database-vertical.ts')).toBe(false);
+    expect(isShippedGenericSource('packages/schema-core/src/relations/index.ts')).toBe(true);
+    expect(isShippedGenericSource('packages/schema-core/src/relations/populate.spec.ts')).toBe(false);
 
     await expect(runDatabaseBoundaryFixtureProofs()).resolves.toEqual({
-      astCases: 7,
+      astCases: 8,
       modelCases: 7,
     });
   });

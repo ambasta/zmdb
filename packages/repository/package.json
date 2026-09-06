@@ -36,8 +36,7 @@
     "./replicas": "./src/replicas/index.ts",
     "./integrations": "./src/integrations/index.ts",
     "./entity-modeling": "./src/entity-modeling/index.ts",
-    "./jobs": "./src/jobs/index.ts",
-    "./drivers/mssql": "./src/drivers/mssql.ts"
+    "./jobs": "./src/jobs/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -53,8 +52,6 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
-    "@types/mssql": "^12.3.0",
-    "mssql": "12.7.0",
     "typescript": "7.0.2"
   },
   "engines": {

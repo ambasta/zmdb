@@ -5,7 +5,11 @@ export { down, downTo, driverMigrationConnection, ensureVersionTable, runCli, st
 export type { Migration, MigrationRunOptions, MigrationStatus } from './runner.js';
 import {
   TRAITS,
+  builtInDialect,
+  dialectName,
+  type BuiltInDialect,
   type Dialect,
+  type DialectTarget,
   type DialectSqlType,
   type DialectTypeMap,
   type MigrationDialect,
@@ -323,7 +327,7 @@ function diffForeignKeys(
   table: string,
   previous: readonly ForeignKeySnapshot[],
   next: readonly ForeignKeySnapshot[],
-  dialect: Dialect | undefined,
+  dialect: string | undefined,
   ops: ChangeOp[],
 ): void {
   const unmatchedPrevious = new Map(previous.map(foreignKey => [foreignKeyIdentity(foreignKey), foreignKey]));
@@ -352,7 +356,7 @@ function diffForeignKeys(
 function createdTablesInOrder(
   previous: ReadonlyMap<string, TableSnapshot>,
   next: readonly TableSnapshot[],
-  dialect: Dialect | undefined,
+  dialect: string | undefined,
 ): readonly TableSnapshot[] {
   const created = new Map(next.filter(table => !previous.has(table.name)).map(table => [table.name, table]));
   const dependencies = new Map<string, Set<string>>();
@@ -409,10 +413,11 @@ function createdTablesInOrder(
 }
 
 export interface DiffOptions {
-  readonly dialect?: Dialect | undefined;
+  readonly dialect?: DialectTarget | undefined;
 }
 
 export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOptions = {}): readonly ChangeOp[] {
+  const selectedDialect = options.dialect === undefined ? undefined : dialectName(options.dialect);
   const ops: ChangeOp[] = [];
   const prevTables = new Map(prev.tables.map(t => [t.name, t]));
   const nextTables = new Map(next.tables.map(t => [t.name, t]));
@@ -436,7 +441,7 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
   for (const t of next.tables) {
     const before = prevTables.get(t.name);
     if (!before) continue;
-    if (!sameTableOptions(before.tableOptions, t.tableOptions) && options.dialect === 'singlestore') {
+    if (!sameTableOptions(before.tableOptions, t.tableOptions) && selectedDialect === 'singlestore') {
       throw new UnsupportedFeatureError(
         'table options change',
         'singlestore',
@@ -468,13 +473,13 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
     if (!sameSequence(before.primaryKey, t.primaryKey)) {
       ops.push({ kind: 'alter_primary_key', table: t.name, from: before.primaryKey, to: t.primaryKey });
     }
-    diffForeignKeys(t.name, foreignKeysOf(before), foreignKeysOf(t), options.dialect, ops);
+    diffForeignKeys(t.name, foreignKeysOf(before), foreignKeysOf(t), selectedDialect, ops);
   }
 
   // Created tables are target-before-child. SQLite needs that order for inline
   // constraints; the other dialects get the same deterministic plan even though
   // their constraints are emitted later.
-  for (const table of createdTablesInOrder(prevTables, next.tables, options.dialect)) {
+  for (const table of createdTablesInOrder(prevTables, next.tables, selectedDialect)) {
     const foreignKeys = foreignKeysOf(table);
     ops.push({
       kind: 'create_table',
@@ -484,7 +489,7 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
       foreignKeys,
       ...(table.tableOptions === undefined ? {} : { tableOptions: table.tableOptions }),
     });
-    if (options.dialect !== 'sqlite') {
+    if (selectedDialect !== 'sqlite') {
       for (const foreignKey of foreignKeys) {
         ops.push({ kind: 'add_foreign_key', table: table.name, fk: foreignKey });
       }
@@ -511,18 +516,17 @@ export function diff(prev: SchemaSnapshot, next: SchemaSnapshot, options: DiffOp
 // a wrong guess.
 
 /** Backward-compatible view of the type maps now owned by the resolved traits registry. */
-export const DDL_TYPES: Readonly<Record<Dialect, DialectTypeMap>> = Object.freeze({
+export const DDL_TYPES: Readonly<Record<BuiltInDialect, DialectTypeMap>> = Object.freeze({
   postgres: TRAITS.postgres.types,
   mysql: TRAITS.mysql.types,
   sqlite: TRAITS.sqlite.types,
-  mssql: TRAITS.mssql.types,
   cockroach: TRAITS.cockroach.types,
   singlestore: TRAITS.singlestore.types,
 });
 
 export type DdlSqlType = DialectSqlType;
 
-function ddlScalarType(dialect: Dialect, type: string): string {
+function ddlScalarType(dialect: BuiltInDialect, type: string): string {
   const types: Readonly<Record<string, string>> = TRAITS[dialect].types;
   return types[type] ?? type;
 }
@@ -545,7 +549,7 @@ function extensionTypeDdl(type: ExtensionType): string {
 }
 
 function unsupportedExtensionType(
-  dialect: Dialect,
+  dialect: BuiltInDialect,
   type: ExtensionType,
   column: string,
   table?: string,
@@ -583,7 +587,7 @@ export function ddlType(
     }
     return dialectOrMigrations.ddlType(typeOrColumn);
   }
-  const dialect = dialectOrMigrations;
+  const dialect = builtInDialect(dialectOrMigrations);
   const isColumn = typeof typeOrColumn !== 'string';
   const column = isColumn ? typeOrColumn : undefined;
   const type = isColumn ? typeOrColumn.type : typeOrColumn === 'serial' ? 'integer' : typeOrColumn;
@@ -599,11 +603,10 @@ export function ddlType(
   // legal; a MySQL one is a syntax error, so it degrades to `TEXT` rather than emitting
   // DDL that cannot run.
   if (type === 'varchar') {
-    if (column?.length !== undefined && (mapped === 'VARCHAR' || mapped === 'NVARCHAR')) {
+    if (column?.length !== undefined && mapped === 'VARCHAR') {
       return `${mapped}(${column.length})`;
     }
     if (TRAITS[dialect].family === 'mysql') return 'TEXT';
-    if (dialect === 'mssql') return 'NVARCHAR(MAX)';
     return mapped;
   }
 
@@ -617,7 +620,7 @@ export function ddlType(
 }
 
 function columnDdl(
-  d: Dialect,
+  d: BuiltInDialect,
   col: ColumnSnapshot,
   table: string,
   key: { readonly inline: boolean; readonly tableLevel: boolean } = {
@@ -639,21 +642,21 @@ function columnDdl(
   return `${quoteIdentifier(d, col.name)} ${type}${pk}${nn}`;
 }
 
-function primaryKeyDdl(dialect: Dialect, columns: readonly string[]): string {
+function primaryKeyDdl(dialect: BuiltInDialect, columns: readonly string[]): string {
   return `PRIMARY KEY (${columns.map(column => quoteIdentifier(dialect, column)).join(', ')})`;
 }
 
-function referentialActionDdl(dialect: Dialect, action: ReferentialAction): string {
-  return dialect === 'mssql' && action === 'restrict' ? 'NO ACTION' : actionName(action);
+function referentialActionDdl(action: ReferentialAction): string {
+  return actionName(action);
 }
 
-function foreignKeyDdl(dialect: Dialect, foreignKey: ForeignKeySnapshot): string {
+function foreignKeyDdl(dialect: BuiltInDialect, foreignKey: ForeignKeySnapshot): string {
   const columns = foreignKey.columns.map(column => quoteIdentifier(dialect, column)).join(', ');
   const targetColumns = foreignKey.targetColumns.map(column => quoteIdentifier(dialect, column)).join(', ');
   return (
     `FOREIGN KEY (${columns}) REFERENCES ${quoteIdentifier(dialect, foreignKey.targetTable)} (${targetColumns}) ` +
-    `ON DELETE ${referentialActionDdl(dialect, foreignKey.onDelete)} ` +
-    `ON UPDATE ${referentialActionDdl(dialect, foreignKey.onUpdate)}`
+    `ON DELETE ${referentialActionDdl(foreignKey.onDelete)} ` +
+    `ON UPDATE ${referentialActionDdl(foreignKey.onUpdate)}`
   );
 }
 
@@ -724,7 +727,7 @@ function singlestoreTableDefinitions(
   return definitions;
 }
 
-function createTableDdl(op: Extract<ChangeOp, { kind: 'create_table' }>, dialect: Dialect): string {
+function createTableDdl(op: Extract<ChangeOp, { kind: 'create_table' }>, dialect: BuiltInDialect): string {
   const inline = op.primaryKey.length === 1 ? op.primaryKey[0] : undefined;
   const tableLevel = op.primaryKey.length > 1 ? new Set(op.primaryKey) : undefined;
   const definitions = op.columns.map(column =>
@@ -746,7 +749,7 @@ function createTableDdl(op: Extract<ChangeOp, { kind: 'create_table' }>, dialect
   return `${create} ${quoteIdentifier(dialect, op.table)} (${definitions.join(', ')})`;
 }
 
-function addForeignKeyDdl(table: string, foreignKey: ForeignKeySnapshot, dialect: Dialect): string {
+function addForeignKeyDdl(table: string, foreignKey: ForeignKeySnapshot, dialect: BuiltInDialect): string {
   if (!TRAITS[dialect].features.foreignKeys) {
     throw new UnsupportedFeatureError(
       `foreign key "${foreignKey.name}" on "${table}"`,
@@ -793,7 +796,7 @@ function addForeignKeyDdl(table: string, foreignKey: ForeignKeySnapshot, dialect
   return `${index}; ${constraint}`;
 }
 
-function dropForeignKeyDdl(table: string, name: string, dialect: Dialect): string {
+function dropForeignKeyDdl(table: string, name: string, dialect: BuiltInDialect): string {
   if (dialect === 'sqlite') {
     throw new UnsupportedFeatureError(
       `dropping foreign key "${name}" on "${table}"`,
@@ -814,7 +817,12 @@ function keyList(columns: readonly string[]): string {
   return `(${columns.join(', ')})`;
 }
 
-function alterPrimaryKeyDdl(table: string, from: readonly string[], to: readonly string[], dialect: Dialect): string {
+function alterPrimaryKeyDdl(
+  table: string,
+  from: readonly string[],
+  to: readonly string[],
+  dialect: BuiltInDialect,
+): string {
   if (dialect === 'sqlite') {
     throw new UnsupportedFeatureError(
       `altering the primary key of "${table}"`,
@@ -824,15 +832,6 @@ function alterPrimaryKeyDdl(table: string, from: readonly string[], to: readonly
         'see the migration guide',
     );
   }
-  if (dialect === 'mssql') {
-    throw new UnsupportedFeatureError(
-      `altering the primary key of "${table}"`,
-      dialect,
-      `mssql cannot safely alter the primary key of "${table}" (${keyList(from)} → ${keyList(to)}) because ` +
-        'the snapshot does not carry the existing SQL Server constraint name; use a hand-written migration',
-    );
-  }
-
   const clauses: string[] = [];
   if (from.length > 0) {
     clauses.push(
@@ -856,27 +855,11 @@ function alterPrimaryKeyDdl(table: string, from: readonly string[], to: readonly
  * Neither is reachable by an `ALTER`: a change *to* `serial` is not something the diff
  * can express.
  */
-function alteredType(dialect: Dialect, table: string, column: string, type: string | ExtensionType): string {
+function alteredType(dialect: BuiltInDialect, table: string, column: string, type: string | ExtensionType): string {
   if (typeof type !== 'string' && dialect !== 'postgres') {
     throw unsupportedExtensionType(dialect, type, column, table);
   }
   return ddlType(dialect, { name: column, type, nullable: true, primaryKey: false });
-}
-
-function mssqlAlterNullability(
-  op: Extract<ChangeOp, { readonly kind: 'alter_column_type' }>,
-  direction: 'up' | 'down',
-): string {
-  const nullable = direction === 'up' ? op.toNullable : op.fromNullable;
-  if (nullable === undefined) {
-    throw new UnsupportedFeatureError(
-      `altering the type of "${op.table}"."${op.column}" without nullability metadata`,
-      'mssql',
-      'mssql ALTER COLUMN must restate NULL or NOT NULL; generate this operation from snapshots or provide ' +
-        `${direction === 'up' ? 'toNullable' : 'fromNullable'} explicitly`,
-    );
-  }
-  return nullable ? ' NULL' : ' NOT NULL';
 }
 
 export function emitUp(migrations: MigrationDialect, operation: ChangeOp): string;
@@ -895,7 +878,7 @@ export function emitUp(
     throw new TypeError('legacy migration emission requires a dialect name');
   }
   const op = operationOrMigrations;
-  const dialect = dialectOrOperation;
+  const dialect = builtInDialect(dialectOrOperation);
   switch (op.kind) {
     case 'create_extension':
       return createExtensionDdl(op, dialect);
@@ -904,10 +887,7 @@ export function emitUp(
     case 'drop_table':
       return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'add_column':
-      return (
-        `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ` +
-        `${dialect === 'mssql' ? 'ADD' : 'ADD COLUMN'} ${columnDdl(dialect, op.column, op.table)}`
-      );
+      return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ADD COLUMN ${columnDdl(dialect, op.column, op.table)}`;
     case 'drop_column':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column)}`;
     case 'alter_column_type':
@@ -920,7 +900,7 @@ export function emitUp(
       }
       return TRAITS[dialect].family === 'mysql'
         ? `ALTER TABLE ${quoteIdentifier(dialect, op.table)} MODIFY COLUMN ${quoteIdentifier(dialect, op.column)} ${alteredType(dialect, op.table, op.column, op.to)}`
-        : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)}${dialect === 'mssql' ? '' : ' TYPE'} ${alteredType(dialect, op.table, op.column, op.to)}${dialect === 'mssql' ? mssqlAlterNullability(op, 'up') : ''}`;
+        : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.to)}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(op.table, op.from, op.to, dialect);
     case 'add_foreign_key':
@@ -946,7 +926,7 @@ export function emitDown(
     throw new TypeError('legacy migration emission requires a dialect name');
   }
   const op = operationOrMigrations;
-  const dialect = dialectOrOperation;
+  const dialect = builtInDialect(dialectOrOperation);
   switch (op.kind) {
     case 'create_extension':
       throw new Error(
@@ -955,14 +935,6 @@ export function emitDown(
     case 'create_table':
       return `DROP TABLE ${quoteIdentifier(dialect, op.table)}`;
     case 'drop_table':
-      if (dialect === 'mssql') {
-        throw new UnsupportedFeatureError(
-          `recreating dropped table "${op.table}"`,
-          dialect,
-          `mssql cannot recreate dropped table "${op.table}" because the drop operation carries no columns; ` +
-            'write the down migration by hand',
-        );
-      }
       return `CREATE TABLE ${quoteIdentifier(dialect, op.table)} ()`;
     case 'add_column':
       return `ALTER TABLE ${quoteIdentifier(dialect, op.table)} DROP COLUMN ${quoteIdentifier(dialect, op.column.name)}`;
@@ -978,7 +950,7 @@ export function emitDown(
       }
       return TRAITS[dialect].family === 'mysql'
         ? `ALTER TABLE ${quoteIdentifier(dialect, op.table)} MODIFY COLUMN ${quoteIdentifier(dialect, op.column)} ${alteredType(dialect, op.table, op.column, op.from)}`
-        : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)}${dialect === 'mssql' ? '' : ' TYPE'} ${alteredType(dialect, op.table, op.column, op.from)}${dialect === 'mssql' ? mssqlAlterNullability(op, 'down') : ''}`;
+        : `ALTER TABLE ${quoteIdentifier(dialect, op.table)} ALTER COLUMN ${quoteIdentifier(dialect, op.column)} TYPE ${alteredType(dialect, op.table, op.column, op.from)}`;
     case 'alter_primary_key':
       return alterPrimaryKeyDdl(op.table, op.to, op.from, dialect);
     case 'add_foreign_key':

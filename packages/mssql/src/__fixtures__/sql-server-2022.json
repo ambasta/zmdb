@@ -1,0 +1,265 @@
+{
+  "provenance": {
+    "captureFormat": "node-mssql 12.7.0 recordsets returned by the six @zmdb/mssql catalog queries",
+    "imageDigest": "sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+    "schema": "zmdb672_capture",
+    "serverVersion": "16.0.4265.3"
+  },
+  "rows": {
+    "tables": [
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "children"
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents"
+      }
+    ],
+    "columns": [
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "children",
+        "ordinal_position": 1,
+        "column_name": "id",
+        "is_nullable": false,
+        "data_type": "int",
+        "max_length": 4,
+        "numeric_precision": 10,
+        "numeric_scale": 0,
+        "column_default": null,
+        "is_identity": false,
+        "seed_value": null,
+        "increment_value": null,
+        "is_computed": false,
+        "computed_definition": null,
+        "is_persisted": 0
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "children",
+        "ordinal_position": 2,
+        "column_name": "parent_id",
+        "is_nullable": false,
+        "data_type": "int",
+        "max_length": 4,
+        "numeric_precision": 10,
+        "numeric_scale": 0,
+        "column_default": null,
+        "is_identity": false,
+        "seed_value": null,
+        "increment_value": null,
+        "is_computed": false,
+        "computed_definition": null,
+        "is_persisted": 0
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "ordinal_position": 1,
+        "column_name": "id",
+        "is_nullable": false,
+        "data_type": "int",
+        "max_length": 4,
+        "numeric_precision": 10,
+        "numeric_scale": 0,
+        "column_default": null,
+        "is_identity": true,
+        "seed_value": 1,
+        "increment_value": 1,
+        "is_computed": false,
+        "computed_definition": null,
+        "is_persisted": 0
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "ordinal_position": 2,
+        "column_name": "guid",
+        "is_nullable": false,
+        "data_type": "uniqueidentifier",
+        "max_length": 16,
+        "numeric_precision": 0,
+        "numeric_scale": 0,
+        "column_default": null,
+        "is_identity": false,
+        "seed_value": null,
+        "increment_value": null,
+        "is_computed": false,
+        "computed_definition": null,
+        "is_persisted": 0
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "ordinal_position": 3,
+        "column_name": "label",
+        "is_nullable": false,
+        "data_type": "nvarchar",
+        "max_length": 128,
+        "numeric_precision": 0,
+        "numeric_scale": 0,
+        "column_default": null,
+        "is_identity": false,
+        "seed_value": null,
+        "increment_value": null,
+        "is_computed": false,
+        "computed_definition": null,
+        "is_persisted": 0
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "ordinal_position": 4,
+        "column_name": "active",
+        "is_nullable": false,
+        "data_type": "bit",
+        "max_length": 1,
+        "numeric_precision": 1,
+        "numeric_scale": 0,
+        "column_default": "((1))",
+        "is_identity": false,
+        "seed_value": null,
+        "increment_value": null,
+        "is_computed": false,
+        "computed_definition": null,
+        "is_persisted": 0
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "ordinal_position": 5,
+        "column_name": "happened_at",
+        "is_nullable": false,
+        "data_type": "datetimeoffset",
+        "max_length": 9,
+        "numeric_precision": 30,
+        "numeric_scale": 3,
+        "column_default": null,
+        "is_identity": false,
+        "seed_value": null,
+        "increment_value": null,
+        "is_computed": false,
+        "computed_definition": null,
+        "is_persisted": 0
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "ordinal_position": 6,
+        "column_name": "label_size",
+        "is_nullable": true,
+        "data_type": "int",
+        "max_length": 4,
+        "numeric_precision": 10,
+        "numeric_scale": 0,
+        "column_default": null,
+        "is_identity": false,
+        "seed_value": null,
+        "increment_value": null,
+        "is_computed": true,
+        "computed_definition": "(len([label]))",
+        "is_persisted": 1
+      }
+    ],
+    "primaryKeys": [
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "children",
+        "ordinal_position": 1,
+        "column_name": "id"
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "ordinal_position": 1,
+        "column_name": "id"
+      }
+    ],
+    "foreignKeys": [
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "children",
+        "constraint_name": "children_parent_fkey",
+        "ordinal_position": 1,
+        "column_name": "parent_id",
+        "target_schema": "zmdb672_capture",
+        "target_table": "parents",
+        "target_column": "id",
+        "update_action": "NO_ACTION",
+        "delete_action": "CASCADE",
+        "is_disabled": false,
+        "is_not_trusted": false
+      }
+    ],
+    "indexes": [
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "children",
+        "index_name": "PK__children__3213E83FF1513C3F",
+        "is_unique": true,
+        "is_primary_key": true,
+        "index_type": "CLUSTERED",
+        "has_filter": false,
+        "filter_definition": null,
+        "ordinal_position": 1,
+        "is_included_column": false,
+        "column_name": "id",
+        "is_disabled": false
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "index_name": "parents_active_label",
+        "is_unique": false,
+        "is_primary_key": false,
+        "index_type": "NONCLUSTERED",
+        "has_filter": true,
+        "filter_definition": "([active]=(1))",
+        "ordinal_position": 1,
+        "is_included_column": false,
+        "column_name": "label",
+        "is_disabled": false
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "index_name": "parents_active_label",
+        "is_unique": false,
+        "is_primary_key": false,
+        "index_type": "NONCLUSTERED",
+        "has_filter": true,
+        "filter_definition": "([active]=(1))",
+        "ordinal_position": 2,
+        "is_included_column": true,
+        "column_name": "happened_at",
+        "is_disabled": false
+      },
+      {
+        "schema_name": "zmdb672_capture",
+        "table_name": "parents",
+        "index_name": "PK__parents__3213E83F8A801CA3",
+        "is_unique": true,
+        "is_primary_key": true,
+        "index_type": "CLUSTERED",
+        "has_filter": false,
+        "filter_definition": null,
+        "ordinal_position": 1,
+        "is_included_column": false,
+        "column_name": "id",
+        "is_disabled": false
+      }
+    ],
+    "sequences": [
+      {
+        "schema_name": "zmdb672_capture",
+        "sequence_name": "event_sequence",
+        "data_type": "bigint",
+        "numeric_precision": 19,
+        "numeric_scale": 0,
+        "start_value": "10",
+        "increment_value": "5"
+      }
+    ]
+  }
+}

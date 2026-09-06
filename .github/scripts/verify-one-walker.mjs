@@ -110,6 +110,11 @@ const MAY_READ = new Map([
       '`AUTO_INCREMENT`. This is the one place a `SqlType` becomes something other than a check.',
   ],
   [
+    'packages/mssql/src/types.ts',
+    'the SQL Server DDL boundary. It maps the generic migration snapshot to T-SQL spellings ' +
+      'after the schema walk has already produced normalized column facts.',
+  ],
+  [
     'packages/sqlite/src/migrations.ts',
     'the package-owned SQLite DDL boundary. It maps normalized snapshot types and key flags to exact ' +
       'SQLite declarations and refusals; it does not decide which application values a column admits.',
@@ -128,6 +133,11 @@ const MAY_READ = new Map([
     'packages/query-compiler/src/introspect/postgres.ts',
     'the reverse Postgres catalog boundary. Its input is external catalog text, so no declaration ' +
       'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
+  ],
+  [
+    'packages/mssql/src/introspect.ts',
+    'the reverse SQL Server catalog boundary. Its input is validated sys catalog rows, so no ' +
+      'declaration or TypeIR exists yet; it creates the normalized migration snapshot.',
   ],
   [
     'packages/sqlite/src/introspector.ts',

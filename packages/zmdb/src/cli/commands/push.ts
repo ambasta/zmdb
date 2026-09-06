@@ -1,4 +1,5 @@
 import { schemasFromFiles } from '@zmdb/aot-validator/testing';
+import { isSqlDialect } from '@zmdb/query-compiler';
 import { detectDrift } from '@zmdb/query-compiler/introspect';
 import {
   diff,
@@ -12,7 +13,7 @@ import { driverMigrationConnection, type MigrationConnection } from '@zmdb/query
 import type { Driver } from '@zmdb/repository';
 
 import type { ResolvedConfig } from '../../config/index.js';
-import { configuredIntrospector } from '../database.js';
+import { configuredDialect, configuredIntrospector } from '../database.js';
 import { configuredDriver } from './migrate.js';
 
 export interface PushPlan {
@@ -31,14 +32,17 @@ export interface PushResult {
 
 export async function planPush(config: ResolvedConfig): Promise<PushPlan> {
   const driver = await configuredDriver(config);
+  const dialect = configuredDialect(driver.dialect ?? config.dialect);
   const declared = declaredSnapshot(config);
-  const introspector = configuredIntrospector(config.dialect);
+  const introspector = configuredIntrospector(dialect);
   const live = await introspector.snapshot(driver, config.introspect);
   const normalizedLive = introspector.normalizeForDrift(live, 'live');
   const normalizedDeclared = introspector.normalizeForDrift(declared, 'declared');
   const drift = detectDrift(normalizedLive, normalizedDeclared, { dialect: config.dialect });
   const ops = diff(normalizedLive, normalizedDeclared, { dialect: config.dialect });
-  const statements = ops.map(operation => emitUp(operation, config.dialect));
+  const statements = ops.map(operation =>
+    isSqlDialect(dialect) ? emitUp(dialect.migrations, operation) : emitUp(operation, dialect),
+  );
   const destructive = ops
     .map((operation, index) => (isDestructive(operation) ? statements[index] : undefined))
     .filter(statement => statement !== undefined);
@@ -50,7 +54,7 @@ export async function planPush(config: ResolvedConfig): Promise<PushPlan> {
     statements,
     destructive,
     driver,
-    connection: driverMigrationConnection(driver, config.dialect),
+    connection: driverMigrationConnection(driver, dialect),
   };
 }
 

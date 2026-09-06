@@ -143,8 +143,8 @@ users.posts: OneToMany<'posts', 'userId'> supplies 1 target column for a 2-colum
 Naming the key order in the message is the point. The author has to write the columns in the order the parent key declares, and the diagnostic that tells them the count is wrong without telling them
 the order is the one that gets fixed twice.
 
-Downstream, `compilePopulate` conjoins the pairs — a to-one becomes `INNER JOIN t ON p.a = t.x AND p.b = t.y`, and a to-many's batched lookup becomes a tuple `IN` (`WHERE (a, b) IN ((…), (…))`) on
-Postgres, MySQL and SQLite. SQL Server is refused explicitly because it does not support row-value `IN`.
+Downstream, `compilePopulate` conjoins the pairs — a to-one becomes `INNER JOIN t ON p.a = t.x AND p.b = t.y`, and a to-many's batched lookup becomes a tuple `IN` (`WHERE (a, b) IN ((…), (…))`) when
+the selected structural dialect advertises row-value support. A dialect without that vendor-neutral trait is refused explicitly instead of receiving invalid SQL.
 
 SQLite has row values from 3.15, so the same form works there; a driver that predates it is out of scope, and the alternative — an `OR` of conjunctions, one per parent — grows the statement with the
 batch and is what the `IN` was introduced to avoid. No parent keys is still `WHERE 1 = 0`.

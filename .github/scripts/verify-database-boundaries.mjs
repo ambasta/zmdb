@@ -25,7 +25,7 @@ import {
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-const GENERIC_PACKAGES = ['query-compiler', 'repository'];
+const GENERIC_PACKAGES = ['query-compiler', 'schema-core', 'repository'];
 const GENERIC_PACKAGE_NAMES = GENERIC_PACKAGES.map(name => `@zmdb/${name}`);
 const DATABASE_CLIENTS = [
   'pg',
@@ -75,6 +75,18 @@ const MUTATING_METHODS = new Set([
 ]);
 const BASELINE_PATH = join(ROOT, '.github', 'scripts', 'database-boundary-baseline.json');
 const FIXTURE_DIR = join(ROOT, '.github', 'scripts', '__fixtures__', 'database-boundaries');
+const MSSQL_COMPATIBILITY_PATHS = new Set(['packages/query-compiler/src/dialects/index.ts']);
+const MSSQL_IMPLEMENTATION_MARKERS = [
+  ['output-clause', /\bOUTPUT\b/g],
+  ['merge-statement', /\bMERGE\b/g],
+  ['holdlock-hint', /\bHOLDLOCK\b/g],
+  ['unicode-type', /\bNVARCHAR\b/g],
+  ['timestamp-type', /\bDATETIMEOFFSET\b/g],
+  ['timestamp-default', /\bSYSDATETIMEOFFSET\b/g],
+  ['identity-column', /\bIDENTITY\s*\(/g],
+  ['catalog-object-probe', /\bOBJECT_ID\s*\(/g],
+  ['offset-fetch', /\bFETCH\s+NEXT\b/g],
+];
 
 function canonicalDatabase(value) {
   return value.toLowerCase() === 'postgresql' ? 'postgres' : value.toLowerCase();
@@ -121,6 +133,10 @@ function isShippedPackageSource(path) {
 
 function lineOf(sourceFile, node) {
   return sourceFile.text.slice(0, node.getStart()).split('\n').length;
+}
+
+function lineAt(text, offset) {
+  return text.slice(0, offset).split('\n').length;
 }
 
 function walk(node, visit) {
@@ -305,6 +321,9 @@ function analyzeSourceFile(sourceFile, logicalPath, add) {
     if (generic && node.kind === SyntaxKind.Identifier) {
       for (const database of officialNames(node.text)) {
         add('official-name', logicalPath, database, lineOf(sourceFile, node));
+        if (database === 'mssql' && !MSSQL_COMPATIBILITY_PATHS.has(logicalPath)) {
+          add('sql-server-implementation', logicalPath, 'name-or-branch', lineOf(sourceFile, node));
+        }
       }
     }
     if (
@@ -314,6 +333,9 @@ function analyzeSourceFile(sourceFile, logicalPath, add) {
     ) {
       for (const database of officialNames(node.text)) {
         add('official-name', logicalPath, database, lineOf(sourceFile, node));
+        if (database === 'mssql' && !MSSQL_COMPATIBILITY_PATHS.has(logicalPath)) {
+          add('sql-server-implementation', logicalPath, 'name-or-branch', lineOf(sourceFile, node));
+        }
       }
     }
 
@@ -322,6 +344,15 @@ function analyzeSourceFile(sourceFile, logicalPath, add) {
       add('parent-mutation', logicalPath, root, lineOf(sourceFile, node));
     }
   });
+
+  if (generic) {
+    for (const [label, pattern] of MSSQL_IMPLEMENTATION_MARKERS) {
+      pattern.lastIndex = 0;
+      for (const match of sourceFile.text.matchAll(pattern)) {
+        add('sql-server-implementation', logicalPath, label, lineAt(sourceFile.text, match.index));
+      }
+    }
+  }
 }
 
 function sourceFilesForProjects(root, projects) {
@@ -637,6 +668,11 @@ export async function runDatabaseBoundaryFixtureProofs() {
     ['negative-official-name.ts', 'packages/query-compiler/src/official-name.ts', 'official-name'],
     ['negative-official-import.ts', 'packages/query-compiler/src/official-import.ts', 'official-package-import'],
     ['negative-client-import.ts', 'packages/query-compiler/src/client-import.ts', 'database-client-import'],
+    [
+      'negative-mssql-implementation.ts',
+      'packages/query-compiler/src/mssql-implementation.ts',
+      'sql-server-implementation',
+    ],
   ]) {
     const findings = sourceCase(name, logicalPath);
     expectFixture(
@@ -711,7 +747,7 @@ export async function runDatabaseBoundaryFixtureProofs() {
     throw new Error(`database-boundary fixture proofs failed:\n${failures.join('\n')}`);
   }
   return {
-    astCases: 7,
+    astCases: 8,
     modelCases: 7,
   };
 }

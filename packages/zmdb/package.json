@@ -68,13 +68,18 @@
   },
   "devDependencies": {
     "@zmdb/ai": "workspace:^",
+    "@zmdb/mssql": "workspace:^",
     "@zmdb/postgres": "workspace:^",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
+    "@zmdb/mssql": "workspace:^",
     "@zmdb/postgres": "workspace:^"
   },
   "peerDependenciesMeta": {
+    "@zmdb/mssql": {
+      "optional": true
+    },
     "@zmdb/postgres": {
       "optional": true
     }

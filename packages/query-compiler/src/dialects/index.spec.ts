@@ -4,7 +4,7 @@ import { UnsupportedFeatureError } from '../errors.js';
 import { createQueryCompiler } from '../index.js';
 import { quoteIdentifier } from '../quoting.js';
 import {
-  DIALECT_NAMES,
+  BUILT_IN_DIALECT_NAMES,
   DIALECT_SQL_TYPES,
   DIALECTS,
   TRAITS,
@@ -23,7 +23,7 @@ describe('dialect traits', () => {
     createQueryCompiler('mysql').insertInto('users').values({ id: 1 }).compile();
     quoteIdentifier('sqlite', 'users');
 
-    expect(resolutions).toBe(DIALECT_NAMES.length);
+    expect(resolutions).toBe(BUILT_IN_DIALECT_NAMES.length);
     expect(dialectTraitResolutionCount()).toBe(resolutions);
     expect(TRAITS.postgres).toBe(postgres);
     expect(Object.isFrozen(TRAITS.postgres)).toBe(true);
@@ -35,7 +35,7 @@ describe('dialect traits', () => {
   });
 
   it('merges inherited scalar, feature, type and statement-specific returning traits', () => {
-    const definitions: Readonly<Record<(typeof DIALECT_NAMES)[number], DialectTraits>> = {
+    const definitions: Readonly<Record<(typeof BUILT_IN_DIALECT_NAMES)[number], DialectTraits>> = {
       postgres: DIALECTS.postgres,
       mysql: {
         parent: 'postgres',
@@ -47,7 +47,6 @@ describe('dialect traits', () => {
         features: { rowLevelSecurity: false },
       },
       sqlite: DIALECTS.sqlite,
-      mssql: DIALECTS.mssql,
       cockroach: DIALECTS.cockroach,
       singlestore: DIALECTS.singlestore,
     };
@@ -86,11 +85,10 @@ describe('dialect traits', () => {
   });
 
   it('rejects a parent cycle during eager resolution', () => {
-    const definitions: Readonly<Record<(typeof DIALECT_NAMES)[number], DialectTraits>> = {
+    const definitions: Readonly<Record<(typeof BUILT_IN_DIALECT_NAMES)[number], DialectTraits>> = {
       postgres: { parent: 'mysql' },
       mysql: { parent: 'postgres' },
       sqlite: DIALECTS.sqlite,
-      mssql: DIALECTS.mssql,
       cockroach: DIALECTS.cockroach,
       singlestore: DIALECTS.singlestore,
     };
@@ -98,8 +96,8 @@ describe('dialect traits', () => {
     expect(() => resolveDialectRegistry(definitions)).toThrow('Dialect trait parent cycle includes "postgres"');
   });
 
-  it('resolves every abstract SQL type for every shipped dialect', () => {
-    for (const dialect of DIALECT_NAMES) {
+  it('resolves every abstract SQL type for every built-in dialect', () => {
+    for (const dialect of BUILT_IN_DIALECT_NAMES) {
       for (const type of DIALECT_SQL_TYPES) {
         expect(TRAITS[dialect].types[type], `${dialect}: ${type}`).toBeTypeOf('string');
       }

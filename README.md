@@ -43,6 +43,8 @@ Solid is opt-in too: install `@zmdb/solid` with Solid 1 when a generated client 
 Optional server integrations stay outside the `zmdb` default install:
 
 - `@zmdb/protobuf` has no peer or external resource; the build transform emits its artifacts.
+- `@zmdb/mssql` requires `mssql@^12.7.0`; the application constructs and owns the pool while the package supplies the complete T-SQL compiler, migration, structural-driver, and catalog-introspection
+  vertical.
 - `@zmdb/transport-grpc` requires `@grpc/grpc-js@^1.14.0`; the application owns the server extension and the caller closes each client.
 - `@zmdb/transport-nats` requires `@nats-io/transport-node@^3.4.0`; the application extension starts, drains, and closes its connection.
 - `@zmdb/transport-rabbitmq` requires `amqplib@^2.0.1`; the application extension owns its connection, channels, retry, and dead-letter setup.
@@ -53,7 +55,7 @@ Optional server integrations stay outside the `zmdb` default install:
 `@zmdb/protobuf` owns source calls, typed gRPC artifacts, and the generated-code wire ABI. `@zmdb/aot-validator` remains the build-time reflector and emitter, so projects authoring protobuf calls add
 it as a development dependency. The [installation guide](./docs-site/content/installation.md) and package-specific guides contain copy-pasteable commands.
 
-> The workspace publishes **34 packages** across **142 export-map entry points**. The current suite has **3,239 passing tests** across 303 files, plus **49 expected failures** that describe work still
+> The workspace publishes **35 packages** across **140 export-map entry points**. The current suite has **3,253 passing tests** across 306 files, plus **49 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

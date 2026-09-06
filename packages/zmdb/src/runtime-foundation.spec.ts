@@ -2,9 +2,11 @@ import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { join } from 'node:path';
 
 import { validate } from '@zmdb/aot-validator/utilities';
-import { createQueryCompiler, type CompiledQuery, type Dialect } from '@zmdb/query-compiler';
+import { mssql } from '@zmdb/mssql';
+import { createQueryCompiler, UnsupportedFeatureError, type CompiledQuery, type Dialect } from '@zmdb/query-compiler';
 import { BaseRepository, ValidationError, type Driver } from '@zmdb/repository';
 import { jsonSchemaFromIR, objectTypeFromIR, schemaFromIR, type SchemaIR, type TypeIR } from '@zmdb/schema-core/ir';
+import { compilePopulate } from '@zmdb/schema-core/relations';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -242,8 +244,9 @@ describe('runtime foundation package cutover (#636)', () => {
     };
 
     for (const dialect of Object.keys(expected) as Dialect[]) {
+      const target = dialect === 'mssql' ? mssql : dialect;
       expect(
-        createQueryCompiler(dialect)
+        createQueryCompiler(target)
           .selectFrom('users')
           .select(['id', 'email'])
           .where('email', '=', 'a@example.test')
@@ -255,6 +258,42 @@ describe('runtime foundation package cutover (#636)', () => {
         parameters: ['a@example.test'],
       });
     }
+  });
+
+  it('refuses SQL Server row-value IN instead of emitting invalid SQL', () => {
+    const id = USERS_IR.columns.find(column => column.name === 'id');
+    if (id === undefined) throw new Error('runtime-foundation fixture has no id column');
+    const compositeUsers: SchemaIR = {
+      table: 'users',
+      physicalTable: 'users',
+      columns: [
+        {
+          ...id,
+          name: 'tenantId',
+          physicalName: 'tenantId',
+          sql: 'text',
+          serial: false,
+          unique: false,
+          hasDefault: false,
+        },
+        { ...id, name: 'id', physicalName: 'id', serial: false, unique: false, hasDefault: false },
+      ],
+      primaryKey: ['tenantId', 'id'],
+      relations: [{ name: 'posts', relation: 'oneToMany', target: 'posts', via: 'tenantId,userId' }],
+      foreignKeys: [],
+    };
+
+    let caught: unknown;
+    try {
+      compilePopulate(compositeUsers, 'posts', mssql, [['tenant-1', 1]]);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(UnsupportedFeatureError);
+    if (!(caught instanceof UnsupportedFeatureError)) throw new Error('expected UnsupportedFeatureError');
+    expect(caught.feature).toBe('composite-key populate for relation "posts"');
+    expect(caught.dialect).toBe('mssql');
+    expect(caught.message).toMatch(/dialect "mssql" does not support row-value IN/);
   });
 
   it('pins validator acceptance, issue order and exactness before the move', () => {

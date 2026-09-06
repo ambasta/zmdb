@@ -16,6 +16,59 @@ export type ReturningStatement = 'insert' | 'upsert' | 'update' | 'delete';
 export type ReturningStyle = 'suffix' | 'output' | 'none';
 export type ReturningCapability = Readonly<Record<ReturningStatement, ReturningStyle>>;
 
+export type DialectReturningColumn =
+  | string
+  | {
+      readonly column: string;
+      readonly alias: string;
+    };
+
+export interface DialectReturningSql {
+  readonly inline: string;
+  readonly suffix: string;
+}
+
+export interface DialectReturningContext {
+  readonly dialect: SqlDialect;
+  readonly statement: ReturningStatement;
+  readonly row: 'new' | 'old';
+  readonly columns: readonly DialectReturningColumn[];
+}
+
+export interface DialectUpsertConflict {
+  readonly action: 'update' | 'ignore';
+  readonly target?: readonly string[] | undefined;
+  readonly updateFields?: readonly string[] | Readonly<Record<string, unknown>> | undefined;
+}
+
+export interface DialectUpsertReferences {
+  readonly current: string;
+  readonly proposed: string;
+}
+
+export interface DialectUpsertContext {
+  readonly dialect: SqlDialect;
+  readonly table: string;
+  readonly columns: readonly string[];
+  readonly placeholders: readonly string[];
+  readonly conflict: DialectUpsertConflict;
+  readonly returning: DialectReturningSql;
+  readonly renderUpdateValue: (column: string, value: unknown, references: DialectUpsertReferences) => string;
+  readonly isProposedValue: (value: unknown) => boolean;
+}
+
+export interface DialectCompiler {
+  returning(context: DialectReturningContext): DialectReturningSql;
+  upsert(context: DialectUpsertContext): string;
+}
+
+export interface DialectOutbox {
+  readonly pendingIndex: 'filtered' | 'full';
+  readonly epochLiteral: string;
+  readonly createdAtDefault: string;
+  boundedTextType(length: number): string;
+}
+
 export interface DatabaseCapabilities {
   readonly returning: Readonly<Record<ReturningStatement, boolean>>;
   readonly transactionalDdl: boolean;
@@ -54,6 +107,8 @@ export interface ResolvedDialectTraits {
   readonly placeholder: PlaceholderStyle;
   readonly quote: readonly [open: string, close: string];
   readonly paginate: (tail: PaginationTail) => string;
+  readonly paginationRequiresOrder: boolean;
+  readonly rowValueIn: boolean;
   readonly returning: ReturningCapability;
   readonly upsert: 'onConflict' | 'onDuplicateKey' | 'merge' | 'none';
   readonly fts: 'tsvector' | 'match' | 'companionTable' | 'none';
@@ -168,6 +223,8 @@ export interface SqlDialect<Name extends string = string> {
   readonly capabilities: DatabaseCapabilities;
   readonly migrations: MigrationDialect<Name>;
   readonly introspector: Introspector<Name>;
+  readonly compiler?: DialectCompiler;
+  readonly outbox?: DialectOutbox;
 }
 
 export interface SqlDialectDefinition<Name extends string> extends SqlDialect<Name> {}
@@ -183,6 +240,8 @@ export interface SqlDialectExtension<Name extends string> {
   };
   readonly migrations: MigrationDialect<Name>;
   readonly introspector: Introspector<Name>;
+  readonly compiler?: DialectCompiler;
+  readonly outbox?: DialectOutbox;
 }
 
 function deepFreeze<Value>(value: Value): Readonly<Value> {
@@ -212,6 +271,8 @@ function assertSqlDialect(dialect: SqlDialect): void {
     'placeholder',
     'quote',
     'paginate',
+    'paginationRequiresOrder',
+    'rowValueIn',
     'returning',
     'upsert',
     'fts',
@@ -254,6 +315,12 @@ function assertSqlDialect(dialect: SqlDialect): void {
   }
   for (const key of ['paginate', 'acceptsOperator'] as const) {
     requiredFunction(dialect.traits, key, `${dialect.name} dialect traits`);
+  }
+  if (typeof dialect.traits.paginationRequiresOrder !== 'boolean') {
+    throw new TypeError(`${dialect.name} dialect trait paginationRequiresOrder must be boolean`);
+  }
+  if (typeof dialect.traits.rowValueIn !== 'boolean') {
+    throw new TypeError(`${dialect.name} dialect trait rowValueIn must be boolean`);
   }
   for (const key of ['functions', 'procedures', 'tableFunctions', 'vectorDistance', 'spatialPredicates'] as const) {
     if (typeof dialect.traits[key] !== 'boolean') {
@@ -304,6 +371,33 @@ function assertSqlDialect(dialect: SqlDialect): void {
   for (const key of ['snapshot', 'normalizeForDrift'] as const) {
     requiredFunction(dialect.introspector, key, `${dialect.name} introspector`);
   }
+  const compilerRequired =
+    Object.values(dialect.traits.returning).includes('output') || dialect.traits.upsert === 'merge';
+  if (compilerRequired && dialect.compiler === undefined) {
+    throw new TypeError(`${dialect.name} requires a compiler strategy for its returning or upsert traits`);
+  }
+  if (dialect.compiler !== undefined) {
+    for (const key of ['returning', 'upsert'] as const) {
+      requiredFunction(dialect.compiler, key, `${dialect.name} compiler`);
+    }
+  }
+  if (dialect.outbox !== undefined) {
+    exactKeys(`${dialect.name} outbox`, dialect.outbox, [
+      'pendingIndex',
+      'epochLiteral',
+      'createdAtDefault',
+      'boundedTextType',
+    ]);
+    if (dialect.outbox.pendingIndex !== 'filtered' && dialect.outbox.pendingIndex !== 'full') {
+      throw new TypeError(`${dialect.name} outbox pendingIndex must be filtered or full`);
+    }
+    for (const key of ['epochLiteral', 'createdAtDefault'] as const) {
+      if (typeof dialect.outbox[key] !== 'string' || dialect.outbox[key].length === 0) {
+        throw new TypeError(`${dialect.name} outbox ${key} must be a non-empty string`);
+      }
+    }
+    requiredFunction(dialect.outbox, 'boundedTextType', `${dialect.name} outbox`);
+  }
 }
 
 export function defineSqlDialect<Name extends string>(definition: SqlDialectDefinition<Name>): SqlDialect<Name> {
@@ -347,6 +441,10 @@ export function extendSqlDialect<Parent extends string, Name extends string>(
     capabilities,
     migrations: extension.migrations,
     introspector: extension.introspector,
+    ...((extension.compiler ?? parent.compiler) === undefined
+      ? {}
+      : { compiler: extension.compiler ?? parent.compiler }),
+    ...((extension.outbox ?? parent.outbox) === undefined ? {} : { outbox: extension.outbox ?? parent.outbox }),
   });
 }
 

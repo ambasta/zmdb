@@ -53,6 +53,8 @@ export const sqlite = defineSqlDialect({
     placeholder: 'positional',
     quote: Object.freeze(['"', '"']),
     paginate,
+    paginationRequiresOrder: false,
+    rowValueIn: true,
     returning: suffixReturning,
     upsert: 'onConflict',
     fts: 'companionTable',

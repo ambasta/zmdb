@@ -21,6 +21,8 @@ const CONSUMER_ROOT = 'fixtures/consumer-runtime-foundation';
 const OLD_PACKAGES = ['@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/repository', '@zmdb/schema-core'];
 const OPTIONAL_TARGETS = ['@zmdb/ai', '@zmdb/mssql', '@zmdb/postgres', '@zmdb/sqlite'];
 const TRANSITIONAL_OPTIONAL_EDGES = new Map([
+  // #672 implements the SQL Server vertical against the current generic seams.
+  ['@zmdb/mssql', new Set(['@zmdb/query-compiler', '@zmdb/repository'])],
   // #670 implements the PostgreSQL vertical against the current generic seams.
   // #634 owns the hard cutover to @zmdb/sql and @zmdb/orm. Keep this exact
   // old-package closure visible to oldPackageProblems (and therefore strict
@@ -131,7 +133,7 @@ function packageRoot(specifier) {
 function sourceFiles(directory) {
   if (!existsSync(directory)) return [];
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
-    if (entry.name === 'dist' || entry.name === 'node_modules') return [];
+    if (entry.name === '__generated__' || entry.name === 'dist' || entry.name === 'node_modules') return [];
     const path = join(directory, entry.name);
     return entry.isDirectory() ? sourceFiles(path) : [path];
   });
@@ -163,7 +165,7 @@ function packageEntryFiles(pkg) {
     .toSorted();
 }
 
-function reachableImports(graph, starts) {
+function reachableImports(graph, starts, stopAt = new Set()) {
   const queue = starts.map(file => ({ file, chain: [file] }));
   const seen = new Set();
   const references = [];
@@ -173,7 +175,7 @@ function reachableImports(graph, starts) {
     seen.add(current.file);
     for (const imported of graph.importsOf(current.file, readFileSync(current.file, 'utf8'))) {
       references.push({ file: current.file, chain: current.chain, ...imported });
-      if (imported.resolved !== null) {
+      if (imported.resolved !== null && !stopAt.has(packageRoot(imported.specifier))) {
         queue.push({ file: imported.resolved, chain: [...current.chain, imported.resolved] });
       }
     }
@@ -315,11 +317,12 @@ function optionalDirectionProblems(root, graph) {
   for (const target of OPTIONAL_TARGETS) {
     const pkg = graph.packages.get(target);
     if (pkg === undefined) continue;
-    const references = reachableImports(graph, packageEntryFiles(pkg));
+    const currentDependencies = TRANSITIONAL_OPTIONAL_EDGES.get(target) ?? new Set();
+    const references = reachableImports(graph, packageEntryFiles(pkg), currentDependencies);
     for (const imported of references) {
       const reached = packageRoot(imported.specifier);
       if (FOUNDATION_PACKAGES.some(foundation => foundation.name === reached)) continue;
-      if (TRANSITIONAL_OPTIONAL_EDGES.get(target)?.has(reached) === true) continue;
+      if (currentDependencies.has(reached)) continue;
       if (
         imported.specifier.startsWith('.') ||
         imported.specifier.startsWith('node:') ||

@@ -60,15 +60,16 @@ const cancellable = postgresDriver(pool, { cancelVia: pool });
 ```ts
 // node-mssql — pass an already-connected pool
 import sql from 'mssql';
-import { mssqlDriver } from '@zmdb/repository/drivers/mssql';
+import { mssqlDriver } from '@zmdb/mssql';
 
 const pool = await sql.connect(process.env.DATABASE_URL!);
 const users = defineRepository(UserSchema, mssqlDriver(pool));
 ```
 
 All four accept **structural** types — `SqliteDatabase` is `{ exec(sql); prepare(sql) }`, `MysqlQueryable` is the `execute`/transaction subset of `mysql2/promise`, `PgQueryable` is `{ query(…) }`, and
-`MssqlPool` is `{ request() }` — so the real client objects are assignable without a client library becoming a runtime dependency of the adapter. `@zmdb/sqlite` declares no third-party database
-client; `node:sqlite` is built in. `@zmdb/mysql` declares `mysql2` only as an optional peer. Install `mysql2`, `pg`, or `mssql` in the application that selects the corresponding adapter.
+`MssqlPool` is `{ request(); transaction() }` — so the real client objects are assignable without a client library becoming a runtime dependency of the adapter. `@zmdb/sqlite` declares no third-party
+database client; `node:sqlite` is built in. `@zmdb/mysql` and `@zmdb/mssql` declare their clients only as optional peers. Install `mysql2`, `pg`, or `mssql` in the application that selects the
+corresponding adapter.
 
 > [!NOTE] First-party drivers declare their dialect object. `defineRepository` uses an explicit option first, then `driver.dialect`, then the temporary `'postgres'` fallback. Driver wrappers must
 > preserve the wrapped dialect. A third-party driver can attach a frozen `SqlDialect` object, and the repository uses that same object for compilation, limits, retries and returning behavior.

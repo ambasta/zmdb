@@ -60,6 +60,7 @@
       "@zmdb/aot-validator/*": ["./packages/aot-validator/src/*/index.ts"],
       "@zmdb/protobuf": ["./packages/protobuf/src/index.ts"],
       "@zmdb/protobuf/*": ["./packages/protobuf/src/*.ts"],
+      "@zmdb/mssql": ["./packages/mssql/src/index.ts"],
       "@zmdb/postgres": ["./packages/postgres/src/index.ts"],
       "@zmdb/postgres/*": ["./packages/postgres/src/*/index.ts"],
       "@zmdb/cockroach": ["./packages/cockroach/src/index.ts"],

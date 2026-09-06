@@ -424,8 +424,8 @@ Equivalent identity rules apply to the other five packages. A family child may r
 - its own `name`, warnings, refusals and evidence; and
 - a test that parent objects are unchanged after the child loads.
 
-Blind delegation is not qualification. SQL Server must read columns, identity, keys, indexes, defaults and foreign keys before `@zmdb/mssql` can be supported. MySQL's captured fixture remains a
-deterministic parser test but does not replace its required live lane.
+Blind delegation is not qualification. `@zmdb/mssql` now reads columns, identity, keys, indexes, defaults and foreign keys through its object introspector; the central string factory remains temporary
+compatibility dispatch until #675. MySQL's captured fixture remains a deterministic parser test but does not replace its required live lane.
 
 ### 11.4 Failure and evidence policy
 

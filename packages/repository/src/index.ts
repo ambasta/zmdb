@@ -19,7 +19,6 @@ import {
   chunkArray,
   createQueryCompiler,
   dialectCapabilities,
-  dialectName,
   dialectTraits,
   EXPR,
   inc,
@@ -1237,19 +1236,15 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return keyed;
   }
 
-  /**
-   * SQL Server spells LIMIT through OFFSET/FETCH, which requires ORDER BY.
-   * Repository first-row reads own a deterministic order: primary-key order
-   * when present, otherwise the declaration's first column.
-   */
+  /** Add the deterministic order required by dialects whose pagination grammar needs one. */
   private limitOne(builder: SelectBuilder): SelectBuilder {
-    if (dialectName(this.dialect) !== 'mssql') return builder.limit(1);
+    if (!this.dialectTraits.paginationRequiresOrder) return builder.limit(1);
 
     const fallback = this.schema.ir.columns[0]?.physicalName;
     const order =
       this.physicalKeyColumns.length > 0 ? this.physicalKeyColumns : fallback === undefined ? [] : [fallback];
     if (order.length === 0) {
-      throw new Error(`schema ${this.tableName} has no column available to order a SQL Server first-row read`);
+      throw new Error(`schema ${this.tableName} has no column available to order a first-row read`);
     }
 
     let ordered = builder;

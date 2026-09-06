@@ -41,6 +41,7 @@ const PACKAGES = [
   'protobuf',
   'repository',
   'query-compiler',
+  'mssql',
   'sqlite',
   'mysql',
   'app',

@@ -9,7 +9,7 @@
 The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
 and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **152 paths**, each exactly once:
+The inventory has **151 paths**, each exactly once:
 
 ```json
 {
@@ -113,7 +113,6 @@ runtime	packages/query-compiler/src/clauses.ts
 runtime	packages/query-compiler/src/comments/index.ts
 runtime	packages/query-compiler/src/compiled-query.ts
 runtime	packages/query-compiler/src/dialects/index.ts
-runtime	packages/query-compiler/src/dialects/mssql.ts
 runtime	packages/query-compiler/src/dialects/protocol.ts
 runtime	packages/query-compiler/src/errors.ts
 runtime	packages/query-compiler/src/expressions/index.ts

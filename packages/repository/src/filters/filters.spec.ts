@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
-import { TRAITS, type CompiledQuery, type Dialect } from '@zmdb/query-compiler';
+import { type CompiledQuery, type Dialect, type DialectTarget } from '@zmdb/query-compiler';
 import { diff, emitUp, snapshot } from '@zmdb/query-compiler/migrations';
 import {
   BaseRepository,
@@ -16,6 +16,8 @@ import { jsonSchemaFromIR, schemaFromIR } from '@zmdb/schema-core/ir';
 import type { OneToMany, PrimaryKey, References, Serial, SoftDelete, Sql, Table } from '@zmdb/schema-core/tags';
 import { sqliteDriver } from '@zmdb/sqlite';
 import { describe, expect, it } from 'vitest';
+
+import { mssql } from '../../../mssql/src/index.js';
 
 export interface FilterUser extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -85,6 +87,14 @@ const DIALECT_VARIANTS = [
   'cockroach',
   'singlestore',
 ] as const satisfies readonly Dialect[];
+const DIALECT_TARGETS = {
+  postgres: 'postgres',
+  mysql: 'mysql',
+  sqlite: 'sqlite',
+  mssql,
+  cockroach: 'cockroach',
+  singlestore: 'singlestore',
+} as const satisfies Readonly<Record<Dialect, DialectTarget>>;
 const PostSchema = schemaFromIR({
   table: 'posts',
   physicalTable: 'posts',
@@ -1009,9 +1019,12 @@ describe('soft-delete declaration and timestamp contract', () => {
           ? schemaFromIR({ ...SoftDeleteUserSchema.ir, tableOptions: { rowstore: true } })
           : SoftDeleteUserSchema;
       const operations = diff({ version: 1, tables: [], extensions: [] }, snapshot([schema]), {
-        dialect,
+        dialect: DIALECT_TARGETS[dialect],
       });
-      expect(operations.map(operation => emitUp(operation, dialect)).join('\n')).toContain(expectedTimestamp[dialect]);
+      const emittedStatements = operations.map(operation =>
+        dialect === 'mssql' ? mssql.migrations.emitUp(operation) : emitUp(operation, dialect),
+      );
+      expect(emittedStatements.join('\n')).toContain(expectedTimestamp[dialect]);
     }
   });
 
@@ -1026,9 +1039,9 @@ describe('soft-delete declaration and timestamp contract', () => {
     } satisfies Record<Dialect, string>;
 
     for (const dialect of DIALECT_VARIANTS) {
-      const rows = TRAITS[dialect].family === 'mysql' ? [{ affectedRows: 1 }] : [{ id: 1 }];
+      const rows = dialect === 'mysql' || dialect === 'singlestore' ? [{ affectedRows: 1 }] : [{ id: 1 }];
       const driver = recordingDriver(rows);
-      const repo = new SoftDeleteUsers(driver, dialect);
+      const repo = new SoftDeleteUsers(driver, DIALECT_TARGETS[dialect]);
 
       expect(await repo.delete(1)).toBe(true);
       expect(driver.calls[0]?.text).toBe(expected[dialect]);
@@ -1081,7 +1094,7 @@ describe('soft-delete declaration and timestamp contract', () => {
       const driver = recordingDriver([
         { id: 1, tenantId: 7, role: 'user', active: true, deletedAt: null, affectedRows: 1 },
       ]);
-      const repo = new SoftDeleteUsers(driver, dialect);
+      const repo = new SoftDeleteUsers(driver, DIALECT_TARGETS[dialect]);
 
       await repo.increment(1, 'tenantId');
       await repo.updateMany({ tenantId: 7 }, { role: 'bulk' });

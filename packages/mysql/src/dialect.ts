@@ -29,6 +29,8 @@ const traits: ResolvedDialectTraits = {
   placeholder: 'positional',
   quote: Object.freeze(['`', '`']),
   paginate,
+  paginationRequiresOrder: false,
+  rowValueIn: true,
   returning: Object.freeze({
     insert: 'none',
     upsert: 'none',

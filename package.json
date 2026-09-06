@@ -50,6 +50,7 @@
     "verify:exports": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-exports.mjs",
     "verify:fixtures": "node --import ./scripts/ts-specifier-hook.mjs packages/aot-validator/src/cli/bin.ts --project fixtures/consumer-cli/tsconfig.json --check && vitest run packages/aot-validator/src/cli/consumer-fixtures.spec.ts packages/aot-validator/src/plugin/metro.spec.ts && node fixtures/consumer-mcp/verify-installed.mjs && node fixtures/database-sqlite/verify-installed.mjs",
     "verify:instantiations": "node .github/scripts/verify-instantiations.mjs",
+    "verify:mssql-acceptance": "node fixtures/database-mssql/verify-installed.mjs",
     "verify:mysql-live": "vitest run packages/mysql/src/live.spec.ts",
     "verify:no-defineschema": "node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-no-defineschema.mjs",
     "verify:no-descriptors": "node .github/scripts/verify-no-descriptors.mjs",

@@ -17,12 +17,14 @@
 // What is left is the part that was never a duplicate: `resolveRelation`, which turns one
 // `RelationIR` into the pair of columns a query needs, and the two row helpers.
 import {
+  dialectName,
+  dialectTraits,
   formatPlaceholder,
   quoteIdentifier,
   renderPredicate,
   UnsupportedFeatureError,
   type ComparisonPredicate,
-  type Dialect,
+  type DialectTarget,
 } from '@zmdb/query-compiler';
 
 import type { SchemaIR } from '../ir/index.js';
@@ -169,7 +171,7 @@ function inverseRelation(
   return { name, targetTable: rel.target, parentKey, targetKey, toMany };
 }
 
-export type PopulateDialect = Dialect;
+export type PopulateDialect = DialectTarget;
 
 export interface PopulateQuery {
   readonly kind: 'join' | 'batched';
@@ -305,11 +307,12 @@ export function compilePopulate(
       (filters.length === 0 ? '' : ` ${filters}`);
     return { kind: 'batched', sql, parameters };
   }
-  if (dialect === 'mssql') {
+  if (!dialectTraits(dialect).rowValueIn) {
+    const name = dialectName(dialect);
     throw new UnsupportedFeatureError(
       `composite-key populate for relation "${relationName}"`,
-      dialect,
-      `${ir.table}.${relationName}: SQL Server does not support row-value IN for a composite-key populate`,
+      name,
+      `${ir.table}.${relationName}: dialect "${name}" does not support row-value IN for a composite-key populate`,
     );
   }
   const sanitized = sanitizeCompositeKeys(ir, relationName, parentIds, targetKeys.length);

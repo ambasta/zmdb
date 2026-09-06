@@ -9,7 +9,6 @@ import {
   dialectName,
   isSqlDialect,
   formatPlaceholder,
-  quoteIdentifier,
   quoteTable,
   type CompiledQuery,
   type DialectTarget,
@@ -182,23 +181,6 @@ export function driverMigrationConnection(
       await driver.execute(query.compile());
     },
     async ensureVersionTable(): Promise<void> {
-      if (selectedName === 'mssql') {
-        const objectName = qualifiedTableName.replaceAll("'", "''");
-        await execute(
-          `IF OBJECT_ID(N'${objectName}', N'U') IS NULL ` +
-            `CREATE TABLE ${table} (` +
-            `${quoteIdentifier(dialect, 'version')} BIGINT PRIMARY KEY, ` +
-            `${quoteIdentifier(dialect, 'name')} NVARCHAR(MAX) NOT NULL, ` +
-            `${quoteIdentifier(dialect, 'applied_at')} BIGINT NOT NULL, ` +
-            `${quoteIdentifier(dialect, 'checksum')} NVARCHAR(MAX))`,
-        );
-        try {
-          await execute(`SELECT ${quoteIdentifier(dialect, 'checksum')} FROM ${table} WHERE 1 = 0`);
-        } catch {
-          await execute(`ALTER TABLE ${table} ADD ${quoteIdentifier(dialect, 'checksum')} NVARCHAR(MAX)`);
-        }
-        return;
-      }
       const versionType = selectedName === 'sqlite' ? 'INTEGER' : 'BIGINT';
       await execute(
         `CREATE TABLE IF NOT EXISTS ${table} (` +

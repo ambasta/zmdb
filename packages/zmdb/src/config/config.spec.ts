@@ -744,7 +744,7 @@ export default {
     await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/introspect\.include.*string/i);
   });
 
-  it('refuses migrations.schema outside PostgreSQL', async () => {
+  it('refuses migrations.schema outside PostgreSQL-family dialects and SQL Server', async () => {
     const fixture = project(`
 export default {
   schema: 'src/*.ts',
@@ -752,7 +752,23 @@ export default {
   migrations: { schema: 'app' },
 };
 `);
-    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(/migrations\.schema.*PostgreSQL.*sqlite/i);
+    await expect(loadConfig({ cwd: fixture.root })).rejects.toThrow(
+      /migrations\.schema.*PostgreSQL-family.*SQL Server.*sqlite/i,
+    );
+  });
+
+  it('accepts migrations.schema for SQL Server', async () => {
+    const fixture = project(`
+export default {
+  schema: 'src/*.ts',
+  dialect: 'mssql',
+  migrations: { schema: 'app' },
+};
+`);
+    await expect(loadConfig({ cwd: fixture.root })).resolves.toMatchObject({
+      dialect: 'mssql',
+      migrations: { schema: 'app' },
+    });
   });
 
   it('resolveConfig applies the same validation and path rules to an imported object', async () => {

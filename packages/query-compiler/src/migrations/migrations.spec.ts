@@ -3,6 +3,7 @@ import type { Entity } from '@zmdb/schema-core';
 import type { PrimaryKey, References, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, it, expect } from 'vitest';
 
+import { mssql } from '../../../mssql/src/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 import { createQueryCompiler, type Dialect } from '../index.js';
 import {
@@ -997,10 +998,13 @@ describe('database extensions and extension-backed types (frozen: migrations/SPE
 
   it('refuses an extension type on mssql, naming the dialect and the type', () => {
     const run = () =>
-      extensionUp(
-        { kind: 'create_table', table: 'items', columns: itemColumns, primaryKey: ['id'], foreignKeys: [] },
-        'mssql',
-      );
+      mssql.migrations.emitUp({
+        kind: 'create_table',
+        table: 'items',
+        columns: itemColumns,
+        primaryKey: ['id'],
+        foreignKeys: [],
+      });
     expect(run).toThrow(UnsupportedFeatureError);
     expect(run).toThrow(/mssql/i);
     expect(run).toThrow(/vector\(1536\)/i);

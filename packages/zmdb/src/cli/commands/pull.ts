@@ -58,7 +58,7 @@ export async function pullDeclarations(config: ResolvedConfig, options: PullOpti
   }
 
   const driver = await config.driver();
-  const snapshot = await configuredIntrospector(config.dialect).snapshot(driver, config.introspect);
+  const snapshot = await configuredIntrospector(driver.dialect ?? config.dialect).snapshot(driver, config.introspect);
   const emitted = await emitDeclarations(snapshot, { dialect: config.dialect });
   const projectRoot = dirname(config.configPath);
   const outputRoot = join(projectRoot, '.zmdb', 'introspected');

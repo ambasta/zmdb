@@ -112,7 +112,7 @@ export async function checkProject(config: ResolvedConfig): Promise<CheckResult>
     skipped.push({ kind: 'drift', reason: `config ${config.configPath} has no driver` });
   } else if (!('newerVersion' in stored)) {
     const driver = await config.driver();
-    const introspector = configuredIntrospector(config.dialect);
+    const introspector = configuredIntrospector(driver.dialect ?? config.dialect);
     const live = await introspector.snapshot(driver, config.introspect);
     const report = detectDrift(
       introspector.normalizeForDrift(live, 'live'),

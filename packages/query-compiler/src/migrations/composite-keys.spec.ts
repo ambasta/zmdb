@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, it, expect } from 'vitest';
 
+import { mssql } from '../../../mssql/src/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 import type { Dialect } from '../index.js';
 import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, type TableSnapshot } from './index.js';
@@ -15,6 +16,10 @@ import { diff, emitDown, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, t
 
 const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly Dialect[];
 type KeyDialect = (typeof DIALECTS)[number];
+
+function emitDialectUp(operation: ChangeOp, dialect: KeyDialect): string {
+  return dialect === 'mssql' ? mssql.migrations.emitUp(operation) : emitUp(operation, dialect);
+}
 
 // ---------------------------------------------------------------------------
 // §1.2 Key DDL, per dialect
@@ -58,7 +63,7 @@ describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
     // A key column emits `NOT NULL` explicitly in this form, which the inline form suppresses
     // as redundant. It is not redundant here: SQLite permits a NULL in a `PRIMARY KEY` column
     // of a *table* constraint unless the column says `NOT NULL`.
-    for (const dialect of DIALECTS) expect(emitUp(createMemberships, dialect), dialect).toBe(golden[dialect]);
+    for (const dialect of DIALECTS) expect(emitDialectUp(createMemberships, dialect), dialect).toBe(golden[dialect]);
   });
 
   it('executes the composite CREATE TABLE on sqlite', () => {
@@ -95,7 +100,7 @@ describe('composite key DDL (frozen: migrations/SPEC.md 1.2)', () => {
       sqlite: 'CREATE TABLE "users" ("id" INTEGER PRIMARY KEY, "email" TEXT NOT NULL)',
       mssql: 'CREATE TABLE [users] ([id] INT IDENTITY(1,1) PRIMARY KEY, [email] NVARCHAR(255) NOT NULL)',
     };
-    for (const dialect of DIALECTS) expect(emitUp(createUsers, dialect), dialect).toBe(golden[dialect]);
+    for (const dialect of DIALECTS) expect(emitDialectUp(createUsers, dialect), dialect).toBe(golden[dialect]);
   });
 });
 

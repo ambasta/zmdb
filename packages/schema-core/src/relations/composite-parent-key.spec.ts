@@ -1,6 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { UnsupportedFeatureError } from '@zmdb/query-compiler';
 import { describe, it, expect } from 'vitest';
 
 import type { SchemaIR } from '../ir/index.js';
@@ -291,19 +290,5 @@ describe('populate over a composite key (relations/SPEC.md 2.1)', () => {
       sql: 'SELECT * FROM "posts" WHERE 1 = 0',
       parameters: [],
     });
-  });
-
-  it('refuses SQL Server row-value IN instead of emitting invalid SQL', () => {
-    let caught: unknown;
-    try {
-      compilePopulate(users, 'postsBoth', 'mssql', [['t1', 1]]);
-    } catch (error) {
-      caught = error;
-    }
-    expect(caught).toBeInstanceOf(UnsupportedFeatureError);
-    if (!(caught instanceof UnsupportedFeatureError)) throw new Error('expected UnsupportedFeatureError');
-    expect(caught.feature).toBe('composite-key populate for relation "postsBoth"');
-    expect(caught.dialect).toBe('mssql');
-    expect(caught.message).toMatch(/SQL Server does not support row-value IN/);
   });
 });

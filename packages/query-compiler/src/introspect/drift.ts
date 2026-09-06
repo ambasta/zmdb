@@ -1,4 +1,4 @@
-import { TRAITS, type Dialect } from '../index.js';
+import { dialectFamily, type DialectTarget } from '../index.js';
 import {
   diff,
   type ChangeOp,
@@ -18,7 +18,7 @@ export interface DriftOptions {
    * Enables dialect-owned noise rules. MySQL may create an otherwise undeclared
    * btree index solely to support a foreign key.
    */
-  readonly dialect?: Dialect;
+  readonly dialect?: DialectTarget;
 }
 
 export interface DriftReport {
@@ -90,10 +90,10 @@ function isMySqlForeignKeySupportingIndex(
 function normalizeIndexes(
   table: DriftTableSnapshot,
   role: SnapshotRole,
-  dialect: Dialect | undefined,
+  dialect: DialectTarget | undefined,
 ): readonly CatalogIndexSnapshot[] | undefined {
   if (table.indexes === undefined) return undefined;
-  if (role !== 'live' || dialect === undefined || TRAITS[dialect].family !== 'mysql') return table.indexes;
+  if (role !== 'live' || dialect === undefined || dialectFamily(dialect) !== 'mysql') return table.indexes;
   const foreignKeys = table.foreignKeys ?? [];
   return table.indexes.filter(index => !isMySqlForeignKeySupportingIndex(index, foreignKeys));
 }

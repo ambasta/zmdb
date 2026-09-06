@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { mssql } from '../../../mssql/src/index.js';
 import { postgresDriver as pgDriver, type PgQueryable } from '../../../postgres/src/index.js';
 import {
   down,
@@ -367,13 +368,13 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
   it('uses SQL Server ledger DDL and requires a transaction-pinning driver', async () => {
     const executed: string[] = [];
     const driver = {
-      dialect: 'mssql' as const,
+      dialect: mssql,
       async execute(query: { readonly text: string }): Promise<readonly Record<string, unknown>[]> {
         executed.push(query.text);
         return [];
       },
     };
-    const adapter = driverMigrationConnection(driver, 'mssql', {
+    const adapter = driverMigrationConnection(driver, mssql, {
       schema: "audit's",
       table: 'migration]history',
     });
@@ -396,7 +397,7 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
   it('uses SQL Server syntax when adding checksum to an older ledger', async () => {
     const executed: string[] = [];
     const driver = {
-      dialect: 'mssql' as const,
+      dialect: mssql,
       async execute(query: { readonly text: string }): Promise<readonly Record<string, unknown>[]> {
         executed.push(query.text);
         if (query.text.startsWith('SELECT [checksum]')) throw new Error('invalid column');
@@ -404,7 +405,7 @@ describe('Native Driver Adapter (driverMigrationConnection)', () => {
       },
     };
 
-    await ensureVersionTable(driverMigrationConnection(driver, 'mssql'));
+    await ensureVersionTable(driverMigrationConnection(driver, mssql));
 
     expect(executed.at(-1)).toBe('ALTER TABLE [_zmdb_migrations] ADD [checksum] NVARCHAR(MAX)');
   });

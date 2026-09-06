@@ -4633,6 +4633,23 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/mssql@workspace:^, @zmdb/mssql@workspace:packages/mssql":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/mssql@workspace:packages/mssql"
+  dependencies:
+    "@types/mssql": "npm:^12.3.0"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    mssql: "npm:12.7.0"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    mssql: ^12.7.0
+  peerDependenciesMeta:
+    mssql:
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/mysql@workspace:packages/mysql":
   version: 0.0.0-use.local
   resolution: "@zmdb/mysql@workspace:packages/mysql"
@@ -4773,11 +4790,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/repository@workspace:packages/repository"
   dependencies:
-    "@types/mssql": "npm:^12.3.0"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
-    mssql: "npm:12.7.0"
     typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft
@@ -12647,6 +12662,7 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
+    "@zmdb/mssql": "workspace:^"
     "@zmdb/postgres": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
@@ -12657,8 +12673,11 @@ __metadata:
     oxfmt: "npm:0.66.0"
     typescript: "npm:7.0.2"
   peerDependencies:
+    "@zmdb/mssql": "workspace:^"
     "@zmdb/postgres": "workspace:^"
   peerDependenciesMeta:
+    "@zmdb/mssql":
+      optional: true
     "@zmdb/postgres":
       optional: true
   bin:

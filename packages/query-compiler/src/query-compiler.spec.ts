@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
+import { mssql } from '../../mssql/src/index.js';
 import { OP_MAP, chunkArray, createQueryCompiler, distance, sanitizeKeys, stContains, stDWithin } from './index.js';
 
 // RED PHASE (#16 spec freeze): golden SQL fixtures from SPEC.md.
@@ -103,13 +104,6 @@ describe('aliased write results', () => {
     ).toEqual({
       text: 'UPDATE "users" SET "created_at" = ? WHERE "id" = ? RETURNING "created_at" AS "createdAt"',
       parameters: [2, 1],
-    });
-  });
-
-  it('aliases SQL Server OUTPUT columns', () => {
-    expect(createQueryCompiler('mssql').deleteFrom('users').where('id', '=', 1).returning(returned).compile()).toEqual({
-      text: 'DELETE FROM [users] OUTPUT DELETED.[created_at] AS [createdAt] WHERE [id] = @p1',
-      parameters: [1],
     });
   });
 });
@@ -608,7 +602,7 @@ describe('Operator normalization & bounded dialect operators', () => {
     ] as const;
 
     for (const testCase of cases) {
-      const query = createQueryCompiler(testCase.dialect)
+      const query = createQueryCompiler(testCase.dialect === 'mssql' ? mssql : testCase.dialect)
         .selectFrom(testCase.table)
         .where(testCase.column, testCase.operator, testCase.value)
         .compile();
@@ -646,7 +640,11 @@ describe('Operator normalization & bounded dialect operators', () => {
     ] as const;
 
     for (const { dialect, operator } of collisions) {
-      const compile = () => createQueryCompiler(dialect).selectFrom('users').where('payload', operator, 1).compile();
+      const compile = () =>
+        createQueryCompiler(dialect === 'mssql' ? mssql : dialect)
+          .selectFrom('users')
+          .where('payload', operator, 1)
+          .compile();
       expect(compile, `${dialect} ${operator}`).toThrow(/invalid unmapped SQL operator/);
     }
   });

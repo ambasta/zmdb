@@ -35,6 +35,7 @@ const CURRENT_OWNER_DIRECTORIES = [
   'schema-core',
   'aot-validator',
   'repository',
+  'mssql',
   'sqlite',
   'app',
   'web',

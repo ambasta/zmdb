@@ -1,6 +1,6 @@
 # `@zmdb/mssql` — complete SQL Server vertical
 
-> Status: frozen by issue #666 for implementation in #672. This directory contains specification only.
+> Status: implemented by issue #672 against the current generic injection seams. SQL Server implementation is package-owned now; #675 removes only the frozen name/config/CLI compatibility surface.
 
 ## Public contract
 
@@ -35,19 +35,20 @@ False values are zmdb package refusals, not claims about every SQL Server facili
 
 `@zmdb/mssql` owns:
 
-- `query-compiler/src/dialects/mssql.ts`, the SQL Server root traits, type map, parameter limit, deadlock retry code and every SQL Server matrix cell;
+- `src/index.ts`, `src/compiler.ts` and `src/types.ts`: the SQL Server root traits, type map, parameter limit, deadlock retry code and every SQL Server matrix cell;
 - bracket quoting, named placeholders, ordered `OFFSET/FETCH`, bitwise boolean negation, `OUTPUT` placement and `MERGE WITH (HOLDLOCK)`;
 - every SQL Server branch in migrations, schema objects, ledger DDL, referential actions and outbox spelling;
-- `repository/src/drivers/mssql.ts` and SQL Server transaction-owned request behavior;
-- the replacement for the current central unsupported-introspection branch; and
+- `src/driver.ts` and SQL Server transaction-owned request behavior;
+- `src/introspect.ts`, replacing the former central unsupported-introspection branch; and
 - all SQL Server capability, catalog, live-server and packed-consumer tests.
 
-No SQL Server implementation remains in a generic production package after #675.
+No SQL Server implementation remains in a generic production package. The retained generic references are the frozen public name, package-owned refusal text, and vendor-neutral capability strategy
+values such as `output` and `merge`; the database-boundary verifier audits those separately from executable SQL Server implementation.
 
 ## Catalog contract
 
-`mssqlIntrospector` must read and normalize at least tables, columns, nullability, defaults, identity, primary keys, foreign keys, indexes, filtered predicates and computed columns. The target package
-cannot call itself supported while `createIntrospector('mssql')` would still be represented by an unsupported branch.
+`mssqlIntrospector` reads and normalizes tables, columns, nullability, defaults, identity, primary keys, foreign keys, indexes, filtered predicates and computed columns. Object consumers use
+`createIntrospector(mssql)` or the named export. The temporary string factory remains compatibility dispatch until #675.
 
 Catalog rows are validated before use, and a fact that cannot be represented exactly is an explicit error or warning under the generic introspection policy. Silent omission is not allowed.
 
@@ -56,6 +57,7 @@ Catalog rows are validated before use, and a fact that cannot be represented exa
 The package refuses before execution:
 
 - pagination with `limit` or `offset` and no `ORDER BY`;
+- composite-key populate that would require unsupported row-value `IN`;
 - full-text SQL not represented by the schema contract;
 - materialized views, RLS and stored-routine definitions under the current generic schema-object vocabulary;
 - an index/operator form not represented by its exact matrix; and
@@ -74,7 +76,7 @@ The mandatory packed-consumer lane against real SQL Server must:
 5. round-trip the package's abstract type mappings; and
 6. verify the client appears only as a consumer-selected optional peer.
 
-The current optional `ZMDB_MSSQL_URL` suite is useful local evidence. Release qualification fails rather than passes with a visible skip when the service is absent.
+The optional local `ZMDB_MSSQL_URL` suite reports a visible skip. The dedicated CI and packed-consumer lanes require the connection, so qualification cannot pass without SQL Server.
 
 ## Non-goals
 

@@ -210,6 +210,17 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  mssql: packagePolicy({
+    directory: 'packages/mssql',
+    zone: 'integration',
+    ring: 5,
+    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {
+      mssql: ['.'],
+    },
+    toolingEntries: [],
+  }),
   otel: packagePolicy({
     directory: 'packages/otel',
     zone: 'integration',
@@ -411,6 +422,7 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: [
       'app',
       'aot-validator',
+      'mssql',
       'postgres',
       'query-compiler',
       'repository',
@@ -420,6 +432,7 @@ export const PACKAGE_POLICY = Object.freeze({
     ],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
+      '@zmdb/mssql': ['./cli', './drivers/mssql', 'bin:zmdb'],
       '@zmdb/postgres': ['./drivers/pg'],
     },
     toolingEntries: [

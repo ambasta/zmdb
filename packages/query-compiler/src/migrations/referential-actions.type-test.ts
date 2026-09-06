@@ -4,6 +4,7 @@
 
 import type { Equal, Expect } from '@zmdb/schema-core';
 
+import type { DialectTarget } from '../index.js';
 import type { ChangeOp, diff, ForeignKeySnapshot, TableSnapshot } from './index.js';
 
 type FrozenReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
@@ -51,5 +52,5 @@ export type _CreateTableCarriesForeignKeys = Expect<Equal<CreateTableForeignKeys
 // dialect is an optional diff input rather than an invented third op.
 type DiffOptions = Parameters<typeof diff>[2];
 type DiffDialect = NonNullable<DiffOptions>['dialect'];
-type FrozenDiffDialect = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'cockroach' | 'singlestore' | undefined;
+type FrozenDiffDialect = DialectTarget | undefined;
 export type _DiffDialect = Expect<Equal<DiffDialect, FrozenDiffDialect>>;

@@ -1,5 +1,12 @@
-import { TRAITS } from '../dialects/index.js';
-import { createQueryCompiler, type CompiledQuery, type Dialect, type DialectTarget } from '../index.js';
+import {
+  createQueryCompiler,
+  dialectFamily,
+  dialectName,
+  dialectTraits,
+  type CompiledQuery,
+  type DialectOutbox,
+  type DialectTarget,
+} from '../index.js';
 import type { Migration } from '../migrations/runner.js';
 import { quoteIdentifier } from '../quoting.js';
 import { createIndexDdl } from '../schema-objects/index.js';
@@ -10,75 +17,78 @@ export type OutboxStatus = 'pending' | 'delivered' | 'dead';
 const PENDING: OutboxStatus = 'pending';
 
 /**
- * The Postgres family, SQLite and SQL Server index only pending rows. The
- * MySQL family gets the full composite index with `status` first to preserve a
+ * Most dialects index only pending rows. Dialects that cannot represent the
+ * predicate use the full composite index with `status` first to preserve a
  * useful pending-row prefix instead of degrading to an unindexed scan.
  */
-export function outboxPendingIndexDdl(dialect: Dialect): string {
-  const family = TRAITS[dialect].family;
-  return createIndexDdl(
-    {
-      name: 'zmdb_outbox_pending',
-      table: OUTBOX_TABLE,
-      columns: ['status', 'lease_until', 'created_at'],
-      ...(family === 'mysql' ? {} : { where: "status = 'pending'" }),
-    },
-    dialect,
-  );
+export function outboxPendingIndexDdl(dialect: DialectTarget): string {
+  const definition = {
+    name: 'zmdb_outbox_pending',
+    table: OUTBOX_TABLE,
+    columns: ['status', 'lease_until', 'created_at'],
+    ...(outboxDialect(dialect).pendingIndex === 'full' ? {} : { where: "status = 'pending'" }),
+  };
+  if (typeof dialect === 'string') return createIndexDdl(definition, dialect);
+  const statements = dialect.migrations.emitSchemaObject({
+    kind: 'create_index',
+    definition,
+  });
+  if (statements.length !== 1 || statements[0] === undefined) {
+    throw new TypeError(`${dialect.name} outbox index emission must return exactly one statement`);
+  }
+  return statements[0];
 }
 
-function timestampType(dialect: Dialect): string {
-  return TRAITS[dialect].types.timestamp;
+function defaultOutboxDialect(dialect: DialectTarget): DialectOutbox {
+  const family = dialectFamily(dialect);
+  return Object.freeze({
+    pendingIndex: family === 'mysql' ? 'full' : 'filtered',
+    epochLiteral: family === 'mysql' ? "'1970-01-01 00:00:00.000'" : "'1970-01-01T00:00:00.000Z'",
+    createdAtDefault:
+      family === 'mysql'
+        ? 'CURRENT_TIMESTAMP(3)'
+        : family === 'sqlite'
+          ? "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
+          : 'CURRENT_TIMESTAMP',
+    boundedTextType: (length: number) => (family === 'mysql' ? `VARCHAR(${String(length)})` : 'TEXT'),
+  });
 }
 
-function epochLiteral(dialect: Dialect): string {
-  if (dialect === 'mssql') return "'1970-01-01T00:00:00.000+00:00'";
-  return TRAITS[dialect].family === 'mysql' ? "'1970-01-01 00:00:00.000'" : "'1970-01-01T00:00:00.000Z'";
-}
-
-function createdAtDefault(dialect: Dialect): string {
-  if (TRAITS[dialect].family === 'mysql') return 'CURRENT_TIMESTAMP(3)';
-  if (dialect === 'mssql') return 'SYSDATETIMEOFFSET()';
-  if (dialect === 'sqlite') return "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))";
-  return 'CURRENT_TIMESTAMP';
-}
-
-function boundedTextType(dialect: Dialect, length: number): string {
-  if (TRAITS[dialect].family === 'mysql') return `VARCHAR(${length})`;
-  if (dialect === 'mssql') return `NVARCHAR(${length})`;
-  return 'TEXT';
+function outboxDialect(dialect: DialectTarget): DialectOutbox {
+  return typeof dialect === 'string' || dialect.outbox === undefined ? defaultOutboxDialect(dialect) : dialect.outbox;
 }
 
 /** The declared outbox table's migration DDL, including the defaults its type tags cannot carry. */
-export function outboxTableDdl(dialect: Dialect): string {
+export function outboxTableDdl(dialect: DialectTarget): string {
   const q = (name: string) => quoteIdentifier(dialect, name);
-  const createTable = dialect === 'singlestore' ? 'CREATE ROWSTORE TABLE' : 'CREATE TABLE';
-  const timestamp = timestampType(dialect);
-  const createdDefault = createdAtDefault(dialect);
+  const traits = dialectTraits(dialect);
+  const outbox = outboxDialect(dialect);
+  const createTable = dialectName(dialect) === 'singlestore' ? 'CREATE ROWSTORE TABLE' : 'CREATE TABLE';
+  const timestamp = traits.types.timestamp;
   // MySQL refuses TEXT primary keys and TEXT columns in an index without a prefix
   // length. These three values are bounded by construction, so the migration uses
   // bounded storage there while the application type remains string.
-  const text = TRAITS[dialect].types.text;
-  const idType = boundedTextType(dialect, 36);
-  const statusType = boundedTextType(dialect, 16);
-  const leaseOwnerType = boundedTextType(dialect, 36);
+  const text = traits.types.text;
+  const idType = outbox.boundedTextType(36);
+  const statusType = outbox.boundedTextType(16);
+  const leaseOwnerType = outbox.boundedTextType(36);
   return (
     `${createTable} ${q(OUTBOX_TABLE)} (` +
     `${q('id')} ${idType} PRIMARY KEY, ` +
     `${q('topic')} ${text} NOT NULL, ` +
     `${q('payload')} ${text} NOT NULL, ` +
     `${q('status')} ${statusType} NOT NULL DEFAULT 'pending', ` +
-    `${q('attempts')} ${TRAITS[dialect].types.integer} NOT NULL DEFAULT 0, ` +
-    `${q('created_at')} ${timestamp} NOT NULL DEFAULT ${createdDefault}, ` +
+    `${q('attempts')} ${traits.types.integer} NOT NULL DEFAULT 0, ` +
+    `${q('created_at')} ${timestamp} NOT NULL DEFAULT ${outbox.createdAtDefault}, ` +
     `${q('lease_owner')} ${leaseOwnerType} NOT NULL DEFAULT '', ` +
-    `${q('lease_until')} ${timestamp} NOT NULL DEFAULT ${epochLiteral(dialect)}, ` +
+    `${q('lease_until')} ${timestamp} NOT NULL DEFAULT ${outbox.epochLiteral}, ` +
     `${q('delivered_at')} ${timestamp}, ` +
     `${q('last_error')} ${text})`
   );
 }
 
 /** A normal migration value applications can place in their ordered migration list. */
-export function outboxMigration(version: number, dialect: Dialect): Migration {
+export function outboxMigration(version: number, dialect: DialectTarget): Migration {
   return {
     version,
     name: 'create_zmdb_outbox',

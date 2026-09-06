@@ -1,14 +1,14 @@
-Supported dialect: `'mssql'`. The compiler emits T-SQL, migrations cover the modeled SQL Server DDL, and the repository ships a thin adapter for an already-connected
-[`mssql`](https://www.npmjs.com/package/mssql) pool. The adapter does not open, close or configure that pool.
+Install `@zmdb/mssql` for T-SQL compilation, modeled migration DDL, structural execution and catalog introspection. Its optional [`mssql`](https://www.npmjs.com/package/mssql) peer remains
+application-selected; the package does not open, close or configure the pool.
 
 ```ts
 import sql from 'mssql';
 import { createQueryCompiler } from '@zmdb/query-compiler';
-import { mssqlDriver } from '@zmdb/repository/drivers/mssql';
+import { mssql, mssqlDriver } from '@zmdb/mssql';
 
 const pool = await sql.connect(process.env.DATABASE_URL!);
 const driver = mssqlDriver(pool);
-const query = createQueryCompiler('mssql').selectFrom('users').where('email', '=', 'a@b.com').compile();
+const query = createQueryCompiler(mssql).selectFrom('users').where('email', '=', 'a@b.com').compile();
 
 const rows = await driver.execute(query);
 ```
@@ -69,32 +69,32 @@ Generated migrations cover table creation and removal, add/drop/alter column, na
 
 ## Refusals and boundaries
 
-| Requested construct                            | Current result / alternative                                                       |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------- |
-| pagination without `ORDER BY`                  | refused; add `.orderBy(...)`                                                       |
-| upsert without a conflict target               | refused; `MERGE` needs an explicit join predicate                                  |
-| `OUTPUT` on an enabled-trigger target          | the server can reject it; use a hand-written `OUTPUT … INTO` path                  |
-| materialized view                              | refused; SQL Server indexed views need a different declaration shape               |
-| row-level-security policy                      | refused; predicate functions and security policies are not represented             |
-| full-text search                               | refused; the schema cannot declare the required catalog and index                  |
-| schema introspection                           | refused; use declared schemas or a hand-written catalog query                      |
-| stored-routine calls or `RoutineDef` DDL       | refused; SQL Server's `CREATE`/`ALTER` and `EXEC` shapes are not modeled           |
-| database extensions and extension-backed type  | refused; no PostgreSQL-style extension contract is assumed                         |
-| vector or spatial extension operator           | refused; those closed operators are available only on the exact `postgres` dialect |
-| expression index                               | refused; add a generated column and index that instead                             |
-| explicit index method other than `btree`       | refused; SQL Server-specific index method/options are not modeled                  |
-| index operator class                           | refused; operator classes are a PostgreSQL-only contract                           |
-| hand-built type alteration without nullability | refused; SQL Server must restate `NULL` or `NOT NULL`                              |
-| altering an existing primary key               | refused; the snapshot does not carry the existing SQL Server constraint name       |
-| reversing a dropped table                      | refused; the drop operation no longer carries the removed columns                  |
+| Requested construct                            | Current result / alternative                                                                   |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| pagination without `ORDER BY`                  | refused; add `.orderBy(...)`                                                                   |
+| composite-key populate                         | refused; SQL Server does not support row-value `IN`                                            |
+| upsert without a conflict target               | refused; `MERGE` needs an explicit join predicate                                              |
+| `OUTPUT` on an enabled-trigger target          | the server can reject it; use a hand-written `OUTPUT … INTO` path                              |
+| materialized view                              | refused; SQL Server indexed views need a different declaration shape                           |
+| row-level-security policy                      | refused; predicate functions and security policies are not represented                         |
+| full-text search                               | refused; the schema cannot declare the required catalog and index                              |
+| schema introspection                           | reads columns, defaults, identity, keys, foreign keys, indexes, computed columns and sequences |
+| stored-routine calls or `RoutineDef` DDL       | refused; SQL Server's `CREATE`/`ALTER` and `EXEC` shapes are not modeled                       |
+| database extensions and extension-backed type  | refused; no PostgreSQL-style extension contract is assumed                                     |
+| vector or spatial extension operator           | refused; those closed operators are available only on the exact `postgres` dialect             |
+| expression index                               | refused; add a generated column and index that instead                                         |
+| explicit index method other than `btree`       | refused; SQL Server-specific index method/options are not modeled                              |
+| index operator class                           | refused; operator classes are a PostgreSQL-only contract                                       |
+| hand-built type alteration without nullability | refused; SQL Server must restate `NULL` or `NOT NULL`                                          |
+| altering an existing primary key               | refused; the snapshot does not carry the existing SQL Server constraint name                   |
+| reversing a dropped table                      | refused; the drop operation no longer carries the removed columns                              |
 
 ## Measured coverage
 
-The always-on suite covers the complete six-dialect golden matrix, SQL Server DDL and refusal tests, named-parameter binding, transaction pinning, and the 2,000-parameter and `1205` metadata.
+The always-on suite covers SQL Server SQL/DDL expectations and refusals, a captured SQL Server 2022 catalog, named-parameter binding, transaction pinning, and the 2,000-parameter and `1205` metadata.
 
-A separate real-server suite runs DDL, bracket escaping, `OUTPUT`, ordered pagination, `MERGE`, transaction rollback, timestamp round-trips, schemas, foreign keys, filtered indexes, sequences,
-persisted computed columns and column migrations when `ZMDB_MSSQL_URL` points to a reachable server. Without that variable the suite emits a visible `[skip] SQL Server E2E: …` message and keeps an
-availability assertion, so the missing live server is explicit.
+A mandatory CI job and packed external consumer run migrations, CRUD, transaction rollback, type round-trips, catalog introspection and clean drift against SQL Server 2022. The developer-only suite
+visibly skips without `ZMDB_MSSQL_URL`; required lanes make the connection mandatory.
 
 ---
 

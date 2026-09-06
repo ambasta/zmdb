@@ -132,9 +132,9 @@ rather than half-applying it.
 ## Packaging
 
 - SQLite is exposed by `@zmdb/sqlite` and its `@zmdb/sqlite/node` subpath. `@zmdb/repository/drivers/sqlite` has been removed.
+- SQL Server is exposed by `@zmdb/mssql`; `@zmdb/repository/drivers/mssql` has been removed.
 - PostgreSQL is exposed by `@zmdb/postgres`; `pg` is that package's optional peer and development dependency, never a dependency of the generic repository.
-- The remaining compatibility adapter is `@zmdb/repository/drivers/mssql`.
-- `mssql` is a development dependency for the real E2E suite, not a published runtime dependency. Consumers install their chosen compatible node-mssql package and pass its connected pool to the
+- SQL Server's `mssql` client is an optional peer and development dependency of `@zmdb/mssql`, never a dependency of the generic repository. Consumers pass an already-connected compatible pool to its
   structural adapter.
 
 ## Acceptance
@@ -143,13 +143,13 @@ rather than half-applying it.
   active-statement cache safety and a real rollback (always runs, no external service).
 - PostgreSQL driver: package-owned recorder tests cover query dispatch, stable prepared names, pool and transaction cursor command order, and cleanup. The fail-closed packed PostgreSQL 16 consumer
   proves parameterised `DECLARE`, repeated early-return pool safety, out-of-band cancellation, pinned transactions, and server-side `DEALLOCATE`.
-- mssql driver: unit tests record the `p1…pn` bindings, recordset return and transaction-owned requests. A real suite runs DDL, CRUD and transactional rollback through SQL Server when `ZMDB_MSSQL_URL`
-  is reachable, and emits a visible `[skip] SQL Server E2E: …` reason otherwise.
+- SQL Server driver: package-owned unit tests record the `p1…pn` bindings, recordset return and transaction-owned requests. Package live and packed-consumer lanes run DDL, CRUD, migrations,
+  introspection and transactional rollback through SQL Server. Ordinary local runs visibly skip without `ZMDB_MSSQL_URL`; mandatory qualification sets `ZMDB_MSSQL_REQUIRED=1`.
 
 ## Database vertical target (issue #666)
 
-The SQL Server sections above describe the remaining repository-owned compatibility adapter. SQLite completed extraction in #669 and PostgreSQL completed it in #670. Issue #668 implemented the runtime
-object seam while preserving optional built-in names and the separate dialect argument for compatibility.
+The historical sections above freeze adapter behavior that originated in the repository. SQLite completed extraction in #669, PostgreSQL in #670, and SQL Server in #672. Issue #668 implemented the
+runtime object seam while preserving optional built-in names and the separate dialect argument for compatibility. The generic repository now owns only the vendor-neutral driver protocols.
 
 ### Generic repository protocol
 

@@ -9,8 +9,9 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { describe, expect, it } from 'vitest';
 
+import { mssql } from '../../../mssql/src/index.js';
 import { createQueryCompiler, quoteIdentifier } from '../index.js';
-import type { CompiledQuery, Dialect } from '../index.js';
+import type { CompiledQuery, Dialect, DialectTarget } from '../index.js';
 import { createIndexDdl } from '../schema-objects/index.js';
 import {
   OUTBOX_TABLE,
@@ -39,12 +40,16 @@ const CREATED_AT = new Date('2026-01-01T00:00:00.000Z');
 
 const PENDING: OutboxStatus = 'pending';
 
+function target(dialect: Dialect): DialectTarget {
+  return dialect === 'mssql' ? mssql : dialect;
+}
+
 // The three claim statements of §4.2, hand-built from the shipped builders. This is what the
 // frozen helpers have to produce, and having it here twice — once as a golden string, once as a
 // runnable protocol — is the point: the strings pin the SQL and the protocol pins the meaning.
 function candidatesByHand(dialect: Dialect, now: Date, batch: number): CompiledQuery {
   return (
-    createQueryCompiler(dialect)
+    createQueryCompiler(target(dialect))
       .selectFrom(OUTBOX_TABLE)
       .select(['id'])
       .where('status', '=', PENDING)
@@ -59,7 +64,7 @@ function candidatesByHand(dialect: Dialect, now: Date, batch: number): CompiledQ
 }
 
 function claimByHand(dialect: Dialect, now: Date, token: string, leaseUntil: Date, ids: readonly string[]) {
-  return createQueryCompiler(dialect)
+  return createQueryCompiler(target(dialect))
     .updateTable(OUTBOX_TABLE)
     .set({ lease_owner: token, lease_until: leaseUntil })
     .where('status', '=', PENDING)
@@ -69,7 +74,7 @@ function claimByHand(dialect: Dialect, now: Date, token: string, leaseUntil: Dat
 }
 
 function readBackByHand(dialect: Dialect, token: string): CompiledQuery {
-  return createQueryCompiler(dialect)
+  return createQueryCompiler(target(dialect))
     .selectFrom(OUTBOX_TABLE)
     .select(['id', 'topic', 'payload', 'attempts'])
     .where('lease_owner', '=', token)
@@ -158,13 +163,13 @@ describe('outbox: the declared table migration (#594, SPEC §1-3)', () => {
     expect(outboxTableDdl('sqlite')).toContain(
       `"created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
     );
-    expect(outboxTableDdl('mssql')).toContain('[id] NVARCHAR(36) PRIMARY KEY');
-    expect(outboxTableDdl('mssql')).toContain('[created_at] DATETIMEOFFSET(3) NOT NULL DEFAULT SYSDATETIMEOFFSET()');
+    expect(outboxTableDdl(mssql)).toContain('[id] NVARCHAR(36) PRIMARY KEY');
+    expect(outboxTableDdl(mssql)).toContain('[created_at] DATETIMEOFFSET(3) NOT NULL DEFAULT SYSDATETIMEOFFSET()');
     expect(outboxTableDdl('cockroach')).toContain('"attempts" INT4 NOT NULL DEFAULT 0');
     expect(outboxTableDdl('singlestore')).toMatch(/^CREATE ROWSTORE TABLE `zmdb_outbox`/);
     expect(outboxTableDdl('singlestore')).toContain('`created_at` DATETIME(3)');
     for (const dialect of DIALECTS) {
-      const migration = outboxMigration(42, dialect);
+      const migration = outboxMigration(42, target(dialect));
       expect(migration.version).toBe(42);
       expect(migration.up).toMatch(/CREATE (?:ROWSTORE )?TABLE/);
       expect(migration.up).toContain('zmdb_outbox_pending');
@@ -378,9 +383,9 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     // The builder can now spell IS NULL, but the outbox deliberately keeps its state machine
     // on the non-null status and lease columns so the claim index and terminal state stay explicit.
     for (const dialect of DIALECTS) {
-      const q = outboxCandidatesQuery(dialect, { now: NOW, batch: 100 });
+      const q = outboxCandidatesQuery(target(dialect), { now: NOW, batch: 100 });
       expect(q.text.toUpperCase()).not.toContain('IS NULL');
-      expect(q.text).toContain(quoteIdentifier(dialect, 'status'));
+      expect(q.text).toContain(quoteIdentifier(target(dialect), 'status'));
     }
   });
 
@@ -398,12 +403,18 @@ describe('outbox: the claim statements (#593, SPEC §4.2, §9 items 9 and 10)', 
     // Dialect dispatch refuses MySQL-family RETURNING and places SQL Server OUTPUT,
     // but the outbox claim protocol deliberately requests neither row-returning form.
     const statements = DIALECTS.flatMap(dialect => [
-      outboxCandidatesQuery(dialect, { now: NOW, batch: 100 }),
-      outboxClaimQuery(dialect, { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['a'] }),
-      outboxReadBackQuery(dialect, { token: 'tok' }),
-      outboxMarkDeliveredQuery(dialect, { id: 'r1', token: 'tok', deliveredAt: NOW, attempts: 1 }),
-      outboxMarkRetryQuery(dialect, { id: 'r1', token: 'tok', attempts: 1, lastError: 'x', leaseUntil: LEASE_UNTIL }),
-      outboxMarkDeadQuery(dialect, { id: 'r1', token: 'tok', attempts: 10, lastError: 'x' }),
+      outboxCandidatesQuery(target(dialect), { now: NOW, batch: 100 }),
+      outboxClaimQuery(target(dialect), { now: NOW, token: 'tok', leaseUntil: LEASE_UNTIL, ids: ['a'] }),
+      outboxReadBackQuery(target(dialect), { token: 'tok' }),
+      outboxMarkDeliveredQuery(target(dialect), { id: 'r1', token: 'tok', deliveredAt: NOW, attempts: 1 }),
+      outboxMarkRetryQuery(target(dialect), {
+        id: 'r1',
+        token: 'tok',
+        attempts: 1,
+        lastError: 'x',
+        leaseUntil: LEASE_UNTIL,
+      }),
+      outboxMarkDeadQuery(target(dialect), { id: 'r1', token: 'tok', attempts: 10, lastError: 'x' }),
     ]);
     for (const statement of statements) {
       expect(statement.text.toUpperCase()).not.toContain('RETURNING');

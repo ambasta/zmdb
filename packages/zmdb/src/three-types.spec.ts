@@ -15,6 +15,7 @@
 
 import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
 import { issuesFor } from '@zmdb/aot-validator/utilities';
+import { mssql } from '@zmdb/mssql';
 import type { Dialect } from '@zmdb/query-compiler';
 import { emitUp, snapshot, type ChangeOp } from '@zmdb/query-compiler/migrations';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
@@ -61,7 +62,7 @@ function ddl(dialect: Dialect): string {
     primaryKey: table.primaryKey,
     foreignKeys: table.foreignKeys,
   };
-  return emitUp(create, dialect);
+  return dialect === 'mssql' ? mssql.migrations.emitUp(create) : emitUp(create, dialect);
 }
 
 describe('a timestamp column, in all three of its types', () => {

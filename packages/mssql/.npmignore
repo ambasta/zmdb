@@ -1,0 +1,9 @@
+*.spec.ts
+**/*.spec.ts
+*.type-test.ts
+**/*.type-test.ts
+src/__fixtures__/
+SPEC.md
+**/SPEC.md
+tsconfig.json
+tsconfig.build.json

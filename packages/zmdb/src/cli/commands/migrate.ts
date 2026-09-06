@@ -1,3 +1,4 @@
+import { dialectName } from '@zmdb/query-compiler';
 import {
   down,
   downTo,
@@ -10,6 +11,7 @@ import {
 import type { Driver } from '@zmdb/repository';
 
 import type { ResolvedConfig } from '../../config/index.js';
+import { configuredDialect } from '../database.js';
 import { CliInvocationError } from '../errors.js';
 import { readMigrations, type FileMigration } from '../migration-files.js';
 
@@ -106,7 +108,7 @@ function renderMigration(action: 'apply' | 'revert', migration: FileMigration): 
 
 async function connectionFor(config: ResolvedConfig): Promise<MigrationConnection> {
   const driver = await configuredDriver(config);
-  return driverMigrationConnection(driver, config.dialect, {
+  return driverMigrationConnection(driver, configuredDialect(driver.dialect ?? config.dialect), {
     ...(config.migrations?.table === undefined ? {} : { table: config.migrations.table }),
     ...(config.migrations?.schema === undefined ? {} : { schema: config.migrations.schema }),
   });
@@ -117,9 +119,9 @@ export async function configuredDriver(config: ResolvedConfig): Promise<Driver> 
     throw new CliInvocationError(`config ${config.configPath} needs a driver for this command`);
   }
   const driver = await config.driver();
-  if (driver.dialect !== undefined && driver.dialect !== config.dialect) {
+  if (driver.dialect !== undefined && dialectName(driver.dialect) !== config.dialect) {
     throw new CliInvocationError(
-      `config ${config.configPath} declares ${config.dialect} but its driver declares ${driver.dialect}`,
+      `config ${config.configPath} declares ${config.dialect} but its driver declares ${dialectName(driver.dialect)}`,
     );
   }
   return driver;

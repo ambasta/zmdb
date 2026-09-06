@@ -2,7 +2,7 @@ import {
   EXPR,
   coalesce,
   concat,
-  createQueryCompiler,
+  createQueryCompiler as createCompiler,
   dec,
   inc,
   mul,
@@ -13,10 +13,16 @@ import {
 } from '@zmdb/query-compiler';
 import { describe, expect, it } from 'vitest';
 
+import { mssql } from '../../../mssql/src/index.js';
+
 const DIALECTS = ['postgres', 'mysql', 'sqlite', 'mssql'] as const satisfies readonly Dialect[];
 type ExpressionDialect = (typeof DIALECTS)[number];
 
 type Golden = Readonly<Record<ExpressionDialect, CompiledQuery>>;
+
+function createQueryCompiler(dialect: ExpressionDialect) {
+  return createCompiler(dialect === 'mssql' ? mssql : dialect);
+}
 
 function expectAcrossDialects(build: (dialect: ExpressionDialect) => CompiledQuery, golden: Golden): void {
   for (const dialect of DIALECTS) expect(build(dialect), dialect).toEqual(golden[dialect]);

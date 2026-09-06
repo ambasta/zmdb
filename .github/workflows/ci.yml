@@ -275,6 +275,42 @@ jobs:
         if: always()
         run: docker rm --force zmdb-cockroach-ci || true
 
+  mssql-acceptance:
+    name: Packed SQL Server acceptance
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_PID: Developer
+          MSSQL_SA_PASSWORD: Zmdb672!CiAcceptance2026
+        ports:
+          - 1433:1433
+    env:
+      ZMDB_MSSQL_URL: Server=localhost,1433;Database=master;User Id=sa;Password=Zmdb672!CiAcceptance2026;Encrypt=true;TrustServerCertificate=true
+      ZMDB_MSSQL_REQUIRED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Use Node 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: 'yarn'
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Verify the workspace SQL Server vertical
+        run: yarn vitest run packages/mssql/src/live.spec.ts
+
+      - name: Build, pack, install and run the SQL Server consumer
+        run: yarn verify:mssql-acceptance
+
   docs:
     name: Documentation Site Generation
     runs-on: ubuntu-latest

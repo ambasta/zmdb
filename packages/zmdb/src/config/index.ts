@@ -189,9 +189,13 @@ async function resolveValidatedConfig(config: ZmdbConfig, configPath: string): P
   const outDir = resolve(directory, config.out ?? 'migrations');
   const resolvedNaming = resolveNaming(config.namingStrategy ?? config.naming);
 
-  if (config.migrations?.schema !== undefined && TRAITS[config.dialect].family !== 'postgres') {
+  if (
+    config.migrations?.schema !== undefined &&
+    config.dialect !== 'mssql' &&
+    TRAITS[config.dialect].family !== 'postgres'
+  ) {
     throw new Error(
-      `Invalid config ${configPath}: migrations.schema is PostgreSQL-only and cannot be used with ${config.dialect}`,
+      `Invalid config ${configPath}: migrations.schema is supported only by PostgreSQL-family dialects and SQL Server, not ${config.dialect}`,
     );
   }
 
