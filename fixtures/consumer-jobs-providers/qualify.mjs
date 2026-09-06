@@ -149,9 +149,10 @@ async function packClosure(roots) {
         await readFile(join(tarballs, packedInfo[manifest.name].filename)),
       ),
     );
-    const b64 = typeof sha512.toBase64 === 'function'
-      ? sha512.toBase64()
-      : globalThis.btoa(Array.from(sha512, b => String.fromCharCode(b)).join(''));
+    const b64 =
+      typeof sha512.toBase64 === 'function'
+        ? sha512.toBase64()
+        : globalThis.btoa(Array.from(sha512, b => String.fromCharCode(b)).join(''));
     packageIntegrities.set(manifest.name, `sha512-${b64}`);
   }
   return packed;
