@@ -3,6 +3,19 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+if (!Uint8Array.prototype.toBase64) {
+  (
+    Uint8Array.prototype as unknown as { toBase64: (opts?: { alphabet?: string; omitPadding?: boolean }) => string }
+  ).toBase64 = function (opts?: { alphabet?: string; omitPadding?: boolean }) {
+    const buf = (
+      globalThis as unknown as { Buffer: { from(a: unknown): { toString(enc: string): string } } }
+    ).Buffer.from(this);
+    let str = buf.toString(opts?.alphabet === 'base64url' ? 'base64url' : 'base64');
+    if (opts?.omitPadding) str = str.replace(/=+$/, '');
+    return str;
+  };
+}
+
 import { type Ctx, type Guard, type QueryValues } from '../index.js';
 
 // CSRF protection for epic #564. The frozen text is `./SPEC.md`, and this file is

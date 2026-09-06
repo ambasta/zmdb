@@ -5,8 +5,9 @@ import type { ComparisonPredicate, CompiledQuery, SelectBuilder, SqlDialect } fr
 import { createQueryCompiler } from '@zmdb/query-compiler';
 
 import type { DeclaredTable, RelationKeys } from '../derive/index.js';
-import type { Entity } from '../index.js';
+import type { CoreSchema, Entity } from '../index.js';
 import { isRecord, ValidationError } from '../index.js';
+import type { Table } from '../tags/index.js';
 
 // ---------------------------------------------------------------------------
 // WhereDTO + operator set
@@ -21,7 +22,7 @@ import { isRecord, ValidationError } from '../index.js';
  * `Record<string, unknown>` so that it stays the one corner of the query surface that is
  * keyed by string; everything else is keyed by the interface the table was declared as.
  */
-export interface UnknownRow {
+export interface UnknownRow extends Table<string> {
   readonly [column: string]: string | number | boolean | bigint | Date | null;
 }
 
@@ -42,23 +43,75 @@ type VectorOperand<V> =
     ? readonly number[]
     : never;
 
-export interface FieldOps<V> {
+export type Operator =
+  | '='
+  | '!='
+  | '<'
+  | '<='
+  | '>'
+  | '>='
+  | 'in'
+  | 'not in'
+  | 'like'
+  | 'ilike'
+  | 'is null'
+  | 'is not null'
+  | 'l2'
+  | 'cosine'
+  | 'ip';
+
+export interface BaseFieldOps<V> {
   eq?: V | SubqueryTarget<V>;
   ne?: V | SubqueryTarget<V>;
+  isNull?: boolean;
+  notNull?: boolean;
+}
+
+export interface InFieldOps<V> {
+  in?: readonly V[] | SubqueryTarget<V>;
+  nin?: readonly V[] | SubqueryTarget<V>;
+}
+
+export interface RangeFieldOps<V> {
   lt?: V | SubqueryTarget<V>;
   lte?: V | SubqueryTarget<V>;
   gt?: V | SubqueryTarget<V>;
   gte?: V | SubqueryTarget<V>;
-  in?: readonly V[] | SubqueryTarget<V>;
-  nin?: readonly V[] | SubqueryTarget<V>;
-  like?: V extends string ? string | SubqueryTarget<string> : never;
-  ilike?: V extends string ? string | SubqueryTarget<string> : never;
   l2?: VectorOperand<V>;
   cosine?: VectorOperand<V>;
   ip?: VectorOperand<V>;
-  isNull?: boolean;
-  notNull?: boolean;
 }
+
+export interface PatternFieldOps {
+  like?: string | SubqueryTarget<string>;
+  ilike?: string | SubqueryTarget<string>;
+}
+
+export interface DisallowedInOps {
+  in?: never;
+  nin?: never;
+}
+
+export interface DisallowedRangeOps {
+  lt?: never;
+  lte?: never;
+  gt?: never;
+  gte?: never;
+}
+
+export interface DisallowedPatternOps {
+  like?: never;
+  ilike?: never;
+}
+
+export type FieldOps<V, U = NonNullable<V>> = BaseFieldOps<V> &
+  ([U] extends [boolean]
+    ? InFieldOps<V> & DisallowedRangeOps & DisallowedPatternOps
+    : [U] extends [number | bigint | Date]
+      ? InFieldOps<V> & RangeFieldOps<V> & DisallowedPatternOps
+      : [U] extends [string]
+        ? InFieldOps<V> & RangeFieldOps<V> & PatternFieldOps
+        : InFieldOps<V> & RangeFieldOps<V> & PatternFieldOps);
 
 export type WhereDTO<T extends DeclaredTable> = {
   [K in keyof Entity<T>]?: Entity<T>[K] | FieldOps<Entity<T>[K]>;
@@ -78,8 +131,8 @@ export type WhereDTO<T extends DeclaredTable> = {
  * every helper ended in `return b as B`.
  */
 export interface WhereTarget {
-  where(col: string, op: string, value: unknown): this;
-  orWhere(col: string, op: string, value: unknown): this;
+  where(col: string, op: Operator, value: unknown): this;
+  orWhere(col: string, op: Operator, value: unknown): this;
   whereGroup?(predicates: readonly ComparisonPredicate[]): this;
   orWhereGroup?(predicates: readonly ComparisonPredicate[]): this;
   whereExists?(subquery: unknown): this;
@@ -104,7 +157,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return isRecord(value) ? value : undefined;
 }
 
-const OP_SQL: Record<string, string> = {
+const OP_SQL: Record<string, Operator> = {
   eq: '=',
   ne: '!=',
   lt: '<',
@@ -123,6 +176,13 @@ const OP_SQL: Record<string, string> = {
 // Every operator `applyField` accepts, for the error an unrecognised one raises.
 // `isNull`/`notNull` are handled ahead of the map, so they are not keys of it.
 const KNOWN_OPERATORS: readonly string[] = [...Object.keys(OP_SQL), 'isNull', 'notNull'];
+
+function isSubqueryObject(val: unknown): boolean {
+  if (val === null || typeof val !== 'object') return false;
+  if ('compile' in val && typeof val.compile === 'function') return true;
+  if ('table' in val && typeof val.table === 'string') return true;
+  return false;
+}
 
 /**
  * A `{ table, select?, where? }` literal in a DTO, compiled into a subquery builder.
@@ -169,10 +229,10 @@ function resolveSubqueryTarget(target: unknown, dialect: SqlDialect | undefined)
  * Fields/operators are applied in stable object-key order (golden SQL).
  * `and`/`or` groups compose; `or` members are ORed.
  */
-export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
+export function compileWhere<S extends DeclaredTable, B extends WhereTarget>(
   builder: B,
-  where: WhereDTO<T> | undefined,
-  resolveColumn: (column: string) => string = column => column,
+  where: WhereDTO<S> | undefined,
+  schemaOrResolver?: CoreSchema<string> | ((column: string) => string),
 ): B {
   if (!where) return builder;
   let b: B = builder;
@@ -182,9 +242,25 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   // a claim about the type, and the `??` is what handles the builder that has none.
   const dialect = (builder as { dialect?: SqlDialect }).dialect;
 
+  const schema = typeof schemaOrResolver === 'object' ? schemaOrResolver : undefined;
+  const resolveColumn: (column: string) => string =
+    typeof schemaOrResolver === 'function'
+      ? schemaOrResolver
+      : col =>
+          schema && col in schema.columns ? col : (schema?.ir?.columns?.find(c => c.name === col)?.physicalName ?? col);
+
+  const validateColumn = (col: string) => {
+    if (schema && !(col in schema.columns) && !schema.ir?.columns?.some(c => c.name === col)) {
+      throw new ValidationError(`unknown filter column "${col}" for entity "${schema.table}"`, [
+        { path: col, message: `unknown filter column "${col}"` },
+      ]);
+    }
+  };
+
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
+    validateColumn(col);
     const resolvedColumn = resolveColumn(col);
-    const add = (op: string, rawVal: unknown) => {
+    const add = (op: Operator, rawVal: unknown) => {
       const value = resolveSubqueryTarget(rawVal, dialect);
       if (connector === 'or') {
         b = b.orWhere(resolvedColumn, op, value);
@@ -247,12 +323,32 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
                 },
               ]);
             }
+            if (!isSubqueryObject(value)) {
+              if (op === 'in' || op === 'nin' || op === 'l2' || op === 'cosine' || op === 'ip') {
+                if (!Array.isArray(value)) {
+                  throw new ValidationError(`operator "${op}" requires an array value`, [
+                    { path: col, message: `operator "${op}" requires an array value` },
+                  ]);
+                }
+              } else {
+                if (Array.isArray(value)) {
+                  throw new ValidationError(`operator "${op}" requires a scalar value`, [
+                    { path: col, message: `operator "${op}" requires a scalar value` },
+                  ]);
+                }
+              }
+            }
             add(sql, value);
           }
         }
       }
     } else {
       // bare value or direct subquery spec ⇒ eq
+      if (Array.isArray(spec)) {
+        throw new ValidationError(`scalar operator "eq" requires a scalar value for field "${col}"`, [
+          { path: col, message: `scalar operator "eq" requires a scalar value` },
+        ]);
+      }
       add('=', spec);
     }
   };
@@ -294,7 +390,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   if (!fields) return b;
   for (const key of Object.keys(fields)) {
     if (key === 'and') {
-      if (and) for (const sub of and) b = compileWhere(b, sub, resolveColumn);
+      if (and) for (const sub of and) b = compileWhere(b, sub, schemaOrResolver);
     } else if (key === 'or') {
       for (const sub of or ?? []) {
         const group = asRecord(sub);
@@ -418,6 +514,13 @@ export function decodeCursor(cursor: string): Record<string, unknown> {
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       throw new Error('Invalid cursor payload');
     }
+    if (
+      Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
+      Object.prototype.hasOwnProperty.call(parsed, 'constructor') ||
+      Object.prototype.hasOwnProperty.call(parsed, 'prototype')
+    ) {
+      throw new Error('Invalid cursor payload: disallowed property');
+    }
     // boundary: JSON.parse returns unknown (untrusted client payload); runtime check above proves parsed is a non-null, non-array object.
     return parsed as Record<string, unknown>;
   } catch (err) {
@@ -437,7 +540,7 @@ class BranchTarget implements WhereTarget {
     this.firstCallInBranch = !isFirstBranch;
   }
 
-  where(col: string, op: string, value: unknown): this {
+  where(col: string, op: Operator, value: unknown): this {
     if (this.firstCallInBranch) {
       this.firstCallInBranch = false;
       this.b = this.b.orWhere(col, op, value);
@@ -452,7 +555,7 @@ class BranchTarget implements WhereTarget {
   // Repository filters use `whereGroup` below to preserve their own OR boundary;
   // compileWhere's user-authored `or` tree is still flat and remains a separate
   // predicate-tree problem.
-  orWhere(col: string, op: string, value: unknown): this {
+  orWhere(col: string, op: Operator, value: unknown): this {
     return this.where(col, op, value);
   }
 
@@ -474,10 +577,14 @@ export function applyKeysetFilter<B extends WhereTarget>(
   cursorValues: Record<string, unknown>,
   orderBy: OrderBySpec,
   userWhere?: WhereDTO<UnknownRow>,
-  additionalWhere?: (builder: WhereTarget) => void,
+  additionalWhereOrSchema?: ((builder: WhereTarget) => void) | CoreSchema<string>,
   resolveColumn: (column: string) => string = column => column,
 ): B {
   if (orderBy.length === 0) return builder;
+
+  const additionalWhere = typeof additionalWhereOrSchema === 'function' ? additionalWhereOrSchema : undefined;
+  const schema = typeof additionalWhereOrSchema === 'object' ? additionalWhereOrSchema : undefined;
+  const schemaOrResolver = schema ?? resolveColumn;
 
   for (const item of orderBy) {
     if (!item) continue;
@@ -497,7 +604,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
     const target = new BranchTarget(currentBuilder, i === 0);
 
     if (userWhere) {
-      compileWhere(target, userWhere, resolveColumn);
+      compileWhere(target, userWhere, schemaOrResolver);
     }
     additionalWhere?.(target);
 
@@ -636,34 +743,30 @@ export function buildListResult<Row extends Record<string, unknown>>(
   const select = opts?.select;
   const items = select ? kept.map(r => project(r, select)) : kept;
 
-  let computedCursor: string | undefined = opts?.cursor;
-  if (!computedCursor && hasMore && kept.length > 0) {
-    const lastRow = kept[kept.length - 1];
-    if (lastRow) {
-      const cursorObj: Record<string, unknown> = {};
-      const cols: { column: PropertyKey; dir?: OrderDir }[] = opts?.orderBy ? [...opts.orderBy] : [];
-      if (opts?.pkColumn && !cols.some(c => String(c.column) === opts.pkColumn)) {
-        cols.push({ column: opts.pkColumn, dir: 'asc' });
+  let cursor: string | undefined = opts?.cursor;
+  if (!cursor && hasMore && kept.length > 0 && opts?.orderBy && opts.orderBy.length > 0) {
+    const lastItem = kept[kept.length - 1];
+    if (lastItem) {
+      const payload: Record<string, unknown> = {};
+      for (const { column } of opts.orderBy) {
+        const colStr = String(column);
+        payload[colStr] = lastItem[colStr];
       }
-      for (const item of cols) {
-        if (!item) continue;
-        const colStr = String(item.column);
-        if (colStr in lastRow) {
-          cursorObj[colStr] = lastRow[colStr];
-        }
+      if (opts.pkColumn && !(opts.pkColumn in payload)) {
+        payload[opts.pkColumn] = lastItem[opts.pkColumn];
       }
-      if (Object.keys(cursorObj).length > 0) {
-        computedCursor = encodeCursor(cursorObj);
-      }
+      cursor = encodeCursor(payload);
     }
   }
+
   const result: ListResult<Row | Partial<Row>> = {
     items,
     hasMore,
-    ...(computedCursor !== undefined ? { cursor: computedCursor } : {}),
+    ...(cursor !== undefined ? { cursor } : {}),
   };
   return opts?.total !== undefined ? { ...result, total: opts.total } : result;
 }
+
 export interface SearchDTO<T extends DeclaredTable> {
   query: string;
   columns: readonly (keyof Entity<T>)[];
@@ -735,6 +838,7 @@ export function describeAggregate<T extends DeclaredTable>(spec: AggregateSpec<T
   const keys = (spec.groupBy ?? []).map(k => String(k));
   return [...keys, ...Object.keys(spec.computed)];
 }
+
 /** Assemble a SearchResult (reuses buildListResult; preserves _score on hits). */
 export function buildSearchResult<Row extends Record<string, unknown>>(
   rows: readonly SearchHit<Row>[],

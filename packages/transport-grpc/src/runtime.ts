@@ -1,5 +1,3 @@
-import { once } from 'node:events';
-
 import {
   Client,
   Metadata,
@@ -69,7 +67,16 @@ interface WritableResponseCall extends ServerCallSurface {
   removeListener(event: 'drain', listener: () => void): this;
 }
 
-interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {}
+interface ReadableRequestCall extends ServerCallSurface, AsyncIterable<DecodedRequest> {
+  on(event: 'data', listener: (data: DecodedRequest) => void): this;
+  on(event: 'end', listener: () => void): this;
+  on(event: 'error', listener: (err: unknown) => void): this;
+  on(event: string, listener: () => void): this;
+  removeListener(event: 'data', listener: (data: DecodedRequest) => void): this;
+  removeListener(event: 'end', listener: () => void): this;
+  removeListener(event: 'error', listener: (err: unknown) => void): this;
+  removeListener(event: string, listener: () => void): this;
+}
 
 interface CallScope {
   readonly signal: AbortSignal;
@@ -383,37 +390,60 @@ function requestValue(decoded: DecodedRequest): unknown {
 }
 
 async function* requestStream(call: ReadableRequestCall, scope: CallScope): AsyncIterable<unknown> {
-  const iterator = call[Symbol.asyncIterator]();
+  const queue: DecodedRequest[] = [];
+  let resolver: (() => void) | undefined;
+  let streamEnded = false;
+  let streamError: unknown;
+
+  const onData = (data: DecodedRequest) => {
+    queue.push(data);
+    const r = resolver;
+    resolver = undefined;
+    r?.();
+  };
+  const onEnd = () => {
+    streamEnded = true;
+    const r = resolver;
+    resolver = undefined;
+    r?.();
+  };
+  const onError = (err: unknown) => {
+    streamError = err;
+    const r = resolver;
+    resolver = undefined;
+    r?.();
+  };
+
+  call.on('data', onData);
+  call.on('end', onEnd);
+  call.on('error', onError);
+
   try {
     for (;;) {
-      const next = await nextRequest(iterator, scope);
-      if (next.done) return;
-      yield requestValue(next.value);
+      if (scope.signal.aborted) throw scope.reason();
+      if (streamError) throw streamError;
+      if (queue.length > 0) {
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield requestValue(item);
+          continue;
+        }
+      }
+      if (streamEnded) return;
+
+      await new Promise<void>(resolve => {
+        resolver = resolve;
+        const onAbort = () => {
+          resolver = undefined;
+          resolve();
+        };
+        scope.signal.addEventListener('abort', onAbort, { once: true });
+      });
     }
   } finally {
-    await iterator.return?.();
-  }
-}
-
-async function nextRequest(
-  iterator: AsyncIterator<DecodedRequest>,
-  scope: CallScope,
-): Promise<IteratorResult<DecodedRequest>> {
-  if (scope.signal.aborted) throw scope.reason();
-  let removeAbort = (): void => undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    const onAbort = (): void => {
-      reject(scope.reason());
-    };
-    scope.signal.addEventListener('abort', onAbort, { once: true });
-    removeAbort = () => {
-      scope.signal.removeEventListener('abort', onAbort);
-    };
-  });
-  try {
-    return await Promise.race([iterator.next(), aborted]);
-  } finally {
-    removeAbort();
+    call.removeListener('data', onData);
+    call.removeListener('end', onEnd);
+    call.removeListener('error', onError);
   }
 }
 
@@ -835,7 +865,22 @@ async function pumpRequests(
 ): Promise<void> {
   for await (const request of requests) {
     const valid = method.validateRequest(request);
-    if (!call.write(valid)) await once(call, 'drain');
+    if (!call.write(valid)) {
+      await new Promise<void>(resolve => {
+        const cleanup = () => {
+          call.off('drain', onDrain);
+          call.off('error', cleanup);
+          call.off('close', cleanup);
+          resolve();
+        };
+        const onDrain = () => {
+          cleanup();
+        };
+        call.once('drain', onDrain);
+        call.once('error', cleanup);
+        call.once('close', cleanup);
+      });
+    }
   }
   call.end();
 }

@@ -36,4 +36,43 @@ describe('decode', () => {
     expect(r.success).toBe(false);
     expect(r.issues?.[0]?.path).toBe('input.id');
   });
+
+  it('fails when wrong primitive type is supplied for a field (with exact error)', () => {
+    const r = decode('{"id":"one","email":"a@b.com"}', user);
+    expect(r.success).toBe(false);
+    expect(r.issues).toEqual([
+      {
+        path: 'input.id',
+        expected: 'number',
+        value: 'one',
+        message: 'expected number',
+      },
+    ]);
+  });
+
+  it('fails when null is supplied for a non-nullable field (with exact error)', () => {
+    const r = decode('{"id":1,"email":null}', user);
+    expect(r.success).toBe(false);
+    expect(r.issues).toEqual([
+      {
+        path: 'input.email',
+        expected: 'string',
+        value: null,
+        message: 'expected string',
+      },
+    ]);
+  });
+
+  it('fails with structured issue when descriptor is missing', () => {
+    const r = decode('{"id":1}');
+    expect(r.success).toBe(false);
+    expect(r.issues).toEqual([
+      {
+        path: 'descriptor',
+        expected: 'TypeDescriptor',
+        value: undefined,
+        message: 'missing schema type descriptor',
+      },
+    ]);
+  });
 });
