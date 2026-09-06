@@ -1,0 +1,73 @@
+{
+  "versions": {
+    "core": "1.0.0-alpha.4",
+    "integrationNext": "1.0.0-alpha.5",
+    "peerFloor": "7.0.93",
+    "peerCurrent": "7.0.93",
+    "peerBelowFloor": "7.0.83"
+  },
+  "packages": {
+    "coreA": {
+      "id": "core-a",
+      "directory": "packages/core-a",
+      "npmName": "@fixture/core-a"
+    },
+    "coreB": {
+      "id": "core-b",
+      "directory": "packages/core-b",
+      "npmName": "@fixture/core-b"
+    },
+    "adapter": {
+      "id": "adapter",
+      "directory": "packages/adapter",
+      "npmName": "@fixture/adapter"
+    }
+  },
+  "diagnosticCases": [
+    {
+      "name": "unclassified publishable workspace",
+      "mutation": "unclassified",
+      "expected": "[RELEASE_PACKAGE_UNCLASSIFIED] packages/unclassified/package.json (@fixture/unclassified): publishable manifest has no product-catalog or RELEASE_PACKAGE_POLICY row. Remediation: add one matching catalog and release-policy row, or mark the workspace private."
+    },
+    {
+      "name": "duplicate release-group membership",
+      "mutation": "duplicate-group",
+      "expected": "[RELEASE_GROUP_DUPLICATE] adapter (@fixture/adapter): RELEASE_PACKAGE_POLICY assigns both core and integration. Remediation: classify each publishable package in exactly one release group."
+    },
+    {
+      "name": "stale policy package",
+      "mutation": "stale-policy",
+      "expected": "[RELEASE_POLICY_STALE] ghost: RELEASE_PACKAGE_POLICY names no product-catalog package or public manifest. Remediation: delete the stale policy row or admit the real package atomically."
+    },
+    {
+      "name": "lockstep core version drift",
+      "mutation": "core-drift",
+      "expected": "[RELEASE_CORE_VERSION_DRIFT] core-b (@fixture/core-b): core manifest version 1.0.0-alpha.5 disagrees with core-a at 1.0.0-alpha.4. Remediation: set every core manifest to one byte-identical version."
+    },
+    {
+      "name": "invalid cross-unit internal range",
+      "mutation": "internal-range",
+      "expected": "[RELEASE_INTERNAL_RANGE] adapter (@fixture/adapter) -> core-b: policy requires 1.0.0-alpha.4 but peerDependencies declares workspace:^. Remediation: declare peerDependencies.@fixture/core-b as 1.0.0-alpha.4 and retain workspace:^ only in devDependencies."
+    },
+    {
+      "name": "peer range below the tested floor",
+      "mutation": "peer-floor",
+      "expected": "[RELEASE_PEER_FLOOR] adapter (@fixture/adapter) peer ai: policy range ^7.0.93 has floor 7.0.93 but peerDependencies declares ^7.0.83. Remediation: set peerDependencies.ai to ^7.0.93 and prove exact ai@7.0.93 in a packed consumer."
+    },
+    {
+      "name": "workspace-only compatibility alias",
+      "mutation": "alias",
+      "expected": "[RELEASE_PEER_ALIAS] adapter (@fixture/adapter): devDependencies.ai-lower-bound aliases npm:ai@7.0.83 outside the declared ai policy. Remediation: remove the alias and install each exact tested ai version in an isolated consumer."
+    },
+    {
+      "name": "prerelease range admitting an untested version",
+      "mutation": "prerelease",
+      "expected": "[RELEASE_PRERELEASE_RANGE] adapter (@fixture/adapter) -> core-b: range ^1.0.0-alpha.4 admits untested 1.0.0-alpha.5 while tested contains only 1.0.0-alpha.4. Remediation: use 1.0.0-alpha.4 until another exact prerelease passes, then list an explicit union."
+    },
+    {
+      "name": "packed import absent from the manifest",
+      "mutation": "undeclared-dependency",
+      "expected": "[RELEASE_UNDECLARED_DEPENDENCY] adapter (@fixture/adapter): packed export imports fixture-undeclared but no dependency or peer is declared. Remediation: declare the runtime dependency in the manifest and release policy, or remove the import."
+    }
+  ]
+}
