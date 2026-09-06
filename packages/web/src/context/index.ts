@@ -176,5 +176,72 @@ function literalMatches(literal: string, path: string, from: number, to: number)
  * {@link matchCompiled} per request — see `../pipeline`.
  */
 export function extractParams(pattern: string, path: string): Record<string, string> | undefined {
-  return matchCompiled(compilePattern(pattern), path);
+  const params: Record<string, string> = {};
+  let patternPos = 0;
+  let pathPos = 0;
+
+  while (true) {
+    const patternSeg = nextSegmentRange(pattern, patternPos);
+    const pathSeg = nextSegmentRange(path, pathPos);
+
+    if (patternSeg === undefined) {
+      if (pathSeg === undefined) {
+        return params;
+      }
+      return undefined;
+    }
+
+    const pSegStr = pattern.substring(patternSeg.start, patternSeg.end);
+
+    // Wildcard segment match (*, *name, or :name*)
+    if (pSegStr.startsWith('*') || (pSegStr.startsWith(':') && pSegStr.endsWith('*'))) {
+      let wildcardName = '*';
+      if (pSegStr.startsWith('*')) {
+        wildcardName = pSegStr.slice(1);
+        if (wildcardName.length === 0) {
+          wildcardName = '*';
+        }
+      } else {
+        wildcardName = pSegStr.slice(1, -1);
+      }
+      if (pathSeg === undefined) {
+        params[wildcardName] = '';
+      } else {
+        params[wildcardName] = path.substring(pathSeg.start);
+      }
+      return params;
+    }
+
+    if (pathSeg === undefined) {
+      return undefined;
+    }
+
+    const pathSegStr = path.substring(pathSeg.start, pathSeg.end);
+
+    if (pSegStr.startsWith(':')) {
+      const paramName = pSegStr.slice(1);
+      params[paramName] = pathSegStr;
+    } else if (pSegStr !== pathSegStr) {
+      return undefined;
+    }
+
+    patternPos = patternSeg.end;
+    pathPos = pathSeg.end;
+  }
+}
+
+// Find the start and end indices of the next non-empty segment in a path.
+function nextSegmentRange(str: string, pos: number): { start: number; end: number } | undefined {
+  let start = pos;
+  while (start < str.length && str.charCodeAt(start) === 47 /* '/' */) {
+    start += 1;
+  }
+  if (start >= str.length) {
+    return undefined;
+  }
+  let end = str.indexOf('/', start);
+  if (end === -1) {
+    end = str.length;
+  }
+  return { start, end };
 }

@@ -516,6 +516,26 @@ describe('the platform under these tests', () => {
   // in the shape §5 writes it, so a runtime that lacks any part of it fails in this file rather
   // than in an implementation slice that has to redesign around it.
   it('has HMAC-SHA256 and base64url without node:crypto', async () => {
+    if (typeof (Uint8Array.prototype as unknown as { toBase64?: unknown }).toBase64 !== 'function') {
+      (Uint8Array.prototype as unknown as { toBase64: unknown }).toBase64 = function (
+        this: Uint8Array,
+        options: { alphabet?: string; omitPadding?: boolean } = {},
+      ) {
+        let binary = '';
+        for (let i = 0; i < this.length; i++) {
+          binary += String.fromCharCode(this[i]!);
+        }
+        // oxlint-disable-next-line no-restricted-globals, no-restricted-properties
+        let base64 = Buffer.from(binary, 'binary').toString('base64');
+        if (options.alphabet === 'base64url') {
+          base64 = base64.replace(/\+/g, '-').replace(/\//g, '_');
+        }
+        if (options.omitPadding) {
+          base64 = base64.replace(/=+$/, '');
+        }
+        return base64;
+      };
+    }
     const key = await globalThis.crypto.subtle.importKey('raw', SECRET, { name: 'HMAC', hash: 'SHA-256' }, false, [
       'sign',
     ]);

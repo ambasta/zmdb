@@ -32,7 +32,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { resolveNaming, type NamingStrategyConfig } from '@zmdb/schema-core/naming';
 
 import { CALL_OWNERS, STRICT_OWNER_CALLEES } from '../reflect/callsites.js';
-import { ReflectSession, type SourceFileHandle } from '../reflect/session.js';
+import { ReflectSession, withSession, type SourceFileHandle } from '../reflect/session.js';
 import { CALLEES, transformFile } from '../transform/index.js';
 import { scan, type Entry, type SiteEntry, type TypeImport } from './scan.js';
 import {
@@ -97,8 +97,7 @@ const MENTIONS_FORWARDED_CALL = new RegExp(
 export function codegen(options: CodegenOptions): CodegenResult {
   const project = resolve(options.project);
   if (options.session) return run(options.session, project, options);
-  using session = ReflectSession.open({ project });
-  return run(session, project, options);
+  return withSession({ project }, session => run(session, project, options));
 }
 
 // -----------------------------------------------------------------------------
