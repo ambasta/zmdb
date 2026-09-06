@@ -48,20 +48,71 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const B64_MAP = new Int8Array(256).fill(-1);
+for (let i = 0; i < B64_CHARS.length; i += 1) {
+  B64_MAP[B64_CHARS.charCodeAt(i)] = i;
+}
+
+// boundary: Feature-detecting optional Uint8Array.prototype.toBase64 method
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  if (typeof value['toBase64'] === 'function') {
+    return value['toBase64']({ alphabet: 'base64url', omitPadding: true });
+  }
+  let result = '';
+  const len = value.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = value[i] ?? 0;
+    const b1 = i + 1 < len ? (value[i + 1] ?? 0) : 0;
+    const b2 = i + 2 < len ? (value[i + 2] ?? 0) : 0;
+
+    result += B64_CHARS.charAt(b0 >> 2);
+    result += B64_CHARS.charAt(((b0 & 3) << 4) | (b1 >> 4));
+    if (i + 1 < len) {
+      result += B64_CHARS.charAt(((b1 & 15) << 2) | (b2 >> 6));
+    }
+    if (i + 2 < len) {
+      result += B64_CHARS.charAt(b2 & 63);
+    }
+  }
+  return result;
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
   if (value.length === 0 || !BASE64URL.test(value)) {
     return undefined;
   }
-  try {
-    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
-    return encodeBase64Url(decoded) === value ? decoded : undefined;
-  } catch {
-    return undefined;
+  const len = value.length;
+  const remainder = len % 4;
+  if (remainder === 1) return undefined;
+
+  const byteLen = Math.floor((len * 3) / 4);
+  const result = new Uint8Array(byteLen);
+  let outIdx = 0;
+
+  for (let i = 0; i < len; i += 4) {
+    const c0 = B64_MAP[value.charCodeAt(i)] ?? -1;
+    const c1 = B64_MAP[value.charCodeAt(i + 1)] ?? -1;
+    const c2 = i + 2 < len ? (B64_MAP[value.charCodeAt(i + 2)] ?? -1) : 0;
+    const c3 = i + 3 < len ? (B64_MAP[value.charCodeAt(i + 3)] ?? -1) : 0;
+
+    if (c0 === -1 || c1 === -1 || (i + 2 < len && c2 === -1) || (i + 3 < len && c3 === -1)) {
+      return undefined;
+    }
+
+    result[outIdx] = (c0 << 2) | (c1 >> 4);
+    outIdx += 1;
+    if (i + 2 < len) {
+      result[outIdx] = ((c1 & 15) << 4) | (c2 >> 2);
+      outIdx += 1;
+    }
+    if (i + 3 < len) {
+      result[outIdx] = ((c2 & 3) << 6) | c3;
+      outIdx += 1;
+    }
   }
+
+  return encodeBase64Url(result) === value ? result : undefined;
 }
 
 function xorMask(value: Uint8Array<ArrayBuffer>, mask: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {

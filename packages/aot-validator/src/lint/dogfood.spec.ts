@@ -79,6 +79,7 @@ it("reports nothing on this repository's own source", () => {
     const result = spawnSync(
       join(ROOT, 'node_modules/.bin/oxlint'),
       [
+        '--silent',
         '--disable-nested-config',
         '--config',
         configPath,
