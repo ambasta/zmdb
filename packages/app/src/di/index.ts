@@ -121,14 +121,16 @@ export class Container {
   // their first result back into #bindings.
   readonly #factories = new Map<Token<unknown>, { factory: (c: Container) => unknown; scope: Scope }>();
 
-  /** Bind a token to an instance. The instance type is constrained to T. */
-  register<T>(token: Token<T>, instance: T): void {
+  /** Bind a token to an instance. Returns `this` for fluent chaining. */
+  register<T>(token: Token<T>, instance: T): this {
     this.#bindings.set(token, instance);
+    return this;
   }
 
-  /** Bind a token to a factory with a scope (default singleton). */
-  registerFactory<T>(token: Token<T>, factory: (c: Container) => T, scope: Scope = 'singleton'): void {
+  /** Bind a token to a factory with a scope (default singleton). Returns `this` for fluent chaining. */
+  registerFactory<T>(token: Token<T>, factory: (c: Container) => T, scope: Scope = 'singleton'): this {
     this.#factories.set(token, { factory, scope });
+    return this;
   }
 
   /** True if the token is registered (as a value or a factory). */
