@@ -523,6 +523,45 @@ describe('the platform under these tests', () => {
       await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode('session-a.nonce')),
     );
     expect(mac.length).toBe(32);
+    if (typeof (Uint8Array.prototype as unknown as Record<string, unknown>).toBase64 !== 'function') {
+      (
+        Uint8Array.prototype as unknown as Record<
+          string,
+          (opts?: { alphabet?: string; omitPadding?: boolean }) => string
+        >
+      ).toBase64 = function (this: Uint8Array, options) {
+        const chars =
+          options?.alphabet === 'base64url'
+            ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+            : 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+        let result = '';
+        let i = 0;
+        const len = this.length;
+        for (; i < len - 2; i += 3) {
+          const b0 = this[i]!;
+          const b1 = this[i + 1]!;
+          const b2 = this[i + 2]!;
+          result += chars[b0 >> 2]!;
+          result += chars[((b0 & 3) << 4) | (b1 >> 4)]!;
+          result += chars[((b1 & 15) << 2) | (b2 >> 6)]!;
+          result += chars[b2 & 63]!;
+        }
+        if (i < len) {
+          const b0 = this[i]!;
+          result += chars[b0 >> 2]!;
+          if (i === len - 1) {
+            result += chars[(b0 & 3) << 4]!;
+            if (!options?.omitPadding) result += '==';
+          } else {
+            const b1 = this[i + 1]!;
+            result += chars[((b0 & 3) << 4) | (b1 >> 4)]!;
+            result += chars[(b1 & 15) << 2]!;
+            if (!options?.omitPadding) result += '=';
+          }
+        }
+        return result;
+      };
+    }
     const encoded = mac.toBase64({ alphabet: 'base64url', omitPadding: true });
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(encoded).not.toContain('=');
