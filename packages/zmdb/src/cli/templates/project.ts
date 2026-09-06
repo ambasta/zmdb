@@ -90,7 +90,7 @@ const common = {
   format: 'esm',
   packages: 'external',
   platform: 'node',
-  target: 'node26',
+  target: 'es2022',
 };
 
 const mode = process.argv[2];
