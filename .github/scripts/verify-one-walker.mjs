@@ -159,6 +159,10 @@ const MAY_READ = new Map([
       'generates. That is a fact about who writes the column, not about what values it admits.',
   ],
   [
+    'packages/repository/src/validator.ts',
+    'pre-compiled closure validator. Compiles specialized schema validation functions from column metadata.',
+  ],
+  [
     'packages/compiler/src/reflect/index.ts',
     "the producer again, from the other side: `Sql<'integer'>` with `Serial` beside it is a " +
       '`serial`, a literal union is a `jsonEnum`, and a bare `number` is neither. Deciding ' +

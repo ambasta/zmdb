@@ -33,8 +33,8 @@ interface CachedStatement {
 /**
  * The app→db crossing for SQLite (plan D3).
  *
- * `node:sqlite` binds `null`, a boolean, a number, a bigint, a string and a `Uint8Array`, and
- * throws "Provided value cannot be bound to SQLite parameter N" for anything else. A `Date`
+ * `node:sqlite` binds `null`, a number, a bigint, a string and a `Uint8Array`, and
+ * throws "Provided value cannot be bound to SQLite parameter N" for anything else (including booleans and Dates). A `Date`
  * is exactly that anything else, and it is also the app type of every `timestamp` column —
  * so before this, a `timestamp` could not be written through this driver at all: passing a
  * `Date` threw here and passing a string was the wrong type one layer up.
@@ -50,7 +50,9 @@ interface CachedStatement {
  * was bound for.
  */
 function bindable(value: unknown): unknown {
-  return value instanceof Date ? value.toISOString() : value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  return value;
 }
 
 /** Wrap a node:sqlite DatabaseSync as a zmdb Driver. Zero external deps. */

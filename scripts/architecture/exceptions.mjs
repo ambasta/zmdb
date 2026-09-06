@@ -88,6 +88,8 @@ const RUNTIME_OPTIONAL_DEBT = Object.freeze([
   ['@zmdb/sqlite', '@zmdb/schema-core', 'packages/aot-validator/src/errors.ts', '@zmdb/schema-core'],
   ['@zmdb/sqlite', '@zmdb/schema-core', 'packages/aot-validator/src/regex-complexity.ts', '@zmdb/schema-core'],
   ['@zmdb/sqlite', '@zmdb/query-compiler', 'packages/schema-core/src/relations/index.ts', '@zmdb/query-compiler'],
+  ['@zmdb/sqlite', '@zmdb/schema-core', 'packages/repository/src/validator.ts', '@zmdb/schema-core'],
+  ['@zmdb/sqlite', '@zmdb/schema-core', 'packages/repository/src/validator.ts', '@zmdb/schema-core/ir'],
 ]);
 
 const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
@@ -295,6 +297,7 @@ const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
       'packages/repository/src/loaders/index.ts',
       'packages/repository/src/outbox/index.ts',
       'packages/repository/src/seeding/index.ts',
+      'packages/repository/src/validator.ts',
       'packages/web/src/data/index.ts',
       'packages/web/src/pipeline/index.ts',
       'packages/zmdb/src/index.ts',
@@ -339,6 +342,7 @@ const RUNTIME_LEGACY_IMPORT_DEBT = Object.freeze([
       'packages/repository/src/index.ts',
       'packages/repository/src/outbox/index.ts',
       'packages/repository/src/seeding/index.ts',
+      'packages/repository/src/validator.ts',
       'packages/web/src/contract/compiler/index.ts',
       'packages/web/src/contract/index.ts',
       'packages/web/src/data/index.ts',
