@@ -261,16 +261,36 @@ export function openPreparedSession(options: SessionOptions, prepare: PreparePro
  * the session snapshot.
  */
 export function projectSourceFileNames(project: string): readonly string[] {
-  using session = ReflectSession.open({ project });
-  return [...session.sourceFileNames()];
+  return withSession({ project }, session => [...session.sourceFileNames()]);
 }
 
 /** `try`/`finally` around a session, for callers that cannot use `using`. */
 export function withSession<T>(options: SessionOptions, fn: (session: ReflectSession) => T): T {
   const session = ReflectSession.open(options);
+  let isPromise = false;
   try {
-    return fn(session);
+    const result = fn(session);
+    if (
+      result !== null &&
+      typeof result === 'object' &&
+      typeof (result as unknown as PromiseLike<unknown>).then === 'function'
+    ) {
+      isPromise = true;
+      return (result as unknown as PromiseLike<unknown>).then(
+        val => {
+          session.close();
+          return val;
+        },
+        err => {
+          session.close();
+          throw err;
+        },
+      ) as T;
+    }
+    return result;
   } finally {
-    session.close();
+    if (!isPromise) {
+      session.close();
+    }
   }
 }
