@@ -94,10 +94,16 @@ export const INTEGRATIONS = Object.freeze([
   }),
   integration({
     capability: 'SvelteKit',
-    package: null,
-    status: 'not-planned',
+    package: '@zmdb/sveltekit',
+    status: 'optional',
+    peers: ['@sveltejs/kit', 'svelte'],
     docs: 'framework-integrations',
-    evidence: ['packages/zmdb/src/client-integrations/SPEC.md'],
+    evidence: [
+      'packages/sveltekit/SPEC.md',
+      'packages/sveltekit/src/server.spec.ts',
+      'packages/sveltekit/src/client.spec.ts',
+      'fixtures/client-adapters/sveltekit-packed',
+    ],
   }),
   integration({
     capability: 'Vue',

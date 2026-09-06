@@ -12,9 +12,9 @@ Issue #688, parent #687. This is the architecture contract for the optional UI a
 - `@zmdb/nuxt`
 - `@zmdb/sveltekit`
 
-This file originally froze all nine packages before implementation. Issues #691–#698 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`,
-`@zmdb/next`, and `@zmdb/nuxt`; only `@zmdb/sveltekit` remains an implementation target. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The
-generated client, request transport, wire format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
+This file originally froze all nine packages before implementation. Issues #691–#699 now ship `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`,
+`@zmdb/next`, `@zmdb/nuxt`, and `@zmdb/sveltekit`. Each implementation issue creates its own package-level `SPEC.md` and must preserve this common contract. The generated client, request transport,
+wire format, response validation and client error classes belong to #679 and its implementation children; this specification does not add another client API.
 
 ## 0. Measured starting point
 
@@ -49,11 +49,15 @@ and explicit Next fetch policy.
 `@zmdb/nuxt` implements the Vue meta-framework row through a root Nuxt module, physically separate client and server exports, request-scoped Nitro local fetch, allow-listed incoming credentials,
 stable serializable hydration keys, and native `useAsyncData` payload reuse.
 
-The shared generated-client conformance suite now executes all eight landed rows as ordinary passing tests. The remaining SvelteKit row retains executable missing-package expected failures until its
-implementation issue lands. The Svelte and Solid packed fixtures install real client and adapter tarballs, exercise browser and server conditions, check public inference, and prove request-isolated
-server ownership. The Next packed fixture builds and runs a real App Router application, checks the server-only boundary, and inspects browser output for server credentials and server package code.
-The React Native packed fixture installs real client, React, and native-adapter tarballs and executes both common lifecycle and native AppState/connectivity cases. The Nuxt packed fixture builds the
-real module, renders concurrent SSR requests with isolated credentials, observes native payload reuse, and exercises the browser plugin.
+`@zmdb/sveltekit` implements the Svelte meta-framework row through physically separate browser and server exports, request-local `event.fetch`, explicit credential allow-lists, typed server/browser
+loads, native framework errors, navigation cancellation, and direct reuse of the Svelte stores.
+
+The shared generated-client conformance suite now executes all nine landed rows as ordinary passing tests. The Svelte and Solid packed fixtures install real client and adapter tarballs, exercise
+browser and server conditions, check public inference, and prove request-isolated server ownership. The Next packed fixture builds and runs a real App Router application, checks the server-only
+boundary, and inspects browser output for server credentials and server package code. The React Native packed fixture installs real client, React, and native-adapter tarballs and executes both common
+lifecycle and native AppState/connectivity cases. The Nuxt packed fixture builds the real module, renders concurrent SSR requests with isolated credentials, observes native payload reuse, and
+exercises the browser plugin. The SvelteKit packed fixture builds a real application from tarballs, renders concurrent credential-isolated requests, preserves native redirects and status errors,
+verifies browser/server graph separation, and executes browser navigation and abandoned-load cancellation.
 
 ## 1. Ownership boundary
 
@@ -160,9 +164,7 @@ Recipes are still supported documentation. They simply do not create another pac
 | `@zmdb/nuxt`         | Nitro request context, request-scoped `$fetch`, Nuxt plugin injection and `useAsyncData` hydration.  |
 | `@zmdb/sveltekit`    | `RequestEvent.fetch`, request-local `load`, navigation cancellation and framework error propagation. |
 
-This table is a design qualification, not a blanket support claim. `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, and `@zmdb/nuxt` have
-earned their rows through native, shared-conformance, packed-consumer, and bundle qualification in #691–#698; the remaining SvelteKit row stays conditional on its implementation and packed
-qualification evidence.
+This table is a design qualification, not a blanket support claim. All nine packages have earned their rows through native, shared-conformance, packed-consumer, and bundle qualification in #691–#699.
 
 ## 3. Common query and mutation semantics
 

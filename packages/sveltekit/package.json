@@ -1,0 +1,61 @@
+{
+  "name": "@zmdb/sveltekit",
+  "version": "1.0.0-alpha.4",
+  "description": "Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.",
+  "keywords": [
+    "client",
+    "load",
+    "svelte",
+    "sveltekit",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/sveltekit"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./client": "./src/client.ts",
+    "./server": "./src/server.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/client": "workspace:^",
+    "@zmdb/svelte": "workspace:^"
+  },
+  "devDependencies": {
+    "@sveltejs/kit": "2.70.3",
+    "@sveltejs/vite-plugin-svelte": "7.3.0",
+    "svelte": "5.57.0",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  },
+  "peerDependencies": {
+    "@sveltejs/kit": ">=2.70.0 <3.0.0",
+    "svelte": ">=5.0.0 <6.0.0"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

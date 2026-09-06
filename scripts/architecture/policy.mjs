@@ -147,6 +147,15 @@ export const PACKAGE_POLICY = Object.freeze({
     optionalPeerEntries: {},
     toolingEntries: [],
   }),
+  sveltekit: packagePolicy({
+    directory: 'packages/sveltekit',
+    zone: 'integration',
+    ring: 2,
+    allowedWorkspaceDependencies: ['client', 'svelte'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
   ai: packagePolicy({
     directory: 'packages/ai',
     zone: 'runtime',

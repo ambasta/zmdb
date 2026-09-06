@@ -1,7 +1,7 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Twenty-eight packages are published today: twenty-seven focused packages plus the `zmdb` facade. The
-recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`,
-`@zmdb/solid`, `@zmdb/next`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,
-`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently installable.
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-one packages are published today: thirty focused packages plus the `zmdb` facade. The recommended
+installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`, `@zmdb/vue`,
+`@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`,
+`@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -210,29 +210,36 @@ If that throws instead of printing, the plugin is not running over this file.
 
 ## Package Overview
 
-| Package                    | Purpose                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------------- |
-| `@zmdb/schema-core`        | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI |
-| `@zmdb/query-compiler`     | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                  |
-| `@zmdb/aot-validator`      | Type reflection, full/shallow is/assert/validate, equals/random, serialization               |
-| `@zmdb/repository`         | Auto-validating CRUD, hooks, transactions, populate                                          |
-| `@zmdb/sqlite`             | SQLite compiler traits, migrations, introspection, embedded runner, and `node:sqlite` driver |
-| `@zmdb/app`                | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health    |
-| `@zmdb/web`                | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters      |
-| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and SQLite memory storage           |
-| `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adapter for caller-owned pools and clients                             |
-| `@zmdb/client`             | Dependency-free HTTP transport, cancellation, authentication, and typed errors               |
-| `@zmdb/protobuf`           | Dependency-free protobuf calls, generated-code wire ABI, and typed gRPC artifacts            |
-| `@zmdb/transport-grpc`     | Typed gRPC servers, clients, streaming, deadlines, metadata, and bounded lifecycle           |
-| `@zmdb/transport-nats`     | Core NATS wildcard, queue-group, event, and request/reply transport strategy                 |
-| `@zmdb/transport-rabbitmq` | RabbitMQ prefetch, confirmed retries, request/reply, and owned dead-letter topology          |
-| `@zmdb/transport-redis`    | Redis Pub/Sub subscriptions, correlated request/reply, cancellation, and bounded shutdown    |
-| `@zmdb/ai`                 | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools  |
-| `@zmdb/ai-anthropic`       | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                  |
-| `@zmdb/ai-langchain`       | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer             |
-| `@zmdb/ai-vercel`          | Optional Vercel AI SDK tool adapter with caller-owned schema branding                        |
-| `@zmdb/mcp`                | Pure MCP client/server protocol core, authenticated identity, validation, and call budgets   |
-| `@zmdb/otel`               | OpenTelemetry API adaptation for caller-owned tracers and meters                             |
+| Package                    | Purpose                                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `@zmdb/schema-core`        | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI   |
+| `@zmdb/query-compiler`     | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                    |
+| `@zmdb/aot-validator`      | Type reflection, full/shallow is/assert/validate, equals/random, serialization                 |
+| `@zmdb/repository`         | Auto-validating CRUD, hooks, transactions, populate                                            |
+| `@zmdb/sqlite`             | SQLite compiler traits, migrations, introspection, embedded runner, and `node:sqlite` driver   |
+| `@zmdb/app`                | Metadata, dependency injection, modules, lifecycle, commands, events, CQRS, state, health      |
+| `@zmdb/web`                | HTTP controllers, routing, middleware, OpenAPI, gateways, testing, and runtime adapters        |
+| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases, and SQLite memory storage             |
+| `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adapter for caller-owned pools and clients                               |
+| `@zmdb/client`             | Dependency-free HTTP transport, cancellation, authentication, and typed errors                 |
+| `@zmdb/react`              | React context, query, mutation, and component-lifecycle cancellation                           |
+| `@zmdb/angular`            | Angular DI, signals, `DestroyRef`, and Observable cancellation                                 |
+| `@zmdb/vue`                | Vue plugin, reactive query/mutation state, and effect-scope cancellation                       |
+| `@zmdb/svelte`             | Svelte context plus subscription-aware query and mutation stores                               |
+| `@zmdb/sveltekit`          | Request-local server/client loads, explicit credential forwarding, and navigation cancellation |
+| `@zmdb/next`               | Next.js App Router request clients and React browser bindings                                  |
+| `@zmdb/solid`              | Solid context, native resources, owner cancellation, and Suspense/error propagation            |
+| `@zmdb/protobuf`           | Dependency-free protobuf calls, generated-code wire ABI, and typed gRPC artifacts              |
+| `@zmdb/transport-grpc`     | Typed gRPC servers, clients, streaming, deadlines, metadata, and bounded lifecycle             |
+| `@zmdb/transport-nats`     | Core NATS wildcard, queue-group, event, and request/reply transport strategy                   |
+| `@zmdb/transport-rabbitmq` | RabbitMQ prefetch, confirmed retries, request/reply, and owned dead-letter topology            |
+| `@zmdb/transport-redis`    | Redis Pub/Sub subscriptions, correlated request/reply, cancellation, and bounded shutdown      |
+| `@zmdb/ai`                 | Provider-neutral tool documents, bounded chat, shared invocation, and OpenAPI-derived tools    |
+| `@zmdb/ai-anthropic`       | Optional Anthropic Messages API driver over `@zmdb/ai/chat`                                    |
+| `@zmdb/ai-langchain`       | Optional LangChain structured-tool adapter with an `@langchain/core@^1.2.9` peer               |
+| `@zmdb/ai-vercel`          | Optional Vercel AI SDK tool adapter with caller-owned schema branding                          |
+| `@zmdb/mcp`                | Pure MCP client/server protocol core, authenticated identity, validation, and call budgets     |
+| `@zmdb/otel`               | OpenTelemetry API adaptation for caller-owned tracers and meters                               |
 
 ## Next Steps
 

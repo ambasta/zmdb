@@ -109,6 +109,7 @@ const PACKAGES = [
   'angular',
   'vue',
   'svelte',
+  'sveltekit',
   'next',
   'nuxt',
   'solid',

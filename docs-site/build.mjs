@@ -459,7 +459,7 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Twenty-eight published packages</h2>
+  <h2>Thirty published packages</h2>
   <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in client/framework, gRPC, NATS, RabbitMQ, Redis, MCP, OpenTelemetry, or another implementation package on its own.</p>
     <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
@@ -467,6 +467,7 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/angular</code><p>Angular dependency injection, signals, Observable cancellation, and request-local generated-client ownership.</p></div>
     <div class="pkg"><code>@zmdb/vue</code><p>Vue plugin, reactive query and mutation composables, scope cancellation, and per-application SSR isolation.</p></div>
     <div class="pkg"><code>@zmdb/svelte</code><p>Typed Svelte context, subscription-aware stores, stale-result suppression, and lifecycle cancellation.</p></div>
+    <div class="pkg"><code>@zmdb/sveltekit</code><p>Request-local server/client loads, explicit credential forwarding, native errors, and navigation cancellation.</p></div>
     <div class="pkg"><code>@zmdb/solid</code><p>Solid context, native resources, owner cancellation, stale-result suppression, and native Suspense/error propagation.</p></div>
     <div class="pkg"><code>@zmdb/next</code><p>Request-scoped App Router server clients and browser bindings over <code>@zmdb/react</code>.</p></div>
     <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>

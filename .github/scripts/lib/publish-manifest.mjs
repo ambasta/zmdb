@@ -20,6 +20,7 @@ export const PACKAGES = [
   'angular',
   'vue',
   'svelte',
+  'sveltekit',
   'next',
   'nuxt',
   'solid',
@@ -70,8 +71,14 @@ export function publishManifest(pkg) {
     if (typeof target !== 'string') throw new Error(`${pkg.name} export "${subpath}" is conditional; not supported`);
     next.exports[subpath] = { types: toDist(target, '.d.ts'), import: toDist(target, '.js') };
   }
-  next.main = './dist/index.js';
-  next.types = './dist/index.d.ts';
+  const root = pkg.exports['.'];
+  if (typeof root === 'string') {
+    next.main = toDist(root, '.js');
+    next.types = toDist(root, '.d.ts');
+  } else {
+    delete next.main;
+    delete next.types;
+  }
   // `src` ships alongside `dist` because both `.js.map` and `.d.ts.map` point into it: a
   // consumer stepping through a zmdb frame, or using go-to-definition on one of its types,
   // lands on the TypeScript the bug is in rather than on the line it came out as.

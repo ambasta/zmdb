@@ -5,17 +5,17 @@ release has no official framework adapter; use the generated HTTP client through
 
 <!-- generated: integrations framework-integrations -->
 
-| Framework    | Status      | Public package     | Framework peers            | Documentation                                           | Repository evidence                                                                                                                                                         |
-| ------------ | ----------- | ------------------ | -------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Angular      | optional    | @zmdb/angular      | @angular/core<br>rxjs      | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`fixtures/client-adapters/angular`                                                     |
-| Next.js      | optional    | @zmdb/next         | next<br>react<br>react-dom | [framework-integrations](./framework-integrations.html) | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`fixtures/next-app-router`                                                                      |
-| Nuxt         | optional    | @zmdb/nuxt         | nuxt<br>vue                | [framework-integrations](./framework-integrations.html) | `packages/nuxt/src/client/client.spec.ts`<br>`packages/nuxt/src/server/server.spec.ts`<br>`packages/nuxt/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/nuxt`    |
-| React        | optional    | @zmdb/react        | react                      | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                                                                            |
-| React Native | optional    | @zmdb/react-native | react<br>react-native      | [connect-react-native](./connect-react-native.html)     | `packages/react-native/src/index.spec.ts`<br>`packages/react-native/src/metro.spec.ts`<br>`packages/react-native/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters` |
-| Solid        | optional    | @zmdb/solid        | solid-js                   | [framework-integrations](./framework-integrations.html) | `packages/solid/SPEC.md`<br>`packages/solid/src/solid.spec.ts`<br>`packages/solid/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/src/solid-binding.ts`           |
-| Svelte       | optional    | @zmdb/svelte       | svelte                     | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`                                                               |
-| SvelteKit    | not-planned | —                  | —                          | [framework-integrations](./framework-integrations.html) | `packages/zmdb/src/client-integrations/SPEC.md`                                                                                                                             |
-| Vue          | optional    | @zmdb/vue          | vue                        | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`                                                                 |
+| Framework    | Status   | Public package     | Framework peers            | Documentation                                           | Repository evidence                                                                                                                                                         |
+| ------------ | -------- | ------------------ | -------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Angular      | optional | @zmdb/angular      | @angular/core<br>rxjs      | [framework-integrations](./framework-integrations.html) | `packages/angular/src/index.spec.ts`<br>`packages/angular/src/index.type-test.ts`<br>`fixtures/client-adapters/angular`                                                     |
+| Next.js      | optional | @zmdb/next         | next<br>react<br>react-dom | [framework-integrations](./framework-integrations.html) | `packages/next/src/client.spec.ts`<br>`packages/next/src/server.spec.ts`<br>`fixtures/next-app-router`                                                                      |
+| Nuxt         | optional | @zmdb/nuxt         | nuxt<br>vue                | [framework-integrations](./framework-integrations.html) | `packages/nuxt/src/client/client.spec.ts`<br>`packages/nuxt/src/server/server.spec.ts`<br>`packages/nuxt/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/nuxt`    |
+| React        | optional | @zmdb/react        | react                      | [framework-integrations](./framework-integrations.html) | `packages/react/src/react.spec.ts`<br>`fixtures/client-adapters`                                                                                                            |
+| React Native | optional | @zmdb/react-native | react<br>react-native      | [connect-react-native](./connect-react-native.html)     | `packages/react-native/src/index.spec.ts`<br>`packages/react-native/src/metro.spec.ts`<br>`packages/react-native/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters` |
+| Solid        | optional | @zmdb/solid        | solid-js                   | [framework-integrations](./framework-integrations.html) | `packages/solid/SPEC.md`<br>`packages/solid/src/solid.spec.ts`<br>`packages/solid/src/packed-consumer.spec.ts`<br>`fixtures/client-adapters/src/solid-binding.ts`           |
+| Svelte       | optional | @zmdb/svelte       | svelte                     | [framework-integrations](./framework-integrations.html) | `packages/svelte/SPEC.md`<br>`packages/svelte/src/svelte.spec.ts`<br>`fixtures/client-adapters/svelte-packed`                                                               |
+| SvelteKit    | optional | @zmdb/sveltekit    | @sveltejs/kit<br>svelte    | [framework-integrations](./framework-integrations.html) | `packages/sveltekit/SPEC.md`<br>`packages/sveltekit/src/server.spec.ts`<br>`packages/sveltekit/src/client.spec.ts`<br>`fixtures/client-adapters/sveltekit-packed`           |
+| Vue          | optional | @zmdb/vue          | vue                        | [framework-integrations](./framework-integrations.html) | `packages/vue/src/index.spec.ts`<br>`packages/vue/src/index.type-test.ts`<br>`fixtures/client-adapters/vue`                                                                 |
 
 <!-- /generated: integrations framework-integrations -->
 
@@ -66,7 +66,7 @@ const rename = apiReact.useZmdbMutation((client, input: { id: string; name: stri
 Queries begin after effect activation, abort on dependency changes and unmount, and suppress stale completion even when a transport ignores cancellation. Mutations remain independent and abort on
 unmount. The package adds no shared cache, implicit retry, polling, focus refetch, or server-render request; those policies stay explicit in the application.
 
-SvelteKit remains pending. React Native remains documented because its current recipe uses shipped package boundaries without claiming the future adapter.
+React Native remains documented because its current recipe uses shipped package boundaries without claiming the future adapter.
 
 ## Vue
 
@@ -181,6 +181,76 @@ export const zmdb = createZmdbSvelte<ApiClient>();
 Set a tree- or request-local client during provider component initialisation. Descendants call `zmdb.query(input, load)` and `zmdb.mutation(run)`. Query stores make no request until their first
 subscription, abort after their final unsubscribe, restart for a later subscriber, and suppress stale completions after an input-store change. Context-owned stores also register component destruction
 cleanup. Direct `createQueryStore(...)` and `createMutationStore(...)` exports support owners outside component context and the later SvelteKit integration.
+
+## SvelteKit
+
+Install the request-local SvelteKit adapter with its base Svelte integration and required framework peers:
+
+```bash
+npm add @zmdb/client@alpha @zmdb/svelte@alpha @zmdb/sveltekit@alpha @sveltejs/kit@">=2.70.0 <3.0.0" svelte@">=5.0.0 <6.0.0"
+```
+
+Create one generated client per server load. Nothing from the incoming request is forwarded unless its name is explicitly selected:
+
+```ts
+import { createSvelteKitServerLoad } from '@zmdb/sveltekit/server';
+
+import { createApiClient } from '$lib/generated/api.js';
+import type { PageServerLoad } from './$types.js';
+
+export const load = createSvelteKitServerLoad({
+  key: 'account:current',
+  createClient: createApiClient,
+  clientOptions: {
+    baseUrl: '/api',
+    forward: {
+      headers: ['authorization'],
+      cookies: ['session'],
+    },
+  },
+  load: async (client, _event, signal) => ({
+    account: await client.getCurrentAccount({}, { signal }),
+  }),
+}) satisfies PageServerLoad;
+```
+
+The server helper invokes the current `event.fetch` with `credentials: 'omit'`, copies only the selected header and cookie values, calls `event.depends(key)`, and passes `event.request.signal`. Each
+invocation owns a distinct client and fetch wrapper. Redirects, status errors, generated-client errors, and abort reasons pass through without wrapping.
+
+For universal browser loads, track SvelteKit navigation at the root and use the client entry:
+
+```ts
+import { createSvelteKitClientLoad, createSvelteKitNavigationScope } from '@zmdb/sveltekit/client';
+
+import { createApiClient } from '$lib/generated/api.js';
+
+export const navigation = createSvelteKitNavigationScope();
+
+export const loadAccount = createSvelteKitClientLoad({
+  key: 'account:current',
+  navigation,
+  createClient: createApiClient,
+  clientOptions: { baseUrl: '/api' },
+  load: async (client, _event, signal) => ({
+    account: await client.getCurrentAccount({}, { signal }),
+  }),
+});
+```
+
+```svelte
+<script lang="ts">
+  import { onNavigate } from '$app/navigation';
+  import { navigation } from '$lib/zmdb.js';
+
+  onNavigate(value => {
+    navigation.track(value);
+  });
+</script>
+```
+
+The client helper always uses the current load event's fetch, so browser navigation uses browser fetch and SvelteKit hydration semantics. If `navigation.complete` rejects, in-flight work aborts with
+that exact rejection as `signal.reason`. The `./client` entry also re-exports `createZmdbSvelte`, `createQueryStore`, and `createMutationStore`; the physically separate `./server` entry cannot enter a
+browser bundle.
 
 ## Next.js
 

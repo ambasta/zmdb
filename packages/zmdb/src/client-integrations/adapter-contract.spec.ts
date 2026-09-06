@@ -34,6 +34,7 @@ import {
   createReactConformanceBinding,
   createReactNativeConformanceBinding,
   createSvelteAdapterConformanceBinding,
+  createSvelteKitAdapterConformanceBinding,
   createVueConformanceBinding,
   privateHarnessProductionLeaks,
   readAdapterPackageManifest,
@@ -123,7 +124,8 @@ const UNAVAILABLE_ADAPTER_PACKAGES = ADAPTER_PACKAGES.filter(
     expectation.name !== '@zmdb/svelte' &&
     expectation.name !== '@zmdb/solid' &&
     expectation.name !== '@zmdb/next' &&
-    expectation.name !== '@zmdb/nuxt',
+    expectation.name !== '@zmdb/nuxt' &&
+    expectation.name !== '@zmdb/sveltekit',
 );
 
 describe('the shared generated adapter fixture (#689, #690)', () => {
@@ -483,6 +485,10 @@ describe('@zmdb/solid executable adapter contract', () => {
   it('framework package has only expected peers', () => {
     assertAdapterPackageManifest(expectation, readAdapterPackageManifest(ROOT, expectation));
   });
+});
+
+describe('@zmdb/sveltekit executable adapter contract', () => {
+  registerExecutableAdapterContract(it, createSvelteKitAdapterConformanceBinding());
 });
 
 describe.each(UNAVAILABLE_ADAPTER_PACKAGES)('$name executable adapter contract', expectation => {

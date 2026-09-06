@@ -47,6 +47,7 @@ import {
 // subpath would already have.
 const PEERS = [
   '@angular/core',
+  '@sveltejs/kit',
   'typescript',
   'svelte',
   'pg',
@@ -472,7 +473,7 @@ if (studioBin === undefined) {
 
 // 5. Typecheck a consumer against the published declarations.
 const METRO_SUBPATH = '@zmdb/aot-validator/metro';
-const BROWSER_FRAMEWORK_PACKAGES = ['@zmdb/svelte', '@zmdb/vue'];
+const BROWSER_FRAMEWORK_PACKAGES = ['@zmdb/svelte', '@zmdb/sveltekit', '@zmdb/vue'];
 const browserSpecifiers = specifiers.filter(specifier =>
   BROWSER_FRAMEWORK_PACKAGES.some(packageName => specifier === packageName || specifier.startsWith(`${packageName}/`)),
 );

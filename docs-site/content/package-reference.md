@@ -46,6 +46,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/solid              | 1.0.0-alpha.4 | solid           | integration: Solid client resources            | `npm add @zmdb/solid@1.0.0-alpha.4`              | Solid context, resource and owner-lifetime bindings for generated zmdb clients.                                                                                                                                         | framework-integrations       |
 | @zmdb/sqlite             | 1.0.0-alpha.4 | sqlite          | integration: SQLite                            | `npm add @zmdb/sqlite@1.0.0-alpha.4`             | Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embedded migrations, and a node:sqlite driver with no third-party database client.                                                           | dialect-sqlite               |
 | @zmdb/svelte             | 1.0.0-alpha.4 | svelte          | integration: Svelte 5                          | `npm add @zmdb/svelte@1.0.0-alpha.4`             | Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.                                                                                                        | framework-integrations       |
+| @zmdb/sveltekit          | 1.0.0-alpha.4 | sveltekit       | integration: SvelteKit                         | `npm add @zmdb/sveltekit@1.0.0-alpha.4`          | Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.                                                                            | framework-integrations       |
 | @zmdb/transport-grpc     | 1.0.0-alpha.4 | grpc            | integration: gRPC                              | `npm add @zmdb/transport-grpc@1.0.0-alpha.4`     | Typed gRPC server and client integration for generated @zmdb/protobuf service artifacts and the @zmdb/app lifecycle.                                                                                                    | web-microservices-grpc       |
 | @zmdb/transport-nats     | 1.0.0-alpha.4 | transport-nats  | integration: core NATS messaging               | `npm add @zmdb/transport-nats@1.0.0-alpha.4`     | Core NATS transport strategy for the public messaging contract owned by the zmdb application kernel.                                                                                                                    | web-microservices-transports |
 | @zmdb/transport-rabbitmq | 1.0.0-alpha.4 | rabbitmq        | integration: RabbitMQ                          | `npm add @zmdb/transport-rabbitmq@1.0.0-alpha.4` | RabbitMQ transport strategy for the zmdb application messaging contract, with confirmed retries and owned dead-letter topology.                                                                                         | web-microservices-transports |
@@ -629,6 +630,27 @@ Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancella
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/client-adapters
+
+### `@zmdb/sveltekit`
+
+Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.
+
+- **Exports:**
+  - `./client` → `./src/client.ts`
+  - `./server` → `./src/server.ts`
+- **Dependencies:**
+  - `@zmdb/client` → `workspace:^`
+  - `@zmdb/svelte` → `workspace:^`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `@sveltejs/kit` → `>=2.70.0 <3.0.0`
+  - `svelte` → `>=5.0.0 <6.0.0`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/client-adapters/sveltekit-packed
 
 ### `@zmdb/transport-grpc`
 

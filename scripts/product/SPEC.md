@@ -62,10 +62,10 @@ repository root explicitly.
 ## 3. Measured package inventory
 
 At the #618 baseline, six directories under `packages/` contained publishable manifests. Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #691, #692, #693, #694, #657, #658,
-#659, #660, #661, #695, #696, #697, and #698 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`,
+#659, #660, #661, #695, #696, #697, #698, and #699 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`,
 `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
-`@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, and `@zmdb/nuxt`. The catalog now accounts for all thirty manifest-backed packages exactly once. The
-separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
+`@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`, `@zmdb/nuxt`, and `@zmdb/sveltekit`. The catalog now accounts for all thirty-one manifest-backed
+packages exactly once. The separate hard-coded publication sequence remains release-governance state until #728 derives its order from architecture policy; it is not product membership:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                       |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------- |
@@ -79,6 +79,7 @@ separate hard-coded publication sequence remains release-governance state until 
 | `packages/svelte`             | `@zmdb/svelte`             | `svelte`            | None; selected Svelte generated-client lifecycle integration   |
 | `packages/next`               | `@zmdb/next`               | `next`              | None; selected Next.js generated-client integration            |
 | `packages/nuxt`               | `@zmdb/nuxt`               | `nuxt`              | None; selected Nuxt generated-client SSR/hydration integration |
+| `packages/sveltekit`          | `@zmdb/sveltekit`          | `sveltekit`         | None; selected SvelteKit generated-client load integration     |
 | `packages/solid`              | `@zmdb/solid`              | `solid`             | None; selected Solid generated-client lifecycle integration    |
 | `packages/ai`                 | `@zmdb/ai`                 | `ai`                | None; installed and imported independently                     |
 | `packages/ai-anthropic`       | `@zmdb/ai-anthropic`       | `anthropic`         | None; selected integration with no facade export               |
@@ -100,8 +101,8 @@ separate hard-coded publication sequence remains release-governance state until 
 | `packages/web`                | `@zmdb/web`                | `web`               | `zmdb/web`                                                     |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, `config`, `cli`, and the executable          |
 
-This table is review evidence, not the canonical machine source. The thirty rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus the
-consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
+This table is review evidence, not the canonical machine source. The thirty-one rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus
+the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers
 

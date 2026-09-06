@@ -342,6 +342,16 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/client-adapters' },
   }),
   productPackage({
+    id: 'sveltekit',
+    directory: 'packages/sveltekit',
+    npmName: '@zmdb/sveltekit',
+    role: 'sveltekit',
+    facade: { root: [], subpaths: [] },
+    optionality: { kind: 'integration', technology: 'SvelteKit' },
+    docsOwner: 'framework-integrations',
+    consumer: { fixture: 'fixtures/client-adapters/sveltekit-packed' },
+  }),
+  productPackage({
     id: 'transport-grpc',
     directory: 'packages/transport-grpc',
     npmName: '@zmdb/transport-grpc',

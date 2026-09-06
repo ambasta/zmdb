@@ -748,12 +748,15 @@ function publishedManifestDiagnostics(packageRecord, commonVersion, catalogByNam
       metadataDiagnostic(packageRecord, 'publish devDependencies', 'consumer manifest retains dev dependencies'),
     );
   }
-  if (published.main !== './dist/index.js' || published.types !== './dist/index.d.ts') {
+  const sourceRoot = isRecord(packageRecord.manifest.exports) ? packageRecord.manifest.exports['.'] : undefined;
+  const expectedMain = typeof sourceRoot === 'string' ? toDist(sourceRoot, '.js') : undefined;
+  const expectedTypes = typeof sourceRoot === 'string' ? toDist(sourceRoot, '.d.ts') : undefined;
+  if (published.main !== expectedMain || published.types !== expectedTypes) {
     diagnostics.push(
       metadataDiagnostic(
         packageRecord,
         'publish entry',
-        `measured main/types are ${shown([published.main, published.types])}, expected dist index targets`,
+        `measured main/types are ${shown([published.main, published.types])}, expected ${shown([expectedMain, expectedTypes])}`,
       ),
     );
   }
@@ -959,6 +962,17 @@ function assertPublishTransform() {
     throw new Error(`sideEffects did not repoint to dist: ${shown(prerelease.sideEffects)}`);
   }
   if (Object.hasOwn(prerelease, 'devDependencies')) throw new Error('publish manifest retained devDependencies');
+
+  const subpathsOnly = publishManifest({
+    ...source,
+    exports: {
+      './client': './src/client.ts',
+      './server': './src/server.ts',
+    },
+  });
+  if (Object.hasOwn(subpathsOnly, 'main') || Object.hasOwn(subpathsOnly, 'types')) {
+    throw new Error('subpath-only publish manifest invented a root entry');
+  }
 
   const stable = publishManifest({ ...source, version: '2.0.0' });
   if (stable.dependencies?.['@fixture/dependency'] !== '^2.0.0') {

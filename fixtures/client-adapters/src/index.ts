@@ -77,4 +77,5 @@ export { createReactConformanceBinding, createReactFamilyConformanceBinding } fr
 export { createReactNativeConformanceBinding } from './react-native-binding.js';
 export { assertSsrCredentialIsolation } from './ssr.js';
 export { createSvelteAdapterConformanceBinding } from './svelte-binding.js';
+export { createSvelteKitAdapterConformanceBinding } from './sveltekit-binding.js';
 export { createVueConformanceBinding } from './vue-binding.js';

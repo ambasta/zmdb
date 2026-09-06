@@ -1,9 +1,7 @@
 // Compile-only framework inference freeze for #689.
 //
-// React, Angular, Vue, Svelte, Solid, Next, and Nuxt now use their real public types. The remaining namespace imports are
-// retirement triggers: each implementation issue makes its directive unused,
-// at which point that package's native bridge below must be replaced by the
-// real public types rather than leaving a structural stand-in behind.
+// All nine official framework adapters now use their real public types. The
+// empty retirement-trigger tuple below makes that completed state explicit.
 
 import type { InjectionToken } from '@angular/core';
 import { createZmdbAngular } from '@zmdb/angular';
@@ -21,28 +19,34 @@ import type { ZmdbReactNativeBindings } from '@zmdb/react-native';
 import { createZmdbSolid } from '@zmdb/solid';
 import type { ZmdbSolidBindings } from '@zmdb/solid';
 import { createMutationStore, createQueryStore, createZmdbSvelte } from '@zmdb/svelte';
-// @ts-expect-error #699 supplies the SvelteKit client entry
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #699
-import type * as MissingSvelteKitClientAdapter from '@zmdb/sveltekit/client';
-// @ts-expect-error #699 supplies the SvelteKit server entry
-// oxlint-disable-next-line import/no-namespace -- no public member name exists before #699
-import type * as MissingSvelteKitServerAdapter from '@zmdb/sveltekit/server';
+import {
+  createSvelteKitClientLoad,
+  createSvelteKitNavigationScope,
+  createZmdbSvelte as createZmdbSvelteKit,
+  type SvelteKitClientLoadEvent,
+} from '@zmdb/sveltekit/client';
+import {
+  createSvelteKitServerClient,
+  createSvelteKitServerLoad,
+  type SvelteKitServerLoadEvent,
+} from '@zmdb/sveltekit/server';
 import { createZmdbVue } from '@zmdb/vue';
 import type { ZmdbVueBindings } from '@zmdb/vue';
 import { useAsyncData } from 'nuxt/app';
 import type { Observable } from 'rxjs';
 import type { Readable } from 'svelte/store';
 
-import type {
-  AdapterConformanceBinding,
-  ApiClient,
-  GetWidgetInput,
-  MutationRunner,
-  MutationSnapshot,
-  QueryLoader,
-  QuerySnapshot,
-  RenameWidgetInput,
-  Widget,
+import {
+  createApiClient,
+  type AdapterConformanceBinding,
+  type ApiClient,
+  type GetWidgetInput,
+  type MutationRunner,
+  type MutationSnapshot,
+  type QueryLoader,
+  type QuerySnapshot,
+  type RenameWidgetInput,
+  type Widget,
 } from './index.js';
 
 type Equal<Left, Right> =
@@ -181,6 +185,44 @@ function svelteInference(client: ApiClient): void {
   void directMutation.mutate({ id: 'one' });
 }
 
+function svelteKitInference(event: SvelteKitServerLoadEvent): void {
+  const navigation = createSvelteKitNavigationScope();
+  const bindings = createZmdbSvelteKit<ApiClient>();
+  bindings satisfies SvelteBindings<ApiClient>;
+
+  const serverClient = createSvelteKitServerClient(event, createApiClient, {
+    baseUrl: '/api',
+    forward: {
+      headers: ['authorization'],
+      cookies: ['session'],
+    },
+  });
+  serverClient.getWidget satisfies ApiClient['getWidget'];
+
+  const serverLoad = createSvelteKitServerLoad<ApiClient, SvelteKitServerLoadEvent, Widget>({
+    key: 'widget:server',
+    createClient: createApiClient,
+    clientOptions: { baseUrl: '/api' },
+    load: (client, loadEvent, signal) => {
+      loadEvent.request satisfies Request;
+      return client.getWidget({ id: 'one' }, { signal });
+    },
+  });
+  serverLoad satisfies (loadEvent: SvelteKitServerLoadEvent) => Promise<Widget>;
+
+  const clientLoad = createSvelteKitClientLoad<ApiClient, SvelteKitClientLoadEvent, Widget>({
+    key: 'widget:client',
+    navigation,
+    createClient: createApiClient,
+    clientOptions: { baseUrl: '/api' },
+    load: (client, loadEvent, signal) => {
+      loadEvent.fetch satisfies typeof globalThis.fetch;
+      return client.getWidget({ id: 'one' }, { signal });
+    },
+  });
+  clientLoad satisfies (loadEvent: SvelteKitClientLoadEvent) => Promise<Widget>;
+}
+
 function solidInference(bindings: SolidBindings<ApiClient>): void {
   const selectedClient = bindings.useClient();
   selectedClient.getWidget satisfies ApiClient['getWidget'];
@@ -252,10 +294,7 @@ export type _MetaFrameworksReuseNativeBaseShapes = [
   Expect<Equal<NativeBindingsByPackage['@zmdb/sveltekit'], NativeBindingsByPackage['@zmdb/svelte']>>,
 ];
 
-export type _MissingPackageRetirementTriggers = [
-  keyof typeof MissingSvelteKitClientAdapter,
-  keyof typeof MissingSvelteKitServerAdapter,
-];
+export type _MissingPackageRetirementTriggers = [];
 
 createZmdbReact<ApiClient>() satisfies ReactBindings<ApiClient>;
 createZmdbReactNative<ApiClient, string>({
@@ -286,5 +325,6 @@ void createZmdbAngular<ApiClient>;
 void vueInference;
 void nuxtInference;
 void svelteInference;
+void svelteKitInference;
 void solidInference;
 void conformanceBindingInference;

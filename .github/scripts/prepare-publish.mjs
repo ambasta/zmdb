@@ -33,6 +33,12 @@ const META = {
       'Typed Svelte context, lazy query stores, mutation stores, and lifecycle cancellation for generated zmdb clients.',
     keywords: ['client', 'stores', 'svelte', 'typescript', 'zmdb'],
   },
+  sveltekit: {
+    description:
+      'Request-local SvelteKit clients, typed load helpers, explicit credential forwarding, and navigation cancellation for generated zmdb clients.',
+    install: 'npm add @zmdb/sveltekit@alpha @sveltejs/kit svelte',
+    keywords: ['client', 'load', 'svelte', 'sveltekit', 'typescript', 'zmdb'],
+  },
   next: {
     description: 'Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.',
     keywords: ['client', 'nextjs', 'react', 'typescript', 'zmdb'],

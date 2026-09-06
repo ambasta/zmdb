@@ -45,6 +45,8 @@
       "@zmdb/schema-core": ["./packages/schema-core/dist/index.d.ts"],
       "@zmdb/schema-core/*": ["./packages/schema-core/dist/*/index.d.ts"],
       "@zmdb/svelte": ["./packages/svelte/dist/index.d.ts"],
+      "@zmdb/sveltekit/client": ["./packages/sveltekit/dist/client.d.ts"],
+      "@zmdb/sveltekit/server": ["./packages/sveltekit/dist/server.d.ts"],
       "@zmdb/query-compiler": ["./packages/query-compiler/dist/index.d.ts"],
       "@zmdb/query-compiler/migrations/runner": ["./packages/query-compiler/dist/migrations/runner.d.ts"],
       "@zmdb/query-compiler/*": ["./packages/query-compiler/dist/*/index.d.ts"],

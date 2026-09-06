@@ -31,6 +31,7 @@ const PACKAGES = [
   'next',
   'nuxt',
   'solid',
+  'sveltekit',
   'schema-core',
   'ai',
   'ai-anthropic',

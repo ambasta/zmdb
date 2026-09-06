@@ -20,10 +20,12 @@ dispose. The common cases then run the same generated client through that bindin
 | Nuxt           | Vue client scope or one Nitro request/plugin instance                 | Vue refs or request-local `useAsyncData` input/key change | scope stop or end of the Nitro request            |
 | SvelteKit      | Svelte subscription or one `RequestEvent` load                        | store change or a new navigation/load                     | unsubscribe or navigation/request cancellation    |
 
-The `bindPreparedAdapterSubject` bridge exists only to keep #689's missing-package `it.fails` cases executable. React, Angular, Vue, Svelte, Solid, Next, and Nuxt now use their real framework
-lifecycles through the corresponding fixture modules; the remaining missing adapters still use the bridge as retirement triggers. No implementation copies the bridge into production.
+The `bindPreparedAdapterSubject` bridge exists only to keep #689's missing-package `it.fails` cases executable. React, Angular, Vue, Svelte, Solid, Next, Nuxt, and SvelteKit now use their real
+framework bindings through the corresponding fixture modules; the remaining missing adapter still uses the bridge as a retirement trigger. No implementation copies the bridge into production.
 
 `svelte-packed/` separately installs the client and Svelte tarballs, compiles browser and server component graphs, renders isolated server trees, and typechecks only public package declarations.
+`sveltekit-packed/` installs client, Svelte, and SvelteKit tarballs, builds real browser and server graphs, renders concurrent request-isolated loads, checks native redirects/status errors, and
+executes browser-fetch and abandoned-navigation acceptance.
 
 ## Deterministic fixtures
 
@@ -44,7 +46,8 @@ network or global registration added by an adapter package.
 not workspace symlinks, and then runs the supplied framework build/runtime commands in order. Callers must provide a publish-ready manifest when a committed manifest still contains `workspace:`
 ranges.
 
-This helper is orchestration, not qualification evidence by itself. Issues #691–#694 combine it with the real React, Angular, Vue, and Svelte packages, native lifecycle bindings, published manifests,
-external typechecks, and common runtime cases. Issue #697 adds a packed Next App Router application with physical server/browser boundaries, request-local runtime evidence, and browser-output
-inspection. Issue #698 adds a packed Nuxt 4.5.2 application that installs `@zmdb/client`, `@zmdb/vue`, and `@zmdb/nuxt` tarballs, builds the real module, renders concurrent requests with isolated
-credentials, observes native Nuxt payload data, and exercises the browser plugin. Issue #700 remains responsible for cross-adapter qualification that no framework-specific slice can earn alone.
+This helper is orchestration, not qualification evidence by itself. Issues #691–#695 and #699 combine it with the real React, Angular, Vue, Svelte, Solid, and SvelteKit packages, native lifecycle
+bindings, published manifests, external typechecks, and common runtime cases. Issue #697 adds a packed Next App Router application with physical server/browser boundaries, request-local runtime
+evidence, and browser-output inspection. Issue #698 adds a packed Nuxt 4.5.2 application that installs `@zmdb/client`, `@zmdb/vue`, and `@zmdb/nuxt` tarballs, builds the real module, renders
+concurrent requests with isolated credentials, observes native Nuxt payload data, and exercises the browser plugin. Issue #700 remains responsible for cross-adapter qualification that no
+framework-specific slice can earn alone.

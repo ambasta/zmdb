@@ -32,6 +32,9 @@ Vue is opt-in too: install `@zmdb/vue` with Vue 3 when a generated client needs 
 
 Svelte is opt-in too: install `@zmdb/svelte` only when a generated client needs typed Svelte context, subscription-aware stores, and component-lifecycle cancellation.
 
+SvelteKit is a separate opt-in layer: install `@zmdb/sveltekit` when server loads need request-local `event.fetch`, explicit credential forwarding, native framework errors, and abandoned-navigation
+cancellation. Its browser entry reuses `@zmdb/svelte`; its server entry is physically separate.
+
 Next.js is opt-in: install `@zmdb/next` for request-scoped App Router server clients and browser bindings over `@zmdb/react`, without adding Next or React to the default product.
 
 Nuxt is opt-in too: install `@zmdb/nuxt` for request-scoped Nitro transport, native hydration, and browser bindings over `@zmdb/vue`, without adding Nuxt or Vue to the default product.
@@ -46,7 +49,7 @@ Redis Pub/Sub is opt-in: install `@zmdb/transport-redis` with `redis`; neither t
 
 PostgreSQL job storage is opt-in: install `@zmdb/jobs-postgres` with `pg` when workers use a caller-owned PostgreSQL pool or client.
 
-> The workspace publishes **30 packages** across **136 export-map entry points**. The current suite has **3,162 passing tests** across 290 files, plus **64 expected failures** that describe work still
+> The workspace publishes **31 packages** across **138 export-map entry points**. The current suite has **3,186 passing tests** across 293 files, plus **51 expected failures** that describe work still
 > to be done. The compatibility inventory covers 504 of 742 upstream API suites and explains why the other 238 are out of scope. The documentation site contains 262 supported pages, 3 TODO pages, and
 > 13 pages for features we do not plan to add.
 

@@ -16,6 +16,7 @@ const PACKAGES = [
   '@zmdb/angular',
   '@zmdb/vue',
   '@zmdb/svelte',
+  '@zmdb/sveltekit',
   '@zmdb/next',
   '@zmdb/nuxt',
   '@zmdb/solid',
