@@ -422,7 +422,7 @@ for (const packageRecord of PUBLISH_PACKAGES) {
         fail(`zmdb packed manifest does not depend on ${toolingPackage}`);
       }
       for (const subpath of subpaths) {
-        if (typeof pkg.exports?.[subpath] !== 'string') {
+        if (pkg.exports?.[subpath] === undefined) {
           fail(`zmdb packed manifest is missing ${subpath} for ${toolingPackage}`);
         }
       }

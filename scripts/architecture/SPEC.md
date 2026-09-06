@@ -1,9 +1,9 @@
 # Package architecture and release governance — specification
 
 > **Status:** target contract frozen by issue #722 for epic #721 and amended for the packages admitted by #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #691, #692,
-> #693, #694, #695, #696, #657, #658, #659, #660, #661, #672, #673, #697, #698, #699, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery and graph
-> APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime, tooling
-> and optional-peer reachability; #728 implements the release plan, changelog, bump and publication-governance boundary. The original measured baseline is commit `5adba11e` on 2026-09-05.
+> #693, #694, #695, #696, #657, #658, #659, #660, #661, #672, #673, #697, #698, #699, #629, and the #710 AI ownership cutover. Issue #724 implements the canonical policy plus read-only discovery and
+> graph APIs; #725 implements architecture-zone, ring and workspace-edge enforcement; and #727 implements package metadata and lockstep-manifest enforcement. #726 implements policy-driven runtime,
+> tooling and optional-peer reachability; #728 implements the release plan, changelog, bump and publication-governance boundary. The original measured baseline is commit `5adba11e` on 2026-09-05.
 
 ## 1. Authority, scope and measured baseline
 
@@ -24,12 +24,12 @@ At the measured baseline:
 
 These facts explain the starting state; they are not exemptions. Roadmap-only package directories that contain a `SPEC.md` but no manifest are not catalog members and receive no policy row.
 
-Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #672, #691, #692, #693, #694, #695, #696, #657, #658, #659, #660, and #661 add `@zmdb/protobuf`, `@zmdb/client`,
-`@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`, `@zmdb/mysql`,
-`@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`,
-and `@zmdb/jobs-postgres`; issue #673 adds `@zmdb/cockroach`, #697 adds `@zmdb/next`, #698 adds `@zmdb/nuxt`, and #699 adds `@zmdb/sveltekit`. Issue #710 removed the temporary LangChain-to-schema-core
-edge. The current thirty-five manifests keep `1.0.0-alpha.4`, declare 62 direct non-dev workspace edges, and declare 33 peer dependencies: 12 optional peer entries plus 21 required peer entries
-confined to their selected integration packages.
+Issues #656, #682, #705, #647, #650, #706, #707, #708, #709, #662, #669, #670, #671, #672, #691, #692, #693, #694, #695, #696, #657, #658, #659, #660, #661, and #629 add `@zmdb/protobuf`,
+`@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`,
+`@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`,
+`@zmdb/transport-redis`, `@zmdb/jobs-postgres`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, #697 adds `@zmdb/next`, #698 adds `@zmdb/nuxt`, and #699 adds `@zmdb/sveltekit`. Issue #710
+removed the temporary LangChain-to-schema-core edge. The current thirty-six manifests keep `1.0.0-alpha.4`, declare 69 direct non-dev workspace edges, and declare 34 peer dependencies: 13 optional
+peer entries plus 21 required peer entries confined to their selected integration packages.
 
 ## 2. Canonical policy API
 
@@ -95,7 +95,7 @@ Zones are ordered from inward to outward:
 |    1 | `runtime`     | reusable product runtime built on foundation contracts                  |
 |    2 | `application` | application composition and framework runtime                           |
 |    3 | `integration` | technology-selected database, transport, provider or framework adapters |
-|    4 | `tooling`     | build, code-generation, migration, CLI and development packages         |
+|    4 | `tooling`     | build, code-generation, CLI and development packages                    |
 |    5 | `facade`      | the one-product composition surface; no other zone may depend on it     |
 
 A direct workspace edge is valid only when all of these hold:
@@ -125,7 +125,7 @@ and an allowed edge unused by production source are four distinct violations. Po
 
 ## 4. Complete policy rows for the current catalog
 
-The following object is normative. It constrains the current thirty-five catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
+The following object is normative. It constrains the current thirty-six catalog members, and the runtime-reachability gate verifies every present export and executable against it. Adding, removing or
 renaming a catalog member requires the catalog and policy key sets to change atomically.
 
 ```ts
@@ -227,7 +227,17 @@ export const PACKAGE_POLICY = {
     allowedWorkspaceDependencies: [],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
-    toolingEntries: ['./introspect'],
+    toolingEntries: [],
+    release: 'lockstep',
+  },
+  migrations: {
+    directory: 'packages/migrations',
+    zone: 'foundation',
+    ring: 1,
+    allowedWorkspaceDependencies: ['query-compiler'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: ['./declarations', './files', './testing'],
     release: 'lockstep',
   },
   'schema-core': {
@@ -335,7 +345,7 @@ export const PACKAGE_POLICY = {
     directory: 'packages/mssql',
     zone: 'integration',
     ring: 5,
-    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       mssql: ['.'],
@@ -347,7 +357,7 @@ export const PACKAGE_POLICY = {
     directory: 'packages/postgres',
     zone: 'runtime',
     ring: 5,
-    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       pg: ['.'],
@@ -359,7 +369,7 @@ export const PACKAGE_POLICY = {
     directory: 'packages/cockroach',
     zone: 'runtime',
     ring: 6,
-    allowedWorkspaceDependencies: ['postgres', 'query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'postgres', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -369,7 +379,7 @@ export const PACKAGE_POLICY = {
     directory: 'packages/sqlite',
     zone: 'runtime',
     ring: 5,
-    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -379,7 +389,7 @@ export const PACKAGE_POLICY = {
     directory: 'packages/mysql',
     zone: 'integration',
     ring: 5,
-    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       mysql2: ['.'],
@@ -483,13 +493,13 @@ export const PACKAGE_POLICY = {
     directory: 'packages/zmdb',
     zone: 'facade',
     ring: 7,
-    allowedWorkspaceDependencies: ['app', 'aot-validator', 'mssql', 'postgres', 'query-compiler', 'repository', 'schema-core', 'sqlite', 'web'],
+    allowedWorkspaceDependencies: ['app', 'aot-validator', 'migrations', 'mssql', 'postgres', 'query-compiler', 'repository', 'schema-core', 'sqlite', 'web'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       '@zmdb/mssql': ['./cli', './drivers/mssql', 'bin:zmdb'],
       '@zmdb/postgres': ['./drivers/pg'],
     },
-    toolingEntries: ['./cli', './config', './unplugin', './web/contract/compiler', 'bin:zmdb'],
+    toolingEntries: ['./cli', './config', './migrations', './unplugin', './web/contract/compiler', 'bin:zmdb'],
     release: 'lockstep',
   },
 } as const;
@@ -497,7 +507,7 @@ export const PACKAGE_POLICY = {
 
 Ordinary-runtime dependency allowances are empty except for Next's official `server-only` boundary marker. Other current third-party dependency entries are tooling-only:
 
-- `@zmdb/query-compiler#./introspect` reaches `oxfmt` only through declaration emission; and
+- `@zmdb/migrations#./declarations` reaches `oxfmt` only through declaration emission; the query compiler and root, runner, and embedded migration entries do not; and
 - `zmdb#./cli` and `bin:zmdb` reach `esbuild` and `oxfmt` for scaffolding, embedding and application loading.
 
 `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`, `@zmdb/vue`, `@zmdb/svelte`, `@zmdb/solid`, `@zmdb/nuxt`, `@zmdb/sveltekit`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,

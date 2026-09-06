@@ -1,9 +1,9 @@
 import { diff, planMigration, snapshot } from '@zmdb/migrations';
 import { emitDeclarations } from '@zmdb/migrations/declarations';
 import { runEmbedded } from '@zmdb/migrations/embedded';
-import { readMigrations, type FileMigration } from '@zmdb/migrations/files';
+import { migrate, migrationStatus, readMigrations, rollback, type FileMigration } from '@zmdb/migrations/files';
 import { createIntrospector } from '@zmdb/migrations/introspect';
-import { migrate, migrationStatus, rollback } from '@zmdb/migrations/runner';
+import { normalizeDriftSnapshot, type CatalogSchemaSnapshot } from '@zmdb/migrations/introspect/runtime';
 import '@zmdb/migrations/testing';
 
 const empty = snapshot([]);
@@ -14,6 +14,7 @@ export const migrationSurface = {
   emitDeclarations,
   migrate,
   migrationStatus,
+  normalizeDriftSnapshot,
   planMigration,
   readMigrations,
   rollback,
@@ -22,3 +23,4 @@ export const migrationSurface = {
 };
 
 export type MigrationFixtureFile = FileMigration;
+export type MigrationFixtureCatalog = CatalogSchemaSnapshot;

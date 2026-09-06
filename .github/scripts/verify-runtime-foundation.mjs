@@ -21,13 +21,18 @@ const CONSUMER_ROOT = 'fixtures/consumer-runtime-foundation';
 const OLD_PACKAGES = ['@zmdb/aot-validator', '@zmdb/query-compiler', '@zmdb/repository', '@zmdb/schema-core'];
 const OPTIONAL_TARGETS = ['@zmdb/ai', '@zmdb/mssql', '@zmdb/postgres', '@zmdb/sqlite'];
 const TRANSITIONAL_OPTIONAL_EDGES = new Map([
-  // #672 implements the SQL Server vertical against the current generic seams.
-  ['@zmdb/mssql', new Set(['@zmdb/query-compiler', '@zmdb/repository'])],
+  // #672 implements the SQL Server vertical against the current generic seams;
+  // #629 moves its migration strategy and catalog normalizer to migrations.
+  ['@zmdb/mssql', new Set(['@zmdb/migrations', '@zmdb/query-compiler', '@zmdb/repository'])],
   // #670 implements the PostgreSQL vertical against the current generic seams.
   // #634 owns the hard cutover to @zmdb/sql and @zmdb/orm. Keep this exact
   // old-package closure visible to oldPackageProblems (and therefore strict
-  // mode) while refusing any unrelated workspace edge here.
-  ['@zmdb/postgres', new Set(OLD_PACKAGES)],
+  // mode) while refusing any unrelated workspace edge here. #629 adds only the
+  // extracted migration/introspection owner.
+  ['@zmdb/postgres', new Set([...OLD_PACKAGES, '@zmdb/migrations'])],
+  // #669 owns the SQLite vertical; #629 extracts its generic migration
+  // lifecycle while keeping the database-specific strategy in this package.
+  ['@zmdb/sqlite', new Set(['@zmdb/migrations'])],
 ]);
 const FORBIDDEN_RUNTIME_PACKAGES = new Set([
   '@zmdb/ai',
@@ -448,7 +453,7 @@ function runCli() {
     console.log('runtime foundation: strict four-package DAG and hard cutover verified.');
   } else {
     console.log(
-      `runtime foundation: ${String(actual.length)} frozen finding(s) match the #636 baseline; strict target remains red.`,
+      `runtime foundation: ${String(actual.length)} frozen finding(s) match the checked-in #636/#629 baseline; strict target remains red.`,
     );
   }
 }

@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runEmbedded, type EmbeddedConnection } from '@zmdb/query-compiler/migrations/embedded';
+import { runEmbedded, type EmbeddedConnection } from '@zmdb/migrations/embedded';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -723,7 +723,7 @@ describe('standalone tooling package fixtures (#627)', () => {
     expect.soft(compilerSmoke?.stdout).toMatch(/"diagnostics":0/);
   });
 
-  it.fails('imports every @zmdb/migrations subpath and runs embedded SQLite migrations without filesystem imports', () => {
+  it('runs embedded migrations from a packed package with no filesystem or formatter reachability', () => {
     const owner = targetPackedPackage(packedFixture(), '@zmdb/migrations');
     expect.soft(owner?.manifest.name).toBe('@zmdb/migrations');
     expect
@@ -742,6 +742,7 @@ describe('standalone tooling package fixtures (#627)', () => {
     expect.soft(migrationsSmoke?.stdout).toContain('"dialect":"postgres"');
     expect.soft(migrationsSmoke?.stdout).toContain('"sqliteIntrospectionRefused":true');
     expect.soft(analyseToolingBoundaries().embeddedViolations).toEqual([]);
+    expect.soft(analyseToolingBoundaries().formatterViolations).toEqual([]);
   });
 
   it.fails('runs the installed zmdb executable from @zmdb/cli and dispatches every command once', () => {
@@ -775,17 +776,17 @@ describe('standalone tooling package fixtures (#627)', () => {
     const delegations = {
       compileProject: '@zmdb/compiler',
       writeCompileResult: '@zmdb/compiler',
-      generateMigration: '@zmdb/migrations',
-      embedMigrations: '@zmdb/migrations',
-      migrate: '@zmdb/migrations/runner',
-      rollback: '@zmdb/migrations/runner',
-      migrationStatus: '@zmdb/migrations/runner',
-      planPush: '@zmdb/migrations',
-      applyPush: '@zmdb/migrations',
-      checkProject: '@zmdb/migrations',
-      upgradeSnapshot: '@zmdb/migrations',
-      exportSchema: '@zmdb/migrations',
-      pullDeclarations: '@zmdb/migrations',
+      generateMigration: '@zmdb/migrations/files',
+      embedMigrations: '@zmdb/migrations/files',
+      migrate: '@zmdb/migrations/files',
+      rollback: '@zmdb/migrations/files',
+      migrationStatus: '@zmdb/migrations/files',
+      planPush: '@zmdb/migrations/files',
+      applyPush: '@zmdb/migrations/files',
+      checkProject: '@zmdb/migrations/files',
+      upgradeSnapshot: '@zmdb/migrations/files',
+      exportSchema: '@zmdb/migrations/files',
+      pullDeclarations: '@zmdb/migrations/files',
     } as const;
     for (const [operation, packageName] of Object.entries(delegations)) {
       expect.soft(imports.get(operation), operation).toEqual([packageName]);

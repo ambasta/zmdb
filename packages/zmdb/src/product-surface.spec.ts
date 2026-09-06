@@ -59,10 +59,9 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     expect(REQUIRED_PRODUCT_SUBPATHS).toHaveLength(13);
   });
 
-  // Current measured state: no optional external peer is loaded, but importing
-  // the root reaches @zmdb/query-compiler/migrations and its runner through the
-  // eagerly exported `migrations` namespace.
-  it.fails('does not reach tooling or optional integrations when the zmdb root is imported', () => {
+  // The migration namespace is reachable only through `zmdb/migrations`, so
+  // importing the application root loads neither tooling nor optional peers.
+  it('does not reach tooling or optional integrations when the zmdb root is imported', () => {
     const report = facadeReport();
 
     expect(report.processProblems).toEqual([]);
@@ -169,8 +168,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
   it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
     const report = await catalogReport();
     expect(report.membershipProblems).toEqual([]);
-    expect(report.rows).toHaveLength(35);
-    expect(report.manifests.size).toBe(35);
+    expect(report.rows).toHaveLength(36);
+    expect(report.manifests.size).toBe(36);
 
     const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
     const staleManifests = new Map(report.manifests);
@@ -194,8 +193,8 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const actual = readFacadeOwnership(ROOT);
     const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
 
-    expect(derived.root).toHaveLength(71);
-    expect(derived.subpaths).toHaveLength(14);
+    expect(derived.root).toHaveLength(70);
+    expect(derived.subpaths).toHaveLength(15);
     expect(actual.root).toEqual(derived.root);
     expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
     expect(verifyFacadeOwnership(PRODUCT_CATALOG, actual)).toEqual([]);
@@ -229,9 +228,9 @@ describe('the one-product facade and catalog (#619, #622)', () => {
     const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
 
     expect(report.problems).toEqual([]);
-    expect(report.assignments).toHaveLength(35);
+    expect(report.assignments).toHaveLength(36);
     expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(27);
-    expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(8);
+    expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(9);
   });
 
   it('rejects an undocumented package, duplicate public role, or facade export with no owner', async () => {

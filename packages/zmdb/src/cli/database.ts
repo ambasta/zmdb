@@ -1,6 +1,6 @@
+import { createIntrospector } from '@zmdb/migrations/introspect';
 import { mssql } from '@zmdb/mssql';
 import { type DialectTarget, type Introspector } from '@zmdb/query-compiler';
-import { createIntrospector } from '@zmdb/query-compiler/introspect';
 import { sqliteIntrospector } from '@zmdb/sqlite';
 
 export function configuredDialect(dialect: DialectTarget): DialectTarget {

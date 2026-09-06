@@ -1,8 +1,8 @@
-zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-five packages are published today: thirty-four focused packages plus the `zmdb` facade. The
+zmdb is an ESM-only TypeScript backend framework targeting Node.js 26+ and TypeScript 7.0+. Thirty-six packages are published today: thirty-five focused packages plus the `zmdb` facade. The
 recommended installation combines the cohesive data, application, and HTTP product with one explicit database vertical; `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
-`@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations, `@zmdb/mcp`, `@zmdb/otel`,
-`@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and `@zmdb/jobs-postgres` remain
-independently installable.
+`@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/migrations`, `@zmdb/protobuf`, provider-neutral `@zmdb/ai`, its opt-in provider integrations,
+`@zmdb/mcp`, `@zmdb/otel`, `@zmdb/cockroach`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/postgres`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, and
+`@zmdb/jobs-postgres` remain independently installable.
 
 ## Recommended: product plus SQLite
 
@@ -17,11 +17,11 @@ import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 import type { CreateDTO, Entity } from 'zmdb/derive';
 ```
 
-The `zmdb` package re-exports the curated public API of its seven required workspace dependencies, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`,
-`zmdb/relations`, `zmdb/web`, `zmdb/drivers/pg`, …). Database selection is explicit: `@zmdb/sqlite` owns SQLite compilation traits, migrations, introspection, and its driver; `@zmdb/postgres` owns the
-complete PostgreSQL vertical and structural `pg` adapter; and `@zmdb/mssql` owns the complete SQL Server vertical and structural node-mssql adapter. The temporary `zmdb/drivers/sqlite` path delegates
-to SQLite, while `zmdb/drivers/pg` and `zmdb/drivers/mssql` delegate through optional database-package peers. The `zmdb/web` facade combines the protocol-neutral `@zmdb/app` kernel with the
-HTTP-specific `@zmdb/web` package.
+The `zmdb` package re-exports the curated public API of its eight required workspace dependencies, with deeper surfaces under subpaths (`zmdb/tags`, `zmdb/derive`, `zmdb/ir`, `zmdb/dto`,
+`zmdb/relations`, `zmdb/migrations`, `zmdb/web`, `zmdb/drivers/pg`, …). Database selection is explicit: `@zmdb/sqlite` owns SQLite compilation traits, migrations, introspection, and its driver;
+`@zmdb/postgres` owns the complete PostgreSQL vertical and structural `pg` adapter; and `@zmdb/mssql` owns the complete SQL Server vertical and structural node-mssql adapter. The temporary
+`zmdb/drivers/sqlite` path delegates to SQLite, while `zmdb/drivers/pg` and `zmdb/drivers/mssql` delegate through optional database-package peers. The `zmdb/web` facade combines the protocol-neutral
+`@zmdb/app` kernel with the HTTP-specific `@zmdb/web` package.
 
 `@zmdb/ai` and `@zmdb/mcp` are independently installable and are not re-exported by the umbrella root. Anthropic, LangChain, and Vercel AI SDK users add the matching opt-in integration package and its
 SDK/framework peer.
@@ -72,7 +72,7 @@ The package owns the adapter; the peer owns the external protocol client. `@zmdb
 Prefer to depend only on the pieces you use (better tree-shaking):
 
 ```bash
-npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/aot-validator @zmdb/repository @zmdb/sqlite @zmdb/app @zmdb/web
+npm install @zmdb/schema-core @zmdb/query-compiler @zmdb/migrations @zmdb/aot-validator @zmdb/repository @zmdb/sqlite @zmdb/app @zmdb/web
 ```
 
 ## Install Individual Packages
@@ -85,6 +85,9 @@ npm install @zmdb/schema-core
 
 # Query builder (SELECT/INSERT/UPDATE/DELETE)
 npm install @zmdb/query-compiler
+
+# Schema snapshots, migration plans, runners, introspection, and declaration emission
+npm install @zmdb/migrations
 
 # AOT validation + serialization
 npm install @zmdb/aot-validator
@@ -247,7 +250,8 @@ If that throws instead of printing, the plugin is not running over this file.
 | Package                    | Purpose                                                                                        |
 | -------------------------- | ---------------------------------------------------------------------------------------------- |
 | `@zmdb/schema-core`        | The tag vocabulary, the IR, type derivation (Entity/CreateDTO/UpdateDTO), relations, OpenAPI   |
-| `@zmdb/query-compiler`     | SELECT/INSERT/UPDATE/DELETE, dialects, JOINs, aggregations, FTS, migrations                    |
+| `@zmdb/query-compiler`     | SELECT/INSERT/UPDATE/DELETE, dialect protocols, JOINs, aggregations, FTS, schema-object DDL    |
+| `@zmdb/migrations`         | Snapshots, diffs, DDL plans, files, runners, introspection, and declaration emission           |
 | `@zmdb/aot-validator`      | Type reflection, full/shallow is/assert/validate, equals/random, serialization                 |
 | `@zmdb/repository`         | Auto-validating CRUD, hooks, transactions, populate                                            |
 | `@zmdb/mssql`              | T-SQL compilation, migrations, structural driver, introspection, and capability refusals       |

@@ -1,0 +1,66 @@
+{
+  "name": "@zmdb/migrations",
+  "version": "1.0.0-alpha.4",
+  "description": "Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.",
+  "keywords": [
+    "database",
+    "introspection",
+    "migrations",
+    "schema",
+    "sql",
+    "typescript",
+    "zmdb"
+  ],
+  "homepage": "https://github.com/ambasta/zmdb#readme",
+  "bugs": {
+    "url": "https://github.com/ambasta/zmdb/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "zmdb contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambasta/zmdb.git",
+    "directory": "packages/migrations"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./declarations": "./src/declarations/index.ts",
+    "./embedded": "./src/embedded.ts",
+    "./files": "./src/files.ts",
+    "./introspect": "./src/introspect/index.ts",
+    "./introspect/runtime": "./src/introspect/common.ts",
+    "./runner": "./src/runner.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zmdb/query-compiler": "workspace:^",
+    "oxfmt": "0.66.0"
+  },
+  "devDependencies": {
+    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/mssql": "workspace:^",
+    "@zmdb/postgres": "workspace:^",
+    "@zmdb/repository": "workspace:^",
+    "@zmdb/schema-core": "workspace:^",
+    "@zmdb/sqlite": "workspace:^",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

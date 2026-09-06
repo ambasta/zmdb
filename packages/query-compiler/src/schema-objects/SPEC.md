@@ -4,8 +4,8 @@ Part of `@zmdb/query-compiler`. Declarative schema objects that emit dialect-cor
 
 ## Issue #635 SQL/migrations seam
 
-Runtime statement rendering remains `@zmdb/sql/schema-objects`. Snapshot/diff ordering and schema lifecycle remain `@zmdb/migrations`. The current `ddlType` import from migrations is inverted:
-migrations supplies or calls the SQL-owned type renderer, so `@zmdb/sql` never imports `@zmdb/migrations`.
+Runtime statement rendering currently lives at `@zmdb/query-compiler/schema-objects` and moves to `@zmdb/sql/schema-objects` in the #635 target. Snapshot/diff ordering and schema lifecycle live at
+`@zmdb/migrations`. The SQL package owns `ddlType`; migrations imports that renderer, so the dependency never points back from SQL to migrations.
 
 ## 1. Indexes & constraints (#99/#100/#101)
 
@@ -188,8 +188,8 @@ same statement.
 Cockroach, MySQL, SingleStore, SQLite and SQL Server refuse PostgreSQL extensions with the same `UnsupportedFeatureError` as materialized views and RLS.
 
 **Ordering is part of the contract.** `CREATE EXTENSION` runs before anything that could name a type it provides, and index creation runs after the tables. A `vector` column in a table created before
-the extension is a migration that fails halfway, leaving the database in a state the snapshot does not describe — which is worse than either succeeding or failing cleanly. See `../migrations/SPEC.md`
-§1.5 for where that order is imposed and how a snapshot records extensions.
+the extension is a migration that fails halfway, leaving the database in a state the snapshot does not describe — which is worse than either succeeding or failing cleanly. See
+`../../../migrations/src/SPEC.md` §1.5 for where that order is imposed and how a snapshot records extensions.
 
 **Dropping is not automatic, and this is the deliberate asymmetry.** An extension declared and then undeclared produces no `DROP EXTENSION`, because `DROP EXTENSION vector` fails while any column
 still uses the type and `DROP EXTENSION vector CASCADE` drops those columns instead — so the two available behaviours are "the migration fails" and "the migration deletes data".

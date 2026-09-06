@@ -12,7 +12,7 @@ import { UnsupportedFeatureError, type CompiledQuery } from '../index.js';
 // validate every returned builder/query, and keep every expectation keyed by
 // the six-member dialect tuple. No emitter or builder is stubbed here.
 const queryApi: object = await import('../index.js');
-const migrationApi: object = await import('../migrations/index.js');
+const migrationApi: object = await import('@zmdb/migrations');
 const setOperationApi: object = await import('../set-ops/index.js');
 const ftsApi: object = await import('../fts/index.js');
 const clausesApi: object = await import('../clauses.js');

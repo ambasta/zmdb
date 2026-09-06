@@ -1,3 +1,4 @@
+import type { ChangeOp, ColumnSnapshot, ForeignKeySnapshot, SchemaSnapshot } from '@zmdb/migrations';
 import {
   quoteIdentifier,
   quoteTable,
@@ -10,7 +11,6 @@ import {
   type MigrationTableOptions,
   type SchemaObjectOperation,
 } from '@zmdb/query-compiler';
-import type { ChangeOp, ColumnSnapshot, ForeignKeySnapshot, SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 import type { GeneratedColumn, IndexColumn, IndexDef, SequenceDef } from '@zmdb/query-compiler/schema-objects';
 
 import { mssqlDdlType } from './types.js';

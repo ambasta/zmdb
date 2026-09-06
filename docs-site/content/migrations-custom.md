@@ -6,7 +6,7 @@ rebuilds — is a migration you write. The runner does not care which kind it is
 A migration is a plain object:
 
 ```ts
-import type { Migration } from '@zmdb/query-compiler/migrations/runner';
+import type { Migration } from 'zmdb/migrations';
 
 export const migrations: Migration[] = [
   {

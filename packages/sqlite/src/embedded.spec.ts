@@ -11,6 +11,7 @@ import {
 import { describe, expect, it } from 'vitest';
 
 const PACKAGE = resolve(new URL('../', import.meta.url).pathname, 'package.json');
+const MIGRATIONS_EMBEDDED = resolve(dirname(PACKAGE), '../migrations/src/embedded.ts');
 
 function connection(db: DatabaseSync, events?: string[]): EmbeddedConnection {
   return {
@@ -280,7 +281,7 @@ describe('embedded migrations (real SQLite, no filesystem)', () => {
     expect(events).toContain(CREATE_USERS.up);
   });
 
-  it("does not pull the diff engine into the embedded runner's import graph", () => {
+  it("delegates to the migrations package's filesystem-free embedded leaf", () => {
     const packageJson = JSON.parse(readFileSync(PACKAGE, 'utf8')) as {
       exports: Readonly<Record<string, string>>;
     };
@@ -288,7 +289,7 @@ describe('embedded migrations (real SQLite, no filesystem)', () => {
     expect(exported).toBe('./src/embedded.ts');
     if (exported === undefined) throw new Error('missing embedded migration export');
     const entry = resolve(dirname(PACKAGE), exported);
-    expect(moduleGraph(entry)).toEqual([entry]);
+    expect(moduleGraph(entry)).toEqual([entry, MIGRATIONS_EMBEDDED].toSorted());
   });
 });
 
@@ -301,6 +302,10 @@ function moduleGraph(entry: string): string[] {
     seen.add(file);
     const source = readFileSync(file, 'utf8');
     for (const specifier of importsOf(source)) {
+      if (specifier === '@zmdb/migrations/embedded') {
+        pending.push(MIGRATIONS_EMBEDDED);
+        continue;
+      }
       if (!specifier.startsWith('.')) {
         throw new Error(`embedded runner imports non-relative module "${specifier}"`);
       }

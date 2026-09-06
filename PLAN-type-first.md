@@ -129,9 +129,9 @@ Two consequences for the design:
 
 - **The IR's `sql` field stays abstract** — it carries `'timestamp'`, not `'TIMESTAMPTZ'`. Rendering a dialect's spelling is the dialect's job. This matters because the IR is meant to be serialisable
   and dialect-agnostic; baking a Postgres spelling into it would make every other back-end parse it back out.
-- **The DDL emitter needs a per-dialect type map, and does not have one.** `query-compiler/src/migrations/index.ts:115` interpolates `col.type` verbatim
-  (`${quoteIdentifier(d, col.name)} ${col.type}`), so a `timestamp` column emits the literal word `timestamp` on Postgres, MySQL and SQLite alike. Only identifiers are dialect-aware today; types are
-  not. Adding the map is small and concrete, but it **will change existing DDL snapshots** (Postgres `timestamp` → `timestamptz`), so it is a behaviour change to land deliberately, not a refactor.
+- **Historically, the DDL emitter lacked a per-dialect type map.** The old `query-compiler/src/migrations/index.ts` interpolated `col.type` verbatim, so a `timestamp` column emitted the literal word
+  `timestamp` on Postgres, MySQL and SQLite alike. That gap was closed deliberately because it changed existing DDL snapshots (Postgres `timestamp` → `timestamptz`); current proof lives in
+  `@zmdb/migrations`, including `packages/migrations/src/sql-types.spec.ts`.
 
 `Wire<T>` is therefore accepted as a first-class derivation alongside `Entity<T>`, with `CustomType<TS, DB>` extended to `CustomType<Wire, TS, DB>` as the codec and a `Codec<'Name'>` tag naming it.
 `Entity<T>` validators check `instanceof Date`; `Wire<T>` validators check the ISO string; the web pipeline decodes wire→app once at the boundary.
@@ -619,9 +619,9 @@ Per **D3**, each layer renders the type it owns, and the IR's `sql` field stays 
   claim is enforced without a sixth constraint kind to keep in sync. RFC 3339, so the offset is required: an offset-less string is read as local time, and that is the lost-offset bug `timestamptz`
   exists to prevent, caught at the only layer that can still see it. `int64` reuses the decoder's own expression, so the wire validator accepts exactly what `decodeWireValue` can convert.
 
-- **A per-dialect SQL type map in the DDL emitter, which does not exist today.** `query-compiler/src/migrations/index.ts:115` interpolates `col.type` verbatim, so `timestamp` reaches Postgres, MySQL
-  and SQLite as the literal word `timestamp`; only identifiers are dialect-aware. Postgres must emit `timestamptz`. This **changes existing DDL snapshots**, so it lands as its own commit with the
-  snapshot diff reviewed, not folded into the walker deletion.
+- **A per-dialect SQL type map in the DDL emitter was required and now exists.** The former query-compiler implementation emitted the abstract `timestamp` spelling for every dialect; the extracted
+  `@zmdb/migrations` implementation renders dialect-owned types, with `packages/migrations/src/sql-types.spec.ts` proving Postgres `TIMESTAMPTZ`, MySQL `DATETIME(3)`, and SQLite `TEXT`. The historical
+  snapshot change landed separately from the walker deletion as planned.
 
 - REQ-RP-3's behaviour must not regress: `create({bogus:1})` still rejects at runtime with a structured path.
 - **Decide what a supplied serial or unknown key does on create, and test it.** `Omit<T, SerialKeys<T>>` makes naming `id` a compile error while `validatePayload` drops it silently (§1). The emitted

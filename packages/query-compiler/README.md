@@ -1,10 +1,11 @@
 # @zmdb/query-compiler
 
-`@zmdb/query-compiler` turns typed query descriptions into SQL for each supported dialect. It covers reads and writes, joins, aggregates, full-text search, set operations, schema objects,
-introspection, and migrations.
+`@zmdb/query-compiler` turns typed query descriptions into SQL for each supported dialect. It covers reads and writes, joins, aggregates, full-text search, set operations, schema objects, and the
+vendor-neutral dialect protocols consumed by higher layers.
 
 Built-in dialect names remain available during the database-package extraction. A third-party database can instead inject one frozen `SqlDialect` object containing its compiler traits, migration
-implementation, introspector, and capabilities without editing this package.
+implementation, introspector, and capabilities without editing this package. Schema snapshots, migration execution, catalog introspection, and declaration emission are independently installable from
+`@zmdb/migrations`.
 
 It is part of [zmdb](https://github.com/ambasta/zmdb), where one TypeScript schema drives validation, serialization, SQL, OpenAPI, and CRUD.
 
@@ -19,8 +20,8 @@ npm add @zmdb/query-compiler@alpha
 ## Entry points
 
 - Query compilation: `@zmdb/query-compiler`, `/joins`, `/aggregations`, `/fts`, `/set-ops`
-- Database metadata: `/introspect`, `/naming`, `/schema-objects`, `/comments`
-- Schema changes and messaging: `/migrations`, `/migrations/runner`, `/outbox`
+- SQL metadata and DDL: `/naming`, `/schema-objects`, `/comments`
+- Messaging: `/outbox`
 
 ## Documentation
 

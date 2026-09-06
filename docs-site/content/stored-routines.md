@@ -67,7 +67,7 @@ Use the same declaration from the call site when emitting an explicit migration:
 
 ```ts
 import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '@zmdb/query-compiler/schema-objects';
-import type { MigrationConnection } from '@zmdb/query-compiler/migrations';
+import type { MigrationConnection } from 'zmdb/migrations';
 
 export async function applyArchiveOldOrders(migrationConnection: MigrationConnection, previous: RoutineDef | undefined): Promise<void> {
   const changed = previous === undefined || routineFingerprint(previous) !== routineFingerprint(archiveOldOrders);

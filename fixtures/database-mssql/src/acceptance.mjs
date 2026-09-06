@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
+import { down, driverMigrationConnection, up } from '@zmdb/migrations';
+import { detectDrift } from '@zmdb/migrations/introspect';
 import { mssql, mssqlDriver, mssqlIntrospector } from '@zmdb/mssql';
 import { createQueryCompiler, quoteTable } from '@zmdb/query-compiler';
-import { detectDrift } from '@zmdb/query-compiler/introspect';
-import { down, driverMigrationConnection, up } from '@zmdb/query-compiler/migrations';
 
 const connection = process.env.ZMDB_MSSQL_URL;
 if (connection === undefined) {

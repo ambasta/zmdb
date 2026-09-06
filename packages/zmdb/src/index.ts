@@ -28,7 +28,9 @@ export type {
   EntityStateMachine,
 } from '@zmdb/schema-core';
 
-// Query compiler & Migrations.
+// Query compiler. Schema lifecycle tooling is intentionally available only
+// from `zmdb/migrations`, so importing the product root cannot pull a
+// filesystem or formatter into an application runtime.
 export {
   appendComment,
   coalesce,
@@ -46,7 +48,6 @@ export {
   chunkArray,
   DIALECT_PARAM_LIMITS,
 } from '@zmdb/query-compiler';
-export * as migrations from '@zmdb/query-compiler/migrations';
 export type {
   ColumnExpr,
   CommentKey,

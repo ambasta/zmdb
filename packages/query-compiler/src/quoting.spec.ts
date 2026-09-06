@@ -1,10 +1,10 @@
+import { emitUp } from '@zmdb/migrations';
 import { describe, expect, it } from 'vitest';
 
 import { aggregateSelectFrom } from './aggregations/index.js';
 import { ftsSelectFrom } from './fts/index.js';
 import { createQueryCompiler } from './index.js';
 import { joinableSelectFrom } from './joins/index.js';
-import { emitUp } from './migrations/index.js';
 import { formatPlaceholder, quoteColumn, quoteIdentifier, quoteTable, renumberPlaceholders } from './quoting.js';
 import {
   createIndexDdl,

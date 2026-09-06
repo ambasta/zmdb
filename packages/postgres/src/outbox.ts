@@ -1,4 +1,4 @@
-import type { Migration } from '@zmdb/query-compiler/migrations';
+import type { Migration } from '@zmdb/migrations';
 
 export const POSTGRES_OUTBOX_TABLE = 'zmdb_outbox';
 

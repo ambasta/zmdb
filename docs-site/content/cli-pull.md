@@ -27,7 +27,8 @@ The library workflow is one reader call followed by one emitter call:
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { createIntrospector, emitDeclarations } from '@zmdb/query-compiler/introspect';
+import { emitDeclarations } from '@zmdb/migrations/declarations';
+import { createIntrospector } from '@zmdb/migrations/introspect';
 
 const live = await createIntrospector('postgres').snapshot(driver, {
   schemas: ['public'],
@@ -70,8 +71,8 @@ same target, composite relations, referential actions, and indexes that cannot b
 Generate the declarations, review every `TODO`, make any application-specific edits, and then compare the reviewed declaration with the live catalog through the drift front end:
 
 ```ts
-import { createIntrospector, detectDrift } from '@zmdb/query-compiler/introspect';
-import { snapshot } from '@zmdb/query-compiler/migrations';
+import { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
+import { snapshot } from 'zmdb/migrations';
 
 it('declarations match the live database', async () => {
   const live = await createIntrospector('postgres').snapshot(driver, {

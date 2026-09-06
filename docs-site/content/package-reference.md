@@ -35,6 +35,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/jobs               | 1.0.0-alpha.4 | jobs            | required                                       | `npm add @zmdb/jobs@1.0.0-alpha.4`                                                                               | Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.                                                                                                    | web-queues                   |
 | @zmdb/jobs-postgres      | 1.0.0-alpha.4 | jobs-postgres   | integration: PostgreSQL job storage            | `npm add @zmdb/jobs-postgres@1.0.0-alpha.4 pg@^8.23.0`                                                           | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                                                           | web-queues                   |
 | @zmdb/mcp                | 1.0.0-alpha.4 | mcp             | integration: Model Context Protocol            | `npm add @zmdb/mcp@1.0.0-alpha.4`                                                                                | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                                                           | llm-mcp                      |
+| @zmdb/migrations         | 1.0.0-alpha.4 | migrations      | tooling                                        | `npm add --save-dev @zmdb/migrations@1.0.0-alpha.4`                                                              | Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.                                                                          | migrations                   |
 | @zmdb/mssql              | 1.0.0-alpha.4 | mssql           | integration: SQL Server                        | `npm add @zmdb/mssql@1.0.0-alpha.4`                                                                              | Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural node-mssql execution, catalog introspection, and capability metadata.                                                                  | dialect-mssql                |
 | @zmdb/mysql              | 1.0.0-alpha.4 | mysql           | integration: MySQL                             | `npm add @zmdb/mysql@1.0.0-alpha.4`                                                                              | Complete MySQL compiler, migrations, introspection, and structural mysql2 driver vertical for zmdb.                                                                                                                     | dialect-mysql                |
 | @zmdb/next               | 1.0.0-alpha.4 | next            | integration: Next.js                           | `npm add @zmdb/next@1.0.0-alpha.4 'next@>=16.3.0 <17.0.0' 'react@>=19.2.0 <20.0.0' 'react-dom@>=19.2.0 <20.0.0'` | Request-scoped Next.js server clients and React browser bindings for generated zmdb clients.                                                                                                                            | framework-integrations       |
@@ -42,7 +43,7 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/otel               | 1.0.0-alpha.4 | otel            | integration: OpenTelemetry                     | `npm add @zmdb/otel@1.0.0-alpha.4 @opentelemetry/api@^1.9.0`                                                     | OpenTelemetry API adapter for the explicit observability ports owned by the zmdb application kernel.                                                                                                                    | web-observability            |
 | @zmdb/postgres           | 1.0.0-alpha.4 | postgres        | integration: PostgreSQL                        | `npm add @zmdb/postgres@1.0.0-alpha.4`                                                                           | The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspection, node-postgres driver, cursors, and cancellation.                                                                                 | dialect-postgres             |
 | @zmdb/protobuf           | 1.0.0-alpha.4 | protobuf        | integration: Protocol Buffers                  | `npm add @zmdb/protobuf@1.0.0-alpha.4`                                                                           | Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runtime targeted by zmdb's ahead-of-time compiler.                                                                                           | protobuf-message             |
-| @zmdb/query-compiler     | 1.0.0-alpha.4 | sql             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.                                                                                     | raw-sql                      |
+| @zmdb/query-compiler     | 1.0.0-alpha.4 | sql             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, full-text search, set operations, and schema-object DDL.                                                                                 | raw-sql                      |
 | @zmdb/react              | 1.0.0-alpha.4 | react           | integration: React                             | `npm add @zmdb/react@1.0.0-alpha.4 'react@>=19.2.0 <20.0.0'`                                                     | React context, query, and mutation lifecycle bindings for generated zmdb clients.                                                                                                                                       | framework-integrations       |
 | @zmdb/react-native       | 1.0.0-alpha.4 | react-native    | integration: React Native                      | `npm add @zmdb/react-native@1.0.0-alpha.4 'react@>=19.2.0 <20.0.0' 'react-native@>=0.87.0 <0.88.0'`              | React Native AppState, connectivity, and credential-store lifecycle bindings over @zmdb/react.                                                                                                                          | connect-react-native         |
 | @zmdb/repository         | 1.0.0-alpha.4 | orm             | required                                       | `npm add zmdb@1.0.0-alpha.4`                                                                                     | Auto-validating CRUD repository over a zmdb schema: transactions, populate, read-replicas, lifecycle events, seeding, and framework adapters. No proxies, no identity map.                                              | repository                   |
@@ -260,6 +261,7 @@ CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, 
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
+  - `@zmdb/migrations` → `workspace:^`
   - `@zmdb/postgres` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
@@ -330,6 +332,32 @@ Transport-neutral MCP client and server cores with validated tool dispatch, auth
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-mcp
 
+### `@zmdb/migrations`
+
+Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.
+
+- **Exports:**
+  - `.` → `./src/index.ts`
+  - `./declarations` → `./src/declarations/index.ts`
+  - `./embedded` → `./src/embedded.ts`
+  - `./files` → `./src/files.ts`
+  - `./introspect` → `./src/introspect/index.ts`
+  - `./introspect/runtime` → `./src/introspect/common.ts`
+  - `./runner` → `./src/runner.ts`
+  - `./testing` → `./src/testing.ts`
+- **Dependencies:**
+  - `@zmdb/query-compiler` → `workspace:^`
+  - `oxfmt` → `0.66.0`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:** None.
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:**
+  - `zmdb/migrations`
+- **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
+
 ### `@zmdb/mssql`
 
 Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural node-mssql execution, catalog introspection, and capability metadata.
@@ -337,6 +365,7 @@ Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
+  - `@zmdb/migrations` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
 - **Optional dependencies:** None.
@@ -357,6 +386,7 @@ Complete MySQL compiler, migrations, introspection, and structural mysql2 driver
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
+  - `@zmdb/migrations` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
 - **Optional dependencies:** None.
@@ -439,6 +469,7 @@ The complete PostgreSQL vertical for zmdb: dialect, migrations, catalog introspe
 - **Exports:**
   - `.` → `./src/index.ts`
 - **Dependencies:**
+  - `@zmdb/migrations` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
 - **Optional dependencies:** None.
@@ -471,25 +502,19 @@ Zero-dependency protobuf calls, typed gRPC service artifacts, and the wire runti
 
 ### `@zmdb/query-compiler`
 
-SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.
+SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, full-text search, set operations, and schema-object DDL.
 
 - **Exports:**
   - `.` → `./src/index.ts`
   - `./aggregations` → `./src/aggregations/index.ts`
   - `./comments` → `./src/comments/index.ts`
   - `./fts` → `./src/fts/index.ts`
-  - `./introspect` → `./src/introspect/index.ts`
-  - `./introspect/runtime` → `./src/introspect/runtime.ts`
   - `./joins` → `./src/joins/index.ts`
-  - `./migrations` → `./src/migrations/index.ts`
-  - `./migrations/embedded` → `./src/migrations/embedded.ts`
-  - `./migrations/runner` → `./src/migrations/runner.ts`
   - `./naming` → `./src/naming/index.ts`
   - `./outbox` → `./src/outbox/index.ts`
   - `./schema-objects` → `./src/schema-objects/index.ts`
   - `./set-ops` → `./src/set-ops/index.ts`
-- **Dependencies:**
-  - `oxfmt` → `0.66.0`
+- **Dependencies:** None.
 - **Optional dependencies:** None.
 - **Optional peers:** None.
 - **Required peers:** None.
@@ -513,7 +538,6 @@ SQL-first, dialect-aware query compiler with catalog introspection, declaration 
   - `createQueryCompiler`
   - `dec`
   - `inc`
-  - `migrations`
   - `mul`
   - `not`
   - `proposed`
@@ -679,6 +703,7 @@ Complete SQLite vertical for zmdb: SQL dialect, migrations, introspection, embed
   - `./embedded` → `./src/embedded.ts`
   - `./node` → `./src/node.ts`
 - **Dependencies:**
+  - `@zmdb/migrations` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
 - **Optional dependencies:** None.
@@ -878,6 +903,7 @@ at compile time.
   - `./drivers/sqlite` → `./src/drivers-sqlite.ts`
   - `./dto` → `./src/dto.ts`
   - `./ir` → `./src/ir.ts`
+  - `./migrations` → `./src/migrations.ts`
   - `./relations` → `./src/relations.ts`
   - `./tags` → `./src/tags.ts`
   - `./unplugin` → `./src/unplugin.ts`
@@ -887,6 +913,7 @@ at compile time.
 - **Dependencies:**
   - `@zmdb/aot-validator` → `workspace:^`
   - `@zmdb/app` → `workspace:^`
+  - `@zmdb/migrations` → `workspace:^`
   - `@zmdb/query-compiler` → `workspace:^`
   - `@zmdb/repository` → `workspace:^`
   - `@zmdb/schema-core` → `workspace:^`

@@ -1,3 +1,4 @@
+import type { ChangeOp, ColumnSnapshot, ExtensionType, SchemaSnapshot } from '@zmdb/migrations';
 import { postgresFamilyMigrations } from '@zmdb/postgres';
 import {
   UnsupportedFeatureError,
@@ -8,7 +9,6 @@ import {
   type MigrationTableOptions,
   type SchemaObjectOperation,
 } from '@zmdb/query-compiler';
-import type { ChangeOp, ColumnSnapshot, ExtensionType, SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 import type { IndexColumn } from '@zmdb/query-compiler/schema-objects';
 
 export const COCKROACH_TYPE_OVERRIDES = Object.freeze({

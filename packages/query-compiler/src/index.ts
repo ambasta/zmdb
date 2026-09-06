@@ -66,6 +66,27 @@ export type {
   SqlDialectDefinition,
   SqlDialectExtension,
 } from './dialects/index.js';
+export type {
+  ChangeOp,
+  ColumnSnapshot,
+  ExtensionSnapshot,
+  ExtensionType,
+  ForeignKeySnapshot,
+  ReferentialAction,
+  SchemaSnapshot,
+  TableOptions,
+  TableSnapshot,
+} from './migrations/types.js';
+export type {
+  CatalogColumnSnapshot,
+  CatalogForeignKeySnapshot,
+  CatalogIndexColumn,
+  CatalogIndexSnapshot,
+  CatalogSchemaSnapshot,
+  CatalogSelection,
+  CatalogTableSnapshot,
+  CatalogWarning,
+} from './introspect/types.js';
 
 // #17 SELECT compilation implemented (+ shared dialect quoting/placeholders,
 // which also satisfies the SELECT-based dialect tests of #19). Write builders

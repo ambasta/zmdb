@@ -365,10 +365,10 @@ Frozen behavior:
 
 ## 11. Migrations
 
-The declaration is the source of truth, so migrations are **diffed** from it. Backed by `packages/query-compiler/src/migrations/SPEC.md`.
+The declaration is the source of truth, so migrations are **diffed** from it. Backed by `packages/migrations/src/SPEC.md`.
 
 ```ts
-import { diff, emitDown, emitUp, runCli, snapshot } from '@zmdb/query-compiler/migrations';
+import { diff, emitDown, emitUp, runCli, snapshot } from 'zmdb/migrations';
 
 // You pass the tables. Nothing enumerates them — the module-scope registry went with
 // the builder DSL, so the list is an ordinary export you can grep for.

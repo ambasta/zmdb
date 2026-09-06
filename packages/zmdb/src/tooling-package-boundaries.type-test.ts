@@ -1,9 +1,7 @@
 // Compile-only freeze for #627.
 //
-// The three target packages do not exist yet. Importing them here would turn a
-// useful contract into three TS2307 placeholders, so the future surfaces are
-// transcribed from #626 and wired to the current implementation types. #628-
-// #630 replace these aliases with imports from the real package entry points.
+// The extraction issues replace each structural placeholder with the real
+// package entry point while retaining this exact subpath and delegation freeze.
 
 import type { CodegenOptions, CodegenResult, codegen, watchCodegen } from '@zmdb/aot-validator/codegen';
 import type { EmitDiagnostic, EmitOptions, Emitter } from '@zmdb/aot-validator/emit';
@@ -26,13 +24,6 @@ import type {
   transformFile,
 } from '@zmdb/aot-validator/transformer';
 import type { UnpluginLike, ZmdbAotOptions, zmdbAot } from '@zmdb/aot-validator/unplugin';
-import type { Dialect } from '@zmdb/query-compiler';
-import type {
-  CatalogSchemaSnapshot,
-  createIntrospector,
-  detectDrift,
-  emitDeclarations,
-} from '@zmdb/query-compiler/introspect';
 import type {
   ChangeOp,
   DiffOptions,
@@ -42,21 +33,18 @@ import type {
   emitDown,
   emitUp,
   snapshot,
-} from '@zmdb/query-compiler/migrations';
+} from '@zmdb/migrations';
+import type { emitDeclarations } from '@zmdb/migrations/declarations';
 import type {
   EmbeddedConnection,
   EmbeddedMigration,
   EmbeddedMigrationError,
   runEmbedded,
-} from '@zmdb/query-compiler/migrations/embedded';
-import type {
-  Migration,
-  MigrationConnection,
-  MigrationStatus,
-  down,
-  status,
-  up,
-} from '@zmdb/query-compiler/migrations/runner';
+} from '@zmdb/migrations/embedded';
+import type { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
+import type { CatalogSchemaSnapshot, normalizeDriftSnapshot } from '@zmdb/migrations/introspect/runtime';
+import type { Migration, MigrationConnection, MigrationStatus, down, status, up } from '@zmdb/migrations/runner';
+import type { Dialect } from '@zmdb/query-compiler';
 import type { Equal, Expect, Extends } from '@zmdb/schema-core';
 import type { NamingStrategy } from '@zmdb/schema-core/naming';
 
@@ -116,30 +104,37 @@ type CompilerExports = {
 
 type MigrationsExports = {
   readonly '.': ExportSet<
-    | 'applyPush'
-    | 'checkProject'
-    | 'diff'
-    | 'embedMigrations'
-    | 'exportSchema'
-    | 'generateMigration'
-    | 'planMigration'
-    | 'planPush'
-    | 'pullDeclarations'
-    | 'snapshot'
-    | 'upgradeSnapshot',
+    'diff' | 'planMigration' | 'snapshot',
     'ChangeOp' | 'DiffOptions' | 'MigrationPlan' | 'SchemaSnapshot' | 'SnapshotableSchema'
   >;
   readonly './runner': ExportSet<
-    'down' | 'migrate' | 'migrationStatus' | 'rollback' | 'status' | 'up',
+    'down' | 'downTo' | 'rollbackTo' | 'status' | 'up',
     'Migration' | 'MigrationConnection' | 'MigrationStatus'
   >;
   readonly './embedded': ExportSet<
     'EmbeddedMigrationError' | 'runEmbedded',
     'EmbeddedConnection' | 'EmbeddedMigration'
   >;
-  readonly './introspect': ExportSet<'createIntrospector' | 'detectDrift', 'CatalogSchemaSnapshot'>;
+  readonly './introspect': ExportSet<
+    'createIntrospector' | 'detectDrift' | 'normalizeDriftSnapshot',
+    'CatalogSchemaSnapshot'
+  >;
+  readonly './introspect/runtime': ExportSet<'normalizeDriftSnapshot', 'CatalogSchemaSnapshot'>;
   readonly './declarations': ExportSet<'emitDeclarations', never>;
-  readonly './files': ExportSet<never, never>;
+  readonly './files': ExportSet<
+    | 'applyPush'
+    | 'checkProject'
+    | 'embedMigrations'
+    | 'exportSchema'
+    | 'generateMigration'
+    | 'migrate'
+    | 'migrationStatus'
+    | 'planPush'
+    | 'pullDeclarations'
+    | 'rollback'
+    | 'upgradeSnapshot',
+    never
+  >;
   readonly './testing': ExportSet<never, never>;
 };
 
@@ -285,7 +280,14 @@ export type _CompilerSubpathsAreExact = Expect<
 export type _MigrationsSubpathsAreExact = Expect<
   Equal<
     keyof MigrationsExports,
-    '.' | './declarations' | './embedded' | './files' | './introspect' | './runner' | './testing'
+    | '.'
+    | './declarations'
+    | './embedded'
+    | './files'
+    | './introspect'
+    | './introspect/runtime'
+    | './runner'
+    | './testing'
   >
 >;
 export type _CliHasOneLibraryEntry = Expect<Equal<keyof CliExports, '.'>>;
@@ -433,6 +435,7 @@ export type _MigrationsImplementationSignatures = [
   EmbeddedMigrationError,
   typeof createIntrospector,
   typeof detectDrift,
+  typeof normalizeDriftSnapshot,
   typeof emitDeclarations,
   CatalogSchemaSnapshot,
 ];

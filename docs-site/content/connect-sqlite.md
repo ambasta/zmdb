@@ -58,7 +58,7 @@ Per-column, not by value — a blanket `0 → false` rule turns a genuine count 
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { snapshot, diff } from '@zmdb/query-compiler/migrations';
+import { diff, snapshot } from '@zmdb/migrations';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 
 export function freshDb() {

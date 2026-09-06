@@ -4588,6 +4588,7 @@ __metadata:
   resolution: "@zmdb/cockroach@workspace:packages/cockroach"
   dependencies:
     "@types/pg": "npm:^8.23.1"
+    "@zmdb/migrations": "workspace:^"
     "@zmdb/postgres": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
@@ -4633,11 +4634,28 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/migrations@workspace:^, @zmdb/migrations@workspace:packages/migrations":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/migrations@workspace:packages/migrations"
+  dependencies:
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/mssql": "workspace:^"
+    "@zmdb/postgres": "workspace:^"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
+    oxfmt: "npm:0.66.0"
+    typescript: "npm:7.0.2"
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/mssql@workspace:^, @zmdb/mssql@workspace:packages/mssql":
   version: 0.0.0-use.local
   resolution: "@zmdb/mssql@workspace:packages/mssql"
   dependencies:
     "@types/mssql": "npm:^12.3.0"
+    "@zmdb/migrations": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     mssql: "npm:12.7.0"
@@ -4655,6 +4673,7 @@ __metadata:
   resolution: "@zmdb/mysql@workspace:packages/mysql"
   dependencies:
     "@types/node": "npm:^26.4.1"
+    "@zmdb/migrations": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     mysql2: "npm:3.24.3"
@@ -4721,6 +4740,7 @@ __metadata:
   resolution: "@zmdb/postgres@workspace:packages/postgres"
   dependencies:
     "@types/pg": "npm:^8.23.1"
+    "@zmdb/migrations": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     pg: "npm:8.23.0"
@@ -4745,7 +4765,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@zmdb/query-compiler@workspace:packages/query-compiler"
   dependencies:
-    oxfmt: "npm:0.66.0"
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/migrations": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft
@@ -4791,6 +4813,7 @@ __metadata:
   resolution: "@zmdb/repository@workspace:packages/repository"
   dependencies:
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/migrations": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
     typescript: "npm:7.0.2"
@@ -4825,6 +4848,7 @@ __metadata:
   resolution: "@zmdb/sqlite@workspace:packages/sqlite"
   dependencies:
     "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/migrations": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"
     "@zmdb/repository": "workspace:^"
     "@zmdb/schema-core": "workspace:^"
@@ -12661,6 +12685,7 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
+    "@zmdb/migrations": "workspace:^"
     "@zmdb/mssql": "workspace:^"
     "@zmdb/postgres": "workspace:^"
     "@zmdb/query-compiler": "workspace:^"

@@ -69,7 +69,7 @@ import { dirname, resolve } from 'node:path';
 import { SyntaxKind } from 'typescript/unstable/ast';
 import { API } from 'typescript/unstable/sync';
 
-import { escapeTypeString, renderTaggedProperty } from '../packages/query-compiler/src/introspect/tagged-property.ts';
+import { escapeTypeString, renderTaggedProperty } from '../packages/migrations/src/declarations/tagged-property.ts';
 
 // ---------------------------------------------------------------------------
 // The closed vocabulary.

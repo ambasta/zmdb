@@ -6,7 +6,7 @@ import {
   type CatalogSchemaSnapshot,
   type CatalogTableSnapshot,
   type IntrospectionDriver,
-} from '@zmdb/query-compiler/introspect';
+} from '@zmdb/migrations/introspect';
 import { describe, expect, it } from 'vitest';
 
 import { sqliteDriver } from './driver.js';

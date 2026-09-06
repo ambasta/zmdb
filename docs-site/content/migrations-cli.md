@@ -17,7 +17,7 @@ The executable loads `zmdb.config.ts`, opens its `driver`, parses each `<YYYYMMD
 Applications that already have migration data can call the same boundary:
 
 ```ts
-import { driverMigrationConnection, status, up, type Migration } from '@zmdb/query-compiler/migrations/runner';
+import { driverMigrationConnection, status, up, type Migration } from '@zmdb/migrations/runner';
 import { sqlite } from '@zmdb/sqlite';
 
 const migrations: readonly Migration[] = [

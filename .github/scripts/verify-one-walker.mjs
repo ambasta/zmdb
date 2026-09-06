@@ -104,8 +104,13 @@ const MAY_READ = new Map([
       'types and column constraints; it does not decide which application values a column admits.',
   ],
   [
-    'packages/query-compiler/src/migrations/index.ts',
-    'the DDL boundary. SQL text is a vocabulary of its own and the IR does not reach into it — ' +
+    'packages/migrations/src/index.ts',
+    'the schema-lifecycle boundary. It snapshots structural declarations and plans changes before ' +
+      'the SQL-owned type renderer turns those normalized facts into DDL.',
+  ],
+  [
+    'packages/query-compiler/src/schema-objects/index.ts',
+    'the runtime DDL boundary. SQL text is a vocabulary of its own and the IR does not reach into it — ' +
       "`varchar` takes a length where `text` does not, and `serial` is MySQL's " +
       '`AUTO_INCREMENT`. This is the one place a `SqlType` becomes something other than a check.',
   ],
@@ -125,12 +130,12 @@ const MAY_READ = new Map([
       'types and schema-object SQL while the generic compatibility emitter remains until #675.',
   ],
   [
-    'packages/query-compiler/src/introspect/mysql.ts',
+    'packages/migrations/src/introspect/mysql.ts',
     'the reverse MySQL catalog boundary. Its input is external catalog text, so no declaration ' +
       'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
   ],
   [
-    'packages/query-compiler/src/introspect/postgres.ts',
+    'packages/migrations/src/introspect/postgres.ts',
     'the reverse Postgres catalog boundary. Its input is external catalog text, so no declaration ' +
       'or TypeIR exists yet; this is the one mapping that creates the normalized snapshot.',
   ],
@@ -150,12 +155,12 @@ const MAY_READ = new Map([
       'no declaration or TypeIR exists yet; it creates the vertical package snapshot independently.',
   ],
   [
-    'packages/query-compiler/src/introspect/emit.ts',
+    'packages/migrations/src/declarations/emit.ts',
     'the reverse declaration boundary. It reads a normalized catalog snapshot before any ' +
       'declaration or TypeIR exists and turns those facts into inputs for the one tagged-property printer.',
   ],
   [
-    'packages/query-compiler/src/introspect/tagged-property.ts',
+    'packages/migrations/src/declarations/tagged-property.ts',
     'the one normalized-facts-to-tagged-property printer, shared by catalog emission and the ' +
       'legacy builder codemod. It creates declaration source before reflection can produce a TypeIR.',
   ],

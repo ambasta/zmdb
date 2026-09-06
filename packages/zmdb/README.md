@@ -1,6 +1,6 @@
 # zmdb
 
-The `zmdb` package re-exports the main schema, validation, query, repository, web, configuration, and command-line APIs from one install.
+The `zmdb` package re-exports the main schema, query, migration, validation, repository, application, web, configuration, and command-line APIs from one install.
 
 Define a schema once and use it for TypeScript types, validation, serialization, SQL, OpenAPI, and CRUD.
 
@@ -15,6 +15,7 @@ npm add zmdb@alpha
 ## Entry points
 
 - Core APIs: `zmdb`, `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`
+- Schema lifecycle: `zmdb/migrations`
 - Database drivers: `zmdb/drivers/sqlite`, `zmdb/drivers/pg`, `zmdb/drivers/mssql`
 - Application tooling: `zmdb/web`, `zmdb/web/contract`, `zmdb/web/contract/compiler`, `zmdb/unplugin`, `zmdb/cli`, `zmdb/config`
 

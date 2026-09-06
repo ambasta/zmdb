@@ -3,9 +3,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { cockroach, cockroachDriver, cockroachIntrospector, cockroachMigrations } from '@zmdb/cockroach';
+import { up } from '@zmdb/migrations';
+import { detectDrift } from '@zmdb/migrations/introspect';
 import { createQueryCompiler, UnsupportedFeatureError } from '@zmdb/query-compiler';
-import { detectDrift } from '@zmdb/query-compiler/introspect';
-import { up } from '@zmdb/query-compiler/migrations';
 import { createTransactionalDb } from '@zmdb/repository';
 import { Pool } from 'pg';
 

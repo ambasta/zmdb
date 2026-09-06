@@ -459,7 +459,7 @@ ${topbarHtml({ base: './' })}
 </section>
 
 <section class="section">
-  <h2>Thirty-five published packages</h2>
+  <h2>Thirty-six published packages</h2>
   <p class="lead">Composable and ESM-only. Combine the cohesive data, app, and HTTP facade with a database vertical, or use provider-neutral AI tools, opt-in client/framework, gRPC, NATS, RabbitMQ, Redis, MCP, OpenTelemetry, or another implementation package on its own.</p>
     <div class="pkgs">
     <div class="pkg"><code>@zmdb/client</code><p>Dependency-free HTTP transport, deterministic request planning, cancellation, authentication, and typed errors.</p></div>
@@ -472,7 +472,8 @@ ${topbarHtml({ base: './' })}
     <div class="pkg"><code>@zmdb/solid</code><p>Solid context, native resources, owner cancellation, stale-result suppression, and native Suspense/error propagation.</p></div>
     <div class="pkg"><code>@zmdb/next</code><p>Request-scoped App Router server clients and browser bindings over <code>@zmdb/react</code>.</p></div>
     <div class="pkg"><code>@zmdb/nuxt</code><p>Request-scoped Nitro transport, native hydration, and browser bindings over <code>@zmdb/vue</code>.</p></div>
-    <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, schema-object DDL, migration diff.</p></div>
+    <div class="pkg"><code>@zmdb/query-compiler</code><p>SELECT / INSERT / UPDATE / DELETE + dialects, joins, aggregations, FTS, set-ops, and schema-object DDL.</p></div>
+    <div class="pkg"><code>@zmdb/migrations</code><p>Schema snapshots, deterministic diffs and DDL plans, ledger and embedded runners, catalog introspection, and declaration emission.</p></div>
     <div class="pkg"><code>@zmdb/schema-core</code><p>Schema DSL + type derivation (Entity / Create / Update / read DTOs), relations, OpenAPI, seeding, custom types.</p></div>
     <div class="pkg"><code>@zmdb/ai</code><p>Provider-neutral tool documents, bounded chat orchestration, shared invocation, and OpenAPI-derived tools.</p></div>
     <div class="pkg"><code>@zmdb/ai-anthropic</code><p>Opt-in Anthropic Messages API driver over the provider-neutral chat contract.</p></div>

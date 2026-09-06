@@ -9,7 +9,7 @@ npx zmdb migrate
 The public runner keeps `up` as its library verb:
 
 ```ts
-import { driverMigrationConnection, up } from '@zmdb/query-compiler/migrations/runner';
+import { driverMigrationConnection, up } from '@zmdb/migrations/runner';
 import { sqlite } from '@zmdb/sqlite';
 
 const connection = driverMigrationConnection(driver, sqlite);

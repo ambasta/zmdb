@@ -1,3 +1,4 @@
+import type { Migration } from '@zmdb/migrations';
 import {
   postgres,
   postgresDriver,
@@ -12,7 +13,6 @@ import {
   type PostgresCatalogOverrides,
 } from '@zmdb/postgres';
 import type { Introspector, MigrationDialect, SqlDialect } from '@zmdb/query-compiler';
-import type { Migration } from '@zmdb/query-compiler/migrations';
 import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
 import type { Pool } from 'pg';
 

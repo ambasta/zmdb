@@ -83,7 +83,7 @@ wrong for a multi-instance service — which is the real limit on using SQLite i
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { snapshot, diff } from '@zmdb/query-compiler/migrations';
+import { diff, snapshot } from '@zmdb/migrations';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 
 export function freshDb() {

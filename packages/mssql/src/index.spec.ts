@@ -1,5 +1,5 @@
+import { createIntrospector } from '@zmdb/migrations/introspect';
 import { createQueryCompiler, inc, proposed, UnsupportedFeatureError } from '@zmdb/query-compiler';
-import { createIntrospector } from '@zmdb/query-compiler/introspect';
 import { describe, expect, it } from 'vitest';
 
 import { MSSQL_TYPES, mssql, mssqlVertical } from './index.js';

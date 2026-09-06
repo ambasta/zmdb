@@ -24,8 +24,8 @@ The four ordinary identity assertions match the SQLite spec. `postgresFamilyDriv
 they are not private source imports, registries or generic-package hooks. The migration factory accepts child type-map overrides while keeping PostgreSQL DDL and schema-object behavior in the parent
 package.
 
-The package depends on `@zmdb/query-compiler` and `@zmdb/repository`. `pg` is an optional peer and a development dependency for tests, never a dependency of either generic package or of the default
-umbrella install. Importing the package does not open a connection or require a global `pg` singleton.
+The package depends on `@zmdb/migrations`, `@zmdb/query-compiler` and `@zmdb/repository`. `pg` is an optional peer and a development dependency for tests, never a dependency of a generic package or of
+the default umbrella install. Importing the package does not open a connection or require a global `pg` singleton.
 
 ## Capabilities
 

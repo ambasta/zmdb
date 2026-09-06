@@ -2,22 +2,22 @@
 
 > Status: **FROZEN** for GitHub sub-issue #626, amended by #627 after #667 added database-boundary test support, remeasured for #681, amended by #656 after the protobuf runtime/public-owner
 > extraction, remeasured for #668 after the generic dialect protocol/type split, amended by #669 for the SQLite owner move, amended by #685 for the generated-client command and its CLI fixtures, and
-> amended by #621 for the dependency-light config authoring contract.
+> amended by #621 for the dependency-light config authoring contract. Issue #629 updates the measured ownership after migrations moved to their target package.
 
 ## 1. Extraction rule and totals
 
-The shipped/build-input source inventory is every file below `packages/{aot-validator,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`, `*.spec.ts`
-and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
+The shipped/build-input source inventory is every file below `packages/{aot-validator,migrations,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, excluding `SPEC.md`,
+`*.spec.ts` and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **151 paths**, each exactly once:
+The inventory has **165 paths**, each exactly once:
 
 ```json
 {
   "compiler": 30,
-  "migrations": 20,
-  "cli": 21,
-  "runtime": 28,
-  "facade": 13,
+  "migrations": 23,
+  "cli": 31,
+  "runtime": 27,
+  "facade": 14,
   "optional-integration": 4,
   "test-only": 35,
   "obsolete": 1
@@ -61,35 +61,48 @@ compiler	packages/zmdb/src/config/index.zmdb.generated.d.ts
 compiler	packages/zmdb/src/config/index.zmdb.generated.js
 compiler	packages/zmdb/src/config/index.zmdb.witness.ts
 compiler	packages/zmdb/src/unplugin.ts
-migrations	packages/query-compiler/src/introspect/common.ts
-migrations	packages/query-compiler/src/introspect/drift.ts
-migrations	packages/query-compiler/src/introspect/emit.ts
-migrations	packages/query-compiler/src/introspect/index.ts
-migrations	packages/query-compiler/src/introspect/mysql.ts
-migrations	packages/query-compiler/src/introspect/postgres.ts
-migrations	packages/query-compiler/src/introspect/tagged-property.ts
-migrations	packages/query-compiler/src/migrations/embedded.ts
-migrations	packages/query-compiler/src/migrations/index.ts
-migrations	packages/query-compiler/src/migrations/runner.ts
-migrations	packages/zmdb/src/cli/commands/check.ts
-migrations	packages/zmdb/src/cli/commands/embed.ts
-migrations	packages/zmdb/src/cli/commands/export.ts
-migrations	packages/zmdb/src/cli/commands/generate.ts
-migrations	packages/zmdb/src/cli/commands/migrate.ts
-migrations	packages/zmdb/src/cli/commands/pull.ts
-migrations	packages/zmdb/src/cli/commands/push.ts
-migrations	packages/zmdb/src/cli/commands/upgrade.ts
-migrations	packages/zmdb/src/cli/database.ts
-migrations	packages/zmdb/src/cli/migration-files.ts
+migrations	packages/migrations/src/declarations/emit.ts
+migrations	packages/migrations/src/declarations/index.ts
+migrations	packages/migrations/src/declarations/tagged-property.ts
+migrations	packages/migrations/src/embedded.ts
+migrations	packages/migrations/src/file-io.ts
+migrations	packages/migrations/src/files.ts
+migrations	packages/migrations/src/index.ts
+migrations	packages/migrations/src/introspect/common.ts
+migrations	packages/migrations/src/introspect/drift.ts
+migrations	packages/migrations/src/introspect/index.ts
+migrations	packages/migrations/src/introspect/mysql.ts
+migrations	packages/migrations/src/introspect/postgres.ts
+migrations	packages/migrations/src/operations/check.ts
+migrations	packages/migrations/src/operations/embed.ts
+migrations	packages/migrations/src/operations/export.ts
+migrations	packages/migrations/src/operations/generate.ts
+migrations	packages/migrations/src/operations/migrate.ts
+migrations	packages/migrations/src/operations/pull.ts
+migrations	packages/migrations/src/operations/push.ts
+migrations	packages/migrations/src/operations/upgrade.ts
+migrations	packages/migrations/src/project.ts
+migrations	packages/migrations/src/runner.ts
+migrations	packages/migrations/src/testing.ts
 cli	packages/zmdb/src/cli/args.ts
 cli	packages/zmdb/src/cli/atomic.ts
 cli	packages/zmdb/src/cli/bin.ts
+cli	packages/zmdb/src/cli/commands/check.ts
 cli	packages/zmdb/src/cli/commands/client.ts
+cli	packages/zmdb/src/cli/commands/embed.ts
+cli	packages/zmdb/src/cli/commands/export.ts
+cli	packages/zmdb/src/cli/commands/generate.ts
+cli	packages/zmdb/src/cli/commands/migrate.ts
 cli	packages/zmdb/src/cli/commands/new.ts
+cli	packages/zmdb/src/cli/commands/pull.ts
+cli	packages/zmdb/src/cli/commands/push.ts
 cli	packages/zmdb/src/cli/commands/studio.ts
+cli	packages/zmdb/src/cli/commands/upgrade.ts
 cli	packages/zmdb/src/cli/config.ts
+cli	packages/zmdb/src/cli/database.ts
 cli	packages/zmdb/src/cli/errors.ts
 cli	packages/zmdb/src/cli/index.ts
+cli	packages/zmdb/src/cli/migration-project.ts
 cli	packages/zmdb/src/cli/output.ts
 cli	packages/zmdb/src/cli/repl.ts
 cli	packages/zmdb/src/cli/scaffold.ts
@@ -120,7 +133,6 @@ runtime	packages/query-compiler/src/extensions/index.ts
 runtime	packages/query-compiler/src/fts/index.ts
 runtime	packages/query-compiler/src/index.ts
 runtime	packages/query-compiler/src/introspect/types.ts
-runtime	packages/query-compiler/src/introspect/runtime.ts
 runtime	packages/query-compiler/src/joins/index.ts
 runtime	packages/query-compiler/src/migrations/types.ts
 runtime	packages/query-compiler/src/naming/index.ts
@@ -138,6 +150,7 @@ facade	packages/zmdb/src/drivers-sqlite.ts
 facade	packages/zmdb/src/dto.ts
 facade	packages/zmdb/src/index.ts
 facade	packages/zmdb/src/ir.ts
+facade	packages/zmdb/src/migrations.ts
 facade	packages/zmdb/src/relations.ts
 facade	packages/zmdb/src/tags.ts
 facade	packages/zmdb/src/web-contract-compiler.ts
@@ -167,7 +180,7 @@ test-only	packages/aot-validator/src/reflect/__fixtures__/schema-values-refusals
 test-only	packages/aot-validator/src/reflect/__fixtures__/schema-values.ts
 test-only	packages/aot-validator/src/reflect/__fixtures__/tables.ts
 test-only	packages/aot-validator/src/reflect/__fixtures__/tsconfig.json
-test-only	packages/query-compiler/src/introspect/__fixtures__/mysql-8.4.11.json
+test-only	packages/migrations/src/introspect/__fixtures__/mysql-8.4.11.json
 test-only	packages/query-compiler/src/testing/capability-matrix.ts
 test-only	packages/query-compiler/src/testing/database-vertical.ts
 test-only	packages/query-compiler/src/testing/external-dialect.fixture.ts

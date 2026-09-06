@@ -1,5 +1,5 @@
+import type { ColumnSnapshot } from '@zmdb/migrations';
 import { UnsupportedFeatureError, type DialectTypeMap } from '@zmdb/query-compiler';
-import type { ColumnSnapshot } from '@zmdb/query-compiler/migrations';
 
 export const MSSQL_TYPES = Object.freeze({
   serial: 'INT IDENTITY(1,1)',

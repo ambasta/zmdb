@@ -44,7 +44,7 @@ required real-server lane.
 - the MySQL root traits, type map, parameter limit, returning refusals and every MySQL matrix cell;
 - backtick quoting, positional placeholders, offset-only pagination, `ON DUPLICATE KEY`, `MATCH`, concatenation and boolean spellings;
 - MySQL DDL, `MODIFY` forms, support indexes, non-transactional migration behavior, routines and outbox spellings;
-- `query-compiler/src/introspect/mysql.ts`, the captured MySQL 8 fixture and MySQL drift normalization;
+- `migrations/src/introspect/mysql.ts`, the captured MySQL 8 fixture and MySQL drift normalization;
 - the new structural `mysql2/promise` driver, transaction connection pinning and honest result metadata; and
 - MySQL-specific capability, live-server and packed-consumer tests.
 

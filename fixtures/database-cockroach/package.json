@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "@zmdb/cockroach": "1.0.0-alpha.4",
+    "@zmdb/migrations": "1.0.0-alpha.4",
     "@zmdb/query-compiler": "1.0.0-alpha.4",
     "@zmdb/repository": "1.0.0-alpha.4",
     "pg": "8.23.0"

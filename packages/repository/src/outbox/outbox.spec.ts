@@ -12,9 +12,9 @@
 // backoff test that depends on wall-clock timing is a flake.
 import { DatabaseSync } from 'node:sqlite';
 
+import { snapshot } from '@zmdb/migrations';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import type { CompiledQuery } from '@zmdb/query-compiler';
-import { snapshot } from '@zmdb/query-compiler/migrations';
 import { sqliteDriver } from '@zmdb/sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

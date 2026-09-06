@@ -15,8 +15,8 @@
 // not have noticed any of it, because both sides of the comparison were wrong in the same way.
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { diff, emitUp, snapshot, type SchemaSnapshot } from '@zmdb/migrations';
 import type { CompiledQuery, Dialect, DialectTarget } from '@zmdb/query-compiler';
-import { diff, emitUp, snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 import type { CoreSchema, CreateDTO, PrimaryKeyOf, TaggedSchema } from '@zmdb/schema-core';
 import type { ColumnKeys, DeclaredTable } from '@zmdb/schema-core/derive';
 import type { WhereDTO } from '@zmdb/schema-core/dto';

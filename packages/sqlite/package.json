@@ -43,6 +43,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@zmdb/migrations": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^"
   },

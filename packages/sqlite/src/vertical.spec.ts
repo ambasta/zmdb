@@ -2,14 +2,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
+import { driverMigrationConnection, up, type ChangeOp, type SchemaSnapshot } from '@zmdb/migrations';
+import { detectDrift } from '@zmdb/migrations/introspect';
 import {
   createQueryCompiler,
   UnsupportedFeatureError,
   type MigrationPlan,
   type SchemaObjectOperation,
 } from '@zmdb/query-compiler';
-import { detectDrift } from '@zmdb/query-compiler/introspect';
-import { driverMigrationConnection, up, type ChangeOp, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
 import { describe, expect, it } from 'vitest';
 
 import { sqlite } from './dialect.js';
@@ -646,6 +646,7 @@ describe('@zmdb/sqlite vertical', () => {
       readFileSync(resolve(new URL('../package.json', import.meta.url).pathname), 'utf8'),
     ) as { dependencies?: Readonly<Record<string, string>> };
     expect(manifest.dependencies).toEqual({
+      '@zmdb/migrations': 'workspace:^',
       '@zmdb/query-compiler': 'workspace:^',
       '@zmdb/repository': 'workspace:^',
     });

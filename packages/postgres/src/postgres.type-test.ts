@@ -1,5 +1,5 @@
+import type { Migration } from '@zmdb/migrations';
 import { extendSqlDialect, type Introspector, type MigrationDialect, type SqlDialect } from '@zmdb/query-compiler';
-import type { Migration } from '@zmdb/query-compiler/migrations';
 import type { DatabaseVertical, TransactionalDriver } from '@zmdb/repository';
 
 import {

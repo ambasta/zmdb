@@ -260,7 +260,7 @@ describe('repository E2E (real SQLite)', () => {
   });
 
   // Referential-actions tests freeze (#455), against
-  // `@zmdb/query-compiler/migrations` SPEC.md §1.6.
+  // `@zmdb/migrations` SPEC.md §1.6.
   //
   // The pragma and the rows are one assertion object on purpose: a cascade test
   // that manually enables the pragma proves SQLite, not the adapter, while an

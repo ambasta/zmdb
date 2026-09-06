@@ -22,7 +22,7 @@ Use the library sections below when an application owns snapshots or migration a
 Capture the current state of your schemas:
 
 ```ts
-import { snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+import { snapshot, type SchemaSnapshot } from 'zmdb/migrations';
 import { UserSchema, OrderSchema } from './schemas';
 
 const currentState: SchemaSnapshot = snapshot([UserSchema, OrderSchema]);
@@ -38,7 +38,7 @@ The snapshot captures table names, column types, nullability, and each table's o
 Compare two snapshots to generate change operations:
 
 ```ts
-import { diff, type ChangeOp } from '@zmdb/query-compiler/migrations';
+import { diff, type ChangeOp } from 'zmdb/migrations';
 
 // After adding a new column
 const newState = snapshot([UserSchema, OrderSchema, ProductSchema]);
@@ -66,7 +66,7 @@ Change operations include:
 Convert change operations to SQL for your dialect:
 
 ```ts
-import { emitUp, emitDown } from '@zmdb/query-compiler/migrations';
+import { emitDown, emitUp } from 'zmdb/migrations';
 
 for (const op of changes) {
   const upSql = emitUp(op, 'postgres');

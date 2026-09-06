@@ -1,5 +1,3 @@
-import { postgresFamilyIntrospector } from '@zmdb/postgres';
-import type { IntrospectOptions } from '@zmdb/query-compiler';
 import {
   CatalogRowError,
   integerField,
@@ -11,7 +9,9 @@ import {
   type CatalogSchemaSnapshot,
   type CatalogTableSnapshot,
   type IntrospectionDriver,
-} from '@zmdb/query-compiler/introspect/runtime';
+} from '@zmdb/migrations/introspect/runtime';
+import { postgresFamilyIntrospector } from '@zmdb/postgres';
+import type { IntrospectOptions } from '@zmdb/query-compiler';
 
 interface CockroachIndexRow {
   readonly name: string;

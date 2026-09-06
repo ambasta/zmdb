@@ -1,8 +1,16 @@
 import { defineSqlDialect } from '../dialects/index.js';
-import type { CompiledQuery, PaginationTail } from '../index.js';
-import type { CatalogSchemaSnapshot, IntrospectOptions, IntrospectionDriver } from '../introspect/index.js';
-import type { ChangeOp, ColumnSnapshot, SchemaSnapshot } from '../migrations/index.js';
-import type { AppliedMigration, MigrationTableOptions } from '../migrations/runner.js';
+import type {
+  AppliedMigration,
+  CatalogSchemaSnapshot,
+  ChangeOp,
+  ColumnSnapshot,
+  CompiledQuery,
+  IntrospectOptions,
+  IntrospectionDriver,
+  MigrationTableOptions,
+  PaginationTail,
+  SchemaSnapshot,
+} from '../index.js';
 import {
   DATABASE_CAPABILITY_KEYS,
   OFFICIAL_DATABASES,

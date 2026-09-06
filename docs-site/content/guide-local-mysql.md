@@ -60,7 +60,7 @@ export const driver = mysqlDriver(pool);
 
 ```ts
 import { mysql } from '@zmdb/mysql';
-import { up } from '@zmdb/query-compiler/migrations';
+import { up } from '@zmdb/migrations';
 
 const connection = mysql.migrations.connection(driver);
 await up(connection, migrations, { onWarning: console.warn });

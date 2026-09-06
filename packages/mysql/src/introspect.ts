@@ -1,4 +1,4 @@
-import type { IntrospectionDriver, Introspector, IntrospectOptions } from '@zmdb/query-compiler';
+import type { SchemaSnapshot } from '@zmdb/migrations';
 import {
   action,
   CatalogRowError,
@@ -19,8 +19,8 @@ import {
   type CatalogSchemaSnapshot,
   type CatalogTableSnapshot,
   type CatalogWarning,
-} from '@zmdb/query-compiler/introspect/runtime';
-import type { SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+} from '@zmdb/migrations/introspect/runtime';
+import type { IntrospectionDriver, Introspector, IntrospectOptions } from '@zmdb/query-compiler';
 
 interface MysqlColumn {
   readonly table: string;

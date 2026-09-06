@@ -37,6 +37,7 @@
     "./derive": "./src/derive.ts",
     "./dto": "./src/dto.ts",
     "./relations": "./src/relations.ts",
+    "./migrations": "./src/migrations.ts",
     "./drivers/sqlite": "./src/drivers-sqlite.ts",
     "./drivers/pg": "./src/drivers-pg.ts",
     "./drivers/mssql": "./src/drivers-mssql.ts",
@@ -58,6 +59,7 @@
   "dependencies": {
     "@zmdb/aot-validator": "workspace:^",
     "@zmdb/app": "workspace:^",
+    "@zmdb/migrations": "workspace:^",
     "@zmdb/query-compiler": "workspace:^",
     "@zmdb/repository": "workspace:^",
     "@zmdb/schema-core": "workspace:^",

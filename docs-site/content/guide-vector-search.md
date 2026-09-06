@@ -38,7 +38,7 @@ import { Pool } from 'pg';
 
 import { assert } from '@zmdb/aot-validator/utilities';
 import { createQueryCompiler, distance } from '@zmdb/query-compiler';
-import { diff, snapshot, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+import { diff, snapshot, type SchemaSnapshot } from '@zmdb/migrations';
 import { createIndexDdl } from '@zmdb/query-compiler/schema-objects';
 import { postgres, postgresDriver } from '@zmdb/postgres';
 import { schemaOf } from '@zmdb/schema-core';

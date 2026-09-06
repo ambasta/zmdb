@@ -1,4 +1,4 @@
-import type { CompiledQuery, IntrospectionDriver, Introspector, IntrospectOptions } from '@zmdb/query-compiler';
+import type { SchemaSnapshot } from '@zmdb/migrations';
 import {
   CatalogRowError,
   normalizeDriftSnapshot,
@@ -10,8 +10,8 @@ import {
   type CatalogTableSnapshot,
   type CatalogWarning,
   type ReferentialAction,
-} from '@zmdb/query-compiler/introspect/runtime';
-import type { SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+} from '@zmdb/migrations/introspect/runtime';
+import type { CompiledQuery, IntrospectionDriver, Introspector, IntrospectOptions } from '@zmdb/query-compiler';
 
 export interface MssqlIdentity {
   readonly seed: string;

@@ -50,7 +50,7 @@ See [Connect: Postgres](./connect-postgres.html).
 From your schemas, so it cannot drift from a fixture:
 
 ```ts
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
+import { diff, emitUp, snapshot } from 'zmdb/migrations';
 
 for (const op of diff({ tables: {} }, snapshot(allSchemas))) {
   await driver.execute({ text: emitUp(op, 'postgres'), parameters: [] });

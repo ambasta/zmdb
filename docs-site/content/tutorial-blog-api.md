@@ -61,7 +61,7 @@ any of that; it was read off the declaration.
 
 ```ts
 // scripts/generate.ts
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
+import { diff, emitUp, snapshot } from 'zmdb/migrations';
 import { schemaOf } from 'zmdb';
 import type { Author, Post } from '../src/schema.ts';
 import { readFileSync, writeFileSync } from 'node:fs';

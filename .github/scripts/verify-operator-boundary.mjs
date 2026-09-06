@@ -38,6 +38,7 @@ const PACKAGES = [
   'ai-langchain',
   'ai-vercel',
   'aot-validator',
+  'migrations',
   'protobuf',
   'repository',
   'query-compiler',

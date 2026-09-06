@@ -8,6 +8,13 @@ import {
   validateShallow as srcValidateShallow,
 } from '@zmdb/aot-validator/utilities';
 import {
+  driverMigrationConnection as srcDMC,
+  up as srcUp,
+  down as srcDown,
+  status as srcStatus,
+  runCli as srcRunCli,
+} from '@zmdb/migrations';
+import {
   coalesce as srcCoalesce,
   concat as srcConcat,
   createQueryCompiler as srcQC,
@@ -18,13 +25,6 @@ import {
   proposed as srcProposed,
   UnsupportedFeatureError as srcUFE,
 } from '@zmdb/query-compiler';
-import {
-  driverMigrationConnection as srcDMC,
-  up as srcUp,
-  down as srcDown,
-  status as srcStatus,
-  runCli as srcRunCli,
-} from '@zmdb/query-compiler/migrations';
 import {
   BaseRepository as SrcBaseRepository,
   defineRepository as srcDefineRepository,
@@ -52,7 +52,6 @@ import {
   inc,
   is,
   isShallow,
-  migrations,
   mul,
   not,
   proposed,
@@ -127,7 +126,8 @@ describe('zmdb umbrella re-exports (#227)', () => {
     await expect(unplugin.zmdbAot()).resolves.toMatchObject({ name: 'zmdb-aot', enforce: 'pre' });
   });
 
-  it('re-exports migration runner under migrations namespace', () => {
+  it('re-exports migration tooling from the explicit zmdb/migrations subpath', async () => {
+    const migrations = await import('./migrations.js');
     expect(migrations.up).toBe(srcUp);
     expect(migrations.down).toBe(srcDown);
     expect(migrations.status).toBe(srcStatus);

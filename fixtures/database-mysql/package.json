@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@zmdb/migrations": "1.0.0-alpha.4",
     "@zmdb/mysql": "1.0.0-alpha.4",
     "@zmdb/query-compiler": "1.0.0-alpha.4",
     "mysql2": "3.24.3"

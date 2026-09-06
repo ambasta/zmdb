@@ -1,5 +1,5 @@
+import type { ChangeOp } from '@zmdb/migrations';
 import { createQueryCompiler, extendSqlDialect, type IntrospectionDriver } from '@zmdb/query-compiler';
-import type { ChangeOp } from '@zmdb/query-compiler/migrations';
 import { describe, expect, it, vi } from 'vitest';
 
 import {

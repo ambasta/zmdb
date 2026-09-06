@@ -1,9 +1,9 @@
 import { schemasFrom } from '@zmdb/aot-validator/testing';
+import { diff, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, type TableSnapshot } from '@zmdb/migrations';
 import type { PrimaryKey, References, Rowstore, ShardKey, SortKey, Sql, Table, Unique } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 
 import { UnsupportedFeatureError } from '../errors.js';
-import { diff, emitUp, snapshot, type ChangeOp, type SchemaSnapshot, type TableSnapshot } from '../migrations/index.js';
 import { createViewDdl, enableRlsDdl } from '../schema-objects/index.js';
 
 export interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['id']> {

@@ -43,7 +43,7 @@ Encore provisions the database and expects to own its schema, and it applies `mi
 
 ```ts
 // scripts/emit-migration.ts
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
+import { diff, emitUp, snapshot } from 'zmdb/migrations';
 import { writeFileSync } from 'node:fs';
 import { allSchemas } from '../src/schema.js';
 

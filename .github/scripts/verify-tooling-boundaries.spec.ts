@@ -18,32 +18,26 @@ describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
     const result = analyseToolingBoundaries();
     expect(result.problems).toEqual([]);
-    expect(result.inventory.actualCount).toBe(152);
+    expect(result.inventory.actualCount).toBe(165);
     expect(result.inventory.ownerCounts).toEqual({
       compiler: 30,
-      migrations: 20,
-      cli: 21,
-      runtime: 28,
-      facade: 13,
+      migrations: 23,
+      cli: 31,
+      runtime: 27,
+      facade: 14,
       'optional-integration': 4,
       'test-only': 35,
       obsolete: 1,
     });
     expect(result.runtimeViolations.map(violation => violation.id).toSorted()).toEqual([
       '@zmdb/repository|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-      '@zmdb/repository|migrations|packages/query-compiler/src/migrations/index.ts|./runner.js',
-      '@zmdb/repository|migrations|packages/query-compiler/src/schema-objects/index.ts|../migrations/index.js',
       '@zmdb/web|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-      '@zmdb/web|migrations|packages/query-compiler/src/migrations/index.ts|./runner.js',
-      '@zmdb/web|migrations|packages/query-compiler/src/schema-objects/index.ts|../migrations/index.js',
       'zmdb|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-      'zmdb|migrations|packages/query-compiler/src/migrations/index.ts|./runner.js',
-      'zmdb|migrations|packages/query-compiler/src/schema-objects/index.ts|../migrations/index.js',
-      'zmdb|migrations|packages/zmdb/src/index.ts|@zmdb/query-compiler/migrations',
     ]);
     expect(result.generatedViolations).toHaveLength(3);
     expect(result.embeddedViolations).toEqual([]);
-    expect(result.packageGraph.edges).toHaveLength(60);
+    expect(result.formatterViolations).toEqual([]);
+    expect(result.packageGraph.edges).toHaveLength(67);
   });
 
   it('rejects a planted compiler import from a runtime root', () => {
@@ -66,12 +60,18 @@ describe('the tooling-boundary verifier', () => {
     );
   });
 
-  it('rejects a planted filesystem import from the embedded migration leaf', () => {
-    const embedded = join(ROOT, 'packages', 'query-compiler', 'src', 'migrations', 'embedded.ts');
-    const overlays = new Map([[embedded, `import 'node:fs';\n${readFileSync(embedded, 'utf8')}`]]);
-    const result = analyseToolingBoundaries({ overlays });
-    expect(result.problems).toContain(
-      'embedded migrations reaches forbidden import packages/query-compiler/src/migrations/embedded.ts -> node:fs',
+  it('rejects forbidden imports from migration entries', () => {
+    const embedded = join(ROOT, 'packages', 'migrations', 'src', 'embedded.ts');
+    const embeddedOverlay = new Map([[embedded, `import 'node:fs';\n${readFileSync(embedded, 'utf8')}`]]);
+    expect(analyseToolingBoundaries({ overlays: embeddedOverlay }).problems).toContain(
+      'embedded migrations reaches forbidden import packages/migrations/src/embedded.ts -> node:fs',
+    );
+
+    const root = join(ROOT, 'packages', 'migrations', 'src', 'index.ts');
+    const formatterOverlay = new Map([[root, `import 'oxfmt';\n${readFileSync(root, 'utf8')}`]]);
+    expect(analyseToolingBoundaries({ overlays: formatterOverlay }).problems).toContain(
+      'migration entry . reaches formatter packages/migrations/src/index.ts -> oxfmt: ' +
+        'packages/migrations/src/index.ts -> oxfmt',
     );
   });
 
@@ -89,7 +89,16 @@ describe('the tooling-boundary verifier', () => {
         './transform',
         './unplugin',
       ],
-      '@zmdb/migrations': ['.', './declarations', './embedded', './files', './introspect', './runner', './testing'],
+      '@zmdb/migrations': [
+        '.',
+        './declarations',
+        './embedded',
+        './files',
+        './introspect',
+        './introspect/runtime',
+        './runner',
+        './testing',
+      ],
       '@zmdb/cli': ['.'],
     });
     expect(() =>

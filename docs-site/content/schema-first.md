@@ -20,7 +20,8 @@ and emitter remain public library APIs when a caller needs a different destinati
    import { mkdir, writeFile } from 'node:fs/promises';
    import { dirname, join } from 'node:path';
 
-   import { createIntrospector, emitDeclarations } from '@zmdb/query-compiler/introspect';
+   import { emitDeclarations } from '@zmdb/migrations/declarations';
+   import { createIntrospector } from '@zmdb/migrations/introspect';
 
    const live = await createIntrospector('postgres').snapshot(driver, {
      schemas: ['public'],
@@ -49,8 +50,8 @@ and emitter remain public library APIs when a caller needs a different destinati
 3. **Compare the reviewed declaration with the catalog snapshot.** Everything downstream — DDL, DTOs, validators, and OpenAPI — inherits a declaration mistake, so check both directions:
 
    ```ts
-   import { createIntrospector, detectDrift } from '@zmdb/query-compiler/introspect';
-   import { snapshot } from '@zmdb/query-compiler/migrations';
+   import { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
+   import { snapshot } from 'zmdb/migrations';
    import { expect } from 'vitest';
 
    const live = await createIntrospector('postgres').snapshot(driver, {

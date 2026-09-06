@@ -1,7 +1,7 @@
 # Non-SQL targets — Spec (epic "Non-SQL targets — MongoDB and Gel")
 
-> Part of `@zmdb/query-compiler`. Spec-only, like `../introspect/` and `../dialects/`: this directory exists to hold a decision, and the decision is that neither target ships. Read `../../SPEC.md` §5f
-> for the seam this measures and `../dialects/SPEC.md` for the SQL matrix, which is a different question.
+> Part of `@zmdb/query-compiler`. Spec-only, like `../dialects/`: this directory exists to hold a decision, and the decision is that neither target ships. Read `../../SPEC.md` §5f for the seam this
+> measures and `../dialects/SPEC.md` for the SQL matrix, which is a different question.
 
 ## 1. The verdict, and the finding that outlasts it
 
@@ -103,16 +103,16 @@ Both are in `@zmdb/repository`, and both would break silently rather than loudly
 
 `CompiledQuery` is referenced **46 times across 14 source files**:
 
-| Where                                                                   | Refs | Notable                                           |
-| ----------------------------------------------------------------------- | ---- | ------------------------------------------------- |
-| `query-compiler/src/index.ts`                                           | 11   | the type, four builders, `QueryCompiler`          |
-| `query-compiler/src/set-ops/index.ts`                                   | 5    | consumes text, renumbers placeholders             |
-| `query-compiler/src/{clauses,joins,fts,aggregations,migrations/runner}` | 11   | `frozenQuery`, `MigrationDriver`                  |
-| `repository/src/index.ts`                                               | 5    | `Driver.execute`, `rows`, `aggregate`             |
-| `repository/src/transactions/{index,recording-conn}`                    | 6    | `TransactionContext`, `TxConnection`, the goldens |
-| `repository/src/replicas/index.ts`                                      | 2    | `isWrite`'s caller                                |
-| `schema-core/src/dto/index.ts`                                          | 2    | **`SubqueryTarget`**                              |
-| `zmdb/src/index.ts`                                                     | 1    | the umbrella re-export                            |
+| Where                                                                              | Refs | Notable                                           |
+| ---------------------------------------------------------------------------------- | ---- | ------------------------------------------------- |
+| `query-compiler/src/index.ts`                                                      | 11   | the type, four builders, `QueryCompiler`          |
+| `query-compiler/src/set-ops/index.ts`                                              | 5    | consumes text, renumbers placeholders             |
+| `query-compiler/src/{clauses,joins,fts,aggregations}` + `migrations/src/runner.ts` | 11   | `frozenQuery`, `MigrationDriver`                  |
+| `repository/src/index.ts`                                                          | 5    | `Driver.execute`, `rows`, `aggregate`             |
+| `repository/src/transactions/{index,recording-conn}`                               | 6    | `TransactionContext`, `TxConnection`, the goldens |
+| `repository/src/replicas/index.ts`                                                 | 2    | `isWrite`'s caller                                |
+| `schema-core/src/dto/index.ts`                                                     | 2    | **`SubqueryTarget`**                              |
+| `zmdb/src/index.ts`                                                                | 1    | the umbrella re-export                            |
 
 ### 3.1 A type parameter — `CompiledQuery<Q>` / `Target<Q>` — is the expensive one, and the expense is measured
 
@@ -287,8 +287,8 @@ throws on `savepoint` does not implement `TransactionContext`, and "a documented
 - **`findJoined`** — `$lookup` inside an aggregation, with `$unwind` to flatten to the `JoinRow` shape the signature promises. Expressible, at a cost, for `inner` and `left`. Not for `right`, which
   the aggregate builder's `joinRelation` offers: `$lookup` is a left outer join and there is no reversed form.
 - **Migrations** — there is no DDL. Index creation and `$jsonSchema` validators are real artifacts and a Mongo story could be built from them, but `Migration` is
-  `{ version, name, up: string, down: string }` and `MigrationConnection` executes strings. That is a different artifact, not a dialect of this one, and `../migrations/SPEC.md` §3 and §4 are frozen
-  around the string.
+  `{ version, name, up: string, down: string }` and `MigrationConnection` executes strings. That is a different artifact, not a dialect of this one, and `../../../migrations/src/SPEC.md` §3 and §4 are
+  frozen around the string.
 - **`withReplicas`** — §2.2. Routing by `INSERT|UPDATE|DELETE` prefix has no input.
 
 ### 4.5 The tally

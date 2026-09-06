@@ -38,6 +38,7 @@ export const TARGET_TOOLING_EXPORTS = Object.freeze({
     './embedded',
     './files',
     './introspect',
+    './introspect/runtime',
     './runner',
     './testing',
   ]),
@@ -74,14 +75,19 @@ export const TARGET_TOOLING_MANIFESTS = Object.freeze({
 });
 
 const POLICY_PATH = '.github/scripts/verify-tooling-ownership.SPEC.md';
-const INVENTORY_ROOTS = ['packages/aot-validator/src', 'packages/query-compiler/src', 'packages/zmdb/src'];
+const INVENTORY_ROOTS = [
+  'packages/aot-validator/src',
+  'packages/migrations/src',
+  'packages/query-compiler/src',
+  'packages/zmdb/src',
+];
 const INVENTORY_EXTENSIONS = new Set(['.ts', '.js', '.json', '.proto']);
 const EXPECTED_OWNER_COUNTS = Object.freeze({
   compiler: 30,
-  migrations: 20,
-  cli: 21,
-  runtime: 28,
-  facade: 13,
+  migrations: 23,
+  cli: 31,
+  runtime: 27,
+  facade: 14,
   'optional-integration': 4,
   'test-only': 35,
   obsolete: 1,
@@ -98,20 +104,13 @@ const RUNTIME_ROOTS = Object.freeze([
 const RUNTIME_FOUNDATIONS = new Set(RUNTIME_ROOTS.filter(packageName => packageName !== 'zmdb'));
 const TARGET_TOOLING_PACKAGES = new Set(Object.keys(TARGET_TOOLING_MANIFESTS));
 
-// Measured at 1b686ee10162f566a23bd3175a577eb8d641ef34. These are
-// exact import edges. Deleting one is accepted; adding another route into the
-// same category is not.
+// Remeasured by #629 after migration tooling left every runtime root. These are
+// exact remaining compiler edges. Deleting one is accepted; adding another
+// route into the same category is not.
 const BASELINE_RUNTIME_VIOLATIONS = new Set([
   '@zmdb/repository|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-  '@zmdb/repository|migrations|packages/query-compiler/src/migrations/index.ts|./runner.js',
-  '@zmdb/repository|migrations|packages/query-compiler/src/schema-objects/index.ts|../migrations/index.js',
   '@zmdb/web|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-  '@zmdb/web|migrations|packages/query-compiler/src/migrations/index.ts|./runner.js',
-  '@zmdb/web|migrations|packages/query-compiler/src/schema-objects/index.ts|../migrations/index.js',
   'zmdb|compiler|packages/aot-validator/src/utilities/index.ts|../emit/shape.js',
-  'zmdb|migrations|packages/query-compiler/src/migrations/index.ts|./runner.js',
-  'zmdb|migrations|packages/query-compiler/src/schema-objects/index.ts|../migrations/index.js',
-  'zmdb|migrations|packages/zmdb/src/index.ts|@zmdb/query-compiler/migrations',
 ]);
 
 const RUNTIME_EXTERNAL_TOOLING = Object.freeze([
@@ -495,6 +494,64 @@ function embeddedViolations(root, overlays) {
   return violations.toSorted((left, right) => left.id.localeCompare(right.id));
 }
 
+function runtimeImportsOf(graph, file, source) {
+  const runtimeSource = source
+    .replace(/(^|[;\n])\s*import\s+type\b[\s\S]*?;\s*/g, '$1')
+    .replace(/(^|[;\n])\s*export\s+type\b[\s\S]*?;\s*/g, '$1');
+  return graph.importsOf(file, runtimeSource);
+}
+
+function formatterViolations(root, overlays) {
+  const graph = createImportGraph(root);
+  const target = graph.packages.get('@zmdb/migrations');
+  if (target === undefined) {
+    return [{ id: 'missing-migrations-package', file: 'packages/migrations/package.json', specifier: 'missing' }];
+  }
+
+  const violations = [];
+  for (const subpath of ['.', './runner', './embedded']) {
+    const exported = target.exports[subpath];
+    if (typeof exported !== 'string') {
+      violations.push({
+        id: `${subpath}|missing-entry`,
+        entry: subpath,
+        file: relative(root, target.dir),
+        specifier: 'missing',
+      });
+      continue;
+    }
+
+    const entry = join(target.dir, exported);
+    const seen = new Set();
+    const queue = [{ file: entry, chain: [entry] }];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (current === undefined || seen.has(current.file)) continue;
+      const source =
+        overlays.get(current.file) ?? (existsSync(current.file) ? readFileSync(current.file, 'utf8') : undefined);
+      if (source === undefined) continue;
+      seen.add(current.file);
+      for (const imported of runtimeImportsOf(graph, current.file, source)) {
+        if (/^oxfmt(?:\/|$)/.test(imported.specifier)) {
+          violations.push({
+            id: `${subpath}|${relative(root, current.file)}|${imported.specifier}`,
+            entry: subpath,
+            file: relative(root, current.file),
+            specifier: imported.specifier,
+            chain: [...current.chain, imported.specifier].map(step =>
+              step.startsWith(root) ? relative(root, step) : step,
+            ),
+          });
+        }
+        if (imported.resolved !== null) {
+          queue.push({ file: imported.resolved, chain: [...current.chain, imported.resolved] });
+        }
+      }
+    }
+  }
+  return violations.toSorted((left, right) => left.id.localeCompare(right.id));
+}
+
 function normalizeBins(manifest) {
   if (typeof manifest.bin === 'string') return { [manifest.name ?? '']: manifest.bin };
   return typeof manifest.bin === 'object' && manifest.bin !== null ? manifest.bin : {};
@@ -582,6 +639,7 @@ export function analyseToolingBoundaries({ root = ROOT, overlays = new Map() } =
   const runtime = runtimeViolations(root, inventory.catalog, overlays);
   const generated = generatedViolations(root, overlays);
   const embedded = embeddedViolations(root, overlays);
+  const formatter = formatterViolations(root, overlays);
   const bins = binOwners(root);
   const problems = [...inventory.problems, ...packageGraph.problems, ...targetPackageProblems(root)];
 
@@ -597,6 +655,12 @@ export function analyseToolingBoundaries({ root = ROOT, overlays = new Map() } =
   }
   for (const violation of embedded) {
     problems.push(`embedded migrations reaches forbidden import ${violation.file} -> ${violation.specifier}`);
+  }
+  for (const violation of formatter) {
+    problems.push(
+      `migration entry ${violation.entry} reaches formatter ${violation.file} -> ${violation.specifier}: ` +
+        `${violation.chain?.join(' -> ') ?? 'missing entry'}`,
+    );
   }
 
   const allowedBins = new Set([
@@ -616,6 +680,7 @@ export function analyseToolingBoundaries({ root = ROOT, overlays = new Map() } =
     runtimeViolations: runtime,
     generatedViolations: generated,
     embeddedViolations: embedded,
+    formatterViolations: formatter,
     binOwners: bins,
   };
 }
@@ -630,6 +695,7 @@ function successLine(result) {
     `${String(result.runtimeViolations.length)} measured runtime violation edge(s), ` +
     `${String(result.generatedViolations.length)} generated-import violation(s), ` +
     `${String(result.embeddedViolations.length)} embedded-runner violation(s), ` +
+    `${String(result.formatterViolations.length)} migration-entry formatter violation(s), ` +
     `${String(result.binOwners.length)} tooling bin owner(s) ratcheted.`
   );
 }

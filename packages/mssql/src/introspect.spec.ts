@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import { CatalogRowError } from '@zmdb/migrations/introspect';
 import type { CompiledQuery, IntrospectionDriver } from '@zmdb/query-compiler';
-import { CatalogRowError } from '@zmdb/query-compiler/introspect';
 import { describe, expect, it } from 'vitest';
 
 import { mssqlIntrospector, type MssqlCatalogSchemaSnapshot } from './index.js';

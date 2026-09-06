@@ -115,9 +115,22 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: [],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
+    toolingEntries: [],
+  }),
+  migrations: packagePolicy({
+    directory: 'packages/migrations',
+    zone: 'foundation',
+    ring: 1,
+    allowedWorkspaceDependencies: ['query-compiler'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
     toolingEntries: [
-      // Catalog inspection and declaration emission may invoke the formatter.
-      './introspect',
+      // Formatter-backed TypeScript declaration emission.
+      './declarations',
+      // Filesystem-backed migration discovery, persistence, and project commands.
+      './files',
+      // Deterministic migration protocol test support.
+      './testing',
     ],
   }),
   'schema-core': packagePolicy({
@@ -214,7 +227,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/mssql',
     zone: 'integration',
     ring: 5,
-    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       mssql: ['.'],
@@ -296,7 +309,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/postgres',
     zone: 'runtime',
     ring: 5,
-    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       pg: ['.'],
@@ -307,7 +320,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/cockroach',
     zone: 'runtime',
     ring: 6,
-    allowedWorkspaceDependencies: ['postgres', 'query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'postgres', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -316,7 +329,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/sqlite',
     zone: 'runtime',
     ring: 5,
-    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -325,7 +338,7 @@ export const PACKAGE_POLICY = Object.freeze({
     directory: 'packages/mysql',
     zone: 'integration',
     ring: 5,
-    allowedWorkspaceDependencies: ['query-compiler', 'repository'],
+    allowedWorkspaceDependencies: ['migrations', 'query-compiler', 'repository'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {
       mysql2: ['.'],
@@ -420,6 +433,7 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: [
       'app',
       'aot-validator',
+      'migrations',
       'mssql',
       'postgres',
       'query-compiler',
@@ -438,6 +452,8 @@ export const PACKAGE_POLICY = Object.freeze({
       './cli',
       // Filesystem-backed project configuration for build and CLI consumers.
       './config',
+      // Curated schema-lifecycle facade.
+      './migrations',
       // Public bundler integration delegated to the validator package.
       './unplugin',
       // Curated facade over the HTTP contract compiler.

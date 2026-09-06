@@ -1,3 +1,5 @@
+import type { ChangeOp, TableSnapshot } from '@zmdb/migrations';
+
 // Type-level half of issue #506's six-dialect matrix.
 //
 // The frozen six-member public surface. These equalities make widening or
@@ -7,7 +9,6 @@
 // so the file cannot claim a callable boundary exists without asking the real API.
 import { mssql } from '../../../mssql/src/index.js';
 import { DIALECT_PARAM_LIMITS, createQueryCompiler, type BuiltInDialect, type Dialect } from '../index.js';
-import type { ChangeOp, TableSnapshot } from '../migrations/index.js';
 
 type Expect<T extends true> = T;
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;

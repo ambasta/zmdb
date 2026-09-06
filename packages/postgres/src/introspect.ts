@@ -1,4 +1,4 @@
-import type { CompiledQuery, IntrospectionDriver, Introspector, IntrospectOptions } from '@zmdb/query-compiler';
+import type { ExtensionType, SchemaSnapshot } from '@zmdb/migrations';
 import type {
   CatalogColumnSnapshot,
   CatalogForeignKeySnapshot,
@@ -7,9 +7,12 @@ import type {
   CatalogSchemaSnapshot,
   CatalogTableSnapshot,
   CatalogWarning,
+  IntrospectionDriver,
+  Introspector,
+  IntrospectOptions,
   ReferentialAction,
-} from '@zmdb/query-compiler/introspect/runtime';
-import type { ExtensionType, SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+} from '@zmdb/migrations/introspect/runtime';
+import type { CompiledQuery } from '@zmdb/query-compiler';
 
 export interface PostgresCatalogOverrides {
   readonly snapshot?: (

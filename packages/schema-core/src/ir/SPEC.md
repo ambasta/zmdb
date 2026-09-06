@@ -415,7 +415,7 @@ to produce: a column widened by one step still compiles, still validates, and st
 
 It is one printer for both callers. `scripts/codemod-tagged-schema.mjs` already prints tagged declarations from column facts, and it already carries the two facts a second printer would rediscover the
 hard way — the tag order, and that nullability is `(T & Tags) | null` with the tags inside, because an intersection distributes over a union and `null & Unique` is `never`. The full output contract,
-the per-dialect type mapping behind it and what happens to a column no tag can express live in `query-compiler/src/introspect/SPEC.md`.
+the per-dialect type mapping behind it and what happens to a column no tag can express live in `migrations/src/introspect/SPEC.md`.
 
 One asymmetry stays unfixed, deliberately: a default **value** cannot survive the trip. `HasDefault` says a column has one and not which one (§8 of the reflect spec), and a catalog default is an
 expression rather than a value, so it comes back as a comment beside the tag. It is the one row of §8's table that runs against the IR rather than in its favour, and the round-trip property above is
@@ -432,7 +432,7 @@ One column has three renderings, and each layer owns one:
 | `jsonEnum`  | literal union                   | literal union      | `text` + check                       |
 | `Codec<N>`  | `WireAs<W>`, or refused         | `payload`          | whatever `sql` says                  |
 
-`appTypeOf(col)` and `wireTypeOf(col)` return the first two; `ddlType(dialect, col)` in `query-compiler/migrations` returns the third.
+`appTypeOf(col)` and `wireTypeOf(col)` return the first two; `ddlType(dialect, col)` from `@zmdb/migrations` returns the third.
 
 A `format` in the wire column above comes with the `pattern` that enforces it.
 

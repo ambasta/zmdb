@@ -1,14 +1,8 @@
 import { createRequire } from 'node:module';
 
+import { down, driverMigrationConnection, up, type Migration, type SchemaSnapshot } from '@zmdb/migrations';
+import { detectDrift } from '@zmdb/migrations/introspect';
 import { createQueryCompiler, quoteTable } from '@zmdb/query-compiler';
-import { detectDrift } from '@zmdb/query-compiler/introspect';
-import {
-  down,
-  driverMigrationConnection,
-  up,
-  type Migration,
-  type SchemaSnapshot,
-} from '@zmdb/query-compiler/migrations';
 import type { ConnectionPool } from 'mssql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 

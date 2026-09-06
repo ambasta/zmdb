@@ -20,11 +20,11 @@ sqliteVertical.driver === sqliteDriver;
 sqlite.introspector === sqliteIntrospector;
 ```
 
-The package depends at runtime only on `@zmdb/query-compiler` and `@zmdb/repository`. Its manifest declares no direct third-party runtime dependency or database client. Its public types are
-structural; the root is browser-safe and does not import a Node built-in merely by loading. The structural adapter works with `node:sqlite` when the application passes a `DatabaseSync`-compatible
-object.
+The package depends at runtime only on `@zmdb/migrations`, `@zmdb/query-compiler` and `@zmdb/repository`. Its manifest declares no direct third-party runtime dependency or database client. Its public
+types are structural; the root is browser-safe and does not import a Node built-in merely by loading. The structural adapter works with `node:sqlite` when the application passes a
+`DatabaseSync`-compatible object.
 
-The SQLite-specific embedded migration runner is a separate browser-safe subpath. It imports no Node built-in, filesystem code, compiler barrel or database binding.
+The SQLite embedded subpath delegates to the generic browser-safe runner in `@zmdb/migrations/embedded`. It imports no Node built-in, filesystem code, compiler barrel or database binding.
 
 ## Capabilities
 
@@ -56,8 +56,8 @@ final sole ownership.
 - the SQLite row from `query-compiler/src/dialects/index.ts`, all SQLite golden/refusal cells and its parameter limit;
 - SQLite quoting, positional placeholders, pagination, upsert, returning, boolean, FTS companion-table and operator decisions;
 - every SQLite branch in migrations and schema objects, including inline foreign keys and explicit ALTER refusals;
-- the SQLite-specific ledger connection and the embedded migration runner/probe;
-- `query-compiler/src/introspect/sqlite.ts` and SQLite catalog/pragma normalization;
+- the browser-safe `@zmdb/sqlite/embedded` compatibility re-export and SQLite integration proof; the frozen ledger statements remain in `@zmdb/migrations/embedded` for byte compatibility;
+- `packages/sqlite/src/introspector.ts` and SQLite catalog/pragma normalization;
 - `repository/src/drivers/sqlite.ts`, Date binding, statement caching, active-iterator protection, streaming and transactions; and
 - driver, migration, introspection and capability tests specific to SQLite.
 

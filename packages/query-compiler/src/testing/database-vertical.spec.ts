@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 
+import { ddlType, emitUp } from '@zmdb/migrations';
+import { detectDrift } from '@zmdb/migrations/introspect';
+import { driverMigrationConnection } from '@zmdb/migrations/runner';
+import type { ColumnSnapshot } from '@zmdb/query-compiler';
 import { describe, expect, it } from 'vitest';
 
-import { detectDrift } from '../introspect/index.js';
-import type { ColumnSnapshot } from '../migrations/index.js';
-import { ddlType, emitUp } from '../migrations/index.js';
-import { driverMigrationConnection } from '../migrations/runner.js';
 import {
   DATABASE_CAPABILITY_MATRIX,
   DATABASE_CAPABILITY_KEYS,

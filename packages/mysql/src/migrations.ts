@@ -1,3 +1,11 @@
+import type {
+  ChangeOp,
+  ColumnSnapshot,
+  ExtensionType,
+  ForeignKeySnapshot,
+  ReferentialAction,
+  SchemaSnapshot,
+} from '@zmdb/migrations';
 import {
   UnsupportedFeatureError,
   type AppliedMigration,
@@ -8,14 +16,6 @@ import {
   type MigrationTableOptions,
   type SchemaObjectOperation,
 } from '@zmdb/query-compiler';
-import type {
-  ChangeOp,
-  ColumnSnapshot,
-  ExtensionType,
-  ForeignKeySnapshot,
-  ReferentialAction,
-  SchemaSnapshot,
-} from '@zmdb/query-compiler/migrations';
 import type { IndexColumn, IndexDef, RoutineDef, RoutineSqlType } from '@zmdb/query-compiler/schema-objects';
 
 const TYPES = Object.freeze({

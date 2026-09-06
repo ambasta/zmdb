@@ -1,9 +1,8 @@
 {
   "name": "@zmdb/query-compiler",
   "version": "1.0.0-alpha.4",
-  "description": "SQL-first, dialect-aware query compiler with catalog introspection, declaration emission, schema-object DDL, and migration diffing.",
+  "description": "SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, full-text search, set operations, and schema-object DDL.",
   "keywords": [
-    "migrations",
     "mysql",
     "postgres",
     "query-builder",
@@ -36,11 +35,6 @@
     "./fts": "./src/fts/index.ts",
     "./joins": "./src/joins/index.ts",
     "./aggregations": "./src/aggregations/index.ts",
-    "./introspect": "./src/introspect/index.ts",
-    "./introspect/runtime": "./src/introspect/runtime.ts",
-    "./migrations": "./src/migrations/index.ts",
-    "./migrations/embedded": "./src/migrations/embedded.ts",
-    "./migrations/runner": "./src/migrations/runner.ts",
     "./naming": "./src/naming/index.ts",
     "./outbox": "./src/outbox/index.ts",
     "./set-ops": "./src/set-ops/index.ts",
@@ -54,10 +48,10 @@
     "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run"
   },
-  "dependencies": {
-    "oxfmt": "0.66.0"
-  },
   "devDependencies": {
+    "@zmdb/aot-validator": "workspace:^",
+    "@zmdb/migrations": "workspace:^",
+    "@zmdb/schema-core": "workspace:^",
     "typescript": "7.0.2"
   },
   "engines": {

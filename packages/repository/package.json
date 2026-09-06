@@ -52,6 +52,7 @@
     "@zmdb/schema-core": "workspace:^"
   },
   "devDependencies": {
+    "@zmdb/migrations": "workspace:^",
     "typescript": "7.0.2"
   },
   "engines": {

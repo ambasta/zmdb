@@ -16,38 +16,38 @@ silently takes the other branch.
 
 Fourteen comparisons, in seven files:
 
-| Site                            | Decision at the freeze                                          | Trait it becomes |
-| ------------------------------- | --------------------------------------------------------------- | ---------------- |
-| `../quoting.ts:11`              | `mysql` gets backticks, everyone else double quotes             | `quote`          |
-| `../quoting.ts:73`              | `postgres` gets `$n`, everyone else `?`                         | `placeholder`    |
-| `../set-ops/index.ts:26`        | `postgres` renumbers placeholders across fragments              | `placeholder`    |
-| `../index.ts:227`               | `VALUES(col)` on `mysql`, `EXCLUDED.col` elsewhere              | `upsert`         |
-| `../index.ts:269`               | `INSERT IGNORE` versus `ON CONFLICT DO NOTHING`                 | `upsert`         |
-| `../index.ts:294`               | `ON DUPLICATE KEY UPDATE` versus `ON CONFLICT DO UPDATE`        | `upsert`         |
-| `../migrations/index.ts:207`    | a `varchar` with no length degrades to `TEXT` on `mysql`        | `types`          |
-| `../migrations/index.ts:215`    | `serial` is `INT AUTO_INCREMENT` on `mysql`                     | `types`          |
-| `../schema-objects/index.ts:37` | materialized view refused off `postgres`                        | `features`       |
-| `../schema-objects/index.ts:44` | materialized view drop refused off `postgres`                   | `features`       |
-| `../schema-objects/index.ts:92` | `ENABLE ROW LEVEL SECURITY` refused off `postgres`              | `features`       |
-| `../schema-objects/index.ts:96` | `CREATE POLICY` refused off `postgres`                          | `features`       |
-| `../fts/index.ts:68`            | `sqlite` joins a companion table, and refuses without one       | `fts`            |
-| `../fts/index.ts:113`           | `to_tsvector … @@` on `postgres`, `MATCH … AGAINST` on the rest | `fts`            |
+| Site                               | Decision at the freeze                                          | Trait it becomes |
+| ---------------------------------- | --------------------------------------------------------------- | ---------------- |
+| `../quoting.ts:11`                 | `mysql` gets backticks, everyone else double quotes             | `quote`          |
+| `../quoting.ts:73`                 | `postgres` gets `$n`, everyone else `?`                         | `placeholder`    |
+| `../set-ops/index.ts:26`           | `postgres` renumbers placeholders across fragments              | `placeholder`    |
+| `../index.ts:227`                  | `VALUES(col)` on `mysql`, `EXCLUDED.col` elsewhere              | `upsert`         |
+| `../index.ts:269`                  | `INSERT IGNORE` versus `ON CONFLICT DO NOTHING`                 | `upsert`         |
+| `../index.ts:294`                  | `ON DUPLICATE KEY UPDATE` versus `ON CONFLICT DO UPDATE`        | `upsert`         |
+| `../../../migrations/src/index.ts` | a `varchar` with no length degrades to `TEXT` on `mysql`        | `types`          |
+| `../../../migrations/src/index.ts` | `serial` is `INT AUTO_INCREMENT` on `mysql`                     | `types`          |
+| `../schema-objects/index.ts:37`    | materialized view refused off `postgres`                        | `features`       |
+| `../schema-objects/index.ts:44`    | materialized view drop refused off `postgres`                   | `features`       |
+| `../schema-objects/index.ts:92`    | `ENABLE ROW LEVEL SECURITY` refused off `postgres`              | `features`       |
+| `../schema-objects/index.ts:96`    | `CREATE POLICY` refused off `postgres`                          | `features`       |
+| `../fts/index.ts:68`               | `sqlite` joins a companion table, and refuses without one       | `fts`            |
+| `../fts/index.ts:113`              | `to_tsvector … @@` on `postgres`, `MATCH … AGAINST` on the rest | `fts`            |
 
-Two dialect-keyed tables: `DDL_TYPES` (`../migrations/index.ts:145`) and `DIALECT_PARAM_LIMITS` (`../index.ts:39`).
+Two dialect-keyed tables: `DDL_TYPES` (`../schema-objects/index.ts`) and `DIALECT_PARAM_LIMITS` (`../index.ts:39`).
 
 And — the part the inventory was not looking for and the reason it was worth doing — **eight places that emit dialect-specific SQL with no branch at all.** These are not divergences waiting to be
 extended. They are one dialect's grammar shipped as if it were universal:
 
-| Site                            | Emits unconditionally                       | Already wrong on                       |
-| ------------------------------- | ------------------------------------------- | -------------------------------------- |
-| `../clauses.ts:178`             | `` ` LIMIT n` ``                            | nothing yet; `mssql` has no `LIMIT`    |
-| `../clauses.ts:179`             | `` ` OFFSET n` `` with no preceding `LIMIT` | **`mysql` and `sqlite`, today** (§3.3) |
-| `../index.ts:196`               | `` ` RETURNING …` ``                        | `mysql`, which has no `RETURNING`      |
-| `../migrations/index.ts:253`    | `ALTER COLUMN c TYPE t`                     | `mysql`, which spells it `MODIFY`      |
-| `../migrations/index.ts:262`    | `CREATE TABLE t ()` as the down of a drop   | `mysql`, `sqlite`, `mssql`             |
-| `../schema-objects/index.ts:58` | `CREATE SEQUENCE … START … INCREMENT`       | `mysql` and `sqlite` have no sequences |
-| `../schema-objects/index.ts:73` | `GENERATED ALWAYS AS (…) STORED`            | `mssql` spells it `AS (…) PERSISTED`   |
-| `../schema-objects/index.ts:23` | a partial index's `WHERE`                   | `mysql`, which has no filtered index   |
+| Site                               | Emits unconditionally                       | Already wrong on                       |
+| ---------------------------------- | ------------------------------------------- | -------------------------------------- |
+| `../clauses.ts:178`                | `` ` LIMIT n` ``                            | nothing yet; `mssql` has no `LIMIT`    |
+| `../clauses.ts:179`                | `` ` OFFSET n` `` with no preceding `LIMIT` | **`mysql` and `sqlite`, today** (§3.3) |
+| `../index.ts:196`                  | `` ` RETURNING …` ``                        | `mysql`, which has no `RETURNING`      |
+| `../../../migrations/src/index.ts` | `ALTER COLUMN c TYPE t`                     | `mysql`, which spells it `MODIFY`      |
+| `../../../migrations/src/index.ts` | `CREATE TABLE t ()` as the down of a drop   | `mysql`, `sqlite`, `mssql`             |
+| `../schema-objects/index.ts:58`    | `CREATE SEQUENCE … START … INCREMENT`       | `mysql` and `sqlite` have no sequences |
+| `../schema-objects/index.ts:73`    | `GENERATED ALWAYS AS (…) STORED`            | `mssql` spells it `AS (…) PERSISTED`   |
+| `../schema-objects/index.ts:23`    | a partial index's `WHERE`                   | `mysql`, which has no filtered index   |
 
 So the real inventory is **fourteen comparisons, two tables, and eight ungated emitters — twenty-four sites**, and the accurate reading is that the compiler is less dialect-aware than its three-member
 union suggests rather than more.
@@ -174,8 +174,8 @@ The #507 mechanism moves the inventoried behavior behind the table without chang
 - `../clauses.ts` delegates its tail to `TRAITS[d].paginate`; the shipped entries deliberately reproduce the old `LIMIT`/`OFFSET` strings byte for byte. The MySQL/SQLite offset correction is the
   golden change described in §3.3, not part of the mechanism-only slice.
 - `../index.ts` dispatches returning and upsert through traits. SQL Server's #508 slice supplies the named-part assembly required for middle-position `OUTPUT` and `MERGE` (§3.4–§3.5).
-- `../migrations/index.ts` reads the resolved type map, and `../schema-objects/index.ts` reads total feature flags. The shipped flags preserve current behavior; dialect-specific corrections land with
-  the dialects whose matrix rows require them.
+- `../../../migrations/src/index.ts` reads the SQL-owned type map, and `../schema-objects/index.ts` reads total feature flags. The shipped flags preserve current behavior; dialect-specific corrections
+  land with the dialects whose matrix rows require them.
 - The `Record<Dialect, …>` shape kept everywhere and never widened to `Partial`, since it is the only compile-time lever in the package (§1.1).
 
 The alternative — three more members and twenty-one more comparisons — costs less this week and produces a compiler where adding the seventh dialect means auditing twenty-four sites by hand for the
@@ -379,8 +379,8 @@ All ten `SqlType` members, because nine is how a dialect half-ships:
 | `jsonEnum`  | `NVARCHAR(MAX)`     | matches the other three, all of which use their widest text type            |
 
 `timestamp` is `DATETIMEOFFSET(3)` and **not `DATETIME2`**, which is what `docs-site/content/dialect-mssql.md:20` and the epic body both name. The rule this table follows was set by the Postgres entry
-and written into the comment above it at `../migrations/index.ts:154`: a `timestamp` column gets the dialect's zone-aware type where one with a usable range exists. Postgres gets `TIMESTAMPTZ` for
-that reason and MySQL gets `DATETIME(3)` only because its `TIMESTAMP` converts to the session zone and stops in 2038.
+and implemented through the SQL-owned type map in `../schema-objects/index.ts`: a `timestamp` column gets the dialect's zone-aware type where one with a usable range exists. Postgres gets
+`TIMESTAMPTZ` for that reason and MySQL gets `DATETIME(3)` only because its `TIMESTAMP` converts to the session zone and stops in 2038.
 
 SQL Server has `DATETIMEOFFSET`, which keeps the offset and has the full range, so choosing `DATETIME2` would be choosing to forget the offset on the one dialect that can store it. `(3)` is
 milliseconds, which is the precision a JavaScript `Date` carries; the driver returns a `Date` either way.
@@ -401,17 +401,16 @@ alter_column_type   ALTER TABLE [events] ALTER COLUMN [note] NVARCHAR(MAX) NOT N
 
 Three divergences in five ops, and the first two are shared with dialects that already ship:
 
-- **`ADD`, not `ADD COLUMN`.** T-SQL rejects the keyword. `../migrations/index.ts:249` emits it unconditionally, so this becomes a trait on the op emitter.
+- **`ADD`, not `ADD COLUMN`.** T-SQL rejects the keyword. `../../../migrations/src/index.ts` emits the SQL Server form explicitly.
 - **`ALTER COLUMN [c] <type> NULL|NOT NULL` with no `TYPE` keyword.** SQL Server requires nullability to be restated: omitting it turns an existing `NOT NULL` column nullable. Generated
   `alter_column_type` operations therefore carry both the old and new nullability so `up` and `down` preserve the schema; a hand-built SQL Server operation without that metadata is refused.
-  `../migrations/index.ts:253` emits the Postgres spelling for all dialects; MySQL wants `MODIFY COLUMN [c] <type>`; T-SQL wants the same words as Postgres minus one. This ungated site has been wrong
-  for MySQL all along and is fixed here rather than in a separate issue, because the traits table has nowhere to put "wrong for one dialect".
+  `../../../migrations/src/index.ts` emits `MODIFY COLUMN` for the MySQL family and the no-`TYPE` form with explicit nullability for SQL Server.
 - **`emitDown` of a `drop_table` is `CREATE TABLE t ()`**, and an empty column list is a syntax error outside Postgres. The `down` of a dropped table cannot be reconstructed from a `ChangeOp` — the
-  columns are gone — so the correct behaviour on every dialect is to emit a comment and refuse to run, which is what `../migrations/SPEC.md` §4's `-- zmdb:down` sentinel already provides a place for.
-  Named here because the matrix in §7 would otherwise need an `mssql` expectation for a statement that should not exist.
+  columns are gone — so the correct behaviour on every dialect is to emit a comment and refuse to run, which is what `../../../migrations/src/SPEC.md` §4's `-- zmdb:down` sentinel already provides a
+  place for. Named here because the matrix in §7 would otherwise need an `mssql` expectation for a statement that should not exist.
 
 `varchar` with no `Length<N>`: `NVARCHAR` alone defaults to one character in a DDL context, which is worse than either alternative, so it degrades to `NVARCHAR(MAX)` — the same degradation MySQL
-already does at `../migrations/index.ts:207`, for the same reason, in the same place.
+already applies in `../../../migrations/src/index.ts`, for the same reason.
 
 Sequences exist (`CREATE SEQUENCE … START WITH n INCREMENT BY n`, with `WITH` and `BY` where Postgres has neither), generated columns are `AS (expr) PERSISTED` rather than
 `GENERATED ALWAYS AS (expr) STORED`, and filtered indexes work unchanged. All three currently emit the Postgres spelling for every dialect.
@@ -638,8 +637,8 @@ The earliest a dialect-specific rule can fire is where the dialect is first in s
 shard key and the two ways out. That is still before deploy and it is still valuable — it is simply not the type system, and claiming otherwise on a docs page is how a user comes to trust a check that
 does not exist.
 
-Shard keys are also **immutable**: SingleStore has no `ALTER` that changes one. `ChangeOp` has five kinds (`../migrations/index.ts:34`) and none of them can express "the table options changed", so
-once table options are in the snapshot, `diff` will see a changed shard key and have nothing to emit.
+Shard keys are also **immutable**: SingleStore has no `ALTER` that changes one. `ChangeOp` intentionally has no table-options mutation arm, so `diff` refuses a changed shard key, sort key, or rowstore
+setting and tells the caller to create a replacement table and copy the data.
 
 It must **refuse** — naming the table and saying that a shard-key change means creating a new table and copying — rather than producing an empty diff, which would let a developer edit the declaration,
 generate nothing, and believe the change had shipped.
@@ -949,12 +948,12 @@ vendor-owned unit has one owner:
 | `dialects/index.ts`: SingleStore overrides (`serial`, foreign-key refusal)                                                                                          | `@zmdb/singlestore`                                                                                                                      | same                                                                     |
 | `index.ts`: six parameter-limit cells and database-specific RETURNING/upsert/table-function assembly                                                                | the package named by each cell or strategy                                                                                               | immutable builder state and statement assembly                           |
 | `clauses.ts`, `quoting.ts`, `set-ops/index.ts`, `expressions/index.ts`, `aggregations/index.ts`, `joins/index.ts`, `fts/index.ts`, `extensions/index.ts`            | each package owns its own strategy values, operator allow-list, FTS form and refusals                                                    | traversal, parameter collection and strategy invocation                  |
-| `migrations/index.ts`: PostgreSQL-family DDL, extensions, types, keys, constraints and ALTER forms                                                                  | `@zmdb/postgres`; Cockroach-only overrides in `@zmdb/cockroach`                                                                          | snapshot and ordered diff algorithms                                     |
-| `migrations/index.ts`: MySQL-family DDL, types, foreign-key indexes and ALTER forms                                                                                 | `@zmdb/mysql`; SingleStore-only storage/shard/sort/refusal logic in `@zmdb/singlestore`                                                  | snapshot and ordered diff algorithms                                     |
-| `migrations/index.ts`: SQLite DDL and ALTER/foreign-key refusals                                                                                                    | `@zmdb/sqlite`                                                                                                                           | snapshot and ordered diff algorithms                                     |
-| `migrations/index.ts`: SQL Server DDL, nullability restatement, OUTPUT-related forms and referential-action spelling                                                | `@zmdb/mssql`                                                                                                                            | snapshot and ordered diff algorithms                                     |
-| `migrations/runner.ts`: ledger DDL, quoting, placeholders and transactional-DDL choice                                                                              | each package's `MigrationDialect.connection`                                                                                             | version ordering, checksum verification and up/down/status orchestration |
-| `migrations/embedded.ts`: SQLite ledger probe and transaction protocol                                                                                              | `@zmdb/sqlite` browser-safe/embedded export                                                                                              | `EmbeddedMigration` data shape may remain generic                        |
+| `migrations/src/index.ts`: PostgreSQL-family DDL, extensions, types, keys, constraints and ALTER forms                                                              | `@zmdb/postgres`; Cockroach-only overrides in `@zmdb/cockroach`                                                                          | snapshot and ordered diff algorithms                                     |
+| `migrations/src/index.ts`: MySQL-family DDL, types, foreign-key indexes and ALTER forms                                                                             | `@zmdb/mysql`; SingleStore-only storage/shard/sort/refusal logic in `@zmdb/singlestore`                                                  | snapshot and ordered diff algorithms                                     |
+| `migrations/src/index.ts`: SQLite DDL and ALTER/foreign-key refusals                                                                                                | `@zmdb/sqlite`                                                                                                                           | snapshot and ordered diff algorithms                                     |
+| `migrations/src/index.ts`: SQL Server DDL, nullability restatement, OUTPUT-related forms and referential-action spelling                                            | `@zmdb/mssql`                                                                                                                            | snapshot and ordered diff algorithms                                     |
+| `migrations/src/runner.ts`: ledger DDL, quoting, placeholders and transactional-DDL choice                                                                          | each package's `MigrationDialect.connection`                                                                                             | version ordering, checksum verification and up/down/status orchestration |
+| `migrations/src/embedded.ts`: SQLite ledger probe and transaction protocol                                                                                          | `@zmdb/sqlite` browser-safe/embedded export                                                                                              | `EmbeddedMigration` data shape may remain generic                        |
 | `schema-objects/index.ts` and `schema-objects/extensions.ts`: per-database index, view, sequence, generated-column, schema, RLS, extension and routine SQL/refusals | the package named by each behavior; PostgreSQL family reuse only through `@zmdb/postgres`, MySQL family reuse only through `@zmdb/mysql` | public operation types and delegation wrappers                           |
 | `outbox/index.ts`: timestamp/default/text/table/index DDL spellings                                                                                                 | each database package's migration strategies                                                                                             | database-neutral outbox workflow and query shape                         |
 | `introspect/postgres.ts`                                                                                                                                            | `@zmdb/postgres`                                                                                                                         | none                                                                     |

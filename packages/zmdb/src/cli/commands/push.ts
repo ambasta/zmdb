@@ -1,118 +1,21 @@
-import { schemasFromFiles } from '@zmdb/aot-validator/testing';
-import { isSqlDialect } from '@zmdb/query-compiler';
-import { detectDrift } from '@zmdb/query-compiler/introspect';
 import {
-  diff,
-  emitUp,
-  snapshot,
-  type ChangeOp,
-  type ExtensionType,
-  type SchemaSnapshot,
-} from '@zmdb/query-compiler/migrations';
-import { driverMigrationConnection, type MigrationConnection } from '@zmdb/query-compiler/migrations/runner';
-import type { Driver } from '@zmdb/repository';
+  applyPush as applyMigrationPush,
+  isDestructive,
+  planPush as planMigrationPush,
+  type PushPlan,
+  type PushResult,
+} from '@zmdb/migrations/files';
 
 import type { ResolvedConfig } from '../../config/index.js';
-import { configuredDialect, configuredIntrospector } from '../database.js';
-import { configuredDriver } from './migrate.js';
+import { configuredMigrationDriver, reflectedMigrationProject } from '../migration-project.js';
 
-export interface PushPlan {
-  readonly ops: readonly ChangeOp[];
-  readonly statements: readonly string[];
-  readonly destructive: readonly string[];
-  readonly driver: Driver;
-  readonly connection: MigrationConnection;
-}
-
-export interface PushResult {
-  readonly ops: readonly ChangeOp[];
-  readonly statements: readonly string[];
-  readonly applied: boolean;
-}
+export { isDestructive, type PushPlan, type PushResult };
 
 export async function planPush(config: ResolvedConfig): Promise<PushPlan> {
-  const driver = await configuredDriver(config);
-  const dialect = configuredDialect(driver.dialect ?? config.dialect);
-  const declared = declaredSnapshot(config);
-  const introspector = configuredIntrospector(dialect);
-  const live = await introspector.snapshot(driver, config.introspect);
-  const normalizedLive = introspector.normalizeForDrift(live, 'live');
-  const normalizedDeclared = introspector.normalizeForDrift(declared, 'declared');
-  const drift = detectDrift(normalizedLive, normalizedDeclared, { dialect: config.dialect });
-  const ops = diff(normalizedLive, normalizedDeclared, { dialect: config.dialect });
-  const statements = ops.map(operation =>
-    isSqlDialect(dialect) ? emitUp(dialect.migrations, operation) : emitUp(operation, dialect),
-  );
-  const destructive = ops
-    .map((operation, index) => (isDestructive(operation) ? statements[index] : undefined))
-    .filter(statement => statement !== undefined);
-  if (drift.clean !== (ops.length === 0)) {
-    throw new Error('push planning disagreed with the drift detector');
-  }
-  return {
-    ops,
-    statements,
-    destructive,
-    driver,
-    connection: driverMigrationConnection(driver, dialect),
-  };
+  const driver = await configuredMigrationDriver(config);
+  return planMigrationPush(reflectedMigrationProject(config, driver));
 }
 
-export async function applyPush(plan: PushPlan, warning: (message: string) => void): Promise<PushResult> {
-  if (plan.statements.length === 0) return { ops: plan.ops, statements: plan.statements, applied: false };
-  if (plan.connection.transactionalDdl === false) {
-    const target = plan.connection.dialect;
-    const name = typeof target === 'string' ? target : (target?.name ?? 'database');
-    warning(
-      `${name} does not support transactional DDL; a failed push may leave only part of the printed plan applied`,
-    );
-  }
-
-  const run = async (connection: MigrationConnection = plan.connection): Promise<void> => {
-    for (const statement of plan.statements) await connection.exec(statement);
-  };
-  if (plan.connection.transaction === undefined) await run();
-  else await plan.connection.transaction(transaction => run(transaction ?? plan.connection));
-  return { ops: plan.ops, statements: plan.statements, applied: true };
-}
-
-/** Classify every current ChangeOp. New union members make this switch fail typechecking. */
-export function isDestructive(operation: ChangeOp): boolean {
-  switch (operation.kind) {
-    case 'create_extension':
-    case 'create_table':
-    case 'add_column':
-    case 'alter_primary_key':
-    case 'add_foreign_key':
-    case 'drop_foreign_key':
-      return false;
-    case 'drop_table':
-    case 'drop_column':
-      return true;
-    case 'alter_column_type':
-      return narrowsType(operation.from, operation.to);
-  }
-}
-
-function narrowsType(from: string | ExtensionType, to: string | ExtensionType): boolean {
-  if (typeof from !== 'string' || typeof to !== 'string') return true;
-  if (from === to) return false;
-  return !KNOWN_WIDENINGS.has(`${from}->${to}`);
-}
-
-const KNOWN_WIDENINGS = new Set([
-  'integer->bigint',
-  'integer->numeric',
-  'bigint->numeric',
-  'varchar->text',
-  'date->timestamp',
-]);
-
-function declaredSnapshot(config: ResolvedConfig): SchemaSnapshot {
-  return snapshot(
-    schemasFromFiles(config.schemaFiles, {
-      project: config.project,
-      naming: config.resolvedNaming,
-    }),
-  );
+export function applyPush(plan: PushPlan, warning: (message: string) => void): Promise<PushResult> {
+  return applyMigrationPush(plan, warning);
 }

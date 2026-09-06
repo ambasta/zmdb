@@ -5,8 +5,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 import { schemasFrom } from '@zmdb/aot-validator/testing';
-import { emitDeclarations, type CatalogSchemaSnapshot } from '@zmdb/query-compiler/introspect';
-import { snapshot, type ChangeOp, type SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+import { snapshot, type ChangeOp, type SchemaSnapshot } from '@zmdb/migrations';
+import { emitDeclarations } from '@zmdb/migrations/declarations';
+import type { CatalogSchemaSnapshot } from '@zmdb/migrations/introspect';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 

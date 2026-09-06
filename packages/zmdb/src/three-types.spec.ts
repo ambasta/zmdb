@@ -15,9 +15,9 @@
 
 import { schemaIrsFrom } from '@zmdb/aot-validator/testing';
 import { issuesFor } from '@zmdb/aot-validator/utilities';
+import { emitUp, snapshot, type ChangeOp } from '@zmdb/migrations';
 import { mssql } from '@zmdb/mssql';
 import type { Dialect } from '@zmdb/query-compiler';
-import { emitUp, snapshot, type ChangeOp } from '@zmdb/query-compiler/migrations';
 import type { PrimaryKey, Serial, Sql, Table } from '@zmdb/schema-core/tags';
 import { describe, expect, it } from 'vitest';
 

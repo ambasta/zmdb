@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import type { CatalogSchemaSnapshot } from '@zmdb/migrations/introspect';
 import type { CompiledQuery } from '@zmdb/query-compiler';
-import type { CatalogSchemaSnapshot } from '@zmdb/query-compiler/introspect';
 import { describe, expect, it } from 'vitest';
 
 import { mysqlIntrospector } from './introspect.js';

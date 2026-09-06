@@ -51,7 +51,7 @@ interface Post extends Table<'posts'> {
 type ReferentialAction = 'cascade' | 'restrict' | 'set null' | 'set default' | 'no action';
 ```
 
-`ColumnIR.references` is reflected both for relation resolution and for the migration snapshot. `../../../query-compiler/src/migrations/SPEC.md` §1.6 owns the constraint shape, statements and diff.
+`ColumnIR.references` is reflected both for relation resolution and for the migration snapshot. `../../../migrations/src/SPEC.md` §1.6 owns the constraint shape, statements and diff.
 
 Omitting both tags emits `NO ACTION`, explicitly rather than by leaving the clause off, because MySQL and Postgres both default to `NO ACTION` and writing it makes the emitted DDL say what the
 declaration means.

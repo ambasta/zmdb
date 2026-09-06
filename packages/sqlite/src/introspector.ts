@@ -1,3 +1,4 @@
+import type { ColumnSnapshot, SchemaSnapshot } from '@zmdb/migrations';
 import {
   action,
   CatalogRowError,
@@ -22,8 +23,7 @@ import {
   type IntrospectionDriver,
   type Introspector,
   type IntrospectOptions,
-} from '@zmdb/query-compiler/introspect/runtime';
-import type { ColumnSnapshot, SchemaSnapshot } from '@zmdb/query-compiler/migrations';
+} from '@zmdb/migrations/introspect/runtime';
 
 interface SqliteTable {
   readonly schema: string;

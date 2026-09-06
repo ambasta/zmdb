@@ -4,8 +4,9 @@
 
 ## Issue #635 target ownership
 
-The current package has 28 build-included TypeScript files and 13 export-map entries. The final owners are 15 files in `@zmdb/sql`, 11 in `@zmdb/migrations`, one naming helper in `@zmdb/schema`, and
-one outbox module in `@zmdb/orm`.
+The #635 freeze measured 28 build-included TypeScript files and 13 export-map entries. After #629 extracted schema lifecycle tooling, this package has 25 build-included TypeScript files and 9
+export-map entries. The remaining final target owners are `@zmdb/sql`, one naming helper in `@zmdb/schema`, and one outbox module in `@zmdb/orm`; the lifecycle implementation is already owned by
+`@zmdb/migrations`.
 
 `@zmdb/sql` has no dependencies, formatter, schema import, migration import, ORM import, external peer, or `node:*` import. The old package and every `@zmdb/query-compiler/*` path are deleted rather
 than forwarded. The exact file and export maps are frozen in `.github/scripts/verify-runtime-foundation.SPEC.md`.
@@ -432,16 +433,15 @@ Nesting the whole predicate tree remains the fix and a precondition for any non-
 
 ## 7. Tooling extraction (#626)
 
-Schema lifecycle tooling moves to [`../migrations/SPEC.md`](../migrations/SPEC.md). The measured current move is 20 shipped/build-input files: the eight non-fixture files under `src/introspect`, the
-three files under `src/migrations`, and nine reusable command/migration-file modules currently under `packages/zmdb/src/cli`.
+Schema lifecycle tooling now lives in [`../migrations/SPEC.md`](../migrations/SPEC.md). The implementation, tests, introspection fixture, reusable command operations, and migration-file utilities
+moved together in #629.
 
-This package retains 17 runtime SQL files and the generic database protocols frozen by the database vertical epic. It loses:
+This package retains query compilation, quoting, expressions, schema-object DDL, and the generic database protocols frozen by the database vertical epic. Its manifest no longer exports:
 
 - `./introspect`;
 - `./migrations`;
 - `./migrations/runner`;
-- `./migrations/embedded`; and
-- the required `oxfmt` dependency.
+- `./migrations/embedded`.
 
 There are no permanent forwarding owners. `@zmdb/migrations` depends on this package for query, quoting and database protocols; this package never depends on migrations, compiler or CLI. The SQL root,
-builders and database-protocol subpaths therefore remain formatter-, filesystem- and compiler-free. #721/#728 own any temporary compatibility interval.
+builders and database-protocol subpaths are formatter-, filesystem- and compiler-free, and the manifest has no `oxfmt` dependency.

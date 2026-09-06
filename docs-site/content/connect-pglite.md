@@ -33,7 +33,7 @@ closes that gap:
 
 ```ts
 import { beforeEach } from 'vitest';
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
+import { diff, emitUp, snapshot } from 'zmdb/migrations';
 
 let driver: Driver;
 

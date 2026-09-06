@@ -1,5 +1,5 @@
+import { up } from '@zmdb/migrations';
 import { mysql, mysqlDriver, mysqlIntrospector } from '@zmdb/mysql';
-import { up } from '@zmdb/query-compiler/migrations';
 import mysql2 from 'mysql2/promise';
 
 const urlText = process.env.ZMDB_MYSQL_URL;

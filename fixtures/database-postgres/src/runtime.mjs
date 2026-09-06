@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
+import { up } from '@zmdb/migrations';
 import {
   postgres,
   postgresDriver,
@@ -12,7 +13,6 @@ import {
 } from '@zmdb/postgres';
 import { createQueryCompiler } from '@zmdb/query-compiler';
 import { ftsSelectFrom } from '@zmdb/query-compiler/fts';
-import { up } from '@zmdb/query-compiler/migrations';
 import { outboxCandidatesQuery } from '@zmdb/query-compiler/outbox';
 import { Pool } from 'pg';
 

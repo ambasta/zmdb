@@ -14,6 +14,7 @@ const FIXTURE = join(ROOT, 'fixtures', 'database-sqlite');
 const PACKAGE_ROOT = join(ROOT, 'packages');
 const BUILD_ORDER = [
   '@zmdb/query-compiler',
+  '@zmdb/migrations',
   '@zmdb/schema-core',
   '@zmdb/ai',
   '@zmdb/aot-validator',
@@ -101,7 +102,7 @@ function verifyInstalledTree(app) {
     }
   }
   const dependencies = Object.keys(manifest.dependencies ?? {}).toSorted();
-  const expectedDependencies = ['@zmdb/query-compiler', '@zmdb/repository'];
+  const expectedDependencies = ['@zmdb/migrations', '@zmdb/query-compiler', '@zmdb/repository'];
   if (JSON.stringify(dependencies) !== JSON.stringify(expectedDependencies)) {
     throw new Error(
       `@zmdb/sqlite dependencies are [${dependencies.join(', ')}], expected [${expectedDependencies.join(', ')}]`,

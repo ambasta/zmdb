@@ -15,7 +15,7 @@ import type { ReflectDiagnostic } from './index.js';
 // away is a fixture nobody reads.
 //
 // `it.fails` for the frozen claims, with the current output recorded above each one. See
-// `@zmdb/query-compiler`'s `src/migrations/composite-keys.spec.ts` for why `it.fails` rather than
+// `@zmdb/migrations`'s `src/composite-keys.spec.ts` for why `it.fails` rather than
 // `.skip` or a stub.
 
 /**

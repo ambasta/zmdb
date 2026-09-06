@@ -6,8 +6,8 @@
 
 The issue proposing this asks for `up` to mean "upgrade a stored snapshot to the current format". `up` already means the opposite kind of thing in this project, twice:
 
-- `runCli('up' | 'down' | 'status', …)` in `@zmdb/query-compiler`'s migration runner **applies pending migrations**.
-- `@zmdb/query-compiler`'s `src/migrations/SPEC.md` §4 documents "CLI verbs: `create`, `up`, `down`, `status`".
+- `runCli('up' | 'down' | 'status', …)` in `@zmdb/migrations` **applies pending migrations**.
+- `@zmdb/migrations`'s [`src/SPEC.md`](../../../migrations/src/SPEC.md) §4 documents "CLI verbs: `create`, `up`, `down`, `status`".
 
 Two meanings of `up` in one product, one of which writes to a live database and one of which rewrites a JSON file. The tool this verb list was borrowed from has exactly this wart; there is no reason
 to import it. **`migrate` applies, `upgrade` rewrites the snapshot format, and `up` is not a command** — typing it exits 2 with a message naming both, because a user who types `zmdb up` expecting to
@@ -38,7 +38,7 @@ fifteen visible commands in three groups: ten read or write a database or the tr
 application's object graph.
 
 `embed` belongs to the first group because it reads the migration files, though it is the only verb there that neither connects nor writes into the schema tree. Its output is a module an application
-bundle imports, and the format belongs to `@zmdb/query-compiler` — see §4.1.
+bundle imports, and the format belongs to `@zmdb/migrations` — see §4.1.
 
 ## 2. Argument parsing and exit codes are already decided
 
@@ -125,8 +125,8 @@ text verbatim, and a SHA-256 digest of it.
 
 React Native and the browser have no filesystem and Metro cannot resolve a `.sql` file, so a device gets its migrations as bundle data or not at all.
 
-The format, the digest, the ledger and the runner are frozen in `@zmdb/query-compiler`'s `src/migrations/SPEC.md` §5; what belongs here is only that this is the command, and why it is not spelled
-another way.
+The format, the digest, the ledger and the runner are frozen in `@zmdb/migrations`'s [`src/SPEC.md`](../../../migrations/src/SPEC.md) §5; what belongs here is only that this is the command, and why it
+is not spelled another way.
 
 It is not `generate --embed`: `generate` diffs declarations against the stored snapshot and writes one migration file, and it never reads the directory. It is not `export --embed`: `export` writes DDL
 for the schema set to stdout (§9), from declarations rather than from files, for a human or a `psql` pipe rather than for a bundler. Either spelling would give a verb a second meaning, which is the
@@ -159,8 +159,9 @@ list is the only way to hand-finish the migration.
 `push` diffs declarations against the database and applies the DDL directly, with no migration file. It is for development, it prints the statements it is about to run before running any of them, and
 it refuses destructive operations without `--force` (§10).
 
-The consequence that will be mistaken for a bug: **a column rename requires `--force`.** `diff` reports a rename as a drop plus an add, and `src/migrations/SPEC.md` §1.4 already explains why it cannot
-do otherwise — two snapshots either side of a rename differ byte-for-byte the way a real drop and a real add do, and pairing them by shape would guess.
+The consequence that will be mistaken for a bug: **a column rename requires `--force`.** `diff` reports a rename as a drop plus an add, and
+[`packages/migrations/src/SPEC.md`](../../../migrations/src/SPEC.md) §1.4 already explains why it cannot do otherwise — two snapshots either side of a rename differ byte-for-byte the way a real drop
+and a real add do, and pairing them by shape would guess.
 
 So `push` sees a drop, refuses, and is right to: the operation it is being asked to perform really does delete a column's data.
 

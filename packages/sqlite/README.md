@@ -1,7 +1,7 @@
 # @zmdb/sqlite
 
 The complete SQLite vertical for zmdb: dialect metadata, DDL and migration refusals, catalog introspection, embedded migrations, and a structural `node:sqlite` driver. Its runtime dependency field
-contains only `@zmdb/query-compiler` and `@zmdb/repository`; no third-party database client is installed or imported by this package.
+contains only `@zmdb/migrations`, `@zmdb/query-compiler` and `@zmdb/repository`; no third-party database client is installed or imported by this package.
 
 ## Install
 

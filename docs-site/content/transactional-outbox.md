@@ -20,9 +20,9 @@ The outbox makes the publish a database write. A separate dispatcher reads only 
 defaults, partial index or MySQL's bounded key columns.
 
 ```ts
-import { snapshot, up } from '@zmdb/query-compiler/migrations';
 import { outboxMigration } from '@zmdb/query-compiler/outbox';
 import { OutboxSchema } from '@zmdb/repository/outbox';
+import { snapshot, up } from 'zmdb/migrations';
 
 const migration = outboxMigration(17, 'postgres');
 await up(connection, [migration]);

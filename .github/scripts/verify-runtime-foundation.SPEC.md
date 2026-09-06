@@ -1,4 +1,4 @@
-# Runtime foundation boundary policy — issue #635, amended by #656, #668, #669, #705, #706, #707, #708, #709, #710, #621, #670 and #672
+# Runtime foundation boundary policy — issue #635, amended by #656, #668, #669, #705, #706, #707, #708, #709, #710, #621, #670, #672 and #629
 
 This is the normative contract for the future `.github/scripts/verify-runtime-foundation.mjs`. Issue #635 changes specifications only: it does not add the verifier, move source, rename a package, or
 change a manifest.
@@ -21,17 +21,18 @@ Re-measured for issue #636 at `f7a938615baa2e4a3b06b4cda40de32b3f5079fc`. The th
 moved the protobuf/gRPC public calls and wire runtime out of the foundation candidates into zero-dependency `@zmdb/protobuf`; #705 added the provider-neutral AI edge used by the compiler; #706 and
 #707 moved the Anthropic and LangChain peers; #708 moved the Vercel adapter, export and peer out of schema-core; #709 moved the MCP client/server implementation and export; #710 moved the final
 provider-neutral and LangChain implementations out of schema-core and removed its four LLM exports; #669 moved the SQLite introspector and driver into its database package; #670 moved the PostgreSQL
-driver and fixture out of repository; and #672 moved SQL Server implementation out of the generic compiler and repository:
+driver and fixture out of repository; #672 moved SQL Server implementation out of the generic compiler and repository; and #629 moved the eleven generic lifecycle/introspection implementations into
+`@zmdb/migrations` while retaining only their structural protocols in query-compiler:
 
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              14 |                  9 |
-| `@zmdb/query-compiler` |                              34 |                 14 |
+| `@zmdb/query-compiler` |                              24 |                  9 |
 | `@zmdb/aot-validator`  |                              54 |                 14 |
 | `@zmdb/repository`     |                              18 |                  8 |
-| **Total**              |                         **120** |             **45** |
+| **Total**              |                         **110** |             **40** |
 
-The four manifests contain 22 dependency entries: 7 `dependencies`, 4 `peerDependencies`, and 11 `devDependencies`. They contain no `optionalDependencies`.
+The four manifests contain 25 dependency entries: 6 `dependencies`, 4 `peerDependencies`, and 15 `devDependencies`. They contain no `optionalDependencies`.
 
 Issues #670 and #672 add `@zmdb/postgres` and `@zmdb/mssql` before the hard foundation cutover. Their current inward package edges are explicit transitional boundaries; the ratchet does not recurse
 through those old package roots while checking the optional verticals. Every other non-foundation edge remains forbidden. Old-package imports in the database packages and packed fixtures stay explicit
@@ -39,7 +40,7 @@ baseline findings until the coordinated foundation and final database purge remo
 
 ## 2. Exact file ownership
 
-Every one of the 120 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
+Every one of the 110 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
 path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql` sections also record their package-owned production
 files outside that legacy input inventory.
 
@@ -131,23 +132,10 @@ packages/repository/src/jobs/index.ts
 
 Issue #709 moved the three MCP production files directly to `packages/mcp/src/`, so no old foundation file remains in this destination.
 
-### `@zmdb/migrations` — 11
+### `@zmdb/migrations` — 0 current legacy files
 
-```text
-packages/query-compiler/src/introspect/common.ts
-packages/query-compiler/src/introspect/drift.ts
-packages/query-compiler/src/introspect/emit.ts
-packages/query-compiler/src/introspect/index.ts
-packages/query-compiler/src/introspect/mysql.ts
-packages/query-compiler/src/introspect/postgres.ts
-packages/query-compiler/src/introspect/runtime.ts
-packages/query-compiler/src/introspect/tagged-property.ts
-packages/query-compiler/src/migrations/embedded.ts
-packages/query-compiler/src/migrations/index.ts
-packages/query-compiler/src/migrations/runner.ts
-```
-
-The SQLite introspector has moved to `@zmdb/sqlite`. The eleven files above remain the current generic migration/introspection ownership set until the tooling-package cutover.
+Issue #629 moved the eleven generic migration/introspection implementations into `packages/migrations/src/`. They no longer belong to the four-package legacy inventory; query-compiler retains only the
+structural `introspect/types.ts` and `migrations/types.ts` protocols listed under `@zmdb/sql`.
 
 ### `@zmdb/mssql` — 0
 
@@ -205,7 +193,7 @@ packages/schema-core/src/tags/index.ts
 The three fixture/`__testing__` files remain schema-test-owned and must stop being published. `dto/index.ts`, `relations/index.ts`, and the current root are mixed files; §3 assigns every exported
 member before those files are split.
 
-### `@zmdb/sql` — 23
+### `@zmdb/sql` — 22
 
 ```text
 packages/query-compiler/src/aggregations/index.ts

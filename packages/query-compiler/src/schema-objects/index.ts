@@ -1,8 +1,16 @@
-import { builtInDialect, requireDialectFeature, TRAITS } from '../dialects/index.js';
+import {
+  builtInDialect,
+  requireDialectFeature,
+  TRAITS,
+  type BuiltInDialect,
+  type DialectSqlType,
+  type DialectTypeMap,
+  type MigrationDialect,
+} from '../dialects/index.js';
 import { UnsupportedFeatureError } from '../errors.js';
 // Schema-object DDL emitters — see ./SPEC.md. Pure, dialect-aware.
 import type { Dialect } from '../index.js';
-import { ddlType } from '../migrations/index.js';
+import type { ColumnSnapshot, ExtensionType } from '../migrations/types.js';
 import { quoteIdentifier } from '../quoting.js';
 import type {
   GeneratedColumn,
@@ -29,6 +37,109 @@ export type {
   SequenceDef,
   ViewDef,
 } from './types.js';
+
+function isMigrationDialect(value: unknown): value is MigrationDialect {
+  if (value === null || typeof value !== 'object') return false;
+  return (
+    typeof Reflect.get(value, 'name') === 'string' &&
+    typeof Reflect.get(value, 'ddlType') === 'function' &&
+    typeof Reflect.get(value, 'emitUp') === 'function' &&
+    typeof Reflect.get(value, 'emitDown') === 'function'
+  );
+}
+
+/** Backward-compatible view of the type maps owned by the resolved traits registry. */
+export const DDL_TYPES: Readonly<Record<BuiltInDialect, DialectTypeMap>> = Object.freeze({
+  postgres: TRAITS.postgres.types,
+  mysql: TRAITS.mysql.types,
+  sqlite: TRAITS.sqlite.types,
+  cockroach: TRAITS.cockroach.types,
+  singlestore: TRAITS.singlestore.types,
+});
+
+export type DdlSqlType = DialectSqlType;
+
+function ddlScalarType(dialect: BuiltInDialect, type: string): string {
+  const types: Readonly<Record<string, string>> = TRAITS[dialect].types;
+  return types[type] ?? type;
+}
+
+const EXTENSION_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function extensionTypeDdl(type: ExtensionType): string {
+  if (!EXTENSION_IDENTIFIER.test(type.name)) {
+    throw new TypeError(`extension type name ${JSON.stringify(type.name)} is not a SQL identifier`);
+  }
+  const args = type.args ?? [];
+  const rendered = args.map(argument => {
+    if (typeof argument === 'number' && Number.isFinite(argument)) return String(argument);
+    if (typeof argument === 'string' && EXTENSION_IDENTIFIER.test(argument)) return argument;
+    throw new TypeError(
+      `extension type ${type.name} argument ${JSON.stringify(argument)} must be a finite number or SQL identifier`,
+    );
+  });
+  return `${type.name}${rendered.length === 0 ? '' : `(${rendered.join(',')})`}`;
+}
+
+function unsupportedExtensionType(
+  dialect: BuiltInDialect,
+  type: ExtensionType,
+  column: string,
+  table?: string,
+): UnsupportedFeatureError {
+  const rendered = extensionTypeDdl(type);
+  const location = table === undefined ? `column "${column}"` : `"${table}"."${column}"`;
+  return new UnsupportedFeatureError(
+    `extension type ${rendered}`,
+    dialect,
+    `${dialect} does not support the extension type ${rendered} on ${location} (extension \`${type.extension}\`); ` +
+      'there is no equivalent, and storing it as TEXT would produce a value the database cannot use',
+  );
+}
+
+/**
+ * The dialect's spelling of an abstract type or one column's complete type.
+ *
+ * Kept with runtime schema-object SQL so the hot-path package exposes only the
+ * structural DDL primitive that the migrations package injects.
+ */
+export function ddlType(migrations: MigrationDialect, column: ColumnSnapshot): string;
+export function ddlType(dialect: Dialect, type: string): string;
+export function ddlType(dialect: Dialect, column: ColumnSnapshot): string;
+export function ddlType(
+  dialectOrMigrations: Dialect | MigrationDialect,
+  typeOrColumn: string | ColumnSnapshot,
+): string {
+  if (isMigrationDialect(dialectOrMigrations)) {
+    if (typeof typeOrColumn === 'string') {
+      throw new TypeError('an injected migration dialect requires a complete ColumnSnapshot');
+    }
+    return dialectOrMigrations.ddlType(typeOrColumn);
+  }
+  const dialect = builtInDialect(dialectOrMigrations);
+  const isColumn = typeof typeOrColumn !== 'string';
+  const column = isColumn ? typeOrColumn : undefined;
+  const type = isColumn ? typeOrColumn.type : typeOrColumn === 'serial' ? 'integer' : typeOrColumn;
+  if (typeof type !== 'string') {
+    if (dialect !== 'postgres') throw unsupportedExtensionType(dialect, type, column?.name ?? 'unknown');
+    return extensionTypeDdl(type);
+  }
+  const mapped = ddlScalarType(dialect, type);
+
+  if (type === 'varchar') {
+    if (column?.length !== undefined && mapped === 'VARCHAR') {
+      return `${mapped}(${column.length})`;
+    }
+    if (TRAITS[dialect].family === 'mysql') return 'TEXT';
+    return mapped;
+  }
+
+  if (column?.type === 'serial') {
+    return !column.primaryKey && mapped.endsWith('AUTO_INCREMENT') ? `${mapped} UNIQUE` : mapped;
+  }
+
+  return mapped;
+}
 
 export function quoteId(dialect: Dialect, id: string): string {
   return quoteIdentifier(dialect, id);

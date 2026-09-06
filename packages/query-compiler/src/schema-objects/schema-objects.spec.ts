@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { ddlType } from '../migrations/index.js';
 import {
   createExtensionDdl,
   createIndexDdl,
@@ -11,6 +10,7 @@ import {
   routineFingerprint,
   type RoutineDef,
   UnsupportedFeatureError,
+  ddlType,
 } from './index.js';
 
 describe('extension DDL (frozen: schema-objects/SPEC.md 7)', () => {

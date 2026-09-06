@@ -58,7 +58,7 @@ A regression here is invisible in a functional test — the results stay correct
 
 ```ts
 import { DatabaseSync } from 'node:sqlite';
-import { snapshot, diff, emitUp } from '@zmdb/query-compiler/migrations';
+import { diff, emitUp, snapshot } from 'zmdb/migrations';
 
 export function freshDb() {
   const db = new DatabaseSync(':memory:');

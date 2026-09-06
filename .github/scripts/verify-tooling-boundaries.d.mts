@@ -19,6 +19,7 @@ export const TARGET_TOOLING_EXPORTS: Readonly<{
     './embedded',
     './files',
     './introspect',
+    './introspect/runtime',
     './runner',
     './testing',
   ];
@@ -87,6 +88,7 @@ export interface ToolingBoundaryResult {
   readonly runtimeViolations: readonly ToolingViolation[];
   readonly generatedViolations: readonly ToolingViolation[];
   readonly embeddedViolations: readonly ToolingViolation[];
+  readonly formatterViolations: readonly ToolingViolation[];
   readonly binOwners: readonly string[];
 }
 

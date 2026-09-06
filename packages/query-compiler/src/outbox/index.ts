@@ -7,7 +7,6 @@ import {
   type DialectOutbox,
   type DialectTarget,
 } from '../index.js';
-import type { Migration } from '../migrations/runner.js';
 import { quoteIdentifier } from '../quoting.js';
 import { createIndexDdl } from '../schema-objects/index.js';
 
@@ -15,6 +14,13 @@ export const OUTBOX_TABLE = 'zmdb_outbox';
 export type OutboxStatus = 'pending' | 'delivered' | 'dead';
 
 const PENDING: OutboxStatus = 'pending';
+
+export interface OutboxMigration {
+  readonly version: number;
+  readonly name: string;
+  readonly up: string;
+  readonly down: string;
+}
 
 /**
  * Most dialects index only pending rows. Dialects that cannot represent the
@@ -88,7 +94,7 @@ export function outboxTableDdl(dialect: DialectTarget): string {
 }
 
 /** A normal migration value applications can place in their ordered migration list. */
-export function outboxMigration(version: number, dialect: DialectTarget): Migration {
+export function outboxMigration(version: number, dialect: DialectTarget): OutboxMigration {
   return {
     version,
     name: 'create_zmdb_outbox',
