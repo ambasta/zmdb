@@ -528,29 +528,30 @@ async function runModules(parsed: ParsedCommand, io: RuntimeEnvironment): Promis
     return output.failure('--json and --format ask for opposite output shapes', 2);
   }
 
+  let root: ModuleClass;
   try {
-    const root = await loadRootModule(options.moduleSpec, io.cwd);
-
-    const { describeGraph, renderDot, renderTree } = await import('@zmdb/web/devtools');
-    const graph = describeGraph(root);
-    const exitCode = graph.findings.some(finding => finding.severity === 'error') ? 1 : 0;
-    if (parsed.json) return output.result(graph, '', exitCode);
-
-    let rendered: string;
-    try {
-      rendered = options.format === 'dot' ? renderDot(graph, options.filter) : renderTree(graph, options.filter);
-    } catch (error) {
-      return output.failure(errorMessage(error), 2);
-    }
-    if (options.format === 'dot') {
-      for (const finding of graph.findings) {
-        output.writeStderr(`${finding.severity}: ${finding.kind}: ${finding.message}\n`);
-      }
-    }
-    return output.result(graph, rendered, exitCode);
+    root = await loadRootModule(options.moduleSpec, io.cwd);
   } catch (error) {
-    return output.failure(errorMessage(error), error instanceof CliInvocationError ? 2 : 1);
+    return output.failure(errorMessage(error), 2);
   }
+
+  const { describeGraph, renderDot, renderTree } = await import('@zmdb/web/devtools');
+  const graph = describeGraph(root);
+  const exitCode = graph.findings.some(finding => finding.severity === 'error') ? 1 : 0;
+  if (parsed.json) return output.result(graph, '', exitCode);
+
+  let rendered: string;
+  try {
+    rendered = options.format === 'dot' ? renderDot(graph, options.filter) : renderTree(graph, options.filter);
+  } catch (error) {
+    return output.failure(errorMessage(error), 2);
+  }
+  if (options.format === 'dot') {
+    for (const finding of graph.findings) {
+      output.writeStderr(`${finding.severity}: ${finding.kind}: ${finding.message}\n`);
+    }
+  }
+  return output.result(graph, rendered, exitCode);
 }
 
 function parseModules(parsed: ParsedCommand, cwd: string): ModulesOptions | { readonly error: string } {
@@ -609,7 +610,7 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
   try {
     const { createReplSession, replHistoryPath } = await import('./repl.js');
     await withSignals(async until => {
-      await using session = await createReplSession(root, {
+      const session = await createReplSession(root, {
         configPath: parsed.config,
         moduleSpec: options.moduleSpec,
         cwd: io.cwd,
@@ -619,7 +620,11 @@ async function runRepl(parsed: ParsedCommand, io: RuntimeEnvironment): Promise<n
         historyPath: options.history ? replHistoryPath(io.environment, io.homeDirectory) : null,
         terminal: io.stdinIsTTY && streamIsTTY(io.output),
       });
-      await Promise.race([session.closed, until]);
+      try {
+        await Promise.race([session.closed, until]);
+      } finally {
+        await session[Symbol.asyncDispose]();
+      }
     });
     return 0;
   } catch (error) {
