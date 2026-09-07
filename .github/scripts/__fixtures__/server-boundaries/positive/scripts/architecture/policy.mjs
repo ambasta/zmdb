@@ -13,6 +13,7 @@ export const PACKAGE_POLICY = Object.freeze({
   app: row('packages/app'),
   jobs: row('packages/jobs', ['app']),
   'jobs-postgres': row('packages/jobs-postgres', ['jobs']),
+  'jobs-sqlite': row('packages/jobs-sqlite', ['jobs']),
   otel: row('packages/otel', ['app']),
   protobuf: row('packages/protobuf'),
   'transport-grpc': row('packages/transport-grpc', ['app', 'protobuf']),

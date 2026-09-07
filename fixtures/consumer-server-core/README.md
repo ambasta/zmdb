@@ -2,8 +2,8 @@
 
 This fixture is the external package boundary for issues #646, #651, and #755. It deliberately has no workspace protocol, compiler `paths`, or source-relative import into the monorepo.
 
-`verify-installed.mjs --jobs` packs only the explicitly selected `@zmdb/jobs` dependency closure, typechecks worker/scheduler/extension usage with no source mappings, imports every jobs subpath,
-composes `jobsExtension` through the real `@zmdb/app` lifecycle, and runs the SQLite memory backend and one worker from the installed tarballs.
+`verify-installed.mjs --jobs` packs the explicitly selected `@zmdb/jobs` and `@zmdb/jobs-sqlite` dependency closure, typechecks worker/scheduler/extension usage with no source mappings, imports every
+jobs subpath, composes `jobsExtension` through the real `@zmdb/app` lifecycle, and runs the SQLite memory backend and one worker from the installed tarballs.
 
 `--plain` packs the current `zmdb` closure and proves that a normal product install contains no optional server package or server peer.
 

@@ -1,7 +1,7 @@
 {
   "name": "@zmdb/jobs",
   "version": "1.0.0-alpha.4",
-  "description": "Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.",
+  "description": "Portable typed queues, workers, scheduling, leases, and application lifecycle integration.",
   "keywords": [
     "cron",
     "jobs",
@@ -31,7 +31,6 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./memory": "./src/queues/backends/memory.ts",
     "./schedule": "./src/schedule/index.ts"
   },
   "publishConfig": {
@@ -43,10 +42,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zmdb/app": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^",
-    "@zmdb/sqlite": "workspace:1.0.0-alpha.4"
+    "@zmdb/app": "workspace:^"
   },
   "devDependencies": {
     "typescript": "7.0.2"

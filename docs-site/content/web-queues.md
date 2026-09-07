@@ -32,8 +32,8 @@ enqueue and duplicate delivery matter.
 Marker cleanup is deliberately application policy. Retention must exceed the retry and manual-replay horizon, and the framework cannot infer either value. The shipped scheduler can trigger cleanup,
 but it does not choose the retention interval.
 
-`@zmdb/jobs` owns queue, worker, retry, dead-letter, scheduling, and lifecycle behavior. It has no `pg` peer. PostgreSQL storage is separately installed as `@zmdb/jobs-postgres` with its sole peer
-`pg@^8.23.0`; neither is part of the `zmdb` default install.
+`@zmdb/jobs` owns queue, worker, retry, dead-letter, scheduling, and lifecycle behavior. It has no `pg` peer. PostgreSQL storage is separately installed as `@zmdb/jobs-postgres` with required peers
+`@zmdb/jobs@1.0.0-alpha.4` and `pg@^8.23.0`; neither is part of the `zmdb` default install.
 
 ## What ships
 
@@ -42,19 +42,18 @@ The queue has two public constructors:
 - `createQueue<Jobs>({ store, clock })` inserts typed jobs, including delayed jobs and enqueue-side deduplication.
 - `createWorker<Jobs>(options)` claims jobs under a lease, validates at consume, applies bounded retries, exposes dead letters and drains on shutdown.
 
-The durable declarations are `JobRow` and `JobDoneRow` from `@zmdb/repository/jobs`. Generate their tables through the same tagged-schema migration path as application tables, and include
-`jobPendingIndexDdl(dialect)`. The pending index is partial on the Postgres family, SQLite and SQL Server, and status-leading on the MySQL family. The supported in-memory backend installs the same
-shape automatically because it is ephemeral test storage.
+Each selected provider exports its fresh queue, completion-marker and scheduling-lease migrations: `jobsSqliteMigrations` from `@zmdb/jobs-sqlite` or `jobsPostgresMigrations` from
+`@zmdb/jobs-postgres`. Apply these before starting durable workers. The memory provider applies its SQLite migrations automatically.
 
-`JobStore` is structural: a zmdb `Driver` satisfies it directly, and a transaction satisfies `enqueueInTransaction`. Core jobs ships one isolated SQLite memory backend and no external client or
-runtime peer.
+`JobStore` exposes domain operations for enqueueing, claiming, settlement, dead letters and replay. Core jobs uses those operations without accepting a raw database driver. Transactional enqueueing
+takes a provider-created `JobEnqueuer` bound to the caller's connection.
 
 ## Choosing a backend
 
 For tests and local process-only work, the memory backend is ready immediately:
 
 ```ts
-import { createMemoryJobStore } from '@zmdb/jobs/memory';
+import { createMemoryJobStore } from '@zmdb/jobs-sqlite';
 
 using store = createMemoryJobStore();
 ```
@@ -62,8 +61,8 @@ using store = createMemoryJobStore();
 It creates `zmdb_job`, `zmdb_job_done`, the unique `dedupe_key` constraint and the pending-claim index in a fresh `node:sqlite` `:memory:` database. `store.database` is exposed for deterministic seed
 and assertion queries. Closing or disposing the store destroys all rows.
 
-For durable storage, pass the same structural `Driver` or transaction connection the application already owns. Core jobs does not open, wrap, or close an external database client. Apply the
-`JobRow`/`JobDoneRow` migration first and keep connection lifecycle with the database owner.
+For durable SQLite storage, pass a caller-owned SQLite connection to `createSqliteJobStore` from `@zmdb/jobs-sqlite`. For PostgreSQL, pass a pool or client to `createPgJobStore`. Ordinary stores own
+their required transactions; use `sqliteJobEnqueuer` or `pgJobEnqueuer` for enqueueing inside an application transaction. Borrowed connections remain caller-owned.
 
 For a caller-owned node-postgres pool, install the dedicated adapter:
 
@@ -126,10 +125,10 @@ const sendEmail: JobHandler<Jobs, 'email.send'> = {
   },
 };
 
-const queue = createQueue<Jobs>({ store: driver, clock });
+const queue = createQueue<Jobs>({ store, clock });
 const worker = createWorker<Jobs>({
   handlers: [sendEmail],
-  store: driver,
+  store,
   clock,
   concurrency: 8,
   graceMs: 10_000,
@@ -140,7 +139,7 @@ const worker = createWorker<Jobs>({
 
 await queue.enqueue('email.send', { userId: 42 });
 
-const backgroundWork = jobsExtension({ workers: [worker] });
+const backgroundWork = jobsExtension({ workers: [worker], stores: [store] });
 ```
 
 Registration is explicit and by value. `createWorker` builds one dispatch `Map` at startup; there is no module scan, decorator side effect or process-global registry. Build handlers through the
@@ -152,17 +151,16 @@ is installed.
 
 ## Transactions, delay and enqueue deduplication
 
-Use the transaction overload when creating a row and its job must be atomic:
+When creating a row and its job must be atomic, use the same pinned PostgreSQL client for the application write and the provider enqueuer. The caller opens, commits or rolls back that transaction:
 
 ```ts
-await db.transaction(async tx => {
-  const order = await orderRepo.withTransaction(tx).create(dto);
-  await queue.enqueueInTransaction(tx, 'audit.write', { message: `order ${order.id} created` }, { dedupeKey: `order-created:${order.id}` });
-});
+import { pgJobEnqueuer } from '@zmdb/jobs-postgres';
+
+await queue.enqueueInTransaction(pgJobEnqueuer(client), 'email.send', { userId: 42 }, { dedupeKey: 'welcome:42' });
 ```
 
-A repeated `dedupeKey` returns the original job id. The unique `dedupe_key` column is the race-safe part; the read before insert only avoids an expected constraint error in the ordinary repeated-call
-path.
+A repeated `dedupeKey` returns the original job id. The provider inserts under the unique `dedupe_key` constraint and reads the existing row when that specific conflict occurs. Other constraint
+failures propagate.
 
 `delayMs` writes the lease into the future:
 
@@ -224,8 +222,8 @@ If the final lease write fails, the original lease still expires and another wor
 
 ## Backend boundary
 
-The worker has one SQL-shaped `JobStore` state machine. The built-in memory backend implements it with `node:sqlite`. External database and broker integrations are separately installed packages or
-application-owned structural adapters; Redis, SQS and BullMQ are not hidden dependencies or aliases for this SQL contract.
+The worker owns one portable queue state machine over domain-shaped `JobStore` methods. The separately selected SQLite and PostgreSQL providers own SQL, fresh schema, atomic claims and settlement, and
+renewable leases. The SQLite package also owns memory storage. Redis, SQS and BullMQ are not dependencies of this capability.
 
 Recurring work remains [Task Scheduling](./web-task-scheduling.html). The scheduler should enqueue short, deduplicated jobs rather than perform durable work in its lease-holding callback.
 

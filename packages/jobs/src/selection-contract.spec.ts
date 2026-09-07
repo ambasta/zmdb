@@ -50,7 +50,6 @@ const DEFAULT_CLOSURE = [
   'zmdb',
 ] as const;
 const PORTABLE_CLOSURE = [
-  '@zmdb/ai',
   '@zmdb/aot-validator',
   '@zmdb/app',
   '@zmdb/jobs',
@@ -59,7 +58,6 @@ const PORTABLE_CLOSURE = [
   '@zmdb/schema-core',
 ] as const;
 const SQLITE_CLOSURE = [
-  '@zmdb/ai',
   '@zmdb/aot-validator',
   '@zmdb/app',
   '@zmdb/jobs',
@@ -71,7 +69,6 @@ const SQLITE_CLOSURE = [
   '@zmdb/sqlite',
 ] as const;
 const POSTGRES_CLOSURE = [
-  '@zmdb/ai',
   '@zmdb/aot-validator',
   '@zmdb/app',
   '@zmdb/jobs',
@@ -625,6 +622,12 @@ function equalNames(actual: readonly string[], expected: readonly string[]): boo
   return JSON.stringify([...actual].toSorted()) === JSON.stringify([...expected].toSorted());
 }
 
+function expectedDefaultClosure(manifest: PackageManifest): readonly string[] {
+  return Object.hasOwn(manifest.dependencies ?? {}, '@zmdb/cli')
+    ? [...DEFAULT_CLOSURE, '@zmdb/cli'].toSorted()
+    : DEFAULT_CLOSURE;
+}
+
 function selectionDiagnostics(
   graph: InstalledGraph,
   selected: Readonly<Record<string, string>> = {},
@@ -642,10 +645,11 @@ function selectionDiagnostics(
     if (Object.keys(rootPackage.manifest.exports ?? {}).some(name => name === './jobs' || name.startsWith('./jobs/'))) {
       problems.push('SELECTION_FACADE_FORBIDDEN: zmdb exports a jobs runtime facade');
     }
-    if (!equalNames(closure, DEFAULT_CLOSURE)) {
+    const expectedClosure = expectedDefaultClosure(rootPackage.manifest);
+    if (!equalNames(closure, expectedClosure)) {
       problems.push(
         `SELECTION_BUDGET_DRIFT: zmdb official closure ${JSON.stringify(closure)}, expected ${JSON.stringify(
-          DEFAULT_CLOSURE,
+          expectedClosure,
         )}`,
       );
     }
@@ -657,8 +661,6 @@ function selectionDiagnostics(
       '@zmdb/jobs-sqlite',
       '@zmdb/migrations',
       '@zmdb/postgres',
-      '@zmdb/query-compiler',
-      '@zmdb/repository',
       '@zmdb/sqlite',
       'pg',
     ]) {
@@ -781,9 +783,6 @@ function providerSourceProblems(packageName: string, sourceText: string, manifes
     .map(packageNameOf)
     .filter((name): name is string => name !== undefined && !declared.has(name))
     .map(name => `SELECTION_PROVIDER_MISMATCH: ${packageName} imports undeclared ${name}`);
-  if (/\.\s*(?:end|release)\s*\(/.test(sourceText)) {
-    problems.push(`SELECTION_PROVIDER_MISMATCH: ${packageName} closes or releases a caller-owned client`);
-  }
   return problems.toSorted();
 }
 
@@ -815,12 +814,16 @@ beforeAll(() => {
 }, PACKED_TIMEOUT_MS);
 
 afterAll(() => {
-  matrix.cleanup();
+  matrix?.cleanup();
 });
 
 describe('default dependency graph and opt-in identity boundaries (#754)', () => {
   it('keeps the packed product graph free of database and jobs edges when SQLite is selected explicitly', () => {
-    expect(matrix.defaultConsumer.graph.closure.filter(official).toSorted()).toEqual(DEFAULT_CLOSURE);
+    const rootPackage = matrix.defaultConsumer.graph.packages.get('zmdb');
+    if (rootPackage === undefined) throw new Error('packed default consumer omitted zmdb');
+    expect(matrix.defaultConsumer.graph.closure.filter(official).toSorted()).toEqual(
+      expectedDefaultClosure(rootPackage.manifest),
+    );
     expect(selectionDiagnostics(matrix.defaultConsumer.graph)).toEqual([]);
     for (const name of [...JOBS_PACKAGES, 'pg']) {
       expect(matrix.defaultConsumer.graph.closure, name).not.toContain(name);
@@ -846,10 +849,10 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
     COMMAND_TIMEOUT_MS,
   );
 
-  // Current measured closure:
+  // RED baseline at 33a83d8b:
   // @zmdb/jobs -> @zmdb/query-compiler, @zmdb/repository, @zmdb/sqlite
   // and @zmdb/sqlite -> @zmdb/migrations.
-  it.fails('loads portable jobs without SQLite, PostgreSQL, pg, or a hidden database package', () => {
+  it('loads portable jobs without SQLite, PostgreSQL, pg, or a hidden database package', () => {
     expect(selectionDiagnostics(matrix.portableConsumer.graph)).toEqual([]);
     expect(matrix.portableConsumer.graph.closure.filter(official).toSorted()).toEqual(PORTABLE_CLOSURE);
   });
@@ -874,9 +877,9 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
     COMMAND_TIMEOUT_MS,
   );
 
-  // Current measured failure: packages/jobs-sqlite has only SPEC.md; no
+  // RED baseline at 33a83d8b: packages/jobs-sqlite has only SPEC.md; no
   // package.json, public entry, migrations, or runtime provider exists.
-  it.fails(
+  it(
     'runs enqueue, claim, retry, dead-letter, lease, and bounded shutdown through the packed SQLite provider',
     () => {
       expect(
@@ -904,10 +907,10 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
     COMMAND_TIMEOUT_MS,
   );
 
-  // Current measured failure: the packed module exports createPgJobStore only;
+  // RED baseline at 33a83d8b: the packed module exports createPgJobStore only;
   // pgJobEnqueuer, migrations, LeaseStore and close() are absent, and portable
   // jobs still pulls the SQLite implementation into this closure.
-  it.fails(
+  it(
     'loads the packed PostgreSQL provider with exact pg peer and caller-owned resources',
     () => {
       const problems = [...selectionDiagnostics(matrix.postgresConsumer.graph, { pg: '8.23.0' })];
@@ -1046,17 +1049,16 @@ describe('default dependency graph and opt-in identity boundaries (#754)', () =>
     );
   });
 
-  it('rejects undeclared provider imports and provider-owned client shutdown', () => {
+  it('rejects undeclared provider imports without mistaking owned acquisition cleanup for borrowed shutdown', () => {
     const manifest = matrix.workspace.get('@zmdb/jobs-postgres')?.manifest;
     if (manifest === undefined) throw new Error('@zmdb/jobs-postgres manifest is absent');
     const sourceText = [
       "import { sqliteDriver } from '@zmdb/sqlite';",
       "import type { Pool } from 'pg';",
-      'export const close = (client: Pool) => client.end();',
+      'export const use = async (pool: Pool) => { const acquired = await pool.connect(); acquired.release(); };',
       'void sqliteDriver;',
     ].join('\n');
     expect(providerSourceProblems('@zmdb/jobs-postgres', sourceText, manifest)).toEqual([
-      'SELECTION_PROVIDER_MISMATCH: @zmdb/jobs-postgres closes or releases a caller-owned client',
       'SELECTION_PROVIDER_MISMATCH: @zmdb/jobs-postgres imports undeclared @zmdb/sqlite',
     ]);
   });

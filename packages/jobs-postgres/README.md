@@ -2,7 +2,8 @@
 
 `@zmdb/jobs-postgres` adapts a caller-owned node-postgres `Pool`, `PoolClient`, or `Client` to the `JobStore` port from `@zmdb/jobs`.
 
-The adapter creates no connection and exposes no close method. The caller retains ownership of the PostgreSQL client and its lifecycle.
+The caller retains ownership of the supplied PostgreSQL pool or client. Apply `jobsPostgresMigrations` explicitly before use. `store.close({ graceMs })` stops admission and drains or cancels
+operations under a bounded deadline; only internally acquired pool connections are released.
 
 ## Install
 
@@ -12,7 +13,8 @@ npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
 
 > **Prerelease** (`1.0.0-alpha.4`, published under the `alpha` dist-tag). Requires **Node.js 26+** and is **ESM-only**. Ships built ESM `.js` + `.d.ts` under `./dist`.
 
-The sole peer is `pg@^8.23.0`. Neither it nor this adapter is installed by `npm add zmdb@alpha`; `@zmdb/jobs` remains the owner of queues, workers, schemas, retries, and scheduling.
+The required peers are `@zmdb/jobs@1.0.0-alpha.4` and `pg@^8.23.0`. Neither jobs, pg nor this adapter is installed by `npm add zmdb@alpha`. Portable jobs owns queues, workers, retries and scheduling;
+the provider owns its fresh schema.
 
 ## Usage
 
@@ -34,11 +36,12 @@ void store;
 ```
 
 `prepared` and `maxCacheSize` preserve the bounded prepared-statement behavior of the zmdb PostgreSQL driver. `cancelVia` may name a caller-owned client that can cancel work through a second
-connection. The adapter never calls `end()` or `release()`; the caller performs that shutdown after workers have drained.
+connection. For the borrowed pool or client, the adapter never calls `end()` or `release()`; the caller performs that shutdown after workers have drained. Internally acquired pool clients are released
+after their operations finish or are cancelled.
 
 ## Entry points
 
-- `@zmdb/jobs-postgres` — `createPgJobStore`, `PgJobClient`, and `PgJobStoreOptions`.
+- `@zmdb/jobs-postgres` — `createPgJobStore`, `pgJobEnqueuer`, `jobsPostgresMigrations`, `PgJobClient`, `PgJobTransactionClient`, `PgJobStore`, and `PgJobStoreOptions`.
 
 ## Documentation
 

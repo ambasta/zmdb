@@ -1,6 +1,6 @@
 # @zmdb/jobs
 
-Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.
+Typed queues, workers, dead letters, scheduling, leases, and explicit provider ports for zmdb applications.
 
 ## Install
 
@@ -13,10 +13,9 @@ The package is ESM-only and requires Node.js 26 or later. It has no third-party 
 ## Entry points
 
 - `@zmdb/jobs` — queues, workers, the common clock, lifecycle integration, and the complete convenience surface
-- `@zmdb/jobs/memory` — caller-disposable `node:sqlite` `:memory:` storage with the queue schema installed
 - `@zmdb/jobs/schedule` — cron and interval decorators, schedulers, and the lease-store port
 
-Workers and schedulers are explicit instances. Pass them to `jobsExtension({ workers, schedulers })` to start after application bootstrap and stop under the application's bounded grace period.
+Workers and schedulers are explicit instances. Pass them to `jobsExtension({ workers, schedulers, stores })` to start after application bootstrap and stop under the application's bounded grace period.
 
 ```ts
 import { createApplication, Module } from '@zmdb/app';
@@ -35,7 +34,8 @@ await app[Symbol.asyncDispose]();
 Replace the empty arrays with the workers and schedulers owned by that application. The extension uses the same startup, rollback, reverse shutdown, and grace deadline as every other `@zmdb/app`
 extension.
 
-The default package has no `pg` peer. PostgreSQL-backed workers add `@zmdb/jobs-postgres@alpha` and `pg@^8.23.0`; that adapter borrows a caller-owned pool or client and never closes or releases it.
+The default package has no `pg` peer. SQLite workers add `@zmdb/jobs-sqlite@alpha`, which owns both durable and memory storage. PostgreSQL workers add `@zmdb/jobs-postgres@alpha` and `pg@^8.23.0`;
+that adapter borrows a caller-owned pool or client and never closes the supplied resource; it releases only connections it acquires internally.
 
 ## Alpha migration
 

@@ -5,8 +5,8 @@
 
 ## 1. Package boundary
 
-The root is the only export. Direct production dependencies are exactly `@zmdb/jobs` and `@zmdb/postgres` at `workspace:^`. The package has no `optionalDependencies` and declares exactly one required
-peer, `pg@^8.23.0`.
+The root is the only export. The sole production dependency is `@zmdb/postgres: workspace:1.0.0-alpha.4`. Required peers are `@zmdb/jobs: 1.0.0-alpha.4` and `pg: ^8.23.0`; the jobs workspace
+dependency is development-only at `workspace:^`. The package declares no optional dependency or optional peer.
 
 It owns PostgreSQL implementations of the public `JobStore`, `LeaseStore`, `JobEnqueuer`, and `JobStoreResource` contracts. It also owns the PostgreSQL queue/marker/lease schema, SQL, transaction
 boundaries, prepared-statement options, and cancellation. It does not own queue behavior, workers, retries, scheduling semantics, migrations execution, or a second state machine.
@@ -21,6 +21,8 @@ export interface PgJobStoreOptions {
   readonly prepared?: boolean;
   readonly maxCacheSize?: number;
   readonly cancelVia?: PgJobClient;
+  readonly signal?: AbortSignal;
+  readonly operationTimeoutMs?: number;
 }
 
 export interface PgJobStore extends JobStore, LeaseStore, JobStoreResource {}
@@ -45,9 +47,9 @@ supplied client and never begins, commits, rolls back, releases, or ends it. Que
 - with a `PoolClient` or `Client`, a multi-statement atomic operation issues its own `BEGIN`, commits or rolls back on the supplied pinned connection, and never calls `release()` or `end()`; and
 - prepared-statement caching and cancellation retain the public `@zmdb/postgres` behavior and options without importing private source.
 
-Single-statement store calls rely on PostgreSQL statement atomicity. A caller must not invoke an ordinary store call on a `PoolClient` or `Client` that already has a caller-managed transaction: the
-store does not join it or create a savepoint. Transactional application work uses `pgJobEnqueuer` instead. Claim is conditional on pending state and lease expiry. Settlement is conditional on the
-current holder. A lost lease returns `false`; it never overwrites another worker's claim.
+Ordinary store calls use an owned transaction; transaction enqueuers do not. A caller must not invoke an ordinary store call on a `PoolClient` or `Client` that already has a caller-managed
+transaction: the store does not join it or create a savepoint. Transactional application work uses `pgJobEnqueuer` instead. Claim is conditional on pending state and lease expiry. Settlement is
+conditional on the current holder. A lost lease returns `false`; it never overwrites another worker's claim.
 
 ## 3. Migrations
 
@@ -68,9 +70,25 @@ The SQLite and PostgreSQL bundles share logical versions and names so the state-
 The caller owns every supplied `Pool`, `PoolClient`, `Client`, and `cancelVia` resource. `PgJobStore.close()` is idempotent, clears only adapter-owned caches/state, and never calls `end()` or
 `release()` on a supplied resource. A pool/client remains usable after adapter and application shutdown.
 
-Internally acquired pool clients are always released on success, failure, cancellation, and shutdown. No query or borrowed client survives the bounded port call that acquired it.
+Internally acquired pool clients are always released on success, failure, cancellation, and shutdown. An operation timeout bounds the caller wait. Actual acquisition, SQL and cleanup remain tracked
+until settled; the borrowed-connection serial slot remains occupied during late cleanup. No business SQL or COMMIT starts after abort, and a late acquired client is released without entering the body.
 
 When the store is supplied to `jobsExtension({ stores: [...] })`, extension shutdown stops schedulers, then workers, then closes the adapter under the one remaining application deadline.
+
+`operationTimeoutMs` defaults to 30,000 and must be a positive safe integer at most 2,147,483,647. One deadline covers queueing, acquisition, BEGIN, body, COMMIT and cleanup; it is never refreshed per
+statement. Timeout rejects `DOMException` named `TimeoutError` with `@zmdb/jobs-postgres: operation deadline exceeded; database outcome may be incomplete`. A pre-aborted lifetime signal performs no
+SQL or acquisition and preserves its reason. Later calls refuse an aborted lifetime signal.
+
+`close(options?: { readonly graceMs: number })` stops admission and aborts active operations. It awaits actual cleanup for the lesser of its supplied nonnegative grace and the operation timeout.
+Incomplete cleanup rejects `TimeoutError` with `@zmdb/jobs-postgres: shutdown deadline exceeded; cleanup incomplete`. Repeated valid close calls return the same promise; post-close ports reject
+`Error` with `@zmdb/jobs-postgres: store is closed`. An invalid grace throws `RangeError` without starting shutdown.
+
+With `cancelVia`, the public PostgreSQL driver cancels through an independent connection. Without it, the caller's wait is bounded but outstanding SQL can finish later; cleanup remains tracked. Failed
+BEGIN triggers no rollback. Body or COMMIT failure after BEGIN triggers rollback, whose failure is retained in `AggregateError` after the primary error. Acquired-client release failures are retained
+as well; an uncertain COMMIT is never retried. A transaction enqueuer leaves recovery to its caller.
+
+Prepared statement identities and bounded cache state belong to the physical connection, so successive stores and enqueuers cannot reuse one name for different SQL. Smaller cache limits apply on hits
+and misses. No private node-postgres protocol state is accessed.
 
 ## 5. Installation, refusals, and evidence
 

@@ -24,7 +24,7 @@ What this file does not get to redecide: at-least-once, the lease-based claim, a
 
 ```ts
 /** A scheduled method takes nothing and returns nothing. §2.1 is why the type says so. */
-type ScheduledMethod = () => void | Promise<void>;
+type ScheduledMethod = (signal: AbortSignal) => void | Promise<void>;
 
 export type TaskDecorator = (target: ScheduledMethod, context: ClassMethodDecoratorContext) => void;
 
@@ -97,8 +97,8 @@ Promise<void>)'"_. Both verified by compiling the sketch as written. `emitDecora
 The stage-3 signature is not merely the one that compiles. `../../../web/src/routing/index.ts` types its target as `(...args: never[]) => unknown`, which accepts every function, and it has to — a
 route handler receives a `Ctx`.
 
-**A scheduled method receives nothing**, because there is no caller with anything to pass, so narrowing the target to `ScheduledMethod` makes `@Cron('0 0 3 * * *') nightly(when: Date)` a compile error
-at the application site.
+A scheduled method receives exactly its active run's `AbortSignal`. Timeout, lost renewal, and forced shutdown abort that same signal. A method may ignore the argument under ordinary callback typing;
+Date/context arguments and non-void async results remain invalid. No per-run request context or alternate invocation path is introduced.
 
 Verified, along with the companion case: a method returning `Promise<number>` is rejected, because a scheduled task's return value has nowhere to go and a developer who returns one believes something
 reads it.

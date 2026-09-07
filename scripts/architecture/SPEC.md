@@ -423,7 +423,7 @@ export const PACKAGE_POLICY = {
     directory: 'packages/jobs',
     zone: 'application',
     ring: 5,
-    allowedWorkspaceDependencies: ['app', 'query-compiler', 'repository', 'sqlite'],
+    allowedWorkspaceDependencies: ['app'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -469,6 +469,15 @@ export const PACKAGE_POLICY = {
     zone: 'integration',
     ring: 6,
     allowedWorkspaceDependencies: ['jobs', 'postgres'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {},
+    toolingEntries: [],
+  },
+  'jobs-sqlite': {
+    directory: 'packages/jobs-sqlite',
+    zone: 'integration',
+    ring: 6,
+    allowedWorkspaceDependencies: ['jobs', 'sqlite'],
     allowedRuntimeDependencies: [],
     optionalPeerEntries: {},
     toolingEntries: [],
@@ -1268,9 +1277,9 @@ The current app closure makes the target budgets:
 | Journey                            |                        Direct official edges | Official installed closure | Required selection assertions                                                                 |
 | ---------------------------------- | -------------------------------------------: | -------------------------: | --------------------------------------------------------------------------------------------- |
 | default `zmdb`                     |                             manifest-derived |                         11 | no `capability: jobs`, no jobs provider, no `pg`                                              |
-| portable `@zmdb/jobs`              |                                            1 |                          7 | exactly `jobs -> app`; no provider, external runtime dependency, optional dependency, or peer |
-| `@zmdb/jobs-sqlite`                |                                            2 |                         10 | exactly one jobs provider; no PostgreSQL package or peer                                      |
-| `@zmdb/jobs-postgres` before peers |                                            2 |                         10 | exactly one jobs provider; no SQLite jobs provider                                            |
+| portable `@zmdb/jobs`              |                                            1 |                          6 | exactly `jobs -> app`; no provider, external runtime dependency, optional dependency, or peer |
+| `@zmdb/jobs-sqlite`                |                                            2 |                          9 | exactly one jobs provider; no PostgreSQL package or peer                                      |
+| `@zmdb/jobs-postgres` before peers |                                            2 |                          9 | exactly one jobs provider; no SQLite jobs provider                                            |
 | PostgreSQL consumer                | preceding closure plus explicit peer closure |           metadata-derived | consumer declares `pg@^8.23.0`; installed version satisfies it                                |
 
 The official counts are review budgets frozen from metadata. The verifier also compares exact identities and paths, so replacing one forbidden package with another cannot pass by preserving a count.

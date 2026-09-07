@@ -1,24 +1,81 @@
-// @zmdb/jobs — typed SQL-backed jobs, retries, dead letters and bounded drain.
-//
-// The store is structural on purpose: a repository Driver or TransactionContext
-// satisfies it directly. Supported backend adapters live on opt-in subpaths so
-// the core queue entry does not load an external backend.
-import { formatPlaceholder, quoteIdentifier, type SqlDialect } from '@zmdb/query-compiler';
-import { sqlite } from '@zmdb/sqlite';
-
+// Portable queue and worker state machines; providers own persistence.
 export interface Clock {
   now(): number;
   sleep(ms: number, signal: AbortSignal): Promise<void>;
 }
 
-export type JobDialect = SqlDialect;
-
-export interface JobStore {
-  readonly dialect?: JobDialect;
-  execute(query: {
-    readonly text: string;
-    readonly parameters: readonly unknown[];
-  }): Promise<readonly Record<string, unknown>[]>;
+export interface JobEnqueue {
+  readonly id: string;
+  readonly name: string;
+  readonly payload: string;
+  readonly enqueuedAt: Date;
+  readonly availableAt: Date;
+  readonly dedupeKey?: string;
+}
+export type JobEnqueueResult =
+  | { readonly kind: 'inserted'; readonly jobId: string }
+  | { readonly kind: 'duplicate'; readonly jobId: string };
+export interface JobEnqueuer {
+  enqueue(job: JobEnqueue): Promise<JobEnqueueResult>;
+}
+export interface JobCandidate {
+  readonly id: string;
+  readonly name: string;
+  readonly enqueuedAt: Date;
+}
+export interface ClaimedJob extends JobCandidate {
+  readonly payload: string;
+  readonly attempts: number;
+  readonly dedupeKey?: string;
+  readonly holder: string;
+}
+export type JobSettlement =
+  | {
+      readonly kind: 'done';
+      readonly jobId: string;
+      readonly holder: string;
+      readonly idempotencyKey: string;
+      readonly completedAt: Date;
+    }
+  | {
+      readonly kind: 'retry';
+      readonly jobId: string;
+      readonly holder: string;
+      readonly attempts: number;
+      readonly availableAt: Date;
+      readonly detail: string;
+    }
+  | {
+      readonly kind: 'dead';
+      readonly jobId: string;
+      readonly holder: string;
+      readonly attempts: number;
+      readonly reason: DeadReason;
+      readonly detail: string;
+      readonly deadAt: Date;
+    }
+  | { readonly kind: 'release'; readonly jobId: string; readonly holder: string; readonly availableAt: Date };
+export interface JobStore extends JobEnqueuer {
+  candidates(options: { readonly now: Date; readonly limit: number }): Promise<readonly JobCandidate[]>;
+  claim(options: {
+    readonly ids: readonly string[];
+    readonly holder: string;
+    readonly now: Date;
+    readonly leaseUntil: Date;
+  }): Promise<readonly ClaimedJob[]>;
+  completed(key: string): Promise<boolean>;
+  settle(settlement: JobSettlement): Promise<boolean>;
+  listDead(options: { readonly limit: number; readonly reason?: DeadReason }): Promise<readonly DeadJob[]>;
+  replay(jobId: string, availableAt: Date): Promise<boolean>;
+}
+export interface JobStoreResource {
+  close(options?: { readonly graceMs: number }): void | Promise<void>;
+}
+export interface JobStoreMigration {
+  readonly version: number;
+  readonly name: string;
+  readonly up: string;
+  readonly down: string;
 }
 
 export type Backoff =
@@ -65,7 +122,7 @@ export interface EnqueueOptions {
 export interface Queue<M> {
   enqueue<K extends keyof M & string>(name: K, payload: M[K], opts?: EnqueueOptions): Promise<string>;
   enqueueInTransaction<K extends keyof M & string>(
-    tx: JobStore,
+    tx: JobEnqueuer,
     name: K,
     payload: M[K],
     opts?: EnqueueOptions,
@@ -134,19 +191,6 @@ interface RuntimeHandler {
   readonly timeoutMs?: number;
   readonly retries?: RetryPolicy;
   prepare(raw: unknown): (ctx: JobContext) => Promise<void>;
-}
-
-interface Candidate {
-  readonly id: string;
-  readonly name: string;
-}
-
-interface ClaimedJob extends Candidate {
-  readonly payload: string;
-  readonly attempts: number;
-  readonly enqueuedAt: Date;
-  readonly dedupeKey: string | undefined;
-  readonly token: string;
 }
 
 interface ActiveJob {
@@ -222,59 +266,6 @@ function runtimeHandler<M>(handler: AnyJobHandler<M>): RuntimeHandler {
   return runtime;
 }
 
-function dialectOf(store: JobStore, fallback: JobDialect = sqlite): JobDialect {
-  return store.dialect ?? fallback;
-}
-
-function quote(name: string, dialect: JobDialect): string {
-  return quoteIdentifier(dialect, name);
-}
-
-function placeholder(dialect: JobDialect, position: number): string {
-  return formatPlaceholder(dialect, position);
-}
-
-function placeholders(dialect: JobDialect, count: number, start: number): string {
-  return Array.from({ length: count }, (_, index) => placeholder(dialect, start + index)).join(', ');
-}
-
-function field(row: Record<string, unknown>, name: string): unknown {
-  return row[name];
-}
-
-function stringField(row: Record<string, unknown>, name: string): string {
-  const value = field(row, name);
-  if (typeof value !== 'string') throw new TypeError(`zmdb_job.${name} must be a string`);
-  return value;
-}
-
-function optionalStringField(row: Record<string, unknown>, name: string): string | undefined {
-  const value = field(row, name);
-  if (value === null || value === undefined || value === '') return undefined;
-  if (typeof value !== 'string') throw new TypeError(`zmdb_job.${name} must be a string or null`);
-  return value;
-}
-
-function numberField(row: Record<string, unknown>, name: string): number {
-  const value = field(row, name);
-  if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
-    throw new TypeError(`zmdb_job.${name} must be a safe integer`);
-  }
-  return value;
-}
-
-function dateField(row: Record<string, unknown>, name: string): Date {
-  const value = field(row, name);
-  const date = value instanceof Date ? value : new Date(stringField(row, name));
-  if (!Number.isFinite(date.getTime())) throw new TypeError(`zmdb_job.${name} must be a valid timestamp`);
-  return date;
-}
-
-function deadReason(value: unknown): DeadReason {
-  if (value === 'invalid-payload' || value === 'unknown-name' || value === 'attempts-exhausted') return value;
-  throw new TypeError('zmdb_job.dead_reason must be a known dead-letter reason');
-}
-
 function errorDetail(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -301,7 +292,7 @@ async function wait(clock: Clock, ms: number, signal: AbortSignal): Promise<'ela
   }
 }
 
-class SqlWorker<M> implements Worker {
+class JobWorker<M> implements Worker {
   readonly #handlers = new Map<string, RuntimeHandler>();
   readonly #activeByHandler = new Map<string, number>();
   readonly #active = new Map<string, ActiveJob>();
@@ -439,53 +430,11 @@ class SqlWorker<M> implements Worker {
   }
 
   async listDead(opts: { readonly limit: number; readonly reason?: DeadReason }): Promise<readonly DeadJob[]> {
-    integer('limit', opts.limit, 1);
-    const dialect = dialectOf(this.#store);
-    const table = quote('zmdb_job', dialect);
-    const reasonColumn = quote('dead_reason', dialect);
-    const where =
-      opts.reason === undefined
-        ? `${quote('status', dialect)} = ${placeholder(dialect, 1)}`
-        : `${quote('status', dialect)} = ${placeholder(dialect, 1)} AND ${reasonColumn} = ${placeholder(dialect, 2)}`;
-    const limitPosition = opts.reason === undefined ? 2 : 3;
-    const parameters: unknown[] = opts.reason === undefined ? ['dead', opts.limit] : ['dead', opts.reason, opts.limit];
-    const rows = await this.#store.execute({
-      text:
-        `SELECT ${quote('id', dialect)}, ${quote('name', dialect)}, ${quote('payload', dialect)}, ` +
-        `${quote('attempts', dialect)}, ${reasonColumn}, ${quote('dead_detail', dialect)}, ` +
-        `${quote('enqueued_at', dialect)}, ${quote('dead_at', dialect)} FROM ${table} WHERE ${where} ` +
-        `ORDER BY ${quote('dead_at', dialect)} DESC LIMIT ${placeholder(dialect, limitPosition)}`,
-      parameters,
-    });
-    return rows.map(row => this.#deadJobFromRow(row));
+    return this.#store.listDead(opts);
   }
 
   async replay(jobId: string): Promise<boolean> {
-    const dialect = dialectOf(this.#store);
-    const table = quote('zmdb_job', dialect);
-    const found = await this.#store.execute({
-      text:
-        `SELECT ${quote('id', dialect)} FROM ${table} WHERE ${quote('id', dialect)} = ` +
-        `${placeholder(dialect, 1)} AND ${quote('status', dialect)} = ${placeholder(dialect, 2)} LIMIT 1`,
-      parameters: [jobId, 'dead'],
-    });
-    if (found.length === 0) return false;
-
-    await this.#store.execute({
-      text:
-        `UPDATE ${table} SET ${quote('status', dialect)} = ${placeholder(dialect, 1)}, ` +
-        `${quote('attempts', dialect)} = ${placeholder(dialect, 2)}, ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 3)}, ` +
-        `${quote('lease_until', dialect)} = ${placeholder(dialect, 4)}, ` +
-        `${quote('last_error', dialect)} = ${placeholder(dialect, 5)}, ` +
-        `${quote('dead_reason', dialect)} = ${placeholder(dialect, 6)}, ` +
-        `${quote('dead_detail', dialect)} = ${placeholder(dialect, 7)}, ` +
-        `${quote('dead_at', dialect)} = ${placeholder(dialect, 8)} ` +
-        `WHERE ${quote('id', dialect)} = ${placeholder(dialect, 9)} AND ` +
-        `${quote('status', dialect)} = ${placeholder(dialect, 10)}`,
-      parameters: ['pending', 0, '', new Date(0), null, null, null, null, jobId, 'dead'],
-    });
-    return true;
+    return this.#store.replay(jobId, new Date(this.#clock.now()));
   }
 
   async #loop(): Promise<void> {
@@ -508,88 +457,45 @@ class SqlWorker<M> implements Worker {
   async #drain(graceMs: number): Promise<void> {
     this.#stopping = true;
     this.#idleAbort?.abort();
-    if (this.#claims.size > 0) {
-      await Promise.allSettled(this.#claims);
-      await Promise.resolve();
-    }
-    if (this.#claimRequeues.size > 0) await Promise.allSettled(this.#claimRequeues);
-    const current = [...this.#inFlight.values()];
-    if (current.length === 0) return;
-
-    if (graceMs > 0) {
-      const graceAbort = new AbortController();
-      const settled: Promise<'settled'> = Promise.allSettled(current).then(() => 'settled');
-      const grace: Promise<'elapsed' | 'settled'> = wait(this.#clock, graceMs, graceAbort.signal).then(result =>
-        result === 'elapsed' ? 'elapsed' : 'settled',
-      );
-      const outcome = await Promise.race([settled, grace]);
-      if (outcome === 'settled') {
-        graceAbort.abort();
-        return;
-      }
-    }
-
+    const current = [this.#pass, ...this.#claims, ...this.#claimRequeues, ...this.#inFlight.values()];
+    const graceAbort = new AbortController();
+    const settled = Promise.allSettled(current).then(() => 'settled');
+    const grace = graceMs === 0 ? Promise.resolve('elapsed') : wait(this.#clock, graceMs, graceAbort.signal);
+    const outcome = await Promise.race([settled, grace]);
+    graceAbort.abort();
+    if (outcome === 'settled') return;
     const unfinished = [...this.#active.values()];
     for (const active of unfinished) {
       active.abandoned = true;
       active.controller.abort();
     }
-    await Promise.allSettled(unfinished.map(active => this.#requeueClaim(active.row)));
+    // Release is observed even when a provider cannot finish before this deadline.
+    void Promise.allSettled(unfinished.map(active => this.#requeueClaim(active.row)));
   }
 
   async #claim(limit: number): Promise<readonly ClaimedJob[]> {
-    const dialect = dialectOf(this.#store);
-    const table = quote('zmdb_job', dialect);
     const now = new Date(this.#clock.now());
-    const candidates = await this.#store.execute({
-      text:
-        `SELECT ${quote('id', dialect)}, ${quote('name', dialect)} FROM ${table} ` +
-        `WHERE ${quote('status', dialect)} = ${placeholder(dialect, 1)} AND ` +
-        `${quote('lease_until', dialect)} <= ${placeholder(dialect, 2)} ` +
-        `ORDER BY ${quote('enqueued_at', dialect)} ASC LIMIT ${placeholder(dialect, 3)}`,
-      parameters: ['pending', now, this.#batch],
-    });
+    // A capped handler must not hide other names behind its queued candidates.
+    const scanLimit = [...this.#handlers.values()].some(handler => handler.concurrency !== undefined)
+      ? this.#batch
+      : limit;
+    const candidates = await this.#store.candidates({ now, limit: scanLimit });
     const selected = this.#selectCandidates(candidates, limit);
     if (selected.length === 0) return [];
-
-    const token = globalThis.crypto.randomUUID();
-    const ids = selected.map(candidate => candidate.id);
-    await this.#store.execute({
-      text:
-        `UPDATE ${table} SET ${quote('lease_owner', dialect)} = ${placeholder(dialect, 1)}, ` +
-        `${quote('lease_until', dialect)} = ${placeholder(dialect, 2)} ` +
-        `WHERE ${quote('status', dialect)} = ${placeholder(dialect, 3)} AND ` +
-        `${quote('lease_until', dialect)} <= ${placeholder(dialect, 4)} AND ` +
-        `${quote('id', dialect)} IN (${placeholders(dialect, ids.length, 5)})`,
-      parameters: [token, new Date(this.#clock.now() + this.#leaseMs), 'pending', now, ...ids],
+    return this.#store.claim({
+      ids: selected.map(candidate => candidate.id),
+      holder: globalThis.crypto.randomUUID(),
+      now,
+      leaseUntil: new Date(now.getTime() + this.#leaseMs),
     });
-
-    const rows = await this.#store.execute({
-      text:
-        `SELECT ${quote('id', dialect)}, ${quote('name', dialect)}, ${quote('payload', dialect)}, ` +
-        `${quote('attempts', dialect)}, ${quote('enqueued_at', dialect)}, ${quote('dedupe_key', dialect)} ` +
-        `FROM ${table} WHERE ${quote('lease_owner', dialect)} = ${placeholder(dialect, 1)} ` +
-        `ORDER BY ${quote('enqueued_at', dialect)} ASC`,
-      parameters: [token],
-    });
-    return rows.map(row => ({
-      id: stringField(row, 'id'),
-      name: stringField(row, 'name'),
-      payload: stringField(row, 'payload'),
-      attempts: numberField(row, 'attempts'),
-      enqueuedAt: dateField(row, 'enqueued_at'),
-      dedupeKey: optionalStringField(row, 'dedupe_key'),
-      token,
-    }));
   }
 
-  #selectCandidates(rows: readonly Record<string, unknown>[], limit: number): readonly Candidate[] {
-    const selected: Candidate[] = [];
+  #selectCandidates(rows: readonly JobCandidate[], limit: number): readonly JobCandidate[] {
+    const selected: JobCandidate[] = [];
     const reserved = new Map<string, number>();
     for (const row of rows) {
       if (selected.length >= limit) break;
-      const id = stringField(row, 'id');
-      const name = stringField(row, 'name');
+      const { id, name } = row;
       if (this.#active.has(id)) continue;
       const handler = this.#handlers.get(name);
       if (handler?.concurrency !== undefined) {
@@ -597,7 +503,7 @@ class SqlWorker<M> implements Worker {
         if (used >= handler.concurrency) continue;
         reserved.set(name, (reserved.get(name) ?? 0) + 1);
       }
-      selected.push({ id, name });
+      selected.push(row);
     }
     return selected;
   }
@@ -627,9 +533,11 @@ class SqlWorker<M> implements Worker {
     const release = await this.#lockKey(key);
     try {
       if (active.abandoned) return emptyReport();
-      if (await this.#markerExists(key)) {
-        await this.#markDone(active);
-        return { ...emptyReport(), done: 1, skipped: 1 };
+      const completed = await this.#markerExists(key);
+      if (active.abandoned) return emptyReport();
+      if (completed) {
+        const done = await this.#markDone(active);
+        return { ...emptyReport(), done: done ? 1 : 0, skipped: 1 };
       }
 
       let raw: unknown;
@@ -680,7 +588,7 @@ class SqlWorker<M> implements Worker {
   ): Promise<RunReport> {
     const timerAbort = new AbortController();
     const handler: Promise<HandlerSettlement> = Promise.resolve()
-      .then(() => prepared(ctx))
+      .then(() => (active.abandoned ? undefined : prepared(ctx)))
       .then(
         () => ({ kind: 'resolved' }),
         (error): HandlerSettlement => ({ kind: 'rejected', error }),
@@ -705,8 +613,8 @@ class SqlWorker<M> implements Worker {
       this.#reportHandlerError(ctx, first.error);
       return this.#settleFailure(active, policy, errorDetail(first.error));
     }
-    await this.#markDone(active);
-    return { ...emptyReport(), done: 1 };
+    const done = await this.#markDone(active);
+    return { ...emptyReport(), done: done ? 1 : 0, skipped: done ? 0 : 1 };
   }
 
   #reportHandlerError(ctx: JobContext, error: unknown): void {
@@ -727,83 +635,43 @@ class SqlWorker<M> implements Worker {
     if (attempt >= policy.attempts) return this.#markDead(active, terminalReason, detail);
     if (active.abandoned) return emptyReport();
 
-    const dialect = dialectOf(this.#store);
-    const table = quote('zmdb_job', dialect);
-    const afterMs = jitter(policy, attempt);
-    await this.#store.execute({
-      text:
-        `UPDATE ${table} SET ${quote('status', dialect)} = ${placeholder(dialect, 1)}, ` +
-        `${quote('attempts', dialect)} = ${placeholder(dialect, 2)}, ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 3)}, ` +
-        `${quote('lease_until', dialect)} = ${placeholder(dialect, 4)}, ` +
-        `${quote('last_error', dialect)} = ${placeholder(dialect, 5)} ` +
-        `WHERE ${quote('id', dialect)} = ${placeholder(dialect, 6)} AND ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 7)}`,
-      parameters: [
-        'pending',
-        attempt,
-        '',
-        new Date(this.#clock.now() + afterMs),
-        detail,
-        active.row.id,
-        active.row.token,
-      ],
+    const settled = await this.#store.settle({
+      kind: 'retry',
+      jobId: active.row.id,
+      holder: active.row.holder,
+      attempts: attempt,
+      availableAt: new Date(this.#clock.now() + jitter(policy, attempt)),
+      detail,
     });
-    return { ...emptyReport(), retried: 1 };
+    return { ...emptyReport(), retried: settled ? 1 : 0, skipped: settled ? 0 : 1 };
   }
 
-  async #markDone(active: ActiveJob): Promise<void> {
-    if (active.abandoned) return;
-    const dialect = dialectOf(this.#store);
-    const table = quote('zmdb_job', dialect);
-    await this.#store.execute({
-      text:
-        `UPDATE ${table} SET ${quote('status', dialect)} = ${placeholder(dialect, 1)}, ` +
-        `${quote('attempts', dialect)} = ${placeholder(dialect, 2)}, ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 3)}, ` +
-        `${quote('lease_until', dialect)} = ${placeholder(dialect, 4)}, ` +
-        `${quote('last_error', dialect)} = ${placeholder(dialect, 5)}, ` +
-        `${quote('dead_reason', dialect)} = ${placeholder(dialect, 6)}, ` +
-        `${quote('dead_detail', dialect)} = ${placeholder(dialect, 7)}, ` +
-        `${quote('dead_at', dialect)} = ${placeholder(dialect, 8)} ` +
-        `WHERE ${quote('id', dialect)} = ${placeholder(dialect, 9)} AND ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 10)}`,
-      parameters: [
-        'done',
-        active.row.attempts + 1,
-        '',
-        new Date(this.#clock.now()),
-        null,
-        null,
-        null,
-        null,
-        active.row.id,
-        active.row.token,
-      ],
+  async #markDone(active: ActiveJob): Promise<boolean> {
+    if (active.abandoned) return false;
+    return this.#store.settle({
+      kind: 'done',
+      jobId: active.row.id,
+      holder: active.row.holder,
+      idempotencyKey: active.row.dedupeKey ?? active.row.id,
+      completedAt: new Date(this.#clock.now()),
     });
   }
 
   async #markDead(active: ActiveJob, reason: DeadReason, detail: string): Promise<RunReport> {
     if (active.abandoned) return emptyReport();
-    const dialect = dialectOf(this.#store);
-    const table = quote('zmdb_job', dialect);
     const deadAt = new Date(this.#clock.now());
     const attempts = active.row.attempts + 1;
-    await this.#store.execute({
-      text:
-        `UPDATE ${table} SET ${quote('status', dialect)} = ${placeholder(dialect, 1)}, ` +
-        `${quote('attempts', dialect)} = ${placeholder(dialect, 2)}, ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 3)}, ` +
-        `${quote('lease_until', dialect)} = ${placeholder(dialect, 4)}, ` +
-        `${quote('last_error', dialect)} = ${placeholder(dialect, 5)}, ` +
-        `${quote('dead_reason', dialect)} = ${placeholder(dialect, 6)}, ` +
-        `${quote('dead_detail', dialect)} = ${placeholder(dialect, 7)}, ` +
-        `${quote('dead_at', dialect)} = ${placeholder(dialect, 8)} ` +
-        `WHERE ${quote('id', dialect)} = ${placeholder(dialect, 9)} AND ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 10)}`,
-      parameters: ['dead', attempts, '', deadAt, detail, reason, detail, deadAt, active.row.id, active.row.token],
+    const settled = await this.#store.settle({
+      kind: 'dead',
+      jobId: active.row.id,
+      holder: active.row.holder,
+      attempts,
+      reason,
+      detail,
+      deadAt,
     });
-    const job: DeadJob = {
+    if (!settled) return { ...emptyReport(), skipped: 1 };
+    await this.#onDead({
       jobId: active.row.id,
       name: active.row.name,
       payload: active.row.payload,
@@ -812,20 +680,12 @@ class SqlWorker<M> implements Worker {
       detail,
       enqueuedAt: active.row.enqueuedAt,
       deadAt,
-    };
-    await this.#onDead(job);
+    });
     return { ...emptyReport(), dead: 1 };
   }
 
   async #markerExists(key: string): Promise<boolean> {
-    const dialect = dialectOf(this.#store);
-    const rows = await this.#store.execute({
-      text:
-        `SELECT ${quote('key', dialect)} FROM ${quote('zmdb_job_done', dialect)} WHERE ` +
-        `${quote('key', dialect)} = ${placeholder(dialect, 1)} LIMIT 1`,
-      parameters: [key],
-    });
-    return rows.length > 0;
+    return this.#store.completed(key);
   }
 
   async #lockKey(key: string): Promise<() => void> {
@@ -843,136 +703,61 @@ class SqlWorker<M> implements Worker {
   }
 
   async #requeueClaim(row: ClaimedJob): Promise<void> {
-    const dialect = dialectOf(this.#store);
-    const table = quote('zmdb_job', dialect);
-    await this.#store.execute({
-      text:
-        `UPDATE ${table} SET ${quote('status', dialect)} = ${placeholder(dialect, 1)}, ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 2)}, ` +
-        `${quote('lease_until', dialect)} = ${placeholder(dialect, 3)} ` +
-        `WHERE ${quote('id', dialect)} = ${placeholder(dialect, 4)} AND ` +
-        `${quote('lease_owner', dialect)} = ${placeholder(dialect, 5)}`,
-      parameters: ['pending', '', new Date(this.#clock.now()), row.id, row.token],
+    await this.#store.settle({
+      kind: 'release',
+      jobId: row.id,
+      holder: row.holder,
+      availableAt: new Date(this.#clock.now()),
     });
-  }
-
-  #deadJobFromRow(row: Record<string, unknown>): DeadJob {
-    return {
-      jobId: stringField(row, 'id'),
-      name: stringField(row, 'name'),
-      payload: stringField(row, 'payload'),
-      attempts: numberField(row, 'attempts'),
-      reason: deadReason(field(row, 'dead_reason')),
-      detail: stringField(row, 'dead_detail'),
-      enqueuedAt: dateField(row, 'enqueued_at'),
-      deadAt: dateField(row, 'dead_at'),
-    };
   }
 }
 
-class SqlQueue<M> implements Queue<M> {
+class JobQueue<M> implements Queue<M> {
   readonly #store: JobStore;
   readonly #clock: Clock;
-
   constructor(opts: QueueOptions) {
     this.#store = opts.store;
     this.#clock = opts.clock;
   }
-
   enqueue<K extends keyof M & string>(name: K, payload: M[K], opts?: EnqueueOptions): Promise<string> {
-    return this.#enqueue(this.#store, dialectOf(this.#store), name, payload, opts);
+    return this.#enqueue(this.#store, name, payload, opts);
   }
-
   enqueueInTransaction<K extends keyof M & string>(
-    tx: JobStore,
+    tx: JobEnqueuer,
     name: K,
     payload: M[K],
     opts?: EnqueueOptions,
   ): Promise<string> {
-    return this.#enqueue(tx, dialectOf(tx, dialectOf(this.#store)), name, payload, opts);
+    return this.#enqueue(tx, name, payload, opts);
   }
-
   async #enqueue<K extends keyof M & string>(
-    store: JobStore,
-    dialect: JobDialect,
+    store: JobEnqueuer,
     name: K,
     payload: M[K],
     opts?: EnqueueOptions,
   ): Promise<string> {
     const delayMs = opts?.delayMs ?? 0;
     duration('delayMs', delayMs, true);
-    if (opts?.dedupeKey !== undefined) {
-      const existing = await this.#findDedupe(store, dialect, opts.dedupeKey);
-      if (existing !== undefined) return existing;
-    }
-
     const encoded = JSON.stringify(payload);
     if (encoded === undefined) throw new TypeError(`job ${name} payload is not JSON-serializable`);
-    const id = globalThis.crypto.randomUUID();
-    const table = quote('zmdb_job', dialect);
     const now = this.#clock.now();
-    const columns = [
-      'id',
-      'name',
-      'payload',
-      'status',
-      'attempts',
-      'enqueued_at',
-      'dedupe_key',
-      'lease_owner',
-      'lease_until',
-      'last_error',
-      'dead_reason',
-      'dead_detail',
-      'dead_at',
-    ];
-    const parameters: readonly unknown[] = [
-      id,
+    const result = await store.enqueue({
+      id: globalThis.crypto.randomUUID(),
       name,
-      encoded,
-      'pending',
-      0,
-      new Date(now),
-      opts?.dedupeKey ?? null,
-      '',
-      delayMs === 0 ? new Date(0) : new Date(now + delayMs),
-      null,
-      null,
-      null,
-      null,
-    ];
-    try {
-      await store.execute({
-        text:
-          `INSERT INTO ${table} (${columns.map(column => quote(column, dialect)).join(', ')}) ` +
-          `VALUES (${placeholders(dialect, columns.length, 1)})`,
-        parameters,
-      });
-      return id;
-    } catch (error) {
-      if (opts?.dedupeKey === undefined) throw error;
-      const existing = await this.#findDedupe(store, dialect, opts.dedupeKey);
-      if (existing === undefined) throw error;
-      return existing;
-    }
-  }
-
-  async #findDedupe(store: JobStore, dialect: JobDialect, key: string): Promise<string | undefined> {
-    const rows = await store.execute({
-      text:
-        `SELECT ${quote('id', dialect)} FROM ${quote('zmdb_job', dialect)} WHERE ` +
-        `${quote('dedupe_key', dialect)} = ${placeholder(dialect, 1)} LIMIT 1`,
-      parameters: [key],
+      payload: encoded,
+      enqueuedAt: new Date(now),
+      availableAt: new Date(now + delayMs),
+      ...(opts?.dedupeKey === undefined ? {} : { dedupeKey: opts.dedupeKey }),
     });
-    const first = rows[0];
-    return first === undefined ? undefined : stringField(first, 'id');
+    return result.jobId;
   }
 }
 
 export function createQueue<M>(opts: QueueOptions): Queue<M> {
-  return new SqlQueue<M>(opts);
+  if (opts?.store === undefined) throw new TypeError('@zmdb/jobs: a store is required');
+  return new JobQueue<M>(opts);
 }
-
 export function createWorker<M>(opts: WorkerOptions<M>): Worker {
-  return new SqlWorker(opts);
+  if (opts?.store === undefined) throw new TypeError('@zmdb/jobs: a store is required');
+  return new JobWorker(opts);
 }

@@ -1,11 +1,11 @@
 const app = await import('@zmdb/app');
 const modules = await import('@zmdb/app/modules');
 const jobs = await import('@zmdb/jobs');
-const memory = await import('@zmdb/jobs/memory');
+const memory = await import('@zmdb/jobs-sqlite');
 const schedule = await import('@zmdb/jobs/schedule');
 
-if (jobs.createMemoryJobStore !== memory.createMemoryJobStore) {
-  throw new Error('@zmdb/jobs changed the memory subpath identity');
+if ('createMemoryJobStore' in jobs) {
+  throw new Error('@zmdb/jobs retained a concrete memory provider');
 }
 if (jobs.createScheduler !== schedule.createScheduler) {
   throw new Error('@zmdb/jobs changed the schedule subpath identity');

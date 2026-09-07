@@ -258,15 +258,10 @@ describe('core server package boundaries (#646)', () => {
       {
         name: '@zmdb/jobs',
         dir: 'jobs',
-        dependencies: {
-          '@zmdb/app': 'workspace:^',
-          '@zmdb/query-compiler': 'workspace:^',
-          '@zmdb/repository': 'workspace:^',
-          '@zmdb/sqlite': 'workspace:^',
-        },
-        exports: ['.', './memory', './schedule'],
-        forbiddenPackages: ['@zmdb/web'],
-        forbiddenExports: [],
+        dependencies: { '@zmdb/app': 'workspace:^' },
+        exports: ['.', './schedule'],
+        forbiddenPackages: ['@zmdb/web', '@zmdb/sqlite', '@zmdb/postgres', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres'],
+        forbiddenExports: ['./memory'],
       },
     ]);
     expect(PRODUCT_SERVER_EXPORTS).toHaveLength(32);

@@ -9,6 +9,7 @@ export const PRODUCT_CATALOG = Object.freeze([
   row('app', '@zmdb/app'),
   row('jobs', '@zmdb/jobs'),
   row('jobs-postgres', '@zmdb/jobs-postgres'),
+  row('jobs-sqlite', '@zmdb/jobs-sqlite'),
   row('otel', '@zmdb/otel'),
   row('protobuf', '@zmdb/protobuf'),
   row('transport-grpc', '@zmdb/transport-grpc'),

@@ -1,7 +1,7 @@
 // Compile-time half of #587/#588. Assertions stay against the shipped package boundary.
 import { createQueue } from '@zmdb/jobs';
 import type { AnyJobHandler, Backoff, Clock, JobHandler, JobStore } from '@zmdb/jobs';
-import { createMemoryJobStore } from '@zmdb/jobs/memory';
+import { createMemoryJobStore } from '@zmdb/jobs-sqlite';
 
 type Jobs = {
   readonly 'post.notify': { readonly postId: string };

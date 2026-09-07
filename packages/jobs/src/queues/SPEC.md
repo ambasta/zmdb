@@ -4,11 +4,12 @@
 > drain for both standalone workers and application-owned workers (epic #585, sub-issue #586). Frozen before code, reconciled with #588's explicit backend requirement, then amended for the #650
 > package and lifecycle boundary.
 
-`@Cron` and `@Interval`, the lease that keeps a scheduled task from running once per replica, and the cron dialect are `../schedule/SPEC.md`. The SQL that claims a row under a lease is already frozen
-in `../../../query-compiler/src/outbox/SPEC.md` and is not restated. This file is the worker: the handler contract, what happens on each of the five ways a job can end, and who owns idempotency.
+`@Cron` and `@Interval`, the lease that keeps a scheduled task from running once per replica, and the cron dialect are `../schedule/SPEC.md`. Each selected provider owns its conditional claim SQL and
+fresh schema under the domain contract in `packages/jobs/SPEC.md`. This file defines handlers, retries, drain, and idempotency.
 
-> **Ownership target frozen by #654:** #650 moved this queue/worker contract and the SQLite memory backend to `@zmdb/jobs`. The node-postgres adapter lives in `@zmdb/jobs-postgres`, whose only
-> required peer is `pg@^8.23.0`; it borrows a caller-owned pool/client and never closes it. `@zmdb/web/queues/backends/pg` is removed with no forwarding subpath.
+> **Provider ownership frozen by #756:** the queue/worker contract lives in `@zmdb/jobs`; SQLite persistence and memory storage live in `@zmdb/jobs-sqlite`. The node-postgres adapter lives in
+> `@zmdb/jobs-postgres`, whose required peers are `@zmdb/jobs@1.0.0-alpha.4` and `pg@^8.23.0`; it borrows a caller-owned pool/client and never closes it. `@zmdb/web/queues/backends/pg` is removed with
+> no forwarding subpath.
 
 ## 1. Three of the four hard decisions are already frozen, and this file inherits them
 
@@ -21,11 +22,8 @@ mark, the lease expires, another dispatcher publishes again — and it refuses t
 It also names this epic explicitly: _"Consumer-side idempotency is the queue epic's (#585) and is cross-referenced rather than restated"_. So §4 is this file's half of a contract that was written down
 elsewhere, and the delivery guarantee is inherited rather than argued.
 
-**The claim protocol is already frozen and needs no new SQL.** Outbox §4.2 is three statements — candidates, a conditional `UPDATE` whose own per-row write lock is the mutual exclusion, then a
-read-back by lease token — and §4 of that file records why the textbook `SELECT … FOR UPDATE SKIP LOCKED` is refused: it is not expressible on `SelectBuilder`, it does not exist on SQLite, and it
-holds a transaction open for the length of a handler.
-
-A queue that invented its own claim would either repeat that mistake or maintain a second protocol.
+**Claims are conditional and bounded.** Providers select candidates and atomically claim only pending rows whose availability has arrived. A claim returns the rows acquired by its holder; settlement
+is fenced by that holder. Provider transactions end before a handler runs. The portable worker calls these domain methods without SQL or a dialect switch.
 
 **A poison job's terminal state already has a name.** Outbox §2.2 established `status = 'dead'` over a `WHERE attempts < N` predicate, because a threshold leaves the poison row in the working set to
 be re-read on every poll. §6 keeps that and adds the one thing it lacks — a machine-readable reason.
@@ -35,16 +33,12 @@ What is genuinely new here is the fourth decision: **what a handler is, and what
 ## 2. The surface, and nine corrections to #586's sketch
 
 ```ts
+import type { JobEnqueuer, JobStore } from '@zmdb/jobs';
+
 /** Epoch-millisecond clock plus an abortable wait. §9 explains why `sleep` takes a signal. */
 export interface Clock {
   now(): number;
   sleep(ms: number, signal: AbortSignal): Promise<void>;
-}
-
-/** The store port. Structural; supported adapters are separate opt-in subpaths — §3. */
-export interface JobStore {
-  readonly dialect: SqlDialect;
-  execute(query: { readonly text: string; readonly parameters: readonly unknown[] }): Promise<readonly Record<string, unknown>[]>;
 }
 
 export type Backoff = { readonly kind: 'fixed'; readonly delayMs: number } | { readonly kind: 'exponential'; readonly baseMs: number; readonly ceilingMs: number };
@@ -86,7 +80,7 @@ export interface EnqueueOptions {
 
 export interface Queue<M> {
   enqueue<K extends keyof M & string>(name: K, payload: M[K], opts?: EnqueueOptions): Promise<string>;
-  enqueueInTransaction<K extends keyof M & string>(tx: JobStore, name: K, payload: M[K], opts?: EnqueueOptions): Promise<string>;
+  enqueueInTransaction<K extends keyof M & string>(tx: JobEnqueuer, name: K, payload: M[K], opts?: EnqueueOptions): Promise<string>;
 }
 
 export interface QueueOptions {
@@ -136,7 +130,7 @@ export interface RunReport {
   readonly done: number;
   readonly retried: number;
   readonly dead: number;
-  readonly skipped: number; // §4's marker said this job was already done
+  readonly skipped: number; // a committed marker or a lost settlement holder
 }
 
 export declare function createWorker<M>(opts: WorkerOptions<M>): Worker;
@@ -211,34 +205,14 @@ directly.
 
 The enqueue side, the worker loop, `listDead`, `replay` and the clock are absent from the sketch entirely and are §§3-9.
 
-## 3. The store is a port, with a supported memory backend and an external PostgreSQL owner
+## 3. Provider-neutral persistence
 
-`JobStore` is declared locally and structurally. A `TransactionContext` (`packages/repository/src/transactions/index.ts`) satisfies it with no adapter, and so does a repository `Driver`. The queue
-implementation itself depends on `@zmdb/query-compiler` for dialect-aware placeholders and identifier quoting, but consumers do not have to import or construct a compiler type to pass a store.
+`JobStore` and `JobEnqueuer` are the domain contracts in `packages/jobs/SPEC.md` §4. The queue and worker own payload validation, retries, concurrency, completion-key handling, and reports. Providers
+own SQL, fresh schema, atomic conditional claims, fenced settlement, leases, and resource cleanup.
 
-The port is not decoration. Naming a concrete repository driver would couple the jobs API to one construction path. The structural form lets an existing repository `Driver`, transaction, or a
-purpose-built adapter pass straight through while the package manifest declares only the dependencies the implementation actually loads.
-
-The original freeze then made a wrong inference: it treated that port as satisfying the epic's optional-backend constraint by itself. #588 corrected the shipped web package: its
-`packages/web/src/queues/backends/` had to contain a supported in-memory backend and one real adapter, with the adapter's client as an optional peer. #654 supersedes only that package placement: core
-jobs keeps memory storage and `@zmdb/jobs-postgres` makes `pg` required once that adapter is selected.
-
-The smallest adapter consistent with the SQL-shaped `JobStore` is node-postgres, not Redis. #650 deletes the former web-owned adapter and its optional peer rather than copying or forwarding them.
-`@zmdb/jobs-postgres` owns the node-postgres implementation and makes `pg` the selected adapter package's required peer.
-
-`createMemoryJobStore()` is the other supported backend. It resolves `node:sqlite` only when called, owns one isolated `:memory:` database, installs `zmdb_job`, `zmdb_job_done`, the unique
-enqueue-dedupe constraint and `zmdb_job_pending`, and exposes the database for deterministic test setup and assertions. Importing jobs or the product facade therefore does not resolve a Node built-in
-until the selected backend is constructed. It is explicitly ephemeral; a durable deployment still creates the declared repository rows through its migration path.
-
-The split:
-
-| Piece                                                     | Final owner                                       |
-| --------------------------------------------------------- | ------------------------------------------------- |
-| `JobHandler`, `JobContext`, `createQueue`, `createWorker` | `@zmdb/jobs`                                      |
-| supported ephemeral SQLite storage                        | `@zmdb/jobs`                                      |
-| node-postgres adapter                                     | `@zmdb/jobs-postgres`, required peer              |
-| durable `zmdb_job` rows and pending index declaration     | jobs migration contract                           |
-| the three claim statements                                | worker SQL, following the protocol in outbox §4.2 |
+`@zmdb/jobs-sqlite` owns `createSqliteJobStore`, `sqliteJobEnqueuer`, `createMemoryJobStore`, and the SQLite migration bundle. `@zmdb/jobs-postgres` owns `createPgJobStore`, `pgJobEnqueuer`, and the
+PostgreSQL migration bundle with required `pg` peer. Ordinary stores own their required transactions; enqueuers execute only in the caller's transaction. Core has no SQL-shaped execute/dialect port or
+memory subpath.
 
 **`zmdb_job` is a second table with the outbox's shape, not the outbox table reused.** The temptation is strong and `web-queues.md` predicts it.
 
@@ -295,9 +269,9 @@ Any other derivation loses, and the reasons are worth having:
 - **A caller-required key on every enqueue** puts the burden on the code least able to carry it: the common case has no natural key, and a required field with no natural value gets filled with
   `randomUUID()`, which is `jobId` spelled by hand.
 
-**The marker.** `zmdb_job_done(key TEXT PRIMARY KEY, completedAt TIMESTAMP)`, declared in `@zmdb/repository` with the row (§3). The framework's three contributions are the key, a `seen(key)` read the
-worker performs **before** invoking a handler, and a statement the handler includes in its own transaction. The pre-check is not an optimisation — it is what makes §6's replay and §8's abandoned
-handler safe, and #587 asserts it in both roles.
+**The marker.** Each selected provider's fresh migration owns `zmdb_job_done(key TEXT PRIMARY KEY, completed_at TIMESTAMP)` with its queue row (§3); SQLite represents the timestamp as ISO text. The
+framework supplies the key, a `completed(key)` read before handler invocation, and atomic done settlement with marker insertion. A handler that requires its effect and marker to commit together writes
+the marker in its own transaction. The pre-check is not an optimisation — it is what makes §6's replay and §8's abandoned handler safe, and #587 asserts it in both roles.
 
 **Retention is an operational invariant, but it is not a #588 constructor option.** A marker deleted while its job can still be retried or manually replayed reopens the duplicate window, so retention
 must exceed both horizons.
@@ -406,8 +380,8 @@ can retry forever.
 `ctx.signal` is aborted when `timeoutMs` elapses and when the drain begins. Step 4 asks for the limitation to be stated; the limitation is sharper here than the step implies.
 
 `Driver.execute` and repository reads now accept an `AbortSignal`, so a handler can pass `ctx.signal` into its query and a cooperating driver can cancel the server-side work. Cancellation is still
-explicit handler discipline: the queue cannot infer which repository call belongs to a job, and the bundled database adapters do not yet provide driver-specific server cancellation. A handler that
-does not pass the signal still leaves its work running.
+explicit handler discipline: the queue cannot infer which repository call belongs to a job. PostgreSQL provider operations use the public driver's cancellation support. A handler that does not pass
+the signal still leaves its work running.
 
 **Step 4's own wording is self-contradicting and worth correcting.** "A timed-out handler is abandoned rather than left running" describes one thing twice: abandoning a promise _is_ leaving the work
 running. The distinction the step is reaching for is between the worker's bookkeeping and the handler's execution, and it has to be spelled that way to be implementable.
@@ -538,7 +512,7 @@ horizon; #594 owns lifecycle discovery for plain providers because its live disp
 ## Non-goals (rejected)
 
 - **Deciding the delivery guarantee** (§1). At-least-once is inherited from outbox §8, which named this epic as the owner of the consumer half and nothing else.
-- **A new claim protocol, `FOR UPDATE SKIP LOCKED`, or an affected-row count on `Driver`** (§1, §3). All three are outbox §4's rejections and none of them has become expressible.
+- **Handler-spanning claim transactions or a SQL-shaped core port** (§1, §3). Conditional claims and fenced settlement belong to the selected provider.
 - **Reusing the `zmdb_outbox` table** (§3). One `topic`/`name` column for two readers makes "no handler for this row" ambiguous, and the frozen answer for one reader silently destroys the other's
   work.
 - **A framework-owned deduplication table around the handler** (§4). Claim-then-run turns a duplicate into a lost job, which is the trade outbox §8 refuses in its other direction.
@@ -553,14 +527,13 @@ horizon; #594 owns lifecycle discovery for plain providers because its live disp
 - **`runAt: Date` on `EnqueueOptions`** (§3). `delayMs` is the whole mechanism, a caller with an instant writes `at - clock.now()`, and taking a `Date` would import `../schedule/SPEC.md`'s entire
   timezone question into a module that has no business with it.
 - **`container` on `JobContext`, or any per-job scope** (§10).
-- **A shipped Redis or SQS adapter.** The required real adapter is node-postgres because it already speaks the SQL-shaped `JobStore`; adding a broker protocol would create a second worker state
-  machine rather than adapt this one.
+- **A shipped Redis or SQS adapter.** This contract selects SQLite and PostgreSQL providers; broker adapters are outside its scope.
 - **A logger, or a `log` on `JobContext`.** `onHandlerError` is the sink, for the reason `../../../app/src/events/SPEC.md` §3 requires `onError`; `web-logging` argues the rest.
 - **Metrics emitted from this module.** `RunReport` is the numbers; wiring an observability implementation here would create a second telemetry pipeline instead of using the app-owned port.
 
 ## Package ownership amendment (#645)
 
-The queue, worker, dead-letter and retry surface is owned by `@zmdb/jobs`. `createMemoryJobStore` and `MemoryJobStore` are owned by `@zmdb/jobs/memory`; the process-local implementation remains SQLite
+The queue, worker, dead-letter and retry surface is owned by `@zmdb/jobs`. `createMemoryJobStore` and `MemoryJobStore` are owned by `@zmdb/jobs-sqlite`; the process-local implementation remains SQLite
 `:memory:` via `node:sqlite`.
 
 `createPgJobStore`, `PgJobClient` and `PgJobStoreOptions` live in `@zmdb/jobs-postgres`, the sole owner of the `pg` peer. Core jobs has no third-party peer.

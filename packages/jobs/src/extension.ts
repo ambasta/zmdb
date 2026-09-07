@@ -1,6 +1,6 @@
 import type { ApplicationExtension } from '@zmdb/app';
 
-import type { Worker } from './queues/index.js';
+import type { JobStoreResource, Worker } from './queues/index.js';
 import type { Scheduler } from './schedule/index.js';
 
 interface JobsParticipant {
@@ -17,9 +17,11 @@ interface JobsParticipant {
 export function jobsExtension(options: {
   readonly workers?: readonly Worker[];
   readonly schedulers?: readonly Scheduler[];
+  readonly stores?: readonly JobStoreResource[];
 }): ApplicationExtension {
   const workers = Object.freeze([...(options.workers ?? [])]);
   const schedulers = Object.freeze([...(options.schedulers ?? [])]);
+  const stores = [...new Set(options.stores ?? [])];
   const enteredWorkers: Worker[] = [];
   const enteredSchedulers: Scheduler[] = [];
   let started = false;
@@ -34,7 +36,7 @@ export function jobsExtension(options: {
       startAll(schedulers, enteredSchedulers);
     },
     stop({ graceMs }) {
-      stopped ??= stopAll(enteredSchedulers, enteredWorkers, graceMs);
+      stopped ??= stopAll(enteredSchedulers, enteredWorkers, stores, graceMs);
       return stopped;
     },
   };
@@ -47,28 +49,45 @@ function startAll<T extends JobsParticipant>(participants: readonly T[], entered
   }
 }
 
-async function stopAll(schedulers: readonly Scheduler[], workers: readonly Worker[], graceMs: number): Promise<void> {
-  if (!Number.isSafeInteger(graceMs) || graceMs < 0) {
+async function stopAll(
+  schedulers: readonly Scheduler[],
+  workers: readonly Worker[],
+  stores: readonly JobStoreResource[],
+  graceMs: number,
+): Promise<void> {
+  if (!Number.isSafeInteger(graceMs) || graceMs < 0 || graceMs > 2_147_483_647) {
     throw new RangeError('@zmdb/jobs: graceMs must be a non-negative safe integer');
   }
   const deadline = Date.now() + graceMs;
   const errors: unknown[] = [];
-  await stopGroup(schedulers, deadline, errors);
-  await stopGroup(workers, deadline, errors);
-  if (errors.length === 0) return;
-  const first = errors[0];
-  if (errors.length === 1 && first !== undefined) throw first;
-  throw new AggregateError(errors, '@zmdb/jobs: background work shutdown failed');
-}
-
-async function stopGroup(participants: readonly JobsParticipant[], deadline: number, errors: unknown[]): Promise<void> {
-  for (let index = participants.length - 1; index >= 0; index -= 1) {
-    const participant = participants[index];
-    if (participant === undefined) continue;
+  const stops = [
+    ...schedulers
+      .toReversed()
+      .map(participant => (remaining: number) => participant.onShutdown({ graceMs: remaining })),
+    ...workers.toReversed().map(participant => (remaining: number) => participant.onShutdown({ graceMs: remaining })),
+    ...stores.toReversed().map(store => (remaining: number) => store.close({ graceMs: remaining })),
+  ];
+  for (const stop of stops) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await participant.onShutdown({ graceMs: Math.max(0, deadline - Date.now()) });
+      const remaining = Math.max(0, deadline - Date.now());
+      const work = Promise.resolve(stop(remaining));
+      await Promise.race([
+        work,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new DOMException('@zmdb/jobs: shutdown deadline exceeded', 'TimeoutError')),
+            remaining,
+          );
+        }),
+      ]);
     } catch (error) {
       errors.push(error);
+    } finally {
+      clearTimeout(timer);
     }
   }
+  if (errors.length === 0) return;
+  if (errors.length === 1) throw errors[0];
+  throw new AggregateError(errors, '@zmdb/jobs: background work shutdown failed');
 }

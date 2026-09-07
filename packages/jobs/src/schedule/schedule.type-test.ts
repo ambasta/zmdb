@@ -2,6 +2,12 @@
 import { Cron, Interval } from '@zmdb/jobs/schedule';
 
 class ValidTasks {
+  @Interval(1000, { runs: 'once-per-replica' })
+  cooperative(signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    return Promise.resolve();
+  }
+
   @Cron('0 0 3 * * *', { runs: 'once-per-cluster', timeZone: 'UTC' })
   nightly(): Promise<void> {
     return Promise.resolve();
@@ -9,7 +15,7 @@ class ValidTasks {
 }
 
 class InvalidTasks {
-  // @ts-expect-error - a scheduled method receives no argument.
+  // @ts-expect-error - a scheduled method receives an AbortSignal, not a Date.
   @Cron('0 0 3 * * *', { runs: 'once-per-cluster' })
   withArgument(_when: Date): void {}
 

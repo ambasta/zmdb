@@ -128,6 +128,47 @@ async function flushMicrotasks(count = 4): Promise<void> {
 }
 
 describe('task scheduler (#587 tests freeze)', () => {
+  it.each(['timeout', 'lease-loss', 'shutdown'] as const)('delivers the task AbortSignal on %s', async mode => {
+    const clock = new FakeClock(0);
+    const leases = new MemoryLeases(clock);
+    const release = deferred();
+    const errors: unknown[] = [];
+    let observed: AbortSignal | undefined;
+    class Tasks {
+      @Interval(1000, {
+        runs: mode === 'lease-loss' ? 'once-per-cluster' : 'once-per-replica',
+        name: 'cooperative',
+        timeoutMs: 5000,
+      })
+      async run(signal: AbortSignal): Promise<void> {
+        observed = signal;
+        signal.addEventListener('abort', release.resolve, { once: true });
+        await release.promise;
+      }
+    }
+    const scheduler = createScheduler(schedulerOptions(clock, [new Tasks()], { leases, leaseMs: 3000, errors }));
+    clock.set(1000);
+    const running = scheduler.tick(clock.now());
+    try {
+      await flushMicrotasks(20);
+      expect(observed).toBeInstanceOf(AbortSignal);
+      expect(observed?.aborted).toBe(false);
+      if (mode === 'timeout') clock.advance(5000);
+      else if (mode === 'lease-loss') {
+        leases.failRenewal = true;
+        clock.advance(1000);
+      } else await scheduler.onShutdown({ graceMs: 0 });
+      await flushMicrotasks(20);
+      expect(observed?.aborted).toBe(true);
+      if (mode === 'lease-loss') expect(errors.map(String)).toEqual([expect.stringMatching(/lease renewal.*refused/)]);
+      if (mode === 'timeout') expect(errors.map(String)).toEqual([expect.stringMatching(/timed out/)]);
+    } finally {
+      release.resolve();
+      await running;
+      await scheduler.onShutdown({ graceMs: 0 });
+    }
+  });
+
   it('fires a cron task at the expected times', async () => {
     const calls: number[] = [];
     const start = Date.parse('2026-09-04T00:00:00.000Z');

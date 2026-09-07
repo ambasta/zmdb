@@ -1,7 +1,7 @@
 import { createToken, Inject } from '@zmdb/app/di';
 import { compileModule, Module } from '@zmdb/app/modules';
 import { createQueue, createWorker, type Clock, type DeadJob, type JobHandler, type WorkerOptions } from '@zmdb/jobs';
-import { createMemoryJobStore, type MemoryJobStore } from '@zmdb/jobs/memory';
+import { createMemoryJobStore, type MemoryJobStore } from '@zmdb/jobs-sqlite';
 // Runtime contract for #587/#588, against queues/SPEC.md. Every assertion reaches the
 // shipped worker through the supported in-memory backend and fake clock.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -136,6 +136,7 @@ async function flush(): Promise<void> {
 beforeEach(() => vi.useRealTimers());
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   for (const store of stores) store.close();
   stores.clear();
 });
@@ -197,6 +198,7 @@ describe('queue worker (#587 tests freeze)', () => {
     );
 
     for (let attempt = 1; attempt <= 12; attempt += 1) {
+      vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.8);
       expect(await worker.runOnce()).toMatchObject({ retried: 2 });
       const nominal = Math.min(300_000, 1000 * 2 ** (attempt - 1));
       const delays = ['a', 'b'].map(id => Date.parse(String(row(store, id)['lease_until'])) - clock.now());

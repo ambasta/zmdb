@@ -34,8 +34,9 @@ Optional drivers, frontend adapters, transports, brokers, telemetry providers, a
 | @zmdb/client             | 1.0.0-alpha.4 | integration  | client          | integration: generated HTTP clients            | `npm add @zmdb/client@1.0.0-alpha.4`                                                                             | Dependency-free HTTP client runtime for generated and manually declared zmdb operations.                                                                                       | generated-client             |
 | @zmdb/cockroach          | 1.0.0-alpha.4 | integration  | cockroach       | integration: CockroachDB                       | `npm add @zmdb/cockroach@1.0.0-alpha.4 @zmdb/query-compiler@1.0.0-alpha.4 @zmdb/repository@1.0.0-alpha.4`        | CockroachDB vertical for zmdb: PostgreSQL-family dialect overrides, migrations, catalog introspection, retries, and a pg-protocol driver.                                      | dialect-cockroach            |
 | @zmdb/compiler           | 1.0.0-alpha.4 | tooling      | compiler        | tooling                                        | `npm add --save-dev @zmdb/compiler@1.0.0-alpha.4`                                                                | The single TypeScript front end for zmdb reflection, AOT emission, code generation, build adapters, lint rules, and project configuration.                                     | aot-setup                    |
-| @zmdb/jobs               | 1.0.0-alpha.4 | core         | jobs            | capability: jobs                               | `npm add @zmdb/jobs@1.0.0-alpha.4`                                                                               | Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.                                                           | web-queues                   |
+| @zmdb/jobs               | 1.0.0-alpha.4 | core         | jobs            | capability: jobs                               | `npm add @zmdb/jobs@1.0.0-alpha.4`                                                                               | Portable typed queues, workers, scheduling, leases, and application lifecycle integration.                                                                                     | web-queues                   |
 | @zmdb/jobs-postgres      | 1.0.0-alpha.4 | integration  | jobs-postgres   | provider: jobs / PostgreSQL                    | `npm add @zmdb/jobs-postgres@1.0.0-alpha.4 @zmdb/jobs@1.0.0-alpha.4 pg@^8.23.0`                                  | node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.                                                                                                  | web-queues                   |
+| @zmdb/jobs-sqlite        | 1.0.0-alpha.4 | integration  | jobs-sqlite     | provider: jobs / SQLite                        | `npm add @zmdb/jobs-sqlite@1.0.0-alpha.4 @zmdb/jobs@1.0.0-alpha.4`                                               | Explicit SQLite persistence and owned memory storage for portable zmdb jobs.                                                                                                   | web-queues                   |
 | @zmdb/mcp                | 1.0.0-alpha.4 | integration  | mcp             | integration: Model Context Protocol            | `npm add @zmdb/mcp@1.0.0-alpha.4`                                                                                | Transport-neutral MCP client and server cores with validated tool dispatch, authenticated identity, and bounded remote calls.                                                  | llm-mcp                      |
 | @zmdb/migrations         | 1.0.0-alpha.4 | tooling      | migrations      | tooling                                        | `npm add --save-dev @zmdb/migrations@1.0.0-alpha.4`                                                              | Schema snapshots, deterministic migration plans, ledger runners, embedded execution, catalog introspection, and declaration emission for zmdb.                                 | migrations                   |
 | @zmdb/mssql              | 1.0.0-alpha.4 | integration  | mssql           | integration: SQL Server                        | `npm add @zmdb/mssql@1.0.0-alpha.4 @zmdb/query-compiler@1.0.0-alpha.4 @zmdb/repository@1.0.0-alpha.4`            | Complete SQL Server vertical for zmdb: T-SQL compilation, migrations, structural node-mssql execution, catalog introspection, and capability metadata.                         | dialect-mssql                |
@@ -370,18 +371,14 @@ The single TypeScript front end for zmdb reflection, AOT emission, code generati
 
 ### `@zmdb/jobs`
 
-Typed queues, workers, dead letters, scheduling, leases, and a built-in SQLite memory backend for zmdb applications.
+Portable typed queues, workers, scheduling, leases, and application lifecycle integration.
 
 - **Release unit:** `core`
 - **Exports:**
   - `.` → `./src/index.ts`
-  - `./memory` → `./src/queues/backends/memory.ts`
   - `./schedule` → `./src/schedule/index.ts`
 - **Dependencies:**
   - `@zmdb/app` → `workspace:^`
-  - `@zmdb/query-compiler` → `workspace:^`
-  - `@zmdb/repository` → `workspace:^`
-  - `@zmdb/sqlite` → `workspace:1.0.0-alpha.4`
 - **Optional dependencies:** None.
 - **Optional peers:** None.
 - **Required peers:** None.
@@ -410,6 +407,25 @@ node-postgres JobStore adapter for caller-owned PostgreSQL pools and clients.
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:** None.
 - **External proof:** fixtures/consumer-server-integrations
+
+### `@zmdb/jobs-sqlite`
+
+Explicit SQLite persistence and owned memory storage for portable zmdb jobs.
+
+- **Release unit:** `integration`
+- **Exports:**
+  - `.` → `./src/index.ts`
+- **Dependencies:**
+  - `@zmdb/sqlite` → `workspace:1.0.0-alpha.4`
+- **Optional dependencies:** None.
+- **Optional peers:** None.
+- **Required peers:**
+  - `@zmdb/jobs` → `1.0.0-alpha.4`
+- **Engines:**
+  - `node` → `>=26`
+- **License:** `GPL-3.0-or-later`
+- **Facade exposure:** None.
+- **External proof:** fixtures/consumer-jobs-providers
 
 ### `@zmdb/mcp`
 
@@ -681,7 +697,6 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `.` → `./src/index.ts`
   - `./entity-modeling` → `./src/entity-modeling/index.ts`
   - `./integrations` → `./src/integrations/index.ts`
-  - `./jobs` → `./src/jobs/index.ts`
   - `./outbox` → `./src/outbox/index.ts`
   - `./replicas` → `./src/replicas/index.ts`
   - `./seeding` → `./src/seeding/index.ts`

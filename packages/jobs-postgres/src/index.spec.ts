@@ -2,14 +2,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createQueue, createWorker, type Clock, type JobHandler, type JobStore, type WorkerOptions } from '@zmdb/jobs';
-import { postgres as postgresDialect } from '@zmdb/postgres';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPgJobStore } from './index.js';
 
 const PG_CONN = process.env.ZMDB_PG ?? 'postgres://postgres:postgres@localhost:55432/bench';
-const REQUIRE_POSTGRES = process.env.ZMDB_REQUIRE_PG === '1';
 const START = Date.parse('2026-09-05T00:00:00.000Z');
 
 interface PackageManifest {
@@ -97,10 +95,7 @@ beforeAll(async () => {
     postgres = candidate;
   } catch (error) {
     await candidate.end().catch(() => undefined);
-    if (REQUIRE_POSTGRES) {
-      throw new Error(`PostgreSQL is required but not reachable at ${PG_CONN}`, { cause: error });
-    }
-    console.warn(`[skip] Postgres not reachable at ${PG_CONN}`);
+    throw new Error(`PostgreSQL is required but not reachable at ${PG_CONN}`, { cause: error });
   }
 });
 
@@ -143,10 +138,10 @@ describe('@zmdb/jobs-postgres (#661)', () => {
     if (postgres === undefined) return;
     const store = createPgJobStore(postgres);
 
-    expect(store.dialect).toBe(postgresDialect);
-    await expect(store.execute({ text: 'SELECT $1::int AS answer', parameters: [42] })).resolves.toEqual([
-      { answer: 42 },
-    ]);
+    expect(store).not.toHaveProperty('dialect');
+    expect(store).not.toHaveProperty('execute');
+    await expect(store.completed('missing')).resolves.toBe(false);
+    await store.close();
     await expect(postgres.query('SELECT 2::int AS answer')).resolves.toMatchObject({ rows: [{ answer: 2 }] });
   });
 
@@ -155,22 +150,20 @@ describe('@zmdb/jobs-postgres (#661)', () => {
     const pool = new Pool({ connectionString: PG_CONN, connectionTimeoutMillis: 1000, max: 1 });
     try {
       const store = createPgJobStore(pool, { prepared: true, maxCacheSize: 1 });
-      const firstSql = 'SELECT $1::int AS answer';
-      await store.execute({ text: firstSql, parameters: [1] });
-      await store.execute({ text: firstSql, parameters: [2] });
+      await store.completed('one');
+      await store.completed('two');
 
       const first = await pool.query<{ readonly name: string; readonly statement: string }>(
-        'SELECT name, statement FROM pg_prepared_statements WHERE statement = $1',
-        [firstSql],
+        'SELECT name, statement FROM pg_prepared_statements',
       );
       expect(first.rows).toHaveLength(1);
 
-      const secondSql = 'SELECT $1::text AS value';
-      await store.execute({ text: secondSql, parameters: ['next'] });
+      await store.listDead({ limit: 1 });
       const remaining = await pool.query<{ readonly name: string; readonly statement: string }>(
         'SELECT name, statement FROM pg_prepared_statements ORDER BY name',
       );
-      expect(remaining.rows).toEqual([{ name: expect.any(String), statement: secondSql }]);
+      expect(remaining.rows).toEqual([{ name: expect.any(String), statement: expect.stringContaining('dead') }]);
+      await store.close();
       await expect(pool.query('SELECT 3::int AS answer')).resolves.toMatchObject({ rows: [{ answer: 3 }] });
     } finally {
       await pool.end();
@@ -183,9 +176,7 @@ describe('@zmdb/jobs-postgres (#661)', () => {
     expect(adapter.dependencies).toEqual({
       '@zmdb/postgres': 'workspace:1.0.0-alpha.4',
     });
-    expect(adapter.devDependencies).toMatchObject({
-      '@zmdb/jobs': 'workspace:^',
-    });
+    expect(adapter.devDependencies).toHaveProperty('@zmdb/jobs', 'workspace:^');
     expect(adapter.peerDependencies).toEqual({
       '@zmdb/jobs': '1.0.0-alpha.4',
       pg: '^8.23.0',

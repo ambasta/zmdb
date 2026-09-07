@@ -458,8 +458,26 @@ describe('architecture and release governance fixtures', () => {
 
     const liveResult = runVerifier(VERIFIERS.architecture, ROOT);
     expect(liveResult).toMatchObject({ status: 0, stderr: '' });
+    const cli = lookupPackage(live, '@zmdb/cli');
+    const product = lookupPackage(live, 'zmdb');
+    if (cli === undefined) {
+      expect(product?.manifest['dependencies']).not.toHaveProperty('@zmdb/cli');
+    } else {
+      expect(cli).toMatchObject({
+        id: 'cli',
+        directory: 'packages/cli',
+        npmName: '@zmdb/cli',
+        manifest: { name: '@zmdb/cli', version: '1.0.0-alpha.4' },
+        catalog: { facade: { root: [], subpaths: ['zmdb/cli'] } },
+      });
+      expect(product?.manifest['dependencies']).toHaveProperty('@zmdb/cli', 'workspace:1.0.0-alpha.4');
+      expect(product?.manifest['exports']).toMatchObject({ './cli': './src/cli/index.ts' });
+    }
+    expect(lookupPackage(live, '@zmdb/jobs-sqlite')?.directory).toBe('packages/jobs-sqlite');
     expect(liveResult.stdout.trim()).toBe(
-      'architecture zones: 38 catalog packages, 73 workspace edges, and canonical rings verified.',
+      cli === undefined
+        ? 'architecture zones: 39 catalog packages, 72 workspace edges, and canonical rings verified.'
+        : 'architecture zones: 40 catalog packages, 78 workspace edges, and canonical rings verified.',
     );
   });
 

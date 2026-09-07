@@ -64,6 +64,13 @@ export const SERVER_PACKAGES = [
     exports: ['.'],
   },
   {
+    name: '@zmdb/jobs-sqlite',
+    dir: 'jobs-sqlite',
+    dependencies: { '@zmdb/jobs': 'workspace:^', '@zmdb/sqlite': 'workspace:^' },
+    peer: undefined,
+    exports: ['.'],
+  },
+  {
     name: '@zmdb/otel',
     dir: 'otel',
     dependencies: { '@zmdb/app': 'workspace:^' },
@@ -151,15 +158,10 @@ export const CORE_SERVER_PACKAGES = [
   {
     name: '@zmdb/jobs',
     dir: 'jobs',
-    dependencies: {
-      '@zmdb/app': 'workspace:^',
-      '@zmdb/query-compiler': 'workspace:^',
-      '@zmdb/repository': 'workspace:^',
-      '@zmdb/sqlite': 'workspace:^',
-    },
-    exports: ['.', './memory', './schedule'],
-    forbiddenPackages: ['@zmdb/web'],
-    forbiddenExports: [],
+    dependencies: { '@zmdb/app': 'workspace:^' },
+    exports: ['.', './schedule'],
+    forbiddenPackages: ['@zmdb/web', '@zmdb/sqlite', '@zmdb/postgres', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres'],
+    forbiddenExports: ['./memory'],
   },
 ];
 

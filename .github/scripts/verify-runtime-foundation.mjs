@@ -50,6 +50,7 @@ const FORBIDDEN_RUNTIME_PACKAGES = new Set([
   '@zmdb/compiler',
   '@zmdb/jobs',
   '@zmdb/jobs-postgres',
+  '@zmdb/jobs-sqlite',
   '@zmdb/mcp',
   '@zmdb/migrations',
   '@zmdb/mssql',
@@ -316,7 +317,16 @@ function oldPackageProblems(root, architecture) {
     ) {
       continue;
     }
-    for (const specifier of moduleSpecifiers(readFileSync(file, 'utf8'))) {
+    let source = readFileSync(file, 'utf8');
+    // Removed-entry tests prove the public cutover; retain positive imports even
+    // when the same fixture also contains a refusal probe for that specifier.
+    if (logical.startsWith(`fixtures${sep}`) && /^import assert from ['"]node:assert\/strict['"];$/m.test(source)) {
+      source = source.replace(
+        /^await assert\.rejects\(import\((['"])[^'"\n]+\1\), \{ code: (['"])ERR_PACKAGE_PATH_NOT_EXPORTED\2 \}\);$/gm,
+        '',
+      );
+    }
+    for (const specifier of moduleSpecifiers(source)) {
       if (OLD_PACKAGES.includes(packageRoot(specifier))) {
         const paths = oldImports.get(specifier) ?? [];
         paths.push(logical);

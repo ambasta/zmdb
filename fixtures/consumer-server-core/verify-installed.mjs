@@ -12,7 +12,7 @@ import { publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURE = join(ROOT, 'fixtures', 'consumer-server-core');
 const PACKAGES_DIR = join(ROOT, 'packages');
-const JOBS_ROOTS = ['@zmdb/jobs'];
+const JOBS_ROOTS = ['@zmdb/jobs', '@zmdb/jobs-sqlite'];
 const TARGET_ROOTS = ['@zmdb/app', '@zmdb/web', 'zmdb'];
 const OPTIONAL_SERVER_PACKAGES = [
   '@zmdb/jobs-postgres',
@@ -261,7 +261,7 @@ function verifyJobs(packages, scratch) {
   const hygiene = inspectServerCoreFixture();
   if (hygiene.length > 0) throw new Error(`server consumer fixture is invalid: ${hygiene.join('; ')}`);
 
-  const built = run('yarn', ['workspaces', 'foreach', '-R', '-t', '--from', '@zmdb/jobs', 'run', 'build'], {
+  const built = run('yarn', ['workspaces', 'foreach', '-R', '-t', '--from', '@zmdb/jobs-sqlite', 'run', 'build'], {
     cwd: ROOT,
     stdio: 'inherit',
   });

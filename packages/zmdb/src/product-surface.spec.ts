@@ -90,6 +90,25 @@ const RELEASE =
 const PRODUCT_CATALOG = ARCHITECTURE.catalog;
 const PRODUCT_FIXTURE = join(ROOT, 'fixtures', 'consumer-product');
 
+function expectedPackageCount(): 39 | 40 {
+  const cli = ARCHITECTURE.packages.find(pkg => pkg.npmName === '@zmdb/cli');
+  const product = ARCHITECTURE.packages.find(pkg => pkg.npmName === 'zmdb');
+  if (cli === undefined) {
+    expect(product?.manifest['dependencies']).not.toHaveProperty('@zmdb/cli');
+    return 39;
+  }
+  expect(cli).toMatchObject({
+    id: 'cli',
+    directory: 'packages/cli',
+    npmName: '@zmdb/cli',
+    manifest: { name: '@zmdb/cli', version: '1.0.0-alpha.4' },
+    catalog: { facade: { root: [], subpaths: ['zmdb/cli'] } },
+  });
+  expect(product?.manifest['dependencies']).toHaveProperty('@zmdb/cli', 'workspace:1.0.0-alpha.4');
+  expect(product?.manifest['exports']).toMatchObject({ './cli': './src/cli/index.ts' });
+  return 40;
+}
+
 let measuredFacade: ReturnType<typeof inspectProductFacade> | undefined;
 function facadeReport(): ReturnType<typeof inspectProductFacade> {
   measuredFacade ??= inspectProductFacade(ROOT, { architecture: ARCHITECTURE });
@@ -259,7 +278,6 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
           '@zmdb/repository/replicas',
           '@zmdb/repository/integrations',
           '@zmdb/repository/entity-modeling',
-          '@zmdb/repository/jobs',
           '@zmdb/query-compiler/outbox',
         ],
         excluded: new Set<string>(),
@@ -313,6 +331,9 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
       }
     }
 
+    const orm: Readonly<Record<string, unknown>> = await import('zmdb/orm');
+    expect(orm).not.toHaveProperty('jobPendingIndexDdl');
+
     const validator: Readonly<Record<string, unknown>> = await import('zmdb/validator');
     const utilities: Readonly<Record<string, unknown>> = await import('@zmdb/aot-validator/utilities');
     const compiler: Readonly<Record<string, unknown>> = await import('zmdb/compiler');
@@ -333,6 +354,18 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     expect(report.rows).toHaveLength(report.manifests.size);
     expect(report.packageReferenceBytes).not.toBe('');
     expect(jobs?.optionality).toEqual({ kind: 'capability', capability: 'jobs' });
+    expect(PRODUCT_CATALOG.find(row => row.id === 'jobs-sqlite')).toMatchObject({
+      npmName: '@zmdb/jobs-sqlite',
+      directory: 'packages/jobs-sqlite',
+      consumer: { fixture: 'fixtures/consumer-jobs-providers' },
+      optionality: {
+        kind: 'provider',
+        capability: 'jobs',
+        capabilityOwner: 'jobs',
+        technology: 'SQLite',
+        includedInDefault: false,
+      },
+    });
     expect(jobsPostgres?.optionality).toEqual({
       kind: 'provider',
       capability: 'jobs',
@@ -436,8 +469,8 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
   it('accounts for every official package exactly once and rejects stale catalog rows', async () => {
     const report = await catalogReport();
     expect(report.membershipProblems).toEqual([]);
-    expect(report.rows).toHaveLength(38);
-    expect(report.manifests.size).toBe(38);
+    expect(report.rows).toHaveLength(expectedPackageCount());
+    expect(report.manifests.size).toBe(expectedPackageCount());
 
     const pages = new Set(PRODUCT_CATALOG.map(row => row.docsOwner));
     const staleManifests = new Map(report.manifests);
@@ -498,8 +531,8 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     const report = discoverCatalogConsumers(ROOT, PRODUCT_CATALOG);
 
     expect(report.problems).toEqual([]);
-    expect(report.assignments).toHaveLength(38);
-    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(28);
+    expect(report.assignments).toHaveLength(expectedPackageCount());
+    expect(report.assignments.filter(assignment => 'fixture' in assignment)).toHaveLength(expectedPackageCount() - 10);
     expect(report.assignments.filter(assignment => 'reason' in assignment)).toHaveLength(10);
   });
 

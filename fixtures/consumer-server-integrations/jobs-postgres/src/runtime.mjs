@@ -19,17 +19,41 @@ try {
   process.exit(0);
 }
 
+const schema = `jobs_consumer_${globalThis.crypto.randomUUID().replaceAll('-', '')}`;
 try {
+  await pool.query(`CREATE SCHEMA ${schema}`);
+  await pool.query(`SET search_path TO ${schema}`);
+  for (const migration of jobs.jobsPostgresMigrations) await pool.query(migration.up);
   const store = jobs.createPgJobStore(pool, { prepared: true, maxCacheSize: 8 });
-  const rows = await store.execute({ text: 'SELECT $1::int AS answer', parameters: [42] });
-  if (store.dialect !== 'postgres' || rows[0]?.answer !== 42) {
-    throw new Error('@zmdb/jobs-postgres failed its installed parameterized query');
+  const now = new Date();
+  await store.enqueue({ id: 'installed', name: 'deliver', payload: '{"id":42}', enqueuedAt: now, availableAt: now });
+  const claimed = await store.claim({
+    ids: ['installed'],
+    holder: 'consumer',
+    now,
+    leaseUntil: new Date(now.getTime() + 1000),
+  });
+  if (claimed.length !== 1 || claimed[0].payload !== '{"id":42}') {
+    throw new Error('@zmdb/jobs-postgres failed its installed domain claim');
   }
+  await store.settle({
+    kind: 'done',
+    jobId: 'installed',
+    holder: 'consumer',
+    idempotencyKey: 'installed',
+    completedAt: now,
+  });
+  if (!(await store.completed('installed'))) throw new Error('@zmdb/jobs-postgres omitted its completion marker');
+  await store.close();
   const caller = await pool.query('SELECT 7::int AS answer');
   if (caller.rows[0]?.answer !== 7) {
     throw new Error('@zmdb/jobs-postgres took ownership of the installed consumer pool');
   }
-  console.log('@zmdb/jobs-postgres packed consumer: live parameterized query and caller-owned pool executed');
+  console.log('@zmdb/jobs-postgres packed consumer: live domain ports and caller-owned pool executed');
 } finally {
-  await pool.end();
+  try {
+    await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+  } finally {
+    await pool.end();
+  }
 }

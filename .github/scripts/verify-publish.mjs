@@ -768,7 +768,7 @@ if (generatedClientDocsTsc.status !== 0) {
 // The cohesive server fixture imports and typechecks every direct app/web/jobs
 // package entry and its stable zmdb facade counterpart from this packed tree.
 // Its emitted journey then serves HTTP, runs a command and consumes one job
-// through the default in-memory backend.
+// through the explicitly selected SQLite memory provider.
 verifyServerCoreConsumer(app);
 
 // The one-install product fixture remains an expected-failure runtime journey

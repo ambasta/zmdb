@@ -75,7 +75,7 @@ function fixtureException(overrides: Readonly<Record<string, unknown>> = {}): Re
 }
 
 describe('owned architecture exceptions (#735)', () => {
-  it('accounts for all 81 opaque entries and deletes their old stores', async () => {
+  it('accounts for all 80 opaque entries and deletes their old stores', async () => {
     const database = await inspectDatabaseBoundaries(ROOT, { architecture: ARCHITECTURE });
     const runtime = inspectRuntimeFoundation(ROOT, { architecture: ARCHITECTURE });
     const server = analyzeServerBoundaries(ROOT, { architecture: ARCHITECTURE });
@@ -94,18 +94,33 @@ describe('owned architecture exceptions (#735)', () => {
       ].toSorted(),
     };
 
+    const cli = ARCHITECTURE.packages.find(pkg => pkg.npmName === '@zmdb/cli');
+    const product = ARCHITECTURE.packages.find(pkg => pkg.npmName === 'zmdb');
+    if (cli === undefined) {
+      expect(product?.manifest['dependencies']).not.toHaveProperty('@zmdb/cli');
+    } else {
+      expect(cli).toMatchObject({
+        id: 'cli',
+        directory: 'packages/cli',
+        npmName: '@zmdb/cli',
+        manifest: { name: '@zmdb/cli', version: '1.0.0-alpha.4' },
+        catalog: { facade: { root: [], subpaths: ['zmdb/cli'] } },
+      });
+      expect(product?.manifest['dependencies']).toHaveProperty('@zmdb/cli', 'workspace:1.0.0-alpha.4');
+      expect(product?.manifest['exports']).toMatchObject({ './cli': './src/cli/index.ts' });
+    }
     expect(architectureExceptionInventory()).toEqual({
-      total: 81,
+      total: 80,
       bySource: {
         'database-boundaries': 0,
-        'runtime-foundation': 78,
+        'runtime-foundation': 77,
         'server-boundaries': 0,
         'tooling-boundaries': 3,
       },
       owners: [637, 638, 639, 640, 641],
-      ceiling: 265,
+      ceiling: cli === undefined ? 260 : 263,
       migration: {
-        legacyTotal: 81,
+        legacyTotal: 80,
         retiredTotal: 0,
         retiredBySource: {
           'database-boundaries': 0,
@@ -166,13 +181,13 @@ describe('owned architecture exceptions (#735)', () => {
       expect(report.diagnostics).toEqual([]);
       expect(report.findings.every(finding => finding.disposition === 'excepted')).toBe(true);
     }
-    expect(reports.flatMap(report => report.findings)).toHaveLength(81);
+    expect(reports.flatMap(report => report.findings)).toHaveLength(80);
 
     const migration = renderGovernanceExceptionMigrationReport();
-    expect(migration).toContain('- total legacy entries: 81');
-    expect(migration).toContain('- total live exceptions: 81');
+    expect(migration).toContain('- total legacy entries: 80');
+    expect(migration).toContain('- total live exceptions: 80');
     expect(migration).toContain('- total retired entries: 0');
-    expect(migration.split('\n').filter(line => line.startsWith('| `'))).toHaveLength(81);
+    expect(migration.split('\n').filter(line => line.startsWith('| `'))).toHaveLength(80);
     expect(renderGovernanceExceptionMigrationReport()).toBe(migration);
   }, 20_000);
 
@@ -236,14 +251,14 @@ describe('owned architecture exceptions (#735)', () => {
     expect(snapshot.exceptions).toBe(GOVERNANCE_EXCEPTIONS);
     expect(query?.inventory).toEqual(architectureExceptionInventory());
     expect(Object.values(query?.reports ?? {}).flatMap(report => report.diagnostics)).toEqual([]);
-    expect(Object.values(query?.reports ?? {}).flatMap(report => report.findings)).toHaveLength(81);
+    expect(Object.values(query?.reports ?? {}).flatMap(report => report.findings)).toHaveLength(80);
     expect(
       Object.values(query?.reports ?? {})
         .flatMap(report => report.findings)
         .every(finding => finding.disposition === 'excepted'),
     ).toBe(true);
     expect(snapshot.findings.filter(finding => finding.disposition === 'active')).toEqual([]);
-    expect(snapshot.findings.filter(finding => finding.disposition === 'excepted')).toHaveLength(81);
+    expect(snapshot.findings.filter(finding => finding.disposition === 'excepted')).toHaveLength(80);
   }, 90_000);
 
   it('rejects an ownerless or permanent-by-omission exception', () => {
@@ -379,10 +394,10 @@ describe('owned architecture exceptions (#735)', () => {
       exception => `${exception.migration.source}\u0000${exception.findingId}\u0000${exception.id}`,
     );
     expect(order).toEqual(order.toSorted((left, right) => left.localeCompare(right)));
-    expect(new Set(GOVERNANCE_EXCEPTIONS.map(exception => exception.id)).size).toBe(81);
+    expect(new Set(GOVERNANCE_EXCEPTIONS.map(exception => exception.id)).size).toBe(80);
     expect(
       new Set(GOVERNANCE_EXCEPTIONS.map(exception => `${exception.findingId}:${JSON.stringify(exception.scope)}`)).size,
-    ).toBe(81);
+    ).toBe(80);
     for (const exception of GOVERNANCE_EXCEPTIONS) {
       expect(Object.isFrozen(exception)).toBe(true);
       expect(Object.isFrozen(exception.scope)).toBe(true);

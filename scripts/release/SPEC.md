@@ -110,8 +110,9 @@ The current public inventory is classified exactly once:
 | `client`             | `@zmdb/client`             | integration   | `fixtures/consumer-http-client`             |
 | `cockroach`          | `@zmdb/cockroach`          | integration   | `fixtures/database-cockroach`               |
 | `compiler`           | `@zmdb/compiler`           | tooling       | `fixtures/consumer-compiler`                |
-| `jobs`               | `@zmdb/jobs`               | core          | `fixtures/consumer-server-core`             |
-| `jobs-postgres`      | `@zmdb/jobs-postgres`      | integration   | `fixtures/consumer-server-integrations`     |
+| `jobs`               | `@zmdb/jobs`               | core          | `fixtures/consumer-jobs-providers`          |
+| `jobs-postgres`      | `@zmdb/jobs-postgres`      | integration   | `fixtures/consumer-jobs-providers`          |
+| `jobs-sqlite`        | `@zmdb/jobs-sqlite`        | integration   | `fixtures/consumer-jobs-providers`          |
 | `mcp`                | `@zmdb/mcp`                | integration   | `fixtures/consumer-mcp`                     |
 | `migrations`         | `@zmdb/migrations`         | tooling       | `yarn verify:publish`                       |
 | `mssql`              | `@zmdb/mssql`              | integration   | `fixtures/database-mssql`                   |
@@ -152,9 +153,8 @@ The six private root workspaces are:
 | `fixtures/llm-adapters/package.json`    | `@zmdb-fixture/llm-adapters`    |
 | `fixtures/next-app-router/package.json` | `@zmdb-fixture/next-app-router` |
 
-Nested fixture manifests are test assets outside the root workspace set and are already `private: true`; they are not release candidates. `packages/orm`, `packages/schema`,
-`packages/jobs-sqlite`, `packages/sql`, and `packages/validator` have no manifest and are not packages. Adding a public manifest to any `packages/*` directory makes classification mandatory in the
-same change.
+Nested fixture manifests are test assets outside the root workspace set and are already `private: true`; they are not release candidates. `packages/orm`, `packages/schema`, `packages/sql`, and
+`packages/validator` have no manifest and are not packages. Adding a public manifest to any `packages/*` directory makes classification mandatory in the same change.
 
 ## 4. Version ownership and movement
 

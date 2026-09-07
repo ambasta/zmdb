@@ -77,10 +77,11 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
       typescript: peer('>=7.0.2 <8.0.0', '7.0.2', 'fixtures/consumer-compiler'),
     },
   ),
-  jobs: releasePackage('core', 'fixtures/consumer-server-core', ['sqlite']),
-  'jobs-postgres': releasePackage('integration', 'fixtures/consumer-server-integrations', ['jobs', 'postgres'], {
-    pg: peer('^8.23.0', '8.23.0', 'fixtures/consumer-server-integrations'),
+  jobs: releasePackage('core', 'fixtures/consumer-jobs-providers'),
+  'jobs-postgres': releasePackage('integration', 'fixtures/consumer-jobs-providers', ['jobs', 'postgres'], {
+    pg: peer('^8.23.0', '8.23.0', 'fixtures/consumer-jobs-providers'),
   }),
+  'jobs-sqlite': releasePackage('integration', 'fixtures/consumer-jobs-providers', ['jobs', 'sqlite']),
   mcp: releasePackage('integration', 'fixtures/consumer-mcp', ['ai']),
   migrations: releasePackage('tooling', PUBLISH, ['query-compiler']),
   mssql: releasePackage('integration', 'fixtures/database-mssql', ['migrations', 'query-compiler', 'repository'], {

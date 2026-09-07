@@ -4633,14 +4633,23 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/jobs-sqlite@workspace:packages/jobs-sqlite":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/jobs-sqlite@workspace:packages/jobs-sqlite"
+  dependencies:
+    "@zmdb/jobs": "workspace:^"
+    "@zmdb/sqlite": "workspace:1.0.0-alpha.4"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    "@zmdb/jobs": 1.0.0-alpha.4
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/jobs@workspace:^, @zmdb/jobs@workspace:packages/jobs":
   version: 0.0.0-use.local
   resolution: "@zmdb/jobs@workspace:packages/jobs"
   dependencies:
     "@zmdb/app": "workspace:^"
-    "@zmdb/query-compiler": "workspace:^"
-    "@zmdb/repository": "workspace:^"
-    "@zmdb/sqlite": "workspace:1.0.0-alpha.4"
     typescript: "npm:7.0.2"
   languageName: unknown
   linkType: soft

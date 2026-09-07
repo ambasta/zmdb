@@ -1,0 +1,17 @@
+{
+  "name": "@zmdb/jobs-sqlite",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@zmdb/sqlite": "workspace:1.0.0-alpha.4"
+  },
+  "devDependencies": {
+    "@zmdb/jobs": "workspace:^"
+  },
+  "peerDependencies": {
+    "@zmdb/jobs": "1.0.0-alpha.4"
+  }
+}

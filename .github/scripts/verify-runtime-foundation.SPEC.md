@@ -27,12 +27,12 @@ generic lifecycle/introspection implementations into `@zmdb/migrations` while re
 | Current package        | Build-included TypeScript files | Export-map entries |
 | ---------------------- | ------------------------------: | -----------------: |
 | `@zmdb/schema-core`    |                              16 |                  9 |
-| `@zmdb/query-compiler` |                              24 |                  9 |
+| `@zmdb/query-compiler` |                              25 |                  9 |
 | `@zmdb/aot-validator`  |                               6 |                  5 |
-| `@zmdb/repository`     |                              18 |                  8 |
-| **Total**              |                          **64** |             **31** |
+| `@zmdb/repository`     |                              18 |                  7 |
+| **Total**              |                          **65** |             **30** |
 
-The four manifests contain 17 dependency entries: 5 `dependencies` and 12 `devDependencies`. They contain no `peerDependencies` or `optionalDependencies`.
+The four manifests contain 20 dependency entries: 5 `dependencies` and 15 `devDependencies`. They contain no `peerDependencies` or `optionalDependencies`.
 
 Issues #670 and #672 add `@zmdb/postgres` and `@zmdb/mssql` before the hard foundation cutover. Their current inward package edges are explicit transitional boundaries; the ratchet does not recurse
 through those old package roots while checking the optional verticals. Every other non-foundation edge remains forbidden. Old-package imports in the database packages and packed fixtures stay explicit
@@ -40,7 +40,7 @@ owned exception records until the coordinated foundation and final database purg
 
 ## 2. Exact file ownership
 
-Every one of the 64 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
+Every one of the 65 legacy foundation files appears exactly once below. The #636 verifier expands the current build inventory, compares it with this table, and fails for an omitted path, a duplicate
 path, or a path whose declared destination no longer exists in the architecture policy. The `@zmdb/sqlite`, `@zmdb/postgres`, and `@zmdb/mssql` sections also record their package-owned production
 files outside that legacy input inventory.
 
@@ -68,11 +68,9 @@ Issue #708 moved the sole Vercel adapter directly to `packages/ai-vercel/src/ind
 
 #628 moved the TypeScript front end, compiler fixtures, and compiler test support into `packages/compiler`; those files are no longer members of this four-package runtime-foundation inventory.
 
-### `@zmdb/jobs` — 1
+### Jobs providers — 0
 
-```text
-packages/repository/src/jobs/index.ts
-```
+#756 removed the repository-owned jobs schema. Fresh queue, marker and schedule-lease schemas now belong to the selected SQLite and PostgreSQL jobs providers.
 
 ### `@zmdb/mcp` — 0
 
@@ -87,7 +85,7 @@ structural `introspect/types.ts` and `migrations/types.ts` protocols listed unde
 
 Issue #672 moved the SQL Server driver directly to `packages/mssql/src/driver.ts`, so no old foundation file remains in this destination.
 
-### `@zmdb/orm` — 19
+### `@zmdb/orm` — 18
 
 ```text
 packages/query-compiler/src/outbox/index.ts
@@ -224,7 +222,7 @@ No symbol may be temporarily exported from both destinations. A move and its imp
 
 ## 4. Public export map
 
-All 36 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
+All 30 current export entries across the four foundation candidates have one disposition. The independently retained MCP root is listed separately.
 
 ### Current `@zmdb/schema-core` — 9
 
@@ -246,24 +244,19 @@ All 36 current export entries across the four foundation candidates have one dis
 | --------------- | ------------------ |
 | `.`             | `@zmdb/mcp`        |
 
-### Current `@zmdb/query-compiler` — 14
+### Current `@zmdb/query-compiler` — 9
 
-| Old subpath             | Final public owner                    |
-| ----------------------- | ------------------------------------- |
-| `.`                     | `@zmdb/sql`                           |
-| `./comments`            | `@zmdb/sql/comments`                  |
-| `./fts`                 | `@zmdb/sql/fts`                       |
-| `./joins`               | `@zmdb/sql/joins`                     |
-| `./aggregations`        | `@zmdb/sql/aggregations`              |
-| `./introspect`          | `@zmdb/migrations/introspect`         |
-| `./introspect/runtime`  | `@zmdb/migrations/introspect/runtime` |
-| `./migrations`          | `@zmdb/migrations`                    |
-| `./migrations/embedded` | `@zmdb/migrations/embedded`           |
-| `./migrations/runner`   | `@zmdb/migrations/runner`             |
-| `./naming`              | `@zmdb/schema/naming`                 |
-| `./outbox`              | `@zmdb/orm/outbox`                    |
-| `./set-ops`             | `@zmdb/sql/set-ops`                   |
-| `./schema-objects`      | `@zmdb/sql/schema-objects`            |
+| Old subpath        | Final public owner         |
+| ------------------ | -------------------------- |
+| `.`                | `@zmdb/sql`                |
+| `./comments`       | `@zmdb/sql/comments`       |
+| `./fts`            | `@zmdb/sql/fts`            |
+| `./joins`          | `@zmdb/sql/joins`          |
+| `./aggregations`   | `@zmdb/sql/aggregations`   |
+| `./naming`         | `@zmdb/schema/naming`      |
+| `./outbox`         | `@zmdb/orm/outbox`         |
+| `./set-ops`        | `@zmdb/sql/set-ops`        |
+| `./schema-objects` | `@zmdb/sql/schema-objects` |
 
 ### Current `@zmdb/aot-validator` — 5
 
@@ -275,7 +268,7 @@ All 36 current export entries across the four foundation candidates have one dis
 | `./serialization` | `@zmdb/validator/serialization` |
 | `./utilities`     | `@zmdb/validator`               |
 
-### Current `@zmdb/repository` — 8
+### Current `@zmdb/repository` — 7
 
 | Old subpath         | Final public owner                                                                  |
 | ------------------- | ----------------------------------------------------------------------------------- |
@@ -286,11 +279,11 @@ All 36 current export entries across the four foundation candidates have one dis
 | `./replicas`        | `@zmdb/orm/replicas`                                                                |
 | `./integrations`    | `@zmdb/web/integrations`                                                            |
 | `./entity-modeling` | split between `@zmdb/orm/entity-modeling` and `@zmdb/schema/entity-modeling`, by §3 |
-| `./jobs`            | `@zmdb/jobs`                                                                        |
 
 Issues #670 and #672 removed `@zmdb/repository/drivers/pg` and `@zmdb/repository/drivers/mssql`; their database packages now own those public runtimes. After cutover, the four old package names and
-the remaining 36 old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed consumers. `@zmdb/mcp` remains
-independently published. There are no forwarding packages and no `exports` aliases.
+the remaining old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed consumers, except explicit removed-entry
+refusal tests. A fixture may use the exact awaited `node:assert/strict` `assert.rejects(import(literal), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' })` probe; positive imports and other forms remain
+findings. `@zmdb/mcp` remains independently published. There are no forwarding packages and no `exports` aliases.
 
 ## 5. Manifest dependency disposition
 

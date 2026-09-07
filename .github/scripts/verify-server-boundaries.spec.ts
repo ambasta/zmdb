@@ -48,7 +48,7 @@ describe('the optional server boundary verifier', () => {
       encoding: 'utf8',
     });
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('7 optional package manifests');
+    expect(result.stdout).toContain('8 optional package manifests');
   });
 
   it('reports a planted optional-package peer leak through the scoped analysis', async () => {

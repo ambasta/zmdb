@@ -4,13 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./memory": "./src/index.ts",
     "./schedule": "./src/index.ts"
   },
   "dependencies": {
-    "@zmdb/app": "workspace:^",
-    "@zmdb/query-compiler": "workspace:^",
-    "@zmdb/repository": "workspace:^",
-    "@zmdb/sqlite": "workspace:^"
+    "@zmdb/app": "workspace:^"
   }
 }

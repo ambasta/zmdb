@@ -11,17 +11,36 @@ type Jobs = {
 
 class FakeClock implements Clock {
   #now = Date.parse('2026-09-06T00:00:00.000Z');
+  readonly pending = new Set<{ readonly deadline: number; readonly resolve: () => void }>();
 
   now(): number {
     return this.#now;
   }
 
-  sleep(_ms: number, signal: AbortSignal): Promise<void> {
-    return signal.aborted ? Promise.reject(new Error('aborted')) : Promise.resolve();
+  sleep(ms: number, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    return new Promise<void>((resolve, reject) => {
+      const entry = { deadline: this.#now + ms, resolve };
+      this.pending.add(entry);
+      signal.addEventListener(
+        'abort',
+        () => {
+          this.pending.delete(entry);
+          reject(signal.reason);
+        },
+        { once: true },
+      );
+    });
   }
 
   advance(ms: number): void {
     this.#now += ms;
+    for (const entry of this.pending) {
+      if (entry.deadline <= this.#now) {
+        this.pending.delete(entry);
+        entry.resolve();
+      }
+    }
   }
 }
 

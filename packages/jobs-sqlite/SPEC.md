@@ -1,12 +1,9 @@
 # `@zmdb/jobs-sqlite` — explicit SQLite jobs provider
 
-> **Target contract frozen by issue #753.** This is a roadmap-only package at commit `961aaae0b0c9b4e29fc864f41454707933154a0e`: the directory has no package manifest or runtime source until #756
-> implements the split.
-
 ## 1. Package boundary
 
-The package has one public entry, `@zmdb/jobs-sqlite`. Its direct production dependencies are exactly `@zmdb/jobs` and `@zmdb/sqlite` at `workspace:^`. It declares no `optionalDependencies`, external
-runtime dependency, or peer dependency.
+The package has one public entry, `@zmdb/jobs-sqlite`. It declares `@zmdb/sqlite: workspace:1.0.0-alpha.4` as its sole production dependency, required peer `@zmdb/jobs: 1.0.0-alpha.4`, and development
+dependency `@zmdb/jobs: workspace:^`. It declares no optional dependency, external runtime dependency, or optional peer.
 
 It owns SQLite implementations of the public `JobStore`, `LeaseStore`, `JobEnqueuer`, and `JobStoreResource` contracts. It also owns the SQLite queue/marker/lease schema and SQL. It does not own
 workers, retries, handler validation, dead-letter policy, scheduler timing, lifecycle ordering, or a second jobs state machine.
@@ -56,13 +53,18 @@ The provider stores timestamps in UTC ISO-8601 text, uses the current `zmdb_job`
 
 ## 3. Resource ownership and shutdown
 
-`createSqliteJobStore(database)` borrows the caller's connection. Its idempotent `close()` releases only provider-owned cache/state and never calls `database.close()`.
+`createSqliteJobStore(database)` borrows the caller's connection. Its idempotent `close(options?: { readonly graceMs: number })` releases only provider-owned cache/state and never calls
+`database.close()`.
 
 `createMemoryJobStore()` is the explicit convenience exception. It creates one private `node:sqlite` `DatabaseSync(':memory:')`, applies the two frozen migrations to that fresh database, and owns the
-connection. Its idempotent `close()` and `[Symbol.dispose]()` close that database exactly once. It is intended for tests and local execution, not durable production storage.
+connection. Its idempotent `close(options?: { readonly graceMs: number })` and `[Symbol.dispose]()` close that database exactly once. It is intended for tests and local execution, not durable
+production storage.
 
 When either store is supplied to `jobsExtension({ stores: [...] })`, extension shutdown stops schedulers, then workers, then closes the distinct stores under the one remaining application deadline. A
 caller-owned SQLite connection remains usable after the adapter and application stop.
+
+`maxCacheSize` is a nonnegative safe integer. An optional close grace is a nonnegative integer at most 2,147,483,647; invalid bounds throw `RangeError`. Post-close operations reject `Error` with
+`@zmdb/jobs-sqlite: store is closed`. SQLite work is synchronous and cannot be preempted by an event-loop deadline.
 
 ## 4. Refusals and evidence
 

@@ -205,6 +205,22 @@ export const PRODUCT_CATALOG = Object.freeze([
     consumer: { fixture: 'fixtures/consumer-server-integrations' },
   }),
   productPackage({
+    id: 'jobs-sqlite',
+    directory: 'packages/jobs-sqlite',
+    npmName: '@zmdb/jobs-sqlite',
+    role: 'jobs-sqlite',
+    facade: { root: [], subpaths: [] },
+    optionality: {
+      kind: 'provider',
+      capability: 'jobs',
+      capabilityOwner: 'jobs',
+      technology: 'SQLite',
+      includedInDefault: false,
+    },
+    docsOwner: 'web-queues',
+    consumer: { fixture: 'fixtures/consumer-jobs-providers' },
+  }),
+  productPackage({
     id: 'mcp',
     directory: 'packages/mcp',
     npmName: '@zmdb/mcp',

@@ -35,8 +35,7 @@
     "./outbox": "./src/outbox/index.ts",
     "./replicas": "./src/replicas/index.ts",
     "./integrations": "./src/integrations/index.ts",
-    "./entity-modeling": "./src/entity-modeling/index.ts",
-    "./jobs": "./src/jobs/index.ts"
+    "./entity-modeling": "./src/entity-modeling/index.ts"
   },
   "publishConfig": {
     "access": "public",

@@ -86,19 +86,21 @@ selected jobs:
       └── @zmdb/jobs-postgres ─> @zmdb/postgres ── peer: pg
 ```
 
-The exact direct production contracts are:
+The exact direct production contracts are below. Provider manifests use exact `workspace:1.0.0-alpha.4` database dependencies and keep `@zmdb/jobs: workspace:^` only in development dependencies,
+alongside its required exact peer, following the independent release policy.
 
-| Package               | `dependencies`                         | `optionalDependencies` | runtime peers                 | Public entries    |
-| --------------------- | -------------------------------------- | ---------------------- | ----------------------------- | ----------------- |
-| `@zmdb/jobs`          | exactly `@zmdb/app`                    | none                   | none                          | `.`, `./schedule` |
-| `@zmdb/jobs-sqlite`   | exactly `@zmdb/jobs`, `@zmdb/sqlite`   | none                   | none                          | `.`               |
-| `@zmdb/jobs-postgres` | exactly `@zmdb/jobs`, `@zmdb/postgres` | none                   | exactly required `pg@^8.23.0` | `.`               |
-| `zmdb`                | its metadata-declared default packages | none for jobs          | none for jobs                 | no `./jobs` entry |
+| Package               | `dependencies`                         | `optionalDependencies` | runtime peers                                        | Public entries    |
+| --------------------- | -------------------------------------- | ---------------------- | ---------------------------------------------------- | ----------------- |
+| `@zmdb/jobs`          | exactly `@zmdb/app`                    | none                   | none                                                 | `.`, `./schedule` |
+| `@zmdb/jobs-sqlite`   | exactly `@zmdb/sqlite@1.0.0-alpha.4`   | none                   | required `@zmdb/jobs@1.0.0-alpha.4`                  | `.`               |
+| `@zmdb/jobs-postgres` | exactly `@zmdb/postgres@1.0.0-alpha.4` | none                   | required `@zmdb/jobs@1.0.0-alpha.4` and `pg@^8.23.0` | `.`               |
+| `zmdb`                | its metadata-declared default packages | none for jobs          | none for jobs                                        | no `./jobs` entry |
 
-Forbidden direct or transitive production edges are:
+Forbidden production edges are:
 
 - `zmdb -> @zmdb/jobs`, `zmdb -> @zmdb/jobs-sqlite`, and `zmdb -> @zmdb/jobs-postgres`;
-- `@zmdb/jobs -> @zmdb/sqlite`, `@zmdb/jobs -> @zmdb/postgres`, `@zmdb/jobs -> @zmdb/migrations`, `@zmdb/jobs -> @zmdb/query-compiler`, `@zmdb/jobs -> @zmdb/repository`, or `@zmdb/jobs -> pg`;
+- Direct jobs dependencies other than `@zmdb/app`, and any transitive concrete database, provider, migrations, or `pg` dependency. The canonical indirect app foundation remains permitted until its
+  native foundation cut; this includes repository, query-compiler, schema-core, and aot-validator.
 - either jobs provider reaching the other provider or the other database technology;
 - any provider or facade importing another package's private source, a workspace source path, or an undeclared package; and
 - an optional dependency, conditional export, dynamic import, package-manager hook, source resolver, or catch-and-fallback import that makes jobs appear through `zmdb`.
@@ -178,7 +180,7 @@ export interface JobStore extends JobEnqueuer {
 }
 
 export interface JobStoreResource {
-  close(): void | Promise<void>;
+  close(options?: { readonly graceMs: number }): void | Promise<void>;
 }
 
 export interface JobStoreMigration {
@@ -216,6 +218,18 @@ driver directly and never detects a dialect.
 
 `jobsExtension` gains `stores?: readonly JobStoreResource[]`. It stops schedulers, then workers, then distinct stores, each group in reverse declaration order, under one application-wide remaining
 grace deadline. Every participant is attempted; one failure is preserved and multiple failures become an `AggregateError` in attempt order. Repeated shutdown is idempotent.
+
+Date inputs are finite `Date` instances from year 0001 through 9999 inclusive. Identifiers, names, holders, and completion keys are nonempty Unicode without NUL. Payload and detail may be empty; a
+supplied dedupe key may not. Invalid text throws `TypeError`; invalid dates or bounds throw `RangeError` before SQL. Limits are positive integers and attempts nonnegative integers, both at most
+2,147,483,647. Claim requires `leaseUntil > now`, including an empty id set. Lease TTL is a positive safe integer at most 2,147,483,647.
+
+Candidates sort by enqueue time then UTF-8 binary id; dead rows sort by dead time descending then the same id order. Claim deduplicates requested ids and fences on pending state and expiry. Settlement
+fences on the current nonempty holder and pending state. Done increments attempts without overflow, clears error/dead fields and holder, and commits its marker atomically; existing markers retain
+their time. False settlement increments only the worker's skipped counter and never invokes `onDead`. Replay resets a dead row in place while retaining identity, payload, dedupe key, and markers.
+
+Shutdown observes one remaining deadline across all participants. It attempts every participant after failures or expiry and observes late rejections. Each hanging participant contributes
+`TimeoutError` with `@zmdb/jobs: shutdown deadline exceeded`. A worker stops waiting for pending claims at that deadline, releases late claims without starting handlers, and ignores abandoned handler
+results. Synchronous SQLite work cannot be preempted by an event-loop timer.
 
 ## 5. Storage-provider ownership
 
@@ -294,17 +308,17 @@ The required peer is consumer-owned and explicit. No PostgreSQL package, `pg`, o
 ## 7. Metadata-derived graph budgets
 
 The product catalog extends `optionality` with `capability` and `provider` records as frozen in [`../../scripts/product/SPEC.md`](../../scripts/product/SPEC.md). The architecture verifier derives
-installed closures from packed manifests, beginning at the catalog id named by each journey. It follows `dependencies` and `optionalDependencies`; it follows a peer only when the clean consumer
-declares that peer. It does not trust workspace hoisting or a prose package list.
+installed closures from packed manifests, beginning at the catalog id named by each journey. It follows production dependencies and required peers present in the clean consumer. It does not trust
+workspace hoisting or a prose package list.
 
 At the target boundary, the metadata-derived budgets are:
 
-| Journey root          |   Direct catalog edges |                                 Catalog closure | Provider/peer budget                                                                    |
-| --------------------- | ---------------------: | ----------------------------------------------: | --------------------------------------------------------------------------------------- |
-| `zmdb`                | current metadata value |                     10 at the measured baseline | zero jobs capability/provider packages and zero `pg`                                    |
-| `@zmdb/jobs`          |              exactly 1 |          exactly 7 with the current app closure | zero provider packages, external runtime dependencies, optional dependencies, and peers |
-| `@zmdb/jobs-sqlite`   |              exactly 2 | exactly 10 with the current app/SQLite closures | exactly one jobs provider, no PostgreSQL package or peer                                |
-| `@zmdb/jobs-postgres` |              exactly 2 |                exactly 10 before external peers | exactly one jobs provider and required `pg@^8.23.0`, no SQLite jobs provider            |
+| Journey root          |   Direct catalog edges |                                Catalog closure | Provider/peer budget                                                                    |
+| --------------------- | ---------------------: | ---------------------------------------------: | --------------------------------------------------------------------------------------- |
+| `zmdb`                | current metadata value |                    10 at the measured baseline | zero jobs capability/provider packages and zero `pg`                                    |
+| `@zmdb/jobs`          |              exactly 1 |         exactly 6 with the current app closure | zero provider packages, external runtime dependencies, optional dependencies, and peers |
+| `@zmdb/jobs-sqlite`   |              exactly 2 | exactly 9 with the current app/SQLite closures | exactly one jobs provider, no PostgreSQL package or peer                                |
+| `@zmdb/jobs-postgres` |              exactly 2 |                exactly 9 before external peers | exactly one jobs provider and required `pg@^8.23.0`, no SQLite jobs provider            |
 
 The verifier prints the resolved package names and edges when a count or class changes. Counts are review budgets, not substitutes for the forbidden-edge assertions in §3: swapping one forbidden
 provider for another while preserving a number still fails.

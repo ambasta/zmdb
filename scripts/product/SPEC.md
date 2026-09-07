@@ -70,8 +70,8 @@ At the #618 baseline, six directories under `packages/` contained publishable ma
 #694, #657, #658, #659, #660, #661, #695, #696, #697, #698, #699, #628, and #629 add `@zmdb/protobuf`, `@zmdb/client`, `@zmdb/ai`, `@zmdb/app`, `@zmdb/jobs`, the independently selected
 `@zmdb/ai-anthropic`, `@zmdb/ai-langchain`, `@zmdb/ai-vercel`, `@zmdb/mcp`, `@zmdb/otel`, `@zmdb/sqlite`, `@zmdb/postgres`, `@zmdb/mssql`, `@zmdb/mysql`, `@zmdb/react`, `@zmdb/angular`, `@zmdb/vue`,
 `@zmdb/svelte`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`, `@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/jobs-postgres`, `@zmdb/solid`, `@zmdb/react-native`, `@zmdb/next`,
-`@zmdb/nuxt`, `@zmdb/sveltekit`, `@zmdb/compiler`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, and issue #674 adds `@zmdb/singlestore`. The catalog now accounts for all thirty-eight
-manifest-backed packages exactly once. Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather than release order:
+`@zmdb/nuxt`, `@zmdb/sveltekit`, `@zmdb/compiler`, and `@zmdb/migrations`; issue #673 adds `@zmdb/cockroach`, and issue #674 adds `@zmdb/singlestore`. The catalog now accounts for every
+manifest-backed package exactly once. Publication derives its dependency-first sequence from architecture policy; the catalog still owns membership rather than release order:
 
 | Directory                     | npm name                   | Frozen product role | Current facade ownership                                                   |
 | ----------------------------- | -------------------------- | ------------------- | -------------------------------------------------------------------------- |
@@ -106,6 +106,7 @@ manifest-backed packages exactly once. Publication derives its dependency-first 
 | `packages/app`                | `@zmdb/app`                | `app`               | Root application names and `zmdb/app/*`                                    |
 | `packages/jobs`               | `@zmdb/jobs`               | `jobs`              | None; selected first-party capability with no facade export                |
 | `packages/jobs-postgres`      | `@zmdb/jobs-postgres`      | `jobs-postgres`     | None; selected PostgreSQL job adapter with no facade export                |
+| `packages/jobs-sqlite`        | `@zmdb/jobs-sqlite`        | `jobs-sqlite`       | None; selected SQLite jobs provider with no facade export                  |
 | `packages/otel`               | `@zmdb/otel`               | `otel`              | None; selected OpenTelemetry integration with no facade export             |
 | `packages/transport-grpc`     | `@zmdb/transport-grpc`     | `grpc`              | None; selected gRPC integration with no facade export                      |
 | `packages/transport-nats`     | `@zmdb/transport-nats`     | `transport-nats`    | None; selected core NATS integration with no facade export                 |
@@ -114,8 +115,8 @@ manifest-backed packages exactly once. Publication derives its dependency-first 
 | `packages/web`                | `@zmdb/web`                | `web`               | Root HTTP names and `zmdb/web/*`                                           |
 | `packages/zmdb`               | `zmdb`                     | `product`           | Root composition, concern facades, `config`, `cli`, and executable         |
 
-This table is review evidence, not the canonical machine source. The thirty-eight rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit
-plus the consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
+This table is review evidence, not the canonical machine source. The rows in `catalog.mjs` assign `docsOwner` and `consumer`, so later package additions or renames are one catalog edit plus the
+consumers that verify it. A planned package is not catalogued until its package manifest exists; roadmap names are not published facts.
 
 ## 4. Required consumers
 

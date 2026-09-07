@@ -1,7 +1,7 @@
 import { createApplication } from '@zmdb/app';
 import { Module } from '@zmdb/app/modules';
 import { createQueue, createWorker, jobsExtension, type Clock, type RunReport, type Worker } from '@zmdb/jobs';
-import { createMemoryJobStore } from '@zmdb/jobs/memory';
+import { createMemoryJobStore } from '@zmdb/jobs-sqlite';
 import type { Scheduler } from '@zmdb/jobs/schedule';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

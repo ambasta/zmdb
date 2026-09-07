@@ -80,9 +80,6 @@ export {
 } from '@zmdb/repository/entity-modeling';
 export type { LifecycleEvent, SingleTableInheritance, Subscriber } from '@zmdb/repository/entity-modeling';
 
-export { jobPendingIndexDdl } from '@zmdb/repository/jobs';
-export type { JobDeadReason, JobDoneRow, JobRow, JobStatus } from '@zmdb/repository/jobs';
-
 export {
   OUTBOX_TABLE,
   outboxCandidatesQuery,

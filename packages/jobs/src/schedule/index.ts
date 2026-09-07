@@ -11,7 +11,7 @@ import { createLeaseHolder, createLeaseSession, type LeaseSession, type LeaseSto
 
 export type { LeaseStore } from './lease.js';
 
-type ScheduledMethod = () => void | Promise<void>;
+type ScheduledMethod = (signal: AbortSignal) => void | Promise<void>;
 
 export type TaskDecorator = (target: ScheduledMethod, context: ClassMethodDecoratorContext) => void;
 export type TaskRuns = 'once-per-replica' | 'once-per-cluster';
@@ -90,7 +90,7 @@ type RuntimeTrigger =
 interface RuntimeTask {
   readonly definition: ScheduleDef;
   readonly trigger: RuntimeTrigger;
-  readonly invoke: () => Promise<void>;
+  readonly invoke: (signal: AbortSignal) => Promise<void>;
   initialDue: number | undefined;
   firstTick: boolean;
   nextAt: number;
@@ -286,8 +286,8 @@ function runtimeTasks(options: SchedulerOptions): RuntimeTask[] {
       if (typeof value !== 'function') {
         throw new Error(`@zmdb/jobs: scheduled method "${definition.name}" is not callable on its instance`);
       }
-      const invoke = async (): Promise<void> => {
-        await Reflect.apply(value, instance, []);
+      const invoke = async (signal: AbortSignal): Promise<void> => {
+        await Reflect.apply(value, instance, [signal]);
       };
 
       if (definition.trigger.kind === 'cron') {
@@ -452,7 +452,7 @@ class AppScheduler implements Scheduler {
     active.controller.signal.addEventListener('abort', () => timerController.abort(active.controller.signal.reason), {
       once: true,
     });
-    const invocation = task.invoke().then<InvocationSettlement, InvocationSettlement>(
+    const invocation = task.invoke(active.controller.signal).then<InvocationSettlement, InvocationSettlement>(
       () => ({ kind: 'resolved' }),
       error => ({ kind: 'rejected', error }),
     );
@@ -468,13 +468,11 @@ class AppScheduler implements Scheduler {
       () => {
         if (task.running === active) {
           active.timedOut = true;
-          this.#error(
-            task,
-            scheduledFor,
-            new Error(
-              `@zmdb/jobs: scheduled task "${task.definition.name}" exceeded ${String(task.definition.timeoutMs)}ms`,
-            ),
+          const error = new Error(
+            `@zmdb/jobs: scheduled task "${task.definition.name}" timed out after ${String(task.definition.timeoutMs)}ms`,
           );
+          active.controller.abort(error);
+          this.#error(task, scheduledFor, error);
         }
       },
       () => undefined,

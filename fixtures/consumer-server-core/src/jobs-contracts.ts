@@ -8,7 +8,7 @@ import {
   type Queue,
   type Worker,
 } from '@zmdb/jobs';
-import { createMemoryJobStore, type MemoryJobStore } from '@zmdb/jobs/memory';
+import { createMemoryJobStore, type MemoryJobStore } from '@zmdb/jobs-sqlite';
 import { Cron, Interval, createScheduler, type LeaseStore, type Scheduler } from '@zmdb/jobs/schedule';
 
 type Jobs = {

@@ -1,10 +1,8 @@
 // @zmdb/jobs — queues, workers, scheduling and app lifecycle integration.
 
 export { jobsExtension } from './extension.js';
-export { createMemoryJobStore } from './queues/backends/memory.js';
 export { createQueue, createWorker } from './queues/index.js';
 export { Cron, Interval, createScheduler, schedulesOf } from './schedule/index.js';
-export type { MemoryJobStore } from './queues/backends/memory.js';
 export type {
   AnyJobHandler,
   Backoff,
@@ -13,7 +11,14 @@ export type {
   DeadReason,
   EnqueueOptions,
   JobContext,
-  JobDialect,
+  ClaimedJob,
+  JobCandidate,
+  JobEnqueue,
+  JobEnqueuer,
+  JobEnqueueResult,
+  JobSettlement,
+  JobStoreResource,
+  JobStoreMigration,
   JobHandler,
   JobOutcome,
   JobStore,

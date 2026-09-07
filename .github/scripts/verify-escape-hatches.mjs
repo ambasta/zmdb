@@ -136,6 +136,7 @@ const PACKAGES = [
   'app',
   'jobs',
   'jobs-postgres',
+  'jobs-sqlite',
   'otel',
   'transport-grpc',
   'transport-nats',

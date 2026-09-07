@@ -152,8 +152,8 @@ describe('runtime foundation boundary verifier (#636)', () => {
   it('matches the owned live-tree exception registry', () => {
     const output = execFileSync(process.execPath, [SCRIPT], { cwd: ROOT, encoding: 'utf8' });
     const report = inspectRuntimeFoundation(ROOT, { architecture: ARCHITECTURE });
-    expect(report.findings).toHaveLength(78);
-    expect(output).toContain('78 owned exception record(s)');
+    expect(report.findings).toHaveLength(77);
+    expect(output).toContain('77 owned exception record(s)');
     expect(output).toContain(
       `${String(report.findings.reduce((total, finding) => total + finding.count, 0))} measured occurrence(s)`,
     );
