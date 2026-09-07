@@ -326,6 +326,12 @@ function oldPackageProblems(root, architecture) {
         '',
       );
     }
+    if (logical.startsWith(`fixtures${sep}`)) {
+      source = source.replace(
+        /^[ \t]*\/\/[ \t]*@ts-expect-error[ \t]+\S[^\r\n]*\r?\n[ \t]*import[ \t]+type[ \t]+\{[^}]+\}[ \t]+from[ \t]+(['"])[^'"\r\n]+\1;[ \t]*$/gm,
+        '',
+      );
+    }
     for (const specifier of moduleSpecifiers(source)) {
       if (OLD_PACKAGES.includes(packageRoot(specifier))) {
         const paths = oldImports.get(specifier) ?? [];

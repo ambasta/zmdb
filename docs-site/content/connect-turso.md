@@ -121,8 +121,8 @@ const clientFor = (tenant: string) =>
 const repo = defineRepository(users, driverFor(clientFor(tenant)));
 ```
 
-The cost is that migrations must run against every tenant database. `runCli` takes a connection, so that is a loop — and a loop that must be resumable, because failing halfway through a thousand
-tenants is a state you have to recover from. Record progress.
+The cost is that migrations must run against every tenant database. `up` takes a connection, so that is a loop — and a loop that must be resumable, because failing halfway through a thousand tenants
+is a state you have to recover from. Record progress.
 
 ---
 

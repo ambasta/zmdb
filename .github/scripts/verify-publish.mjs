@@ -594,7 +594,6 @@ if (studioBin === undefined) {
 
 // 5. Typecheck a consumer against the published declarations.
 const METRO_SUBPATH = '@zmdb/compiler/metro';
-const PRODUCT_COMPILER_SUBPATH = 'zmdb/compiler';
 const BROWSER_FRAMEWORK_PACKAGES = ['@zmdb/svelte', '@zmdb/sveltekit', '@zmdb/vue'];
 const browserSpecifiers = specifiers.filter(specifier =>
   BROWSER_FRAMEWORK_PACKAGES.some(packageName => specifier === packageName || specifier.startsWith(`${packageName}/`)),
@@ -604,10 +603,7 @@ const nuxtSpecifiers = specifiers.filter(
 );
 const strictSpecifiers = specifiers.filter(
   specifier =>
-    specifier !== METRO_SUBPATH &&
-    specifier !== PRODUCT_COMPILER_SUBPATH &&
-    !browserSpecifiers.includes(specifier) &&
-    !nuxtSpecifiers.includes(specifier),
+    specifier !== METRO_SUBPATH && !browserSpecifiers.includes(specifier) && !nuxtSpecifiers.includes(specifier),
 );
 writeFileSync(
   join(app, 'consumer.ts'),
@@ -815,12 +811,10 @@ if (productTsc.status !== 0) {
 writeFileSync(
   join(app, 'metro-consumer.ts'),
   `import { withZmdb as withOwnerZmdb } from '${METRO_SUBPATH}';
-import { withZmdb as withProductZmdb } from '${PRODUCT_COMPILER_SUBPATH}';
 import type { MetroConfig } from 'metro';
 
 declare const config: MetroConfig;
 export const ownerWrapped: MetroConfig = withOwnerZmdb(config, { workerCount: 1 });
-export const productWrapped: MetroConfig = withProductZmdb(config, { workerCount: 1 });
 `,
 );
 writeFileSync(
@@ -849,6 +843,20 @@ const metroTsc = run(join(ROOT, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig
   stdio: 'inherit',
 });
 if (metroTsc.status !== 0) fail('the published Metro wrapper does not typecheck from a consumer project');
+
+console.log('Running the four installed tooling-owner consumers...');
+const toolingConsumer = run(
+  process.execPath,
+  [
+    join(ROOT, 'fixtures/consumer-tooling-cutover/verify-installed.mjs'),
+    '--root',
+    ROOT,
+    '--evidence-dir',
+    join(tmp, 'tooling-owner-consumer'),
+  ],
+  { cwd: ROOT, stdio: 'inherit' },
+);
+if (toolingConsumer.status !== 0) fail('the packed tooling-owner consumers failed');
 
 const clientTarball = packedTarballs.get('@zmdb/client');
 if (clientTarball === undefined) {

@@ -54,9 +54,9 @@ $ echo $?
 disposable SQLite or Postgres database:
 
 ```ts
-await runCli('up', connection, migrations);
-await runCli('down', connection, migrations);
-await runCli('up', connection, migrations);
+await up(connection, migrations);
+await down(connection, migrations);
+await up(connection, migrations);
 ```
 
 After `zmdb embed` creates the default `migrations/embedded.ts`, `check` regenerates the expected bytes in memory and reports `stale-embedded` when the SQL files, checksums, ordering, or `--with-down`

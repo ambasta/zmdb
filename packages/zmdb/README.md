@@ -21,7 +21,7 @@ npm add zmdb@alpha
 - Database verticals: `zmdb/sqlite`, `zmdb/postgres`, `zmdb/mysql`, `zmdb/mssql`, `zmdb/cockroach`, `zmdb/singlestore`
 - Application kernel: `zmdb/app` and `zmdb/app/{commands,cqrs,data,di,events,health,lifecycle,messaging,modules,observability,state}`
 - HTTP: `zmdb/web`, `zmdb/web/contract`, `zmdb/web/contract/compiler`, and the focused `zmdb/web/*` HTTP concern entries
-- Compatibility subpaths: `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`, `zmdb/unplugin`, `zmdb/web/contract`, `zmdb/web/contract/compiler`
+- Advanced runtime and contract subpaths: `zmdb/tags`, `zmdb/ir`, `zmdb/derive`, `zmdb/dto`, `zmdb/relations`, `zmdb/web/contract`, `zmdb/web/contract/compiler`
 
 `zmdb/web` composes the application kernel and HTTP package by identity for the common server import. The direct `@zmdb/web` package remains HTTP-only.
 

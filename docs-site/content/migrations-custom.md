@@ -104,9 +104,9 @@ Run the whole chain up, then down, against a real database in CI:
 
 ```ts
 it('migrations round-trip', async () => {
-  await runCli('up', conn, migrations);
-  await runCli('down', conn, migrations);
-  await runCli('up', conn, migrations);
+  await up(conn, migrations);
+  await down(conn, migrations);
+  await up(conn, migrations);
 });
 ```
 

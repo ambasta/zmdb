@@ -57,8 +57,8 @@ const orphans = await driver.execute({
 Vitess applies schema changes through its own workflow (deploy requests / online DDL) rather than by running your `ALTER TABLE` directly. That has two implications for [migrations](./migrations.html):
 
 - **Multi-statement `up` values are risky.** One statement per migration. MySQL auto-commits DDL anyway — see [Dialect: MySQL](./dialect-mysql.html).
-- **The migration may be applied out of band.** If your team uses deploy requests, the SQL from [generate](./cli-generate.html) is the input to that process rather than something `runCli` applies.
-  Export it:
+- **The migration may be applied out of band.** If your team uses deploy requests, the SQL from [generate](./cli-generate.html) is the input to that process rather than something `up` applies. Export
+  it:
 
   ```bash
   node --experimental-strip-types scripts/export.ts mysql

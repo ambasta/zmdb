@@ -1,10 +1,8 @@
 // Logic-free product facade for project compilation and compiler integrations.
 
-export { zmdbAot } from './unplugin.js';
-export type { ConfiguredZmdbAotOptions } from './unplugin.js';
-
-export { compileProject, watchCodegen, writeCompileResult } from '@zmdb/compiler';
+export { compileProject, watchCodegen, writeCompileResult, zmdbAot } from '@zmdb/compiler';
 export type {
+  ConfiguredZmdbAotOptions,
   CodegenOptions,
   CodegenResult,
   CompiledArtifact,
@@ -18,9 +16,6 @@ export type {
 
 export { transformTypeChecks } from '@zmdb/compiler/unplugin';
 export type { UnpluginLike, WatchChange, ZmdbAotOptions } from '@zmdb/compiler/unplugin';
-
-export { getCacheKey, transform, withZmdb } from '@zmdb/compiler/metro';
-export type { MetroOptions } from '@zmdb/compiler/metro';
 
 export {
   Emitter,

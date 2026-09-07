@@ -15,11 +15,11 @@ The inventory has **209 paths**, each exactly once:
 
 ```json
 {
-  "compiler": 33,
+  "compiler": 34,
   "migrations": 21,
   "cli": 33,
   "runtime": 30,
-  "facade": 54,
+  "facade": 53,
   "optional-integration": 0,
   "test-only": 38,
   "obsolete": 0
@@ -36,6 +36,7 @@ The line grammar is `<target-owner><TAB><current-path>`.
 compiler	packages/compiler/src/codegen/index.ts
 compiler	packages/compiler/src/codegen/scan.ts
 compiler	packages/compiler/src/codegen/witness.ts
+compiler	packages/compiler/src/configured-plugin.ts
 compiler	packages/compiler/src/config/index.ts
 compiler	packages/compiler/src/config/index.zmdb.generated.d.ts
 compiler	packages/compiler/src/config/index.zmdb.generated.js
@@ -182,7 +183,6 @@ facade	packages/zmdb/src/schema.ts
 facade	packages/zmdb/src/sql.ts
 facade	packages/zmdb/src/tags.ts
 facade	packages/zmdb/src/testing.ts
-facade	packages/zmdb/src/unplugin.ts
 facade	packages/zmdb/src/validator.ts
 facade	packages/zmdb/src/web-app.ts
 facade	packages/zmdb/src/web-compression.ts
@@ -249,7 +249,7 @@ optional-integration or obsolete source path now requires an intentional policy 
 
 ## 3. Public export and executable map
 
-There are **77 current export keys**: 14 AOT validator, 9 query compiler and 54 facade. This count is manifest-derived. The disposition map below also retains release-governed source-owner keys after
+There are **76 current export keys**: 14 AOT validator, 9 query compiler and 53 facade. This count is manifest-derived. The disposition map below also retains release-governed source-owner keys after
 their implementation moves, while #651's server facade keys, #620's concern facades, and #755's selected-jobs boundary are governed by `packages/zmdb/SPEC.md` and `scripts/product/catalog.mjs`.
 
 ```text
@@ -303,7 +303,7 @@ zmdb	./web	retain	zmdb/web
 zmdb	./web/contract	retain	@zmdb/web/contract
 zmdb	./web/contract/compiler	retain	@zmdb/web/contract/compiler
 zmdb	./compiler	retain-facade	@zmdb/compiler
-zmdb	./unplugin	release-governed-alias	zmdb/compiler
+zmdb	./unplugin	deleted	no public entry
 zmdb	./cli	retain-product-facade	@zmdb/cli
 zmdb	./config	retain-facade	@zmdb/compiler/config
 ```
@@ -473,7 +473,7 @@ The target oracle scans generated `.js`, declarations and witnesses. It rejects 
 
 ## 8. Documentation migration set
 
-The current old tooling names/commands occur in **44 docs-site pages**:
+At the #626 planning baseline, old tooling names/commands occurred in these **44 docs-site pages**:
 
 ```text
 docs-site/content/aot-setup.md
@@ -523,8 +523,8 @@ docs-site/content/web-repl.md
 ```
 
 The docs implementation also audits `README.md`, `PUBLISHING.md`, `docs-site/content/package-reference.md`, and the READMEs for `aot-validator`, `query-compiler`, `zmdb`, `compiler`, `migrations` and
-`cli`. The docs slice removes old implementation-package tooling imports and explains one product story through stable `zmdb/*` concern subpaths. Compatibility and removal notes follow the
-release-governance plan rather than inventing a second policy here.
+`cli`. The docs slice removes old implementation-package tooling imports and explains one product story through stable `zmdb/*` concern subpaths. Removed tooling entry points fail resolution; no
+compatibility alias is retained.
 
 ## 9. Manifest, verifier and release migration
 
@@ -610,7 +610,7 @@ The release gate installs only tarballs outside the workspace and proves:
 1. all admitted manifests carry the coordinated version and workspace dependencies were rewritten to installable ranges;
 2. the `zmdb` tarball installs `@zmdb/cli` and exposes exactly one `node_modules/.bin/zmdb`;
 3. `zmdb/compiler`, `zmdb/migrations`, `zmdb/cli` and `zmdb/config` are identity facades over independently importable tooling packages;
-4. old implementation-owner subpaths and `zmdb-codegen` agree with the compatibility/removal state recorded by the release plan;
+4. old implementation-owner subpaths, `zmdb/unplugin` and `zmdb-codegen` are absent;
 5. optional CLI commands fail with the specified diagnostic when their optional peers are absent; and
 6. the regenerated benchmark/fixture artifacts use only the emitted-runtime boundary in §7.
 
@@ -628,3 +628,19 @@ The executable verifier derived from this policy must:
 5. walk generated imports and the embedded-runner graph;
 6. pack each tooling package and test it outside the workspace; and
 7. report catalog counts in its success output so a claim can be copied only after it was measured.
+
+## 10. Final tooling cutover (#631)
+
+The configured asynchronous `zmdbAot` and `ConfiguredZmdbAotOptions` belong to the compiler root. The synchronous option-driven adapter remains at `@zmdb/compiler/unplugin`; both use the same
+low-level transform. The old product `zmdb/unplugin` export and implementation are deleted.
+
+The intentional `zmdb/compiler`, `zmdb/config`, `zmdb/testing`, `zmdb/migrations` and `zmdb/cli` concerns retain explicit owner identities. Metro remains only at the explicitly selected
+`@zmdb/compiler/metro` entry; `getCacheKey`, `transform`, `withZmdb` and `MetroOptions` are absent from the core compiler facade and its declarations.
+
+Only `@zmdb/cli` implements command dispatch. Migration root, runner and product entries expose `up`, `down` and `status` without `runCli`. Runtime foundations reject undeclared tooling across
+required, optional and peer manifest edges. The existing web contract compiler retains only its policy-owned optional tooling peers behind explicitly selected entries. Filesystem imports are allowed
+only for the existing HTTP static/pipeline runtime owners. Canonical TypeIR, reflection session, config, migration diff and CLI declarations each have one exact implementation owner; comments and
+re-exports do not create implementations.
+
+Generated JavaScript, declarations and witnesses use public runtime package entries. The final gate requires zero generated private imports and removes their exact obsolete exception records. Four
+real packed compiler, migrations, CLI and product consumers prove retained runtime/type behavior, retired-entry refusal, fresh embedded SQLite atomicity and cleanup.

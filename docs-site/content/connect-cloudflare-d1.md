@@ -77,8 +77,8 @@ node --experimental-strip-types scripts/generate.ts add_slug   # writes migratio
 wrangler d1 migrations apply app
 ```
 
-Point your generate script at `migrations/` with Wrangler's naming convention and the two fit together with no glue. Using `runCli` instead is possible — a `MigrationConnection` over the binding — but
-it can only run inside a Worker, which is an awkward place to run migrations.
+Point your generate script at `migrations/` with Wrangler's naming convention and the two fit together with no glue. Using `up` instead is possible — a `MigrationConnection` over the binding — but it
+can only run inside a Worker, which is an awkward place to run migrations.
 
 ## Limits
 

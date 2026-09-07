@@ -129,7 +129,7 @@ describe('the zmdb CLI boundary', () => {
   // §12 and §R5.2, and this is the barrier rather than a tidiness rule: the entry has to be
   // policy-owned tooling or a server bundle contains the REPL.
   it('classifies the CLI, executable and bundler adapter as tooling entries', () => {
-    expect(PACKAGE_POLICY['zmdb']?.toolingEntries).toEqual(expect.arrayContaining(['./cli', './unplugin']));
+    expect(PACKAGE_POLICY['zmdb']?.toolingEntries).toEqual(expect.arrayContaining(['./cli', './compiler']));
     expect(PACKAGE_POLICY['cli']?.toolingEntries).toEqual(expect.arrayContaining(['.', 'bin:zmdb']));
   });
 

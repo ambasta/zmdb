@@ -61,7 +61,7 @@ requests until it finishes:
 constructor(ctx: DurableObjectState, env: Env) {
   super(ctx, env);
   ctx.blockConcurrencyWhile(async () => {
-    await runCli('up', doConn(ctx.storage.sql), migrations);
+    await up(doConn(ctx.storage.sql), migrations);
   });
 }
 ```

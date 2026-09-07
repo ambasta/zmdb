@@ -87,8 +87,8 @@ const q = createQueryCompiler(postgres).selectFrom('users').where('active', '=',
 const rows = await pg.query(q.text, [...q.parameters]);
 ```
 
-Migrations work too — `runCli` needs a [`MigrationConnection`](./migrations-web-mobile.html). Four methods are required over `pg.exec`; optional checksum and transaction members provide the same
-integrity guarantees as the packaged driver adapter.
+Migrations work too — `up` needs a [`MigrationConnection`](./migrations-web-mobile.html). Four methods are required over `pg.exec`; optional checksum and transaction members provide the same integrity
+guarantees as the packaged driver adapter.
 
 ## Limits
 

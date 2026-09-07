@@ -366,7 +366,6 @@ The single TypeScript front end for zmdb reflection, AOT emission, code generati
   - `zmdb/compiler`
   - `zmdb/config`
   - `zmdb/testing`
-  - `zmdb/unplugin`
 - **External proof:** fixtures/consumer-compiler
 
 ### `@zmdb/jobs`
@@ -1090,7 +1089,6 @@ The cohesive zmdb product: schema, SQL, validation, typed ORM, repositories, app
   - `./sqlite` → `./src/database-sqlite.ts`
   - `./tags` → `./src/tags.ts`
   - `./testing` → `./src/testing.ts`
-  - `./unplugin` → `./src/unplugin.ts`
   - `./validator` → `./src/validator.ts`
   - `./web` → `./src/web.ts`
   - `./web/app` → `./src/web-app.ts`

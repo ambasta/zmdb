@@ -32,7 +32,7 @@ config.outDir; // absolute migration output directory
 ```
 
 The shipped `generate`, `embed`, `migrate`, `rollback`, `status`, `push`, `check`, `upgrade`, `export`, `pull`, `client generate`, and `studio` commands consume this loader. Direct `@zmdb/compiler`
-project compilation and `zmdb/unplugin` use the same resolved project and naming strategy. `zmdb new project` emits this public import and a build adapter that delegates discovery to `zmdb/unplugin`;
+project compilation and `zmdb/compiler` use the same resolved project and naming strategy. `zmdb new project` emits this public import and a build adapter that delegates discovery to `zmdb/compiler`;
 the generated runtime entry never imports the loader. `up` is deliberately refused because it is ambiguous between migration application and snapshot upgrade.
 
 ## The resolved path is observable
@@ -66,7 +66,7 @@ Under `--json`, the same path is the top-level `config` value. An explicit `--co
 | `http.client.out`   | `string`                                        | required with HTTP | generated `.ts`, relative to config                       |
 
 `loadConfig` also returns `resolvedNaming`: the selected built-in singleton, the custom `namingStrategy` by identity, or an empty identity strategy. Every database command passes that object into
-schema reflection. `@zmdb/compiler` project compilation and `zmdb/unplugin` discover the same config and pass the same value to the compiler APIs; the committed consumer fixtures exercise both routes
+schema reflection. `@zmdb/compiler` project compilation and `zmdb/compiler` discover the same config and pass the same value to the compiler APIs; the committed consumer fixtures exercise both routes
 against byte-identical config files.
 
 Every glob must match at least one file, and every matched file must belong to the configured TypeScript project. A match outside the project is an error rather than a silently omitted table.

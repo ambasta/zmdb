@@ -33,16 +33,7 @@ export type {
 export type { MigrationDialect, SchemaObjectOperation } from '@zmdb/query-compiler';
 export { ddlType };
 export type { DdlSqlType };
-export {
-  down,
-  downTo,
-  driverMigrationConnection,
-  ensureVersionTable,
-  rollbackTo,
-  runCli,
-  status,
-  up,
-} from './runner.js';
+export { down, downTo, driverMigrationConnection, ensureVersionTable, rollbackTo, status, up } from './runner.js';
 export type {
   AppliedMigration,
   Migration,

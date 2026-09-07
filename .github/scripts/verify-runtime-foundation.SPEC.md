@@ -282,8 +282,10 @@ All 30 current export entries across the four foundation candidates have one dis
 
 Issues #670 and #672 removed `@zmdb/repository/drivers/pg` and `@zmdb/repository/drivers/mssql`; their database packages now own those public runtimes. After cutover, the four old package names and
 the remaining old subpaths are absent from workspace manifests, lockfile resolutions, source, declarations, generated artifacts, fixtures, docs, and packed consumers, except explicit removed-entry
-refusal tests. A fixture may use the exact awaited `node:assert/strict` `assert.rejects(import(literal), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' })` probe; positive imports and other forms remain
-findings. `@zmdb/mcp` remains independently published. There are no forwarding packages and no `exports` aliases.
+refusal tests. A fixture may use the exact awaited `node:assert/strict` `assert.rejects(import(literal), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' })` probe, or a fixture
+`import type { ... } from 'literal'` immediately preceded by an explanatory `// @ts-expect-error` line. Strict consumer typechecking proves those declarations are rejected. Unannotated type imports,
+runtime imports, production-file imports and positive imports in the same fixture remain findings. `@zmdb/mcp` remains independently published. There are no forwarding packages and no `exports`
+aliases.
 
 ## 5. Manifest dependency disposition
 
@@ -392,7 +394,7 @@ concern subpaths unless the one-product facade contract explicitly promotes them
 | `zmdb/dto`                                          | explicit re-exports from `@zmdb/schema/dto` and `@zmdb/orm/dto`             |
 | `zmdb/relations`                                    | explicit re-exports from `@zmdb/schema/relations` and `@zmdb/orm/relations` |
 | `zmdb/migrations`                                   | `@zmdb/migrations`                                                          |
-| `zmdb/compiler`, `zmdb/unplugin`                    | `@zmdb/compiler`                                                            |
+| `zmdb/compiler`                                     | `@zmdb/compiler`                                                            |
 | `zmdb/postgres`, `zmdb/sqlite`, `zmdb/mssql`        | matching database package                                                   |
 | `zmdb/ai`                                           | `@zmdb/ai`                                                                  |
 

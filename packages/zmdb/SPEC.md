@@ -50,7 +50,6 @@ types, are owned only by `@zmdb/protobuf`. The product root does not forward opt
 | `zmdb/web`                   | Advanced runtime    | Stable complete web surface                                                                  |
 | `zmdb/web/contract`          | Advanced runtime    | Stable HTTP contract boundary                                                                |
 | `zmdb/web/contract/compiler` | Tooling             | Explicit HTTP contract compiler boundary                                                     |
-| `zmdb/unplugin`              | Tooling             | `zmdb/compiler`; the old spelling may remain only as a release-governed compatibility alias  |
 | `zmdb/cli`                   | Tooling             | Stable programmatic CLI boundary; the executable remains `zmdb`                              |
 | `zmdb/config`                | Tooling contract    | Stable canonical project-config boundary; its implementation package is intentionally hidden |
 
@@ -101,20 +100,20 @@ Adding a root name requires all of the following:
 
 The product taxonomy is user-facing; it does not mirror whichever workspace package currently implements a concern.
 
-| Product subpath          | Owns                                                                                                                         |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `zmdb/config`            | `defineConfig`, discovery, loading, validation, resolution, and all config types                                             |
-| `zmdb/schema`            | Complete tag, derivation, DTO, relation, IR, JSON Schema, and schema-state surfaces                                          |
-| `zmdb/sql`               | Direct query compiler, expressions, comments, SQL errors, and compiled-query types                                           |
-| `zmdb/validator`         | Advanced validation, shallow checks, equality, random generation, serialization, and protocol codecs                         |
-| `zmdb/orm`               | Advanced repository, transaction, replica, loader, cache, hook, and repository-error surfaces                                |
-| `zmdb/web`               | Complete framework surface beyond the small root bootstrap/decorator vocabulary                                              |
-| `zmdb/compiler`          | AOT transformer, code generation, bundler adapters, Metro adapter, and compiler-backed lint/reflection tooling               |
-| `zmdb/migrations`        | Snapshot, diff, file, embedded-runner, live-runner, and migration-command APIs                                               |
-| `zmdb/testing`           | Product-level test app, validator/compiler helpers, fixtures, and test-only inspection                                       |
-| `zmdb/cli`               | Programmatic command runner and command result/error types                                                                   |
-| `zmdb/<database>`        | Explicit database product selected by the application: `sqlite`, `postgres`, `mysql`, `mssql`, `cockroach`, or `singlestore` |
-| `zmdb/integrations/<id>` | Optional external technology whose dependency must not be reachable from any other product entry point                       |
+| Product subpath          | Owns                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `zmdb/config`            | `defineConfig`, discovery, loading, validation, resolution, and all config types                                                                             |
+| `zmdb/schema`            | Complete tag, derivation, DTO, relation, IR, JSON Schema, and schema-state surfaces                                                                          |
+| `zmdb/sql`               | Direct query compiler, expressions, comments, SQL errors, and compiled-query types                                                                           |
+| `zmdb/validator`         | Advanced validation, shallow checks, equality, random generation, serialization, and protocol codecs                                                         |
+| `zmdb/orm`               | Advanced repository, transaction, replica, loader, cache, hook, and repository-error surfaces                                                                |
+| `zmdb/web`               | Complete framework surface beyond the small root bootstrap/decorator vocabulary                                                                              |
+| `zmdb/compiler`          | Configured AOT plugin, code generation, direct transform, and compiler-backed lint/reflection tooling; Metro is selected only through `@zmdb/compiler/metro` |
+| `zmdb/migrations`        | Snapshot, diff, file, embedded-runner, live-runner, and migration-command APIs                                                                               |
+| `zmdb/testing`           | Product-level test app, validator/compiler helpers, fixtures, and test-only inspection                                                                       |
+| `zmdb/cli`               | Programmatic command runner and command result/error types                                                                                                   |
+| `zmdb/<database>`        | Explicit database product selected by the application: `sqlite`, `postgres`, `mysql`, `mssql`, `cockroach`, or `singlestore`                                 |
+| `zmdb/integrations/<id>` | Optional external technology whose dependency must not be reachable from any other product entry point                                                       |
 
 The root and these subpaths are the stable product entry points. Canonical implementation may move between `@zmdb/*` packages without changing consumer imports. Workspace packages remain independently
 installable dependency firebreaks, but their names are advanced architecture, not the application vocabulary.
@@ -176,9 +175,9 @@ product package:
 `@zmdb/cli`; command dispatch, Studio and scaffolding live in that package, and `zmdb` has no executable entry of its own. Advanced implementation-package imports remain available, while normal
 product documentation uses the stable `zmdb/*` vocabulary.
 
-`zmdb/unplugin` is not a second compiler owner. The old AOT compiler subpaths and `zmdb-codegen` are removed; the remaining query-compiler tooling cutover and the product alias's compatibility
-lifetime are release-governance decisions under #721/#728. The target contains no permanent implementation forwarders; stable product facade modules are part of the product contract rather than
-compatibility shims.
+`zmdb/unplugin`, the old AOT compiler and query-compiler migration subpaths, and `zmdb-codegen` are absent. The configured plugin implementation belongs only to the compiler root. `zmdb/compiler`
+excludes Metro's `getCacheKey`, `transform`, `withZmdb` and `MetroOptions`; the existing explicit `@zmdb/compiler/metro` entry retains that optional adapter. Migration `runCli` is removed from the
+engine and product entries; `up`, `down` and `status` remain. Stable product concerns retain named identities with no compatibility alias or duplicated implementation.
 
 ## 8. Default server facade and selected jobs (#645, #651, #755)
 

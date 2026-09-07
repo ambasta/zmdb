@@ -351,7 +351,7 @@ export const kysely = {
   'migration > migrateDown': 'down rolls back the latest migration asynchronously',
   'migration > migrateDown > *':
     'handles failure during down rollback: does not revert recorded version if execution fails',
-  'migration > migrateTo': 'CLI dispatch: up → status → down',
+  'migration > migrateTo': 'migration engine: up → status → down',
   'migration > migrateTo > *': 'executes migrations in ascending version order regardless of input array ordering',
   'migration > getMigrations': 'status reflects applied vs pending asynchronously',
   'file-migration-provider > *': oos(

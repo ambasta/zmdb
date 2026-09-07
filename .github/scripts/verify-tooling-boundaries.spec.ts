@@ -28,17 +28,17 @@ describe('the tooling-boundary verifier', () => {
     expect(result.problems).toEqual([]);
     expect(result.inventory.actualCount).toBe(209);
     expect(result.inventory.ownerCounts).toEqual({
-      compiler: 33,
+      compiler: 34,
       migrations: 21,
       cli: 33,
       runtime: 30,
-      facade: 54,
+      facade: 53,
       'optional-integration': 0,
       'test-only': 38,
       obsolete: 0,
     });
     expect(result.runtimeViolations).toEqual([]);
-    expect(result.generatedViolations).toHaveLength(3);
+    expect(result.generatedViolations).toEqual([]);
     expect(result.embeddedViolations).toEqual([]);
     expect(result.formatterViolations).toEqual([]);
     const ownedEdges = [

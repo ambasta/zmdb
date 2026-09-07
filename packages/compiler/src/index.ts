@@ -22,6 +22,7 @@ import { openPreparedSession, type ReflectSession } from './reflect/session.js';
 export { watchCodegen, type CodegenOptions, type CodegenResult, type WatchOptions } from './codegen/index.js';
 
 export type { CompilerDiagnostic } from './errors.js';
+export { zmdbAot, type ConfiguredZmdbAotOptions } from './configured-plugin.js';
 
 export interface CompileProjectOptions {
   readonly project: string;

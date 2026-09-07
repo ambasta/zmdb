@@ -195,30 +195,6 @@ export async function status(conn: MigrationConnection, migrations: readonly Mig
     .map(migration => ({ version: migration.version, name: migration.name, applied: applied.has(migration.version) }));
 }
 
-// Thin CLI dispatch (verb → runner call). Returns a human-readable line.
-export async function runCli(
-  verb: 'up' | 'down' | 'status',
-  conn: MigrationConnection,
-  migrations: readonly Migration[],
-): Promise<string> {
-  switch (verb) {
-    case 'up': {
-      const done = await up(conn, migrations);
-      return `applied: ${done.join(', ') || '(none)'}`;
-    }
-    case 'down': {
-      const version = await down(conn, migrations);
-      return version === undefined ? 'nothing to roll back' : `reverted: ${String(version)}`;
-    }
-    case 'status': {
-      const migrationStatus = await status(conn, migrations);
-      return migrationStatus
-        .map(item => `${item.applied ? '[x]' : '[ ]'} ${String(item.version)} ${item.name}`)
-        .join('\n');
-    }
-  }
-}
-
 async function verifiedLedger(
   conn: MigrationConnection,
   migrations: readonly Migration[],

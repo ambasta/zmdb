@@ -1,9 +1,7 @@
 import { dirname } from 'node:path';
 
-import { loadConfig } from '@zmdb/compiler/config';
-import { zmdbAot as createAotPlugin, type UnpluginLike, type ZmdbAotOptions } from '@zmdb/compiler/unplugin';
-
-export type { UnpluginLike, ZmdbAotOptions } from '@zmdb/compiler/unplugin';
+import { loadConfig } from './config/index.js';
+import { zmdbAot as createAotPlugin, type UnpluginLike, type ZmdbAotOptions } from './unplugin/index.js';
 
 export interface ConfiguredZmdbAotOptions extends ZmdbAotOptions {
   /** Use this config path instead of discovery. */

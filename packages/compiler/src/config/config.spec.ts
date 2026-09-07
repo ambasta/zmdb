@@ -17,8 +17,8 @@ import {
   loadConfig as productLoadConfig,
 } from '../../../zmdb/src/config/index.js';
 import { defineConfig as rootDefineConfig } from '../../../zmdb/src/index.js';
-import { zmdbAot } from '../../../zmdb/src/unplugin.js';
 import { codegen } from '../codegen/index.js';
+import { zmdbAot } from '../index.js';
 import { defineConfig as contractDefineConfig } from './contract.js';
 import { defineConfig as canonicalDefineConfig, loadConfig as canonicalLoadConfig } from './index.js';
 

@@ -54,7 +54,7 @@ writeFileSync('migrations/2_add_posts.up.sql', ops.map(o => emitUp(o, 'postgres'
 You keep the declaration as the source of truth and Encore keeps its own runner. Review the emitted SQL before committing — the generated form is correct but not always what you would write by hand,
 and Encore's migrations are irreversible in production.
 
-Do **not** also call `runCli('up', ...)`. Two runners with two version tables against one database is a schema you cannot reason about.
+Do **not** also call `up(...)`. Two runners with two version tables against one database is a schema you cannot reason about.
 
 ## Validation
 

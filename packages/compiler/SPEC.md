@@ -37,23 +37,25 @@ code emit SQL. The `@zmdb/aot-validator` edge is the runtime ABI that generated 
 
 The package exports exactly these subpaths:
 
-| Subpath                    | Contract                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| `@zmdb/compiler`           | project compilation and generated-artifact materialisation                      |
-| `@zmdb/compiler/reflect`   | `ReflectSession`, reflection functions, IR results and diagnostics              |
-| `@zmdb/compiler/emit`      | IR-to-JavaScript emitters and emitter options                                   |
-| `@zmdb/compiler/transform` | source transforms; replaces the old `transformer` spelling                      |
-| `@zmdb/compiler/unplugin`  | Vite/Rollup/esbuild/webpack-compatible unplugin adapter                         |
-| `@zmdb/compiler/metro`     | Metro configuration and worker adapter                                          |
-| `@zmdb/compiler/lint`      | Oxlint/ESLint-shaped rules and configs                                          |
-| `@zmdb/compiler/testing`   | compiler-backed schema/IR helpers and deterministic project fixtures            |
-| `@zmdb/compiler/errors`    | project-compilation diagnostic type; never imported by emitted application code |
-| `@zmdb/compiler/config`    | canonical project-config types, discovery, validation and resolution            |
+| Subpath                    | Contract                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `@zmdb/compiler`           | project compilation, generated-artifact materialisation and the configured asynchronous `zmdbAot` |
+| `@zmdb/compiler/reflect`   | `ReflectSession`, reflection functions, IR results and diagnostics                                |
+| `@zmdb/compiler/emit`      | IR-to-JavaScript emitters and emitter options                                                     |
+| `@zmdb/compiler/transform` | source transforms; replaces the old `transformer` spelling                                        |
+| `@zmdb/compiler/unplugin`  | Vite/Rollup/esbuild/webpack-compatible unplugin adapter                                           |
+| `@zmdb/compiler/metro`     | Metro configuration and worker adapter                                                            |
+| `@zmdb/compiler/lint`      | Oxlint/ESLint-shaped rules and configs                                                            |
+| `@zmdb/compiler/testing`   | compiler-backed schema/IR helpers and deterministic project fixtures                              |
+| `@zmdb/compiler/errors`    | project-compilation diagnostic type; never imported by emitted application code                   |
+| `@zmdb/compiler/config`    | canonical project-config types, discovery, validation and resolution                              |
 
 There is no `./plugin`, `./codegen` or `./transformer` compatibility subpath. The new names are the only names.
 
-The stable product entry is `zmdb/compiler`, an identity facade over this package's approved public surface. `zmdb/unplugin` may exist only as a release-governed compatibility alias; it never owns an
-adapter or a second compiler path.
+The stable product entry is `zmdb/compiler`, an identity facade over this package's approved core tooling surface. `zmdb/unplugin` is absent. The configured asynchronous
+`zmdbAot(options?: ConfiguredZmdbAotOptions): Promise<UnpluginLike>` is owned by the compiler root; its optional `config` path controls discovery, and explicit project/cwd/naming values retain
+precedence. The direct synchronous adapter remains at `@zmdb/compiler/unplugin`. Metro value/type exports remain solely at `@zmdb/compiler/metro`, so the core facade requires no optional Metro
+declarations.
 
 The exact #627 package/type freeze preserves the implementation's existing operation names rather than adding aliases from #628's planning sketch:
 

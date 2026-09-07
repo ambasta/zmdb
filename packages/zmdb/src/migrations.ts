@@ -15,7 +15,6 @@ export {
   ensureVersionTable,
   planMigration,
   rollbackTo,
-  runCli,
   snapshot,
   status,
   up,

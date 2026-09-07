@@ -30,7 +30,7 @@ export default defineConfig({
 ```
 
 The product compiler entry discovers `zmdb.config.ts`, including its project and naming strategy. Tooling that owns config loading can instead use the synchronous low-level `@zmdb/compiler/unplugin`
-entry and pass `project` and `naming` explicitly. The old `zmdb/unplugin` spelling remains a compatibility alias.
+entry and pass `project` and `naming` explicitly. The old `zmdb/unplugin` spelling is absent.
 
 ## Metro for React Native and Expo
 

@@ -172,7 +172,7 @@ export const PRODUCT_CATALOG = Object.freeze([
     role: 'compiler',
     facade: {
       root: ['ZmdbConfig', 'defineConfig'],
-      subpaths: ['zmdb/compiler', 'zmdb/config', 'zmdb/testing', 'zmdb/unplugin'],
+      subpaths: ['zmdb/compiler', 'zmdb/config', 'zmdb/testing'],
     },
     optionality: { kind: 'tooling' },
     docsOwner: 'aot-setup',

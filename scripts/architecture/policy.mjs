@@ -494,8 +494,6 @@ export const PACKAGE_POLICY = Object.freeze({
       './migrations',
       // Cross-package test fixtures and harness helpers.
       './testing',
-      // Public bundler integration delegated to the compiler package.
-      './unplugin',
       // Curated facade over the HTTP contract compiler.
       './web/contract/compiler',
       // Curated facade over HTTP runtime inspection and diagnostics.

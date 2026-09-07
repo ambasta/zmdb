@@ -288,7 +288,6 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
           '@zmdb/compiler',
           '@zmdb/compiler/emit',
           '@zmdb/compiler/lint',
-          '@zmdb/compiler/metro',
           '@zmdb/compiler/reflect',
           '@zmdb/compiler/transform',
           '@zmdb/compiler/unplugin',
@@ -338,7 +337,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     const utilities: Readonly<Record<string, unknown>> = await import('@zmdb/aot-validator/utilities');
     const compiler: Readonly<Record<string, unknown>> = await import('zmdb/compiler');
     const lint: Readonly<Record<string, unknown>> = await import('@zmdb/compiler/lint');
-    const productCompiler: Readonly<Record<string, unknown>> = await import('./unplugin.js');
+    const productCompiler: Readonly<Record<string, unknown>> = await import('@zmdb/compiler');
     expect(compiler.lintPlugin).toBe(lint.default);
     expect(compiler.zmdbAot).toBe(productCompiler.zmdbAot);
     expect(validator.validate).toBe(utilities.validate);
@@ -495,7 +494,7 @@ describe('the one-product facade and catalog (#619, #620, #622)', () => {
     const derived = catalogFacadeOwnership(PRODUCT_CATALOG);
 
     expect(derived.root).toHaveLength(71);
-    expect(derived.subpaths).toHaveLength(53);
+    expect(derived.subpaths).toHaveLength(52);
     expect(actual.root).toEqual(derived.root);
     expect(actual.subpaths.map(item => item.name)).toEqual(derived.subpaths.map(item => item.name));
     expect(verifyFacadeOwnership(PRODUCT_CATALOG, actual)).toEqual([]);

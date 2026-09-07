@@ -324,8 +324,8 @@ export type _ToolingDependencyGraphIsExact = Expect<
   Equal<
     TargetDependencies,
     {
-      readonly '@zmdb/compiler': '@zmdb/ai' | '@zmdb/aot-validator' | '@zmdb/query-compiler' | '@zmdb/schema-core';
-      readonly '@zmdb/migrations': '@zmdb/query-compiler' | 'oxfmt';
+      readonly '@zmdb/compiler': '@zmdb/ai';
+      readonly '@zmdb/migrations': 'oxfmt';
       readonly '@zmdb/cli': '@zmdb/compiler' | '@zmdb/migrations' | 'oxfmt';
     }
   >
@@ -334,8 +334,15 @@ export type _OnlyCompilerAndCliHaveToolingPeers = Expect<
   Equal<
     TargetPeers,
     {
-      readonly '@zmdb/compiler': 'metro' | 'metro-babel-transformer' | 'oxlint' | 'typescript';
-      readonly '@zmdb/migrations': never;
+      readonly '@zmdb/compiler':
+        | '@zmdb/aot-validator'
+        | '@zmdb/query-compiler'
+        | '@zmdb/schema-core'
+        | 'metro'
+        | 'metro-babel-transformer'
+        | 'oxlint'
+        | 'typescript';
+      readonly '@zmdb/migrations': '@zmdb/query-compiler';
       readonly '@zmdb/cli':
         | '@zmdb/app'
         | '@zmdb/query-compiler'

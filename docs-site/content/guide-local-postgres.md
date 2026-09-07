@@ -57,7 +57,7 @@ for (const op of diff({ tables: {} }, snapshot(allSchemas))) {
 }
 ```
 
-Or run your migration runner — `runCli('up', conn, migrations)` — which is what production does and is therefore what you should exercise. See [migrate](./cli-migrate.html).
+Or run your migration runner — `up(conn, migrations)` — which is what production does and is therefore what you should exercise. See [migrate](./cli-migrate.html).
 
 ## A separate test database
 

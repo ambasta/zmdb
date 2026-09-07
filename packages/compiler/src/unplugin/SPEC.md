@@ -21,8 +21,8 @@ import { transformFile } from '@zmdb/compiler/transform';
 
 `transformFile(fileName, code, context)` is the core; packaging wrappers adapt it.
 
-The lower-level `zmdbAot({ naming })` accepts the same named or custom strategy as project compilation, resolves it once when the plugin is created, and passes it into reflection. The `zmdb/unplugin`
-umbrella entry discovers `zmdb.config.ts` asynchronously and supplies its project and `resolvedNaming`, avoiding a static dependency cycle from this package back to `zmdb`.
+The lower-level `zmdbAot({ naming })` accepts the same named or custom strategy as project compilation, resolves it once when the plugin is created, and passes it into reflection. The compiler-root
+`zmdbAot` discovers `zmdb.config.ts` asynchronously and supplies its project and `resolvedNaming`; `zmdb/compiler` exposes that configured identity.
 
 ## 2. Intercepted calls
 
@@ -216,9 +216,9 @@ and EAS Build all run the same Metro pipeline and need nothing further.
 
 ## 8. Package owner after tooling extraction (#626/#628)
 
-The unplugin implementation, inline benchmark and Metro adapter live in `@zmdb/compiler`. Canonical implementation entries are `@zmdb/compiler/unplugin` and `@zmdb/compiler/metro`, exposed to product
-users through `zmdb/compiler`. The old `@zmdb/aot-validator/plugin`, `/unplugin` and `/metro` entries were removed rather than forwarded. `zmdb/unplugin` is only a release-governed compatibility alias
-for the stable product surface.
+The unplugin implementation, inline benchmark and Metro adapter live in `@zmdb/compiler`. Canonical adapter entries are `@zmdb/compiler/unplugin` and `@zmdb/compiler/metro`. Metro is selected directly
+and is absent from `zmdb/compiler`. The old `@zmdb/aot-validator/plugin`, `/unplugin`, `/metro` and `zmdb/unplugin` entries are removed. The configured plugin is owned by the compiler root and exposed
+through `zmdb/compiler`.
 
 Both adapters load project configuration from `@zmdb/compiler/config` and reuse `@zmdb/compiler/reflect`, `/emit` and `/transform`. The package move does not create an adapter-specific type walk or
 emitter. Runtime validator roots cannot reach either adapter.

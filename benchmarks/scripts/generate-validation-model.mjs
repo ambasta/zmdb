@@ -78,7 +78,7 @@ if (reflector.diagnostics.length > 0) {
 }
 
 const model = `${BANNER('harness/validation/model.ts')}
-import type { TypeIR } from '../../../packages/schema-core/src/ir/index.js';
+import type { TypeIR } from '@zmdb/schema-core/ir';
 
 /** The runtime witness for \`Moltar\`: what the descriptor-walking path reads per call. */
 export const MOLTAR: TypeIR = ${JSON.stringify(ir, null, 2)};

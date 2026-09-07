@@ -5,7 +5,6 @@ import {
   up as srcUp,
   down as srcDown,
   status as srcStatus,
-  runCli as srcRunCli,
 } from '@zmdb/migrations';
 import { defineRepository as ownerDefineRepository } from '@zmdb/repository';
 import { schemaOf as ownerSchemaOf } from '@zmdb/schema-core';
@@ -94,21 +93,20 @@ describe('zmdb product re-exports (#227, #620)', () => {
     expect(migrations.up).toBe(srcUp);
     expect(migrations.down).toBe(srcDown);
     expect(migrations.status).toBe(srcStatus);
-    expect(migrations.runCli).toBe(srcRunCli);
+    expect(migrations).not.toHaveProperty('runCli');
     expect(migrations.driverMigrationConnection).toBe(srcDMC);
   });
 
   it('exposes compiler adapters from zmdb/compiler', async () => {
-    const [facade, owner, transform, productOwner] = await Promise.all([
+    const [facade, owner, transform] = await Promise.all([
       import('./compiler.js'),
       import('@zmdb/compiler'),
       import('@zmdb/compiler/transform'),
-      import('./unplugin.js'),
     ]);
     expect(facade.compileProject).toBe(owner.compileProject);
     expect(facade.writeCompileResult).toBe(owner.writeCompileResult);
     expect(facade.transformFile).toBe(transform.transformFile);
-    expect(facade.zmdbAot).toBe(productOwner.zmdbAot);
+    expect(facade.zmdbAot).toBe(owner.zmdbAot);
   });
 
   it('exposes live and embedded migration runners from zmdb/migrations', async () => {
@@ -131,15 +129,15 @@ describe('zmdb product re-exports (#227, #620)', () => {
     expect(facade.createTestApp).toBe(web.createTestApp);
   });
 
-  it('retains release-governed compatibility and HTTP contract subpaths', async () => {
-    const [unplugin, runtime, runtimeOwner, compiler, compilerOwner] = await Promise.all([
-      import('./unplugin.js'),
+  it('exposes configured compiler and HTTP contract subpaths', async () => {
+    const [configuredCompiler, runtime, runtimeOwner, compiler, compilerOwner] = await Promise.all([
+      import('@zmdb/compiler'),
       import('./web-contract.js'),
       import('@zmdb/web/contract'),
       import('./web-contract-compiler.js'),
       import('@zmdb/web/contract/compiler'),
     ]);
-    await expect(unplugin.zmdbAot()).resolves.toMatchObject({ name: 'zmdb-aot', enforce: 'pre' });
+    await expect(configuredCompiler.zmdbAot()).resolves.toMatchObject({ name: 'zmdb-aot', enforce: 'pre' });
     expect(runtime.defineHttpContract).toBe(runtimeOwner.defineHttpContract);
     expect(compiler.compileHttpContracts).toBe(compilerOwner.compileHttpContracts);
   });

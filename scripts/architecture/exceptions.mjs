@@ -403,26 +403,7 @@ const RUNTIME_TARGET_PACKAGES = Object.freeze([
 
 const RETIRED_LEGACY_ENTRIES = Object.freeze([]);
 
-const TOOLING_GENERATED_DEBT = Object.freeze([
-  [
-    'benchmarks/harness/framework/model.zmdb.generated.js',
-    '../../../packages/aot-validator/src/utilities/index.js',
-    'private-source',
-    640,
-  ],
-  [
-    'benchmarks/harness/framework/model.zmdb.witness.ts',
-    '../../../packages/aot-validator/src/utilities/index.js',
-    'private-source',
-    640,
-  ],
-  [
-    'benchmarks/harness/validation/model.generated.ts',
-    '../../../packages/schema-core/src/ir/index.js',
-    'private-source',
-    638,
-  ],
-]);
+const TOOLING_GENERATED_DEBT = Object.freeze([]);
 
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -31,7 +31,7 @@ is an environment variable change.
 const branch = process.env.XATA_BRANCH ?? 'main';
 ```
 
-Run `runCli('up', conn, migrations)` against the branch and you have a database with your schema, from the same SQL that will run against `main`.
+Run `up(conn, migrations)` against the branch and you have a database with your schema, from the same SQL that will run against `main`.
 
 ## Xata's own schema layer
 

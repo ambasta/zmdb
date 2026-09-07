@@ -143,9 +143,9 @@ These fail at `tsc`, not at runtime, which is where the guarantee lives. This is
 
 ```ts
 it('migrations round-trip', async () => {
-  await runCli('up', conn, migrations);
-  await runCli('down', conn, migrations);
-  await runCli('up', conn, migrations);
+  await up(conn, migrations);
+  await down(conn, migrations);
+  await up(conn, migrations);
 });
 ```
 

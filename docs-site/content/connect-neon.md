@@ -57,8 +57,8 @@ A Neon compute suspends after inactivity and takes a few hundred milliseconds to
 
 ## Branches
 
-Neon's database branching pairs well with zmdb's offline migration generation: create a branch per pull request, point `DATABASE_URL` at it, run `runCli('up', …)`, and the branch is a real database
-with your schema in it.
+Neon's database branching pairs well with zmdb's offline migration generation: create a branch per pull request, point `DATABASE_URL` at it, run `up(…)`, and the branch is a real database with your
+schema in it.
 
 ```yaml
 - run: node --experimental-strip-types scripts/migrate.ts up

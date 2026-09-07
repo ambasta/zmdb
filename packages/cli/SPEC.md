@@ -6,7 +6,7 @@
 
 The issue proposing this asks for `up` to mean "upgrade a stored snapshot to the current format". `up` already means the opposite kind of thing in this project, twice:
 
-- `runCli('up' | 'down' | 'status', …)` in `@zmdb/migrations` **applies pending migrations**.
+- `up(connection, migrations)` in `@zmdb/migrations` **applies pending migrations**; the engine exposes domain operations without a CLI dispatcher.
 - `@zmdb/migrations`'s [`src/SPEC.md`](../migrations/src/SPEC.md) §4 documents "CLI verbs: `create`, `up`, `down`, `status`".
 
 Two meanings of `up` in one product, one of which writes to a live database and one of which rewrites a JSON file. The tool this verb list was borrowed from has exactly this wart; there is no reason

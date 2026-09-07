@@ -95,7 +95,7 @@ manifest-backed package exactly once. Publication derives its dependency-first s
 | `packages/mcp`                | `@zmdb/mcp`                | `mcp`               | None; selected protocol integration with no facade export                  |
 | `packages/protobuf`           | `@zmdb/protobuf`           | `protobuf`          | None; installed and imported independently                                 |
 | `packages/aot-validator`      | `@zmdb/aot-validator`      | `validator`         | Root validator defaults and `zmdb/validator`                               |
-| `packages/compiler`           | `@zmdb/compiler`           | `compiler`          | Root config authoring names; `compiler`, `config`, `testing`, `unplugin`   |
+| `packages/compiler`           | `@zmdb/compiler`           | `compiler`          | Root config authoring names; `compiler`, `config`, `testing`               |
 | `packages/repository`         | `@zmdb/repository`         | `orm`               | Root repository defaults and `zmdb/orm`                                    |
 | `packages/mssql`              | `@zmdb/mssql`              | `mssql`             | `zmdb/mssql`                                                               |
 | `packages/postgres`           | `@zmdb/postgres`           | `postgres`          | `zmdb/postgres`                                                            |

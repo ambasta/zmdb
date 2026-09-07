@@ -11,7 +11,7 @@ The schema commands are thin packaged wrappers over the public reflection, snaps
 | `sqliteIntrospector`            | `@zmdb/sqlite`                  | SQLite catalog → normalized snapshot      |
 | `database.introspector`         | selected database package       | database-owned catalog reader             |
 | `emitDeclarations(snapshot, …)` | `@zmdb/migrations/declarations` | snapshot → generated TypeScript files     |
-| `runCli(cmd, conn, migrations)` | `@zmdb/migrations/runner`       | applies / reverts, records versions       |
+| `up`, `down`, `status`          | `@zmdb/migrations/runner`       | applies / reverts, records versions       |
 | `runEmbedded(conn, migrations)` | `@zmdb/migrations/embedded`     | applies bundle-resident SQLite migrations |
 
 ## The commands, and where each stands

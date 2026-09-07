@@ -12,7 +12,7 @@
 // no bookkeeping to keep in step.
 
 import type { UserCreate } from './model.js';
-import { assert } from '../../../packages/aot-validator/src/utilities/index.js';
+import { assert } from '@zmdb/aot-validator/utilities';
 /*zmdb:/imports*/
 
 /*zmdb:begin:zmdbAssertUserCreate*/

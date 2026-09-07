@@ -8,7 +8,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   down,
   driverMigrationConnection,
-  runCli,
   status,
   type Migration,
   ensureVersionTable,
@@ -280,10 +279,15 @@ describe('migration runner E2E (real SQLite connection)', () => {
     expect(database.prepare('SELECT version FROM migration_history').all()).toEqual([]);
   });
 
-  it('CLI dispatch: up → status → down', async () => {
-    expect(await runCli('up', conn, migrations)).toBe('applied: 1, 2');
-    expect(await runCli('status', conn, migrations)).toContain('[x] 1 create_users');
-    expect(await runCli('down', conn, migrations)).toBe('reverted: 2');
+  it('migration engine: up → status → down', async () => {
+    expect(await up(conn, migrations)).toEqual([1, 2]);
+    expect(await status(conn, migrations)).toEqual([
+      { version: 1, name: 'create_users', applied: true },
+      { version: 2, name: 'add_email', applied: true },
+    ]);
+    expect(await down(conn, migrations)).toBe(2);
+    expect(await conn.appliedVersions()).toEqual([1]);
+    expect(tableInfo()).toEqual(['id']);
   });
 });
 

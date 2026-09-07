@@ -103,13 +103,19 @@ describe('optional server package isolation (#655)', () => {
     expect(result.status, result.stderr).toBe(0);
   });
 
-  it('installing zmdb does not install any optional server integration', () => {
-    const output = execFileSync(process.execPath, [CONSUMER_VERIFIER, '--core'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
-    expect(output).toMatch(/0 optional server packages or peers/);
-  }, 180_000);
+  it(
+    'installing zmdb does not install any optional server integration',
+    () => {
+      const output = withPackedBuildLock(ROOT, () =>
+        execFileSync(process.execPath, [CONSUMER_VERIFIER, '--core'], {
+          cwd: ROOT,
+          encoding: 'utf8',
+        }),
+      );
+      expect(output).toMatch(/0 optional server packages or peers/);
+    },
+    PACKED_BUILD_TEST_TIMEOUT_MS,
+  );
 
   it(
     'every integration imports and typechecks from an installed tarball',

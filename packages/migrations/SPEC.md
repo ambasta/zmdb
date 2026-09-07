@@ -14,7 +14,7 @@
 - catalog introspection, drift normalization and declaration emission; and
 - reusable operations behind every database-oriented CLI command.
 
-The measured ownership map assigns 23 shipped/build-input paths to this package and is frozen in
+The measured ownership map assigns 21 shipped/build-input paths to this package and is frozen in
 [`../../.github/scripts/verify-tooling-ownership.SPEC.md`](../../.github/scripts/verify-tooling-ownership.SPEC.md). Hot-path SELECT/INSERT/UPDATE/DELETE compilation, quoting protocols, query
 expressions and schema-object protocols remain in `@zmdb/query-compiler`.
 
@@ -49,7 +49,7 @@ The package exports exactly:
 | `@zmdb/migrations/testing`            | in-memory protocols, golden helpers and conformance suites                  |
 
 `zmdb/migrations` is the stable product facade over the root lifecycle, runner and file-backed project APIs. Advanced consumers use the explicit package subpaths. There are no compatibility entries
-under `@zmdb/query-compiler`.
+under `@zmdb/query-compiler`. The root, runner and product facade have no `runCli`; command dispatch belongs only to `@zmdb/cli`, while the engine retains `up`, `down` and `status`.
 
 ### 3.1 Root API
 

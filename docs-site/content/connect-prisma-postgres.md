@@ -37,8 +37,8 @@ drift between the two is your problem — add the [drift test](./schema-first.ht
 writeFileSync('migrations/snapshot.json', JSON.stringify(snapshot(allSchemas), null, 2));
 ```
 
-Commit that with no corresponding migration file — it means "this already exists". Then stop running `prisma migrate` and start running [`runCli`](./cli-up.html). Prisma's `_prisma_migrations` table
-stays behind harmlessly; zmdb records into its own.
+Commit that with no corresponding migration file — it means "this already exists". Then stop running `prisma migrate` and start running [`up`](./cli-up.html). Prisma's `_prisma_migrations` table stays
+behind harmlessly; zmdb records into its own.
 
 Do not run both migration systems against one database. Each will consider the other's changes to be drift.
 

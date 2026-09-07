@@ -81,7 +81,6 @@
     "./web/testing": "./src/web-testing.ts",
     "./web/upload": "./src/web-upload.ts",
     "./web/versioning": "./src/web-versioning.ts",
-    "./unplugin": "./src/unplugin.ts",
     "./cli": "./src/cli/index.ts",
     "./config": "./src/config/index.ts"
   },

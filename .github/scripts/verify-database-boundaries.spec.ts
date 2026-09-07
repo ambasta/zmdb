@@ -3,6 +3,10 @@ import { join } from 'node:path';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import {
+  PACKED_BUILD_TEST_TIMEOUT_MS,
+  withPackedBuildLock,
+} from '../../fixtures/client-adapters/src/packed-project.js';
 import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
 import { createDependencyGraph, topologicalOrder } from '../../scripts/architecture/index.mjs';
 import {
@@ -23,8 +27,8 @@ describe('database boundary verifier (#667)', () => {
     if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
     architecture = snapshot.architecture;
     report = await inspectDatabaseBoundaries(ROOT, { architecture: snapshot.architecture });
-    packedProof = await runPackedDatabasePackageProofs(ROOT);
-  }, 180_000);
+    packedProof = await withPackedBuildLock(ROOT, () => runPackedDatabasePackageProofs(ROOT));
+  }, PACKED_BUILD_TEST_TIMEOUT_MS);
 
   it('generic shipped source contains no official database implementation', () => {
     const vendorFindings = report.findings.filter(finding =>

@@ -172,6 +172,11 @@ export const acceptsUser = (value: unknown): value is User => is<User>(value);
 describe('public compiler watch ownership', () => {
   it('exports one canonical finite and retained-session compiler surface', async () => {
     const compiler = await import('./index.js');
-    expect(Object.keys(compiler).toSorted()).toEqual(['compileProject', 'watchCodegen', 'writeCompileResult']);
+    expect(Object.keys(compiler).toSorted()).toEqual([
+      'compileProject',
+      'watchCodegen',
+      'writeCompileResult',
+      'zmdbAot',
+    ]);
   });
 });

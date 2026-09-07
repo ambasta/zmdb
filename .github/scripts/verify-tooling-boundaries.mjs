@@ -1,21 +1,11 @@
 #!/usr/bin/env node
-// Tooling-package boundary ratchet for #627.
-//
-// The package extraction itself belongs to #628-#630. With the compiler and
-// migrations slices extracted, this gate still has two jobs while CLI remains:
-//
-// 1. turn #626's ownership policy, amended through the package extractions,
-//    #674, #621, #620, #651, #755, and #675, into an executable,
-//    bijective inventory; and
-// 2. classify every known runtime/generated-import violation through an owned,
-//    expiring architecture exception while expected-failure tests freeze zero.
-//
-// New debt, a reduced count, and a disappeared finding all fail until the exact
-// structured record is added, lowered, or deleted.
+// Final compiler, migrations and CLI ownership and runtime-boundary gate.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { parseSync } from '@babel/core';
 
 import {
   toolingGeneratedFinding,
@@ -125,11 +115,11 @@ const EXTRA_INVENTORY_PATHS = [
 ];
 const INVENTORY_EXTENSIONS = new Set(['.ts', '.js', '.json', '.proto']);
 const EXPECTED_OWNER_COUNTS = Object.freeze({
-  compiler: 33,
+  compiler: 34,
   migrations: 21,
   cli: 33,
   runtime: 30,
-  facade: 54,
+  facade: 53,
   'optional-integration': 0,
   'test-only': 38,
   obsolete: 0,
@@ -153,6 +143,7 @@ const RUNTIME_EXTERNAL_TOOLING = Object.freeze([
   ['metro', /^(?:metro|metro-babel-transformer)(?:\/|$)/],
   ['bundler', /^(?:esbuild|rollup|unplugin|vite|webpack)(?:\/|$)/],
   ['node:repl', /^node:repl(?:\/|$)/],
+  ['node:fs', /^(?:node:)?fs(?:\/|$)/],
 ]);
 
 export const GENERATED_ARTIFACTS = Object.freeze([
@@ -272,7 +263,12 @@ function ownerByAbsolutePath(root, catalog) {
   return new Map(catalog.map(entry => [join(root, entry.path), entry.owner]));
 }
 
-function runtimeCategory(reference, owners) {
+function runtimeCategory(reference, owners, sourcePath) {
+  if (
+    /^(?:node:)?fs(?:\/|$)/.test(reference.specifier) &&
+    /^packages\/web\/src\/(?:pipeline|static)\/index\.ts$/.test(sourcePath)
+  )
+    return undefined;
   if (reference.resolved !== null) {
     const owner = owners.get(reference.resolved);
     if (owner === 'compiler' || owner === 'migrations' || owner === 'cli') return owner;
@@ -309,7 +305,7 @@ function runtimeViolations(root, architecture, catalog, overlays) {
       if (source === undefined) continue;
       seen.add(current.file);
       for (const imported of graph.importsOf(current.file, source, 'runtime')) {
-        const category = runtimeCategory(imported, owners);
+        const category = runtimeCategory(imported, owners, relative(root, current.file));
         if (category !== undefined) {
           const sourcePath = relative(root, current.file);
           const id = `${packageName}|${category}|${sourcePath}|${imported.specifier}`;
@@ -337,6 +333,7 @@ function runtimeViolations(root, architecture, catalog, overlays) {
 }
 
 function workspaceManifests(architecture) {
+  const policies = new Map(architecture.packages.map(record => [record.npmName, record.policy]));
   return new Map(
     architecture.workspacePackages.flatMap(packageRecord =>
       typeof packageRecord.manifest.name === 'string'
@@ -346,6 +343,7 @@ function workspaceManifests(architecture) {
               {
                 directory: packageRecord.directory.split('/').at(-1),
                 manifest: packageRecord.manifest,
+                policy: policies.get(packageRecord.manifest.name),
               },
             ],
           ]
@@ -407,18 +405,31 @@ function packageGraphProblems(manifests) {
   if (cycle !== null) problems.push(`workspace package dependency cycle: ${cycle.join(' -> ')}`);
 
   for (const packageName of RUNTIME_FOUNDATIONS) {
-    const manifest = manifests.get(packageName)?.manifest;
+    const record = manifests.get(packageName);
+    const manifest = record?.manifest;
     if (manifest === undefined) continue;
-    for (const field of ['dependencies', 'peerDependencies']) {
+    for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
       for (const dependency of Object.keys(manifest[field] ?? {})) {
-        const optionalPeer =
-          field === 'peerDependencies' && manifest.peerDependenciesMeta?.[dependency]?.optional === true;
-        if (TARGET_TOOLING_PACKAGES.has(dependency) && !optionalPeer) {
-          problems.push(`${packageName} ${field} reaches tooling package ${dependency}`);
+        const selectors = record.policy?.optionalPeerEntries?.[dependency] ?? [];
+        const selectedToolingPeer =
+          field === 'peerDependencies' &&
+          manifest.peerDependenciesMeta?.[dependency]?.optional === true &&
+          selectors.length > 0 &&
+          selectors.every(
+            selector =>
+              record.policy.toolingEntries.includes(selector) && typeof manifest.exports?.[selector] === 'string',
+          );
+        if (selectedToolingPeer) continue;
+        if (
+          TARGET_TOOLING_PACKAGES.has(dependency) ||
+          RUNTIME_EXTERNAL_TOOLING.some(([, pattern]) => pattern.test(dependency))
+        ) {
+          problems.push(`${packageName} ${field} reaches tooling dependency ${dependency}`);
         }
       }
     }
   }
+
   return { edges, problems };
 }
 
@@ -477,33 +488,23 @@ function generatedViolations(root, architecture, overlays) {
   return violations;
 }
 
-function embeddedEntry(root, graph) {
-  const target = graph.packages.get('@zmdb/migrations');
-  const exported = target?.exports?.['./embedded'];
-  if (target !== undefined && typeof exported === 'string') return join(target.dir, exported);
-  return join(root, 'packages', 'query-compiler', 'src', 'migrations', 'embedded.ts');
-}
-
 function embeddedViolations(root, architecture, overlays) {
   const graph = createImportGraph(root, architecture);
-  const entry = embeddedEntry(root, graph);
+  const target = graph.packages.get('@zmdb/migrations');
+  const exportedEntry = target?.exports?.['./embedded'];
+  if (target === undefined || typeof exportedEntry !== 'string') {
+    return [{ id: 'missing-embedded-entry', file: 'packages/migrations/package.json', specifier: 'missing' }];
+  }
+  const entry = join(target.dir, exportedEntry);
   if (!existsSync(entry) && !overlays.has(entry)) {
     return [{ id: 'missing-embedded-entry', file: relative(root, entry), specifier: 'missing' }];
   }
 
-  const target = graph.packages.get('@zmdb/migrations');
   const otherEntries = new Set(
     Object.entries(target?.exports ?? {})
       .filter(([subpath, exported]) => subpath !== './embedded' && typeof exported === 'string')
       .map(([, exported]) => join(target.dir, exported)),
   );
-  if (target === undefined) {
-    const current = graph.packages.get('@zmdb/query-compiler');
-    for (const subpath of ['./migrations', './migrations/runner']) {
-      const exported = current?.exports?.[subpath];
-      if (current !== undefined && typeof exported === 'string') otherEntries.add(join(current.dir, exported));
-    }
-  }
 
   const seen = new Set();
   const queue = [entry];
@@ -629,6 +630,13 @@ function targetPackageProblems(architecture) {
   if (validator !== undefined && Object.keys(normalizeBins(validator)).length > 0) {
     problems.push('@zmdb/aot-validator must not publish an executable');
   }
+  if (product.exports?.['./unplugin'] !== undefined) problems.push('zmdb still publishes retired subpath ./unplugin');
+  const queryCompiler = architecture.workspacePackages.find(record => record.manifest.name === '@zmdb/query-compiler');
+  for (const selector of ['./introspect', './migrations', './migrations/embedded', './migrations/runner']) {
+    if (queryCompiler?.manifest.exports?.[selector] !== undefined) {
+      problems.push(`@zmdb/query-compiler still publishes retired subpath ${selector}`);
+    }
+  }
   for (const [packageName, expected] of Object.entries(TARGET_TOOLING_EXPORTS)) {
     const packageRecord = architecture.workspacePackages.find(candidate => candidate.manifest.name === packageName);
     if (packageRecord === undefined) continue;
@@ -680,6 +688,54 @@ function targetPackageProblems(architecture) {
   return problems;
 }
 
+const IMPLEMENTATION_OWNERS = Object.freeze({
+  irFromType: 'packages/compiler/src/reflect/index.ts',
+  ReflectSession: 'packages/compiler/src/reflect/session.ts',
+  loadConfig: 'packages/compiler/src/config/index.ts',
+  resolveConfig: 'packages/compiler/src/config/index.ts',
+  diff: 'packages/migrations/src/index.ts',
+  runCli: 'packages/cli/src/index.ts',
+});
+
+function implementationOwnerProblems(root, architecture, overlays) {
+  const implementations = new Map(Object.keys(IMPLEMENTATION_OWNERS).map(name => [name, []]));
+  const candidates = new RegExp(`\\b(?:${Object.keys(IMPLEMENTATION_OWNERS).join('|')})\\b`);
+  const problems = [];
+  for (const record of architecture.workspacePackages) {
+    const directory = join(root, record.directory, 'src');
+    if (!existsSync(directory)) continue;
+    for (const file of filesUnder(directory)) {
+      if (!/\.[cm]?[jt]sx?$/.test(file) || /\.(?:spec|type-test|d)\.[cm]?[jt]s$/.test(file)) continue;
+      const source = overlays.get(file) ?? readFileSync(file, 'utf8');
+      if (!candidates.test(source)) continue;
+      const ast = parseSync(source, {
+        filename: file,
+        babelrc: false,
+        configFile: false,
+        sourceType: 'module',
+        parserOpts: { plugins: ['typescript', 'decorators'] },
+      });
+      for (const statement of ast.program.body) {
+        const declaration = statement.type.startsWith('Export') ? statement.declaration : statement;
+        if (declaration?.type !== 'FunctionDeclaration' && declaration?.type !== 'ClassDeclaration') continue;
+        if (declaration.body === null) continue;
+        const name = declaration.id?.name;
+        const entries = implementations.get(name);
+        if (entries !== undefined) entries.push(relative(root, file));
+      }
+    }
+  }
+  for (const [name, entries] of implementations) {
+    const expected = IMPLEMENTATION_OWNERS[name];
+    if (entries.length !== 1 || entries[0] !== expected) {
+      problems.push(
+        `TOOLING_IMPLEMENTATION_OWNER ${name}: expected ${expected}; found ${entries.join(', ') || 'none'}`,
+      );
+    }
+  }
+  return problems;
+}
+
 export function analyseToolingBoundaries({
   root = ROOT,
   architecture,
@@ -701,7 +757,12 @@ export function analyseToolingBoundaries({
   const embedded = embeddedViolations(root, architecture, overlays);
   const formatter = formatterViolations(root, architecture, overlays);
   const bins = binOwners(architecture);
-  const problems = [...inventory.problems, ...packageGraph.problems, ...targetPackageProblems(architecture)];
+  const problems = [
+    ...inventory.problems,
+    ...packageGraph.problems,
+    ...targetPackageProblems(architecture),
+    ...implementationOwnerProblems(root, architecture, overlays),
+  ];
   const exceptionReport = classifyExceptions
     ? verifyGovernanceSnapshotExceptionSource({
         snapshot,
