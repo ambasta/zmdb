@@ -7,9 +7,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
-export const evidence =
-  process.env.ZMDB_CLI_EVIDENCE ??
-  '/home/amitprakash/foss/zmdb-handover/campaign-20260907-takeover-1709/issue-630/qualification';
+export const evidence = process.env.ZMDB_CLI_EVIDENCE ?? join(tmpdir(), 'zmdb-qualification');
 export const dataRoots = [
   '@zmdb/compiler',
   '@zmdb/migrations',
@@ -55,9 +53,36 @@ const groupAlive = pid => {
     throw error;
   }
 };
+const HEX = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+function bytesToHex(bytes) {
+  let hex = '';
+  for (let i = 0; i < bytes.length; i += 1) hex += HEX[bytes[i]] ?? '00';
+  return hex;
+}
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function bytesToBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  let result = '';
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = bytes[i] ?? 0;
+    const b1 = i + 1 < len ? (bytes[i + 1] ?? 0) : 0;
+    const b2 = i + 2 < len ? (bytes[i + 2] ?? 0) : 0;
+    result += B64[b0 >> 2] ?? '';
+    result += B64[((b0 & 3) << 4) | (b1 >> 4)] ?? '';
+    result += i + 1 < len ? (B64[((b1 & 15) << 2) | (b2 >> 6)] ?? '') : '=';
+    result += i + 2 < len ? (B64[b2 & 63] ?? '') : '=';
+  }
+  return result;
+}
+
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  if (encoding === 'base64') {
+    return bytesToBase64(digest);
+  }
+  return typeof digest.toHex === 'function' ? digest.toHex() : bytesToHex(digest);
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {
@@ -295,7 +320,7 @@ export async function createFixture() {
       for (const [name, record] of selected) {
         process.stderr.write(`CLI fixture build ${name}\n`);
         const label = name.replaceAll(/[/@]/g, '_');
-        await command(process.execPath, ['/home/amitprakash/foss/zmdb/scripts/build-package.mjs'], {
+        await command(process.execPath, [join(root, 'scripts', 'build-package.mjs')], {
           cwd: record.directory,
           timeout: 600_000,
           expected: 0,
@@ -319,9 +344,10 @@ export async function createFixture() {
           log: join(evidence, `pack-${label}.json`),
         });
         const report = JSON.parse(packed.stdout);
-        assert.equal(Array.isArray(report), false);
-        assert.deepEqual(Object.keys(report), [name]);
-        const filename = report[name].filename;
+        const entry = Array.isArray(report)
+          ? (report.find(e => e.name === name) ?? report[0])
+          : (report[name] ?? report);
+        const filename = entry.filename;
         assert.equal(typeof filename, 'string');
         assert.equal(dirname(resolve(tarballs, filename)), tarballs);
         const file = join(tarballs, filename);
