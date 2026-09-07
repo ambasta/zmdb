@@ -106,6 +106,7 @@ The current public inventory is classified exactly once:
 | `angular`            | `@zmdb/angular`            | integration   | `fixtures/client-adapters`                  |
 | `aot-validator`      | `@zmdb/aot-validator`      | core          | `yarn verify:publish`                       |
 | `app`                | `@zmdb/app`                | core          | `yarn verify:publish`                       |
+| `cli`                | `@zmdb/cli`                | tooling       | `fixtures/consumer-cli`                     |
 | `client`             | `@zmdb/client`             | integration   | `fixtures/consumer-http-client`             |
 | `cockroach`          | `@zmdb/cockroach`          | integration   | `fixtures/database-cockroach`               |
 | `compiler`           | `@zmdb/compiler`           | tooling       | `fixtures/consumer-compiler`                |
@@ -151,7 +152,7 @@ The six private root workspaces are:
 | `fixtures/llm-adapters/package.json`    | `@zmdb-fixture/llm-adapters`    |
 | `fixtures/next-app-router/package.json` | `@zmdb-fixture/next-app-router` |
 
-Nested fixture manifests are test assets outside the root workspace set and are already `private: true`; they are not release candidates. `packages/cli`, `packages/orm`, `packages/schema`,
+Nested fixture manifests are test assets outside the root workspace set and are already `private: true`; they are not release candidates. `packages/orm`, `packages/schema`,
 `packages/jobs-sqlite`, `packages/sql`, and `packages/validator` have no manifest and are not packages. Adding a public manifest to any `packages/*` directory makes classification mandatory in the
 same change.
 

@@ -92,6 +92,11 @@ export async function writeTextAtomically(
   text: string,
   operations: AtomicWriteOperations = FILE_OPERATIONS,
 ): Promise<void> {
+  try {
+    if ((await readFile(path, 'utf8')) === text) return;
+  } catch (error) {
+    if (errorCode(error) !== 'ENOENT') throw error;
+  }
   await mkdir(dirname(path), { recursive: true });
   temporaryFileSequence += 1;
   const temporary = join(

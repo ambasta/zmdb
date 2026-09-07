@@ -19,6 +19,8 @@ import { artifactPaths, isGeneratedPath } from './codegen/witness.js';
 import type { CompilerDiagnostic } from './errors.js';
 import { openPreparedSession, type ReflectSession } from './reflect/session.js';
 
+export { watchCodegen, type CodegenOptions, type CodegenResult, type WatchOptions } from './codegen/index.js';
+
 export type { CompilerDiagnostic } from './errors.js';
 
 export interface CompileProjectOptions {

@@ -191,14 +191,14 @@ const FORBIDDEN_SPECIFIERS = [
 const FORBIDDEN_PATHS = [
   /packages\/zmdb\/src\/cli\//,
   /packages\/zmdb\/src\/config\/index\.ts$/,
-  /packages\/zmdb\/src\/studio\//,
+  /packages\/cli\/src\//,
   /packages\/zmdb\/src\/unplugin\.ts$/,
   /packages\/compiler\/src\/(?!config\/contract\.ts$)/,
   /packages\/query-compiler\/src\/migrations\//,
   /packages\/aot-validator\/src\/(?:cli|codegen|emit|lint|metro|plugin|reflect|testing|transformer|unplugin)\//,
 ];
 
-const PRODUCT_IMPLEMENTATION_ENTRIES = new Set(['./cli', './config', './unplugin']);
+const PRODUCT_IMPLEMENTATION_ENTRIES = new Set(['./config', './unplugin']);
 
 /**
  * Facade modules delegate with named re-exports only. A callable contract such

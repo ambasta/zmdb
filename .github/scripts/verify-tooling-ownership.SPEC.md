@@ -7,19 +7,19 @@
 
 ## 1. Extraction rule and totals
 
-The shipped/build-input source inventory is every file below `packages/{aot-validator,compiler,migrations,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, plus
+The shipped/build-input source inventory is every file below `packages/{aot-validator,cli,compiler,migrations,query-compiler,zmdb}/src` whose extension is `.ts`, `.js`, `.json` or `.proto`, plus
 `packages/schema-core/src/ir/{validation-shape,vocabulary}.ts`, excluding `SPEC.md`, `*.spec.ts` and `*.type-test.ts`. Checked-in declarations, generated JavaScript, witnesses and fixture data count
 because the publish manifest ships `src` and the build consumes or copies them.
 
-The inventory has **206 paths**, each exactly once:
+The inventory has **209 paths**, each exactly once:
 
 ```json
 {
   "compiler": 33,
   "migrations": 21,
-  "cli": 31,
+  "cli": 33,
   "runtime": 30,
-  "facade": 53,
+  "facade": 54,
   "optional-integration": 0,
   "test-only": 38,
   "obsolete": 0
@@ -87,37 +87,39 @@ migrations	packages/migrations/src/operations/upgrade.ts
 migrations	packages/migrations/src/project.ts
 migrations	packages/migrations/src/runner.ts
 migrations	packages/migrations/src/testing.ts
-cli	packages/zmdb/src/cli/args.ts
-cli	packages/zmdb/src/cli/atomic.ts
-cli	packages/zmdb/src/cli/bin.ts
-cli	packages/zmdb/src/cli/commands/check.ts
-cli	packages/zmdb/src/cli/commands/client.ts
-cli	packages/zmdb/src/cli/commands/embed.ts
-cli	packages/zmdb/src/cli/commands/export.ts
-cli	packages/zmdb/src/cli/commands/generate.ts
-cli	packages/zmdb/src/cli/commands/migrate.ts
-cli	packages/zmdb/src/cli/commands/new.ts
-cli	packages/zmdb/src/cli/commands/pull.ts
-cli	packages/zmdb/src/cli/commands/push.ts
-cli	packages/zmdb/src/cli/commands/studio.ts
-cli	packages/zmdb/src/cli/commands/upgrade.ts
-cli	packages/zmdb/src/cli/config.ts
-cli	packages/zmdb/src/cli/database.ts
-cli	packages/zmdb/src/cli/errors.ts
-cli	packages/zmdb/src/cli/index.ts
-cli	packages/zmdb/src/cli/migration-project.ts
-cli	packages/zmdb/src/cli/output.ts
-cli	packages/zmdb/src/cli/repl.ts
-cli	packages/zmdb/src/cli/scaffold.ts
-cli	packages/zmdb/src/cli/templates/command.ts
-cli	packages/zmdb/src/cli/templates/controller.ts
-cli	packages/zmdb/src/cli/templates/index.ts
-cli	packages/zmdb/src/cli/templates/module.ts
-cli	packages/zmdb/src/cli/templates/project.ts
-cli	packages/zmdb/src/cli/templates/repository.ts
-cli	packages/zmdb/src/cli/templates/schema.ts
-cli	packages/zmdb/src/cli/templates/types.ts
-cli	packages/zmdb/src/studio/index.ts
+cli	packages/cli/src/application-loader.ts
+cli	packages/cli/src/args.ts
+cli	packages/cli/src/atomic.ts
+cli	packages/cli/src/bin.ts
+cli	packages/cli/src/commands/check.ts
+cli	packages/cli/src/commands/client.ts
+cli	packages/cli/src/commands/codegen.ts
+cli	packages/cli/src/commands/embed.ts
+cli	packages/cli/src/commands/export.ts
+cli	packages/cli/src/commands/generate.ts
+cli	packages/cli/src/commands/migrate.ts
+cli	packages/cli/src/commands/new.ts
+cli	packages/cli/src/commands/pull.ts
+cli	packages/cli/src/commands/push.ts
+cli	packages/cli/src/commands/studio.ts
+cli	packages/cli/src/commands/upgrade.ts
+cli	packages/cli/src/database.ts
+cli	packages/cli/src/errors.ts
+cli	packages/cli/src/index.ts
+cli	packages/cli/src/lifecycle.ts
+cli	packages/cli/src/migration-project.ts
+cli	packages/cli/src/output.ts
+cli	packages/cli/src/repl.ts
+cli	packages/cli/src/scaffold.ts
+cli	packages/cli/src/studio/index.ts
+cli	packages/cli/src/templates/command.ts
+cli	packages/cli/src/templates/controller.ts
+cli	packages/cli/src/templates/index.ts
+cli	packages/cli/src/templates/module.ts
+cli	packages/cli/src/templates/project.ts
+cli	packages/cli/src/templates/repository.ts
+cli	packages/cli/src/templates/schema.ts
+cli	packages/cli/src/templates/types.ts
 runtime	packages/aot-validator/src/advanced/index.ts
 runtime	packages/aot-validator/src/errors.ts
 runtime	packages/aot-validator/src/index.ts
@@ -160,15 +162,16 @@ facade	packages/zmdb/src/app-modules.ts
 facade	packages/zmdb/src/app-observability.ts
 facade	packages/zmdb/src/app-state.ts
 facade	packages/zmdb/src/app.ts
+facade	packages/zmdb/src/cli/index.ts
 facade	packages/zmdb/src/compiler.ts
 facade	packages/zmdb/src/config/index.ts
-facade	packages/zmdb/src/derive.ts
 facade	packages/zmdb/src/database-cockroach.ts
 facade	packages/zmdb/src/database-mssql.ts
 facade	packages/zmdb/src/database-mysql.ts
 facade	packages/zmdb/src/database-postgres.ts
 facade	packages/zmdb/src/database-singlestore.ts
 facade	packages/zmdb/src/database-sqlite.ts
+facade	packages/zmdb/src/derive.ts
 facade	packages/zmdb/src/dto.ts
 facade	packages/zmdb/src/index.ts
 facade	packages/zmdb/src/ir.ts
@@ -178,12 +181,12 @@ facade	packages/zmdb/src/relations.ts
 facade	packages/zmdb/src/schema.ts
 facade	packages/zmdb/src/sql.ts
 facade	packages/zmdb/src/tags.ts
+facade	packages/zmdb/src/testing.ts
 facade	packages/zmdb/src/unplugin.ts
+facade	packages/zmdb/src/validator.ts
 facade	packages/zmdb/src/web-app.ts
 facade	packages/zmdb/src/web-compression.ts
 facade	packages/zmdb/src/web-context.ts
-facade	packages/zmdb/src/testing.ts
-facade	packages/zmdb/src/validator.ts
 facade	packages/zmdb/src/web-contract-compiler.ts
 facade	packages/zmdb/src/web-contract.ts
 facade	packages/zmdb/src/web-csrf.ts
@@ -201,6 +204,17 @@ facade	packages/zmdb/src/web-testing.ts
 facade	packages/zmdb/src/web-upload.ts
 facade	packages/zmdb/src/web-versioning.ts
 facade	packages/zmdb/src/web.ts
+test-only	packages/cli/src/__fixtures__/http-client/package.json
+test-only	packages/cli/src/__fixtures__/http-client/src/contract.ts
+test-only	packages/cli/src/__fixtures__/http-client/src/models.ts
+test-only	packages/cli/src/__fixtures__/http-client/src/schema.ts
+test-only	packages/cli/src/__fixtures__/http-client/src/unrelated.ts
+test-only	packages/cli/src/__fixtures__/http-client/tsconfig.json
+test-only	packages/cli/src/__fixtures__/http-client/zmdb.config.ts
+test-only	packages/cli/src/__fixtures__/project/package.json
+test-only	packages/cli/src/__fixtures__/project/src/schema.ts
+test-only	packages/cli/src/__fixtures__/project/tsconfig.json
+test-only	packages/cli/src/__fixtures__/project/zmdb.config.ts
 test-only	packages/compiler/src/lint/__fixtures__/nullable-tags.fixed.ts
 test-only	packages/compiler/src/lint/__fixtures__/nullable-tags.input.ts
 test-only	packages/compiler/src/lint/__fixtures__/rule-tester.ts
@@ -227,17 +241,6 @@ test-only	packages/query-compiler/src/testing/capability-matrix.ts
 test-only	packages/query-compiler/src/testing/database-vertical.ts
 test-only	packages/query-compiler/src/testing/external-dialect.fixture.ts
 test-only	packages/query-compiler/src/testing/official-dialects.fixture.ts
-test-only	packages/zmdb/src/cli/__fixtures__/http-client/package.json
-test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/contract.ts
-test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/models.ts
-test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/schema.ts
-test-only	packages/zmdb/src/cli/__fixtures__/http-client/src/unrelated.ts
-test-only	packages/zmdb/src/cli/__fixtures__/http-client/tsconfig.json
-test-only	packages/zmdb/src/cli/__fixtures__/http-client/zmdb.config.ts
-test-only	packages/zmdb/src/cli/__fixtures__/project/package.json
-test-only	packages/zmdb/src/cli/__fixtures__/project/src/schema.ts
-test-only	packages/zmdb/src/cli/__fixtures__/project/tsconfig.json
-test-only	packages/zmdb/src/cli/__fixtures__/project/zmdb.config.ts
 test-only	packages/zmdb/src/testing/official-dialects.fixture.ts
 ```
 
@@ -310,10 +313,10 @@ Stable `zmdb/*` product facades remain while implementation ownership moves.
 The one current tooling binary is:
 
 ```text
-zmdb	zmdb	move-to-@zmdb/cli
+@zmdb/cli	zmdb	sole-owner
 ```
 
-The target repository has one bin declaration, `@zmdb/cli` → `zmdb`. The `zmdb-codegen` declaration is gone; the CLI slice will move the remaining command without creating a second owner.
+The target repository has one bin declaration, `@zmdb/cli` → `zmdb`. The `zmdb-codegen` declaration is absent; `zmdb` retains the CLI identity facade and declares no bin.
 
 ## 4. Exact tooling DAG
 

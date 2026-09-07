@@ -22,8 +22,8 @@
 //   * types — a generated consumer module that imports every subpath's types, compiled
 //     by `tsc` with no `paths` mapping and no `skipLibCheck`, so a declaration that
 //     cannot resolve its own neighbours is an error rather than a surprise later.
-//   * executable — the installed `zmdb` bin starts Studio on loopback and serves a
-//     declared table, catching lazy syntax that importing `zmdb/cli` never reaches.
+//   * executable — the installed `@zmdb/cli` bin starts Studio on loopback and serves a
+//     declared table, catching lazy syntax that importing `@zmdb/cli` never reaches.
 //
 // Plus one thing neither surface reports: a `.d.ts` whose relative specifiers still end
 // in `.ts`. `tsc` substitutes the extension and resolves it anyway, which is why this is
@@ -490,7 +490,7 @@ for (const packageRecord of PUBLISH_PACKAGES) {
       })();
       if (source === null) fail(`${pkg.name} bin "${command}" → ${target} is not in the tarball`);
       else if (!source.startsWith('#!')) fail(`${pkg.name} bin "${command}" has no shebang`);
-      if (pkg.name === 'zmdb' && command === 'zmdb') studioBin = binPath;
+      if (pkg.name === TARGET_TOOLING_BIN.packageName && command === TARGET_TOOLING_BIN.command) studioBin = binPath;
     }
   }
   for (const file of declarations(join(into, 'dist'))) {
@@ -553,10 +553,10 @@ if (specifiers.includes(NEXT_SERVER_SPECIFIER)) {
   }
 }
 
-// 4. Parse and execute the installed Studio path. Importing `zmdb/cli` is not
+// 4. Parse and execute the installed Studio path. Importing `@zmdb/cli` is not
 // enough: ESNext emit can preserve decorator syntax that plain Node rejects only
 // when the lazy Studio module is loaded.
-const studioDirectory = join(app, 'node_modules', 'zmdb', 'dist', 'studio');
+const studioDirectory = join(app, 'node_modules', '@zmdb', 'cli', 'dist', 'studio');
 for (const file of javascript(studioDirectory)) {
   const checked = run('node', ['--check', file]);
   if (checked.status !== 0) {
@@ -564,7 +564,7 @@ for (const file of javascript(studioDirectory)) {
   }
 }
 if (studioBin === undefined) {
-  fail('the installed zmdb package did not expose its canonical bin');
+  fail('the installed @zmdb/cli package did not expose its canonical bin');
 } else {
   try {
     await smokeStudio(app, studioBin);

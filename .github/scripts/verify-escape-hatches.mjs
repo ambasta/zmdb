@@ -105,6 +105,7 @@ const BOUNDARIES_AT_AUDIT = 37;
 
 /** The packages whose shipped source this covers, in §9.4's order. */
 const PACKAGES = [
+  'cli',
   'client',
   'react',
   'react-native',

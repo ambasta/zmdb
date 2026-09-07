@@ -1,15 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-} from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -56,48 +46,11 @@ const TARGET_DIRECTORIES = {
 const BASELINE_TARGET_OWNER = {
   '@zmdb/compiler': 'aot-validator',
   '@zmdb/migrations': 'query-compiler',
-  '@zmdb/cli': 'zmdb',
 } as const;
 const OWNER_DIRECTORIES = [
   ...CURRENT_OWNER_DIRECTORIES,
   ...Object.values(TARGET_DIRECTORIES).filter(directory => existsSync(join(PACKAGES, directory, 'package.json'))),
 ];
-const CURRENT_CLI_COMMANDS = [
-  'check',
-  'embed',
-  'export',
-  'generate',
-  'migrate',
-  'modules',
-  'new',
-  'pull',
-  'push',
-  'repl',
-  'rollback',
-  'status',
-  'studio',
-  'up',
-  'upgrade',
-] as const;
-const TARGET_CLI_INVOCATIONS = [
-  ['check'],
-  ['codegen'],
-  ['embed'],
-  ['export'],
-  ['generate'],
-  ['migrate'],
-  ['modules'],
-  ['new'],
-  ['pull'],
-  ['push'],
-  ['repl'],
-  ['rollback'],
-  ['status'],
-  ['studio'],
-  ['upgrade'],
-  ['client', 'generate'],
-] as const;
-
 interface PackageManifest {
   readonly name?: string;
   readonly exports?: Readonly<Record<string, unknown>>;
@@ -132,7 +85,6 @@ interface PackedFixture {
   readonly fullApp: string;
   readonly compilerApp: string;
   readonly migrationsApp: string;
-  readonly cliApp: string;
   readonly packages: ReadonlyMap<string, PackedPackage>;
 }
 
@@ -228,25 +180,14 @@ function createPackedApp(
   return app;
 }
 
-function materializeBins(app: string, packageName: string): readonly string[] {
-  const packageDirectory = packagePath(join(app, 'node_modules'), packageName);
-  const manifest = readJson<PackageManifest>(join(packageDirectory, 'package.json'));
-  const binDirectory = join(app, 'node_modules', '.bin');
-  mkdirSync(binDirectory, { recursive: true });
-  for (const [command, target] of Object.entries(normalizeBins(manifest))) {
-    const link = join(binDirectory, command);
-    if (existsSync(link)) throw new Error(`duplicate installed command ${command}`);
-    symlinkSync(relative(binDirectory, join(packageDirectory, target)), link);
-  }
-  return readdirSync(binDirectory).toSorted();
-}
-
 function targetOwnerDirectory(
   packed: ReadonlyMap<string, PackedPackage>,
   packageName: keyof typeof TARGET_DIRECTORIES,
 ): string {
   const target = TARGET_DIRECTORIES[packageName];
-  return packed.has(target) ? target : BASELINE_TARGET_OWNER[packageName];
+  if (packed.has(target)) return target;
+  if (packageName === '@zmdb/cli') throw new Error('the CLI owner is absent');
+  return BASELINE_TARGET_OWNER[packageName];
 }
 
 function targetPackedPackage(
@@ -318,28 +259,7 @@ function packWorkspace(): PackedFixture {
     ],
     new Set(['esbuild', 'metro', 'metro-babel-transformer', 'oxlint', 'typescript']),
   );
-  const cliApp = createPackedApp(
-    directory,
-    'cli-app',
-    packed,
-    [
-      { packageName: '@zmdb/cli', owner: targetOwnerDirectory(packed, '@zmdb/cli'), copy: true },
-      { packageName: '@zmdb/compiler', owner: targetOwnerDirectory(packed, '@zmdb/compiler'), copy: true },
-      {
-        packageName: '@zmdb/migrations',
-        owner: targetOwnerDirectory(packed, '@zmdb/migrations'),
-        copy: true,
-      },
-      { packageName: '@zmdb/ai', owner: 'ai' },
-      { packageName: '@zmdb/aot-validator', owner: 'aot-validator' },
-      { packageName: '@zmdb/query-compiler', owner: 'query-compiler' },
-      { packageName: '@zmdb/schema-core', owner: 'schema-core' },
-    ],
-    new Set(['esbuild']),
-  );
-  materializeBins(cliApp, '@zmdb/cli');
-
-  return { directory, fullApp, compilerApp, migrationsApp, cliApp, packages: packed };
+  return { directory, fullApp, compilerApp, migrationsApp, packages: packed };
 }
 
 function importPacked(app: string, specifiers: readonly string[]): Readonly<Record<string, ImportResult>> {
@@ -444,24 +364,6 @@ function runNode(app: string, args: readonly string[]): CommandResult {
   };
 }
 
-function runBin(app: string, args: readonly string[]): CommandResult {
-  return runNode(app, [`--import=${HOOK}`, join(app, 'node_modules', '.bin', 'zmdb'), ...args]);
-}
-
-function packageSources(directory: string): readonly string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return packageSources(path);
-    return entry.isFile() &&
-      (path.endsWith('.ts') || path.endsWith('.js')) &&
-      !path.endsWith('.spec.ts') &&
-      !path.endsWith('.type-test.ts') &&
-      !path.endsWith('.d.ts')
-      ? [path]
-      : [];
-  });
-}
-
 type TargetToolingPackage = keyof typeof TARGET_TOOLING_EXPORTS & string;
 
 function targetSpecifiers(packageName: TargetToolingPackage): readonly string[] {
@@ -475,31 +377,6 @@ function normalizeBins(manifest: PackageManifest): Readonly<Record<string, strin
   return manifest.bin ?? {};
 }
 
-function importedNames(directory: string): ReadonlyMap<string, readonly string[]> {
-  const found = new Map<string, string[]>();
-  for (const file of packageSources(directory)) {
-    const source = readFileSync(file, 'utf8');
-    for (const match of source.matchAll(/import\s*{([\s\S]*?)}\s*from\s*['"]([^'"]+)['"]/g)) {
-      const names = (match[1] ?? '')
-        .split(',')
-        .map(
-          name =>
-            name
-              .trim()
-              .replace(/^type\s+/, '')
-              .split(/\s+as\s+/)[0] ?? '',
-        )
-        .filter(Boolean);
-      for (const name of names) {
-        const specifiers = found.get(name) ?? [];
-        specifiers.push(match[2] ?? '');
-        found.set(name, specifiers);
-      }
-    }
-  }
-  return found;
-}
-
 function fixtureContracts(): readonly { readonly directory: string; readonly config: string }[] {
   return [
     { directory: join(FIXTURES, 'consumer-compiler'), config: 'tsconfig.fixture.json' },
@@ -511,67 +388,51 @@ function fixtureContracts(): readonly { readonly directory: string; readonly con
 let packed: PackedFixture | undefined;
 let compilerImports: Readonly<Record<string, ImportResult>> = {};
 let migrationsImports: Readonly<Record<string, ImportResult>> = {};
-let cliImports: Readonly<Record<string, ImportResult>> = {};
 let productIdentities: Readonly<Record<string, IdentityResult>> = {};
 let compilerTypes: TypecheckResult | undefined;
 let compilerMetroTypes: TypecheckResult | undefined;
 let migrationsTypes: TypecheckResult | undefined;
-let cliTypes: TypecheckResult | undefined;
-let installedCli: CommandResult | undefined;
 let compilerSmoke: CommandResult | undefined;
 let migrationsSmoke: CommandResult | undefined;
-let targetCliVersion: CommandResult | undefined;
-let targetCliHelp: CommandResult | undefined;
-let targetCliInvalid: CommandResult | undefined;
-const currentCliHelp = new Map<string, CommandResult>();
-const targetCliHelpByCommand = new Map<string, CommandResult>();
 
 function packedFixture(): PackedFixture {
   if (packed === undefined) throw new Error('packed fixture was not prepared');
   return packed;
 }
 
-beforeAll(() => {
-  packed = packWorkspace();
-  const fixture = packedFixture();
-  compilerImports = importPacked(fixture.compilerApp, targetSpecifiers('@zmdb/compiler'));
-  migrationsImports = importPacked(fixture.migrationsApp, targetSpecifiers('@zmdb/migrations'));
-  cliImports = importPacked(fixture.cliApp, targetSpecifiers('@zmdb/cli'));
-  productIdentities = productIdentityChecks(fixture.fullApp);
-  compilerTypes = copyAndTypecheck(
-    fixture,
-    fixture.compilerApp,
-    join(FIXTURES, 'consumer-compiler'),
-    'tsconfig.fixture.json',
-    'compiler',
-  );
-  compilerMetroTypes = typecheckCopied(
-    compilerTypes.directory,
-    'tsconfig.metro.json',
-    'fixtures/consumer-compiler/tsconfig.metro.json',
-  );
-  migrationsTypes = copyAndTypecheck(
-    fixture,
-    fixture.migrationsApp,
-    join(FIXTURES, 'consumer-migrations'),
-    'tsconfig.fixture.json',
-    'migrations',
-  );
-  cliTypes = copyAndTypecheck(
-    fixture,
-    fixture.cliApp,
-    join(FIXTURES, 'consumer-cli'),
-    'tsconfig.installed.json',
-    'cli',
-  );
-
-  const compilerProject = compilerTypes.directory;
-  const compilerModel = join(compilerProject, 'src', 'model.ts');
-  compilerSmoke = runNode(fixture.compilerApp, [
-    `--import=${HOOK}`,
-    '--input-type=module',
-    '--eval',
-    `const { compileProject, writeCompileResult } = await import('@zmdb/compiler');
+describe('standalone tooling package fixtures (#627)', () => {
+  beforeAll(() => {
+    packed = packWorkspace();
+    const fixture = packedFixture();
+    compilerImports = importPacked(fixture.compilerApp, targetSpecifiers('@zmdb/compiler'));
+    migrationsImports = importPacked(fixture.migrationsApp, targetSpecifiers('@zmdb/migrations'));
+    productIdentities = productIdentityChecks(fixture.fullApp);
+    compilerTypes = copyAndTypecheck(
+      fixture,
+      fixture.compilerApp,
+      join(FIXTURES, 'consumer-compiler'),
+      'tsconfig.fixture.json',
+      'compiler',
+    );
+    compilerMetroTypes = typecheckCopied(
+      compilerTypes.directory,
+      'tsconfig.metro.json',
+      'fixtures/consumer-compiler/tsconfig.metro.json',
+    );
+    migrationsTypes = copyAndTypecheck(
+      fixture,
+      fixture.migrationsApp,
+      join(FIXTURES, 'consumer-migrations'),
+      'tsconfig.fixture.json',
+      'migrations',
+    );
+    const compilerProject = compilerTypes.directory;
+    const compilerModel = join(compilerProject, 'src', 'model.ts');
+    compilerSmoke = runNode(fixture.compilerApp, [
+      `--import=${HOOK}`,
+      '--input-type=module',
+      '--eval',
+      `const { compileProject, writeCompileResult } = await import('@zmdb/compiler');
 const result = await compileProject({
   project: ${JSON.stringify(join(compilerProject, 'tsconfig.fixture.json'))},
   files: [${JSON.stringify(compilerModel)}],
@@ -595,13 +456,13 @@ process.stdout.write(JSON.stringify({
   bad: model.acceptsCompilerFixtureUser({ id: '1', email: 'user@example.com' }),
 }));
 `,
-  ]);
+    ]);
 
-  migrationsSmoke = runNode(fixture.migrationsApp, [
-    `--import=${HOOK}`,
-    '--input-type=module',
-    '--eval',
-    `const { diff, planMigration, snapshot } = await import('@zmdb/migrations');
+    migrationsSmoke = runNode(fixture.migrationsApp, [
+      `--import=${HOOK}`,
+      '--input-type=module',
+      '--eval',
+      `const { diff, planMigration, snapshot } = await import('@zmdb/migrations');
 const { emitDeclarations } = await import('@zmdb/migrations/declarations');
 const { runEmbedded } = await import('@zmdb/migrations/embedded');
 const { readMigrations } = await import('@zmdb/migrations/files');
@@ -659,30 +520,13 @@ process.stdout.write(JSON.stringify({
   applied,
 }));
 `,
-  ]);
+    ]);
+  }, 120_000);
 
-  const zmdb = fixture.packages.get('zmdb');
-  if (zmdb === undefined) throw new Error('the packed zmdb owner is missing');
-  const bin = Object.values(normalizeBins(zmdb.manifest))[0];
-  if (bin === undefined) throw new Error('the packed zmdb owner has no executable');
-  const currentBin = (...args: readonly string[]): CommandResult =>
-    runNode(fixture.fullApp, [`--import=${HOOK}`, join(zmdb.directory, bin), ...args]);
-  installedCli = currentBin('--version');
-  for (const command of CURRENT_CLI_COMMANDS) currentCliHelp.set(command, currentBin(command, '--help'));
+  afterAll(() => {
+    if (packed !== undefined) rmSync(packed.directory, { recursive: true, force: true });
+  });
 
-  targetCliVersion = runBin(fixture.cliApp, ['--version']);
-  targetCliHelp = runBin(fixture.cliApp, ['--help']);
-  targetCliInvalid = runBin(fixture.cliApp, ['not-a-command']);
-  for (const invocation of TARGET_CLI_INVOCATIONS) {
-    targetCliHelpByCommand.set(invocation.join(' '), runBin(fixture.cliApp, [...invocation, '--help']));
-  }
-}, 120_000);
-
-afterAll(() => {
-  if (packed !== undefined) rmSync(packed.directory, { recursive: true, force: true });
-});
-
-describe('standalone tooling package fixtures (#627)', () => {
   it('uses versioned packed-package dependencies with no workspace path map', () => {
     for (const { directory, config } of fixtureContracts()) {
       const manifest = readJson<PackageManifest>(join(directory, 'package.json'));
@@ -724,9 +568,6 @@ describe('standalone tooling package fixtures (#627)', () => {
     expect(existsSync(packagePath(join(fixture.migrationsApp, 'node_modules'), '@zmdb/compiler'))).toBe(false);
     expect(existsSync(packagePath(join(fixture.migrationsApp, 'node_modules'), '@zmdb/cli'))).toBe(false);
     expect(existsSync(packagePath(join(fixture.migrationsApp, 'node_modules'), 'typescript'))).toBe(false);
-    expect(existsSync(packagePath(join(fixture.cliApp, 'node_modules'), '@zmdb/web'))).toBe(false);
-    expect(existsSync(join(fixture.cliApp, 'node_modules', 'esbuild'))).toBe(false);
-    expect(readdirSync(join(fixture.cliApp, 'node_modules', '.bin')).toSorted()).toEqual(['zmdb']);
   });
 
   it('keeps the existing embedded runner ordered and filesystem-free while ownership moves', async () => {
@@ -740,15 +581,9 @@ describe('standalone tooling package fixtures (#627)', () => {
     expect(analyseTooling().embeddedViolations).toEqual([]);
   });
 
-  it('executes the current packed bin and every currently shipped command help route', () => {
-    expect(installedCli).toMatchObject({ status: 0, stderr: '' });
-    expect(installedCli?.stdout).toMatch(/^zmdb \d/);
-    expect([...currentCliHelp.keys()]).toEqual([...CURRENT_CLI_COMMANDS]);
-    for (const [command, result] of currentCliHelp) {
-      expect(result, command).toMatchObject({ status: 0, stderr: '' });
-      expect(result.stdout, command).toContain('Usage:');
-    }
-  });
+  it('executes the current packed bin and every currently shipped command help route', async () => {
+    await installedCliProof(['T01', 'T04']);
+  }, 600_000);
 
   it('loads direct codegen, unplugin, Metro and lint subpaths from the packed package', () => {
     const owner = targetPackedPackage(packedFixture(), '@zmdb/compiler');
@@ -804,64 +639,9 @@ describe('standalone tooling package fixtures (#627)', () => {
     expect.soft(analyseTooling().formatterViolations).toEqual([]);
   });
 
-  it.fails('runs the installed zmdb executable from @zmdb/cli and dispatches every command once', () => {
-    const fixture = packedFixture();
-    const owner = targetPackedPackage(fixture, '@zmdb/cli');
-    expect.soft(owner?.manifest.name).toBe('@zmdb/cli');
-    expect.soft(Object.keys(owner?.manifest.exports ?? {}).toSorted()).toEqual(['.']);
-    expect.soft(normalizeBins(owner?.manifest ?? {})).toEqual({ zmdb: './src/bin.ts' });
-    expect
-      .soft(realpathSync(join(fixture.cliApp, 'node_modules', '.bin', 'zmdb')))
-      .toContain(join(fixture.cliApp, 'packages', '@zmdb', 'cli'));
-    expect.soft(cliImports['@zmdb/cli']).toMatchObject({ ok: true });
-    expect.soft(cliImports['@zmdb/cli']?.keys).toContain('runCli');
-    expect.soft(cliTypes?.status, cliTypes?.stderr || cliTypes?.stdout).toBe(0);
-    expect.soft(productIdentities['cli']).toEqual({ ok: true, same: true });
-
-    expect.soft(targetCliVersion).toMatchObject({ status: 0, stderr: '' });
-    expect.soft(targetCliVersion?.stdout).toMatch(/^zmdb \d/);
-    expect.soft(targetCliHelp).toMatchObject({ status: 0, stderr: '' });
-    expect.soft(targetCliHelp?.stdout).toContain('Usage:');
-    expect.soft(targetCliInvalid).toMatchObject({ status: 2, stdout: '' });
-    expect.soft(targetCliInvalid?.stderr).toContain('unknown command');
-    expect.soft([...targetCliHelpByCommand.keys()]).toEqual(TARGET_CLI_INVOCATIONS.map(parts => parts.join(' ')));
-    for (const [command, result] of targetCliHelpByCommand) {
-      expect.soft(result, command).toMatchObject({ status: 0, stderr: '' });
-      expect.soft(result.stdout, command).toContain('Usage:');
-    }
-
-    const cliDirectory = realpathSync(packagePath(join(fixture.cliApp, 'node_modules'), '@zmdb/cli'));
-    const imports = importedNames(cliDirectory);
-    const delegations = {
-      compileProject: '@zmdb/compiler',
-      writeCompileResult: '@zmdb/compiler',
-      generateMigration: '@zmdb/migrations/files',
-      embedMigrations: '@zmdb/migrations/files',
-      migrate: '@zmdb/migrations/files',
-      rollback: '@zmdb/migrations/files',
-      migrationStatus: '@zmdb/migrations/files',
-      planPush: '@zmdb/migrations/files',
-      applyPush: '@zmdb/migrations/files',
-      checkProject: '@zmdb/migrations/files',
-      upgradeSnapshot: '@zmdb/migrations/files',
-      exportSchema: '@zmdb/migrations/files',
-      pullDeclarations: '@zmdb/migrations/files',
-    } as const;
-    for (const [operation, packageName] of Object.entries(delegations)) {
-      expect.soft(imports.get(operation), operation).toEqual([packageName]);
-    }
-
-    const source = packageSources(cliDirectory)
-      .map(file => readFileSync(file, 'utf8'))
-      .join('\n');
-    for (const command of ['new', 'modules', 'repl', 'studio', 'client']) {
-      expect
-        .soft(source, `lazy command ${command}`)
-        .toMatch(new RegExp(`import\\(\\s*['"][^'"]*${command}[^'"]*['"]\\s*\\)`));
-    }
-    expect.soft(source).not.toMatch(/@zmdb\/(?:aot-validator|query-compiler)\/(?:codegen|introspect|migrations)/);
-    expect.soft(source).not.toMatch(/(?:\.\.\/)+packages\/[^/]+\/src/);
-  });
+  it('runs the installed zmdb executable from @zmdb/cli and dispatches every command once', async () => {
+    await installedCliProof(['T03', 'T05', 'T26', 'T28']);
+  }, 600_000);
 });
 
 describe('tooling isolation and removal boundaries (#627)', () => {
@@ -893,7 +673,7 @@ describe('tooling isolation and removal boundaries (#627)', () => {
     expect(analyseTooling().runtimeViolations).toEqual([]);
   });
 
-  it.fails('moves the remaining migration and CLI surfaces to their target owners', () => {
+  it('moves the remaining migration and CLI surfaces to their target owners', () => {
     const query = readJson<PackageManifest>(join(PACKAGES, 'query-compiler', 'package.json'));
     const product = readJson<PackageManifest>(join(PACKAGES, 'zmdb', 'package.json'));
     const cliDirectory = join(PACKAGES, 'cli', 'package.json');
@@ -944,5 +724,22 @@ class MemoryEmbeddedConnection implements EmbeddedConnection {
     }
     if (sql.startsWith('SELECT version, name, checksum FROM _zmdb_migrations')) return this.#ledger;
     throw new Error(`unexpected embedded query: ${sql}`);
+  }
+}
+
+async function installedCliProof(ids: readonly string[]): Promise<void> {
+  const location = pathToFileURL(join(FIXTURES, 'consumer-cli', 'observations.mjs')).href;
+  const loaded: unknown = await import(location);
+  const record = Object(loaded);
+  const setup: unknown = Reflect.get(record, 'setup');
+  const runCase: unknown = Reflect.get(record, 'runCase');
+  const close: unknown = Reflect.get(record, 'close');
+  if (typeof setup !== 'function' || typeof runCase !== 'function' || typeof close !== 'function')
+    throw new Error('CLI fixture entry is missing');
+  try {
+    await setup();
+    for (const id of ids) await runCase(id);
+  } finally {
+    await close();
   }
 }

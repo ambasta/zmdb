@@ -4522,6 +4522,42 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@zmdb/cli@workspace:1.0.0-alpha.4, @zmdb/cli@workspace:packages/cli":
+  version: 0.0.0-use.local
+  resolution: "@zmdb/cli@workspace:packages/cli"
+  dependencies:
+    "@zmdb/aot-validator": "workspace:^"
+    "@zmdb/app": "workspace:^"
+    "@zmdb/compiler": "workspace:1.0.0-alpha.4"
+    "@zmdb/migrations": "workspace:1.0.0-alpha.4"
+    "@zmdb/query-compiler": "workspace:^"
+    "@zmdb/repository": "workspace:^"
+    "@zmdb/schema-core": "workspace:^"
+    "@zmdb/sqlite": "workspace:^"
+    "@zmdb/web": "workspace:^"
+    esbuild: "npm:0.28.2"
+    oxfmt: "npm:0.66.0"
+    typescript: "npm:7.0.2"
+  peerDependencies:
+    "@zmdb/app": 1.0.0-alpha.4
+    "@zmdb/query-compiler": 1.0.0-alpha.4
+    "@zmdb/repository": 1.0.0-alpha.4
+    "@zmdb/schema-core": 1.0.0-alpha.4
+    "@zmdb/web": 1.0.0-alpha.4
+    esbuild: ">=0.28.2 <0.29.0"
+    typescript: ">=7.0.2 <8.0.0"
+  peerDependenciesMeta:
+    "@zmdb/app":
+      optional: true
+    "@zmdb/web":
+      optional: true
+    esbuild:
+      optional: true
+  bin:
+    zmdb: ./src/bin.ts
+  languageName: unknown
+  linkType: soft
+
 "@zmdb/client@workspace:1.0.0-alpha.4, @zmdb/client@workspace:^, @zmdb/client@workspace:packages/client":
   version: 0.0.0-use.local
   resolution: "@zmdb/client@workspace:packages/client"
@@ -6463,7 +6499,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:^0.28.0, esbuild@npm:^0.28.2":
+"esbuild@npm:0.28.2, esbuild@npm:^0.28.0, esbuild@npm:^0.28.2":
   version: 0.28.2
   resolution: "esbuild@npm:0.28.2"
   dependencies:
@@ -12705,6 +12741,7 @@ __metadata:
     "@zmdb/ai": "workspace:^"
     "@zmdb/aot-validator": "workspace:^"
     "@zmdb/app": "workspace:^"
+    "@zmdb/cli": "workspace:1.0.0-alpha.4"
     "@zmdb/cockroach": "workspace:^"
     "@zmdb/compiler": "workspace:1.0.0-alpha.4"
     "@zmdb/migrations": "workspace:1.0.0-alpha.4"
@@ -12740,8 +12777,6 @@ __metadata:
       optional: true
     "@zmdb/sqlite":
       optional: true
-  bin:
-    zmdb: ./src/cli/bin.ts
   languageName: unknown
   linkType: soft
 

@@ -34,7 +34,7 @@
         ".github/scripts/verify-product-facade.mjs",
         "packages/zmdb/src/product-surface.spec.ts",
         "packages/zmdb/src/architecture-governance.spec.ts",
-        "packages/zmdb/src/cli/cli-boundary.spec.ts",
+        "packages/cli/src/cli-boundary.spec.ts",
         "packages/zmdb/src/client-integrations/adapter-qualification.spec.ts"
       ]
     },

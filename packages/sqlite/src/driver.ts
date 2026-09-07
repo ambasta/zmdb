@@ -101,7 +101,8 @@ export function sqliteDriver(db: SqliteDatabase, opts?: SqliteOptions): Transact
         signal?.throwIfAborted();
         return rows;
       }
-      entry.stmt.run(...parameters);
+      if (parameters.length === 0) db.exec(q.text);
+      else entry.stmt.run(...parameters);
       signal?.throwIfAborted();
       return [];
     },

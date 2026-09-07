@@ -1,0 +1,142 @@
+[
+  {
+    "id": "T01",
+    "path": "packages/cli/src/packed-cli.spec.ts",
+    "title": "installs one CLI-owned bin and the stable product facade from real npm tarballs"
+  },
+  {
+    "id": "T02",
+    "path": "packages/cli/src/packed-fixture.spec.ts",
+    "title": "rejects a wrong archive and cleans the private npm fixture"
+  },
+  {
+    "id": "T03",
+    "path": "packages/cli/src/public-contract.spec.ts",
+    "title": "keeps installed public types and facade identities exact"
+  },
+  {
+    "id": "T04",
+    "path": "packages/cli/src/public-contract.spec.ts",
+    "title": "prints exact help version JSON and invocation refusals"
+  },
+  {
+    "id": "T05",
+    "path": "packages/cli/src/public-contract.spec.ts",
+    "title": "loads only the selected command graph"
+  },
+  {
+    "id": "T06",
+    "path": "packages/cli/src/commands/codegen.spec.ts",
+    "title": "generates executes and checks the same compiler artifacts"
+  },
+  {
+    "id": "T07",
+    "path": "packages/cli/src/commands/codegen.spec.ts",
+    "title": "retains one codegen session through changes and termination"
+  },
+  {
+    "id": "T08",
+    "path": "packages/cli/src/commands/codegen.spec.ts",
+    "title": "preserves borrowed watch sessions and reports callback failure"
+  },
+  {
+    "id": "T09",
+    "path": "packages/cli/src/database-cli.spec.ts",
+    "title": "generates exact migrations and preserves no-op state"
+  },
+  {
+    "id": "T10",
+    "path": "packages/cli/src/database-cli.spec.ts",
+    "title": "applies reports and rolls back a durable SQLite ledger"
+  },
+  {
+    "id": "T11",
+    "path": "packages/cli/src/database-cli.spec.ts",
+    "title": "keeps failed SQLite migrations and destructive prompts truthful"
+  },
+  {
+    "id": "T12",
+    "path": "packages/cli/src/database-cli.spec.ts",
+    "title": "reports every check finding without hiding skipped drift"
+  },
+  {
+    "id": "T13",
+    "path": "packages/cli/src/database-cli.spec.ts",
+    "title": "embeds ordered SQLite migrations and rejects other dialects"
+  },
+  {
+    "id": "T14",
+    "path": "packages/cli/src/database-cli.spec.ts",
+    "title": "exports pulls and checks declarations without overwriting user files"
+  },
+  {
+    "id": "T15",
+    "path": "packages/cli/src/database-cli.spec.ts",
+    "title": "keeps current snapshots unchanged and refuses unsupported formats"
+  },
+  {
+    "id": "T16",
+    "path": "packages/cli/src/scaffold-cli.spec.ts",
+    "title": "builds and executes every generated scaffold kind"
+  },
+  {
+    "id": "T17",
+    "path": "packages/cli/src/scaffold-cli.spec.ts",
+    "title": "refuses scaffold collisions escapes and ambiguous workspaces"
+  },
+  {
+    "id": "T18",
+    "path": "packages/cli/src/application-cli.spec.ts",
+    "title": "describes real modules without constructing providers"
+  },
+  {
+    "id": "T19",
+    "path": "packages/cli/src/application-cli.spec.ts",
+    "title": "preserves module finding severity and argument refusals"
+  },
+  {
+    "id": "T20",
+    "path": "packages/cli/src/application-cli.spec.ts",
+    "title": "boots and disposes a real PTY REPL with private history"
+  },
+  {
+    "id": "T21",
+    "path": "packages/cli/src/application-cli.spec.ts",
+    "title": "refuses unsafe REPL inputs and retains cleanup errors"
+  },
+  {
+    "id": "T22",
+    "path": "packages/cli/src/studio-cli.spec.ts",
+    "title": "serves declared redacted SQLite data over installed loopback Studio"
+  },
+  {
+    "id": "T23",
+    "path": "packages/cli/src/studio-cli.spec.ts",
+    "title": "closes Studio listeners on signals and failed startup"
+  },
+  {
+    "id": "T24",
+    "path": "packages/cli/src/client-cli.spec.ts",
+    "title": "generates matching HTTP artifacts from one current compiler call"
+  },
+  {
+    "id": "T25",
+    "path": "packages/cli/src/client-cli.spec.ts",
+    "title": "keeps HTTP checks watches and partial publication truthful"
+  },
+  {
+    "id": "T26",
+    "path": "packages/cli/src/packed-cli.spec.ts",
+    "title": "runs the complete installed CLI workflow without source shortcuts"
+  },
+  {
+    "id": "T27",
+    "path": "packages/cli/src/lifecycle.spec.ts",
+    "title": "isolates concurrent projects and cancels every long-running command"
+  },
+  {
+    "id": "T28",
+    "path": "packages/cli/src/packed-fixture.spec.ts",
+    "title": "refuses undeclared package access and wrong installed ownership"
+  }
+]

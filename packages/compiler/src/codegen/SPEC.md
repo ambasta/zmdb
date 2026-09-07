@@ -5,8 +5,8 @@
 
 ## Issue #635 ownership split
 
-The callable scanner, witness generator, rewrite/check/watch library, and their fixtures live inside `@zmdb/compiler`. The old `bin.ts` argument/exit-code adapter is deleted; #630 adds the
-`zmdb codegen` command in `@zmdb/cli`. Runtime validator packages expose no command, filesystem, watch, or compiler code.
+The callable scanner, witness generator, rewrite/check/watch library, and their fixtures live inside `@zmdb/compiler`. The old `bin.ts` argument/exit-code adapter is deleted; `@zmdb/cli` owns the
+`zmdb codegen` command. Runtime validator packages expose no command, filesystem, watch, or compiler code.
 
 ## 1. Why project compilation exists
 
@@ -101,11 +101,14 @@ build-time consumer it invokes; supplied sessions remain open. HTTP declarations
 
 The scanner, witness generator and project compilation operation live in `@zmdb/compiler`. The binary `zmdb-codegen` and `@zmdb/aot-validator/codegen` export are deleted.
 
-Issue #630 will expose the same flags and exit meanings as:
+`@zmdb/cli` exposes these flags through the `zmdb` executable:
 
 ```text
 zmdb codegen [--config <zmdb.config.ts>] [--project <tsconfig.json>] [--check] [--watch]
 ```
 
-`@zmdb/compiler` owns compilation, one-session watch state and atomic/check-only artifact materialisation. #630 will make `@zmdb/cli` own argument parsing and output. The move preserves generated
-behavior and fixture equivalence and adds no compatibility executable.
+`@zmdb/compiler` owns compilation, one-session watch state and atomic/check-only artifact materialisation. `@zmdb/cli` owns argument parsing and output. The move preserves generated behavior and
+fixture equivalence and adds no compatibility executable.
+
+The root `watchCodegen` export uses one owned or borrowed `ReflectSession`. File creation, modification and removal update that retained session. An owned session closes once on normal termination or
+any reporting failure; borrowed sessions remain open and refreshable. `until` resolution or rejection stops observation and cancels pending debounce work before the returned promise settles.

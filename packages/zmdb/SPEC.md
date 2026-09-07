@@ -163,8 +163,8 @@ CLI are product-owned capabilities, but they are not facade modules and remain b
 
 Issue #626 refines the implementation ownership under the stable product surface above; it does not supersede the one-product facade.
 
-The complete #626 target gives `@zmdb/cli` the sole `zmdb` executable and command implementation, `@zmdb/compiler` the TypeScript/config implementation, and `@zmdb/migrations` generic schema-lifecycle
-tooling. In that completed target, the product package:
+`@zmdb/cli` owns the sole `zmdb` executable and command implementation, `@zmdb/compiler` owns the TypeScript/config implementation, and `@zmdb/migrations` owns generic schema-lifecycle tooling. The
+product package:
 
 - depends on all three tooling packages but keeps their modules unreachable from the root;
 - exposes `zmdb/cli`, `zmdb/compiler`, `zmdb/migrations` and `zmdb/config` as identity concern facades;
@@ -172,9 +172,9 @@ tooling. In that completed target, the product package:
 - removes the root `migrations` namespace rather than making tooling eagerly reachable; and
 - preserves a dependency-free root `defineConfig` contract without loading filesystem-backed config code.
 
-#628 implements only the compiler/config slice. The live product manifest depends on `@zmdb/compiler` and exposes identity facades at `zmdb/compiler` and `zmdb/config`; CLI, migration, Studio, and
-scaffolding implementations remain in their pre-extraction owners. The live manifest therefore still owns the `zmdb` bin until the CLI issue moves it. Advanced implementation-package imports remain
-available, but normal product documentation teaches the stable `zmdb/*` vocabulary.
+#628, #629 and #630 implement the compiler/config, migration and CLI owners respectively. The product manifest depends on those packages and exposes their identity facades. `zmdb/cli` re-exports
+`@zmdb/cli`; command dispatch, Studio and scaffolding live in that package, and `zmdb` has no executable entry of its own. Advanced implementation-package imports remain available, while normal
+product documentation uses the stable `zmdb/*` vocabulary.
 
 `zmdb/unplugin` is not a second compiler owner. The old AOT compiler subpaths and `zmdb-codegen` are removed; the remaining query-compiler tooling cutover and the product alias's compatibility
 lifetime are release-governance decisions under #721/#728. The target contains no permanent implementation forwarders; stable product facade modules are part of the product contract rather than

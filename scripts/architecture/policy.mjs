@@ -39,6 +39,19 @@ function packagePolicy({
 }
 
 export const PACKAGE_POLICY = Object.freeze({
+  cli: packagePolicy({
+    directory: 'packages/cli',
+    zone: 'tooling',
+    ring: 4,
+    allowedWorkspaceDependencies: ['compiler', 'migrations', 'query-compiler', 'repository', 'schema-core'],
+    allowedRuntimeDependencies: [],
+    optionalPeerEntries: {
+      '@zmdb/app': ['.', 'bin:zmdb'],
+      '@zmdb/web': ['.', 'bin:zmdb'],
+      esbuild: ['.', 'bin:zmdb'],
+    },
+    toolingEntries: ['.', 'bin:zmdb'],
+  }),
   client: packagePolicy({
     directory: 'packages/client',
     zone: 'foundation',
@@ -444,6 +457,7 @@ export const PACKAGE_POLICY = Object.freeze({
     allowedWorkspaceDependencies: [
       'app',
       'aot-validator',
+      'cli',
       'compiler',
       'migrations',
       'query-compiler',
@@ -479,8 +493,6 @@ export const PACKAGE_POLICY = Object.freeze({
       './web/devtools',
       // Curated facade over HTTP test doubles and harness helpers.
       './web/testing',
-      // The sole product command-line executable.
-      'bin:zmdb',
     ],
   }),
 });

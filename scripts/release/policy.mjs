@@ -50,6 +50,15 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
   }),
   'aot-validator': releasePackage('core', PUBLISH),
   app: releasePackage('core', PUBLISH),
+  cli: releasePackage(
+    'tooling',
+    'fixtures/consumer-cli',
+    ['app', 'compiler', 'migrations', 'query-compiler', 'repository', 'schema-core', 'web'],
+    {
+      esbuild: peer('>=0.28.2 <0.29.0', '0.28.2', 'fixtures/consumer-cli'),
+      typescript: peer('>=7.0.2 <8.0.0', '7.0.2', 'fixtures/consumer-cli'),
+    },
+  ),
   client: releasePackage('integration', 'fixtures/consumer-http-client'),
   cockroach: releasePackage('integration', 'fixtures/database-cockroach', [
     'migrations',
@@ -149,6 +158,7 @@ export const RELEASE_PACKAGE_POLICY = Object.freeze({
     typescript: peer('>=7.0.2 <8.0.0', '7.0.2', PUBLISH),
   }),
   zmdb: releasePackage('core', 'fixtures/consumer-product', [
+    'cli',
     'cockroach',
     'compiler',
     'migrations',

@@ -139,8 +139,8 @@ export interface ToolingDriver {
 
 The concrete database-package drivers satisfy this interface. Config remains tooling-only; importing an application runtime never discovers or evaluates it.
 
-`zmdb/config` is the sole stable product config entry and is a direct identity facade over this implementation. It contains no loader implementation. The current `zmdb` CLI imports the compiler
-subpath directly; the future `@zmdb/cli` extraction must keep that dependency and must not publish another config API.
+`zmdb/config` is the sole stable product config entry and is a direct identity facade over this implementation. It contains no loader implementation. `@zmdb/cli` imports the compiler subpath directly
+and publishes no second config API.
 
 The `zmdb` root may expose only the dependency-free authoring contract (`defineConfig` and its author-facing type). That narrow contract must not load this module's filesystem, TypeScript or cache
 implementation; the exact shared contract owner is resolved with #621 without creating a second config shape.
@@ -203,3 +203,9 @@ The compiler implementation is complete only when:
 - `@zmdb/protobuf` keeps source calls, public artifact types, and the generated-code wire ABI; this package keeps TypeScript reflection and emission for those calls.
 - No second TypeScript front end, config loader, formatter or generated-artifact format is added.
 - No compatibility entry owns new behavior or survives beyond the release-governed interval.
+
+## CLI orchestration and retained watch (#630)
+
+The package root exports `watchCodegen` and its `CodegenOptions`, `CodegenResult` and `WatchOptions` types. `@zmdb/cli` owns the `zmdb codegen` argv, config, output and process-signal boundary. The
+compiler retains one reflection session across file changes, additions and removals. It closes a session it opens exactly once, including initial and later reporting failures; a supplied session
+remains usable by its caller. Resolving or rejecting `until` ends observation, cancels pending debounce work and leaves no later writes or reports.

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -26,13 +26,13 @@ describe('the tooling-boundary verifier', () => {
   it('accounts for every frozen source path exactly once', () => {
     const result = analyse();
     expect(result.problems).toEqual([]);
-    expect(result.inventory.actualCount).toBe(206);
+    expect(result.inventory.actualCount).toBe(209);
     expect(result.inventory.ownerCounts).toEqual({
       compiler: 33,
       migrations: 21,
-      cli: 31,
+      cli: 33,
       runtime: 30,
-      facade: 53,
+      facade: 54,
       'optional-integration': 0,
       'test-only': 38,
       obsolete: 0,
@@ -41,7 +41,30 @@ describe('the tooling-boundary verifier', () => {
     expect(result.generatedViolations).toHaveLength(3);
     expect(result.embeddedViolations).toEqual([]);
     expect(result.formatterViolations).toEqual([]);
-    expect(result.packageGraph.edges).toHaveLength(50);
+    const ownedEdges = [
+      ['@zmdb/cli', '@zmdb/compiler'],
+      ['@zmdb/cli', '@zmdb/migrations'],
+      ['zmdb', '@zmdb/cli'],
+    ];
+    const owned = ([from, to]: readonly string[]) => from === '@zmdb/cli' || to === '@zmdb/cli';
+    expect(result.packageGraph.edges.filter(owned)).toEqual(ownedEdges);
+    const manifests: { name: string; dependencies?: Record<string, string> }[] = readdirSync(join(ROOT, 'packages'))
+      .map(name => join(ROOT, 'packages', name, 'package.json'))
+      .filter(path => existsSync(path))
+      .map(path => JSON.parse(readFileSync(path, 'utf8')));
+    const names = new Set(manifests.map(manifest => manifest.name));
+    const otherEdges = manifests.flatMap(manifest =>
+      Object.keys(manifest.dependencies ?? {})
+        .filter(name => names.has(name))
+        .map(name => [manifest.name, name])
+        .filter(edge => !owned(edge)),
+    );
+    expect(
+      result.packageGraph.edges
+        .filter(edge => !owned(edge))
+        .map(edge => edge.join('\0'))
+        .toSorted(),
+    ).toEqual(otherEdges.map(edge => edge.join('\0')).toSorted());
   });
 
   it('rejects a planted compiler import from a runtime root', () => {
@@ -160,8 +183,16 @@ runtime	packages/example/src/index.ts
       },
       '@zmdb/cli': {
         dependencies: ['@zmdb/compiler', '@zmdb/migrations', 'oxfmt'],
-        peerDependencies: ['@zmdb/web', 'esbuild'],
-        optionalPeers: ['@zmdb/web', 'esbuild'],
+        peerDependencies: [
+          '@zmdb/app',
+          '@zmdb/query-compiler',
+          '@zmdb/repository',
+          '@zmdb/schema-core',
+          '@zmdb/web',
+          'esbuild',
+          'typescript',
+        ],
+        optionalPeers: ['@zmdb/app', '@zmdb/web', 'esbuild'],
       },
     });
     expect(

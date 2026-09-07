@@ -377,64 +377,75 @@ export interface WatchOptions extends CodegenOptions {
  * is the expensive half of a build. `ReflectSession.refresh` re-checks only what changed.
  */
 export async function watchCodegen(options: WatchOptions): Promise<CodegenResult> {
-  // The promise-based watcher, because it is the async-iterable one: the callback form
-  // would need a queue between the events and the debounce.
   const { watch } = await import('node:fs/promises');
   const project = resolve(options.project);
   const root = dirname(project);
   const log = options.log ?? (() => undefined);
-  // A borrowed session is not this function's to close, the way it is not the plugin's.
   const borrowed = options.session;
   const session = borrowed ?? ReflectSession.open({ project });
-
-  let last = run(session, project, options);
-  report(last, log);
-
-  // Stopping is an abort rather than a flag, because the iteration parks in the watcher
-  // until something changes: a flag checked at the top of the loop would leave the process
-  // alive until the next unrelated save.
   const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let last: CodegenResult;
+  let failure: unknown;
+  const pending = new Set<string>();
   const stop = (): void => {
     controller.abort();
   };
   void options.until?.then(stop, stop);
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const pending = new Set<string>();
   const flush = (): void => {
+    timer = undefined;
+    if (controller.signal.aborted) return;
     const changed = [...pending];
     pending.clear();
     if (changed.length === 0) return;
-    // Told about the edits, not asked to reload: `refresh` is what makes a watch cheaper
-    // than a rebuild.
-    const live = changed.filter(path => existsSync(path));
-    if (live.length > 0) session.refresh(live);
-    const gone = changed.filter(path => !existsSync(path));
-    if (gone.length > 0) session.deleted(gone);
-    last = run(session, project, options);
-    report(last, log);
+    try {
+      const live = changed.filter(path => existsSync(path));
+      const created = live.filter(path => session.sourceFile(path) === undefined);
+      const refreshed = live.filter(path => session.sourceFile(path) !== undefined);
+      const gone = changed.filter(path => !existsSync(path));
+      if (created.length > 0) session.created(created);
+      if (refreshed.length > 0) session.refresh(refreshed);
+      if (gone.length > 0) session.deleted(gone);
+      last = run(session, project, options);
+      report(last, log);
+    } catch (error) {
+      failure = error;
+      stop();
+    }
   };
 
   try {
-    for await (const event of watch(root, { recursive: true, signal: controller.signal })) {
-      const name = typeof event.filename === 'string' ? resolve(root, event.filename) : undefined;
-      if (name === undefined) continue;
-      if (isGeneratedPath(name) || !/\.[cm]?tsx?$/.test(name) || /\.d\.[cm]?ts$/.test(name)) continue;
-      pending.add(name);
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(flush, options.debounceMs ?? 60);
+    last = run(session, project, options);
+    report(last, log);
+    try {
+      for await (const event of watch(root, { recursive: true, signal: controller.signal })) {
+        const name = typeof event.filename === 'string' ? resolve(root, event.filename) : undefined;
+        if (name === undefined || !isCandidate(name, root)) continue;
+        pending.add(name);
+        if (timer !== undefined) clearTimeout(timer);
+        timer = setTimeout(flush, options.debounceMs ?? 60);
+      }
+    } catch (error) {
+      if (!(error instanceof Error) || error.name !== 'AbortError') throw error;
     }
-  } catch (error) {
-    // `abort` is how this loop is meant to end, so it is not news.
-    if (!(error instanceof Error) || error.name !== 'AbortError') throw error;
+    if (failure !== undefined) throw failure;
+    return last;
   } finally {
-    if (timer) clearTimeout(timer);
-    if (!borrowed) session.close();
+    stop();
+    if (timer !== undefined) clearTimeout(timer);
+    pending.clear();
+    if (borrowed === undefined) session.close();
   }
-  return last;
 }
 
 function report(result: CodegenResult, log: (line: string) => void): void {
   for (const problem of result.problems) log(`error: ${problem}`);
-  if (result.problems.length === 0 && result.written.length === 0 && result.deleted.length === 0) log('up to date');
+  if (result.problems.length === 0) {
+    log(
+      result.written.length === 0 && result.deleted.length === 0
+        ? 'up to date'
+        : `generated ${String(result.written.length)} artifact(s); deleted ${String(result.deleted.length)}`,
+    );
+  }
 }

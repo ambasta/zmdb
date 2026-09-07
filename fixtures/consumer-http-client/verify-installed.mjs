@@ -24,7 +24,7 @@ const CLIENT = join(ROOT, 'packages', 'client');
 const TSC = join(ROOT, 'node_modules', '.bin', 'tsc');
 const ESBUILD = join(ROOT, 'node_modules', '.bin', 'esbuild');
 const SOURCE_HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
-const ZMDB_BIN = join(ROOT, 'packages', 'zmdb', 'src', 'cli', 'bin.ts');
+const ZMDB_BIN = join(ROOT, 'packages', 'cli', 'src', 'bin.ts');
 
 function run(command, arguments_, options = {}) {
   return spawnSync(command, arguments_, { encoding: 'utf8', ...options });

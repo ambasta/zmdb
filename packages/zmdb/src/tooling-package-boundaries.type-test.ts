@@ -9,6 +9,7 @@ import type {
   CompileResult as CompilerCompileResult,
   compileProject as compilerCompileProject,
   writeCompileResult as compilerWriteCompileResult,
+  watchCodegen as compilerWatchCodegen,
 } from '@zmdb/compiler';
 import type { EmitDiagnostic, EmitOptions, Emitter } from '@zmdb/compiler/emit';
 import type { configs as lintConfigs } from '@zmdb/compiler/lint';
@@ -53,14 +54,14 @@ import type {
   TARGET_PRODUCT_TOOLING_EXPORTS,
   TARGET_TOOLING_MANIFESTS,
 } from '../../../.github/scripts/verify-tooling-boundaries.mjs';
-import type { checkProject } from './cli/commands/check.js';
-import type { embedMigrations } from './cli/commands/embed.js';
-import type { exportSchema } from './cli/commands/export.js';
-import type { generateMigration } from './cli/commands/generate.js';
-import type { migrate, migrationStatus, rollback } from './cli/commands/migrate.js';
-import type { pullDeclarations } from './cli/commands/pull.js';
-import type { applyPush, planPush } from './cli/commands/push.js';
-import type { upgradeSnapshot } from './cli/commands/upgrade.js';
+import type { checkProject } from '../../cli/src/commands/check.js';
+import type { embedMigrations } from '../../cli/src/commands/embed.js';
+import type { exportSchema } from '../../cli/src/commands/export.js';
+import type { generateMigration } from '../../cli/src/commands/generate.js';
+import type { migrate, migrationStatus, rollback } from '../../cli/src/commands/migrate.js';
+import type { pullDeclarations } from '../../cli/src/commands/pull.js';
+import type { applyPush, planPush } from '../../cli/src/commands/push.js';
+import type { upgradeSnapshot } from '../../cli/src/commands/upgrade.js';
 import type { CliEnvironment, runCli } from './cli/index.js';
 import type {
   ResolvedConfig,
@@ -79,7 +80,7 @@ type ExportSet<Values extends string, Types extends string> = {
 
 type CompilerExports = {
   readonly '.': ExportSet<
-    'compileProject' | 'writeCompileResult',
+    'compileProject' | 'watchCodegen' | 'writeCompileResult',
     | 'CompileProjectOptions'
     | 'CompileResult'
     | 'CompiledArtifact'
@@ -208,6 +209,7 @@ type PlanMigration = (
 
 type CompilerValues = {
   readonly compileProject: CompileProject;
+  readonly watchCodegen: typeof compilerWatchCodegen;
   readonly writeCompileResult: WriteCompileResultFunction;
 };
 
@@ -293,7 +295,9 @@ export type _MigrationsSubpathsAreExact = Expect<
   >
 >;
 export type _CliHasOneLibraryEntry = Expect<Equal<keyof CliExports, '.'>>;
-export type _CompilerRootIsExact = Expect<Equal<keyof CompilerValues, 'compileProject' | 'writeCompileResult'>>;
+export type _CompilerRootIsExact = Expect<
+  Equal<keyof CompilerValues, 'compileProject' | 'watchCodegen' | 'writeCompileResult'>
+>;
 export type _MigrationOperationsAreExact = Expect<
   Equal<
     keyof MigrationValues,
@@ -332,7 +336,14 @@ export type _OnlyCompilerAndCliHaveToolingPeers = Expect<
     {
       readonly '@zmdb/compiler': 'metro' | 'metro-babel-transformer' | 'oxlint' | 'typescript';
       readonly '@zmdb/migrations': never;
-      readonly '@zmdb/cli': '@zmdb/web' | 'esbuild';
+      readonly '@zmdb/cli':
+        | '@zmdb/app'
+        | '@zmdb/query-compiler'
+        | '@zmdb/repository'
+        | '@zmdb/schema-core'
+        | '@zmdb/web'
+        | 'esbuild'
+        | 'typescript';
     }
   >
 >;
@@ -342,7 +353,7 @@ export type _OptionalPeersAreExact = Expect<
     {
       readonly '@zmdb/compiler': 'metro' | 'metro-babel-transformer' | 'oxlint';
       readonly '@zmdb/migrations': never;
-      readonly '@zmdb/cli': '@zmdb/web' | 'esbuild';
+      readonly '@zmdb/cli': '@zmdb/app' | '@zmdb/web' | 'esbuild';
     }
   >
 >;

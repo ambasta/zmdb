@@ -67,8 +67,16 @@ export const TARGET_TOOLING_MANIFESTS: Readonly<{
   }>;
   readonly '@zmdb/cli': Readonly<{
     readonly dependencies: readonly ['@zmdb/compiler', '@zmdb/migrations', 'oxfmt'];
-    readonly peerDependencies: readonly ['@zmdb/web', 'esbuild'];
-    readonly optionalPeers: readonly ['@zmdb/web', 'esbuild'];
+    readonly peerDependencies: readonly [
+      '@zmdb/app',
+      '@zmdb/query-compiler',
+      '@zmdb/repository',
+      '@zmdb/schema-core',
+      '@zmdb/web',
+      'esbuild',
+      'typescript',
+    ];
+    readonly optionalPeers: readonly ['@zmdb/app', '@zmdb/web', 'esbuild'];
   }>;
 }>;
 

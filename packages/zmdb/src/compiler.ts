@@ -3,12 +3,15 @@
 export { zmdbAot } from './unplugin.js';
 export type { ConfiguredZmdbAotOptions } from './unplugin.js';
 
-export { compileProject, writeCompileResult } from '@zmdb/compiler';
+export { compileProject, watchCodegen, writeCompileResult } from '@zmdb/compiler';
 export type {
+  CodegenOptions,
+  CodegenResult,
   CompiledArtifact,
   CompileProjectOptions,
   CompileResult,
   CompilerDiagnostic,
+  WatchOptions,
   WriteCompileResult,
   WriteCompileResultOptions,
 } from '@zmdb/compiler';

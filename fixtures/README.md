@@ -67,7 +67,7 @@ Copy the source change into `consumer-cli/src/` first, then run that. CI runs th
 Regenerate the HTTP artifacts with:
 
 ```sh
-node --import ./scripts/ts-specifier-hook.mjs packages/zmdb/src/cli/bin.ts \
+node --import ./scripts/ts-specifier-hook.mjs packages/cli/src/bin.ts \
   client generate --config fixtures/consumer-http-client/zmdb.config.ts
 ```
 

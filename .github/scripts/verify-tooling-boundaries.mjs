@@ -97,14 +97,23 @@ export const TARGET_TOOLING_MANIFESTS = Object.freeze({
   }),
   '@zmdb/cli': Object.freeze({
     dependencies: Object.freeze(['@zmdb/compiler', '@zmdb/migrations', 'oxfmt']),
-    peerDependencies: Object.freeze(['@zmdb/web', 'esbuild']),
-    optionalPeers: Object.freeze(['@zmdb/web', 'esbuild']),
+    peerDependencies: Object.freeze([
+      '@zmdb/app',
+      '@zmdb/query-compiler',
+      '@zmdb/repository',
+      '@zmdb/schema-core',
+      '@zmdb/web',
+      'esbuild',
+      'typescript',
+    ]),
+    optionalPeers: Object.freeze(['@zmdb/app', '@zmdb/web', 'esbuild']),
   }),
 });
 
 const POLICY_PATH = '.github/scripts/verify-tooling-ownership.SPEC.md';
 const INVENTORY_ROOTS = [
   'packages/aot-validator/src',
+  'packages/cli/src',
   'packages/compiler/src',
   'packages/migrations/src',
   'packages/query-compiler/src',
@@ -118,9 +127,9 @@ const INVENTORY_EXTENSIONS = new Set(['.ts', '.js', '.json', '.proto']);
 const EXPECTED_OWNER_COUNTS = Object.freeze({
   compiler: 33,
   migrations: 21,
-  cli: 31,
+  cli: 33,
   runtime: 30,
-  facade: 53,
+  facade: 54,
   'optional-integration': 0,
   'test-only': 38,
   obsolete: 0,
@@ -161,7 +170,6 @@ export const GENERATED_ARTIFACTS = Object.freeze([
   'packages/compiler/src/config/index.zmdb.witness.ts',
 ]);
 
-const BASELINE_BIN_OWNERS = new Set(['zmdb|zmdb']);
 const GENERATED_EXTERNAL_TOOLING = [
   /^typescript(?:\/|$)/,
   /^oxlint(?:\/|$)/,
@@ -713,10 +721,7 @@ export function analyseToolingBoundaries({
     );
   }
 
-  const allowedBins = new Set([
-    ...BASELINE_BIN_OWNERS,
-    `${TARGET_TOOLING_BIN.packageName}|${TARGET_TOOLING_BIN.command}`,
-  ]);
+  const allowedBins = new Set([`${TARGET_TOOLING_BIN.packageName}|${TARGET_TOOLING_BIN.command}`]);
   for (const owner of bins) {
     if (!allowedBins.has(owner)) problems.push(`unexpected tooling binary owner ${owner}`);
   }

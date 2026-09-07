@@ -10,9 +10,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { inspectConfigContract } from '../../../../.github/scripts/verify-config-contract.mjs';
 import { loadGovernanceSnapshot } from '../../../../scripts/architecture/governance.mjs';
-import { loadConfig as cliLoadConfig } from '../../../zmdb/src/cli/config.js';
+import { scaffold } from '../../../cli/src/scaffold.js';
 import { runCli } from '../../../zmdb/src/cli/index.js';
-import { scaffold } from '../../../zmdb/src/cli/scaffold.js';
 import {
   defineConfig as productDefineConfig,
   loadConfig as productLoadConfig,
@@ -300,9 +299,13 @@ export default {
     const fixture = join(ROOT, 'fixtures', 'consumer-plugin');
     const model = join(fixture, 'src', 'model.ts');
     const orders = join(fixture, 'src', 'orders.ts');
-    const loaded = await cliLoadConfig({ cwd: fixture });
+    const loaded = await canonicalLoadConfig({ cwd: fixture });
 
-    expect(cliLoadConfig).toBe(canonicalLoadConfig);
+    const stdout: string[] = [];
+    expect(await runCli(['export', '--json'], { cwd: fixture, stdout: text => stdout.push(text), stderr() {} })).toBe(
+      0,
+    );
+    expect(JSON.parse(stdout.join('')).config).toBe(loaded.configPath);
     expect(loaded.configPath).toBe(join(fixture, 'zmdb.config.ts'));
     expect(loaded.project).toBe(join(fixture, 'tsconfig.json'));
     expect(loaded.schemaFiles).toEqual([model]);
