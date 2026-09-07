@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": false,
+    "exactOptionalPropertyTypes": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noUncheckedIndexedAccess": true,
+    "outDir": "dist",
+    "skipLibCheck": false,
+    "strict": true,
+    "target": "ES2022",
+    "lib": ["ESNext"],
+    "types": ["node"]
+  },
+  "files": ["default.ts"]
+}

@@ -33,6 +33,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, syml
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { qualifySelectedJobs } from '../../fixtures/consumer-selected-jobs/qualify.mjs';
 import { inspectServerCoreFixture } from '../../fixtures/consumer-server-core/verify-installed.mjs';
 import { ROOT, publishCatalog, publishManifest, readManifest } from './lib/publish-manifest.mjs';
 import { inspectProductConsumerFixture } from './verify-product-facade.mjs';
@@ -502,6 +503,23 @@ for (const packageRecord of PUBLISH_PACKAGES) {
   }
   console.log(`  installed ${pkg.name} (${Object.keys(pkg.exports).length} subpaths)`);
 }
+
+const selectedJobsReport = await qualifySelectedJobs({
+  tarballs: PUBLISH_PACKAGES.flatMap(packageRecord => {
+    const manifest = publishManifest(readManifest(packageRecord.id, PUBLISH_PACKAGES));
+    const tarball = packedTarballs.get(manifest.name);
+    return tarball === undefined ? [] : [{ manifest, tarball }];
+  }),
+});
+if (
+  !selectedJobsReport.cleaned ||
+  selectedJobsReport.failures.length > 0 ||
+  JSON.stringify(selectedJobsReport.consumers.map(consumer => consumer.lane).toSorted()) !==
+    JSON.stringify(['default', 'postgres', 'sqlite'])
+) {
+  fail(`Selected jobs qualification failed: ${selectedJobsReport.failures.join('\n')}`);
+}
+console.log('Selected jobs qualification evidence:', JSON.stringify(selectedJobsReport));
 
 // 3. Load every ordinary subpath from the temp project. The Next server entry
 // deliberately rejects a plain import and is qualified separately below.
