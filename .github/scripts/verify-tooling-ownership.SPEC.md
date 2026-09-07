@@ -88,7 +88,6 @@ migrations	packages/migrations/src/operations/upgrade.ts
 migrations	packages/migrations/src/project.ts
 migrations	packages/migrations/src/runner.ts
 migrations	packages/migrations/src/testing.ts
-<<<<<<< HEAD
 cli	packages/cli/src/application-loader.ts
 cli	packages/cli/src/args.ts
 cli	packages/cli/src/atomic.ts
