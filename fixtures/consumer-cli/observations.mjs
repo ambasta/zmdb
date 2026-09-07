@@ -853,7 +853,7 @@ cases.T16 = async () => {
         ),
         'utf8',
       ),
-      /expect\([^)]*\)\./,
+      /expect\(.*\)\./,
     );
   }
   const manifest = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));

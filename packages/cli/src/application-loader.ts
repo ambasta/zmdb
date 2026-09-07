@@ -42,9 +42,9 @@ export async function loadRootModule(moduleSpec: string, cwd: string): Promise<M
     }
     loaded = candidate;
   } catch (error) {
-    throw new Error(`could not import module path "${namedPath}" for export "${exportName}": ${errorMessage(error)}`, {
-      cause: error,
-    });
+    throw new CliInvocationError(
+      `could not import module path "${namedPath}" for export "${exportName}": ${errorMessage(error)}`,
+    );
   }
   const root: unknown = Reflect.get(loaded, exportName);
   if (!isModuleClass(root)) {
