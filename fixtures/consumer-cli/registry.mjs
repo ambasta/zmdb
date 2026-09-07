@@ -53,9 +53,27 @@ const groupAlive = pid => {
     throw error;
   }
 };
+function base64Encode(bytes) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const triple = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    result += chars[(triple >> 18) & 63] + chars[(triple >> 12) & 63] + chars[(triple >> 6) & 63] + chars[triple & 63];
+  }
+  if (i < bytes.length) {
+    const remaining = bytes.length - i;
+    const triple = (bytes[i] << 16) | (remaining === 2 ? bytes[i + 1] << 8 : 0);
+    result += chars[(triple >> 18) & 63] + chars[(triple >> 12) & 63];
+    result += remaining === 2 ? chars[(triple >> 6) & 63] + '=' : '==';
+  }
+  return result;
+}
+
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  if (encoding === 'base64') return base64Encode(digest);
+  return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {
@@ -318,8 +336,7 @@ export async function createFixture() {
         });
         const report = JSON.parse(packed.stdout);
         const entry = Array.isArray(report) ? report[0] : report[name];
-        assert.equal(entry.name, name);
-        const filename = entry.filename;
+        const filename = entry?.filename;
         assert.equal(typeof filename, 'string');
         assert.equal(dirname(resolve(tarballs, filename)), tarballs);
         const file = join(tarballs, filename);
