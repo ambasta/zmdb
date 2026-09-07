@@ -1,5 +1,7 @@
 import type { ResolvedConfig } from '@zmdb/compiler/config';
 
+import { SuppressedErrorCtor } from './errors.js';
+
 /** Own only the driver requested during this invocation, including non-enumerable disposal methods. */
 export async function withConfiguredDriver<T>(
   config: ResolvedConfig,
@@ -37,7 +39,7 @@ export async function withConfiguredDriver<T>(
       else if (typeof dispose === 'function') dispose.call(opened);
     }
   } catch (cleanupError) {
-    if (!outcome.ok) throw new SuppressedError(cleanupError, outcome.error, 'command and driver cleanup failed');
+    if (!outcome.ok) throw new SuppressedErrorCtor(cleanupError, outcome.error, 'command and driver cleanup failed');
     throw cleanupError;
   }
   if (!outcome.ok) throw outcome.error;
