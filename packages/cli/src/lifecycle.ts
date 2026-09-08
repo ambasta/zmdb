@@ -1,5 +1,19 @@
 import type { ResolvedConfig } from '@zmdb/compiler/config';
 
+const FallbackSuppressedError =
+  typeof SuppressedError !== 'undefined'
+    ? SuppressedError
+    : class SuppressedError extends Error {
+        error: unknown;
+        suppressed: unknown;
+        constructor(error: unknown, suppressed: unknown, message?: string) {
+          super(message);
+          this.name = 'SuppressedError';
+          this.error = error;
+          this.suppressed = suppressed;
+        }
+      };
+
 /** Own only the driver requested during this invocation, including non-enumerable disposal methods. */
 export async function withConfiguredDriver<T>(
   config: ResolvedConfig,
@@ -37,7 +51,8 @@ export async function withConfiguredDriver<T>(
       else if (typeof dispose === 'function') dispose.call(opened);
     }
   } catch (cleanupError) {
-    if (!outcome.ok) throw new SuppressedError(cleanupError, outcome.error, 'command and driver cleanup failed');
+    if (!outcome.ok)
+      throw new FallbackSuppressedError(cleanupError, outcome.error, 'command and driver cleanup failed');
     throw cleanupError;
   }
   if (!outcome.ok) throw outcome.error;
