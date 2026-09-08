@@ -174,6 +174,36 @@ function executeSample(directory, sample) {
     jsx: 'automatic',
     logLevel: 'silent',
   });
+  const blockNet = join(directory, 'block-net.mjs');
+  writeFileSync(
+    blockNet,
+    `import net from 'node:net';
+import http from 'node:http';
+import https from 'node:https';
+
+if (typeof globalThis.fetch === 'function') {
+  globalThis.fetch = () => {
+    throw new Error('network access is disabled in sample runner');
+  };
+}
+if (typeof globalThis.WebSocket === 'function') {
+  globalThis.WebSocket = class {
+    constructor() {
+      throw new Error('network access is disabled in sample runner');
+    }
+  };
+}
+net.connect = net.createConnection = () => {
+  throw new Error('network access is disabled in sample runner');
+};
+http.request = http.get = () => {
+  throw new Error('network access is disabled in sample runner');
+};
+https.request = https.get = () => {
+  throw new Error('network access is disabled in sample runner');
+};
+`,
+  );
   const result = spawnSync(
     process.execPath,
     [
@@ -181,6 +211,8 @@ function executeSample(directory, sample) {
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
       `--allow-fs-read=${realpathSync(join(root, 'packages'))}`,
+      '--import',
+      blockNet,
       output,
     ],
     {

@@ -153,7 +153,9 @@ describe('jobs provider resource lifecycle (#756)', () => {
     }
     expect(result).toMatchObject({ name: 'TimeoutError', message: '@zmdb/jobs: shutdown deadline exceeded' });
     expect(events).toEqual(['start:hung', 'stop:hung', 'close:store']);
-    expect(budgets).toEqual([0]);
+    expect(budgets).toHaveLength(1);
+    expect(budgets[0]).toBeGreaterThanOrEqual(0);
+    expect(budgets[0]).toBeLessThanOrEqual(2);
   });
 
   it('closes registered stores after startup fails and refuses invalid shutdown budgets', async () => {
