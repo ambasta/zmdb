@@ -1,11 +1,19 @@
+import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
+
 import { createQueue, createWorker, type Clock, type JobHandler, type JobStore, type WorkerOptions } from '@zmdb/jobs';
-import { Pool } from 'pg';
+import { Pool, type PoolConfig } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPgJobStore } from './index.js';
 
 const PG_CONN = process.env.ZMDB_PG;
 const START = Date.parse('2026-09-05T00:00:00.000Z');
+const run = promisify(execFile);
 
 interface Jobs {
   readonly 'email.send': { readonly id: number };
@@ -17,6 +25,8 @@ interface Deferred {
 }
 
 let postgres: Pool | undefined;
+let postgresDirectory: string | undefined;
+let poolConfig: PoolConfig;
 
 function deferred(): Deferred {
   let resolve = (): void => undefined;
@@ -75,17 +85,33 @@ function workerOptions(store: JobStore, jobHandler: JobHandler<Jobs, 'email.send
 
 beforeAll(async () => {
   if (PG_CONN === undefined || PG_CONN.trim() === '') {
-    throw new Error('Set ZMDB_PG explicitly to run the PostgreSQL jobs integration tests.');
+    postgresDirectory = await mkdtemp(join(tmpdir(), 'zmdb-jobs-postgres-'));
+    await run('initdb', ['-D', postgresDirectory, '-U', 'postgres', '--auth=trust', '--no-locale', '--encoding=UTF8'], {
+      timeout: 15_000,
+    });
+    // A private Unix socket avoids sharing a TCP port with another test or service.
+    await writeFile(
+      join(postgresDirectory, 'postgresql.auto.conf'),
+      `listen_addresses = ''\nunix_socket_directories = '${postgresDirectory.replaceAll("'", "''")}'\nmax_connections = 20\n`,
+    );
+    await run(
+      'pg_ctl',
+      ['-D', postgresDirectory, '-l', join(postgresDirectory, 'postgres.log'), '-w', '-t', '15', 'start'],
+      { timeout: 20_000 },
+    );
+    poolConfig = { host: postgresDirectory, user: 'postgres', database: 'postgres' };
+  } else {
+    poolConfig = { connectionString: PG_CONN };
   }
-  const candidate = new Pool({ connectionString: PG_CONN, connectionTimeoutMillis: 1000, max: 8 });
+  const candidate = new Pool({ ...poolConfig, connectionTimeoutMillis: 1000, max: 8 });
   try {
     await candidate.query('SELECT 1');
     postgres = candidate;
-  } catch {
+  } catch (cause) {
     await candidate.end().catch(() => undefined);
-    throw new Error('The PostgreSQL jobs integration database is unreachable; check ZMDB_PG.');
+    throw new Error('The PostgreSQL jobs integration database is unreachable.', { cause });
   }
-});
+}, 60_000);
 
 beforeEach(async () => {
   if (postgres === undefined) return;
@@ -118,8 +144,17 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await postgres?.end();
-});
+  try {
+    await postgres?.end();
+  } finally {
+    if (postgresDirectory !== undefined) {
+      if (existsSync(join(postgresDirectory, 'postmaster.pid'))) {
+        await run('pg_ctl', ['-D', postgresDirectory, '-w', '-t', '15', '-m', 'fast', 'stop'], { timeout: 20_000 });
+      }
+      await rm(postgresDirectory, { recursive: true, force: true });
+    }
+  }
+}, 30_000);
 
 describe('@zmdb/jobs-postgres (#661)', () => {
   it('round-trips through a real pg Pool without taking ownership of it', async () => {
@@ -135,7 +170,7 @@ describe('@zmdb/jobs-postgres (#661)', () => {
 
   it('preserves stable bounded prepared statements', async () => {
     if (postgres === undefined) return;
-    const pool = new Pool({ connectionString: PG_CONN, connectionTimeoutMillis: 1000, max: 1 });
+    const pool = new Pool({ ...poolConfig, connectionTimeoutMillis: 1000, max: 1 });
     try {
       const store = createPgJobStore(pool, { prepared: true, maxCacheSize: 1 });
       await store.completed('one');
