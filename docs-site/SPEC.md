@@ -7,8 +7,7 @@
 
 The documentation presents one zmdb product. Package names are useful installation and dependency boundaries, but they are not separate reader journeys.
 
-`navigation-plan.mjs` owns the machine-readable target. `pages.mjs` derives the live ten-group registry from it, temporarily expanding the canonical GraphQL position to the twelve retained
-compatibility pages.
+`navigation-plan.mjs` owns page order. `pages.mjs` derives the live ten-group registry from it, expanding the historical GraphQL position to the twelve existing permanently wontfix pages.
 
 This specification freezes:
 
@@ -54,6 +53,24 @@ At that baseline, the three indented samples rendered as prose and the two four-
 The renderer now shares `fences.mjs` with `verify:docs-samples`: indentation and delimiter length determine fence boundaries, while the language and JSON metadata are parsed separately. Rendering
 strips the metadata; sample verification applies the compilation and execution rules below. A green docs build alone is not sample correctness evidence.
 
+### 2.1 Current documentation inventory
+
+Measured on 2026-09-08 at `1a0a3b6c` using `NAV` and `PAGE_META` from `pages.mjs`, `LEGACY_REDIRECTS` from `navigation-plan.mjs`, and the shared parser in `fences.mjs`:
+
+| Surface                                     | Measured result                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Page registry                               | 289 unique pages in 10 groups                                                             |
+| Page statuses                               | 273 `supported`, 3 `todo`, 13 `wontfix`                                                   |
+| Retained GraphQL pages                      | 12 permanently wontfix pages; their 68 typed fences are excluded from sample verification |
+| Typed fences in all registered source pages | 1,348                                                                                     |
+| Classified sample corpus                    | 1,280 fences across 263 non-GraphQL pages                                                 |
+| Sample modes                                | 233 `compile`, 1 `expect-error`, 1,046 `illustrative`                                     |
+| Compiler inputs                             | 231 groups containing 234 files                                                           |
+| Declared environments                       | 3 fences declare `node`; 1,277 omit an environment                                        |
+
+These are source-inventory measurements, not counts of executed examples or supported platforms. An illustrative fence does not supply runtime or API acceptance evidence. The sample verifier reports
+its current measured corpus on each run; update this snapshot and the README documentation inventory when page registration or sample metadata changes.
+
 ## 3. The ten-group product journey
 
 The exact group names, order and page order are `PRODUCT_JOURNEY` in `navigation-plan.mjs`:
@@ -75,7 +92,7 @@ The plan has these invariants:
 - Every current non-GraphQL slug remains unchanged.
 - The twelve `web-graphql*` slugs remain live, unchanged pages.
 - `graphql` remains only a planning placeholder for those pages; `package-reference`, the #686 `generated-client` page, and the nine #701 framework guides are the implemented canonical additions.
-- The target has 264 retained current pages plus twelve new pages: **276 canonical pages**.
+- The live page count and statuses are measured from the registry and recorded in §2.1; the dated #713 target is historical.
 - No GraphQL redirect artifacts are emitted.
 - `PAGE_META` owns title, status and optional note. NAV owns group and order; `group` is derived from NAV and is not hand-written a second time in `PAGE_META`.
 - A missing, duplicate, unregistered or orphaned slug is a build and verification failure.
@@ -85,8 +102,8 @@ The reading order is intentional: install the product, build with it, learn sche
 then use reference material.
 
 The ten group names and every non-GraphQL page position are live. The `graphql` planning position expands to the twelve existing `web-graphql*` pages in `LEGACY_REDIRECTS` order. #718 is closed
-wontfix, so the existing pages remain unchanged and no canonical replacement or redirect set is promised. With #686's generated-client page and #701's nine framework guides, the live registry contains
-287 pages.
+wontfix, so the existing pages remain unchanged and no canonical replacement or redirect set is promised. The current registry also includes the generated-client, framework, tooling and
+runtime-foundation guides; §2.1 records its measured inventory.
 
 ## 4. GraphQL remains outside the migration
 
@@ -193,9 +210,10 @@ integrations have no package, rejects duplicated URL/authentication/validation i
 The generated view contains every admitted package exactly once, the complete direct workspace graph, measured package/edge/ring bounds, and every non-empty runtime/tooling/optional-peer assignment.
 Rows are ordered by ring and npm name. Package ids are mapped through the catalog rather than synthesized from directories.
 
-The docs checker also requires copy-pasteable package-admission and release commands in `ARCHITECTURE.md`, `docs-site/content/architecture.md`, and `PUBLISHING.md`. It rejects the former
-hand-maintained dependency spine, the stale twenty-nine-package claim, an independently-versionable-package claim, and a copied publish loop in release documentation. Graph output may change only by
-changing the catalog, policy or admitted manifests and regenerating with `node docs-site/generated.mjs`.
+The docs checker requires `ARCHITECTURE.md` to link the package/dependency workflow in `CONTRIBUTING.md` and retain its regeneration, architecture-zone and generated-doc commands. The architecture
+guide and `PUBLISHING.md` retain their executable release commands. The checker rejects the former hand-maintained dependency spine, the stale twenty-nine-package claim, an
+independently-versionable-package claim, and a copied publish loop in release documentation. Graph output may change only by changing the catalog, policy or admitted manifests and regenerating with
+`node docs-site/generated.mjs`.
 
 ## 6. Documentation sample contract
 
@@ -284,21 +302,24 @@ The docs renderer and sample verifier share one fence parser. A fence cannot ren
 
 ## 7. Required verification
 
-The implementation children add exact tests for these frozen statements:
+The existing documentation checks enforce these statements:
 
 - every canonical page belongs to exactly one of the ten groups;
 - all current non-GraphQL slugs remain stable;
-- all twelve legacy GraphQL slugs redirect to `graphql`;
+- all twelve existing GraphQL source pages remain permanently wontfix and excluded from sample verification;
 - package and integration output is deterministic and sourced as specified;
 - architecture graph, rings and entry assignments are deterministic and sourced from catalog, policy and manifests;
 - package admission and the target-scoped core/integration release commands remain present, the release-group contract is linked as executable policy, and copied package inventories remain absent;
 - every retained typed fence is classified;
 - compile samples compile, expected-error samples fail for their declared diagnostics, and illustrative samples carry a reason.
 
-For this specification-only issue, acceptance is:
+The contributor workflow is [CONTRIBUTING.md](../CONTRIBUTING.md#documentation-changes). Local verification uses the existing commands:
 
-- `yarn validate:spec`;
-- `yarn build:docs`;
-- `npx vitest run docs-site/build.spec.ts docs-site/shell.spec.ts`;
-- `yarn verify:docs-coverage --summary`;
-- a structural probe proving the navigation plan has ten groups, 266 unique canonical slugs, 12 redirect sources, no retained GraphQL source slug, and exactly the two declared additions.
+- `yarn verify:docs-generated` checks the generated package, integration and architecture projections;
+- `yarn verify:docs-samples` checks classified sample groups and expected diagnostics;
+- `yarn verify:docs-coverage` checks the upstream documentation mapping; and
+- `yarn build:docs` emits the site, including its OpenAPI artifact.
+
+CI and Pages run all three checks before the canonical build command. A final documentation delivery runs the build twice and compares every emitted relative path and content hash, with no generated
+source changes on the second build. Focused sample/compiler and installed-consumer proofs may be reused when their inputs are unchanged; documentation-only delivery does not require another runtime or
+benchmark campaign.

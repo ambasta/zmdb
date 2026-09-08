@@ -52,12 +52,8 @@ const GENERATED_DOCUMENTS = Object.freeze([
 const GOVERNANCE_DOCUMENTATION = Object.freeze({
   'ARCHITECTURE.md': Object.freeze([
     'node docs-site/generated.mjs',
-    'yarn verify:governance',
-    'yarn verify:product-catalog',
+    './CONTRIBUTING.md#package-and-dependency-changes',
     'yarn verify:architecture-zones',
-    'yarn verify:runtime-reachability',
-    'yarn verify:package-metadata',
-    'yarn verify:release-governance',
     'yarn verify:docs-generated',
   ]),
   'docs-site/content/architecture.md': Object.freeze([

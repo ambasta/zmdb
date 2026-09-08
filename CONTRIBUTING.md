@@ -40,6 +40,39 @@ rm "$zmdb_relationships_file"
 The relationship reader performs the explicit read-only network capture. Governance queries inspect that supplied snapshot and do not mutate GitHub, publish packages or create another tracker
 projection. Focused query commands remain available for diagnosis; they consume the same model.
 
+## Documentation changes
+
+Use the [documentation SPEC](./docs-site/SPEC.md) for the current page, sample and generated-content contracts. Its [measured inventory](./docs-site/SPEC.md#21-current-documentation-inventory) records
+page statuses and sample classifications; update those measurements when their inputs change.
+
+- **Add a page:** add its Markdown under `docs-site/content/`, register its title/status in [pages.mjs](./docs-site/pages.mjs), and put its slug in the appropriate group in
+  [navigation-plan.mjs](./docs-site/navigation-plan.mjs). Preserve existing URLs. The twelve permanently wontfix GraphQL pages remain unchanged and excluded from sample verification.
+- **Add or change a sample:** annotate each TypeScript/TSX opening fence using the [sample metadata contract](./docs-site/SPEC.md#61-fence-parsing-and-metadata-syntax). Choose `compile` for a complete
+  program, `expect-error` for an intentional diagnostic, or `illustrative` with the specific missing context. Group related files on one page as defined by the
+  [multi-file contract](./docs-site/SPEC.md#65-multi-file-examples). Use public package exports; do not insert private source imports or invented declarations to make an excerpt compile. Runtime
+  execution requires explicit opt-in and any external services belong to an existing issue-owned fixture.
+- **Add an integration:** update [integrations.mjs](./docs-site/integrations.mjs) with current package, peer, guide and executable-evidence ownership, following the
+  [integration contract](./docs-site/SPEC.md#52-framework-integration-matrix). Update [client-applications.mjs](./docs-site/client-applications.mjs) when its client support/example facts change.
+- **Add a package:** follow the package/dependency workflow above. The catalog and admitted manifest own the reference entry; do not add a second package list to a guide.
+
+After changing an authored catalog, policy or integration record, regenerate its projections, then run the three documentation checks and build:
+
+```bash
+node docs-site/generated.mjs
+yarn verify:docs-generated
+yarn verify:docs-samples
+yarn verify:docs-coverage
+yarn build:docs
+```
+
+`verify:docs-generated` checks freshness without rewriting files. `verify:docs-samples` compiles classified groups, checks expected diagnostics and reports illustrative excerpts separately;
+compilation alone is not live-service or runtime proof. `verify:docs-coverage` checks the upstream documentation mapping. Both the CI documentation job and the Pages deployment run these checks before
+building. The canonical `build:docs` command supplies the repository's source-resolution hook.
+
+For a documentation release, run `yarn build:docs` a second time and compare the SHA-256 hashes of every relative file path under `site/` with the first build. Compare bytes, not timestamps. Both
+builds must leave the committed generated source regions unchanged. Reuse unchanged sample and installed-consumer evidence while fixing a focused issue; run the complete applicable documentation
+checks on the integrated change.
+
 ## Exception lifecycle
 
 Fix a finding at its owner. If reviewed temporary debt is necessary, add one exact structured registry record with its stable finding, explicit scope, rationale, evidence, open removal issue, measured

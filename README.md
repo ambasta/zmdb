@@ -21,7 +21,8 @@ installation commands, peer requirements and support evidence. The [integration 
 Advanced dependency boundaries are explained in the [runtime foundation](./docs-site/content/runtime-foundation.md) and [tooling](./docs-site/content/tooling-boundaries.md) guides.
 
 > The workspace publishes **42 packages** across **185 export-map entry points**. Vitest discovers runtime tests from the workspace. The compatibility inventory covers 504 of 742 upstream API suites
-> and explains why the other 238 are out of scope.
+> and explains why the other 238 are out of scope. Documentation contains **289 pages** and **1,280 classified TypeScript/TSX fences**; the
+> [documentation inventory](./docs-site/SPEC.md#21-current-documentation-inventory) records their statuses, compilation modes and GraphQL exclusions.
 
 ## Quick Start
 
