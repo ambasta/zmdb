@@ -101,7 +101,7 @@ export const MOLTAR: TypeIR = ${JSON.stringify(ir, null, 2)};
   // bundler does anyway — `@zmdb/aot-validator` is `sideEffects: false` — and it makes the
   // measured module honest about what the AOT path costs: nothing is loaded to run it.
   aot = `${BANNER('harness/validation/aot-source.ts')}${strip(result.code, [
-    /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
+    /^import \{[^}]*\} from '[^']*';\n/m,
     /^import type \{[^}]*\} from '[^']*';\n/m,
   ])}`;
 
@@ -114,7 +114,7 @@ export const MOLTAR: TypeIR = ${JSON.stringify(ir, null, 2)};
     throw new Error('the transform left a populated-row generic call in place');
   }
   shallow = `${BANNER('harness/validation/shallow-source.ts')}${strip(shallowResult.code, [
-    /^import \{[^}]*\} from '[^']*utilities\/index\.[jt]s';\n/m,
+    /^import \{[^}]*\} from '[^']*';\n/m,
   ])}`;
 } finally {
   session.close();
