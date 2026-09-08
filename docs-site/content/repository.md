@@ -106,6 +106,26 @@ SELECT * FROM "users" WHERE "role" = $1 ORDER BY "createdAt" DESC LIMIT 21
 > [!NOTE] `list` fetches `limit + 1` rows and trims, so `hasMore` is computed without a separate `COUNT`. The operator set (`eq/ne/lt/lte/gt/gte/in/nin/like/ilike/isNull/notNull`) and result shape
 > come from [Filters](./filters.html) and the [Read/Query DTOs](./read-dtos.html).
 
+## Load relations explicitly
+
+Every existing `populate` read option accepts typed dotted paths, including nested one-to-many and to-one relations:
+
+```ts {"mode":"illustrative","id":"relation-paths","reason":"The surrounding example supplies users with declared posts/comments relations and their target schemas registered in RepositoryOptions.schemas."}
+const withComments = await users.findAll({ populate: ['posts.comments'] });
+
+const rows = await users.findAll();
+const populated = await users.populate(rows, ['posts.comments']);
+```
+
+`populate(row, paths, options?)` also accepts a single existing row. Both overloads return new populated copies without fetching the roots again or mutating the input rows. The optional third argument
+is `ReadOptions`. Nested traversal uses the declared relation metadata and target schemas registered in `RepositoryOptions.schemas`; shared path prefixes are deduplicated, and SQL batches may split at
+the dialect's parameter limit. Many-to-many population remains unsupported.
+
+For concurrent calls, HTTP `Ctx` exposes a lazily created, request-local `ctx.loaders`. Its `populate(repo, rowOrRows, paths, options?)` method batches calls with the same repository instance, path
+set, and options object identity, without retaining a result cache. `createLoaderScope()` remains available for standalone or custom contexts. Direct repository reads are unchanged.
+
+See [Populate & Join Results](./populate-results.html) and [DataLoaders](./dataloaders.html) for examples. There is no implicit property loading or `eager: true` setting.
+
 ## Lifecycle Hooks
 
 Hooks fire synchronously around their corresponding repository operations. Override them in your subclass.

@@ -1,5 +1,7 @@
-`createLoaderScope()` provides explicit request-scoped batching for primary-key reads and declared relations. There is no ambient loader: construct one scope at the request boundary and pass it
-through the request context.
+HTTP `Ctx` exposes `ctx.loaders`, a `LoaderScope` created lazily on first access and shared only within that request. Use it explicitly for primary-key reads, declared relations, or population of rows
+you already have. Ordinary repository reads remain independent.
+
+For standalone code or a custom request context, keep using `createLoaderScope()` at the request boundary:
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies listPosts; this excerpt does not repeat those declarations."}
 import { type Entity } from '@zmdb/schema';
@@ -18,7 +20,8 @@ async function handleRequest() {
 }
 ```
 
-The scope owns its loaders and their loaded values. Letting the request context become unreachable ends their lifetime; there is no `clear()` call to remember.
+The scope owns its loaders and their loaded values. Letting the request context become unreachable ends their lifetime; there is no `clear()` call to remember. `loaderFor()` and `relationLoader()`
+retain loaded snapshots within the scope; `populate()` batches pending calls without retaining a result cache.
 
 ## Batch primary-key reads across call sites
 
@@ -94,9 +97,24 @@ const withOrders = await Promise.all(
 The relation name is type-checked. Parent keys are deduplicated and all parents loaded in the microtask share the dispatch. A to-many relation resolves to an array; a to-one relation resolves to a row
 or `null`.
 
+## Batch population across call sites
+
+`LoaderScope.populate(repo, row, paths, options?)` and its readonly-row-array overload populate existing rows without fetching their roots again. The returned values are new populated copies; the
+input rows remain unchanged.
+
+```ts {"mode":"illustrative","id":"populate-existing-rows","reason":"The surrounding HTTP handler supplies ctx, userRepo, firstUser, otherUsers and readOptions; the repository registers the declared posts/comments target schemas."}
+const [first, others] = await Promise.all([ctx.loaders.populate(userRepo, firstUser, ['posts.comments'], readOptions), ctx.loaders.populate(userRepo, otherUsers, ['posts.comments'], readOptions)]);
+```
+
+Concurrent calls share a batch when they use the same repository instance, path set, and `ReadOptions` object identity. Reuse one options object for calls that should batch together; separate objects
+form separate groups even if their fields are equal. Register each target schema in `RepositoryOptions.schemas`. Shared path prefixes are deduplicated, and SQL batches may split at the dialect's
+parameter limit.
+
+Completed population results are not retained in the scope. A later `populate()` call loads the requested relations again. The same API works with a manually created scope outside HTTP.
+
 ## Loaded rows are immutable snapshots
 
-Treat a loaded row as read-only:
+For the cached `loaderFor()` and `relationLoader()` APIs, treat a loaded row as read-only:
 
 - Every `load()` resolution receives a fresh **shallow** copy. Two callers do not hold the same row object.
 - Reassigning a top-level property changes only that caller's copy and never writes to the database.
@@ -110,9 +128,9 @@ That last rule is deliberate. Loader invalidation coupled to writes would turn t
 
 | Property                  | `LoaderScope`                           | Identity map                       |
 | ------------------------- | --------------------------------------- | ---------------------------------- |
-| Entry point               | Explicit `load()`                       | Every entity read                  |
-| Lifetime                  | Explicit request-owned value            | ORM session/context                |
-| Object identity           | Fresh shallow copy per resolution       | Same object reference              |
+| Entry point               | Explicit `load()` or `populate()`       | Every entity read                  |
+| Lifetime                  | Request-local scope                     | ORM session/context                |
+| Object identity           | Copies rather than shared root objects  | Same object reference              |
 | Ordinary repository reads | Never consult it                        | Transparently consult it           |
 | Writes                    | No tracking, population or invalidation | Tracks objects for flush/coherence |
 

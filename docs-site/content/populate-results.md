@@ -1,8 +1,9 @@
-Populate loads related entities for to-one and to-many relations. Unlike lazy-loading proxies, zmdb uses explicit batched queries — no proxies, no N+1 problem, and no identity map.
+Populate loads declared to-one and one-to-many relations through explicit batched queries. Dotted paths can traverse multiple relation levels. Results remain plain objects with no proxies or identity
+map; many-to-many population is unsupported.
 
 ## Typed populate: `findById(id, { populate })`
 
-Declare the relation on the type — see [Relations](./relations.html) — then ask for it by key. The result is a parent **typed** with its nested relation(s).
+Declare the relation on the type — see [Relations](./relations.html) — then ask for it by key or dotted path. The result is a parent **typed** with its requested relations.
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseRepository, OneToMany, Order, PrimaryKey, Serial, Sql, Table, UserSchema, users; this excerpt does not repeat those declarations."}
 interface User extends Table<'users'> {
@@ -18,18 +19,18 @@ const user = await users.findById(1, { populate: ['orders'] });
 // user.orders: readonly Entity<Order>[]   — to-one relations come back as Entity<Child> | null
 ```
 
-`populate` accepts the relation keys of `User`, so `['ordres']` does not compile. There is no static `relations` map: it used to sit beside `static schema`, restating the target table, the foreign key
-and the cardinality that the declaration above already carries.
+`populate` checks every segment against the declared relations, so `['ordres']` does not compile. Existing repository read options also accept paths such as `['orders.items']`. Register the target
+schemas in `RepositoryOptions.schemas` to traverse those paths. The relation metadata supplies the target table, foreign key, and cardinality.
 
-Under the hood zmdb loads the parent, then runs **one batched query** for the children and attaches them — a plain array on a plain object.
+zmdb loads the parent, then batches the related keys and attaches the resulting children as plain arrays or objects. Shared path prefixes are deduplicated. A batch can split into multiple SQL
+statements at the dialect's parameter limit; this small example needs one child statement:
 
 ```sql
 SELECT * FROM "users" WHERE "id" = $1 LIMIT 1
 SELECT * FROM "orders" WHERE "userId" = $1   -- batched across all parents
 ```
 
-> [!TIP] Without `{ populate }` the result is a plain `Entity<User>` — the relation key is not on the type and not on the object — so you never pay for data you didn't ask for. This replaces the older
-> stringly-typed `findAllWithMany`.
+> [!TIP] Without `{ populate }` the result is a plain `Entity<User>` — the relation key is not on the type and not on the object. You can populate a copy later when the caller needs it.
 
 ## Populating To-One Relations (via JOIN)
 
@@ -55,21 +56,16 @@ WHERE "orders"."status" = $1
 
 ## Populating To-Many Relations
 
-Use `findAllWithMany` to batch-load children for all parents.
+Use `findAll({ populate: ['orders'] })` to batch-load children for all parents.
 
 ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies usersRepo; this excerpt does not repeat those declarations."}
 // Find all users, then batch-load their orders
-const usersWithOrders = await usersRepo.findAllWithMany(
-  'orders', // relation name on User
-  'orders', // child table
-  'userId', // foreign key on orders
-  'id', // parent key (default: 'id')
-);
+const usersWithOrders = await usersRepo.findAll({ populate: ['orders'] });
 
 // usersWithOrders[0].orders = all orders where userId = user.id
 ```
 
-**SQL emitted (2 queries):**
+**SQL for a nonempty result that fits one relation batch:**
 
 ```sql
 -- First: fetch all users
@@ -79,7 +75,20 @@ SELECT * FROM "users"
 SELECT * FROM "orders" WHERE "userId" IN ($1, $2, $3, ...)
 ```
 
-> [!IMPORTANT] `findAllWithMany` executes exactly two queries regardless of parent count. This eliminates N+1 without proxies.
+> [!IMPORTANT] Relations are batched across parents. Large parent sets may need multiple statements because dialects limit the number of bound parameters.
+
+## Populate rows already loaded
+
+Call `repo.populate(row, paths, options?)` for one row or pass a readonly row array for multiple roots. The optional third argument is `ReadOptions`.
+
+```ts {"mode":"illustrative","id":"populate-existing","reason":"The surrounding example supplies users, existingUser and existingUsers; Order declares an items relation and the repository registers both target schemas."}
+const userWithItems = await users.populate(existingUser, ['orders.items']);
+const usersWithItems = await users.populate(existingUsers, ['orders.items']);
+```
+
+Both calls return new populated copies and leave the input rows unchanged. They fetch the requested relations without fetching the roots again. To combine concurrent calls, use
+`ctx.loaders.populate(users, rows, paths, options?)` on an HTTP request's lazy `LoaderScope`, or a scope created with `createLoaderScope()` in standalone code. Batching matches the repository, path
+set, and options object identity; this method retains no result cache. See [DataLoaders](./dataloaders.html).
 
 ## Populate in GetDTO
 
@@ -96,7 +105,7 @@ const result = await users.findById(1, { populate: ['orders'] });
 
 ## No Lazy Loading
 
-There are no lazy-loading proxies. If you don't call a populate method, relations are simply absent from the result:
+Relations appear only when requested by a `populate` read option or an explicit `populate()` call. Property access never loads them:
 
 ```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const user = await users.findById(1);

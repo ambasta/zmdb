@@ -1,5 +1,5 @@
-Fetched rows in zmdb are plain objects with no change tracking, no proxies, and no identity map. Mutating them has zero effect on the database. This is a deliberate design choice that enables
-zero-overhead data access.
+Fetched rows in zmdb are plain objects with no change tracking, no proxies, and no identity map. Mutating them has zero effect on the database. Reads, writes, and relation loading happen through
+explicit repository calls.
 
 ## The Mutation Fallacy
 
@@ -34,7 +34,7 @@ zmdb deliberately excludes:
 - **Identity map** — no shared references across queries
 - **Unit of work** — no implicit flush
 
-This enables the zero-overhead promise: the data layer adds no runtime overhead beyond the SQL itself. Every operation is explicit and visible.
+This avoids proxy dispatch and change-tracking scans. Repositories still build queries and assemble results, including relation batches and populated copies. Those operations have runtime cost.
 
 ## The Correct Pattern
 
@@ -58,6 +58,21 @@ const patch = { email: 'new@example.com', role: 'admin' };
 await users.update(1, patch);
 ```
 
+## Explicit population
+
+You can load relations after fetching a row without making that row a live object:
+
+```ts {"mode":"illustrative","id":"populate-copy","reason":"The surrounding example supplies users with declared posts/comments relations and their target schemas registered in RepositoryOptions.schemas."}
+const row = await users.findById(1);
+if (row !== undefined) {
+  const populated = await users.populate(row, ['posts.comments']);
+  // row stays unchanged; populated carries the requested relations.
+}
+```
+
+`populate()` also accepts readonly arrays of existing rows. It returns new populated copies and fetches only the requested relations, without reloading roots. Reading a property never triggers SQL.
+See [loading strategies](./loading-strategies.html) for target-schema registration and [request-scoped batching](./dataloaders.html) for concurrent calls.
+
 ## Post-Select Hook
 
 Use `postSelect` to enrich or filter rows on the way out:
@@ -76,12 +91,12 @@ protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<
 
 ## Performance Impact
 
-The inert row design trades convenience for speed:
+The inert row design avoids automatic entity bookkeeping:
 
-- **No proxy overhead** — plain objects are as fast as JavaScript gets
+- **No proxy dispatch** — property access reads ordinary objects
 - **No change tracking** — no array of dirty entities to scan
-- **No identity map** — no Map lookups on every fetch
-- **Deterministic behavior** — you see exactly what SQL will run
+- **No identity map** — repository reads do not consult a shared entity registry
+- **Explicit loading** — requested relation paths and dialect batch limits determine the relation queries
 
 ## Cross-links
 

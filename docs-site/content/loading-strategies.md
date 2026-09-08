@@ -1,6 +1,6 @@
 zmdb loads a relation only when you name it, and gives you two ways to do it. Which one is right depends on the cardinality, not on a config flag.
 
-## `populate` — one query per relation
+## `populate` — batched relation queries
 
 ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 const users = await repo.findAll({ populate: ['posts'] });
@@ -8,10 +8,9 @@ const users = await repo.findAll({ populate: ['posts'] });
 // SELECT * FROM "posts" WHERE "author_id" IN ($1, $2, $3, ...)
 ```
 
-Two statements. The second collects the keys from the first and batches them into an `IN`, so it is _n + 1 queries per relation_, not per row.
+For a nonempty result that fits one batch, these are two statements. The second collects parent keys into an `IN` query. Large batches can split at the dialect's parameter limit.
 
-Use it for **one-to-many** and **many-to-many**. A join would multiply the parent row by the number of children, so a user with 40 posts arrives 40 times and you pay for the parent columns 40 times
-over.
+Use it for **one-to-many**. A join would multiply the parent row by the number of children, so a user with 40 posts arrives 40 times and you pay for the parent columns 40 times over.
 
 ## `findJoined` / `joinRelation` — one query
 
@@ -24,12 +23,12 @@ One statement, one round trip. Use it for **many-to-one** and **one-to-one**, wh
 
 ## Choosing
 
-| Relation     | Rows on the far side | Use                          |
-| ------------ | -------------------- | ---------------------------- |
-| `ManyToOne`  | 1                    | `findJoined`                 |
-| `OneToOne`   | 1                    | `findJoined`                 |
-| `OneToMany`  | n                    | `populate`                   |
-| `ManyToMany` | n                    | an explicit three-table join |
+| Relation     | Rows on the far side | Use                        |
+| ------------ | -------------------- | -------------------------- |
+| `ManyToOne`  | 1                    | `findJoined`               |
+| `OneToOne`   | 1                    | `findJoined`               |
+| `OneToMany`  | n                    | `populate`                 |
+| Many-to-many | n                    | explicit queries or a join |
 
 The rule reduces to: **join when the cardinality is one, batch when it is many.** That is the same decision an ORM's "joined vs select-in strategy" setting makes; the difference is that here it is at
 the call site, where you can see how many parents you are fetching.
@@ -41,24 +40,30 @@ surprise query. See [Why fetched rows are inert](./inert-rows.html).
 
 **No `eager: true`.** A relation is never loaded because of how it was declared, only because of how it was asked for. Two call sites with different needs do not fight over one setting.
 
-**No automatic batching across calls.** Two direct `findById` calls are two queries. When a request needs cross-call batching, construct an explicit [`LoaderScope`](./dataloaders.html) and call its
-loader instead; ordinary repository reads never change behaviour because a scope happens to exist.
+**Direct reads remain independent.** Two direct `findById` calls are two queries. For cross-call batching, use [`LoaderScope`](./dataloaders.html). HTTP `Ctx` provides a lazily created `ctx.loaders`
+shared within that request; ordinary repository reads do not consult it. Standalone and custom contexts can use `createLoaderScope()`.
 
-**No nested populate.** `populate: ['posts']` loads posts; it does not load `posts.comments`. Do the second level yourself:
+**Many-to-many population is unsupported.** Query the join table explicitly or write the required join.
 
-```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies commentRepo, userRepo; this excerpt does not repeat those declarations."}
-const users = await userRepo.findAll({ populate: ['posts'] });
-const postIds = users.flatMap(u => u.posts.map(p => p.id));
-const comments = await commentRepo.find({ postId: { in: postIds } });
+## Nested paths and existing rows
+
+Every existing `populate` read option accepts typed dotted paths:
+
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies userRepo with declared posts/comments relations and their target schemas in RepositoryOptions.schemas."}
+const users = await userRepo.findAll({ populate: ['posts.comments'] });
 ```
 
-Which is three queries, explicitly, instead of an unknown number.
+Register the target schemas in `RepositoryOptions.schemas` so the repository can resolve each relation along the path. Shared prefixes are deduplicated: requesting both `posts` and `posts.comments`
+loads the `posts` edge once, with SQL batches split as needed for the dialect's parameter limit.
+
+For rows you already have, call `repo.populate(row, paths, options?)` or `repo.populate(rows, paths, options?)`. Both return new populated copies, leave the input rows unchanged, and fetch only
+relations. The root rows are not fetched again. The optional third argument is `ReadOptions`.
 
 ## Counting the queries in a test
 
-Because the driver has one required method, asserting on the statement count is trivial and worth doing on any hot path:
+A driver wrapper can record the statements for a particular workload. This example expects a nonempty parent result that fits one relation batch:
 
-```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver, defineRepository, expect, real, relations, users; this excerpt does not repeat those declarations."}
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver, defineRepository, expect, real, schemas, users; this excerpt does not repeat those declarations."}
 const seen: string[] = [];
 const spy: Driver = {
   ...real,
@@ -68,7 +73,7 @@ const spy: Driver = {
   },
 };
 
-await defineRepository(users, spy, { relations }).findAll({ populate: ['posts'] });
+await defineRepository(users, spy, { schemas }).findAll({ populate: ['posts'] });
 expect(seen).toHaveLength(2);
 ```
 
