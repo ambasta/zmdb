@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "suite": "@zmdb/aot-validator populated-row shallow validation",
+  "suite": "@zmdb/validator populated-row shallow validation",
   "publicationStatus": "final",
   "measuredAt": "2026-09-04T16:50:31.236Z",
   "baseHead": "0fb44accf620aeff19cc8c14d5d4905b87ff11b5",
@@ -14,7 +14,7 @@
       },
       {
         "path": "benchmarks/harness/validation/shallow-source.ts",
-        "sha256": "ad00cf800a9531f7d5a9b37e3c31dc5a665b0a920f93c5e4bd3cd0e705ee488f"
+        "sha256": "c2098d6a0c2a6de396ee460cf7a60970c34f2389d0c6ebb97ce88e851eb201fe"
       },
       {
         "path": "benchmarks/harness/validation/shallow.generated.ts",
@@ -22,7 +22,7 @@
       },
       {
         "path": "benchmarks/harness/validation/shallow.bench.ts",
-        "sha256": "0991858a916752a2ef0513f0c30d020f34fca41970053d9ef6a49409ba3a7222"
+        "sha256": "79365acd0142706802ddf0facb5086c3e8bb27065e60c045bb861a9fe290f874"
       },
       {
         "path": "benchmarks/harness/validation/tsconfig.json",
@@ -30,7 +30,7 @@
       },
       {
         "path": "benchmarks/scripts/generate-validation-model.mjs",
-        "sha256": "cc9bd4068a5cf9d9935b697e60fcac34cdd25afcc6ade999db1f80a23658bb1e"
+        "sha256": "f6358f56350b49b3452465c7d67287350e42f06f404ffe05c1dd701797018fa6"
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",
