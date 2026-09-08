@@ -14,8 +14,15 @@ await mkdir(evidence, { recursive: true });
 const directory = await mkdtemp(join(dirname(ROOT), 'zmdb-760-packed-'));
 let registry, fixtures;
 const result = { commands: [], archives: [], roots: {}, processes: [], cleaned: false };
-const digest = async (algorithm, bytes, encoding = 'hex') =>
-  Buffer.from(await crypto.subtle.digest(algorithm, bytes)).toString(encoding === 'base64' ? 'base64' : 'hex');
+const digest = async (algorithm, bytes, encoding = 'hex') => {
+  const hash = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
+  if (encoding === 'base64') {
+    return typeof hash.toBase64 === 'function' ? hash.toBase64() : globalThis.btoa(String.fromCharCode(...hash));
+  }
+  return typeof hash.toHex === 'function'
+    ? hash.toHex()
+    : Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('');
+};
 const groupAlive = pid => {
   try {
     process.kill(-pid, 0);

@@ -145,12 +145,12 @@ async function packClosure(roots) {
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
     packageIntegrities.set(
       manifest.name,
-      `sha512-${Buffer.from(
+      `sha512-${new Uint8Array(
         await globalThis.crypto.subtle.digest(
           'SHA-512',
           await readFile(join(tarballs, packedInfo[manifest.name].filename)),
         ),
-      ).toString('base64')}`,
+      ).toBase64()}`,
     );
   }
   return packed;
@@ -330,10 +330,16 @@ try {
   const packed = await packClosure(['@zmdb/jobs', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres', '@zmdb/app']);
   registry = await startRegistry(packed);
   results.tarballs = await Promise.all(
-    packed.map(async entry => ({
-      name: entry.manifest.name,
-      sha256: Buffer.from(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toString('hex'),
-    })),
+    packed.map(async entry => {
+      const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
+      return {
+        name: entry.manifest.name,
+        sha256:
+          typeof digest.toHex === 'function'
+            ? digest.toHex()
+            : Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join(''),
+      };
+    }),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
     const portable = await consumer('portable', { '@zmdb/jobs': '1.0.0-beta.2' });
