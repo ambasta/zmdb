@@ -570,7 +570,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
         fixture,
         fixtureDocument(
           sampleFence(JSON.stringify({ mode: 'compile', id: 'external-network', run: true, environment: 'node' }), [
-            "await fetch('https://example.com');",
+            "await fetch('http://127.0.0.1:1');",
           ]),
         ),
       );
