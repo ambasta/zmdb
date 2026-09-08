@@ -55,7 +55,8 @@ const groupAlive = pid => {
 };
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  // oxlint-disable-next-line no-restricted-globals, no-restricted-properties -- Buffer is used for crypto digest encoding compatibility in Node.js
+  return Buffer.from(digest).toString(encoding);
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {

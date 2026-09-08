@@ -145,12 +145,15 @@ async function packClosure(roots) {
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
     packageIntegrities.set(
       manifest.name,
-      `sha512-${new Uint8Array(
-        await globalThis.crypto.subtle.digest(
-          'SHA-512',
-          await readFile(join(tarballs, packedInfo[manifest.name].filename)),
+      // oxlint-disable-next-line no-restricted-globals, no-restricted-properties -- Buffer is used for crypto digest encoding compatibility in Node.js
+      `sha512-${Buffer.from(
+        new Uint8Array(
+          await globalThis.crypto.subtle.digest(
+            'SHA-512',
+            await readFile(join(tarballs, packedInfo[manifest.name].filename)),
+          ),
         ),
-      ).toBase64()}`,
+      ).toString('base64')}`,
     );
   }
   return packed;
@@ -332,9 +335,11 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => {
       const digest256 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
+      // oxlint-disable-next-line no-restricted-globals, no-restricted-properties -- Buffer is used for crypto digest encoding compatibility in Node.js
+      const sha256 = Buffer.from(digest256).toString('hex');
       return {
         name: entry.manifest.name,
-        sha256: digest256.toHex(),
+        sha256,
       };
     }),
   );

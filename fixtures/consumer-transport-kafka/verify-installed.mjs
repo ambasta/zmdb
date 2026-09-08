@@ -102,7 +102,8 @@ async function run(label, executable, argv, cwd, env = {}) {
 
 async function digest(bytes, algorithm, encoding = 'hex') {
   const hashed = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hashed.toBase64() : hashed.toHex();
+  // oxlint-disable-next-line no-restricted-globals, no-restricted-properties -- Buffer is used for crypto digest encoding compatibility in Node.js
+  return Buffer.from(hashed).toString(encoding);
 }
 
 try {

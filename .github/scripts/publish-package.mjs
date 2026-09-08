@@ -54,7 +54,8 @@ export function isRegistryMiss(result) {
 
 async function fileIntegrity(path) {
   const digest = await globalThis.crypto.subtle.digest('SHA-512', readFileSync(path));
-  return `sha512-${new Uint8Array(digest).toBase64()}`;
+  // oxlint-disable-next-line no-restricted-globals, no-restricted-properties -- Buffer is used for crypto digest encoding compatibility in Node.js
+  return `sha512-${Buffer.from(digest).toString('base64')}`;
 }
 
 function parseArguments(argv) {

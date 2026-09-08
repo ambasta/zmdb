@@ -78,9 +78,11 @@ export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
     for (const entry of tarballs) {
       const bytes = await readFile(entry.tarball);
       const digest256 = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-      const sha256 = digest256.toHex();
+      // oxlint-disable-next-line no-restricted-globals, no-restricted-properties -- Buffer is used for crypto digest encoding compatibility in Node.js
+      const sha256 = Buffer.from(digest256).toString('hex');
       const digest512 = new Uint8Array(await crypto.subtle.digest('SHA-512', bytes));
-      const b64512 = digest512.toBase64();
+      // oxlint-disable-next-line no-restricted-globals, no-restricted-properties -- Buffer is used for crypto digest encoding compatibility in Node.js
+      const b64512 = Buffer.from(digest512).toString('base64');
       integrities.set(entry.manifest.name, `sha512-${b64512}`);
       report.tarballs.push({ name: entry.manifest.name, version: entry.manifest.version, sha256 });
     }

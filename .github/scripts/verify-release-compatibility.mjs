@@ -281,7 +281,8 @@ export async function withCompatibilityWorkspace(parent, run) {
 
 async function digest(bytes, algorithm, encoding = 'hex') {
   const value = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? value.toBase64() : value.toHex();
+  // oxlint-disable-next-line no-restricted-globals, no-restricted-properties -- Buffer is used for crypto digest encoding compatibility in Node.js
+  return Buffer.from(value).toString(encoding);
 }
 
 async function sourceIdentity(directory) {
