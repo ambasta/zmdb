@@ -1,7 +1,9 @@
 # `@zmdb/jobs-postgres` — explicit PostgreSQL jobs provider
 
-> Frozen by #654 for the first adapter, then superseded by issue #753's complete provider boundary. At the measured baseline the package adapts only the SQL-shaped `JobStore`; #756 moves all
-> PostgreSQL jobs persistence into this package.
+`@zmdb/jobs-postgres` owns the explicitly selected PostgreSQL jobs provider. The current provider, transaction, migration and resource-ownership rules follow; its [manifest](./package.json) and
+[public entry](./src/index.ts) define the package boundary.
+
+The earlier SQL-shaped adapter baseline is preserved in [ADR 0004](../../docs/adr/0004-package-and-product-baselines.md).
 
 ## 1. Package boundary
 

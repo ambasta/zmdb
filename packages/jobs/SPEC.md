@@ -1,19 +1,9 @@
 # `@zmdb/jobs` — selected, provider-neutral background work
 
-> **Selection and storage boundary frozen by issue #753 for epic #752.** This document separates the graph measured at commit `961aaae0b0c9b4e29fc864f41454707933154a0e` from the implementation target.
-> Issue #753 changes no package manifest or runtime source.
+> **Status:** current selected-jobs and storage contract. The original packed baseline is preserved in [ADR 0002](../../docs/adr/0002-selected-jobs-baseline.md); [README.md](./README.md) documents the
+> current provider choices.
 
-## 1. Measured packed baseline
-
-The baseline was measured from packed `1.0.0-alpha.4` tarballs in clean, non-workspace Yarn 4.18.0 consumers on Node 26.8.1, Linux x64 GNU. Optional peers were not injected by the probe.
-
-| Direct consumer dependency | Catalog packages in the installed production closure                                                                                                                            | Other installed packages                                                                                                              | Root import |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `zmdb`                     | `zmdb`, `@zmdb/ai`, `@zmdb/validator`, `@zmdb/app`, `@zmdb/migrations`, `@zmdb/sql`, `@zmdb/orm`, `@zmdb/schema`, `@zmdb/sqlite`, `@zmdb/web`                                   | `esbuild@0.28.2`, `@esbuild/linux-x64@0.28.2`, `oxfmt@0.66.0`, `@oxfmt/binding-linux-x64-gnu@0.66.0`, `tinypool@2.1.0`                | exits 0     |
-| `@zmdb/jobs`               | `@zmdb/ai`, `@zmdb/validator`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/migrations`, `@zmdb/sql`, `@zmdb/orm`, `@zmdb/schema`, `@zmdb/sqlite`                                          | `oxfmt@0.66.0`, `@oxfmt/binding-linux-x64-gnu@0.66.0`, `tinypool@2.1.0`                                                               | exits 0     |
-| `@zmdb/jobs-postgres`      | `@zmdb/ai`, `@zmdb/validator`, `@zmdb/app`, `@zmdb/jobs`, `@zmdb/jobs-postgres`, `@zmdb/migrations`, `@zmdb/postgres`, `@zmdb/sql`, `@zmdb/orm`, `@zmdb/schema`, `@zmdb/sqlite` | `oxfmt@0.66.0`, `@oxfmt/binding-linux-x64-gnu@0.66.0`, `tinypool@2.1.0`; `pg` is absent until the consumer installs the required peer | exits 0     |
-
-The corresponding installed-package counts are 15, 12, and 14. The repository model at this commit contains 36 catalog packages and 69 direct non-development workspace edges.
+## 1. Selection classes
 
 Selection classes are contextual to a product journey:
 
@@ -23,36 +13,8 @@ Selection classes are contextual to a product journey:
 - **development-only** is installed for an explicit CLI/compiler/migration/tooling entry and must be unreachable from ordinary runtime entries; and
 - **private** is a non-catalog transitive implementation package with no selection or import step in the journey. “Private” here does not assert that the npm package itself is unpublished.
 
-Every package relevant to the three journeys has one class:
-
-| Package                                                          | Class                           | Baseline disposition                                                         |
-| ---------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------- |
-| `zmdb`                                                           | default core                    | direct default install and product facade                                    |
-| `@zmdb/schema`                                                   | default core                    | schema and DTO vocabulary                                                    |
-| `@zmdb/sql`                                                      | default core                    | SQL vocabulary and compilation                                               |
-| `@zmdb/validator`                                                | default core                    | validation and compiler-backed validation surface                            |
-| `@zmdb/ai`                                                       | default core                    | current transitive implementation dependency of `@zmdb/validator`            |
-| `@zmdb/orm`                                                      | default core                    | ORM and transaction contracts                                                |
-| `@zmdb/app`                                                      | default core                    | application kernel                                                           |
-| `@zmdb/web`                                                      | default core                    | HTTP framework                                                               |
-| `@zmdb/sqlite`                                                   | concrete provider               | selected explicitly for the SQLite journey                                   |
-| `@zmdb/migrations`, `esbuild`, `oxfmt`                           | development-only                | explicit migration, CLI, config, compiler, or formatting entries             |
-| `@esbuild/linux-x64`, `@oxfmt/binding-linux-x64-gnu`, `tinypool` | private                         | non-catalog transitive implementation packages in these measured journeys    |
-| `@zmdb/jobs`                                                     | selected first-party capability | currently also selects SQLite transitively; that coupling is removed by #756 |
-| `@zmdb/jobs-sqlite`                                              | concrete provider               | target package; no manifest exists at this baseline                          |
-| `@zmdb/jobs-postgres`                                            | concrete provider               | current PostgreSQL adapter                                                   |
-| `@zmdb/postgres`, `pg`                                           | concrete provider               | PostgreSQL database package and its consumer-installed client peer           |
-
-The current jobs-related public entries are:
-
-| Entry                                                 | Current owner                                      | Class                              | Target                                             |
-| ----------------------------------------------------- | -------------------------------------------------- | ---------------------------------- | -------------------------------------------------- |
-| `@zmdb/jobs`                                          | `packages/jobs/src/index.ts`                       | selected first-party capability    | retain as the portable root                        |
-| `@zmdb/jobs/schedule`                                 | `packages/jobs/src/schedule/index.ts`              | selected first-party capability    | retain                                             |
-| `@zmdb/jobs/memory`                                   | `packages/jobs/src/queues/backends/memory.ts`      | concrete provider embedded in core | remove; migrate to `@zmdb/jobs-sqlite`             |
-| `@zmdb/jobs-postgres`                                 | `packages/jobs-postgres/src/index.ts`              | concrete provider                  | retain and expand to the complete PostgreSQL store |
-| `@zmdb/jobs-sqlite`                                   | absent                                             | concrete provider                  | add as one root-only package                       |
-| `zmdb/jobs`, `zmdb/jobs/schedule`, `zmdb/jobs/memory` | absent from the current 16-entry `zmdb` export map | none                               | remain absent                                      |
+Current package identities and entries come from the [product catalog](../../scripts/product/catalog.mjs), the admitted manifests and the provider contracts below. The former package/entry tables are
+preserved in [ADR 0002](../../docs/adr/0002-selected-jobs-baseline.md).
 
 ## 2. Product-selection contract
 

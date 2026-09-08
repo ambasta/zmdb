@@ -1,52 +1,19 @@
 # @zmdb/ai — ownership, dependency and entry-point specification
 
-> **Status:** target-state specification frozen by issue #703 and epic #702, with the extraction implemented by #705–#710. `@zmdb/ai` physically owns its root, chat, HTTP, compiler, and tool-runtime
-> implementations; the Anthropic, LangChain, Vercel, and MCP packages physically own their integrations. No schema-core LLM compatibility source or export remains.
+`@zmdb/ai` owns provider-neutral tool documents and execution. Provider and framework integrations have separate owners; the removed schema LLM entries are not compatibility aliases.
 
-### Current state after #710
+## 1. Current contract and source authority
 
-- `@zmdb/ai`, `/chat`, `/compiler`, `/http`, and `/tool-runtime` are explicit package exports.
-- The package has one runtime dependency, `@zmdb/schema`, and no external dependency or peer.
-- `@zmdb/ai-anthropic` owns the Anthropic driver, depends only on `@zmdb/ai`, and declares the SDK as its sole optional peer.
-- Provider-neutral runtime and type tests execute from `packages/ai/src`.
-- AOT `toolFor` imports and generated OpenAPI modules name the new package.
-- `@zmdb/ai-vercel` physically owns the AI SDK adapter, tests and peer.
-- `@zmdb/ai-langchain` physically owns its adapter, publishes one root, depends at runtime only on `@zmdb/ai`, owns the optional `@langchain/core@^1.2.9` peer, and is exercised by the real-package
-  fixture.
-- `@zmdb/mcp` owns its client, server, protocol specification, runtime tests, and type tests; its sole runtime dependency is `@zmdb/ai`.
-- Schema-core has no `src/llm` files, `./llm*` exports, provider/framework peer, or dependency on AI.
-- Measured after #710, `packages/ai/src` contains 21 files, `packages/mcp/src` contains six, `packages/ai-langchain/src` contains three, and `packages/schema/src/llm` contains zero.
+The [manifest](./package.json), [public entries](./src/index.ts), and [architecture policy](../../scripts/architecture/policy.mjs) define the implemented package boundaries. The
+[runtime-foundation contract](../../.github/scripts/verify-runtime-foundation.SPEC.md) and [release contract](../../scripts/release/SPEC.md) govern their current dependency and compatibility rules.
 
-## 1. Measured starting point
-
-The inventory below was measured on 2026-09-05 at `94164c53`.
-
-- `packages/schema/src/llm/` contains exactly **32 files**.
-- `@zmdb/schema` publishes six LLM subpaths: `./llm`, `./llm/ai-sdk`, `./llm/chat`, `./llm/http`, `./llm/langchain` and `./llm/mcp`. Its package root does not export the LLM surface.
-- `@zmdb/schema` declares `@anthropic-ai/sdk` `0.123.0`, `@langchain/core` `^1.2.9` and `ai` `^7.0.83` as optional peers.
-- The installed Anthropic SDK is `0.123.0`. The LangChain consumer fixture declares and resolves `1.2.9`. The Vercel AI SDK fixture declares and resolves `7.0.92`, so the current lockfile does not
-  prove the lower bound `7.0.83` even though the peer range starts there.
-- Nine canonical LLM documentation pages exist: `llm-chat`, `llm-function-calling`, `llm-http`, `llm-json-schema`, `llm-langchain`, `llm-mcp`, `llm-strategy`, `llm-structured-output` and
-  `llm-vercel-ai-sdk`.
-- The AOT transformer, emitter, scanner, witness tests and callable-surface test still name `@zmdb/schema/llm`. Generated OpenAPI-tool modules also emit that old package header.
-
-These are migration inputs, not final ownership claims.
+The extraction status, measured starting point and original dependency diagram are preserved in [ADR 0004](../../docs/adr/0004-package-and-product-baselines.md). They are historical evidence, not
+current inventories.
 
 ## 2. Final dependency graph
 
-In this diagram `A --> B` means “A has a direct runtime dependency on B”:
-
-```text
-@zmdb/ai-anthropic ──┐
-@zmdb/ai-langchain ──┼──> @zmdb/ai ──> @zmdb/schema ──> @zmdb/sql
-@zmdb/ai-vercel ─────┤         ▲
-@zmdb/mcp ───────────┘         │
-                               │
-@zmdb/compiler ────────────────┘
-         ├────────────────────> @zmdb/validator ──> @zmdb/schema
-         ├────────────────────> @zmdb/sql
-         └────────────────────> @zmdb/schema
-```
+Use the dependency declarations in the [package manifests](./package.json) and the [current policy graph](../../ARCHITECTURE.md#32-the-current-dependency-dag-must-stay-acyclic) for the implemented
+edges. The ownership rules below remain the contract.
 
 The graph has these hard rules:
 

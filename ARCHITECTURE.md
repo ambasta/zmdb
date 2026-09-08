@@ -84,11 +84,7 @@ These are not preferences; they are invariants. A change that violates one is re
 
 > The public API is assertion-free. Framework internals use a documented exception list for places where runtime data crosses into a TypeScript type.
 >
-> As of 2026-09-06, the 278 shipped files covered by `verify:escape-hatches` contain 53 assertions and 54 `// boundary:` comments. They contain no `any`, no non-null assertions, no `as unknown as`,
-> and one lint suppression. The consumer documentation contains no required casts.
->
-> The count rose from 28 during the type-first work. Of the 53 current assertions, 26 are in `aot-validator`, mainly around checker values, parsed JSON, and validated return values. Each assertion
-> records the runtime guarantee behind its assertion.
+> Dated assertion measurements are preserved in [ADR 0001](./docs/adr/0001-architecture-and-native-graph-history.md). The current checker reports the present source findings.
 >
 > `yarn verify:escape-hatches` enforces both the comments and a per-package count ceiling. It fails when a count rises, when an assertion lacks its boundary comment, or when a ceiling can be lowered.
 > This closes the gap that previously let the total move from 23 to 28 without a failing check (PRD RISK-7).
@@ -115,70 +111,8 @@ Conversely, we **merge** packages that have grown a bidirectional dependency or 
 
 ### 3.2 The current dependency DAG (must stay acyclic)
 
-This is the shipped graph during the database-vertical extraction frozen in §3.4. SQLite, PostgreSQL, MySQL, and SQL Server are side verticals over query-compiler and repository; CockroachDB extends
-PostgreSQL one-way, and SingleStore extends MySQL one-way.
-
-```
-      ┌────────────────┐
-      │@zmdb/query-    │  (runtime dep: oxfmt, declaration-emitter path only)
-      │  compiler      │
-      └───────┬────────┘
-              ▼
-      ┌───────────────────┐
-      │ @zmdb/schema │  (the schema SoT + type derivation)
-      └─────────┬─────────┘
-                ▼
-      ┌────────────────┐
-      │    @zmdb/ai    │  (also depends directly on schema-core)
-      │ (neutral tools)│
-      └───┬────────┬───┘
-          │        ▼
-          │  ┌────────────────┐
-          │  │   @zmdb/mcp    │  (depends only on AI; platform APIs)
-          │  │ (MCP protocol) │
-          │  └────────────────┘
-          ▼
-      ┌────────────────┐
-      │@zmdb/aot-      │  (also depends directly on schema-core)
-      │  validator     │
-      └───────┬────────┘
-              ▼
-      ┌────────────────┐
-      │@zmdb/repository│  (also depends directly on schema-core + query-compiler)
-      └───────┬────────┘
-              ├──────────────▶┌────────────────┐
-              │               │@zmdb/postgres  │  (also query-compiler; optional peer: pg)
-              │               └────────────────┘
-              ├──────────────▶┌────────────────┐
-              │               │ @zmdb/mysql    │  (also query-compiler; optional peer: mysql2)
-              │               └────────────────┘
-              ├──────────────▶┌────────────────┐
-              │               │  @zmdb/mssql   │  (also query-compiler; optional peer: mssql)
-              │               └────────────────┘
-              ▼
-      ┌────────────────┐
-      │   @zmdb/app    │  (also depends directly on schema-core,
-      │ (app kernel)   │   query-compiler, and aot-validator)
-      └───────┬────────┘
-              ├──────────────▶┌────────────────┐
-              │               │  @zmdb/otel    │  (required peer: @opentelemetry/api)
-              │               └────────────────┘
-              ├──────────────▶┌──────────────────────┐
-              │               │@zmdb/transport-nats │  (required peer: @nats-io/transport-node)
-              │               └──────────────────────┘
-              ├──────────────▶┌──────────────────────────┐
-              │               │@zmdb/transport-rabbitmq │  (required peer: amqplib)
-              │               └──────────────────────────┘
-              ▼
-      ┌────────────────┐
-      │   @zmdb/web    │  (also depends directly on schema-core;
-      │(decorator HTTP)│   compiler + TS are optional tooling peers)
-      └───────┬────────┘
-              ▼
-      ┌────────────────┐
-      │      zmdb      │  (cohesive product facade; ZERO logic)
-      └────────────────┘
-```
+The current dependency graph is the [generated policy projection](#310-canonical-architecture-and-release-policy-722728-746). Its rows come from the product catalog, architecture policy and admitted
+manifests through the [governance snapshot](./scripts/architecture/governance.mjs). The former extraction diagram is preserved in [ADR 0001](./docs/adr/0001-architecture-and-native-graph-history.md).
 
 `@zmdb/client`, `@zmdb/angular`, and `@zmdb/protobuf` are independent roots. Angular applications install the client runtime for generated code, while `@zmdb/angular` accepts that generated client's
 public method shape without a workspace import and declares Angular/RxJS as its required peers. `@zmdb/react`, `@zmdb/vue`, `@zmdb/svelte`, and `@zmdb/solid` are opt-in leaves over `@zmdb/client` and
@@ -251,49 +185,8 @@ catalog adaptation, conservative integrity/routine refusals, child-bound driver,
 
 ### 3.3 Current package map
 
-| Package                    | Responsibility                                                                                                                                          | Runtime deps                                                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `@zmdb/client`             | Dependency-free structural HTTP transport, deterministic request planning, response reading, cancellation, authentication injection, and typed errors   | none                                                                                                                            |
-| `@zmdb/angular`            | Angular DI, signal, `DestroyRef`, Observable cancellation, and request-local generated-client ownership                                                 | `@angular/core`, `rxjs` (required peers)                                                                                        |
-| `@zmdb/react`              | Optional React context, hooks and component-lifecycle ownership for generated clients                                                                   | client; `react` (required peer)                                                                                                 |
-| `@zmdb/react-native`       | Optional AppState, connectivity, and credential-store lifecycle policy over the React generated-client hooks                                            | client, react; `react`, `react-native` (required peers)                                                                         |
-| `@zmdb/next`               | Optional Next.js request-scoped server clients and browser bindings for generated clients                                                               | client, react, `server-only`; `next`, `react`, `react-dom` (required peers)                                                     |
-| `@zmdb/nuxt`               | Optional Nuxt module, request-scoped Nitro transport, Vue bindings, and native hydration                                                                | client, vue; `nuxt`, `vue` (required peers)                                                                                     |
-| `@zmdb/vue`                | Optional Vue plugin, reactive query/mutation composables, watcher/effect-scope cancellation, and per-application SSR isolation                          | client; `vue` (required peer)                                                                                                   |
-| `@zmdb/svelte`             | Optional typed Svelte context, lazy query and mutation stores, stale-result suppression, and lifecycle cancellation                                     | client; `svelte` (required peer)                                                                                                |
-| `@zmdb/sveltekit`          | Optional request-local SvelteKit server/client loads, explicit credential forwarding, native errors, and navigation cancellation                        | client, svelte; `@sveltejs/kit`, `svelte` (required peers)                                                                      |
-| `@zmdb/solid`              | Optional Solid context, native resources, owner cancellation, stale-result suppression, and native Suspense/error propagation                           | client; `solid-js` (required peer)                                                                                              |
-| `@zmdb/sql`                | SQL-first compiler, schema-object DDL, database protocols, and remaining built-in dialect definitions                                                   | none                                                                                                                            |
-| `@zmdb/migrations`         | Schema snapshots, deterministic diffs and DDL plans, migration files, runners, catalog introspection, drift detection, and declaration emission         | query-compiler; oxfmt (declaration entry only)                                                                                  |
-| `@zmdb/schema`             | Tags, `TypeIR`, derived DTOs, relations, JSON Schema, seeding, and custom types; no AI source, export, or peer                                          | query-compiler                                                                                                                  |
-| `@zmdb/ai`                 | Provider-neutral tool documents and dialects, lenient parsing, bounded chat orchestration, shared invocation, and OpenAPI-derived tools                 | schema-core                                                                                                                     |
-| `@zmdb/ai-anthropic`       | Optional Anthropic Messages API driver over the provider-neutral chat contract                                                                          | ai; `@anthropic-ai/sdk` (optional peer)                                                                                         |
-| `@zmdb/ai-langchain`       | Optional LangChain structured-tool contract and the sole `@langchain/core` peer                                                                         | ai; `@langchain/core` (optional peer)                                                                                           |
-| `@zmdb/ai-vercel`          | Optional Vercel AI SDK tool fields with caller-owned schema branding and validation                                                                     | ai; `ai` (optional peer)                                                                                                        |
-| `@zmdb/mcp`                | Transport-neutral MCP client/server protocol handling, authenticated identity injection, validation, and bounded remote calls                           | ai                                                                                                                              |
-| `@zmdb/protobuf`           | Dependency-free protobuf calls, descriptors, generated-code wire ABI, and typed gRPC artifacts                                                          | none                                                                                                                            |
-| `@zmdb/validator`          | Compiler-free validation, serialization, errors, and emitted-code runtime helpers                                                                       | schema-core                                                                                                                     |
-| `@zmdb/compiler`           | TypeScript reflection, TypeIR production, AOT emission, project compilation, unplugin/Metro adapters, lint rules, testing utilities, and project config | ai, aot-validator, query-compiler, schema-core; TypeScript (required peer)                                                      |
-| `@zmdb/orm`                | Auto-validating typed CRUD, transactions, relations, populate, loaders, lifecycle events, and vendor-neutral driver protocols                           | aot-validator, query-compiler, schema-core                                                                                      |
-| `@zmdb/mssql`              | Complete SQL Server traits, DDL/migrations/refusals, catalog introspection, capabilities, and structural node-mssql driver                              | migrations, query-compiler, repository; `mssql` (optional peer)                                                                 |
-| `@zmdb/postgres`           | Complete PostgreSQL traits, DDL/migrations, catalog introspection, structural driver, streaming, cancellation, and family extension points              | migrations, query-compiler, repository; `pg` (optional peer)                                                                    |
-| `@zmdb/sqlite`             | Complete SQLite traits, DDL/migrations/refusals, introspection, embedded migrations, capabilities, and structural `node:sqlite` driver                  | migrations, query-compiler, repository                                                                                          |
-| `@zmdb/mysql`              | Complete MySQL traits, DDL/migrations/refusals, introspection, structural mysql2 driver, capabilities, and packed live acceptance                       | migrations, query-compiler, repository; `mysql2` (optional peer)                                                                |
-| `@zmdb/app`                | Protocol-neutral metadata, DI, modules, lifecycle/extensions, messaging, commands, events, CQRS, state, health contracts, and observability ports       | aot-validator, query-compiler, repository, schema-core                                                                          |
-| `@zmdb/jobs`               | Typed queues, workers, dead letters, scheduling, leases and the built-in SQLite memory backend                                                          | app, query-compiler, repository, sqlite                                                                                         |
-| `@zmdb/jobs-postgres`      | PostgreSQL `JobStore` adaptation over caller-owned pools and clients                                                                                    | jobs, postgres; `pg` (required peer)                                                                                            |
-| `@zmdb/otel`               | OpenTelemetry API adaptation over caller-owned tracers and meters, without provider, SDK, exporter, or ambient-context ownership                        | app; `@opentelemetry/api` (required peer)                                                                                       |
-| `@zmdb/transport-grpc`     | Typed grpc-js server/client adaptation over generated protobuf service artifacts, with explicit application lifecycle and caller-owned clients          | app, protobuf; `@grpc/grpc-js` (required peer)                                                                                  |
-| `@zmdb/transport-nats`     | Core NATS wildcard and queue-group messaging over the public application transport strategy contract                                                    | app; `@nats-io/transport-node` (required peer)                                                                                  |
-| `@zmdb/transport-rabbitmq` | RabbitMQ topic transport with bounded prefetch, confirmed delayed retries, request/reply, and owned dead-letter topology                                | app; `amqplib` (required peer)                                                                                                  |
-| `@zmdb/transport-redis`    | Redis Pub/Sub event and request/reply transport over concrete application messaging channels                                                            | app; `redis` (required peer)                                                                                                    |
-| `@zmdb/web`                | Stage-3 HTTP framework: controllers, routing, request pipeline, OpenAPI, gateways, HTTP-aware testing, and runtime adapters                             | app, schema-core; compiler and TypeScript (optional tooling peers)                                                              |
-| `zmdb`                     | Curated product facade and CLI; no AI, MCP, or OTel public re-export                                                                                    | app, aot-validator, compiler, migrations, query-compiler, repository, schema-core, sqlite, web; mssql/postgres (optional peers) |
-
-**Watch-list for future splits** (kept as sub-modules until they earn §3.1):
-
-- `@zmdb/web` keeps HTTP concerns as sub-modules unless one becomes independently useful; the protocol-neutral application kernel has already moved to `@zmdb/app`.
-- Native/WASM hot-path kernels (§4) would ship as their own artifact packages (`@zmdb/<x>-native`) loaded optionally, never as a hard dependency.
+Use the [generated package reference](./docs-site/content/package-reference.md) for roles, installs and versions, and the generated policy graph in §3.10 for dependency and reachability rows. These
+projections use the canonical catalog and manifests. The former handwritten inventory is preserved in [ADR 0001](./docs/adr/0001-architecture-and-native-graph-history.md).
 
 ### 3.4 Frozen database-vertical target
 
@@ -577,22 +470,10 @@ membership stays owned by [`scripts/product/catalog.mjs`](./scripts/product/cata
 dependency/reachability row to every admitted package, and [`scripts/architecture/index.mjs`](./scripts/architecture/index.mjs) rejects missing or stale rows without discovering a second package list
 from the filesystem, a workflow loop, or a publish script.
 
-Issue #749 implements the #746 release contract, extended for the packages admitted by #674 and #628, without changing the dependency graph: eight lockstep core packages, 28 independently versioned
-integrations, two independently versioned tooling packages, and six private root workspaces. `scripts/release/policy.mjs` is the sole release-group and compatibility authority; manifests, planning,
-preparation, tags, publication selection, and the generated release-unit column are checked projections.
-
-Issue #732 froze the next governance boundary in [`scripts/architecture/SPEC.md` §§11–16](./scripts/architecture/SPEC.md): one read-only snapshot composes these independent authorities, temporary
-findings become owned structured exceptions, and GitHub's native parent/sub-issue and blocked-by relationships are the sole actionability authority. The implemented architecture portion now loads
-catalog, policy, workspace manifests, graph facts, reachability, metadata, product documentation, and the current release plan once through `loadGovernanceSnapshot({ root })`. `yarn verify:governance`
-runs those five domain queries plus the owned-exception query together; the focused commands call the same queries with the same snapshot records. Issue #735 implements the exception side in
-[`scripts/architecture/exceptions.mjs`](./scripts/architecture/exceptions.mjs): 81 exact live records replace zero database, 78 runtime-foundation, zero server, and 3 tooling findings at the
-`958a67ff` base. Issue #675 had already removed every database finding, so its closed issue owns no live exception. Issue #628 had removed every runtime tooling violation; #735 preserves that
-extraction and assigns the three remaining generated private-source findings to their open runtime package owners. All 81 current opaque entries are therefore accounted for without preserving dead
-debt. Adding, lowering, and removing records follows [`scripts/architecture/EXCEPTIONS.md`](./scripts/architecture/EXCEPTIONS.md). Issue #736 implements the repository side of the native relationship
-cutover in [`scripts/roadmap/native-relationships.mjs`](./scripts/roadmap/native-relationships.mjs): the live reader paginates open issues, consults child and blocker endpoints only for issues whose
-native REST total counters report those relationships, retains closed referenced rows for parent-completion decisions, and computes actionability without labels or body prose. The canonical roadmap
-filer writes native links and plain task rows only; the three older projection-writing filers are archived. Operational planning and close helpers use the same native reader, while blocker suffixes,
-issue label assignments, the repository `blocked` label and their three synchronizer/staleness helpers are removed.
+The [governance snapshot](./scripts/architecture/governance.mjs) composes catalog membership, architecture policy, manifests, reachability, metadata, release policy and owned exceptions. Focused
+commands and the aggregate query consume those same records. [Native GitHub relationships](./scripts/roadmap/native-relationships.mjs) determine issue ownership and actionability. Current contributor
+operations are described in [CONTRIBUTING.md](./CONTRIBUTING.md); dated inventories and the completed native cutover are preserved in
+[ADR 0001](./docs/adr/0001-architecture-and-native-graph-history.md).
 
 Zones are ordered from inward to outward:
 
@@ -697,28 +578,8 @@ published zmdb tarballs by the package-owned external-consumer proof.
 Roadmap-only directories do not receive policy rows. A package is added to this table only when it has a publishable manifest and is admitted to the product catalog; admission and policy must land
 atomically once the catalog exists.
 
-Package admission is one atomic workflow:
-
-1. add the publishable manifest, public exports, package documentation, license and external-consumer evidence;
-2. add one same-id row to `scripts/product/catalog.mjs`, `scripts/architecture/policy.mjs`, and `scripts/release/policy.mjs`;
-3. declare every direct catalog dependency, list the same ids in `allowedWorkspaceDependencies`, use the canonical minimal ring, and apply the same-core or explicit cross-unit range form from release
-   policy;
-4. assign tooling entries and optional peers to exact export/bin selectors and record every exact peer floor plus packed evidence in release policy;
-5. add the root changelog bullet owned by the correct release unit; and
-6. regenerate and verify every derived surface:
-
-```bash
-node docs-site/generated.mjs
-yarn verify:governance
-yarn verify:product-catalog
-yarn verify:architecture-zones
-yarn verify:runtime-reachability
-yarn verify:package-metadata
-yarn verify:release-governance
-yarn verify:docs-generated
-```
-
-No workflow, release helper, package reference or architecture diagram receives a separate package row or publish position.
+Package admission and dependency changes follow the [single contributor workflow](./CONTRIBUTING.md#package-and-dependency-changes). Catalog, manifest, architecture and release declarations change
+together; generated views are regenerated from those sources. Use focused issue checks and one applicable integrated gate after composition.
 
 The read-only snapshot resolves package and export lookups from its one manifest inventory, builds the policy DAG, and returns deterministic dependency-first catalog ids.
 [`verify-architecture-zones.mjs`](./.github/scripts/verify-architecture-zones.mjs) starts from every manifest export and executable, counts production type-only imports for ownership, rejects private
@@ -727,12 +588,10 @@ architecture fixtures and is run by `yarn verify:architecture-zones` in CI. [`ve
 version ownership, same-core and explicit cross-unit ranges, export/bin targets, repository directories, and release-policy peer projections before root builds or publication.
 [`verify-runtime-reachability.mjs`](./.github/scripts/verify-runtime-reachability.mjs) starts independently from every export and executable: ordinary runtime entries cannot reach compiler/build
 tools, REPL/devtools modules or an optional peer assigned to another entry. Tooling exports and optional peers are explicit per-package policy exceptions, never inferred from a directory name, and
-stale exceptions fail. `verify:exports` delegates reachability to that verifier, while `verify:devtools-boundary` remains a compatibility command over the same policy. Relative source imports retain
-NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
+stale exceptions fail. `verify:exports` delegates reachability to that verifier. Relative source imports retain NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 
-The executable release model has one eight-package lockstep core, 28 independently versioned integrations, two independently versioned tooling packages, and private workspaces that never publish.
-Same-core edges use `workspace:^`; every edge crossing release units carries an explicit measured compatibility range. The root changelog identifies `core` or one independent catalog id, and tags are
-`core-v<version>` or `<catalog-id>-v<version>`. Product membership, architecture constraints, release/compatibility policy, release content, and npm credentials remain separate authorities.
+The current release groups, compatibility ranges, changelog and tag rules come from [release policy](./scripts/release/policy.mjs) and its [SPEC](./scripts/release/SPEC.md). Follow
+[PUBLISHING.md](./PUBLISHING.md) for release operations.
 
 The complete `PackagePolicy` schema, all admitted rows, discovery/graph API, reachability rules, fixture-root contract and exact violation/remediation semantics are in
 [`scripts/architecture/SPEC.md`](./scripts/architecture/SPEC.md). The executable release and compatibility contract is in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md), with the operator
@@ -954,11 +813,7 @@ Committing to a hard floor is itself an architecture decision — it removes cod
 
 ---
 
-## 7. Superseded
+## 7. Decision history
 
-This document replaces the 2026-08-29 "Zero-Maintenance Data Layer — Architecture Specification." Notably it **reverses** that document's §4 recommendation ("TypeScript for all packages") in favour of
-the north-star-driven language policy in §4 here, and it records the thirty-eight-package implementation reality (including `@zmdb/client`, `@zmdb/react`, `@zmdb/react-native`, `@zmdb/angular`,
-`@zmdb/vue`, `@zmdb/svelte`, `@zmdb/sveltekit`, `@zmdb/solid`, `@zmdb/next`, `@zmdb/nuxt`, `@zmdb/ai`, its opt-in integrations, `@zmdb/mcp`, `@zmdb/protobuf`, `@zmdb/app`, `@zmdb/jobs`,
-`@zmdb/jobs-postgres`, `@zmdb/mssql`, `@zmdb/postgres`, `@zmdb/cockroach`, `@zmdb/sqlite`, `@zmdb/mysql`, `@zmdb/singlestore`, `@zmdb/otel`, `@zmdb/transport-grpc`, `@zmdb/transport-nats`,
-`@zmdb/transport-rabbitmq`, `@zmdb/transport-redis`, `@zmdb/compiler`, and `@zmdb/web`) rather than the original four. Component-level details in the old doc that remain accurate now live in each
-package's `SPEC.md` and the docs site.
+The [ADR index](./docs/adr/index.md) preserves superseded measurements, diagrams and migration decisions. Current invariants remain in this document and their owning SPECs; historical text does not
+authorise a current dependency, alias, exception or release action.

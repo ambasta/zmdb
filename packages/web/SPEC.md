@@ -1,12 +1,12 @@
 # `@zmdb/web` — HTTP package SPEC
 
-> Stage-3 HTTP framework over the protocol-neutral `@zmdb/app` kernel. The original issue #248 package baseline remains below as history; issue #649's HTTP-only boundary is the current contract.
+Stage-3 HTTP framework over the protocol-neutral `@zmdb/app` kernel. The HTTP-only owner and refusal rules below are current; the original package baseline and its issue-specific acceptance are
+preserved in [ADR 0004](../../docs/adr/0004-package-and-product-baselines.md).
 
 ## Position in the architecture
 
-At the original #248 baseline, `@zmdb/web` sat **above** `@zmdb/orm` in the dependency DAG (ARCHITECTURE.md §3) and depended on `@zmdb/schema`, `@zmdb/validator`, `@zmdb/sql` and `@zmdb/orm`. The
-current package is the HTTP adapter over `@zmdb/app`; its direct runtime dependencies are exactly `@zmdb/app` and `@zmdb/schema`. It declares no third-party runtime dependency or runtime peer.
-`@zmdb/compiler` and TypeScript are optional build-time peers reached only by `./contract/compiler`.
+`@zmdb/web` is the HTTP adapter over `@zmdb/app`. Its [manifest](./package.json), [public entry](./src/index.ts), and [architecture policy](../../scripts/architecture/policy.mjs) define the current
+dependency and entry-point boundary. Optional build tooling and integration boundaries are specified below.
 
 ## Invariants (inherited, non-negotiable)
 
@@ -18,54 +18,17 @@ current package is the HTTP adapter over `@zmdb/app`; its direct runtime depende
    is imported for its side effect before any decorated class is evaluated.
 4. **ESM-only, Node 26+, TS 7+.** `"type": "module"`, single `exports` map, no CJS.
 
-## Baseline contract (this issue)
+## Build and publication
 
-### Package
-
-- New workspace `packages/web`, name **`@zmdb/web`**, version tracks the other packages (`1.0.0-alpha.4`), license **GPL-3.0-or-later**.
-- Original `dependencies`: `@zmdb/schema`, `@zmdb/validator`, `@zmdb/sql`, `@zmdb/orm` (all `workspace:^`). Integration peers belonged to the former server subpaths. The current HTTP-only manifest is
-  defined in the issue #649 section below.
-- `exports."."` → `./src/index.ts` (repointed to `./dist/index.js` at publish, exactly like the sibling packages).
-
-### tsconfig
-
-- Extends `../../tsconfig.json`.
-- `rootDir`, `outDir` and the sibling `.d.ts` `paths` live in `tsconfig.build.json`, the emit project; `tsconfig.json` is `noEmit` and resolves siblings to their sources, so an edit in one package is
-  a compile error here immediately.
-- Explicitly asserts the decorator baseline: `experimentalDecorators: false`, `emitDecoratorMetadata: false`. (`strict` etc. come from base.)
-
-### Build & publish wiring
-
-- `tsconfig.build.json` mirrors `src` into `dist`; every public root and subpath is declared in the package `exports` map and repointed to emitted `.js` during publishing.
-- Admitted once through `scripts/product/catalog.mjs`; release tooling maps that catalog row through architecture policy, so publish membership and dependency-first order are not repeated in package
-  scripts.
-- Re-exported from the `zmdb` product facade as **`zmdb/web`** (a subpath entry in `packages/zmdb`).
-
-### Baseline symbol
-
-- A zero-dependency **`Symbol.metadata` polyfill** (`src/polyfill.ts`), imported first by the entry, installing the well-known symbol when the runtime lacks it.
-- `metadataOf(target)` — a tiny, typed accessor that reads the Stage-3 `Symbol.metadata` record off a decorated class/prototype and returns a `DecoratorMetadata` object (never `undefined`; returns an
-  empty frozen record when absent). This is the one primitive every later decorator builds on, and it proves the baseline round-trips through the build.
-
-## Acceptance (this issue)
-
-- `@zmdb/web` resolves in dev (vitest/tsc) via `src` and builds to `dist/index.js` + `dist/index.d.ts`; every declared subpath imports and typechecks from an installed tarball (`yarn verify:publish`).
-- A trivial Stage-3 class decorator that writes to `context.metadata` can be read back via `metadataOf(...)` at runtime — **without** `reflect-metadata` and **without** any `as` on the consumer
-  surface.
-- `zmdb/web` re-export path is present and re-exports the package root.
-- Full monorepo suite + typecheck stay green.
-
-## Out of scope (future issues/epics)
-
-Routing (#252), typed `Ctx`/path-params (#257), DI (#262), domain state machines (#267), request pipeline/adapters (#272), data-layer integration (#277), and all NestJS-parity follow-ups (#282–#321).
-Those freeze their own SPECs.
+The [source TypeScript project](./tsconfig.json), [emit project](./tsconfig.build.json), [product catalog](../../scripts/product/catalog.mjs), and [publication workflow](../../PUBLISHING.md) define
+the current build and package delivery. The `zmdb/web` facade forwards the HTTP public owner.
 
 ## HTTP-only package boundary (#649)
 
-This section supersedes the historical package-ownership statements above and describes the current manifest.
+This section defines the current HTTP owner and refusal boundary. The earlier package-ownership statements are preserved in ADR 0004.
 
-`@zmdb/web` becomes the HTTP adapter over `@zmdb/app`. It owns controllers, routes and versions, typed HTTP context, request/response adapters, guards/pipes/interceptors/filters, body and wire
-conversion, static files, compression, uploads, CSRF, OpenAPI, WS/SSE gateways, HTTP health responses, HTTP testing utilities and the HTTP-aware graph inspector.
+`@zmdb/web` is the HTTP adapter over `@zmdb/app`. It owns controllers, routes and versions, typed HTTP context, request/response adapters, guards/pipes/interceptors/filters, body and wire conversion,
+static files, compression, uploads, CSRF, OpenAPI, WS/SSE gateways, HTTP health responses, HTTP testing utilities and the HTTP-aware graph inspector.
 
 It does not own metadata/DI/modules/lifecycle, command applications, events, CQRS, state machines, transport-neutral messaging, queues, schedules, external transports, PostgreSQL jobs, OpenTelemetry,
 or benchmark helpers.

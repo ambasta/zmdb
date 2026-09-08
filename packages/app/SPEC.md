@@ -1,7 +1,9 @@
 # `@zmdb/app` — protocol-neutral application kernel SPEC
 
-> **Target contract — issue #645.** This specification freezes the package split before runtime files or manifests move. The measured baseline is commit `e66621a5`: the current `@zmdb/web` package
-> exposes 318 distinct public symbols through 36 manifest entries, and 105 of those symbols belong to this application kernel.
+`@zmdb/app` owns the protocol-neutral application kernel. The current ownership, dependency and lifecycle rules follow; the [manifest](./package.json) and [public entry](./src/index.ts) define its
+implementation boundary.
+
+The measured pre-extraction surface is preserved in [ADR 0004](../../docs/adr/0004-package-and-product-baselines.md).
 
 ## 1. Ownership
 

@@ -1,7 +1,7 @@
 # Release groups and compatibility guarantees
 
-> **Status:** target contract frozen by issue #746 on 2026-09-06, extended by issues #674 and #628 to classify the admitted `@zmdb/singlestore` and `@zmdb/compiler` packages, and implemented
-> structurally by issue #749. Issue #750 still owns packed compatibility-matrix qualification.
+> **Status:** current release and compatibility contract. [policy.mjs](./policy.mjs) owns the executable rules and [PUBLISHING.md](../../PUBLISHING.md) documents their use. The starting inventory and
+> compatibility probe are preserved in [ADR 0003](../../docs/adr/0003-release-baseline.md).
 
 This directory owns release-group classification, version movement, internal package ranges, third-party compatibility floors, changelog identity, release tags, and release planning. It does not own
 product membership, npm identity, dependency direction, package exports, registry state, credentials, or publication side effects.
@@ -18,18 +18,10 @@ Issue #732's `GovernanceSnapshot` exposes this release projection to other read-
 authority, release policy owns group and compatibility decisions, manifests are checked implementation projections, and `CHANGELOG.md` still owns release notes. Native issue relationships and
 architecture exceptions cannot alter a release plan.
 
-## 1. Measured baseline and evidence boundary
+## 1. Compatibility evidence
 
-The current structurally implemented state contains:
-
-- 38 public catalog packages, all currently at `1.0.0-alpha.4`;
-- 73 direct non-development workspace edges: 20 within the cohesive core and 53 crossing release units;
-- 63 peer entries: 33 third-party and 30 internal, split into 18 optional and 45 required entries;
-- six private root workspaces;
-- six `packages/*` roadmap directories with no manifest; and
-- one implemented release model with an eight-package cohesive core, 28 independent integrations, and two independent tooling packages.
-
-The release groups below are a policy decision over that measured inventory. Existing common versions are evidence of the starting state, not justification for keeping every package lockstep.
+Release membership and ranges are read from [policy.mjs](./policy.mjs) and the composed governance snapshot. The [original inventory](../../docs/adr/0003-release-baseline.md) explains the starting
+state; it does not set current package counts or version relationships.
 
 Compatibility evidence has a stricter meaning:
 
@@ -43,14 +35,8 @@ Compatibility evidence has a stricter meaning:
 
 A workspace symlink, root hoisting, a `workspace:` alias, source-mode Vitest, or a successful monorepo typecheck is not compatibility evidence.
 
-For the disputed Vercel floor, the #746 probe packed `@zmdb/sql`, `@zmdb/schema`, `@zmdb/ai`, and `@zmdb/ai-vercel`, installed those four tarballs with exact `ai@7.0.93`, `zod@4.5.4`,
-`typescript@7.0.2`, and `@types/node@26.4.1` through npm 12.0.2 on Node 26.8.1. It resolved both `ai` and `@zmdb/ai-vercel` from the temporary consumer's `node_modules`. Strict usage with
-`exactOptionalPropertyTypes: true` and the documented `skipLibCheck: true` typechecked; runtime reported adapter version `1.0.0-alpha.4`, AI SDK version `7.0.93`, keys `description`, `execute`, and
-`inputSchema`, and result `packed-7.0.93`.
-
-The earlier `skipLibCheck: false` attempt reached errors inside `@ai-sdk/provider-utils` declarations, including a missing `Buffer` ambient and `exactOptionalPropertyTypes`-incompatible generic
-constraints. The successful proof therefore matches the documented consumer configuration; it is not a claim that the upstream declaration graph is clean under `skipLibCheck: false`. Neither result
-justifies advertising an older floor. The supported and tested zmdb floor is **AI SDK 7.0.93**.
+The supported and tested zmdb floor is **AI SDK 7.0.93**. [ADR 0003](../../docs/adr/0003-release-baseline.md) preserves the original successful packed probe and its failed stricter declaration
+attempt, including their distinct evidence boundaries.
 
 ## 2. Machine-readable authority
 

@@ -1,60 +1,14 @@
 # SPEC — the `zmdb` product facade
 
-Issue #618 froze the public product boundary before #619–#624 changed exports, configuration consumers, generated product metadata, packed fixtures, or documentation. This document deliberately
-separates the historical surface measured at `44d8fa4a` from the target and later implemented surfaces. Issue #618 itself changed no runtime source or package manifest.
+The `zmdb` facade presents the application workflow through current public owners. Its root and concern boundaries follow.
 
-## 1. Historical measured baseline
+## 1. Current authority and refusals
 
-At `44d8fa4a`, `packages/zmdb/package.json` declared 13 export-map entries: the root plus 12 named subpaths. Importing that root in an isolated Node process exposed 42 runtime names. Static inspection
-of that revision's `src/index.ts` added 32 type-only names, for 74 root symbols in total.
+The [manifest](./package.json), [root entry](./src/index.ts), and [product catalog](../../scripts/product/catalog.mjs) define the implemented exports and their owners. The current default SQLite
+journey is specified below; the old measured root and subpath inventories are preserved in [ADR 0004](../../docs/adr/0004-package-and-product-baselines.md).
 
-The combined #620/#651/#755 surface is measured from the manifest, isolated root import and explicit source exports: 51 export-map entries (the root plus 50 named subpaths), 33 runtime names and 38
-type-only names, for 71 catalog-owned root names.
-
-### 1.1 Every baseline root symbol
-
-The classifications below describe product disposition, not whether the symbol is useful. A public symbol classified as `internal` is an implementation leak that must leave the facade; it is not
-silently made private by this spec.
-
-| Classification      | Count | Baseline root symbols                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Application default |    18 | `schemaOf`, `Entity`, `CreateDTO`, `UpdateDTO`, `PrimaryKeyOf`, `ValidationIssue`, `is`, `assert`, `validate`, `AssertError`, `ValidateResult`, `BaseRepository`, `defineRepository`, `IncompleteKeyError`, `ValidationError`, `Driver`, `UpdatePatch`, `UpsertOptions`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Advanced runtime    |    48 | `defineStateTransitions`, `defineEntityStateMachine`, `createStateUpdatePayload`, `CoreSchema`, `TaggedSchema`, `ColumnMeta`, `StateTransitions`, `AllowedTargetStates`, `StateUpdateDTO`, `EntityStateMachineOptions`, `EntityStateMachine`, `appendComment`, `coalesce`, `concat`, `serializeComment`, `withComments`, `createQueryCompiler`, `dec`, `inc`, `mul`, `not`, `proposed`, `UnsupportedFeatureError`, `ColumnExpr`, `CommentKey`, `CommentKeys`, `CommentPairs`, `CompiledQuery`, `Dialect`, `SetValue`, `equals`, `isShallow`, `assertShallow`, `assertEquals`, `random`, `validateShallow`, `tags`, `toJsonSchema`, `JsonSchemaObject`, `createTransactionalDb`, `batch`, `TransactionContext`, `TransactionState`, `ActiveTransactionContext`, `ClosedTransactionContext`, `TransactionalDb`, `TxConnection`, `NumericColumnOf` |
-| Tooling             |     1 | `migrations`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Integration         |     3 | `protoDecode`, `protoDescriptor`, `protoEncode`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Internal            |     4 | `sanitizeKeys`, `chunkArray`, `DIALECT_PARAM_LIMITS`, `markTransactionClosed`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-
-The sum is the inventory assertion: `18 + 48 + 1 + 3 + 4 = 74`. #619 must turn that review-time measurement into an executable exact-export test.
-
-### 1.1.1 Protobuf extraction amendment (#656)
-
-The three integration names above are a historical baseline measurement. They are no longer root exports: `protoDecode`, `protoDescriptor`, and `protoEncode`, together with the gRPC artifact calls and
-types, are owned only by `@zmdb/protobuf`. The product root does not forward optional protocol packages.
-
-### 1.2 Every baseline named subpath
-
-| Current subpath              | Classification      | Target concern / disposition                                                                 |
-| ---------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
-| `zmdb/tags`                  | Application default | Root for the common declaration vocabulary; complete vocabulary under `zmdb/schema`          |
-| `zmdb/derive`                | Application default | Root for common DTOs; complete derivation family under `zmdb/schema`                         |
-| `zmdb/dto`                   | Advanced runtime    | `zmdb/schema`                                                                                |
-| `zmdb/relations`             | Advanced runtime    | `zmdb/schema`                                                                                |
-| `zmdb/ir`                    | Advanced runtime    | `zmdb/schema`                                                                                |
-| `zmdb/migrations`            | Tooling             | Stable explicit migration-tooling boundary                                                   |
-| `zmdb/sqlite`                | Integration         | Explicit facade for the optional `@zmdb/sqlite` vertical                                     |
-| `zmdb/postgres`              | Integration         | Explicit facade for the optional `@zmdb/postgres` vertical                                   |
-| `zmdb/mysql`                 | Integration         | Explicit facade for the optional `@zmdb/mysql` vertical                                      |
-| `zmdb/mssql`                 | Integration         | Explicit facade for the optional `@zmdb/mssql` vertical                                      |
-| `zmdb/cockroach`             | Integration         | Explicit facade for the optional `@zmdb/cockroach` vertical                                  |
-| `zmdb/singlestore`           | Integration         | Explicit facade for the optional `@zmdb/singlestore` vertical                                |
-| `zmdb/web`                   | Advanced runtime    | Stable complete web surface                                                                  |
-| `zmdb/web/contract`          | Advanced runtime    | Stable HTTP contract boundary                                                                |
-| `zmdb/web/contract/compiler` | Tooling             | Explicit HTTP contract compiler boundary                                                     |
-| `zmdb/cli`                   | Tooling             | Stable programmatic CLI boundary; the executable remains `zmdb`                              |
-| `zmdb/config`                | Tooling contract    | Stable canonical project-config boundary; its implementation package is intentionally hidden |
-
-Compatibility aliases may remain until release governance chooses a breaking release, but they do not own new APIs and the beginner documentation does not teach them. Removing or deprecating an alias
-is a versioning decision owned by #721/#728, not by the catalog.
+`protoDecode`, `protoDescriptor`, and `protoEncode`, together with the gRPC artifact calls and types, are owned only by `@zmdb/protobuf`. The product root does not forward optional protocol packages.
+Historical inventory and compatibility-alias statements do not authorize additional public entries.
 
 ## 2. Frozen target root
 
