@@ -4,6 +4,7 @@ export {
   Inject,
   Module,
   UnresolvedTokenError,
+  ValidationError,
   compileModule,
   createApplication,
   createStateUpdatePayload,

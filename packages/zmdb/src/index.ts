@@ -36,28 +36,17 @@ export type { Observability } from '@zmdb/app/observability';
 export { defineRepository, IncompleteKeyError, ValidationError } from '@zmdb/orm';
 export { type Driver, type UpdatePatch } from '@zmdb/orm';
 
-export {
-  createStateUpdatePayload,
-  decodeValue,
-  defineEntityStateMachine,
-  defineStateTransitions,
-  defineType,
-  encodeValue,
-  schemaOf,
-} from '@zmdb/schema';
+export { createStateUpdatePayload, defineEntityStateMachine, defineStateTransitions } from '@zmdb/app';
 export type {
   AllowedTargetStates,
-  CreateDTO,
-  CustomType,
-  Entity,
   EntityStateMachine,
   EntityStateMachineOptions,
-  PrimaryKeyOf,
-  ReadDTO,
   StateTransitions,
   StateUpdateDTO,
-  UpdateDTO,
-} from '@zmdb/schema';
+} from '@zmdb/app';
+
+export { decodeValue, defineType, encodeValue, schemaOf } from '@zmdb/schema';
+export type { CreateDTO, CustomType, Entity, PrimaryKeyOf, ReadDTO, UpdateDTO } from '@zmdb/schema';
 export { type ValidationIssue } from '@zmdb/validator';
 export type {
   HasDefault,

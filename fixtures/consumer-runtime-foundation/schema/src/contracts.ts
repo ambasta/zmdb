@@ -1,4 +1,5 @@
 import type { CoreSchema, Entity } from '@zmdb/schema';
+// @ts-expect-error Runtime validation errors belong to validator.
 export type { ValidationError } from '@zmdb/schema';
 import type { SubqueryTarget } from '@zmdb/schema/dto';
 // @ts-expect-error SQL folding belongs to ORM, never the semantic schema root.
