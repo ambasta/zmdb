@@ -14,10 +14,15 @@ export {
   Patch,
   Delete,
   Public,
+  RouteSchema,
+  Schema,
   getRoutes,
   isPublic,
   type RouteDefinition,
   type ResolvedRoute,
+  type RouteSchemaBinding,
+  type RouteSchemaSpec,
+  type SchemaVariant,
 } from './routing/index.js';
 
 // Inert HTTP declarations and serialisable operation IR. The compiler-backed
