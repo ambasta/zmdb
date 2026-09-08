@@ -1,0 +1,624 @@
+{
+  "suite": "zmdb eager HTTP application startup",
+  "publicationStatus": "final",
+  "measuredAt": "2026-09-08T11:50:17.398Z",
+  "command": [
+    "/usr/bin/node",
+    "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+    "--before=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+    "--after=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+    "--write-final"
+  ],
+  "runtime": {
+    "node": "v26.8.1",
+    "platform": "linux",
+    "cpu": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
+    "logicalCpus": 16,
+    "loadAverage": [
+      1.17,
+      1.14,
+      1.28
+    ]
+  },
+  "methodology": {
+    "rounds": 8,
+    "iterations": 20000,
+    "warmup": 5000,
+    "workload": "createApp with one eager module and one value provider; module-plan warmup excluded; no init hooks or request handling",
+    "processPerSample": true,
+    "order": "alternating before/after and after/before"
+  },
+  "revisions": [
+    {
+      "label": "before",
+      "root": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+      "head": "7eb865f1f8cff8ef4b59ecad66d04726bad195f5",
+      "status": ""
+    },
+    {
+      "label": "after",
+      "root": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+      "head": "409b1ba24507ea462e6a955bfe51b56e1f2cc13d",
+      "status": ""
+    }
+  ],
+  "samples": [
+    {
+      "round": 0,
+      "position": 0,
+      "revision": "before",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 35.287819,
+      "nsPerApplication": 1764.39095,
+      "checksum": 20000,
+      "moduleOwner": "web",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "query-compiler": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/query-compiler"
+        },
+        "schema-core": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/schema-core"
+        }
+      }
+    },
+    {
+      "round": 0,
+      "position": 1,
+      "revision": "after",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 31.56956199999999,
+      "nsPerApplication": 1578.4780999999994,
+      "checksum": 20000,
+      "moduleOwner": "app",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "app": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/app"
+        },
+        "orm": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/orm"
+        },
+        "schema": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/schema"
+        },
+        "sql": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/sql"
+        },
+        "validator": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/validator"
+        }
+      }
+    },
+    {
+      "round": 1,
+      "position": 0,
+      "revision": "after",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 34.96763200000001,
+      "nsPerApplication": 1748.3816000000004,
+      "checksum": 20000,
+      "moduleOwner": "app",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "app": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/app"
+        },
+        "orm": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/orm"
+        },
+        "schema": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/schema"
+        },
+        "sql": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/sql"
+        },
+        "validator": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/validator"
+        }
+      }
+    },
+    {
+      "round": 1,
+      "position": 1,
+      "revision": "before",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 34.42247899999998,
+      "nsPerApplication": 1721.1239499999992,
+      "checksum": 20000,
+      "moduleOwner": "web",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "query-compiler": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/query-compiler"
+        },
+        "schema-core": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/schema-core"
+        }
+      }
+    },
+    {
+      "round": 2,
+      "position": 0,
+      "revision": "before",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 38.64089400000002,
+      "nsPerApplication": 1932.0447000000008,
+      "checksum": 20000,
+      "moduleOwner": "web",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "query-compiler": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/query-compiler"
+        },
+        "schema-core": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/schema-core"
+        }
+      }
+    },
+    {
+      "round": 2,
+      "position": 1,
+      "revision": "after",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 32.591038,
+      "nsPerApplication": 1629.5518999999997,
+      "checksum": 20000,
+      "moduleOwner": "app",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "app": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/app"
+        },
+        "orm": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/orm"
+        },
+        "schema": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/schema"
+        },
+        "sql": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/sql"
+        },
+        "validator": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/validator"
+        }
+      }
+    },
+    {
+      "round": 3,
+      "position": 0,
+      "revision": "after",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 31.356026999999983,
+      "nsPerApplication": 1567.801349999999,
+      "checksum": 20000,
+      "moduleOwner": "app",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "app": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/app"
+        },
+        "orm": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/orm"
+        },
+        "schema": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/schema"
+        },
+        "sql": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/sql"
+        },
+        "validator": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/validator"
+        }
+      }
+    },
+    {
+      "round": 3,
+      "position": 1,
+      "revision": "before",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 34.51992299999999,
+      "nsPerApplication": 1725.9961499999997,
+      "checksum": 20000,
+      "moduleOwner": "web",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "query-compiler": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/query-compiler"
+        },
+        "schema-core": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/schema-core"
+        }
+      }
+    },
+    {
+      "round": 4,
+      "position": 0,
+      "revision": "before",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 35.081406999999984,
+      "nsPerApplication": 1754.0703499999993,
+      "checksum": 20000,
+      "moduleOwner": "web",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "query-compiler": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/query-compiler"
+        },
+        "schema-core": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/schema-core"
+        }
+      }
+    },
+    {
+      "round": 4,
+      "position": 1,
+      "revision": "after",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 30.007600999999994,
+      "nsPerApplication": 1500.3800499999995,
+      "checksum": 20000,
+      "moduleOwner": "app",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "app": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/app"
+        },
+        "orm": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/orm"
+        },
+        "schema": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/schema"
+        },
+        "sql": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/sql"
+        },
+        "validator": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/validator"
+        }
+      }
+    },
+    {
+      "round": 5,
+      "position": 0,
+      "revision": "after",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 32.086141,
+      "nsPerApplication": 1604.30705,
+      "checksum": 20000,
+      "moduleOwner": "app",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "app": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/app"
+        },
+        "orm": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/orm"
+        },
+        "schema": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/schema"
+        },
+        "sql": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/sql"
+        },
+        "validator": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/validator"
+        }
+      }
+    },
+    {
+      "round": 5,
+      "position": 1,
+      "revision": "before",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 35.60171199999999,
+      "nsPerApplication": 1780.0855999999997,
+      "checksum": 20000,
+      "moduleOwner": "web",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "query-compiler": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/query-compiler"
+        },
+        "schema-core": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/schema-core"
+        }
+      }
+    },
+    {
+      "round": 6,
+      "position": 0,
+      "revision": "before",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 38.152006000000014,
+      "nsPerApplication": 1907.6003000000007,
+      "checksum": 20000,
+      "moduleOwner": "web",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "query-compiler": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/query-compiler"
+        },
+        "schema-core": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/schema-core"
+        }
+      }
+    },
+    {
+      "round": 6,
+      "position": 1,
+      "revision": "after",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 32.905091999999996,
+      "nsPerApplication": 1645.2545999999998,
+      "checksum": 20000,
+      "moduleOwner": "app",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "app": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/app"
+        },
+        "orm": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/orm"
+        },
+        "schema": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/schema"
+        },
+        "sql": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/sql"
+        },
+        "validator": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/validator"
+        }
+      }
+    },
+    {
+      "round": 7,
+      "position": 0,
+      "revision": "after",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-after",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 33.923191,
+      "nsPerApplication": 1696.15955,
+      "checksum": 20000,
+      "moduleOwner": "app",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "app": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/app"
+        },
+        "orm": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/orm"
+        },
+        "schema": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/schema"
+        },
+        "sql": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/sql"
+        },
+        "validator": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-after/packages/validator"
+        }
+      }
+    },
+    {
+      "round": 7,
+      "position": 1,
+      "revision": "before",
+      "command": [
+        "/usr/bin/node",
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/app-startup.mjs",
+        "--child",
+        "--root=/home/amitprakash/foss/zmdb-worktrees/issue-730-before",
+        "--iterations=20000",
+        "--warmup=5000"
+      ],
+      "iterations": 20000,
+      "totalMs": 35.11116199999999,
+      "nsPerApplication": 1755.5580999999997,
+      "checksum": 20000,
+      "moduleOwner": "web",
+      "node": "v26.8.1",
+      "resolvedPackages": {
+        "query-compiler": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/query-compiler"
+        },
+        "schema-core": {
+          "version": "1.0.0-alpha.4",
+          "directory": "/home/amitprakash/foss/zmdb-worktrees/issue-730-before/packages/schema-core"
+        }
+      }
+    }
+  ],
+  "summary": [
+    {
+      "revision": "before",
+      "samples": 8,
+      "medianNsPerApplication": 1759.9745249999999,
+      "min": 1721.1239499999992,
+      "max": 1932.0447000000008
+    },
+    {
+      "revision": "after",
+      "samples": 8,
+      "medianNsPerApplication": 1616.929475,
+      "min": 1500.3800499999995,
+      "max": 1748.3816000000004
+    }
+  ],
+  "changePercent": -8.127677302601866
+}

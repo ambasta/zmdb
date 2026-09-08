@@ -4,15 +4,3444 @@
   "runtime": "node",
   "runtimeVersion": "v26.8.1",
   "upstream": "https://github.com/the-benchmarker/web-frameworks",
-  "port": 3000,
-  "methodology": "Served on node v26.8.1. oha oha 1.16.0: per route for 15s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by 8 worker process(es) on 16 cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json.",
+  "port": 17730,
+  "revision": "409b1ba24507ea462e6a955bfe51b56e1f2cc13d",
+  "sourceStatus": " M benchmarks/harness/framework/app.ts\n M benchmarks/harness/framework/run.sh\n M benchmarks/scripts/bench.mjs\n M benchmarks/scripts/observability.mjs\n M benchmarks/site/observability.json\n?? benchmarks/scripts/app-startup.mjs\n?? benchmarks/site/app-startup.json",
+  "command": [
+    "env",
+    "RUNTIME=node",
+    "PORT=17730",
+    "DURATION=5s",
+    "CONCURRENCIES=64,256,512",
+    "ROUTES=GET:/,GET:/user/42,POST:/user",
+    "WORKERS=8",
+    "REPEATS=3",
+    "WARMUP=1",
+    "SETTLE=2",
+    "bash",
+    "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/run.sh"
+  ],
+  "samples": [
+    {
+      "route": "GET:/",
+      "concurrency": 64,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.001105794,
+          "slowest": 0.007836153,
+          "fastest": 8.988e-05,
+          "average": 0.0007230044176095846,
+          "requestsPerSec": 88246.68346937993,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 88246.68346937993,
+          "latency_ms": {
+            "min": 0.09,
+            "mean": 0.723,
+            "p50": 0.55,
+            "p95": 1.645,
+            "p99": 2.581,
+            "max": 7.836
+          }
+        },
+        "responseTimeHistogram": {
+          "0.00008988": 1,
+          "0.0008645073": 345246,
+          "0.0016391346000000002": 73733,
+          "0.0024137619000000003": 16358,
+          "0.0031883892000000003": 4457,
+          "0.0039630165": 1157,
+          "0.0047376438": 212,
+          "0.0055122711": 75,
+          "0.0062868984": 14,
+          "0.007061525700000001": 12,
+          "0.007836153": 6
+        },
+        "latencyPercentiles": {
+          "p10": 0.0004125,
+          "p25": 0.000480229,
+          "p50": 0.000550101,
+          "p75": 0.000788933,
+          "p90": 0.001285542,
+          "p95": 0.001644752,
+          "p99": 0.002581243,
+          "p99.9": 0.003799708,
+          "p99.99": 0.005330643
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 88206.05634185989,
+          "stddev": 32337.08189227766,
+          "max": 138281.50311793768,
+          "min": 26381.021392901974,
+          "percentiles": {
+            "p10": 39719.67315411331,
+            "p25": 58190.522414979816,
+            "p50": 102718.87973009862,
+            "p75": 116400.27936067022,
+            "p90": 123038.86165926442,
+            "p95": 125103.05251448102,
+            "p99": 129816.17509541474,
+            "p99.9": 138281.50311793768,
+            "p99.99": 138281.50311793768
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00018104901999451296,
+            "fastest": 1.099e-05,
+            "slowest": 0.003448664
+          },
+          "DNSLookup": {
+            "average": 3.0733220062048734e-06,
+            "fastest": 6.41e-07,
+            "slowest": 0.003062373
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 441271
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 60
+        }
+      }
+    },
+    {
+      "route": "GET:/",
+      "concurrency": 64,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.002133409,
+          "slowest": 0.008252059,
+          "fastest": 7.7577e-05,
+          "average": 0.0007176646515702169,
+          "requestsPerSec": 88886.87358878077,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 88886.87358878077,
+          "latency_ms": {
+            "min": 0.078,
+            "mean": 0.718,
+            "p50": 0.569,
+            "p95": 1.54,
+            "p99": 2.398,
+            "max": 8.252
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000077577": 1,
+          "0.0008950252": 355957,
+          "0.0017124734": 73022,
+          "0.0025299216": 12040,
+          "0.0033473698": 2697,
+          "0.004164818": 640,
+          "0.004982266199999999": 141,
+          "0.005799714399999999": 48,
+          "0.0066171625999999996": 11,
+          "0.0074346108": 5,
+          "0.008252059": 1
+        },
+        "latencyPercentiles": {
+          "p10": 0.000418131,
+          "p25": 0.000492772,
+          "p50": 0.000569307,
+          "p75": 0.000790375,
+          "p90": 0.001223575,
+          "p95": 0.001539663,
+          "p99": 0.002398126,
+          "p99.9": 0.003714967,
+          "p99.99": 0.005242056
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 88729.04293733196,
+          "stddev": 29006.906304378408,
+          "max": 155631.0950927995,
+          "min": 23579.64733276041,
+          "percentiles": {
+            "p10": 47520.87592079192,
+            "p25": 60276.18306777752,
+            "p50": 99485.87620834193,
+            "p75": 113384.1747571944,
+            "p90": 119604.12634235885,
+            "p95": 122727.35592763778,
+            "p99": 130270.67183947291,
+            "p99.9": 155631.0950927995,
+            "p99.99": 155631.0950927995
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00017717588923954388,
+            "fastest": 1.0279e-05,
+            "slowest": 0.003841447
+          },
+          "DNSLookup": {
+            "average": 3.1678616888944953e-06,
+            "fastest": 5.72e-07,
+            "slowest": 0.002539032
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 444563
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 61
+        }
+      }
+    },
+    {
+      "route": "GET:/",
+      "concurrency": 64,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.002141402,
+          "slowest": 0.008042933,
+          "fastest": 9.3947e-05,
+          "average": 0.0007330260144860543,
+          "requestsPerSec": 87024.52909986729,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 87024.52909986729,
+          "latency_ms": {
+            "min": 0.094,
+            "mean": 0.733,
+            "p50": 0.576,
+            "p95": 1.61,
+            "p99": 2.862,
+            "max": 8.043
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000093947": 1,
+          "0.0008888456000000001": 352658,
+          "0.0016837442": 63287,
+          "0.0024786428000000004": 12309,
+          "0.0032735414": 4412,
+          "0.0040684399999999996": 1759,
+          "0.0048633386": 585,
+          "0.0056582372": 170,
+          "0.0064531358": 42,
+          "0.0072480344": 21,
+          "0.008042933": 3
+        },
+        "latencyPercentiles": {
+          "p10": 0.000430134,
+          "p25": 0.000503363,
+          "p50": 0.000575909,
+          "p75": 0.000765298,
+          "p90": 0.001220208,
+          "p95": 0.001609514,
+          "p99": 0.002861573,
+          "p99.9": 0.004466317,
+          "p99.99": 0.005880232
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 86929.84627847488,
+          "stddev": 30046.123338264188,
+          "max": 151237.65817688606,
+          "min": 20589.59976128125,
+          "percentiles": {
+            "p10": 39100.6999426324,
+            "p25": 58503.83907610913,
+            "p50": 99197.05439802031,
+            "p75": 111154.29887500354,
+            "p90": 116913.46451730712,
+            "p95": 119118.55867143974,
+            "p99": 126169.44556539433,
+            "p99.9": 151237.65817688606,
+            "p99.99": 151237.65817688606
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0001815795896284197,
+            "fastest": 1.082e-05,
+            "slowest": 0.004860694
+          },
+          "DNSLookup": {
+            "average": 3.217593132175489e-06,
+            "fastest": 6.31e-07,
+            "slowest": 0.001779896
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 435247
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 62
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 64,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.004317083,
+          "slowest": 0.007512578,
+          "fastest": 0.000119195,
+          "average": 0.0006872047579067849,
+          "requestsPerSec": 92758.1111070855,
+          "totalData": 928254,
+          "sizePerRequest": 2,
+          "sizePerSec": 185490.64429856793
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 92758.1111070855,
+          "latency_ms": {
+            "min": 0.119,
+            "mean": 0.687,
+            "p50": 0.646,
+            "p95": 1.048,
+            "p99": 1.884,
+            "max": 7.513
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000119195": 1,
+          "0.0008585333": 424138,
+          "0.0015978716": 32694,
+          "0.0023372098999999997": 4881,
+          "0.0030765481999999998": 1542,
+          "0.0038158865": 682,
+          "0.0045552247999999995": 137,
+          "0.0052945631": 32,
+          "0.0060339014": 11,
+          "0.006773239699999999": 6,
+          "0.007512578": 3
+        },
+        "latencyPercentiles": {
+          "p10": 0.000521987,
+          "p25": 0.000586619,
+          "p50": 0.000645711,
+          "p75": 0.000700625,
+          "p90": 0.000820582,
+          "p95": 0.001047762,
+          "p99": 0.001884294,
+          "p99.9": 0.003481744,
+          "p99.99": 0.004611371
+        },
+        "firstByteHistogram": {
+          "0.000096292": 1,
+          "0.0008236436": 436397,
+          "0.0015509952": 22345,
+          "0.0022783468": 3557,
+          "0.0030056984": 1131,
+          "0.00373305": 552,
+          "0.0044604016": 94,
+          "0.0051877532": 30,
+          "0.0059151048": 11,
+          "0.006642456400000001": 6,
+          "0.007369808": 3
+        },
+        "firstBytePercentiles": {
+          "p10": 0.000451484,
+          "p25": 0.00052907,
+          "p50": 0.000605375,
+          "p75": 0.000659327,
+          "p90": 0.000729961,
+          "p95": 0.00087218,
+          "p99": 0.001646975,
+          "p99.9": 0.003263602,
+          "p99.99": 0.004507064
+        },
+        "rps": {
+          "mean": 92758.23453442538,
+          "stddev": 8070.685354503131,
+          "max": 139766.47293452764,
+          "min": 60095.984460808846,
+          "percentiles": {
+            "p10": 84367.26602119858,
+            "p25": 88959.42418408197,
+            "p50": 93773.06797456575,
+            "p75": 97223.06131014458,
+            "p90": 100368.30761503984,
+            "p95": 102108.62315331274,
+            "p99": 107448.41625636519,
+            "p99.9": 139766.47293452764,
+            "p99.99": 139766.47293452764
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 7.651487198331674e-05,
+            "fastest": 1.1201e-05,
+            "slowest": 0.003265927
+          },
+          "DNSLookup": {
+            "average": 3.965958660021983e-06,
+            "fastest": 5.81e-07,
+            "slowest": 0.003067862
+          },
+          "firstByte": {
+            "average": 0.0006235227716659617,
+            "fastest": 9.6292e-05,
+            "slowest": 0.007369808
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 464127
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 64
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 64,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.002333084,
+          "slowest": 0.009049654,
+          "fastest": 0.000100881,
+          "average": 0.0007143578765544594,
+          "requestsPerSec": 89244.95680384006,
+          "totalData": 892750,
+          "sizePerRequest": 2,
+          "sizePerSec": 178466.72442814085
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 89244.95680384006,
+          "latency_ms": {
+            "min": 0.101,
+            "mean": 0.714,
+            "p50": 0.654,
+            "p95": 1.203,
+            "p99": 2.024,
+            "max": 9.05
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000100881": 1,
+          "0.0009957583": 407910,
+          "0.0018906355999999999": 32886,
+          "0.0027855129": 4106,
+          "0.0036803902": 1087,
+          "0.0045752675": 305,
+          "0.005470144799999999": 39,
+          "0.006365022099999999": 23,
+          "0.0072598993999999995": 11,
+          "0.0081547767": 5,
+          "0.009049654": 2
+        },
+        "latencyPercentiles": {
+          "p10": 0.000523861,
+          "p25": 0.000585417,
+          "p50": 0.000653766,
+          "p75": 0.000722847,
+          "p90": 0.000941911,
+          "p95": 0.001202875,
+          "p99": 0.002024248,
+          "p99.9": 0.003605969,
+          "p99.99": 0.005289834
+        },
+        "firstByteHistogram": {
+          "0.000086213": 1,
+          "0.0009509904000000001": 421178,
+          "0.0018157678": 21109,
+          "0.0026805452000000004": 2918,
+          "0.0035453226000000003": 892,
+          "0.0044101": 204,
+          "0.005274877400000001": 32,
+          "0.006139654800000001": 21,
+          "0.007004432200000001": 12,
+          "0.007869209600000001": 6,
+          "0.008733987": 2
+        },
+        "firstBytePercentiles": {
+          "p10": 0.00044941,
+          "p25": 0.000528199,
+          "p50": 0.000611286,
+          "p75": 0.000673053,
+          "p90": 0.000785596,
+          "p95": 0.000991866,
+          "p99": 0.001756852,
+          "p99.9": 0.003316782,
+          "p99.99": 0.00525601
+        },
+        "rps": {
+          "mean": 89239.8984739219,
+          "stddev": 11622.067506069601,
+          "max": 130526.6535426534,
+          "min": 46603.117748577635,
+          "percentiles": {
+            "p10": 74332.37918437294,
+            "p25": 85929.17295422184,
+            "p50": 92008.1887287981,
+            "p75": 96217.13627197135,
+            "p90": 99386.68795465276,
+            "p95": 101310.8402599082,
+            "p99": 108974.33714456396,
+            "p99.9": 130526.6535426534,
+            "p99.99": 130526.6535426534
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 8.612397697003845e-05,
+            "fastest": 1.1632e-05,
+            "slowest": 0.003406132
+          },
+          "DNSLookup": {
+            "average": 3.814137005880833e-06,
+            "fastest": 6.41e-07,
+            "slowest": 0.003038476
+          },
+          "firstByte": {
+            "average": 0.0006400145475597958,
+            "fastest": 8.6213e-05,
+            "slowest": 0.008733987
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 446375
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 58
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 64,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.002185074,
+          "slowest": 0.008645138,
+          "fastest": 9.2826e-05,
+          "average": 0.0007204679536866192,
+          "requestsPerSec": 88496.32579588158,
+          "totalData": 885230,
+          "sizePerRequest": 2,
+          "sizePerSec": 176968.6620755368
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 88496.32579588158,
+          "latency_ms": {
+            "min": 0.093,
+            "mean": 0.72,
+            "p50": 0.659,
+            "p95": 1.239,
+            "p99": 2.111,
+            "max": 8.645
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000092826": 1,
+          "0.0009480571999999999": 400366,
+          "0.0018032884": 34849,
+          "0.0026585196": 5416,
+          "0.0035137508": 1372,
+          "0.0043689819999999996": 516,
+          "0.0052242132": 66,
+          "0.0060794444": 20,
+          "0.0069346756": 6,
+          "0.0077899067999999995": 2,
+          "0.008645138": 1
+        },
+        "latencyPercentiles": {
+          "p10": 0.000528991,
+          "p25": 0.000593673,
+          "p50": 0.000659357,
+          "p75": 0.000722988,
+          "p90": 0.000929188,
+          "p95": 0.001238692,
+          "p99": 0.002111222,
+          "p99.9": 0.003632789,
+          "p99.99": 0.004879969
+        },
+        "firstByteHistogram": {
+          "0.000065434": 1,
+          "0.0009175514000000001": 414465,
+          "0.0017696688000000003": 23394,
+          "0.0026217862000000006": 3333,
+          "0.0034739036000000006": 1049,
+          "0.004326021": 311,
+          "0.005178138400000001": 42,
+          "0.0060302558": 13,
+          "0.006882373200000001": 4,
+          "0.007734490600000001": 2,
+          "0.008586608": 1
+        },
+        "firstBytePercentiles": {
+          "p10": 0.000457596,
+          "p25": 0.000536966,
+          "p50": 0.000617427,
+          "p75": 0.000677511,
+          "p90": 0.000778282,
+          "p95": 0.00101047,
+          "p99": 0.001814061,
+          "p99.9": 0.003397835,
+          "p99.99": 0.004548111
+        },
+        "rps": {
+          "mean": 88495.75398433456,
+          "stddev": 12050.979532146031,
+          "max": 137383.5291857449,
+          "min": 40381.51817073146,
+          "percentiles": {
+            "p10": 78605.93970142635,
+            "p25": 86050.95718498017,
+            "p50": 91181.24095264099,
+            "p75": 94705.88123522127,
+            "p90": 97866.37297415135,
+            "p95": 99561.7879053466,
+            "p99": 105320.52010499587,
+            "p99.9": 137383.5291857449,
+            "p99.99": 137383.5291857449
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 8.507465336014434e-05,
+            "fastest": 1.049e-05,
+            "slowest": 0.00342653
+          },
+          "DNSLookup": {
+            "average": 3.7636150378998464e-06,
+            "fastest": 5.81e-07,
+            "slowest": 0.001322632
+          },
+          "firstByte": {
+            "average": 0.000647719484902218,
+            "fastest": 6.5434e-05,
+            "slowest": 0.008586608
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 442615
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 60
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 64,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.001862881,
+          "slowest": 0.007480515,
+          "fastest": 8.5281e-05,
+          "average": 0.0007711302932789844,
+          "requestsPerSec": 82718.98087643718,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 82718.98087643718,
+          "latency_ms": {
+            "min": 0.085,
+            "mean": 0.771,
+            "p50": 0.615,
+            "p95": 1.725,
+            "p99": 2.56,
+            "max": 7.481
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000085281": 1,
+          "0.0008248044": 315496,
+          "0.0015643278": 70911,
+          "0.0023038512": 20266,
+          "0.0030433746": 5345,
+          "0.003782898": 1226,
+          "0.0045224214000000006": 328,
+          "0.0052619448000000004": 80,
+          "0.0060014682": 26,
+          "0.0067409916": 4,
+          "0.007480515": 5
+        },
+        "latencyPercentiles": {
+          "p10": 0.000469648,
+          "p25": 0.000546584,
+          "p50": 0.000614962,
+          "p75": 0.000799461,
+          "p90": 0.001317361,
+          "p95": 0.001725182,
+          "p99": 0.002560001,
+          "p99.9": 0.003822578,
+          "p99.99": 0.005138466
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 82686.4827007069,
+          "stddev": 27156.470658513234,
+          "max": 134111.64158157987,
+          "min": 28103.731073577623,
+          "percentiles": {
+            "p10": 40135.83327194501,
+            "p25": 55309.922600114405,
+            "p50": 95838.80513219321,
+            "p75": 104303.04097418342,
+            "p90": 109276.0998759535,
+            "p95": 112622.9187639685,
+            "p99": 122338.36531136165,
+            "p99.9": 134111.64158157987,
+            "p99.99": 134111.64158157987
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0001800468542669884,
+            "fastest": 1.2995e-05,
+            "slowest": 0.004342211
+          },
+          "DNSLookup": {
+            "average": 3.4373230115448474e-06,
+            "fastest": 6.91e-07,
+            "slowest": 0.001833537
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 413688
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 61
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 64,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.002607297,
+          "slowest": 0.007616983,
+          "fastest": 9.3266e-05,
+          "average": 0.0007329777701710619,
+          "requestsPerSec": 87010.22769887028,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 87010.22769887028,
+          "latency_ms": {
+            "min": 0.093,
+            "mean": 0.733,
+            "p50": 0.617,
+            "p95": 1.438,
+            "p99": 2.479,
+            "max": 7.617
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000093266": 1,
+          "0.0008456377": 343957,
+          "0.0015980094": 75536,
+          "0.0023503811": 10645,
+          "0.0031027527999999997": 2943,
+          "0.0038551244999999994": 1310,
+          "0.0046074962": 573,
+          "0.0053598679": 175,
+          "0.0061122395999999996": 57,
+          "0.006864611299999999": 10,
+          "0.007616982999999999": 8
+        },
+        "latencyPercentiles": {
+          "p10": 0.000448738,
+          "p25": 0.000532426,
+          "p50": 0.000617427,
+          "p75": 0.000789393,
+          "p90": 0.00112659,
+          "p95": 0.001438249,
+          "p99": 0.002479087,
+          "p99.9": 0.004293529,
+          "p99.99": 0.005646607
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 86811.94894337101,
+          "stddev": 23502.968081295418,
+          "max": 164565.6452358846,
+          "min": 3371.87385145773,
+          "percentiles": {
+            "p10": 51422.77890505022,
+            "p25": 74717.45399725944,
+            "p50": 94481.51865429494,
+            "p75": 103761.03223916312,
+            "p90": 108206.7412799796,
+            "p95": 110865.82298376694,
+            "p99": 116778.05445159542,
+            "p99.9": 164565.6452358846,
+            "p99.99": 164565.6452358846
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00017676070029525463,
+            "fastest": 1.064e-05,
+            "slowest": 0.004445305
+          },
+          "DNSLookup": {
+            "average": 3.4014743908184354e-06,
+            "fastest": 5.81e-07,
+            "slowest": 0.001917957
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 435215
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 63
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 64,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "64",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.001805955,
+          "slowest": 0.007695872,
+          "fastest": 7.1605e-05,
+          "average": 0.0007411442275411317,
+          "requestsPerSec": 86046.52077111616,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 86046.52077111616,
+          "latency_ms": {
+            "min": 0.072,
+            "mean": 0.741,
+            "p50": 0.611,
+            "p95": 1.556,
+            "p99": 2.604,
+            "max": 7.696
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000071605": 1,
+          "0.0008340317000000001": 340647,
+          "0.0015964584000000002": 69480,
+          "0.0023588851000000007": 13840,
+          "0.0031213118000000006": 4480,
+          "0.0038837385000000005": 1407,
+          "0.004646165200000001": 351,
+          "0.005408591900000001": 77,
+          "0.0061710186000000005": 37,
+          "0.0069334453": 5,
+          "0.007695872": 6
+        },
+        "latencyPercentiles": {
+          "p10": 0.000462174,
+          "p25": 0.000538168,
+          "p50": 0.000610754,
+          "p75": 0.000771398,
+          "p90": 0.001153492,
+          "p95": 0.001555802,
+          "p99": 0.002604104,
+          "p99.9": 0.003933647,
+          "p99.99": 0.005495992
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 86018.33596264725,
+          "stddev": 24042.74944361667,
+          "max": 146834.16831096596,
+          "min": 23633.748993562866,
+          "percentiles": {
+            "p10": 42857.28733598191,
+            "p25": 72850.38332511099,
+            "p50": 95168.95942800371,
+            "p75": 103134.3334195987,
+            "p90": 108523.42368976207,
+            "p95": 111330.92773172418,
+            "p99": 116614.41893209043,
+            "p99.9": 146834.16831096596,
+            "p99.99": 146834.16831096596
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0001710571413284203,
+            "fastest": 1.056e-05,
+            "slowest": 0.005178391
+          },
+          "DNSLookup": {
+            "average": 3.437504778879508e-06,
+            "fastest": 5.71e-07,
+            "slowest": 0.002023657
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 430331
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 57
+        }
+      }
+    },
+    {
+      "route": "GET:/",
+      "concurrency": 256,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.003163992,
+          "slowest": 0.015688952,
+          "fastest": 0.000612298,
+          "average": 0.002437714883553285,
+          "requestsPerSec": 104823.86762428554,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 104823.86762428554,
+          "latency_ms": {
+            "min": 0.612,
+            "mean": 2.438,
+            "p50": 2.347,
+            "p95": 3.402,
+            "p99": 4.822,
+            "max": 15.689
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000612298": 1,
+          "0.0021199634": 104398,
+          "0.0036276287999999993": 399688,
+          "0.005135294199999999": 16457,
+          "0.006642959599999999": 2914,
+          "0.008150625": 413,
+          "0.009658290399999998": 238,
+          "0.011165955799999999": 59,
+          "0.012673621199999999": 29,
+          "0.014181286599999999": 2,
+          "0.015688952": 6
+        },
+        "latencyPercentiles": {
+          "p10": 0.002010131,
+          "p25": 0.002165484,
+          "p50": 0.002347288,
+          "p75": 0.002517499,
+          "p90": 0.002880466,
+          "p95": 0.003402062,
+          "p99": 0.004822408,
+          "p99.9": 0.00724066,
+          "p99.99": 0.009889036
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 104800.98526248234,
+          "stddev": 7979.410776343776,
+          "max": 139125.00076263706,
+          "min": 79152.44641098841,
+          "percentiles": {
+            "p10": 96161.02911352865,
+            "p25": 100119.29298775877,
+            "p50": 104619.00927398515,
+            "p75": 108809.93067296284,
+            "p90": 114628.67068284143,
+            "p95": 118590.3421226291,
+            "p99": 123168.28449692596,
+            "p99.9": 139125.00076263706,
+            "p99.99": 139125.00076263706
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0002046988767276134,
+            "fastest": 1.2404e-05,
+            "slowest": 0.008993875
+          },
+          "DNSLookup": {
+            "average": 3.8100472734903307e-06,
+            "fastest": 5.41e-07,
+            "slowest": 0.003447227
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 524205
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 246
+        }
+      }
+    },
+    {
+      "route": "GET:/",
+      "concurrency": 256,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.003596286,
+          "slowest": 0.014060321,
+          "fastest": 0.000757632,
+          "average": 0.002461252103677818,
+          "requestsPerSec": 103811.33295133317,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 103811.33295133317,
+          "latency_ms": {
+            "min": 0.758,
+            "mean": 2.461,
+            "p50": 2.354,
+            "p95": 3.479,
+            "p99": 5.016,
+            "max": 14.06
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000757632": 1,
+          "0.0020879009": 85998,
+          "0.0034181698000000007": 405272,
+          "0.0047484387000000005": 20961,
+          "0.006078707600000001": 5510,
+          "0.007408976500000002": 964,
+          "0.0087392454": 269,
+          "0.0100695143": 28,
+          "0.011399783200000001": 93,
+          "0.012730052100000002": 77,
+          "0.014060321000000002": 3
+        },
+        "latencyPercentiles": {
+          "p10": 0.002002336,
+          "p25": 0.002171195,
+          "p50": 0.002354081,
+          "p75": 0.002546304,
+          "p90": 0.002977219,
+          "p95": 0.003478657,
+          "p99": 0.005016033,
+          "p99.9": 0.007272409,
+          "p99.99": 0.011538044
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 103835.25260320323,
+          "stddev": 8809.377087972971,
+          "max": 158712.33659183967,
+          "min": 54234.102868458875,
+          "percentiles": {
+            "p10": 93652.22047814431,
+            "p25": 99461.52690054078,
+            "p50": 104050.50611566786,
+            "p75": 108237.5482763504,
+            "p90": 113265.08211618419,
+            "p95": 117867.91290333639,
+            "p99": 125935.63978605946,
+            "p99.9": 158712.33659183967,
+            "p99.99": 158712.33659183967
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00021405764485453612,
+            "fastest": 1.1993e-05,
+            "slowest": 0.010761075
+          },
+          "DNSLookup": {
+            "average": 3.7152521399294526e-06,
+            "fastest": 6.02e-07,
+            "slowest": 0.003069914
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 519176
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 254
+        }
+      }
+    },
+    {
+      "route": "GET:/",
+      "concurrency": 256,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.00283525,
+          "slowest": 0.018775174,
+          "fastest": 0.000511788,
+          "average": 0.0024493738699931655,
+          "requestsPerSec": 104328.04078447315,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 104328.04078447315,
+          "latency_ms": {
+            "min": 0.512,
+            "mean": 2.449,
+            "p50": 2.358,
+            "p95": 3.378,
+            "p99": 4.706,
+            "max": 18.775
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000511788": 1,
+          "0.0023381266": 244773,
+          "0.0041644652": 267241,
+          "0.0059908038000000005": 8496,
+          "0.007817142400000001": 928,
+          "0.009643480999999999": 112,
+          "0.0114698196": 9,
+          "0.013296158200000002": 3,
+          "0.0151224968": 1,
+          "0.0169488354": 0,
+          "0.018775174": 124
+        },
+        "latencyPercentiles": {
+          "p10": 0.002025199,
+          "p25": 0.002179781,
+          "p50": 0.002357727,
+          "p75": 0.002531606,
+          "p90": 0.002934337,
+          "p95": 0.003378457,
+          "p99": 0.004706427,
+          "p99.9": 0.006713402,
+          "p99.99": 0.01820669
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 104307.31004891412,
+          "stddev": 8157.17852581802,
+          "max": 136097.9633139934,
+          "min": 77307.01174596525,
+          "percentiles": {
+            "p10": 94876.6698469213,
+            "p25": 99413.41086912545,
+            "p50": 104440.09733977287,
+            "p75": 109043.86834823662,
+            "p90": 113607.12316662406,
+            "p95": 117852.963121627,
+            "p99": 124717.1860282347,
+            "p99.9": 136097.9633139934,
+            "p99.99": 136097.9633139934
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00019839485323219628,
+            "fastest": 1.3405e-05,
+            "slowest": 0.017400675
+          },
+          "DNSLookup": {
+            "average": 3.73451571629019e-06,
+            "fastest": 5.41e-07,
+            "slowest": 0.00357594
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 521688
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 248
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 256,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.003989712,
+          "slowest": 0.012417664,
+          "fastest": 0.000605995,
+          "average": 0.0028201023245449488,
+          "requestsPerSec": 90606.10154987464,
+          "totalData": 906272,
+          "sizePerRequest": 2,
+          "sizePerSec": 181109.88474390373
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 90606.10154987464,
+          "latency_ms": {
+            "min": 0.606,
+            "mean": 2.82,
+            "p50": 2.763,
+            "p95": 3.65,
+            "p99": 4.773,
+            "max": 12.418
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000605995": 1,
+          "0.0017871619": 2665,
+          "0.0029683288000000004": 352300,
+          "0.0041494957": 87859,
+          "0.0053306626": 8051,
+          "0.0065118295": 1695,
+          "0.007692996400000001": 390,
+          "0.0088741633": 51,
+          "0.0100553302": 31,
+          "0.011236497100000001": 81,
+          "0.012417664": 12
+        },
+        "latencyPercentiles": {
+          "p10": 0.00239119,
+          "p25": 0.002580258,
+          "p50": 0.002763344,
+          "p75": 0.002933305,
+          "p90": 0.003264381,
+          "p95": 0.0036501,
+          "p99": 0.004772681,
+          "p99.9": 0.006716597,
+          "p99.99": 0.010558709
+        },
+        "firstByteHistogram": {
+          "0.000418321": 1,
+          "0.0016031778": 2977,
+          "0.0027880346": 291252,
+          "0.0039728914": 153461,
+          "0.0051577482": 4404,
+          "0.006342605": 774,
+          "0.0075274618": 143,
+          "0.0087123186": 18,
+          "0.0098971754": 13,
+          "0.0110820322": 81,
+          "0.012266889": 12
+        },
+        "firstBytePercentiles": {
+          "p10": 0.002309004,
+          "p25": 0.002508682,
+          "p50": 0.00269773,
+          "p75": 0.002855598,
+          "p90": 0.003063892,
+          "p95": 0.003310618,
+          "p99": 0.004083029,
+          "p99.9": 0.005883322,
+          "p99.99": 0.010313115
+        },
+        "rps": {
+          "mean": 90612.0120889321,
+          "stddev": 6438.8969584692895,
+          "max": 134506.6674583937,
+          "min": 62525.53542867015,
+          "percentiles": {
+            "p10": 83096.54988130718,
+            "p25": 87239.74642847021,
+            "p50": 90329.20343146873,
+            "p75": 94068.48185478967,
+            "p90": 97462.85379441212,
+            "p95": 99883.13273137312,
+            "p99": 109254.47428087649,
+            "p99.9": 134506.6674583937,
+            "p99.99": 134506.6674583937
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00011413653472467345,
+            "fastest": 1.2113e-05,
+            "slowest": 0.009889655
+          },
+          "DNSLookup": {
+            "average": 4.116186063345238e-06,
+            "fastest": 5.51e-07,
+            "slowest": 0.002567303
+          },
+          "firstByte": {
+            "average": 0.0027060204549207868,
+            "fastest": 0.000418321,
+            "slowest": 0.012266889
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 453136
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 256
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 256,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.005168837,
+          "slowest": 0.015196155,
+          "fastest": 0.000556683,
+          "average": 0.0028372480569071943,
+          "requestsPerSec": 90076.28207607655,
+          "totalData": 901188,
+          "sizePerRequest": 2,
+          "sizePerSec": 180051.46866137575
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 90076.28207607655,
+          "latency_ms": {
+            "min": 0.557,
+            "mean": 2.837,
+            "p50": 2.766,
+            "p95": 3.746,
+            "p99": 5.026,
+            "max": 15.196
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000556683": 1,
+          "0.0020206302": 5101,
+          "0.0034845773999999997": 412366,
+          "0.0049485245999999995": 28180,
+          "0.006412471799999999": 4015,
+          "0.007876418999999999": 640,
+          "0.0093403662": 99,
+          "0.0108043134": 156,
+          "0.012268260599999999": 20,
+          "0.013732207799999998": 9,
+          "0.015196154999999998": 7
+        },
+        "latencyPercentiles": {
+          "p10": 0.002365742,
+          "p25": 0.002583052,
+          "p50": 0.002766459,
+          "p75": 0.002938104,
+          "p90": 0.003312131,
+          "p95": 0.003745931,
+          "p99": 0.00502554,
+          "p99.9": 0.007275072,
+          "p99.99": 0.010214438
+        },
+        "firstByteHistogram": {
+          "0.000327679": 1,
+          "0.0017916323": 4874,
+          "0.0032555856": 416779,
+          "0.0047195388999999996": 26622,
+          "0.0061834922": 1845,
+          "0.0076474455": 263,
+          "0.0091113988": 45,
+          "0.010575352100000001": 129,
+          "0.012039305399999999": 19,
+          "0.0135032587": 10,
+          "0.014967212": 7
+        },
+        "firstBytePercentiles": {
+          "p10": 0.002269691,
+          "p25": 0.002505055,
+          "p50": 0.002705074,
+          "p75": 0.002854556,
+          "p90": 0.003102735,
+          "p95": 0.003352317,
+          "p99": 0.004236668,
+          "p99.9": 0.006236128,
+          "p99.99": 0.010042353
+        },
+        "rps": {
+          "mean": 90080.14944180711,
+          "stddev": 6634.533233083824,
+          "max": 127144.55145082837,
+          "min": 67990.44769256543,
+          "percentiles": {
+            "p10": 82065.97844139661,
+            "p25": 86504.2300568482,
+            "p50": 90460.15600374439,
+            "p75": 93651.2280029796,
+            "p90": 96771.57600425594,
+            "p95": 100377.91333633124,
+            "p99": 105885.20380998551,
+            "p99.9": 127144.55145082837,
+            "p99.99": 127144.55145082837
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0001225602039751937,
+            "fastest": 1.1271e-05,
+            "slowest": 0.009398867
+          },
+          "DNSLookup": {
+            "average": 4.108278530118049e-06,
+            "fastest": 5.61e-07,
+            "slowest": 0.004693863
+          },
+          "firstByte": {
+            "average": 0.0027126515798900405,
+            "fastest": 0.000327679,
+            "slowest": 0.014967212
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 450594
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 253
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 256,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.003530634,
+          "slowest": 0.013360965,
+          "fastest": 0.000464749,
+          "average": 0.002812026580555966,
+          "requestsPerSec": 90868.83508026505,
+          "totalData": 908822,
+          "sizePerRequest": 2,
+          "sizePerSec": 181636.14185238944
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 90868.83508026505,
+          "latency_ms": {
+            "min": 0.465,
+            "mean": 2.812,
+            "p50": 2.754,
+            "p95": 3.637,
+            "p99": 4.779,
+            "max": 13.361
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000464749": 1,
+          "0.0017543706": 1839,
+          "0.0030439922": 379354,
+          "0.0043336138": 65053,
+          "0.005623235400000001": 6567,
+          "0.006912857000000001": 1156,
+          "0.0082024786": 237,
+          "0.0094921002": 36,
+          "0.010781721800000001": 6,
+          "0.012071343400000002": 3,
+          "0.013360965000000002": 159
+        },
+        "latencyPercentiles": {
+          "p10": 0.002379077,
+          "p25": 0.002574827,
+          "p50": 0.002754256,
+          "p75": 0.002910231,
+          "p90": 0.003249502,
+          "p95": 0.003636934,
+          "p99": 0.004778502,
+          "p99.9": 0.006863444,
+          "p99.99": 0.012698353
+        },
+        "firstByteHistogram": {
+          "0.000363117": 1,
+          "0.0016499252": 2067,
+          "0.0029367334": 385349,
+          "0.0042235416": 63150,
+          "0.0055103498": 3040,
+          "0.006797157999999999": 531,
+          "0.0080839662": 92,
+          "0.0093707744": 13,
+          "0.0106575826": 6,
+          "0.0119443908": 4,
+          "0.013231198999999999": 158
+        },
+        "firstBytePercentiles": {
+          "p10": 0.002292884,
+          "p25": 0.00250269,
+          "p50": 0.002693081,
+          "p75": 0.002836742,
+          "p90": 0.003050005,
+          "p95": 0.003305438,
+          "p99": 0.004113274,
+          "p99.9": 0.006173039,
+          "p99.99": 0.012509696
+        },
+        "rps": {
+          "mean": 90873.63339230441,
+          "stddev": 6507.0805099888685,
+          "max": 136315.51376636562,
+          "min": 63208.286606374095,
+          "percentiles": {
+            "p10": 83319.62261537774,
+            "p25": 87534.61994218462,
+            "p50": 90966.78781561585,
+            "p75": 94525.17205331837,
+            "p90": 98471.40161330959,
+            "p95": 99836.39486559472,
+            "p99": 104476.07948107916,
+            "p99.9": 136315.51376636562,
+            "p99.99": 136315.51376636562
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00011449147408403367,
+            "fastest": 1.1972e-05,
+            "slowest": 0.012022184
+          },
+          "DNSLookup": {
+            "average": 4.098096852848983e-06,
+            "fastest": 5.41e-07,
+            "slowest": 0.002441775
+          },
+          "firstByte": {
+            "average": 0.0026993363220498487,
+            "fastest": 0.000363117,
+            "slowest": 0.013231199
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 454411
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 254
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 256,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.005155113,
+          "slowest": 0.015245626,
+          "fastest": 0.000577311,
+          "average": 0.002539334198420587,
+          "requestsPerSec": 100639.03887647607,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 100639.03887647607,
+          "latency_ms": {
+            "min": 0.577,
+            "mean": 2.539,
+            "p50": 2.444,
+            "p95": 3.508,
+            "p99": 4.821,
+            "max": 15.246
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000577311": 1,
+          "0.0020441425": 31188,
+          "0.003510974": 447219,
+          "0.0049778055": 20862,
+          "0.006444637": 3480,
+          "0.0079114685": 508,
+          "0.009378300000000001": 74,
+          "0.0108451315": 15,
+          "0.012311963": 0,
+          "0.0137787945": 0,
+          "0.015245626": 124
+        },
+        "latencyPercentiles": {
+          "p10": 0.002118654,
+          "p25": 0.002272415,
+          "p50": 0.00244435,
+          "p75": 0.002622476,
+          "p90": 0.003031479,
+          "p95": 0.003508041,
+          "p99": 0.004821282,
+          "p99.9": 0.00687291,
+          "p99.99": 0.014395719
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 100599.96588472853,
+          "stddev": 8041.649012632533,
+          "max": 138705.47164063554,
+          "min": 70584.64510641087,
+          "percentiles": {
+            "p10": 90674.48909278995,
+            "p25": 96216.86681675336,
+            "p50": 100796.84560926123,
+            "p75": 105277.72654550875,
+            "p90": 109586.29921062695,
+            "p95": 112935.5452414019,
+            "p99": 119939.85572347562,
+            "p99.9": 138705.47164063554,
+            "p99.99": 138705.47164063554
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.000195527011734539,
+            "fastest": 1.3395e-05,
+            "slowest": 0.013779594
+          },
+          "DNSLookup": {
+            "average": 3.858627783923939e-06,
+            "fastest": 5.61e-07,
+            "slowest": 0.002705945
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 503471
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 243
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 256,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.004251302,
+          "slowest": 0.014014017,
+          "fastest": 0.000524832,
+          "average": 0.002538340120018553,
+          "requestsPerSec": 100656.61566570144,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 100656.61566570144,
+          "latency_ms": {
+            "min": 0.525,
+            "mean": 2.538,
+            "p50": 2.455,
+            "p95": 3.41,
+            "p99": 4.782,
+            "max": 14.014
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000524832": 1,
+          "0.0018737505000000002": 9730,
+          "0.003222669": 460598,
+          "0.004571587500000001": 26676,
+          "0.005920506000000001": 5321,
+          "0.007269424500000001": 845,
+          "0.008618343": 133,
+          "0.0099672615": 21,
+          "0.01131618": 6,
+          "0.012665098500000001": 5,
+          "0.014014017": 120
+        },
+        "latencyPercentiles": {
+          "p10": 0.00212724,
+          "p25": 0.002294337,
+          "p50": 0.002454689,
+          "p75": 0.002619721,
+          "p90": 0.002974662,
+          "p95": 0.003410205,
+          "p99": 0.004782198,
+          "p99.9": 0.006654467,
+          "p99.99": 0.013213623
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 100671.77214461887,
+          "stddev": 7315.679256709407,
+          "max": 139592.7314515032,
+          "min": 79249.22962144125,
+          "percentiles": {
+            "p10": 91801.28521799331,
+            "p25": 96444.75393117049,
+            "p50": 100501.9195866644,
+            "p75": 104842.54510480141,
+            "p90": 109475.47239066611,
+            "p95": 112230.20948904971,
+            "p99": 117542.8678839171,
+            "p99.9": 139592.7314515032,
+            "p99.99": 139592.7314515032
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00018907125185120658,
+            "fastest": 1.3395e-05,
+            "slowest": 0.012579164
+          },
+          "DNSLookup": {
+            "average": 4.092833254544612e-06,
+            "fastest": 5.31e-07,
+            "slowest": 0.002357155
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 503456
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 255
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 256,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "256",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.003494644,
+          "slowest": 0.01111665,
+          "fastest": 0.000404434,
+          "average": 0.002498168326599814,
+          "requestsPerSec": 102292.50482235552,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 102292.50482235552,
+          "latency_ms": {
+            "min": 0.404,
+            "mean": 2.498,
+            "p50": 2.432,
+            "p95": 3.305,
+            "p99": 4.645,
+            "max": 11.117
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000404434": 1,
+          "0.0014756556": 2570,
+          "0.0025468772": 358115,
+          "0.0036180988": 134159,
+          "0.0046893204": 11860,
+          "0.0057605420000000004": 3632,
+          "0.0068317636000000004": 924,
+          "0.0079029852": 140,
+          "0.0089742068": 33,
+          "0.0100454284": 118,
+          "0.01111665": 19
+        },
+        "latencyPercentiles": {
+          "p10": 0.002102453,
+          "p25": 0.002267836,
+          "p50": 0.002432137,
+          "p75": 0.002581109,
+          "p90": 0.00289424,
+          "p95": 0.003304876,
+          "p99": 0.004645159,
+          "p99.9": 0.006374888,
+          "p99.99": 0.009689292
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 102247.8688566777,
+          "stddev": 7819.4171996780915,
+          "max": 153300.59382702268,
+          "min": 73657.49704219065,
+          "percentiles": {
+            "p10": 93617.02469241775,
+            "p25": 98047.74925388591,
+            "p50": 101949.24148363605,
+            "p75": 105891.03452237761,
+            "p90": 110625.92549098295,
+            "p95": 114690.67444721534,
+            "p99": 121334.92078183316,
+            "p99.9": 153300.59382702268,
+            "p99.99": 153300.59382702268
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00018126260730768208,
+            "fastest": 1.1882e-05,
+            "slowest": 0.00904238
+          },
+          "DNSLookup": {
+            "average": 4.0079553453969464e-06,
+            "fastest": 5.51e-07,
+            "slowest": 0.001889722
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 511571
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 249
+        }
+      }
+    },
+    {
+      "route": "GET:/",
+      "concurrency": 512,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.005560102,
+          "slowest": 0.025654052,
+          "fastest": 0.001125978,
+          "average": 0.005281817726053205,
+          "requestsPerSec": 96708.657999448,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 96708.657999448,
+          "latency_ms": {
+            "min": 1.126,
+            "mean": 5.282,
+            "p50": 5.147,
+            "p95": 6.876,
+            "p99": 8.592,
+            "max": 25.654
+          }
+        },
+        "responseTimeHistogram": {
+          "0.001125978": 1,
+          "0.0035787854000000003": 6292,
+          "0.0060315928": 410821,
+          "0.0084844002": 61187,
+          "0.0109372076": 4399,
+          "0.013390015": 542,
+          "0.0158428224": 199,
+          "0.0182956298": 10,
+          "0.0207484372": 0,
+          "0.0232012446": 9,
+          "0.025654052": 119
+        },
+        "latencyPercentiles": {
+          "p10": 0.004394625,
+          "p25": 0.0047571,
+          "p50": 0.005146516,
+          "p75": 0.005626543,
+          "p90": 0.006272213,
+          "p95": 0.006875643,
+          "p99": 0.008591717,
+          "p99.9": 0.012774682,
+          "p99.99": 0.023446981
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 96704.45659676113,
+          "stddev": 10120.777565019944,
+          "max": 171408.34684559077,
+          "min": 72.51789379029276,
+          "percentiles": {
+            "p10": 86506.68696690447,
+            "p25": 91437.21494648233,
+            "p50": 96700.31911104718,
+            "p75": 101509.14263015475,
+            "p90": 106132.77380054876,
+            "p95": 110025.04169948852,
+            "p99": 124340.7910777373,
+            "p99.9": 171408.34684559077,
+            "p99.99": 171408.34684559077
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00037441290930127666,
+            "fastest": 1.4297e-05,
+            "slowest": 0.021658862
+          },
+          "DNSLookup": {
+            "average": 3.57332110782314e-06,
+            "fastest": 6.11e-07,
+            "slowest": 0.003234883
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 483579
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 502
+        }
+      }
+    },
+    {
+      "route": "GET:/",
+      "concurrency": 512,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.006580356,
+          "slowest": 0.031648027,
+          "fastest": 0.00132819,
+          "average": 0.005403907376556399,
+          "requestsPerSec": 94463.07986113147,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 94463.07986113147,
+          "latency_ms": {
+            "min": 1.328,
+            "mean": 5.404,
+            "p50": 5.265,
+            "p95": 6.911,
+            "p99": 8.265,
+            "max": 31.648
+          }
+        },
+        "responseTimeHistogram": {
+          "0.00132819": 1,
+          "0.0043601737": 21850,
+          "0.0073921574": 437963,
+          "0.0104241411": 11844,
+          "0.0134561248": 435,
+          "0.0164881085": 108,
+          "0.0195200922": 142,
+          "0.0225520759": 14,
+          "0.0255840596": 0,
+          "0.0286160433": 0,
+          "0.031648027": 77
+        },
+        "latencyPercentiles": {
+          "p10": 0.004592869,
+          "p25": 0.004898677,
+          "p50": 0.00526523,
+          "p75": 0.005747391,
+          "p90": 0.006368404,
+          "p95": 0.0069111,
+          "p99": 0.008265018,
+          "p99.9": 0.011373102,
+          "p99.99": 0.029499316
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 94403.97375006303,
+          "stddev": 10879.498755635032,
+          "max": 161627.9770322141,
+          "min": 52.43111822519826,
+          "percentiles": {
+            "p10": 83761.06415025127,
+            "p25": 89608.36942170397,
+            "p50": 95181.69233249368,
+            "p75": 100050.78654039695,
+            "p90": 104398.56268302894,
+            "p95": 106654.30837382487,
+            "p99": 117858.36346158611,
+            "p99.9": 161627.9770322141,
+            "p99.99": 161627.9770322141
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00034761917768407906,
+            "fastest": 1.3575e-05,
+            "slowest": 0.027465924
+          },
+          "DNSLookup": {
+            "average": 3.54366613960887e-06,
+            "fastest": 6.42e-07,
+            "slowest": 0.002724859
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 472434
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 503
+        }
+      }
+    },
+    {
+      "route": "GET:/",
+      "concurrency": 512,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.00465198,
+          "slowest": 0.02415182,
+          "fastest": 0.000933043,
+          "average": 0.005337410677967681,
+          "requestsPerSec": 95738.72507314684,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 95738.72507314684,
+          "latency_ms": {
+            "min": 0.933,
+            "mean": 5.337,
+            "p50": 5.208,
+            "p95": 6.76,
+            "p99": 8.251,
+            "max": 24.152
+          }
+        },
+        "responseTimeHistogram": {
+          "0.000933043": 1,
+          "0.0032549207": 1488,
+          "0.005576798399999999": 345673,
+          "0.0078986761": 124946,
+          "0.010220553799999999": 5708,
+          "0.012542431499999998": 611,
+          "0.014864309199999998": 113,
+          "0.0171861869": 40,
+          "0.0195080646": 33,
+          "0.0218299423": 4,
+          "0.024151819999999997": 15
+        },
+        "latencyPercentiles": {
+          "p10": 0.004573181,
+          "p25": 0.004873259,
+          "p50": 0.005208091,
+          "p75": 0.005636261,
+          "p90": 0.006246053,
+          "p95": 0.006759904,
+          "p99": 0.008251432,
+          "p99.9": 0.011080138,
+          "p99.99": 0.017227425
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 95662.51645968725,
+          "stddev": 8618.400639791033,
+          "max": 132824.53269118813,
+          "min": 15002.544431535589,
+          "percentiles": {
+            "p10": 86607.67654759395,
+            "p25": 91122.33142821041,
+            "p50": 95859.33785262666,
+            "p75": 100601.4263580493,
+            "p90": 104503.15413163161,
+            "p95": 107749.94755334032,
+            "p99": 116306.32706419224,
+            "p99.9": 132824.53269118813,
+            "p99.99": 132824.53269118813
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00033052954955164386,
+            "fastest": 1.5008e-05,
+            "slowest": 0.018078513
+          },
+          "DNSLookup": {
+            "average": 3.5414651694830685e-06,
+            "fastest": 6.11e-07,
+            "slowest": 0.003165141
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 478632
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 507
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 512,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.005849824,
+          "slowest": 0.040502562,
+          "fastest": 0.001228671,
+          "average": 0.005844941861198985,
+          "requestsPerSec": 87320.6379273115,
+          "totalData": 873206,
+          "sizePerRequest": 2,
+          "sizePerSec": 174437.11471596875
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 87320.6379273115,
+          "latency_ms": {
+            "min": 1.229,
+            "mean": 5.845,
+            "p50": 5.757,
+            "p95": 6.977,
+            "p99": 8.243,
+            "max": 40.503
+          }
+        },
+        "responseTimeHistogram": {
+          "0.001228671": 1,
+          "0.005156060099999999": 40066,
+          "0.0090834492": 394617,
+          "0.013010838299999999": 1485,
+          "0.0169382274": 2,
+          "0.020865616499999996": 90,
+          "0.024793005599999998": 202,
+          "0.0287203947": 0,
+          "0.032647783799999996": 0,
+          "0.036575172899999994": 0,
+          "0.04050256199999999": 140
+        },
+        "latencyPercentiles": {
+          "p10": 0.00518097,
+          "p25": 0.005465938,
+          "p50": 0.005756567,
+          "p75": 0.006068006,
+          "p90": 0.006542303,
+          "p95": 0.006977194,
+          "p99": 0.008242905,
+          "p99.9": 0.012844981,
+          "p99.99": 0.037785929
+        },
+        "firstByteHistogram": {
+          "0.000929937": 1,
+          "0.004842002099999999": 19655,
+          "0.0087540672": 415896,
+          "0.012666132299999999": 616,
+          "0.016578197399999998": 3,
+          "0.0204902625": 107,
+          "0.024402327599999996": 185,
+          "0.028314392699999996": 0,
+          "0.0322264578": 0,
+          "0.0361385229": 0,
+          "0.040050588": 140
+        },
+        "firstBytePercentiles": {
+          "p10": 0.005067856,
+          "p25": 0.005369957,
+          "p50": 0.005659584,
+          "p75": 0.005946155,
+          "p90": 0.006285727,
+          "p95": 0.006578931,
+          "p99": 0.007473261,
+          "p99.9": 0.012202827,
+          "p99.99": 0.037301052
+        },
+        "rps": {
+          "mean": 87425.28196121947,
+          "stddev": 7643.672543368595,
+          "max": 135199.76390578607,
+          "min": 51.797556502069575,
+          "percentiles": {
+            "p10": 79203.04405714777,
+            "p25": 84069.3572197063,
+            "p50": 87762.6241425357,
+            "p75": 91109.22173501602,
+            "p90": 95171.45472820922,
+            "p95": 97828.66379849245,
+            "p99": 102611.38465804626,
+            "p99.9": 135199.76390578607,
+            "p99.99": 135199.76390578607
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0001717175824078129,
+            "fastest": 1.3205e-05,
+            "slowest": 0.035922889
+          },
+          "DNSLookup": {
+            "average": 4.215152424513797e-06,
+            "fastest": 5.61e-07,
+            "slowest": 0.001657061
+          },
+          "firstByte": {
+            "average": 0.005694158982345342,
+            "fastest": 0.000929937,
+            "slowest": 0.040050588
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 436603
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 511
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 512,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.005437467,
+          "slowest": 0.028857888,
+          "fastest": 0.001583993,
+          "average": 0.005876690074593114,
+          "requestsPerSec": 86894.90236718205,
+          "totalData": 868876,
+          "sizePerRequest": 2,
+          "sizePerSec": 173586.425907496
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 86894.90236718205,
+          "latency_ms": {
+            "min": 1.584,
+            "mean": 5.877,
+            "p50": 5.758,
+            "p95": 7.152,
+            "p99": 8.679,
+            "max": 28.858
+          }
+        },
+        "responseTimeHistogram": {
+          "0.001583993": 1,
+          "0.0043113825000000005": 3164,
+          "0.007038772": 406104,
+          "0.009766161500000002": 23936,
+          "0.012493551000000002": 830,
+          "0.015220940500000002": 241,
+          "0.017948330000000002": 71,
+          "0.020675719500000002": 6,
+          "0.023403109000000002": 0,
+          "0.026130498500000002": 33,
+          "0.028857888": 52
+        },
+        "latencyPercentiles": {
+          "p10": 0.00522889,
+          "p25": 0.005495804,
+          "p50": 0.005757569,
+          "p75": 0.006092993,
+          "p90": 0.006645496,
+          "p95": 0.007152013,
+          "p99": 0.008678588,
+          "p99.9": 0.012083292,
+          "p99.99": 0.026246493
+        },
+        "firstByteHistogram": {
+          "0.001049413": 1,
+          "0.0038121561999999998": 2345,
+          "0.0065748994": 402342,
+          "0.009337642599999998": 28882,
+          "0.012100385799999998": 486,
+          "0.014863129": 236,
+          "0.017625872199999996": 53,
+          "0.020388615399999997": 8,
+          "0.023151358599999998": 0,
+          "0.0259141018": 46,
+          "0.028676845": 39
+        },
+        "firstBytePercentiles": {
+          "p10": 0.005129111,
+          "p25": 0.005404582,
+          "p50": 0.005660626,
+          "p75": 0.005942819,
+          "p90": 0.006378672,
+          "p95": 0.006760313,
+          "p99": 0.008030995,
+          "p99.9": 0.011367298,
+          "p99.99": 0.025836929
+        },
+        "rps": {
+          "mean": 86969.28069621274,
+          "stddev": 8445.478446349498,
+          "max": 147488.0060932359,
+          "min": 69.1309930003487,
+          "percentiles": {
+            "p10": 78057.44247191359,
+            "p25": 83621.07251027257,
+            "p50": 87602.29319776733,
+            "p75": 91159.41770846189,
+            "p90": 94494.53233014306,
+            "p95": 97160.76219713135,
+            "p99": 103632.03266129563,
+            "p99.9": 147488.0060932359,
+            "p99.99": 147488.0060932359
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0001606332772317353,
+            "fastest": 1.3846e-05,
+            "slowest": 0.025085109
+          },
+          "DNSLookup": {
+            "average": 4.229511499915094e-06,
+            "fastest": 6.61e-07,
+            "slowest": 0.002115898
+          },
+          "firstByte": {
+            "average": 0.005726361922746108,
+            "fastest": 0.001049413,
+            "slowest": 0.028676845
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 434438
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 509
+        }
+      }
+    },
+    {
+      "route": "GET:/user/42",
+      "concurrency": 512,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "GET",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user/42"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.0063947,
+          "slowest": 0.028008731,
+          "fastest": 0.001273506,
+          "average": 0.005849889346394625,
+          "requestsPerSec": 87256.40429429185,
+          "totalData": 872658,
+          "sizePerRequest": 2,
+          "sizePerSec": 174308.66967001223
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 87256.40429429185,
+          "latency_ms": {
+            "min": 1.274,
+            "mean": 5.85,
+            "p50": 5.77,
+            "p95": 6.981,
+            "p99": 8.275,
+            "max": 28.009
+          }
+        },
+        "responseTimeHistogram": {
+          "0.001273506": 1,
+          "0.0039470285": 1857,
+          "0.006620551": 397067,
+          "0.0092940735": 35738,
+          "0.011967596": 1230,
+          "0.014641118500000001": 209,
+          "0.017314641": 4,
+          "0.0199881635": 115,
+          "0.022661686": 0,
+          "0.0253352085": 0,
+          "0.028008731000000002": 108
+        },
+        "latencyPercentiles": {
+          "p10": 0.005219111,
+          "p25": 0.005512997,
+          "p50": 0.005769782,
+          "p75": 0.006053919,
+          "p90": 0.006525259,
+          "p95": 0.006981381,
+          "p99": 0.008274654,
+          "p99.9": 0.011953776,
+          "p99.99": 0.027530146
+        },
+        "firstByteHistogram": {
+          "0.000886254": 1,
+          "0.0035610059": 1527,
+          "0.0062357578": 385576,
+          "0.0089105097": 48272,
+          "0.0115852616": 544,
+          "0.014260013500000002": 182,
+          "0.0169347654": 4,
+          "0.0196095173": 115,
+          "0.0222842692": 0,
+          "0.024959021100000003": 0,
+          "0.027633773000000004": 108
+        },
+        "firstBytePercentiles": {
+          "p10": 0.005114624,
+          "p25": 0.005419951,
+          "p50": 0.005686825,
+          "p75": 0.005940384,
+          "p90": 0.006288522,
+          "p95": 0.006614798,
+          "p99": 0.007565083,
+          "p99.9": 0.011170485,
+          "p99.99": 0.027097229
+        },
+        "rps": {
+          "mean": 87381.97206977419,
+          "stddev": 7671.041219566686,
+          "max": 138503.60069331859,
+          "min": 54.47672571780304,
+          "percentiles": {
+            "p10": 80400.61104464444,
+            "p25": 84410.9243957441,
+            "p50": 87733.77541797883,
+            "p75": 90518.64684125046,
+            "p90": 94135.11212643363,
+            "p95": 96656.51506435753,
+            "p99": 104654.78678087983,
+            "p99.9": 138503.60069331859,
+            "p99.99": 138503.60069331859
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.00015056901675799988,
+            "fastest": 1.2052e-05,
+            "slowest": 0.026152063
+          },
+          "DNSLookup": {
+            "average": 4.2138631147596296e-06,
+            "fastest": 5.31e-07,
+            "slowest": 0.00194798
+          },
+          "firstByte": {
+            "average": 0.005712512712840522,
+            "fastest": 0.000886254,
+            "slowest": 0.027633773
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 436329
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 511
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 512,
+      "repeat": 1,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.006409512,
+          "slowest": 0.032467792,
+          "fastest": 0.001483533,
+          "average": 0.005121029392818282,
+          "requestsPerSec": 99666.63709870324,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 99666.63709870324,
+          "latency_ms": {
+            "min": 1.484,
+            "mean": 5.121,
+            "p50": 5.017,
+            "p95": 6.274,
+            "p99": 7.42,
+            "max": 32.468
+          }
+        },
+        "responseTimeHistogram": {
+          "0.001483533": 1,
+          "0.0045819589": 71797,
+          "0.0076803848000000004": 423045,
+          "0.010778810700000002": 3189,
+          "0.013877236600000002": 66,
+          "0.016975662500000002": 107,
+          "0.020074088400000002": 137,
+          "0.023172514300000002": 0,
+          "0.026270940200000002": 0,
+          "0.029369366100000002": 86,
+          "0.032467792": 34
+        },
+        "latencyPercentiles": {
+          "p10": 0.00448815,
+          "p25": 0.004738242,
+          "p50": 0.005017439,
+          "p75": 0.005345379,
+          "p90": 0.005836537,
+          "p95": 0.006273593,
+          "p99": 0.007420099,
+          "p99.9": 0.009853847,
+          "p99.99": 0.028889271
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 99822.30272926635,
+          "stddev": 8694.812772709978,
+          "max": 127143.9027896332,
+          "min": 55.24581376227362,
+          "percentiles": {
+            "p10": 90691.1082873863,
+            "p25": 95697.6690410233,
+            "p50": 99822.18048850664,
+            "p75": 104827.48576676803,
+            "p90": 109250.85627359548,
+            "p95": 112021.39758856958,
+            "p99": 121610.93282286065,
+            "p99.9": 127143.9027896332,
+            "p99.99": 127143.9027896332
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0002483992931798128,
+            "fastest": 1.627e-05,
+            "slowest": 0.027341357
+          },
+          "DNSLookup": {
+            "average": 3.869347298289688e-06,
+            "fastest": 6.51e-07,
+            "slowest": 0.002242567
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 498462
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 510
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 512,
+      "repeat": 2,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.00623527,
+          "slowest": 0.027923004,
+          "fastest": 0.001272484,
+          "average": 0.005127730630433197,
+          "requestsPerSec": 99572.62755651513,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 99572.62755651513,
+          "latency_ms": {
+            "min": 1.272,
+            "mean": 5.128,
+            "p50": 5.035,
+            "p95": 6.352,
+            "p99": 7.668,
+            "max": 27.923
+          }
+        },
+        "responseTimeHistogram": {
+          "0.001272484": 1,
+          "0.003937536": 7023,
+          "0.006602588": 473345,
+          "0.00926764": 16544,
+          "0.011932692000000002": 691,
+          "0.014597744000000003": 152,
+          "0.017262796": 33,
+          "0.019927848": 102,
+          "0.022592900000000003": 0,
+          "0.025257952000000004": 0,
+          "0.027923004000000005": 84
+        },
+        "latencyPercentiles": {
+          "p10": 0.004472881,
+          "p25": 0.004750675,
+          "p50": 0.005034882,
+          "p75": 0.005346721,
+          "p90": 0.005867245,
+          "p95": 0.006352321,
+          "p99": 0.007667596,
+          "p99.9": 0.010762002,
+          "p99.99": 0.027395628
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 99541.65663631028,
+          "stddev": 9506.605381755804,
+          "max": 151301.61892732253,
+          "min": 75.43420873475334,
+          "percentiles": {
+            "p10": 90791.54291809091,
+            "p25": 95335.78905521093,
+            "p50": 99624.02931587152,
+            "p75": 103813.23948163025,
+            "p90": 109037.14488641414,
+            "p95": 112358.69542141331,
+            "p99": 119189.04613636849,
+            "p99.9": 151301.61892732253,
+            "p99.99": 151301.61892732253
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0002494149128610871,
+            "fastest": 1.4828e-05,
+            "slowest": 0.02605217
+          },
+          "DNSLookup": {
+            "average": 3.861488566695132e-06,
+            "fastest": 5.71e-07,
+            "slowest": 0.00309639
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 497975
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 509
+        }
+      }
+    },
+    {
+      "route": "POST:/user",
+      "concurrency": 512,
+      "repeat": 3,
+      "command": [
+        "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/harness/framework/.bin/oha",
+        "-z",
+        "5s",
+        "-c",
+        "512",
+        "-m",
+        "POST",
+        "--disable-keepalive",
+        "--latency-correction",
+        "--no-tui",
+        "--output-format",
+        "json",
+        "http://localhost:17730/user"
+      ],
+      "result": {
+        "summary": {
+          "successRate": 1.0,
+          "total": 5.008574872,
+          "slowest": 0.027629668,
+          "fastest": 0.001371641,
+          "average": 0.005152752007878593,
+          "requestsPerSec": 99085.07163871745,
+          "totalData": 0,
+          "sizePerRequest": 0,
+          "sizePerSec": 0.0
+        },
+        "metrics": {
+          "success_rate": 1.0,
+          "requests_per_sec": 99085.07163871745,
+          "latency_ms": {
+            "min": 1.372,
+            "mean": 5.153,
+            "p50": 5.063,
+            "p95": 6.35,
+            "p99": 7.656,
+            "max": 27.63
+          }
+        },
+        "responseTimeHistogram": {
+          "0.001371641": 1,
+          "0.0039974437": 8036,
+          "0.0066232463999999994": 470590,
+          "0.0092490491": 16053,
+          "0.011874851799999999": 675,
+          "0.014500654499999998": 78,
+          "0.0171264572": 214,
+          "0.0197522599": 0,
+          "0.022378062599999998": 0,
+          "0.025003865299999997": 0,
+          "0.027629667999999996": 117
+        },
+        "latencyPercentiles": {
+          "p10": 0.004500973,
+          "p25": 0.004773679,
+          "p50": 0.005063345,
+          "p75": 0.005369484,
+          "p90": 0.005867064,
+          "p95": 0.006350077,
+          "p99": 0.007655503,
+          "p99.9": 0.010611247,
+          "p99.99": 0.027021179
+        },
+        "firstByteHistogram": {
+          "NaN": 0
+        },
+        "firstBytePercentiles": {
+          "p10": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "p90": null,
+          "p95": null,
+          "p99": null,
+          "p99.9": null,
+          "p99.99": null
+        },
+        "rps": {
+          "mean": 99188.95409970712,
+          "stddev": 9160.522225003895,
+          "max": 153869.68749136545,
+          "min": 66.03043263403583,
+          "percentiles": {
+            "p10": 89604.29940450758,
+            "p25": 95220.49144975758,
+            "p50": 99153.02703885549,
+            "p75": 103828.59439489446,
+            "p90": 108441.15341772194,
+            "p95": 111522.10555336761,
+            "p99": 120835.56190586784,
+            "p99.9": 153869.68749136545,
+            "p99.99": 153869.68749136545
+          }
+        },
+        "details": {
+          "DNSDialup": {
+            "average": 0.0002543628826679608,
+            "fastest": 1.2574e-05,
+            "slowest": 0.025620793
+          },
+          "DNSLookup": {
+            "average": 3.807355582494922e-06,
+            "fastest": 5.51e-07,
+            "slowest": 0.003315784
+          },
+          "firstByte": {
+            "average": null,
+            "fastest": null,
+            "slowest": null
+          }
+        },
+        "statusCodeDistribution": {
+          "200": 495764
+        },
+        "errorDistribution": {
+          "aborted due to deadline": 511
+        }
+      }
+    }
+  ],
+  "methodology": "Served on node v26.8.1. oha oha 1.16.0: per route for 5s, keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run 3x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by 8 worker process(es) on 16 cores. Levels + routes configurable, matching upstream. Raw samples retain oha data; latency_range is slowest minus fastest.",
   "concurrencyModel": {
     "workers": 8,
     "cores": 16,
-    "note": "A JS runtime runs one thread per process, so worker count is the core count this framework can use; all three supported runtimes (node, bun, deno) fork via node:cluster and accept from a shared listening socket. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
+    "note": "The server workers and oha share this machine. Worker count is recorded per run; no scaling or competitor performance is inferred from this measurement."
   },
   "repeats": 3,
-  "generatedAt": "2026-09-01T19:50:24Z",
+  "generatedAt": "2026-09-08T11:58:13Z",
   "machine": "Linux x86_64, 16 cores, node v26.8.1",
   "contract": [
     {
@@ -37,7 +3466,7 @@
       "pass": true
     }
   ],
-  "contractVerdict": "PASSED — @zmdb/web fulfills the the-benchmarker/web-frameworks shared contract (verified by contract-check.mjs before load).",
+  "contractVerdict": "PASSED \u2014 @zmdb/web fulfills the the-benchmarker/web-frameworks shared contract (verified by contract-check.mjs before load).",
   "throughput": {
     "measured": true
   },
@@ -45,49 +3474,49 @@
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 93646.97564925296,
+      "value": 88246.68346937993,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.00068121920475454,
+      "value": 0.0007230044176095846,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.000585572,
+      "value": 0.000550101,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.000736096,
+      "value": 0.000788933,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.00102005,
+      "value": 0.001285542,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.002202095,
+      "value": 0.002581243,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.005297622,
+      "value": 0.005330643,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 1404978,
+      "value": 441331,
       "route": "GET:/"
     },
     {
@@ -104,26 +3533,26 @@
     },
     {
       "level": 64,
-      "label": "standard_deviation",
-      "value": 0.010603941,
+      "label": "latency_range",
+      "value": 0.007746273000000001,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15002.919104,
+      "value": 5001.105794,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "requests_per_s_min",
-      "value": 92715.74044356593,
+      "value": 87024.52909986729,
       "route": "GET:/"
     },
     {
       "level": 64,
       "label": "requests_per_s_max",
-      "value": 94390.17157652316,
+      "value": 88886.87358878077,
       "route": "GET:/"
     },
     {
@@ -135,55 +3564,55 @@
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 85843.5748934989,
+      "value": 89244.95680384006,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.000742499462739156,
+      "value": 0.0007143578765544594,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.00069611,
+      "value": 0.000653766,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.000760352,
+      "value": 0.000722847,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.000889956,
+      "value": 0.000941911,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.001985267,
+      "value": 0.002024248,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.005043235,
+      "value": 0.005289834,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 1288167,
+      "value": 446433,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "total_bytes_received",
-      "value": 2576216,
+      "value": 892750,
       "route": "GET:/user/42"
     },
     {
@@ -194,26 +3623,26 @@
     },
     {
       "level": 64,
-      "label": "standard_deviation",
-      "value": 0.00891319,
+      "label": "latency_range",
+      "value": 0.008948773,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15005.980373,
+      "value": 5002.333084,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "requests_per_s_min",
-      "value": 84649.85389710897,
+      "value": 88496.32579588158,
       "route": "GET:/user/42"
     },
     {
       "level": 64,
       "label": "requests_per_s_max",
-      "value": 89472.57531596492,
+      "value": 92758.1111070855,
       "route": "GET:/user/42"
     },
     {
@@ -225,49 +3654,49 @@
     {
       "level": 64,
       "label": "total_requests_per_s",
-      "value": 81098.44813022987,
+      "value": 86046.52077111616,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "average_latency",
-      "value": 0.000786633771798919,
+      "value": 0.0007411442275411317,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile50",
-      "value": 0.000671354,
+      "value": 0.000610754,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile75",
-      "value": 0.000858035,
+      "value": 0.000771398,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile90",
-      "value": 0.001193157,
+      "value": 0.001153492,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile99",
-      "value": 0.002475561,
+      "value": 0.002604104,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "percentile99999",
-      "value": 0.007457101,
+      "value": 0.005495992,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "total_requests",
-      "value": 1216823,
+      "value": 430388,
       "route": "POST:/user"
     },
     {
@@ -284,26 +3713,26 @@
     },
     {
       "level": 64,
-      "label": "standard_deviation",
-      "value": 0.011295518000000001,
+      "label": "latency_range",
+      "value": 0.0076242670000000005,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "duration_ms",
-      "value": 15004.269848,
+      "value": 5001.805955,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "requests_per_s_min",
-      "value": 78615.45087140813,
+      "value": 82718.98087643718,
       "route": "POST:/user"
     },
     {
       "level": 64,
       "label": "requests_per_s_max",
-      "value": 81427.45379214114,
+      "value": 87010.22769887028,
       "route": "POST:/user"
     },
     {
@@ -315,49 +3744,49 @@
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 97502.76791320836,
+      "value": 104328.04078447315,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.002622165092433331,
+      "value": 0.0024493738699931655,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.002505518,
+      "value": 0.002357727,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.002682401,
+      "value": 0.002531606,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.003169127,
+      "value": 0.002934337,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.004849152,
+      "value": 0.004706427,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.009533823,
+      "value": 0.01820669,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 1462951,
+      "value": 521936,
       "route": "GET:/"
     },
     {
@@ -374,26 +3803,26 @@
     },
     {
       "level": 256,
-      "label": "standard_deviation",
-      "value": 0.012784976,
+      "label": "latency_range",
+      "value": 0.018263386,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15004.199689,
+      "value": 5002.83525,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "requests_per_s_min",
-      "value": 83797.24097650062,
+      "value": 103811.33295133317,
       "route": "GET:/"
     },
     {
       "level": 256,
       "label": "requests_per_s_max",
-      "value": 98741.23765850054,
+      "value": 104823.86762428554,
       "route": "GET:/"
     },
     {
@@ -405,55 +3834,55 @@
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 83104.87270539555,
+      "value": 90606.10154987464,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.003076228558498431,
+      "value": 0.0028201023245449488,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.002885854,
+      "value": 0.002763344,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.003168026,
+      "value": 0.002933305,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.003898933,
+      "value": 0.003264381,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.006317337,
+      "value": 0.004772681,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.01323302,
+      "value": 0.010558709,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 1247289,
+      "value": 453392,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "total_bytes_received",
-      "value": 2494080,
+      "value": 906272,
       "route": "GET:/user/42"
     },
     {
@@ -464,26 +3893,26 @@
     },
     {
       "level": 256,
-      "label": "standard_deviation",
-      "value": 0.016481457999999997,
+      "label": "latency_range",
+      "value": 0.011811669,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15008.614529999999,
+      "value": 5003.9897120000005,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "requests_per_s_min",
-      "value": 80103.89991632142,
+      "value": 90076.28207607655,
       "route": "GET:/user/42"
     },
     {
       "level": 256,
       "label": "requests_per_s_max",
-      "value": 86694.6613272382,
+      "value": 90868.83508026505,
       "route": "GET:/user/42"
     },
     {
@@ -495,49 +3924,49 @@
     {
       "level": 256,
       "label": "total_requests_per_s",
-      "value": 93697.49348147628,
+      "value": 100656.61566570144,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "average_latency",
-      "value": 0.002728409970150583,
+      "value": 0.002538340120018553,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile50",
-      "value": 0.002583144,
+      "value": 0.002454689,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile75",
-      "value": 0.002796758,
+      "value": 0.002619721,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile90",
-      "value": 0.003361341,
+      "value": 0.002974662,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile99",
-      "value": 0.005460684,
+      "value": 0.004782198,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "percentile99999",
-      "value": 0.01364065,
+      "value": 0.013213623,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "total_requests",
-      "value": 1405974,
+      "value": 503711,
       "route": "POST:/user"
     },
     {
@@ -554,26 +3983,26 @@
     },
     {
       "level": 256,
-      "label": "standard_deviation",
-      "value": 0.023164386,
+      "label": "latency_range",
+      "value": 0.013489185,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "duration_ms",
-      "value": 15005.460101,
+      "value": 5004.251302000001,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "requests_per_s_min",
-      "value": 90491.72172786141,
+      "value": 100639.03887647607,
       "route": "POST:/user"
     },
     {
       "level": 256,
       "label": "requests_per_s_max",
-      "value": 97724.84806320608,
+      "value": 102292.50482235552,
       "route": "POST:/user"
     },
     {
@@ -585,49 +4014,49 @@
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 98319.03051333122,
+      "value": 95738.72507314684,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.005200445358062404,
+      "value": 0.005337410677967681,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.005071662,
+      "value": 0.005208091,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.00538928,
+      "value": 0.005636261,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.006052029,
+      "value": 0.006246053,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.00782103,
+      "value": 0.008251432,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.019805752,
+      "value": 0.017227425,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 1475464,
+      "value": 479139,
       "route": "GET:/"
     },
     {
@@ -644,26 +4073,26 @@
     },
     {
       "level": 512,
-      "label": "standard_deviation",
-      "value": 0.032033794,
+      "label": "latency_range",
+      "value": 0.023218777,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15006.901434,
+      "value": 5004.651980000001,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "requests_per_s_min",
-      "value": 94703.11953144593,
+      "value": 94463.07986113147,
       "route": "GET:/"
     },
     {
       "level": 512,
       "label": "requests_per_s_max",
-      "value": 98495.0807525765,
+      "value": 96708.657999448,
       "route": "GET:/"
     },
     {
@@ -675,55 +4104,55 @@
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 75832.70042824761,
+      "value": 87256.40429429185,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.006743108565529906,
+      "value": 0.005849889346394625,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.006431654,
+      "value": 0.005769782,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.007103851,
+      "value": 0.006053919,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.007973568,
+      "value": 0.006525259,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.012466733,
+      "value": 0.008274654,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.029808707,
+      "value": 0.027530146,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 1138048,
+      "value": 436840,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "total_bytes_received",
-      "value": 2275080,
+      "value": 872658,
       "route": "GET:/user/42"
     },
     {
@@ -734,26 +4163,26 @@
     },
     {
       "level": 512,
-      "label": "standard_deviation",
-      "value": 0.030805242999999996,
+      "label": "latency_range",
+      "value": 0.026735224999999998,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15007.351625,
+      "value": 5006.394700000001,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "requests_per_s_min",
-      "value": 74543.36114761936,
+      "value": 86894.90236718205,
       "route": "GET:/user/42"
     },
     {
       "level": 512,
       "label": "requests_per_s_max",
-      "value": 79807.79731563204,
+      "value": 87320.6379273115,
       "route": "GET:/user/42"
     },
     {
@@ -765,49 +4194,49 @@
     {
       "level": 512,
       "label": "total_requests_per_s",
-      "value": 97978.40346363831,
+      "value": 99572.62755651513,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "average_latency",
-      "value": 0.005218763740191782,
+      "value": 0.005127730630433197,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile50",
-      "value": 0.00508607,
+      "value": 0.005034882,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile75",
-      "value": 0.005391055,
+      "value": 0.005346721,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile90",
-      "value": 0.006090813,
+      "value": 0.005867245,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile99",
-      "value": 0.008007844,
+      "value": 0.007667596,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "percentile99999",
-      "value": 0.017421697,
+      "value": 0.027395628,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "total_requests",
-      "value": 1470369,
+      "value": 498484,
       "route": "POST:/user"
     },
     {
@@ -824,26 +4253,26 @@
     },
     {
       "level": 512,
-      "label": "standard_deviation",
-      "value": 0.027387128,
+      "label": "latency_range",
+      "value": 0.02665052,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "duration_ms",
-      "value": 15007.072457,
+      "value": 5006.23527,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "requests_per_s_min",
-      "value": 97374.53559557573,
+      "value": 99085.07163871745,
       "route": "POST:/user"
     },
     {
       "level": 512,
       "label": "requests_per_s_max",
-      "value": 98217.72766181572,
+      "value": 99666.63709870324,
       "route": "POST:/user"
     },
     {

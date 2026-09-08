@@ -1,26 +1,33 @@
 # Benchmark Results (real upstream suites, complete accounting)
 
-> zmdb run inside the **actual upstream benchmark harnesses** against **real competitor libraries**. Reproduction: [`harness/`](./harness). Environment: local dev box, Node 26.8.1, real PostgreSQL 16
-> (podman).
+> Historical upstream comparisons used **real competitor libraries** on the local development machine, Node 26.8.1 and PostgreSQL 16 (Podman). Reproduction: [`harness/`](./harness). The 2026-09-08
+> refresh below covers only zmdb startup, observability and Node HTTP. Other ORM, validation, peer and cross-runtime results remain historical; no competitors were rerun.
 >
 > 📊 **Interactive dashboard** (charts, Node/Bun/Deno tabs): https://ambasta.github.io/zmdb/benchmarks/ — source in [`site/`](./site), built + deployed via GitHub Pages (docs at the root, benchmarks
 > under `/benchmarks/`).
 
 ---
 
+## Application startup — before and after the app extraction
+
+The [startup capture](./site/app-startup.json) compares clean revisions `7eb865f1` (immediately before the app extraction) and `409b1ba2` on Node 26.8.1. Eight alternating samples per revision
+measured 20,000 eager HTTP application creations after 5,000 warmup iterations. Median creation time was 1.760 µs before and 1.617 µs after, an observed 8.13% reduction for one module with one value
+provider. Imports, init hooks and request handling are excluded; this is not a cold-process startup result. Use `node benchmarks/scripts/app-startup.mjs --quick` for a short diagnostic; the capture
+records the full comparison command and each revision's source paths.
+
 ## Observability overhead — off, API no-op and recording exporter
 
-Measured on 2026-09-05 with Node 26.8.1 on an AMD Ryzen 7 7840U, `@opentelemetry/api` 1.9.1 and `@opentelemetry/sdk-trace-base` 2.11.0. Each row is the median of six samples after 750 ms of warmup per
+Measured on 2026-09-08 with Node 26.8.1 on an AMD Ryzen 7 7840U, `@opentelemetry/api` 1.9.1 and `@opentelemetry/sdk-trace-base` 2.11.0. Each row is the median of six samples after 750 ms of warmup per
 workload/mode. The runner uses all six mode permutations, placing every mode twice in every ordinal position, and calibrates one 250 ms off-path iteration count that all three modes share.
 
 | workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       330.10 |      3029418 |        baseline |                 0 |         1.066x |
-| request  | API no-op          |      1207.65 |       828052 |         +265.8% |                 0 |         1.066x |
-| request  | recording exporter |      6498.62 |       153879 |        +1868.7% |                 3 |         1.055x |
-| query    | off                |        70.49 |     14185610 |        baseline |                 0 |         1.088x |
-| query    | API no-op          |       315.43 |      3170305 |         +347.5% |                 0 |         1.142x |
-| query    | recording exporter |      2454.04 |       407491 |        +3381.2% |                 1 |         1.023x |
+| request  | off                |       316.94 |      3155171 |        baseline |                 0 |         1.056x |
+| request  | API no-op          |      1157.17 |       864177 |         +265.1% |                 0 |         1.021x |
+| request  | recording exporter |      6052.64 |       165217 |        +1809.7% |                 3 |         1.037x |
+| query    | off                |        71.39 |     14007930 |        baseline |                 0 |         1.040x |
+| query    | API no-op          |       292.32 |      3420923 |         +309.5% |                 0 |         1.033x |
+| query    | recording exporter |      2295.18 |       435696 |        +3115.1% |                 1 |         1.015x |
 
 The request workload consumes one matched `GET` response and exports the server, route and handler spans. The query workload consumes one compiled `SELECT` result through `tracedDriver` and exports
 one client span. The recording case is a real `BasicTracerProvider` plus `SimpleSpanProcessor` and a bounded exporter; exporter flush/reset are outside the timed interval, and metrics are disabled in
@@ -49,7 +56,7 @@ runtime provenance and a SHA-256 manifest of every benchmark input.
 
 ---
 
-## ORM — drizzle-benchmarks (real methodology: HTTP servers + k6)
+## Historical ORM — drizzle-benchmarks (HTTP servers + k6, PostgreSQL 16)
 
 This is the upstream method: one **HTTP server per ORM** (each using its own query builder over the same `pg` pool + real Northwind data — 10k customers / 50k orders / 308k order-details), driven by
 the upstream **k6** request replay (`data/requests.json`). Servers built from the upstream routes; run via the harness in `harness/orm/`.
@@ -340,12 +347,12 @@ Classification (full write-up on the [dashboard](https://ambasta.github.io/zmdb/
 ## Framework (HTTP) — the-benchmarker/web-frameworks (real contract + oha)
 
 `@zmdb/web` (the Stage-3 decorator web framework) participates in **[the-benchmarker/web-frameworks](https://github.com/the-benchmarker/web-frameworks)** under its exact shared contract, driven with
-the upstream methodology (`oha`, `GET /` 15s, keep-alive disabled, latency-corrected, JSON report; configurable concurrency + routes). Harness: [`harness/framework/`](./harness/framework) (SPEC:
+the upstream methodology (`oha`, keep-alive disabled, latency-corrected, JSON report; configurable duration, concurrency and routes). Harness: [`harness/framework/`](./harness/framework) (SPEC:
 [`framework/SPEC.md`](./harness/framework/SPEC.md)).
 
 ### Contract compliance — verified (the RSpec-equivalent check)
 
-The app on port `3000` passes all shared-contract assertions before any load run:
+The app passes all shared-contract assertions before any load run (port `3000` by default; `17730` in the current capture):
 
 | Method | Route       | Status | Body     | Result        |
 | ------ | ----------- | ------ | -------- | ------------- |
@@ -359,8 +366,10 @@ once at boot, route patterns compiled at boot by `compilePattern` and matched pe
 ### Throughput & latency — measured (real oha, `oha` auto-downloaded)
 
 `run.sh` auto-downloads a pinned `oha` prebuilt binary (linux amd64/arm64) when absent, then runs the upstream methodology — concurrency **64/256/512** × the three contract routes, keep-alive
-disabled, latency-corrected — and emits `framework-results.json` in the-benchmarker `data.min.json` shape (req/s, average, p50/p75/p90/p99/p99999, totals, `http_errors`, stddev, duration). The shipped
-dataset was measured on **Linux x86_64, Node 26.8.1**, every route returning **0 HTTP errors**.
+disabled, latency-corrected — and emits `framework-results.json` with req/s, latency percentiles, totals, `http_errors`, latency range and duration. The 2026-09-08
+[capture](./site/framework-results.json) uses **Linux x86_64, Node 26.8.1, oha 1.16.0 and eight workers**. Each cell has three 5-second samples after one discarded warmup, with 2-second settling
+intervals. All 27 raw reports are retained; completed responses have **0 HTTP errors**, and oha's `aborted due to deadline` counts remain in the raw reports. The app bundles the current public sources
+with esbuild; this is not a packed-install measurement. Historical peer and Bun/Deno captures retain their original dates and methodology in the normalized data.
 
 ```sh
 bash benchmarks/harness/framework/run.sh          # levels 64/256/512, 3 routes, cores/2 workers
@@ -412,7 +421,7 @@ workers. The Go and Rust peers do take every core and are not penalised for it, 
 Note what the table also says: scaling is **sublinear** — 8× the cores returns 3.58×, and per-core throughput falls monotonically. Node's per-connection cost, not `@zmdb/web`'s routing, is what does
 not parallelise here. `WORKERS=1` pins it to one core for a per-core reading.
 
-### Same-machine, apples-to-apples peer head-to-head
+### Historical same-machine peer head-to-head
 
 Because "context, different machine" numbers only go so far, `peers/peers-run.sh` builds and load-tests **17 real peer frameworks on this same box** with the **identical** `oha` invocation, levels,
 routes, and duration as `@zmdb/web`, and verifies each peer's shared contract **before** recording a single number:

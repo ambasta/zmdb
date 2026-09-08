@@ -64,18 +64,21 @@ const BENCHMARK_INPUTS = [
   'packages/web/src/routing/index.ts',
 ];
 
-const writeFinal = parseArgs(process.argv.slice(2));
-const warmupMs = positiveNumber(process.env.ZMDB_OBSERVABILITY_WARMUP_MS ?? '750', 'ZMDB_OBSERVABILITY_WARMUP_MS');
+const { writeFinal, quick } = parseArgs(process.argv.slice(2));
+const warmupMs = positiveNumber(
+  process.env.ZMDB_OBSERVABILITY_WARMUP_MS ?? (quick ? '5' : '750'),
+  'ZMDB_OBSERVABILITY_WARMUP_MS',
+);
 const targetSampleMs = positiveNumber(
-  process.env.ZMDB_OBSERVABILITY_SAMPLE_MS ?? '250',
+  process.env.ZMDB_OBSERVABILITY_SAMPLE_MS ?? (quick ? '5' : '250'),
   'ZMDB_OBSERVABILITY_SAMPLE_MS',
 );
 const warmupBatchIters = positiveInteger(
-  process.env.ZMDB_OBSERVABILITY_WARMUP_BATCH ?? '50000',
+  process.env.ZMDB_OBSERVABILITY_WARMUP_BATCH ?? (quick ? '100' : '50000'),
   'ZMDB_OBSERVABILITY_WARMUP_BATCH',
 );
 const maxSampleIters = positiveInteger(
-  process.env.ZMDB_OBSERVABILITY_MAX_ITERS ?? '10000000',
+  process.env.ZMDB_OBSERVABILITY_MAX_ITERS ?? (quick ? '1000' : '10000000'),
   'ZMDB_OBSERVABILITY_MAX_ITERS',
 );
 const explicitIters =
@@ -161,6 +164,7 @@ async function measure(cases) {
     suite: '@zmdb/web observability overhead',
     publicationStatus: writeFinal ? 'final' : 'diagnostic',
     measuredAt: new Date().toISOString(),
+    command: [process.execPath, ...process.execArgv, ...process.argv.slice(1)],
     baseHead: git(['rev-parse', 'HEAD']),
     dirty: statusBefore.length > 0,
     inputs: {
@@ -489,11 +493,15 @@ function positiveNumber(raw, name) {
 
 function parseArgs(args) {
   for (const arg of args) {
-    if (arg !== '--write-final') {
+    if (arg !== '--write-final' && arg !== '--quick') {
       throw new Error(`unknown observability benchmark argument: ${arg}`);
     }
   }
-  return args.includes('--write-final');
+  const finalRequested = args.includes('--write-final');
+  const quickRequested = args.includes('--quick');
+  if (finalRequested && quickRequested)
+    throw new Error('--quick is diagnostic and cannot be combined with --write-final');
+  return { writeFinal: finalRequested, quick: quickRequested };
 }
 
 function git(args) {

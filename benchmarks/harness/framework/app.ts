@@ -8,11 +8,9 @@
 //
 // Listens on port 3000 (override with PORT). Built on @zmdb/web's REAL routing:
 // Stage-3 @Controller/@Get/@Post decorators, getRoutes (route table resolved
-// once at boot — no per-request reflection), and extractParams. It imports the
-// BUILT package (../../../packages/web/dist), the same JavaScript a consumer
-// installs, so the measurement is of the shipped code rather than of a bundle of
-// the source; `run.sh` builds it first. The decorators applied *here* are lowered
-// by the esbuild step in run.sh, because no JS runtime executes them natively.
+// once at boot — no per-request reflection), and extractParams. `run.sh` bundles
+// the current public source entry and lowers this app's Stage-3 decorators with
+// esbuild. This is a source-bundle performance measurement, not a packed install.
 //
 // ONE DEFINITION TO RULE THEM ALL: the `User` shape is declared exactly once, as
 // an interface, in `./model.ts`. The request body type (`CreateDTO<User>`) and
@@ -28,11 +26,7 @@
 // number should describe. `@zmdb/web`'s `validateWith` wraps it into the
 // framework's `validateBody` hook.
 //
-// The declaration lives next door rather than in this file because this file
-// imports `../../../packages/web/dist`, which is gitignored build output: no
-// compiler can be pointed at a program containing it in a fresh checkout, and the
-// codegen needs a compiler. `model.ts` imports zmdb sources only, so
-// `tsconfig.json` here holds it and `scripts/typecheck.mjs` checks it.
+// The adjacent model.ts is the small input selected by tsconfig.json for codegen.
 //
 // THIS APP GOES THROUGH THE PUBLIC API, like every peer in the suite does.
 //
@@ -72,7 +66,7 @@ import {
   toNodeHandler,
   validateWith,
   type Ctx,
-} from '../../../packages/web/dist/index.js';
+} from '../../../packages/web/src/index.js';
 import { assertUserCreate, type UserCreate } from './model.js';
 
 // Ensure the well-known Symbol.metadata exists before the decorated class is

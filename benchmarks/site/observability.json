@@ -2,71 +2,126 @@
   "schemaVersion": 1,
   "suite": "@zmdb/web observability overhead",
   "publicationStatus": "final",
-  "measuredAt": "2026-09-05T13:43:26.670Z",
-  "baseHead": "55c9aa7b6d9c3dee93e5f1b9a5f6c2ea22ecf704",
+  "measuredAt": "2026-09-08T11:52:43.767Z",
+  "command": [
+    "/usr/bin/node",
+    "--import",
+    "./scripts/ts-specifier-hook.mjs",
+    "/home/amitprakash/foss/zmdb-worktrees/issue-730/benchmarks/scripts/observability.mjs",
+    "--write-final"
+  ],
+  "baseHead": "409b1ba24507ea462e6a955bfe51b56e1f2cc13d",
   "dirty": true,
   "inputs": {
     "algorithm": "sha256",
     "files": [
       {
         "path": "benchmarks/scripts/observability.mjs",
-        "sha256": "0f4f8de48a77f7098096f0f2c985913611fcb78e8696e88edf8983a4b68d6eba"
+        "sha256": "3fc83945ca07a65f57ce9fc4f1a4c8ca020501943047b6ddedb2ee173346578d"
       },
       {
         "path": "package.json",
-        "sha256": "a891a2c90ab9c9c7ad281871f4911b60bae5e80ae882817a888a12f7315db58a"
+        "sha256": "3f883a605317478a0e14d4a91d28c1e881444d528d8691379d4e2ebc920e1477"
       },
       {
         "path": "yarn.lock",
-        "sha256": "99b85c69d0a8927bc90cc287140b746b96033832f0e2fb6fb256f7b1b1d9a48a"
+        "sha256": "b6c9808834310ba085b957025e9d831e7964658ba784d0866f80197704d7a912"
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",
         "sha256": "cbeeabe5ec40042868bab6f56325529ac85fe664195c30ffb925d112a043e61f"
       },
       {
-        "path": "packages/query-compiler/package.json",
-        "sha256": "89cbe610589f54af4d1d04fd607e0bceb312b7f89f4851587a8046da8ee793b2"
+        "path": "packages/sql/package.json",
+        "sha256": "1b85ee0cf9f110753f8a41dc56ab26480d917606dc54cc7386e538c7cee60fdd"
       },
       {
-        "path": "packages/query-compiler/src/index.ts",
-        "sha256": "fa0dcb6678afb9bdfca7a1de424f3c09acb865852154c5ebb1b613755dd8b2b9"
+        "path": "packages/sql/src/index.ts",
+        "sha256": "62bfed37499bc9e6b32768a339e8c85d11917add48f17fe7801ba9713d9c02e5"
       },
       {
-        "path": "packages/repository/package.json",
-        "sha256": "603c167686f124e014e80cfe684519ec35c177d2f1c9af41a3cf0917b4d6a506"
+        "path": "packages/orm/package.json",
+        "sha256": "6d55d76f7770a1372ce84fbaaf1c92c4d1e5a08bb1dae018ccbfdbb98559aa8d"
       },
       {
-        "path": "packages/repository/src/index.ts",
-        "sha256": "59b362a2b18e1a4e869ca5feec5681e6a2b29b828c3204b11bf50d440d6d4d8d"
+        "path": "packages/orm/src/index.ts",
+        "sha256": "df09c817ba245dad67feb5e6aa9817bf67458070270340c866d9769a8137a1cc"
       },
       {
-        "path": "packages/web/package.json",
-        "sha256": "5c2270cf5dcde3d86f469c1ee121415ffbe5fd920b0c7c790538f155317f579f"
+        "path": "packages/app/package.json",
+        "sha256": "2a8f842c2fb490e4ca10e32e8278b2bc078647636556dbffce45b78beb92d6f0"
       },
       {
-        "path": "packages/web/src/bench/index.ts",
-        "sha256": "6b849758aa5fff62599ce61d07e4513de70317e5e0bb88d5eef4b49840b1ba5a"
+        "path": "packages/app/src/index.ts",
+        "sha256": "1540f187689e9a2e5795dc920d51637591e6728423239f11ae47be7dec961d33"
       },
       {
-        "path": "packages/web/src/context/index.ts",
-        "sha256": "9ac9bf7d9d19c11d0a3613fafb51d0fc93a1d076c47b123474661e558286b4ea"
+        "path": "packages/app/src/application.ts",
+        "sha256": "90159a5335106a55714b78af5f70df602f38b7fb7ca4baa7e2f440a6d3fe99af"
       },
       {
-        "path": "packages/web/src/observability/index.ts",
-        "sha256": "76fd145ef5ef1653eccf1188e482ffeb613d972cda928b8c691231db0b432602"
+        "path": "packages/app/src/di/index.ts",
+        "sha256": "1ee4eddf5f932af82d0f89a9165c58254b8e2532970609c3db06a36e266d1735"
       },
       {
-        "path": "packages/web/src/observability/otel.ts",
-        "sha256": "986b939e282d92a49abb9617187c9d1d7e67630854360a1f5b02e8f99b3d1cee"
+        "path": "packages/app/src/lifecycle.ts",
+        "sha256": "458d8fedde7ce10a11e3edacd8d14d42c4e8ce49c176da2da095a968408f4ae9"
       },
       {
-        "path": "packages/web/src/observability/propagation.ts",
+        "path": "packages/app/src/modules/index.ts",
+        "sha256": "fa407790708757c61a5cc9e4da0eb9dbd57f07430c04fabf53171356813ceed7"
+      },
+      {
+        "path": "packages/app/src/modules/lifecycle-instances.ts",
+        "sha256": "ec1d51fadca7b4efe860b61bc8f373eac6b18c312da1084eed20060252b75f2e"
+      },
+      {
+        "path": "packages/app/src/modules/runtime.ts",
+        "sha256": "a0d980de05aa27d7bcbbdc3b31de055be217fca97881131ca872c1b8e710decd"
+      },
+      {
+        "path": "packages/app/src/observability/index.ts",
+        "sha256": "f30d59c9da7d232370699e59d8474173db57ae645a553b90117720d154642033"
+      },
+      {
+        "path": "packages/app/src/observability/propagation.ts",
         "sha256": "2adb4d200103e381be88dd8bb214b64d600675b136b8e06e299280a1e79aeb80"
       },
       {
-        "path": "packages/web/src/observability/types.ts",
-        "sha256": "b033926a946008db16ff6b36aaa7767090fb2c92c960d62739b8aa06234d751f"
+        "path": "packages/app/src/observability/types.ts",
+        "sha256": "960325c6526d016c63aecc959691d1d47ffb4071e86077f5ecc4949b76624ba5"
+      },
+      {
+        "path": "packages/app/src/polyfill.ts",
+        "sha256": "39911c2ad1b6d774994a4b0356c1013214547c6da10a54ab6a8f3d249b88ac17"
+      },
+      {
+        "path": "packages/otel/package.json",
+        "sha256": "1d600447e6638614e62968a59536434b3fdf02ee3a23c6bd415e138a7432590f"
+      },
+      {
+        "path": "packages/otel/src/index.ts",
+        "sha256": "670357fcfc980945e3f618b5959043966a131db7d73e0972a1540e41989f66cb"
+      },
+      {
+        "path": "packages/web/package.json",
+        "sha256": "0494e913a22945031492a0b55ad2a98568d5ba39c2535840ee07ee8b8e6994cf"
+      },
+      {
+        "path": "packages/web/src/app/bridge.ts",
+        "sha256": "2418317ff0d0843c3105f92d19414fc088ab9635508427cbd44873ca4b8cfbc8"
+      },
+      {
+        "path": "packages/web/src/app/index.ts",
+        "sha256": "1eedc8434b65341c78bb7c2befe5a39590f82314dd31b7483eacd2197c06c74b"
+      },
+      {
+        "path": "packages/web/src/bench/index.ts",
+        "sha256": "c0d513804c544f816b9495731329ecd189c8c5591fe433719515f2739634544d"
+      },
+      {
+        "path": "packages/web/src/context/index.ts",
+        "sha256": "6424d750ffcb4f6d2ed59ccce0d10c488a6abc10ea7b5f9f6c44d7721f15cbb9"
       },
       {
         "path": "packages/web/src/pipeline/guards.ts",
@@ -74,15 +129,11 @@
       },
       {
         "path": "packages/web/src/pipeline/index.ts",
-        "sha256": "4fb48a6428017d0d24e76a6bfaaa9751553bcbee7abd97d38fb97e519823d9c0"
-      },
-      {
-        "path": "packages/web/src/polyfill.ts",
-        "sha256": "bd95c1571c88cd8fa43b123b0e8cec579e7e1a861b1763d9e7491d210ff61b62"
+        "sha256": "7cb8bcc65af014af3eeb0856d3931b2843ec9f9933f72440e59aed94f9ab49b6"
       },
       {
         "path": "packages/web/src/routing/index.ts",
-        "sha256": "ada37124c4d2b9a84c557c7edda3a43c79430a69c1faa708de92fa2ea927adce"
+        "sha256": "7d952ce8371dbc416945d43a6d6ae04adcb66a4280050a48d49ee70b67261a05"
       }
     ]
   },
@@ -93,9 +144,9 @@
     "logicalCpus": 16,
     "totalMemoryBytes": 65044914176,
     "loadAverage": [
-      1.98,
-      4.56,
-      10.93
+      1.14,
+      1.09,
+      1.23
     ],
     "cpuGovernor": "performance"
   },
@@ -160,50 +211,50 @@
     {
       "mode": "off",
       "workload": "request",
-      "iterations": 2300000,
-      "hotLoopMs": 755.7872509999996,
-      "wallMs": 761.785156,
-      "lastOpsPerSec": 3172831.0225710836
+      "iterations": 2400000,
+      "hotLoopMs": 752.5829529999996,
+      "wallMs": 758.203493,
+      "lastOpsPerSec": 3224398.949465033
     },
     {
       "mode": "noop",
       "workload": "request",
-      "iterations": 650000,
-      "hotLoopMs": 797.33437,
-      "wallMs": 798.8112330000001,
-      "lastOpsPerSec": 886987.7233448384
+      "iterations": 700000,
+      "hotLoopMs": 798.0584160000001,
+      "wallMs": 799.546124,
+      "lastOpsPerSec": 903425.1848127869
     },
     {
       "mode": "recording-exporter",
       "workload": "request",
       "iterations": 150000,
-      "hotLoopMs": 1005.9969979999996,
-      "wallMs": 1006.97477,
-      "lastOpsPerSec": 150237.1591210881
+      "hotLoopMs": 936.2356570000002,
+      "wallMs": 937.1146719999999,
+      "lastOpsPerSec": 165811.08148619803
     },
     {
       "mode": "off",
       "workload": "query",
-      "iterations": 11300000,
-      "hotLoopMs": 752.243285,
-      "wallMs": 753.6810259999997,
-      "lastOpsPerSec": 15404750.578603327
+      "iterations": 12250000,
+      "hotLoopMs": 753.0331679999999,
+      "wallMs": 753.8579999999997,
+      "lastOpsPerSec": 16258179.896761116
     },
     {
       "mode": "noop",
       "workload": "query",
-      "iterations": 2650000,
-      "hotLoopMs": 756.4236419999934,
-      "wallMs": 757.3367429999994,
-      "lastOpsPerSec": 3528434.34688079
+      "iterations": 2850000,
+      "hotLoopMs": 754.5886829999995,
+      "wallMs": 755.286263,
+      "lastOpsPerSec": 3796036.816090941
     },
     {
       "mode": "recording-exporter",
       "workload": "query",
       "iterations": 350000,
-      "hotLoopMs": 862.2893460000005,
-      "wallMs": 862.5841329999994,
-      "lastOpsPerSec": 414749.8621599568
+      "hotLoopMs": 768.9906740000006,
+      "wallMs": 769.2628699999996,
+      "lastOpsPerSec": 456024.2458241377
     }
   ],
   "samples": [
@@ -212,11 +263,11 @@
       "position": 1,
       "mode": "off",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 263.53615400000035,
-      "opsPerSec": 3009864.0659376057,
-      "nsPerOp": 332.2409178929113,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 248.0546630000008,
+      "opsPerSec": 3249686.945010171,
+      "nsPerOp": 307.72194888971694,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -225,11 +276,11 @@
       "position": 2,
       "mode": "noop",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 1004.9867439999998,
-      "opsPerSec": 789272.1020805824,
-      "nsPerOp": 1266.990176599328,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 933.3719330000004,
+      "opsPerSec": 863642.8539361272,
+      "nsPerOp": 1157.8860352313613,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -238,24 +289,24 @@
       "position": 3,
       "mode": "recording-exporter",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 5186.2011250000005,
-      "opsPerSec": 152945.8616975638,
-      "nsPerOp": 6538.261244213373,
-      "checksum": 167366888,
-      "exportedSpans": 2379624,
-      "exporterChecksum": 3037083536
+      "iters": 806100,
+      "totalMs": 4774.311535999999,
+      "opsPerSec": 168841.09759527017,
+      "nsPerOp": 5922.728614315841,
+      "checksum": 170087100,
+      "exportedSpans": 2418300,
+      "exporterChecksum": 2978923896
     },
     {
       "round": 2,
       "position": 1,
       "mode": "noop",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 954.0153420000006,
-      "opsPerSec": 831441.5555803499,
-      "nsPerOp": 1202.7303582414709,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 920.3733369999991,
+      "opsPerSec": 875840.2352544474,
+      "nsPerOp": 1141.7607455650652,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -264,24 +315,24 @@
       "position": 2,
       "mode": "recording-exporter",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 5026.267870999998,
-      "opsPerSec": 157812.52021535966,
-      "nsPerOp": 6336.632851660596,
-      "checksum": 167366888,
-      "exportedSpans": 2379624,
-      "exporterChecksum": 3037083536
+      "iters": 806100,
+      "totalMs": 4819.722392999998,
+      "opsPerSec": 167250.29665002125,
+      "nsPerOp": 5979.06263863044,
+      "checksum": 170087100,
+      "exportedSpans": 2418300,
+      "exporterChecksum": 2978923896
     },
     {
       "round": 2,
       "position": 3,
       "mode": "off",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 260.1341390000016,
-      "opsPerSec": 3049226.8452315484,
-      "nsPerOp": 327.95198611209366,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 257.33340600000156,
+      "opsPerSec": 3132512.0687983865,
+      "nsPerOp": 319.2326088574638,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -290,24 +341,24 @@
       "position": 1,
       "mode": "recording-exporter",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 5229.133895999999,
-      "opsPerSec": 151690.12990980412,
-      "nsPerOp": 6592.386733366278,
-      "checksum": 167366888,
-      "exportedSpans": 2379624,
-      "exporterChecksum": 3037083536
+      "iters": 806100,
+      "totalMs": 4856.172135000001,
+      "opsPerSec": 165994.9395512933,
+      "nsPerOp": 6024.280033494605,
+      "checksum": 170087100,
+      "exportedSpans": 2418300,
+      "exporterChecksum": 2978923896
     },
     {
       "round": 3,
       "position": 2,
       "mode": "off",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 254.92966499999966,
-      "opsPerSec": 3111477.8266389715,
-      "nsPerOp": 321.3906881927561,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 261.89174699999785,
+      "opsPerSec": 3077989.3189990693,
+      "nsPerOp": 324.8874171938939,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -316,11 +367,11 @@
       "position": 3,
       "mode": "noop",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 960.224588000001,
-      "opsPerSec": 826065.0788500734,
-      "nsPerOp": 1210.5583756089209,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 932.2179230000002,
+      "opsPerSec": 864711.9735757321,
+      "nsPerOp": 1156.4544386552539,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -329,24 +380,24 @@
       "position": 1,
       "mode": "recording-exporter",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 4955.390111000001,
-      "opsPerSec": 160069.73865472927,
-      "nsPerOp": 6247.277020655365,
-      "checksum": 167366888,
-      "exportedSpans": 2379624,
-      "exporterChecksum": 3037083536
+      "iters": 806100,
+      "totalMs": 4945.803947,
+      "opsPerSec": 162986.64658734802,
+      "nsPerOp": 6135.471960054584,
+      "checksum": 170087100,
+      "exportedSpans": 2418300,
+      "exporterChecksum": 2978923896
     },
     {
       "round": 4,
       "position": 2,
       "mode": "noop",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 955.6159009999974,
-      "opsPerSec": 830048.9759221808,
-      "nsPerOp": 1204.7481883692517,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 930.6286699999982,
+      "opsPerSec": 866188.6593285392,
+      "nsPerOp": 1154.482905346729,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -355,11 +406,11 @@
       "position": 3,
       "mode": "off",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 257.88966900000014,
-      "opsPerSec": 3075764.931087641,
-      "nsPerOp": 325.12237521558046,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 252.87003999999797,
+      "opsPerSec": 3187803.5057059606,
+      "nsPerOp": 313.6956208907058,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -368,11 +419,11 @@
       "position": 1,
       "mode": "noop",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 942.9095199999974,
-      "opsPerSec": 841234.4802712377,
-      "nsPerOp": 1188.7292110013987,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 939.3161739999996,
+      "opsPerSec": 858177.4937051178,
+      "nsPerOp": 1165.2601091675967,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -381,11 +432,11 @@
       "position": 2,
       "mode": "off",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 265.15630800000145,
-      "opsPerSec": 2991473.2407572805,
-      "nsPerOp": 334.28345150326453,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 254.37691000000268,
+      "opsPerSec": 3168919.6947945924,
+      "nsPerOp": 315.56495472026137,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -394,24 +445,24 @@
       "position": 3,
       "mode": "recording-exporter",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 5221.781639999997,
-      "opsPerSec": 151903.70924817154,
-      "nsPerOp": 6583.117719438025,
-      "checksum": 167366888,
-      "exportedSpans": 2379624,
-      "exporterChecksum": 3037083536
+      "iters": 806100,
+      "totalMs": 4901.901998000001,
+      "opsPerSec": 164446.3721079884,
+      "nsPerOp": 6081.0097977918385,
+      "checksum": 170087100,
+      "exportedSpans": 2418300,
+      "exporterChecksum": 2978923896
     },
     {
       "round": 6,
       "position": 1,
       "mode": "off",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 271.7380789999952,
-      "opsPerSec": 2919016.734493122,
-      "nsPerOp": 342.5811123942209,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 256.5938559999995,
+      "opsPerSec": 3141540.5363408295,
+      "nsPerOp": 318.31516685274715,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -420,24 +471,24 @@
       "position": 2,
       "mode": "recording-exporter",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 5123.315622000002,
-      "opsPerSec": 154823.1767322493,
-      "nsPerOp": 6458.981278554934,
-      "checksum": 167366888,
-      "exportedSpans": 2379624,
-      "exporterChecksum": 3037083536
+      "iters": 806100,
+      "totalMs": 4951.795318999997,
+      "opsPerSec": 162789.44263043365,
+      "nsPerOp": 6142.904501922835,
+      "checksum": 170087100,
+      "exportedSpans": 2418300,
+      "exporterChecksum": 2978923896
     },
     {
       "round": 6,
       "position": 3,
       "mode": "noop",
       "workload": "request",
-      "iters": 793208,
-      "totalMs": 978.138672000001,
-      "opsPerSec": 810936.1409646824,
-      "nsPerOp": 1233.1427217072962,
-      "checksum": 167366888,
+      "iters": 806100,
+      "totalMs": 934.2744970000058,
+      "opsPerSec": 862808.5242489445,
+      "nsPerOp": 1159.0057027664134,
+      "checksum": 170087100,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -446,11 +497,11 @@
       "position": 1,
       "mode": "off",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 271.38755200000014,
-      "opsPerSec": 14190731.931580996,
-      "nsPerOp": 70.46852867219157,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 292.1884429999991,
+      "opsPerSec": 13910697.350887394,
+      "nsPerOp": 71.88712217480655,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -459,11 +510,11 @@
       "position": 2,
       "mode": "noop",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 1224.0386429999999,
-      "opsPerSec": 3146296.0928758853,
-      "nsPerOp": 317.83404056099045,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 1191.6559629999974,
+      "opsPerSec": 3410837.6294845166,
+      "nsPerOp": 293.1831147151766,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -472,24 +523,24 @@
       "position": 3,
       "mode": "recording-exporter",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 9448.538767999999,
-      "opsPerSec": 407596.14735805255,
-      "nsPerOp": 2453.4088618888504,
-      "checksum": 5776782,
-      "exportedSpans": 3851188,
-      "exporterChecksum": 405868652
+      "iters": 4064545,
+      "totalMs": 9271.381719000005,
+      "opsPerSec": 438396.8995333734,
+      "nsPerOp": 2281.0380298409796,
+      "checksum": 6096817,
+      "exportedSpans": 4064545,
+      "exporterChecksum": 1367641121
     },
     {
       "round": 2,
       "position": 1,
       "mode": "noop",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 1209.7062129999977,
-      "opsPerSec": 3183572.9688857994,
-      "nsPerOp": 314.1124798373898,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 1201.7336720000021,
+      "opsPerSec": 3382234.429060745,
+      "nsPerOp": 295.66253344470346,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -498,24 +549,24 @@
       "position": 2,
       "mode": "recording-exporter",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 9453.416517999998,
-      "opsPerSec": 407385.8369264758,
-      "nsPerOp": 2454.675419117425,
-      "checksum": 5776782,
-      "exportedSpans": 3851188,
-      "exporterChecksum": 405868652
+      "iters": 4064545,
+      "totalMs": 9330.804051,
+      "opsPerSec": 435605.0108633881,
+      "nsPerOp": 2295.6577060901036,
+      "checksum": 6096817,
+      "exportedSpans": 4064545,
+      "exporterChecksum": 1367641121
     },
     {
       "round": 2,
       "position": 3,
       "mode": "off",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 262.3023639999956,
-      "opsPerSec": 14682246.630457608,
-      "nsPerOp": 68.10946752015107,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 288.13215299999865,
+      "opsPerSec": 14106530.484989014,
+      "nsPerOp": 70.88915315244354,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -524,24 +575,24 @@
       "position": 1,
       "mode": "recording-exporter",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 9604.418304000006,
-      "opsPerSec": 400980.8692314114,
-      "nsPerOp": 2493.884563412642,
-      "checksum": 5776782,
-      "exportedSpans": 3851188,
-      "exporterChecksum": 405868652
+      "iters": 4064545,
+      "totalMs": 9276.235301,
+      "opsPerSec": 438167.51819154824,
+      "nsPerOp": 2282.2321566128558,
+      "checksum": 6096817,
+      "exportedSpans": 4064545,
+      "exporterChecksum": 1367641121
     },
     {
       "round": 3,
       "position": 2,
       "mode": "off",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 274.3684670000075,
-      "opsPerSec": 14036554.718220934,
-      "nsPerOp": 71.24255346662056,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 287.3256030000048,
+      "opsPerSec": 14146128.84324107,
+      "nsPerOp": 70.69071765720511,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -550,11 +601,11 @@
       "position": 3,
       "mode": "noop",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 1185.973576999997,
-      "opsPerSec": 3247279.766334971,
-      "nsPerOp": 307.9500603450149,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 1163.5694369999983,
+      "opsPerSec": 3493169.2692784313,
+      "nsPerOp": 286.2729867672761,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -563,24 +614,24 @@
       "position": 1,
       "mode": "recording-exporter",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 9412.344356000001,
-      "opsPerSec": 409163.5255083946,
-      "nsPerOp": 2444.0106159450024,
-      "checksum": 5776782,
-      "exportedSpans": 3851188,
-      "exporterChecksum": 405868652
+      "iters": 4064545,
+      "totalMs": 9354.551103000005,
+      "opsPerSec": 434499.2031415062,
+      "nsPerOp": 2301.500193256565,
+      "checksum": 6096817,
+      "exportedSpans": 4064545,
+      "exporterChecksum": 1367641121
     },
     {
       "round": 4,
       "position": 2,
       "mode": "noop",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 1201.722919000007,
-      "opsPerSec": 3204722.102832739,
-      "nsPerOp": 312.0395366312959,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 1193.3312809999916,
+      "opsPerSec": 3406049.153923108,
+      "nsPerOp": 293.59529320009784,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -589,11 +640,11 @@
       "position": 3,
       "mode": "off",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 266.8194919999951,
-      "opsPerSec": 14433683.128367815,
-      "nsPerOp": 69.28238559114618,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 287.11334799999895,
+      "opsPerSec": 14156586.687150523,
+      "nsPerOp": 70.63849655988528,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -602,11 +653,11 @@
       "position": 1,
       "mode": "noop",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 1219.8316199999972,
-      "opsPerSec": 3157147.2134818155,
-      "nsPerOp": 316.7416443964816,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 1169.8584669999982,
+      "opsPerSec": 3474390.3768318035,
+      "nsPerOp": 287.8202768083508,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -615,11 +666,11 @@
       "position": 2,
       "mode": "off",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 271.58353499999794,
-      "opsPerSec": 14180491.464624427,
-      "nsPerOp": 70.51941764463275,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 298.6392899999919,
+      "opsPerSec": 13610215.186354449,
+      "nsPerOp": 73.47422405213668,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -628,24 +679,24 @@
       "position": 3,
       "mode": "recording-exporter",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 9385.847391000003,
-      "opsPerSec": 410318.6254331033,
-      "nsPerOp": 2437.1304104084256,
-      "checksum": 5776782,
-      "exportedSpans": 3851188,
-      "exporterChecksum": 405868652
+      "iters": 4064545,
+      "totalMs": 9326.924654999995,
+      "opsPerSec": 435786.1943080103,
+      "nsPerOp": 2294.7032582982833,
+      "checksum": 6096817,
+      "exportedSpans": 4064545,
+      "exporterChecksum": 1367641121
     },
     {
       "round": 6,
       "position": 1,
       "mode": "off",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 285.2619260000065,
-      "opsPerSec": 13500532.840123614,
-      "nsPerOp": 74.07115051251887,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 292.8007349999971,
+      "opsPerSec": 13881607.913313609,
+      "nsPerOp": 72.03776437460948,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -654,24 +705,24 @@
       "position": 2,
       "mode": "recording-exporter",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 9464.70332700001,
-      "opsPerSec": 406900.0228473824,
-      "nsPerOp": 2457.6061534778382,
-      "checksum": 5776782,
-      "exportedSpans": 3851188,
-      "exporterChecksum": 405868652
+      "iters": 4064545,
+      "totalMs": 9411.338254999995,
+      "opsPerSec": 431877.47479383333,
+      "nsPerOp": 2315.4715361744043,
+      "checksum": 6096817,
+      "exportedSpans": 4064545,
+      "exporterChecksum": 1367641121
     },
     {
       "round": 6,
       "position": 3,
       "mode": "noop",
       "workload": "query",
-      "iters": 3851188,
-      "totalMs": 1353.8467669999955,
-      "opsPerSec": 2844626.211675263,
-      "nsPerOp": 351.54003569807435,
-      "checksum": 5776782,
+      "iters": 4064545,
+      "totalMs": 1184.629356999998,
+      "opsPerSec": 3431068.94657179,
+      "nsPerOp": 291.45435885197435,
+      "checksum": 6096817,
       "exportedSpans": 0,
       "exporterChecksum": 0
     }
@@ -681,12 +732,12 @@
       "workload": "request",
       "mode": "off",
       "samples": 6,
-      "itersPerSample": 793208,
-      "medianNsPerOp": 330.0964520025025,
-      "medianOpsPerSec": 3029417.595777185,
-      "minNsPerOp": 321.3906881927561,
-      "maxNsPerOp": 342.5811123942209,
-      "spreadMaxOverMin": 1.0659335350399315,
+      "itersPerSample": 806100,
+      "medianNsPerOp": 316.94006078650426,
+      "medianOpsPerSec": 3155170.7206670083,
+      "minNsPerOp": 307.72194888971694,
+      "maxNsPerOp": 324.8874171938939,
+      "spreadMaxOverMin": 1.0557823982530696,
       "overheadVsOffPercent": 0,
       "exportedSpans": 0,
       "exporterChecksum": 0
@@ -695,13 +746,13 @@
       "workload": "request",
       "mode": "noop",
       "samples": 6,
-      "itersPerSample": 793208,
-      "medianNsPerOp": 1207.6532819890863,
-      "medianOpsPerSec": 828052.2356159482,
-      "minNsPerOp": 1188.7292110013987,
-      "maxNsPerOp": 1266.990176599328,
-      "spreadMaxOverMin": 1.0658358227202993,
-      "overheadVsOffPercent": 265.8486102055805,
+      "itersPerSample": 806100,
+      "medianNsPerOp": 1157.1702369433076,
+      "medianOpsPerSec": 864177.0830897997,
+      "minNsPerOp": 1141.7607455650652,
+      "maxNsPerOp": 1165.2601091675967,
+      "spreadMaxOverMin": 1.020581688145971,
+      "overheadVsOffPercent": 265.1069650430828,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -709,26 +760,26 @@
       "workload": "request",
       "mode": "recording-exporter",
       "samples": 6,
-      "itersPerSample": 793208,
-      "medianNsPerOp": 6498.6212613841535,
-      "medianOpsPerSec": 153878.79363614554,
-      "minNsPerOp": 6247.277020655365,
-      "maxNsPerOp": 6592.386733366278,
-      "spreadMaxOverMin": 1.0552416215208447,
-      "overheadVsOffPercent": 1868.7037597528881,
-      "exportedSpans": 2379624,
-      "exporterChecksum": 3037083536
+      "itersPerSample": 806100,
+      "medianNsPerOp": 6052.644915643222,
+      "medianOpsPerSec": 165217.02725621214,
+      "minNsPerOp": 5922.728614315841,
+      "maxNsPerOp": 6142.904501922835,
+      "spreadMaxOverMin": 1.0371747385275778,
+      "overheadVsOffPercent": 1809.7128020431526,
+      "exportedSpans": 2418300,
+      "exporterChecksum": 2978923896
     },
     {
       "workload": "query",
       "mode": "off",
       "samples": 6,
-      "itersPerSample": 3851188,
-      "medianNsPerOp": 70.49397315841216,
-      "medianOpsPerSec": 14185609.8499772,
-      "minNsPerOp": 68.10946752015107,
-      "maxNsPerOp": 74.07115051251887,
-      "spreadMaxOverMin": 1.0875309000265485,
+      "itersPerSample": 4064545,
+      "medianNsPerOp": 71.38813766362505,
+      "medianOpsPerSec": 14007929.50660678,
+      "minNsPerOp": 70.63849655988528,
+      "maxNsPerOp": 73.47422405213668,
+      "spreadMaxOverMin": 1.0401442220651929,
       "overheadVsOffPercent": 0,
       "exportedSpans": 0,
       "exporterChecksum": 0
@@ -737,13 +788,13 @@
       "workload": "query",
       "mode": "noop",
       "samples": 6,
-      "itersPerSample": 3851188,
-      "medianNsPerOp": 315.4270621169357,
-      "medianOpsPerSec": 3170305.024840507,
-      "minNsPerOp": 307.9500603450149,
-      "maxNsPerOp": 351.54003569807435,
-      "spreadMaxOverMin": 1.14154884497903,
-      "overheadVsOffPercent": 347.45252393153737,
+      "itersPerSample": 4064545,
+      "medianNsPerOp": 292.31873678357545,
+      "medianOpsPerSec": 3420923.37632251,
+      "minNsPerOp": 286.2729867672761,
+      "maxNsPerOp": 295.66253344470346,
+      "spreadMaxOverMin": 1.0327992759060447,
+      "overheadVsOffPercent": 309.47802583246664,
       "exportedSpans": 0,
       "exporterChecksum": 0
     },
@@ -751,15 +802,15 @@
       "workload": "query",
       "mode": "recording-exporter",
       "samples": 6,
-      "itersPerSample": 3851188,
-      "medianNsPerOp": 2454.0421405031375,
-      "medianOpsPerSec": 407490.96500640205,
-      "minNsPerOp": 2437.1304104084256,
-      "maxNsPerOp": 2493.884563412642,
-      "spreadMaxOverMin": 1.02328728604831,
-      "overheadVsOffPercent": 3381.2084360580443,
-      "exportedSpans": 3851188,
-      "exporterChecksum": 405868652
+      "itersPerSample": 4064545,
+      "medianNsPerOp": 2295.1804821941932,
+      "medianOpsPerSec": 435695.5837494748,
+      "minNsPerOp": 2281.0380298409796,
+      "maxNsPerOp": 2315.4715361744043,
+      "spreadMaxOverMin": 1.0150955424166361,
+      "overheadVsOffPercent": 3115.0726399516016,
+      "exportedSpans": 4064545,
+      "exporterChecksum": 1367641121
     }
   ]
 }

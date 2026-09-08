@@ -15,19 +15,23 @@ framework qualification from `packages/web/src/bench`, but `@zmdb/web/bench` is 
 
 The helpers have no built-in pass/fail threshold. Startup timing depends on the module graph and machine, so maintainers record comparable runs only in a controlled environment.
 
+The runnable `node benchmarks/scripts/app-startup.mjs --quick` command produces a short diagnostic. The [2026-09-08 startup capture](../benchmarks/app-startup.json) compares clean pre-extraction
+`7eb865f1` with `409b1ba2`: eight alternating samples of 20,000 eager creations after warmup gave medians of 1.760 µs and 1.617 µs. This small one-module/one-provider workload excludes imports, init
+hooks and requests; it does not measure cold-process startup. Full revisions, commands and raw samples are in the capture.
+
 ## Observability overhead — off, API no-op and recording exporter
 
-Measured on 2026-09-05 with Node 26.8.1 on an AMD Ryzen 7 7840U, using `@opentelemetry/api` 1.9.1 and `@opentelemetry/sdk-trace-base` 2.11.0. Each row is the median of six samples. All six mode orders
+Measured on 2026-09-08 with Node 26.8.1 on an AMD Ryzen 7 7840U, using `@opentelemetry/api` 1.9.1 and `@opentelemetry/sdk-trace-base` 2.11.0. Each row is the median of six samples. All six mode orders
 were used, so every mode appeared twice in each ordinal position; each workload/mode received 750 ms of warmup and the off path calibrated a 250 ms sample size shared by all three modes.
 
 | workload | configuration      | median ns/op | median ops/s | overhead vs off | exported spans/op | max/min spread |
 | -------- | ------------------ | -----------: | -----------: | --------------: | ----------------: | -------------: |
-| request  | off                |       330.10 |      3029418 |        baseline |                 0 |         1.066x |
-| request  | API no-op          |      1207.65 |       828052 |         +265.8% |                 0 |         1.066x |
-| request  | recording exporter |      6498.62 |       153879 |        +1868.7% |                 3 |         1.055x |
-| query    | off                |        70.49 |     14185610 |        baseline |                 0 |         1.088x |
-| query    | API no-op          |       315.43 |      3170305 |         +347.5% |                 0 |         1.142x |
-| query    | recording exporter |      2454.04 |       407491 |        +3381.2% |                 1 |         1.023x |
+| request  | off                |       316.94 |      3155171 |        baseline |                 0 |         1.056x |
+| request  | API no-op          |      1157.17 |       864177 |         +265.1% |                 0 |         1.021x |
+| request  | recording exporter |      6052.64 |       165217 |        +1809.7% |                 3 |         1.037x |
+| query    | off                |        71.39 |     14007930 |        baseline |                 0 |         1.040x |
+| query    | API no-op          |       292.32 |      3420923 |         +309.5% |                 0 |         1.033x |
+| query    | recording exporter |      2295.18 |       435696 |        +3115.1% |                 1 |         1.015x |
 
 The request workload is one matched `GET` and records the server, route and handler spans. The query workload is one compiled `SELECT` through `tracedDriver` and records one client span. The recording
 case uses a real `BasicTracerProvider`, `SimpleSpanProcessor` and bounded exporter; exporter flush/reset are outside the timed interval, and metrics are disabled in all three modes. The raw 36
@@ -36,11 +40,17 @@ samples, runtime provenance and SHA-256 manifest of every benchmark input are co
 ## End-to-end HTTP — the-benchmarker/web-frameworks
 
 Beyond the in-process microbench, `@zmdb/web` participates in **[the-benchmarker/web-frameworks](https://github.com/the-benchmarker/web-frameworks)** under its exact shared contract (`GET /` empty,
-`GET /user/:id` → the id, `POST /user` empty, on port 3000). The app is validated by the shared correctness contract, then driven with **`oha`** (`GET /` 15s, keep-alive disabled, latency-corrected,
-JSON report), collecting **req/s + p50/p75/p90/p99** — concurrency and routes configurable exactly like upstream. Reproduce it with `benchmarks/harness/framework/run.sh` (see `framework/SPEC.md`).
-`oha` is auto-downloaded (pinned) if absent; the shipped numbers are real (0 HTTP errors), never fabricated.
+`GET /user/:id` → the id, `POST /user` empty, port configurable). The app is validated by the shared correctness contract, then driven with **`oha`**, with keep-alive disabled and latency correction,
+collecting **req/s + p50/p75/p90/p99**. Reproduce it with `benchmarks/harness/framework/run.sh` (see `framework/SPEC.md`).
 
-## Same-machine, apples-to-apples peer head-to-head
+The [2026-09-08 Node capture](../benchmarks/framework-results.json) uses Node 26.8.1, oha 1.16.0 and eight workers: three 5-second samples per route/concurrency cell after warmup, 27 recorded samples
+in total. Completed responses have zero HTTP errors; raw reports retain oha's duration-deadline abort counts. The harness bundles the current public sources with esbuild, so this is a source-bundle
+measurement. `oha` is auto-downloaded (pinned) if absent. `node benchmarks/scripts/bench.mjs framework` refreshes zmdb on Node by default; peer runs require an explicit `--include-peers`.
+
+## Historical same-machine peer head-to-head
+
+The peer and Bun/Deno results below were not rerun for the 2026-09-08 refresh. The normalized data preserves each row's original measurement date, runtime version and methodology; these captures are
+not simultaneous comparisons with the new Node result.
 
 Published cross-framework tables run on someone else's hardware.
 

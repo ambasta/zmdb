@@ -11,11 +11,11 @@
 #     POST /user)
 #   - collected fields mirror upstream data.min.json labels: total_requests_per_s,
 #     average_latency, percentile50/75/90/99/99999, total_requests,
-#     total_bytes_received, http_errors, standard_deviation, duration_ms
+#     total_bytes_received, http_errors, latency_range, duration_ms
 #
 # `oha` is auto-downloaded (pinned) into ./.bin if absent and network allows;
 # otherwise the contract is still verified and the load run is skipped (never
-# faked). `jq` is required to shape the JSON. @zmdb/web is built by this script.
+# faked). `jq` is required to shape the JSON. The app bundles the current sources.
 #
 # The serving runtime is selectable: RUNTIME=node (default) | bun | deno. The app
 # is bundled once and all three run the same bundle, so a cross-runtime comparison
@@ -174,6 +174,7 @@ resolve_runtime() {
 }
 RUNTIME_VERSION=""
 resolve_runtime || exit 1
+command -v setsid >/dev/null || { echo "setsid is required to isolate benchmark workers"; exit 1; }
 
 # The validator for `CreateDTO<User>`, recompiled from `model.ts`. The generated files
 # are committed, so this is a no-op on an unchanged tree and the bundle below would work
@@ -184,12 +185,6 @@ echo "== compiling the validator from model.ts (@zmdb/compiler) =="
 ( cd "$REPO_ROOT" && node --import ./scripts/ts-specifier-hook.mjs scripts/compiler-codegen.mjs --project "$HERE/tsconfig.json" ) || {
   echo "@zmdb/compiler project compilation failed"; exit 1
 }
-
-echo "== building @zmdb/web (tsc: ESM .js + .d.ts mirroring src) =="
-( cd "$REPO_ROOT" && yarn workspace @zmdb/web build >/dev/null 2>&1 )
-if [ ! -f "$REPO_ROOT/packages/web/dist/index.js" ]; then
-  echo "build failed: packages/web/dist/index.js missing"; exit 1
-fi
 
 echo "== compiling the contract app (esbuild lowers the app's Stage-3 decorators) =="
 ( cd "$REPO_ROOT" && yarn exec esbuild "$HERE/app.ts" \
@@ -204,15 +199,15 @@ echo "== compiling the contract app (esbuild lowers the app's Stage-3 decorators
 }
 
 echo "== starting the contract app on :$PORT ($WORKERS worker(s), $RUNTIME $RUNTIME_VERSION) =="
-PORT="$PORT" WORKERS="$WORKERS" "$RUNTIME_BIN" ${RUNTIME_ARGS[@]+"${RUNTIME_ARGS[@]}"} "$HERE/.app.mjs" &
+setsid env PORT="$PORT" WORKERS="$WORKERS" "$RUNTIME_BIN" ${RUNTIME_ARGS[@]+"${RUNTIME_ARGS[@]}"} "$HERE/.app.mjs" &
 APP_PID=$!
+METRICS_TMP=""
+SAMPLES_TMP=""
 cleanup() {
-  # The app may be a cluster primary, so kill the whole process group to avoid
-  # leaving workers holding the port.
-  kill "$APP_PID" 2>/dev/null
+  # setsid gives this run a private group containing its primary and workers.
+  kill -- "-$APP_PID" 2>/dev/null
   wait "$APP_PID" 2>/dev/null
-  pkill -P "$APP_PID" 2>/dev/null
-  rm -f "$HERE/.app.mjs"
+  rm -f "$HERE/.app.mjs" "$METRICS_TMP" "$SAMPLES_TMP"
 }
 trap cleanup EXIT
 
@@ -230,7 +225,7 @@ if ! resolve_oha; then
   echo
   echo "NOTE: 'oha' unavailable — contract verified but load run skipped (not faked)."
   echo "      Install oha (https://github.com/hatoo/oha) or allow the pinned download, then re-run."
-  exit 0
+  exit 1
 fi
 echo "== using oha: $OHA_BIN ($("$OHA_BIN" --version 2>/dev/null)) =="
 
@@ -240,6 +235,7 @@ IFS=',' read -r -a ROUTE_LIST <<< "$ROUTES"
 # Accumulate the-benchmarker-shaped JSON as we go. metrics[] entries carry
 # {level,label,value,route}; the dashboard aggregates by level and route.
 METRICS_TMP="$(mktemp)"; echo "" > "$METRICS_TMP"
+SAMPLES_TMP="$(mktemp)"
 emit() { # level label value route
   printf '{"level":%s,"label":"%s","value":%s,"route":"%s"}\n' "$1" "$2" "$3" "$4" >> "$METRICS_TMP"
 }
@@ -275,13 +271,18 @@ for CONC in "${CONC_LIST[@]}"; do
       RJ="$OUTDIR/${SAFE}.run${r}.json"
       if load "$RJ"; then
         REP_FILES+=("$RJ")
+        jq --arg route "$ROUTE" --argjson concurrency "$CONC" --argjson repeat "$r" \
+          --arg duration "$DURATION" --arg url "$HOST$RPATH" --arg method "$METHOD" --arg oha "$OHA_BIN" \
+          '{route:$route, concurrency:$concurrency, repeat:$repeat,
+            command:[$oha,"-z",$duration,"-c",($concurrency|tostring),"-m",$method,
+              "--disable-keepalive","--latency-correction","--no-tui","--output-format","json",$url],
+            result:.}' "$RJ" >> "$SAMPLES_TMP" || exit 1
         printf '   run %s/%s req/s=%.0f\n' "$r" "$REPEATS" "$(jq -r '.summary.requestsPerSec' "$RJ")"
       else
-        echo "   run $r/$REPEATS FAILED"
+        echo "   run $r/$REPEATS FAILED"; exit 1
       fi
       sleep "$SETTLE"
     done
-    if [ "${#REP_FILES[@]}" -eq 0 ]; then echo "oha run failed for $ROUTE"; continue; fi
 
     # Reduce by median *run* (not per-metric median), so every published metric
     # for a cell comes from one real run and the percentiles stay consistent
@@ -321,7 +322,7 @@ EOF
     emit "$CONC" total_requests "$TOTREQ" "$ROUTE"
     emit "$CONC" total_bytes_received "$TOTDATA" "$ROUTE"
     emit "$CONC" http_errors "$ERRS" "$ROUTE"
-    emit "$CONC" standard_deviation "$STDDEV" "$ROUTE"
+    emit "$CONC" latency_range "$STDDEV" "$ROUTE"
     emit "$CONC" duration_ms "$DUR" "$ROUTE"
     # Publish the repeat spread so the dashboard can show what the median hides.
     emit "$CONC" requests_per_s_min "$RPS_MIN" "$ROUTE"
@@ -348,6 +349,10 @@ jq -n \
   --arg now "$NOW" --arg machine "$MACHINE" --arg dur "$DURATION" \
   --arg oha "$("$OHA_BIN" --version 2>/dev/null)" \
   --arg runtime "$RUNTIME" --arg runtimeVersion "$RUNTIME_VERSION" \
+  --arg revision "$(git -C "$REPO_ROOT" rev-parse HEAD)" \
+  --arg sourceStatus "$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=all)" \
+  --argjson port "$PORT" --slurpfile samples "$SAMPLES_TMP" \
+  --argjson command "$(jq -cn --arg runtime "$RUNTIME" --arg port "$PORT" --arg duration "$DURATION" --arg conc "$CONCURRENCIES" --arg routes "$ROUTES" --arg workers "$WORKERS" --arg repeats "$REPEATS" --arg warmup "$WARMUP" --arg settle "$SETTLE" --arg script "$HERE/run.sh" '["env","RUNTIME="+$runtime,"PORT="+$port,"DURATION="+$duration,"CONCURRENCIES="+$conc,"ROUTES="+$routes,"WORKERS="+$workers,"REPEATS="+$repeats,"WARMUP="+$warmup,"SETTLE="+$settle,"bash",$script]')" \
   --argjson workers "$WORKERS" --argjson cores "$CORES" --argjson repeats "$REPEATS" \
   --argjson metrics "$(grep -v '^$' "$METRICS_TMP" | jq -s '.')" \
   '{
@@ -356,12 +361,16 @@ jq -n \
      runtime: $runtime,
      runtimeVersion: $runtimeVersion,
      upstream: "https://github.com/the-benchmarker/web-frameworks",
-     port: 3000,
-     methodology: ("Served on " + $runtime + " " + $runtimeVersion + ". oha " + $oha + ": per route for " + $dur + ", keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by " + ($workers|tostring) + " worker process(es) on " + ($cores|tostring) + " cores. Levels + routes configurable, matching upstream. Metric labels mirror upstream data.min.json."),
+     port: $port,
+     revision: $revision,
+     sourceStatus: $sourceStatus,
+     command: $command,
+     samples: $samples,
+     methodology: ("Served on " + $runtime + " " + $runtimeVersion + ". oha " + $oha + ": per route for " + $dur + ", keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by " + ($workers|tostring) + " worker process(es) on " + ($cores|tostring) + " cores. Levels + routes configurable, matching upstream. Raw samples retain oha data; latency_range is slowest minus fastest."),
      concurrencyModel: {
        workers: $workers,
        cores: $cores,
-       note: "A JS runtime runs one thread per process, so worker count is the core count this framework can use; all three supported runtimes (node, bun, deno) fork via node:cluster and accept from a shared listening socket. Default is half the cores, not all of them: the load generator runs on this same box, and throughput measured here peaks at cores/2 (109536 req/s at 8 workers vs 87604 at 16, GET / c=256) because more workers starve the client. Go (GOMAXPROCS) and Rust (num_cpus) peers do take every core and are not hurt by it, needing far less CPU per request; peers on node/bun/deno use one core unless their own app clusters. Scaling is sublinear either way — 1 worker does 30594, so 8 returns 3.58x for 8x the cores. Set WORKERS=1 for a per-core reading."
+       note: "The server workers and oha share this machine. Worker count is recorded per run; no scaling or competitor performance is inferred from this measurement."
      },
      repeats: $repeats,
      generatedAt: $now,
@@ -374,11 +383,11 @@ jq -n \
      contractVerdict: "PASSED — @zmdb/web fulfills the the-benchmarker/web-frameworks shared contract (verified by contract-check.mjs before load).",
      throughput: { measured: true },
      metrics: $metrics
-   }' > "$RESULTS"
+   }' > "$RESULTS" || { echo "result assembly failed"; exit 1; }
 rm -f "$METRICS_TMP"
 
 # Mirror into the dashboard data dir so the site picks it up on next docs build.
-cp "$RESULTS" "$REPO_ROOT/benchmarks/site/$(basename "$RESULTS")" 2>/dev/null || true
+cp "$RESULTS" "$REPO_ROOT/benchmarks/site/$(basename "$RESULTS")" || exit 1
 
 echo "DONE — wrote $RESULTS (measured on $RUNTIME, the-benchmarker-shaped);"
 echo "       raw oha JSON under $HERE/.results/$RUNTIME/<level>/; mirrored to benchmarks/site/."

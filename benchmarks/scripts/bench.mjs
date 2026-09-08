@@ -382,25 +382,22 @@ function interleavedHeadToHead() {
 }
 
 const framework = {
-  preflight() {
+  preflight({ onlyZmdb }) {
     const missing = [];
-    if (!submodulePresent(SUITES.framework)) missing.push('submodule');
+    if (!onlyZmdb && !submodulePresent(SUITES.framework)) missing.push('submodule');
     const cached = join(BENCH, 'harness', 'framework', '.bin', 'oha');
     if (!have('oha') && !existsSync(cached)) missing.push('oha (https://github.com/hatoo/oha)');
     return missing;
   },
 
-  run() {
-    // run.sh builds @zmdb/web, verifies the shared contract, then drives oha at
-    // the upstream concurrency levels. peers-run.sh does the same for every peer
-    // framework on the same box, which is the only way the comparison is fair.
-    // Then the same app on the other two runtimes: same bundle, same contract, so
-    // the runtime is the only thing that differs between those rows. These are
-    // best-effort, because bun and deno are not required to develop this
-    // repository — but a failure is announced, and it leaves no results file, so
-    // the runtime is absent from the dashboard rather than present with a
-    // placeholder.
-    for (const runtime of FRAMEWORK_RUNTIMES) {
+  run({ onlyZmdb }) {
+    if (onlyZmdb) {
+      run('bash', [join(BENCH, 'harness', 'framework', 'run.sh')], BENCH, { RUNTIME: 'node' });
+      return;
+    }
+    // Explicit peer runs also exercise the source bundle on optional runtimes.
+    // Failures are reported; earlier captures keep their original provenance.
+    for (const runtime of ['node', ...FRAMEWORK_RUNTIMES]) {
       const ok = runSoft('bash', [join(BENCH, 'harness', 'framework', 'run.sh')], BENCH, { RUNTIME: runtime });
       if (!ok) process.stdout.write(`  ! RUNTIME=${runtime} run failed — no ${runtime} row will be published\n`);
     }
@@ -428,7 +425,7 @@ const framework = {
     // more than one of them — ours on three, hono on three — and without it those
     // rows overwrite each other.
     const rows = new Map();
-    const pivot = (id, runtime, language, isZmdb, workers, metrics) => {
+    const pivot = (id, runtime, language, isZmdb, workers, metrics, source) => {
       for (const m of metrics) {
         const key = `${id}\u0000${runtime}\u0000${m.level}\u0000${m.route}`;
         const row = rows.get(key) ?? {
@@ -437,6 +434,7 @@ const framework = {
           language,
           isZmdb,
           workers,
+          ...source,
           level: m.level,
           route: m.route,
           metrics: {},
@@ -464,7 +462,11 @@ const framework = {
         workers,
         measuredAt: data.generatedAt ?? null,
       });
-      pivot(`@zmdb/web (${runtime})`, runtime, 'typescript', true, workers, data.metrics);
+      pivot(`@zmdb/web (${runtime})`, runtime, 'typescript', true, workers, data.metrics, {
+        measuredAt: data.generatedAt ?? null,
+        runtimeVersion: data.runtimeVersion ?? null,
+        methodology: data.methodology ?? null,
+      });
     }
 
     const byId = new Map((theirs.peers ?? []).map(p => [p.id, p]));
@@ -474,7 +476,11 @@ const framework = {
       // one process, but that is an inference about somebody else's code and the
       // column would be stating it on our authority.
       const runtime = m.runtime ?? peer?.runtime ?? 'unknown';
-      pivot(m.id, runtime, m.language ?? peer?.language ?? 'unknown', false, null, [m]);
+      pivot(m.id, runtime, m.language ?? peer?.language ?? 'unknown', false, null, [m], {
+        measuredAt: theirs.generatedAt ?? null,
+        runtimeVersion: peer?.version ?? null,
+        methodology: theirs.methodology ?? null,
+      });
     }
 
     // A peer that failed to boot or failed the contract check has no metrics, so
@@ -575,11 +581,10 @@ function main() {
   const normalizeOnly = flag('normalize-only');
   const install = flag('install');
   const skip = flag('skip-unavailable');
-  // No --libs means the whole field: the upstream runner treats an empty case list
-  // as "run everything", and "all feasible libraries" is the only comparison worth
-  // publishing. Individual libraries that fail to build are reported as not-run.
+  // Competitor runs are opt-in; default measurements refresh zmdb only.
   const explicit = value('libs');
-  const libs = explicit === undefined ? validationCases() : explicit.split(',').filter(l => l.length > 0);
+  const libs = explicit === undefined ? ['zmdb', 'zmdb-aot'] : explicit.split(',').filter(l => l.length > 0);
+  const onlyZmdb = !flag('include-peers');
 
   let failed = false;
   for (const name of names) {
@@ -587,14 +592,14 @@ function main() {
     process.stdout.write(`\n=== ${SUITES[name].label}\n`);
 
     if (!normalizeOnly) {
-      if (submodulePresent(SUITES[name])) graft(name);
-      const missing = impl.preflight({ install });
+      if ((name !== 'framework' || !onlyZmdb) && submodulePresent(SUITES[name])) graft(name);
+      const missing = impl.preflight({ install, onlyZmdb });
       if (missing.length > 0) {
         process.stdout.write(`  not run — missing: ${missing.join('; ')}\n`);
         if (!skip) failed = true;
       } else {
         try {
-          impl.run({ install, libs });
+          impl.run({ install, libs, onlyZmdb });
         } catch (error) {
           process.stdout.write(`  not run — ${error.message}\n`);
           if (!skip) failed = true;
