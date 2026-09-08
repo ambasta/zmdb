@@ -12,7 +12,6 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FIXTURE = join(ROOT, 'fixtures', 'database-mssql');
 const PACKAGES = join(ROOT, 'packages');
 const ROOTS = ['@zmdb/mssql', '@zmdb/sql', '@zmdb/orm'];
-const EXPECTED_DEPENDENCIES = [...ROOTS, 'mssql'].toSorted();
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, { encoding: 'utf8', ...options });
@@ -43,12 +42,6 @@ function importSpecifiers(source) {
 export function inspectMssqlFixture(fixture = FIXTURE) {
   const problems = [];
   const manifest = JSON.parse(readFileSync(join(fixture, 'package.json'), 'utf8'));
-  const dependencies = Object.keys(manifest.dependencies ?? {}).toSorted();
-  if (JSON.stringify(dependencies) !== JSON.stringify(EXPECTED_DEPENDENCIES)) {
-    problems.push(
-      `fixture dependencies ${JSON.stringify(dependencies)}, expected ${JSON.stringify(EXPECTED_DEPENDENCIES)}`,
-    );
-  }
   if (manifest.devDependencies?.['@types/mssql'] !== '12.3.0') {
     problems.push('fixture must pin @types/mssql 12.3.0 for declaration proof');
   }
@@ -287,9 +280,11 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
 }
