@@ -174,6 +174,19 @@ function executeSample(directory, sample) {
     jsx: 'automatic',
     logLevel: 'silent',
   });
+  const code = readFileSync(output, 'utf8');
+  const guard = `if (typeof process !== "undefined" && process.permission && !process.permission.has("net")) {
+  if (typeof globalThis.fetch === "function") {
+    const _fetch = globalThis.fetch;
+    globalThis.fetch = function(...args) {
+      if (!process.permission.has("net")) {
+        throw new Error("ERR_ACCESS_DENIED: Access to network has been restricted");
+      }
+      return _fetch.apply(this, args);
+    };
+  }
+}\n`;
+  writeFileSync(output, guard + code);
   const result = spawnSync(
     process.execPath,
     [
