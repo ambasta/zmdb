@@ -18,7 +18,8 @@ export interface HttpGenerationConfig {
 export interface ToolingDriver {
   readonly dialect: SqlDialect;
   execute(query: CompiledQuery): Promise<readonly Record<string, unknown>[]>;
-  transaction?<T>(run: (driver: ToolingDriver) => Promise<T>): Promise<T>;
+  // oxlint-disable-next-line typescript/no-explicit-any
+  transaction?<T>(run: (driver: any) => Promise<T>): Promise<T>;
 }
 
 /** The plain-data half of a config, validated by the generated AOT checker. */
