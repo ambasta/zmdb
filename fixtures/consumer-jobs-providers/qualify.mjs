@@ -143,7 +143,8 @@ async function packClosure(roots) {
     const packedInfo = JSON.parse(packedResult.stdout);
     assert.deepEqual(Object.keys(packedInfo), [manifest.name]);
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
-const toBase64 = bytes => typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.btoa(String.fromCharCode(...bytes));
+    const toBase64 = bytes =>
+      typeof bytes.toBase64 === 'function' ? bytes.toBase64() : globalThis.btoa(String.fromCharCode(...bytes));
 
     packageIntegrities.set(
       manifest.name,

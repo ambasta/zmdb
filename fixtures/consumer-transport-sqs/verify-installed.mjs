@@ -19,7 +19,9 @@ const digest = async (algorithm, bytes, encoding = 'hex') => {
   if (encoding === 'base64') {
     return typeof hash.toBase64 === 'function' ? hash.toBase64() : globalThis.btoa(String.fromCharCode(...hash));
   }
-  return typeof hash.toHex === 'function' ? hash.toHex() : Array.from(hash, b => b.toString(16).padStart(2, '0')).join('');
+  return typeof hash.toHex === 'function'
+    ? hash.toHex()
+    : Array.from(hash, b => b.toString(16).padStart(2, '0')).join('');
 };
 const groupAlive = pid => {
   try {

@@ -13,7 +13,9 @@ const hash = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   if (encoding === 'base64') {
     return typeof digest.toBase64 === 'function' ? digest.toBase64() : globalThis.btoa(String.fromCharCode(...digest));
   }
-  return typeof digest.toHex === 'function' ? digest.toHex() : Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
+  return typeof digest.toHex === 'function'
+    ? digest.toHex()
+    : Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

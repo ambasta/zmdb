@@ -284,7 +284,9 @@ async function digest(bytes, algorithm, encoding = 'hex') {
   if (encoding === 'base64') {
     return typeof value.toBase64 === 'function' ? value.toBase64() : globalThis.btoa(String.fromCharCode(...value));
   }
-  return typeof value.toHex === 'function' ? value.toHex() : Array.from(value, b => b.toString(16).padStart(2, '0')).join('');
+  return typeof value.toHex === 'function'
+    ? value.toHex()
+    : Array.from(value, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function sourceIdentity(directory) {

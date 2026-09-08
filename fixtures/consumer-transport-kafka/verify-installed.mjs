@@ -105,7 +105,9 @@ async function digest(bytes, algorithm, encoding = 'hex') {
   if (encoding === 'base64') {
     return typeof hashed.toBase64 === 'function' ? hashed.toBase64() : globalThis.btoa(String.fromCharCode(...hashed));
   }
-  return typeof hashed.toHex === 'function' ? hashed.toHex() : Array.from(hashed, b => b.toString(16).padStart(2, '0')).join('');
+  return typeof hashed.toHex === 'function'
+    ? hashed.toHex()
+    : Array.from(hashed, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 try {
