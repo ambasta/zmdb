@@ -1,5 +1,5 @@
-import { BaseRepository, createLoaderScope, type Driver } from '@zmdb/orm';
-import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema/ir';
+import { BaseRepository, createLoaderScope } from '@zmdb/orm';
+import { schemaFromIR, type SchemaIR } from '@zmdb/schema/ir';
 import {
   type OneToMany,
   type OneToOne,
@@ -11,7 +11,8 @@ import {
 import { type CompiledQuery } from '@zmdb/sql';
 import { describe, expect, it } from 'vitest';
 
-import { postgresDialect, sqliteDialect } from '../testing/official-dialects.fixture.js';
+import { sqliteDialect } from '../testing/official-dialects.fixture.js';
+import { column, recordingDriver } from '../testing/repository.fixture.js';
 
 export interface LoaderUser extends Table<'users'> {
   id: number & Sql<'integer'> & PrimaryKey;
@@ -36,23 +37,6 @@ export interface LoaderMembership extends Table<'memberships'> {
   tenantId: string & Sql<'text'> & PrimaryKey;
   userId: number & Sql<'integer'> & PrimaryKey;
   role: string & Sql<'text'>;
-}
-
-function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR> = {}): ColumnIR {
-  return {
-    name,
-    physicalName: name,
-    sql,
-    nullable: false,
-    primaryKey: false,
-    serial: false,
-    unique: false,
-    hasDefault: false,
-    sensitive: false,
-    constraints: {},
-    rules: [],
-    ...overrides,
-  };
 }
 
 const USER_IR: SchemaIR = {
@@ -90,28 +74,6 @@ class Users extends BaseRepository<LoaderUser> {
 
 class Memberships extends BaseRepository<LoaderMembership> {
   static override readonly schema = MembershipSchema;
-}
-
-interface RecordingDriver extends Driver {
-  readonly calls: CompiledQuery[];
-}
-
-type DriverAnswer = (
-  query: CompiledQuery,
-  call: number,
-) => readonly Record<string, unknown>[] | Promise<readonly Record<string, unknown>[]>;
-
-function recordingDriver(answer: DriverAnswer): RecordingDriver {
-  const calls: CompiledQuery[] = [];
-  return {
-    dialect: postgresDialect,
-    calls,
-    async execute(query) {
-      const call = calls.length;
-      calls.push(query);
-      return answer(query, call);
-    },
-  };
 }
 
 function rowsForIds(query: CompiledQuery): readonly Record<string, unknown>[] {

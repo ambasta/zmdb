@@ -7,12 +7,13 @@ import {
   type RepositoryOptions,
 } from '@zmdb/orm';
 import { type DeclaredTable, type Entity, type PrimaryKeyOf } from '@zmdb/schema';
-import { schemaFromIR, type ColumnIR, type SchemaIR } from '@zmdb/schema/ir';
+import { schemaFromIR, type SchemaIR } from '@zmdb/schema/ir';
 import { type PrimaryKey, type Sql, type Table } from '@zmdb/schema/tags';
-import { type CompiledQuery, type SqlDialect } from '@zmdb/sql';
+import { type SqlDialect } from '@zmdb/sql';
 import { describe, expect, it, vi } from 'vitest';
 
 import { postgresDialect } from '../testing/official-dialects.fixture.js';
+import { column, recordingDriver } from '../testing/repository.fixture.js';
 import { resultCacheKey } from './index.js';
 
 function findByIdWithCache<T extends DeclaredTable>(
@@ -66,23 +67,6 @@ export interface CacheOrganization extends Table<'organizations'> {
   name: string & Sql<'text'>;
 }
 
-function column(name: string, sql: ColumnIR['sql'], overrides: Partial<ColumnIR> = {}): ColumnIR {
-  return {
-    name,
-    physicalName: name,
-    sql,
-    nullable: false,
-    primaryKey: false,
-    serial: false,
-    unique: false,
-    hasDefault: false,
-    sensitive: false,
-    constraints: {},
-    rules: [],
-    ...overrides,
-  };
-}
-
 const USER_IR: SchemaIR = {
   table: 'users',
   physicalTable: 'users',
@@ -124,28 +108,6 @@ class UsersV2 extends BaseRepository<CacheUserV2> {
 
 class Organizations extends BaseRepository<CacheOrganization> {
   static override readonly schema = OrganizationSchema;
-}
-
-interface RecordingDriver extends Driver {
-  readonly calls: CompiledQuery[];
-}
-
-type DriverAnswer = (
-  query: CompiledQuery,
-  call: number,
-) => readonly Record<string, unknown>[] | Promise<readonly Record<string, unknown>[]>;
-
-function recordingDriver(answer: DriverAnswer): RecordingDriver {
-  const calls: CompiledQuery[] = [];
-  return {
-    dialect: postgresDialect,
-    calls,
-    async execute(query) {
-      const call = calls.length;
-      calls.push(query);
-      return answer(query, call);
-    },
-  };
 }
 
 interface StoreSet {

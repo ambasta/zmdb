@@ -2470,7 +2470,12 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return rows;
   }
 
-  private sanitizePayload(payload: Record<string, unknown>): Record<string, unknown> {
+  private sanitizePayload(payload: unknown): Record<string, unknown> {
+    if (!isRecord(payload)) {
+      throw new ValidationError('payload must be an object', [
+        { path: 'input', message: 'expected object', expected: 'object', value: payload },
+      ]);
+    }
     const clean: Record<string, unknown> = {};
     for (const key of Object.keys(payload)) {
       if (payload[key] !== undefined) {
@@ -2552,24 +2557,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    * `excessIssues`.
    */
   private validatePayload(payload: unknown, variant: 'create' | 'update'): Record<string, unknown> {
-    if (!isRecord(payload)) {
-      throw new ValidationError('payload must be an object', [
-        { path: 'input', message: 'expected object', expected: 'object', value: payload },
-      ]);
-    }
     const obj = this.sanitizePayload(payload);
     const { shape, type } = this.payloadShape(variant);
     const issues = [...issuesFor(obj, type), ...this.excessIssues(obj, variant)];
-
-    if (issues.length > 0) {
-      throw new ValidationError(`validation failed: ${issues.map(i => i.path).join(', ')}`, issues);
-    }
-
-    const out: Record<string, unknown> = {};
-    for (const { column } of shape) {
-      if (column.name in obj) out[column.name] = obj[column.name];
-    }
-    return out;
+    return this.validatedColumns(obj, shape, issues);
   }
 
   /**
@@ -2579,12 +2570,6 @@ export abstract class BaseRepository<T extends DeclaredTable> {
    * checked against the same column IR separately.
    */
   private validateUpdatePatch(payload: unknown): Record<string, unknown> {
-    if (!isRecord(payload)) {
-      throw new ValidationError('payload must be an object', [
-        { path: 'input', message: 'expected object', expected: 'object', value: payload },
-      ]);
-    }
-
     const obj = this.sanitizePayload(payload);
     const values: Record<string, unknown> = {};
     const expressionIssues: ValidationIssue[] = [];
@@ -2606,6 +2591,14 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     }
 
     const issues = [...issuesFor(values, type), ...expressionIssues, ...this.excessIssues(obj, 'update')];
+    return this.validatedColumns(obj, shape, issues);
+  }
+
+  private validatedColumns(
+    obj: Record<string, unknown>,
+    shape: ShapeIR,
+    issues: ValidationIssue[],
+  ): Record<string, unknown> {
     if (issues.length > 0) {
       throw new ValidationError(`validation failed: ${issues.map(issue => issue.path).join(', ')}`, issues);
     }
