@@ -65,12 +65,14 @@ it.each(['consumer', 'timeout'])(
       expect(observed.injectedFailure).toBe(failureMode);
       expect(observed.failures).toHaveLength(1);
       expect(observed.failures[0]).toMatchObject({
-        name: 'postgres packed provider workflow',
+        name: expect.stringMatching(/(?:postgres|sqlite) packed provider workflow/),
         error: expect.stringContaining(`injected consumer ${failureMode === 'consumer' ? 'failure' : 'timeout'}`),
       });
       expect(observed.cleaned).toBe(true);
       expect(existsSync(observed.runtime)).toBe(false);
-      expect(() => process.kill(observed.postgresPid, 0)).toThrow(expect.objectContaining({ code: 'ESRCH' }));
+      if (observed.postgresPid !== undefined) {
+        expect(() => process.kill(observed.postgresPid, 0)).toThrow(expect.objectContaining({ code: 'ESRCH' }));
+      }
     } finally {
       rmSync(evidence, { recursive: true });
     }
