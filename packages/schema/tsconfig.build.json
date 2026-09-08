@@ -10,7 +10,6 @@
   "exclude": [
     "src/**/*.spec.ts",
     "src/**/*.type-test.ts",
-    "src/derive/__testing__/instantiations.ts",
     "src/dto/fixtures.ts",
     "src/relations/fixtures.ts",
     "src/tags/__fixtures__/duplicate-copy.ts",

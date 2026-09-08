@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -156,17 +155,6 @@ export const acceptsUser = (value: unknown): value is User => is<User>(value);
       rmSync(directory, { recursive: true, force: true });
     }
   });
-
-  it('keeps one-walker, instantiation and build-budget measurements within updated evidence-backed budgets', () => {
-    const run = (args: readonly string[]): string =>
-      execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
-
-    expect(run(['.github/scripts/verify-one-walker.mjs'])).toContain('one walk from a column to a value');
-    expect(run(['.github/scripts/verify-instantiations.mjs'])).toContain('deriving over them costs');
-    expect(
-      run(['--import', join(ROOT, 'scripts/ts-specifier-hook.mjs'), '.github/scripts/verify-build-budget.mjs']),
-    ).toContain('one compiler session');
-  }, 60_000);
 });
 
 describe('public compiler watch ownership', () => {

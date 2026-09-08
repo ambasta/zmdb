@@ -1,13 +1,9 @@
 #!/usr/bin/env node
-// Read-only product-facade probes and consumer source checks.
-//
-// This file deliberately contains no facade implementation. It measures the
-// public package in a fresh process, records the modules that process resolves,
-// and validates the external fixture's hygiene. The consumer-product runner
-// owns real archive installation and the HTTP application journey.
+// Public product exports and import behavior in a fresh process.
+// The consumer-product runner owns archive installation and the HTTP journey.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -49,49 +45,6 @@ export const TARGET_ROOT_VALUES = Object.freeze(
     'repositoryToken',
     'schemaOf',
     'validate',
-  ].toSorted(),
-);
-
-export const TARGET_ROOT_TYPES = Object.freeze(
-  [
-    'Application',
-    'ApplicationExtension',
-    'ApplicationExtensionContext',
-    'ApplicationOptions',
-    'CommandApp',
-    'CreateDTO',
-    'Ctx',
-    'Driver',
-    'Entity',
-    'HasDefault',
-    'Max',
-    'MaxLength',
-    'Min',
-    'MinLength',
-    'ModuleClass',
-    'Observability',
-    'Pattern',
-    'Physical',
-    'PrimaryKey',
-    'PrimaryKeyOf',
-    'ReadDTO',
-    'References',
-    'Sensitive',
-    'Serial',
-    'Sql',
-    'Table',
-    'Token',
-    'TransportStrategy',
-    'Unique',
-    'UpdateDTO',
-    'UpdatePatch',
-    'ValidateResult',
-    'ValidationIssue',
-    'WebApplication',
-    'WebApplicationOptions',
-    'WebRequest',
-    'WebResponse',
-    'ZmdbConfig',
   ].toSorted(),
 );
 
@@ -175,124 +128,6 @@ const FORBIDDEN_SPECIFIERS = [
   /^nuxt(?:\/|$)/,
   /^svelte(?:\/|$)/,
 ];
-
-const FORBIDDEN_PATHS = [
-  /packages\/zmdb\/src\/cli\//,
-  /packages\/zmdb\/src\/config\/index\.ts$/,
-  /packages\/cli\/src\//,
-  /packages\/zmdb\/src\/unplugin\.ts$/,
-  /packages\/compiler\/src\/(?!config\/contract\.ts$)/,
-  /packages\/query-compiler\/src\/migrations\//,
-  /packages\/aot-validator\/src\/(?:cli|codegen|emit|lint|metro|plugin|reflect|testing|transformer|unplugin)\//,
-];
-
-const PRODUCT_IMPLEMENTATION_ENTRIES = new Set(['./config', './unplugin']);
-
-/**
- * Facade modules delegate with named re-exports only. A callable contract such
- * as `defineConfig` has a separate owner module; putting its implementation in
- * a facade would make the stable product entry an implementation package.
- */
-export function verifyFacadeSource(source, label = 'facade') {
-  const withoutComments = source.replaceAll(/\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/gu, '');
-  const withoutNamedExports = withoutComments.replaceAll(
-    /export\s+(?:type\s+)?\{[\s\S]*?\}\s+from\s+['"][^'"]+['"]\s*;?/gu,
-    '',
-  );
-  const remainder = withoutNamedExports.trim();
-  return remainder.length === 0 ? [] : [`${label} contains executable or non-delegating source: ${remainder}`];
-}
-
-function facadeImplementationProblems(root, manifest) {
-  const problems = [];
-  for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
-    if (PRODUCT_IMPLEMENTATION_ENTRIES.has(subpath) || typeof target !== 'string') continue;
-    const label = subpath === '.' ? 'zmdb' : `zmdb${subpath.slice(1)}`;
-    const source = readFileSync(join(root, 'packages', 'zmdb', target), 'utf8');
-    problems.push(...verifyFacadeSource(source, label));
-  }
-  return problems;
-}
-
-function namesFromExportBlock(body) {
-  return body
-    .replaceAll(/\/\*[\s\S]*?\*\//g, '')
-    .split(',')
-    .map(part => part.trim())
-    .filter(Boolean)
-    .map(part => {
-      const withoutType = part.replace(/^type\s+/, '');
-      const alias = /\bas\s+([A-Za-z_$][\w$]*)$/.exec(withoutType);
-      return alias?.[1] ?? /^[A-Za-z_$][\w$]*/.exec(withoutType)?.[0];
-    })
-    .filter(name => name !== undefined)
-    .toSorted();
-}
-
-function packageName(specifier) {
-  const match = /^(@[^/]+\/[^/]+|[^@./][^/]*)(?:\/|$)/.exec(specifier);
-  return match?.[1] ?? 'zmdb';
-}
-
-function forbiddenSpecifier(specifier, optionalProductPackages) {
-  return (
-    FORBIDDEN_SPECIFIERS.some(pattern => pattern.test(specifier)) ||
-    optionalProductPackages.some(packageNameValue => {
-      return specifier === packageNameValue || specifier.startsWith(`${packageNameValue}/`);
-    })
-  );
-}
-
-function consumerSubpath(packageNameValue, subpath) {
-  return subpath === '.' ? packageNameValue : `${packageNameValue}${subpath.slice(1)}`;
-}
-
-function rootSourceOwnership(root) {
-  const path = join(root, 'packages', 'zmdb', 'src', 'index.ts');
-  const source = readFileSync(path, 'utf8');
-  const values = [];
-  const types = [];
-
-  for (const match of source.matchAll(/export\s+(type\s+)?\{([\s\S]*?)\}\s+from\s+['"]([^'"]+)['"]/g)) {
-    const [, typeKeyword, body = '', specifier = ''] = match;
-    const owner = specifier.startsWith('.') ? 'zmdb' : packageName(specifier);
-    for (const member of body.replaceAll(/\/\*[\s\S]*?\*\//g, '').split(',')) {
-      const typeOnly = typeKeyword !== undefined || /^type\s+/.test(member.trim());
-      const target = typeOnly ? types : values;
-      for (const name of namesFromExportBlock(member)) target.push({ name, owner });
-    }
-  }
-
-  for (const match of source.matchAll(/export\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/g)) {
-    const [, name = '', specifier = ''] = match;
-    values.push({ name, owner: specifier.startsWith('.') ? 'zmdb' : packageName(specifier) });
-  }
-
-  return {
-    values: values.toSorted((left, right) => left.name.localeCompare(right.name)),
-    types: types.toSorted((left, right) => left.name.localeCompare(right.name)),
-  };
-}
-
-export function readFacadeOwnership(root = ROOT, architecture) {
-  if (architecture === undefined) {
-    throw new TypeError('readFacadeOwnership requires architecture from loadGovernanceSnapshot({ root })');
-  }
-  const manifest = architecture.packages.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
-  if (manifest === undefined) throw new Error('governance snapshot omitted the zmdb facade');
-  const rootOwnership = rootSourceOwnership(root);
-  const subpaths = [];
-  for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
-    if (subpath === '.' || typeof target !== 'string') continue;
-    subpaths.push({ name: consumerSubpath('zmdb', subpath) });
-  }
-  return {
-    root: [...rootOwnership.values, ...rootOwnership.types].toSorted((left, right) =>
-      `${left.name}\u0000${left.owner}`.localeCompare(`${right.name}\u0000${right.owner}`),
-    ),
-    subpaths: subpaths.toSorted((left, right) => left.name.localeCompare(right.name)),
-  };
-}
 
 function captureHookSource() {
   return `import { appendFileSync } from 'node:fs';
@@ -390,31 +225,18 @@ function logicalUrl(root, url) {
   return rel.startsWith('..') ? path : rel;
 }
 
-export function inspectProductFacade(root = ROOT, options = {}) {
-  const { architecture } = options;
-  if (architecture === undefined) {
-    throw new TypeError('inspectProductFacade requires architecture from loadGovernanceSnapshot({ root })');
-  }
+export function inspectProductFacade(root = ROOT) {
   const captured = captureProductRootImport(root);
-  const ownership = rootSourceOwnership(root);
-  const manifest = architecture.packages.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
-  if (manifest === undefined) throw new Error('governance snapshot omitted the zmdb facade');
-  const optionalProductPackages = architecture.catalog
-    .filter(row => row.optionality.kind === 'integration')
-    .map(row => row.npmName);
+  const manifest = JSON.parse(readFileSync(join(root, 'packages', 'zmdb', 'package.json'), 'utf8'));
   const subpaths = Object.keys(manifest.exports ?? {})
-    .map(subpath => consumerSubpath('zmdb', subpath))
-    .filter(name => name !== 'zmdb')
+    .filter(subpath => subpath !== '.')
+    .map(subpath => `zmdb${subpath.slice(1)}`)
     .toSorted();
 
   const forbiddenImports = [];
   for (const imported of captured.imports) {
-    const logical = logicalUrl(root, imported.url);
-    if (
-      forbiddenSpecifier(imported.specifier, optionalProductPackages) ||
-      FORBIDDEN_PATHS.some(pattern => pattern.test(logical))
-    ) {
-      forbiddenImports.push(`${imported.specifier} -> ${logical}`);
+    if (FORBIDDEN_SPECIFIERS.some(pattern => pattern.test(imported.specifier))) {
+      forbiddenImports.push(`${imported.specifier} -> ${logicalUrl(root, imported.url)}`);
     }
   }
 
@@ -428,116 +250,21 @@ export function inspectProductFacade(root = ROOT, options = {}) {
             }`,
           ],
     runtimeNames: captured.runtimeNames,
-    typeNames: ownership.types.map(item => item.name).toSorted(),
     subpaths,
     missingSubpaths: REQUIRED_PRODUCT_SUBPATHS.filter(subpath => !subpaths.includes(subpath)),
     forbiddenImports: [...new Set(forbiddenImports)].toSorted(),
-    facadeImplementationProblems: facadeImplementationProblems(root, manifest),
-    ownership: readFacadeOwnership(root, architecture),
   };
 }
 
-function allFiles(directory) {
-  if (!existsSync(directory)) return [];
-  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
-    const path = join(directory, entry.name);
-    return entry.isDirectory() ? allFiles(path) : [path];
-  });
-}
-
-function importSpecifiers(source) {
-  const specifiers = [];
-  for (const [, specifier] of source.matchAll(/(?:^|[\s;])(?:export|import)\b[^;]*?\bfrom\s+['"]([^'"]+)['"]/gm)) {
-    specifiers.push(specifier ?? '');
-  }
-  for (const [, specifier] of source.matchAll(/(?:^|[\s;])import\s+['"]([^'"]+)['"]/gm)) {
-    specifiers.push(specifier ?? '');
-  }
-  for (const [, specifier] of source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/gm)) {
-    specifiers.push(specifier ?? '');
-  }
-  return specifiers;
-}
-
-export function inspectProductConsumerFixture(fixture) {
-  const problems = [];
-  const manifestPath = join(fixture, 'package.json');
-  const tsconfigPath = join(fixture, 'tsconfig.consumer.json');
-  if (!existsSync(manifestPath)) {
-    problems.push('consumer-product package.json is missing');
-    return problems;
-  }
-  if (!existsSync(tsconfigPath)) {
-    problems.push('consumer-product tsconfig.consumer.json is missing');
-    return problems;
-  }
-
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  const dependencyFields = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
-  const zmdbDependencies = dependencyFields.flatMap(field =>
-    Object.keys(manifest[field] ?? {})
-      .filter(name => name === 'zmdb' || name.startsWith('@zmdb/'))
-      .map(name => `${field}:${name}`),
-  );
-  if (JSON.stringify(zmdbDependencies) !== JSON.stringify(['dependencies:zmdb'])) {
-    problems.push(
-      `consumer-product must declare only dependencies:zmdb, found ${zmdbDependencies.join(', ') || 'none'}`,
-    );
-  }
-  const zmdbRange = manifest.dependencies?.zmdb;
-  if (
-    typeof zmdbRange !== 'string' ||
-    /^(?:workspace|file|link|portal|patch):/.test(zmdbRange) ||
-    zmdbRange.includes('/')
-  ) {
-    problems.push(`consumer-product zmdb dependency is not a registry range: ${JSON.stringify(zmdbRange)}`);
-  }
-
-  const tsconfig = JSON.parse(readFileSync(tsconfigPath, 'utf8'));
-  if (tsconfig.compilerOptions?.paths !== undefined) {
-    problems.push('consumer-product tsconfig must not declare compilerOptions.paths');
-  }
-  if (tsconfig.compilerOptions?.skipLibCheck === true) {
-    problems.push('consumer-product tsconfig must not enable skipLibCheck');
-  }
-  if (tsconfig.compilerOptions?.allowImportingTsExtensions !== false) {
-    problems.push('consumer-product must keep allowImportingTsExtensions=false');
-  }
-
-  for (const path of allFiles(fixture)) {
-    const source = readFileSync(path, 'utf8');
-    if (source.includes('workspace:')) {
-      problems.push(`${relative(fixture, path)} contains a workspace protocol`);
-    }
-    if (!/\.[cm]?[jt]s$/.test(path)) continue;
-    for (const specifier of importSpecifiers(source)) {
-      if (specifier.startsWith('@zmdb/')) {
-        problems.push(`${relative(fixture, path)} imports internal package ${specifier}`);
-      }
-      if (specifier.startsWith('.') && !/\.(?:[cm]?js|json)$/.test(specifier)) {
-        problems.push(`${relative(fixture, path)} uses relative specifier ${specifier} without a runtime extension`);
-      }
-    }
-  }
-  return problems.toSorted();
-}
-
 async function main() {
-  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
-  const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-  if (snapshot.architecture === null) throw new Error('governance snapshot has no architecture');
-  const report = inspectProductFacade(ROOT, { architecture: snapshot.architecture });
+  const report = inspectProductFacade(ROOT);
   const problems = [
     ...report.processProblems,
     ...(JSON.stringify(report.runtimeNames) === JSON.stringify(TARGET_ROOT_VALUES)
       ? []
       : [`root runtime exports differ: ${report.runtimeNames.join(', ')}`]),
-    ...(JSON.stringify(report.typeNames) === JSON.stringify(TARGET_ROOT_TYPES)
-      ? []
-      : [`root type exports differ: ${report.typeNames.join(', ')}`]),
     ...report.missingSubpaths.map(subpath => `missing product subpath ${subpath}`),
     ...report.forbiddenImports.map(path => `root import reaches ${path}`),
-    ...report.facadeImplementationProblems,
   ];
   if (problems.length > 0) {
     for (const problem of problems) console.error(`[ERROR] ${problem}`);

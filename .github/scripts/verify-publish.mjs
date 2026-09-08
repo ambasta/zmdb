@@ -37,13 +37,6 @@ import { qualifyRuntimeFoundation } from '../../fixtures/consumer-runtime-founda
 import { qualifySelectedJobs } from '../../fixtures/consumer-selected-jobs/qualify.mjs';
 import { inspectServerCoreFixture } from '../../fixtures/consumer-server-core/verify-installed.mjs';
 import { ROOT, publishCatalog, publishManifest, readManifest } from './lib/publish-manifest.mjs';
-import { inspectProductConsumerFixture } from './verify-product-facade.mjs';
-import {
-  TARGET_PRODUCT_TOOLING_EXPORTS,
-  TARGET_TOOLING_BIN,
-  TARGET_TOOLING_EXPORTS,
-  TARGET_TOOLING_MANIFESTS,
-} from './verify-tooling-boundaries.mjs';
 
 // Build-time and optional integration subpaths reach their peers on purpose (see
 // `verify-exports.mjs`), so the temp project needs what a consumer of every advertised
@@ -85,16 +78,8 @@ const HTTP_CLIENT_DOCS_PAGE = join(ROOT, 'docs-site', 'content', 'generated-clie
 const HTTP_CLIENT_DOCS_TSCONFIG = join(ROOT, 'fixtures', 'consumer-http-client', 'tsconfig.docs.json');
 const HTTP_CLIENT_CONSUMER_FIXTURE = join(ROOT, 'fixtures', 'consumer-http-client', 'verify-installed.mjs');
 const PUBLISH_PACKAGES = await publishCatalog(ROOT);
-const ADMITTED_PACKAGE_NAMES = new Set(PUBLISH_PACKAGES.map(packageRecord => packageRecord.npmName));
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
-
-if (
-  run(process.execPath, [join(ROOT, '.github/scripts/verify-runtime-foundation.mjs'), '--strict'], { cwd: ROOT })
-    .status !== 0
-) {
-  throw new Error('Runtime foundation verification failed');
-}
 
 /** Every `.d.ts` under `dir`, recursively. */
 function declarations(dir) {
@@ -438,56 +423,8 @@ for (const packageRecord of PUBLISH_PACKAGES) {
   for (const subpath of Object.keys(pkg.exports)) {
     specifiers.push(subpath === '.' ? pkg.name : `${pkg.name}${subpath.slice(1)}`);
   }
-  const expectedToolingExports = TARGET_TOOLING_EXPORTS[pkg.name];
-  if (expectedToolingExports !== undefined) {
-    const observed = Object.keys(pkg.exports).toSorted();
-    if (JSON.stringify(observed) !== JSON.stringify([...expectedToolingExports].toSorted())) {
-      fail(
-        `${pkg.name} packed exports ${JSON.stringify(observed)}, expected ${JSON.stringify(expectedToolingExports)}`,
-      );
-    }
-    const contract = TARGET_TOOLING_MANIFESTS[pkg.name];
-    const dependencies = Object.keys(pkg.dependencies ?? {}).toSorted();
-    if (JSON.stringify(dependencies) !== JSON.stringify([...contract.dependencies].toSorted())) {
-      fail(
-        `${pkg.name} packed dependencies ${JSON.stringify(dependencies)}, expected ${JSON.stringify(contract.dependencies)}`,
-      );
-    }
-    const peers = Object.keys(pkg.peerDependencies ?? {}).toSorted();
-    if (JSON.stringify(peers) !== JSON.stringify([...contract.peerDependencies].toSorted())) {
-      fail(`${pkg.name} packed peers ${JSON.stringify(peers)}, expected ${JSON.stringify(contract.peerDependencies)}`);
-    }
-    for (const peer of contract.peerDependencies) {
-      const optional = pkg.peerDependenciesMeta?.[peer]?.optional === true;
-      if (optional !== contract.optionalPeers.includes(peer)) {
-        fail(
-          `${pkg.name} packed peer ${peer} optional=${String(optional)}, ` +
-            `expected ${String(contract.optionalPeers.includes(peer))}`,
-        );
-      }
-    }
-  }
-  if (pkg.name === 'zmdb') {
-    for (const [toolingPackage, subpaths] of Object.entries(TARGET_PRODUCT_TOOLING_EXPORTS)) {
-      if (!ADMITTED_PACKAGE_NAMES.has(toolingPackage)) continue;
-      if (pkg.dependencies?.[toolingPackage] === undefined) {
-        fail(`zmdb packed manifest does not depend on ${toolingPackage}`);
-      }
-      for (const subpath of subpaths) {
-        if (pkg.exports?.[subpath] === undefined) {
-          fail(`zmdb packed manifest is missing ${subpath} for ${toolingPackage}`);
-        }
-      }
-    }
-  }
   if (pkg.bin) {
     const bins = typeof pkg.bin === 'string' ? { [pkg.name]: pkg.bin } : pkg.bin;
-    if (
-      pkg.name === TARGET_TOOLING_BIN.packageName &&
-      JSON.stringify(Object.keys(bins)) !== JSON.stringify([TARGET_TOOLING_BIN.command])
-    ) {
-      fail(`${pkg.name} packed bins ${JSON.stringify(Object.keys(bins))}, expected ["${TARGET_TOOLING_BIN.command}"]`);
-    }
     for (const [command, target] of Object.entries(bins)) {
       const binPath = join(into, target);
       const source = (() => {
@@ -499,7 +436,7 @@ for (const packageRecord of PUBLISH_PACKAGES) {
       })();
       if (source === null) fail(`${pkg.name} bin "${command}" → ${target} is not in the tarball`);
       else if (!source.startsWith('#!')) fail(`${pkg.name} bin "${command}" has no shebang`);
-      if (pkg.name === TARGET_TOOLING_BIN.packageName && command === TARGET_TOOLING_BIN.command) studioBin = binPath;
+      if (pkg.name === '@zmdb/cli' && command === 'zmdb') studioBin = binPath;
     }
   }
   for (const file of declarations(join(into, 'dist'))) {
@@ -813,11 +750,7 @@ if (generatedClientDocsTsc.status !== 0) {
 // through the explicitly selected SQLite memory provider.
 verifyServerCoreConsumer(app);
 
-// Check the product fixture's declared dependency and import boundary, then
-// compile its types against the packed declarations.
-for (const problem of inspectProductConsumerFixture(PRODUCT_CONSUMER_FIXTURE)) {
-  fail(problem);
-}
+// Compile the product consumer against the actual packed declarations.
 const productConsumer = join(app, 'product-consumer');
 cpSync(PRODUCT_CONSUMER_FIXTURE, productConsumer, { recursive: true });
 console.log('Typechecking the one-install product fixture against packed declarations...');

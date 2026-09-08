@@ -1,7 +1,7 @@
 // Canonical, read-only release classification and compatibility policy.
 //
 // Product membership and npm identity remain owned by scripts/product/catalog.mjs.
-// Dependency direction remains owned by scripts/architecture/policy.mjs. This file
+// Dependency order comes from package manifests. This file
 // owns only release units and the exact ranges promised across those units.
 
 const BASELINE = '1.0.0-alpha.4';

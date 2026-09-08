@@ -15,12 +15,22 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { publishCatalog, publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
-import { SERVER_PACKAGES as SERVER_TARGETS } from '../../.github/scripts/verify-server-boundaries.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 const FIXTURES = join(ROOT, 'fixtures', 'consumer-server-integrations');
 const PACKAGES_DIR = join(ROOT, 'packages');
+// Packages and third-party clients exercised by these fixture projects.
+const SERVER_TARGETS = [
+  { name: '@zmdb/protobuf' },
+  { name: '@zmdb/transport-grpc', peer: { name: '@grpc/grpc-js' } },
+  { name: '@zmdb/transport-nats', peer: { name: '@nats-io/transport-node' } },
+  { name: '@zmdb/transport-rabbitmq', peer: { name: 'amqplib' } },
+  { name: '@zmdb/transport-redis', peer: { name: 'redis' } },
+  { name: '@zmdb/jobs-sqlite' },
+  { name: '@zmdb/jobs-postgres', peer: { name: 'pg' } },
+  { name: '@zmdb/otel', peer: { name: '@opentelemetry/api' } },
+];
 const SERVER_PACKAGES = SERVER_TARGETS.map(target => target.name);
 const SERVER_PEERS = SERVER_TARGETS.flatMap(target => (target.peer === undefined ? [] : [target.peer.name]));
 const PUBLISH_PACKAGE_NAMES = PUBLISH_PACKAGES.map(packageRecord => packageRecord.npmName);

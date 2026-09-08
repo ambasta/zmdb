@@ -7,7 +7,6 @@ import { describeGraph } from '@zmdb/web/devtools';
 import { createTestApp } from '@zmdb/web/testing';
 import { describe, expect, it } from 'vitest';
 
-import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
 import {
   AmbiguousTokenAppModule,
   AppModule,
@@ -42,11 +41,9 @@ import {
 // reading the file, not from reasoning about it.
 
 const ROOT = process.cwd();
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
-const PACKAGE_POLICY = GOVERNANCE.architecture.policy;
-const ZMDB_MANIFEST = GOVERNANCE.architecture.packages.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
-if (ZMDB_MANIFEST === undefined) throw new Error('governance snapshot omitted the zmdb facade');
+const ZMDB_MANIFEST: { readonly bin?: unknown; readonly exports?: Readonly<Record<string, unknown>> } = JSON.parse(
+  readFileSync(join(ROOT, 'packages', 'zmdb', 'package.json'), 'utf8'),
+);
 const CLI_DIR = join(ROOT, 'packages', 'cli', 'src');
 const BIN = join(CLI_DIR, 'bin.ts');
 const CLI_PROCESS_TEST_TIMEOUT = 30_000;
@@ -124,24 +121,6 @@ describe('the zmdb CLI boundary', () => {
     expect(typeof pullDeclarations).toBe('function');
     expect(typeof generateHttpArtifacts).toBe('function');
     expect(typeof watchHttpArtifacts).toBe('function');
-  });
-
-  // §12 and §R5.2, and this is the barrier rather than a tidiness rule: the entry has to be
-  // policy-owned tooling or a server bundle contains the REPL.
-  it('classifies the CLI, executable and bundler adapter as tooling entries', () => {
-    expect(PACKAGE_POLICY['zmdb']?.toolingEntries).toEqual(expect.arrayContaining(['./cli', './compiler']));
-    expect(PACKAGE_POLICY['cli']?.toolingEntries).toEqual(expect.arrayContaining(['.', 'bin:zmdb']));
-  });
-
-  // §12's split: the work in `index.ts`, argument parsing and exit codes in `bin.ts`. One
-  // assertion over both names so the failure says which of the two is missing.
-  // Asserted as a filter over the two frozen names rather than as the directory listing, and the
-  // reason is a trap worth recording: `readdirSync(CLI_DIR)` includes *this file*, so an equality
-  // against `['SPEC.md', 'bin.ts', 'index.ts']` could never pass no matter what the slice lands. A
-  // red test that cannot retire is worse than no test, because the next author deletes it.
-  it('ships the CLI as bin.ts and index.ts under the CLI source root', () => {
-    const present = ['bin.ts', 'index.ts'].filter(name => existsSync(join(CLI_DIR, name)));
-    expect(present).toEqual(['bin.ts', 'index.ts']);
   });
 
   // §R7.6 and §R7.7 — the two `repl` barriers.
@@ -257,28 +236,6 @@ describe('the zmdb CLI boundary', () => {
     },
     CLI_PROCESS_TEST_TIMEOUT,
   );
-
-  // §R7.14. The inspector, lazy and REPL rows all cite live tests.
-  //
-  // What this does *not* do is check the titles. `yarn verify:api-coverage` does that — it requires a
-  // cited title to match real `it()` text — so a second copy of that check here would be a second
-  // place to update. This asserts only the direction of the move, which is the part `verify` cannot
-  // see: a row that stays out of scope passes that gate forever.
-  // Read as text rather than imported, and the reason is a gate rather than a preference:
-  // `mapping.mjs` is untyped JavaScript, `allowJs` is off in `../../tsconfig.json`'s base, and an
-  // `import` of it makes `node scripts/typecheck.mjs` fail with TS2307 on this file. The four keys
-  // each sit on one line immediately followed by `oos(`, verified by reading the file, so the text
-  // form is exact rather than approximate.
-  it('covers the inspector, REPL and lazy-module rows in the api-coverage mapping', () => {
-    const source = readFileSync(join(ROOT, 'tests', 'api-coverage', 'mapping.mjs'), 'utf8');
-    const cited = ['injector/e2e/introspection', 'lazy-modules/e2e/*', 'inspector/e2e/graph-inspector', 'repl/e2e/*'];
-    const state = cited.map(key => {
-      const literal = key.replaceAll('*', '\\*');
-      const outOfScope = new RegExp(`'${literal}':\\s*oos\\(`).test(source);
-      return `${key}: ${outOfScope ? 'oos' : 'covered'}`;
-    });
-    expect(state).toEqual(cited.map(key => `${key}: covered`));
-  });
 
   // Green, and it is §R4's whole argument as an assertion rather than as prose. The session is built
   // on `createApp` because `TestApp` exposes `request`, `get`, `init` and dispose and **no

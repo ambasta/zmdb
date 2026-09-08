@@ -25,12 +25,10 @@ import type {
   ApiClient,
 } from '../../../../fixtures/client-adapters/src/index.js';
 import { createSolidAdapterBinding } from '../../../../fixtures/client-adapters/src/solid-binding.js';
-import { loadGovernanceSnapshot } from '../../../../scripts/architecture/governance.mjs';
+import { loadArchitecture } from '../../../../scripts/architecture/index.mjs';
 
 const ROOT = process.cwd();
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
-const PRODUCT_CATALOG = GOVERNANCE.architecture.catalog;
+const PRODUCT_CATALOG = (await loadArchitecture(ROOT)).catalog;
 const OFFICIAL_ADAPTERS = [
   '@zmdb/angular',
   '@zmdb/next',

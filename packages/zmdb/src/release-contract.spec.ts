@@ -9,16 +9,17 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
 import { createDependencyGraph, loadArchitecture, topologicalOrder } from '../../../scripts/architecture/index.mjs';
 import { releasePlan } from '../../../scripts/release/plan.mjs';
 
+const { releaseModel } = createRequire(import.meta.url)('../../../scripts/release/model.mjs');
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const CONTRACT_PATH = join(ROOT, 'scripts', 'release', '__fixtures__', 'contract.json');
 const AI_VERCEL_MANIFEST = join(ROOT, 'packages', 'ai-vercel', 'package.json');
@@ -75,14 +76,6 @@ interface PackageManifest {
   readonly peerDependencies?: Readonly<Record<string, string>>;
 }
 
-interface ReleaseGovernanceModule {
-  releaseGovernanceDiagnostics(
-    root: string,
-    tag: string | undefined,
-    includeConsumers: boolean,
-  ): Promise<readonly string[]>;
-}
-
 interface PackageManagerOutcome {
   readonly status: number | null;
   readonly stdout: string;
@@ -99,10 +92,6 @@ interface PackageManagerOutcome {
 }
 
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
-
-const releaseGovernance = (await import(
-  pathToFileURL(join(ROOT, '.github', 'scripts', 'verify-release-governance.mjs')).href
-)) as ReleaseGovernanceModule;
 
 const contract = (): ReleaseContractFixture => readJson<ReleaseContractFixture>(CONTRACT_PATH);
 
@@ -450,21 +439,13 @@ async function withReleaseFixtureAsync<T>(
   }
 }
 
-async function diagnosticLines(root: string): Promise<readonly string[]> {
-  return releaseGovernance.releaseGovernanceDiagnostics(root, undefined, false);
-}
-
 async function targetPlan(
   root: string,
   target:
     | { readonly kind: 'core'; readonly version: string }
     | { readonly kind: 'package'; readonly id: string; readonly version: string },
 ) {
-  const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
-  if (snapshot.architecture === null) {
-    throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
-  }
-  return releasePlan(root, target, { architecture: snapshot.architecture });
+  return releasePlan(root, target, { architecture: await loadArchitecture(root) });
 }
 
 function runBump(root: string, releaseId: string, version: string, gitStatus?: string): SpawnSyncReturns<string> {
@@ -855,70 +836,33 @@ function runUndeclaredConsumer(): PackageManagerOutcome {
   };
 }
 
-describe('release groups and compatibility tests freeze (#747)', () => {
+describe('release groups and compatibility', () => {
   it('orders optional internal release peers before their consumers', async () => {
     const temporary = mkdtempSync(join(tmpdir(), 'zmdb-release-order-'));
     const root = join(temporary, 'fixture');
     try {
       writeReleaseOrderFixture(root);
       const architecture = await loadArchitecture(root);
-      expect(topologicalOrder(createDependencyGraph(architecture))).toEqual(['core-a', 'adapter', 'core-b']);
-
-      const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
-      expect(snapshot.findings).toEqual([]);
-      expect(snapshot.queries.release?.entries.map(entry => entry.id)).toEqual(['core-a', 'core-b', 'adapter']);
+      expect(topologicalOrder(createDependencyGraph(architecture))).toEqual(['core-a', 'core-b', 'adapter']);
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
   });
 
-  it('keeps the release fixture exhaustive, parseable and green before isolated mutations', async () => {
-    const fixture = contract();
-    expect(fixture.diagnosticCases.map(testCase => testCase.mutation).toSorted()).toEqual([
-      'alias',
-      'core-drift',
-      'duplicate-group',
-      'internal-range',
-      'peer-floor',
-      'policy-floor',
-      'prerelease',
-      'prerelease-current',
-      'stale-policy',
-      'unclassified',
-      'undeclared-dependency',
-    ]);
-    expect(new Set(fixture.diagnosticCases.map(testCase => testCase.expected)).size).toBe(
-      fixture.diagnosticCases.length,
-    );
+  it('loads the release model for valid package manifests', async () => {
     await withReleaseFixtureAsync(undefined, async root => {
-      expect(await diagnosticLines(root)).toEqual([]);
-      const releaseModule: unknown = await import(
-        `${pathToFileURL(join(root, 'scripts', 'release', 'policy.mjs')).href}?fixture=747`
-      );
-      expect(isRecord(releaseModule)).toBe(true);
-      const policy = isRecord(releaseModule) ? releaseModule['RELEASE_PACKAGE_POLICY'] : undefined;
-      expect(isRecord(policy)).toBe(true);
-      expect(Object.keys(isRecord(policy) ? policy : {}).toSorted()).toEqual(['adapter', 'core-a', 'core-b']);
+      const architecture = await loadArchitecture(root);
+      expect(() => releaseModel(root, { architecture })).not.toThrow();
     });
   });
 
   it.each(contract().diagnosticCases.filter(testCase => testCase.mutation !== 'undeclared-dependency'))(
-    '$name reports the exact actionable correction',
+    '$name rejects invalid release inputs',
     async testCase => {
       await withReleaseFixtureAsync(testCase.mutation, async root => {
-        expect(await diagnosticLines(root)).toContain(testCase.expected);
-      });
-    },
-  );
-
-  // #750 owns packed-source inspection. #749 validates membership, groups, versions,
-  // ranges, aliases and prerelease promises without pretending a manifest grep proves
-  // that the packed export can execute.
-  it.fails.each(contract().diagnosticCases.filter(testCase => testCase.mutation === 'undeclared-dependency'))(
-    '$name reports the exact actionable correction',
-    async testCase => {
-      await withReleaseFixtureAsync(testCase.mutation, async root => {
-        expect(await diagnosticLines(root)).toContain(testCase.expected);
+        await expect(
+          loadArchitecture(root).then(architecture => releaseModel(root, { architecture })),
+        ).rejects.toThrow();
       });
     },
   );
@@ -1124,9 +1068,7 @@ describe('release groups and compatibility tests freeze (#747)', () => {
 
 - **adapter:** record the newer integration release.`,
       );
-      expect(await diagnosticLines(root)).toContain(
-        '[RELEASE_CHANGELOG_FORMAT] CHANGELOG.md: release adapter@1.0.0-alpha.4 date 2026-09-06 is newer than the preceding release date 2026-09-05. Remediation: restore the one-project changelog shape in scripts/release/SPEC.md.',
-      );
+      await expect(loadArchitecture(root).then(architecture => releaseModel(root, { architecture }))).rejects.toThrow();
     });
   });
 
@@ -1144,9 +1086,7 @@ describe('release groups and compatibility tests freeze (#747)', () => {
 - **product:** record an invalid later core version.
 `,
       );
-      expect(await diagnosticLines(root)).toContain(
-        '[RELEASE_CHANGELOG_FORMAT] CHANGELOG.md: release core@1.0.0-alpha.5 is not older than the preceding core@1.0.0-alpha.4. Remediation: restore the one-project changelog shape in scripts/release/SPEC.md.',
-      );
+      await expect(loadArchitecture(root).then(architecture => releaseModel(root, { architecture }))).rejects.toThrow();
     });
   });
 

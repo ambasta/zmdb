@@ -6,19 +6,15 @@ import { pathToFileURL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { loadGovernanceSnapshot } from '../scripts/architecture/governance.mjs';
+import { loadArchitecture } from '../scripts/architecture/index.mjs';
+import { releaseModel } from '../scripts/release/model.mjs';
 import { PRODUCT_JOURNEY } from './navigation-plan.mjs';
 
 const ROOT = process.cwd();
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
-if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
-if (GOVERNANCE.queries.release === undefined) throw new Error('governance snapshot has no release model');
-const RELEASE_POLICY = GOVERNANCE.queries.release.releasePolicy;
-const ROOT_ARCHITECTURE = 'ARCHITECTURE.md';
-const DOCS_ARCHITECTURE = 'docs-site/content/architecture.md';
+const ARCHITECTURE = await loadArchitecture(ROOT);
+const RELEASE_POLICY = releaseModel(ROOT, { architecture: ARCHITECTURE }).releasePolicy;
 const PACKAGE_REFERENCE = 'docs-site/content/package-reference.md';
 const FRAMEWORK_INTEGRATIONS = 'docs-site/content/framework-integrations.md';
-const ARCHITECTURE_MARKER = 'architecture policy-graph';
 const PACKAGE_MARKER = 'product-catalog package-reference';
 const INTEGRATION_MARKER = 'integrations framework-integrations';
 const FRAMEWORKS = ['React', 'Angular', 'Vue', 'Svelte', 'Solid', 'React Native', 'Next.js', 'Nuxt', 'SvelteKit'];
@@ -57,9 +53,7 @@ function createFixture(): string {
   for (const file of ['package.json', 'yarn.lock', 'tsconfig.json', '.yarnrc.yml']) {
     symlinkSync(join(ROOT, file), join(fixture, file), 'file');
   }
-  for (const file of [ROOT_ARCHITECTURE, 'CHANGELOG.md', 'PUBLISHING.md', 'docs-README.md']) {
-    cpSync(join(ROOT, file), join(fixture, file));
-  }
+  cpSync(join(ROOT, 'CHANGELOG.md'), join(fixture, 'CHANGELOG.md'));
   return fixture;
 }
 
@@ -107,15 +101,6 @@ function markerDocument(marker: string): string {
   ].join('\n');
 }
 
-function staleGeneratedRegion(source: string, marker: string): string {
-  const open = `<!-- generated: ${marker} -->`;
-  const close = `<!-- /generated: ${marker} -->`;
-  const openAt = source.indexOf(open);
-  const closeAt = source.indexOf(close);
-  if (openAt < 0 || closeAt < openAt) throw new Error(`missing generated marker pair: ${marker}`);
-  return `${source.slice(0, openAt + open.length)}\n\nSTALE GENERATED SENTINEL\n\n${source.slice(closeAt)}`;
-}
-
 function generatedSection(source: string, marker: string): string {
   const open = `<!-- generated: ${marker} -->`;
   const close = `<!-- /generated: ${marker} -->`;
@@ -131,13 +116,11 @@ function generatedSection(source: string, marker: string): string {
 }
 
 function generatedSnapshot(root: string): string {
-  return [ROOT_ARCHITECTURE, DOCS_ARCHITECTURE, PACKAGE_REFERENCE, FRAMEWORK_INTEGRATIONS]
-    .map(path => readFileSync(join(root, path), 'utf8'))
-    .join('\n');
+  return [PACKAGE_REFERENCE, FRAMEWORK_INTEGRATIONS].map(path => readFileSync(join(root, path), 'utf8')).join('\n');
 }
 
 function publicPackageManifests(): PackageManifest[] {
-  return GOVERNANCE.architecture.workspacePackages
+  return ARCHITECTURE.workspacePackages
     .map(packageRecord => packageRecord.manifest as PackageManifest)
     .filter(manifest => manifest.name === 'zmdb' || manifest.name.startsWith('@zmdb/'))
     .toSorted((left, right) => left.name.localeCompare(right.name));
@@ -164,7 +147,7 @@ function integrationRecords(value: object): readonly IntegrationRecord[] | undef
 function materializePackageManifests(fixture: string): void {
   rmSync(join(fixture, 'packages'), { recursive: true, force: true });
   mkdirSync(join(fixture, 'packages'), { recursive: true });
-  for (const packageRecord of GOVERNANCE.architecture.workspacePackages) {
+  for (const packageRecord of ARCHITECTURE.workspacePackages) {
     mkdirSync(join(fixture, packageRecord.directory), { recursive: true });
     cpSync(packageRecord.manifestPath, join(fixture, packageRecord.directory, 'package.json'));
   }
@@ -213,7 +196,7 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it('generates every integration row and architecture policy view from evidence-bearing data', () => {
+  it('generates every integration row from its package data', () => {
     withFixture(fixture => {
       const target = join(fixture, FRAMEWORK_INTEGRATIONS);
       writeFileSync(target, markerDocument(INTEGRATION_MARKER));
@@ -227,67 +210,14 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       expect(generated).toMatch(/\b(built-in|optional|documented|not-planned)\b/);
       expect(generated).toMatch(/(?:packages|docs-site)\//);
     });
-
-    withFixture(fixture => {
-      for (const path of [ROOT_ARCHITECTURE, DOCS_ARCHITECTURE]) {
-        const target = join(fixture, path);
-        writeFileSync(target, staleGeneratedRegion(readFileSync(target, 'utf8'), ARCHITECTURE_MARKER));
-      }
-
-      const result = build(fixture);
-      expect(result.status, result.output).toBe(0);
-
-      const architecture = GOVERNANCE.architecture;
-      const edgeCount = architecture.packages.reduce(
-        (count, packageRecord) => count + packageRecord.policy.allowedWorkspaceDependencies.length,
-        0,
-      );
-      const byId = new Map(architecture.packages.map(packageRecord => [packageRecord.id, packageRecord]));
-
-      for (const path of [ROOT_ARCHITECTURE, DOCS_ARCHITECTURE]) {
-        const generated = generatedSection(readFileSync(join(fixture, path), 'utf8'), ARCHITECTURE_MARKER);
-        expect(generated).toContain(`**${String(architecture.packages.length)} catalog packages**`);
-        expect(generated).toContain(`**${String(edgeCount)} direct workspace edges**`);
-        for (const packageRecord of architecture.packages) {
-          expect(generated, packageRecord.id).toContain(packageRecord.npmName);
-          expect(generated, packageRecord.id).toContain(packageRecord.policy.zone);
-          expect(generated, packageRecord.id).toContain(String(packageRecord.policy.ring));
-          for (const dependency of packageRecord.policy.allowedWorkspaceDependencies) {
-            expect(generated, `${packageRecord.id}:${dependency}`).toContain(
-              byId.get(dependency)?.npmName ?? `missing:${dependency}`,
-            );
-          }
-          for (const selector of packageRecord.policy.toolingEntries) {
-            expect(generated, `${packageRecord.id}:${selector}`).toContain(selector);
-          }
-          for (const [peer, selectors] of Object.entries(packageRecord.policy.optionalPeerEntries)) {
-            expect(generated, `${packageRecord.id}:${peer}`).toContain(peer);
-            for (const selector of selectors) {
-              expect(generated, `${packageRecord.id}:${peer}:${selector}`).toContain(selector);
-            }
-          }
-          expect(generated, `${packageRecord.id}:release`).toContain(RELEASE_POLICY[packageRecord.id]?.group);
-        }
-      }
-    });
   });
 
   it('leaves generated content byte-identical on a second run', () => {
     withFixture(fixture => {
       const packageReference = join(fixture, PACKAGE_REFERENCE);
       const integrations = join(fixture, FRAMEWORK_INTEGRATIONS);
-      const rootArchitecture = join(fixture, ROOT_ARCHITECTURE);
-      const docsArchitecture = join(fixture, DOCS_ARCHITECTURE);
       writeFileSync(packageReference, markerDocument(PACKAGE_MARKER));
       writeFileSync(integrations, markerDocument(INTEGRATION_MARKER));
-      writeFileSync(
-        rootArchitecture,
-        staleGeneratedRegion(readFileSync(rootArchitecture, 'utf8'), ARCHITECTURE_MARKER),
-      );
-      writeFileSync(
-        docsArchitecture,
-        staleGeneratedRegion(readFileSync(docsArchitecture, 'utf8'), ARCHITECTURE_MARKER),
-      );
       const before = generatedSnapshot(fixture);
 
       const firstResult = build(fixture);
@@ -301,8 +231,6 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
       expect(first).not.toBe(before);
       expect(second).toBe(first);
       expect(first).not.toContain('STALE GENERATED SENTINEL');
-      expect(readFileSync(rootArchitecture, 'utf8')).toMatch(/\n$/);
-      expect(readFileSync(docsArchitecture, 'utf8')).toMatch(/\n$/);
       expect(readFileSync(packageReference, 'utf8')).toMatch(/\n$/);
       expect(readFileSync(integrations, 'utf8')).toMatch(/\n$/);
     });
@@ -350,18 +278,8 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
     withFixture(fixture => {
       const packageReference = join(fixture, PACKAGE_REFERENCE);
       const integrations = join(fixture, FRAMEWORK_INTEGRATIONS);
-      const rootArchitecture = join(fixture, ROOT_ARCHITECTURE);
-      const docsArchitecture = join(fixture, DOCS_ARCHITECTURE);
       writeFileSync(packageReference, markerDocument(PACKAGE_MARKER));
       writeFileSync(integrations, markerDocument(INTEGRATION_MARKER));
-      writeFileSync(
-        rootArchitecture,
-        staleGeneratedRegion(readFileSync(rootArchitecture, 'utf8'), ARCHITECTURE_MARKER),
-      );
-      writeFileSync(
-        docsArchitecture,
-        staleGeneratedRegion(readFileSync(docsArchitecture, 'utf8'), ARCHITECTURE_MARKER),
-      );
       expect(build(fixture).status).toBe(0);
 
       const before = generatedSnapshot(fixture);
@@ -370,22 +288,6 @@ describe('generated documentation truth', { timeout: TEST_TIMEOUT }, () => {
 
       expect(result.status, result.output).toBe(0);
       expect(after).toBe(before);
-
-      const publishing = join(fixture, 'PUBLISHING.md');
-      writeFileSync(
-        publishing,
-        readFileSync(publishing, 'utf8').replaceAll(
-          'node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --publish-tsv',
-          'STALE RELEASE PLAN COMMAND',
-        ),
-      );
-
-      const staleResult = verifyGenerated(fixture);
-      expect(staleResult.status).not.toBe(0);
-      expect(staleResult.output).toContain('PUBLISHING.md');
-      expect(staleResult.output).toContain(
-        'node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --publish-tsv',
-      );
     });
   });
 

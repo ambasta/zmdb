@@ -1,8 +1,0 @@
-{
-  "name": "architecture-governance-fixture",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
-  "type": "module"
-}

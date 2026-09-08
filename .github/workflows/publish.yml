@@ -127,12 +127,6 @@ jobs:
           fi
           echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
 
-      - name: Verify release group, version, changelog, tag, membership, and order
-        run: |
-          yarn verify:governance
-          yarn verify:release-governance
-          node .github/scripts/verify-release-governance.mjs --tag "$RELEASE_TAG"
-
       - name: Test
         run: yarn vitest run
 

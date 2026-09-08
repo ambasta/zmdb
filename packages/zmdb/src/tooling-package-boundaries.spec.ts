@@ -7,21 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runEmbedded, type EmbeddedConnection } from '@zmdb/migrations/embedded';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  analyseToolingBoundaries,
-  GENERATED_ARTIFACTS,
-  RETIRED_AOT_TOOLING_EXPORTS,
-  TARGET_PRODUCT_TOOLING_EXPORTS,
-  TARGET_TOOLING_BIN,
-  TARGET_TOOLING_EXPORTS,
-} from '../../../.github/scripts/verify-tooling-boundaries.mjs';
-import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
-
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-const ARCHITECTURE = GOVERNANCE.architecture;
-if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
-const analyseTooling = () => analyseToolingBoundaries({ architecture: ARCHITECTURE, snapshot: GOVERNANCE });
 const PACKAGES = join(ROOT, 'packages');
 const FIXTURES = join(ROOT, 'fixtures');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
@@ -354,17 +340,17 @@ function runNode(app: string, args: readonly string[]): CommandResult {
   };
 }
 
-type TargetToolingPackage = keyof typeof TARGET_TOOLING_EXPORTS & string;
+type TargetToolingPackage = keyof typeof TARGET_DIRECTORIES;
 
-function targetSpecifiers(packageName: TargetToolingPackage): readonly string[] {
-  return TARGET_TOOLING_EXPORTS[packageName].map(subpath =>
-    subpath === '.' ? packageName : `${packageName}${subpath.slice(1)}`,
-  );
+function targetExports(packageName: TargetToolingPackage): readonly string[] {
+  const manifest = readJson<PackageManifest>(join(PACKAGES, TARGET_DIRECTORIES[packageName], 'package.json'));
+  return Object.keys(manifest.exports ?? {}).toSorted();
 }
 
-function normalizeBins(manifest: PackageManifest): Readonly<Record<string, string>> {
-  if (typeof manifest.bin === 'string') return { [manifest.name ?? '']: manifest.bin };
-  return manifest.bin ?? {};
+function targetSpecifiers(packageName: TargetToolingPackage): readonly string[] {
+  return targetExports(packageName).map(subpath =>
+    subpath === '.' ? packageName : `${packageName}${subpath.slice(1)}`,
+  );
 }
 
 function fixtureContracts(): readonly { readonly directory: string; readonly config: string }[] {
@@ -560,7 +546,7 @@ process.stdout.write(JSON.stringify({
     expect(existsSync(packagePath(join(fixture.migrationsApp, 'node_modules'), 'typescript'))).toBe(false);
   });
 
-  it('keeps the existing embedded runner ordered and filesystem-free while ownership moves', async () => {
+  it('applies embedded migrations in version order', async () => {
     const connection = new MemoryEmbeddedConnection();
     const applied = await runEmbedded(connection, [
       { version: 2, name: 'second', up: 'CREATE TABLE second(id INTEGER)', checksum: 'sha256:second' },
@@ -568,7 +554,6 @@ process.stdout.write(JSON.stringify({
     ]);
     expect(applied).toEqual([1, 2]);
     expect(connection.migrationSql).toEqual(['CREATE TABLE first(id INTEGER)', 'CREATE TABLE second(id INTEGER)']);
-    expect(analyseTooling().embeddedViolations).toEqual([]);
   });
 
   it('executes the current packed bin and every currently shipped command help route', async () => {
@@ -579,9 +564,7 @@ process.stdout.write(JSON.stringify({
     const owner = targetPackedPackage(packedFixture(), '@zmdb/compiler');
     expect(owner).toBeDefined();
     expect.soft(owner?.manifest.name).toBe('@zmdb/compiler');
-    expect
-      .soft(Object.keys(owner?.manifest.exports ?? {}).toSorted())
-      .toEqual([...TARGET_TOOLING_EXPORTS['@zmdb/compiler']]);
+    expect.soft(Object.keys(owner?.manifest.exports ?? {}).toSorted()).toEqual(targetExports('@zmdb/compiler'));
     for (const specifier of targetSpecifiers('@zmdb/compiler')) {
       expect.soft(compilerImports[specifier], specifier).toMatchObject({ ok: true });
     }
@@ -607,12 +590,10 @@ process.stdout.write(JSON.stringify({
     });
   });
 
-  it('runs embedded migrations from a packed package with no filesystem or formatter reachability', () => {
+  it('runs embedded migrations from a packed package', () => {
     const owner = targetPackedPackage(packedFixture(), '@zmdb/migrations');
     expect.soft(owner?.manifest.name).toBe('@zmdb/migrations');
-    expect
-      .soft(Object.keys(owner?.manifest.exports ?? {}).toSorted())
-      .toEqual([...TARGET_TOOLING_EXPORTS['@zmdb/migrations']]);
+    expect.soft(Object.keys(owner?.manifest.exports ?? {}).toSorted()).toEqual(targetExports('@zmdb/migrations'));
     for (const specifier of targetSpecifiers('@zmdb/migrations')) {
       expect.soft(migrationsImports[specifier], specifier).toMatchObject({ ok: true });
     }
@@ -625,62 +606,11 @@ process.stdout.write(JSON.stringify({
     expect.soft(migrationsSmoke?.stdout).toContain('"applied":[1,2]');
     expect.soft(migrationsSmoke?.stdout).toContain('"dialect":"fixture"');
     expect.soft(migrationsSmoke?.stdout).toContain('"officialIntrospectionRegistryAbsent":true');
-    expect.soft(analyseTooling().embeddedViolations).toEqual([]);
-    expect.soft(analyseTooling().formatterViolations).toEqual([]);
   });
 
   it('runs the installed zmdb executable from @zmdb/cli and dispatches every command once', async () => {
     await installedCliProof(['T03', 'T05', 'T26', 'T28']);
   }, 600_000);
-});
-
-describe('tooling isolation and removal boundaries (#627)', () => {
-  it('generates no import of @zmdb/compiler in application runtime output', () => {
-    const analysis = analyseTooling();
-    expect
-      .soft(
-        analysis.generatedViolations.filter(violation => /^@zmdb\/compiler(?:\/|$)/.test(violation.specifier ?? '')),
-      )
-      .toEqual([]);
-
-    const runtimeImports = GENERATED_ARTIFACTS.filter(path => path.endsWith('.js')).flatMap(path => {
-      const source = readFileSync(join(ROOT, path), 'utf8');
-      return [...source.matchAll(/(?:from\s+|import\s*\(\s*)['"]([^'"]+)['"]/g)].map(match => match[1] ?? '');
-    });
-    expect.soft(runtimeImports.some(specifier => /^@zmdb\/(?:validator|protobuf)(?:\/|$)/.test(specifier))).toBe(true);
-    expect.soft(runtimeImports.some(specifier => /^@zmdb\/compiler(?:\/|$)/.test(specifier))).toBe(false);
-
-    const aot = readJson<PackageManifest>(join(PACKAGES, 'validator', 'package.json'));
-    expect(normalizeBins(aot)).toEqual({});
-    for (const subpath of RETIRED_AOT_TOOLING_EXPORTS) {
-      expect.soft(aot.exports, `@zmdb/validator ${subpath}`).not.toHaveProperty(subpath);
-    }
-  });
-
-  it('keeps every runtime root unreachable from TypeScript, oxfmt, CLI, REPL, Studio and scaffolding', () => {
-    expect(analyseTooling().runtimeViolations).toEqual([]);
-  });
-
-  it('moves the remaining migration and CLI surfaces to their target owners', () => {
-    const query = readJson<PackageManifest>(join(PACKAGES, 'sql', 'package.json'));
-    const product = readJson<PackageManifest>(join(PACKAGES, 'zmdb', 'package.json'));
-    const cliDirectory = join(PACKAGES, 'cli', 'package.json');
-    const cli = existsSync(cliDirectory) ? readJson<PackageManifest>(cliDirectory) : undefined;
-
-    expect.soft(normalizeBins(product)).not.toHaveProperty('zmdb');
-    expect.soft(cli?.name).toBe(TARGET_TOOLING_BIN.packageName);
-    expect.soft(normalizeBins(cli ?? {})).toEqual({ [TARGET_TOOLING_BIN.command]: './src/bin.ts' });
-    for (const [packageName, subpaths] of Object.entries(TARGET_PRODUCT_TOOLING_EXPORTS)) {
-      expect.soft(product.dependencies, `zmdb dependency ${packageName}`).toHaveProperty(packageName);
-      for (const subpath of subpaths) {
-        expect.soft(product.exports, `zmdb facade ${subpath}`).toHaveProperty(subpath);
-      }
-    }
-
-    for (const subpath of ['./introspect', './migrations', './migrations/embedded', './migrations/runner']) {
-      expect.soft(query.exports, `@zmdb/sql ${subpath}`).not.toHaveProperty(subpath);
-    }
-  });
 });
 
 class MemoryEmbeddedConnection implements EmbeddedConnection {

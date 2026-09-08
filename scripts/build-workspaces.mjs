@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadGovernanceSnapshot } from './architecture/governance.mjs';
-import { topologicalOrder } from './architecture/index.mjs';
+import { loadArchitecture, topologicalOrder } from './architecture/index.mjs';
+import { releaseModel } from './release/model.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const YARN = process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
@@ -66,13 +66,8 @@ function extraWorkspaceOrder(catalogNames) {
   return topologicalOrder(graph).map(name => byName.get(name));
 }
 
-const snapshot = await loadGovernanceSnapshot({ root: ROOT, checks: ['release'] });
-const activeFindings = snapshot.findings.filter(finding => finding.disposition === 'active');
-if (activeFindings.length > 0) {
-  fail(`release governance is invalid:\n${activeFindings.map(finding => finding.line).join('\n')}`);
-}
-const release = snapshot.queries.release;
-if (release === undefined) fail('release governance produced no release query');
+const architecture = await loadArchitecture(ROOT);
+const release = releaseModel(ROOT, { architecture });
 const productTargets = release.entries.map(packageRecord => {
   if (typeof packageRecord.manifest.scripts?.build !== 'string') {
     fail(`${packageRecord.npmName} has no build script`);

@@ -23,18 +23,14 @@ const section = (heading, body) => (body ? `## ${heading}\n\n${body}\n` : '');
 
 const code = (lang, body) => (body ? `\`\`\`${lang}\n${body.trim()}\n\`\`\`` : '');
 
-/** The gates every change in this repo has to clear, plus whatever the sub-issue adds. */
+/** Ordinary checks selected for the changed behavior. */
 const GATES = [
-  '`npx vitest run` — the whole suite, not only the new file',
-  '`node scripts/typecheck.mjs` — all 13 projects, which is what compiles `*.type-test.ts`',
-  '`yarn lint && yarn fmt:check`',
-  '`yarn validate:spec` — every `SPEC.md` checklist item resolved',
+  'Run the existing focused unit, functional or integration tests for changed behavior.',
+  'Run lint, formatting and affected TypeScript checks as applicable.',
+  'Do not add bespoke acceptance gates, source-count ratchets or mandatory benchmark campaigns.',
 ];
 
-const DOCS_GATES = [
-  '`node docs-site/build.mjs` — the page builds and the nav resolves',
-  '`yarn verify:docs-coverage` — the upstream page inventory still accounts for every page',
-];
+const DOCS_GATES = ['Build changed documentation and check its affected examples.'];
 
 export function renderEpic(epic) {
   const pages = epic.pages.map(pageRef).join(', ');

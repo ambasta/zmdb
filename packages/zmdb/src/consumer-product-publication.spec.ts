@@ -5,7 +5,6 @@ import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
-import { inspectProductConsumerFixture } from '../../../.github/scripts/verify-product-facade.mjs';
 import { PACKED_BUILD_TEST_TIMEOUT_MS } from '../../../fixtures/client-adapters/src/packed-project.js';
 
 const root = process.cwd();
@@ -71,7 +70,6 @@ describe('one-install product publication (#623)', () => {
   it(
     'installs only zmdb and typechecks without workspace paths or skipLibCheck',
     async () => {
-      expect(inspectProductConsumerFixture(join(root, 'fixtures/consumer-product'))).toEqual([]);
       const manifest = JSON.parse(readFileSync(join(root, 'packages/zmdb/package.json'), 'utf8'));
       expect(manifest.dependencies['@zmdb/sqlite']).toMatch(/^workspace:/);
       expect(manifest.peerDependencies?.['@zmdb/sqlite']).toBeUndefined();

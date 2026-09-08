@@ -5,9 +5,9 @@ import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'nod
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadGovernanceSnapshot } from '../architecture/governance.mjs';
+import { loadArchitecture } from '../architecture/index.mjs';
 import { compareSemver, parseSemver, releaseChannel } from './lib.mjs';
-import { createReleasePlan } from './model.mjs';
+import { createReleasePlan, releaseModel } from './model.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const CATEGORIES = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security'];
@@ -200,12 +200,6 @@ function restore(snapshots) {
   }
 }
 
-function requiredReleaseModel(governanceSnapshot) {
-  const model = governanceSnapshot.queries.release;
-  if (model !== undefined) return model;
-  throw new Error(governanceSnapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
-}
-
 async function run(argv) {
   const options = parseArguments(argv);
   const targetVersion = parseSemver(options.version);
@@ -215,7 +209,8 @@ async function run(argv) {
   }
 
   assertCleanGit(options.root);
-  const model = requiredReleaseModel(await loadGovernanceSnapshot({ root: options.root, checks: ['release'] }));
+  const architecture = await loadArchitecture(options.root);
+  const model = releaseModel(options.root, { architecture });
   const packages = selectedPackages(model, options.releaseId);
   const currentVersions = new Set(packages.map(packageRecord => packageRecord.manifest.version));
   if (currentVersions.size !== 1) {
@@ -248,7 +243,8 @@ async function run(argv) {
       throw new Error(`yarn install --mode=update-lockfile failed with status ${String(yarn.status)}`);
     }
     const target = targetFor(options.releaseId, options.version);
-    const finalModel = requiredReleaseModel(await loadGovernanceSnapshot({ root: options.root, checks: ['release'] }));
+    const finalArchitecture = await loadArchitecture(options.root);
+    const finalModel = releaseModel(options.root, { architecture: finalArchitecture });
     const plan = createReleasePlan(finalModel, target);
     if (plan.version !== options.version || plan.releaseId !== options.releaseId) {
       throw new Error(

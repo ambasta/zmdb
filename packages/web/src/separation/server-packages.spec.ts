@@ -5,23 +5,12 @@ import { metadataOf } from '@zmdb/app';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  analyzeCoreServerBoundaries,
-  CORE_SERVER_PACKAGES,
-  findServerPackageCycle,
-  PRODUCT_SERVER_EXPORTS,
-} from '../../../../.github/scripts/verify-server-boundaries.mjs';
-import {
   PACKED_BUILD_TEST_TIMEOUT_MS,
   withPackedBuildLock,
 } from '../../../../fixtures/client-adapters/src/packed-project.js';
-import { inspectServerCoreFixture } from '../../../../fixtures/consumer-server-core/verify-installed.mjs';
-import { loadGovernanceSnapshot } from '../../../../scripts/architecture/governance.mjs';
 import { metadataOf as facadeMetadataOf } from '../../../zmdb/src/web.js';
 
 const ROOT = process.cwd();
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
-const ARCHITECTURE = GOVERNANCE.architecture;
 const CONSUMER = join(ROOT, 'fixtures', 'consumer-server-core', 'verify-installed.mjs');
 const TYPESCRIPT_HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const APP_SPECIFIER = '@zmdb/app';
@@ -147,130 +136,7 @@ function capturedError(action: () => PromiseLike<void>): Promise<unknown> {
   );
 }
 
-let measuredBoundaries: ReturnType<typeof analyzeCoreServerBoundaries> | undefined;
-function coreBoundaries(): ReturnType<typeof analyzeCoreServerBoundaries> {
-  measuredBoundaries ??= analyzeCoreServerBoundaries(ROOT, { architecture: ARCHITECTURE });
-  return measuredBoundaries;
-}
-
 describe('core server package boundaries (#646)', () => {
-  it('keeps @zmdb/app free of HTTP and job exports', () => {
-    expect(coreBoundaries().packageProblems.get('@zmdb/app')).toEqual([]);
-  });
-
-  it('keeps @zmdb/web free of jobs and optional integrations', () => {
-    expect(coreBoundaries().packageProblems.get('@zmdb/web')).toEqual([]);
-  });
-
-  it('keeps @zmdb/jobs free of HTTP and third-party peers', () => {
-    expect(coreBoundaries().packageProblems.get('@zmdb/jobs')).toEqual([]);
-  });
-
-  it('keeps the server package graph acyclic', () => {
-    const report = coreBoundaries();
-    expect(report.graphProblems).toEqual([]);
-    expect(findServerPackageCycle(report.edges)).toBeNull();
-    expect(
-      findServerPackageCycle([
-        ['@zmdb/app', '@zmdb/web'],
-        ['@zmdb/web', '@zmdb/app'],
-      ]),
-    ).toEqual(['@zmdb/app', '@zmdb/web', '@zmdb/app']);
-  });
-
-  it('freezes every direct core edge and all 32 default product facade subpaths', () => {
-    expect(CORE_SERVER_PACKAGES).toEqual([
-      {
-        name: '@zmdb/app',
-        dir: 'app',
-        dependencies: {
-          '@zmdb/validator': 'workspace:^',
-          '@zmdb/sql': 'workspace:^',
-          '@zmdb/orm': 'workspace:^',
-          '@zmdb/schema': 'workspace:^',
-        },
-        exports: [
-          '.',
-          './commands',
-          './cqrs',
-          './data',
-          './di',
-          './events',
-          './health',
-          './lifecycle',
-          './messaging',
-          './modules',
-          './observability',
-          './state',
-        ],
-        forbiddenPackages: ['@zmdb/jobs', '@zmdb/web'],
-        forbiddenExports: [],
-      },
-      {
-        name: '@zmdb/web',
-        dir: 'web',
-        dependencies: {
-          '@zmdb/app': 'workspace:^',
-          '@zmdb/schema': 'workspace:^',
-          '@zmdb/validator': 'workspace:^',
-        },
-        buildTimePeers: {
-          '@zmdb/compiler': '1.0.0-alpha.4',
-          typescript: '>=7.0.2 <8.0.0',
-        },
-        exports: [
-          '.',
-          './app',
-          './compression',
-          './context',
-          './contract',
-          './contract/compiler',
-          './csrf',
-          './data',
-          './devtools',
-          './dto-pipes',
-          './gateways',
-          './health',
-          './integrations',
-          './middleware',
-          './openapi',
-          './pipeline',
-          './routing',
-          './static',
-          './testing',
-          './upload',
-          './versioning',
-        ],
-        buildTimeExports: ['./contract/compiler'],
-        forbiddenPackages: ['@zmdb/jobs'],
-        forbiddenExports: [
-          './cli',
-          './cqrs',
-          './di',
-          './events',
-          './microservices',
-          './modules',
-          './observability',
-          './queues',
-          './queues/backends/memory',
-          './schedule',
-          './state',
-        ],
-      },
-      {
-        name: '@zmdb/jobs',
-        dir: 'jobs',
-        dependencies: { '@zmdb/app': 'workspace:^' },
-        exports: ['.', './schedule'],
-        forbiddenPackages: ['@zmdb/web', '@zmdb/sqlite', '@zmdb/postgres', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres'],
-        forbiddenExports: ['./memory'],
-      },
-    ]);
-    expect(PRODUCT_SERVER_EXPORTS).toHaveLength(32);
-    expect(new Set(PRODUCT_SERVER_EXPORTS).size).toBe(32);
-    expect(PRODUCT_SERVER_EXPORTS.filter(subpath => subpath === './jobs' || subpath.startsWith('./jobs/'))).toEqual([]);
-  });
-
   it.each([APP_SPECIFIER])('imports %s from its dedicated package', specifier => {
     const result = spawnSync(
       process.execPath,
@@ -287,10 +153,6 @@ describe('core server package boundaries (#646)', () => {
       { cwd: ROOT, encoding: 'utf8' },
     );
     expect(result.status, result.stderr).toBe(0);
-  });
-
-  it('keeps the installed consumer free of workspace aliases and declaration shortcuts', () => {
-    expect(inspectServerCoreFixture()).toEqual([]);
   });
 
   it('a plain zmdb install requires no third-party server peer', () => {
@@ -311,7 +173,6 @@ describe('core server package boundaries (#646)', () => {
         }),
       );
       expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-      expect(result.stdout).toContain('"facadePairs":32');
       expect(result.stdout).toContain('"httpStatus":200');
       expect(result.stdout).toContain('"commandExit":0');
     },

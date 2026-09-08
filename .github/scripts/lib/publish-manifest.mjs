@@ -8,27 +8,20 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadGovernanceSnapshot } from '../../../scripts/architecture/governance.mjs';
-import { createReleasePlan } from '../../../scripts/release/model.mjs';
+import { loadArchitecture } from '../../../scripts/architecture/index.mjs';
+import { createReleasePlan, releaseModel } from '../../../scripts/release/model.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
-async function releaseSnapshot(root) {
-  const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
-  const release = snapshot.queries.release;
-  if (release === undefined) {
-    throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
-  }
-  return { release, snapshot };
-}
-
 export async function publishCatalog(root = ROOT) {
-  const { release } = await releaseSnapshot(root);
+  const architecture = await loadArchitecture(root);
+  const release = releaseModel(root, { architecture });
   return release.entries;
 }
 
 export async function publishTrain(root = ROOT, target) {
-  const { release } = await releaseSnapshot(root);
+  const architecture = await loadArchitecture(root);
+  const release = releaseModel(root, { architecture });
   const plan = target === undefined ? release.plan : createReleasePlan(release, target);
   const selected = new Set(plan.packages);
   return Object.freeze({
@@ -53,7 +46,7 @@ export function toDist(target, ext) {
   return `./dist/${match[1]}${ext}`;
 }
 
-/** The manifest that ships, given one snapshot-owned committed manifest. */
+/** The manifest that ships, given one committed package manifest. */
 export function publishManifest(pkg) {
   if (typeof pkg.version !== 'string' || pkg.version.length === 0) {
     throw new Error(`${String(pkg.name)} has no release version`);
@@ -124,7 +117,7 @@ export function publishManifest(pkg) {
   return next;
 }
 
-/** A snapshot-owned manifest for a catalog id, npm name, or repository-relative package directory. */
+/** A package manifest for a catalog id, npm name, or repository-relative package directory. */
 export function readManifest(identity, packages) {
   if (!Array.isArray(packages)) {
     throw new TypeError('readManifest requires the result of await publishCatalog(root) or publishTrain(root, target)');

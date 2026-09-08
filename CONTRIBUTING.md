@@ -1,44 +1,28 @@
 # Contributing to zmdb
 
 Start with the current owning SPEC and an actionable native issue. [ARCHITECTURE.md](./ARCHITECTURE.md) describes system invariants; the [ADR index](./docs/adr/index.md) preserves dated context. A
-historical diagram or checklist does not authorise a current package edge or change the issue graph.
-
-## Current authorities
-
-| Concern                                                   | Source                                                                                                                                                         |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Official packages, identity and product role              | [Product catalog](./scripts/product/catalog.mjs) and [SPEC](./scripts/product/SPEC.md)                                                                         |
-| Allowed dependencies, zones, rings and entry reachability | [Architecture policy](./scripts/architecture/policy.mjs) and [SPEC](./scripts/architecture/SPEC.md)                                                            |
-| Release units and compatibility ranges                    | [Release policy](./scripts/release/policy.mjs) and [SPEC](./scripts/release/SPEC.md)                                                                           |
-| Temporary owned exceptions                                | [Exception registry](./scripts/architecture/exceptions.mjs) and [exception contract](./scripts/architecture/SPEC.md#13-structured-exceptions)                  |
-| Composed read-only architecture queries                   | [loadGovernanceSnapshot](./scripts/architecture/governance.mjs)                                                                                                |
-| Issue ownership, blockers and actionability               | [Native relationship reader](./scripts/roadmap/native-relationships.mjs) and [contract](./scripts/architecture/SPEC.md#14-native-issue-relationship-semantics) |
-
-The governance snapshot composes the catalog, policy, manifests and their queries. Consumers use those records instead of rebuilding a package list or graph. Generated architecture and
-package-reference tables are projections of the same sources.
+historical diagram or checklist does not change the issue graph.
 
 ## Package and dependency changes
 
-1. Identify the existing responsibility and its public boundary. Read the nearest SPEC and keep its current invariants and refusal behavior with the implementation.
-2. When admitting a package, change its manifest, exports, documentation, license and catalog/architecture/release records together. When changing an edge, update its manifest declaration and policy
-   classification together; use the existing SPEC rules for runtime, tooling, required-peer and optional-peer edges.
-3. Implement and run the focused unit, functional or integration checks needed for the changed behavior. Reuse unchanged installed-consumer proof. A prose-only change needs formatting and
-   affected-link checks, not a new runtime campaign.
-4. When model facts change, regenerate the existing views with `node docs-site/generated.mjs`. Do not edit a generated row as a second authority.
-5. After disjoint issue changes are composed, run one applicable integrated gate. The historical per-issue 36-command boilerplate is not the current workflow. Release preparation follows
-   [PUBLISHING.md](./PUBLISHING.md).
+Use package manifests for dependencies and exports, the [product catalog](./scripts/product/catalog.mjs) for package membership, and [release policy](./scripts/release/policy.mjs) for version groups.
+Build and documentation tooling read those records directly.
 
-The existing aggregate can inspect the composed model against fresh native issue data:
+Implement the change and run the existing unit, functional or integration tests that exercise it. Add a regression test only when the behavior lacks coverage. Keep public-package installation checks
+for changes to packaging or exports. Use the normal repository checks as appropriate:
 
 ```bash
-zmdb_relationships_file="$(mktemp)"
-node scripts/roadmap/native-relationships.mjs --json > "$zmdb_relationships_file"
-yarn verify:governance --relationships "$zmdb_relationships_file"
-rm "$zmdb_relationships_file"
+yarn lint
+yarn fmt:check
+yarn typecheck
+yarn test
+yarn build
 ```
 
-The relationship reader performs the explicit read-only network capture. Governance queries inspect that supplied snapshot and do not mutate GitHub, publish packages or create another tracker
-projection. Focused query commands remain available for diagnosis; they consume the same model.
+Do not introduce source-text policing, arbitrary count or performance ratchets, GitHub-dependent acceptance checks, or tests of bespoke governance machinery. Benchmarks are optional manual tools and
+must run on an idle machine; shared-machine timings do not establish a performance baseline.
+
+Release preparation follows [PUBLISHING.md](./PUBLISHING.md).
 
 ## Documentation changes
 
@@ -55,31 +39,17 @@ page statuses and sample classifications; update those measurements when their i
   [integration contract](./docs-site/SPEC.md#52-framework-integration-matrix). Update [client-applications.mjs](./docs-site/client-applications.mjs) when its client support/example facts change.
 - **Add a package:** follow the package/dependency workflow above. The catalog and admitted manifest own the reference entry; do not add a second package list to a guide.
 
-After changing an authored catalog, policy or integration record, regenerate its projections, then run the three documentation checks and build:
+After changing package or integration records, regenerate their pages. Run the applicable documentation checks:
 
 ```bash
 node docs-site/generated.mjs
 yarn verify:docs-generated
 yarn verify:docs-samples
-yarn verify:docs-coverage
 yarn build:docs
 ```
 
 `verify:docs-generated` checks freshness without rewriting files. `verify:docs-samples` compiles classified groups, checks expected diagnostics and reports illustrative excerpts separately;
-compilation alone is not live-service or runtime proof. `verify:docs-coverage` checks the upstream documentation mapping. Both the CI documentation job and the Pages deployment run these checks before
-building. The canonical `build:docs` command supplies the repository's source-resolution hook.
-
-For a documentation release, run `yarn build:docs` a second time and compare the SHA-256 hashes of every relative file path under `site/` with the first build. Compare bytes, not timestamps. Both
-builds must leave the committed generated source regions unchanged. Reuse unchanged sample and installed-consumer evidence while fixing a focused issue; run the complete applicable documentation
-checks on the integrated change.
-
-## Exception lifecycle
-
-Fix a finding at its owner. If reviewed temporary debt is necessary, add one exact structured registry record with its stable finding, explicit scope, rationale, evidence, open removal issue, measured
-ceiling and expiry condition. Use the existing [exception contract](./scripts/architecture/SPEC.md#13-structured-exceptions) for its schema and refusals.
-
-A lower positive finding count requires a lower ceiling. When the finding disappears or its removal condition becomes true, remove the record in the same change. A closed owner cannot own live debt.
-Do not broaden a scope, restore deleted code or preserve an obsolete count to keep an exception alive.
+compilation alone is not live-service or runtime proof. CI and Pages run these checks before building. The canonical `build:docs` command supplies the repository's source-resolution hook.
 
 ## Native issue workflow
 

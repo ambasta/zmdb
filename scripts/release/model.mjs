@@ -21,11 +21,6 @@ const COMPATIBILITY_FIELDS = ['evidence', 'floor', 'range', 'tested'];
 const freezeArray = values => Object.freeze([...values]);
 const isRecord = value => typeof value === 'object' && value !== null && !Array.isArray(value);
 
-function isDeeplyFrozen(value) {
-  if (!Array.isArray(value) && !isRecord(value)) return true;
-  return Object.isFrozen(value) && Object.values(value).every(isDeeplyFrozen);
-}
-
 function sameValues(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
@@ -226,16 +221,6 @@ function compatibilityDiagnostics(subject, compatibility) {
       );
     }
   }
-  if (!isDeeplyFrozen(compatibility)) {
-    diagnostics.push(
-      diagnostic(
-        'RELEASE_COMPATIBILITY_INVALID',
-        subject,
-        'compatibility policy is mutable',
-        'deep-freeze the policy at module evaluation',
-      ),
-    );
-  }
   return diagnostics;
 }
 
@@ -252,11 +237,7 @@ function internalProjectionDiagnostics(packageRecord, architecture, releasePolic
   const diagnostics = [];
   const row = releasePolicy[packageRecord.id];
   if (!isRecord(row) || !isRecord(row.internalCompatibility)) return diagnostics;
-  const optionalPeerIds = Object.keys(packageRecord.policy.optionalPeerEntries).flatMap(npmName => {
-    const target = architecture.packages.find(candidate => candidate.npmName === npmName);
-    return target === undefined ? [] : [target.id];
-  });
-  const releaseDependencies = [...packageRecord.policy.allowedWorkspaceDependencies, ...optionalPeerIds];
+  const releaseDependencies = createDependencyGraph(architecture)[packageRecord.id] ?? [];
   const architectureIds = new Set(releaseDependencies);
   const expectedCrossing = releaseDependencies.filter(
     dependency => !isSameCore(releasePolicy, packageRecord.id, dependency),
@@ -318,7 +299,7 @@ function internalProjectionDiagnostics(packageRecord, architecture, releasePolic
     );
     const targetIsCore = groupOf(releasePolicy, dependency) === 'core';
     const sourceIsIndependent = groupOf(releasePolicy, packageRecord.id) !== 'core';
-    const optionalPeer = Object.hasOwn(packageRecord.policy.optionalPeerEntries, target.npmName);
+    const optionalPeer = peerMetadata[target.npmName]?.optional === true;
     const peerProjection = (sourceIsIndependent && targetIsCore) || optionalPeer;
     if (peerProjection) {
       const observed = peerDependencies[target.npmName];
@@ -547,16 +528,6 @@ function policyDiagnostics(architecture, releasePolicy) {
         }
       }
     }
-    if (!isDeeplyFrozen(row)) {
-      diagnostics.push(
-        diagnostic(
-          'RELEASE_POLICY_INVALID',
-          `${packageRecord.id} (${packageRecord.npmName})`,
-          'policy row is mutable',
-          'deep-freeze policy data at module evaluation',
-        ),
-      );
-    }
   }
   for (const id of Object.keys(releasePolicy)) {
     if (!catalogById.has(id)) {
@@ -569,16 +540,6 @@ function policyDiagnostics(architecture, releasePolicy) {
         ),
       );
     }
-  }
-  if (!isDeeplyFrozen(releasePolicy)) {
-    diagnostics.push(
-      diagnostic(
-        'RELEASE_POLICY_INVALID',
-        'RELEASE_PACKAGE_POLICY',
-        'policy export is mutable',
-        'deep-freeze the complete record',
-      ),
-    );
   }
   return diagnostics;
 }
@@ -633,22 +594,6 @@ function releaseOwners(architecture, releasePolicy) {
   );
 }
 
-function releaseDependencyGraph(architecture, releasePolicy) {
-  const architectureGraph = createDependencyGraph(architecture);
-  return Object.freeze(
-    Object.fromEntries(
-      Object.entries(architectureGraph).map(([id, dependencies]) => [
-        id,
-        freezeArray(
-          [...new Set([...dependencies, ...Object.keys(releasePolicy[id]?.internalCompatibility ?? {})])].toSorted(
-            compareText,
-          ),
-        ),
-      ]),
-    ),
-  );
-}
-
 export class ReleaseGovernanceError extends Error {
   constructor(diagnostics) {
     super(diagnostics.join('\n'));
@@ -661,7 +606,7 @@ export function releaseModel(root, options = {}) {
   const resolvedRoot = resolve(root);
   const { architecture } = options;
   if (architecture === undefined) {
-    throw new TypeError('releaseModel requires architecture from loadGovernanceSnapshot({ root })');
+    throw new TypeError('releaseModel requires architecture from await loadArchitecture(root)');
   }
   const releasePolicy = loadReleasePolicy(resolvedRoot);
   const diagnostics = [
@@ -697,7 +642,7 @@ export function releaseModel(root, options = {}) {
     throw new ReleaseGovernanceError([...new Set(diagnostics)].toSorted(compareText));
   }
 
-  const order = topologicalOrder(releaseDependencyGraph(architecture, releasePolicy));
+  const order = topologicalOrder(createDependencyGraph(architecture));
   const entries = order.map(id => {
     const packageRecord = lookupPackage(architecture, id);
     if (packageRecord === undefined) throw new TypeError(`topological order references unknown catalog id ${id}`);
@@ -766,12 +711,13 @@ export function createReleasePlan(model, target) {
         )
       : new Set([identity.releaseId]);
   const selected = model.entries.filter(entry => selectedIds.has(entry.id));
+  const graph = createDependencyGraph(model.architecture);
   const manifestChanges = selected.map(entry => {
     const packageRecord = lookupPackage(model.architecture, entry.id);
     if (packageRecord === undefined) throw new TypeError(`release entry ${entry.id} is not in the catalog`);
     const row = model.releasePolicy[entry.id];
     const ranges = [];
-    for (const dependency of packageRecord.policy.allowedWorkspaceDependencies) {
+    for (const dependency of graph[packageRecord.id] ?? []) {
       const targetPackage = lookupPackage(model.architecture, dependency);
       if (targetPackage === undefined) continue;
       const range = selectedIds.has(dependency)

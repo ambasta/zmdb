@@ -62,10 +62,6 @@ import { type Equal, type Expect, type Extends } from '@zmdb/schema';
 import { type NamingStrategy } from '@zmdb/schema/naming';
 import { type SqlDialect } from '@zmdb/sql';
 
-import type {
-  TARGET_PRODUCT_TOOLING_EXPORTS,
-  TARGET_TOOLING_MANIFESTS,
-} from '../../../.github/scripts/verify-tooling-boundaries.mjs';
 import type { checkProject } from '../../cli/src/commands/check.js';
 import type { embedMigrations } from '../../cli/src/commands/embed.js';
 import type { exportSchema } from '../../cli/src/commands/export.js';
@@ -242,19 +238,6 @@ type MigrationValues = {
   readonly pullDeclarations: typeof pullDeclarations;
 };
 
-type TargetManifestContracts = typeof TARGET_TOOLING_MANIFESTS;
-type TargetDependencies = {
-  readonly [Package in keyof TargetManifestContracts]: TargetManifestContracts[Package]['dependencies'][number];
-};
-type TargetPeers = {
-  readonly [Package in keyof TargetManifestContracts]: TargetManifestContracts[Package]['peerDependencies'][number];
-};
-type TargetOptionalPeers = {
-  readonly [Package in keyof TargetManifestContracts]: TargetManifestContracts[Package]['optionalPeers'][number];
-};
-type ProductToolingExports =
-  (typeof TARGET_PRODUCT_TOOLING_EXPORTS)[keyof typeof TARGET_PRODUCT_TOOLING_EXPORTS][number];
-
 type RuntimeReachability = {
   readonly schema: never;
   readonly sql: never;
@@ -331,53 +314,6 @@ export type _MigrationOperationsAreExact = Expect<
 >;
 export type _CliSignatureMovesWithoutChanging = Expect<
   Equal<typeof runCli, (argv: readonly string[], environment?: CliEnvironment) => Promise<number>>
->;
-export type _ToolingDependencyGraphIsExact = Expect<
-  Equal<
-    TargetDependencies,
-    {
-      readonly '@zmdb/compiler': '@zmdb/ai';
-      readonly '@zmdb/migrations': 'oxfmt';
-      readonly '@zmdb/cli': '@zmdb/compiler' | '@zmdb/migrations' | 'oxfmt';
-    }
-  >
->;
-export type _OnlyCompilerAndCliHaveToolingPeers = Expect<
-  Equal<
-    TargetPeers,
-    {
-      readonly '@zmdb/compiler':
-        | '@zmdb/validator'
-        | '@zmdb/sql'
-        | '@zmdb/schema'
-        | 'metro'
-        | 'metro-babel-transformer'
-        | 'oxlint'
-        | 'typescript';
-      readonly '@zmdb/migrations': '@zmdb/schema' | '@zmdb/sql';
-      readonly '@zmdb/cli':
-        | '@zmdb/app'
-        | '@zmdb/sql'
-        | '@zmdb/orm'
-        | '@zmdb/schema'
-        | '@zmdb/web'
-        | 'esbuild'
-        | 'typescript';
-    }
-  >
->;
-export type _OptionalPeersAreExact = Expect<
-  Equal<
-    TargetOptionalPeers,
-    {
-      readonly '@zmdb/compiler': 'metro' | 'metro-babel-transformer' | 'oxlint';
-      readonly '@zmdb/migrations': never;
-      readonly '@zmdb/cli': '@zmdb/app' | '@zmdb/web' | 'esbuild';
-    }
-  >
->;
-export type _ProductToolingFacadesAreExact = Expect<
-  Equal<ProductToolingExports, './cli' | './compiler' | './config' | './migrations'>
 >;
 export type _RuntimeRootsReachNoToolingPackage = Expect<Equal<RuntimeReachability[keyof RuntimeReachability], never>>;
 export type _EveryDatabaseCommandHasOneLibraryOperation = Expect<

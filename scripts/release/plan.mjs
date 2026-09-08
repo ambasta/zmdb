@@ -3,6 +3,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { loadArchitecture } from '../architecture/index.mjs';
 import { createReleasePlan, currentCoreTarget, releaseModel } from './model.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -69,12 +70,8 @@ function parseArguments(argv) {
 
 async function main(argv) {
   const options = parseArguments(argv);
-  const { loadGovernanceSnapshot } = await import('../architecture/governance.mjs');
-  const snapshot = await loadGovernanceSnapshot({ root: options.root, checks: ['release'] });
-  const model = snapshot.queries.release;
-  if (model === undefined) {
-    throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
-  }
+  const architecture = await loadArchitecture(options.root);
+  const model = releaseModel(options.root, { architecture });
   const plan = createReleasePlan(model, options.target ?? currentCoreTarget(model));
   if (options.format === '--json') {
     console.log(JSON.stringify(plan, undefined, 2));

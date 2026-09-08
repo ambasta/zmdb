@@ -8,7 +8,7 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 
 > **Do not create an automation token.** npm itself recommends Trusted Publishing over tokens for CI. There is no `NPM_TOKEN` secret in this setup.
 
-## Current executable release governance
+## Release model
 
 The release-group contract in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md) defines one core train and independently versioned integration and tooling packages. The generated
 [package reference](./docs-site/content/package-reference.md) lists every current package's release unit, supported internal ranges and external peers directly from the catalog and release policy. The
@@ -19,7 +19,7 @@ installed compatibility qualifier is implemented in [verify-release-compatibilit
 The implementation has five sources with non-overlapping ownership:
 
 1. `scripts/product/catalog.mjs` owns release membership and npm identity only.
-2. `scripts/architecture/policy.mjs` owns dependency constraints and therefore publish order.
+2. Package manifests own dependency edges and therefore publish order.
 3. `scripts/release/policy.mjs` owns release groups and compatibility promises.
 4. `packages/*/package.json` are checked projections of versions and dependency ranges.
 5. Root `CHANGELOG.md` owns release content.
@@ -27,17 +27,17 @@ The implementation has five sources with non-overlapping ownership:
 No workflow, publish helper or documentation loop may maintain another package list or order. The read-only API is:
 
 ```ts
-const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
-if (snapshot.queries.release === undefined) throw new Error('governance snapshot has no release model');
-const plan = createReleasePlan(snapshot.queries.release, {
+const architecture = await loadArchitecture(root);
+const model = releaseModel(root, { architecture });
+const plan = createReleasePlan(model, {
   kind: 'core',
   version: '1.0.0-alpha.5',
 });
 ```
 
 `packages` contains the eight core npm names or the one selected independent npm name. `publishOrder` contains the same selection exactly once in deterministic dependency-first order. `changelogEntry`
-is the exact Markdown body of the matching `<release-id>@<version>` section. The model and plan are pure queries over the validated snapshot and perform no write, network request, registry lookup,
-build, tag or publish.
+is the exact Markdown body of the matching `<release-id>@<version>` section. The model and plan are pure queries over the package manifests and release records and perform no write, network request,
+registry lookup, build, tag or publish.
 
 ### Selecting versions and upgrading
 
@@ -100,32 +100,24 @@ identities; do not relabel them as a new complete run. Release planning and pack
 
 ### Admit a package to the current train
 
-Admission is atomic. A new publishable package is not official, policy-governed, or releasable until one change supplies all of these:
+Admission is atomic. A new publishable package is not official, or releasable until one change supplies all of these:
 
 1. the package manifest, public exports, README, license and external-consumer evidence;
 2. one product-catalog row with the package directory, npm name, role, optionality, docs owner and consumer proof;
-3. one same-id architecture-policy row with the exact direct workspace dependencies, canonical ring, tooling selectors and optional-peer selectors;
-4. one same-id release-policy row with the release group, every cross-unit range, and every external peer floor;
-5. `workspace:^` for same-core edges, explicit release-policy ranges for crossing edges, and matching optional-peer metadata;
-6. a root `CHANGELOG.md` bullet owned by that catalog id; and
-7. regenerated catalog, architecture, and release-policy documentation.
+3. one same-id release-policy row with the release group, every cross-unit range, and every external peer floor;
+4. `workspace:^` for same-core edges, explicit release-policy ranges for crossing edges, and matching optional-peer metadata;
+5. a root `CHANGELOG.md` bullet owned by that catalog id; and
+6. updated package and release documentation.
 
-Do not add the package to a publish loop, array, package-count sentence or copied graph. Regenerate and run the admission gates:
+Do not add the package to a publish loop, array, package-count sentence or copied graph. Regenerate and run the affected packaging checks:
 
 ```bash
 node docs-site/generated.mjs
-yarn verify:governance
-yarn verify:product-catalog
-yarn verify:architecture-zones
-yarn verify:runtime-reachability
 yarn verify:package-metadata
-yarn verify:release-governance
 yarn verify:docs-generated
 ```
 
-The current release plan admits the package automatically only after the catalog, architecture policy, release policy, and manifest agree. `yarn verify:architecture-zones` rejects missing, extra,
-upward, cyclic, private or non-canonical edges; `yarn verify:runtime-reachability` rejects tooling and optional-peer leakage per public entry; and `yarn verify:package-metadata` rejects current
-release/version/range drift.
+Package metadata checks validate versions, dependency ranges and export targets.
 
 ### Current version and manifest rules
 
@@ -136,7 +128,7 @@ release/version/range drift.
   `workspace:` protocol and preserves the policy range.
 - `publishConfig.access` is `public`. A prerelease channel is `alpha`, `beta` or `rc`; a stable release uses `latest`. The existing highest-precedence `latest` decision remains a publication concern,
   not a product-catalog field.
-- The lockfile is regenerated after a bump and must agree with every committed workspace range before release governance passes.
+- The lockfile is regenerated after a bump and must agree with every committed workspace range before release preparation completes.
 
 ### One project changelog
 
@@ -172,12 +164,7 @@ RELEASE_VERSION=1.0.0-alpha.5
 RELEASE_TAG="$RELEASE_ID-v$RELEASE_VERSION"
 
 node scripts/release/bump.mjs "$RELEASE_ID" "$RELEASE_VERSION"
-yarn verify:governance
-yarn verify:architecture-zones
-yarn verify:runtime-reachability
 yarn verify:package-metadata
-yarn verify:release-governance
-node .github/scripts/verify-release-governance.mjs --tag "$RELEASE_TAG"
 yarn verify:publish
 node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --json
 node scripts/release/plan.mjs --release "$RELEASE_ID" --version "$RELEASE_VERSION" --publish-tsv

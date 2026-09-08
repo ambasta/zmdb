@@ -1,8 +1,5 @@
-// Read-only architecture discovery and graph operations.
-//
-// Product membership always comes from the catalog below the supplied root.
-// Policy contributes constraints only; release versions, changelog content,
-// tags, publication state, and mutation remain outside this module.
+// Read package identities and manifests for documentation, build and publication.
+// Dependency order comes from the manifest dependency fields.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -10,18 +7,6 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
-
-const POLICY_FIELDS = [
-  'allowedRuntimeDependencies',
-  'allowedWorkspaceDependencies',
-  'directory',
-  'optionalPeerEntries',
-  'ring',
-  'toolingEntries',
-  'zone',
-];
-
-const PACKAGE_ZONES = new Set(['foundation', 'runtime', 'integration', 'tooling', 'application', 'facade']);
 
 const compareText = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
@@ -39,11 +24,6 @@ function deepFreeze(value) {
     return Object.freeze(value);
   }
   return value;
-}
-
-function isDeeplyFrozen(value) {
-  if (!Array.isArray(value) && !isRecord(value)) return true;
-  return Object.isFrozen(value) && Object.values(value).every(isDeeplyFrozen);
 }
 
 function duplicateValues(values) {
@@ -66,21 +46,6 @@ function assertStringArray(value, label) {
   }
 }
 
-function assertSelectors(value, label) {
-  assertStringArray(value, label);
-  for (const selector of value) {
-    const isExport = selector === '.' || (selector.startsWith('./') && !selector.includes('*'));
-    const isBin = /^bin:[^/:]+$/.test(selector);
-    if (!isExport && !isBin) {
-      throw new TypeError(`${label} contains invalid entry selector ${selector}`);
-    }
-  }
-  const sorted = [...value].toSorted(compareText);
-  if (JSON.stringify(value) !== JSON.stringify(sorted)) {
-    throw new TypeError(`${label} must be sorted`);
-  }
-}
-
 function assertCatalogIdentity(row, index) {
   if (
     !isRecord(row) ||
@@ -99,36 +64,6 @@ function assertUniqueCatalogIdentity(catalog, field) {
   const duplicates = duplicateValues(catalog.map(row => row[field]));
   if (duplicates.length > 0) {
     throw new TypeError(`PRODUCT_CATALOG has duplicate ${field} values: ${duplicates.join(', ')}`);
-  }
-}
-
-function assertPolicyRow(id, row) {
-  if (!isRecord(row)) throw new TypeError(`PACKAGE_POLICY row ${id} must be an object`);
-  const fields = Object.keys(row).toSorted(compareText);
-  if (JSON.stringify(fields) !== JSON.stringify(POLICY_FIELDS)) {
-    throw new TypeError(`PACKAGE_POLICY row ${id} must contain exactly ${POLICY_FIELDS.join(', ')}`);
-  }
-  if (typeof row.directory !== 'string' || row.directory.length === 0) {
-    throw new TypeError(`PACKAGE_POLICY row ${id}.directory must be a non-empty string`);
-  }
-  if (!PACKAGE_ZONES.has(row.zone)) {
-    throw new TypeError(`PACKAGE_POLICY row ${id}.zone is invalid`);
-  }
-  if (!Number.isSafeInteger(row.ring) || row.ring < 0) {
-    throw new TypeError(`PACKAGE_POLICY row ${id}.ring must be a non-negative safe integer`);
-  }
-  assertStringArray(row.allowedWorkspaceDependencies, `PACKAGE_POLICY row ${id}.allowedWorkspaceDependencies`);
-  assertStringArray(row.allowedRuntimeDependencies, `PACKAGE_POLICY row ${id}.allowedRuntimeDependencies`);
-  if (!isRecord(row.optionalPeerEntries)) {
-    throw new TypeError(`PACKAGE_POLICY row ${id}.optionalPeerEntries must be an object`);
-  }
-  for (const [dependency, selectors] of Object.entries(row.optionalPeerEntries)) {
-    if (dependency.length === 0) throw new TypeError(`PACKAGE_POLICY row ${id} has an empty optional peer`);
-    assertSelectors(selectors, `PACKAGE_POLICY row ${id}.optionalPeerEntries[${dependency}]`);
-  }
-  assertSelectors(row.toolingEntries, `PACKAGE_POLICY row ${id}.toolingEntries`);
-  if (!isDeeplyFrozen(row)) {
-    throw new TypeError(`PACKAGE_POLICY row ${id} must be deeply frozen`);
   }
 }
 
@@ -173,26 +108,6 @@ function entryTarget(packageRecord, selector) {
   return typeof exportMap[selector] === 'string' ? exportMap[selector] : undefined;
 }
 
-function assertPolicySelectorsResolve(packageRecord) {
-  const assigned = new Set(packageRecord.policy.toolingEntries);
-  for (const selectors of Object.values(packageRecord.policy.optionalPeerEntries)) {
-    for (const selector of selectors) assigned.add(selector);
-  }
-  for (const selector of [...assigned].toSorted(compareText)) {
-    if (entryTarget(packageRecord, selector) === undefined) {
-      throw new TypeError(`${packageRecord.id} policy selector ${selector} is absent from its manifest`);
-    }
-  }
-}
-
-export class ArchitecturePolicyError extends Error {
-  constructor(diagnostics) {
-    super(diagnostics.join('\n'));
-    this.name = 'ArchitecturePolicyError';
-    this.diagnostics = freezeArray(diagnostics);
-  }
-}
-
 export class DependencyCycleError extends Error {
   constructor(cycle) {
     super(`workspace dependency cycle: ${cycle.join(' -> ')}`);
@@ -201,53 +116,11 @@ export class DependencyCycleError extends Error {
   }
 }
 
-export function policyMembershipDiagnostics(catalog, policy) {
-  if (!Array.isArray(catalog)) throw new TypeError('catalog must be an array');
-  if (!isRecord(policy)) throw new TypeError('policy must be an object');
-
-  const diagnostics = [];
-  const catalogById = new Map();
-  for (const [index, row] of catalog.entries()) {
-    assertCatalogIdentity(row, index);
-    catalogById.set(row.id, row);
-    if (!Object.hasOwn(policy, row.id)) {
-      diagnostics.push(
-        `[ARCH_POLICY_MISSING] ${row.id} (${row.npmName}): catalog package ${row.directory} has no PACKAGE_POLICY row. Remediation: add the row under that catalog id.`,
-      );
-      continue;
-    }
-    const policyRow = policy[row.id];
-    if (isRecord(policyRow) && policyRow.directory !== row.directory) {
-      diagnostics.push(
-        `[ARCH_DIRECTORY_MISMATCH] ${row.id} (${row.npmName}): catalog directory ${row.directory} disagrees with policy directory ${String(policyRow.directory)}. Remediation: make all three equal to the real repository-relative directory.`,
-      );
-    }
-  }
-
-  for (const id of Object.keys(policy)) {
-    if (!catalogById.has(id)) {
-      diagnostics.push(
-        `[ARCH_POLICY_STALE] ${id}: PACKAGE_POLICY row has no product-catalog member. Remediation: delete it or admit the package in the catalog in the same change.`,
-      );
-    }
-  }
-
-  return freezeArray(diagnostics.toSorted(compareText));
-}
-
-function architectureFromModules(resolvedRoot, catalog, policy) {
+function architectureFromModules(resolvedRoot, catalog) {
   if (!Array.isArray(catalog)) throw new TypeError('scripts/product/catalog.mjs must export PRODUCT_CATALOG');
-  if (!isRecord(policy)) throw new TypeError('scripts/architecture/policy.mjs must export PACKAGE_POLICY');
-  if (!isDeeplyFrozen(catalog)) throw new TypeError('PRODUCT_CATALOG must be deeply frozen');
-  if (!isDeeplyFrozen(policy)) throw new TypeError('PACKAGE_POLICY must be deeply frozen');
 
   for (const [index, row] of catalog.entries()) assertCatalogIdentity(row, index);
   for (const field of ['id', 'directory', 'npmName']) assertUniqueCatalogIdentity(catalog, field);
-
-  const diagnostics = policyMembershipDiagnostics(catalog, policy);
-  if (diagnostics.length > 0) throw new ArchitecturePolicyError(diagnostics);
-
-  for (const [id, row] of Object.entries(policy)) assertPolicyRow(id, row);
 
   const packagesRoot = resolveInside(resolvedRoot, 'packages', 'workspace packages');
   const workspacePackages = Object.freeze(
@@ -278,17 +151,14 @@ function architectureFromModules(resolvedRoot, catalog, policy) {
       npmName: row.npmName,
       manifestPath: workspace.manifestPath,
       catalog: row,
-      policy: policy[row.id],
       manifest: workspace.manifest,
     });
-    assertPolicySelectorsResolve(packageRecord);
     return packageRecord;
   });
 
   return Object.freeze({
     root: resolvedRoot,
     catalog,
-    policy,
     packages: Object.freeze(packages),
     workspacePackages,
   });
@@ -297,15 +167,13 @@ function architectureFromModules(resolvedRoot, catalog, policy) {
 export async function loadArchitecture(root) {
   const resolvedRoot = resolve(root);
   const catalog = await moduleExport(resolvedRoot, 'scripts/product/catalog.mjs', 'PRODUCT_CATALOG');
-  const policy = await moduleExport(resolvedRoot, 'scripts/architecture/policy.mjs', 'PACKAGE_POLICY');
-  return architectureFromModules(resolvedRoot, catalog, policy);
+  return architectureFromModules(resolvedRoot, catalog);
 }
 
 export function loadArchitectureSync(root) {
   const resolvedRoot = resolve(root);
   const catalog = moduleExportSync(resolvedRoot, 'scripts/product/catalog.mjs', 'PRODUCT_CATALOG');
-  const policy = moduleExportSync(resolvedRoot, 'scripts/architecture/policy.mjs', 'PACKAGE_POLICY');
-  return architectureFromModules(resolvedRoot, catalog, policy);
+  return architectureFromModules(resolvedRoot, catalog);
 }
 
 export function lookupPackage(architecture, identity) {
@@ -365,11 +233,23 @@ export function createDependencyGraph(architecture) {
   if (!isRecord(architecture) || !Array.isArray(architecture.packages)) {
     throw new TypeError('architecture must be returned by loadArchitecture(root)');
   }
+  const byName = new Map(architecture.packages.map(record => [record.npmName, record.id]));
   return Object.freeze(
     Object.fromEntries(
-      architecture.packages.map(packageRecord => [
-        packageRecord.id,
-        freezeArray(packageRecord.policy.allowedWorkspaceDependencies),
+      architecture.packages.map(record => [
+        record.id,
+        freezeArray(
+          [
+            ...new Set(
+              ['dependencies', 'optionalDependencies', 'peerDependencies'].flatMap(field =>
+                Object.keys(record.manifest[field] ?? {}).flatMap(name => {
+                  const id = byName.get(name);
+                  return id === undefined ? [] : [id];
+                }),
+              ),
+            ),
+          ].toSorted(compareText),
+        ),
       ]),
     ),
   );

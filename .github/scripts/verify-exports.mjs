@@ -2,21 +2,16 @@
 // Confirms that all declared package exports resolve to valid files.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
-import { inspectConfigContract } from './verify-config-contract.mjs';
-import { TARGET_TOOLING_BIN, TARGET_TOOLING_EXPORTS } from './verify-tooling-boundaries.mjs';
+import { loadArchitecture } from '../../scripts/architecture/index.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const PACKAGES_DIR = join(ROOT, 'packages');
 const NEXT_SERVER_SPECIFIER = '@zmdb/next/server';
 const SERVER_ONLY_MESSAGE = 'This module cannot be imported from a Client Component module';
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: ['runtime'] });
-if (GOVERNANCE.architecture === null) throw new Error('governance snapshot has no architecture');
-const packageRecords = GOVERNANCE.packages;
+const packageRecords = (await loadArchitecture(ROOT)).packages;
 
 let errorsCount = 0;
 
@@ -64,79 +59,6 @@ for (const packageRecord of packageRecords) {
       }
     }
   }
-}
-
-// The three tooling manifests do not exist yet, but once any one is admitted
-// its public surface is no longer "whatever the manifest happened to contain".
-// #627 freezes these exact source export keys and the one executable owner.
-for (const [packageName, expected] of Object.entries(TARGET_TOOLING_EXPORTS)) {
-  const packageRecord = packageRecords.find(candidate => candidate.npmName === packageName);
-  if (packageRecord === undefined) continue;
-  const pkg = packageRecord.manifest;
-  const observed = Object.keys(pkg.exports ?? {}).toSorted();
-  if (JSON.stringify(observed) !== JSON.stringify([...expected].toSorted())) {
-    console.error(`[ERROR] ${packageName} exports ${JSON.stringify(observed)}, expected ${JSON.stringify(expected)}`);
-    errorsCount++;
-  }
-  if (packageName === TARGET_TOOLING_BIN.packageName) {
-    const bins = typeof pkg.bin === 'string' ? { [pkg.name]: pkg.bin } : (pkg.bin ?? {});
-    if (JSON.stringify(Object.keys(bins)) !== JSON.stringify([TARGET_TOOLING_BIN.command])) {
-      console.error(
-        `[ERROR] ${packageName} owns ${JSON.stringify(Object.keys(bins))}, expected only ${TARGET_TOOLING_BIN.command}`,
-      );
-      errorsCount++;
-    }
-  }
-}
-
-// The umbrella surface (REQ-UM-3). `zmdb` is the package consumers actually import,
-// so every symbol it publishes must be enumerated and must come from a workspace
-// package. A bare `export *` there would let a sibling widen the public API without
-// anyone touching `zmdb`, which is how a curated surface stops being curated.
-//
-// `export * as ns` is allowed: the namespace is named, so the surface is still
-// explicit at this level.
-const UMBRELLA_SRC = join(PACKAGES_DIR, 'zmdb', 'src');
-if (existsSync(UMBRELLA_SRC)) {
-  const umbrella = packageRecords.find(packageRecord => packageRecord.id === 'zmdb')?.manifest;
-  if (umbrella === undefined) throw new Error('governance snapshot omitted the zmdb facade');
-
-  for (const [subpath, target] of Object.entries(umbrella.exports)) {
-    if (typeof target !== 'string') continue;
-    const source = readFileSync(join(PACKAGES_DIR, 'zmdb', target), 'utf8');
-
-    if (/^\s*export\s+\*\s+from\s/m.test(source)) {
-      console.error(`[ERROR] zmdb export "${subpath}" (${target}) uses a bare "export *" — enumerate the symbols`);
-      errorsCount++;
-    }
-
-    for (const [, specifier] of source.matchAll(/^\s*(?:export|import)\s+(?:type\s+)?[^;]*?from\s+'([^']+)'/gm)) {
-      if (!specifier.startsWith('@zmdb/') && !specifier.startsWith('./') && !specifier.startsWith('node:')) {
-        console.error(`[ERROR] zmdb export "${subpath}" re-exports from "${specifier}", which is not a zmdb package`);
-        errorsCount++;
-      }
-    }
-  }
-}
-
-const configContract = inspectConfigContract(ROOT, new Map(), { architecture: GOVERNANCE.architecture });
-for (const problem of configContract.problems) {
-  console.error(`[ERROR] ${problem}`);
-  errorsCount++;
-}
-if (configContract.problems.length === 0) {
-  console.log(`  project config authoring ${configContract.authoringOwner}; loader ${configContract.owner}`);
-}
-
-// Keep the historical export verifier entry point responsible for manifest
-// resolution and source importability. Reachability belongs to the canonical
-// architecture-policy gate, and delegation here preserves compatibility for
-// callers that still run only `verify:exports`.
-const reachability = GOVERNANCE.queries.runtime;
-if (reachability === undefined) throw new Error('governance snapshot omitted runtime reachability');
-for (const diagnostic of reachability.diagnostics) {
-  console.error(diagnostic);
-  errorsCount++;
 }
 
 // Every subpath actually loads, under `node`, with no bundler and no transform.
@@ -222,7 +144,7 @@ if (errorsCount > 0) {
   process.exit(1);
 } else {
   console.log(
-    '\n[SUCCESS] every export entry point resolves, imports under its qualified node condition, and satisfies architecture reachability policy.',
+    '\n[SUCCESS] every export entry point resolves, imports under its qualified node condition, and can be loaded.',
   );
   process.exit(0);
 }

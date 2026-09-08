@@ -4,6 +4,7 @@ import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { loadArchitecture } from '../../scripts/architecture/index.mjs';
 import { publishManifest, toDist } from './lib/publish-manifest.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -50,14 +51,6 @@ const WORKSPACE_REMEDIATION =
 const compareText = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
 const isRecord = value => typeof value === 'object' && value !== null && !Array.isArray(value);
-
-function ownsRequiredPeer(packageRecord) {
-  const kind = packageRecord.catalog.optionality?.kind;
-  return (
-    (packageRecord.policy.zone === 'integration' && (kind === 'integration' || kind === 'provider')) ||
-    (packageRecord.policy.zone === 'tooling' && kind === 'tooling')
-  );
-}
 
 function canonicalValue(value) {
   if (Array.isArray(value)) return value.map(canonicalValue);
@@ -476,11 +469,6 @@ function manifestShapeDiagnostics(packageRecord) {
   }
   for (const [command, target] of Object.entries(bins)) {
     diagnostics.push(...sourceTargetDiagnostics(packageRecord, `bin.${command}`, target));
-    if (!packageRecord.policy.toolingEntries.includes(`bin:${command}`)) {
-      diagnostics.push(
-        metadataDiagnostic(packageRecord, `bin.${command}`, 'command has no matching policy tooling selector'),
-      );
-    }
     if (typeof target === 'string') {
       const path = resolve(packageRecord.directoryPath, target);
       if (isInside(packageRecord.directoryPath, path) && isFile(path)) {
@@ -657,19 +645,11 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
     }
   }
 
-  for (const dependency of packageRecord.policy.allowedRuntimeDependencies) {
-    if (sections.dependencies[dependency] === undefined) {
-      diagnostics.push(
-        metadataDiagnostic(
-          packageRecord,
-          `dependencies.${dependency}`,
-          `measured value is missing while an ordinary runtime entry and policy allowance use ${dependency}`,
-        ),
-      );
-    }
-  }
-
-  const optionalPeers = new Set(Object.keys(packageRecord.policy.optionalPeerEntries));
+  const optionalPeers = new Set(
+    Object.entries(isRecord(peerMetadata) ? peerMetadata : {})
+      .filter(([, metadata]) => isRecord(metadata) && metadata.optional === true)
+      .map(([peer]) => peer),
+  );
   for (const peer of optionalPeers) {
     const range = sections.peerDependencies[peer];
     if (typeof range !== 'string') {
@@ -706,16 +686,7 @@ function dependencyDiagnostics(packageRecord, catalogByName) {
 
   for (const [peer, range] of Object.entries(sections.peerDependencies)) {
     const metadata = isRecord(peerMetadata) ? peerMetadata[peer] : undefined;
-    const isOptional = isRecord(metadata) && metadata.optional === true;
-    if (isOptional && !optionalPeers.has(peer)) {
-      diagnostics.push(peerDiagnostic(packageRecord, peer, 'optional metadata has no matching policy assignment'));
-    }
     if (!optionalPeers.has(peer)) {
-      if (!catalogByName.has(peer) && !ownsRequiredPeer(packageRecord)) {
-        diagnostics.push(
-          peerDiagnostic(packageRecord, peer, 'required peer is owned by a non-integration/provider/tooling package'),
-        );
-      }
       if (metadata !== undefined) {
         diagnostics.push(peerDiagnostic(packageRecord, peer, 'required peer must omit peerDependenciesMeta'));
       }
@@ -926,7 +897,7 @@ export function packageMetadataDiagnostics(architecture) {
 export async function inspectPackageMetadata(root, options = {}) {
   const { architecture } = options;
   if (architecture === undefined) {
-    throw new TypeError('inspectPackageMetadata requires architecture from loadGovernanceSnapshot({ root })');
+    throw new TypeError('inspectPackageMetadata requires architecture from await loadArchitecture(root)');
   }
   const diagnostics = packageMetadataDiagnostics(architecture);
   const versions = new Set(
@@ -1010,38 +981,14 @@ function assertPublishTransform() {
 
 async function runSelfTest() {
   const fixtures = join(ROOT, 'scripts', 'architecture', '__fixtures__');
-  const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
-  const architectureFor = async root => {
-    const snapshot = await loadGovernanceSnapshot({ root, checks: [] });
-    if (snapshot.architecture === null) {
-      throw new Error(snapshot.findings.map(item => item.line).join('\n') || 'governance snapshot has no architecture');
-    }
-    return snapshot.architecture;
-  };
-  const valid = await architectureFor(join(fixtures, 'valid'));
+  const valid = await loadArchitecture(join(fixtures, 'valid'));
   assertDiagnostics('valid fixture', packageMetadataDiagnostics(valid), []);
-
-  const metadataDriftRoot = join(fixtures, 'metadata-drift');
-  const metadataDrift = await inspectPackageMetadata(metadataDriftRoot, {
-    architecture: await architectureFor(metadataDriftRoot),
-  });
-  assertDiagnostics('metadata drift fixture', metadataDrift.diagnostics, [
-    '[PACKAGE_METADATA_INVALID] @fixture/app field dependencies.fixture-runtime: measured value is missing while an ordinary runtime entry and policy allowance use fixture-runtime. Remediation: restore the exact schema value or required file.',
-  ]);
 
   const versionDriftRoot = join(fixtures, 'version-drift');
   const versionDrift = await inspectPackageMetadata(versionDriftRoot, {
-    architecture: await architectureFor(versionDriftRoot),
+    architecture: await loadArchitecture(versionDriftRoot),
   });
   assertDiagnostics('release-owned version drift fixture', versionDrift.diagnostics, []);
-
-  const optionalPeerDrift = architectureWithManifest(valid, 'app', manifest => ({
-    ...manifest,
-    peerDependenciesMeta: {},
-  }));
-  assertDiagnostics('optional peer metadata', packageMetadataDiagnostics(optionalPeerDrift), [
-    '[PACKAGE_PEER_METADATA] @fixture/app peer fixture-peer: peerDependenciesMeta.fixture-peer.optional is missing. Remediation: align the declaration and prove the range with the real peer.',
-  ]);
 
   const internalOptionalPeer = {
     ...valid,
@@ -1067,13 +1014,6 @@ async function runSelfTest() {
               optional: true,
             },
             ...packageRecord.manifest.peerDependenciesMeta,
-          },
-        },
-        policy: {
-          ...packageRecord.policy,
-          optionalPeerEntries: {
-            ...packageRecord.policy.optionalPeerEntries,
-            '@fixture/core': ['.'],
           },
         },
       };
@@ -1112,7 +1052,7 @@ async function runSelfTest() {
 
   assertPublishTransform();
   console.log(
-    'Package metadata self-test passed: valid, schema drift, release-owned version drift, optional-peer metadata, workspace ranges, and publish transforms.',
+    'Package metadata self-test passed: valid, schema drift, release-owned version drift, workspace ranges, and publish transforms.',
   );
 }
 
@@ -1141,7 +1081,7 @@ function parseArguments(argv) {
 
 function assertReadableRoot(root) {
   if (!existsSync(root) || !lstatSync(root).isDirectory()) throw new UsageError(`root is not a directory: ${root}`);
-  for (const path of ['scripts/product/catalog.mjs', 'scripts/architecture/policy.mjs']) {
+  for (const path of ['scripts/product/catalog.mjs']) {
     if (!isFile(join(root, path))) throw new UsageError(`root is missing ${path}: ${root}`);
   }
 }
@@ -1155,13 +1095,12 @@ async function main(argv) {
       return 0;
     }
     assertReadableRoot(parsed.root);
-    const { loadGovernanceSnapshot } = await import('../../scripts/architecture/governance.mjs');
-    const snapshot = await loadGovernanceSnapshot({ root: parsed.root, checks: ['metadata'] });
-    if (snapshot.findings.length > 0) {
-      for (const item of snapshot.findings) console.error(item.line);
+    const architecture = await loadArchitecture(parsed.root);
+    const report = await inspectPackageMetadata(parsed.root, { architecture });
+    if (report.diagnostics.length > 0) {
+      for (const diagnostic of report.diagnostics) console.error(diagnostic);
       return 1;
     }
-    const report = snapshot.queries.metadata;
     console.log(
       `Package metadata verified: ${String(report.packageCount)} catalog packages; source and publish manifests satisfy the canonical schema.`,
     );

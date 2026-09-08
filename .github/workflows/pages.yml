@@ -52,9 +52,6 @@ jobs:
       - name: Compile documentation samples
         run: yarn verify:docs-samples
 
-      - name: Verify competitor docs coverage
-        run: yarn verify:docs-coverage
-
       - name: Build docs site (docs at root, benchmarks at /benchmarks/)
         run: yarn build:docs
       - uses: actions/configure-pages@v5

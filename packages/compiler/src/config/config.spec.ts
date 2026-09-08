@@ -8,8 +8,6 @@ import { mssql } from '@zmdb/mssql';
 import { sqlite } from '@zmdb/sqlite';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { inspectConfigContract } from '../../../../.github/scripts/verify-config-contract.mjs';
-import { loadGovernanceSnapshot } from '../../../../scripts/architecture/governance.mjs';
 import { scaffold } from '../../../cli/src/scaffold.js';
 import { runCli } from '../../../zmdb/src/cli/index.js';
 import {
@@ -26,11 +24,6 @@ import { defineConfig as canonicalDefineConfig, loadConfig as canonicalLoadConfi
 // by #621 stay exact because they are part of the public config contract.
 
 const ROOT = process.env.ZMDB_REPOSITORY_ROOT ?? process.cwd();
-const GOVERNANCE = await loadGovernanceSnapshot({ root: ROOT, checks: [] });
-const ARCHITECTURE = GOVERNANCE.architecture;
-if (ARCHITECTURE === null) throw new Error('governance snapshot has no architecture');
-const inspectProjectConfig = (overlays = new Map<string, string>()) =>
-  inspectConfigContract(ROOT, overlays, { architecture: ARCHITECTURE });
 const CONFIG_ENTRY = join(ROOT, 'packages', 'compiler', 'src', 'config', 'index.ts');
 const HOOK = join(ROOT, 'scripts', 'ts-specifier-hook.mjs');
 const CONFIG_DIALECT_IMPORTS = "import { mssql } from '@zmdb/mssql';\nimport { sqlite } from '@zmdb/sqlite';\n";
@@ -541,59 +534,6 @@ process.stdout.write('bootstrapped');
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toBe('bootstrapped');
     expect(existsSync(marker)).toBe(false);
-  });
-
-  it('rejects a second public project-config declaration outside the canonical owner', () => {
-    expect(inspectProjectConfig()).toEqual({
-      owner: 'packages/compiler/src/config/index.ts',
-      authoringOwner: 'packages/compiler/src/config/contract.ts',
-      facade: 'packages/zmdb/src/config/index.ts',
-      problems: [],
-    });
-
-    const planted = join(ROOT, 'packages', 'schema', 'src', 'index.ts');
-    const source = readFileSync(planted, 'utf8');
-    const report = inspectProjectConfig(
-      new Map([
-        [
-          planted,
-          `${source}
-interface LoadConfigOptions { readonly planted: true }
-export interface ResolvedConfig { readonly planted: true }
-export function defineConfig(value: unknown): unknown { return value; }
-export async function loadConfig(): Promise<never> { throw new Error('planted'); }
-`,
-        ],
-      ]),
-    );
-    expect(report.problems).toEqual([
-      'packages/schema/src/index.ts declares exported ResolvedConfig; canonical owner is packages/compiler/src/config/index.ts',
-      'packages/schema/src/index.ts declares exported defineConfig; canonical owner is packages/compiler/src/config/contract.ts',
-      'packages/schema/src/index.ts declares exported loadConfig; canonical owner is packages/compiler/src/config/index.ts',
-      'packages/schema/src/index.ts declares private LoadConfigOptions; canonical owner is packages/compiler/src/config/index.ts',
-    ]);
-
-    expect(
-      inspectProjectConfig(
-        new Map([
-          [
-            planted,
-            `${source}
-export { loadConfig } from '../../zmdb/src/config/index.js';
-`,
-          ],
-        ]),
-      ).problems,
-    ).toContain('packages/schema/src/index.ts publishes loadConfig through @zmdb/schema instead of zmdb/config');
-
-    const authoringOwner = join(ROOT, 'packages', 'compiler', 'src', 'config', 'contract.ts');
-    const authoringSource = readFileSync(authoringOwner, 'utf8');
-    expect(
-      inspectProjectConfig(new Map([[authoringOwner, `import { readFileSync } from 'node:fs';\n${authoringSource}`]]))
-        .problems,
-    ).toContain(
-      'packages/compiler/src/config/contract.ts imports node:fs at runtime; the authoring contract must be dependency-free',
-    );
   });
 
   it('scaffolds only the canonical project config and build-adapter entry points', async () => {

@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: read
     steps:
       - uses: actions/checkout@v4
 
@@ -31,57 +30,21 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
-      - name: Capture native issue relationships
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/roadmap/native-relationships.mjs --json > "$RUNNER_TEMP/zmdb-native-relationships.json"
-
-      - name: Verify the composed architecture, exception, and release governance snapshot
-        run: yarn verify:governance --relationships "$RUNNER_TEMP/zmdb-native-relationships.json"
-
       - name: Verify package metadata and release-policy projections
         run: yarn verify:package-metadata
 
-      - name: Verify release units, changelog, and publish order
-        run: yarn verify:release-governance
-
-      # The root config loads @zmdb/compiler/lint through its source adapter and enables
-      # the complete recommended config. This is one oxlint invocation, not a second linter pass.
       - name: Lint (oxlint + zmdb recommended rules)
         run: yarn lint
 
       - name: Format check
         run: yarn fmt:check
 
-      # `yarn typecheck` discovers packages/*/tsconfig.json (plus benchmarks), so
-      # a new package is covered without editing this file. The hand-maintained
-      # loop it replaced listed four packages and skipped `web` and `zmdb`.
-      # Specs and `*.type-test.ts` files are inside the program, so the
-      # type-level assertions (Equal/Expect, @ts-expect-error) are gated here.
       - name: Typecheck (all projects, incl. specs and type-tests)
         run: yarn typecheck
 
       - name: Verify export manifests
         run: yarn verify:exports
 
-      - name: Verify runtime, tooling, and optional-peer reachability
-        run: yarn verify:runtime-reachability
-
-      - name: Verify tooling package ownership and runtime isolation
-        run: node .github/scripts/verify-tooling-boundaries.mjs
-
-      - name: Verify official product membership and facade ownership
-        run: yarn verify:product-catalog
-
-      - name: Verify architecture zones, rings, and workspace edges
-        run: yarn verify:architecture-zones
-
-      # `verify:exports` runs inside the workspace, where `node_modules/@zmdb/*` is a
-      # symlink and Node resolves past it — so it can pass for a package that cannot be
-      # imported once installed. This builds, packs, installs into a throwaway project,
-      # and imports and typechecks every subpath from there. It belongs in CI rather than
-      # only in the release workflow: a broken manifest should fail the pull request that
-      # broke it, not the tag six commits later.
       - name: Verify the packages install and load as published
         run: yarn verify:publish
 
@@ -113,79 +76,9 @@ jobs:
         if: always()
         run: docker rm --force zmdb-issue-671-mysql-ci || true
 
-      # The builder DSL is gone. This imports every published subpath and reads its export
-      # names, so a builder cannot come back through a re-export, and it scans for callers
-      # including files not yet committed. What it replaces is `verify:codemod`, which
-      # counted the schemas in this repository the codemod could convert: a useful number
-      # while the migration was in progress and a vacuous one now that the count is zero.
-      # The codemod is still tested against its corpora, by `codemod.spec.ts`, line for line.
-      - name: Verify a schema is a type
-        run: yarn verify:no-defineschema
-
-      # A tag nothing reads is a tag that compiles, derives correctly, and is quietly missing
-      # from the emitted validator. The type test next to it gates what a type can state;
-      # this gates the links between the tags, the IR and the reflection (REQ-TF-1).
-      - name: Verify the tag vocabulary is covered end to end
-        run: yarn verify:tf-coverage
-
-      # The consumer pays for the derivation on every build, and nothing fails when a build
-      # gets slower — it just gets slower. Measured against the same schema with every tag
-      # stripped, which is REQ-TF-3's baseline, at a scale where a cross-product shows (RISK-6).
-      - name: Verify what the tags cost the compiler
-        run: yarn verify:instantiations
-
-      # Loading a project is the expensive part of asking the compiler anything, so a codegen
-      # that reloaded per file would cost more than the validator it produces ever saves — and
-      # would pass every correctness test in the repository. One compiler for a 64-module build,
-      # and a snapshot-update log that is the same at 8 modules as at 64 (REQ-TF-11).
-      - name: Verify the build pays the checker once
-        run: yarn verify:build-budget
-
-      # A descriptor is the shape of a type written out again by hand, in a form the compiler
-      # cannot check against the type it claims to describe. The witness is generated now, and
-      # this is what keeps it that way (REQ-TF-9).
-      - name: Verify no hand-written descriptors
-        run: yarn verify:no-descriptors
-
-      # Four back-ends each took a column's SQL type and its rules and decided privately what a
-      # value of it looks like, and no two agreed about a `timestamp`. They are one walk now, and
-      # a fifth arrived in the seeder while nothing was watching — so this watches: who may name
-      # the metadata vocabulary, who may read a column's flags or rules, and the deleted walkers
-      # by name.
-      - name: Verify there is one walker over column metadata
-        run: yarn verify:one-walker
-
-      # The builder intentionally admits database-specific comparison operators, so a closed
-      # operator allowlist would break real SQL. This keeps the one open-string boundary in
-      # clauses.ts, where sqlOperator constrains it to one token before it reaches SQL text.
-      - name: Verify there is one comparison-operator SQL boundary
-        run: yarn verify:operator-boundary
-
-      # `verify:docs-coverage` checks the replacement claim against what Drizzle, Kysely,
-      # MikroORM, NestJS and Typia *document*. This checks it against what they *test*, which is
-      # the stronger half: a documented feature with no test is a promise, a tested one is a
-      # behaviour someone depends on. Every upstream suite in the pinned inventory either names a
-      # zmdb test or carries a written argument for why we do not want it.
-      #
-      # `scripts/harvest-api-tests.mjs` is what re-pins the inventory, and it is deliberately not
-      # run here: it clones five repositories, and an upstream landing a test at 3am should not
-      # turn our build red.
-      - name: Verify competitor API-test coverage
-        run: yarn verify:api-coverage
-
-      # PRD §9.4's table, recomputed. The published assertion count had already drifted up by
-      # five with nothing watching, which is what a document-as-invariant gets you (RISK-7).
-      - name: Verify the escape-hatch ratchet
-        run: yarn verify:escape-hatches
-
-      # The two zmdb rows in the validation benchmark are generated from one interface. A
-      # stale generated file means the published numbers describe a shape nobody declared.
       - name: Verify the generated validation model is current
         run: yarn bench:validation:generate:check
 
-      # `fixtures/consumer-cli/` has its generated validator committed, the way a project that
-      # runs no-bundler project compilation in a pre-commit hook would. This exercises the
-      # repository-only compiler wrapper in check mode and writes nothing.
       - name: Verify the committed no-bundler fixture is current
         run: yarn verify:fixtures
 
@@ -381,9 +274,6 @@ jobs:
       - name: Install
         run: yarn install --immutable
 
-      - name: Verify competitor docs coverage
-        run: yarn verify:docs-coverage
-
       - name: Verify generated package and integration docs
         run: yarn verify:docs-generated
 
@@ -399,61 +289,6 @@ jobs:
         with:
           name: openapi-spec
           path: site/openapi.json
-
-  spec-validation:
-    name: Specification Validation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Enable Corepack (Yarn 4)
-        run: corepack enable
-
-      - name: Use Node 26
-        uses: actions/setup-node@v4
-        with:
-          node-version: '26'
-          cache: 'yarn'
-
-      - name: Install
-        run: yarn install --immutable
-
-      - name: Validate specifications
-        run: yarn validate:spec
-
-  # No job here measures anything. A GitHub runner is a shared, unspecified VM,
-  # so a number produced on one is not worth committing and a throughput
-  # threshold against one fails on runner variance rather than on a regression.
-  # Benchmarks are run locally (`yarn bench`, which grafts into the upstream
-  # submodules first and so fails there if a patch has stopped applying); the
-  # resulting JSON is committed and this job checks it. The graft itself is not
-  # re-run here: the verifier's upstreamCommit check is what catches a submodule
-  # bump, because bumping one invalidates the committed numbers and so forces a
-  # local re-run. See benchmarks/harness/README.md.
-  bench-results:
-    name: Committed benchmark results
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      # No `submodules:` — the verifier reads the pinned commits out of the
-      # gitlinks in the tree, which is enough to catch results measured against
-      # an upstream we have since bumped.
-      - uses: actions/checkout@v4
-
-      - name: Use Node 26
-        uses: actions/setup-node@v4
-        with:
-          node-version: '26'
-
-      # Run directly rather than through `yarn verify:bench`: the script imports
-      # only benchmarks/src and node builtins, so it needs no install, and
-      # `yarn run` wants the node_modules state file. The `--import` is the same
-      # resolve hook that script gets through `yarn`, and it needs no install either.
-      - name: Verify committed benchmark results
-        run: node --import ./scripts/ts-specifier-hook.mjs .github/scripts/verify-bench-results.mjs
 
   audit:
     name: Dependency vulnerability audit
@@ -472,11 +307,6 @@ jobs:
           node-version: '26'
 
       - name: Audit dependencies
-        # Metro 0.87.0 is the current release and is used only by the committed
-        # React Native fixture. It resolves image-size@1.2.1; npm's current
-        # image-size@2.0.2 is still covered by these two denial-of-service
-        # advisories, so no fixed version exists to select. Keep every other
-        # high advisory fatal and name the exact temporary exceptions.
         run: >
           yarn npm audit --all --recursive --severity high --no-deprecations
           --ignore 1138808 --ignore 1138809

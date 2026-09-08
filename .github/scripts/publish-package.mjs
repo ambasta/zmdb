@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { loadGovernanceSnapshot } from '../../scripts/architecture/governance.mjs';
+import { loadArchitecture } from '../../scripts/architecture/index.mjs';
+import { releaseModel } from '../../scripts/release/model.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -90,7 +91,7 @@ function verifyManifest(root, options, release) {
   const entry = release.entries.find(
     candidate => candidate.directory === options.directory || resolve(root, candidate.directory) === directory,
   );
-  if (entry === undefined) fail(`${options.directory} is absent from the governance release train`);
+  if (entry === undefined) fail(`${options.directory} is absent from the release train`);
   if (entry.npmName !== options.packageName) {
     fail(`${options.directory} is governed as ${entry.npmName}, expected ${options.packageName}`);
   }
@@ -188,11 +189,8 @@ async function main(argv) {
     return;
   }
   const root = resolve('.');
-  const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
-  const release = snapshot.queries.release;
-  if (release === undefined) {
-    fail(snapshot.findings.map(item => item.line).join('\n') || 'release model is unavailable');
-  }
+  const architecture = await loadArchitecture(root);
+  const release = releaseModel(root, { architecture });
   await publishPackage(root, options, release);
 }
 
