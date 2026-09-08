@@ -102,7 +102,12 @@ async function run(label, executable, argv, cwd, env = {}) {
 
 async function digest(bytes, algorithm, encoding = 'hex') {
   const hashed = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? hashed.toBase64() : hashed.toHex();
+  if (typeof hashed.toBase64 === 'function' && encoding === 'base64') return hashed.toBase64();
+  if (typeof hashed.toHex === 'function' && encoding === 'hex') return hashed.toHex();
+  return encoding === 'base64'
+    ? // oxlint-disable-next-line eslint/no-restricted-globals
+      btoa(Array.from(hashed, b => String.fromCharCode(b)).join(''))
+    : Array.from(hashed, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 try {

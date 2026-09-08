@@ -77,11 +77,18 @@ export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
     report.tarballs = [];
     for (const entry of tarballs) {
       const bytes = await readFile(entry.tarball);
-      const sha256 = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)).toHex();
-      integrities.set(
-        entry.manifest.name,
-        `sha512-${new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
-      );
+      const sha256 = await (async () => {
+        const hashed = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+        if (typeof hashed.toHex === 'function') return hashed.toHex();
+        return Array.from(hashed, b => b.toString(16).padStart(2, '0')).join('');
+      })();
+      const sha512Base64 = await (async () => {
+        const hashed = new Uint8Array(await crypto.subtle.digest('SHA-512', bytes));
+        if (typeof hashed.toBase64 === 'function') return hashed.toBase64();
+        // oxlint-disable-next-line eslint/no-restricted-globals
+        return btoa(Array.from(hashed, b => String.fromCharCode(b)).join(''));
+      })();
+      integrities.set(entry.manifest.name, `sha512-${sha512Base64}`);
       report.tarballs.push({ name: entry.manifest.name, version: entry.manifest.version, sha256 });
     }
     registry = await startRegistry(tarballs);

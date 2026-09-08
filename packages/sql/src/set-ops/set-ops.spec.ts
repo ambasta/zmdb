@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { createQueryCompiler } from '../index.js';
 import { mysqlDialect, postgresDialect } from '../testing/official-dialects.fixture.js';
 import { setOperation, SET_KEYWORD } from './index.js';

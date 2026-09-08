@@ -1,6 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 
+async function digest(algorithm, bytes, encoding = 'hex') {
+  const hashed = new Uint8Array(await globalThis.crypto.subtle.digest(algorithm, bytes));
+  if (typeof hashed.toBase64 === 'function' && encoding === 'base64') return hashed.toBase64();
+  if (typeof hashed.toHex === 'function' && encoding === 'hex') return hashed.toHex();
+  return encoding === 'base64'
+    ? // oxlint-disable-next-line eslint/no-restricted-globals
+      btoa(Array.from(hashed, b => String.fromCharCode(b)).join(''))
+    : Array.from(hashed, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export async function startRegistry(packages) {
   const requests = [];
   const tarballs = new Map();
@@ -9,8 +19,8 @@ export async function startRegistry(packages) {
     tarballs.set(entry.manifest.name, {
       ...entry,
       bytes,
-      integrity: `sha512-${new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
-      shasum: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes)).toHex(),
+      integrity: `sha512-${await digest('SHA-512', bytes, 'base64')}`,
+      shasum: await digest('SHA-1', bytes, 'hex'),
     });
   }
   let origin;

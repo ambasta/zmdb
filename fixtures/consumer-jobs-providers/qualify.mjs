@@ -332,7 +332,11 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => ({
       name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
+      sha256: await (async () => {
+        const hashed = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
+        if (typeof hashed.toHex === 'function') return hashed.toHex();
+        return Array.from(hashed, b => b.toString(16).padStart(2, '0')).join('');
+      })(),
     })),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
