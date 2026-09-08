@@ -102,7 +102,7 @@ async function run(label, executable, argv, cwd, env = {}) {
 
 async function digest(bytes, algorithm, encoding = 'hex') {
   const hashed = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return Buffer.from(hashed).toString(encoding === 'base64' ? 'base64' : 'hex');
+  return globalThis.Buffer.from(hashed).toString(encoding === 'base64' ? 'base64' : 'hex');
 }
 
 try {

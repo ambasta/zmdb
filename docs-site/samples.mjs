@@ -164,6 +164,30 @@ function executeSample(directory, sample) {
   if (sample.environment !== 'node')
     throw new Error(`${sample.label}: runtime environment requires an issue-owned fixture`);
   const output = join(directory, 'sample-runtime.mjs');
+  const netGuard = join(directory, 'net-guard.mjs');
+  writeFileSync(
+    netGuard,
+    `import http from 'node:http';
+import https from 'node:https';
+import net from 'node:net';
+
+const deny = () => {
+  const err = new Error('ERR_ACCESS_DENIED: network access requires an issue-owned fixture');
+  err.code = 'ERR_ACCESS_DENIED';
+  throw err;
+};
+
+if (typeof globalThis.fetch === 'function') {
+  globalThis.fetch = deny;
+}
+http.request = deny;
+http.get = deny;
+https.request = deny;
+https.get = deny;
+net.connect = deny;
+net.createConnection = deny;
+`,
+  );
   buildSync({
     entryPoints: [join(directory, sample.file)],
     outfile: output,
@@ -177,6 +201,8 @@ function executeSample(directory, sample) {
   const result = spawnSync(
     process.execPath,
     [
+      '--import',
+      netGuard,
       '--permission',
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
