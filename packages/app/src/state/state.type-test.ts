@@ -33,3 +33,27 @@ export const _unbranded = pay({ id: 1, total: 10 });
 // `is` narrows to the branded state.
 declare const value: unknown;
 export const _narrowed: Brand<Order, 'Draft'> | undefined = Draft.is(value) ? value : undefined;
+
+// --- options: discriminant and predicate -----------------------------------
+import { defineState } from './index.js';
+
+interface DiscrItem {
+  type: 'A' | 'B';
+  amount: number;
+}
+
+const StateA = defineState<'A', DiscrItem>({
+  discriminant: ['type', 'A'],
+  predicate: item => item.amount > 0,
+});
+
+const StateNamed = defineState<'A', DiscrItem>('StateA', {
+  discriminant: ['type', 'A'],
+});
+
+const UserId = defineState<'UserId', string>('UserId');
+
+export type _OptionsTest1 = Expect<Equal<ReturnType<typeof StateA.create>, Brand<DiscrItem, 'A'>>>;
+export type _OptionsTest2 = Expect<Equal<ReturnType<typeof StateNamed.create>, Brand<DiscrItem, 'A'>>>;
+export type _PrimitiveTest1 = Expect<Equal<ReturnType<typeof UserId.create>, Brand<string, 'UserId'>>>;
+export const _narrowedA: Brand<DiscrItem, 'A'> | undefined = StateA.is(value) ? value : undefined;
