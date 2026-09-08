@@ -3,6 +3,5 @@
   "minLines": 5,
   "ignore": ["**/node_modules/**", "**/dist/**", "**/vendor/**", "**/SPEC.md", "**/README.md"],
   "reporters": ["console"],
-  "threshold": 1,
   "gitignore": true
 }

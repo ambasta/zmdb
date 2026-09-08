@@ -19,6 +19,10 @@ yarn test
 yarn build
 ```
 
+`yarn test` runs unit and local functional tests without external services or package installation. Run `yarn test:integration <spec-path>` for an affected packed-consumer or live-service suite, with
+its documented services configured. `yarn test:all` selects both projects. Type-level tests remain part of `yarn typecheck`. Duplication reports from `jscpd packages/` are informational; there is no
+repository-wide percentage quota.
+
 Do not introduce source-text policing, arbitrary count or performance ratchets, GitHub-dependent acceptance checks, or tests of bespoke governance machinery. Benchmarks are optional manual tools and
 must run on an idle machine; shared-machine timings do not establish a performance baseline.
 

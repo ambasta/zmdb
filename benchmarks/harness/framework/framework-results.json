@@ -46,7 +46,7 @@
           "successRate": 1.0,
           "total": 5.001105794,
           "slowest": 0.007836153,
-          "fastest": 8.988e-05,
+          "fastest": 8.988e-5,
           "average": 0.0007230044176095846,
           "requestsPerSec": 88246.68346937993,
           "totalData": 0,
@@ -123,12 +123,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00018104901999451296,
-            "fastest": 1.099e-05,
+            "fastest": 1.099e-5,
             "slowest": 0.003448664
           },
           "DNSLookup": {
-            "average": 3.0733220062048734e-06,
-            "fastest": 6.41e-07,
+            "average": 3.0733220062048734e-6,
+            "fastest": 6.41e-7,
             "slowest": 0.003062373
           },
           "firstByte": {
@@ -169,7 +169,7 @@
           "successRate": 1.0,
           "total": 5.002133409,
           "slowest": 0.008252059,
-          "fastest": 7.7577e-05,
+          "fastest": 7.7577e-5,
           "average": 0.0007176646515702169,
           "requestsPerSec": 88886.87358878077,
           "totalData": 0,
@@ -246,12 +246,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00017717588923954388,
-            "fastest": 1.0279e-05,
+            "fastest": 1.0279e-5,
             "slowest": 0.003841447
           },
           "DNSLookup": {
-            "average": 3.1678616888944953e-06,
-            "fastest": 5.72e-07,
+            "average": 3.1678616888944953e-6,
+            "fastest": 5.72e-7,
             "slowest": 0.002539032
           },
           "firstByte": {
@@ -292,7 +292,7 @@
           "successRate": 1.0,
           "total": 5.002141402,
           "slowest": 0.008042933,
-          "fastest": 9.3947e-05,
+          "fastest": 9.3947e-5,
           "average": 0.0007330260144860543,
           "requestsPerSec": 87024.52909986729,
           "totalData": 0,
@@ -369,12 +369,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0001815795896284197,
-            "fastest": 1.082e-05,
+            "fastest": 1.082e-5,
             "slowest": 0.004860694
           },
           "DNSLookup": {
-            "average": 3.217593132175489e-06,
-            "fastest": 6.31e-07,
+            "average": 3.217593132175489e-6,
+            "fastest": 6.31e-7,
             "slowest": 0.001779896
           },
           "firstByte": {
@@ -501,18 +501,18 @@
         },
         "details": {
           "DNSDialup": {
-            "average": 7.651487198331674e-05,
-            "fastest": 1.1201e-05,
+            "average": 7.651487198331674e-5,
+            "fastest": 1.1201e-5,
             "slowest": 0.003265927
           },
           "DNSLookup": {
-            "average": 3.965958660021983e-06,
-            "fastest": 5.81e-07,
+            "average": 3.965958660021983e-6,
+            "fastest": 5.81e-7,
             "slowest": 0.003067862
           },
           "firstByte": {
             "average": 0.0006235227716659617,
-            "fastest": 9.6292e-05,
+            "fastest": 9.6292e-5,
             "slowest": 0.007369808
           }
         },
@@ -634,18 +634,18 @@
         },
         "details": {
           "DNSDialup": {
-            "average": 8.612397697003845e-05,
-            "fastest": 1.1632e-05,
+            "average": 8.612397697003845e-5,
+            "fastest": 1.1632e-5,
             "slowest": 0.003406132
           },
           "DNSLookup": {
-            "average": 3.814137005880833e-06,
-            "fastest": 6.41e-07,
+            "average": 3.814137005880833e-6,
+            "fastest": 6.41e-7,
             "slowest": 0.003038476
           },
           "firstByte": {
             "average": 0.0006400145475597958,
-            "fastest": 8.6213e-05,
+            "fastest": 8.6213e-5,
             "slowest": 0.008733987
           }
         },
@@ -681,7 +681,7 @@
           "successRate": 1.0,
           "total": 5.002185074,
           "slowest": 0.008645138,
-          "fastest": 9.2826e-05,
+          "fastest": 9.2826e-5,
           "average": 0.0007204679536866192,
           "requestsPerSec": 88496.32579588158,
           "totalData": 885230,
@@ -767,18 +767,18 @@
         },
         "details": {
           "DNSDialup": {
-            "average": 8.507465336014434e-05,
-            "fastest": 1.049e-05,
+            "average": 8.507465336014434e-5,
+            "fastest": 1.049e-5,
             "slowest": 0.00342653
           },
           "DNSLookup": {
-            "average": 3.7636150378998464e-06,
-            "fastest": 5.81e-07,
+            "average": 3.7636150378998464e-6,
+            "fastest": 5.81e-7,
             "slowest": 0.001322632
           },
           "firstByte": {
             "average": 0.000647719484902218,
-            "fastest": 6.5434e-05,
+            "fastest": 6.5434e-5,
             "slowest": 0.008586608
           }
         },
@@ -814,7 +814,7 @@
           "successRate": 1.0,
           "total": 5.001862881,
           "slowest": 0.007480515,
-          "fastest": 8.5281e-05,
+          "fastest": 8.5281e-5,
           "average": 0.0007711302932789844,
           "requestsPerSec": 82718.98087643718,
           "totalData": 0,
@@ -891,12 +891,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0001800468542669884,
-            "fastest": 1.2995e-05,
+            "fastest": 1.2995e-5,
             "slowest": 0.004342211
           },
           "DNSLookup": {
-            "average": 3.4373230115448474e-06,
-            "fastest": 6.91e-07,
+            "average": 3.4373230115448474e-6,
+            "fastest": 6.91e-7,
             "slowest": 0.001833537
           },
           "firstByte": {
@@ -937,7 +937,7 @@
           "successRate": 1.0,
           "total": 5.002607297,
           "slowest": 0.007616983,
-          "fastest": 9.3266e-05,
+          "fastest": 9.3266e-5,
           "average": 0.0007329777701710619,
           "requestsPerSec": 87010.22769887028,
           "totalData": 0,
@@ -1014,12 +1014,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00017676070029525463,
-            "fastest": 1.064e-05,
+            "fastest": 1.064e-5,
             "slowest": 0.004445305
           },
           "DNSLookup": {
-            "average": 3.4014743908184354e-06,
-            "fastest": 5.81e-07,
+            "average": 3.4014743908184354e-6,
+            "fastest": 5.81e-7,
             "slowest": 0.001917957
           },
           "firstByte": {
@@ -1060,7 +1060,7 @@
           "successRate": 1.0,
           "total": 5.001805955,
           "slowest": 0.007695872,
-          "fastest": 7.1605e-05,
+          "fastest": 7.1605e-5,
           "average": 0.0007411442275411317,
           "requestsPerSec": 86046.52077111616,
           "totalData": 0,
@@ -1137,12 +1137,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0001710571413284203,
-            "fastest": 1.056e-05,
+            "fastest": 1.056e-5,
             "slowest": 0.005178391
           },
           "DNSLookup": {
-            "average": 3.437504778879508e-06,
-            "fastest": 5.71e-07,
+            "average": 3.437504778879508e-6,
+            "fastest": 5.71e-7,
             "slowest": 0.002023657
           },
           "firstByte": {
@@ -1260,12 +1260,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0002046988767276134,
-            "fastest": 1.2404e-05,
+            "fastest": 1.2404e-5,
             "slowest": 0.008993875
           },
           "DNSLookup": {
-            "average": 3.8100472734903307e-06,
-            "fastest": 5.41e-07,
+            "average": 3.8100472734903307e-6,
+            "fastest": 5.41e-7,
             "slowest": 0.003447227
           },
           "firstByte": {
@@ -1383,12 +1383,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00021405764485453612,
-            "fastest": 1.1993e-05,
+            "fastest": 1.1993e-5,
             "slowest": 0.010761075
           },
           "DNSLookup": {
-            "average": 3.7152521399294526e-06,
-            "fastest": 6.02e-07,
+            "average": 3.7152521399294526e-6,
+            "fastest": 6.02e-7,
             "slowest": 0.003069914
           },
           "firstByte": {
@@ -1506,12 +1506,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00019839485323219628,
-            "fastest": 1.3405e-05,
+            "fastest": 1.3405e-5,
             "slowest": 0.017400675
           },
           "DNSLookup": {
-            "average": 3.73451571629019e-06,
-            "fastest": 5.41e-07,
+            "average": 3.73451571629019e-6,
+            "fastest": 5.41e-7,
             "slowest": 0.00357594
           },
           "firstByte": {
@@ -1639,12 +1639,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00011413653472467345,
-            "fastest": 1.2113e-05,
+            "fastest": 1.2113e-5,
             "slowest": 0.009889655
           },
           "DNSLookup": {
-            "average": 4.116186063345238e-06,
-            "fastest": 5.51e-07,
+            "average": 4.116186063345238e-6,
+            "fastest": 5.51e-7,
             "slowest": 0.002567303
           },
           "firstByte": {
@@ -1772,12 +1772,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0001225602039751937,
-            "fastest": 1.1271e-05,
+            "fastest": 1.1271e-5,
             "slowest": 0.009398867
           },
           "DNSLookup": {
-            "average": 4.108278530118049e-06,
-            "fastest": 5.61e-07,
+            "average": 4.108278530118049e-6,
+            "fastest": 5.61e-7,
             "slowest": 0.004693863
           },
           "firstByte": {
@@ -1905,12 +1905,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00011449147408403367,
-            "fastest": 1.1972e-05,
+            "fastest": 1.1972e-5,
             "slowest": 0.012022184
           },
           "DNSLookup": {
-            "average": 4.098096852848983e-06,
-            "fastest": 5.41e-07,
+            "average": 4.098096852848983e-6,
+            "fastest": 5.41e-7,
             "slowest": 0.002441775
           },
           "firstByte": {
@@ -2028,12 +2028,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.000195527011734539,
-            "fastest": 1.3395e-05,
+            "fastest": 1.3395e-5,
             "slowest": 0.013779594
           },
           "DNSLookup": {
-            "average": 3.858627783923939e-06,
-            "fastest": 5.61e-07,
+            "average": 3.858627783923939e-6,
+            "fastest": 5.61e-7,
             "slowest": 0.002705945
           },
           "firstByte": {
@@ -2151,12 +2151,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00018907125185120658,
-            "fastest": 1.3395e-05,
+            "fastest": 1.3395e-5,
             "slowest": 0.012579164
           },
           "DNSLookup": {
-            "average": 4.092833254544612e-06,
-            "fastest": 5.31e-07,
+            "average": 4.092833254544612e-6,
+            "fastest": 5.31e-7,
             "slowest": 0.002357155
           },
           "firstByte": {
@@ -2274,12 +2274,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00018126260730768208,
-            "fastest": 1.1882e-05,
+            "fastest": 1.1882e-5,
             "slowest": 0.00904238
           },
           "DNSLookup": {
-            "average": 4.0079553453969464e-06,
-            "fastest": 5.51e-07,
+            "average": 4.0079553453969464e-6,
+            "fastest": 5.51e-7,
             "slowest": 0.001889722
           },
           "firstByte": {
@@ -2397,12 +2397,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00037441290930127666,
-            "fastest": 1.4297e-05,
+            "fastest": 1.4297e-5,
             "slowest": 0.021658862
           },
           "DNSLookup": {
-            "average": 3.57332110782314e-06,
-            "fastest": 6.11e-07,
+            "average": 3.57332110782314e-6,
+            "fastest": 6.11e-7,
             "slowest": 0.003234883
           },
           "firstByte": {
@@ -2520,12 +2520,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00034761917768407906,
-            "fastest": 1.3575e-05,
+            "fastest": 1.3575e-5,
             "slowest": 0.027465924
           },
           "DNSLookup": {
-            "average": 3.54366613960887e-06,
-            "fastest": 6.42e-07,
+            "average": 3.54366613960887e-6,
+            "fastest": 6.42e-7,
             "slowest": 0.002724859
           },
           "firstByte": {
@@ -2643,12 +2643,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00033052954955164386,
-            "fastest": 1.5008e-05,
+            "fastest": 1.5008e-5,
             "slowest": 0.018078513
           },
           "DNSLookup": {
-            "average": 3.5414651694830685e-06,
-            "fastest": 6.11e-07,
+            "average": 3.5414651694830685e-6,
+            "fastest": 6.11e-7,
             "slowest": 0.003165141
           },
           "firstByte": {
@@ -2776,12 +2776,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0001717175824078129,
-            "fastest": 1.3205e-05,
+            "fastest": 1.3205e-5,
             "slowest": 0.035922889
           },
           "DNSLookup": {
-            "average": 4.215152424513797e-06,
-            "fastest": 5.61e-07,
+            "average": 4.215152424513797e-6,
+            "fastest": 5.61e-7,
             "slowest": 0.001657061
           },
           "firstByte": {
@@ -2909,12 +2909,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0001606332772317353,
-            "fastest": 1.3846e-05,
+            "fastest": 1.3846e-5,
             "slowest": 0.025085109
           },
           "DNSLookup": {
-            "average": 4.229511499915094e-06,
-            "fastest": 6.61e-07,
+            "average": 4.229511499915094e-6,
+            "fastest": 6.61e-7,
             "slowest": 0.002115898
           },
           "firstByte": {
@@ -3042,12 +3042,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.00015056901675799988,
-            "fastest": 1.2052e-05,
+            "fastest": 1.2052e-5,
             "slowest": 0.026152063
           },
           "DNSLookup": {
-            "average": 4.2138631147596296e-06,
-            "fastest": 5.31e-07,
+            "average": 4.2138631147596296e-6,
+            "fastest": 5.31e-7,
             "slowest": 0.00194798
           },
           "firstByte": {
@@ -3165,12 +3165,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0002483992931798128,
-            "fastest": 1.627e-05,
+            "fastest": 1.627e-5,
             "slowest": 0.027341357
           },
           "DNSLookup": {
-            "average": 3.869347298289688e-06,
-            "fastest": 6.51e-07,
+            "average": 3.869347298289688e-6,
+            "fastest": 6.51e-7,
             "slowest": 0.002242567
           },
           "firstByte": {
@@ -3288,12 +3288,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0002494149128610871,
-            "fastest": 1.4828e-05,
+            "fastest": 1.4828e-5,
             "slowest": 0.02605217
           },
           "DNSLookup": {
-            "average": 3.861488566695132e-06,
-            "fastest": 5.71e-07,
+            "average": 3.861488566695132e-6,
+            "fastest": 5.71e-7,
             "slowest": 0.00309639
           },
           "firstByte": {
@@ -3411,12 +3411,12 @@
         "details": {
           "DNSDialup": {
             "average": 0.0002543628826679608,
-            "fastest": 1.2574e-05,
+            "fastest": 1.2574e-5,
             "slowest": 0.025620793
           },
           "DNSLookup": {
-            "average": 3.807355582494922e-06,
-            "fastest": 5.51e-07,
+            "average": 3.807355582494922e-6,
+            "fastest": 5.51e-7,
             "slowest": 0.003315784
           },
           "firstByte": {

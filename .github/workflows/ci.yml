@@ -82,8 +82,8 @@ jobs:
       - name: Verify the committed no-bundler fixture is current
         run: yarn verify:fixtures
 
-      - name: Unit + integration tests (incl. node:sqlite E2E)
-        run: yarn vitest run
+      - name: Unit and local functional tests (including node:sqlite)
+        run: yarn test
 
   server-integration-consumers:
     name: Installed optional server integrations

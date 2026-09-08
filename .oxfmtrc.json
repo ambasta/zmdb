@@ -4,6 +4,8 @@
   "endOfLine": "lf",
   "ignorePatterns": [
     ".git/**",
+    ".kiro/**",
+    ".zmdb-dashboard/**",
     ".pnp.*",
     ".yarn/**",
     "**/.cache/**",
