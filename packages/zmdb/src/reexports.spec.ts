@@ -1,13 +1,4 @@
 import { lenientParse as srcLenientParse, toolFromSchema as srcToolFromSchema } from '@zmdb/ai';
-import {
-  ValidationError as srcValidationError,
-  getCachedRegExp as srcGetCachedRegExp,
-  getEnumSet as srcGetEnumSet,
-  getRegExp as srcGetRegExp,
-  tags as srcTags,
-  validatePatternComplexity as srcValidatePatternComplexity,
-} from '@zmdb/validator';
-import { assert as ownerAssert, validate as ownerValidate } from '@zmdb/validator/utilities';
 import { Module as ownerModule } from '@zmdb/app/modules';
 import {
   transformCode as srcUnpluginTransformCode,
@@ -21,27 +12,7 @@ import {
   status as srcStatus,
 } from '@zmdb/migrations';
 import { defineRepository as ownerDefineRepository } from '@zmdb/orm';
-import {
-  OP_MAP as srcOP_MAP,
-  QueryCompilerError as srcQueryCompilerError,
-  UnsupportedFeatureError as srcUFE,
-  chunkArray as srcChunkArray,
-  formatPlaceholder as srcFormatPlaceholder,
-  createQueryCompiler as srcCreateQC,
-  quoteColumn as srcQuoteColumn,
-  quoteIdentifier as srcQuoteIdentifier,
-  quoteTable as srcQuoteTable,
-  renumberPlaceholders as srcRenumberPlaceholders,
-  sanitizeKeys as srcSanitizeKeys,
-} from '@zmdb/sql';
-import {
-  EventBus as srcEventBus,
-  discriminatorFor as srcDiscriminatorFor,
-  flattenEmbeddable as srcFlattenEmbeddable,
-  liftEmbeddable as srcLiftEmbeddable,
-  rowToSubtype as srcRowToSubtype,
-} from '@zmdb/orm/entity-modeling';
-import { makeEndpoint as srcMakeEndpoint } from '@zmdb/orm/integrations';
+import { EventBus as srcEventBus } from '@zmdb/orm/entity-modeling';
 import { isWrite as srcIsWrite, withReplicas as srcWithReplicas } from '@zmdb/orm/replicas';
 import { makeRng as srcMakeRng, seedRows as srcSeedRows } from '@zmdb/orm/seeding';
 import {
@@ -56,8 +27,13 @@ import {
   encodeValue as srcEncodeValue,
 } from '@zmdb/schema/custom-types';
 import {
+  discriminatorFor as srcDiscriminatorFor,
+  flattenEmbeddable as srcFlattenEmbeddable,
+  liftEmbeddable as srcLiftEmbeddable,
+  rowToSubtype as srcRowToSubtype,
+} from '@zmdb/schema/entity-modeling';
+import {
   toJsonSchema as srcLLMToJsonSchema,
-} from '@zmdb/schema/llm';
   toJsonSchema as srcToJsonSchema,
   toJsonSchemaWithRelations as srcToJsonSchemaWithRelations,
   toListSchema as srcToListSchema,
@@ -65,15 +41,40 @@ import {
   toSearchSchema as srcToSearchSchema,
 } from '@zmdb/schema/openapi';
 import {
+  OP_MAP as srcOP_MAP,
+  QueryCompilerError as srcQueryCompilerError,
+  UnsupportedFeatureError as srcUFE,
+  chunkArray as srcChunkArray,
+  formatPlaceholder as srcFormatPlaceholder,
+  createQueryCompiler as srcCreateQC,
+  quoteColumn as srcQuoteColumn,
+  quoteIdentifier as srcQuoteIdentifier,
+  quoteTable as srcQuoteTable,
+  renumberPlaceholders as srcRenumberPlaceholders,
+  sanitizeKeys as srcSanitizeKeys,
+} from '@zmdb/sql';
+import {
   sqliteDriver as srcSqliteDriver,
   type SqliteDatabase as SrcSqliteDatabase,
   type SqliteOptions as SrcSqliteOptions,
   type SqliteStatement as SrcSqliteStatement,
 } from '@zmdb/sqlite';
+import {
+  ValidationError as srcValidationError,
+  getCachedRegExp as srcGetCachedRegExp,
+  assert as ownerAssert,
+  getEnumSet as srcGetEnumSet,
+  getRegExp as srcGetRegExp,
+  tags as srcTags,
+  validate as ownerValidate,
+  validatePatternComplexity as srcValidatePatternComplexity,
+} from '@zmdb/validator';
 import { createApp as ownerCreateApp } from '@zmdb/web/app';
+import { makeEndpoint as srcMakeEndpoint } from '@zmdb/web/integrations';
 import { Controller as ownerController } from '@zmdb/web/routing';
 import { describe, expect, it } from 'vitest';
 
+import { transformCode as unpluginTransformCode, transformTypeChecks, zmdbAot, type UnpluginLike } from './compiler.js';
 import { decodeValue, defineType, encodeValue } from './custom-types.js';
 import { sqliteDriver, type SqliteDatabase, type SqliteOptions, type SqliteStatement } from './database-sqlite.js';
 import { EventBus, discriminatorFor, flattenEmbeddable, liftEmbeddable, rowToSubtype } from './entity-modeling.js';
@@ -103,7 +104,6 @@ import {
 import { isWrite, withReplicas } from './replicas.js';
 import { makeRng, seedRows } from './seeding.js';
 import { batch, createTransactionalDb, markTransactionClosed as markTxClosed } from './transactions.js';
-import { transformCode as unpluginTransformCode, transformTypeChecks, zmdbAot, type UnpluginLike } from './unplugin.js';
 import {
   ValidationError,
   getCachedRegExp,

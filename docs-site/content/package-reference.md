@@ -665,7 +665,11 @@ Auto-validating CRUD repository over a zmdb schema: transactions, populate, read
   - `UpdatePatch`
   - `ValidationError`
   - `defineRepository`
+  - `@zmdb/core/entity-modeling`
   - `@zmdb/core/orm`
+  - `@zmdb/core/replicas`
+  - `@zmdb/core/seeding`
+  - `@zmdb/core/transactions`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 ### `@zmdb/otel`
@@ -884,6 +888,7 @@ SQL-first, dialect-aware query compiler with reads, writes, joins, aggregates, f
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
+  - `@zmdb/core/query`
   - `@zmdb/core/sql`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
@@ -1190,6 +1195,7 @@ HTTP framework for the zmdb application kernel: Stage-3 controllers, typed reque
   - `@zmdb/core/web/testing`
   - `@zmdb/core/web/upload`
   - `@zmdb/core/web/versioning`
+  - `@zmdb/core/integrations`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
 <!-- /generated: product-catalog package-reference -->

@@ -53,9 +53,9 @@ const groupAlive = pid => {
     throw error;
   }
 };
-async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
+async function sha(bytes, algorithm = 'SHA-256') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return Buffer.from(digest).toString(encoding);
+  return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {
