@@ -177,6 +177,7 @@ function executeSample(directory, sample) {
   const result = spawnSync(
     process.execPath,
     [
+      '--import=data:text/javascript,import net from "node:net"; import http from "node:http"; import https from "node:https"; globalThis.fetch=()=>{throw new Error("network access blocked: fetch")}; net.connect=net.createConnection=()=>{throw new Error("network access blocked: net")}; http.request=http.get=()=>{throw new Error("network access blocked: http")}; https.request=https.get=()=>{throw new Error("network access blocked: https")};',
       '--permission',
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
