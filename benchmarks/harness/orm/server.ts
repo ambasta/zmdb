@@ -3,6 +3,7 @@
 // Each ORM builds queries with its OWN builder. Routes a builder cannot express
 // return HTTP 501 (honest per-route DNF), never a faked 200.
 import { serve } from '@hono/node-server';
+import { postgres } from '@zmdb/postgres';
 import { createQueryCompiler } from '@zmdb/sql';
 import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
 import { ftsSelectFrom } from '@zmdb/sql/fts';
@@ -16,7 +17,11 @@ import { Pool } from 'pg';
 
 const ORM = process.env.ORM || 'zmdb';
 const PORT = Number(process.env.PORT || 3000);
-const pool = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench', max: 12 });
+const pool = new Pool({
+  connectionString:
+    process.env.PGURL ?? process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:55432/bench',
+  max: 12,
+});
 
 // drizzle schema
 const customers = pgTable('customers', { id: integer('id').primaryKey(), companyName: text('company_name') });
@@ -36,7 +41,7 @@ const details = pgTable('order_details', {
 });
 const ddb = drizzle(pool, { schema: { customers, employees, suppliers, products, orders, details } });
 const k = new Kysely<Record<string, Record<string, unknown>>>({ dialect: new PostgresDialect({ pool }) });
-const qc = createQueryCompiler('postgres');
+const qc = createQueryCompiler(postgres);
 // zmdb query execution. With ZMDB_PREPARED=1 we pass a stable statement `name`
 // derived from the compiled SQL text, so Postgres caches the plan server-side
 // (prepared statement) and skips per-request planning — a transparent,
@@ -150,7 +155,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .where('employees.id', '=', num(q.get('id') ?? undefined))
         .execute(),
     zmdb: async q => {
-      const c = joinableSelectFrom('employees as e', 'postgres')
+      const c = joinableSelectFrom('employees as e', postgres)
         .leftJoin('employees as r', 'r.id', 'e.recipient_id')
         .where('e.id', '=', num(q.get('id') ?? undefined))
         .compile();
@@ -244,7 +249,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .where('products.id', '=', num(q.get('id') ?? undefined))
         .execute(),
     zmdb: async q => {
-      const c = joinableSelectFrom('products', 'postgres')
+      const c = joinableSelectFrom('products', postgres)
         .leftJoin('suppliers', 'suppliers.id', 'products.supplier_id')
         .where('products.id', '=', num(q.get('id') ?? undefined))
         .compile();
@@ -275,7 +280,7 @@ const routes: Record<string, Record<string, H | null>> = {
     // zmdb: aggregate directly on order_details grouped by order_id (the FK lives
     // there, so no join is needed for the per-order counts/sums).
     zmdb: async q => {
-      const c = aggregateSelectFrom('order_details', 'postgres')
+      const c = aggregateSelectFrom('order_details', postgres)
         .select(['order_id'])
         .count('product_id', 'products_count')
         .sum('quantity', 'quantity_sum')
@@ -306,7 +311,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .execute(),
     // zmdb: aggregate on order_details for the single order id (no join needed).
     zmdb: async q => {
-      const c = aggregateSelectFrom('order_details', 'postgres')
+      const c = aggregateSelectFrom('order_details', postgres)
         .select(['order_id'])
         .count('product_id', 'products_count')
         .sum('quantity', 'quantity_sum')
@@ -340,7 +345,7 @@ const routes: Record<string, Record<string, H | null>> = {
     //
     // Same query, same shape, same one round trip as the peers now.
     zmdb: async q => {
-      const c = joinableSelectFrom('orders', 'postgres')
+      const c = joinableSelectFrom('orders', postgres)
         .leftJoin('order_details', 'order_details.order_id', 'orders.id')
         .where('orders.id', '=', num(q.get('id') ?? undefined))
         .compile();
@@ -360,7 +365,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .where(ksql<boolean>`to_tsvector('english', company_name) @@ to_tsquery('english', ${q.get('term') ?? 'ltd'})`)
         .execute(),
     zmdb: async q => {
-      const c = ftsSelectFrom('customers', 'postgres')
+      const c = ftsSelectFrom('customers', postgres)
         .whereMatch('company_name', q.get('term') ?? 'ltd')
         .compile();
       return zq(c.text, c.parameters as unknown[]);
@@ -378,7 +383,7 @@ const routes: Record<string, Record<string, H | null>> = {
         .where(ksql<boolean>`to_tsvector('english', name) @@ to_tsquery('english', ${q.get('term') ?? 'chai'})`)
         .execute(),
     zmdb: async q => {
-      const c = ftsSelectFrom('products', 'postgres')
+      const c = ftsSelectFrom('products', postgres)
         .whereMatch('name', q.get('term') ?? 'chai')
         .compile();
       return zq(c.text, c.parameters as unknown[]);

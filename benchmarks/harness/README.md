@@ -115,7 +115,7 @@ measured numbers currently on the dashboard come from `orm/` here: a real k6 rep
 ```sh
 # single-box reproduction, all three ORMs from one server
 podman run -d --name zmdb-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bench \
-  -p 55432:5432 docker.io/library/postgres:16-alpine
+  -p 127.0.0.1:55432:5432 docker.io/library/postgres:18.6
 cd benchmarks/harness/orm && npm install && node load-pg-full.mjs
 ORM=drizzle PORT=3000 node --experimental-strip-types server.ts &
 ORM=kysely  PORT=3001 node --experimental-strip-types server.ts &

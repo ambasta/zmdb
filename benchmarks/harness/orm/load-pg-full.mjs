@@ -1,11 +1,19 @@
 // Load the FULL Northwind dataset (all tables) from the drizzle-benchmarks
 // SQLite DB into PostgreSQL, so the exact upstream query set (p1–p13) can run.
 import { DatabaseSync } from 'node:sqlite';
+import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 
-const sqlite = new DatabaseSync('northwind.db');
-const client = new Client({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench' });
+const sqlite = new DatabaseSync(
+  process.env.NORTHWIND_SQLITE ??
+    fileURLToPath(new URL('../../upstream/drizzle-benchmarks/src/sqlite/northwind.db', import.meta.url)),
+  { readOnly: true },
+);
+const client = new Client({
+  connectionString:
+    process.env.PGURL ?? process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:55432/bench',
+});
 await client.connect();
 
 // integer date columns kept as BIGINT where numeric, TEXT where ISO strings.
@@ -112,3 +120,4 @@ counts.order_details = await load('order_details', ['unit_price', 'quantity', 'd
 await client.query('ANALYZE');
 console.log('loaded:', JSON.stringify(counts));
 await client.end();
+sqlite.close();

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Orchestrate the real drizzle-benchmarks k6 replay for all three ORMs in ONE
+# Orchestrate the real drizzle-benchmarks k6 replay for selected ORMs in ONE
 # process group: start each server, run the actual k6 script against it, collect
 # throughput, then shut it down.
 #
@@ -25,6 +25,7 @@
 #   ./run-k6.sh                 # 3 passes, warmup on
 #   REPEATS=5 ./run-k6.sh       # more passes
 #   WARMUP=0 ./run-k6.sh        # skip the discarded warmup run
+#   ORMS="zmdb drizzle kysely" ./run-k6.sh  # explicitly refresh competitors
 set -u
 # shellcheck source=bench-env.sh
 . "$(dirname -- "${BASH_SOURCE[0]}")/bench-env.sh"
@@ -108,7 +109,7 @@ sample_one() { # $1=orm  $2=rep — one server lifetime, one discarded warmup, o
 
 for rep in $(seq 1 "$REPEATS"); do
   echo "### pass $rep of $REPEATS"
-  for orm in $ORMS; do sample_one "$orm" "$rep"; done
+  for orm in $ORMS; do sample_one "$orm" "$rep" || exit 1; done
 done
 
 stat() { # median and spread of a whitespace-separated list

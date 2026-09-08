@@ -18,6 +18,7 @@
 #   ./run-k6-rich.sh              # 3 passes, warmup on
 #   REPEATS=5 ./run-k6-rich.sh
 #   WARMUP=0 ./run-k6-rich.sh
+#   ORMS="zmdb drizzle kysely" ./run-k6-rich.sh  # explicitly refresh competitors
 set -u
 # shellcheck source=bench-env.sh
 . "$(dirname -- "${BASH_SOURCE[0]}")/bench-env.sh"
@@ -90,14 +91,14 @@ sample_one() { # $1=orm $2=rep
 
 for rep in $(seq 1 "$REPEATS"); do
   echo "### pass $rep of $REPEATS"
-  for orm in $ORMS; do sample_one "$orm" "$rep"; done
+  for orm in $ORMS; do sample_one "$orm" "$rep" || exit 1; done
 done
 
 # Emit a combined summary the doc can use.
-REPEATS="$REPEATS" OUT="$OUT" node -e '
+REPEATS="$REPEATS" OUT="$OUT" ORMS="$ORMS" node -e '
 const fs = require("fs");
 const dir = process.env.OUT, reps = Number(process.env.REPEATS);
-const orms = ["zmdb", "drizzle", "kysely"];
+const orms = process.env.ORMS.trim().split(/\s+/);
 
 // For each ORM: load every pass, then keep the pass whose throughput is the
 // median. Reporting one real pass keeps the percentiles and the per-route
@@ -166,12 +167,11 @@ if (zm) {
   if (!keys.length) {
     console.log("\nPER-ROUTE: no lat_* metrics in the summary — the per-route trends did not register.");
   } else {
-    console.log("\nPER-ROUTE p95 ms (zmdb / drizzle / kysely), from each ORM\x27s median pass");
+    console.log(`\nPER-ROUTE p95 ms (${orms.join(" / ")}), from each ORM\x27s median pass`);
     const g = m => k => (m && m[k] ? +m[k]["p(95)"].toFixed(1) : "-");
-    const dz = picked.drizzle && picked.drizzle.m, ky = picked.kysely && picked.kysely.m;
     for (const k of keys) {
       console.log(
-        `${k.slice(4).padEnd(34)} ${String(g(zm)(k)).padStart(8)} ${String(g(dz)(k)).padStart(8)} ${String(g(ky)(k)).padStart(8)}`,
+        `${k.slice(4).padEnd(34)} ${orms.map(o => String(g(picked[o]?.m)(k)).padStart(8)).join(" ")}`,
       );
     }
   }

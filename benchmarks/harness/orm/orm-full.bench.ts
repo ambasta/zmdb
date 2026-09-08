@@ -1,3 +1,4 @@
+import { postgres } from '@zmdb/postgres';
 import { createQueryCompiler } from '@zmdb/sql';
 import { sql, eq, asc } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -6,12 +7,15 @@ import { Kysely, PostgresDialect, sql as ksql } from 'kysely';
 // Exact drizzle-benchmarks query set (p1–p13) run against REAL PostgreSQL.
 // Each ORM builds the query with its OWN builder API (not shared raw SQL),
 // so a query a tool cannot express with its builder is honestly DNF.
-// zmdb's query-compiler is deliberately CRUD-focused (no joins/aggregates/FTS
-// builder) — those are DNF for zmdb, which is exactly the feature-gap metric.
+// Unsupported workload implementations in this microbenchmark are reported as DNF.
 import { Pool } from 'pg';
 import { Bench } from 'tinybench';
 
-const pool = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:55432/bench', max: 10 });
+const pool = new Pool({
+  connectionString:
+    process.env.PGURL ?? process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:55432/bench',
+  max: 10,
+});
 
 // --- drizzle schema (minimal, for its query builder) ---
 const customers = pgTable('customers', { id: integer('id').primaryKey(), companyName: text('company_name') });
@@ -38,7 +42,7 @@ const details = pgTable('order_details', {
 const ddb = drizzle(pool, { schema: { customers, employees, suppliers, products, orders, details } });
 
 const k = new Kysely<Record<string, Record<string, unknown>>>({ dialect: new PostgresDialect({ pool }) });
-const qc = createQueryCompiler('postgres');
+const qc = createQueryCompiler(postgres);
 const z = (t: string, p: unknown[]) => pool.query(t, p);
 
 const DNF = Symbol('dnf');
@@ -233,10 +237,12 @@ const Q: Record<string, { desc: string; drizzle: Impl; kysely: Impl; zmdb: Impl 
   },
 };
 
-const ORMS = ['zmdb', 'drizzle', 'kysely'] as const;
+const selected = new Set((process.env.ORMS ?? 'zmdb').trim().split(/\s+/));
+const ORMS = (['zmdb', 'drizzle', 'kysely'] as const).filter(orm => selected.has(orm));
+if (ORMS.length !== selected.size) throw new Error('ORMS must contain zmdb, drizzle or kysely');
 console.log('# ORM benchmark — exact drizzle-benchmarks query set (p1–p13), REAL PostgreSQL\n');
 const dnfCount: Record<string, number> = { zmdb: 0, drizzle: 0, kysely: 0 };
-const rowsOut: string[] = ['| Query | zmdb | drizzle | kysely |', '|-------|-----:|--------:|-------:|'];
+const rowsOut: string[] = [`| Query | ${ORMS.join(' | ')} |`, `|-------|${ORMS.map(() => '-----:|').join('')}`];
 
 for (const [name, q] of Object.entries(Q)) {
   const bench = new Bench({ time: 500 });
@@ -255,10 +261,10 @@ for (const [name, q] of Object.entries(Q)) {
   const hz: Record<string, number> = {};
   for (const t of bench.tasks) hz[t.name] = Math.round(t.result?.hz ?? 0);
   const cell = (orm: string) => (present[orm] ? `${hz[orm].toLocaleString()}` : 'DNF');
-  rowsOut.push(`| ${name} | ${cell('zmdb')} | ${cell('drizzle')} | ${cell('kysely')} |`);
+  rowsOut.push(`| ${name} | ${ORMS.map(cell).join(' | ')} |`);
 }
 console.log(rowsOut.join('\n'));
 console.log(
-  `\nDNF totals (of ${Object.keys(Q).length} upstream queries): zmdb=${dnfCount.zmdb}, drizzle=${dnfCount.drizzle}, kysely=${dnfCount.kysely}`,
+  `\nDNF totals (of ${Object.keys(Q).length} upstream queries): ${ORMS.map(orm => `${orm}=${dnfCount[orm]}`).join(', ')}`,
 );
 await pool.end();

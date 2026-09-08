@@ -21,14 +21,14 @@ K6="${K6:-$(command -v k6 || true)}"
 REQ="${REQ:-$ROOT/benchmarks/upstream/drizzle-benchmarks/data/requests.json}"
 REPEATS="${REPEATS:-3}"
 WARMUP="${WARMUP:-1}"
-PGURL="${PGURL:-postgres://postgres:postgres@localhost:55432/bench}"
+PGURL="${PGURL:-${DATABASE_URL:-postgres://postgres:postgres@localhost:55432/bench}}"
 
 # k6 only exports avg,min,med,max,p(90),p(95) unless asked. p(99) is the
 # interesting one for a tail — without this flag the reporter's p99 column reads
 # a field that is not there and prints zeros, which looks like a great tail.
 TREND_STATS="${TREND_STATS:-avg,min,med,p(90),p(95),p(99),max}"
 
-ORMS="drizzle kysely zmdb"
+ORMS="${ORMS:-zmdb}"
 declare -A PORT=([drizzle]=3000 [kysely]=3001 [zmdb]=3002)
 
 mkdir -p "$WORK"
@@ -61,7 +61,7 @@ PGURL="$PGURL" node -e '
 
 # Start one ORM server and wait until it actually answers. Echoes the pid.
 start_server() { # $1=orm $2=port $3=logfile
-  ORM=$1 PORT=$2 node server.ts >"$3" 2>&1 &
+  PGURL="$PGURL" ORM=$1 PORT=$2 node --import "$ROOT/scripts/ts-specifier-hook.mjs" server.ts >"$3" 2>&1 &
   local pid=$!
   local i
   for i in $(seq 1 40); do
