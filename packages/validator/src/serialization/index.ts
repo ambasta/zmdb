@@ -1,22 +1,14 @@
-// AOT serialization — implementation.
-// #52 stringify + parse implemented. #53 assertStringify remains unimplemented.
+// JSON serialization and validated parsing.
 import { type ValidationIssue } from '../advanced/index.js';
 import { assert, AssertError, type TypeIR } from '../index.js';
 
-// Runtime fallback serializer. Byte-identical to JSON.stringify for supported
-// values; bigint throws TypeError (documented policy). The AOT transformer will
-// later emit straight-line concatenation for known shapes, but the observable
-// contract is exactly this.
+// Native JSON owns property traversal and toJSON calls. Primitive bigint is
+// rejected before a root toJSON hook can run; native JSON rejects nested bigint.
 export function stringify(value: unknown): string {
   if (typeof value === 'bigint') {
     throw new TypeError('Do not know how to serialize a BigInt');
   }
-  // Guard nested bigint too (JSON.stringify would throw its own TypeError,
-  // but we normalize the message/behavior through this entry point).
-  return JSON.stringify(value, (_key, v) => {
-    if (typeof v === 'bigint') throw new TypeError('Do not know how to serialize a BigInt');
-    return v;
-  });
+  return JSON.stringify(value);
 }
 
 // `TypeIR`: the witness a user has is the generated one, and there is no longer a

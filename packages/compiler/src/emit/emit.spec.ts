@@ -59,6 +59,32 @@ describe('the fast path', () => {
     expect(check({ n: Number.NaN })).toBe(false);
   });
 
+  it.each([
+    { type: 'number & Min<0>', valid: [0, 1, Infinity], invalid: [-1, -Infinity, NaN, '1'] },
+    { type: 'number & Max<10>', valid: [0, 10, -Infinity], invalid: [11, Infinity, NaN, '1'] },
+    { type: 'number & Min<0> & Max<10>', valid: [0, 5, 10], invalid: [-1, 11, Infinity, -Infinity, NaN, '1'] },
+  ])('uses the numeric bounds to reject NaN for $type', ({ type, valid, invalid }) => {
+    const { code, check } = build(`const check = (input) => is<${type}>(input);`);
+    expect(code).not.toContain('Number.isNaN');
+    for (const value of valid) expect(check(value)).toBe(true);
+    for (const value of invalid) expect(check(value)).toBe(false);
+  });
+
+  it('checks the same captured bounded numeric property value once', () => {
+    const { code, check } = build('const check = (input) => is<{ n: number & Min<0> & Max<10> }>(input);');
+    for (const first of [5, NaN]) {
+      let reads = 0;
+      const value = {
+        get n() {
+          return ++reads === 1 ? first : Number.isNaN(first) ? 5 : NaN;
+        },
+      };
+      expect(check(value)).toBe(!Number.isNaN(first));
+      expect(reads).toBe(1);
+    }
+    expect(code).not.toContain('Number.isNaN');
+  });
+
   it('walks an array with a counted for loop, not a callback', () => {
     const { code } = build('const check = (input) => is<Point[]>(input);');
     expect(code).toContain('for (let _i = 0; _i < _v.length; _i++)');

@@ -591,13 +591,11 @@ export class Emitter {
     return true;
   }
 
-  #bind(expr: string): Bound {
+  #bind(expr: string, captureProperty = false): Bound {
     const trimmed = expr.trim();
-    if (SIMPLE_REFERENCE.test(trimmed)) {
-      // Re-read rather than bound. A property access could in principle run a getter
-      // more than once; that is the pre-existing behaviour of this transformer, and the
-      // alternative — an arrow wrapper around every `is<T>(o.p)` — costs a call on the
-      // hot path for a shape that does not occur in validated data.
+    if (SIMPLE_REFERENCE.test(trimmed) && (!captureProperty || IDENTIFIER.test(trimmed))) {
+      // Keep simple references inline unless their checks require one captured
+      // property value, as bounded numeric predicates do.
       return {
         ref: trimmed,
         expression: body => body,
@@ -767,9 +765,17 @@ export class Emitter {
   }
 
   #scalarCheck(node: ScalarIR, v: string, path: string): string | undefined {
-    const constraints = this.#constraintChecks(node.constraints, v, node.scalar === 'string', path);
+    const boundedNumber =
+      node.scalar === 'number' && (node.constraints?.minimum !== undefined || node.constraints?.maximum !== undefined);
+    const bound = boundedNumber ? this.#bind(v, true) : undefined;
+    const value = bound?.ref ?? v;
+    const constraints = this.#constraintChecks(node.constraints, value, node.scalar === 'string', path);
     if (constraints === undefined) return undefined;
-    return [scalarBase(node.scalar, v), ...constraints].join(' && ');
+    // A numeric comparison rejects NaN itself, provided every check reads the
+    // same captured value. Unbounded numbers still need their explicit guard.
+    const base = boundedNumber ? `typeof ${value} === "number"` : scalarBase(node.scalar, value);
+    const check = [base, ...constraints].join(' && ');
+    return bound?.expression(check) ?? check;
   }
 
   /** `length`-based bounds read a `.length`; numeric ones compare the value itself. */
