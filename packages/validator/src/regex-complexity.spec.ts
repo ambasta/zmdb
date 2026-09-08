@@ -1,5 +1,13 @@
-import { getRegExp, tags, validateRule as validate, ValidationError, is, validate as utilityValidate } from '@zmdb/validator';
+import {
+  getRegExp,
+  tags,
+  validateRule as validate,
+  ValidationError,
+  is,
+  validate as utilityValidate,
+} from '@zmdb/validator';
 import { describe, expect, it } from 'vitest';
+
 import { getCachedRegExp, validatePatternComplexity } from './regex-complexity.js';
 
 describe('Static Regular Expression Complexity Validation & Caching', () => {
