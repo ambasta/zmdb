@@ -4,7 +4,18 @@
 export { ValidationError, claimsValidationIssues, validationIssuesOf } from '@zmdb/validator';
 export { aliasRow, attachPopulated, compilePopulate } from '@zmdb/orm/relations';
 export { applyOrderBy, applyPagination, compileWhere } from '@zmdb/orm/dto';
-export { buildListResult, isRecord, resolveRelation, schemaOf } from '@zmdb/schema';
+export {
+  buildListResult,
+  getRegisteredSchemas,
+  getSchemaByTable,
+  getSchemaFilterWhere,
+  isRecord,
+  normalizeGlobalFilters,
+  normalizeSoftDeleteConfig,
+  registerSchema,
+  resolveRelation,
+  schemaOf,
+} from '@zmdb/schema';
 export { createStateUpdatePayload, defineEntityStateMachine, defineStateTransitions } from '@zmdb/app';
 export {
   type AllowedTargetStates,
@@ -21,6 +32,9 @@ export {
   type CreateDTO,
   type DeclaredTable,
   type Entity,
+  type GlobalFilterFn,
+  type GlobalFilterItem,
+  type GlobalFiltersMap,
   type ListDTO,
   type ListResult,
   type OrderByDTO,
@@ -28,8 +42,12 @@ export {
   type Populated,
   type PopulatedEntity,
   type PrimaryKeyOf,
+  type QueryFilterOptions,
   type ReadDTO,
   type ResolvedRelation,
+  type SchemaOptions,
+  type SoftDeleteConfig,
+  type SoftDeleteOptions,
   type SqlType,
   type TaggedSchema,
   type UpdateDTO,
