@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { mysqlDialect, postgresDialect, sqliteDialect } from '../testing/official-dialects.fixture.js';
 import { aggregateSelectFrom } from './index.js';
 
