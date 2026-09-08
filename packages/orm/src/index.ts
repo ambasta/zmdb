@@ -61,6 +61,7 @@ import {
   inc,
   proposed,
   sanitizeKeys,
+  unsafeOperator,
   type JoinCondition,
   type TrustedTable,
 } from '@zmdb/sql';
@@ -2230,7 +2231,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           const physicalColumn = this.aggregateColumn(col);
           if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
             for (const [op, opVal] of Object.entries(val)) {
-              const mappedOp = OP_SQL[op] ?? (op as Operator);
+              const mappedOp = OP_SQL[op] ?? unsafeOperator(op);
               builder = builder.where(physicalColumn, mappedOp, opVal);
             }
           } else {
@@ -2242,7 +2243,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
       if (spec.having) {
         builder = builder.having(
           this.aggregateColumn(String(spec.having.column)),
-          spec.having.op as Operator,
+          OP_SQL[spec.having.op] ?? unsafeOperator(spec.having.op),
           spec.having.value,
         );
       }
