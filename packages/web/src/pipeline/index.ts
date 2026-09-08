@@ -118,7 +118,7 @@ interface VersionLookup {
   nextId: number;
 }
 
-function bucketFor(buckets: MethodBuckets, method: string, segmentCount: number): BoundRoute[] {
+function bucketFor<T>(buckets: Map<string, T[][]>, method: string, segmentCount: number): T[] {
   let bySegmentCount = buckets.get(method);
   if (bySegmentCount === undefined) {
     bySegmentCount = [];
@@ -196,27 +196,13 @@ function addNeutralRoute(
   }
 }
 
-function supportedBucketFor(buckets: SupportedBuckets, method: string, segmentCount: number): SupportedRoute[] {
-  let bySegmentCount = buckets.get(method);
-  if (bySegmentCount === undefined) {
-    bySegmentCount = [];
-    buckets.set(method, bySegmentCount);
-  }
-  let bucket = bySegmentCount[segmentCount];
-  if (bucket === undefined) {
-    bucket = [];
-    bySegmentCount[segmentCount] = bucket;
-  }
-  return bucket;
-}
-
 function addSupportedRoute(
   buckets: SupportedBuckets,
   method: string,
   pattern: CompiledPattern,
   versions: readonly string[],
 ): void {
-  const bucket = supportedBucketFor(buckets, method, pattern.segmentCount);
+  const bucket = bucketFor(buckets, method, pattern.segmentCount);
   const existing = bucket.find(candidate => candidate.pattern.pattern === pattern.pattern);
   if (existing === undefined) {
     bucket.push({ pattern, versions: [...versions] });
@@ -851,6 +837,18 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
   // configuration does not activate spans or metrics.
   const observed = tracer === undefined && requestDuration === undefined ? undefined : true;
 
+  function requestVersionFor(headers: WebRequest['headers']): string | undefined {
+    return requestVersioning === undefined
+      ? undefined
+      : requestedVersion(requestVersioning, headers, versionHeaderName, mediaTypeKey, mediaVersionLookup);
+  }
+
+  function routeCandidates(method: string, segmentCount: number, version: string | undefined): readonly BoundRoute[] {
+    return version === undefined
+      ? (buckets.get(method)?.[segmentCount] ?? [])
+      : (versionBuckets.get(method)?.get(version)?.[segmentCount] ?? neutralBuckets.get(method)?.[segmentCount] ?? []);
+  }
+
   function claimVersionedRoute(
     controller: ControllerCtor,
     route: ResolvedRoute,
@@ -865,6 +863,22 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       );
     }
     versionedRouteKeys.add(key);
+  }
+
+  function addPathRoute(
+    route: ResolvedRoute,
+    handler: Handler,
+    validateBody: ((raw: unknown) => unknown) | undefined,
+    guards: readonly Guard[],
+  ): void {
+    const pattern = compilePattern(route.path);
+    bucketFor(buckets, route.method, pattern.segmentCount).push({
+      route,
+      pattern,
+      handler,
+      ...(validateBody === undefined ? {} : { validateBody }),
+      ...(guards.length === 0 ? {} : { guards }),
+    });
   }
 
   function addBoundRoute(
@@ -883,14 +897,7 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
             '@Version() requires createRouter({ versioning: ... })',
         );
       }
-      const pattern = compilePattern(route.path);
-      bucketFor(buckets, route.method, pattern.segmentCount).push({
-        route,
-        pattern,
-        handler,
-        ...(validateBody === undefined ? {} : { validateBody }),
-        ...(guards.length === 0 ? {} : { guards }),
-      });
+      addPathRoute(route, handler, validateBody, guards);
       return;
     }
 
@@ -903,28 +910,13 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
 
     if (versioning.kind === 'path') {
       if (declaration === 'neutral') {
-        const pattern = compilePattern(route.path);
-        bucketFor(buckets, route.method, pattern.segmentCount).push({
-          route,
-          pattern,
-          handler,
-          ...(validateBody === undefined ? {} : { validateBody }),
-          ...(guards.length === 0 ? {} : { guards }),
-        });
+        addPathRoute(route, handler, validateBody, guards);
         return;
       }
       for (const version of declaration) {
         const publicPath = pathForVersion(versioning.prefix, version, route.path);
         claimVersionedRoute(controller, route, version, publicPath);
-        const expanded = { ...route, path: publicPath };
-        const pattern = compilePattern(publicPath);
-        bucketFor(buckets, route.method, pattern.segmentCount).push({
-          route: expanded,
-          pattern,
-          handler,
-          ...(validateBody === undefined ? {} : { validateBody }),
-          ...(guards.length === 0 ? {} : { guards }),
-        });
+        addPathRoute({ ...route, path: publicPath }, handler, validateBody, guards);
       }
       return;
     }
@@ -1083,16 +1075,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       const routeSpan = childSpan(tracer, serverSpan, 'zmdb.route');
       try {
         const segmentCount = countSegments(req.path);
-        requestVersion =
-          requestVersioning === undefined
-            ? undefined
-            : requestedVersion(requestVersioning, req.headers, versionHeaderName, mediaTypeKey, mediaVersionLookup);
-        const candidates =
-          requestVersion === undefined
-            ? (buckets.get(method)?.[segmentCount] ?? [])
-            : (versionBuckets.get(method)?.get(requestVersion)?.[segmentCount] ??
-              neutralBuckets.get(method)?.[segmentCount] ??
-              []);
+        requestVersion = requestVersionFor(req.headers);
+        const candidates = routeCandidates(method, segmentCount, requestVersion);
         for (const candidate of candidates) {
           const params = matchCompiled(candidate.pattern, req.path);
           if (params !== undefined) {
@@ -1378,16 +1362,8 @@ export function createRouter(routerOptions: RouterOptions = {}): Router {
       }
       const method = req.method.toUpperCase();
       const segmentCount = countSegments(req.path);
-      const requestVersion =
-        requestVersioning === undefined
-          ? undefined
-          : requestedVersion(requestVersioning, req.headers, versionHeaderName, mediaTypeKey, mediaVersionLookup);
-      const candidates =
-        requestVersion === undefined
-          ? (buckets.get(method)?.[segmentCount] ?? [])
-          : (versionBuckets.get(method)?.get(requestVersion)?.[segmentCount] ??
-            neutralBuckets.get(method)?.[segmentCount] ??
-            []);
+      const requestVersion = requestVersionFor(req.headers);
+      const candidates = routeCandidates(method, segmentCount, requestVersion);
       for (const bound of candidates) {
         const params = matchCompiled(bound.pattern, req.path);
         if (params === undefined) {
