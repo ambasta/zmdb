@@ -1,4 +1,4 @@
-import { EventEmitter, once } from 'node:events';
+import type { EventEmitter } from 'node:events';
 
 import {
   Client,
@@ -421,6 +421,7 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   ee.on('error', onError);
 
   try {
+    // oxlint-disable-next-line eslint/no-unmodified-loop-condition
     while (!done || queue.length > 0) {
       if (queue.length === 0 && !done) {
         await new Promise<void>((resolve, reject) => {

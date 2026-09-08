@@ -55,6 +55,7 @@ for (let i = 0; i < B64URL_CHARS.length; i += 1) {
 }
 
 if (typeof (Uint8Array.prototype as unknown as { toBase64?: unknown }).toBase64 !== 'function') {
+  // oxlint-disable-next-line eslint/no-extend-native
   Object.defineProperty(Uint8Array.prototype, 'toBase64', {
     value: function (options?: { alphabet?: string; omitPadding?: boolean }): string {
       const alphabet = options?.alphabet ?? 'base64';
@@ -102,10 +103,9 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
   }
   try {
     if (typeof (Uint8Array as unknown as { fromBase64?: unknown }).fromBase64 === 'function') {
-      const decoded = (Uint8Array as unknown as { fromBase64: (val: string, opts: object) => Uint8Array<ArrayBuffer> }).fromBase64(
-        value,
-        { alphabet: 'base64url' },
-      );
+      const decoded = (
+        Uint8Array as unknown as { fromBase64: (val: string, opts: object) => Uint8Array<ArrayBuffer> }
+      ).fromBase64(value, { alphabet: 'base64url' });
       return encodeBase64Url(decoded) === value ? decoded : undefined;
     }
     const len = value.length;
