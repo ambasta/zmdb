@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import { EventEmitter, once } from 'node:events';
+import type { EventEmitter } from 'node:events';
 
 import {
   Client,
@@ -425,6 +425,7 @@ async function* requestStream(call: ReadableRequestCall, scope: CallScope): Asyn
   ee.on('error', onError);
 
   try {
+    // oxlint-disable-next-line eslint/no-unmodified-loop-condition
     while (!done || queue.length > 0) {
       if (queue.length === 0 && !done) {
         await new Promise<void>((resolve, reject) => {
