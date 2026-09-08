@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": [
+    "programs/**/*.ts",
+    "report-contract.ts",
+    "rabbitmq/contracts.ts",
+    "../../packages/zmdb/src/release-compatibility.spec.ts"
+  ]
+}
