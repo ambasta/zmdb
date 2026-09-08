@@ -11,7 +11,6 @@ export {
   is,
   isShallow,
   makeRng,
-  random,
   validate,
   validateShallow,
 } from '@zmdb/validator';

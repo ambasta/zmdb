@@ -780,8 +780,12 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `node` → `>=26`
 - **License:** `GPL-3.0-or-later`
 - **Facade exposure:**
+  - `AllowedTargetStates`
   - `CreateDTO`
+  - `CustomType`
   - `Entity`
+  - `EntityStateMachine`
+  - `EntityStateMachineOptions`
   - `HasDefault`
   - `Max`
   - `MaxLength`
@@ -796,9 +800,17 @@ Schema DSL + compile-time type derivation (Entity/Create/Update/read DTOs), rela
   - `Sensitive`
   - `Serial`
   - `Sql`
+  - `StateTransitions`
+  - `StateUpdateDTO`
   - `Table`
   - `Unique`
   - `UpdateDTO`
+  - `createStateUpdatePayload`
+  - `decodeValue`
+  - `defineEntityStateMachine`
+  - `defineStateTransitions`
+  - `defineType`
+  - `encodeValue`
   - `schemaOf`
   - `@zmdb/core/derive`
   - `@zmdb/core/dto`
@@ -1076,8 +1088,14 @@ Runtime helpers for ahead-of-time validation and JSON serialization: is/assert/v
   - `ValidateResult`
   - `ValidationIssue`
   - `assert`
+  - `assertEquals`
+  - `assertShallow`
+  - `equals`
   - `is`
+  - `isShallow`
+  - `makeRng`
   - `validate`
+  - `validateShallow`
   - `@zmdb/core/validator`
 - **External proof:** yarn verify:publish packs, installs, imports, and typechecks every public export from outside the repository.
 
