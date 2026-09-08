@@ -17,7 +17,11 @@ const CORE = ['@zmdb/migrations', '@zmdb/orm', '@zmdb/schema', '@zmdb/sql', '@zm
 const PARENTS = { cockroach: 'postgres', singlestore: 'mysql' };
 
 export function requireServices(databases, supplied) {
-  const missing = databases.filter(name => name !== 'sqlite' && !supplied[SERVICE_VARIABLES[name]]);
+  const missing = databases.filter(name => {
+    if (name === 'sqlite') return false;
+    const value = supplied[SERVICE_VARIABLES[name]];
+    return typeof value !== 'string' || value.trim().length === 0;
+  });
   assert.deepEqual(
     missing,
     [],

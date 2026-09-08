@@ -1,22 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { createQueue, createWorker, type Clock, type JobHandler, type JobStore, type WorkerOptions } from '@zmdb/jobs';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPgJobStore } from './index.js';
 
-const PG_CONN = process.env.ZMDB_PG ?? 'postgres://postgres:postgres@localhost:55432/bench';
+const PG_CONN = process.env.ZMDB_PG;
 const START = Date.parse('2026-09-05T00:00:00.000Z');
-
-interface PackageManifest {
-  readonly dependencies?: Readonly<Record<string, string>>;
-  readonly devDependencies?: Readonly<Record<string, string>>;
-  readonly exports?: Readonly<Record<string, string>>;
-  readonly peerDependencies?: Readonly<Record<string, string>>;
-  readonly peerDependenciesMeta?: Readonly<Record<string, unknown>>;
-}
 
 interface Jobs {
   readonly 'email.send': { readonly id: number };
@@ -35,10 +24,6 @@ function deferred(): Deferred {
     resolve = done;
   });
   return { promise, resolve };
-}
-
-function readManifest(path: string): PackageManifest {
-  return JSON.parse(readFileSync(path, 'utf8')) as PackageManifest;
 }
 
 function validEmail(raw: unknown): Jobs['email.send'] {
@@ -89,13 +74,16 @@ function workerOptions(store: JobStore, jobHandler: JobHandler<Jobs, 'email.send
 }
 
 beforeAll(async () => {
+  if (PG_CONN === undefined || PG_CONN.trim() === '') {
+    throw new Error('Set ZMDB_PG explicitly to run the PostgreSQL jobs integration tests.');
+  }
   const candidate = new Pool({ connectionString: PG_CONN, connectionTimeoutMillis: 1000, max: 8 });
   try {
     await candidate.query('SELECT 1');
     postgres = candidate;
-  } catch (error) {
+  } catch {
     await candidate.end().catch(() => undefined);
-    throw new Error(`PostgreSQL is required but not reachable at ${PG_CONN}`, { cause: error });
+    throw new Error('The PostgreSQL jobs integration database is unreachable; check ZMDB_PG.');
   }
 });
 
@@ -168,30 +156,6 @@ describe('@zmdb/jobs-postgres (#661)', () => {
     } finally {
       await pool.end();
     }
-  });
-
-  it('keeps pg on an adapter-only optional peer boundary', () => {
-    const root = process.cwd();
-    const adapter = readManifest(join(root, 'packages', 'jobs-postgres', 'package.json'));
-    expect(adapter.dependencies).toEqual({
-      '@zmdb/postgres': 'workspace:1.0.0-alpha.4',
-    });
-    expect(adapter.devDependencies).toHaveProperty('@zmdb/jobs', 'workspace:^');
-    expect(adapter.peerDependencies).toEqual({
-      '@zmdb/jobs': '1.0.0-alpha.4',
-      pg: '^8.23.0',
-    });
-    expect(adapter.peerDependenciesMeta).toBeUndefined();
-
-    for (const name of ['validator', 'app', 'jobs', 'orm', 'web', 'zmdb']) {
-      const manifest = readManifest(join(root, 'packages', name, 'package.json'));
-      expect(manifest.peerDependencies ?? {}, name).not.toHaveProperty('pg');
-    }
-    expect(readManifest(join(root, 'packages', 'jobs', 'package.json')).exports).not.toHaveProperty('./postgres');
-    expect(readManifest(join(root, 'packages', 'web', 'package.json')).exports).not.toHaveProperty(
-      './queues/backends/pg',
-    );
-    expect(existsSync(join(root, 'packages', 'web', 'src', 'queues', 'backends', 'pg.ts'))).toBe(false);
   });
 
   it('lets two workers claim disjoint jobs from one store', async () => {

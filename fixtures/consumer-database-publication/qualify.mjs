@@ -97,7 +97,14 @@ async function consumerCommand(database, label, executable, argv, cwd, env = {})
 }
 
 try {
-  const supplied = servicesFile === undefined ? {} : JSON.parse(await readFile(servicesFile, 'utf8'));
+  const supplied = {
+    ...Object.fromEntries(
+      Object.values(SERVICE_VARIABLES)
+        .filter(name => process.env[name] !== undefined)
+        .map(name => [name, process.env[name]]),
+    ),
+    ...(servicesFile === undefined ? {} : JSON.parse(await readFile(servicesFile, 'utf8'))),
+  };
   secretValues = Object.values(supplied).filter(value => typeof value === 'string' && value.length > 0);
   for (const value of Object.values(supplied).filter(
     inputValue => typeof inputValue === 'string' && inputValue.length > 0,
