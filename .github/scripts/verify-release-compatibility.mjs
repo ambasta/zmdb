@@ -280,8 +280,8 @@ export async function withCompatibilityWorkspace(parent, run) {
 }
 
 async function digest(bytes, algorithm, encoding = 'hex') {
-  const value = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? value.toBase64() : value.toHex();
+  const value = Buffer.from(await crypto.subtle.digest(algorithm, bytes));
+  return value.toString(encoding === 'base64' ? 'base64' : 'hex');
 }
 
 async function sourceIdentity(directory) {

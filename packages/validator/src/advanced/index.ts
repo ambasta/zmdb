@@ -1,5 +1,4 @@
 import { isRecord } from '@zmdb/schema';
-import type { ValidationIssue } from '../validation-error.js';
 
 // Advanced validation — implementation.
 // #46 refinement compilation (refine + refinement-aware validateObject with
@@ -7,6 +6,7 @@ import type { ValidationIssue } from '../validation-error.js';
 // because the same validateObject drives them. #47 transform remains a rule
 // constructor only; no validator path applies it.
 import { type Rule } from '../index.js';
+import type { ValidationIssue } from '../validation-error.js';
 
 export type { ValidationIssue };
 
