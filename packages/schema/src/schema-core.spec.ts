@@ -13,13 +13,8 @@
 // gone: nothing threw it once `defineSchema` did not.
 
 import { isRecord, schemaOf } from '@zmdb/schema';
-import {
-  claimsValidationIssues,
-  validationIssuesOf,
-  ValidationError,
-  type ValidationIssue,
-} from '@zmdb/validator';
 import { jsonSchemaForColumn, type ColumnIR, type ExtensionType } from '@zmdb/schema/ir';
+import { claimsValidationIssues, validationIssuesOf, ValidationError, type ValidationIssue } from '@zmdb/validator';
 import { describe, expect, it } from 'vitest';
 
 describe('schemaOf<T>()', () => {
