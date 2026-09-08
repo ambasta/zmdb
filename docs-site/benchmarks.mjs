@@ -21,29 +21,28 @@ import { PALETTE_HTML, THEME_BOOT, shellJs, topbarHtml } from './shell.mjs';
 
 const SUITE_META = {
   validation: {
-    label: 'Historical validation',
+    label: 'Validation',
     blurb:
       'zmdb registered as two participants in moltar/typescript-runtime-type-benchmarks and run by the upstream runner, ' +
-      'one forked process per library, against the whole field. <code>zmdb</code> is the runtime validator walking a ' +
+      'one forked process per library, alongside the selected leaders ts-runtypes and ts-runtime-checks. <code>zmdb</code> is the runtime validator walking a ' +
       'descriptor; <code>zmdb-aot</code> is the same public API with the transformer applied, so the benchmarked code ' +
       'is transformer output rather than a hand-tuned lookalike.',
     command: 'yarn bench:validation',
   },
   orm: {
-    label: 'Historical ORM',
+    label: 'ORM HTTP replay',
     blurb:
-      'Archived k6 replay over the upstream drizzle-team/drizzle-benchmarks 13-route request list. ' +
-      'The fixture used the same Postgres, driver and pool geometry, but its projections and join response shapes ' +
-      'differed across participants. These historical numbers do not support a fair ORM ranking. The corrected ' +
-      'fixture has passed response-parity checks; its peer throughput has not been rerun.',
+      'k6 replay over the upstream drizzle-team/drizzle-benchmarks 13-route request list, comparing zmdb, Drizzle and Kysely. ' +
+      'The corrected fixture uses matching projections and response shapes, one shared dataset and index set, ' +
+      'and the same PostgreSQL service, pg driver and connection-pool size for every participant.',
     command: 'yarn bench:orm',
   },
   framework: {
-    label: 'HTTP framework captures',
+    label: 'HTTP framework',
     blurb:
       'Captured @zmdb/web and peer workloads under the the-benchmarker/web-frameworks shared contract — ' +
-      '<code>GET /</code>, <code>GET /user/:id</code>, <code>POST /user</code>. The dated Node refresh appears ' +
-      'alongside historical peer, Bun and Deno captures from separate measurement sessions.',
+      '<code>GET /</code>, <code>GET /user/:id</code>, <code>POST /user</code>. zmdb runs on Node, Bun and Deno; ' +
+      'the selected peers are Hono on Node and Deno, and Elysia on Bun. Each server uses one process on the same CPU.',
     command: 'yarn bench:framework',
   },
 };
@@ -80,6 +79,8 @@ function provenanceHtml(data) {
     ],
     ['Grafted commit', link],
     ['Measured', data.measuredAt ?? data.generatedAt ?? null],
+    ['Product revision', data.sourceRevision ?? null],
+    ['Harness revision', data.harnessRevision ?? null],
     ['Peers measured', data.peersMeasuredAt ?? null],
     ['Machine', data.rig ?? data.machine ?? null],
     ['Runtime', data.runtime ?? null],
@@ -96,7 +97,7 @@ function provenanceHtml(data) {
     data.caveat === null || data.caveat === undefined
       ? ''
       : `<div class="admonition warning"><div class="adm-title">⚠️ Read this before quoting a number</div><p>${escapeHtml(data.caveat)}</p></div>`
-  }</details>`;
+  }${data.rawFile ? `<p><a href="./${escapeHtml(data.rawFile)}" download>Raw samples and capture provenance</a></p>` : ''}</details>`;
 }
 
 function missingHtml(name) {
@@ -271,6 +272,10 @@ function validationPanel(data) {
 <p class="note">The same numbers without a tab in the way — useful because a library can win one case and lose another,
 and the tabbed view makes that easy to miss.</p>
 <div id="val-matrix"></div>
+<p class="note">A dash means the case is unsupported. zmdb and zmdb-aot are excluded from <code>parseSafe</code>:
+the upstream contract requires a copy with unknown properties removed, while these APIs validate and return the input.
+The upstream runner measures repeated calls on one fixed object and discards returned values. It provides throughput
+and error margins, not individual-call p95/p99 latency.</p>
 ${
   notRun.length === 0
     ? ''
@@ -341,23 +346,21 @@ ${runtimes
     r =>
       `<code>${escapeHtml(r.runtime)} ${escapeHtml(r.version ?? '')}</code>: ${escapeHtml(r.workers ?? '?')} ${r.workers === 1 ? 'worker' : 'workers'}, measured ${escapeHtml(r.measuredAt ?? 'date not recorded')}`,
   )
-  .join('; ')}.
-The peer, Bun and Deno rows are historical; their recorded versions and dates are separate from the Node refresh.
-Missing runtimes were not measured.</p>
-<div class="admonition warning"><div class="adm-title">⚠️ These rows do not all use the machine the same way</div>
-<p>The Go peers take all cores through
-<code>GOMAXPROCS</code> and the Rust peers through <code>num_cpus</code>, so ranking across languages here is a ranking of
-core counts as much as of frameworks${
-          interleaved === null ? '.' : ' — the per-core, order-rotated table further down is the like-for-like reading.'
-        }</p></div>`;
+  .join('; ')}.</p>
+<p class="note">Every candidate uses one server process, the same server CPU and separate load-generator CPUs.
+Saturation measures maximum throughput with closed-loop load; its latency is not coordinated-omission corrected.
+The fixed-rate capture offers 20,000 requests per second to every candidate and enables oha latency correction.
+Each displayed row keeps throughput and percentiles from the same median-throughput repetition. Brackets show the range of
+the three run summaries, not pooled percentiles or confidence intervals; raw downloads retain all repetitions.</p>`;
 
   return panel(
     'framework',
     data,
     `${runtimeLine}
 <div class="controls">
+<label>Load<select id="fw-load"><option value="saturation">Saturation</option><option value="fixed-rate">20,000 req/s</option></select></label>
 <label>Concurrency<select id="fw-level">${levels
-      .map((l, i) => `<option value="${l}"${i === levels.length - 1 ? ' selected' : ''}>${l}</option>`)
+      .map(l => `<option value="${l}"${l === 256 ? ' selected' : ''}>${l}</option>`)
       .join('')}</select></label>
 <label>Route<select id="fw-route">${routes.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('')}</select></label>
 <label>Sort by<select id="fw-sort">
@@ -365,6 +368,7 @@ core counts as much as of frameworks${
 <option value="average_latency">avg latency (asc)</option>
 <option value="percentile50">p50 (asc)</option>
 <option value="percentile90">p90 (asc)</option>
+<option value="percentile95">p95 (asc)</option>
 <option value="percentile99">p99 (asc)</option>
 </select></label>
 <label>Language<select id="fw-language"><option value="">all</option></select></label>
@@ -408,6 +412,35 @@ above would be the exact mistake this dashboard is trying not to make.</p>
 <div id="fw-reference"></div>`
 }`,
   );
+}
+
+function repositoryPanel(data) {
+  if (data === null) return '';
+  const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+  return `<section class="suite" id="suite-repository">
+<h2>Repository and relation loading</h2>
+<p>Current generated schemas, the same PostgreSQL data and indexes, pg driver and pool of 12 connections.
+The nested workload returns 25 users, 100 posts and 300 comments. Kysely and the zmdb builder use three queries and
+the same assembler; repository and deferred loading use the public repository APIs. Native Drizzle uses one
+relational query with JSON aggregation. Result equality is checked before timing.</p>
+${provenanceHtml(data)}
+<p class="note">Each row is the median-throughput repetition with its own p95/p99, followed by the throughput range
+across all three repetitions. These are closed-loop client-operation latencies, without coordinated-omission correction.</p>
+${data.groups
+  .map(
+    group => `<h3>${escapeHtml(group.workload)} · ${group.concurrency} concurrent operations</h3>
+<div class="grid-scroll"><table><thead><tr><th>Participant</th><th class="num">ops/s</th><th class="num">p95 ms</th>
+<th class="num">p99 ms</th><th class="num">ops/s range</th></tr></thead><tbody>${group.rows
+      .map(
+        row =>
+          `<tr class="${row.isZmdb ? 'mine' : ''}"><th scope="row">${escapeHtml(row.name)}</th>
+<td class="num">${number.format(row.operationsPerSecond)}</td><td class="num">${number.format(row.p95)}</td>
+<td class="num">${number.format(row.p99)}</td><td class="num">${row.range.map(value => number.format(value)).join('–')}</td></tr>`,
+      )
+      .join('')}</tbody></table></div>`,
+  )
+  .join('')}
+</section>`;
 }
 
 const DASH_CSS = `
@@ -482,7 +515,7 @@ const DASH_JS = String.raw`
       var max = rows.length ? rows[0].ops[kind] : 0;
       var mine = rows.filter(function(l){ return l.name === 'zmdb-aot'; })[0]
               || rows.filter(function(l){ return l.isZmdb; })[0];
-      var base = mine ? mine.ops[kind] : 0;
+      var base = mine ? mine.ops[kind] : max;
       var html = '<div class="grid-scroll"><table><tr><th></th><th>Library</th><th class="num">ops/sec</th>' +
                  '<th class="num">error</th><th>relative</th><th class="num">vs ' + esc(mine ? mine.name : 'fastest') + '</th></tr>';
       rows.forEach(function(l, i){
@@ -508,7 +541,7 @@ const DASH_JS = String.raw`
       libs.map(function(l){
         return '<tr class="' + (l.isZmdb ? 'mine' : '') + '"><td><code>' + esc(l.name) + '</code></td>' +
           kinds.map(function(k){
-            return '<td class="num">' + (l.ops[k] === null ? '<span class="dnf">DNF</span>' : int.format(Math.round(l.ops[k]))) + '</td>';
+            return '<td class="num">' + (l.ops[k] === null ? '<span class="dnf">—</span>' : int.format(Math.round(l.ops[k]))) + '</td>';
           }).join('') + '</tr>';
       }).join('') + '</table></div>';
     document.getElementById('val-matrix').innerHTML = matrix;
@@ -539,7 +572,7 @@ const DASH_JS = String.raw`
       var barOf = function(v){ return higher ? { v: v, max: worst } : { v: worst - v + span * 0.08, max: span * 1.08 }; };
       var html = '<div class="grid-scroll"><table><tr><th></th><th>Participant</th><th class="num">' + esc(metric.label) +
                  '</th><th>relative</th><th class="num">req/s</th><th class="num">avg ms</th><th class="num">p90 ms</th>' +
-                 '<th class="num">p95 ms</th><th class="num">failed</th></tr>';
+                 '<th class="num">p95 ms</th><th class="num">p99 ms</th><th class="num">failed</th></tr>';
       rows.forEach(function(t, i){
         html += '<tr class="' + (t.isZmdb ? 'mine' : '') + '"><td class="rank">' + (i+1) + '</td>' +
                 '<td>' + esc(t.target) + '</td>' +
@@ -549,13 +582,14 @@ const DASH_JS = String.raw`
                 '<td class="num">' + f2.format(t.averageLatency) + '</td>' +
                 '<td class="num">' + f2.format(t.p90) + '</td>' +
                 '<td class="num">' + f2.format(t.p95) + '</td>' +
+                '<td class="num">' + f2.format(t.p99) + '</td>' +
                 '<td class="num ' + (t.failedRequests === 0 ? 'yes' : 'no') + '">' + int.format(t.failedRequests) + '</td></tr>';
       });
       html += '</table></div>';
       document.getElementById('orm-table').innerHTML = html;
       document.getElementById('orm-legend').textContent =
         (higher ? 'Higher is better. ' : 'Lower is better. ') +
-        'Every column is shown on every tab so the ordering cannot hide a metric where the ranking reverses \u2014 it does reverse here.';
+        'Each row uses one median-throughput repetition, including its p95 and p99. All repetitions are available in the raw download.';
     }
     var metricTabs = document.querySelectorAll('[data-tabs="metric"] .tab');
     metricTabs.forEach(function(tab){
@@ -608,15 +642,16 @@ const DASH_JS = String.raw`
       var o = document.createElement('option'); o.value = l; o.textContent = l; langSel.appendChild(o);
     });
 
-    var LOWER_IS_BETTER = { average_latency: 1, percentile50: 1, percentile75: 1, percentile90: 1, percentile99: 1 };
+    var LOWER_IS_BETTER = { average_latency: 1, percentile50: 1, percentile75: 1, percentile90: 1, percentile95: 1, percentile99: 1 };
     function drawFramework(){
+      var load = document.getElementById('fw-load').value;
       var level = Number(document.getElementById('fw-level').value);
       var route = document.getElementById('fw-route').value;
       var sort = document.getElementById('fw-sort').value;
       var lang = langSel.value;
       var lower = LOWER_IS_BETTER[sort] === 1;
       var set = rows.filter(function(r){
-        return r.level === level && r.route === route && (lang === '' || r.language === lang);
+        return (r.load ?? 'saturation') === load && r.level === level && r.route === route && (lang === '' || r.language === lang);
       }).sort(function(a,b){
         var av = a.metrics[sort], bv = b.metrics[sort];
         if (av === undefined) return 1;
@@ -627,16 +662,19 @@ const DASH_JS = String.raw`
       var mine = set.filter(function(r){ return r.isZmdb; })[0];
       var html = '<div class="grid-scroll"><table><tr><th></th><th>Framework</th><th>Language</th><th>Runtime</th>' +
         '<th class="num">req/s</th><th>relative</th><th class="num">avg ms</th><th class="num">p50 ms</th>' +
-        '<th class="num">p90 ms</th><th class="num">p99 ms</th><th class="num">requests</th><th class="num">errors</th></tr>';
+        '<th class="num">p90 ms</th><th class="num">p95 ms</th><th class="num">p99 ms</th><th class="num">requests</th><th class="num">errors</th></tr>';
       set.forEach(function(r, i){
         var m = r.metrics;
         var ms = function(v){ return v === undefined ? '—' : f3.format(v * 1000); };
+        var tail = function(key){ return ms(m[key]) + (m[key + '_min'] === undefined ? '' :
+          ' <small>[' + ms(m[key + '_min']) + '–' + ms(m[key + '_max']) + ']</small>'); };
         html += '<tr class="' + (r.isZmdb ? 'mine' : '') + '"><td class="rank">' + (i+1) + '</td>' +
           '<td><code>' + esc(r.id) + '</code></td><td>' + esc(r.language) + '</td><td>' + esc(r.runtime) + '</td>' +
-          '<td class="num">' + int.format(Math.round(m.total_requests_per_s || 0)) + '</td>' +
+          '<td class="num">' + int.format(Math.round(m.total_requests_per_s || 0)) +
+          (m.requests_per_s_min === undefined ? '' : ' <small>[' + int.format(Math.round(m.requests_per_s_min)) + '–' + int.format(Math.round(m.requests_per_s_max)) + ']</small>') + '</td>' +
           '<td>' + bar(m.total_requests_per_s || 0, maxRps) + '</td>' +
           '<td class="num">' + ms(m.average_latency) + '</td><td class="num">' + ms(m.percentile50) + '</td>' +
-          '<td class="num">' + ms(m.percentile90) + '</td><td class="num">' + ms(m.percentile99) + '</td>' +
+          '<td class="num">' + ms(m.percentile90) + '</td><td class="num">' + tail('percentile95') + '</td><td class="num">' + tail('percentile99') + '</td>' +
           '<td class="num">' + int.format(m.total_requests || 0) + '</td>' +
           '<td class="num ' + ((m.http_errors || 0) === 0 ? 'yes' : 'no') + '">' + int.format(m.http_errors || 0) + '</td></tr>';
       });
@@ -652,10 +690,19 @@ const DASH_JS = String.raw`
       document.getElementById('fw-legend').textContent =
         set.length + ' frameworks at ' + level + ' concurrent connections on ' + route +
         (mineAll.length ? ', @zmdb/web ranked ' + ranks : ', @zmdb/web not measured at this level') +
-        '. Latency columns are milliseconds. Any framework with a non-zero error count did not really serve that load.';
+        '. ' + (load === 'fixed-rate' ? 'Equal offered rate, with latency correction. ' : 'Closed-loop saturation, without latency correction. ') +
+        'Latency columns are milliseconds. Results cover these selected peers; they do not establish an ecosystem-wide rank.';
     }
     ['fw-level','fw-route','fw-sort','fw-language'].forEach(function(id){
       document.getElementById(id).addEventListener('change', drawFramework);
+    });
+    document.getElementById('fw-load').addEventListener('change', function(){
+      var fixed = this.value === 'fixed-rate';
+      var level = document.getElementById('fw-level');
+      level.disabled = fixed;
+      if (fixed) level.value = '256';
+      document.getElementById('fw-sort').value = fixed ? 'percentile99' : 'total_requests_per_s';
+      drawFramework();
     });
     drawFramework();
 
@@ -742,7 +789,7 @@ export function benchmarkHighlights(dashDir) {
 
   let frameworkPeers = null;
   if (framework !== null) {
-    frameworkPeers = new Set((framework.rows ?? []).filter(r => !r.isZmdb).map(r => r.id)).size;
+    frameworkPeers = new Set((framework.rows ?? []).filter(r => !r.isZmdb).map(r => r.framework ?? r.id)).size;
   }
 
   return { aotSpeedup, validationLibraries, ormCoverage, frameworkPeers };
@@ -755,25 +802,29 @@ export function buildBenchmarksPage({ css, navHtml, dashDir }) {
     validation: read(dashDir, 'validation'),
     orm: read(dashDir, 'orm'),
     framework: read(dashDir, 'framework'),
+    repository: read(dashDir, 'repository'),
   };
 
-  const nav = `<div class="suitenav"><a href="#suite-optimizations">Latest optimizations</a><a href="#suite-engineering">Engineering costs</a>${Object.entries(
-    SUITE_META,
-  )
+  const nav = `<div class="suitenav">${Object.entries(SUITE_META)
     .map(([key, meta]) => `<a href="#suite-${key}">${meta.label}</a>`)
-    .join('')}</div>`;
+    .join(
+      '',
+    )}<a href="#suite-repository">Relations</a><a href="#suite-optimizations">Earlier optimization comparison</a><a href="#suite-engineering">Engineering costs</a></div>`;
 
-  const intro = `<p>The latest capture measures serialization, generated validation, HTTP handling and nested relation loading
-before and after the September 9 optimizations. Earlier engineering costs and competitor captures follow, with their own dates and revisions.</p>
+  const intro = `<p>September 9 (Asia/Kolkata) refresh of zmdb and two selected peers per category, using the product after the latest
+performance fixes. HTTP covers Node, Bun and Deno. Both database comparisons use a freshly pulled PostgreSQL 18.6 image.</p>
 <div class="admonition note"><div class="adm-title">Capture boundaries</div>
-<p>The validation and ORM competitor tables are historical upstream-suite captures. The HTTP panel retains the dated
-Node refresh alongside older peer, Bun and Deno results; those entries were not all rerun together. Their provenance
-belongs to each capture. They do not form a fresh comparison against the PostgreSQL 18.6 engineering replay.</p></div>`;
+<p>The tables rank only the selected participants, not every framework in the ecosystem. Timed captures run serially;
+each comparison uses the same resources for zmdb and its peers. p95 and p99 are shown where the runner records request
+or operation latencies. Validation's upstream throughput benchmark does not measure those percentiles.</p>
+<p>The ORM fixture's projections and shared indexes were corrected before this replay. Earlier ORM numbers used unequal
+response shapes, and earlier HTTP captures used different CPU allocations; those historical values cannot establish
+a before/after speedup against this refresh.</p></div>`;
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Benchmarks — zmdb docs</title>
-<meta name="description" content="Latest zmdb optimization measurements, sample ranges and provenance, alongside earlier engineering costs and historical validation, ORM and HTTP benchmarks."/>
+<meta name="description" content="Current zmdb benchmarks against selected validation, ORM and Node, Bun and Deno HTTP leaders, including throughput, p95, p99 and raw measurement evidence."/>
 <script>${THEME_BOOT}</script>
 <style>${css}${DASH_CSS}</style></head><body>
 ${topbarHtml({ base: '../', active: 'benchmarks', withNavToggle: true })}
@@ -788,15 +839,18 @@ ${navHtml(null, '../docs/')}</aside>
 <h1>Benchmarks</h1>
 ${intro}
 ${nav}
-${optimizationPanel(data.optimizations)}
-${engineeringPanel(data.engineering)}
 ${validationPanel(data.validation)}
 ${ormPanel(data.orm)}
 ${frameworkPanel(data.framework)}
+${repositoryPanel(data.repository)}
+${optimizationPanel(data.optimizations)}
+${engineeringPanel(data.engineering)}
 <p class="downloads">Raw data:
 <a href="./validation.json" download>validation.json</a> ·
 <a href="./orm.json" download>orm.json</a> ·
 <a href="./framework.json" download>framework.json</a> ·
+<a href="./repository.json" download>repository.json</a> ·
+<a href="./peer-refresh-2026-09-09-samples.json.gz" download>Fresh peer comparison samples and provenance</a> ·
 <a href="./orm-results.json" download>orm-results.json</a> ·
 <a href="./framework-results.json" download>framework-results.json</a> (node) ·
 <a href="./framework-results-bun.json" download>framework-results-bun.json</a> ·

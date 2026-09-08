@@ -1,7 +1,7 @@
 # Benchmark reproduction
 
-The dashboard combines the committed current-product engineering capture with historical upstream comparisons. Capture provenance and limitations are in [`../RESULTS.md`](../RESULTS.md); downloadable
-inputs are under [`../site/`](../site). Render `site/benchmarks/index.html` with `node --import ./scripts/ts-specifier-hook.mjs docs-site/build.mjs` from the repository root.
+The dashboard shows the September 9 comparison with selected leaders, followed by earlier optimization and engineering captures. Current summaries, provenance and raw samples are under
+[`../site/`](../site); [`../RESULTS.md`](../RESULTS.md) preserves archived comparisons and their limitations. Render `site/benchmarks/index.html` with `yarn build:docs` from the repository root.
 
 ## Engineering costs
 

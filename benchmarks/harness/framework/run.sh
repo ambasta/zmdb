@@ -4,13 +4,13 @@
 #   - the app listens on :3000 (the contract)
 #   - the shared correctness contract is verified FIRST (contract-check.mjs)
 #   - load is generated with `oha`, per route for DURATION, keep-alive DISABLED
-#     (--disable-keepalive), latency correction (--latency-correction), and a
+#     (--disable-keepalive), closed-loop load without latency correction, and a
 #     machine-readable JSON report (--output-format json)
 #   - concurrency LEVELS + ROUTES are configurable, exactly like upstream
 #     (upstream default levels are 64/256/512; routes GET / , GET /user/:id,
 #     POST /user)
 #   - collected fields mirror upstream data.min.json labels: total_requests_per_s,
-#     average_latency, percentile50/75/90/99/99999, total_requests,
+#     average_latency, percentile50/75/90/95/99/99999, total_requests,
 #     total_bytes_received, http_errors, latency_range, duration_ms
 #
 # `oha` is auto-downloaded (pinned) into ./.bin if absent and network allows;
@@ -248,12 +248,12 @@ for CONC in "${CONC_LIST[@]}"; do
     RPATH="${ROUTE#*:}"
     SAFE="$(echo "${METHOD}_${RPATH}" | tr '/:' '__')"
     JSON="$OUTDIR/${SAFE}.json"
-    echo "== oha ${METHOD} ${RPATH} c=${CONC} for ${DURATION} × ${REPEATS} (keep-alive off, latency-corrected) =="
+    echo "== oha ${METHOD} ${RPATH} c=${CONC} for ${DURATION} × ${REPEATS} (keep-alive off, closed-loop without latency correction) =="
 
     load() { # outfile
       "$OHA_BIN" \
         -z "$DURATION" -c "$CONC" -m "$METHOD" \
-        --disable-keepalive --latency-correction --no-tui \
+        --disable-keepalive --no-tui \
         --output-format json \
         "$HOST$RPATH" > "$1" 2>/dev/null
     }
@@ -275,7 +275,7 @@ for CONC in "${CONC_LIST[@]}"; do
           --arg duration "$DURATION" --arg url "$HOST$RPATH" --arg method "$METHOD" --arg oha "$OHA_BIN" \
           '{route:$route, concurrency:$concurrency, repeat:$repeat,
             command:[$oha,"-z",$duration,"-c",($concurrency|tostring),"-m",$method,
-              "--disable-keepalive","--latency-correction","--no-tui","--output-format","json",$url],
+              "--disable-keepalive","--no-tui","--output-format","json",$url],
             result:.}' "$RJ" >> "$SAMPLES_TMP" || exit 1
         printf '   run %s/%s req/s=%.0f\n' "$r" "$REPEATS" "$(jq -r '.summary.requestsPerSec' "$RJ")"
       else
@@ -299,12 +299,12 @@ EOF
     rm -f "$OUTDIR/.warmup.json"
 
     # Map oha JSON -> upstream data.min.json labels (latency in seconds).
-    read -r RPS AVG P50 P75 P90 P99 P99999 TOTREQ TOTDATA ERRS STDDEV DUR <<EOF
+    read -r RPS AVG P50 P75 P90 P95 P99 P99999 TOTREQ TOTDATA ERRS STDDEV DUR <<EOF
 $(jq -r '
   [ (.summary.requestsPerSec),
     (.summary.average),
     (.latencyPercentiles.p50), (.latencyPercentiles.p75),
-    (.latencyPercentiles.p90), (.latencyPercentiles.p99),
+    (.latencyPercentiles.p90), (.latencyPercentiles.p95), (.latencyPercentiles.p99),
     (.latencyPercentiles["p99.99"] // .latencyPercentiles.p99),
     ((.summary.requestsPerSec * .summary.total) | floor),
     (.summary.totalData),
@@ -317,6 +317,7 @@ EOF
     emit "$CONC" percentile50 "$P50" "$ROUTE"
     emit "$CONC" percentile75 "$P75" "$ROUTE"
     emit "$CONC" percentile90 "$P90" "$ROUTE"
+    emit "$CONC" percentile95 "$P95" "$ROUTE"
     emit "$CONC" percentile99 "$P99" "$ROUTE"
     emit "$CONC" percentile99999 "$P99999" "$ROUTE"
     emit "$CONC" total_requests "$TOTREQ" "$ROUTE"
@@ -366,7 +367,7 @@ jq -n \
      sourceStatus: $sourceStatus,
      command: $command,
      samples: $samples,
-     methodology: ("Served on " + $runtime + " " + $runtimeVersion + ". oha " + $oha + ": per route for " + $dur + ", keep-alive disabled (--disable-keepalive), latency-corrected (--latency-correction), JSON report. Each cell is run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by " + ($workers|tostring) + " worker process(es) on " + ($cores|tostring) + " cores. Levels + routes configurable, matching upstream. Raw samples retain oha data; latency_range is slowest minus fastest."),
+     methodology: ("Served on " + $runtime + " " + $runtimeVersion + ". oha " + $oha + ": per route for " + $dur + ", keep-alive disabled (--disable-keepalive), closed-loop without latency correction, JSON report. Each cell is run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max report the spread. Served by " + ($workers|tostring) + " worker process(es) on " + ($cores|tostring) + " cores. Levels + routes configurable, matching upstream. Raw samples retain oha data; latency_range is slowest minus fastest."),
      concurrencyModel: {
        workers: $workers,
        cores: $cores,

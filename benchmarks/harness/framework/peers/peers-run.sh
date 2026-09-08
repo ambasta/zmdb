@@ -148,13 +148,13 @@ run_peer() {  # id runtime language dir need venv install start
       local BASE="$OUT/c${CONC}_$(echo "${M}_${P}" | tr '/:' '__')"
       local J="$BASE.json"
       for _ in $(seq 1 "$WARMUP"); do
-        "$OHA_BIN" -z "$DURATION" -c "$CONC" -m "$M" --disable-keepalive --latency-correction --no-tui --output-format json "$HOST$P" > "$BASE.warmup.json" 2>/dev/null || true
+        "$OHA_BIN" -z "$DURATION" -c "$CONC" -m "$M" --disable-keepalive --no-tui --output-format json "$HOST$P" > "$BASE.warmup.json" 2>/dev/null || true
         sleep "$SETTLE"
       done
       local REPS=() r RJ
       for r in $(seq 1 "$REPEATS"); do
         RJ="$BASE.run$r.json"
-        if "$OHA_BIN" -z "$DURATION" -c "$CONC" -m "$M" --disable-keepalive --latency-correction --no-tui --output-format json "$HOST$P" > "$RJ" 2>/dev/null; then
+        if "$OHA_BIN" -z "$DURATION" -c "$CONC" -m "$M" --disable-keepalive --no-tui --output-format json "$HOST$P" > "$RJ" 2>/dev/null; then
           REPS+=("$RJ")
         fi
         sleep "$SETTLE"
@@ -167,13 +167,14 @@ run_peer() {  # id runtime language dir need venv install start
 $(for f in "${REPS[@]}"; do jq -r '.summary.requestsPerSec' "$f"; done | sort -g | awk 'NR==1{min=$1}END{print min"\t"$1}')
 EOF2
       rm -f "$BASE.warmup.json"
-      read -r RPS AVG P50 P90 P99 ERRS <<EOF
-$(jq -r '[ (.summary.requestsPerSec), (.summary.average), (.latencyPercentiles.p50), (.latencyPercentiles.p90), (.latencyPercentiles.p99), ([ .statusCodeDistribution|to_entries[]|select((.key|tonumber)>=400)|.value ]|add // 0) ] | @tsv' "$J")
+      read -r RPS AVG P50 P90 P95 P99 ERRS <<EOF
+$(jq -r '[ (.summary.requestsPerSec), (.summary.average), (.latencyPercentiles.p50), (.latencyPercentiles.p90), (.latencyPercentiles.p95), (.latencyPercentiles.p99), ([ .statusCodeDistribution|to_entries[]|select((.key|tonumber)>=400)|.value ]|add // 0) ] | @tsv' "$J")
 EOF
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"total_requests_per_s","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$RPS" >> "$METRICS"
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"average_latency","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$AVG" >> "$METRICS"
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"percentile50","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$P50" >> "$METRICS"
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"percentile90","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$P90" >> "$METRICS"
+      printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"percentile95","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$P95" >> "$METRICS"
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"percentile99","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$P99" >> "$METRICS"
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"http_errors","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$ERRS" >> "$METRICS"
       printf '{"id":"%s","runtime":"%s","language":"%s","level":%s,"route":"%s","label":"requests_per_s_min","value":%s}\n' "$id" "$runtime" "$language" "$CONC" "$ROUTE" "$RMIN" >> "$METRICS"
@@ -209,7 +210,7 @@ jq -n \
   '{
      suite: "the-benchmarker/web-frameworks (same machine)",
      upstream: "https://github.com/the-benchmarker/web-frameworks",
-     methodology: ("Same box, same oha " + $oha + ", same contract + routes + levels as @zmdb/web. Per route for " + $dur + ", keep-alive disabled, latency-corrected. Each cell run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max give the spread. Each peer contract-verified before load. CORE USAGE IS NOT NORMALIZED: Go peers use GOMAXPROCS (all " + ($cores|tostring) + " cores) and Rust peers num_cpus by default, while node/bun/deno peers use one core unless their app clusters — so cross-runtime rows are not per-core comparable."),
+     methodology: ("Same box, same oha " + $oha + ", same contract + routes + levels as @zmdb/web. Per route for " + $dur + ", keep-alive disabled, closed-loop without latency correction. Each cell run " + ($repeats|tostring) + "x after a discarded warmup and reduced to the MEDIAN run; requests_per_s_min/max give the spread. Each peer contract-verified before load. CORE USAGE IS NOT NORMALIZED: Go peers use GOMAXPROCS (all " + ($cores|tostring) + " cores) and Rust peers num_cpus by default, while node/bun/deno peers use one core unless their app clusters — so cross-runtime rows are not per-core comparable."),
      cores: $cores,
      repeats: $repeats,
      generatedAt: $now, machine: $machine, duration: $dur,

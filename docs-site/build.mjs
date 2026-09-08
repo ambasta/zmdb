@@ -143,6 +143,8 @@ const BENCH_DATA = [
   'validation.json',
   'orm.json',
   'framework.json',
+  'repository.json',
+  'peer-refresh-2026-09-09-samples.json.gz',
   'validation-matrix.json',
   'orm-results.json',
   'framework-results.json',

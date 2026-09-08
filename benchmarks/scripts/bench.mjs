@@ -273,6 +273,7 @@ const orm = {
         averageLatency: row.avg,
         p90: row.p90,
         p95: row.p95,
+        p99: row.p99,
         failedRequests: row.failed,
       }));
 
@@ -304,11 +305,15 @@ const orm = {
       // measuring, and stamping "now" on someone else's number is how stale data
       // starts looking fresh.
       measuredAt: measured.generatedAt ?? null,
+      sourceRevision: measured.sourceRevision ?? null,
+      harnessRevision: measured.harnessRevision ?? null,
+      rawFile: measured.rawFile ?? null,
       metrics: [
         { key: 'requestsPerSecond', label: 'req/s', better: 'higher' },
         { key: 'averageLatency', label: 'avg ms', better: 'lower' },
         { key: 'p90', label: 'p90 ms', better: 'lower' },
         { key: 'p95', label: 'p95 ms', better: 'lower' },
+        { key: 'p99', label: 'p99 ms', better: 'lower' },
       ],
       targets,
       coverage,
@@ -427,7 +432,7 @@ const framework = {
     const rows = new Map();
     const pivot = (id, runtime, language, isZmdb, workers, metrics, source) => {
       for (const m of metrics) {
-        const key = `${id}\u0000${runtime}\u0000${m.level}\u0000${m.route}`;
+        const key = JSON.stringify([id, runtime, m.load ?? 'saturation', m.level, m.route]);
         const row = rows.get(key) ?? {
           id,
           runtime,
@@ -436,6 +441,7 @@ const framework = {
           workers,
           ...source,
           level: m.level,
+          load: m.load ?? 'saturation',
           route: m.route,
           metrics: {},
         };
@@ -477,6 +483,7 @@ const framework = {
       // column would be stating it on our authority.
       const runtime = m.runtime ?? peer?.runtime ?? 'unknown';
       pivot(m.id, runtime, m.language ?? peer?.language ?? 'unknown', false, null, [m], {
+        framework: peer?.framework ?? m.id,
         measuredAt: theirs.generatedAt ?? null,
         runtimeVersion: peer?.version ?? null,
         methodology: theirs.methodology ?? null,
@@ -501,6 +508,9 @@ const framework = {
         peerDuration: theirs.duration ?? null,
       }),
       measuredAt: mine.generatedAt ?? null,
+      sourceRevision: mine.sourceRevision ?? null,
+      harnessRevision: mine.harnessRevision ?? null,
+      rawFile: mine.rawFile ?? null,
       peersMeasuredAt: theirs.generatedAt ?? null,
       levels: [...new Set(all.map(r => r.level))].toSorted((a, b) => a - b),
       routes: [...new Set(all.map(r => r.route))],
@@ -514,7 +524,7 @@ const framework = {
       upstreamReference: mine.upstreamReference ?? null,
       rows: all,
       notRun,
-      interleaved: interleavedHeadToHead(),
+      interleaved: mine.captureId ? null : interleavedHeadToHead(),
     };
     writeJson(join(SITE, 'framework.json'), out);
     return {

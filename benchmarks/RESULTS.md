@@ -1,11 +1,17 @@
-# Benchmark results
+# Archived benchmark results
+
+The September 9 comparison of zmdb with selected leaders is published on the [dashboard](https://ambasta.github.io/zmdb/benchmarks/), with current JSON summaries and all captured samples under
+[`site/`](./site). The captures below retain their original dates and conditions. Their zmdb `parseSafe` results are invalid because those entries did not strip unknown properties as upstream
+requires. Earlier ORM projections and response shapes also differed between participants. Those cells do not support performance rankings or before/after claims against the corrected refresh.
+
+The replaced comparison data remains available in the [previous revision](https://github.com/ambasta/zmdb/tree/66e42ba020240ce5516a8d9ce3fd985b5ae76dd0/benchmarks/site).
 
 > Historical upstream comparisons used **real competitor libraries** on the local development machine, Node 26.8.1 and PostgreSQL 16 (Podman). Reproduction: [`harness/`](./harness). The 2026-09-08
 > captures below cover zmdb engineering costs, startup, observability and Node HTTP. The engineering replay uses its recorded PostgreSQL 18.6 server. Competitor ORM, validation, peer and cross-runtime
-> results remain historical; no competitors were rerun.
+> results in those captures are historical; that campaign did not rerun competitors.
 >
-> 📊 **Interactive dashboard** (engineering costs and historical comparisons): https://ambasta.github.io/zmdb/benchmarks/ — source in [`site/`](./site), built + deployed via GitHub Pages (docs at the
-> root, benchmarks under `/benchmarks/`).
+> 📊 **Interactive dashboard** (current selected-peer comparisons and earlier captures): https://ambasta.github.io/zmdb/benchmarks/ — source in [`site/`](./site), built + deployed via GitHub Pages
+> (docs at the root, benchmarks under `/benchmarks/`).
 
 ---
 

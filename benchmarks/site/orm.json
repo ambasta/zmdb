@@ -1,17 +1,20 @@
 {
   "suite": "orm (drizzle-team/drizzle-benchmarks)",
   "upstreamCommit": "2ae27415a69f00b4f0f734ebb0a98e7799008819",
-  "generatedAt": "2026-09-03T12:27:34.543Z",
+  "generatedAt": "2026-09-08T23:49:34.261Z",
   "machine": "linux x64, 16× AMD Ryzen 7 7840U w/ Radeon  780M Graphics, 61 GiB, node v26.8.1",
   "host": "lander",
   "upstream": "https://github.com/drizzle-team/drizzle-benchmarks",
-  "methodology": "k6 ramping-VUs 0→200→400 (~25s), full 13-route requests.json replay (426,999 requests)",
-  "caveat": "Unlike the upstream 2-machine / 3000-VU rig, this is a single-box short-ramp run — treat relative ordering as indicative, absolute numbers as low. p50 omitted (k6 --summary-export does not emit it); avg/p90/p95 are the measured percentiles.",
-  "database": "PostgreSQL 16 (podman)",
-  "dataset": "Northwind — 10k customers, 200 employees, 1k suppliers, 5k products, 50k orders, 308,224 order_details",
-  "driver": "pg (node-postgres) pool max:12, identical across ORMs",
-  "rig": "single local dev box, Node 26.8.1 (server + k6 co-located)",
-  "measuredAt": null,
+  "methodology": "Three rotated passes per candidate,5s warmup then25s k6 ramp0→200→400VUs,426,999-entry upstream13-route request list. Server CPU4; k6 CPUs12-15; PostgreSQL CPUs6-11,memory2GiB,shm256MiB,default durability.",
+  "caveat": "Matching full projections and response shapes passed27 parity cases before timing. Both shared search GIN indexes are available to every participant. All rows use unprepared unnamed statements. These are short co-located, closed-loop runs without coordinated-omission correction; their request mixes depend on throughput. Historical projection-mismatched captures cannot establish a before/after speedup.",
+  "database": "postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2); image digest sha256:7341002d2b8c7c5bdd7542a671a95b36196c0b5b888daf454ae4fc33ba5346d7",
+  "dataset": "Northwind:10,000 customers,200 employees,1,000 suppliers,5,000 products,50,000 orders,308,224 details",
+  "driver": "pg8.23.0; shared pool size12; Drizzle0.45.2; Kysely0.29.5; Node26.8.1",
+  "rig": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
+  "measuredAt": "2026-09-08T23:27:56.304499+00:00",
+  "sourceRevision": "a86e01861b7609e8c3bc76aa9a1d85ced96cdb9f",
+  "harnessRevision": "c6269bedcebf222ee8372b8d9101a9fabaad2041",
+  "rawFile": "peer-refresh-2026-09-09-samples.json.gz",
   "metrics": [
     {
       "key": "requestsPerSecond",
@@ -32,239 +35,197 @@
       "key": "p95",
       "label": "p95 ms",
       "better": "lower"
+    },
+    {
+      "key": "p99",
+      "label": "p99 ms",
+      "better": "lower"
     }
   ],
   "targets": [
     {
       "rank": 1,
-      "target": "zmdb (prepared)",
+      "target": "zmdb",
       "isZmdb": true,
-      "requestsPerSecond": 3068,
-      "averageLatency": 97.3,
-      "p90": 179.5,
-      "p95": 209.5,
+      "requestsPerSecond": 11718.737046890223,
+      "averageLatency": 25.23444852725571,
+      "p90": 36.107877,
+      "p95": 39.232313500000004,
+      "p99": 49.505017,
       "failedRequests": 0
     },
     {
       "rank": 2,
-      "target": "zmdb",
-      "isZmdb": true,
-      "requestsPerSecond": 2916,
-      "averageLatency": 102.4,
-      "p90": 192.8,
-      "p95": 215.5,
+      "target": "kysely",
+      "isZmdb": false,
+      "requestsPerSecond": 10643.096574987909,
+      "averageLatency": 27.903788133037015,
+      "p90": 42.775475,
+      "p95": 44.646573000000004,
+      "p99": 53.45541052000001,
       "failedRequests": 0
     },
     {
       "rank": 3,
       "target": "drizzle",
       "isZmdb": false,
-      "requestsPerSecond": 2795,
-      "averageLatency": 106.8,
-      "p90": 157.6,
-      "p95": 173.8,
-      "failedRequests": 0
-    },
-    {
-      "rank": 4,
-      "target": "kysely",
-      "isZmdb": false,
-      "requestsPerSecond": 2733,
-      "averageLatency": 109.3,
-      "p90": 176.8,
-      "p95": 200.8,
+      "requestsPerSecond": 5829.547477143642,
+      "averageLatency": 50.90784720029536,
+      "p90": 84.65646860000001,
+      "p95": 97.29710299999996,
+      "p99": 120.03989227999998,
       "failedRequests": 0
     }
   ],
   "coverage": {
     "routes": [
-      "/customers",
+      "/order-with-details-and-products",
+      "/product-with-supplier",
+      "/employee-with-recipient",
+      "/order-with-details",
+      "/search-product",
       "/customer-by-id",
-      "/employees",
-      "/suppliers",
       "/supplier-by-id",
       "/products",
-      "/order-with-details-and-products",
-      "/employee-with-recipient",
-      "/product-with-supplier",
+      "/customers",
       "/orders-with-details",
-      "/order-with-details",
       "/search-customer",
-      "/search-product"
+      "/suppliers",
+      "/employees"
     ],
     "participants": [
+      "zmdb",
       "drizzle",
-      "kysely",
-      "zmdb"
+      "kysely"
     ],
     "supported": {
-      "drizzle": [
-        "/customers",
+      "zmdb": [
+        "/order-with-details-and-products",
+        "/product-with-supplier",
+        "/employee-with-recipient",
+        "/order-with-details",
+        "/search-product",
         "/customer-by-id",
-        "/employees",
-        "/suppliers",
         "/supplier-by-id",
         "/products",
-        "/order-with-details-and-products",
-        "/employee-with-recipient",
-        "/product-with-supplier",
+        "/customers",
         "/orders-with-details",
-        "/order-with-details",
         "/search-customer",
-        "/search-product"
+        "/suppliers",
+        "/employees"
+      ],
+      "drizzle": [
+        "/order-with-details-and-products",
+        "/product-with-supplier",
+        "/employee-with-recipient",
+        "/order-with-details",
+        "/search-product",
+        "/customer-by-id",
+        "/supplier-by-id",
+        "/products",
+        "/customers",
+        "/orders-with-details",
+        "/search-customer",
+        "/suppliers",
+        "/employees"
       ],
       "kysely": [
-        "/customers",
+        "/order-with-details-and-products",
+        "/product-with-supplier",
+        "/employee-with-recipient",
+        "/order-with-details",
+        "/search-product",
         "/customer-by-id",
-        "/employees",
-        "/suppliers",
         "/supplier-by-id",
         "/products",
-        "/order-with-details-and-products",
-        "/employee-with-recipient",
-        "/product-with-supplier",
-        "/orders-with-details",
-        "/order-with-details",
-        "/search-customer",
-        "/search-product"
-      ],
-      "zmdb": [
         "/customers",
-        "/customer-by-id",
-        "/employees",
-        "/suppliers",
-        "/supplier-by-id",
-        "/products",
-        "/order-with-details-and-products",
-        "/employee-with-recipient",
-        "/product-with-supplier",
         "/orders-with-details",
-        "/order-with-details",
         "/search-customer",
-        "/search-product"
+        "/suppliers",
+        "/employees"
       ]
     },
     "matrix": [
       {
-        "route": "/customers",
-        "drizzle": true,
-        "kysely": true,
-        "zmdb": true
-      },
-      {
-        "route": "/customer-by-id",
-        "drizzle": true,
-        "kysely": true,
-        "zmdb": true
-      },
-      {
-        "route": "/employees",
-        "drizzle": true,
-        "kysely": true,
-        "zmdb": true
-      },
-      {
-        "route": "/suppliers",
-        "drizzle": true,
-        "kysely": true,
-        "zmdb": true
-      },
-      {
-        "route": "/supplier-by-id",
-        "drizzle": true,
-        "kysely": true,
-        "zmdb": true
-      },
-      {
-        "route": "/products",
-        "drizzle": true,
-        "kysely": true,
-        "zmdb": true
-      },
-      {
         "route": "/order-with-details-and-products",
+        "zmdb": true,
         "drizzle": true,
-        "kysely": true,
-        "zmdb": true
-      },
-      {
-        "route": "/employee-with-recipient",
-        "drizzle": true,
-        "kysely": true,
-        "zmdb": true
+        "kysely": true
       },
       {
         "route": "/product-with-supplier",
+        "zmdb": true,
         "drizzle": true,
-        "kysely": true,
-        "zmdb": true
+        "kysely": true
       },
       {
-        "route": "/orders-with-details",
+        "route": "/employee-with-recipient",
+        "zmdb": true,
         "drizzle": true,
-        "kysely": true,
-        "zmdb": true
+        "kysely": true
       },
       {
         "route": "/order-with-details",
+        "zmdb": true,
         "drizzle": true,
-        "kysely": true,
-        "zmdb": true
-      },
-      {
-        "route": "/search-customer",
-        "drizzle": true,
-        "kysely": true,
-        "zmdb": true
+        "kysely": true
       },
       {
         "route": "/search-product",
+        "zmdb": true,
         "drizzle": true,
-        "kysely": true,
-        "zmdb": true
+        "kysely": true
+      },
+      {
+        "route": "/customer-by-id",
+        "zmdb": true,
+        "drizzle": true,
+        "kysely": true
+      },
+      {
+        "route": "/supplier-by-id",
+        "zmdb": true,
+        "drizzle": true,
+        "kysely": true
+      },
+      {
+        "route": "/products",
+        "zmdb": true,
+        "drizzle": true,
+        "kysely": true
+      },
+      {
+        "route": "/customers",
+        "zmdb": true,
+        "drizzle": true,
+        "kysely": true
+      },
+      {
+        "route": "/orders-with-details",
+        "zmdb": true,
+        "drizzle": true,
+        "kysely": true
+      },
+      {
+        "route": "/search-customer",
+        "zmdb": true,
+        "drizzle": true,
+        "kysely": true
+      },
+      {
+        "route": "/suppliers",
+        "zmdb": true,
+        "drizzle": true,
+        "kysely": true
+      },
+      {
+        "route": "/employees",
+        "zmdb": true,
+        "drizzle": true,
+        "kysely": true
       }
     ]
   },
-  "prepared": {
-    "note": "Head-to-head: same zmdb server with ZMDB_PREPARED=1 (server-side prepared statements — stable statement name per compiled SQL, so Postgres caches the plan). Reproducible across 2 runs.",
-    "rows": [
-      {
-        "run": 1,
-        "default": {
-          "reqs": 2916,
-          "avg": 102.4,
-          "p90": 192.8,
-          "p95": 215.5
-        },
-        "prepared": {
-          "reqs": 3068,
-          "avg": 97.3,
-          "p90": 179.5,
-          "p95": 209.5
-        }
-      },
-      {
-        "run": 2,
-        "default": {
-          "reqs": 2903,
-          "avg": 102.8,
-          "p90": 193.7,
-          "p95": 220.3
-        },
-        "prepared": {
-          "reqs": 3010,
-          "avg": 99.2,
-          "p90": 182.6,
-          "p95": 206.5
-        }
-      }
-    ],
-    "verdict": "ZMDB_PREPARED=1 reproducibly improves zmdb: +4–5% req/s, −3–4% avg, ~−11ms p90, ~−9–14ms p95. The tail-latency lever works — kept opt-in to preserve the zero-state default."
-  },
-  "dnf": [
-    {
-      "target": "prisma",
-      "reason": "not implemented: engine/codegen not installed"
-    }
-  ]
+  "prepared": null,
+  "dnf": []
 }
