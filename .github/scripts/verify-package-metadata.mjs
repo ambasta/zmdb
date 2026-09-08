@@ -794,6 +794,9 @@ function publishedManifestDiagnostics(packageRecord, catalogByName) {
           ? {
               types: toDist(target, '.d.ts'),
               import: toDist(target, '.js'),
+              ...(packageRecord.npmName === '@zmdb/compiler' && entry === './metro'
+                ? { require: toDist(target, '.js') }
+                : {}),
             }
           : target,
       ]),

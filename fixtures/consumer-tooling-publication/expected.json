@@ -1,0 +1,33 @@
+{
+  "roles": ["compiler", "migrations", "cli"],
+  "compiler": {
+    "subpaths": [
+      ".",
+      "./config",
+      "./config/contract",
+      "./emit",
+      "./errors",
+      "./lint",
+      "./metro",
+      "./reflect",
+      "./testing",
+      "./transform",
+      "./unplugin"
+    ],
+    "routes": ["project", "configured-plugin", "direct-plugin", "metro"],
+    "runtime": { "acceptsGood": true, "acceptsBad": false, "table": "publication_users" }
+  },
+  "migrations": {
+    "subpaths": [
+      ".",
+      "./declarations",
+      "./embedded",
+      "./files",
+      "./introspect",
+      "./introspect/runtime",
+      "./runner",
+      "./testing"
+    ]
+  },
+  "cli": { "subpaths": ["."], "cases": ["T01", "T04", "T06", "T09", "T10", "T12", "T13", "T14", "T28"] }
+}

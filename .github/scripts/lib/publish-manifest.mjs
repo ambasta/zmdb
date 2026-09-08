@@ -64,6 +64,9 @@ export function publishManifest(pkg) {
   for (const [subpath, target] of Object.entries(pkg.exports)) {
     if (typeof target !== 'string') throw new Error(`${pkg.name} export "${subpath}" is conditional; not supported`);
     next.exports[subpath] = { types: toDist(target, '.d.ts'), import: toDist(target, '.js') };
+    if (pkg.name === '@zmdb/compiler' && subpath === './metro') {
+      next.exports[subpath].require = toDist(target, '.js');
+    }
   }
   const root = pkg.exports['.'];
   if (typeof root === 'string') {
