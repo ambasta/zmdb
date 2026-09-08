@@ -8,14 +8,23 @@ export interface RequestData {
   readonly loaders: LoaderScope;
 }
 
+const loadersByRequest = new WeakMap<RequestData, LoaderScope>();
+const loadersProperty: PropertyDescriptor = {
+  configurable: true,
+  enumerable: true,
+  get(this: RequestData): LoaderScope {
+    let loaders = loadersByRequest.get(this);
+    if (loaders === undefined) {
+      loaders = createLoaderScope();
+      loadersByRequest.set(this, loaders);
+    }
+    return loaders;
+  },
+};
+
 /** Allocate a loader scope only when the request first uses data loading. */
 export function createRequestData(): RequestData {
-  let loaders: LoaderScope | undefined;
-  return {
-    get loaders() {
-      return (loaders ??= createLoaderScope());
-    },
-  };
+  return Object.defineProperty({}, 'loaders', loadersProperty) as RequestData;
 }
 
 /** A typed repository token shared by HTTP, jobs and command applications. */
