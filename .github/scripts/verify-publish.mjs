@@ -33,6 +33,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, syml
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { qualifyRuntimeFoundation } from '../../fixtures/consumer-runtime-foundation/verify-installed.mjs';
 import { qualifySelectedJobs } from '../../fixtures/consumer-selected-jobs/qualify.mjs';
 import { inspectServerCoreFixture } from '../../fixtures/consumer-server-core/verify-installed.mjs';
 import { ROOT, publishCatalog, publishManifest, readManifest } from './lib/publish-manifest.mjs';
@@ -87,6 +88,13 @@ const PUBLISH_PACKAGES = await publishCatalog(ROOT);
 const ADMITTED_PACKAGE_NAMES = new Set(PUBLISH_PACKAGES.map(packageRecord => packageRecord.npmName));
 
 const run = (cmd, args, opts) => spawnSync(cmd, args, { encoding: 'utf8', ...opts });
+
+if (
+  run(process.execPath, [join(ROOT, '.github/scripts/verify-runtime-foundation.mjs'), '--strict'], { cwd: ROOT })
+    .status !== 0
+) {
+  throw new Error('Runtime foundation verification failed');
+}
 
 /** Every `.d.ts` under `dir`, recursively. */
 function declarations(dir) {
@@ -504,6 +512,26 @@ for (const packageRecord of PUBLISH_PACKAGES) {
   console.log(`  installed ${pkg.name} (${Object.keys(pkg.exports).length} subpaths)`);
 }
 
+const foundationReport = await qualifyRuntimeFoundation({
+  tarballs: PUBLISH_PACKAGES.flatMap(packageRecord => {
+    const manifest = publishManifest(readManifest(packageRecord.id, PUBLISH_PACKAGES));
+    const tarball = packedTarballs.get(manifest.name);
+    return tarball === undefined ? [] : [{ manifest, tarball }];
+  }),
+  evidence: join(tmp, 'runtime-foundation-evidence'),
+});
+if (
+  foundationReport.cleaned !== true ||
+  foundationReport.failures.length !== 0 ||
+  foundationReport.consumers
+    .map(consumer => consumer.lane)
+    .toSorted()
+    .join(',') !== 'application,generated,orm,schema,sql,validator'
+) {
+  fail(`Runtime foundation qualification failed: ${JSON.stringify(foundationReport.failures)}`);
+}
+console.log('Runtime foundation qualification evidence:', JSON.stringify(foundationReport));
+
 const selectedJobsReport = await qualifySelectedJobs({
   tarballs: PUBLISH_PACKAGES.flatMap(packageRecord => {
     const manifest = publishManifest(readManifest(packageRecord.id, PUBLISH_PACKAGES));
@@ -785,11 +813,8 @@ if (generatedClientDocsTsc.status !== 0) {
 // through the explicitly selected SQLite memory provider.
 verifyServerCoreConsumer(app);
 
-// The one-install product fixture remains an expected-failure runtime journey
-// until #620–#623 land, but its external-package boundary is already part of
-// publish verification: one registry dependency, no workspace paths, no
-// internal imports, no skipLibCheck, and a strict compile against the packed
-// declarations rather than workspace sources.
+// Check the product fixture's declared dependency and import boundary, then
+// compile its types against the packed declarations.
 for (const problem of inspectProductConsumerFixture(PRODUCT_CONSUMER_FIXTURE)) {
   fail(problem);
 }
