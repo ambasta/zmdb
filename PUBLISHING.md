@@ -10,9 +10,9 @@ long-lived secret to leak, rotate, or 2FA-bypass. Publishes from a public repo a
 
 ## Current executable release governance
 
-Issue #749 implements the release-group contract frozen in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md): eight core packages move as one cohesive unit, 28 integrations and two tooling
-packages have independent versions, and every cross-unit or third-party compatibility range comes from one release-policy authority. Issue #750 still owns the complete packed compatibility-matrix
-qualification; the structural policy, manifest projections, target plans, preparation, tags, and publish selection are executable now.
+The release-group contract in [`scripts/release/SPEC.md`](./scripts/release/SPEC.md) defines one core train and independently versioned integration and tooling packages. The generated
+[package reference](./docs-site/content/package-reference.md) lists every current package's release unit, supported internal ranges and external peers directly from the catalog and release policy. The
+installed compatibility qualifier is implemented in [verify-release-compatibility.mjs](./.github/scripts/verify-release-compatibility.mjs); it derives its cases from that same policy.
 
 ### Authorities and release plan
 
@@ -28,7 +28,7 @@ No workflow, publish helper or documentation loop may maintain another package l
 
 ```ts
 const snapshot = await loadGovernanceSnapshot({ root, checks: ['release'] });
-if (snapshot.queries.release === null) throw new Error('governance snapshot has no release model');
+if (snapshot.queries.release === undefined) throw new Error('governance snapshot has no release model');
 const plan = createReleasePlan(snapshot.queries.release, {
   kind: 'core',
   version: '1.0.0-alpha.5',
@@ -38,6 +38,65 @@ const plan = createReleasePlan(snapshot.queries.release, {
 `packages` contains the eight core npm names or the one selected independent npm name. `publishOrder` contains the same selection exactly once in deterministic dependency-first order. `changelogEntry`
 is the exact Markdown body of the matching `<release-id>@<version>` section. The model and plan are pure queries over the validated snapshot and perform no write, network request, registry lookup,
 build, tag or publish.
+
+### Selecting versions and upgrading
+
+Start an application with the product, for example `npm install zmdb@1.0.0-alpha.4`. Select an integration only when the application uses it. Independent versioning lets an integration release without
+forcing a core release; it does not mean every integration version works with every core version. Its published peer and dependency ranges must admit the installed core and SDK versions.
+
+Read the generated [package reference](./docs-site/content/package-reference.md) for membership and the [release policy](./scripts/release/policy.mjs) for these distinct promises:
+
+| Field      | Meaning                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `range`    | Versions the package manager is allowed to install.                                                         |
+| `floor`    | The exact lowest supported version that the installed consumer must exercise.                               |
+| `tested`   | Explicit versions selected for consumer qualification; this is not a claim about the newest version on npm. |
+| `evidence` | The owning consumer program or verifier for the compatibility promise.                                      |
+
+For example, `@zmdb/ai-vercel` declares `ai` range `^7.0.93`, floor `7.0.93`, and tested input `7.0.93`. The compatibility qualifier selects that exact floor and also requires an install below it to
+fail. A wider dependency range alone is not evidence that its lower bound works. Historical pre-extraction versions in the AI specification are dated inputs, not current supported floors.
+
+| Change                   | Application upgrade                                                                                           | Maintainer preparation                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Core release             | Upgrade `zmdb`; applications selecting core packages directly move those packages to the same core version.   | Run `bump.mjs core <version>` and publish the entire policy-selected core unit.                                                         |
+| Integration-only release | Upgrade the selected integration while retaining core when its declared range still admits that core version. | Run `bump.mjs <catalog-id> <version>`; unrelated versions remain unchanged.                                                             |
+| Peer-floor raise         | Upgrade the selected SDK to the new floor before selecting the integration release that requires it.          | Change its policy and manifest together, run the affected installed consumer and below-floor case, then release that integration.       |
+| Prerelease               | Use exact prerelease versions, including selected integrations' admitted core versions.                       | Use an `alpha`, `beta` or `rc` version and the exact `<release-id>-v<version>` tag.                                                     |
+| Removed API              | Update imports and configuration to the current public contract in the same application change.               | Record the removal and update consumers; do not retain deprecated overloads, aliases, forwarding packages or historical-format readers. |
+
+The changelog parser accepts a `Deprecated` category for release communication. It does not authorize a second compatibility implementation. The current source and public exports remain the sole
+supported contract.
+
+### Inspecting and qualifying compatibility
+
+These commands inspect the current release and planned consumer cases without publishing or executing the matrix:
+
+```bash
+node scripts/release/plan.mjs --json
+node scripts/release/plan.mjs --publish-tsv
+node --input-type=module -e 'import { releaseCompatibilityPlan } from "./.github/scripts/verify-release-compatibility.mjs"; console.log(releaseCompatibilityPlan().map(item => item.id).join("\n"))'
+```
+
+The release plan contains the selected npm names, version, changelog entry and dependency-ordered publication list. The compatibility plan names supported inputs, below-floor refusals, one independent
+integration release and an incompatible core selection. It is a plan, not a passing test report.
+
+Run the affected installed consumer after changing a compatibility promise. For example:
+
+```bash
+node .github/scripts/verify-release-compatibility.mjs --package ai-vercel --evidence ./artifacts/compatibility-ai-vercel.json
+```
+
+The qualifier builds the selected package closure, produces real npm archives, installs and reinstalls external consumers, checks their strict declarations and executes their scoped programs. A
+supplied `--archives <json-file>` can reuse real archives whose manifests and integrity it verifies. Successful output is
+`release compatibility: <count> cases passed; consumers, caches and registries cleaned`. The JSON report attributes package versions, installed dependency locations, commands, refusals and cleanup.
+Missing services, incorrect integrity, failed commands and incomplete cleanup fail the run.
+
+Omit `--package` for the complete policy-derived matrix. Its broker cases require `ZMDB_PG`, `ZMDB_NATS_URL`, `ZMDB_RABBITMQ_URL`, `ZMDB_REDIS_URL`, `ZMDB_KAFKA_URL`, `ZMDB_760_SQS_ENDPOINT` and
+`ZMDB_760_WIRE_ENDPOINT` for their declared local services. The individual transport fixtures describe and start their corresponding broker or wiremock setup. Database and framework cases state their
+actual boundary in the report; a driver-binding case does not claim a live database workflow.
+
+When a case fails, inspect its command and diagnostic, fix that package or fixture, and rerun its `--package` selection. Keep successful reports attributed to their original source and archive
+identities; do not relabel them as a new complete run. Release planning and package preparation are separate from this evidence and never publish by themselves.
 
 ### Admit a package to the current train
 
@@ -230,8 +289,9 @@ README.md
 LICENSE
 ```
 
-`exports` maps each subpath to `{ types, import }`, and `files` contains `dist`, `src`, `README.md`, and `LICENSE`. Workspace dependencies become exact version ranges for prereleases. Package
-`.npmignore` files exclude specs, type tests, and `SPEC.md`.
+`exports` selects emitted JavaScript and declarations, retaining declared framework conditions and the compiler Metro entry's synchronous `require` condition. `files` contains `dist`, `src`,
+`README.md`, and `LICENSE`. Same-core workspace dependencies become exact versions for prereleases; crossing ranges remain policy-owned. Package `.npmignore` files exclude specs, type tests, and
+`SPEC.md`.
 
 ## How the build works, and why not tsup
 
