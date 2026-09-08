@@ -1,4 +1,5 @@
-import { type CoreSchema, type ValidationIssue } from '@zmdb/schema';
+import { type CoreSchema } from '@zmdb/schema';
+import { type ValidationIssue } from '@zmdb/validator';
 
 import { toolFor, type ToolOptions, type ToolSpec } from './providers.js';
 

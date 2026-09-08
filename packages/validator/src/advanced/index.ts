@@ -1,4 +1,5 @@
-import { isRecord, type ValidationIssue } from '@zmdb/schema';
+import { isRecord } from '@zmdb/schema';
+import type { ValidationIssue } from '../validation-error.js';
 
 // Advanced validation — implementation.
 // #46 refinement compilation (refine + refinement-aware validateObject with

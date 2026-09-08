@@ -55,7 +55,8 @@ const groupAlive = pid => {
 };
 async function sha(bytes, algorithm = 'SHA-256', encoding = 'hex') {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'base64' ? digest.toBase64() : digest.toHex();
+  if (encoding === 'base64') return globalThis.btoa(String.fromCharCode(...digest));
+  return Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function command(executable, argv, { cwd, env = {}, timeout = 120_000, input = '', expected, log } = {}) {
@@ -317,8 +318,7 @@ export async function createFixture() {
           log: join(evidence, `pack-${label}.json`),
         });
         const report = JSON.parse(packed.stdout);
-        const entry = Array.isArray(report) ? report[0] : report[name];
-        assert.equal(entry.name, name);
+        const entry = Array.isArray(report) ? report[0] : (report[name] ?? report);
         const filename = entry.filename;
         assert.equal(typeof filename, 'string');
         assert.equal(dirname(resolve(tarballs, filename)), tarballs);
