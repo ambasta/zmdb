@@ -1,4 +1,4 @@
-import { validate as runtimeValidate } from '@zmdb/aot-validator/utilities';
+import { validate as runtimeValidate } from '@zmdb/validator';
 import { describe, expect, it } from 'vitest';
 
 import { FixtureProject } from './emit/__testing__/project.js';

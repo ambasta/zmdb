@@ -61,3 +61,14 @@ if (!('fromBase64' in Uint8Array)) {
     configurable: true,
   });
 }
+
+if (!('toHex' in Uint8Array.prototype)) {
+  Object.defineProperty(Uint8Array.prototype, 'toHex', {
+    value: function (): string {
+      return Buffer.from(this.buffer, this.byteOffset, this.byteLength).toString('hex');
+    },
+    writable: true,
+    enumerable: false,
+    configurable: true,
+  });
+}
