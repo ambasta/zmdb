@@ -6,11 +6,20 @@ export async function startRegistry(packages) {
   const tarballs = new Map();
   for (const entry of packages) {
     const bytes = await readFile(entry.tarball);
+    const sha512Arr = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes));
+    const sha1Arr = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes));
     tarballs.set(entry.manifest.name, {
       ...entry,
       bytes,
-      integrity: `sha512-${new Uint8Array(await globalThis.crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
-      shasum: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', bytes)).toHex(),
+      integrity: `sha512-${
+        typeof sha512Arr.toBase64 === 'function'
+          ? sha512Arr.toBase64()
+          : globalThis.btoa(String.fromCharCode(...sha512Arr))
+      }`,
+      shasum:
+        typeof sha1Arr.toHex === 'function'
+          ? sha1Arr.toHex()
+          : Array.from(sha1Arr, byte => byte.toString(16).padStart(2, '0')).join(''),
     });
   }
   let origin;
