@@ -1,7 +1,7 @@
 Valibot's pitch is bundle size: a pipeline of tree-shakeable functions instead of a class-based schema. It ends up architecturally close to Zod, and the comparison with zmdb is the same one —
 schema-as-value versus type-as-schema.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies assert, body, v; this excerpt does not repeat those declarations."}
 // Valibot
 const User = v.object({ id: v.number(), email: v.pipe(v.string(), v.email()) });
 type User = v.InferOutput<typeof User>;
@@ -42,7 +42,7 @@ OpenAPI generator, a shared package, a database schema) must be re-expressed as 
 
 The sensible split is the same as with Zod: Valibot for anything defined at runtime, zmdb for your own fixed DTOs.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies CreatePostDto, assert, body, buildPipeline, extra, tenantConfig, v; this excerpt does not repeat those declarations."}
 const dto = assert<CreatePostDto>(body); // fixed shape
 const custom = v.parse(buildPipeline(tenantConfig), extra); // tenant-defined shape
 ```
@@ -69,7 +69,7 @@ const custom = v.parse(buildPipeline(tenantConfig), extra); // tenant-defined sh
 Same three steps as [the Zod migration](./interop-zod.html): keep the inferred type as a real interface, swap `parse`/`safeParse` for `assert`/`validate`, and add the transformer canary **first** —
 without it the swap replaces working validation with unconditional success.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

@@ -1,7 +1,7 @@
 A table is a TypeScript type. You declare it once, as an interface, and everything else — the row type, the create and update DTOs, the DDL, the validator, the JSON Schema document — is derived from
 that one declaration.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { HasDefault, Length, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/schema';
 
 export interface User extends Table<'users'> {
@@ -23,7 +23,7 @@ a schema-object migration; see [Indexes & Constraints](./indexes-constraints.htm
 
 Each property is its **app type** intersected with **tags**. The app type is what your handler code sees; the tags say the things TypeScript has no syntax for.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies PrimaryKey, Serial, Sql; this excerpt does not repeat those declarations."}
 id: number & Sql<'integer'> & Serial & PrimaryKey;
 // ^^          ^^^^^^^^^^^^^^^^ the SQL column type
 // the type your code sees      ^^^^^^^^^^^^^^^^^^ facts about the column
@@ -59,7 +59,7 @@ The full list is the [tag reference](./tags-reference.html). These five cover mo
 
 ## What you get from it
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, driver; this excerpt does not repeat those declarations."}
 import { defineRepository, schemaOf } from 'zmdb';
 import type { CreateDTO, Entity, UpdateDTO } from 'zmdb';
 
@@ -86,7 +86,7 @@ See [Type Derivation](./type-derivation.html) for the full family, including the
 
 Soft delete is an entity-level declaration because it changes repository behavior for the whole table:
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from 'zmdb/schema';
 
 export interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
@@ -104,7 +104,7 @@ The named column must exist, be nullable, and use `Sql<'timestamp'>`. It remains
 `schemaOf<User>()` is a **compile-time** call. It has no runtime implementation and cannot have one: the answer is a function of a type argument, and type arguments do not exist at runtime. The zmdb
 transform replaces the call with a frozen object literal.
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This pseudocode uses arrows or ellipses to omit implementation details from the surrounding example."}
 // what you write
 const users = defineRepository(schemaOf<User>(), driver);
 
@@ -120,7 +120,7 @@ or the [codegen CLI](./cli-codegen.html), which commits the generated files so a
 
 ## Foreign keys
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/schema';
 
 export interface Post extends Table<'posts'> {
@@ -134,7 +134,7 @@ export interface Post extends Table<'posts'> {
 
 ## JSON columns keep their shape
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Entity, PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
 interface Preferences {
   theme: 'light' | 'dark';
   digest: boolean;
@@ -156,7 +156,7 @@ parameter at runtime, so the shape reached nothing downstream.
 
 `schemaOf<T>()` returns a plain frozen object when you need one:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies User, schemaOf; this excerpt does not repeat those declarations."}
 import { createQueryCompiler } from 'zmdb/sql';
 import { postgres } from 'zmdb/postgres';
 

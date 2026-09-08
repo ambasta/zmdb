@@ -2,7 +2,7 @@ Every tag, in one place. Import from `zmdb/tags` (or `@zmdb/schema/tags`) unless
 
 Most tags are optional `unique symbol` property slots:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 declare const zmdbSerial: unique symbol;
 export type Serial = { readonly [zmdbSerial]?: true };
 ```
@@ -29,7 +29,7 @@ Applied with `extends`, not intersected.
 | `Rowstore`           | —                     | SingleStore row-oriented storage                                              |
 | `SoftDelete<Column>` | `string`              | Nullable timestamp managed by repository soft delete, hard delete and restore |
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Fts, PrimaryKey, Serial, SoftDelete, Sql, Table; this excerpt does not repeat those declarations."}
 interface Article extends Table<'articles'>, Fts<'articles_fts'> {}
 
 interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
@@ -38,7 +38,7 @@ interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies ShardKey, SortKey, Table; this excerpt does not repeat those declarations."}
 interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['createdAt', 'id']> {}
 ```
 
@@ -76,7 +76,7 @@ says to `CreateDTO`, to the JSON Schema's `required` list and to the [seeder](./
 `WireAs<W>` is the only tag whose payload is a type rather than a literal, and it has to be: a codec's wire form is arbitrary — cents as a decimal string, a point as a pair of numbers — so nothing but
 the type itself can name it. A `Codec` column with no `WireAs` is a **build error**, not a column assumed to cross unchanged.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Codec, Sql, WireAs; this excerpt does not repeat those declarations."}
 amount: number & Sql<'bigint'> & Codec<'Money'> & WireAs<string>;
 // app: number   ·   wire: string   ·   db: BIGINT
 ```
@@ -123,7 +123,7 @@ That is the whole core set. Extension-backed types such as `vector`, `geometry`,
 | `Pattern<S>`   | `string` | `pattern`    |
 | `Rule<Name>`   | `string` | a named rule |
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Length, Max, Min, Pattern, Sql; this excerpt does not repeat those declarations."}
 age: number & Sql<'integer'> & Min<18> & Max<120>;
 email: string & Sql<'varchar'> & Length<255> & Pattern<'^\\S+@\\S+$'>;
 ```
@@ -145,7 +145,7 @@ There is no `Enum` tag. A literal union is how you declare that, and TypeScript 
 | `OneToOne<Target, Fk>`        | to-one      | this table                |
 | `ManyToMany<Target, Through>` | to-many     | a join table              |
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table, User; this excerpt does not repeat those declarations."}
 interface Post extends Table<'posts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   authorId: number & Sql<'integer'> & References<'users.id'>;

@@ -3,7 +3,7 @@ metadata, so deriving one DTO from another needs a function that copies that met
 
 ## The built-in derivations
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 import { type Entity, type CreateDTO, type UpdateDTO, type ListDTO, type GetOptions } from '@zmdb/orm';
 
 type PostRow = Entity<Post>; // every column, as stored
@@ -17,7 +17,7 @@ declared.
 
 ## Composing with TypeScript
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Entity, NewPost, PostRow, User; this excerpt does not repeat those declarations."}
 type PublicPost = Omit<PostRow, 'authorEmail' | 'internalNotes'>;
 type PostSummary = Pick<PostRow, 'id' | 'title' | 'createdAt'>;
 type PostForm = Partial<NewPost>;
@@ -27,7 +27,7 @@ type Sortable = Pick<PostRow, 'title' | 'createdAt'>;
 
 All zero-cost, all checked, none needing an import from zmdb. And because the AOT validator takes a type parameter, every one of them is directly validatable:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies NewPost, assert, ctx; this excerpt does not repeat those declarations."}
 const dto = assert<Omit<NewPost, 'authorId'>>(ctx.body);
 ```
 
@@ -35,7 +35,7 @@ That last line is the point of the whole design. A decorator framework cannot va
 
 ## Narrowing a response
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 const SUMMARY = ['id', 'title', 'createdAt'] as const;
 
 @Get('/')
@@ -52,7 +52,7 @@ This is better than mapping a full row to a DTO, because the columns are never f
 
 ## Hiding a field on the way out
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Post, PublicPost; this excerpt does not repeat those declarations."}
 function toPublic(post: Post): PublicPost {
   const { internalNotes, authorEmail, ...rest } = post;
   return rest;
@@ -68,7 +68,7 @@ Explicit, checked, and it fails to compile if someone adds a sensitive column an
 
 ## Input types for a form
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies NewPost, assert, ctx; this excerpt does not repeat those declarations."}
 type Draft = Partial<Pick<NewPost, 'title' | 'body'>> & { authorId: number };
 
 const draft = assert<Draft>(ctx.body);
@@ -81,7 +81,7 @@ Compose exactly the shape the endpoint accepts, validate it in one call, and let
 **JSON Schema for a composed type.** `toJsonSchema(schema, variant)` works from a table and its six variants. It cannot emit a schema for `Omit<Post, 'x'>`, because that is a TypeScript type and the
 function reads a schema object. So an [OpenAPI](./web-openapi-operations.html) body schema for a hand-composed DTO must be written or post-processed:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies posts, toJsonSchema; this excerpt does not repeat those declarations."}
 const full = toJsonSchema(posts, 'create');
 const { authorId, ...properties } = full.properties as Record<string, unknown>;
 const body = { ...full, properties, required: (full.required as string[]).filter(r => r !== 'authorId') };
@@ -91,7 +91,7 @@ Workable, and the one place where a mapped-type helper would pay for itself — 
 
 **Runtime field lists.** A type has no runtime representation, so `Pick<Post, 'id'>` gives you nothing to iterate. Where you need both, declare the tuple and derive the type from it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 const FIELDS = ['id', 'title'] as const;
 type Summary = Pick<Post, (typeof FIELDS)[number]>;
 ```

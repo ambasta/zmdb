@@ -22,7 +22,7 @@ the recorded server qualification to that service.
 
 ## Selecting it
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies createQueryCompiler, db, defineRepository, users; this excerpt does not repeat those declarations."}
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
 
 const compiler = createQueryCompiler(sqlite);
@@ -49,7 +49,7 @@ const userRepo = defineRepository(users, sqliteDriver(db));
 
 Use the official adapter for `node:sqlite` execution, transaction pinning and statement handling:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { DatabaseSync } from 'node:sqlite';
 import { sqliteDriver } from '@zmdb/sqlite';
 
@@ -84,7 +84,7 @@ that locking behavior.
 
 ## Why it is the best test database
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies allSchemas; this excerpt does not repeat those declarations."}
 import { DatabaseSync } from 'node:sqlite';
 import { diff, snapshot } from '@zmdb/migrations';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';

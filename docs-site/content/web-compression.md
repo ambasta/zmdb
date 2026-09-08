@@ -5,7 +5,7 @@ Prefer compression at the edge when one exists. A CDN compresses once and caches
 
 ## Compress a response
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 import { compress, json } from '@zmdb/web';
 
 @Get('/report')
@@ -18,7 +18,7 @@ The function preserves handler-controlled responses, appends `vary: accept-encod
 
 `compressionInterceptor()` is the same operation as an `Interceptor` for code that already composes a middleware chain:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies compressionInterceptor; this excerpt does not repeat those declarations."}
 const compression = compressionInterceptor({
   minBytes: 2048,
   skip: (response, ctx) => ctx.path === '/secret-form',
@@ -73,7 +73,7 @@ length.
 
 The framework cannot infer which fields are secret or attacker-controlled. `skip(response, ctx)` is the explicit escape hatch:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies compress, ctx, response; this excerpt does not repeat those declarations."}
 const safe = compress(response, ctx, {
   skip: (_response, request) => request.path === '/account/recovery',
 });

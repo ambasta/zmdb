@@ -6,7 +6,7 @@ than unfinished arms of the API.
 A command bus is useful here only when the application routes each command through one fixed pipeline: validate, optional authorisation, optional transaction, handler, outcome observation. A
 string-keyed `dispatch(name, unknown)` API would give up the input and result types that justify the indirection, so the caller gets one method per command.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies audit, connection, orders, policy, posts, validateCancelOrder, validatePublishPost; this excerpt does not repeat those declarations."}
 import { createTransactionalDb } from '@zmdb/orm/transactions';
 import { createCommandBus, type CommandBus, type CommandHandlers } from '@zmdb/app/cqrs';
 import { createToken } from '@zmdb/app/di';
@@ -61,7 +61,7 @@ Validation and authorisation run before the optional transaction opens. A handle
 
 `BaseRepository` already separates `create/update/delete` from `find*/list/aggregate`, and the [replica helper](./read-replicas.html) routes reads and writes to different connections:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies primary, replicaA, replicaB; this excerpt does not repeat those declarations."}
 import { withReplicas } from '@zmdb/orm/replicas';
 
 const driver = withReplicas({ primary, replicas: [replicaA, replicaB] });
@@ -71,7 +71,7 @@ That is command/query separation at the level that matters here. A query bus wou
 
 ## Register it in the container
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies BUS, Module, bus; this excerpt does not repeat those declarations."}
 @Module({
   providers: [{ token: BUS, useValue: bus }],
 })
@@ -85,7 +85,7 @@ The bus is an ordinary app-owned value, not a container-owned singleton. Build o
 [`@zmdb/app/events`](./web-events.html) ships a typed, app-owned in-process emitter. It isolates handler failures and makes waiting explicit with `emit` versus `emitAndWait`; it deliberately does not
 turn application events into a CQRS command bus:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies id; this excerpt does not repeat those declarations."}
 import { createEvents } from '@zmdb/app/events';
 
 type AppEvents = {
@@ -101,7 +101,7 @@ events.emit('post.published', { id });
 
 For anything that must survive a crash, cross through the shipped [transactional outbox](./transactional-outbox.html):
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies db, id, repo; this excerpt does not repeat those declarations."}
 import { outboxWriter } from '@zmdb/orm/outbox';
 
 await db.transaction(async tx => {
@@ -116,7 +116,7 @@ The state change and the event commit together or not at all. In-process emissio
 
 A separate projection table, updated from the outbox, queried through its own schema:
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 
 export interface PostSummary extends Table<'post_summaries'> {

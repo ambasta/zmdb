@@ -2,7 +2,7 @@ Turning rows into JSON, and JSON into rows, with the type doing the work in both
 
 ## Out: `stringify`
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies row; this excerpt does not repeat those declarations."}
 import { stringify } from '@zmdb/validator/serialization';
 
 const json = stringify(row);
@@ -17,7 +17,7 @@ rather than the engine's own wording.
 
 To drop keys, drop them from the value — a projection, not a serializer:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User, row, stringify; this excerpt does not repeat those declarations."}
 import type { ReadDTO } from 'zmdb/derive';
 
 const { passwordHash, ...visible } = row;
@@ -26,7 +26,7 @@ const json = stringify(visible satisfies ReadDTO<User>);
 
 ## Out, with checking: `assertStringify`
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies ir, row; this excerpt does not repeat those declarations."}
 import { assertStringify } from '@zmdb/validator/serialization';
 
 const json = assertStringify(row, ir); // throws AssertError if row is wrong
@@ -34,7 +34,7 @@ const json = assertStringify(row, ir); // throws AssertError if row is wrong
 
 `assertStringify` is not transformed either, so its schema is a runtime argument. The transformed equivalent is two calls, and it is the one to write today:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Entity, User, assert, row, stringify; this excerpt does not repeat those declarations."}
 const json = stringify(assert<Entity<User>>(row));
 ```
 
@@ -42,7 +42,7 @@ Use it on anything assembled by hand or arriving from raw SQL. Use plain `string
 
 ## In: `parse`
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ValidationError, text; this excerpt does not repeat those declarations."}
 import { parse } from '@zmdb/validator/serialization';
 
 const result = parse(text);
@@ -68,7 +68,7 @@ body happens to contain the number 400. `json(body, { status: 400 })` is recogni
 
 When the JSON text has already been parsed by something else — a body parser, a queue client — there is nothing to parse and the whole job is the check:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies CreateDTO, User, alreadyParsed, assert; this excerpt does not repeat those declarations."}
 const dto = assert<CreateDTO<User>>(alreadyParsed);
 ```
 
@@ -78,7 +78,7 @@ const dto = assert<CreateDTO<User>>(alreadyParsed);
 
 `ReadDTO<T>` is the type-level answer, and it is unconditional: a `Sensitive` column is _removed from the type_, so naming it is a compile error rather than something a serializer has to remember.
 
-```ts
+```ts {"mode":"compile","id":"example-007"}
 import type { PrimaryKey, Sensitive, Serial, Sql, Table } from 'zmdb/tags';
 import type { Entity, ReadDTO } from 'zmdb/derive';
 
@@ -100,13 +100,13 @@ This has three separate consequences:
 
 If the value must never leave the database at all, do not select it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.list({ select: ['id', 'email'] });
 ```
 
 For per-endpoint shapes, name the type:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies Entity, User; this excerpt does not repeat those declarations."}
 type PublicUser = Pick<Entity<User>, 'id' | 'email'>;
 ```
 

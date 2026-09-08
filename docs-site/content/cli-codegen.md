@@ -69,14 +69,14 @@ src/handlers.zmdb.generated.js       the compiled runtime code
 src/handlers.zmdb.generated.d.ts     its signatures
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This pre-generation excerpt deliberately omits the handler body, schema, driver and surrounding imports."}
 // before
 import { is, schemaOf } from 'zmdb';
 if (is<User>(body)) { … }
 const users = defineRepository(schemaOf<User>(), driver);
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This generated-code excerpt deliberately omits the handler body and the generated sibling module."}
 // after
 import { zmdbIsUser, zmdbSchemaUser } from './handlers.zmdb.generated.js';
 if (zmdbIsUser(body)) { … }

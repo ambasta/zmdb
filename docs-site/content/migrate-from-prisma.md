@@ -11,7 +11,7 @@ model User {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 import { schemaOf } from '@zmdb/schema';
 import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
@@ -61,7 +61,7 @@ The consequences of leaving the DSL:
 
 Prisma's nested filter objects are close to zmdb's `WhereDTO`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 // { where: { age: { gte: 18 }, email: { contains: '@x' } } }  ->
 { age: { gte: 18 }, email: { like: '%@x%' } }
 ```

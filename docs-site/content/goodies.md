@@ -4,7 +4,7 @@ Small things that are easy to miss.
 
 Every builder ends in `.compile()`, which returns `{ text, parameters }`. No connection, no mocking:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
@@ -15,7 +15,7 @@ Assert on `text` in a unit test. This is the same value the driver gets.
 
 ## Compile the same query for six dialects
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies createQueryCompiler; this excerpt does not repeat those declarations."}
 for (const dialect of ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const) {
   console.log(createQueryCompiler(dialect).selectFrom('users').where('id', '=', 1).compile().text);
 }
@@ -31,7 +31,7 @@ Useful for spotting portability problems before deploy, and for tests that must 
 
 ## Generate realistic fixtures from the schema
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies userSchema; this excerpt does not repeat those declarations."}
 import { seedRows } from '@zmdb/orm/seeding';
 
 const rows = seedRows(userSchema, { count: 50, seed: 1234 });
@@ -42,7 +42,7 @@ number at least eighteen. It is the same sampler [`random<T>()`](./random.html) 
 
 ## Generate a value from any type, not just a schema
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { random } from '@zmdb/validator';
 
 const u = random<User>();
@@ -52,7 +52,7 @@ The transformer derives the generator from `User` itself. Handy for property-bas
 
 ## `stringify` is faster than `JSON.stringify` for known types
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies User, user; this excerpt does not repeat those declarations."}
 import { stringify, assertStringify } from '@zmdb/validator/serialization';
 
 stringify(user); // no key discovery at runtime
@@ -63,7 +63,7 @@ The transformer knows the key set, so there is no `Object.keys` walk and no prop
 
 ## `parse` returns a result, it does not throw
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies User, parse, text, useUser; this excerpt does not repeat those declarations."}
 const r = parse<User>(text);
 if (!r.success) return badRequest(r.errors);
 useUser(r.data);
@@ -77,7 +77,7 @@ Use `validate` for form submissions where the user wants the whole list, `assert
 
 ## Derive OpenAPI components for a whole schema set in one call
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies comments, posts, users; this excerpt does not repeat those declarations."}
 import { toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const { schemas } = toOpenApiComponents([users, posts, comments]);
@@ -89,7 +89,7 @@ Six variants per schema (`entity`, `create`, `update`, `get`, `list`, `search`),
 
 Install the provider-neutral package with `npm add @zmdb/ai@alpha`; it adds no provider SDK or framework peer.
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 import { toolFromSchema } from '@zmdb/ai';
 
 const tool = toolFromSchema('create_user', users, { description: 'Create a user' });
@@ -99,7 +99,7 @@ See [LLM Function Calling](./llm-function-calling.html).
 
 ## `lenientParse` survives fenced JSON from a model
 
-````ts
+````ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { lenientParse } from '@zmdb/ai';
 
 lenientParse<User>('```json\n{"email":"a@b.c"}\n```');
@@ -110,7 +110,7 @@ Strips a leading or trailing code fence before parsing, which is what a model wr
 
 ## The test harness boots the real app
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies DbToken, RootModule, fakeDriver; this excerpt does not repeat those declarations."}
 import { createTestApp } from '@zmdb/web/testing';
 
 await using app = createTestApp(RootModule, { overrides: [{ token: DbToken, useValue: fakeDriver }] });
@@ -126,7 +126,7 @@ reflection" claim is tested rather than asserted; it is test support, not a publ
 
 ## `whereExists` takes any compilable
 
-```ts
+```ts {"mode":"illustrative","id":"example-011","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.selectFrom('authors').whereExists(qc.selectFrom('posts').where('author_id', '=', 1));
 ```
 
@@ -136,7 +136,7 @@ Anything with a `compile()` works, including a hand-built `CompiledQuery`. See [
 
 `IndexDef` takes a `where` clause:
 
-```ts
+```ts {"mode":"illustrative","id":"example-012","reason":"The surrounding example supplies createIndexDdl; this excerpt does not repeat those declarations."}
 createIndexDdl({ name: 'active_email', table: 'users', columns: ['email'], unique: true, where: 'deleted_at IS NULL' }, 'postgres');
 ```
 

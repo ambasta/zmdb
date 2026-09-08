@@ -2,7 +2,7 @@ zmdb is unusually easy to test, for two structural reasons: `compile()` produces
 
 ## Test the SQL, with no database
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { expect, it } from 'vitest';
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
@@ -17,7 +17,7 @@ Microseconds, no setup. Assert on the whole `CompiledQuery` rather than a substr
 
 ## Fake the driver
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies defineRepository, expect, it, users; this excerpt does not repeat those declarations."}
 import { type Driver } from '@zmdb/orm';
 import { postgres } from '@zmdb/postgres';
 
@@ -33,7 +33,7 @@ it('finds a user', async () => {
 
 This is the test that catches N+1s, and it is worth writing for any hot path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies CompiledQuery, Driver, defineRepository, expect, it, realDriver, relations, users; this excerpt does not repeat those declarations."}
 function recording(inner: Driver) {
   const seen: CompiledQuery[] = [];
   return {
@@ -58,7 +58,7 @@ A regression here is invisible in a functional test — the results stay correct
 
 `node:sqlite` is a built-in, so this needs no dependency:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies allSchemas, beforeEach; this excerpt does not repeat those declarations."}
 import { DatabaseSync } from 'node:sqlite';
 import { diff, snapshot } from 'zmdb/migrations';
 import { sqlite } from 'zmdb/sqlite';
@@ -85,7 +85,7 @@ The schema comes from your actual schema objects, so it cannot drift from a fixt
 
 ## Fixtures from the schema
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies repo, users; this excerpt does not repeat those declarations."}
 import { seedRows } from '@zmdb/orm/seeding';
 
 const [row] = seedRows(users, { count: 1, seed: 1 });
@@ -97,7 +97,7 @@ Adding a column does not break every test that built a row by hand. Use a distin
 
 ## HTTP handlers
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies AppModule, DRIVER, expect, fakeDriver, it; this excerpt does not repeat those declarations."}
 import { bodyText } from '@zmdb/web';
 import { createTestApp } from '@zmdb/web/testing';
 
@@ -119,7 +119,7 @@ No port, no server, no `supertest`. `app.get(token)` reaches a provider if you n
 
 If the transformer is not running, `is<T>()` and `assert<T>()` [silently accept everything](./gotchas.html). That is a validation layer that reports success and checks nothing, and it fails open:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the AOT transformer is running', () => {
   expect(is<{ id: number }>({ id: 'not a number' })).toBe(false);
 });
@@ -131,7 +131,7 @@ Put it in its own file, at the top of the suite. See [AOT Setup](./aot-setup.htm
 
 Behaviour that only exists in the type system needs a type-level test, in a `*.type-test.ts` file:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The application supplies the local modules ./type-utils.js; this fence is an excerpt of that project."}
 import type { Expect, Equal } from './type-utils.js';
 
 type _1 = Expect<Equal<CreateDTO<User>, { email: string; active?: boolean }>>;
@@ -141,7 +141,7 @@ These fail at `tsc`, not at runtime, which is where the guarantee lives. This is
 
 ## Migrations
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies conn, down, it, migrations, up; this excerpt does not repeat those declarations."}
 it('migrations round-trip', async () => {
   await up(conn, migrations);
   await down(conn, migrations);

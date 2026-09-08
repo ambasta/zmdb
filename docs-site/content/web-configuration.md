@@ -3,7 +3,7 @@ misconfigured process dies at startup instead of at 3am on a live request.
 
 ## A typed config provider
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { createToken } from '@zmdb/app/di';
 import { Module } from '@zmdb/app/modules';
 import { assert } from '@zmdb/validator';
@@ -38,7 +38,7 @@ export function loadConfig(): Config {
 
 ## Registering it
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies CONFIG, Module, UsersController, loadConfig; this excerpt does not repeat those declarations."}
 @Module({
   providers: [{ token: CONFIG, useValue: loadConfig() }],
   controllers: [UsersController],
@@ -55,7 +55,7 @@ export class AppModule {}
 
 A factory receives the `Container`, so it resolves whatever else it needs. There is no `inject: [...]` array:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies CONFIG, Module, User, UsersController, createToken, loadConfig, users; this excerpt does not repeat those declarations."}
 import { Pool } from 'pg';
 import { postgresDriver } from '@zmdb/postgres';
 import { defineRepository } from '@zmdb/orm';
@@ -80,7 +80,7 @@ Laziness is the right default here: the driver is only constructed when somethin
 
 ## Consuming it
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies BaseRepository, CONFIG, Config, Controller, Inject, USERS, User; this excerpt does not repeat those declarations."}
 @Controller('/users')
 export class UsersController {
   @Inject(CONFIG) private readonly config!: Config;
@@ -115,7 +115,7 @@ That is the whole argument for validating: the type says `Config`, the environme
 
 ## Testing with a different config
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AppModule, CONFIG, createTestApp; this excerpt does not repeat those declarations."}
 await using app = createTestApp(AppModule, {
   overrides: [{ token: CONFIG, useValue: { port: 0, databaseUrl: 'memory://', logLevel: 'warn' } }],
 });

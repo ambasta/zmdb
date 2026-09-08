@@ -2,7 +2,7 @@ Netlify has two runtimes: Functions (Node, on AWS Lambda) and Edge Functions (De
 
 ## A Function
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ../../src/app-module.js; this fence is an excerpt of that project."}
 // netlify/functions/api.mts
 import { createApp } from '@zmdb/web';
 import { AppModule } from '../../src/app-module.js';
@@ -25,7 +25,7 @@ Module-scope app, awaited once. `config.path` routes everything under `/api` to 
 
 ## An Edge Function
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The application supplies the local modules ../../src/app-module.js; this fence is an excerpt of that project."}
 // netlify/edge-functions/api.ts
 import { createApp } from '@zmdb/web';
 import { AppModule } from '../../src/app-module.js';
@@ -65,7 +65,7 @@ Build with `tsc` yourself and point Netlify at the output:
   node_bundler = "none"
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -81,7 +81,7 @@ Make the canary a build gate. It is the only thing standing between a misconfigu
 
 Lambda-backed Functions scale to many concurrent instances, so the arithmetic from [Serverless Performance](./perf-serverless.html) applies: an HTTP driver, or a pooler plus `max: 1`.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver, requireEnv; this excerpt does not repeat those declarations."}
 import { neon } from '@neondatabase/serverless';
 const sql = neon(requireEnv('DATABASE_URL'));
 export const driver: Driver = { execute: async q => await sql.query(q.text, [...q.parameters]) };
@@ -96,7 +96,7 @@ first query.
 
 Set them in the Netlify UI or `netlify env:set`, scoped per context (production, deploy-preview, branch). Validate at module load:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies assert; this excerpt does not repeat those declarations."}
 export const env = assert<{ DATABASE_URL: string }>({ DATABASE_URL: process.env.DATABASE_URL });
 ```
 

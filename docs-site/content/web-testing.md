@@ -3,7 +3,7 @@ provider for a fake, then assert on the response.
 
 ## In-process requests
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule, expect; this excerpt does not repeat those declarations."}
 import { bodyText } from '@zmdb/web';
 import { createTestApp } from '@zmdb/web/testing';
 
@@ -18,7 +18,7 @@ expect(JSON.parse(await bodyText(res))).toEqual({ message: 'hello' });
 
 Replace any provider **before** controllers are built, so the controller under test injects your stub:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AppModule, GreeterToken, createTestApp; this excerpt does not repeat those declarations."}
 const stub = { greet: () => 'stubbed' };
 
 const app = createTestApp(AppModule, {
@@ -37,7 +37,7 @@ The same override applies inside a [lazy module](./web-lazy-modules.html). Its r
 
 `createTestApp` is an `AsyncDisposable`, so `await using` cleans up:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createTestApp; this excerpt does not repeat those declarations."}
 await using app = createTestApp(AppModule);
 await app.init(); // runs onModuleInit hooks
 // ... assertions ...

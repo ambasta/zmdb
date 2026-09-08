@@ -5,7 +5,7 @@ Build tools and the schema-command CLI have a separate [`zmdb.config.ts`](./conf
 
 ## What each layer takes
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This partial declaration omits the containing TypeScript construct described by the surrounding article."}
 createQueryCompiler(dialect)                          // imported SqlDialect object
 schemaOf<T>()                                         // the declaration; compiled away at build time
 defineRepository(schema, driver, { schemas? })
@@ -19,7 +19,7 @@ migration paths; it does not change how an application constructs a driver or re
 The one thing that _is_ configured outside a function argument is the build plugin, because it has to find your `tsconfig.json`. The product compiler entry discovers `zmdb.config.ts` and passes its
 resolved project and naming strategy to the transformer:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 // vite.config.ts / rollup.config.js / esbuild plugin list
 import { zmdbAot } from 'zmdb/compiler';
 
@@ -32,7 +32,7 @@ const plugin = await zmdbAot();
 
 The useful pattern is one module that reads the environment and exports typed values:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 // src/config.ts
 import { Pool } from 'pg';
 import { assert } from '@zmdb/validator';
@@ -71,7 +71,7 @@ inside a connection string.
 
 Plain code, with no cascade to reason about:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies env; this excerpt does not repeat those declarations."}
 const perEnv = {
   development: { poolMax: 2, logQueries: true },
   test: { poolMax: 1, logQueries: false },
@@ -85,7 +85,7 @@ export const settings = perEnv[env.NODE_ENV] ?? perEnv.development;
 
 Put the driver in DI so tests can replace it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Driver, Module, User, UsersController, createToken, defineRepository, driver, users; this excerpt does not repeat those declarations."}
 import { repositoryToken } from '@zmdb/app/data';
 
 export const DRIVER = createToken<Driver>('DRIVER');
@@ -101,7 +101,7 @@ export const USERS = repositoryToken<User>('USERS'); // Token<BaseRepository<Use
 export class AppModule {}
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies AppModule, DRIVER, createTestApp, fakeDriver; this excerpt does not repeat those declarations."}
 const app = createTestApp(AppModule, { overrides: [{ token: DRIVER, useValue: fakeDriver }] });
 ```
 
@@ -111,7 +111,7 @@ See [Providers & Tokens](./web-modules.html) and [Testing](./testing.html).
 
 Read them from the environment or a secret manager; never from a committed file. And note that a validated `env` object makes them easy to log by accident:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies env; this excerpt does not repeat those declarations."}
 console.log(env); // logs DATABASE_URL, including the password
 ```
 

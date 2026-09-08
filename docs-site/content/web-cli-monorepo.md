@@ -106,7 +106,7 @@ Topological build order, caching, and parallelism belong there. The scaffold's m
 
 A shared package can own the declaration:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 // packages/domain/src/post.ts
 import type { Length, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
@@ -118,7 +118,7 @@ export interface Post extends Table<'posts'> {
 
 Each application imports the same type and derives its own schema value:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 import { defineRepository, schemaOf } from 'zmdb';
 import type { Post } from '@acme/domain';
 
@@ -127,7 +127,7 @@ const posts = defineRepository(schemaOf<Post>(), driver);
 
 `schemaOf<Post>()` is transformed in the consuming package. Keep the AOT adapter configured in every package that calls a transformed function, and retain a small canary such as:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('runs the transformer', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

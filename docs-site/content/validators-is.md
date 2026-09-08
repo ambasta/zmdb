@@ -3,7 +3,7 @@ runtime schema, no reflection.
 
 ## Usage
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies CreateUser, payload, users; this excerpt does not repeat those declarations."}
 import { is } from '@zmdb/validator';
 
 if (is<CreateUser>(payload)) {
@@ -16,7 +16,7 @@ if (is<CreateUser>(payload)) {
 
 For a type like `{ email: string; age: number }`, the call site compiles to a straight-line boolean expression:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies d, is; this excerpt does not repeat those declarations."}
 // authored
 is<{ email: string; age: number }>(d)(
   // compiled (AOT)

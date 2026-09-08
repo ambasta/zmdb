@@ -8,7 +8,7 @@ remains host-owned; broker strategies and the gRPC server are application extens
 
 Attach message transports through the public app extension:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule, audit, createApp, ordersTransport; this excerpt does not repeat those declarations."}
 import { transportExtension } from '@zmdb/app/messaging';
 import { grpcExtension } from '@zmdb/transport-grpc';
 
@@ -32,7 +32,7 @@ await app.init();
 
 Add gRPC through its separate binding contract rather than the broker strategy array:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AppModule, createApp, dispatcher, grpcExtension, ordersGrpcBinding, ordersTransport, transportExtension; this excerpt does not repeat those declarations."}
 await using app = createApp(AppModule, {
   extensions: [
     transportExtension({ transports: [ordersTransport], dispatcher }),
@@ -76,7 +76,7 @@ Intake stops before repositories and other handler dependencies are disposed. Ev
 
 `createApp` exposes both framework-neutral and Fetch handlers:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies app; this excerpt does not repeat those declarations."}
 const result = await app.handle({
   method: 'GET',
   path: '/health',
@@ -93,7 +93,7 @@ The host still owns its listening socket and must close it as part of process sh
 
 Strategies are independent entries in one `transportExtension`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies AppModule, commands, createApp, dispatcher, notifications, transportExtension; this excerpt does not repeat those declarations."}
 const app = createApp(AppModule, {
   extensions: [transportExtension({ transports: [commands, notifications], dispatcher })],
   graceMs: 10_000,
@@ -116,7 +116,7 @@ That is a deployment decision, not an implicit fallback. Silently accepting HTTP
 
 WebSocket servers, polling workers and CLI entry points remain ordinary composition around the same container:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies REPORTS, app; this excerpt does not repeat those declarations."}
 const reports = app.container.resolve(REPORTS);
 await reports.sendDigests();
 ```

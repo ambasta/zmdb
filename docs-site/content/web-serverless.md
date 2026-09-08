@@ -1,6 +1,6 @@
 `WebApplication.fetch` is a `(Request) => Promise<Response>`, which is the interface every serverless and edge platform accepts. There is no adapter package to install and no platform-specific build.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
 import { createApp } from '@zmdb/web';
 
 const app = createApp(AppModule);
@@ -10,7 +10,7 @@ export default { fetch: (request: Request) => app.fetch(request) };
 
 ## Build the app once, outside the handler
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AppModule, createApp; this excerpt does not repeat those declarations."}
 // right — module scope, reused across invocations
 const app = createApp(AppModule);
 await app.init();
@@ -18,7 +18,7 @@ const handler = (request: Request) => app.fetch(request);
 export default { fetch: handler };
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createApp; this excerpt does not repeat those declarations."}
 // wrong — rebuilds the container on every request
 export default {
   async fetch(request: Request) {
@@ -59,7 +59,7 @@ starts failing to connect.
 
 With a pooler in front, set `max: 1` per instance. The pooler multiplexes; a per-instance pool is counterproductive when instance count is the thing that scales.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Pool, env; this excerpt does not repeat those declarations."}
 new Pool({ connectionString: env.POOLED_URL, max: 1 });
 ```
 
@@ -71,7 +71,7 @@ is fine; `SET` without a transaction is not.
 Cloudflare Workers and Deno Deploy cannot open a raw TCP socket to Postgres. You need an HTTP-speaking driver — Neon's serverless driver, Supabase's REST layer, or Hyperdrive — behind zmdb's `Driver`
 interface:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Driver, assert, env; this excerpt does not repeat those declarations."}
 const driver: Driver = {
   async execute(query) {
     const response = await fetch(env.SQL_ENDPOINT, {
@@ -95,7 +95,7 @@ When it does not run, validation **fails open** — invalid input passes.
 
 Ship the canary as a test and run it in the same build that produces your deployment artefact:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -107,7 +107,7 @@ If your platform builds from source rather than from your artefact, prebuild loc
 
 Every platform kills the invocation when the response is returned or the limit is reached. Work started and not awaited is dropped — sometimes silently.
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies id; this excerpt does not repeat those declarations."}
 void this.events.emit('post.created', { id }); // may never run on serverless
 ```
 

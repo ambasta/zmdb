@@ -10,7 +10,7 @@ query is still holding its buffers and its row locks. Cancellation is how you st
 
 A statement timeout is not cancellation, but it bounds the damage and it is enforced by the database rather than by hopeful client-side code:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Pool, cfg, driver; this excerpt does not repeat those declarations."}
 // postgres, per transaction
 await driver.execute({ text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
 
@@ -27,7 +27,7 @@ Set this. A default statement timeout is one line of config and it prevents a si
 
 The driver is the layer that owns the client, so it is the layer that can cancel. The repository passes the signal as the second argument:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const controller = new AbortController();
 const pending = users.findAll({ signal: controller.signal });
 controller.abort();
@@ -36,7 +36,7 @@ await pending; // rejects with signal.reason, or a DOMException named AbortError
 
 For the bundled Postgres adapter, give `cancelVia` a queryable that can obtain a connection other than the one running the statement:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { Pool } from 'pg';
 import { postgresDriver } from '@zmdb/postgres';
 

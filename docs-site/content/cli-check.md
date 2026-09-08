@@ -53,7 +53,7 @@ $ echo $?
 `check` does not replay every migration into an empty database or execute every `down` section. A project that wants that stronger deployment rehearsal can run the public migration runner against a
 disposable SQLite or Postgres database:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies connection, down, migrations, up; this excerpt does not repeat those declarations."}
 await up(connection, migrations);
 await down(connection, migrations);
 await up(connection, migrations);

@@ -5,7 +5,7 @@ zero-overhead data access.
 
 If you're coming from MikroORM, TypeORM, or similar, you may be used to this pattern:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, em; this excerpt does not repeat those declarations."}
 // MikroORM-style
 const user = await em.findOne(User, 1);
 user.email = 'new@example.com';
@@ -14,7 +14,7 @@ await em.flush(); // persist changes
 
 In zmdb, **this doesn't work**:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const user = await users.findById(1);
 user.email = 'new@example.com'; // ❌ Does NOT persist
 
@@ -47,7 +47,7 @@ Translate your "load-mutate-flush" workflow into explicit updates:
 | `await em.flush()`               | `await users.update(1, patch)`        |
 | Multiple changes across entities | `db.transaction(async tx => { ... })` |
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 // Find
 const user = await users.findById(1);
 
@@ -62,7 +62,7 @@ await users.update(1, patch);
 
 Use `postSelect` to enrich or filter rows on the way out:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 protected postSelect(rows: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
   return rows.map(r => ({
     ...r,

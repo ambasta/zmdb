@@ -5,7 +5,7 @@ Generate an **OpenAPI 3.1** document from the same compiled HTTP contract used b
 
 Compile your explicit declaration through `@zmdb/web/contract/compiler`, then pass only its serialisable IR:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies HTTP_CONTRACT, session; this excerpt does not repeat those declarations."}
 import { compileHttpContracts } from '@zmdb/web/contract/compiler';
 import { toOpenApi } from '@zmdb/web/openapi';
 
@@ -90,7 +90,7 @@ Contract registration compares the runtime guard chain with the same operation s
 
 ## Serving it
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding article supplies the generated OpenAPI document; this serving excerpt does not redeclare it."}
 import { serveOpenApi } from '@zmdb/web/openapi';
 
 const openapi = serveOpenApi(document);

@@ -23,7 +23,7 @@ installation commands and resource owners. Portable jobs does not select a datab
 
 `LeaseStore` is structural, so the application can also implement it over the database or coordination service it already operates:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 interface LeaseStore {
   acquire(key: string, holder: string, ttlMs: number): Promise<boolean>;
   renew(key: string, holder: string, ttlMs: number): Promise<boolean>;
@@ -41,7 +41,7 @@ be idempotent.
 
 The recommended cluster-wide task is short: calculate a stable business-period key and enqueue durable work with that key.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import type { Clock, Queue } from '@zmdb/jobs';
 import { Cron } from '@zmdb/jobs/schedule';
 
@@ -78,7 +78,7 @@ because enqueue deduplication and at-least-once delivery are separate races.
 
 `@Cron` and `@Interval` only record declarations. `createScheduler` receives the instances built for one application, so two applications in one process do not share a registry.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies BillingTasks, localCache, logger; this excerpt does not repeat those declarations."}
 import { jobsExtension, type Clock } from '@zmdb/jobs';
 import { Cron, Interval, createScheduler, type LeaseStore } from '@zmdb/jobs/schedule';
 
@@ -181,7 +181,7 @@ multi-week interval for calendar time.
 
 For this declaration:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Cron('0 30 2 * * *', {
   runs: 'once-per-cluster',
   timeZone: 'Europe/Berlin',

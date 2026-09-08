@@ -12,7 +12,7 @@ document back into nine framework clients; the [Client Applications](./framework
 
 The `toOpenApiComponents` function generates a map of schemas ready for OpenAPI specification:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { toOpenApiComponents } from '@zmdb/schema/openapi';
 import { schemaOf } from 'zmdb';
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
@@ -48,7 +48,7 @@ const { schemas } = toOpenApiComponents([schemaOf<User>()]);
 
 For API endpoints, generate schemas specific to each operation:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User, schemaOf; this excerpt does not repeat those declarations."}
 import { toJsonSchema } from '@zmdb/schema/openapi';
 
 const userSchema = schemaOf<User>();
@@ -76,7 +76,7 @@ const listSchema = toListSchema(userSchema);
 
 Combine OpenAPI generation with your HTTP framework:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 import { toJsonSchema, toListSchema } from '@zmdb/schema/openapi';
 import { schemaOf } from 'zmdb';
 import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
@@ -133,7 +133,7 @@ Tags on a column map to OpenAPI schema keywords:
 
 There is no `Enum` tag, because a literal union already says it and TypeScript checks it everywhere a flag would not.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies MaxLength, Min, Pattern, Sql, Table, schemaOf, toJsonSchema; this excerpt does not repeat those declarations."}
 interface Account extends Table<'accounts'> {
   email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+\\.[^@]+$'> & MaxLength<255>;
   age: (number & Sql<'integer'> & Min<0>) | null;
@@ -148,7 +148,7 @@ const schema = toJsonSchema(schemaOf<Account>(), 'entity');
 
 Generate a complete spec by combining components:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies toJsonSchema, toListSchema, userSchema; this excerpt does not repeat those declarations."}
 import { toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const fullSpec = {
@@ -204,7 +204,7 @@ const fullSpec = {
 
 For full-text search endpoints, use `toSearchSchema` which includes relevance scoring:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies userSchema; this excerpt does not repeat those declarations."}
 import { toSearchSchema } from '@zmdb/schema/openapi';
 
 const searchSchema = toSearchSchema(userSchema);

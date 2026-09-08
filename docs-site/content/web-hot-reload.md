@@ -19,7 +19,7 @@ Node 26 runs TypeScript directly by stripping types, and `--watch` restarts on c
 
 Add the canary test so this cannot go unnoticed:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -49,7 +49,7 @@ This is the recommendation for a project that validates request bodies, which is
 
 A restart that leaves a listening socket or an open pool produces `EADDRINUSE` on the next start, or a slow leak of database connections across dozens of reloads until the server refuses new ones.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AppModule, bodyText, createApp, createServer, pool, webRequest; this excerpt does not repeat those declarations."}
 const app = createApp(AppModule);
 await app.init();
 const server = createServer(async (req, res) => {
@@ -74,7 +74,7 @@ registered `Router` with `toNodeHandler` when streaming and disconnect cancellat
 
 `WebApplication` is `AsyncDisposable`, so `await using` handles this in a script:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createApp; this excerpt does not repeat those declarations."}
 await using app = createApp(AppModule);
 await app.init();
 ```
@@ -94,7 +94,7 @@ A cold start here is fast enough that the trade is not worth making. Measure you
 
 **Do not connect to the database at import time.** A module-level `await pool.connect()` makes every restart wait on the network. Use a factory provider so the connection happens lazily:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies DRIVER, env, makeDriver; this excerpt does not repeat those declarations."}
 providers: [{ token: DRIVER, useFactory: () => makeDriver(env.DATABASE_URL) }];
 ```
 
@@ -102,7 +102,7 @@ providers: [{ token: DRIVER, useFactory: () => makeDriver(env.DATABASE_URL) }];
 
 **Test without a server.** `createTestApp` gives you the whole application in-process, so most iteration does not need a restart at all:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AppModule, DRIVER, createTestApp, fakeDriver; this excerpt does not repeat those declarations."}
 const app = createTestApp(AppModule, { overrides: [{ token: DRIVER, useValue: fakeDriver }] });
 const out = await app.request({ method: 'GET', path: '/posts', headers: {} });
 ```

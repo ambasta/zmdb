@@ -123,7 +123,7 @@ These are structural rules in the implementation and acceptance tests, not recom
 
 A controller remains ordinary framework code:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Controller, Get; this excerpt does not repeat those declarations."}
 @Controller('/posts')
 export class PostsController {
   @Get()

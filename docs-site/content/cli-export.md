@@ -63,7 +63,7 @@ is a different tool doing a different job, and the right one for a backup.
 
 To include the schema objects that _are_ emitted by helpers, append them:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ../src/schema-objects.js; this fence is an excerpt of that project."}
 import { createIndexDdl, createViewDdl } from '@zmdb/sql/schema-objects';
 import { indexes, views } from '../src/schema-objects.js';
 

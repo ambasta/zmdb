@@ -1,6 +1,6 @@
 Insert a row, and if it collides with a unique index, update it instead. One statement, one round trip, no read-then-write race.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 const row = await repo.upsert({ id: 1, email: 'ada@example.com', name: 'Ada', hits: 1 });
 ```
 
@@ -9,7 +9,7 @@ table's primary key, and has return type `Promise<Entity<T> | undefined>`. It re
 
 Its `updateFields` option accepts either column names or an expression-aware `UpdatePatch<T>`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 import { inc, proposed } from 'zmdb/sql';
 
 await repo.upsert(
@@ -34,7 +34,7 @@ than it looks.
 
 **`doUpdate()` — every non-target column takes the value this INSERT tried to write.** This is what `repo.upsert` calls.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createQueryCompiler, row; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 createQueryCompiler(postgres).insertInto('users').values(row).onConflict('id').doUpdate().compile();
@@ -47,13 +47,13 @@ commented as such at `packages/sql/src/index.ts:287`.
 
 **`doUpdate(['name'])` — those columns only.**
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 // ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name"
 ```
 
 **`doUpdate({ hits: 9 })` — literal values or closed expressions.** Literals are bound as parameters appended after the insert's own. The insert carries four values, so the literal is `$5`:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 // INSERT INTO "users" ("id", "email", "name", "hits") VALUES ($1, $2, $3, $4)
 //   ON CONFLICT ("id") DO UPDATE SET "hits" = $5
 // parameters: [1, 'ada@example.com', 'Ada', 1, 9]
@@ -61,7 +61,7 @@ commented as such at `packages/sql/src/index.ts:287`.
 
 An expression refers to the column named by its key:
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 // doUpdate({ hits: inc(1) })
 // ... DO UPDATE SET "hits" = "hits" + $5
 ```
@@ -75,7 +75,7 @@ undefined) to update all non-target columns, or use doNothing().
 
 **`doNothing()` — keep the existing row.**
 
-```ts
+```ts {"mode":"compile","id":"example-007"}
 // ON CONFLICT ("id") DO NOTHING
 ```
 
@@ -133,7 +133,7 @@ MySQL also has no `RETURNING`. An ordinary repository upsert refuses before driv
 
 `BaseRepository.upsert` always calls `doUpdate`. There is no `repo.upsertOrIgnore`, so `DO NOTHING` is only reachable through the compiler:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies clean, createQueryCompiler, driver, postgres; this excerpt does not repeat those declarations."}
 const q = createQueryCompiler(postgres).insertInto('users').values(clean).onConflict('email').doNothing().returning(['*']).compile();
 
 await driver.execute(q);

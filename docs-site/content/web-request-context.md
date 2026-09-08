@@ -3,7 +3,7 @@ constraint with a clean pattern behind it.
 
 ## What a handler gets
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 export interface Ctx<Params, Body, Query> {
   readonly params: Params;
   readonly body: Body;
@@ -30,7 +30,7 @@ So the design is: pass it. Explicit, checked, and testable.
 
 ## Threading a value through
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/posts')
 async list(ctx: Ctx<Record<never, string>, unknown>) {
   const tenant = tenantFrom(ctx.headers);
@@ -46,7 +46,7 @@ Where the request-scoped value belongs to the _database session_ rather than to 
 [row-level security](./deploy-supabase-edge.html), [query tagging](./sql-comments.html) and per-request query counting without ambient state. Request batching is a separate explicit value: construct a
 [`LoaderScope`](./dataloaders.html) alongside the driver.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 function driverFor(tenant: string): Driver {
   return {
     async execute(query) {
@@ -79,7 +79,7 @@ Two details that are not optional:
 
 When several things are request-scoped, one object beats several parameters:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Ctx, LoaderScope, PostRepo, createLoaderScope, defineRepository, driverFor, posts, verifyToken; this excerpt does not repeat those declarations."}
 interface RequestScope {
   readonly tenant: string;
   readonly userId: number;
@@ -108,13 +108,13 @@ Now handlers take `(ctx)` and build a scope, services take `(scope, args)`, and 
 
 ## Request ids and logging
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ctx; this excerpt does not repeat those declarations."}
 const requestId = ctx.headers['x-request-id'] ?? crypto.randomUUID();
 ```
 
 Pass it to the driver wrapper so queries carry it, and put it in every log line — that is what makes logs correlatable without ambient storage:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies base, requestId, withLogging; this excerpt does not repeat those declarations."}
 const driver = withLogging(base, e => console.log(JSON.stringify({ ...e, requestId })));
 ```
 
@@ -124,7 +124,7 @@ See [Logging](./logging.html) and [SQL Comments](./sql-comments.html).
 
 Nothing stops you. `AsyncLocalStorage` is a Node built-in and the framework does not interfere:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies RequestScope, app, req, scope; this excerpt does not repeat those declarations."}
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 const als = new AsyncLocalStorage<RequestScope>();

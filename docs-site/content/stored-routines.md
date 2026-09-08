@@ -5,7 +5,7 @@ manage explicitly.
 
 Declare the signature once, then expose the protected repository call through an application-named method:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Order, OrderSchema; this excerpt does not repeat those declarations."}
 import { type RoutineDef } from '@zmdb/sql/schema-objects';
 import { BaseRepository, type ArgsOf, type ResultOf } from '@zmdb/orm';
 
@@ -41,7 +41,7 @@ transaction-controlling procedures outside an outer transaction.
 
 The lower SQL layer is available when validation is deliberately owned elsewhere:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies cutoff, driver; this excerpt does not repeat those declarations."}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
@@ -66,7 +66,7 @@ choose which privileged program to run, which is why the typed path takes a decl
 
 Use the same declaration from the call site when emitting an explicit migration:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies archiveOldOrders; this excerpt does not repeat those declarations."}
 import { replaceRoutineStatements, routineFingerprint, type RoutineDef } from '@zmdb/sql/schema-objects';
 import type { MigrationConnection } from 'zmdb/migrations';
 

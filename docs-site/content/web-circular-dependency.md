@@ -5,7 +5,7 @@ overflow later.
 
 `compileModule` tracks the modules it is visiting and throws the moment it re-enters one:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Module, createApp; this excerpt does not repeat those declarations."}
 @Module({ imports: [BModule] })
 class AModule {}
 @Module({ imports: [AModule] })
@@ -21,7 +21,7 @@ Deterministic, names the cycle path, and runs at startup rather than on a reques
 
 Factory providers resolve **lazily**, and `Container.resolve` keeps no resolution stack. A factory that resolves a token whose factory resolves it back recurses until the stack ends:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 { token: A, useFactory: c => new Aa(c.resolve(B)) }
 { token: B, useFactory: c => new Bb(c.resolve(A)) }
 
@@ -44,7 +44,7 @@ Restructuring is almost always right, because a cycle means the two units share 
 
 **Hoist the shared concern:**
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies A, Aa, B, Bb, EventBus, Module, createToken; this excerpt does not repeat those declarations."}
 const EVENTS = createToken<EventBus>('EVENTS');
 
 @Module({
@@ -61,7 +61,7 @@ class AppModule {}
 
 **Depend on the container, not the instance.** If one direction is only needed occasionally, resolve it at the point of use — lazily, and after both are registered:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 { token: A, useFactory: c => new Aa(() => c.resolve(B)) }
 ```
 
@@ -72,7 +72,7 @@ the cycle happened.
 
 ## Do not paper over it
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 { token: A, useFactory: c => { const a = new Aa(); a.b = c.resolve(B); return a; } }   // wrong
 ```
 

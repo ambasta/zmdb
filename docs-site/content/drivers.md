@@ -1,7 +1,7 @@
 An official database package binds its dialect, compiler traits, migration hooks, introspector and structural driver into one vertical. A `Driver` is its execution boundary: a required dialect object
 and a method that runs a compiled query and returns rows, with optional streaming. Repositories, transactions, replicas, logging, caching and observability compose around that boundary.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies ExecuteOptions; this excerpt does not repeat those declarations."}
 import { type CompiledQuery, type SqlDialect } from '@zmdb/sql';
 
 export interface Driver<Name extends string = string> {
@@ -31,7 +31,7 @@ and its client explicitly. The child packages own their differing schema, catalo
 
 ## Configure the client
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies UserSchema; this excerpt does not repeat those declarations."}
 // node:sqlite — no external dependency
 import { DatabaseSync } from 'node:sqlite';
 import { defineRepository } from '@zmdb/orm';
@@ -41,7 +41,7 @@ const db = new DatabaseSync('app.db');
 const users = defineRepository(UserSchema, sqliteDriver(db));
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies UserSchema; this excerpt does not repeat those declarations."}
 // mysql2 — selected by the application
 import mysql2 from 'mysql2/promise';
 import { mysqlDriver } from '@zmdb/mysql';
@@ -56,7 +56,7 @@ const pool = mysql2.createPool({
 const users = defineRepository(UserSchema, mysqlDriver(pool));
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies UserSchema, defineRepository; this excerpt does not repeat those declarations."}
 // pg (node-postgres)
 import { Pool } from 'pg';
 import { postgresDriver } from '@zmdb/postgres';
@@ -71,7 +71,7 @@ const fast = postgresDriver(pool, { prepared: true });
 const cancellable = postgresDriver(pool, { cancelVia: pool });
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies UserSchema, defineRepository; this excerpt does not repeat those declarations."}
 // node-mssql — pass an already-connected pool
 import sql from 'mssql';
 import { mssqlDriver } from '@zmdb/mssql';
@@ -112,7 +112,7 @@ dialect where its behavior matches, but must state the limits of its adapter and
 Supply a structural adapter when the selected provider API does not fit an official client adapter. Preserve the dialect and parameter array, and implement only the transaction, streaming and
 cancellation behavior that the provider actually supports:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies D1Database; this excerpt does not repeat those declarations."}
 import { type Driver } from '@zmdb/orm';
 import { sqlite } from '@zmdb/sqlite';
 
@@ -142,7 +142,7 @@ Three rules for a correct driver:
 Because a driver has one execution method plus its required dialect object, a wrapper is a driver. Wrappers must preserve `dialect` and forward the optional execute options so cancellation is not
 lost:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies cachingDriver, loggingDriver, primary, replicas, sink, store, withReplicas; this excerpt does not repeat those declarations."}
 const driver = loggingDriver(cachingDriver(withReplicas({ primary, replicas }), store, 5_000), sink);
 ```
 
@@ -155,7 +155,7 @@ workers and CLI scripts alike rather than just the HTTP path. Retrying a whole t
 
 Either form works. `defineRepository` recovers the declared type from the schema, and its relations with it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies UserSchema, defineRepository, driver; this excerpt does not repeat those declarations."}
 const users = defineRepository(UserSchema, driver);
 ```
 
@@ -163,7 +163,7 @@ The driver carries the required dialect object, so repository construction needs
 
 Or a subclass, when you want to add methods or [lifecycle hooks](./lifecycle-hooks.html):
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies User, UserSchema, driver; this excerpt does not repeat those declarations."}
 import { BaseRepository } from '@zmdb/orm';
 
 class UserRepository extends BaseRepository<User> {
@@ -179,7 +179,7 @@ Repository construction uses `driver.dialect`; there is no implicit database or 
 
 A transaction is a driver bound to one connection. `withTransaction` re-binds a repository onto it, so every method on the returned repository runs inside the transaction:
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies CompiledQuery, accounts, driver, pool, users; this excerpt does not repeat those declarations."}
 const client = await pool.connect();
 try {
   await client.query('BEGIN');
@@ -218,7 +218,7 @@ Two things to be careful about:
 
 zmdb parses none — that is your client's job, and every client already does it. `new Pool({ connectionString })` and `createPool({ uri })` both accept a URL directly.
 
-```ts
+```ts {"mode":"illustrative","id":"example-011","reason":"The surrounding example supplies Pool; this excerpt does not repeat those declarations."}
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 10 });
 ```
 
@@ -231,7 +231,7 @@ Pool sizing, PgBouncer and serverless connection limits are on [Connect to Postg
 
 A driver is a function, so a fake is three lines:
 
-```ts
+```ts {"mode":"illustrative","id":"example-012","reason":"The surrounding example supplies CompiledQuery, Driver, defineRepository, expect, users; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 const calls: CompiledQuery[] = [];

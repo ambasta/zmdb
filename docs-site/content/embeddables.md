@@ -5,7 +5,7 @@ Embeddables let you compose complex value objects from multiple columns. Instead
 
 The embeddable is a plain interface. The table declares one column per field, and two helpers move between the two shapes.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseRepository; this excerpt does not repeat those declarations."}
 import { flattenEmbeddable, liftEmbeddable } from '@zmdb/schema/entity-modeling';
 import { assert } from '@zmdb/validator';
 import { schemaOf } from 'zmdb';
@@ -76,7 +76,7 @@ flat layout — see below for the version where the type system holds them toget
 
 For a nested structure you never filter on, one `json` column carries the whole thing and the shape stays in the declaration:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
 interface OrderMetadata {
   source: string;
   priority: number;
@@ -99,7 +99,7 @@ column type, rather than being reassembled from four columns whose names have to
 
 Embeddables integrate with `@zmdb/validator`. There is no separate validator to construct — the embeddable's interface is the argument:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Address, incomingAddress; this excerpt does not repeat those declarations."}
 import { validate } from '@zmdb/validator';
 
 const result = validate<Address>(incomingAddress);

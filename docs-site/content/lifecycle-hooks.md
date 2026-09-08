@@ -3,11 +3,11 @@ Lifecycle hooks let you react to entity events — `beforeCreate`, `afterCreate`
 
 ## What is built
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { EventBus, type LifecycleEvent, type Subscriber } from '@zmdb/orm/entity-modeling';
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This API-signature excerpt documents the call shape and omits its implementation body."}
 export type LifecycleEvent = 'beforeCreate' | 'afterCreate' | 'beforeUpdate' | 'afterUpdate' | 'beforeDelete' | 'afterDelete';
 
 export interface Subscriber {
@@ -23,7 +23,7 @@ class EventBus {
 
 That is the whole surface. Note the sub-path import — `EventBus` is not re-exported from the `@zmdb/orm` root.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies EventBus; this excerpt does not repeat those declarations."}
 const bus = new EventBus();
 
 const unsub = bus.subscribe({
@@ -46,7 +46,7 @@ the transactional outbox.
 
 There is no `@BeforeCreate` decorator and no implicit dispatch. Emitting is an override you write:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies User, UserSchema; this excerpt does not repeat those declarations."}
 import { BaseRepository, type UpdatePatch } from '@zmdb/orm';
 import { EventBus } from '@zmdb/orm/entity-modeling';
 import { type CreateDTO, type Entity, type PrimaryKeyOf } from '@zmdb/schema';
@@ -88,7 +88,7 @@ Match the base signatures exactly — `update(id: PrimaryKeyOf<T>, patch: Update
 The `beforeUpdate` event above receives the caller's `UpdatePatch` before repository validation, because the explicit `emit` precedes `super.update`. That is different from the built-in protected
 `preUpdate` hook:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 protected override preUpdate(patch: Record<string, unknown>): void {
   // validated; undefined keys removed; accepted keys rebuilt in schema order
   // branded expressions are the same objects supplied by the caller
@@ -106,7 +106,7 @@ uses the repository's internal keyed update path, so it fires `preUpdate` but no
 `Subscriber.run` takes `unknown`, so a handler typed `run: (ctx: { id: number }) => …` **does not compile**: `run` is a function-typed property, so its parameter is checked contravariantly. Narrow
 inside instead:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies audit, bus; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 
 bus.subscribe({
@@ -121,7 +121,7 @@ bus.subscribe({
 `assert<T>` **returns** the narrowed value — it is not an `asserts input is T` predicate — so bind the result rather than calling it as a bare statement. It costs one generated validator call and buys
 you a real error at the boundary instead of `undefined` reaching your audit table. The alternative — one bus per repository, so the type is known by construction — is often the better answer:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"This bus outline omits the subscription registration and disposal implementation in on()."}
 class TypedBus<T> {
   #subs: ((ctx: T) => void | Promise<void>)[] = [];
   on(fn: (ctx: T) => void | Promise<void>): () => void {
@@ -137,7 +137,7 @@ Twelve lines, fully typed, no narrowing. `EventBus` earns its keep when subscrib
 
 ## Ordering and failure
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies bus; this excerpt does not repeat those declarations."}
 bus.subscribe({ on: 'beforeCreate', run: () => console.log('first') });
 bus.subscribe({ on: 'beforeCreate', run: () => console.log('second') });
 ```
@@ -160,8 +160,8 @@ exception means "actually fine".
 
 A soft delete is a column and a predicate:
 
-```ts
-import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from 'zmdb/tags';
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies schemaOf; this excerpt does not repeat those declarations."}
+import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from '@zmdb/schema/tags';
 
 export interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -180,7 +180,7 @@ The tag makes `deletedAt` framework-managed: it remains visible on returned enti
 
 The protected hook still follows the caller's operation rather than the emitted SQL:
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies BaseRepository, User, audit, userSchema; this excerpt does not repeat those declarations."}
 class UserRepository extends BaseRepository<User> {
   static override readonly schema = userSchema;
 
@@ -201,7 +201,7 @@ Both `delete` and `hardDelete` invoke `preDelete` once. A soft delete emits an `
 `beforeCreate` setting `createdAt` is a hook that only fires when the write goes through your override. A column default fires always, including for migrations, bulk loads and anything writing outside
 your process:
 
-```ts
+```ts {"mode":"illustrative","id":"example-011","reason":"The surrounding example supplies HasDefault, Sql; this excerpt does not repeat those declarations."}
 createdAt: Date & Sql<'timestamp'> & HasDefault;
 ```
 

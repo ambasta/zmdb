@@ -21,7 +21,7 @@ rising count.
 
 ## Matching is bucketed, then first-match
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AdminController, PostsController, router; this excerpt does not repeat those declarations."}
 router.register(PostsController); // /posts/:id
 router.register(AdminController); // /posts/admin
 ```
@@ -49,13 +49,13 @@ In order of how often it is the answer:
 
 **Response size.** Serialising a 2MB response costs real CPU in `JSON.stringify` and real time on the wire. `select` the fields you send:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.list({ select: ['id', 'title'], page: { limit: 20 } });
 ```
 
 **Awaiting things that could be concurrent.**
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies id; this excerpt does not repeat those declarations."}
 const [post, comments] = await Promise.all([this.posts.findById(id), this.comments.find({ postId: id })]);
 ```
 
@@ -81,7 +81,7 @@ and bytes you send — not the router.
 
 Wrap the driver, since that is where the time is:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 function timed(inner: Driver): Driver {
   return {
     ...inner,
@@ -125,7 +125,7 @@ Do not enable a JIT-warmup snapshot or `--jitless` experiments without benchmark
 
 Node runs your handlers on one thread, so a single process uses one core no matter how many the box has. To use the rest, run more processes — but set the accept policy first:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies createServer, router, toNodeHandler; this excerpt does not repeat those declarations."}
 import cluster from 'node:cluster';
 import { availableParallelism } from 'node:os';
 

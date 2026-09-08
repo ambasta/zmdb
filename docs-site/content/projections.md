@@ -5,7 +5,7 @@ projections to fetched rows.
 
 The repository's read methods accept a `select` option that narrows the returned row type. This is type-safe — only valid column keys from the schema are allowed.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, users; this excerpt does not repeat those declarations."}
 import { type Entity } from '@zmdb/schema';
 
 // Given `interface User` with columns: id, email, role, createdAt
@@ -21,7 +21,7 @@ const minimal = await users.findById(1, { select: ['email', 'role'] as const });
 
 The `project()` function applies a column selection to a fetched row, returning a new object with only the specified keys.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { project } from '@zmdb/schema/dto';
 
 const row = { id: 1, email: 'a@b.com', role: 'admin', createdAt: new Date() };
@@ -38,7 +38,7 @@ const full = project(row, undefined);
 
 When you specify `select` in a repository call, the compiler emits only those columns in the SELECT clause.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies qb; this excerpt does not repeat those declarations."}
 const q = qb.selectFrom('users').select(['email', 'role']).where('id', '=', 1).compile();
 
 console.log(q.text);
@@ -53,7 +53,7 @@ console.log(q.text);
 - Dashboard queries fetching only display columns
 - Reducing memory footprint for large result sets
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies id, users; this excerpt does not repeat those declarations."}
 // Expose only public-safe user data
 const publicUser = await users.findById(id, {
   select: ['id', 'email', 'role'] as const,

@@ -23,7 +23,7 @@ the recorded server qualification to that service.
 
 ## Using it
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 import { cockroach, cockroachDriver } from '@zmdb/cockroach';
 import { createQueryCompiler } from '@zmdb/sql';
 import { defineRepository } from '@zmdb/orm';
@@ -70,7 +70,7 @@ that raw value as an opaque parameter rather than coercing it to `Number`. Use t
 
 For a UUID primary key, keep the explicit declaration:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import type { HasDefault, PrimaryKey, Sql, Table, Unique } from 'zmdb/tags';
 
 export interface User extends Table<'users'> {
@@ -89,7 +89,7 @@ ALTER TABLE "users" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 
 Cockroach is serializable by default, so `40001` (`RETRY_SERIALIZABLE`) under contention is normal. Give the pinned transaction connection the Cockroach dialect and opt into bounded retries:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies accountId, accounts, cockroach, connection, createTransactionalDb, patch; this excerpt does not repeat those declarations."}
 const db = createTransactionalDb({ ...connection, dialect: cockroach });
 
 await db.transaction(

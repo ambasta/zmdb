@@ -1,6 +1,6 @@
 `where` accepts a column, operator and value. Chained `where` clauses are ANDed; use `orWhere` for OR.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This chained-call fragment omits the query object and the surrounding application declarations."}
 .where('role', '=', 'admin')
 .where('createdAt', '>', someDate)
 .where('id', 'in', [1, 2, 3])
@@ -28,7 +28,7 @@ and SQL Server `!<`, while refusing quotes, whitespace, semicolons, SQL comment 
 For the repository/read side there is a **typed** filter DTO derived from your schema (`@zmdb/schema/dto`). Each column is keyed to its value type with an operator set, and `compileWhere` folds it
 into the query builder.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User, builder; this excerpt does not repeat those declarations."}
 import { compileWhere } from '@zmdb/orm/dto';
 import { type WhereDTO } from '@zmdb/schema/dto';
 

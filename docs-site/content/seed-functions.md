@@ -2,7 +2,7 @@
 
 ## Generating rows
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./schema.js; this fence is an excerpt of that project."}
 import { seedRows } from '@zmdb/orm/seeding';
 import { userSchema } from './schema.js';
 
@@ -24,7 +24,7 @@ Auto-increment and defaulted columns are **omitted**, so the shape and the stati
 
 `seedRows` returns data; writing it is a separate step, because the generator has no connection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies repo, seedRows, userSchema; this excerpt does not repeat those declarations."}
 for (const row of seedRows(userSchema, { count: 50, seed: 1 })) {
   await repo.create(row);
 }
@@ -32,7 +32,7 @@ for (const row of seedRows(userSchema, { count: 50, seed: 1 })) {
 
 Fifty round trips. For a large seed, batch through the compiler instead:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createQueryCompiler, driver, rows; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 const q = createQueryCompiler(postgres).insertInto('users').values(rows).compile();
@@ -47,7 +47,7 @@ await driver.execute(q);
 `makeRng(seed)` is the deterministic generator underneath, and it is exported because a seed script usually needs more than rows — picking a random existing id, choosing a category, deciding whether
 an optional field is set:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies authorRepo, postRepo, postSchema; this excerpt does not repeat those declarations."}
 import { makeRng, seedRows } from '@zmdb/orm/seeding';
 
 const rng = makeRng(42);
@@ -65,7 +65,7 @@ Using the same seed for `makeRng` and `seedRows` keeps the whole script reproduc
 
 A `References<'authors.id'>` column gets a value of the right _type_, not an id that exists. Seed in dependency order and substitute real keys:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies authorRepo, authorSchema, pick, postRepo, postSchema, seedRows; this excerpt does not repeat those declarations."}
 const authors = [];
 for (const a of seedRows(authorSchema, { count: 10, seed: 1 })) {
   authors.push(await authorRepo.create(a));
@@ -82,7 +82,7 @@ There is no relation-aware seeding that does this for you — see below.
 
 The generator produces values that satisfy the declaration, not values that look like names. Override the field:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies seedRows, userSchema; this excerpt does not repeat those declarations."}
 const names = ['Ada', 'Grace', 'Alan', 'Barbara'];
 seedRows(userSchema, { count: 4, seed: 1 }).map((r, i) => ({ ...r, name: names[i] ?? r.name }));
 ```
@@ -103,7 +103,7 @@ Write that column yourself, or keep the pattern off it and check the value at th
 
 The value here is that a fixture is derived from the schema, so adding a column does not break every test that built a row by hand:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies repo, seedRows, userSchema; this excerpt does not repeat those declarations."}
 const [user] = seedRows(userSchema, { count: 1, seed: 1 });
 const created = await repo.create(user);
 ```
@@ -114,7 +114,7 @@ Use a distinct seed per test so one test's data cannot make another pass. See [T
 
 For a payload that is not a table row, `random<T>()` in the validator does the same job against an arbitrary type:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies CreateUserRequest; this excerpt does not repeat those declarations."}
 import { random } from '@zmdb/validator';
 
 const body = random<CreateUserRequest>();

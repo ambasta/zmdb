@@ -1,7 +1,7 @@
 `@zmdb/web` responses can carry text, bytes or a `ReadableStream`. Both adapters honour the body kind; the Node adapter respects `write()` backpressure and cancels the source when the client
 disconnects.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 export type ResponseBody =
   | { readonly kind: 'text'; readonly value: string }
   | { readonly kind: 'bytes'; readonly value: Uint8Array<ArrayBuffer> }
@@ -19,7 +19,7 @@ and is serialized as `200 application/json`.
 
 Only code that reads or constructs `WebResponse.body` directly must account for the union:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This return fragment omits the application function that contains it."}
 return respond({
   body: html,
   headers: { 'content-type': 'text/html; charset=utf-8' },
@@ -33,7 +33,7 @@ tests can call `await bodyText(response)`; doing so drains a stream.
 
 Use `stream()` for an application-owned web stream:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 import { stream } from '@zmdb/web';
 
 @Get('/events')
@@ -53,7 +53,7 @@ streaming framing.
 
 ## Send bytes
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This return fragment omits the application function that contains it."}
 import { bytes } from '@zmdb/web';
 
 return bytes(png, {
@@ -65,7 +65,7 @@ The byte length overrides a caller-supplied `content-length`. Framing belongs to
 
 ## Send a known file
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 import { file } from '@zmdb/web';
 
 @Get('/files/:id')
@@ -97,7 +97,7 @@ For large public downloads, a presigned object-storage URL is still usually the 
 
 Both adapters default `maxBodyBytes` to 1 MiB:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies createServer, router, toFetchHandler, toNodeHandler; this excerpt does not repeat those declarations."}
 createServer(toNodeHandler(router, { maxBodyBytes: 8 * 1024 * 1024 }));
 const fetch = toFetchHandler(router, { maxBodyBytes: 8 * 1024 * 1024 });
 ```

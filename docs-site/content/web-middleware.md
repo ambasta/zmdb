@@ -2,7 +2,7 @@ The request **middleware chain** — the NestJS analogue of guards, pipes, inter
 
 ## The four roles
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { json, type Guard, type Pipe, type Interceptor, type ExceptionFilter } from '@zmdb/web';
 
 const AuthGuard: Guard = { canActivate: ctx => Boolean(ctx.headers.authorization) };
@@ -34,7 +34,7 @@ guards → pipes (fold the body) → interceptor(before) → handler → interce
                                                                    ↘ on throw → exception filters
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AuthGuard, NotFoundFilter, Timing, TrimPipe, ctx; this excerpt does not repeat those declarations."}
 import { runChain, type Chain } from '@zmdb/web';
 
 const chain: Chain = { guards: [AuthGuard], pipes: [TrimPipe], interceptors: [Timing], filters: [NotFoundFilter] };
@@ -61,7 +61,7 @@ The multipart boundary error is narrower than a user-created `ChainError`: the r
 
 Since it is a function call, factor the wrapper and use it at each handler:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 const STANDARD: Chain = { guards: [AuthGuard], pipes: [TrimPipe], interceptors: [Timing], filters: [] };
 
 @Get('/')
@@ -72,7 +72,7 @@ list(ctx: Ctx<Record<never, string>, unknown>) {
 
 Then a behavioural test that no handler forgot it — a convention nobody checks is not a control:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies MUTATING, app, expect, it; this excerpt does not repeat those declarations."}
 it('every mutating route rejects an unauthenticated request', async () => {
   for (const route of MUTATING) {
     const out = await app.request({ method: route.method, path: route.path, headers: {} });

@@ -18,7 +18,7 @@ and do not wrap Encore's endpoints in `@zmdb/web` — you would lose the tracing
 
 ## A driver over Encore's database
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This excerpt requires separately supplied external modules: encore.dev/storage/sqldb. Their application setup is outside this standalone fence."}
 import { SQLDatabase } from 'encore.dev/storage/sqldb';
 import { type Driver } from '@zmdb/orm';
 
@@ -41,7 +41,7 @@ Everything downstream now works: `defineRepository`, `Entity<S>`, `CreateDTO<S>`
 
 Encore provisions the database and expects to own its schema, and it applies `migrations/1_x.up.sql` on deploy. Generate the SQL from your schemas and commit it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The application supplies the local modules ../src/schema.js; this fence is an excerpt of that project."}
 // scripts/emit-migration.ts
 import { diff, emitUp, snapshot } from 'zmdb/migrations';
 import { writeFileSync } from 'node:fs';
@@ -61,7 +61,7 @@ Do **not** also call `up(...)`. Two runners with two version tables against one 
 Encore derives validation from an endpoint's request type, which covers the boundary. So the AOT validators are largely redundant here — and Encore compiles with its own toolchain, so the transformer
 does not run:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false); // expect this to fail under Encore
 });
@@ -72,13 +72,13 @@ Rely on Encore's endpoint validation, and use zmdb's `assert` only in modules yo
 
 ## Transactions
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies db; this excerpt does not repeat those declarations."}
 await using tx = await db.begin();
 ```
 
 Encore's transaction handle is its own. Since zmdb's `withTransaction` needs a driver bound to the transaction, build one per transaction:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Driver, Transaction, defineRepository, posts, tx; this excerpt does not repeat those declarations."}
 function txDriver(tx: Transaction): Driver {
   return {
     async execute(query) {

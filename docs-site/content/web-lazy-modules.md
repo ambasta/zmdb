@@ -6,7 +6,7 @@ only when one of its routes or its handle first loads it.
 
 ## Declare a lazy import
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AdminModule, CoreModule; this excerpt does not repeat those declarations."}
 import { lazy, Module } from '@zmdb/app/modules';
 
 @Module({
@@ -19,7 +19,7 @@ class AppModule {}
 
 Eager imports remain the default:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AdminModule, CoreModule, Module; this excerpt does not repeat those declarations."}
 @Module({ imports: [CoreModule, AdminModule] })
 class AppModule {}
 ```
@@ -59,7 +59,7 @@ No route is added after startup, and no decorator metadata is read per request. 
 
 ## Observe or trigger a load
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createApp; this excerpt does not repeat those declarations."}
 const app = createApp(AppModule);
 await app.init();
 

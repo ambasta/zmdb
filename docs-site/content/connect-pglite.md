@@ -2,7 +2,7 @@ Dialect: `'postgres'`. PGlite is real Postgres compiled to WebAssembly — so yo
 
 ## Setup
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This excerpt requires separately supplied external modules: @electric-sql/pglite. Their application setup is outside this standalone fence."}
 import { PGlite } from '@electric-sql/pglite';
 import { type Driver } from '@zmdb/orm';
 
@@ -22,7 +22,7 @@ audited boundary, and a driver that asserts here only hides a mismatch.
 
 Then use the Postgres dialect, because it _is_ Postgres:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies defineRepository, driver, users; this excerpt does not repeat those declarations."}
 const repo = defineRepository(users, driver);
 ```
 
@@ -31,7 +31,7 @@ const repo = defineRepository(users, driver);
 [SQLite is faster to start](./connect-sqlite.html), but it is a different database — testing on SQLite leaves `ILIKE`, `RETURNING`, `ON CONFLICT`, JSON operators and transactional DDL untested. PGlite
 closes that gap:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Driver, PGlite, allSchemas; this excerpt does not repeat those declarations."}
 import { beforeEach } from 'vitest';
 import { diff, emitUp, snapshot } from 'zmdb/migrations';
 
@@ -51,7 +51,7 @@ database, PGlite for anything that exercises Postgres-specific SQL, and a real P
 
 ## Persistence and reuse
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies PGlite; this excerpt does not repeat those declarations."}
 const pg = await PGlite.create('./data/app'); // Node: a directory
 const pg = await PGlite.create('idb://my-app'); // browser: IndexedDB
 const pg = await PGlite.create('opfs-ahp://my-app'); // browser: OPFS, faster
@@ -59,7 +59,7 @@ const pg = await PGlite.create('opfs-ahp://my-app'); // browser: OPFS, faster
 
 To reuse one instance across a test file and reset between tests, truncate rather than recreate — it is much faster than a fresh instance:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies allSchemas, beforeEach, pg; this excerpt does not repeat those declarations."}
 beforeEach(async () => {
   await pg.exec(`TRUNCATE ${allSchemas.map(s => `"${s.table}"`).join(', ')} CASCADE`);
 });
@@ -69,7 +69,7 @@ beforeEach(async () => {
 
 PGlite bundles several, including `pgvector` — which makes it the only way to exercise [vector search](./guide-vector-search.html) without a server:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies PGlite; this excerpt does not repeat those declarations."}
 import { vector } from '@electric-sql/pglite/vector';
 
 const pg = await PGlite.create({ extensions: { vector } });
@@ -80,7 +80,7 @@ await pg.exec('CREATE EXTENSION IF NOT EXISTS vector');
 
 The whole read path works client-side, because the compiler is pure string manipulation:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies createQueryCompiler, pg; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 const q = createQueryCompiler(postgres).selectFrom('users').where('active', '=', true).compile();

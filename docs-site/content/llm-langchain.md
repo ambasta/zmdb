@@ -13,7 +13,7 @@
 
 `langchainTool` supplies the fields `DynamicStructuredTool` expects. Its validator runs before the handler and returns the decoded application value. This example compiles against the tested peer:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { langchainTool } from '@zmdb/ai-langchain';
 import { assert } from '@zmdb/validator';
@@ -51,7 +51,7 @@ LangChain tool results are text. The adapter passes strings through and JSON-str
 
 The straightforward version needs no vector store at all — Postgres full-text search is often enough, and it is one query:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies docRepo; this excerpt does not repeat those declarations."}
 import { BaseRetriever } from '@langchain/core/retrievers';
 import { Document } from '@langchain/core/documents';
 
@@ -83,7 +83,7 @@ index. Typed distance expressions are not available yet, so the similarity query
 
 LangChain's `BaseChatMessageHistory` is three methods, and a [messages table](./llm-chat.html) is the backing store:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies BaseMessage, messageRepo; this excerpt does not repeat those declarations."}
 import { BaseListChatMessageHistory } from '@langchain/core/chat_history';
 import { mapStoredMessagesToChatMessages, mapChatMessagesToStoredMessages } from '@langchain/core/messages';
 

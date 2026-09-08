@@ -5,7 +5,7 @@ from the route string** at compile time — you never hand-write it, and you nev
 
 `PathParams<Path>` reads `:name` segments out of a route string via template-literal types:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { PathParams } from '@zmdb/web';
 
 type A = PathParams<'/users/:id'>; // { id: string }
@@ -16,7 +16,7 @@ type D = PathParams<'/files/:path'>; // { path: string }
 
 ## The `Ctx` object
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 interface Ctx<Params, Body, Query> {
   readonly params: Params; // derived from the route path
   readonly body: Body;
@@ -31,7 +31,7 @@ interface Ctx<Params, Body, Query> {
 
 `HandlerFor<Path, Body>` ties `ctx.params` to the route string, so a typo in a param name is a **compile error** — no runtime surprise, no assertion:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import type { HandlerFor } from '@zmdb/web';
 
 const getUser: HandlerFor<'/users/:id', never> = ctx => {
@@ -45,7 +45,7 @@ const getUser: HandlerFor<'/users/:id', never> = ctx => {
 
 `extractParams(pattern, path)` turns a request path into the params object (or `undefined` on a mismatch):
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import { extractParams } from '@zmdb/web';
 
 extractParams('/users/:id', '/users/42'); // { id: '42' }
@@ -56,7 +56,7 @@ extractParams('/health', '/health'); // {}
 It compiles `pattern` on every call, which is what you want for a one-off match and not what you want in a hot loop. A route pattern is a constant, so the dispatcher splits the work in two and does
 the pattern half once, at registration:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 import { compilePattern, countSegments, matchCompiled } from '@zmdb/web';
 
 const route = compilePattern('/users/:id'); // once, at boot

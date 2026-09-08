@@ -2,7 +2,7 @@
 
 ## Database clock
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Post extends Table<'posts'> {
@@ -38,13 +38,13 @@ dialect-neutral.
 
 ## Application clock
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Sql; this excerpt does not repeat those declarations."}
 createdAt: Date & Sql<'timestamp'>;
 ```
 
 Drop `HasDefault` and the column becomes required in `CreateDTO`, so the compiler asks for the value:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies repo, title; this excerpt does not repeat those declarations."}
 await repo.create({ title, createdAt: new Date() });
 ```
 
@@ -57,7 +57,7 @@ There is no hook that maintains it in the DDL, and no `ON UPDATE CURRENT_TIMESTA
 
 **A repository hook** — typed, in your code:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies BaseRepository, Post, schemaOf; this excerpt does not repeat those declarations."}
 const postSchema = schemaOf<Post>();
 
 class PostRepository extends BaseRepository<Post> {
@@ -107,7 +107,7 @@ Store UTC, convert at the edges, format in the user's zone in the UI. Never stor
 node-postgres parses `timestamp`/`timestamptz` to `Date`. mysql2 gives you `Date` or a string depending on configuration. SQLite gives you whatever you stored. So `Entity<Post>` says `Date` and your
 driver may hand you a string:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies row; this excerpt does not repeat those declarations."}
 const at = row.createdAt instanceof Date ? row.createdAt : new Date(String(row.createdAt));
 ```
 

@@ -2,7 +2,7 @@
 
 ## Singleton and transient
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Driver, PostsController, driver, randomUUID; this excerpt does not repeat those declarations."}
 import { createToken } from '@zmdb/app/di';
 import { Module } from '@zmdb/app/modules';
 
@@ -21,14 +21,14 @@ export class AppModule {}
 
 `ProviderDef` is one of two shapes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 { token, useValue }
 { token, useFactory: (c: Container) => T, scope?: Scope }
 ```
 
 A factory receives the `Container`, so a provider can depend on another:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 { token: POSTS, useFactory: (c) => defineRepository(posts, c.resolve(DRIVER)) }
 ```
 
@@ -43,7 +43,7 @@ app avoids. A lazy controller moves that one construction to its first load; it 
 
 The consequence is that request-specific values are **passed**, not injected. There is [no ambient request context](./web-request-context.html) either — no `AsyncLocalStorage`, no `ctx.state` bag.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Controller, Ctx, Get, Inject, POSTS, PostRepo, tenantFrom; this excerpt does not repeat those declarations."}
 @Controller('/posts')
 export class PostsController {
   @Inject(POSTS) private readonly repo!: PostRepo;
@@ -59,7 +59,7 @@ export class PostsController {
 
 Build the dependency per request in the handler. A repository is an object over a `Driver`, so this allocation is trivial:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/')
 async list(ctx: Ctx<Record<never, string>, unknown>) {
   const repo = defineRepository(posts, driverFor(tenantFrom(ctx.headers)));
@@ -78,7 +78,7 @@ transaction-local detail that prevents a cross-tenant leak on a pooled connectio
 A transaction is the request-scoped lifecycle people usually reach for a scope to express, and it needs no scope mechanism — `db.transaction` owns the callback, and `repo.withTransaction(tx)` returns
 a **new repository instance** bound to that transaction's connection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies dto, slugify; this excerpt does not repeat those declarations."}
 await this.db.transaction(async tx => {
   const posts = this.repo.withTransaction(tx);
   const post = await posts.create(dto);
@@ -93,7 +93,7 @@ The bound repository lives for the callback and no longer; `this.repo` is untouc
 
 Because everything is a singleton behind a token, overrides are the whole testing story:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies AppModule, DRIVER, createTestApp, fakeDriver; this excerpt does not repeat those declarations."}
 const app = createTestApp(AppModule, {
   overrides: [{ token: DRIVER, useValue: fakeDriver }],
 });

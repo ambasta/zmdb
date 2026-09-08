@@ -2,7 +2,7 @@ Supabase Edge Functions run on Deno. zmdb's runtime works there without changes;
 
 ## A function
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./app-module.ts; this fence is an excerpt of that project."}
 // supabase/functions/api/index.ts
 import { createApp } from 'npm:@zmdb/web';
 import { AppModule } from './app-module.ts';
@@ -24,7 +24,7 @@ Deno strips type annotations and runs the result. There is no TypeScript transfo
 
 **`assert<T>(body)` therefore returns the body unchanged and performs no validation.** It produces neither an error nor a warning.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies assert; this excerpt does not repeat those declarations."}
 // in a Supabase Edge Function, this passes
 assert<{ id: number }>({ id: 'not a number' });
 ```
@@ -34,7 +34,7 @@ Two practical options:
 **1. Do not use the AOT validators here.** Everything else works natively — the query compiler, `BaseRepository`, the derived DTO _types_, `@zmdb/web` routing and `@zmdb/app` DI. `schemaOf<T>()` needs
 the transform, so run the build step over the function's source and deploy the output. Validate the boundary with something Deno can run:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Deno, postRepo; this excerpt does not repeat those declarations."}
 import { z } from 'npm:zod';
 
 const CreatePost = z.object({ title: z.string().min(1), body: z.string() });
@@ -53,7 +53,7 @@ platform designed not to need one.
 
 Whichever you choose, put the canary where it will be seen:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Deno, assertEquals, is; this excerpt does not repeat those declarations."}
 Deno.test('the transformer is running', () => {
   assertEquals(is<{ id: number }>({ id: 'x' }), false); // fails on Deno
 });
@@ -65,13 +65,13 @@ Expect it to fail here. That is the point — a failing canary is the signal to 
 
 Use the Supabase-provided connection details. From an Edge Function, prefer the HTTP-capable path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This excerpt requires separately supplied external modules: npm:@neondatabase/serverless. Their application setup is outside this standalone fence."}
 import { neon } from 'npm:@neondatabase/serverless'; // works against any Postgres over HTTP proxying
 ```
 
 Or `postgres` over TCP, which Deno supports:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Deno; this excerpt does not repeat those declarations."}
 import postgres from 'npm:postgres';
 
 const dbUrl = Deno.env.get('SUPABASE_DB_URL');
@@ -98,7 +98,7 @@ This is the Supabase-specific design decision. If your tables have RLS policies,
 
 zmdb has no notion of RLS and no ambient request context, so passing the user's claims means a per-request driver:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies postgres, url; this excerpt does not repeat those declarations."}
 function driverFor(jwt: string) {
   const sql = postgres(url, { max: 1, prepare: false });
   return {

@@ -1,7 +1,7 @@
 Nothing in the framework is global. `createApp` returns an independent object with its own container and its own router, so running several servers in one process is a matter of calling it more than
 once.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AdminModule, PublicModule, createApp; this excerpt does not repeat those declarations."}
 const publicApp = createApp(PublicModule);
 await publicApp.init();
 const adminApp = createApp(AdminModule);
@@ -28,7 +28,7 @@ configuration. A guard is one mistake away from being bypassed; a socket that do
 
 They share nothing by default. If both need the same connection pool — and they should, rather than opening two — build it outside and inject the same instance:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies DRIVER, Module, Pool, env, makeDriver; this excerpt does not repeat those declarations."}
 // shared.module.ts
 const pool = new Pool({ connectionString: env.DATABASE_URL, max: 10 });
 
@@ -36,7 +36,7 @@ const pool = new Pool({ connectionString: env.DATABASE_URL, max: 10 });
 export class SharedModule {}
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AdminController, Module, PublicController, SharedModule; this excerpt does not repeat those declarations."}
 @Module({ imports: [SharedModule], controllers: [PublicController] })
 export class PublicModule {}
 
@@ -49,7 +49,7 @@ provider overrides. Those remain a `createTestApp` feature, so a shared instance
 
 If you need overrides outside a test, drop one level down and wire the router yourself:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies DRIVER, PublicModule, createServer, driver; this excerpt does not repeat those declarations."}
 import { compileModule } from '@zmdb/app/modules';
 import { createRouter, toNodeHandler } from '@zmdb/web/pipeline';
 
@@ -84,14 +84,14 @@ The crash row is the one to weigh. An unhandled rejection in the admin app takes
 
 Often what you actually want — one port, routes from two modules:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies RootModule, createApp; this excerpt does not repeat those declarations."}
 const app = createApp(RootModule); // RootModule imports both
 await app.init();
 ```
 
 Or, if the modules must stay separate, dispatch by prefix in the adapter:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies adminApp, createServer, publicApp, webRequest; this excerpt does not repeat those declarations."}
 import { bodyText } from '@zmdb/web';
 
 createServer(async (req, res) => {
@@ -112,7 +112,7 @@ Prefix dispatch on a single port is **not** a security boundary. Anything reacha
 
 The adapters are transport-agnostic — they produce a Node request handler, so any Node server accepts them:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies adminRouter, cert, key, publicRouter, toNodeHandler; this excerpt does not repeat those declarations."}
 import { createSecureServer } from 'node:http2';
 import { createServer as createHttps } from 'node:https';
 
@@ -127,7 +127,7 @@ certificate is a full outage.
 
 `WebApplication.fetch` is already a `(Request) => Promise<Response>` for Workers, Deno and Bun. Multiple apps compose directly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies adminApp, publicApp; this excerpt does not repeat those declarations."}
 const handlePublic = (request: Request) => publicApp.fetch(request);
 const handleAdmin = (request: Request) => adminApp.fetch(request);
 

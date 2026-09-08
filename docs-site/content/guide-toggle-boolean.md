@@ -1,6 +1,6 @@
 Use the branded `not()` expression when the new state must be the inverse of the value currently stored:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies id, userRepo; this excerpt does not repeat those declarations."}
 import { not } from 'zmdb/sql';
 
 const user = await userRepo.update(id, { active: not() });
@@ -30,7 +30,7 @@ The sole parameter is the id, `7`. MySQL omits `RETURNING`; Postgres and SQLite 
 
 ## The read-then-write, and its race
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies id, userRepo; this excerpt does not repeat those declarations."}
 const user = await userRepo.findById(id);
 await userRepo.update(id, { active: !(user?.active ?? false) });
 ```
@@ -42,7 +42,7 @@ It is also the more common bug in practice: a double-clicked button sends two re
 
 ## Compiler form
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
 import { createQueryCompiler, not } from 'zmdb/sql';
 import { postgres } from 'zmdb/postgres';
 
@@ -60,7 +60,7 @@ The Postgres family, SQLite and SQL Server return the computed row; SQL Server s
 
 The deeper point: a toggle endpoint is usually a design mistake. `PATCH /users/:id { active: false }` is idempotent, retry-safe, and expressible in the typed API with no raw SQL:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Patch('/users/:id')
 async setActive(ctx: Ctx<{ id: string }, { active: boolean }>) {
   const dto = assert<{ active: boolean }>(ctx.body);

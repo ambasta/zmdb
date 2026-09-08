@@ -4,7 +4,7 @@ A command application is the same compiled module graph, dependency injection, v
 
 The arguments are an ordinary DTO. Its emitted JSON Schema defines the flat argv surface, and its emitted validator checks the coerced object before `run` receives it.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ../src/post.js, ../src/slugify.js, ../zmdb.config.js; this fence is an excerpt of that project."}
 // scripts/backfill-slugs.ts
 import { assert, defineRepository, schemaOf } from 'zmdb';
 import { Command, createCommandApp } from '@zmdb/app/commands';
@@ -118,7 +118,7 @@ backfill-slugs acme --limit 100 --dry-run --tag urgent --tag repair
 
 becomes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 {
   tenant: 'acme',
   limit: 100,

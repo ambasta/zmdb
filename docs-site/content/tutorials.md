@@ -12,7 +12,7 @@ Worth knowing before you follow any tutorial, because each one otherwise interru
 
 **The AOT transformer must be configured.** If it is not, `is<T>()` and `assert<T>()` throw because the erased type argument has no runtime witness. Write this test first, in every project:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -22,7 +22,7 @@ See [AOT Setup](./aot-setup.html).
 
 **`References` is a tag, not a call.** The target is a `table.column` string literal, so there is nothing to import and no schema value to have on hand:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies References, Sql; this excerpt does not repeat those declarations."}
 authorId: number & Sql<'integer'> & References<'users.id'>;
 ```
 

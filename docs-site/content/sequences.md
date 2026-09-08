@@ -8,7 +8,8 @@ schema objects. zmdb provides declarative DDL functions to create and manage seq
 
 Use `createSequenceDdl` to generate the DDL for a sequence. You can specify optional `start` and `increment` values.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { createSequenceDdl } from '@zmdb/sql/schema-objects';
 
 const seqDef = {
@@ -17,7 +18,7 @@ const seqDef = {
   increment: 1,
 };
 
-const ddl = createSequenceDdl(seqDef, 'postgres');
+const ddl = createSequenceDdl(seqDef, postgres);
 console.log(ddl);
 ```
 
@@ -35,7 +36,7 @@ CREATE SEQUENCE [order_number_seq] START WITH 1000 INCREMENT BY 1
 
 A column fed by an explicit sequence is an ordinary `integer` column that says `HasDefault`:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import type { HasDefault, PrimaryKey, Sql, Table } from 'zmdb/tags';
 
 export interface Order extends Table<'orders'> {
@@ -60,7 +61,7 @@ ALTER TABLE "orders" ALTER COLUMN "order_number" SET DEFAULT nextval('order_numb
 
 To use a sequence in your application, call `nextval()` to retrieve the next value. This is typically done at the application level or through a trigger.
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 // Generating next sequence value via query compiler
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
@@ -82,7 +83,7 @@ SELECT nextval('order_number_seq')
 
 Sequences can be dropped using standard DDL. Include this in your migration files when removing tables that depend on custom sequences.
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 const dropSequenceDdl = `DROP SEQUENCE IF EXISTS "order_number_seq"`;
 ```
 

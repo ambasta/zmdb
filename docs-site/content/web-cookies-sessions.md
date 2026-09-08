@@ -3,7 +3,7 @@ session middleware; a session store is a provider you inject.
 
 ## Reading a cookie
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 export function parseCookies(header: string | undefined): Readonly<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const part of (header ?? '').split(';')) {
@@ -15,7 +15,7 @@ export function parseCookies(header: string | undefined): Readonly<Record<string
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/me')
 async me(ctx: Ctx<Record<never, string>, unknown>) {
   const sid = parseCookies(ctx.headers.cookie).sid;
@@ -31,7 +31,7 @@ debug.
 
 In the Node adapter:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies app, createServer, pendingCookieFor, webRequest; this excerpt does not repeat those declarations."}
 import { bodyText } from '@zmdb/web';
 
 createServer(async (req, res) => {
@@ -51,7 +51,7 @@ consumes the request stream, so a login `POST` body reaches the handler only if 
 Getting the value from the handler to the adapter is the awkward part, since there is no response object to attach it to. The workable arrangement is to have the login route return the session id in
 its body and let the adapter turn that into a cookie for that one path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies body, headers, out, req; this excerpt does not repeat those declarations."}
 const path = (req.url ?? '/').split('?')[0];
 if (path === '/auth/login' && out.status === 200) {
   const { sid } = JSON.parse(body) as { sid: string };
@@ -83,7 +83,7 @@ escalation. If you must, sign it and verify the signature with `timingSafeEqual`
 
 ## A session store as a provider
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Session; this excerpt does not repeat those declarations."}
 import { createToken } from '@zmdb/app/di';
 
 export interface SessionStore {
@@ -95,7 +95,7 @@ export interface SessionStore {
 export const SESSIONS = createToken<SessionStore>('SESSIONS');
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies AuthController, Module, RedisSessionStore, SESSIONS, env; this excerpt does not repeat those declarations."}
 @Module({
   providers: [{ token: SESSIONS, useFactory: () => new RedisSessionStore(env.REDIS_URL) }],
   controllers: [AuthController],
@@ -103,7 +103,7 @@ export const SESSIONS = createToken<SessionStore>('SESSIONS');
 export class AuthModule {}
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Controller, Inject, SESSIONS, SessionStore; this excerpt does not repeat those declarations."}
 @Controller('/auth')
 export class AuthController {
   @Inject(SESSIONS) private readonly sessions!: SessionStore;
@@ -114,13 +114,13 @@ export class AuthController {
 
 Behind a token, so a test substitutes an in-memory store:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies AppModule, MemoryStore, SESSIONS, createTestApp; this excerpt does not repeat those declarations."}
 createTestApp(AppModule, { overrides: [{ token: SESSIONS, useValue: new MemoryStore() }] });
 ```
 
 ## Session ids
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies randomBytes; this excerpt does not repeat those declarations."}
 const sid = randomBytes(32).toString('base64url');
 ```
 
@@ -134,7 +134,7 @@ Set an absolute expiry as well as an idle one. A session that refreshes forever 
 
 If you already have Postgres, you do not need Redis:
 
-```ts
+```ts {"mode":"compile","id":"example-010"}
 import type { PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Session extends Table<'sessions'> {

@@ -4,7 +4,7 @@
 
 `SelectBuilder` has nine `EXISTS` methods — `whereExists`, `andWhereExists`, `orWhereExists` and the `NotExists` counterparts:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies createQueryCompiler; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 const c = createQueryCompiler(postgres);
@@ -20,7 +20,7 @@ The correlation — `posts.author_id = users.id` — is what makes it a subquery
 
 ## Why not a join
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This pseudocode uses arrows or ellipses to omit implementation details from the surrounding example."}
 // join: a user with 40 posts arrives 40 times
 .innerJoin('posts', 'posts.author_id', 'users.id')
 
@@ -35,7 +35,7 @@ paper over it — which then forces a sort.
 
 Users who have never posted:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies c; this excerpt does not repeat those declarations."}
 c.selectFrom('users')
   .whereNotExists(c.selectFrom('posts').where('author_id', '=', c.ref('users.id')))
   .compile();
@@ -48,7 +48,7 @@ c.selectFrom('users')
 
 Every `FieldOps` operator accepts a `SubqueryTarget`, so a repository call can carry a subquery:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies c, userRepo; this excerpt does not repeat those declarations."}
 await userRepo.find({
   id: { in: c.selectFrom('posts').select(['author_id']).where('published', '=', true) },
 });
@@ -59,7 +59,7 @@ builder.
 
 ## Combining with other filters
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies c; this excerpt does not repeat those declarations."}
 c.selectFrom('users')
   .where('active', '=', true)
   .andWhereExists(c.selectFrom('orders').where('user_id', '=', c.ref('users.id')).where('total', '>', 100))
@@ -72,7 +72,7 @@ Note `andWhereExists`, not `whereExists`, once a predicate is already present �
 
 `posts.author_id` needs an index, or every outer row causes a scan of `posts`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies createIndexDdl; this excerpt does not repeat those declarations."}
 createIndexDdl({ name: 'posts_author', table: 'posts', columns: ['author_id'] }, 'postgres');
 ```
 

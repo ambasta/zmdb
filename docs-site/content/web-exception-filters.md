@@ -3,7 +3,7 @@ filter's response cannot reach the client unless you invoke the chain yourself.
 
 ## The interface
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Ctx, WebResponse; this excerpt does not repeat those declarations."}
 export interface ExceptionFilter {
   catch(error: unknown, ctx: Ctx): WebResponse | undefined;
 }
@@ -11,7 +11,7 @@ export interface ExceptionFilter {
 
 Returning `undefined` means "not mine" — the next filter gets a chance, and if none handles it the error propagates.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies isUniqueViolation; this excerpt does not repeat those declarations."}
 import { json } from '@zmdb/web';
 import type { ExceptionFilter } from '@zmdb/web/middleware';
 
@@ -28,7 +28,7 @@ untagged object remains an ordinary handler value and is serialized as a 200. Se
 
 ## The gap you must plan around
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies ctx, dbErrors, handler, runChain; this excerpt does not repeat those declarations."}
 const result = await runChain({ guards: [], pipes: [], interceptors: [], filters: [dbErrors] }, ctx, handler);
 ```
 
@@ -54,7 +54,7 @@ What is still missing is the cross-cutting part: a filter that applies to every 
 
 **For a 400, throw something with `issues`.** This is the supported path and it needs no filter:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies ValidationError; this excerpt does not repeat those declarations."}
 throw new ValidationError('title is required', [{ path: ['title'], message: 'required' }]);
 ```
 
@@ -63,7 +63,7 @@ than checking a class, so `ValidationError` from `@zmdb/schema` and your own err
 
 **For any other status, map it in your adapter.** The one place that can set a status and headers:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies app, createServer, errorName, publicMessage, webRequest; this excerpt does not repeat those declarations."}
 import { bodyText } from '@zmdb/web';
 
 const STATUS = new Map<string, number>([
@@ -90,13 +90,13 @@ This example uses `bodyText`, so it buffers a streamed response. Use `toNodeHand
 
 ## Never leak the error
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies STATUS_TEXT; this excerpt does not repeat those declarations."}
 function publicMessage(status: number): string {
   return status === 500 ? 'internal error' : (STATUS_TEXT[status] ?? 'error');
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies error, errorName, requestId, stackOf; this excerpt does not repeat those declarations."}
 console.error(JSON.stringify({ requestId, name: errorName(error), stack: stackOf(error) }));
 ```
 
@@ -107,7 +107,7 @@ The framework's 500 body is already generic. The mistake is adding detail to be 
 
 ## Do not swallow errors
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"This catch fragment omits the surrounding try statement and application function."}
 catch { return { rows: [], total: 0 }; }   // wrong
 ```
 

@@ -2,7 +2,7 @@ zmdb loads a relation only when you name it, and gives you two ways to do it. Wh
 
 ## `populate` — one query per relation
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 const users = await repo.findAll({ populate: ['posts'] });
 // SELECT * FROM "users"
 // SELECT * FROM "posts" WHERE "author_id" IN ($1, $2, $3, ...)
@@ -15,7 +15,7 @@ over.
 
 ## `findJoined` / `joinRelation` — one query
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 const rows = await repo.findJoined('author', { id: { eq: 1 } });
 // SELECT ... FROM "posts" INNER JOIN "authors" ON "authors"."id" = "posts"."author_id"
 ```
@@ -46,7 +46,7 @@ loader instead; ordinary repository reads never change behaviour because a scope
 
 **No nested populate.** `populate: ['posts']` loads posts; it does not load `posts.comments`. Do the second level yourself:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies commentRepo, userRepo; this excerpt does not repeat those declarations."}
 const users = await userRepo.findAll({ populate: ['posts'] });
 const postIds = users.flatMap(u => u.posts.map(p => p.id));
 const comments = await commentRepo.find({ postId: { in: postIds } });
@@ -58,7 +58,7 @@ Which is three queries, explicitly, instead of an unknown number.
 
 Because the driver has one required method, asserting on the statement count is trivial and worth doing on any hot path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver, defineRepository, expect, real, relations, users; this excerpt does not repeat those declarations."}
 const seen: string[] = [];
 const spy: Driver = {
   ...real,

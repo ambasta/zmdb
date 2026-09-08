@@ -2,7 +2,7 @@ Dialect: `'sqlite'`. SQLite Cloud is hosted SQLite with a wire protocol and an H
 
 ## Setup
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies requireEnv; this excerpt does not repeat those declarations."}
 import { Database } from '@sqlitecloud/drivers';
 import { type Driver } from '@zmdb/orm';
 
@@ -43,7 +43,7 @@ not remove write serialisation. A write-heavy workload will queue.
 
 Set a generous busy timeout if the client exposes one, and prefer batched writes over many small ones:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies createQueryCompiler, driver, rows; this excerpt does not repeat those declarations."}
 import { sqlite } from '@zmdb/sqlite';
 
 const q = createQueryCompiler(sqlite).insertInto('events').values(rows).compile();
@@ -56,7 +56,7 @@ One statement inserting 500 rows rather than 500 statements is the difference be
 
 `MigrationConnection` over the same client:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies MigrationConnection, db; this excerpt does not repeat those declarations."}
 export const conn: MigrationConnection = {
   async exec(sql) {
     await db.sql(sql);

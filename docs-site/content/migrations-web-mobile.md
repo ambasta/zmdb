@@ -17,7 +17,7 @@ The platform-specific part is the last inch: something that takes `{ text, param
 The embedded runner deliberately does not import the query compiler or the server migration runner. Its three-method connection maps directly onto the SQLite bindings used in browsers and React
 Native:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 interface EmbeddedConnection {
   exec(sql: string): Promise<void>;
   run(sql: string, params: readonly (string | number | null)[]): Promise<void>;
@@ -27,7 +27,7 @@ interface EmbeddedConnection {
 
 Over `expo-sqlite`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This excerpt requires separately supplied external modules: expo-sqlite. Their application setup is outside this standalone fence."}
 import * as SQLite from 'expo-sqlite';
 import type { EmbeddedConnection } from '@zmdb/migrations/embedded';
 
@@ -53,7 +53,7 @@ not call it from inside another SQLite transaction.
 
 Then, at startup:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The application supplies the local modules ./generated/migrations.js; this fence is an excerpt of that project."}
 import { runEmbedded } from '@zmdb/migrations/embedded';
 import { migrations } from './generated/migrations.js';
 

@@ -2,7 +2,7 @@ Dialect: `'postgres'`. Neon is serverless Postgres with two access paths, and wh
 
 ## Over HTTP — for serverless and edge
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies requireEnv; this excerpt does not repeat those declarations."}
 import { neon } from '@neondatabase/serverless';
 import { type Driver } from '@zmdb/orm';
 
@@ -22,7 +22,7 @@ One HTTP round trip per statement, no connection to establish, and it works in C
 
 ## Over WebSockets — when you need a session
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 import { Pool } from '@neondatabase/serverless';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });

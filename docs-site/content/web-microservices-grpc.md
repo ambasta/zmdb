@@ -15,7 +15,7 @@ None of these optional packages or grpc-js is installed by `npm add zmdb@alpha`.
 
 gRPC uses the same type-derived protobuf path as `protoEncode`, `protoDecode` and `protoDescriptor`. Declare message field numbers in TypeScript and load the service at build time:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { loadGrpcService } from '@zmdb/protobuf';
 import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
@@ -71,7 +71,7 @@ Use `grpcDescriptor<Orders>('Orders', 'orders')` when another language needs the
 
 Import the runtime surface from its dedicated package:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies errors, orders, ordersService; this excerpt does not repeat those declarations."}
 import { bindGrpcService, type GrpcMetadata } from '@zmdb/transport-grpc';
 
 function validateMetadata(metadata: GrpcMetadata): GrpcMetadata {
@@ -132,7 +132,7 @@ The four declaration shapes select four distinct APIs:
 Attach the gRPC server as an explicit application extension. Extensions start in declaration order and stop in reverse order, so a failed bind rolls back extensions that already opened and disposal
 closes gRPC before earlier transport extensions and application shutdown hooks:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createApp, ordersBinding; this excerpt does not repeat those declarations."}
 import { grpcExtension } from '@zmdb/transport-grpc';
 
 await using app = createApp(AppModule, {
@@ -157,7 +157,7 @@ Graceful shutdown calls grpc-js `tryShutdown`; when `graceMs` expires it calls `
 
 The client uses the same generated artifact and therefore the same request, response and streaming declarations:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies consume, ordersService, token, validateMetadata; this excerpt does not repeat those declarations."}
 import { createGrpcClient } from '@zmdb/transport-grpc';
 
 using client = createGrpcClient({
@@ -195,7 +195,7 @@ Every typed client call has a finite default deadline. The server exposes the ef
 
 Propagate the remaining budget to nested work:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This partial declaration omits the containing TypeScript construct described by the surrounding article."}
 get: async call => {
   try {
     return await inventory.get(
@@ -224,7 +224,7 @@ Use `call.setTrailer(key, value)` for facts learned after streaming starts. Ther
 
 Throw `GrpcError` only with details safe to disclose:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies GrpcError; this excerpt does not repeat those declarations."}
 throw new GrpcError('NOT_FOUND', 'order not found');
 ```
 

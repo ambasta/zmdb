@@ -3,7 +3,7 @@ handler, and a `Driver` wrapper around every query. Both take the sink as an arg
 
 ## Structured, not printf
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 export interface Sink {
   (record: Readonly<Record<string, unknown>>): void;
 }
@@ -17,7 +17,7 @@ One JSON object per line. Every log platform ingests it, every field is queryabl
 
 ## Request logging
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Sink, errorName, round; this excerpt does not repeat those declarations."}
 import type { Interceptor } from '@zmdb/web/middleware';
 
 export function requestLog(sink: Sink): Interceptor {
@@ -54,7 +54,7 @@ is explicit trace context, not a general state bag.
 
 The adapter sees the status, the byte count and every request including the 404s, which makes it the better place for access logging:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies app, createServer, jsonLines, randomUUID, round, webRequest; this excerpt does not repeat those declarations."}
 import { bodyText } from '@zmdb/web';
 
 createServer(async (req, res) => {
@@ -85,7 +85,7 @@ backpressure and cancellation.
 
 A `Driver` wrapper covers handlers, workers and CLI scripts alike, because it sits under all of them:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Sink, errorName, round; this excerpt does not repeat those declarations."}
 import { type Driver } from '@zmdb/orm';
 
 export function loggingDriver(inner: Driver, sink: Sink): Driver {
@@ -134,14 +134,14 @@ Log an error **once**, where you handle it. Logging at every frame on the way up
 
 ## Injecting the sink
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Module, PostsController, Sink, createToken, jsonLines; this excerpt does not repeat those declarations."}
 export const SINK = createToken<Sink>('SINK');
 
 @Module({ providers: [{ token: SINK, useValue: jsonLines }], controllers: [PostsController] })
 export class AppModule {}
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies AppModule, SINK, createTestApp, expect, records; this excerpt does not repeat those declarations."}
 await using app = createTestApp(AppModule, {
   overrides: [{ token: SINK, useValue: record => records.push(record) }],
 });

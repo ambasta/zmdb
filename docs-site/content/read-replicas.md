@@ -5,7 +5,7 @@ the SQL statement type.
 
 Pass a primary driver and an array of replica drivers:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./drivers; this fence is an excerpt of that project."}
 import { withReplicas, type ReplicaOptions } from '@zmdb/orm/replicas';
 import { PgDriver } from './drivers';
 
@@ -21,7 +21,7 @@ const driver = withReplicas({
 
 The composite driver implements the same `Driver` interface:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies UserRepository, driver; this excerpt does not repeat those declarations."}
 // All repository operations use this driver
 const repo = new UserRepository(driver);
 const user = await repo.findById(1); // May hit a replica
@@ -32,7 +32,7 @@ await repo.create({ name: 'Alice' }); // Always hits primary
 
 Writes (INSERT, UPDATE, DELETE) always go to the primary. Reads are round-robin'd across replicas:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { isWrite } from '@zmdb/orm/replicas';
 
 isWrite('SELECT * FROM users'); // false
@@ -47,7 +47,7 @@ isWrite('DELETE FROM users ...'); // true
 
 Provide a custom `pick` function to control replica selection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies primary, replica1, replica2, replica3, withReplicas; this excerpt does not repeat those declarations."}
 const driver = withReplicas({
   primary,
   replicas: [replica1, replica2, replica3],
@@ -64,7 +64,7 @@ The `pick` function receives the replica list and the current round-robin index.
 
 If a replica fails, the driver throws. For resilience, wrap individual replicas with retry logic:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies CompiledQuery, Driver, ExecuteOptions; this excerpt does not repeat those declarations."}
 class ResilientDriver implements Driver {
   constructor(
     private driver: Driver,
@@ -91,7 +91,7 @@ class ResilientDriver implements Driver {
 
 If you pass an empty replicas array, all queries go to primary:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies primary, withReplicas; this excerpt does not repeat those declarations."}
 const driver = withReplicas({
   primary,
   replicas: [], // All queries hit primary

@@ -2,7 +2,7 @@ A materialized view stores its result set instead of recomputing it. `createView
 
 ## Creating one
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 import { createViewDdl } from '@zmdb/sql/schema-objects';
 
 const ddl = createViewDdl(
@@ -32,7 +32,7 @@ indexed views require a different declaration shape. Cockroach inherits the Post
 
 A materialized view is a relation, so declare it like a table and use the normal repository:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies defineRepository, driver, schemaOf; this excerpt does not repeat those declarations."}
 import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 
 export interface AuthorStats extends Table<'author_stats'> {
@@ -64,7 +64,7 @@ keyset pagination. See [Virtual Entities](./virtual-entities.html).
 
 Refresh is not modelled — it is a statement you run:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 await driver.execute({ text: 'REFRESH MATERIALIZED VIEW "author_stats"', parameters: [] });
 
 // non-blocking, needs a unique index on the view
@@ -73,10 +73,11 @@ await driver.execute({ text: 'REFRESH MATERIALIZED VIEW CONCURRENTLY "author_sta
 
 `CONCURRENTLY` requires a unique index:
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
-createIndexDdl({ name: 'author_stats_pk', table: 'author_stats', columns: ['author_id'], unique: true }, 'postgres');
+createIndexDdl({ name: 'author_stats_pk', table: 'author_stats', columns: ['author_id'], unique: true }, postgres);
 ```
 
 Where the refresh runs is your decision: a cron, a [lifecycle hook](./lifecycle-hooks.html) after the writes that invalidate it, or a `LISTEN`/`NOTIFY` worker. For an app-owned cron with explicit
@@ -86,7 +87,7 @@ replica semantics, see [Task Scheduling](./web-task-scheduling.html).
 
 The migration snapshotter tracks tables and columns, not views. A materialized view is a hand-written migration:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies createViewDdl, dropViewDdl; this excerpt does not repeat those declarations."}
 const migrations = [
   {
     version: 4,

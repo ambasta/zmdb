@@ -2,14 +2,14 @@ There is no `ModuleRef`. There are two explicit surfaces instead: `app.container
 
 ## Getting a provider
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule, POSTS, createApp; this excerpt does not repeat those declarations."}
 const app = createApp(AppModule);
 await app.init();
 
 const repo = app.container.resolve(POSTS);
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Constructor, Scope, Token; this excerpt does not repeat those declarations."}
 export class Container {
   register<T>(token: Token<T>, instance: T): void;
   registerFactory<T>(token: Token<T>, factory: (c: Container) => T, scope?: Scope): void;
@@ -21,7 +21,7 @@ export class Container {
 
 `resolve` is typed by the token, so `resolve(POSTS)` returns the repository with no cast — that is what the phantom type parameter on `Token<T>` buys:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 import { repositoryToken } from '@zmdb/app/data';
 export const POSTS = repositoryToken<Post>('POSTS'); // Token<BaseRepository<Post>>
 ```
@@ -30,7 +30,7 @@ Note it is `resolve`, not `get`. An unregistered token throws `UnresolvedTokenEr
 
 ## Inside a class, prefer `@Inject`
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Controller, Inject, POSTS, PostRepo; this excerpt does not repeat those declarations."}
 @Controller('/posts')
 export class PostsController {
   @Inject(POSTS) private readonly repo!: PostRepo;
@@ -47,7 +47,7 @@ per-request provider proxy.
 
 Inject it. Nothing stops you registering it under a token:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Container, Module, createToken; this excerpt does not repeat those declarations."}
 export const CONTAINER = createToken<Container>('CONTAINER');
 
 @Module({
@@ -58,7 +58,7 @@ export class AppModule {}
 
 A factory receives the container, so this is a one-liner. Use it for a genuine service locator need — a strategy chosen by name at runtime:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Inject(CONTAINER) private readonly container!: Container;
 
 handlerFor(kind: string) {
@@ -75,7 +75,7 @@ Do not reach for this by default. A field-injected dependency is checked at comp
 
 The usual reason people want `ModuleRef` — building one provider from others — is just the factory signature:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies DRIVER, Module, POSTS, defineRepository, dialect, driver, posts; this excerpt does not repeat those declarations."}
 @Module({
   providers: [
     { token: DRIVER, useValue: driver },
@@ -89,7 +89,7 @@ Order does not matter: factories run lazily on first `resolve`, and a singleton 
 
 ## Loading a declared lazy module
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies app; this excerpt does not repeat those declarations."}
 const admin = app.lazy.find(handle => handle.name === 'AdminModule');
 await admin?.load();
 ```
@@ -99,7 +99,7 @@ an arbitrary class at runtime.
 
 ## Transient providers
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 { token: REQUEST_ID, useFactory: () => crypto.randomUUID(), scope: 'transient' }
 ```
 

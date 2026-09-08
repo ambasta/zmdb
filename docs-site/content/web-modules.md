@@ -3,7 +3,7 @@ per-request graph walk or reflection).
 
 ## Declaring a module
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies CounterToken, TimeController, makeCounter; this excerpt does not repeat those declarations."}
 import { createToken } from '@zmdb/app/di';
 import { Module } from '@zmdb/app/modules';
 
@@ -38,7 +38,7 @@ class AppModule {}
 
 ## Compiling the graph
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
 import { compileModule } from '@zmdb/app/modules';
 
 const { container, controllers, lazy } = compileModule(AppModule);
@@ -52,7 +52,7 @@ const { container, controllers, lazy } = compileModule(AppModule);
 
 ## Lazy imports
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AdminModule, SharedModule; this excerpt does not repeat those declarations."}
 import { lazy, Module } from '@zmdb/app/modules';
 
 @Module({

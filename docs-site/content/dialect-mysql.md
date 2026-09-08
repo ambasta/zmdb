@@ -23,7 +23,7 @@ the recorded server qualification to that service.
 
 ## Selecting it
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies defineRepository, pool, users; this excerpt does not repeat those declarations."}
 import { mysql, mysqlDriver } from '@zmdb/mysql';
 import { createQueryCompiler } from '@zmdb/sql';
 
@@ -50,7 +50,7 @@ Install `mysql2` in the application and pass an existing pool or connection. It 
 | Materialized views | **not supported** — throws `UnsupportedFeatureError` |
 | `RETURNING`        | **not supported** (MariaDB has it; MySQL does not)   |
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies compiler; this excerpt does not repeat those declarations."}
 compiler.selectFrom('users').where('email', '=', 'a@b.c').compile();
 // { text: 'SELECT * FROM `users` WHERE `email` = ?', parameters: ['a@b.c'] }
 ```
@@ -68,7 +68,7 @@ The capability is declared separately for INSERT, upsert, UPDATE, and DELETE. Th
 `BaseRepository.create`, an ordinary value-bearing `update`, and an ordinary `upsert` propagate that refusal before driver execution because their public return types promise a row. They neither emit
 invalid SQL nor silently resolve to `undefined`. Use a lower-level statement without `returning()` and then read by a known primary or unique key:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies compiler, driver, dto, userRepo; this excerpt does not repeat those declarations."}
 const result = await driver.executeResult(compiler.insertInto('users').values(dto).compile());
 if (result.kind !== 'command') throw new Error('expected command metadata');
 console.log(result.insertId, result.affectedRows);
@@ -87,7 +87,7 @@ unsupported `RETURNING`, execute one statement, and resolve to `undefined`. They
 MySQL has no boolean type, so `Sql<'boolean'>` becomes `TINYINT(1)` and comes back as `0` or `1`, not `false` or `true`. `mysql2` does not convert it for you. Fix it in the driver, where you know the
 schema is a MySQL one:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This return fragment omits the application function that contains it."}
 // per-column, explicit — a generic 0/1 coercion will mangle real integers
 return rows.map(r => ({ ...r, active: Boolean(r.active) }));
 ```

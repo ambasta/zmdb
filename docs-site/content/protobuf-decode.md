@@ -5,7 +5,7 @@ Install the dependency-free call and wire runtime with `npm add @zmdb/protobuf@a
 
 ## Decode a tagged message
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies bytes; this excerpt does not repeat those declarations."}
 import { protoDecode } from '@zmdb/protobuf';
 import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
@@ -32,7 +32,7 @@ numeric, boolean and enum fields. It does not walk a descriptor at runtime. An u
 
 Proto3 implicit presence means an empty message can decode to a plausible all-zero object:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Proto, ProtoField, protoDecode; this excerpt does not repeat those declarations."}
 interface RequiredCount {
   count: number & Proto<'int32'> & ProtoField<1>;
 }

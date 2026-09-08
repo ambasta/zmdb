@@ -5,7 +5,7 @@ than a feature you switch on. Three shapes work; the first is the one to reach f
 
 ESM has top-level `await`, and a module graph built after the pool is open needs no async DI at all:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Pool, UsersController, config, openPool; this excerpt does not repeat those declarations."}
 import { createToken } from '@zmdb/app/di';
 import { Module } from '@zmdb/app/modules';
 import { createApp } from '@zmdb/web/app';
@@ -34,7 +34,7 @@ cannot run without.
 
 When the dependency is genuinely optional or slow to warm, register the promise itself. A singleton factory caches its first result, so the work happens once no matter how many consumers there are:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Index, Module, SearchController, buildIndex, createToken; this excerpt does not repeat those declarations."}
 const WARM = createToken<Promise<Index>>('WARM');
 
 @Module({
@@ -44,7 +44,7 @@ const WARM = createToken<Promise<Index>>('WARM');
 class SearchModule {}
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Controller, Ctx, Get, Index, Inject, WARM; this excerpt does not repeat those declarations."}
 @Controller('/search')
 class SearchController {
   @Inject(WARM) private readonly index!: Promise<Index>;
@@ -67,7 +67,7 @@ during `createApp`; put `lazy(SearchModule)` in its importer when construction s
 `app.init()` awaits `onModuleInit`, then `onApplicationBootstrap`, on each constructed eager provider and controller in construction order. A lazy module runs the same two passes on the instances
 constructed when it loads:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Controller, Inject, POOL, Pool; this excerpt does not repeat those declarations."}
 @Controller('/users')
 class UsersController {
   @Inject(POOL) private readonly pool!: Pool;

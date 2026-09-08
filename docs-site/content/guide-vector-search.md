@@ -3,7 +3,7 @@ runs the whole path. It assumes the [AOT transform](./aot-setup.html) is configu
 
 ## Declare the column
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { Ext, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Embedding extends Table<'embeddings'> {
@@ -33,7 +33,7 @@ partially parsing malformed values.
 
 Install `pg`, set `DATABASE_URL` to an empty database, and use a PostgreSQL server that has pgvector available for `CREATE EXTENSION`. Then run this file through the configured transform:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Embedding; this excerpt does not repeat those declarations."}
 import { Pool } from 'pg';
 
 import { assert } from '@zmdb/validator';

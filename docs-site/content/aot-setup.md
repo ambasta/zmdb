@@ -5,7 +5,7 @@ owners, including `@zmdb/validator`, without loading the compiler.
 
 Runtime-schema validators carry schema machinery into the application and execute it on every call. AOT inlining compiles checks from the TypeScript type once, at build time:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This before-and-after comparison shows alternative authored and generated declarations, not one module."}
 // Authored code
 const ok = is<{ email: string }>(input);
 
@@ -23,7 +23,7 @@ npm add --save-dev @zmdb/compiler@alpha typescript@^7.0.2
 
 The configured root plugin is available for Vite, esbuild, Webpack, and Rollup:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 // vite.config.ts
 import { defineConfig } from 'vite';
 import { zmdbAot } from '@zmdb/compiler';
@@ -57,7 +57,7 @@ or the application's existing Babel transformer and delegates to it after the sh
 
 Tools that already own a TypeScript project can call the shared transform directly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The application supplies the source text and the project files transformed by this excerpt."}
 import { ReflectSession } from '@zmdb/compiler/reflect';
 import { transformFile } from '@zmdb/compiler/transform';
 
@@ -72,7 +72,7 @@ source file cannot distinguish those working configurations from a missing one w
 
 Add a build-path smoke test instead:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The application supplies its schema module and the test runner declarations used by this test excerpt."}
 import { schemaOf } from 'zmdb';
 import type { User } from './schema.js';
 
@@ -115,23 +115,23 @@ re-export either package.
 
 **Before:**
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This authored-call excerpt depends on the surrounding input value and validator import."}
 const ok = is<{ n: number; s: string }>(input);
 ```
 
 **After:**
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"This generated expression depends on the input value declared in the surrounding application."}
 const ok = typeof input === 'object' && input !== null && typeof input.n === 'number' && typeof input.s === 'string';
 ```
 
 **assert with throw:**
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"This authored-call excerpt depends on the surrounding input value and validator import."}
 const v = assert<{ s: string }>(input);
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"This generated-code outline omits the complete AssertError arguments and surrounding input declaration."}
 const v = ((() => {
   if (!(typeof input === "object" && input !== null && typeof input.s === "string"))
     throw new AssertError("assertion failed", ...);
@@ -143,7 +143,7 @@ const v = ((() => {
 
 The transformer recursively inlines nested object checks:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"This before-and-after comparison shows alternative declarations and omits the surrounding input value."}
 // Input
 const ok = is<{ user: { email: string } }>(input);
 
@@ -168,7 +168,7 @@ An untransformed generic call has no runtime access to its type argument. `is<Us
 
 The utilities accept an explicit `TypeIR` witness for tests and generated fallback modules:
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The application supplies the payload and reflected type IR consumed by this runtime call."}
 import { is } from '@zmdb/validator';
 
 const ok = is(payload, userTypeIr);

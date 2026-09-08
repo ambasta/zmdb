@@ -12,7 +12,7 @@ They have the same names because they mean the same constraints. They are not in
 
 This is the common case, and there is no `validate()` call in it:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { Max, MaxLength, Min, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface User extends Table<'users'> {
@@ -32,7 +32,7 @@ Note what `role` does _not_ have: there is no `Enum` type tag, because a literal
 
 The `@zmdb/validator` package exports a `tags` object of rule constructors:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { tags } from '@zmdb/validator';
 
 tags.Min(18); // number >= 18
@@ -54,7 +54,7 @@ This is the one thing to get right about tags. The package exports **two** diffe
 
 **The root one is the tag evaluator** — it takes a single tag and a value, and it is the call the AOT transformer rewrites into an inline boolean:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { tags, validateRule as validate } from '@zmdb/validator';
 
 validate(tags.Min(18), 21); // true
@@ -67,7 +67,7 @@ no rule object at runtime. That rewrite is the reason the argument order is rule
 
 **The `utilities` one is the whole-value validator.** It takes a type argument, not tags, and gives you a result object instead of a boolean:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Age, CreateDTO, User, body; this excerpt does not repeat those declarations."}
 import { validate } from '@zmdb/validator';
 
 validate<Age>(25);
@@ -100,7 +100,7 @@ The two spellings mean exactly the same thing, which is the point:
 
 The runtime fallback validates by evaluating each tag rule:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Rule; this excerpt does not repeat those declarations."}
 // Runtime fallback (what runs without AOT):
 function validate(rule: Rule, expr: unknown): boolean {
   switch (rule.kind) {
@@ -115,7 +115,7 @@ function validate(rule: Rule, expr: unknown): boolean {
 
 With AOT transformation enabled, the same validation becomes inlined:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies tags, userAge, validate; this excerpt does not repeat those declarations."}
 // Authored:
 validate(
   tags.Min(18),

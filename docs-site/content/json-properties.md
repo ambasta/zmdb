@@ -2,7 +2,7 @@ A `json` column stores structured data, and its TypeScript type is whatever you 
 
 ## Typed JSON
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 interface Address {
@@ -18,7 +18,7 @@ export interface User extends Table<'users'> {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Entity, User; this excerpt does not repeat those declarations."}
 type Row = Entity<User>;
 // { id: number; address: Address; prefs: Record<string, boolean> | null }
 ```
@@ -43,7 +43,7 @@ The DDL per dialect:
 `address: Address & Sql<'json'>` tells the type system what the column holds. It does not make the database enforce it — a row written by a migration, another service, or `psql` can hold anything. So
 validate at the boundary where data enters:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies CreateDTO, User, ctx, repo; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 
 const dto = assert<CreateDTO<User>>(ctx.body); // checks address.street, .city, .zip
@@ -55,7 +55,7 @@ the JSON payload too, with paths like `input.address.zip` in the error.
 
 For data that was already in the table when you added the type, validate on the way out:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Address, is, repo; this excerpt does not repeat those declarations."}
 const row = await repo.findById(1);
 if (row && !is<Address>(row.address)) {
   /* legacy row */
@@ -66,14 +66,14 @@ if (row && !is<Address>(row.address)) {
 
 A literal union narrows to its members, and nothing widens it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
 export interface Post extends Table<'posts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   status: 'draft' | 'review' | 'published';
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Entity, Post; this excerpt does not repeat those declarations."}
 type Row = Entity<Post>;
 // { id: number; status: 'draft' | 'review' | 'published' }
 ```
@@ -85,7 +85,7 @@ too, so `{ status: { eq: 'publshed' } }` is a compile error rather than a query 
 
 There are no JSON path operators in the builder. Filtering on `address->>'city'` needs raw SQL:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 const q = {
   text: `SELECT * FROM "users" WHERE "address"->>'city' = $1`,
   parameters: ['Berlin'],
@@ -99,7 +99,8 @@ See [Raw SQL](./raw-sql.html). If you filter on a field often, that is a signal 
 
 Postgres and MySQL can both project a JSON field into a real, indexable column:
 
-```ts
+```ts {"mode":"compile","id":"example-008"}
+import { postgres } from '@zmdb/postgres';
 import { generatedColumnDdl } from '@zmdb/sql/schema-objects';
 
 generatedColumnDdl(
@@ -109,7 +110,7 @@ generatedColumnDdl(
     expression: `("address"->>'city')`,
     stored: true,
   },
-  'postgres',
+  postgres,
 );
 ```
 
@@ -120,7 +121,7 @@ Add `city: (string & Sql<'text'>) | null` to the interface and it becomes querya
 The `json` column round-trips through your driver. `node-postgres` parses `JSONB` for you; `node:sqlite` gives you the raw `TEXT`, so parse it in the driver or with a
 [custom type](./custom-types.html):
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies Address, assert, defineType; this excerpt does not repeat those declarations."}
 const addressType = defineType<Address, Address, string>({
   sqlType: 'text',
   toDb: v => JSON.stringify(v),

@@ -10,7 +10,7 @@ const User = sequelize.define('User', {
 });
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 // zmdb
 import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
@@ -60,7 +60,7 @@ UI only needs "is there another page", `hasMore` is free and no count is needed 
 
 Sequelize's `Op` symbols become plain keys:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 // { [Op.gte]: 18 }  ->
 { age: { gte: 18 } }
 // { [Op.in]: [1,2] } ->
@@ -75,7 +75,7 @@ There is no `Op.or` at the DTO level yet — the builder has `orWhere`. See [Fil
 
 `User.hasMany(Post)` becomes a tag on the declaration, and the accessors (`user.getPosts()`, `user.addPost()`) go away:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies OneToMany, Post, PrimaryKey, Serial, Sql, Table, id, repo; this excerpt does not repeat those declarations."}
 export interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   posts?: Post[] & OneToMany<'posts', 'userId'>;
@@ -90,7 +90,7 @@ const user = await repo.findById(id, { populate: ['posts'] });
 
 `beforeCreate` / `afterCreate` become the repository's protected hooks, which receive the row data rather than a model instance:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies BaseRepository, User; this excerpt does not repeat those declarations."}
 class UserRepository extends BaseRepository<User> {
   protected preInsert(row: Record<string, unknown>) {
     /* ... */

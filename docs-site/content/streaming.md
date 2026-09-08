@@ -1,7 +1,7 @@
 `repo.stream()` returns a single-shot `AsyncIterable` and `AsyncDisposable`. Prefer `await using`: a started database cursor owns its connection until the iterator closes, and disposal covers paths
 that never reach another `iterator.next()`.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies exportRow, repo, request; this excerpt does not repeat those declarations."}
 await using rows = repo.stream(
   { active: true },
   {
@@ -31,7 +31,7 @@ If the driver has no `stream` method, the repository calls `execute` once and yi
 
 Reading a million rows means a million rows in memory:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 const all = await repo.findAll(); // the whole table, resident
 ```
 
@@ -41,7 +41,7 @@ Node's default heap will end the process somewhere in the low millions of rows, 
 
 Keyset pagination is the correct workaround, and for a batch job it is barely worse than a cursor — bounded memory, and it survives a restart because the cursor is a value you can persist:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies UserRepository, repo; this excerpt does not repeat those declarations."}
 async function* allUsers(repo: UserRepository, batch = 1_000) {
   let after = 0;
   for (;;) {

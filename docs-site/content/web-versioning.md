@@ -17,7 +17,7 @@ request shapes, because runtime reads `Accept` and never request `Content-Type`.
 
 ## Declare versions
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { httpOperation } from '@zmdb/web/contract';
 import { toOpenApi } from '@zmdb/web/openapi';
 import { createRouter, type RouteOptions } from '@zmdb/web/pipeline';
@@ -42,7 +42,7 @@ unversioned router is an error rather than a decorator that silently does nothin
 
 `@VersionNeutral()` explicitly says the handler is outside version selection. A method declaration overrides its controller declaration:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, Get, Version, VersionNeutral; this excerpt does not repeat those declarations."}
 @VersionNeutral()
 @Controller('/health')
 class HealthController {
@@ -63,7 +63,7 @@ Under header and media-type strategies the neutral route answers even when no ot
 
 ## Path versioning
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies UsersController, createRouter; this excerpt does not repeat those declarations."}
 const versioning = { kind: 'path', prefix: 'v' } as const;
 const router = createRouter({ versioning });
 router.register(new UsersController());
@@ -74,7 +74,7 @@ the request path.
 
 The final contract declares one operation per expanded path, with its own explicit operation ID and schemas:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This pseudocode uses arrows or ellipses to omit implementation details from the surrounding example."}
 listUsersV1: httpOperation<ListUsersV1>({
   // ...
   path: '/v1/users',
@@ -108,7 +108,7 @@ A bare `/users` or unknown `/v9/users` is the ordinary uniform `404`; the body d
 
 Existing manually prefixed controllers remain valid by declaring that they own their own version:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Controller, VersionNeutral; this excerpt does not repeat those declarations."}
 @VersionNeutral()
 @Controller('/v1/users')
 class UsersV1 {
@@ -118,7 +118,7 @@ class UsersV1 {
 
 ## Header versioning
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies UsersController, createRouter; this excerpt does not repeat those declarations."}
 const versioning = {
   kind: 'header',
   name: 'accept-version',
@@ -139,7 +139,7 @@ An unknown path remains the ordinary `404`, even when the header names an unknow
 
 Header versions share one contract operation and therefore one request/response shape:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies ListUsers, compiled, httpOperation, toOpenApi; this excerpt does not repeat those declarations."}
 listUsers: httpOperation<ListUsers>({
   // ...
   version: {
@@ -175,7 +175,7 @@ value.
 
 ## Media-type versioning
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies UsersController, createRouter; this excerpt does not repeat those declarations."}
 const versioning = {
   kind: 'media-type',
   key: 'version',
@@ -191,7 +191,7 @@ The version is read from `Accept`, never request `Content-Type`. Several media r
 
 Request schemas are shared because request `Content-Type` is not the version source. A response may provide one body projection per accepted version:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies ListUsers, compiled, httpOperation, toOpenApi; this excerpt does not repeat those declarations."}
 listUsers: httpOperation<ListUsers>({
   // ...
   version: {
@@ -249,7 +249,7 @@ For a JSON handler response, runtime sets the selected content type too: `applic
 `HttpOperationIR.deprecated: true` emits `deprecated: true`. During decorator migration, `RouteOptions.deprecated` must agree at contract registration. Use separate operations when only one path
 version is deprecated:
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies Controller, Get, RouteOptions, Version; this excerpt does not repeat those declarations."}
 @Controller('/users')
 class MigratingUsersController {
   @Version('1')

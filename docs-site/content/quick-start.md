@@ -18,7 +18,7 @@ than quietly checking nothing.
 
 A table is a TypeScript type. That declaration is the single source of truth, and everything else derives from it.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { HasDefault, Min, Pattern, PrimaryKey, References, Serial, Sql, Table } from 'zmdb';
 
 export interface User extends Table<'users'> {
@@ -42,7 +42,7 @@ There is no builder DSL and no global registry. If you have a codebase full of `
 
 ## 3. Types derive automatically
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import type { CreateDTO, Entity, UpdateDTO } from 'zmdb';
 
 type Row = Entity<User>;
@@ -64,7 +64,7 @@ type UpdateUser = UpdateDTO<User>; //  Partial<CreateUser>
 A repository binds your schema to a driver. The fastest way is the **`defineRepository`** helper (no subclass, no hand-written driver) with the `@zmdb/sqlite` `node:sqlite` driver — a genuinely
 zero-dependency setup:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { DatabaseSync } from 'node:sqlite';
 import { defineRepository, schemaOf } from 'zmdb';
 import { sqliteDriver } from 'zmdb/sqlite';
@@ -82,7 +82,7 @@ const gone = await users.delete(u.id); // boolean
 
 Prefer a class? Subclassing works identically:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies User, db, schemaOf, sqliteDriver; this excerpt does not repeat those declarations."}
 import { BaseRepository } from 'zmdb/orm';
 
 const userSchema = schemaOf<User>();
@@ -103,7 +103,7 @@ const users = new UserRepository(sqliteDriver(db));
 
 ## 5. Query your data (typed)
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver, since, users; this excerpt does not repeat those declarations."}
 import { applyOrderBy, buildListResult, compileWhere } from 'zmdb/schema';
 
 let qb = users.query.selectFrom('users');
@@ -124,7 +124,7 @@ The filter, ordering and pagination are all typed against `User`. See [Filters](
 
 ## 6. Atomic writes with transactions
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies connection, orders, users; this excerpt does not repeat those declarations."}
 import { createTransactionalDb } from 'zmdb/orm';
 
 const db = createTransactionalDb(connection);
@@ -138,7 +138,7 @@ await db.transaction(async tx => {
 
 ## 7. Validate at the boundary
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies User, req, users; this excerpt does not repeat those declarations."}
 import { assert, type CreateDTO } from 'zmdb';
 
 // In an HTTP handler: validate the inbound body against the derived Create DTO.

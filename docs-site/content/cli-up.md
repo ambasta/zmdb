@@ -8,7 +8,7 @@ npx zmdb migrate
 
 The public runner keeps `up` as its library verb:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver, migrations; this excerpt does not repeat those declarations."}
 import { driverMigrationConnection, up } from '@zmdb/migrations/runner';
 import { sqlite } from '@zmdb/sqlite';
 

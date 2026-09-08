@@ -6,7 +6,7 @@ queries `populate` batches.
 
 ## Declaring relations on the type
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { ManyToOne, OneToMany, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface User extends Table<'users'> {
@@ -33,7 +33,7 @@ Relation properties are excluded from `Entity<T>`, `CreateDTO<T>` and the DDL â€
 
 ## Populating them
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const user = await users.findById(1, { populate: ['posts'] });
 // user.posts: readonly Entity<Post>[]
 ```
@@ -43,7 +43,7 @@ row, not present and empty.
 
 The result type is `Populated<User, 'posts'>`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Post, User; this excerpt does not repeat those declarations."}
 import type { Entity, Populated } from 'zmdb/derive';
 
 type UserWithPosts = Populated<User, 'posts'>;
@@ -68,7 +68,7 @@ Resolution reads the tables, not the tag:
 
 For a composite key, write every `via` column in key order:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This partial declaration omits the containing TypeScript construct described by the surrounding article."}
 posts?: Post[] & OneToMany<'posts', 'tenantId,userId'>;
 author?: User & ManyToOne<'users', 'tenantId,userId'>;
 ```
@@ -78,7 +78,7 @@ fallback to `id` is not used to guess part of a composite key.
 
 `resolveRelation` is exported if you need the answer yourself:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies PostSchema; this excerpt does not repeat those declarations."}
 import { resolveRelation } from '@zmdb/schema/relations';
 
 resolveRelation(PostSchema.ir, 'author');
@@ -91,7 +91,7 @@ An unknown name throws and lists the relations the type does declare.
 
 `compilePopulate` generates the SQL: a to-one is a JOIN, a to-many a batched scalar or tuple `IN ()` select.
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies PostSchema, UserSchema; this excerpt does not repeat those declarations."}
 import { compilePopulate } from '@zmdb/orm/relations';
 
 const query = compilePopulate(UserSchema.ir, 'posts', 'postgres', [1, 2, 3]);
@@ -109,7 +109,7 @@ For a composite parent key, each parent ID is an ordered tuple. PostgreSQL, MySQ
 
 When declared and physical names differ, pass the available IR set as the sixth argument so the target side can be resolved:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies PostSchema, UserSchema, compilePopulate; this excerpt does not repeat those declarations."}
 compilePopulate(UserSchema.ir, 'posts', 'postgres', [1, 2], [], [UserSchema.ir, PostSchema.ir]);
 ```
 
@@ -122,7 +122,7 @@ The repository builds the equivalent schema map once at construction and uses it
 
 `attachPopulated` merges related entities into the parent result. Non-mutating.
 
-```ts
+```ts {"mode":"compile","id":"example-008"}
 import { attachPopulated } from '@zmdb/orm/relations';
 
 const user = { id: 1, email: 'user@example.com' };
@@ -137,7 +137,7 @@ const userWithPosts = attachPopulated(user, 'posts', posts);
 
 `JoinRow` types handle inner vs left joins:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies Entity, Post, User; this excerpt does not repeat those declarations."}
 import { type JoinRow } from '@zmdb/orm/relations';
 
 type UserPostInner = JoinRow<Entity<User>, Entity<Post>, 'inner'>;

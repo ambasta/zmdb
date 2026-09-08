@@ -3,7 +3,7 @@ handler answer "that is not JSON" differently from "that is JSON, and `age` is m
 
 ## Basic Usage
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { parse } from '@zmdb/validator/serialization';
 
 const result = parse('{"name": "alice", "age": 30}');
@@ -21,7 +21,7 @@ The `message` is the engine's own, passed through — it is the only part of an 
 
 ## `ParseResult<T>`
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ValidationIssue; this excerpt does not repeat those declarations."}
 interface ParseResult<T> {
   readonly success: boolean;
   readonly data?: T;
@@ -32,7 +32,7 @@ interface ParseResult<T> {
 > [!WARNING] `parse<T>()`'s type argument is an **unvalidated claim** — exactly what `JSON.parse` gives you, and no more. `parse<User>(text)` types `data` as `User` without having checked one property
 > of it. Use it when you are about to check the value anyway; do not use it as the check.
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { parse } from '@zmdb/validator/serialization';
 
 interface User {
@@ -54,7 +54,7 @@ if (result.success) {
 The pairing that does prove it is `parse` followed by [`validate<T>`](./validators-validate.html) or [`assert<T>`](./validators-assert.html), both of which take the type as their argument and get
 their IR from the transformer:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies text; this excerpt does not repeat those declarations."}
 import { parse } from '@zmdb/validator/serialization';
 import { validate } from '@zmdb/validator';
 import type { Min, Pattern } from 'zmdb/tags';
@@ -80,7 +80,7 @@ Two steps and two status codes, which is the argument for writing it this way: a
 
 `decode` does both in one call, and takes the schema as a **runtime argument**:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ir; this excerpt does not repeat those declarations."}
 import { decode } from '@zmdb/validator/serialization';
 
 const ok = decode('{"email": "test@example.com", "age": 25}', ir);
@@ -107,7 +107,7 @@ anywhere in the graph throws a `TypeError` with one message rather than the engi
 
 A `json` column's shape is part of its declaration, so the type to check a parsed payload against is already written:
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 import type { Sql, Table, PrimaryKey, Serial } from 'zmdb/tags';
 
 interface Payload {
@@ -123,7 +123,7 @@ export interface Order extends Table<'orders'> {
 
 Postgres-family drivers hand back `json`/`jsonb` already parsed; MySQL-family, SQLite and SQL Server drivers hand back a string. That difference is the driver's, so the read side is:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Payload, assert, row; this excerpt does not repeat those declarations."}
 const raw = row.payload;
 const payload = typeof raw === 'string' ? assert<Payload>(JSON.parse(raw)) : raw;
 ```

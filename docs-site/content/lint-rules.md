@@ -68,7 +68,7 @@ shipped-source finding in this repository; the warning matches that remain are d
 
 Tags belong on the non-null arm:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Table, Unique; this excerpt does not repeat those declarations."}
 interface Account extends Table<'accounts'> {
   email: (string | null) & Unique; // reported
 }
@@ -76,7 +76,7 @@ interface Account extends Table<'accounts'> {
 
 Intersection distributes over a union. `null & Unique` is `never`, so the declaration above silently becomes non-nullable. The rule rewrites it without changing the inhabited type:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Table, Unique; this excerpt does not repeat those declarations."}
 interface Account extends Table<'accounts'> {
   email: (string & Unique) | null;
 }
@@ -91,7 +91,7 @@ It leaves arbitrary local markers alone because moving those could change behavi
 
 `unknown & X` simplifies to `X`, so this declaration has a SQL tag but no JSON value shape:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Sql, Table; this excerpt does not repeat those declarations."}
 interface Account extends Table<'accounts'> {
   preferences: unknown & Sql<'json'>; // reported
 }
@@ -99,7 +99,7 @@ interface Account extends Table<'accounts'> {
 
 Use `object` when any non-primitive JSON object is acceptable, or describe the actual shape:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Sql, Table; this excerpt does not repeat those declarations."}
 interface Account extends Table<'accounts'> {
   preferences: Record<string, boolean> & Sql<'json'>;
 }
@@ -114,14 +114,14 @@ The rule offers “Replace unknown with object” as a suggestion, not an autofi
 
 Values belong in the parameter array:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
 await driver.execute({
   text: `SELECT * FROM users WHERE id = ${id}`, // reported
   parameters: [],
 });
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
 await driver.execute({
   text: 'SELECT * FROM users WHERE id = $1',
   parameters: [id],
@@ -141,7 +141,7 @@ There is no autofix: placeholder spelling is dialect-specific, and moving a valu
 **Legitimate exception:** compiler-generated placeholder positions or identifiers that were validated against a closed set. Prefer constructing that text in a small trusted helper. If the direct sink
 still needs a suppression, disable only this rule on that line and state the invariant:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies driver, slot; this excerpt does not repeat those declarations."}
 // oxlint-disable-next-line zmdb/no-interpolated-sql -- slot is generated as "$" plus an integer
 driver.execute(`SELECT * FROM users WHERE id = ${slot}`);
 ```
@@ -152,13 +152,13 @@ Use `eslint-disable-next-line` for the same narrowly scoped exception under ESLi
 
 A bare `number` does not say whether the database column is an integer or a numeric:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies Table; this excerpt does not repeat those declarations."}
 interface Invoice extends Table<'invoices'> {
   total: number; // reported
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies Sql, Table; this excerpt does not repeat those declarations."}
 interface Invoice extends Table<'invoices'> {
   total: number & Sql<'numeric'>;
 }
@@ -174,13 +174,13 @@ responsibility.
 
 `find()` and `find({})` read every matching row with no page limit:
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies usersRepo; this excerpt does not repeat those declarations."}
 const users = await usersRepo.find({}); // reported
 ```
 
 Use a bounded list when this is an application read:
 
-```ts
+```ts {"mode":"illustrative","id":"example-011","reason":"The surrounding example supplies usersRepo; this excerpt does not repeat those declarations."}
 const users = await usersRepo.list({
   page: { limit: 100, offset: 0 },
 });
@@ -195,13 +195,13 @@ that names the bounded external assumption. Also suppress it when an unrelated A
 
 An empty keyed update is not a write in the current repository contract:
 
-```ts
+```ts {"mode":"illustrative","id":"example-012","reason":"The surrounding example supplies id, usersRepo; this excerpt does not repeat those declarations."}
 const row = await usersRepo.update(id, {}); // reported
 ```
 
 It validates the key, runs `preUpdate`, and reads the matching row back. That looks like a write at the call site and is easy to mistake for one. Use the operation you intend:
 
-```ts
+```ts {"mode":"illustrative","id":"example-013","reason":"The surrounding example supplies id, usersRepo; this excerpt does not repeat those declarations."}
 const row = await usersRepo.findById(id);
 await usersRepo.update(id, { active: true });
 ```

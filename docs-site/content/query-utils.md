@@ -2,7 +2,7 @@ Small helpers around the compiler and the DTO types. All of them are ordinary fu
 
 ## The compiled query is inspectable
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies createQueryCompiler; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 const q = createQueryCompiler(postgres).selectFrom('users').where('id', '=', 1).compile();
@@ -12,13 +12,13 @@ q.parameters; // [1]
 
 Every `CompiledQuery` has readonly `text` and `parameters`. The default compiler still returns exactly those two keys, so existing logs, snapshots and equality checks remain unchanged:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies expect, q; this excerpt does not repeat those declarations."}
 expect(q).toEqual({ text: 'SELECT * FROM "users" WHERE "id" = $1', parameters: [1] });
 ```
 
 Observability can opt into a third, optional compile-time field:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createQueryCompiler, postgres; this excerpt does not repeat those declarations."}
 const observed = createQueryCompiler(postgres, { telemetry: true }).selectFrom('users').compile();
 observed.telemetry; // { system: 'postgresql', operation: 'SELECT', collection: 'users' }
 ```
@@ -29,7 +29,7 @@ The compiler attaches it rather than asking a driver to parse generated SQL.
 
 Useful in tests, and the fastest way to see what a dialect does differently:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies createQueryCompiler; this excerpt does not repeat those declarations."}
 const dialects = ['postgres', 'mysql', 'sqlite', 'mssql', 'cockroach', 'singlestore'] as const;
 for (const d of dialects) {
   console.log(d, createQueryCompiler(d).selectFrom('users').where('id', '=', 1).compile().text);
@@ -48,7 +48,7 @@ A builder exposes `readonly dialect`, so a helper that takes a builder can branc
 
 Never for execution — only for a human reading a log:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies CompiledQuery; this excerpt does not repeat those declarations."}
 export function explain(q: CompiledQuery): string {
   let i = 0;
   return q.text.replace(/\$\d+|@p\d+|\?/g, () => JSON.stringify(q.parameters[i++]));
@@ -61,7 +61,7 @@ export function explain(q: CompiledQuery): string {
 
 The single execute boundary makes instrumentation straightforward:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies CompiledQuery, Driver; this excerpt does not repeat those declarations."}
 export function countingDriver(inner: Driver) {
   const queries: CompiledQuery[] = [];
   return {
@@ -83,7 +83,7 @@ Assert on `queries.length` to pin an N+1 down in a test. See [Testing](./testing
 
 Because `WhereDTO<S>` is a plain type, generic utilities are easy and stay checked:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies CoreSchema, WhereDTO; this excerpt does not repeat those declarations."}
 export function and<S extends CoreSchema<string>>(...parts: WhereDTO<S>[]): WhereDTO<S> {
   return Object.assign({}, ...parts);
 }
@@ -100,7 +100,7 @@ the helper.
 
 ## Narrowing a row to a projection
 
-```ts
+```ts {"mode":"compile","id":"example-008"}
 export function pick<T, K extends keyof T>(row: T, keys: readonly K[]): Pick<T, K> {
   const out = {} as Pick<T, K>;
   for (const k of keys) out[k] = row[k];

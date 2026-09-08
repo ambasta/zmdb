@@ -42,15 +42,17 @@ Measured on 2026-09-05 against commit `94164c53`:
 The 1,349 figure is therefore not the corpus size. It is the subset recognized by a simple column-zero, three-backtick scan. The sample parser must implement fence semantics rather than preserve that
 scanner bug.
 
-The current renderer:
+At that measured baseline, the renderer:
 
 1. recognizes an opening only when the line starts at column zero with at least three backticks;
 2. treats everything after the first three backticks as the highlighting language;
 3. closes at the next line that merely starts with three backticks, regardless of opening length;
 4. never parses sample metadata, invokes TypeScript, executes code or checks public imports.
 
-Consequently, the three indented samples render as prose and the two four-backtick samples acquire a literal `` `ts `` language class and close at the nested three-backtick text. A green docs build is
-not sample correctness evidence.
+At that baseline, the three indented samples rendered as prose and the two four-backtick samples acquired a literal `` `ts `` language class and closed at the nested three-backtick text.
+
+The renderer now shares `fences.mjs` with `verify:docs-samples`: indentation and delimiter length determine fence boundaries, while the language and JSON metadata are parsed separately. Rendering
+strips the metadata; sample verification applies the compilation and execution rules below. A green docs build alone is not sample correctness evidence.
 
 ## 3. The ten-group product journey
 
@@ -200,7 +202,7 @@ changing the catalog, policy or admitted manifests and regenerating with `node d
 ### 6.1 Fence parsing and metadata syntax
 
 The parser accepts CommonMark-style backtick fences with zero to three leading spaces and an opening delimiter of three or more backticks. A closing delimiter has at least the opening length and no
-info string. This is required for the five live fences the current renderer mishandles.
+info string. Rendering and sample verification use the same parser for these boundaries.
 
 Every retained `ts`, `typescript` or `tsx` fence carries one JSON metadata object after the language:
 
@@ -266,7 +268,7 @@ segment.
 
 ### 6.6 Classification scope
 
-All TypeScript/TSX fences on canonical pages must be classified. The 68 fences in the twelve GraphQL redirect sources are excluded because those pages are deleted, not retained. New canonical prose is
+All TypeScript/TSX fences on canonical pages must be classified. The twelve permanently wontfix GraphQL pages remain unchanged and are excluded from sample verification. New canonical prose is
 classified in the issue that introduces it.
 
 The sample verifier reports, at minimum:

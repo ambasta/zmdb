@@ -2,7 +2,7 @@ Migrations are ordered by `version`, and two people working in parallel will pic
 
 ## Use timestamps, not counters
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 { version: 20260831_1420, name: 'add_slug', up: '...', down: '...' }
 ```
 

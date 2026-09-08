@@ -9,7 +9,7 @@ npm add @zmdb/client@alpha @zmdb/vue@alpha vue@^3.5
 
 ## Provide
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/vue.ts
 import { createZmdbVue } from '@zmdb/vue';
 

@@ -4,10 +4,11 @@ The examples use `orders(id, userId, status)` joined to `users(id, email)`.
 
 ## Inner join
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { joinableSelectFrom } from '@zmdb/sql/joins';
 
-joinableSelectFrom('orders', 'postgres').innerJoin('users', 'orders.userId', 'users.id').where('orders.status', '=', 'shipped').compile();
+joinableSelectFrom('orders', postgres).innerJoin('users', 'orders.userId', 'users.id').where('orders.status', '=', 'shipped').compile();
 ```
 
 ```sql
@@ -20,7 +21,7 @@ WHERE "orders"."status" = $1
 
 A left join keeps base rows even when there is no match — the joined columns may be null (reflected by `JoinRow<Base, Joined, 'left'>`).
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies joinableSelectFrom; this excerpt does not repeat those declarations."}
 joinableSelectFrom('employees as e', 'postgres').leftJoin('employees as r', 'r.id', 'e.recipient_id').where('e.id', '=', 1).compile();
 ```
 
@@ -36,7 +37,7 @@ As above, table aliases (`table as alias`) let a table join itself. Use [`aliasR
 
 ## Through the repository
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies orders; this excerpt does not repeat those declarations."}
 await orders.findJoined({ target: 'users', leftCol: 'orders.userId', rightCol: 'users.id', kind: 'inner' }, { col: 'orders.status', op: '=', value: 'shipped' });
 ```
 

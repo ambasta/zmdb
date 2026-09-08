@@ -2,10 +2,11 @@ PostgreSQL full-text search is expressible directly in the query builder, and a 
 
 ## Match a term
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { ftsSelectFrom } from '@zmdb/sql/fts';
 
-ftsSelectFrom('products', 'postgres').whereMatch('description', 'wireless headphones').compile();
+ftsSelectFrom('products', postgres).whereMatch('description', 'wireless headphones').compile();
 ```
 
 ```sql
@@ -15,13 +16,13 @@ WHERE to_tsvector("description") @@ to_tsquery($1)
 
 ## Through the repository
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies products; this excerpt does not repeat those declarations."}
 await products.findByFullText('description', 'wireless headphones');
 ```
 
 ## Ranked search with SearchDTO
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Product, hits; this excerpt does not repeat those declarations."}
 import { buildSearchResult, type SearchDTO } from '@zmdb/schema/dto';
 
 const search: SearchDTO<Product> = {

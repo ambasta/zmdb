@@ -3,7 +3,7 @@ runtime. Everything that gets its shape from a **value** does not.
 
 ## The part that needs the build step
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, payload; this excerpt does not repeat those declarations."}
 import { is } from '@zmdb/validator';
 
 is<User>(payload); // needs the transformer
@@ -26,7 +26,7 @@ The five protobuf and gRPC artifact calls are imported from `@zmdb/protobuf`; re
 
 **Rule-first validation.** `validate(rule, value)` takes the constraint as a value, so it runs anywhere:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies input; this excerpt does not repeat those declarations."}
 import { tags, validateRule as validate } from '@zmdb/validator';
 
 validate(tags.Min(0), input.price); // boolean
@@ -46,7 +46,7 @@ second implementation. An unknown `kind` throws.
 
 **Serialization.** Neither `stringify` nor `parse` is transformed, so both work unchanged:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies user; this excerpt does not repeat those declarations."}
 import { parse, stringify } from '@zmdb/validator/serialization';
 
 const json = stringify(user); // JSON.stringify, plus one fixed bigint TypeError
@@ -59,7 +59,7 @@ const result = parse(json); // { success, data? , issues? } — malformed JSON i
 second). The three shallow calls additionally accept their depth as a third fallback-only argument. The schema and protobuf calls cannot use that escape hatch because their public contract is
 compile-time-only:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies rawValue; this excerpt does not repeat those declarations."}
 import { assert, type TypeIR } from '@zmdb/validator';
 
 const ir: TypeIR = { kind: 'scalar', scalar: 'string' };

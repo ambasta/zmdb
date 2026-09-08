@@ -3,7 +3,7 @@ runtime. Branding erases completely — **zero runtime cost** beyond the value i
 
 ## Branded states
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { defineState, transition, type Brand } from '@zmdb/app/state';
 
 interface Order {
@@ -22,7 +22,7 @@ type PaidOrder = Brand<Order, 'Paid'>;
 
 States are built through a **checked factory**, so you never cast:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Draft; this excerpt does not repeat those declarations."}
 const order = Draft.create({ id: 1, total: 10 }); // DraftOrder
 Draft.is(order); // type guard → narrows to DraftOrder
 ```
@@ -31,7 +31,7 @@ Draft.is(order); // type guard → narrows to DraftOrder
 
 `transition(from, to, fn)` produces a function that **only accepts the `from` state**. Applying it to any other state is a compile error, and there is simply no function for an undeclared edge:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Draft, Paid, transition; this excerpt does not repeat those declarations."}
 const pay = transition(Draft, Paid, o => ({ ...o, paidAt: Date.now() }));
 
 const draft = Draft.create({ id: 1, total: 10 });

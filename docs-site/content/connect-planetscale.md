@@ -4,7 +4,7 @@ Dialect: `'mysql'`. PlanetScale is MySQL-compatible (Vitess underneath), so the 
 
 Over the serverless HTTP driver, which works in edge runtimes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This excerpt requires separately supplied external modules: @planetscale/database. Their application setup is outside this standalone fence."}
 import { connect } from '@planetscale/database';
 import { type Driver } from '@zmdb/orm';
 
@@ -20,7 +20,7 @@ export const driver: Driver = {
 
 Or over `mysql2` for a long-running server:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 import { createPool } from 'mysql2/promise';
 
 const pool = createPool({ uri: process.env.DATABASE_URL, ssl: { rejectUnauthorized: true } });
@@ -45,7 +45,7 @@ either case a dangling `authorId` becomes possible and database cascades do not 
 
 If FKs are unavailable, do writes through repositories and add integrity checks you run periodically:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 const orphans = await driver.execute({
   text: 'SELECT p.id FROM posts p LEFT JOIN authors a ON a.id = p.author_id WHERE a.id IS NULL',
   parameters: [],

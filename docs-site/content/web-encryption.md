@@ -3,7 +3,7 @@ choices that go wrong when encryption meets a database.
 
 ## Passwords: hash, never encrypt
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { scrypt as scryptCb, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
@@ -31,7 +31,7 @@ Store the algorithm and salt with the hash, as above, so you can migrate the par
 
 ## Storing a column encrypted
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 export function encrypt(plaintext: string, key: Buffer): string {
@@ -61,7 +61,7 @@ Four things that are not stylistic:
 
 Encrypt in your service before `create`/`update`, and decrypt after reading:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies encrypt, key; this excerpt does not repeat those declarations."}
 async function store(dto: { ssn: string }) {
   return this.repo.create({ ssnEncrypted: encrypt(dto.ssn, key) });
 }
@@ -90,7 +90,7 @@ which threat you are addressing.
 
 ## Tokens and comparisons
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies randomBytes; this excerpt does not repeat those declarations."}
 const token = randomBytes(32).toString('base64url');
 ```
 

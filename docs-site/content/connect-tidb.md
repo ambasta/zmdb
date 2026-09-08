@@ -2,21 +2,19 @@ Dialect: `'mysql'`. TiDB speaks the MySQL protocol, so `mysql2` connects and the
 
 ## Setup
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { createPool } from 'mysql2/promise';
-import { type Driver } from '@zmdb/orm';
+import { mysqlDriver } from '@zmdb/mysql';
+
+const uri = process.env.TIDB_URL;
+if (uri === undefined) throw new Error('TIDB_URL is required');
 
 const pool = createPool({
-  uri: process.env.TIDB_URL,
+  uri,
   ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true },
 });
 
-export const driver: Driver = {
-  async execute(query) {
-    const [rows] = await pool.execute(query.text, [...query.parameters]);
-    return Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [];
-  },
-};
+export const driver = mysqlDriver(pool);
 ```
 
 TiDB Cloud requires TLS 1.2 or higher and will reject a connection without it.
@@ -31,7 +29,7 @@ TiDB Cloud requires TLS 1.2 or higher and will reject a connection without it.
 TiDB also offers `AUTO_RANDOM` for primary keys, which spreads writes rather than concentrating them on the last region. On a write-heavy table that is the better choice, and it needs a hand-written
 migration since `Serial` emits `AUTO_INCREMENT`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 {
   version: 1,
   name: 'events',
@@ -57,7 +55,7 @@ worth confirming. The shipped [transactional outbox](./transactional-outbox.html
 TiDB's column-store replicas (TiFlash) make analytical queries fast without a separate warehouse. There is no builder support for targeting them; it is a session variable or a hint, so
 [raw SQL](./raw-sql.html):
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 await driver.execute({ text: `SET SESSION tidb_isolation_read_engines = 'tiflash'`, parameters: [] });
 ```
 

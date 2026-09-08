@@ -21,7 +21,7 @@ Instrument these and you can diagnose most incidents. Anything beyond them is us
 
 ## A metrics registry without a dependency
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies quantile, seriesKey; this excerpt does not repeat those declarations."}
 export class Metrics {
   readonly #counters = new Map<string, number>();
   readonly #histograms = new Map<string, number[]>();
@@ -53,7 +53,7 @@ export class Metrics {
 }
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 function seriesKey(name: string, labels: Record<string, string>): string {
   const pairs = Object.entries(labels).sort(([a], [b]) => a.localeCompare(b));
   return pairs.length === 0 ? name : `${name}{${pairs.map(([k, v]) => `${k}="${v}"`).join(',')}}`;
@@ -66,7 +66,7 @@ Unbounded histogram arrays grow forever. Reset on scrape, or keep a reservoir sa
 
 ## Label cardinality is the trap
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies ctx, metrics; this excerpt does not repeat those declarations."}
 metrics.increment('http_requests', { path: ctx.path }); // wrong
 metrics.increment('http_requests', { route: '/posts/:id' }); // right
 ```
@@ -84,7 +84,7 @@ twice.
 
 `createRouter` and `createApp` accept the same `Observability` object. The separately installed OpenTelemetry adapter takes application-owned API objects:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
 import { metrics, trace } from '@opentelemetry/api';
 import { tracedDriver } from '@zmdb/app/observability';
 import { fromOpenTelemetry } from '@zmdb/otel';
@@ -102,7 +102,7 @@ await using app = createApp(AppModule, { observability });
 
 Queries use `tracedDriver`. Passing `ctx.span` is what parents a query span to the handler; metrics work without a tracer:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies UserSchema, baseDriver, ctx, defineRepository, observability, tracedDriver; this excerpt does not repeat those declarations."}
 const driver = tracedDriver(baseDriver, observability, ctx.span);
 const users = defineRepository(UserSchema, driver);
 ```
@@ -134,7 +134,7 @@ raw 36 samples, runtime provenance, input hashes and median operations per secon
 
 ## Exposing a hand-rolled registry
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Controller, Get, Inject, METRICS, Metrics; this excerpt does not repeat those declarations."}
 @Controller('/metrics')
 export class MetricsController {
   @Inject(METRICS) private readonly metrics!: Metrics;
@@ -148,7 +148,7 @@ export class MetricsController {
 
 Prometheus wants `text/plain` in its exposition format, which a handler can now return directly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/metrics')
 metrics() {
   return text(renderExposition());

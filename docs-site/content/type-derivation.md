@@ -1,6 +1,6 @@
 No hand-written DTOs. Every DTO derives from the interface you declared the table as:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { type Entity, type CreateDTO, type UpdateDTO } from '@zmdb/schema';
 
 // interface User extends Table<'users'> { … } — see Schema Declaration.

@@ -1,7 +1,7 @@
 Entity filters are repository-level defaults. A filter returns compiler predicates, and the repository combines them with the caller's predicates before it compiles SQL. There is no JavaScript
 post-filtering.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Post, driver, postSchema; this excerpt does not repeat those declarations."}
 import { BaseRepository, type FilterDef } from '@zmdb/orm';
 
 const livePosts = {
@@ -49,7 +49,7 @@ Raw `driver.execute` calls remain outside this boundary. zmdb does not parse SQL
 
 The tenant value belongs to the request, while the filter definition belongs to the repository:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Post, postSchema, tenantIdFrom; this excerpt does not repeat those declarations."}
 import type { Ctx } from '@zmdb/web';
 import { BaseRepository, type Driver, type FilterDef } from '@zmdb/orm';
 
@@ -90,7 +90,7 @@ async function listPosts(ctx: Ctx, driver: Driver) {
 
 There is no ambient request context in `@zmdb/web`, so pass the scope or the filter options through service calls. The same object can be passed to writes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies id, patch, scope; this excerpt does not repeat those declarations."}
 await scope.posts.update(id, patch, scope.filterOptions);
 await scope.posts.deleteMany({ status: 'expired' }, scope.filterOptions);
 ```
@@ -127,7 +127,7 @@ Use ordinary repository reads with explicit options, or put tenant enforcement i
 
 Filters are local to a repository instance; there is no process-global registry. A filter for another table names that table and carries its schema so its columns and parameters can be validated:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies BaseRepository, FilterDef, Post, commentSchema, postSchema, tenant; this excerpt does not repeat those declarations."}
 const visibleComments = {
   name: 'visibleComments',
   table: 'comments',
@@ -189,7 +189,7 @@ aggregates need an explicit target `FilterDef` on the repository.
 
 `RepositoryOptions.onQuery` observes each filtered read, update, or delete after its predicates have been placed and before it reaches the driver:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies PostRepository, audit, driver; this excerpt does not repeat those declarations."}
 const posts = new PostRepository(driver, 'postgres', {
   onQuery(query, meta) {
     audit({ sql: query.text, filters: meta.filters });
@@ -220,7 +220,7 @@ RETURNING "id"
 
 A genuinely read-only filter opts out:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies FilterDef; this excerpt does not repeat those declarations."}
 const searchVisibility = {
   name: 'searchVisibility',
   appliesToWrites: false,
@@ -251,8 +251,8 @@ an unscoped conflict target can match another tenant's row. The MySQL family ign
 
 Declare one nullable timestamp as repository-managed:
 
-```ts
-import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from 'zmdb/tags';
+```ts {"mode":"compile","id":"example-007"}
+import type { PrimaryKey, Serial, SoftDelete, Sql, Table } from '@zmdb/schema/tags';
 
 interface User extends Table<'users'>, SoftDelete<'deletedAt'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -265,7 +265,7 @@ Reflection refuses a missing, non-nullable, or non-`timestamp` column. The manag
 
 The declaration installs the built-in `softDelete` filter on that repository. Reads hide deleted rows unless the caller names the escape:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies id, users; this excerpt does not repeat those declarations."}
 await users.findById(id); // undefined after deletion
 await users.findById(id, { filters: { softDelete: false } });
 ```
@@ -284,7 +284,7 @@ A second call matches nothing, returns `false`, and leaves the original deletion
 `hardDelete(id)` is always a physical `DELETE`, but it remains filtered. It removes a live row by default; removing an already-hidden row requires the destructive method name and the explicit
 visibility escape:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies id, users; this excerpt does not repeat those declarations."}
 await users.hardDelete(id, { filters: { softDelete: false } });
 ```
 
@@ -310,7 +310,8 @@ CREATE UNIQUE INDEX "users_email_unique" ON "users" ("email")
 
 On PostgreSQL, a partial unique index gives replacement rows the opposite policy:
 
-```ts
+```ts {"mode":"compile","id":"example-010"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const ddl = createIndexDdl(
@@ -321,7 +322,7 @@ const ddl = createIndexDdl(
     unique: true,
     where: '"deletedAt" IS NULL',
   },
-  'postgres',
+  postgres,
 );
 ```
 

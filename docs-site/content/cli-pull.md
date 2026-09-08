@@ -23,7 +23,7 @@ $ npx zmdb pull --check --json
 
 The library workflow is one reader call followed by one emitter call:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
@@ -71,7 +71,7 @@ same target, composite relations, referential actions, and indexes that cannot b
 
 Generate the declarations, review every `TODO`, make any application-specific edits, and then compare the reviewed declaration with the live catalog through the drift front end:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Order, User, driver, expect, it, schemaOf; this excerpt does not repeat those declarations."}
 import { createIntrospector, detectDrift } from '@zmdb/migrations/introspect';
 import { postgres } from '@zmdb/postgres';
 import { snapshot } from 'zmdb/migrations';

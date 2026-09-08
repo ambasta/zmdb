@@ -28,7 +28,7 @@ Three answers, in order of preference:
 
 **HTTP-based drivers.** No connection to hold, so the arithmetic disappears:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Driver, requireEnv; this excerpt does not repeat those declarations."}
 import { neon } from '@neondatabase/serverless';
 const sql = neon(requireEnv('DATABASE_URL'));
 export const driver: Driver = { execute: async q => await sql.query(q.text, [...q.parameters]) };
@@ -51,7 +51,7 @@ Available for [Neon](./connect-neon.html), [PlanetScale](./connect-planetscale.h
 
 Put the client at module scope so a warm instance keeps it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Driver, Pool, defineRepository, users; this excerpt does not repeat those declarations."}
 // module scope — survives between invocations on the same instance
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 export const driver: Driver = {/* ... */};
@@ -70,7 +70,7 @@ Do **not** put migrations at module scope. Every cold start would race every oth
 
 `WebApplication` exposes `fetch(request)` and `handle(req)`, so it adapts to any platform without a server:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createApp; this excerpt does not repeat those declarations."}
 const app = createApp(AppModule);
 const ready = app.init();
 

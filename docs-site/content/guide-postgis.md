@@ -3,7 +3,7 @@ PostGIS-backed columns participate in declaration and migration like core column
 
 ## Declare the column
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { Ext, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 interface GeoJsonPoint {
@@ -34,7 +34,8 @@ Catalog pull can discover that the column is PostGIS-backed, but it cannot infer
 
 ## Create the spatial index
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const indexSql = createIndexDdl(
@@ -44,7 +45,7 @@ const indexSql = createIndexDdl(
     method: 'gist',
     columns: ['location'],
   },
-  'postgres',
+  postgres,
 );
 ```
 
@@ -69,7 +70,7 @@ For "venues within 5km" use `geography`, where `ST_DWithin` takes metres. With `
 
 The typed writer does not lower GeoJSON through `ST_GeomFromGeoJSON`, so use a parameterised statement:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies GeoJsonPoint, driver; this excerpt does not repeat those declarations."}
 const name = 'Bengaluru';
 const point: GeoJsonPoint = { type: 'Point', coordinates: [77.5946, 12.9716] };
 
@@ -85,7 +86,7 @@ GeoJSON positions are longitude first. Swapped latitude/longitude remains a vali
 
 For a declared `geometry` column, `stDWithin<T>(column, point, distance)` supplies the closed predicate and binds both the GeoJSON value and distance:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Venue, driver, point; this excerpt does not repeat those declarations."}
 import { createQueryCompiler, stDWithin } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
@@ -100,7 +101,7 @@ const rows = await driver.execute(nearby);
 The distance above is in the geometry's coordinate units. `stContains<T>` is the other typed predicate. Both sides are tied to the declared geometry shape, so a polygon column accepts a declared
 polygon rather than an arbitrary object:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Ext, PrimaryKey, Serial, Sql, Table, createQueryCompiler, postgres; this excerpt does not repeat those declarations."}
 import { stContains } from '@zmdb/sql';
 
 interface GeoJsonPolygon {
@@ -135,7 +136,7 @@ The compiler emits only the closed PostGIS function names and binds the GeoJSON 
 
 For metre-based distance, declare the column as geography:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Ext, GeoJsonPoint, PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
 interface VenueGeography extends Table<'venue_geographies'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   name: string & Sql<'text'>;
@@ -145,7 +146,7 @@ interface VenueGeography extends Table<'venue_geographies'> {
 
 The typed spatial helpers currently target `geometry`. A geography query that also projects `ST_Distance` therefore remains explicit, parameterised SQL:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies driver, point; this excerpt does not repeat those declarations."}
 const [longitude, latitude] = point.coordinates;
 const radiusMetres = 5_000;
 const radiusRows = await driver.execute({
@@ -163,7 +164,7 @@ Use `ST_DWithin` in `WHERE`, not `ST_Distance(...) < r`. Of those two radius for
 
 ## Type raw results
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies radiusRows; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 
 export interface VenueHit {

@@ -11,7 +11,7 @@ issued by the checkout handler is slow" — which is the whole question when the
 
 The driver sees every statement and is the right place to add request-scoped text without changing a reusable compiled query:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies baseDriver, routePattern; this excerpt does not repeat those declarations."}
 import { withComments } from '@zmdb/sql/comments';
 
 const driver = withComments(baseDriver, () => ({
@@ -32,7 +32,7 @@ Four details in the shipped decorator matter, and the third is the reason this h
 
 For trace correlation, let `tracedDriver` create the query span and select the keys that may reach the statement:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies UserSchema, baseDriver, ctx, defineRepository, tracedDriver, tracer; this excerpt does not repeat those declarations."}
 const observability = {
   tracer,
   comments: { keys: ['traceparent', 'route', 'action'] as const },

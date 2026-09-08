@@ -4,7 +4,7 @@ Populate loads related entities for to-one and to-many relations. Unlike lazy-lo
 
 Declare the relation on the type — see [Relations](./relations.html) — then ask for it by key. The result is a parent **typed** with its nested relation(s).
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseRepository, OneToMany, Order, PrimaryKey, Serial, Sql, Table, UserSchema, users; this excerpt does not repeat those declarations."}
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   orders?: Order[] & OneToMany<'orders', 'userId'>;
@@ -35,7 +35,7 @@ SELECT * FROM "orders" WHERE "userId" = $1   -- batched across all parents
 
 Use `findJoined` to fetch a parent with its related entity via JOIN.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ordersRepo; this excerpt does not repeat those declarations."}
 // Given `user?: User & ManyToOne<'users', 'userId'>` on Order
 const orders = await ordersRepo.findJoined({ target: 'users', leftCol: 'userId', rightCol: 'id', kind: 'left' }, { col: 'status', op: '=', value: 'pending' });
 
@@ -57,7 +57,7 @@ WHERE "orders"."status" = $1
 
 Use `findAllWithMany` to batch-load children for all parents.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies usersRepo; this excerpt does not repeat those declarations."}
 // Find all users, then batch-load their orders
 const usersWithOrders = await usersRepo.findAllWithMany(
   'orders', // relation name on User
@@ -85,7 +85,7 @@ SELECT * FROM "orders" WHERE "userId" IN ($1, $2, $3, ...)
 
 Pass `populate` in the GetOptions to type-narrow the result:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 import { type GetDTO } from '@zmdb/schema/dto';
 import { type Populated } from '@zmdb/schema/derive';
 
@@ -98,7 +98,7 @@ const result = await users.findById(1, { populate: ['orders'] });
 
 There are no lazy-loading proxies. If you don't call a populate method, relations are simply absent from the result:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const user = await users.findById(1);
 // 'orders' in user === false — absent, not `undefined`, and not a key of the result type
 ```

@@ -2,7 +2,8 @@ Dialect: `'postgres'`. Xata offers a Postgres-compatible endpoint, so a standard
 
 ## Setup
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 import { type Driver } from '@zmdb/orm';
 
@@ -13,6 +14,7 @@ const pool = new Pool({
 });
 
 export const driver: Driver = {
+  dialect: postgres,
   async execute(query) {
     const result = await pool.query(query.text, [...query.parameters]);
     return result.rows;
@@ -27,7 +29,7 @@ The connection string comes from Xata's dashboard and includes the branch. Every
 Xata's branching model is the same idea as [Neon's](./connect-neon.html), and it fits zmdb's offline generation the same way: the connection string encodes the branch, so pointing at a preview branch
 is an environment variable change.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 const branch = process.env.XATA_BRANCH ?? 'main';
 ```
 

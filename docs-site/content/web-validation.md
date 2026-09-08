@@ -3,7 +3,7 @@ validation is your [AOT `assert`](./aot-setup.html), so there is no Zod-style pa
 
 ## Validation pipe
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { validationPipe, runChain } from '@zmdb/web';
 import { assert } from '@zmdb/validator';
 import { type CreateDTO } from '@zmdb/schema';
@@ -16,7 +16,7 @@ A body that fails validation makes the chain return **400**; the handler never r
 
 ## Serialization interceptor
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies toPublicUser; this excerpt does not repeat those declarations."}
 import { serializationInterceptor } from '@zmdb/web';
 
 // shape the response from Entity<S> (default is identity — the pipeline
@@ -26,7 +26,7 @@ const serializer = serializationInterceptor(entity => toPublicUser(entity));
 
 ## One-call composition
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies CreateDTO, User, assert, toPublicUser; this excerpt does not repeat those declarations."}
 import { dtoChain } from '@zmdb/web';
 
 const chain = dtoChain({

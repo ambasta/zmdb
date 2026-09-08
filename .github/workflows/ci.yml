@@ -387,6 +387,9 @@ jobs:
       - name: Verify generated package and integration docs
         run: yarn verify:docs-generated
 
+      - name: Compile documentation samples
+        run: yarn verify:docs-samples
+
       - name: Build docs site
         run: yarn build:docs
 

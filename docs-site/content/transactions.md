@@ -1,6 +1,6 @@
 The legitimate job `flush()` does elsewhere — atomically committing several writes — is handled by **explicit transactions**.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies connection, orders, users; this excerpt does not repeat those declarations."}
 import { createTransactionalDb } from '@zmdb/orm/transactions';
 
 const db = createTransactionalDb(connection);
@@ -21,7 +21,7 @@ await db.transaction(async tx => {
 
 Retries are explicit because the callback is executed again, including any side effects outside the database:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies accountId, accounts, db, nextBalance; this excerpt does not repeat those declarations."}
 await db.transaction(
   async tx => {
     await accounts.withTransaction(tx).update(accountId, { balance: nextBalance });
@@ -46,7 +46,7 @@ COMMIT;   -- or ROLLBACK; if the callback threw
 
 ## Savepoints (nested)
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies db, orders, users; this excerpt does not repeat those declarations."}
 await db.transaction(async tx => {
   await users.withTransaction(tx).create({ email: 'a@b.com' });
   await tx.savepoint(async sp => {

@@ -30,7 +30,7 @@ not handwrite its own table definition.
 
 ## Validate before persistence
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Order, orders, queue; this excerpt does not repeat those declarations."}
 import { Controller, Post, assert, type CreateDTO, type Ctx } from 'zmdb';
 
 @Controller('/orders')
@@ -57,7 +57,7 @@ npm add @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha
 The core jobs package supplies queues, workers, schedules and provider ports. `@zmdb/jobs-sqlite` supplies both durable SQLite storage and the memory store used by this runnable example. Jobs are
 absent from a default product install; there is no `zmdb/jobs` facade.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ServerModule, worker; this excerpt does not repeat those declarations."}
 import { jobsExtension } from '@zmdb/jobs';
 import { createApp } from 'zmdb';
 

@@ -3,7 +3,7 @@ reconstruct requirements from controllers or guards.
 
 ## Declare schemes and requirements
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies CreateUserOperation, UsersController; this excerpt does not repeat those declarations."}
 import { defineHttpContract, httpOperation, type SecurityScheme } from '@zmdb/web/contract';
 
 const SCHEMES = {
@@ -52,13 +52,13 @@ export const HTTP_CONTRACT = defineHttpContract({
 
 One requirement object means every named scheme is required. Several requirement objects mean alternatives:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 security: [{ bearerAuth: ['users:write'] }, { headerKey: [] }];
 ```
 
 An empty array means explicitly public:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 security: [];
 ```
 
@@ -81,7 +81,7 @@ Never place a token, password, key, certificate, or client secret in the scheme 
 
 Register the compiled contract with the same route options and guards the application runs:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies GUARD_REGISTRY, ROUTES, UsersController, compileHttpContracts, createRouter, session, sources; this excerpt does not repeat those declarations."}
 const compiled = compileHttpContracts(sources, { session });
 const router = createRouter({ guardRegistry: GUARD_REGISTRY });
 

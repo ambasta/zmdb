@@ -5,7 +5,7 @@ mount zmdb inside Hono, or use zmdb's data layer under Hono routes and skip `@zm
 
 The lightest combination, and a good default if you already like Hono:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Post, postRepo; this excerpt does not repeat those declarations."}
 import { Hono } from 'hono';
 import { assert } from '@zmdb/validator';
 import { type CreateDTO } from '@zmdb/orm';
@@ -26,7 +26,7 @@ No decorators, no container, no `@zmdb/web` at all. The schema, compiler, reposi
 
 Because `WebApplication.fetch` takes and returns web-standard `Request`/`Response`, it mounts as a Hono handler:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AppModule, Hono, createApp; this excerpt does not repeat those declarations."}
 const zmdbApp = createApp(AppModule);
 await zmdbApp.init();
 
@@ -70,7 +70,7 @@ If your application is a handful of routes, Hono plus zmdb's data layer is less 
 
 `assert<T>` works as a Hono validator with no adapter:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies CreateDTO, Post, api, assert; this excerpt does not repeat those declarations."}
 api.post('/posts', async c => {
   const dto = assert<CreateDTO<Post>>(await c.req.json());
   // ...
@@ -80,7 +80,7 @@ api.post('/posts', async c => {
 Catch validation failures in `app.onError` and map them to a 400. Without the [transformer](./aot-setup.html), the generic call instead throws `runtime type witness required in test/fallback mode`, so
 keep a build-path canary:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

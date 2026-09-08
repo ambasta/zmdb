@@ -5,7 +5,7 @@ transport and zmdb for the data layer is a sensible architecture.
 
 The clean combination. tRPC owns routing and the client type; zmdb owns the schema, queries and validation:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Post, PostRepo; this excerpt does not repeat those declarations."}
 import { initTRPC } from '@trpc/server';
 import { assert } from '@zmdb/validator';
 import { type CreateDTO, type ListDTO } from '@zmdb/orm';
@@ -25,7 +25,7 @@ schema, so the procedure's input type tracks the table. Adding a required column
 > [!WARNING] If the [transformer is not running](./aot-setup.html), that `.input()` parser returns the input unchanged and validates nothing — while tRPC's types still claim it is validated. Under
 > tRPC this is worse than usual, because the typed client makes unvalidated input feel safe. Add the canary test.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -55,7 +55,7 @@ tRPC's subscription protocol remains a real advantage: `@zmdb/web` can stream a 
 
 Common and fine — mount each on its own path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies url; this excerpt does not repeat those declarations."}
 if (url.pathname.startsWith('/trpc')) return trpcHandler(request);
 return app.fetch(request);
 ```
@@ -66,7 +66,7 @@ Share the repositories, not the HTTP concerns. One data layer, two transports.
 
 Build the context from zmdb's DI so both halves share providers:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies AppModule, POSTS, USERS, createApp; this excerpt does not repeat those declarations."}
 const app = createApp(AppModule);
 await app.init();
 

@@ -5,7 +5,7 @@ inlined.
 
 ## Generate the provider shape directly
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { toolFor } from '@zmdb/ai';
 import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
@@ -39,7 +39,7 @@ Read [Provider Schema Strategies](./llm-strategy.html) before choosing a target.
 
 `toolFromSchema` remains the right API when a framework or protocol wants a plain JSON Schema tool record:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { schemaOf } from '@zmdb/schema';
 import { toolFromSchema, type ToolSpec } from '@zmdb/ai';
 
@@ -57,7 +57,7 @@ deliberately start from this provider-neutral document because those frameworks 
 
 A model response is still untrusted. Validate the returned arguments before a repository or handler sees them:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, toolCall, userRepo; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 import { type CreateDTO } from '@zmdb/schema';
 
@@ -71,7 +71,7 @@ This is especially important for an optional field widened to nullable by the Op
 
 When the API returns text rather than a structured tool call, `lenientParse` strips an outer Markdown fence and calls `JSON.parse`:
 
-````ts
+````ts {"mode":"compile","id":"example-004"}
 import { lenientParse } from '@zmdb/ai';
 
 const fenced = '```json\n{"email":"alice@example.com"}\n```';
@@ -81,7 +81,7 @@ const result = lenientParse(fenced);
 
 It does not repair trailing commas, single quotes or prose around the JSON. Pass a coercion function to validate and decode in the same boundary:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies CreateDTO, User, assert, lenientParse, userRepo; this excerpt does not repeat those declarations."}
 const result = lenientParse('{"email":"alice@example.com"}', value => assert<CreateDTO<User>>(value));
 
 if (!result.success) {

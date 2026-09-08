@@ -2,7 +2,7 @@
 
 A table declaration has two vocabularies:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 interface ColumnIR {
   name: string; // TypeScript property and DTO key
   physicalName: string; // SQL identifier
@@ -35,7 +35,7 @@ The returned entity still has an `authorId` property.
 
 The public implementations live at `@zmdb/schema/naming`:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { resolveNaming, snakeCase, snakeCasePlural } from '@zmdb/schema/naming';
 ```
 
@@ -55,7 +55,7 @@ the built-in rules.
 
 ## Configure it once
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 // zmdb.config.ts
 import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
@@ -75,7 +75,7 @@ export default defineConfig({
 
 A custom object wins if both config fields are present:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies defineConfig, postgres; this excerpt does not repeat those declarations."}
 export default defineConfig({
   schema: 'src/**/*.schema.ts',
   dialect: postgres,
@@ -88,7 +88,7 @@ export default defineConfig({
 
 Database commands, `@zmdb/compiler` project compilation, and the product compiler entry all pass `resolvedNaming` into reflection automatically:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 import { zmdbAot } from 'zmdb/compiler';
 
 const plugin = await zmdbAot();
@@ -101,7 +101,7 @@ physical names.
 
 Import `Physical` from either documented tag subpath:
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 import type { Physical, PrimaryKey, Sql, Table } from 'zmdb/tags';
 
 export interface User extends Table<'userAccount'>, Physical<'legacy_users'> {

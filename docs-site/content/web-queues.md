@@ -23,7 +23,7 @@ worker to many does not change that obligation.
 
 The framework gives every invocation a stable key:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies ctx, dedupeKey, jobId; this excerpt does not repeat those declarations."}
 ctx.idempotencyKey === (dedupeKey ?? jobId);
 ```
 
@@ -63,7 +63,7 @@ For tests and local process-only work, explicitly install the SQLite provider. I
 npm add @zmdb/jobs@alpha @zmdb/jobs-sqlite@alpha
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { createMemoryJobStore } from '@zmdb/jobs-sqlite';
 
 using store = createMemoryJobStore();
@@ -81,7 +81,7 @@ For a caller-owned node-postgres pool, install the dedicated adapter:
 npm add @zmdb/jobs@alpha @zmdb/jobs-postgres@alpha pg@^8.23.0
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { createPgJobStore } from '@zmdb/jobs-postgres';
 import { Pool } from 'pg';
 
@@ -97,7 +97,7 @@ then closes or releases the caller-owned PostgreSQL resource.
 
 ## Registering typed work
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies alerts, logger, mailer, store; this excerpt does not repeat those declarations."}
 import { createQueue, createWorker, jobsExtension, type Clock, type JobHandler } from '@zmdb/jobs';
 
 type Jobs = {
@@ -164,7 +164,7 @@ is installed.
 
 When creating a row and its job must be atomic, use the same pinned PostgreSQL client for the application write and the provider enqueuer. The caller opens, commits or rolls back that transaction:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies client, queue; this excerpt does not repeat those declarations."}
 import { pgJobEnqueuer } from '@zmdb/jobs-postgres';
 
 await queue.enqueueInTransaction(pgJobEnqueuer(client), 'email.send', { userId: 42 }, { dedupeKey: 'welcome:42' });
@@ -175,7 +175,7 @@ failures propagate.
 
 `delayMs` writes the lease into the future:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies queue; this excerpt does not repeat those declarations."}
 await queue.enqueue('email.send', { userId: 42 }, { delayMs: 60_000 });
 ```
 
@@ -201,7 +201,7 @@ settles, so the configured bound continues to count the work actually running.
 
 Dead rows remain in `zmdb_job` and are available through bounded APIs:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies worker; this excerpt does not repeat those declarations."}
 const invalid = await worker.listDead({
   limit: 100,
   reason: 'invalid-payload',

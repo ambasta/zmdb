@@ -2,7 +2,7 @@ TypeORM's Active Record and Data Mapper patterns both assume entity instances wi
 
 ## Entity class → entity interface
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseEntity, Column, CreateDateColumn, Entity, PrimaryGeneratedColumn; this excerpt does not repeat those declarations."}
 // TypeORM
 @Entity()
 export class User extends BaseEntity {
@@ -12,7 +12,7 @@ export class User extends BaseEntity {
 }
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 // zmdb
 import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
@@ -56,7 +56,7 @@ TypeORM's `Repository<T>` is the closest thing in either library, so this part m
 
 `@ManyToOne` / `@OneToMany` / `@JoinTable` become entries in a relations map:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies References, Sql, Table, User; this excerpt does not repeat those declarations."}
 import type { ManyToOne, OneToMany } from 'zmdb/tags';
 
 export interface Post extends Table<'posts'> {
@@ -80,7 +80,7 @@ declaration — see [Cascading](./cascading.html).
 
 TypeORM's `migration:generate` diffs entities against the live database. zmdb diffs the declarations against a **committed snapshot file**, and never reads the database to work out what to do:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Post, User, diff, readFileSync, schemaOf, snapshot; this excerpt does not repeat those declarations."}
 const ops = diff(JSON.parse(readFileSync('migrations/snapshot.json', 'utf8')), snapshot([schemaOf<User>(), schemaOf<Post>()]));
 ```
 
@@ -95,7 +95,7 @@ Emitting DDL directly from the declarations is [push](./cli-push.html), and it i
 
 `new DataSource({...}).initialize()` becomes a `Driver`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Driver, pool; this excerpt does not repeat those declarations."}
 const driver: Driver = { execute: q => pool.query(q.text, [...q.parameters]).then(r => r.rows) };
 ```
 

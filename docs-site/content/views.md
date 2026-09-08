@@ -8,7 +8,8 @@ complex joins, aggregations, or exposing a simplified API over normalized data.
 
 Use `createViewDdl` from `@zmdb/sql/schema-objects` to generate the DDL for a view. The function accepts a `ViewDef` with the view name and SELECT query.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { createViewDdl } from '@zmdb/sql/schema-objects';
 
 const viewDef = {
@@ -19,7 +20,7 @@ const viewDef = {
            GROUP BY u.id, u.email`,
 };
 
-const ddl = createViewDdl(viewDef, 'postgres');
+const ddl = createViewDdl(viewDef, postgres);
 console.log(ddl);
 ```
 
@@ -34,7 +35,8 @@ CREATE VIEW "user_with_post_count" AS SELECT u.id, u.email, COUNT(p.id) AS post_
 Materialized views store the result of the query physically on disk, making them useful for expensive aggregations or frequently accessed data that doesn't need to be real-time. PostgreSQL is the only
 supported dialect.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
+import { postgres } from '@zmdb/postgres';
 import { createViewDdl, UnsupportedFeatureError } from '@zmdb/sql/schema-objects';
 
 // Only works on PostgreSQL
@@ -46,7 +48,7 @@ const materializedDef = {
   materialized: true,
 };
 
-const ddl = createViewDdl(materializedDef, 'postgres');
+const ddl = createViewDdl(materializedDef, postgres);
 console.log(ddl);
 ```
 
@@ -63,10 +65,11 @@ CREATE MATERIALIZED VIEW "sales_summary" AS SELECT region, SUM(amount) AS total_
 
 When migrating, you may need to drop existing views before recreating them. Use `dropViewDdl` for this.
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
+import { postgres } from '@zmdb/postgres';
 import { dropViewDdl } from '@zmdb/sql/schema-objects';
 
-const dropDdl = dropViewDdl('user_with_post_count', 'postgres');
+const dropDdl = dropViewDdl('user_with_post_count', postgres);
 console.log(dropDdl);
 ```
 
@@ -78,7 +81,7 @@ DROP VIEW IF EXISTS "user_with_post_count"
 
 Once a view exists in your database, you can query it like a regular table using zmdb's query compiler. The view's columns become available through standard SELECT operations.
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 

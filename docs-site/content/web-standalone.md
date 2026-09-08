@@ -3,7 +3,7 @@ what lets one application run behind `node:http`, a Fetch runtime, a Lambda, or 
 
 ## No `listen()`
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Container, LazyModuleHandle, WebRequest, WebResponse; this excerpt does not repeat those declarations."}
 export interface WebApplication extends AsyncDisposable {
   readonly container: Container;
   readonly lazy: readonly LazyModuleHandle[];
@@ -20,7 +20,7 @@ test.
 
 `toNodeHandler` does the body reading and header flattening for you:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The application supplies the local modules ./posts.controller.js; this fence is an excerpt of that project."}
 import { createServer } from 'node:http';
 import { createRouter, toNodeHandler } from '@zmdb/web/pipeline';
 import { PostsController } from './posts.controller.js';
@@ -33,7 +33,7 @@ createServer(toNodeHandler(router)).listen(3000, '0.0.0.0');
 
 That is the router-level API. With a module graph, go through `createApp` and adapt `handle` yourself:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createServer; this excerpt does not repeat those declarations."}
 import { createApp } from '@zmdb/web/app';
 import { bodyText } from '@zmdb/web/pipeline';
 
@@ -61,7 +61,7 @@ responses; the router-level `toNodeHandler` above preserves streaming and backpr
 
 ## Behind a Fetch runtime
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies app; this excerpt does not repeat those declarations."}
 export default { fetch: (request: Request) => app.fetch(request) };
 ```
 
@@ -71,7 +71,7 @@ Works on Cloudflare Workers, Deno, Bun, Vercel Edge and Netlify Edge unchanged. 
 
 A CLI, a queue consumer, a cron job — anything that wants the container and the services but no HTTP:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AppModule, POSTS; this excerpt does not repeat those declarations."}
 import { createApplication } from '@zmdb/app';
 
 const app = createApplication(AppModule);
@@ -85,7 +85,7 @@ await repo.create({ title: 'from a script', body: '…' });
 
 ## Lifecycle
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Controller, Inject, POOL, Pool; this excerpt does not repeat those declarations."}
 import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from '@zmdb/app/lifecycle';
 
 @Controller('/posts')
@@ -111,7 +111,7 @@ constructs. Disposal runs `onShutdown` in **reverse construction order**, so a d
 
 `WebApplication` is `AsyncDisposable`, so `await using` handles it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies AppModule, createApp; this excerpt does not repeat those declarations."}
 await using app = createApp(AppModule);
 await app.init();
 // on scope exit: every constructed provider/controller's onShutdown, in reverse order
@@ -119,7 +119,7 @@ await app.init();
 
 With a long-lived server you want the signal handlers too, since the scope never exits:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies app, server; this excerpt does not repeat those declarations."}
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     server.close(() => void app[Symbol.asyncDispose]().then(() => process.exit(0)));
@@ -134,7 +134,7 @@ The timeout matters: `server.close` waits for open connections, and one idle kee
 
 Nothing is global. Two `createApp` calls give two containers and two routers:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies AdminModule, PublicModule, createApp; this excerpt does not repeat those declarations."}
 const publicApp = createApp(PublicModule);
 const adminApp = createApp(AdminModule);
 ```

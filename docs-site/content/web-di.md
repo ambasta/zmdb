@@ -5,7 +5,7 @@ explicit, **typed tokens** and a small `Container`. The injected field's type is
 
 A `Token<T>` carries its instance type at compile time and is identified by reference:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { createToken } from '@zmdb/app/di';
 
 class Logger {
@@ -19,7 +19,7 @@ const LoggerToken = createToken<Logger>('Logger');
 
 ## The container
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Logger, LoggerToken; this excerpt does not repeat those declarations."}
 import { Container } from '@zmdb/app/di';
 
 const container = new Container();
@@ -33,7 +33,7 @@ container.has(LoggerToken); // true
 
 Resolving an unregistered token throws `UnresolvedTokenError`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Container, LoggerToken; this excerpt does not repeat those declarations."}
 new Container().resolve(LoggerToken); // throws UnresolvedTokenError
 ```
 
@@ -41,7 +41,7 @@ new Container().resolve(LoggerToken); // throws UnresolvedTokenError
 
 Declare a field and annotate it with `@Inject(token)`. Build the class through the container to satisfy its injected fields:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Logger, LoggerToken, container; this excerpt does not repeat those declarations."}
 import { Inject } from '@zmdb/app/di';
 
 class UserService {

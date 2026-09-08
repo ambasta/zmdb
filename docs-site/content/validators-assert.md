@@ -5,7 +5,7 @@ Reach for it where a failure means something upstream is broken. Where a failure
 
 ## Basic Usage
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies req; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 import type { MaxLength, Min } from 'zmdb/tags';
 
@@ -32,7 +32,7 @@ The type argument is the schema. `assert<Player>(x)` is a complete call — ther
 
 ## AssertError Shape
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This public error shape omits the constructor that initializes issues and the Error implementation."}
 class AssertError extends Error {
   readonly name = 'AssertError';
   readonly issues: readonly ValidationIssue[];
@@ -61,7 +61,7 @@ a wrong type reads the type (`number`, `string`, `Date`, `"draft" | "published"`
 
 ## Asserting a table's write shape
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, app, assert, users; this excerpt does not repeat those declarations."}
 import type { CreateDTO, Entity } from 'zmdb/derive';
 
 app.post('/users', async (req, reply) => {
@@ -77,7 +77,7 @@ app.post('/users', async (req, reply) => {
 
 `assertEquals<T>()` is the strict form: it additionally rejects properties `T` does not declare.
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import { assertEquals } from '@zmdb/validator';
 
 interface Item {
@@ -100,7 +100,7 @@ wrong — "you also passed `extra`" is noise next to "`name` is not a string".
 
 The tags from `zmdb/tags` are what the checks come from, on a bare type argument as much as on a table:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies assert, input; this excerpt does not repeat those declarations."}
 import type { Pattern } from 'zmdb/tags';
 
 type Email = string & Pattern<'^[^@]+@[^@]+$'>;
@@ -115,7 +115,7 @@ values.
 
 With the transformer enabled, an `assert` call becomes straight-line JavaScript. The gate is the allocation-free boolean check, and the issue walk only runs once a throw is already certain:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Min, assert, value; this excerpt does not repeat those declarations."}
 // authored
 const n = assert<number & Min<0>>(value);
 ```

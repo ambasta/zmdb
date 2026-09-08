@@ -2,7 +2,7 @@ Bun runs zmdb unchanged — it is ESM-only TypeScript with no native code — an
 
 ## SQLite, with `bun:sqlite`
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This excerpt requires separately supplied external modules: bun:sqlite. Their application setup is outside this standalone fence."}
 import { Database } from 'bun:sqlite';
 import { type Driver } from '@zmdb/orm';
 
@@ -22,7 +22,7 @@ export const driver: Driver = {
 
 ## Postgres, with `Bun.sql`
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Driver, requireEnv; this excerpt does not repeat those declarations."}
 import { SQL } from 'bun';
 
 const sql = new SQL(requireEnv('DATABASE_URL'));
@@ -59,7 +59,7 @@ runtime does not fix this; the transform has to happen at build time.
 
 **Then prove it, in a test that runs against the built output:**
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('validators are transformed', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -73,7 +73,7 @@ Everything else — the compiler, the repository, the DTO types, `@zmdb/web` —
 
 `WebApplication` exposes `fetch(request)`, which is exactly `Bun.serve`'s handler signature:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies AppModule, Bun; this excerpt does not repeat those declarations."}
 import { createApp } from '@zmdb/web';
 
 const app = createApp(AppModule);

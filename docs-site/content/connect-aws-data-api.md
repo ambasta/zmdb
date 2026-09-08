@@ -2,7 +2,7 @@ Dialect: `'postgres'` (or `'mysql'`). The RDS Data API is HTTP against Aurora Se
 
 ## Setup
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies toParam, unwrap; this excerpt does not repeat those declarations."}
 import { RDSDataClient, ExecuteStatementCommand } from '@aws-sdk/client-rds-data';
 import { type Driver } from '@zmdb/orm';
 
@@ -31,7 +31,7 @@ The Data API does not take positional parameters or return plain rows, so the dr
 
 **Parameters are named and tagged.** Compiled Postgres queries use `$1`, `$2`; the Data API wants `:p1` with a typed value. Rewrite the text and build the parameter list:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies CompiledQuery; this excerpt does not repeat those declarations."}
 function toDataApi(query: CompiledQuery) {
   const sql = query.text.replace(/\$(\d+)/g, (_, n) => `:p${n}`);
   const parameters = query.parameters.map((value, i) => ({ name: `p${i + 1}`, value: toField(value) }));
@@ -50,15 +50,18 @@ function toField(v: unknown) {
 
 **Results are column-oriented and tagged.** Recombine them with the metadata:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 function unwrap(res: { records?: unknown[][]; columnMetadata?: { name?: string }[] }) {
   const names = (res.columnMetadata ?? []).map(c => c.name ?? '');
   return (res.records ?? []).map(record => Object.fromEntries(record.map((field, i) => [names[i] ?? `column_${i}`, fromField(field)])));
 }
 
-function fromField(f: Record<string, unknown>): unknown {
-  if (f.isNull === true) return null;
-  return f.stringValue ?? f.longValue ?? f.doubleValue ?? f.booleanValue ?? null;
+function fromField(f: unknown): unknown {
+  if (typeof f !== 'object' || f === null || Array.isArray(f)) {
+    throw new TypeError('Data API field must be an object');
+  }
+  if (Reflect.get(f, 'isNull') === true) return null;
+  return Reflect.get(f, 'stringValue') ?? Reflect.get(f, 'longValue') ?? Reflect.get(f, 'doubleValue') ?? Reflect.get(f, 'booleanValue') ?? null;
 }
 ```
 
@@ -70,7 +73,7 @@ function fromField(f: Record<string, unknown>): unknown {
 
 The Data API has explicit transaction ids rather than a session:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies BeginTransactionCommand, CommitTransactionCommand, client, database, resourceArn, secretArn; this excerpt does not repeat those declarations."}
 const { transactionId } = await client.send(new BeginTransactionCommand({ resourceArn, secretArn, database }));
 // pass transactionId on each ExecuteStatementCommand
 await client.send(new CommitTransactionCommand({ resourceArn, secretArn, transactionId }));

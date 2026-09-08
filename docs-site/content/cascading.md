@@ -3,8 +3,8 @@
 
 ## Declare the database action
 
-```ts
-import type { OnDelete, OnUpdate, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
+```ts {"mode":"compile","id":"example-001"}
+import type { OnDelete, OnUpdate, PrimaryKey, References, Serial, Sql, Table } from '@zmdb/schema/tags';
 
 interface Post extends Table<'posts'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
@@ -48,7 +48,7 @@ CREATE TABLE "posts" (
 
 Each `References<'table.column'>` is one single-column constraint. A composite foreign key is declared explicitly at table level so separate references are never grouped by guesswork:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Table; this excerpt does not repeat those declarations."}
 import type { ForeignKey } from 'zmdb/tags';
 
 interface Membership extends Table<'memberships'>, ForeignKey<'tenantId,userId', 'users', 'tenantId,id'> {
@@ -81,7 +81,7 @@ The `node:sqlite` adapter runs `PRAGMA foreign_keys = ON` when it wraps a connec
 
 When a cascade also archives rows, emits an event or calls a service, make those steps explicit in a transaction:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createQueryCompiler, db, driver, id, postRepo; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 await db.transaction(async () => {
@@ -96,7 +96,7 @@ Order matters: children first, then the parent, unless the database constraint i
 
 MikroORM's `cascade: [Cascade.PERSIST]` writes a new parent and its new children from one `flush()`. Here that is two explicit writes in a transaction:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies authorRepo, db, postRepo; this excerpt does not repeat those declarations."}
 await db.transaction(async () => {
   const author = await authorRepo.create({ name: 'Ada' });
   await postRepo.create({ authorId: author.id, title: 'On the Engine' });

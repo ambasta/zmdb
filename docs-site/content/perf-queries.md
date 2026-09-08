@@ -2,7 +2,7 @@ The performance question with a data layer is almost never "how fast is the libr
 
 ## Count the queries first
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies CompiledQuery, Driver; this excerpt does not repeat those declarations."}
 function recording(inner: Driver) {
   const seen: CompiledQuery[] = [];
   return {
@@ -25,13 +25,13 @@ and you cannot see it in the code.
 
 **Across calls, not prevented.** A loop of `findById` is a loop of queries:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies authorRepo, posts; this excerpt does not repeat those declarations."}
 for (const p of posts) await authorRepo.findById(p.authorId); // N queries
 ```
 
 Batch it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies authorRepo, posts; this excerpt does not repeat those declarations."}
 const authors = await authorRepo.find({ id: { in: [...new Set(posts.map(p => p.authorId))] } });
 const byId = new Map(authors.map(a => [a.id, a]));
 ```
@@ -51,7 +51,7 @@ Joining a one-to-many returns the parent once per child, so a user with 40 posts
 
 ## Select fewer columns
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.list({ select: ['id', 'title'], page: { limit: 50 } });
 ```
 
@@ -63,10 +63,11 @@ count suggests.
 `Unique` records the constraint. SingleStore migration generation now carries that flag so it can enforce the shard-key rule; the other dialects still need an explicit schema-object migration for a
 standalone unique index. See [Indexes & Constraints](./indexes-constraints.html).
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
-createIndexDdl({ name: 'posts_author_created', table: 'posts', columns: ['author_id', 'created_at'] }, 'postgres');
+createIndexDdl({ name: 'posts_author_created', table: 'posts', columns: ['author_id', 'created_at'] }, postgres);
 ```
 
 Column order in a composite index is not arbitrary: equality columns first, then the range or sort column. `(author_id, created_at)` serves `WHERE author_id = ? ORDER BY created_at` and
@@ -74,13 +75,13 @@ Column order in a composite index is not arbitrary: equality columns first, then
 
 Partial indexes are supported and are the right tool for a filtered subset:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies createIndexDdl; this excerpt does not repeat those declarations."}
 createIndexDdl({ name: 'orders_open', table: 'orders', columns: ['created_at'], where: "status = 'open'" }, 'postgres');
 ```
 
 Functional indexes use the tagged expression form:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies createIndexDdl; this excerpt does not repeat those declarations."}
 createIndexDdl({ name: 'users_email_lower', table: 'users', columns: [{ expr: 'lower("email")' }] }, 'postgres');
 ```
 
@@ -90,7 +91,7 @@ The expression is schema-authored DDL and is emitted verbatim. PostgreSQL, Cockr
 
 The compiler gives you the exact statement, so this is easy:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies driver, repoQuery; this excerpt does not repeat those declarations."}
 const q = repoQuery(); // or a builder .compile()
 const plan = await driver.execute({ text: `EXPLAIN ANALYZE ${q.text}`, parameters: [...q.parameters] });
 console.log(plan.map(r => r['QUERY PLAN']).join('\n'));
@@ -102,7 +103,7 @@ A `Seq Scan` on a large table in a filtered query means a missing index. This is
 
 `OFFSET 100000` makes the database read and discard 100,000 rows. Keyset pagination is O(1) in the page number:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies cursor, repo; this excerpt does not repeat those declarations."}
 await repo.list({
   where: { id: { gt: cursor } },
   orderBy: [{ column: 'id', dir: 'asc' }],

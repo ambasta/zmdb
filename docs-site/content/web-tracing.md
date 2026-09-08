@@ -13,7 +13,7 @@ provider, processor, exporter, sampler, collector connection, global registratio
 The app observability entry point declares narrow `Tracer`, `Span` and `Meter` ports and has no third-party runtime dependency. The separately installed `@zmdb/otel` package is the only current
 surface that imports `@opentelemetry/api`, its sole required peer:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
 import { metrics, trace } from '@opentelemetry/api';
 import { fromOpenTelemetry } from '@zmdb/otel';
 import { createApp } from '@zmdb/web';
@@ -73,7 +73,7 @@ A normal `4xx` records the response status but is not marked as a server-span er
 
 `tracedDriver` instruments the execute boundary. Parenting is explicit: pass the handler's `ctx.span` when the query should appear beneath that handler.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Ctx, UserSchema, baseDriver, defineRepository, observability; this excerpt does not repeat those declarations."}
 import { tracedDriver } from '@zmdb/app/observability';
 
 async function list(ctx: Ctx) {
@@ -118,7 +118,7 @@ ignored and starts a new trace; it never fails the request. Invalid `tracestate`
 
 zmdb does not patch `fetch`. Use your SDK's propagation API, or write the framework span into an outbound carrier:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies ctx, url; this excerpt does not repeat those declarations."}
 import { toTraceHeaders } from '@zmdb/app/observability';
 
 const headers = ctx.span === undefined ? {} : toTraceHeaders(ctx.span);
@@ -140,7 +140,7 @@ The message client and event publisher accept an explicit span and put its carri
 
 Trace everything in development, sample in production — a busy service produces more span volume than logs, and the cost is real:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This excerpt requires separately supplied external modules: @opentelemetry/sdk-node. Their application setup is outside this standalone fence."}
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { TraceIdRatioBasedSampler, ParentBasedSampler } from '@opentelemetry/sdk-trace-base';
 

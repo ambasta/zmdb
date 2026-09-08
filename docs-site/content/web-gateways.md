@@ -3,7 +3,7 @@ an async iterable as Server-Sent Events — **no `ws` dependency** (transport is
 
 ## Declaring a gateway
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { Gateway, Subscribe } from '@zmdb/web';
 import type { MessageCtx } from '@zmdb/web';
 
@@ -23,7 +23,7 @@ class ChatGateway {
 
 ## Dispatching messages
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ChatGateway; this excerpt does not repeat those declarations."}
 import { createGatewayDispatcher } from '@zmdb/web';
 
 const dispatcher = createGatewayDispatcher(new ChatGateway());
@@ -37,7 +37,7 @@ Wire `dispatch` to your transport of choice (a `ws` server, a Bun/Deno socket) �
 
 `sseStream` turns an async iterable into a properly-framed SSE byte stream you can return from a Fetch `Response` — SSE needs **no** extra dependency:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This return fragment omits the application function that contains it."}
 import { sseStream } from '@zmdb/web';
 
 async function* ticks() {

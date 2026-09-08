@@ -1,16 +1,18 @@
 > [!WARNING] Never put a database, cache, DNS or other dependency check in **liveness**. A dependency blip would make the orchestrator restart every otherwise healthy replica, turning a partial outage
 > into a full outage and adding a restart storm to recovery. Dependency checks belong in **readiness**.
 
-`@zmdb/web/health` provides supported, app-owned liveness and readiness aggregation. Checks are passed explicitly; importing the module registers nothing and creates no global registry.
+`@zmdb/app/health` owns liveness and readiness aggregation; `@zmdb/web/health` exposes the HTTP routes. Checks are passed explicitly; importing the module registers nothing and creates no global
+registry.
 
 ## A liveness and a readiness probe
 
 They answer different questions, and conflating them causes outages.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { type Driver } from '@zmdb/orm';
 import { Controller, Get, Public, createRouter, type Guard } from '@zmdb/web';
-import { databaseReadinessCheck, detailedReadyRoute, healthRoutes, type HealthChecks } from '@zmdb/web/health';
+import { databaseReadinessCheck, type HealthChecks } from '@zmdb/app/health';
+import { detailedReadyRoute, healthRoutes } from '@zmdb/web/health';
 
 declare const driver: Driver;
 declare const authenticated: Guard;
@@ -70,7 +72,7 @@ readinessProbe:
 
 Return a `503` explicitly. A handler chooses its own status with `json`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/ready')
 async ready() {
   try {
@@ -117,7 +119,7 @@ Do not check optional dependencies in readiness. If your cache being down does n
 
 `init()` runs `onModuleInit` and `onApplicationBootstrap`; a process serving before that finished serves requests with uninitialised state:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies app; this excerpt does not repeat those declarations."}
 let ready = false;
 await app.init();
 ready = true;
@@ -129,7 +131,7 @@ Expose it and point a startup probe at it, so slow initialisation is not mistake
 
 Failing readiness on `SIGTERM` before closing anything is what makes a rolling deploy lossless:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies app, server, shuttingDown; this excerpt does not repeat those declarations."}
 process.on('SIGTERM', async () => {
   shuttingDown = true; // readiness now fails
   await new Promise(r => setTimeout(r, 5_000)); // let the LB notice
@@ -145,7 +147,7 @@ The sleep matters. Closing the server immediately drops in-flight requests that 
 **The liveness/readiness split is enforced by the type, not by a field.** The obvious shape is one interface with `kind: 'liveness' | 'readiness'`, which is a convention wearing a field name — nothing
 stops a liveness check awaiting a query, and the reviewer who would catch it is the reviewer a comment would have relied on. Instead a liveness check is **synchronous**:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 interface LivenessCheck {
   readonly name: string;
   run(): boolean;

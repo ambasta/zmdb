@@ -2,7 +2,7 @@ A `bigint` column is a 64-bit integer. The awkward part is not the DDL, it is th
 
 ## Declaring one
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 
 export interface Event extends Table<'events'> {
@@ -26,10 +26,11 @@ The app type is `bigint`, TypeScript's own arbitrary-precision integer, and that
 `Serial` and `Sql<'bigint'>` together mark the column generated — it drops out of `CreateDTO<Event>`, which is the part your code notices — but the DDL still says `BIGINT`, not `BIGSERIAL`. Only
 `Serial` on an `integer` column becomes `SERIAL`. So declare the sequence:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
+import { postgres } from '@zmdb/postgres';
 import { createSequenceDdl } from '@zmdb/sql/schema-objects';
 
-createSequenceDdl({ name: 'events_id_seq', start: 1 }, 'postgres');
+createSequenceDdl({ name: 'events_id_seq', start: 1 }, postgres);
 ```
 
 ```sql
@@ -48,7 +49,7 @@ See [Sequences](./sequences.html).
 The one place a `bigint` cannot go is JSON — `JSON.stringify(1n)` throws. So the **wire** type for a `bigint` column is a `string`, with `format: 'int64'`, and you get that without asking: it is in
 the generated JSON Schema, the OpenAPI document and what `wireDecoder` expects. Three types for one column, each one what that layer can actually carry.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Entity; this excerpt does not repeat those declarations."}
 type Row = Entity<Event>; // { id: bigint; payload: { kind: string } }
 // the JSON body:          { "id": "9007199254740993", "payload": { … } }
 ```
@@ -74,7 +75,7 @@ close.
 
 The driver is the right place, because it is the only code that knows which client it wraps:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver, pool; this excerpt does not repeat those declarations."}
 const driver: Driver = {
   async execute(q) {
     const res = await pool.query(q.text, [...q.parameters]);
@@ -87,7 +88,7 @@ One conversion, at the one boundary that knows the client's conventions, rather 
 
 If you would rather hold the ids as strings — safe, and often enough for a key you only pass around — declare that instead, and be explicit that arithmetic and ordering are gone:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies PrimaryKey, Sql, Table; this excerpt does not repeat those declarations."}
 export interface Event extends Table<'events'> {
   id: string & Sql<'bigint'> & PrimaryKey;
 }
@@ -99,7 +100,7 @@ Both Postgres and MySQL accept a numeric string for a `BIGINT` parameter, so thi
 
 The filter value matches the app type, whichever one you declared:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.findOne({ id: { eq: 9007199254740993n } }); // bigint form
 await repo.findOne({ id: { eq: '9007199254740993' } }); // string form
 ```

@@ -4,7 +4,7 @@ A search endpoint takes optional filters and applies the ones that were supplied
 
 Build the `where` object conditionally:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, userRepo; this excerpt does not repeat those declarations."}
 import { type WhereDTO } from '@zmdb/orm';
 
 interface Query {
@@ -27,7 +27,7 @@ An empty `where` is a valid unfiltered query, so no special case is needed for "
 
 ## The bug
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies q, where; this excerpt does not repeat those declarations."}
 if (q.minAge) where.age = { gte: q.minAge }; // wrong
 ```
 
@@ -44,14 +44,14 @@ Always compare against `undefined`. And turn on `strict-boolean-expressions` in 
 
 The spread form has the same bug in a shape the linter rule above does not catch:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, WhereDTO, q; this excerpt does not repeat those declarations."}
 const where: WhereDTO<User> = { age: q.minAge === undefined ? {} : { gte: q.minAge } }; // wrong
 ```
 
 Every key of the operator map is optional, so `{}` type-checks. It used to mean "no operator on `age`", which folded to no predicate at all — the column was named and every row matched. It is now a
 `ValidationError` naming the column, so the mistake is a 400 rather than a full table scan on a `SELECT` and the whole table on an `UPDATE` or `DELETE`. Omit the key instead:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies User, WhereDTO, q; this excerpt does not repeat those declarations."}
 const where: WhereDTO<User> = { ...(q.minAge === undefined ? {} : { age: { gte: q.minAge } }) };
 ```
 
@@ -59,7 +59,7 @@ const where: WhereDTO<User> = { ...(q.minAge === undefined ? {} : { age: { gte: 
 
 Reassign — the builder is immutable, so a bare call is discarded:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies createQueryCompiler, q; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 let b = createQueryCompiler(postgres).selectFrom('users');
@@ -73,7 +73,7 @@ const { text, parameters } = b.orderBy('id', 'asc').limit(20).compile();
 
 Note `where` for the first predicate and `andWhere` after. If the first filter is conditional, you cannot know which is which — so start from a predicate that is always true:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies createQueryCompiler, postgres; this excerpt does not repeat those declarations."}
 let b = createQueryCompiler(postgres).selectFrom('users').where('deleted_at', 'is null', null);
 // every subsequent filter is andWhere
 ```
@@ -84,7 +84,7 @@ Or use the DTO API, which has no such ordering concern. That is usually the bett
 
 Everything in `req.query` is a string. Coerce and validate before it reaches the filter builder:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Query, ValidationError, assert, ctx; this excerpt does not repeat those declarations."}
 interface RawQuery {
   minAge?: string;
   name?: string;
@@ -104,7 +104,7 @@ if (q.minAge !== undefined && Number.isNaN(q.minAge)) throw new ValidationError(
 
 ## Whitelist the sort column
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies q; this excerpt does not repeat those declarations."}
 const SORTABLE = ['id', 'name', 'created_at'] as const;
 type Sortable = (typeof SORTABLE)[number];
 

@@ -2,7 +2,7 @@ Runtime validators build a checker when they first see a type. zmdb's build one 
 
 ## What "AOT" means here
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies input, is; this excerpt does not repeat those declarations."}
 // what you write
 const ok = is<{ n: number }>(input);
 ```
@@ -61,7 +61,7 @@ first use.
 
 The canary is still worth writing, since it catches a plugin that runs over some files and not others:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

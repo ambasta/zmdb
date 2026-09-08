@@ -3,7 +3,7 @@ it for you, cursor encoding included.
 
 ## Offset pagination, and where it breaks
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies page, postRepo; this excerpt does not repeat those declarations."}
 await postRepo.list({
   orderBy: [{ column: 'created_at', dir: 'desc' }],
   page: { limit: 20, offset: page * 20 },
@@ -21,7 +21,7 @@ Fine for an admin table with 200 rows. Not fine for a feed.
 
 Pass `after` instead of `offset` and read the `cursor` back off the result:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies postRepo; this excerpt does not repeat those declarations."}
 export async function feed(after?: string) {
   const page = await postRepo.list({
     orderBy: [{ column: 'created_at', dir: 'desc' }],
@@ -42,7 +42,7 @@ into an opaque base64 `cursor`. Hand `page.cursor` back to the client and pass i
 If the sort column is not unique, rows with equal values can be skipped or repeated across a page boundary. This is the classic keyset bug, and `list()` closes it: if your `orderBy` does not already
 include the primary key, it **appends `{ column: pk, dir: 'asc' }`** before compiling. So
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 orderBy: [{ column: 'created_at', dir: 'desc' }];
 ```
 
@@ -62,7 +62,7 @@ it is not more correct.
 
 ## Index the sort key
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies createIndexDdl; this excerpt does not repeat those declarations."}
 createIndexDdl({ name: 'posts_created_id', table: 'posts', columns: ['created_at', 'id'] }, 'postgres');
 ```
 
@@ -73,7 +73,7 @@ pagination.
 
 `after` accepts either the opaque string from a previous result or a plain object of column values:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 page: { limit: 20, after: { created_at: at, id } }   // equivalent, and useful in tests
 ```
 

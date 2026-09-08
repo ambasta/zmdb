@@ -1,7 +1,7 @@
 `createLoaderScope()` provides explicit request-scoped batching for primary-key reads and declared relations. There is no ambient loader: construct one scope at the request boundary and pass it
 through the request context.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies listPosts; this excerpt does not repeat those declarations."}
 import { type Entity } from '@zmdb/schema';
 import { createLoaderScope, type LoaderScope } from '@zmdb/orm';
 
@@ -24,7 +24,7 @@ The scope owns its loaders and their loaded values. Letting the request context 
 
 `populate` batches relations requested by one repository call. A loader handles the N+1 spread across independent call sites:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies RequestContext, authorRepo, postRepo; this excerpt does not repeat those declarations."}
 async function listPosts(ctx: RequestContext) {
   const posts = await postRepo.findAll();
   const authors = ctx.loaders.loaderFor(authorRepo);
@@ -40,7 +40,7 @@ async function listPosts(ctx: RequestContext) {
 
 The first `load()` of an empty batch schedules one microtask. Every load made before that microtask runs joins the dispatch:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies authors, ids; this excerpt does not repeat those declarations."}
 for (const id of ids) await authors.load(id); // one dispatch per iteration
 await Promise.all(ids.map(id => authors.load(id))); // one batch
 ```
@@ -55,7 +55,7 @@ returns the same loader; constructing another scope starts empty.
 
 zmdb does not ship a GraphQL server. The example below shows the request-context shape for a third-party server because field resolvers are the canonical cross-call N+1:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Entity, LoaderScope, authorRepo, createLoaderScope; this excerpt does not repeat those declarations."}
 interface ResolverContext {
   readonly loaders: LoaderScope;
 }
@@ -79,7 +79,7 @@ before the next request builds its tenant-filtered query.
 
 `relationLoader()` resolves through the repository's declared relation:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ctx, userRepo; this excerpt does not repeat those declarations."}
 const orders = ctx.loaders.relationLoader(userRepo, 'orders');
 const users = await userRepo.findAll();
 

@@ -19,7 +19,7 @@ OpenAPI document that documents a field you removed last week.
 
 One **TypeScript interface** is the source of truth, and everything else is **derived from it by the type system**:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
 export interface User extends Table<'users'> {

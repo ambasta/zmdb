@@ -19,7 +19,7 @@ OpenAPI is an output beside the generated client. It is never the input to clien
 The operation key is the public operation ID. Method, path, parameters, exact response statuses, security, versioning, and deprecation are values; request and response application types are the
 generic contract.
 
-```ts
+```ts {"mode":"compile","id":"example-001","group":"account-contract","file":"src/metadata.ts"}
 // docs-file: src/metadata.ts
 if (Symbol.metadata === undefined) {
   Object.defineProperty(Symbol, 'metadata', {
@@ -29,7 +29,7 @@ if (Symbol.metadata === undefined) {
 }
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-002","group":"account-contract","file":"src/account.contract.ts"}
 // docs-file: src/account.contract.ts
 import { Controller, type Ctx, Get, json } from '@zmdb/web';
 import { defineHttpContract, httpOperation } from '@zmdb/web/contract';
@@ -107,7 +107,7 @@ The declaration is inert. Calling `defineHttpContract` performs no reflection, r
 The compiler uses one caller-owned `ReflectSession` to recover the generic application types and produce one `HttpContractIR`. `registerContract` binds those compiled operations to controller
 instances and checks that the live route, guard, security, and version declarations agree.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The application supplies the local modules ./account.contract.js; this fence is an excerpt of that project."}
 // docs-file: src/runtime.ts
 import { fileURLToPath } from 'node:url';
 
@@ -155,7 +155,7 @@ service.
 
 Point the canonical CLI at the exported contract and name both committed artifacts:
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 // docs-file: zmdb.config.ts
 import { sqlite } from 'zmdb/sqlite';
 import { defineConfig } from 'zmdb/config';
@@ -194,7 +194,7 @@ Authentication is injected when constructing the client or overridden for one ca
 signal. It returns one exact header/query/cookie patch. Credentials are caller-produced per request; zmdb does not generate them, place them in generated source or errors, or retain them after request
 construction.
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The application supplies the local modules ../generated/http-client.generated.js; this fence is an excerpt of that project."}
 // docs-file: src/generated-client.ts
 import { createApiClient } from '../generated/http-client.generated.js';
 
@@ -223,7 +223,7 @@ stable error classes. A caller abort instead rejects with the caller's original 
 Pass a caller-owned `AbortSignal` and/or `timeoutMs` per call. The first abort reason wins. The runtime never aborts the caller's controller, never assigns a retry policy, and clears its own timeout
 on every settle path.
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The application supplies the local modules ./generated-client.js; this fence is an excerpt of that project."}
 // docs-file: src/responses.ts
 import {
   AuthenticationError,
@@ -289,7 +289,7 @@ Supplying an unknown version fails before transport execution. OpenAPI receives 
 
 An origin-relative base URL is valid for browser Fetch and custom browser transports:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The application supplies the local modules ./generated-client.js; this fence is an excerpt of that project."}
 // docs-file: src/browser.ts
 import { accountClient } from './generated-client.js';
 
@@ -303,7 +303,7 @@ export const browserAccount = client.get_fixture_account({ path: { accountId: 'b
 
 Node's Fetch requires an absolute base URL:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The application supplies the local modules ./generated-client.js; this fence is an excerpt of that project."}
 // docs-file: src/node.ts
 import { accountClient } from './generated-client.js';
 
@@ -326,7 +326,7 @@ separately prove caller-abort reason identity and timeout behavior.
 `@zmdb/client` is independently usable without generated code, but the manual boundary is intentionally low level: you provide a `GeneratedOperation` containing the request plan and response reader.
 This is useful for a small hand-authored operation or a custom transport contract. It does not infer application types, inspect controllers, parse OpenAPI, or create an SDK.
 
-```ts
+```ts {"mode":"compile","id":"example-009"}
 // docs-file: src/manual-client.ts
 import { CLIENT_RUNTIME_ABI, createClientRuntime, type DecodeResult, type GeneratedOperation } from '@zmdb/client';
 

@@ -4,7 +4,7 @@ message — and [`assert`](./validators-assert.html) where a failure means a bug
 > [!WARNING] Use full-depth `validate<T>()` for untrusted input. `validateShallow<T, D>()` deliberately omits checks below `D` and can report success for malformed nested data; it is only for
 > rechecking data whose deeper contents are already trusted. See [Shallow Validation](./validators-shallow.html).
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies ValidationIssue; this excerpt does not repeat those declarations."}
 interface ValidateResult<T> {
   readonly success: boolean;
   readonly data?: T;
@@ -16,7 +16,7 @@ interface ValidateResult<T> {
 
 The type argument is the schema. There is nothing to pass and nothing to keep in step:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { validate } from '@zmdb/validator';
 import type { Min, Pattern } from 'zmdb/tags';
 
@@ -34,7 +34,7 @@ const bad = validate<Signup>({ email: 'invalid', age: 15 });
 
 On success, `data` is narrowed to `T`; on failure it is absent and `errors` is populated. The two are never both present, so the discriminator to branch on is `success`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Signup, body, validate; this excerpt does not repeat those declarations."}
 const result = validate<Signup>(body);
 if (!result.success) return reply.status(400).send({ errors: result.errors });
 result.data; // Signup
@@ -47,7 +47,7 @@ result.data; // Signup
 
 Each issue carries where and what:
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 interface ValidationIssue {
   readonly path: string; // 'input.items[2].name'
   readonly message: string; // human-readable
@@ -60,7 +60,7 @@ interface ValidationIssue {
 
 `path` is exact, including array indices and nested keys:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies validate; this excerpt does not repeat those declarations."}
 import type { MaxLength } from 'zmdb/tags';
 
 interface Roster {
@@ -77,7 +77,7 @@ validate<Roster>({ users: [{ name: 'LongNameTooLong' }] });
 
 The DTO types are the useful arguments here — they are the shapes a client actually sends:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies body; this excerpt does not repeat those declarations."}
 import { validate } from '@zmdb/validator';
 import type { CreateDTO, UpdateDTO } from 'zmdb/derive';
 import type { Min, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
@@ -98,14 +98,14 @@ const patch = validate<UpdateDTO<User>>(body); // every column optional, `id` ab
 
 You get this without asking on every write. `create`, `upsert` and `update` validate the payload against the same IR before any SQL is compiled:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.create({ email: 'new@example.com', age: 25 }); // OK
 await repo.create({ email: 'bad', age: 10 }); // throws ValidationError
 ```
 
 The thrown `ValidationError` carries `.issues`, the same `ValidationIssue[]` shape, so a handler can render a repository failure and a boundary failure the same way:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies payload, repo; this excerpt does not repeat those declarations."}
 import { validationIssuesOf } from '@zmdb/validator';
 
 try {

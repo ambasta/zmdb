@@ -1,7 +1,7 @@
 TypeBox is the closest neighbour zmdb has, because it targets JSON Schema. That makes the interop genuinely useful rather than just a migration path: zmdb _emits_ JSON Schema, and TypeBox _is_ JSON
 Schema.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Static, Type, TypeCompiler, body, is; this excerpt does not repeat those declarations."}
 // TypeBox
 const User = Type.Object({ id: Type.Number(), email: Type.String() });
 type User = Static<typeof User>;
@@ -36,14 +36,14 @@ TypeBox's uncompiled `Value.Check` avoids codegen but is much slower. So the cho
 
 `toJsonSchema` emits JSON Schema, and TypeBox consumes JSON Schema by construction — so a declared table can validate through TypeBox, ajv, or anything else in that ecosystem:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies posts, users; this excerpt does not repeat those declarations."}
 import { toJsonSchema, toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const createSchema = toJsonSchema(posts, 'create'); // omits serial, respects defaults
 const components = toOpenApiComponents([users, posts]);
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createSchema; this excerpt does not repeat those declarations."}
 import Ajv from 'ajv';
 const validate = new Ajv().compile(createSchema);
 ```
@@ -81,7 +81,7 @@ There is no JSON-Schema-to-declaration importer. If you have JSON Schema as your
 
 ## And the canary, as ever
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

@@ -9,7 +9,7 @@ validation and typed persistence behind an HTTP controller. Granular package cho
 Other tools make you write your types more than once: a TypeScript type, plus a schema, plus decorators, plus DTOs. Every one of those is a place for drift. zmdb removes the schema object entirely —
 the interface **is** the schema, and the build step reads it.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { HasDefault, Pattern, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface User extends Table<'users'> {

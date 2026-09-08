@@ -3,7 +3,7 @@ applies.
 
 ## Setup
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This excerpt requires separately supplied external modules: @vercel/postgres. Their application setup is outside this standalone fence."}
 import { sql } from '@vercel/postgres';
 import { type Driver } from '@zmdb/orm';
 
@@ -24,7 +24,7 @@ The client reads `POSTGRES_URL` from the environment automatically, which `verce
 
 `@vercel/postgres`'s default export is HTTP-based, and HTTP cannot hold a transaction across statements. Use the pooled client:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 import { createPool } from '@vercel/postgres';
 
 const pool = createPool({ connectionString: process.env.POSTGRES_URL });
@@ -44,7 +44,7 @@ The same warning as Neon: over HTTP, a transaction block does not error — it j
 The driver above works in an Edge function unchanged, because it is `fetch` underneath. zmdb itself has nothing that needs Node built-ins on the read path — the compiler is string manipulation and the
 validators are generated code:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 export const runtime = 'edge';
 
 export async function GET() {

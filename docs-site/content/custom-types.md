@@ -7,7 +7,7 @@ A column has **three** types, and a custom type is where they visibly differ: wh
 
 `defineType` takes those three as type parameters and one function per crossing. The result is immutable and frozen — safe to share across your application.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { defineType, encodeValue, decodeValue } from '@zmdb/schema/custom-types';
 
 interface Money {
@@ -21,11 +21,13 @@ const MoneyType = defineType<string, Money, string>({
   toDb: m => `${m.amount}:${m.currency}`,
   fromDb: s => {
     const [amount, currency] = s.split(':');
+    if (currency === undefined || currency === '') throw new TypeError('Money currency is required');
     return { amount: Number(amount), currency };
   },
   toWire: m => `${m.amount} ${m.currency}`,
   fromWire: s => {
     const [amount, currency] = s.split(' ');
+    if (currency === undefined || currency === '') throw new TypeError('Money currency is required');
     return { amount: Number(amount), currency };
   },
 });
@@ -48,7 +50,7 @@ parameters exist for the same reason — a codec that named only two left the th
 
 A column names its codec with the `Codec<'Name'>` tag, and says what JSON carries with `WireAs<W>`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Money; this excerpt does not repeat those declarations."}
 import type { Codec, PrimaryKey, Serial, Sql, Table, WireAs } from 'zmdb/tags';
 
 export interface Order extends Table<'orders'> {
@@ -76,7 +78,7 @@ CREATE TABLE "orders" (
 
 The tag names a codec; the application supplies it. One registry, keyed by the same name:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies MoneyType, Order, schemaOf; this excerpt does not repeat those declarations."}
 import { wireCodec } from '@zmdb/schema/custom-types';
 import { wireDecoder, wireEncoder } from '@zmdb/web/data';
 
@@ -101,7 +103,7 @@ nothing downstream can guess it.
 
 For a nested shape with no conversion, you do not need a codec at all — the property's type _is_ the payload type:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
 interface Priority {
   level: 'low' | 'medium' | 'high';
   escalated: boolean;
@@ -116,7 +118,7 @@ export interface Task extends Table<'tasks'> {
 The generated validator walks `priority.level` and `priority.escalated`, so `assert<CreateDTO<Task>>(body)` covers it. Reach for a codec when the stored form and the app form genuinely differ —
 `Money` as `"100:USD"`, a `bigint` as a decimal string — not merely because a column holds an object.
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Priority, assert, defineType; this excerpt does not repeat those declarations."}
 // a codec that does need one: the stored text is not the app shape
 const PriorityType = defineType<string, Priority, string>({
   sqlType: 'JSONB',
@@ -132,7 +134,7 @@ const PriorityType = defineType<string, Priority, string>({
 
 The three parameters are what make the boundaries checked rather than assumed:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies MoneyType, encodeValue; this excerpt does not repeat those declarations."}
 // This compiles — types align
 const encoded = encodeValue(MoneyType, { amount: 50, currency: 'EUR' });
 

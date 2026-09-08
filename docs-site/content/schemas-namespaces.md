@@ -8,10 +8,11 @@ applications to use the same database without naming collisions.
 
 Use `createSchemaDdl` to generate the DDL for creating a new schema (namespace).
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { createSchemaDdl } from '@zmdb/sql/schema-objects';
 
-const ddl = createSchemaDdl('analytics', 'postgres');
+const ddl = createSchemaDdl('analytics', postgres);
 console.log(ddl);
 ```
 
@@ -23,11 +24,12 @@ CREATE SCHEMA "analytics"
 
 When working with multiple schemas, you need to reference objects using fully-qualified names. The `qualify` function generates properly quoted identifiers.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
+import { postgres } from '@zmdb/postgres';
 import { qualify } from '@zmdb/sql/schema-objects';
 
 // Fully qualify a table name
-const tableRef = qualify('analytics', 'events', 'postgres');
+const tableRef = qualify('analytics', 'events', postgres);
 console.log(tableRef);
 ```
 
@@ -39,7 +41,7 @@ console.log(tableRef);
 
 Use the qualified table name when compiling queries that span schemas.
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
@@ -63,7 +65,7 @@ SELECT "event_id", "event_type", "occurred_at" FROM "analytics"."events" WHERE "
 
 Each tenant can have their own schema, providing strong isolation.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies createSchemaDdl; this excerpt does not repeat those declarations."}
 // Creating schemas for each tenant
 const tenantSchemas = ['acme_corp', 'globex', 'soylent'];
 
@@ -84,7 +86,7 @@ CREATE SCHEMA "soylent"
 
 Separate schemas for different teams or domains within an organization.
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies createSchemaDdl; this excerpt does not repeat those declarations."}
 const teamSchemas = [
   { name: 'auth', description: 'Authentication and users' },
   { name: 'billing', description: 'Payments and invoices' },
@@ -105,7 +107,7 @@ CREATE SCHEMA "analytics"
 
 PostgreSQL uses a `search_path` to resolve unqualified object names. The default is `$user, public`. You can set a custom search path to control which schema is searched first.
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 // Setting search path (run as migration or initial setup)
 const setSearchPathDdl = `SET search_path TO analytics, public`;
 ```
@@ -116,7 +118,7 @@ const setSearchPathDdl = `SET search_path TO analytics, public`;
 
 Schemas can be dropped with `CASCADE` to also drop all contained objects, or `RESTRICT` (default) to refuse if objects exist.
 
-```ts
+```ts {"mode":"compile","id":"example-007"}
 const dropSchemaDdl = `DROP SCHEMA IF EXISTS "staging" CASCADE`;
 ```
 

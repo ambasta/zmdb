@@ -3,7 +3,7 @@ in front of it.
 
 ## In the adapter
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies app, webRequest; this excerpt does not repeat those declarations."}
 import { createServer } from 'node:http';
 import { bodyText } from '@zmdb/web';
 
@@ -56,7 +56,7 @@ access you did not intend.
 
 ## For a fetch adapter
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies app, corsHeaders; this excerpt does not repeat those declarations."}
 const handle = (request: Request) => app.fetch(request);
 
 export default {
@@ -94,7 +94,7 @@ merits.
 
 ## Development
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 const ALLOWED = new Set(process.env.NODE_ENV === 'production' ? ['https://app.example.com'] : ['http://localhost:5173', 'http://localhost:3000']);
 ```
 

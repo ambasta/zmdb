@@ -64,7 +64,7 @@ into a collection scan.
 `toJsonSchema` is useful input to a MongoDB collection validator, but its output is not accepted unchanged. MongoDB's JSON Schema subset does not support `format`, while zmdb emits
 `format: 'date-time'` and `format: 'int64'`. MongoDB also omits the standard `integer` type in favour of BSON numeric types.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies adaptJsonSchemaForMongo, db, users; this excerpt does not repeat those declarations."}
 import { toJsonSchema } from '@zmdb/schema/openapi';
 
 // Application code: zmdb does not ship this adapter.
@@ -82,7 +82,7 @@ declaration feeding validation — without claiming that OpenAPI JSON Schema and
 
 The layers that do not execute database queries remain usable:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, Ctx, Get, ObjectId, Post, User, col, normalise; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 import { type CreateDTO, type Entity } from '@zmdb/schema';
 

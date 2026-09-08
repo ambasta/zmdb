@@ -3,7 +3,7 @@ Define HTTP controllers with **Stage-3 decorators**. `@Controller` sets a path p
 
 ## Declaring a controller
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { Controller, Get, Post, Patch, Delete } from '@zmdb/web';
 
 @Controller('/users')
@@ -37,7 +37,7 @@ class UsersController {
 
 `getRoutes(ControllerClass)` returns the resolved routes — the controller prefix composed with each method path, normalized, in **declaration order**:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies UsersController; this excerpt does not repeat those declarations."}
 import { getRoutes } from '@zmdb/web';
 
 getRoutes(UsersController);

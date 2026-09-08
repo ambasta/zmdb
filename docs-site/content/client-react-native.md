@@ -9,7 +9,7 @@ npm add @zmdb/client@alpha @zmdb/react@alpha @zmdb/react-native@alpha react@19 r
 
 ## Provide
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/react-native.ts
 import { createZmdbReactNative } from '@zmdb/react-native';
 import type { NativeAppState, NativeConnectivity, NativeCredentialStore } from '@zmdb/react-native';

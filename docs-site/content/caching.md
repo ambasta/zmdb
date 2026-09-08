@@ -1,6 +1,6 @@
 Repository result caching is off by default. A read opts in at the call site, where its staleness tolerance is visible:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies userId, userRepo; this excerpt does not repeat those declarations."}
 const user = await userRepo.findById(userId, {
   cache: {
     ttlMs: 5_000,
@@ -16,7 +16,7 @@ both directions: it neither reads nor fills the cache.
 
 Every cached read receives an automatic `table:<table>` tag. A successful write through that repository invalidates the table tag after the driver operation completes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies nextEmail, userId, userRepo; this excerpt does not repeat those declarations."}
 await userRepo.findById(userId, {
   cache: { ttlMs: 30_000 },
 });
@@ -29,7 +29,7 @@ Table invalidation is coarse on purpose: changing one user invalidates every cac
 
 Use caller tags when another table or a narrower application concept also depends on the write. Repositories participating in a cross-repository tag must be constructed with the same `CacheStore`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies accountId, nextEmail, summaryRepo, userId, userRepo; this excerpt does not repeat those declarations."}
 const tag = `account-summary:${accountId}`;
 
 const summary = await summaryRepo.findOne({ accountId }, { cache: { ttlMs: 30_000, tags: [tag] } });
@@ -55,7 +55,7 @@ Choose `ttlMs` as the maximum stale interval the caller can tolerate under those
 
 The first opted-in read without a configured store lazily creates a process-local `memoryStore()` for that repository. It is TTL-aware, least-recently-used and bounded to 1,000 entries by default:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies UserRepository, driver; this excerpt does not repeat those declarations."}
 import { memoryStore } from '@zmdb/orm';
 
 const store = memoryStore({ maxEntries: 5_000 });
@@ -64,7 +64,7 @@ const users = new UserRepository(driver, 'postgres', { cacheStore: store });
 
 A shared backend implements three operations:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 export interface CacheStore {
   get(key: string): Promise<unknown | undefined>;
   set(key: string, value: unknown, ttlMs: number, tags: readonly string[]): Promise<void>;

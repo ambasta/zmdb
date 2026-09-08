@@ -2,7 +2,7 @@ Things that are working as designed but will surprise you at least once.
 
 ## A validator call the transformer did not reach throws
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, raw; this excerpt does not repeat those declarations."}
 import { is } from '@zmdb/validator';
 
 is<User>(raw); // transformed: a straight-line check, no allocation
@@ -44,7 +44,7 @@ See [SQL Server](./dialect-mssql.html), [CockroachDB](./dialect-cockroach.html),
 
 ## A default value lives in the migration, not in the declaration
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies HasDefault, Sql; this excerpt does not repeat those declarations."}
 createdAt: Date & Sql<'timestamp'> & HasDefault;
 ```
 
@@ -59,7 +59,7 @@ That is a SQL expression, evaluated by the database. Writing a JS `Date` there p
 
 ## `Serial` columns are omitted from `CreateDTO`, including in tests
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies CreateDTO, User; this excerpt does not repeat those declarations."}
 type Create = CreateDTO<User>;
 // { email: string }  — no `id`, and no `createdAt` either if it is HasDefault
 ```
@@ -94,7 +94,7 @@ interface because `(tenantId, id)` and `(id, tenantId)` are different indexes. R
 
 ## `UpdateBuilder.set()` expressions reference only their own column
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies updateTable; this excerpt does not repeat those declarations."}
 import { inc } from '@zmdb/sql';
 
 updateTable('posts').set({ views: inc(1) });

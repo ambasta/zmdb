@@ -3,11 +3,13 @@ database from a runtime with no TCP.
 
 ## The client driver
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { type Driver } from '@zmdb/orm';
+import type { SqlDialect } from '@zmdb/sql';
 
-export function httpDriver(url: string, token: string): Driver {
+export function httpDriver(url: string, token: string, dialect: SqlDialect): Driver {
   return {
+    dialect,
     async execute(query) {
       const res = await fetch(url, {
         method: 'POST',
@@ -27,7 +29,7 @@ Runs anywhere `fetch` exists — a browser, a Worker, an edge function, React Na
 
 A `@zmdb/web` controller over your real driver:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, Ctx, DRIVER, Driver, Inject, Post, assert; this excerpt does not repeat those declarations."}
 @Controller('/sql')
 export class SqlProxyController {
   @Inject(DRIVER) private readonly driver!: Driver;
@@ -51,7 +53,7 @@ Only deploy the shape above **server to server**, inside a trust boundary, with 
 
 For anything a client can reach, do not accept SQL. Accept a name and typed arguments, and compile server-side:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Controller, Ctx, DRIVER, Driver, Inject, Post, ValidationError, assert, createQueryCompiler; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 const QUERIES = {
@@ -87,7 +89,7 @@ proxy" is usually a REST API with the types removed.
 
 **JSON type erosion.** `Date` becomes a string, `bigint` will not serialize at all. Handle it in the proxy and validate on the client:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Entity, User, assert, res, revive; this excerpt does not repeat those declarations."}
 const rows = (await res.json()).map(r => assert<Entity<User>>(revive(r)));
 ```
 

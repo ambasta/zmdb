@@ -2,7 +2,7 @@ There is no logger in zmdb — no `logger` option, no log levels, no output. Wha
 
 ## Logging queries
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies baseDriver; this excerpt does not repeat those declarations."}
 import { type Driver } from '@zmdb/orm';
 
 export function withLogging(inner: Driver, log: (e: object) => void): Driver {
@@ -34,7 +34,7 @@ data in your log aggregator, usually with a longer retention than your database.
 
 If you need parameters for debugging, gate them and redact:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies log, p, query, settings; this excerpt does not repeat those declarations."}
 const shape = (p: readonly unknown[]) => p.map(v => (v === null ? 'null' : typeof v));
 log({ sql: query.text, params: settings.logParams ? p : shape(query.parameters) });
 ```
@@ -47,7 +47,7 @@ And never log an interpolated statement. See [Query Utilities](./query-utils.htm
 
 Full query logs are unreadable at any volume. A threshold is more useful:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 export function logSlow(inner: Driver, thresholdMs = 100): Driver {
   return {
     ...inner,
@@ -71,7 +71,7 @@ which one you have is the whole diagnosis.
 
 The N+1 detector, and worth having in development:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 export function counting(inner: Driver) {
   let n = 0;
   return {
@@ -91,7 +91,7 @@ Build it per request and log the count at the end. A handler that issues 40 quer
 
 There is no logging middleware. A handler logs what it wants, or you wrap the app:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AppModule, WebRequest, WebResponse, createApp; this excerpt does not repeat those declarations."}
 const app = createApp(AppModule);
 await app.init();
 

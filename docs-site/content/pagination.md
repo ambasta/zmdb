@@ -17,7 +17,7 @@ is `applyKeysetFilter` **plus** `applyPagination`.
 
 ## Offset pagination
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies compiler, driver; this excerpt does not repeat those declarations."}
 import { applyOrderBy, applyPagination } from '@zmdb/orm/dto';
 import { buildListResult } from '@zmdb/schema/dto';
 
@@ -51,7 +51,7 @@ Fetch `limit + 1` and pass the real `limit` to `buildListResult`, which is how `
 
 ## Keyset pagination
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies applyOrderBy, applyPagination, compiler, cursor; this excerpt does not repeat those declarations."}
 import { applyKeysetFilter } from '@zmdb/orm/dto';
 import { decodeCursor } from '@zmdb/schema/dto';
 
@@ -90,7 +90,7 @@ wild.
 
 ## Cursor encoding
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { encodeCursor, decodeCursor } from '@zmdb/schema/dto';
 
 const cursor = encodeCursor({ createdAt: '2024-01-15T10:00:00Z', id: 123 });
@@ -104,7 +104,7 @@ const values = decodeCursor(cursor); // throws on malformed input
 
 ## ListResult
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 interface ListResult<Row> {
   readonly items: readonly Row[];
   readonly total?: number; // only if you pass it in
@@ -113,7 +113,7 @@ interface ListResult<Row> {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies buildListResult, orderBy, rows; this excerpt does not repeat those declarations."}
 const result = buildListResult(rows, { limit: 20, orderBy, pkColumn: 'id' });
 // rows.length === 21 → hasMore = true, items = rows[0..19], cursor = encodeCursor(last kept row's sort keys)
 // rows.length <= 20  → hasMore = false, items = rows, cursor = undefined
@@ -125,7 +125,7 @@ const result = buildListResult(rows, { limit: 20, orderBy, pkColumn: 'id' });
 
 `total` is opt-in and `list()` **never sets it** — a total is a second `COUNT(*)` query you run yourself and pass in:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies buildListResult, countUsers, rows, where; this excerpt does not repeat those declarations."}
 const result = buildListResult(rows, { limit: 20, total: await countUsers(where) });
 ```
 
@@ -134,7 +134,7 @@ const result = buildListResult(rows, { limit: 20, total: await countUsers(where)
 
 ## Typed DTOs
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Entity; this excerpt does not repeat those declarations."}
 type OffsetPage = { limit: number; offset?: number | undefined };
 
 type PaginationDTO<S> = OffsetPage | { limit: number; after?: Partial<Entity<S>> | string; before?: Partial<Entity<S>> | string };

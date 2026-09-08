@@ -6,7 +6,7 @@ A complete blog API — schema, migrations, repository, HTTP, validation, OpenAP
 yarn add zmdb
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 // vite.config.ts
 import { defineConfig } from 'vite';
 import { zmdbAot } from 'zmdb/compiler';
@@ -20,7 +20,7 @@ See [AOT Setup](./aot-setup.html) for tsc, tsup, esbuild and webpack.
 
 Two tables and one relation. This file is the only place the shape of a post exists.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 // src/schema.ts
 import type { HasDefault, Length, ManyToOne, OneToMany, Pattern, PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/schema';
 
@@ -44,7 +44,7 @@ export interface Post extends Table<'posts'> {
 
 The derived types come for free:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 import type { CreateDTO, Entity } from 'zmdb';
 
 type Row = Entity<Post>;
@@ -59,7 +59,7 @@ any of that; it was read off the declaration.
 
 ## 3. Migrations
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The application supplies the local modules ../src/schema.js; this fence is an excerpt of that project."}
 // scripts/generate.ts
 import { diff, emitUp, snapshot } from 'zmdb/migrations';
 import { schemaOf } from 'zmdb';
@@ -78,7 +78,7 @@ Run it, commit both files, and apply with the [runner](./migrations-cli.html). F
 
 ## 4. Repositories
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The application supplies the local modules ./driver.js, ./schema.js; this fence is an excerpt of that project."}
 // src/repositories.ts
 import { defineRepository, schemaOf } from 'zmdb';
 import type { Author, Post } from './schema.js';
@@ -99,7 +99,8 @@ batches the child query from the same tag. There used to be a `relations` option
 
 ## 5. A driver
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
+import { postgres } from '@zmdb/postgres';
 // src/driver.ts
 import { Pool } from 'pg';
 import type { Driver } from 'zmdb';
@@ -108,6 +109,7 @@ import type { CompiledQuery } from 'zmdb/sql';
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 export const driver: Driver = {
+  dialect: postgres,
   async execute(query: CompiledQuery) {
     const res = await pool.query(query.text, [...query.parameters]);
     return res.rows;
@@ -119,7 +121,7 @@ That is the entire database integration. See [Writing a Driver](./custom-driver.
 
 ## 6. The HTTP layer
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The application supplies the local modules ./repositories.js, ./schema.js, ./tokens.js; this fence is an excerpt of that project."}
 // src/posts.controller.ts
 import { Controller, Get, Post as HttpPost, ValidationError, assert, type CreateDTO, type Ctx } from 'zmdb';
 import { Inject } from 'zmdb/web';
@@ -162,7 +164,7 @@ export class PostsController {
 
 ## 7. Wire it up
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The application supplies the local modules ./posts.controller.js, ./repositories.js, ./tokens.js; this fence is an excerpt of that project."}
 // src/app.ts
 import { createServer } from 'node:http';
 import { Module, createApp } from 'zmdb';
@@ -193,7 +195,7 @@ snippet buffers a streamed response; use `toNodeHandler(router)` when the route 
 
 ## 8. OpenAPI, derived
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The application supplies the local modules ./http-contract.js; this fence is an excerpt of that project."}
 import { toOpenApi } from 'zmdb/web';
 import { compileHttpContracts } from 'zmdb/web/contract/compiler';
 
@@ -208,7 +210,7 @@ The contract's `GET /posts` response schema is reflected once during compilation
 
 ## 9. Tests
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
 import { createTestApp } from 'zmdb/testing';
 import { expect, it } from 'vitest';
 

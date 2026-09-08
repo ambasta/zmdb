@@ -5,7 +5,7 @@ That turns out to be an advantage: the check is visible in the handler, and a ty
 
 ## Coarse checks: roles
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Principal; this excerpt does not repeat those declarations."}
 export class Forbidden extends Error {
   override readonly name = 'Forbidden';
 }
@@ -15,7 +15,7 @@ export function requireRole(viewer: Principal, role: string): void {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, Ctx, Get, principalOf, requireRole; this excerpt does not repeat those declarations."}
 @Controller('/admin')
 export class AdminController {
   @Get('/stats')
@@ -32,7 +32,7 @@ A `Forbidden` thrown by a handler remains an ordinary error and becomes a 500 un
 
 Roles as a `readonly string[]` is fine at this scale. A union type is better:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Principal; this excerpt does not repeat those declarations."}
 type Role = 'admin' | 'editor' | 'viewer';
 function requireRole(viewer: Principal, role: Role): void {
   /* … */
@@ -45,7 +45,7 @@ Now `requireRole(viewer, 'admn')` does not compile, which is a class of producti
 
 The important half of authorization is not the role check, it is this:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/:id')
 async read(ctx: Ctx<{ id: string }>) {
   const viewer = principalOf(ctx);
@@ -60,7 +60,7 @@ async read(ctx: Ctx<{ id: string }>) {
 
 Not this:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Forbidden, ctx, viewer; this excerpt does not repeat those declarations."}
 const post = await this.posts.findById(Number(ctx.params.id)); // wrong
 if (post.author_id !== viewer.id) throw new Forbidden();
 ```
@@ -75,7 +75,7 @@ Three reasons the first form is better:
 
 Every query in a tenanted application carries the tenant:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 where: { tenant_id: { eq: viewer.tenantId }, status: { eq: 'active' } }
 ```
 
@@ -91,13 +91,13 @@ test data with **two** tenants and assert the second never appears.
 
 Default to denied, and make "public" a decision someone wrote down:
 
-```ts
+```ts {"mode":"compile","id":"example-007"}
 const PUBLIC = new Set(['GET /health', 'POST /auth/login']);
 ```
 
 Then a test that enumerates the real routes, so a new endpoint cannot quietly join the unauthenticated set:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies AdminController, PUBLIC, PostsController, app, expect, it; this excerpt does not repeat those declarations."}
 import { getRoutes } from '@zmdb/web/routing';
 
 it('every route is authenticated or explicitly public', async () => {

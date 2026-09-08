@@ -1,6 +1,6 @@
 `BaseRepository.updateMany` applies one validated patch to every matching row in one statement. Ordinary values and closed SET expressions are both supported:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies authorId, postRepo; this excerpt does not repeat those declarations."}
 import { inc } from 'zmdb/sql';
 
 const affected = await postRepo.updateMany({ authorId }, { published: true });
@@ -34,7 +34,7 @@ the same atomic update, and resolves to `undefined`.
 
 This is a separate shape and remains outside the typed API. The closed SET expressions operate on each row's own column; they do not provide a `CASE` expression or a `VALUES` source.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies postRepo, updates; this excerpt does not repeat those declarations."}
 for (const { id, title } of updates) await postRepo.update(id, { title }); // N statements
 ```
 
@@ -42,7 +42,7 @@ N round trips, and no atomicity unless you wrap it.
 
 ## Workaround 1 — a transaction around the loop
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies connection, postRepo, updates; this excerpt does not repeat those declarations."}
 import { createTransactionalDb } from '@zmdb/orm/transactions';
 
 const db = createTransactionalDb(connection);
@@ -57,7 +57,7 @@ Still N statements, but all-or-nothing. Acceptable for tens of rows; painful for
 
 ## Workaround 2 — one statement with `CASE`
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies driver, updates; this excerpt does not repeat those declarations."}
 const ids = updates.map(u => u.id);
 const cases = updates.map((_, i) => `WHEN $${i * 2 + 1} THEN $${i * 2 + 2}`).join(' ');
 const params = updates.flatMap(u => [u.id, u.title]);
@@ -95,7 +95,7 @@ anything statement-per-row.
 
 ## Bulk _delete_ has the same shape
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies createQueryCompiler, driver, id; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 const q = createQueryCompiler(postgres).deleteFrom('posts').where('author_id', '=', id).compile();

@@ -5,7 +5,7 @@ well-typed data reaches the database.
 
 Insert a new row. The payload is validated against `CreateDTO<S>` — auto-increment columns are rejected, and columns with defaults or nullable columns are optional.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const user = await users.create({
   email: 'alice@example.com',
   role: 'user', // optional, 'user' is the default
@@ -26,7 +26,7 @@ INSERT INTO "users" ("email", "role") VALUES ($1, $2) RETURNING *
 
 Fetch rows by ID, by arbitrary where clause, or all rows.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 // By primary key — the fastest path
 const user = await users.findById(1);
 // user: Entity<UserSchema> | undefined
@@ -44,7 +44,7 @@ const allUsers = await users.findAll();
 
 Partial update. The payload is an `UpdatePatch<S>` — all fields are optional; ordinary values must match `UpdateDTO<S>`, and branded expression operands must match the same column type.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies posts, users; this excerpt does not repeat those declarations."}
 import { inc } from 'zmdb/sql';
 
 const updated = await users.update(1, { role: 'admin' });
@@ -67,7 +67,7 @@ The Postgres family, SQLite and SQL Server expression-bearing keyed updates retu
 
 > [!WARNING] Unlike ORM proxies, zmdb rows are inert. Mutating a fetched object **does not persist**:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const user = await users.findById(1);
 user.role = 'admin'; // ❌ This does NOTHING
 
@@ -80,7 +80,7 @@ Remove a row by ID. Returns `true` if a row was deleted, `false` if the ID didn'
 `hardDelete(id)` for a deliberate physical delete and `restore(id)` to clear the managed timestamp. The [Entity Filters](./entity-filters.html) guide covers visibility escapes, write filters, relation
 targets, and unique-index behavior.
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const deleted = await users.delete(1);
 // deleted: boolean
 ```
@@ -111,7 +111,7 @@ RETURNING "id"
 
 For an expression-valued update, only that key is removed from the ordinary row-value check; its operand is validated against the column's app type, and every ordinary sibling remains strict.
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 // This throws — id is auto-increment
 await users.create({ id: 999, email: 'test@example.com' });
 

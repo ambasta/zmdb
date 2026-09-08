@@ -8,7 +8,7 @@ dispatch without attaching body listeners. `content-length: 0` counts as no body
 
 Both adapters enforce `maxBodyBytes`, defaulting to 1 MiB:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies router, toFetchHandler, toNodeHandler; this excerpt does not repeat those declarations."}
 const nodeHandler = toNodeHandler(router, { maxBodyBytes: 8 * 1024 * 1024 });
 const fetchHandler = toFetchHandler(router, { maxBodyBytes: 8 * 1024 * 1024 });
 ```
@@ -30,7 +30,7 @@ same content-type rule.
 
 Validation remains essential:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies CreateDTO, Post, assert, ctx; this excerpt does not repeat those declarations."}
 const dto = assert<CreateDTO<Post>>(ctx.body);
 ```
 
@@ -40,7 +40,7 @@ Without it, malformed JSON reaches a handler as a string instead of the object t
 
 For a non-JSON content type, the handler receives exact bytes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Post('/hook')
 hook(ctx: Ctx<Record<never, string>, unknown>) {
   if (!(ctx.body instanceof Uint8Array)) {
@@ -53,7 +53,7 @@ hook(ctx: Ctx<Record<never, string>, unknown>) {
 A provider that sends `application/json` still takes the JSON path, so its pre-parse bytes are not available to the handler. If that provider signs the exact JSON bytes, use a route-specific adapter
 that verifies before parsing. Re-serializing parsed JSON is not equivalent: key order, number formatting and Unicode escapes can all change.
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 function verify(raw: Uint8Array, header: string, secret: string): boolean {
@@ -78,7 +78,7 @@ dispatch, so this is suitable only within the configured `maxBodyBytes`.
 
 Use it in an explicit middleware chain, followed by the same validation pipe used for any other body:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Chain, multipartPipe, validateUpload, validationPipe; this excerpt does not repeat those declarations."}
 const upload = {
   guards: [],
   pipes: [multipartPipe(), validationPipe(validateUpload)],
@@ -94,7 +94,7 @@ limits deliberately.
 
 `application/x-www-form-urlencoded` arrives as bytes. Decode and parse it explicitly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies ValidationError, ctx; this excerpt does not repeat those declarations."}
 if (!(ctx.body instanceof Uint8Array)) {
   throw new ValidationError('expected form bytes', []);
 }

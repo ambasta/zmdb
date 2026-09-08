@@ -4,7 +4,8 @@ Dialect: `'postgres'`. Prisma Postgres is a managed Postgres, and you connect to
 
 Prisma Postgres exposes a standard connection string. With `pg`:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 import { type Driver } from '@zmdb/orm';
 
@@ -14,6 +15,7 @@ const pool = new Pool({
 });
 
 export const driver: Driver = {
+  dialect: postgres,
   async execute(query) {
     const result = await pool.query(query.text, [...query.parameters]);
     return result.rows;
@@ -33,7 +35,7 @@ drift between the two is your problem — add the [drift test](./schema-first.ht
 
 **Move migrations to zmdb.** Take a baseline snapshot of the current shape and generate forward from there:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies allSchemas, snapshot, writeFileSync; this excerpt does not repeat those declarations."}
 writeFileSync('migrations/snapshot.json', JSON.stringify(snapshot(allSchemas), null, 2));
 ```
 
@@ -56,7 +58,7 @@ The full API table is on [Migrating from Prisma](./migrate-from-prisma.html). Th
 
 They coexist fine — two clients against one database — which makes an incremental migration practical:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies id, postRepo, prisma; this excerpt does not repeat those declarations."}
 const user = await prisma.user.findUnique({ where: { id } }); // old path
 const posts = await postRepo.find({ authorId: { eq: id } }); // new path
 ```

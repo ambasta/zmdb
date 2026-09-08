@@ -8,7 +8,7 @@ Install the dependency-free call and wire runtime with `npm add @zmdb/protobuf@a
 
 Give every property a stable field number and select an integer width whenever the field is not a protobuf `double`:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { protoEncode } from '@zmdb/protobuf';
 import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
@@ -39,7 +39,7 @@ spelling. There is no silent `int32` default because values above its range woul
 
 Every 64-bit integer uses `bigint` plus an explicit 64-bit tag:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Proto, ProtoField; this excerpt does not repeat those declarations."}
 interface Counters {
   signed: bigint & Proto<'int64'> & ProtoField<1>;
   compactNegative: bigint & Proto<'sint64'> & ProtoField<2>;
@@ -53,7 +53,7 @@ An untagged `bigint` is refused because signedness is unknown. A `number` tagged
 
 A required scalar zero is omitted under proto3 implicit presence. An optional zero is written because the property being present is itself information:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Proto, ProtoField, protoEncode; this excerpt does not repeat those declarations."}
 interface RequiredCount {
   count: number & Proto<'int32'> & ProtoField<1>;
 }

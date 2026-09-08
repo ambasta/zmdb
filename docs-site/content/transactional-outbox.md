@@ -4,7 +4,7 @@
 
 You want to write a row and publish a message, and you want either both or neither. A database transaction cannot include a broker call:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies broker, db, dto, orderRepo; this excerpt does not repeat those declarations."}
 await db.transaction(async () => {
   await orderRepo.create(dto);
   await broker.publish('order.created', dto); // succeeds, then the tx rolls back
@@ -18,7 +18,7 @@ The outbox makes the publish a database write. A separate dispatcher reads only 
 `OutboxSchema` is an ordinary schema value, so it participates in the committed post-migration snapshot. Create the table with the dedicated migration: a generic snapshot diff cannot carry its
 defaults, partial index or MySQL's bounded key columns.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies OrderSchema, UserSchema, connection; this excerpt does not repeat those declarations."}
 import { outboxMigration } from '@zmdb/orm/outbox';
 import { OutboxSchema } from '@zmdb/orm/outbox';
 import { snapshot, up } from 'zmdb/migrations';
@@ -35,7 +35,7 @@ snake_case column names used by the migration and dispatcher. `OutboxRow` presen
 
 The row has this public shape:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies HasDefault, PrimaryKey, Sql, Table; this excerpt does not repeat those declarations."}
 interface OutboxRow extends Table<'zmdb_outbox'> {
   id: string & Sql<'text'> & PrimaryKey;
   topic: string & Sql<'text'>;
@@ -68,7 +68,7 @@ types remain strings.
 
 ## Write inside the caller's transaction
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies db, dto, orderRepo; this excerpt does not repeat those declarations."}
 import { outboxWriter } from '@zmdb/orm/outbox';
 
 await db.transaction(async tx => {
@@ -82,7 +82,7 @@ wraps.
 
 ## Dispatch
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies alertOps, broker, driver; this excerpt does not repeat those declarations."}
 import { createOutboxDispatcher } from '@zmdb/orm/outbox';
 
 const dispatcher = createOutboxDispatcher({
@@ -160,7 +160,7 @@ application-owned per-topic sequencing rule.
 There is deliberately no automatic replay helper: retrying a poison message before fixing its cause only makes it poison again. After fixing the cause, reset the chosen row explicitly so the normal
 claim path can see it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies deadRowId, driver; this excerpt does not repeat those declarations."}
 import { createQueryCompiler } from '@zmdb/sql';
 
 const replay = createQueryCompiler(driver.dialect)

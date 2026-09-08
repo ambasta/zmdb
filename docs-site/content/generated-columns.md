@@ -8,7 +8,8 @@ application-level calculations.
 
 Use `generatedColumnDdl` from `@zmdb/sql/schema-objects` to generate the DDL. The function accepts a `GeneratedColumn` definition with the column name, SQL type, and expression.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { generatedColumnDdl } from '@zmdb/sql/schema-objects';
 
 const genCol = {
@@ -18,7 +19,7 @@ const genCol = {
   stored: true,
 };
 
-const ddl = generatedColumnDdl(genCol, 'postgres');
+const ddl = generatedColumnDdl(genCol, postgres);
 console.log(ddl);
 ```
 
@@ -34,7 +35,7 @@ console.log(ddl);
 
 Track elapsed time or derive timestamps from other columns.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 const auditLogDef = {
   name: 'duration_ms',
   type: 'INTEGER',
@@ -51,7 +52,7 @@ const auditLogDef = {
 
 Extract values from JSON columns into dedicated fields for indexing or querying.
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 const jsonExtractionDef = {
   name: 'user_email',
   type: 'VARCHAR(255)',
@@ -68,7 +69,7 @@ const jsonExtractionDef = {
 
 Precompute values that are frequently queried but expensive to calculate.
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 const totalPriceDef = {
   name: 'total_price',
   type: 'NUMERIC(10,2)',
@@ -85,7 +86,7 @@ const totalPriceDef = {
 
 Declare the base columns and stop there. A generated column has no property, which is exactly how it stays out of `CreateDTO` and `UpdateDTO`:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 import type { Numeric, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Order extends Table<'orders'> {
@@ -105,7 +106,7 @@ If you need to _read_ it through a typed path, declare a second interface over a
 
 Generated columns can be selected like regular columns. They're computed automatically, so you don't need to do anything special in your queries.
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 

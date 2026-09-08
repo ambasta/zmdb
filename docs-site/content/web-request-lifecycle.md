@@ -24,7 +24,7 @@ the framework's limits.
 
 Return a plain value and you get `200 application/json`. To choose anything else, use a response factory:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This return fragment omits the application function that contains it."}
 import { bytes, file, json, respond, stream, text } from '@zmdb/web';
 
 return json(created, { status: 201, headers: { location: `/posts/${id}` } });
@@ -35,7 +35,7 @@ return respond({ status: 204 }); // no body
 
 **A plain object is still a body, even if it has a `status` field.** This is the trap the design avoids:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This return fragment omits the application function that contains it."}
 return { status: 'draft', title: 'x' }; // a 200 whose JSON body is that object
 return respond({ status: 404, body: '{"error":"not found"}' }); // an actual 404
 ```
@@ -47,7 +47,7 @@ Without them, the status codes a handler can produce are 200 (return), 400 (thro
 
 Signal a client error by throwing a validation-shaped error:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 import { ValidationError } from '@zmdb/validator';
 
 @Get('/:id')
@@ -60,7 +60,7 @@ async byId(ctx: Ctx<{ id: string }>) {
 
 That yields a 400, not a 404 — which is explicit but not correct REST. If you need real status codes, wrap `app.handle` and post-process, or map in the adapter:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies app, isNotFound, req, res; this excerpt does not repeat those declarations."}
 import { bodyText } from '@zmdb/web';
 
 const out = await app.handle(req);
@@ -75,7 +75,7 @@ Ugly, and the description of where the framework is today. Everything downstream
 
 ## Route matching is first-match, in registration order
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Controller, Get; this excerpt does not repeat those declarations."}
 @Controller('/posts')
 class C {
   @Get('/:id') byId() {}
@@ -87,7 +87,7 @@ Declare literal paths before parameterised ones. There is no specificity ranking
 
 ## Validation runs before the handler, if you register it
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies CreateDTO, Post, PostsController, assert, authenticated, createRouter, mayCreatePost, postsAccess; this excerpt does not repeat those declarations."}
 const router = createRouter({
   guardRegistry: {
     app: [authenticated],
@@ -115,7 +115,7 @@ interceptors nested outermost-first, then the handler, then filters on a throw.
 
 The router runs effective app/controller/route guards directly and returns 403 on `false`. Pipes, interceptors and filters still require `runChain` inside the handler:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 import { runChain, type Chain } from '@zmdb/web/middleware';
 
 const chain: Chain = { guards: [authGuard], pipes: [], interceptors: [timing], filters: [] };
@@ -135,7 +135,7 @@ A guard returning `false` throws `ChainError(403)`, and an ordinary throwing pip
 The adapters parse `application/json` and `+json`; `text/*` stays on the decoded compatibility path, where valid JSON is parsed and other text remains a string. Every other non-empty content type is
 preserved as `Uint8Array`. So `ctx.body` is `unknown`, and validating the representation you expect is not optional:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies CreateDTO, Post, assert, ctx; this excerpt does not repeat those declarations."}
 const dto = assert<CreateDTO<Post>>(ctx.body);
 ```
 
@@ -149,7 +149,7 @@ Every page that maps statuses, sets a cookie, adds CORS headers or logs a reques
 **There is no `toWebRequest` helper to import.** `toNodeHandler(router)` owns the whole `(req, res)` pair and writes the response itself, so it cannot be used by an adapter that needs to touch either
 one. The build is a dozen lines; every sample on those pages calls this function, so it is written out once here:
 
-```ts
+```ts {"mode":"compile","id":"example-009"}
 import type { IncomingMessage } from 'node:http';
 import type { WebRequest } from '@zmdb/web';
 
@@ -183,7 +183,7 @@ Four things it has to get right:
 is what fixes it, and it is the reason a hand-written adapter is worth having even when you want nothing else from one. Repeated keys collapse to the last value there; `QueryValues` is
 `Record<string, string | readonly string[]>`, so keep the array if you need `?tag=a&tag=b`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies q, url; this excerpt does not repeat those declarations."}
 const params = new URLSearchParams(q === -1 ? '' : url.slice(q + 1));
 const query = Object.fromEntries([...params.keys()].map(key => [key, params.getAll(key)]));
 ```

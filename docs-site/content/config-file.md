@@ -5,7 +5,7 @@ It does not initialise an application. Repositories still receive an explicit dr
 
 ## A minimal config
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 // zmdb.config.ts
 import { postgres } from '@zmdb/postgres';
 import { defineConfig } from '@zmdb/compiler/config/contract';
@@ -20,7 +20,7 @@ export default defineConfig({
 identity and author-facing types live in a dependency-light contract module; discovery, execution, validation, defaults, path resolution and caching live only in the loader behind this same public
 entry.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { loadConfig } from '@zmdb/compiler/config';
 
 const config = await loadConfig();
@@ -71,7 +71,7 @@ schema reflection. The configured compiler plugin and `zmdb codegen` pass the sa
 
 Every glob must match at least one file, and every matched file must belong to the configured TypeScript project. A match outside the project is an error rather than a silently omitted table.
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 
@@ -97,7 +97,7 @@ export default defineConfig({
 
 HTTP generation is explicit and inert:
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 
@@ -123,7 +123,7 @@ does not read OpenAPI back as generation input. Use `--check` in CI and `--watch
 
 An explicit path wins:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The preceding example supplies the loadConfig import; this excerpt shows only alternate selection options."}
 await loadConfig({ cwd: '/workspace/orders', path: './config/database.ts' });
 ```
 
@@ -143,7 +143,7 @@ project, or migration output.
 
 The loader uses Node 26's native type stripping:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"This loading expression depends on the resolved configPath and the pathToFileURL import."}
 await import(pathToFileURL(configPath));
 ```
 
@@ -168,7 +168,7 @@ Functions and imported dialect objects cannot be validated as plain data. The lo
 
 The following example demonstrates callable-boundary validation and the custom strategy path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The application supplies the local database module dynamically imported by this configuration."}
 import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 

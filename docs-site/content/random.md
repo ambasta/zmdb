@@ -6,7 +6,7 @@ literal unions — are honoured because the value is assembled _from_ them rathe
 
 ## Basic Usage
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { random, is } from '@zmdb/validator';
 
 interface Account {
@@ -26,7 +26,7 @@ no second argument to keep in step with the first.
 
 ## Primitives
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies random; this excerpt does not repeat those declarations."}
 random<boolean>(); // true or false
 random<number>(); // 0 … 1000
 random<Date>(); // an arbitrary instant, epoch to roughly 2024
@@ -41,7 +41,7 @@ A literal type samples to itself, which makes a discriminated union work the way
 
 Constraints narrow the range rather than being validated after the fact:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies random; this excerpt does not repeat those declarations."}
 import type { Max, MaxLength, Min, MinLength } from 'zmdb/tags';
 
 random<number & Min<100> & Max<200>>(); // 100 … 200
@@ -56,7 +56,7 @@ cannot sample: a bound with minimum 200 above maximum 100
 
 ## Complex structures
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Min, random; this excerpt does not repeat those declarations."}
 interface Order {
   id: number;
   items: { productId: number; quantity: number & Min<1> }[];
@@ -90,7 +90,7 @@ The path is in the message — ``cannot sample `.shipTo.postcode`: …`` — so 
 
 If a type you want to sample carries a `Pattern`, drop that property and supply it yourself:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies CreateDTO, User, random; this excerpt does not repeat those declarations."}
 const input = { ...random<Omit<CreateDTO<User>, 'email'>>(), email: 'a@b.test' };
 ```
 
@@ -101,7 +101,7 @@ Only a reference with no non-recursive arm beside it is refused.
 
 `random<T>()` takes the type, so a table's own declaration is the fixture generator:
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 import { random } from '@zmdb/validator';
 import type { CreateDTO } from 'zmdb/derive';
 import type { Max, MaxLength, Min, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
@@ -124,7 +124,7 @@ Either keep the pattern and use the `Omit` form above, or keep it off the column
 
 ## Integration with Testing
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies CreateDTO, Entity, User, describe, expect, it, repo; this excerpt does not repeat those declarations."}
 import { random, is, assertEquals } from '@zmdb/validator';
 
 describe('UserRepository', () => {
@@ -168,7 +168,7 @@ describe('UserRepository', () => {
 
 ## Random for fuzzing
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies CreateDTO, User; this excerpt does not repeat those declarations."}
 import { random, validate } from '@zmdb/validator';
 
 for (let i = 0; i < 1000; i++) {

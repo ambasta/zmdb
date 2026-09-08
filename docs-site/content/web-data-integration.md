@@ -5,7 +5,7 @@ uses only public product concerns plus explicitly selected jobs packages.
 
 These excerpts share the complete program's `Order` declaration and database filename:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Order, databasePath; this excerpt does not repeat those declarations."}
 import { DatabaseSync } from 'node:sqlite';
 import { defineRepository, schemaOf } from 'zmdb';
 import { sqlite, sqliteDriver } from 'zmdb/sqlite';
@@ -19,7 +19,7 @@ caller owns the database handle. A repository's returned rows are plain objects;
 
 ## Validate the HTTP input before writing
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Order, orders, queue; this excerpt does not repeat those declarations."}
 import { Controller, Post, assert, type CreateDTO, type Ctx } from 'zmdb';
 
 @Controller('/orders')

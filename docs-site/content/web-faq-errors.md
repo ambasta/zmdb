@@ -4,7 +4,7 @@ A guide to the errors this framework actually produces, and the ones that produc
 
 **The most important entry on this page.** The AOT transformer did not run, and the erased type argument has no runtime witness.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies is; this excerpt does not repeat those declarations."}
 is<{ id: number }>({ id: 'not a number' });
 // throws: runtime type witness required in test/fallback mode
 ```
@@ -14,7 +14,7 @@ Causes, in order of frequency: running with `--experimental-strip-types` or `ts-
 
 The fix is a test that fails loudly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -44,14 +44,14 @@ Two candidates.
 
 **A more general route matched first.** Matching is first-match in registration order with no specificity ranking:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AdminController, PostsController, router; this excerpt does not repeat those declarations."}
 router.register(PostsController); // /posts/:id
 router.register(AdminController); // /posts/admin  — unreachable
 ```
 
 `GET /posts/admin` matches `/posts/:id` with `id = 'admin'`. Register static paths before parameterised ones. Print the table to see the order:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies CONTROLLERS, getRoutes; this excerpt does not repeat those declarations."}
 for (const C of CONTROLLERS) for (const r of getRoutes(C)) console.log(r.method, r.path, r.handlerName);
 ```
 
@@ -62,7 +62,7 @@ for (const C of CONTROLLERS) for (const r of getRoutes(C)) console.log(r.method,
 
 The bundled adapters do **not** populate `query` — `toNodeHandler` and `toFetchHandler` both leave it undefined. Parse it yourself and pass it in:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies req; this excerpt does not repeat those declarations."}
 const url = new URL(req.url ?? '/', 'http://localhost');
 const query = Object.fromEntries(url.searchParams);
 ```
@@ -76,7 +76,7 @@ preserved as bytes; for example, `application/x-www-form-urlencoded` arrives as 
 
 Validate at the top of the handler and the failure becomes a 400 instead of a confusing `undefined` deeper in:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies CreateDTO, Post, assert, ctx; this excerpt does not repeat those declarations."}
 const dto = assert<CreateDTO<Post>>(ctx.body);
 ```
 
@@ -92,7 +92,7 @@ with `json`, `text` or `respond` rather than as a plain `{ status, body, headers
 
 Catch it and return the status instead of throwing:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"This catch fragment omits the surrounding try statement and application function."}
 catch (error) {
   if (error instanceof ChainError) return json({ error: error.message }, { status: error.status });
   throw error;
@@ -105,12 +105,12 @@ See [Request Lifecycle](./web-request-lifecycle.html).
 
 `@Inject` is a **field** decorator, and `container.build(Ctor)` calls `new Ctor()` with no arguments. Constructor injection does not exist:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 // wrong — the parameter is never supplied
 constructor(@Inject(POSTS) private readonly repo: PostRepo) {}
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 // right
 @Inject(POSTS) private readonly repo!: PostRepo;
 ```
@@ -128,7 +128,7 @@ Keep request state in local variables or a [per-request object](./web-request-co
 
 `set_config('app.tenant', value, false)` on a pooled connection persists after the request, and the next request on that connection inherits it. The third argument must be `true` (transaction-local):
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies client, tenant; this excerpt does not repeat those declarations."}
 await client.query('SELECT set_config($1, $2, true)', ['app.tenant', tenant]);
 ```
 
@@ -148,7 +148,7 @@ array is fine. Validator-produced errors populate `issues` with paths.
 
 An open connection pool holds the event loop. `WebApplication` is `AsyncDisposable`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-011","reason":"The surrounding example supplies AppModule, createApp; this excerpt does not repeat those declarations."}
 await using app = createApp(AppModule);
 await app.init();
 ```

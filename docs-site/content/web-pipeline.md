@@ -4,7 +4,7 @@ runtime (Hono, edge) with **no hard dependency** on either.
 
 ## Creating a router
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies assertCreateUser, authenticated, mayCreateUser; this excerpt does not repeat those declarations."}
 import { createRouter } from '@zmdb/web';
 import { Controller, Get, Post } from '@zmdb/web';
 import type { Ctx } from '@zmdb/web';
@@ -43,7 +43,7 @@ router.register(new UsersController(), {
 | **invoke**    | call the handler with the typed `Ctx`                                                                                                                                                                                                                   |
 | **serialize** | JSON-encode the result → **200**; a handler throw carrying `issues` → **400**, a built-in multipart boundary error keeps **400**/**413**, any other throw → **500**. A result from `json`/`text`/`bytes`/`stream`/`file`/`respond` is returned verbatim |
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies router; this excerpt does not repeat those declarations."}
 await router.handle({ method: 'GET', path: '/users/42', headers: {} });
 // { status: 200, body: { kind: 'text', value: '{"id":"42"}' }, ... }
 
@@ -56,7 +56,7 @@ await router.handle({ method: 'POST', path: '/users', headers: {}, rawBody: { no
 
 ## Adapters (no hard deps)
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies router; this excerpt does not repeat those declarations."}
 import { toNodeHandler, toFetchHandler } from '@zmdb/web';
 import { createServer } from 'node:http';
 

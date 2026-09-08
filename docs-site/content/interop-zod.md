@@ -2,7 +2,7 @@ Zod declares a schema and infers a type from it. zmdb goes the other way: the ty
 
 ## The shape of the difference
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies assert, body, z; this excerpt does not repeat those declarations."}
 // Zod: schema first, type derived
 const User = z.object({ id: z.number(), email: z.string().email() });
 type User = z.infer<typeof User>;
@@ -32,7 +32,7 @@ That last row is the one to internalise. A generic zmdb call cannot recover its 
 
 Perfectly reasonable, and common during a migration. Keep the boundary explicit:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies CreatePostDto, assert, body, buildZodFromUserConfig, config; this excerpt does not repeat those declarations."}
 // Zod for the dynamic parts — a user-defined form, a plugin manifest
 const formSchema = buildZodFromUserConfig(config);
 
@@ -47,7 +47,7 @@ that; so is [`evalRule`](./unions-refinements.html) for simple rules, or ajv ove
 
 If you have a declared table and want a Zod validator for it — say a route already validating with Zod — go through JSON Schema:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 import { toJsonSchema } from '@zmdb/schema/openapi';
 
 const jsonSchema = toJsonSchema(users, 'create');
@@ -65,7 +65,7 @@ Incrementally, one boundary at a time.
 
 **1. Keep the inferred type, drop the schema.** Where the schema is only used for `parse`, the type it inferred is what you actually wanted:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies z; this excerpt does not repeat those declarations."}
 // before
 const User = z.object({ id: z.number(), email: z.string() });
 type User = z.infer<typeof User>;
@@ -79,7 +79,7 @@ interface User {
 
 **2. Replace `parse` with `assert`, `safeParse` with `validate`.**
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This pseudocode uses arrows or ellipses to omit implementation details from the surrounding example."}
 User.parse(body)      → assert<User>(body)
 User.safeParse(body)  → validate<User>(body)   // { success, data?, errors? }
 ```
@@ -92,7 +92,7 @@ ones matter — `z.string().email()` is a regex, and half the codebases that cal
 
 **4. Add the canary test before you trust any of it.**
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

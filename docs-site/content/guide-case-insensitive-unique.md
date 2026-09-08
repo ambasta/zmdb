@@ -11,7 +11,7 @@ creates the unique index explicitly.
 
 PostgreSQL, Cockroach and SQLite accept the tagged expression form:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const ddl = createIndexDdl(
@@ -33,7 +33,7 @@ CREATE UNIQUE INDEX "users_email_lower" ON "users" (lower("email"))
 
 Query through the same expression:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies driver, input; this excerpt does not repeat those declarations."}
 await driver.execute({
   text: 'SELECT * FROM "users" WHERE lower("email") = lower($1)',
   parameters: [input],
@@ -52,7 +52,7 @@ MySQL, SingleStore and SQL Server throw `UnsupportedFeatureError` for the expres
 
 `generatedColumnDdl` emits a column fragment, and `createIndexDdl` emits the ordinary unique index over it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 import { createIndexDdl, generatedColumnDdl } from '@zmdb/sql/schema-objects';
 
 const column = generatedColumnDdl(
@@ -104,7 +104,7 @@ generated column and the database would reject it. If you need a typed read of t
 
 Normalising before every repository write lets an ordinary unique index enforce the stored lowercase value:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies BaseRepository, User; this excerpt does not repeat those declarations."}
 class UserRepository extends BaseRepository<User> {
   protected override preInsert(row: Record<string, unknown>): void {
     if (typeof row.email === 'string') row.email = row.email.toLowerCase();
@@ -130,7 +130,7 @@ This approach has a real hole: a migration, data fix or another service can writ
 
 `citext` makes ordinary equality case-insensitive for every writer:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 import type { Ext, Table } from 'zmdb/tags';
 
 interface User extends Table<'users'> {
@@ -140,7 +140,7 @@ interface User extends Table<'users'> {
 
 The generated migration installs the extension before creating the table. Add the unique index explicitly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies createIndexDdl; this excerpt does not repeat those declarations."}
 createIndexDdl(
   {
     name: 'users_email_unique',

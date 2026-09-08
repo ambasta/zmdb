@@ -3,7 +3,7 @@ Update rows with the query builder, or through a repository's `update(id, patch)
 
 ## Basic update
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).compile();
 ```
 
@@ -14,7 +14,7 @@ UPDATE "users" SET "role" = $1 WHERE "id" = $2
 
 ## Returning the updated row
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.updateTable('users').set({ role: 'admin' }).where('id', '=', 1).returning(['id', 'role']).compile();
 ```
 
@@ -30,7 +30,7 @@ UPDATE [users] SET [role] = @p1 OUTPUT INSERTED.[id], INSERTED.[role] WHERE [id]
 
 ## Through the repository (validated)
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies posts, users; this excerpt does not repeat those declarations."}
 import { inc, not } from 'zmdb/sql';
 
 const updated = await users.update(1, { role: 'admin' });

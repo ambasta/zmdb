@@ -7,7 +7,7 @@ The question to ask first is whether the event may be lost. That answer picks th
 
 **If the event must not be lost, use the [transactional outbox](./transactional-outbox.html).** It is the shipped answer for anything that triggers work elsewhere.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies connection, id, postRepo; this excerpt does not repeat those declarations."}
 import { createTransactionalDb } from '@zmdb/orm/transactions';
 import { outboxWriter } from '@zmdb/orm/outbox';
 import { createToken } from '@zmdb/app/di';
@@ -40,7 +40,7 @@ is the failure mode that makes emitter-based side effects unreliable in a way th
 
 **If losing it is fine — cache invalidation, a metric, a debug log — emit in process:**
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies cache, events; this excerpt does not repeat those declarations."}
 const off = events.on('post.published', async ({ id }) => {
   await cache.invalidate(`post:${id}`);
 });
@@ -60,7 +60,7 @@ Handlers start together. One rejection does not stop its siblings; each failure 
 
 ## Register it as a provider
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies EVENTS, Module, PostsController, events; this excerpt does not repeat those declarations."}
 @Module({
   providers: [{ token: EVENTS, useValue: events }],
   controllers: [PostsController],
@@ -68,7 +68,7 @@ Handlers start together. One rejection does not stop its siblings; each failure 
 export class AppModule {}
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies AppEvents, Controller, Ctx, EVENTS, Events, Inject, Post; this excerpt does not repeat those declarations."}
 @Controller('/posts')
 export class PostsController {
   @Inject(EVENTS) private readonly events!: Events<AppEvents>;
@@ -85,7 +85,7 @@ export class PostsController {
 `EVENTS` is a normal typed token created with `createToken<Events<AppEvents>>('EVENTS')`. Subscribe in a controller or provider startup hook. The emitter has no lifecycle of its own; the owning
 application decides where registration and disposal happen:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 private disposeEvents = (): void => undefined;
 
 onModuleInit() {
@@ -106,7 +106,7 @@ async invalidate({ id }: { id: number }) {
 
 ## Waiting is explicit
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies id; this excerpt does not repeat those declarations."}
 this.events.emit('post.published', { id }); // caller does not wait
 const report = await this.events.emitAndWait('post.published', { id }); // caller waits
 ```
@@ -130,7 +130,7 @@ production, because development runs one process.
 
 For cross-instance events you need a transport: Postgres `LISTEN/NOTIFY`, Redis pub/sub, or the outbox plus a consumer. `LISTEN/NOTIFY` is attractive here because you already have the connection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
 await driver.execute({ text: `NOTIFY post_published, $1`, parameters: [String(id)] });
 ```
 

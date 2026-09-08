@@ -2,7 +2,7 @@ Railway runs a long-running container, which is the easy case: a real pool, real
 
 ## The server
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./app-module.js; this fence is an excerpt of that project."}
 // src/main.ts
 import { createServer } from 'node:http';
 import { bodyText, createApp } from '@zmdb/web';
@@ -38,7 +38,7 @@ Two Railway-specific requirements: bind `0.0.0.0`, not `localhost`, or the healt
 
 Railway sends `SIGTERM` on redeploy. Without this, every deploy kills in-flight requests:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies pool, server; this excerpt does not repeat those declarations."}
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     server.close(() => pool.end().then(() => process.exit(0)));
@@ -54,7 +54,7 @@ The timeout is the important half — `server.close` waits for open connections,
 Railway's Postgres plugin injects `DATABASE_URL`. Use the private network URL (`postgres.railway.internal`) rather than the public proxy — lower latency, no egress, and the traffic does not leave the
 project.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 import { Pool } from 'pg';
 
 const pool = new Pool({
@@ -104,7 +104,7 @@ Railway builds with Nixpacks or a Dockerfile, so you control the build — which
 { "scripts": { "build": "tsup && yarn test:transformer" } }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -136,7 +136,7 @@ Nothing native to compile and no engine binary to match, so the image is small a
 
 ## Health checks
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/healthz')
 live() { return { ok: true }; }
 

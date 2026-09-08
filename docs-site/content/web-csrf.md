@@ -32,7 +32,7 @@ Also set `HttpOnly` (so XSS cannot read the session) and `Secure` (so it never t
 
 ## Configure the helper
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies csrfSecret, sessionIdFromCookie; this excerpt does not repeat those declarations."}
 import { createCsrf } from '@zmdb/web';
 
 const csrf = await createCsrf({
@@ -53,7 +53,7 @@ wildcard is rejected during construction. On an unsafe request, a missing or mal
 
 ## Issue a token
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/csrf')
 async token(ctx: AnyCtx) {
   return { token: await csrf.issue(ctx) };
@@ -77,7 +77,7 @@ structurally.
 
 ## Protect routes
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies OrdersController, csrf, router; this excerpt does not repeat those declarations."}
 router.register(new OrdersController(), {
   update: { guards: [csrf.guard()] },
   remove: { guards: [csrf.guard()] },

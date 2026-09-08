@@ -14,13 +14,13 @@ None of those four adapters or their peers is installed by `npm add zmdb@alpha`.
 
 Import the broker-neutral API from `@zmdb/app/messaging`:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { EventPattern, MessagePattern, createMessageClient, transportExtension, type MessageContext, type TransportStrategy } from '@zmdb/app/messaging';
 ```
 
 A broker delivery is not an HTTP request. `MessageContext<T>` is therefore a sibling of `Ctx`, not a subtype: it has no invented method or path. The reusable part is structural:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies env; this excerpt does not repeat those declarations."}
 type WithHeaders = {
   readonly headers: Readonly<Record<string, string>>;
 };
@@ -37,7 +37,7 @@ check cannot silently run against a broker delivery.
 
 Each declaration carries its consume-boundary validator:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies EventPattern, MessageContext, MessagePattern, Order, orders; this excerpt does not repeat those declarations."}
 type OrderId = { readonly id: number };
 
 function orderId(raw: unknown): OrderId {
@@ -90,7 +90,7 @@ The three capability flags are facts, not hints: `redelivery`, `deadLetter` and 
 
 The strategy moves `unknown`; the client supplies the trusted result type by validating the reply:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Order, OrderId, assert, createMessageClient, transport; this excerpt does not repeat those declarations."}
 type OrderCalls = {
   readonly 'order.get': {
     readonly request: OrderId;
@@ -117,7 +117,7 @@ For one-way events, `createEventPublisher<EventMap>(transport)` exposes one type
 
 Attach strategies through the public application extension rather than starting them beside the app:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AppModule, audit, createApp, transport, transportExtension; this excerpt does not repeat those declarations."}
 await using app = createApp(AppModule, {
   extensions: [
     transportExtension({
@@ -151,7 +151,7 @@ npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1
 
 Import each adapter from its dedicated package:
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 import { createNatsStrategy } from '@zmdb/transport-nats';
 import { createRabbitMqStrategy } from '@zmdb/transport-rabbitmq';
 import { createRedisStrategy } from '@zmdb/transport-redis';

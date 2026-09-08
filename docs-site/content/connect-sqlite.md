@@ -3,7 +3,7 @@ tests.
 
 ## With `node:sqlite`
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { DatabaseSync } from 'node:sqlite';
 import { sqliteDriver } from '@zmdb/sqlite';
 
@@ -23,7 +23,7 @@ export const driver = sqliteDriver(db);
 
 ## With `better-sqlite3`
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 import Database from 'better-sqlite3';
 
 const db = new Database('app.db');
@@ -44,7 +44,7 @@ export const driver: Driver = {
 
 SQLite has five storage classes, so `boolean`, `timestamp` and `json` need handling. Add a hydration step, per column:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 const hydrate = (r: Record<string, unknown>) => ({
   ...r,
   active: r.active === undefined ? undefined : Boolean(r.active),
@@ -56,7 +56,7 @@ Per-column, not by value — a blanket `0 → false` rule turns a genuine count 
 
 ## In tests
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies allSchemas; this excerpt does not repeat those declarations."}
 import { DatabaseSync } from 'node:sqlite';
 import { diff, snapshot } from '@zmdb/migrations';
 import { sqlite, sqliteDriver } from '@zmdb/sqlite';
@@ -86,7 +86,7 @@ If you deploy on one instance with a persistent disk (Fly, Railway with a volume
 
 `VACUUM INTO` is atomic and safe on a live database:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 await driver.execute({ text: `VACUUM INTO '/backups/app-${Date.now()}.db'`, parameters: [] });
 ```
 

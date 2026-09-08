@@ -5,7 +5,7 @@ validation interception, and transaction support — all without proxies or an i
 
 A repository is a minimal subclass that binds to your schema. The entire required body is one line.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./schema; this fence is an excerpt of that project."}
 import { BaseRepository } from '@zmdb/orm';
 import { UserSchema } from './schema';
 
@@ -20,7 +20,7 @@ class UserRepository extends BaseRepository<User> {
 
 The repository never opens database connections itself. You inject a `Driver` that executes compiled queries.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Driver, UserRepository, pg; this excerpt does not repeat those declarations."}
 const driver: Driver = {
   async execute(query) {
     // query.text: SQL string
@@ -37,7 +37,7 @@ const users = new UserRepository(driver, 'postgres');
 
 All write operations validate payloads against the schema before executing SQL. If validation fails, **no SQL runs**.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 // CREATE — validates against CreateDTO<UserSchema>
 // { email: string; role?: 'admin'|'user'|'guest' }
 const created = await users.create({ email: 'a@b.com', role: 'user' });
@@ -81,7 +81,7 @@ preserves number versus bigint.
 Beyond `findById`/`findOne`, the repository exposes typed `find` and `list` methods driven by the schema-derived [WhereDTO](./filters.html) and [pagination](./pagination.html) DTOs — no untyped
 `Record` filters.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 // find(where: WhereDTO<S>) → readonly Entity<S>[]
 const admins = await users.find({ role: 'admin', age: { gte: 18 } });
 
@@ -110,7 +110,7 @@ SELECT * FROM "users" WHERE "role" = $1 ORDER BY "createdAt" DESC LIMIT 21
 
 Hooks fire synchronously around their corresponding repository operations. Override them in your subclass.
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies BaseRepository, User, UserSchema; this excerpt does not repeat those declarations."}
 class UserRepository extends BaseRepository<User> {
   static readonly schema = UserSchema;
 
@@ -147,7 +147,7 @@ class UserRepository extends BaseRepository<User> {
 
 Bind a repository to a transaction for atomic multi-operation flows.
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies ordersRepo, pool, users; this excerpt does not repeat those declarations."}
 const tx = await pool.connect();
 await tx.query('BEGIN');
 

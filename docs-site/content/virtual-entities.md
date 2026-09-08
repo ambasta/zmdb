@@ -3,7 +3,7 @@ feature.
 
 ## The pattern
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 import { defineRepository } from '@zmdb/orm';
 import { createViewDdl } from '@zmdb/sql/schema-objects';
 import { schemaOf } from 'zmdb';
@@ -42,7 +42,7 @@ column that is unique in the result and treat it as one.
 From there it behaves like any other read source — `find`, `findOne`, `list` with `where` / `orderBy` / `page`, `aggregate`, [projections](./projections.html), typed [filters](./filters.html), and an
 OpenAPI component derived from the same declaration.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 const page = await repo.list({
   where: { total: { gte: 10_000 } },
   orderBy: [{ column: 'createdAt', dir: 'desc' }],
@@ -54,7 +54,7 @@ const page = await repo.list({
 
 If you cannot create a view — a read replica you do not own DDL on, a query that takes parameters — compile the SQL directly and validate the rows:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies OrderSummary, driver; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 import type { Entity } from 'zmdb/derive';
 

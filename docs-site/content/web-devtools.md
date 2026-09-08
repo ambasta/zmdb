@@ -3,7 +3,7 @@
 
 ## Describe a graph without booting it
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./app.module.js; this fence is an excerpt of that project."}
 import { describeGraph, renderTree } from '@zmdb/web/devtools';
 
 import { AppModule } from './app.module.js';
@@ -47,7 +47,7 @@ CoreModule
 
 The reverse query on that same description keeps both known consumers and the unknown-factory residue visible:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The application supplies the local modules ./app.module.js; this fence is an excerpt of that project."}
 import { dependentsOf, describeGraph } from '@zmdb/web/devtools';
 
 import { AppModule } from './app.module.js';
@@ -150,7 +150,7 @@ route pattern, token and module would be an application oracle.
 
 The query compiler still gives the most direct database diagnostic without a connection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies compiler; this excerpt does not repeat those declarations."}
 const { text, parameters } = compiler.selectFrom('posts').select(['id']).where('id', '=', 1).compile();
 console.log(text, parameters);
 ```

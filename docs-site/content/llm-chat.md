@@ -16,7 +16,7 @@ Those are construction rules, not recommendations around an otherwise unbounded 
 
 ## Running a bounded tool loop
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies requireEnv, searchDocs, users; this excerpt does not repeat those declarations."}
 import Anthropic from '@anthropic-ai/sdk';
 import { anthropicDriver } from '@zmdb/ai-anthropic';
 import { defineTools, run } from '@zmdb/ai/chat';
@@ -80,7 +80,7 @@ interface for another provider.
 
 ## The tables
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import type { HasDefault, OneToMany, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Conversation extends Table<'conversations'> {
@@ -109,13 +109,13 @@ malformed tool call is caught on the way in rather than on the way back out.
 
 Index the lookup you will do on every request:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createIndexDdl; this excerpt does not repeat those declarations."}
 createIndexDdl({ name: 'messages_conversation', table: 'messages', columns: ['conversation_id', 'created_at'] }, 'postgres');
 ```
 
 ## Loading a conversation
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies id, messageRepo; this excerpt does not repeat those declarations."}
 const history = await messageRepo.list({
   where: { conversationId: { eq: id } },
   orderBy: [
@@ -130,7 +130,7 @@ Order by `createdAt` **and** `id`. Two messages written in the same millisecond 
 
 ## A turn
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Controller, Ctx, Inject, MESSAGES, MessageRepository, Post, assert, callModel; this excerpt does not repeat those declarations."}
 @Controller('/chat')
 export class ChatController {
   @Inject(MESSAGES) private readonly messages!: MessageRepository;
@@ -172,7 +172,7 @@ A conversation grows past the model's limit. Two approaches, and you will end up
 
 **Truncate by tokens**, keeping the most recent turns:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Entity, Message; this excerpt does not repeat those declarations."}
 type Row = Entity<Message>;
 
 function fit(history: readonly Row[], budget: number): readonly Row[] {

@@ -28,7 +28,7 @@ npm add @zmdb/migrations@alpha @zmdb/sqlite@alpha
 
 This complete example builds snapshots and a plan from schema data without connecting to a database:
 
-```ts
+```ts {"mode":"compile","id":"migration-snapshot-plan"}
 import { diff, planMigration, snapshot } from '@zmdb/migrations';
 import { sqlite, sqliteMigrations } from '@zmdb/sqlite';
 

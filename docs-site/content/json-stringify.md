@@ -3,7 +3,7 @@ the engine's.
 
 ## Basic Usage
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { stringify } from '@zmdb/validator/serialization';
 
 stringify({ name: 'alice', age: 30, active: true });
@@ -20,7 +20,7 @@ whole API.
 
 ## Bigint
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies stringify; this excerpt does not repeat those declarations."}
 stringify({ id: 123n });
 // TypeError: Do not know how to serialize a BigInt
 ```
@@ -31,7 +31,7 @@ message means a caller can match on it.
 A `bigint` column does not need you to solve this by hand, though. The **wire** type for `Sql<'bigint'>` is a `string` with `format: 'int64'`, and you get that without asking — it is in the generated
 JSON Schema, the OpenAPI document, and what `wireEncoder` produces:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies PrimaryKey, Sql, Table; this excerpt does not repeat those declarations."}
 export interface Event extends Table<'events'> {
   id: bigint & Sql<'bigint'> & PrimaryKey;
 }
@@ -44,7 +44,7 @@ So the boundary encoder converts, and `stringify` throwing is the backstop for a
 
 `assertStringify(value, schema?)` validates before serializing:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies ir, payload; this excerpt does not repeat those declarations."}
 import { assertStringify } from '@zmdb/validator/serialization';
 
 const json = assertStringify(payload, ir); // throws AssertError if payload is wrong

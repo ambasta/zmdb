@@ -8,7 +8,7 @@ while the implementation owns its protocol connection and must stop intake, drai
 
 Use only the public microservices and observability entry points:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies decodeDelivery, wire; this excerpt does not repeat those declarations."}
 import type { TraceCarrier } from '@zmdb/app/observability';
 import type { DispatchOutcome, MessageReply, RawMessage, TransportRequest, TransportStrategy } from '@zmdb/app/messaging';
 
@@ -69,7 +69,7 @@ framework owns declaration lookup, payload validation, handler invocation, retry
 
 Decode the broker envelope before constructing `RawMessage`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies RawMessage, envelope; this excerpt does not repeat those declarations."}
 const message: RawMessage = {
   pattern: envelope.pattern,
   payload: envelope.payload,
@@ -107,7 +107,7 @@ Do not accept a caller-supplied correlation id. Two callers choosing the same id
 
 Declare only behavior the strategy can actually implement:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 readonly capabilities = {
   redelivery: false,
   deadLetter: false,
@@ -121,7 +121,7 @@ With either delivery capability absent, `transportExtension` requires an `onUnde
 
 Attach the strategy when creating the application:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies AcmeTransport, AppModule, createApp, onHandlerError, onInvalidPayload, onUndeliverable, onUnhandled; this excerpt does not repeat those declarations."}
 import { transportExtension } from '@zmdb/app/messaging';
 
 await using app = createApp(AppModule, {

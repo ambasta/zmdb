@@ -8,7 +8,7 @@ protocol client, framing, subscriptions, replies, and settlement.
 
 A strategy owns broker framing, subscriptions, replies and settlement. The application owns payload validation, handler invocation and retry policy:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { TraceCarrier } from '@zmdb/app/observability';
 import type { DispatchOutcome, MessageReply, RawMessage, TransportCapabilities, TransportRequest } from '@zmdb/app/messaging';
 
@@ -49,7 +49,7 @@ npm add @zmdb/transport-nats@alpha @nats-io/transport-node@^3.4.0
 npm add @zmdb/transport-rabbitmq@alpha amqplib@^2.0.1
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { createNatsStrategy } from '@zmdb/transport-nats';
 import { createRabbitMqStrategy } from '@zmdb/transport-rabbitmq';
 import { createRedisStrategy } from '@zmdb/transport-redis';
@@ -65,7 +65,7 @@ reassignment. A bounded close fences late settlement. The [Kafka contract](https
 
 ## Redis Pub/Sub
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createRedisStrategy, transportErrors; this excerpt does not repeat those declarations."}
 const redis = createRedisStrategy({
   connection: { url: process.env.REDIS_URL },
   channels: ['orders.get'],
@@ -81,7 +81,7 @@ Exact and glob subscriptions dispatch the concrete channel. Request/reply uses a
 
 ## Core NATS
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies createNatsStrategy, transportErrors; this excerpt does not repeat those declarations."}
 const nats = createNatsStrategy({
   connection: { servers: process.env.NATS_URL },
   subscriptions: [{ subject: 'orders.*', queue: 'orders-workers' }, { subject: 'audit.>' }],
@@ -96,7 +96,7 @@ Core NATS also requires `dispatcher.onUndeliverable`. Request/reply uses an inbo
 
 ## RabbitMQ
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies createRabbitMqStrategy, env, transportErrors; this excerpt does not repeat those declarations."}
 const rabbit = createRabbitMqStrategy({
   connection: env.RABBITMQ_URL,
   exchange: 'orders',

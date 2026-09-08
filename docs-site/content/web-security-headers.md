@@ -1,13 +1,13 @@
-The `helmet` analogue — a small [Interceptor](./web-middleware.html) that merges hardening headers onto every response. No global plugin; it's one composable link so you can see exactly what's set.
+A small response wrapper merges hardening headers after the router has serialized the handler result. Pass the wrapped handler to your HTTP adapter.
 
-## A helmet-equivalent interceptor
+## Wrap the router response
 
-```ts
-import type { Interceptor } from '@zmdb/web/middleware';
+```ts {"mode":"compile","id":"example-001"}
+import type { WebRequest, WebResponse } from '@zmdb/web';
 
-const secure: Interceptor = {
-  async intercept(ctx, next) {
-    const res = await next();
+export function withSecurityHeaders(handle: (request: WebRequest) => Promise<WebResponse>) {
+  return async (request: WebRequest): Promise<WebResponse> => {
+    const res = await handle(request);
     return {
       ...res,
       headers: {
@@ -19,13 +19,13 @@ const secure: Interceptor = {
         ...res.headers,
       },
     };
-  },
-};
+  };
+}
 ```
 
 ## Design notes
 
-- Headers are merged on unwind, so a handler can still override a specific one.
+- Headers are merged after routing, so a handler can still override a specific one.
 - CSP/HSTS values are yours to tune — nothing is silently defaulted behind your back.
 
 ## Cross-links

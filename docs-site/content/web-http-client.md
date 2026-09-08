@@ -10,7 +10,7 @@ zmdb has three deliberately separate HTTP client paths:
 
 Point `http.contracts` at the exported contract object the router registers, then name both committed outputs:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 // zmdb.config.ts
 import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
@@ -44,7 +44,7 @@ response dispatch, and straight-line validation. Unsupported contract or `TypeIR
 
 Use the generated factory with an injected transport or the default Fetch transport:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The application supplies the local modules ./http-client.generated.js; this fence is an excerpt of that project."}
 import { createApiClient } from './http-client.generated.js';
 
 const api = createApiClient({
@@ -66,7 +66,7 @@ The complete contract-to-runtime-to-artifact-to-browser/Node journey, including 
 
 ## A typed client for a third-party API
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 export class ApiClient {
   constructor(
     private readonly baseUrl: string,
@@ -84,7 +84,7 @@ export class ApiClient {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies ExternalUser, assert, client; this excerpt does not repeat those declarations."}
 const user = await client.get('/users/1', raw => assert<ExternalUser>(raw));
 ```
 
@@ -93,7 +93,7 @@ you get `undefined` three layers down instead of an error at the boundary. Passi
 
 ## Register it as a provider
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ApiClient, Module, createToken, env; this excerpt does not repeat those declarations."}
 export const API = createToken<ApiClient>('API');
 
 @Module({
@@ -102,7 +102,7 @@ export const API = createToken<ApiClient>('API');
 export class HttpModule {}
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies API, ApiClient, Controller, Inject; this excerpt does not repeat those declarations."}
 @Controller('/sync')
 export class SyncController {
   @Inject(API) private readonly api!: ApiClient;
@@ -111,7 +111,7 @@ export class SyncController {
 
 Behind a token, so tests substitute a fake with no network:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies API, AppModule, createTestApp; this excerpt does not repeat those declarations."}
 const app = createTestApp(AppModule, {
   overrides: [{ token: API, useValue: { get: async () => ({ id: 1, name: 'test' }) } }],
 });
@@ -123,13 +123,13 @@ That is the whole reason to wrap `fetch` in a class rather than calling it inlin
 
 `fetch` has no default timeout. A hung upstream holds your request until the client gives up, and under load that exhausts your concurrency.
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"This request-options fragment omits the containing client call."}
 signal: AbortSignal.timeout(5_000);
 ```
 
 Combine with a caller's signal when you have one:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"This request-options fragment omits the containing client call and the caller-provided external AbortSignal."}
 signal: AbortSignal.any([AbortSignal.timeout(5_000), external]);
 ```
 
@@ -138,7 +138,7 @@ configured with `cancelVia`. See [Query Cancellation](./query-cancellation.html)
 
 ## Retries, for the errors worth retrying
 
-```ts
+```ts {"mode":"compile","id":"example-010"}
 async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   for (let i = 0; ; i += 1) {
     try {
@@ -160,7 +160,7 @@ does not tell you that.
 
 ## Do not log the response body
 
-```ts
+```ts {"mode":"illustrative","id":"example-011","reason":"The surrounding example supplies ms, path, response; this excerpt does not repeat those declarations."}
 console.log({ url: path, status: response.status, ms }); // fine
 console.log(await response.text()); // logs whatever the upstream returned
 ```
@@ -171,7 +171,7 @@ An upstream response routinely contains personal data and sometimes tokens. Log 
 
 If an upstream is down, failing fast beats queueing:
 
-```ts
+```ts {"mode":"compile","id":"example-012"}
 let failures = 0;
 let openUntil = 0;
 
@@ -195,7 +195,7 @@ Per process, so with several replicas each learns independently. Good enough, an
 Do not. If two controllers in one application need the same logic, extract a service and inject it — an internal HTTP round trip adds latency, a serialisation boundary and a failure mode for no
 benefit.
 
-```ts
+```ts {"mode":"illustrative","id":"example-013","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 // instead of fetch('http://localhost:3000/posts')
 @Inject(POSTS) private readonly posts!: PostRepo;
 ```
@@ -204,7 +204,7 @@ benefit.
 
 If any part of the URL comes from user input, you have an SSRF vector — a request to `http://169.254.169.254/` will happily return cloud instance credentials.
 
-```ts
+```ts {"mode":"illustrative","id":"example-014","reason":"The surrounding example supplies ValidationError; this excerpt does not repeat those declarations."}
 const ALLOWED = new Set(['api.partner.com', 'cdn.partner.com']);
 
 function safeUrl(input: string): URL {

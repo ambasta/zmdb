@@ -29,13 +29,15 @@ The healthcheck matters for CI: the container accepts connections briefly during
 
 ## Connecting
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 import { type Driver } from '@zmdb/orm';
 
 const pool = new Pool({ connectionString: 'postgres://postgres:dev@localhost:5432/app_dev', max: 5 });
 
 export const driver: Driver = {
+  dialect: postgres,
   async execute(query) {
     const result = await pool.query(query.text, [...query.parameters]);
     return result.rows;
@@ -49,7 +51,7 @@ See [Connect: Postgres](./connect-postgres.html).
 
 From your schemas, so it cannot drift from a fixture:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies allSchemas, driver; this excerpt does not repeat those declarations."}
 import { diff, emitUp, snapshot } from 'zmdb/migrations';
 
 for (const op of diff({ tables: {} }, snapshot(allSchemas))) {
@@ -67,7 +69,7 @@ Never point tests at your development database. One `TRUNCATE` and your seed dat
 createdb -h localhost -U postgres app_test
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 const url = process.env.NODE_ENV === 'test' ? 'postgres://postgres:dev@localhost:5432/app_test' : 'postgres://postgres:dev@localhost:5432/app_dev';
 ```
 
@@ -77,7 +79,7 @@ Three options, fastest first.
 
 **Truncate between tests** — milliseconds:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The application supplies the local modules ./domain/tables.ts; this fence is an excerpt of that project."}
 import { ALL_TABLES } from './domain/tables.ts'; // [schemaOf<User>(), schemaOf<Post>(), …]
 
 const tables = ALL_TABLES.map(s => `"${s.table}"`).join(', ');

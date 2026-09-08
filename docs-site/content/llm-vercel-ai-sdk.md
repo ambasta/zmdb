@@ -12,7 +12,7 @@
 
 `aiSdkTool` builds the fields accepted by `tool()`. Pass the SDK's own `jsonSchema` factory so it keeps ownership of its branded schema type. This example compiles against the tested peer:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { jsonSchema, tool } from 'ai';
 import { aiSdkTool } from '@zmdb/ai-vercel';
 import { assert } from '@zmdb/validator';
@@ -46,7 +46,7 @@ wire codec can decode there too. The application needs no Zod schema and no `JSO
 
 The response layer can carry the SDK's `ReadableStream`. Convert the SDK `Response` into a tagged stream response:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies anthropic, messages, streamText; this excerpt does not repeat those declarations."}
 const result = streamText({
   model: anthropic('claude-opus-5'),
   messages,
@@ -67,7 +67,7 @@ The framework handles backpressure and disconnect cancellation. The provider SDK
 
 The SDK's `onFinish` is where a turn gets written, and a [messages table](./llm-chat.html) is the store:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies anthropic, conversationId, messageRepo, messages, streamText; this excerpt does not repeat those declarations."}
 const result = streamText({
   model: anthropic('claude-opus-5'),
   messages,
@@ -90,7 +90,7 @@ Write the user's message _before_ the call, not in `onFinish` — otherwise a fa
 
 ## Reading history back
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies id, messageRepo; this excerpt does not repeat those declarations."}
 const page = await messageRepo.list({
   where: { conversationId: { eq: id } },
   orderBy: [

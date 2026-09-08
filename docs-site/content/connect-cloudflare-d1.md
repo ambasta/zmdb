@@ -2,7 +2,7 @@ Dialect: `'sqlite'`. D1 is SQLite at the edge, accessed through a Worker binding
 
 ## Setup
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies D1Database; this excerpt does not repeat those declarations."}
 import { type Driver } from '@zmdb/orm';
 import { sqlite } from '@zmdb/sqlite';
 
@@ -20,7 +20,7 @@ export function d1Driver(db: D1Database): Driver {
 
 There is no module-scope client, because the binding only exists inside a request:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Env, d1Driver, defineRepository, users; this excerpt does not repeat those declarations."}
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const repo = defineRepository(users, d1Driver(env.DB));
@@ -45,7 +45,7 @@ database_id = "..."
 
 D1 charges round trips, and an edge Worker may be far from the database. Use the batch API for multiple statements:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies db, queries; this excerpt does not repeat those declarations."}
 const stmts = queries.map(q => db.prepare(q.text).bind(...q.parameters));
 const results = await db.batch(stmts);
 ```

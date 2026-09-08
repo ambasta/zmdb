@@ -5,7 +5,7 @@ it also exposes closed pgvector distance expressions and the two typed PostGIS p
 
 `SqlType` remains the closed core vocabulary. An extension type uses `Ext` instead, keeping the installable extension, the SQL type it provides and its parameters separate:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { Ext, PrimaryKey, Sql, Table } from 'zmdb/tags';
 
 interface GeoJsonPoint {
@@ -47,7 +47,8 @@ still unusable by the extension operators it was declared for.
 
 `IndexDef` supports PostgreSQL access methods, operator classes and method-specific options:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const sql = createIndexDdl(
@@ -58,7 +59,7 @@ const sql = createIndexDdl(
     columns: [{ column: 'embedding', opclass: 'vector_cosine_ops' }],
     with: { m: 16, ef_construction: 64 },
   },
-  'postgres',
+  postgres,
 );
 ```
 

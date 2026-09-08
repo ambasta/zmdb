@@ -5,7 +5,7 @@ to [D1](./connect-cloudflare-d1.html).
 
 The storage API is synchronous inside the object, so the driver is trivial:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies SqlStorage; this excerpt does not repeat those declarations."}
 import { type Driver } from '@zmdb/orm';
 import { sqlite } from '@zmdb/sqlite';
 
@@ -19,7 +19,7 @@ export function doDriver(sql: SqlStorage): Driver {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies DurableObject, DurableObjectState, Env, defineRepository, diff, doDriver, messages, snapshot, sqlite; this excerpt does not repeat those declarations."}
 export class Room extends DurableObject {
   private readonly repo;
 
@@ -57,7 +57,7 @@ That last point is unusual and worth using. Most of the concurrency caveats else
 `ctx.storage.sql.exec` is synchronous, so a `MigrationConnection` over it is straightforward — but the runner is async and the constructor is not. Do migrations in `blockConcurrencyWhile`, which holds
 requests until it finishes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 constructor(ctx: DurableObjectState, env: Env) {
   super(ctx, env);
   ctx.blockConcurrencyWhile(async () => {

@@ -13,7 +13,7 @@ The shared HTTP contract covers executable meaning:
 
 The contract compiler derives schema projections from the same TypeScript types used by runtime validation. There is no field-level `@ApiProperty()` declaration to duplicate:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This partial declaration omits the containing TypeScript construct described by the surrounding article."}
 createPost: httpOperation<CreatePostOperation>({
   controller: PostsController,
   handler: 'create',
@@ -43,7 +43,7 @@ createPost: httpOperation<CreatePostOperation>({
 
 Summaries, descriptions, tags, examples, and external links are not inferred. Add them in a deterministic post-processing pass keyed by the explicit operation ID:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies compiled, toOpenApi; this excerpt does not repeat those declarations."}
 const document = toOpenApi(compiled.ir, {
   info: { title: 'Blog API', version: '1.0.0' },
 });
@@ -72,7 +72,7 @@ for (const item of Object.values(document.paths)) {
 
 Keying by `operationId` avoids a second controller or route walk. A test can require one metadata entry per contract operation:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies DOCS, compiled, expect, it; this excerpt does not repeat those declarations."}
 it('documents every operation', () => {
   for (const operation of compiled.ir.operations) {
     expect(DOCS[operation.operationId]).toBeDefined();
@@ -91,7 +91,7 @@ would create a second executable contract.
 
 Examples are documentation rather than validation. Attach synthetic values to the rendered schema or operation:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding article supplies the generated OpenAPI document whose paths are inspected here."}
 const operation = document.paths['/posts']?.post;
 if (operation === undefined) throw new Error('createPost is missing');
 

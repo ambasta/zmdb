@@ -14,7 +14,7 @@ Each `HttpOperationIR` already contains:
 
 The renderer copies those facts. It does not inspect a handler or infer a default response.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies compiled; this excerpt does not repeat those declarations."}
 import { toOpenApi } from '@zmdb/web/openapi';
 
 const document = toOpenApi(compiled.ir, {
@@ -26,7 +26,7 @@ const document = toOpenApi(compiled.ir, {
 
 Schemas are method-specific because they are referenced by each operation:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 operations: [
   {
     operationId: 'listPosts',

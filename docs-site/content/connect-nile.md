@@ -3,7 +3,8 @@ on its own.
 
 ## Setup
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 import { ValidationError } from '@zmdb/validator';
 import { type Driver } from '@zmdb/orm';
@@ -14,6 +15,7 @@ const pool = new Pool({
 });
 
 export const driver: Driver = {
+  dialect: postgres,
   async execute(query) {
     const result = await pool.query(query.text, [...query.parameters]);
     return result.rows;
@@ -26,7 +28,7 @@ export const driver: Driver = {
 Nile's model is that a table can be declared tenant-aware, after which the database itself scopes every query to the tenant set on the session. The declaration is DDL, so it goes in a
 [migration](./migrations-custom.html):
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 {
   version: 2,
   name: 'todos_tenant_aware',
@@ -39,7 +41,7 @@ Nile's model is that a table can be declared tenant-aware, after which the datab
 
 Then declare the column on the interface so it appears in the row type:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies schemaOf; this excerpt does not repeat those declarations."}
 import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Todo extends Table<'todos'> {
@@ -58,7 +60,7 @@ generated DDL for this table, which you are writing by hand anyway, and nothing 
 
 This is the part that has to be right, and it belongs in the driver — the only layer that owns the connection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver, pool; this excerpt does not repeat those declarations."}
 export function tenantDriver(tenantId: string): Driver {
   return {
     async execute(query) {
@@ -77,7 +79,7 @@ export function tenantDriver(tenantId: string): Driver {
 
 Then build repositories per request:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ValidationError, ctx, defineRepository, tenantDriver, todos; this excerpt does not repeat those declarations."}
 const tenantId = ctx.headers['x-tenant-id'];
 if (tenantId === undefined) throw new ValidationError('missing tenant', []);
 
@@ -98,7 +100,7 @@ The [application-level version](./entity-filters.html) requires every read to ca
 
 Nile provides `tenants` and `users` tables of its own. Reference them by name, since there is no declaration to check against:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies References, Sql; this excerpt does not repeat those declarations."}
 tenantId: string & Sql<'text'> & References<'tenants.id'>;
 ```
 

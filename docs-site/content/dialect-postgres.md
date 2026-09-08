@@ -23,7 +23,7 @@ the recorded server qualification to that service.
 
 ## Selecting it
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies pool, users; this excerpt does not repeat those declarations."}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres, postgresDriver } from '@zmdb/postgres';
 import { defineRepository } from '@zmdb/orm';
@@ -48,7 +48,7 @@ const userRepo = defineRepository(users, postgresDriver(pool));
 | Materialized views      | supported                              |
 | `RETURNING`             | supported                              |
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies compiler; this excerpt does not repeat those declarations."}
 compiler.selectFrom('users').where('email', '=', 'a@b.c').compile();
 // { text: 'SELECT * FROM "users" WHERE "email" = $1', parameters: ['a@b.c'] }
 ```
@@ -57,7 +57,7 @@ compiler.selectFrom('users').where('email', '=', 'a@b.c').compile();
 
 `ilike` is a first-class operator in both the builder and the DTO. PostgreSQL and its CockroachDB family map it to a native operator:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.find({ name: { ilike: '%ada%' } });
 // WHERE "name" ILIKE $1
 ```
@@ -81,7 +81,7 @@ These guides cover the modeled operations and the places that still require [raw
 
 These belong in your driver's pool config, and each one prevents a specific bad afternoon:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Pool; this excerpt does not repeat those declarations."}
 new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 10, // must be < max_connections / instance count

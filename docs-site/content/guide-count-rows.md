@@ -2,7 +2,7 @@ Three ways, for three different questions.
 
 ## Alongside a page — `hasMore`, not a total
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies userRepo; this excerpt does not repeat those declarations."}
 const { items, hasMore, total } = await userRepo.list({
   where: { active: { eq: true } },
   page: { limit: 20, offset: 0 },
@@ -20,14 +20,14 @@ A count matching the `where` and ignoring the page is a **second query**, and th
 
 ## Count only
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies userRepo; this excerpt does not repeat those declarations."}
 const { items } = await userRepo.list({ where: { active: { eq: true } }, page: { limit: 0 } });
 const count = items.length; // wrong — this is 0
 ```
 
 Use `aggregate` instead:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies userRepo; this excerpt does not repeat those declarations."}
 const [row] = await userRepo.aggregate({
   where: { active: { eq: true } },
   computed: [{ fn: 'count', column: 'id', as: 'n' }],
@@ -40,7 +40,7 @@ const count = Number(row?.n ?? 0);
 
 ## Count per group
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies postRepo; this excerpt does not repeat those declarations."}
 const rows = await postRepo.aggregate({
   computed: [{ fn: 'count', column: 'id', as: 'posts' }],
   groupBy: ['author_id'],
@@ -54,7 +54,7 @@ const rows = await postRepo.aggregate({
 
 ## Distinct, and non-null
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 computed: [{ fn: 'count', column: 'author_id', as: 'authors', distinct: true }];
 ```
 
@@ -63,7 +63,7 @@ error.
 
 ## Existence — do not count
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies userRepo; this excerpt does not repeat those declarations."}
 const found = await userRepo.findOne({ email: { eq: 'a@b.c' } });
 if (found !== undefined) {
   /* exists */

@@ -5,7 +5,7 @@ Stage-3 decorators have **no parameter decorators**, so there is no `createParam
 
 ## Accessors are functions
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { Ctx } from '@zmdb/web/context';
 
 export const bearer = (ctx: Ctx): string | undefined => (ctx.headers.authorization?.startsWith('Bearer ') ? ctx.headers.authorization.slice(7) : undefined);
@@ -13,7 +13,7 @@ export const bearer = (ctx: Ctx): string | undefined => (ctx.headers.authorizati
 export const pageOf = (ctx: Ctx<Record<never, string>, unknown, { page?: string }>): number => Math.max(1, Number(ctx.query.page ?? 1) || 1);
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, Ctx, Get, principalOf; this excerpt does not repeat those declarations."}
 @Controller('/me')
 export class MeController {
   @Get('/')
@@ -31,7 +31,7 @@ an accessor derives its value from `headers`, `params`, `query` or `body` — se
 
 `Symbol.metadata` is the same channel `@Controller` and `@Get` use. A method decorator writes to it, and nothing at request time reads it:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 const ROLES = Symbol('app.roles');
 
 interface RolesMetadata {
@@ -59,7 +59,7 @@ export function rolesFor(target: abstract new (...args: never[]) => unknown): Re
 
 The `rolesView` function is the repo's own pattern for this ([ARCHITECTURE.md §2.1](./architecture.html)): one narrow view function carrying the soundness argument, so no `as` appears at a call site.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Controller, Ctx, Get, Roles; this excerpt does not repeat those declarations."}
 @Controller('/admin')
 export class AdminController {
   @Get('/stats')
@@ -72,7 +72,7 @@ export class AdminController {
 
 ## Reading it at boot
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AdminController, rolesFor; this excerpt does not repeat those declarations."}
 import { getRoutes } from '@zmdb/web/routing';
 
 const table = getRoutes(AdminController).map(route => ({
@@ -94,7 +94,7 @@ itself is the product — an access review, generated docs, a permission matrix 
 
 A method decorator can also return a replacement function, which covers the "decorator as middleware" cases:
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 export function Timed() {
   return function <T extends (...args: never[]) => unknown>(value: T, context: ClassMethodDecoratorContext): T {
     return function (this: unknown, ...args: never[]): unknown {
@@ -117,7 +117,7 @@ method _name_, not the function. A decorator that replaces the method and change
 
 ## Class decorators compose
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Audited, Controller; this excerpt does not repeat those declarations."}
 @Controller('/admin')
 @Audited('admin-surface')
 export class AdminController {}

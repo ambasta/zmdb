@@ -18,7 +18,7 @@ Large or streaming uploads should bypass the router or go directly to object sto
 The adapter limit runs first, so the effective out-of-the-box request ceiling is 1 MiB even though `maxTotalBytes` defaults to 8 MiB. Raise `maxBodyBytes` to at least the multipart ceiling when the
 route intentionally accepts more:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies createServer, router, toFetchHandler, toNodeHandler; this excerpt does not repeat those declarations."}
 createServer(toNodeHandler(router, { maxBodyBytes: 8 * 1024 * 1024 }));
 const fetch = toFetchHandler(router, { maxBodyBytes: 8 * 1024 * 1024 });
 ```
@@ -27,7 +27,7 @@ Every configured limit must remain a positive safe integer. `0`, `Infinity`, neg
 
 ## Parse a bounded upload
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ctx; this excerpt does not repeat those declarations."}
 import { parseMultipart } from '@zmdb/web';
 
 const form = parseMultipart(ctx.body, ctx.headers['content-type'] ?? '', {
@@ -54,7 +54,7 @@ limits.
 The client uploads to object storage directly; your API only signs and records. This is the right architecture regardless of framework support — the bytes never touch your process, so a 200 MB upload
 costs you no memory, no request duration and no bandwidth.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies ALLOWED_TYPES, Controller, Ctx, FILES, FileRepository, Forbidden, Inject, MAX_BYTES, Post, STORAGE and 3 other bindings; this excerpt does not repeat those declarations."}
 @Controller('/uploads')
 export class UploadsController {
   @Inject(STORAGE) private readonly storage!: Storage;
@@ -94,7 +94,7 @@ export class UploadsController {
 
 For self-hosted deployments, take the raw stream in your adapter and never involve the router:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies createServer, handleUpload, router, toNodeHandler; this excerpt does not repeat those declarations."}
 createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/upload') {
     await handleUpload(req, res); // your streaming parser, writing to disk or S3
@@ -109,7 +109,7 @@ one is doing something the transport is actually good at.
 
 ## For tiny files: base64 in JSON
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Post('/avatar')
 async avatar(ctx: Ctx<Record<never, string>, { data: string; mime: string }>) {
   assert<{ data: string; mime: string }>(ctx.body);
@@ -138,7 +138,7 @@ limit shown above. Cap at the proxy as well.
 
 ## Storing the record
 
-```ts
+```ts {"mode":"compile","id":"example-006"}
 import type { HasDefault, Length, PrimaryKey, References, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
 export interface FileRecord extends Table<'files'> {

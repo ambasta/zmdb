@@ -13,7 +13,7 @@ asking. Use both; they are not substitutes.
 
 ## In your handler
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 export interface CounterStore {
   incr(key: string, windowMs: number): Promise<number>;
 }
@@ -28,7 +28,7 @@ export async function limit(store: CounterStore, key: string, max: number, windo
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Post('/password-reset')
 async reset(ctx: Ctx<Record<never, string>, { email: string }>) {
   await limit(this.counters, `reset:${ctx.body.email}`, 5, 3_600_000);
@@ -44,7 +44,7 @@ A thrown `TooManyRequests` remains an ordinary error and becomes a 500 unless an
 
 ## As a Guard
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies CounterStore, clientIp; this excerpt does not repeat those declarations."}
 import type { Guard, AnyCtx } from '@zmdb/web/middleware';
 
 export function rateLimit(store: CounterStore, max: number, windowMs: number): Guard {
@@ -59,7 +59,7 @@ export function rateLimit(store: CounterStore, max: number, windowMs: number): G
 Pass it through `GuardRegistry.app` for every registered route, `GuardRegistry.controllers` for one controller, or `RouteOptions.guards` for one handler. Effective guards run app → controller → route
 before the handler:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies counters, createRouter, rateLimit; this excerpt does not repeat those declarations."}
 const router = createRouter({
   guardRegistry: { app: [rateLimit(counters, 100, 60_000)] },
 });
@@ -69,7 +69,7 @@ A rejected guard currently returns 403; a limiter that must return 429 still nee
 
 ## Identifying the caller
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AnyCtx, TRUSTED_HOPS; this excerpt does not repeat those declarations."}
 function clientIp(ctx: AnyCtx): string {
   const forwarded = ctx.headers['x-forwarded-for'];
   return forwarded === undefined ? 'unknown' : (forwarded.split(',').at(-TRUSTED_HOPS)?.trim() ?? 'unknown');
@@ -86,7 +86,7 @@ Prefer the authenticated principal where you have one: an account id cannot be s
 
 **In-process, for a single instance:**
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies CounterStore; this excerpt does not repeat those declarations."}
 export function memoryCounters(): CounterStore {
   const buckets = new Map<string, { count: number; resetAt: number }>();
   return {
@@ -129,7 +129,7 @@ Return the limit state in headers (`ratelimit-limit`, `ratelimit-remaining`, `ra
 
 Inject the store, so a test drives the clock rather than sleeping:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies AppModule, COUNTERS, createTestApp, expect, memoryCounters, post; this excerpt does not repeat those declarations."}
 await using app = createTestApp(AppModule, {
   overrides: [{ token: COUNTERS, useValue: memoryCounters() }],
 });

@@ -13,7 +13,7 @@ npm add @zmdb/next@alpha next@16 react@19 react-dom@19
 
 The server entry reads the current Next header and cookie stores only while creating a request scope. Nothing is forwarded by default:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This excerpt requires separately supplied external modules: @/generated/http-client.generated.js. Their application setup is outside this standalone fence."}
 import { createNextServerClient } from '@zmdb/next/server';
 import { createApiClient } from '@/generated/http-client.generated.js';
 
@@ -42,7 +42,7 @@ See [Next.js Client](./client-next.html) for the complete client binding, cancel
 
 ## One module for the driver
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This excerpt requires separately supplied external modules: @/schema.js. Their application setup is outside this standalone fence."}
 // src/server/db.ts   — server only
 import 'server-only';
 import { Pool } from 'pg';
@@ -69,7 +69,7 @@ The schema file itself is safe to import anywhere: `schemaOf<Post>()` compiles t
 
 ## Server components
 
-```tsx
+```tsx {"mode":"illustrative","id":"example-003","reason":"This excerpt requires separately supplied external modules: @/server/db. Their application setup is outside this standalone fence."}
 // app/posts/page.tsx
 import { postRepo } from '@/server/db';
 
@@ -96,7 +96,7 @@ Watch for N+1s: a server component that renders a list of children, each fetchin
 
 ## Route handlers
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 // app/api/posts/route.ts
 import { assert } from '@zmdb/validator';
 import { postRepo } from '@/server/db';
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
 
 ## Server actions
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies CreateDTO, Post, assert, postRepo; this excerpt does not repeat those declarations."}
 'use server';
 import { revalidatePath } from 'next/cache';
 
@@ -146,7 +146,7 @@ Two workable answers:
 
 Either way, put the canary somewhere it runs:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -158,7 +158,7 @@ If it fails, pick one of the two options above rather than shipping. This is the
 
 `next dev` reloads modules, which means a new `Pool` per reload and a leak until you restart. Cache it on `globalThis` in development:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Pool; this excerpt does not repeat those declarations."}
 const g = globalThis as { __pool?: Pool };
 const pool = g.__pool ?? new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 if (process.env.NODE_ENV !== 'production') g.__pool = pool;
@@ -170,7 +170,7 @@ In production on Vercel, prefer an HTTP driver — see [Vercel](./deploy-vercel.
 
 Next caches aggressively. A server component reading the database is cached unless you opt out:
 
-```ts
+```ts {"mode":"compile","id":"example-008"}
 export const dynamic = 'force-dynamic'; // per route
 ```
 

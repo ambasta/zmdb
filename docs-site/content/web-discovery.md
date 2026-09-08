@@ -3,7 +3,7 @@ There is no discovery API. Nothing scans the filesystem, nothing reads decorator
 
 ## What that means in practice
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies DataModule, Module, POSTS, PostsController, UsersController, makeRepo; this excerpt does not repeat those declarations."}
 @Module({
   controllers: [PostsController, UsersController],
   providers: [{ token: POSTS, useFactory: c => makeRepo(c) }],
@@ -22,7 +22,7 @@ compile error at the module, not a route that silently does not exist.
 
 `getRoutes` reads the metadata the routing decorators wrote:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies PostsController; this excerpt does not repeat those declarations."}
 import { getRoutes } from '@zmdb/web/routing';
 
 for (const route of getRoutes(PostsController)) {
@@ -34,7 +34,7 @@ for (const route of getRoutes(PostsController)) {
 
 `ResolvedRoute` is `{ method, path, handlerName }` — enough to print a route table at startup, which is the most common legitimate use of discovery:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies PostsController, UsersController, getRoutes; this excerpt does not repeat those declarations."}
 const CONTROLLERS = [PostsController, UsersController] as const;
 
 for (const C of CONTROLLERS) {
@@ -53,7 +53,7 @@ compiled controller binding; the renderer never reads controller metadata.
 Nothing enumerates your tables either. A schema comes from a type — `schemaOf<User>()` — and a type is not a value that can register itself, so there is nowhere for a registry to record into. Keep the
 array:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The application supplies the local modules ./domain/index.ts; this fence is an excerpt of that project."}
 import { schemaOf } from '@zmdb/schema';
 import type { Post, User } from './domain/index.ts';
 
@@ -62,13 +62,13 @@ export const ALL_TABLES = [schemaOf<User>(), schemaOf<Post>()] as const;
 
 That array is what the tools that used to read a registry take directly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ALL_TABLES, driver; this excerpt does not repeat those declarations."}
 // truncate everything between tests
 const tables = ALL_TABLES.map(s => `"${s.table}"`).join(', ');
 await driver.execute({ text: `TRUNCATE ${tables} RESTART IDENTITY CASCADE`, parameters: [] });
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies ALL_TABLES, diff, emitUp, exec, snapshot; this excerpt does not repeat those declarations."}
 // generate the whole schema
 for (const op of diff({ tables: {} }, snapshot([...ALL_TABLES]))) await exec(emitUp(op, 'postgres'));
 ```
@@ -81,7 +81,7 @@ for (const op of diff({ tables: {} }, snapshot([...ALL_TABLES]))) await exec(emi
 
 ## Finding providers
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies CACHE, app; this excerpt does not repeat those declarations."}
 if (app.container.has(CACHE)) {
   /* optional dependency */
 }
@@ -90,7 +90,7 @@ if (app.container.has(CACHE)) {
 `has` and `resolve` are keyed by token identity — there is no way to enumerate what is registered, because the container's map is private. If you need a list of the providers of some kind, keep the
 list:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies CACHE_CHECK, DB_CHECK, QUEUE_CHECK, app; this excerpt does not repeat those declarations."}
 export const HEALTH_CHECKS = [DB_CHECK, CACHE_CHECK, QUEUE_CHECK] as const;
 
 const results = await Promise.all(HEALTH_CHECKS.filter(t => app.container.has(t)).map(t => app.container.resolve(t).check()));

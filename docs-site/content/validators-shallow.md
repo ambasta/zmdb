@@ -6,7 +6,7 @@ runtime work that stop at a compile-time depth.
 
 ## API
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Order, value; this excerpt does not repeat those declarations."}
 import { assert, assertShallow, isShallow, validateShallow } from '@zmdb/validator';
 
 const topLevelOkay = isShallow<Order, 1>(value);
@@ -29,7 +29,7 @@ That `T` is a TypeScript result, not a claim that every nested value was checked
 
 Validate untrusted data once at its boundary, at full depth. A later internal boundary may recheck only the envelope when the nested values are already trusted:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies PopulatedOrderRow, assert, assertShallow, untrustedBody; this excerpt does not repeat those declarations."}
 const order = assert<PopulatedOrderRow>(untrustedBody); // full check, once
 
 // Later, after storage or transport inside the same trust boundary:
@@ -41,7 +41,7 @@ those lists.
 
 If a branch has not already been validated, name it `unknown` and validate it when it is consumed instead of pretending the whole value is trusted:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies ResizeArgs, assert, body; this excerpt does not repeat those declarations."}
 interface JobEnvelope {
   kind: string;
   payload: unknown;

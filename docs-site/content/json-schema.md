@@ -5,7 +5,7 @@ systems, and code generation tools.
 
 ## Basic Generation
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { toJsonSchema } from '@zmdb/schema/openapi';
 import { schemaOf } from 'zmdb';
 import type { Min, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
@@ -37,7 +37,7 @@ const jsonSchema = toJsonSchema(userSchema, 'entity');
 
 The second parameter controls which columns are included:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies toJsonSchema, userSchema; this excerpt does not repeat those declarations."}
 // Entity (response) — all columns including auto-increment
 toJsonSchema(userSchema, 'entity');
 
@@ -61,7 +61,7 @@ toJsonSchema(userSchema, 'search');
 
 Validation tags map to JSON Schema keywords:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 // Min<N>          -> minimum
 // Max<N>          -> maximum
 // MinLength<N>    -> minLength
@@ -75,7 +75,7 @@ There is no `Enum` tag: a literal union is how you say that, and TypeScript chec
 
 Generated schema includes these mappings:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies MaxLength, Min, MinLength, Pattern, Sql, Table, schemaOf, toJsonSchema; this excerpt does not repeat those declarations."}
 interface Product extends Table<'products'> {
   name: string & Sql<'text'> & MinLength<1> & MaxLength<100>;
   price: number & Sql<'numeric'> & Min<0>;
@@ -100,7 +100,7 @@ const jsonSchema = toJsonSchema(schemaOf<Product>(), 'entity');
 
 Nullable columns become union types in JSON Schema:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies PrimaryKey, Serial, Sql, Table, schemaOf, toJsonSchema; this excerpt does not repeat those declarations."}
 interface Profile extends Table<'profiles'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   bio: (string & Sql<'text'>) | null; // nullable column
@@ -121,7 +121,7 @@ const jsonSchema = toJsonSchema(schemaOf<Profile>(), 'entity');
 
 Use `toOpenApiComponents` to generate a map of schemas for an entire API:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Order, Product, User, schemaOf; this excerpt does not repeat those declarations."}
 import { toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const schemas = toOpenApiComponents([schemaOf<User>(), schemaOf<Order>(), schemaOf<Product>()]);
@@ -146,7 +146,7 @@ const schemas = toOpenApiComponents([schemaOf<User>(), schemaOf<Order>(), schema
 
 For list/search responses, use `toListSchema` and `toSearchSchema`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies userSchema; this excerpt does not repeat those declarations."}
 import { toListSchema, toSearchSchema } from '@zmdb/schema/openapi';
 
 const listSchema = toListSchema(userSchema);

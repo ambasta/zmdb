@@ -3,7 +3,7 @@ See [AOT Setup](./aot-setup.html).
 
 ## `equals` / `assertEquals` — reject unknown keys
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies raw; this excerpt does not repeat those declarations."}
 import { equals, assertEquals } from '@zmdb/validator';
 
 interface Config {
@@ -21,7 +21,7 @@ an internal message, a payload whose sender you own. The typo case is the strong
 
 ## `random` — a value that satisfies a type
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies CreateUserRequest, User; this excerpt does not repeat those declarations."}
 import { random } from '@zmdb/validator';
 
 const user = random<User>();
@@ -30,7 +30,7 @@ const body = random<CreateUserRequest>();
 
 Useful for tests and for property-style checks over your own code:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User, expect, it, parse, random, stringify; this excerpt does not repeat those declarations."}
 it('serialization round-trips', () => {
   for (let i = 0; i < 100; i++) {
     const u = random<User>();
@@ -46,7 +46,7 @@ The values satisfy the type and any recognised `validate()` rules. They are not 
 
 ## `validate` — errors without an exception
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies CreateUserRequest, ValidationError, ctx; this excerpt does not repeat those declarations."}
 import { validate } from '@zmdb/validator';
 
 const result = validate<CreateUserRequest>(ctx.body);
@@ -71,7 +71,7 @@ validation failure is an expected outcome of an untrusted input, not an exceptio
 
 ## The pattern at an HTTP boundary
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Post('/users')
 async create(ctx: Ctx<Record<never, string>, unknown>) {
   const result = validate<CreateDTO<User>>(ctx.body);

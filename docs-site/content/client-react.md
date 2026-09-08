@@ -11,7 +11,7 @@ npm add @zmdb/client@alpha @zmdb/react@alpha react@19
 
 Create one typed binding namespace and provide `client` at the application or request boundary:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/react.ts
 import { createZmdbReact } from '@zmdb/react';
 

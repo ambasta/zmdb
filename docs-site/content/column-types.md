@@ -24,7 +24,7 @@ do not agree and a schema should not have to pick.
 Cockroach inherits the Postgres column map except that `integer` is `INT4` and `Serial` is `INT8 DEFAULT unique_rowid()`. SingleStore inherits MySQL except that `Serial` is `BIGINT AUTO_INCREMENT`;
 its table-level shard, sort and rowstore declarations are documented on the [SingleStore page](./dialect-singlestore.html).
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Length, Numeric, PrimaryKey, Serial, Sql, Table; this excerpt does not repeat those declarations."}
 interface Event extends Table<'events'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   kind: 'created' | 'updated' | 'deleted'; // → jsonEnum
@@ -66,7 +66,7 @@ back-end nobody exercised.
 
 The value's shape is the SQL type; everything else is a tag on the same property.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies HasDefault, Length, Pattern, PrimaryKey, References, Serial, Sql, Table, Unique; this excerpt does not repeat those declarations."}
 interface User extends Table<'users'> {
   id: number & Sql<'integer'> & Serial & PrimaryKey;
   email: string & Sql<'varchar'> & Length<320> & Unique & Pattern<'^[^@]+@[^@]+\\.[^@]+$'>;

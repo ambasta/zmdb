@@ -33,7 +33,7 @@ Account for that before choosing a [portable uniqueness strategy](./guide-case-i
 
 ## Connecting
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { mysqlDriver } from '@zmdb/mysql';
 import { createPool } from 'mysql2/promise';
 
@@ -58,7 +58,7 @@ export const driver = mysqlDriver(pool);
 
 ## Applying the schema
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies driver, migrations; this excerpt does not repeat those declarations."}
 import { mysql } from '@zmdb/mysql';
 import { up } from '@zmdb/migrations';
 
@@ -71,7 +71,7 @@ await up(connection, migrations, { onWarning: console.warn });
 
 ## Resetting between tests
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies ALL_TABLES, beforeEach, driver; this excerpt does not repeat those declarations."}
 const tables = ALL_TABLES.map(s => `\`${s.table}\``); // the array you keep — see below
 
 beforeEach(async () => {

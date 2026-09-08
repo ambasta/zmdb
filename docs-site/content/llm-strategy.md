@@ -49,7 +49,7 @@ behind these choices lives in `TOOL_DIALECTS` with the source and date used to i
 
 ## One declaration, four provider targets
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { toolFor } from '@zmdb/ai';
 import { type HasDefault, type PrimaryKey, type Serial, type Sql, type Table } from '@zmdb/schema/tags';
 
@@ -105,13 +105,13 @@ an optional Anthropic implementation. For another provider, implement that metho
 **One: the declaration is the contract.** Do not hand-write a JSON Schema for the model and a TypeScript type for your code. Both come off the one interface, so a new column appears in the tool
 definition automatically:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Order, toolFor; this excerpt does not repeat those declarations."}
 const tool = toolFor<Order>('openai-strict', 'save_order', { description: 'Record an order' });
 ```
 
 **Two: validate at the boundary, always.** Treat model output exactly like a request body from an untrusted client — because that is what it is. A `tool_use` block is a suggestion:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies CreateDTO, Order, assert, block; this excerpt does not repeat those declarations."}
 const dto = assert<CreateDTO<Order>>(block.input);
 ```
 
@@ -125,7 +125,7 @@ authorisation check against the caller's identity rather than the model's claim 
 
 The read side is where a derived shape helps most, because it bounds what goes into the context:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Entity, Order, repo, stringify; this excerpt does not repeat those declarations."}
 const page = await repo.list({ select: ['id', 'title', 'status'], page: { limit: 20 } });
 const context = stringify<Pick<Entity<Order>, 'id' | 'title' | 'status'>[]>(page.items);
 ```
@@ -137,7 +137,7 @@ const context = stringify<Pick<Entity<Order>, 'id' | 'title' | 'status'>[]>(page
 
 There is none, and a conversation is a table:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 import type { HasDefault, PrimaryKey, References, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Message extends Table<'messages'> {

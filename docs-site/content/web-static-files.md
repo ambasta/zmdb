@@ -18,7 +18,7 @@ does not make attacker-supplied HTML safe to host on the application's origin.
 
 ## Create the handler once
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies log; this excerpt does not repeat those declarations."}
 import { createStaticHandler } from '@zmdb/web';
 
 const assets = await createStaticHandler({
@@ -34,7 +34,7 @@ on the first request.
 
 `serve(pathname, headers)` expects a path relative to that root, with no leading slash:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, Ctx, Get, assets; this excerpt does not repeat those declarations."}
 @Controller('/assets')
 class AssetController {
   @Get('/:file')
@@ -107,7 +107,7 @@ Ignoring a malformed or multi-range request is a valid HTTP response and avoids 
 
 Types come from a fixed extension allow-list. Unknown extensions use `application/octet-stream`; the handler never sniffs bytes or trusts a request header. Extend or override the map explicitly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createStaticHandler, log; this excerpt does not repeat those declarations."}
 const assets = await createStaticHandler({
   root: '/var/www/assets',
   contentTypes: { '.wasm': 'application/wasm' },

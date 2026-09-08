@@ -5,8 +5,9 @@ operations that benefit from a single network call.
 
 Create a batch handle from compiled statements:
 
-```ts
-import { batch, createQueryCompiler } from '@zmdb/sql';
+```ts {"mode":"compile","id":"example-001"}
+import { createQueryCompiler } from '@zmdb/sql';
+import { batch } from '@zmdb/sql/set-ops';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
@@ -23,7 +24,7 @@ const batchHandle = batch([stmt1, stmt2]);
 
 The `execute` method runs all statements via your driver:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies batchHandle, driver; this excerpt does not repeat those declarations."}
 const results = await batchHandle.execute(async statements => {
   // Your driver must support multi-statement execution
   // For PostgreSQL: client.query(text + ';' + text, [...params1, ...params2])
@@ -40,7 +41,7 @@ The callback receives all compiled statements and returns an array of results in
 
 Combine multiple inserts into one batch:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies batch, compiler, driver; this excerpt does not repeat those declarations."}
 const users = [
   { name: 'Alice', email: 'alice@example.com' },
   { name: 'Bob', email: 'bob@example.com' },
@@ -56,7 +57,7 @@ const result = await batch(statements).execute(driver.executeMulti.bind(driver))
 
 The query compiler handles parameter arrays correctly. Each statement has its own parameter list, which the batch executor flattens:
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 // stmt1.parameters => ['Alice', 'alice@example.com']
 // stmt2.parameters => ['Bob', 'bob@example.com']
 
@@ -70,7 +71,7 @@ The query compiler handles parameter arrays correctly. Each statement has its ow
 
 An empty batch returns an empty array immediately without calling the runner:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies batch; this excerpt does not repeat those declarations."}
 const empty = batch([]);
 const result = await empty.execute(async () => {
   throw new Error('Should not run');

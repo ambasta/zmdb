@@ -2,7 +2,7 @@ Postgres full-text search is fast when the `tsvector` is stored and indexed rath
 
 ## The declaration
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { Fts, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface Article extends Table<'articles'>, Fts<'articles_fts'> {
@@ -17,7 +17,7 @@ than about a column; `Fts<true>` is the shorthand for "index this table, I do no
 
 ## The generated column and its index
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies exec; this excerpt does not repeat those declarations."}
 import { generatedColumnDdl, createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const fragment = generatedColumnDdl(
@@ -45,7 +45,7 @@ Three details in that expression that matter:
 
 Then the index, which is where the speed comes from:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createIndexDdl; this excerpt does not repeat those declarations."}
 createIndexDdl(
   {
     name: 'articles_search_gin',
@@ -75,7 +75,7 @@ Then `ts_rank` respects the weights. Worth doing — an unweighted index ranks a
 
 ## Querying
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies driver, term; this excerpt does not repeat those declarations."}
 const rows = await driver.execute({
   text: `SELECT id, title, ts_rank("search", websearch_to_tsquery('english', $1)) AS rank
          FROM "articles"
@@ -93,7 +93,7 @@ The term is a parameter. The regconfig is a literal. Do not swap those.
 
 ## Keeping it in the migration
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 export const migration = {
   version: 3,
   name: 'articles-fts',

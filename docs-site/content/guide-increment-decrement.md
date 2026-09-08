@@ -1,6 +1,6 @@
 Increment through the repository when the new value depends on the value already stored. The update is one SQL statement, so concurrent callers do not lose one another's increments.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies authorId, id, postRepo; this excerpt does not repeat those declarations."}
 import { dec, inc } from 'zmdb/sql';
 
 const post = await postRepo.increment(id, 'views'); // +1
@@ -16,7 +16,7 @@ column requires a bigint operand.
 
 ## Why read-modify-write loses updates
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies id, postRepo; this excerpt does not repeat those declarations."}
 const post = await postRepo.findById(id);
 await postRepo.update(id, { views: (post?.views ?? 0) + 1 });
 ```
@@ -45,7 +45,7 @@ it is not a general SQL AST.
 
 The same constructor works directly with the query compiler:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver, id; this excerpt does not repeat those declarations."}
 import { createQueryCompiler, inc } from 'zmdb/sql';
 import { postgres } from 'zmdb/postgres';
 
@@ -63,7 +63,7 @@ await driver.execute(query);
 Ordinary patch values still pass the strict `UpdateDTO<T>` object validation. The repository removes only a branded expression from that object check and validates its operand against the same column
 IR. An invalid sibling remains an error:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies id, inc, postRepo; this excerpt does not repeat those declarations."}
 await postRepo.update(id, {
   views: inc(1),
   email: 'not-an-email', // still rejected by the email column rules
@@ -84,7 +84,7 @@ not issue a hidden `SELECT`. Read explicitly afterward if the new row is require
 
 For a hot counter that also needs history, insert an event row and aggregate:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies id, viewRepo; this excerpt does not repeat those declarations."}
 await viewRepo.create({ postId: id, at: new Date() });
 
 const [row] = await viewRepo.aggregate({

@@ -2,7 +2,7 @@ Drizzle is the closest neighbour: both compile to SQL, both derive types from a 
 
 ## Schema
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This excerpt requires separately supplied external modules: drizzle-orm/pg-core. Their application setup is outside this standalone fence."}
 // Drizzle
 import { pgTable, serial, text, boolean, timestamp } from 'drizzle-orm/pg-core';
 
@@ -13,7 +13,7 @@ export const users = pgTable('users', {
 });
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 // zmdb
 import type { HasDefault, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
 
@@ -50,7 +50,7 @@ The zmdb column takes the declared interface, not `typeof` a value — the decla
 
 Drizzle's `db.select().from(users).where(eq(users.email, x))` becomes either a repository call or a compiler call:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createQueryCompiler, repo; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 // repository — typed against the schema
@@ -67,7 +67,7 @@ closer to the SQL.
 
 `db.query.users.findMany({ with: { posts: true } })` becomes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.findAll({ populate: ['posts'] });
 ```
 

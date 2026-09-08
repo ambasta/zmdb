@@ -2,7 +2,7 @@ Filters that come from a request are conditional by nature. Both the DTO and the
 
 ## With `WhereDTO` — build the object
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User, ctx, repo; this excerpt does not repeat those declarations."}
 import { type WhereDTO } from '@zmdb/schema';
 
 function buildWhere(q: { status?: string; minAge?: number; search?: string }): WhereDTO<User> {
@@ -22,7 +22,7 @@ An empty object means no `WHERE` clause, so the "no filters" case needs no speci
 
 ## Sorting and pagination from the request
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ctx; this excerpt does not repeat those declarations."}
 const SORTABLE = ['name', 'createdAt', 'age'] as const;
 type Sortable = (typeof SORTABLE)[number];
 
@@ -36,7 +36,7 @@ a literal union means the cast is justified rather than assumed — and it stops
 
 Better still, let the validator do it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Sortable, ctx; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 
 const params = assert<{ sort?: Sortable; dir?: 'asc' | 'desc'; limit?: number }>(ctx.query);
@@ -46,7 +46,7 @@ const params = assert<{ sort?: Sortable; dir?: 'asc' | 'desc'; limit?: number }>
 
 The builder is immutable, so each call returns a new one and you can reassign:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies createQueryCompiler, minAge; this excerpt does not repeat those declarations."}
 import { postgres } from '@zmdb/postgres';
 
 let q = createQueryCompiler(postgres).selectFrom('users');
@@ -59,7 +59,7 @@ Reach for this over the DTO when you need `orWhere`, `whereExists`, or an operat
 
 ## Optional relations
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ctx, isRelation, repo; this excerpt does not repeat those declarations."}
 const populate = ctx.query.include?.split(',').filter(isRelation) ?? [];
 const rows = await repo.findAll({ populate });
 ```
@@ -70,7 +70,7 @@ Allow-list `isRelation` the same way — a caller that can name arbitrary relati
 
 `WhereDTO` fields are combined with `AND`, so a single search term over three columns needs the builder:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies createQueryCompiler, postgres, term; this excerpt does not repeat those declarations."}
 const q = createQueryCompiler(postgres).selectFrom('users').where('name', 'ilike', `%${term}%`).orWhere('email', 'ilike', `%${term}%`).orWhere('bio', 'ilike', `%${term}%`).compile();
 ```
 

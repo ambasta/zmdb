@@ -2,7 +2,8 @@ Dialect: `'postgres'`. Supabase is Postgres, so connect with an ordinary Postgre
 
 ## Setup
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 import { type Driver } from '@zmdb/orm';
 
@@ -12,6 +13,7 @@ const pool = new Pool({
 });
 
 export const driver: Driver = {
+  dialect: postgres,
   async execute(query) {
     const result = await pool.query(query.text, [...query.parameters]);
     return result.rows;
@@ -43,7 +45,7 @@ no policies**, which means:
 
 If any client talks to your database through PostgREST, you must add the policies yourself, in a migration:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 {
   version: 5,
   name: 'posts_rls',
@@ -66,7 +68,7 @@ If any client talks to your database through PostgREST, you must add the policie
 
 Supabase's users live in the `auth` schema, which a `Table<…>` declaration cannot describe — a table name is one identifier, not a qualified pair.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Sql; this excerpt does not repeat those declarations."}
 userId: string & Sql<'text'>; // FK to auth.users.id, added in a migration
 ```
 

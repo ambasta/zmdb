@@ -2,7 +2,7 @@ Insert rows with the query builder, or (preferably) through a repository's `crea
 
 ## Basic insert
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.insertInto('users').values({ email: 'a@b.com', role: 'user' }).compile();
 ```
 
@@ -13,7 +13,7 @@ INSERT INTO "users" ("email", "role") VALUES ($1, $2)
 
 ## Returning the inserted row
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.insertInto('users').values({ email: 'a@b.com' }).returning(['id', 'createdAt']).compile();
 ```
 
@@ -34,7 +34,7 @@ INSERT without `returning()`, validate the payload explicitly, and perform the r
 
 ## Through the repository (validated)
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies users; this excerpt does not repeat those declarations."}
 const user = await users.create({ email: 'a@b.com' }); // role defaults applied
 // returns Entity<User>
 ```

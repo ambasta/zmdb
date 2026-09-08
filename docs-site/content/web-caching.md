@@ -15,7 +15,7 @@ The first row is where most caching belongs, and it needs no application code. A
 
 `Interceptor.intercept(ctx, next)` returns `Promise<unknown>` — it wraps the **handler's return value**, not a `WebResponse`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies KV, cacheKey; this excerpt does not repeat those declarations."}
 import type { Interceptor } from '@zmdb/web/middleware';
 
 export function cached(store: KV, ttlMs = 5_000): Interceptor {
@@ -37,7 +37,7 @@ export function cached(store: KV, ttlMs = 5_000): Interceptor {
 
 > [!WARNING] **The router does not call `runChain`.** Registering a controller applies no interceptors — you invoke the chain inside the handler. See [Request Lifecycle](./web-request-lifecycle.html).
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/')
 list(ctx: Ctx<Record<never, string>, unknown>) {
   return runChain({ guards: [], pipes: [], interceptors: [cached(store)], filters: [] }, ctx, () =>
@@ -48,13 +48,13 @@ list(ctx: Ctx<Record<never, string>, unknown>) {
 
 For an `x-cache: HIT` marker, return the response explicitly instead of a plain value:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This return fragment omits the application function that contains it."}
 return json(hit, { headers: { 'x-cache': 'HIT' } });
 ```
 
 ## The cache key is the whole risk
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Ctx, viewerFrom; this excerpt does not repeat those declarations."}
 function cacheKey(ctx: Ctx<Record<string, string>, unknown>): string {
   const viewer = viewerFrom(ctx.headers); // authenticated identity
   return `${ctx.method}:${ctx.path}:${viewer.tenant}:${viewer.id}`;
@@ -74,7 +74,7 @@ Two related traps:
 
 Usually better. A row cache has a natural key and a natural invalidation point:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Driver, KV, hash; this excerpt does not repeat those declarations."}
 export function cachingDriver(inner: Driver, store: KV, ttlMs: number): Driver {
   return {
     ...inner,

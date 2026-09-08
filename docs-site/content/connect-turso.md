@@ -2,7 +2,7 @@ Dialect: `'sqlite'`. Turso is libSQL — SQLite with a server, replicas and an H
 
 ## Setup
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies requireEnv; this excerpt does not repeat those declarations."}
 import { createClient, type InValue } from '@libsql/client';
 import { type Driver } from '@zmdb/orm';
 
@@ -43,7 +43,7 @@ Works in Node, Bun, Deno, Cloudflare Workers and Vercel Edge, because it is `fet
 
 This is Turso's distinguishing feature: a local SQLite file kept in sync with the remote, so reads are local-disk fast and writes go to the primary.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies createClient; this excerpt does not repeat those declarations."}
 const client = createClient({
   url: 'file:local.db',
   syncUrl: process.env.TURSO_DATABASE_URL,
@@ -55,7 +55,7 @@ const client = createClient({
 The consequence to internalise: **reads are eventually consistent.** A write followed immediately by a read may not see it, because the read went to the local replica. If a request writes and then
 reads back, sync explicitly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies client, dto, repo; this excerpt does not repeat those declarations."}
 await repo.create(dto);
 await client.sync();
 const row = await repo.findOne({ email: { eq: dto.email } });
@@ -68,7 +68,7 @@ better answer.
 
 libSQL returns SQLite's storage classes, so `boolean`, `timestamp` and `json` need hydrating exactly as on [local SQLite](./connect-sqlite.html):
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 const hydrate = (r: Record<string, unknown>) => ({
   ...r,
   active: r.active === undefined ? undefined : Boolean(r.active),
@@ -82,7 +82,7 @@ Note that libSQL may return `bigint` for large integers rather than `number`, wh
 
 libSQL has a batch API that sends several statements in one round trip, which matters over HTTP:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies client, q1, q2, toInValue; this excerpt does not repeat those declarations."}
 await client.batch(
   [
     { sql: q1.text, args: q1.parameters.map(toInValue) },
@@ -94,7 +94,7 @@ await client.batch(
 
 Compile the statements with the builder and hand over `text`/`parameters`. For interactive transactions, `client.transaction()` holds a session:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies client, q, toInValue; this excerpt does not repeat those declarations."}
 const tx = await client.transaction('write');
 try {
   await tx.execute({ sql: q.text, args: q.parameters.map(toInValue) });
@@ -111,7 +111,7 @@ Wrap that as a `Driver` and pass it to `createTransactionalDb`. See [Transaction
 
 Turso's model makes a database-per-tenant genuinely practical, which sidesteps the [entity-filter problem](./entity-filters.html) entirely:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies createClient, defineRepository, driverFor, tenant, users; this excerpt does not repeat those declarations."}
 const clientFor = (tenant: string) =>
   createClient({
     url: `libsql://${tenant}-myorg.turso.io`,

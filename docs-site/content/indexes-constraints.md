@@ -7,7 +7,8 @@ constraints.
 
 Use `createIndexDdl` to generate index DDL. The function accepts an `IndexDef` with the index name, table, and columns.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const indexDef = {
@@ -16,7 +17,7 @@ const indexDef = {
   columns: ['email'],
 };
 
-const ddl = createIndexDdl(indexDef, 'postgres');
+const ddl = createIndexDdl(indexDef, postgres);
 console.log(ddl);
 ```
 
@@ -28,7 +29,8 @@ CREATE INDEX "idx_users_email" ON "users" ("email")
 
 Unique indexes enforce uniqueness and can serve as alternative primary keys or enforce unique constraints on non-primary columns.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const uniqueIndex = {
@@ -38,7 +40,7 @@ const uniqueIndex = {
   unique: true,
 };
 
-const ddl = createIndexDdl(uniqueIndex, 'postgres');
+const ddl = createIndexDdl(uniqueIndex, postgres);
 console.log(ddl);
 ```
 
@@ -52,7 +54,8 @@ CREATE UNIQUE INDEX "idx_users_email_unique" ON "users" ("email")
 
 For queries that filter on multiple columns, composite indexes can significantly improve performance. Column order matters — put the most selective column first.
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const compositeIndex = {
@@ -61,7 +64,7 @@ const compositeIndex = {
   columns: ['tenant_id', 'status', 'created_at'],
 };
 
-const ddl = createIndexDdl(compositeIndex, 'postgres');
+const ddl = createIndexDdl(compositeIndex, postgres);
 console.log(ddl);
 ```
 
@@ -73,7 +76,8 @@ CREATE INDEX "idx_orders_tenant_status" ON "orders" ("tenant_id", "status", "cre
 
 Partial indexes only include rows that match a condition, making them smaller and faster for specific query patterns.
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 const partialIndex = {
@@ -83,7 +87,7 @@ const partialIndex = {
   where: "status = 'pending'",
 };
 
-const ddl = createIndexDdl(partialIndex, 'postgres');
+const ddl = createIndexDdl(partialIndex, postgres);
 console.log(ddl);
 ```
 
@@ -97,7 +101,8 @@ CREATE INDEX "idx_orders_pending" ON "orders" ("id") WHERE status = 'pending'
 
 Check constraints validate that column values meet a condition. Use `checkConstraintDdl` to generate the DDL.
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
+import { postgres } from '@zmdb/postgres';
 import { checkConstraintDdl } from '@zmdb/sql/schema-objects';
 
 const constraint = {
@@ -106,7 +111,7 @@ const constraint = {
   expression: 'age >= 18',
 };
 
-const ddl = checkConstraintDdl('users', 'chk_users_age', 'age >= 18', 'postgres');
+const ddl = checkConstraintDdl('users', 'chk_users_age', 'age >= 18', postgres);
 console.log(ddl);
 ```
 
@@ -118,7 +123,7 @@ ALTER TABLE "users" ADD CONSTRAINT "chk_users_age" CHECK (age >= 18)
 
 ### Positive Values
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies checkConstraintDdl; this excerpt does not repeat those declarations."}
 const positiveConstraint = checkConstraintDdl('products', 'chk_product_price', 'price > 0', 'postgres');
 ```
 
@@ -128,7 +133,7 @@ ALTER TABLE "products" ADD CONSTRAINT "chk_product_price" CHECK (price > 0)
 
 ### Enum-Like Constraints
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies checkConstraintDdl; this excerpt does not repeat those declarations."}
 const enumConstraint = checkConstraintDdl('orders', 'chk_order_status', "status IN ('pending', 'processing', 'completed', 'cancelled')", 'postgres');
 ```
 
@@ -138,7 +143,7 @@ ALTER TABLE "orders" ADD CONSTRAINT "chk_order_status" CHECK (status IN ('pendin
 
 ### String Length
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies checkConstraintDdl; this excerpt does not repeat those declarations."}
 const lengthConstraint = checkConstraintDdl('users', 'chk_username_length', 'char_length(username) >= 3', 'postgres');
 ```
 
@@ -150,7 +155,8 @@ ALTER TABLE "users" ADD CONSTRAINT "chk_username_length" CHECK (char_length(user
 
 For queries that use expressions in WHERE clauses, expression indexes can improve performance.
 
-```ts
+```ts {"mode":"compile","id":"example-009"}
+import { postgres } from '@zmdb/postgres';
 import { createIndexDdl } from '@zmdb/sql/schema-objects';
 
 // Lowercase email index for case-insensitive lookups
@@ -160,7 +166,7 @@ const expressionIndex = {
   columns: [{ expr: 'lower("email")' }],
 };
 
-const ddl = createIndexDdl(expressionIndex, 'postgres');
+const ddl = createIndexDdl(expressionIndex, postgres);
 console.log(ddl);
 ```
 
@@ -175,7 +181,7 @@ with an `UnsupportedFeatureError`; use a generated column there.
 
 Include drop statements in your migrations when removing indexes or constraints.
 
-```ts
+```ts {"mode":"compile","id":"example-010"}
 const dropIndexDdl = `DROP INDEX IF EXISTS "idx_users_email"`;
 const dropConstraintDdl = `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "chk_users_age"`;
 ```

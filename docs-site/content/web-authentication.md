@@ -6,7 +6,7 @@ framework-owned trace context, not a general extension point, so a guard still c
 
 ## Verify where you use it
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Unauthenticated, verifyJwt; this excerpt does not repeat those declarations."}
 import type { Ctx } from '@zmdb/web/context';
 
 export interface Principal {
@@ -23,7 +23,7 @@ export function principalOf(ctx: Ctx): Principal {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, Ctx, Get, principalOf; this excerpt does not repeat those declarations."}
 @Controller('/me')
 export class MeController {
   @Get('/')
@@ -41,7 +41,7 @@ Explicit, typed, and impossible to forget silently — a handler that never call
 Stateless JWT verification is cheap enough to repeat. A session lookup that hits the database is not, and a handler plus an [authorization](./web-authorization.html) check would do it twice. The
 router builds a **fresh `ctx` object per request**, so it is a sound `WeakMap` key:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Ctx, Principal, verify; this excerpt does not repeat those declarations."}
 const cache = new WeakMap<object, Principal>();
 
 export function principalOf(ctx: Ctx): Principal {
@@ -62,7 +62,7 @@ export function principalOf(ctx: Ctx): Principal {
 
 `Guard` is a real interface if you prefer the shape:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies principalOf; this excerpt does not repeat those declarations."}
 import type { Guard, AnyCtx } from '@zmdb/web/middleware';
 
 export const authenticated: Guard = {
@@ -79,7 +79,7 @@ export const authenticated: Guard = {
 
 Apply it to every registered route, one controller, or one handler:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies AccountController, AdminController, authenticated, createRouter; this excerpt does not repeat those declarations."}
 const appRouter = createRouter({ guardRegistry: { app: [authenticated] } });
 appRouter.register(new AccountController());
 
@@ -104,14 +104,14 @@ guards and automatic body validation require an explicitly constructed router or
 
 Return the status rather than throwing it — a thrown error can only become a 400 or a 500:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies id, user; this excerpt does not repeat those declarations."}
 if (!user) return json({ error: 'unauthenticated' }, { status: 401 });
 if (!user.canRead(id)) return json({ error: 'forbidden' }, { status: 403 });
 ```
 
 If you would rather keep handlers throwing domain errors, map them once in your adapter instead:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies app, createServer, errorName, webRequest; this excerpt does not repeat those declarations."}
 import { bodyText } from '@zmdb/web';
 
 const STATUS = new Map<string, number>([
@@ -154,7 +154,7 @@ Use a maintained library and let it enforce the list above; hand-rolled verifica
 
 ## API keys and passwords
 
-```ts
+```ts {"mode":"compile","id":"example-008"}
 import { timingSafeEqual } from 'node:crypto';
 
 function keyMatches(presented: string, expected: string): boolean {
@@ -171,7 +171,7 @@ For passwords, `node:crypto`'s `scrypt` is built in and sufficient; store the sa
 
 ## Logging
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies requestId, viewer; this excerpt does not repeat those declarations."}
 console.log(JSON.stringify({ requestId, sub: viewer.id, route: '/me' }));
 ```
 
@@ -180,7 +180,7 @@ widely readable inside a company. Redact the header at the adapter if you log he
 
 ## Testing
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"The surrounding example supplies AppModule, VERIFIER, createTestApp; this excerpt does not repeat those declarations."}
 await using app = createTestApp(AppModule, {
   overrides: [{ token: VERIFIER, useValue: () => ({ id: 1, roles: ['admin'] }) }],
 });

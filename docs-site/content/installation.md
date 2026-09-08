@@ -8,7 +8,7 @@ application; the [package reference](./package-reference.html) lists the indepen
 npm add zmdb@alpha
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { defineRepository, is, schemaOf, type CreateDTO, type Entity, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
 import { sqliteDriver } from 'zmdb/sqlite';
 ```
@@ -221,7 +221,7 @@ Ensure your `tsconfig.json` targets modern features:
 zmdb declares tables as **types**, and a type does not exist at runtime. The transformer is what closes that gap: it reads the declaration from the type checker and replaces each `schemaOf<T>()`,
 `assert<T>()`, `is<T>()`, `validate<T>()`, `equals<T>()`, `assertEquals<T>()`, `random<T>()` and `toJsonSchema<T>()` call with the reflected result.
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 // vite.config.ts / rollup / esbuild / webpack — one factory for all
 import { zmdbAot } from 'zmdb/compiler';
 
@@ -240,7 +240,7 @@ For a project that only needs the query compiler, there is no build step at all 
 
 The query compiler is plain runtime code, so it verifies the install without the transformer in the way:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { createQueryCompiler } from 'zmdb/sql';
 import { sqlite } from 'zmdb/sqlite';
 
@@ -250,7 +250,7 @@ console.log(q.text); // SELECT "id" FROM "users"
 
 Then verify the transformer is wired, which is the part that actually goes wrong:
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import { schemaOf, type PrimaryKey, type Serial, type Sql, type Table } from 'zmdb';
 
 interface User extends Table<'users'> {
@@ -260,7 +260,9 @@ interface User extends Table<'users'> {
 
 const userSchema = schemaOf<User>();
 console.log(userSchema.table); // 'users'
-console.log(userSchema.columns.email.type); // 'text'
+const emailColumn = userSchema.columns.email;
+if (emailColumn === undefined) throw new Error('The generated User schema must contain email');
+console.log(emailColumn.type); // 'text'
 ```
 
 If that throws instead of printing, the plugin is not running over this file.

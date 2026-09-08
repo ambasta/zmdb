@@ -5,7 +5,7 @@ runtime.
 
 Store all subtypes in one table with a discriminator column. Each subtype has a subset of columns that apply to it.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies BaseRepository; this excerpt does not repeat those declarations."}
 import { rowToSubtype, discriminatorFor } from '@zmdb/schema/entity-modeling';
 import { assert } from '@zmdb/validator';
 import { schemaOf } from 'zmdb';
@@ -76,7 +76,7 @@ CREATE TABLE "events" (
 
 Use `discriminatorFor` to generate the correct discriminator value for a subtype.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Concert, sti; this excerpt does not repeat those declarations."}
 import { discriminatorFor } from '@zmdb/schema/entity-modeling';
 
 const disc = discriminatorFor(sti, 'concert');
@@ -95,7 +95,7 @@ async function createConcert(data: Omit<Concert, 'type'>) {
 
 Query the base table and filter by discriminator to get specific subtypes.
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
@@ -119,7 +119,7 @@ per-subtype columns are typed as `| null`, which is what the table says. The par
 
 Use the discriminator to route to the correct handler for polymorphic associations.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Concert, Game, rowToSubtype, sendConcertNotification, sti, updateScoreboard; this excerpt does not repeat those declarations."}
 async function handleEventAttachment(eventRow: Record<string, unknown>) {
   const { type, data } = rowToSubtype(sti, eventRow);
 

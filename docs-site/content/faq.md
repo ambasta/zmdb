@@ -33,7 +33,7 @@ site where you know whether absence is an error.
 
 Yes, and without a database:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 

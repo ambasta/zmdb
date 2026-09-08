@@ -25,7 +25,7 @@ Two things must be true of your build output.
 
 Run the canary against the **built output**, not the source, and make it a deploy gate:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -78,7 +78,7 @@ A correct migration deployed in the wrong order is the most common way to break 
 
 Validate the environment once, at startup, so a missing variable fails at boot naming the field:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Env, assert; this excerpt does not repeat those declarations."}
 export const env = assert<Env>({
   DATABASE_URL: process.env.DATABASE_URL,
   PORT: Number(process.env.PORT ?? 3000),
@@ -89,7 +89,7 @@ See [Configuration](./configuration.html), including the `Number(undefined)` tra
 
 ## A server
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, env; this excerpt does not repeat those declarations."}
 import { createServer } from 'node:http';
 import { bodyText, createApp } from '@zmdb/web';
 
@@ -117,7 +117,7 @@ This hand-written module adapter buffers streamed responses. At router level, `t
 
 Handle shutdown, or an in-flight request dies on every deploy:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies pool, server; this excerpt does not repeat those declarations."}
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     server.close(() => pool.end().then(() => process.exit(0)));
@@ -149,7 +149,7 @@ Nothing to compile natively and no engine binary to match to the base image — 
 
 ## Health checks
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 @Get('/healthz')
 live() { return { ok: true }; }              // is the process up
 

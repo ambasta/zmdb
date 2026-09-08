@@ -5,7 +5,7 @@ directly, giving you full control over SQL generation.
 
 Combine rows from two or more SELECT statements. Use `union` for distinct rows, `unionAll` to keep duplicates.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 
@@ -15,9 +15,9 @@ const query1 = compiler.selectFrom('users').select(['id', 'name']).where('active
 
 const query2 = compiler.selectFrom('archived_users').select(['id', 'name']).compile();
 
-import { setOperation, union } from '@zmdb/sql/set-ops';
+import { setOperation } from '@zmdb/sql/set-ops';
 
-const combined = setOperation('union', [query1, query2], 'postgres');
+const combined = setOperation('union', [query1, query2], postgres);
 
 // combined.text => SELECT ... UNION SELECT ...
 // combined.parameters => [...]
@@ -27,7 +27,7 @@ const combined = setOperation('union', [query1, query2], 'postgres');
 
 `INTERSECT` returns rows present in both queries. `EXCEPT` returns rows from the first query that aren't in the second.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies activeUsersQuery, allUsersQuery, ordersQuery; this excerpt does not repeat those declarations."}
 import { setOperation } from '@zmdb/sql/set-ops';
 
 // Active users who have placed orders
@@ -43,8 +43,9 @@ const neverOrdered = setOperation('except', [allUsersQuery, ordersQuery], 'postg
 
 When you need to run multiple independent statements in one database round-trip, use `batch`. This is useful for bulk inserts, multi-table updates, or running migrations.
 
-```ts
-import { batch, createQueryCompiler } from '@zmdb/sql';
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
+import { createQueryCompiler } from '@zmdb/sql';
+import { batch } from '@zmdb/sql/set-ops';
 import { postgres } from '@zmdb/postgres';
 
 const compiler = createQueryCompiler(postgres);
@@ -74,7 +75,7 @@ INSERT INTO "users" ("name", "email") VALUES ($3, $4);
 
 The query compiler automatically renumbers positional parameters (`$1`, `$2`, ...) when combining queries. This ensures parameters remain valid across the combined statement.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies compiler, setOperation; this excerpt does not repeat those declarations."}
 // Two queries with overlapping parameter positions
 const q1 = compiler.selectFrom('orders').where('user_id', '=', 1).compile();
 const q2 = compiler.selectFrom('products').where('category_id', '=', 2).compile();

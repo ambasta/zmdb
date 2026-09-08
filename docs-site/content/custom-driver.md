@@ -1,7 +1,10 @@
-A driver has one required method. Streaming is an optional capability:
+A driver declares its SQL dialect and one required method. Streaming is an optional capability:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
+import type { SqlDialect } from '@zmdb/sql';
+
 interface Driver {
+  readonly dialect: SqlDialect;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;
   stream?(query: CompiledQuery, opts?: ExecuteOptions): AsyncIterable<Record<string, unknown>>;
 }
@@ -23,8 +26,8 @@ interface CompiledQuery {
 }
 ```
 
-The options parameter and `stream` are both optional. A pre-existing `execute(query)` implementation still satisfies the interface. The repository checks `signal` before dispatch and again after
-`execute` settles; active server-side cancellation requires driver cooperation.
+The options parameter and `stream` are both optional. A driver that declares its dialect and implements `execute(query)` satisfies the interface. The repository checks `signal` before dispatch and
+again after `execute` settles; active server-side cancellation requires driver cooperation.
 
 The driver boundary never opens a connection, pools, retries a statement or parses a connection string. It hands you text and parameters and expects rows back. The transaction helper can re-run an
 entire callback only when the caller opts into a dialect-classified retry policy. An observability wrapper may opt the compiler into the optional `telemetry` field; a normal driver can ignore it
@@ -32,13 +35,15 @@ because execution still uses only text and bound parameters.
 
 ## The minimum
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
+import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
 import { type Driver } from '@zmdb/orm';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 export const driver: Driver = {
+  dialect: postgres,
   async execute(query) {
     const result = await pool.query(query.text, [...query.parameters]);
     return result.rows;
@@ -61,7 +66,7 @@ A correct cursor implementation has four responsibilities:
 4. Check `signal` between batches and connect abort to the client's real server-side cancellation primitive when one exists. Cancellation commonly needs a second connection; rejecting only the
    JavaScript promise leaves the database working.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This partial declaration omits the containing TypeScript construct described by the surrounding article."}
 stream(query, options) {
   const batchSize = options?.batchSize ?? 100;
   return {
@@ -114,8 +119,11 @@ The driver wrappers compose as `Driver → Driver`. Transaction retries are the 
 
 The driver is the only layer that knows which client it wraps, and clients disagree about `bigint`, `numeric`, `boolean`, dates and JSON. Fix it once, per column, explicitly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Driver, pool; this excerpt does not repeat those declarations."}
+import { postgres } from '@zmdb/postgres';
+
 export const driver: Driver = {
+  dialect: postgres,
   async execute(query) {
     const { rows } = await pool.query(query.text, [...query.parameters]);
     return rows.map(r => ({
@@ -133,7 +141,7 @@ Per-column rather than by type, because a blanket rule cannot tell a `numeric` y
 
 `execute` must resolve to an array. For an `INSERT` without `RETURNING`, return `[]` — not `undefined`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies query; this excerpt does not repeat those declarations."}
 const isSelect = /^\s*(select|with)/i.test(query.text);
 return isSelect ? result.rows : [];
 ```
@@ -143,7 +151,7 @@ The official `mysqlDriver` follows this rule and exposes mysql2's `affectedRows`
 
 ## A logging wrapper
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 export function withLogging(inner: Driver, log = console): Driver {
   return {
     ...inner,
@@ -164,17 +172,17 @@ Log `query.text`, never the interpolated form, and think before logging `paramet
 
 ## A fake driver for tests
 
-Because the interface is one method, a test double is one object:
+A test double declares the dialect it serves and supplies an execution method:
 
-```ts
-export function fakeDriver(responses: Record<string, Record<string, unknown>[]>): Driver {
-  return { execute: async q => responses[q.text] ?? [] };
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
+export function fakeDriver(dialect: Driver['dialect'], responses: Record<string, Record<string, unknown>[]>): Driver {
+  return { dialect, execute: async q => responses[q.text] ?? [] };
 }
 ```
 
 Or record what was asked, which is how you assert on query counts:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies CompiledQuery, Driver; this excerpt does not repeat those declarations."}
 export function recordingDriver(inner: Driver) {
   const seen: CompiledQuery[] = [];
   return {
@@ -195,7 +203,7 @@ Let them propagate. Outside an explicitly retrying transaction, zmdb does not ca
 on Postgres, `ER_DUP_ENTRY` on MySQL. The transaction wrapper may inspect the direct `code` only when the caller opts into a dialect-classified retry; it still rethrows the original error when retries
 are disabled or exhausted. Translate at your HTTP boundary, where you know what the codes should become:
 
-```ts
+```ts {"mode":"illustrative","id":"example-009","reason":"The surrounding example supplies ValidationError, isUniqueViolation; this excerpt does not repeat those declarations."}
 try {
   return await repo.create(dto);
 } catch (e) {
@@ -206,7 +214,7 @@ try {
 
 That produces a 400, not a 409. A _thrown_ error still maps to 400 or 500 — to answer 409, catch it and return the response instead of throwing:
 
-```ts
+```ts {"mode":"illustrative","id":"example-010","reason":"This catch fragment omits the surrounding try statement and application function."}
 catch (error) {
   if (isUniqueViolation(error)) return json({ error: 'already exists' }, { status: 409 });
   throw error;

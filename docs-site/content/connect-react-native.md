@@ -13,7 +13,7 @@ npm add @zmdb/react-native@alpha react@19 react-native@0.87
 
 React Native's `AppState` satisfies the lifecycle port directly. Connectivity and credential storage stay application choices:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./generated/http-client.generated.js, ./native-connectivity.js, ./native-credentials.js; this fence is an excerpt of that project."}
 import { createZmdbReactNative } from '@zmdb/react-native';
 import { AppState } from 'react-native';
 
@@ -47,7 +47,7 @@ The platform-specific part is the last inch: something that runs `{ text, parame
 
 ## Over `expo-sqlite`
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"This excerpt requires separately supplied external modules: expo-sqlite. Their application setup is outside this standalone fence."}
 import * as SQLite from 'expo-sqlite';
 import { type Driver } from '@zmdb/orm';
 
@@ -69,7 +69,7 @@ Then the [SQLite dialect](./dialect-sqlite.html), including its type conversions
 
 ## Over `op-sqlite`
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Driver; this excerpt does not repeat those declarations."}
 import { open } from '@op-engineering/op-sqlite';
 
 const db = open({ name: 'app.db' });
@@ -128,7 +128,7 @@ The exception is an already-running dev server after a cross-file type change: M
 
 An unconfigured `schemaOf<T>()` or generic validator call still throws its [untransformed-build error](./gotchas.html). Keep a canary against the real bundle:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('validators are transformed', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

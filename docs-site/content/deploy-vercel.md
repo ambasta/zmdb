@@ -2,7 +2,7 @@ Vercel runs your code as functions. `WebApplication` exposes `fetch(request)` an
 
 ## A function
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ../src/app-module.js; this fence is an excerpt of that project."}
 // api/[...path].ts
 import { createApp } from '@zmdb/web';
 import { AppModule } from '../src/app-module.js';
@@ -25,7 +25,7 @@ which is what makes it a production incident rather than a build failure.
 
 Use an HTTP driver, which holds no connection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies requireEnv; this excerpt does not repeat those declarations."}
 import { neon } from '@neondatabase/serverless';
 import { type Driver } from '@zmdb/orm';
 
@@ -59,7 +59,7 @@ Vercel builds with its own pipeline, so the AOT transformer must be part of _you
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -79,7 +79,7 @@ Make it a build gate. If the transformer does not run, every `assert` in your de
 Everything in zmdb works at the edge — the compiler is string manipulation and the validators contain no `new Function`, which is what makes them CSP- and Workers-compatible. What does not work at the
 edge is a TCP pool.
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 export const config = { runtime: 'edge' };
 ```
 
@@ -98,7 +98,7 @@ Better still, run migrations from CI before the deploy, so a failed migration do
 
 ## Environment variables
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies assert; this excerpt does not repeat those declarations."}
 export const env = assert<{ DATABASE_URL: string }>({
   DATABASE_URL: process.env.DATABASE_URL,
 });
@@ -111,7 +111,7 @@ with no default is `NaN`, and `NaN` passes a `number` check — default before c
 
 Function timeouts are 10s on Hobby, configurable on Pro. Set `statement_timeout` below the function timeout so a slow query returns an error you can log rather than a killed invocation you cannot:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Pool, env; this excerpt does not repeat those declarations."}
 const pool = new Pool({ connectionString: env.DATABASE_URL, max: 1, statement_timeout: 8_000 });
 ```
 

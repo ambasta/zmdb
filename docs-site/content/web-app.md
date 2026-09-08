@@ -4,7 +4,7 @@ It exposes lifecycle hooks and `await using` graceful shutdown. Its optional sec
 
 ## Bootstrapping
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies AppModule; this excerpt does not repeat those declarations."}
 import { createApp } from 'zmdb/web';
 
 const app = createApp(AppModule);
@@ -21,7 +21,7 @@ await app.fetch(new Request('http://x/ping')); // Fetch (Hono/edge)
 
 Implement any of these on a controller (or provider) and they run at the right time:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import type { OnModuleInit, OnApplicationBootstrap, OnShutdown } from 'zmdb/app/lifecycle';
 
 class Db implements OnModuleInit, OnShutdown {
@@ -47,7 +47,7 @@ still shut down, without retroactive init hooks, and an unresolved factory is ne
 
 `createApp` returns an `AsyncDisposable`, so Stage-3 explicit resource management cleans up automatically:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, createApp; this excerpt does not repeat those declarations."}
 await using app = createApp(AppModule);
 await app.init();
 // ... serve ...

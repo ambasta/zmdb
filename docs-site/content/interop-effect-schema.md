@@ -7,7 +7,7 @@ zmdb is not competing with that. If you are using Effect, use its schema; the va
 
 The useful boundary is the driver, because `Driver` has one required method:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies DatabaseError, pool; this excerpt does not repeat those declarations."}
 import { Effect } from 'effect';
 import { type Driver, type CompiledQuery } from '@zmdb/sql';
 
@@ -33,7 +33,7 @@ the SQL.
 
 **zmdb schema → JSON Schema → Effect.** `toJsonSchema(schema, variant)` gives you a JSON Schema per operation shape, which you can convert or use to generate an Effect schema:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies posts; this excerpt does not repeat those declarations."}
 import { toJsonSchema } from '@zmdb/schema/openapi';
 const createShape = toJsonSchema(posts, 'create');
 ```
@@ -62,7 +62,7 @@ Effect Schema supports bidirectional transforms: it encodes as well as decodes. 
 The temptation is a `ZmdbRepository` service wrapping every `BaseRepository` method in `Effect.tryPromise`. It works, and it is a lot of code that adds nothing beyond the one wrapper above — the
 repository methods are all `Promise`-returning and untyped in their failures, so a single generic adapter covers them:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies DatabaseError, Effect, repo; this excerpt does not repeat those declarations."}
 const eff = <A>(f: () => Promise<A>) => Effect.tryPromise({ try: f, catch: c => new DatabaseError({ cause: c }) });
 
 eff(() => repo.findById(1));
@@ -72,7 +72,7 @@ eff(() => repo.findById(1));
 
 Same as everywhere: if you use `assert<T>` at all, prove the transformer runs.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

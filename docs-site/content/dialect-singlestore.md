@@ -24,7 +24,7 @@ the recorded server qualification to that service.
 
 ## Using it
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { singlestore, singlestoreDriver } from '@zmdb/singlestore';
 import { createQueryCompiler } from '@zmdb/sql';
 import mysql2 from 'mysql2/promise';
@@ -66,8 +66,8 @@ SingleStore does not diverge: backtick quoting, `?` placeholders, `TINYINT(1)` b
 
 Shard and sort keys are facts about the table, so they sit on the `extends` clause:
 
-```ts
-import type { PrimaryKey, ShardKey, SortKey, Sql, Table } from 'zmdb/tags';
+```ts {"mode":"compile","id":"example-002"}
+import type { PrimaryKey, ShardKey, SortKey, Sql, Table } from '@zmdb/schema/tags';
 
 export interface Order extends Table<'orders'>, ShardKey<['customerId']>, SortKey<['id']> {
   id: bigint & Sql<'bigint'> & PrimaryKey;
@@ -89,7 +89,7 @@ CREATE TABLE `orders` (
 
 SingleStore's default is columnstore, so there is no `COLUMNSTORE` keyword in that statement. For a transactional hot path, opt into row-oriented storage:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies PrimaryKey, Sql, Table; this excerpt does not repeat those declarations."}
 import type { Rowstore } from 'zmdb/tags';
 
 export interface Session extends Table<'sessions'>, Rowstore {

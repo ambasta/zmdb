@@ -3,7 +3,7 @@
 
 ## What the declaration says
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { PrimaryKey, Sql, Table } from 'zmdb/tags';
 
 export interface Membership extends Table<'memberships'> {
@@ -51,7 +51,7 @@ existing primary-key constraint name needed for `DROP CONSTRAINT`.
 
 Anything that goes through `WhereDTO`, because that addresses columns by name rather than by "the key":
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.findOne({ orgId: { eq: 1 }, userId: { eq: 7 } });
 await repo.find({ orgId: { eq: 1 } });
 ```
@@ -60,7 +60,7 @@ await repo.find({ orgId: { eq: 1 } });
 
 `PrimaryKeyOf<T>` is a record when the key has two or more columns, so the key is an object and the three keyed methods take it directly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Membership, repo; this excerpt does not repeat those declarations."}
 import { type PrimaryKeyOf } from '@zmdb/schema';
 
 const key: PrimaryKeyOf<Membership> = { orgId: 1, userId: 7 };
@@ -91,7 +91,7 @@ expected object shape rather than being bound as one parameter.
 
 Extra keys are ignored, so you can pass a whole row you already have:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies repo, row; this excerpt does not repeat those declarations."}
 await repo.delete(row); // row is a Membership; only orgId and userId are read
 ```
 
@@ -102,7 +102,7 @@ tie on the first one.
 
 On a table whose key is a _single_ column, `findById`, `update` and `delete` take the value — `42`, not `{ id: 42 }`. The record form is a `ValidationError` naming the method and the column:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 await repo.delete({ id: 42 });
 // ValidationError: products.delete requires the value of "id", not an object
 ```
@@ -126,7 +126,7 @@ A single-column key intentionally accepts only the scalar form. Supporting both 
 
 Relations use comma-separated `via` columns in the same order as the parent key:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"This partial declaration omits the containing TypeScript construct described by the surrounding article."}
 import type { ManyToOne, OneToMany } from 'zmdb/tags';
 
 posts?: Post[] & OneToMany<'posts', 'orgId,userId'>;

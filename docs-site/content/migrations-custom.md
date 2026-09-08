@@ -5,7 +5,7 @@ rebuilds — is a migration you write. The runner does not care which kind it is
 
 A migration is a plain object:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { Migration } from 'zmdb/migrations';
 
 export const migrations: Migration[] = [
@@ -24,7 +24,7 @@ export const migrations: Migration[] = [
 
 Interleave them in the same array. A common pattern is generate the DDL, then hand-write the data step that has to run between two structural changes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Migration, diff, emitDown, emitUp, next, prev; this excerpt does not repeat those declarations."}
 const ops = diff(prev, next);
 
 export const migrations: Migration[] = [
@@ -46,7 +46,7 @@ one step is the most common cause of a migration that works on an empty test dat
 
 `up` is a string handed to `MigrationConnection.exec`. Whether it can carry several statements depends on your connection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This partial declaration omits the containing TypeScript construct described by the surrounding article."}
 up: [
   `ALTER TABLE "posts" ADD COLUMN "slug" TEXT`,
   `CREATE UNIQUE INDEX "posts_slug" ON "posts" ("slug")`,
@@ -61,7 +61,7 @@ own migration — more entries, no ambiguity.
 A backfill that cannot be expressed as one `UPDATE` is a script, not a migration. Migrations run inside a transaction and hold locks; a loop over a million rows should not. Do the structural change as
 a migration and the backfill as a separately-run, resumable job:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies repo, slugify; this excerpt does not repeat those declarations."}
 // scripts/backfill-slug.ts — run after migration 5, before 7
 for (;;) {
   const batch = await repo.list({ where: { slug: { isNull: true } }, page: { limit: 1_000 } });
@@ -76,7 +76,7 @@ Resumable, interruptible, and it does not hold a transaction open for an hour. S
 
 Write the `down`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"This object or configuration fragment omits the surrounding assignment or call that supplies its context."}
 {
   version: 9,
   name: 'drop_legacy_column',
@@ -91,7 +91,7 @@ The `down` restores the shape, not the data. Say so in a comment. A `down` that 
 
 `emitUp(op, dialect)` takes the dialect, so a generated migration is per-dialect. If you support more than one, generate per dialect and select at runtime:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Dialect, pgMigrations, sqliteMigrations; this excerpt does not repeat those declarations."}
 const dialect = process.env.DB_DIALECT as Dialect;
 export const migrations = dialect === 'postgres' ? pgMigrations : sqliteMigrations;
 ```
@@ -102,7 +102,7 @@ Hand-written migrations usually have to fork too — even among the four root di
 
 Run the whole chain up, then down, against a real database in CI:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies conn, down, it, migrations, up; this excerpt does not repeat those declarations."}
 it('migrations round-trip', async () => {
   await up(conn, migrations);
   await down(conn, migrations);

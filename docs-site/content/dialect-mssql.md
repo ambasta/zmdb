@@ -21,7 +21,7 @@ The six official database packages use the same selection workflow. The [package
 A hosted-service connection guide is a recipe using one of these owners or an explicitly supplied structural adapter. Protocol compatibility alone does not create another official package or transfer
 the recorded server qualification to that service.
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import sql from 'mssql';
 import { createQueryCompiler } from '@zmdb/sql';
 import { mssql, mssqlDriver } from '@zmdb/mssql';

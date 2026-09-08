@@ -16,7 +16,7 @@ The executable loads `zmdb.config.ts`, opens its `driver`, parses each `<YYYYMMD
 
 Applications that already have migration data can call the same boundary:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 import { driverMigrationConnection, status, up, type Migration } from '@zmdb/migrations/runner';
 import { sqlite } from '@zmdb/sqlite';
 

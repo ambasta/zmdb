@@ -13,7 +13,7 @@ npm add --save-dev @zmdb/compiler@alpha
 
 ## Field numbers are the wire contract
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { protoDescriptor } from '@zmdb/protobuf';
 import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
@@ -68,7 +68,7 @@ integer is a `bigint` on both encode and decode, even when its current value wou
 
 Proto3 implicit presence makes a required scalar's zero value indistinguishable from absence:
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 import { protoDecode, protoEncode } from '@zmdb/protobuf';
 import { type Proto, type ProtoField } from '@zmdb/schema/tags';
 
@@ -119,7 +119,7 @@ OpenAPI and JSON Schema remain the alternatives for JSON APIs.
 
 **Another protobuf library.** Generate the `.proto` from the TypeScript declaration, then let that library compile or load the artifact:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies UserMessage, protoDescriptor; this excerpt does not repeat those declarations."}
 import { writeFile } from 'node:fs/promises';
 
 await writeFile('user.proto', protoDescriptor<UserMessage>());

@@ -5,7 +5,7 @@ aggregation specification.
 
 Use `AggregateSpec<S>` to declare what you want to compute:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Order; this excerpt does not repeat those declarations."}
 import { aggregateSelectFrom } from '@zmdb/sql/aggregations';
 import { type AggregateResult, type AggregateSpec } from '@zmdb/schema/dto';
 
@@ -25,7 +25,7 @@ const spec: AggregateSpec<Order> = {
 
 Pass a builder function to `aggregate()` — you compose exactly what you need.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies ordersRepo, spec; this excerpt does not repeat those declarations."}
 const results = await ordersRepo.aggregate(spec, agg =>
   agg.groupBy('status').count('orderCount').sum('totalRevenue', 'totalPrice').avg('avgPrice', 'totalPrice').min('minOrder', 'totalPrice').max('maxOrder', 'totalPrice').compile(),
 );
@@ -48,7 +48,7 @@ GROUP BY "status"
 
 The result type is inferred from the spec:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AggregateResult, Order, spec; this excerpt does not repeat those declarations."}
 type OrderAgg = AggregateResult<Order, typeof spec>;
 // {
 //   status: 'pending' | 'shipped' | 'delivered';
@@ -66,7 +66,7 @@ type OrderAgg = AggregateResult<Order, typeof spec>;
 
 Aggregate over the entire table by omitting `groupBy`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies ordersRepo; this excerpt does not repeat those declarations."}
 const totals = await ordersRepo.aggregate(
   {
     computed: {
@@ -90,7 +90,7 @@ SELECT COUNT(*) AS "totalOrders", SUM("totalPrice") AS "revenue" FROM "orders"
 
 Filter rows before aggregating by passing a pre-filtered query builder:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ordersRepo, qb; this excerpt does not repeat those declarations."}
 const recentStats = await ordersRepo.aggregate(
   {
     computed: { count: { fn: 'count' } },

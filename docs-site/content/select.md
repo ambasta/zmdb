@@ -3,7 +3,7 @@ zmdb's query builder is **SQL-first**: it maps directly to SQL rather than hidin
 
 The examples below assume this schema:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 export interface User extends Table<'users'> {
@@ -18,7 +18,7 @@ export interface User extends Table<'users'> {
 
 Select every column from a table:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 const q = qc.selectFrom('users').compile();
 // q.text, q.parameters — pass to your driver
 ```
@@ -33,7 +33,7 @@ Through a repository you usually call `findAll()` / `findById()` instead, which 
 
 Pass the columns you want. Combined with the DTO `project`/`select` helpers this also **narrows the result type** to the chosen columns.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.selectFrom('users').select(['id', 'email']).compile();
 ```
 
@@ -48,7 +48,7 @@ SELECT "id", "email" FROM "users"
 
 `where(column, operator, value)` adds a predicate; chained `where`/`andWhere` are ANDed and `orWhere` is ORed. Values are always parameterized.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.selectFrom('users').where('role', '=', 'admin').andWhere('email', 'like', '%@corp.com').compile();
 ```
 
@@ -61,7 +61,7 @@ For a typed, schema-derived filter object (operator sets, AND/OR groups), use [`
 
 ## Ordering
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.selectFrom('users').orderBy('createdAt', 'desc').orderBy('id', 'asc').compile();
 ```
 
@@ -71,7 +71,7 @@ SELECT * FROM "users" ORDER BY "createdAt" DESC, "id" ASC
 
 ## Limit & offset
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies qc; this excerpt does not repeat those declarations."}
 qc.selectFrom('users').orderBy('id', 'asc').limit(20).offset(40).compile();
 ```
 
@@ -92,7 +92,7 @@ The same builder emits dialect-correct SQL. Identifiers and placeholders differ:
 | sqlite   | `"col"`         | `?`           |
 | mssql    | `[col]`         | `@p1, @p2, …` |
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies createQueryCompiler; this excerpt does not repeat those declarations."}
 import { mysql } from '@zmdb/mysql';
 
 createQueryCompiler(mysql).selectFrom('users').where('id', '=', 1).compile();

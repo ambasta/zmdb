@@ -6,7 +6,7 @@
 Gel exposes a PostgreSQL-wire SQL endpoint. It supports queries and standard DML, but not DDL, so Gel's own schema and migration tooling remain authoritative. Use zmdb's Postgres compiler for
 reporting, analytics and SQL operations the endpoint supports:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { createQueryCompiler } from '@zmdb/sql';
 import { postgres } from '@zmdb/postgres';
 import { Pool } from 'pg';
@@ -88,7 +88,7 @@ plan also has to become a nested tree before any non-SQL target can preserve its
 
 Gel can own persistence while zmdb owns the HTTP boundary and validation:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Controller, CreateUserRequest, Ctx, Post, assert, gelClient; this excerpt does not repeat those declarations."}
 @Controller('/users')
 export class UsersController {
   @Post('/')

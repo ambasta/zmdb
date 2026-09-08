@@ -9,7 +9,7 @@ npm add @zmdb/client@alpha @zmdb/angular@alpha @angular/core@">=22.1.5 <23.0.0" 
 
 ## Provide
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/angular.ts
 import { createZmdbAngular } from '@zmdb/angular';
 

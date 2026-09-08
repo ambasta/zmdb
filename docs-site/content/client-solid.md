@@ -9,7 +9,7 @@ npm add @zmdb/client@alpha @zmdb/solid@alpha solid-js@^1.9
 
 ## Provide
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./api.generated.js; this fence is an excerpt of that project."}
 // docs-file: fixtures/client-adapters/docs/solid.ts
 import { createZmdbSolid } from '@zmdb/solid';
 

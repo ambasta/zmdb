@@ -13,7 +13,7 @@ application may trust.
 
 ## Declare once
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies authenticateTransport, docs, docsRepo; this excerpt does not repeat those declarations."}
 import { assert } from '@zmdb/validator';
 import { toolFromSchema } from '@zmdb/ai';
 import { defineTools } from '@zmdb/ai/chat';
@@ -41,7 +41,7 @@ from the transport; identity does not come from model-written arguments.
 
 The server core is one function:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies message, server, transport; this excerpt does not repeat those declarations."}
 const answer = await server.handle(message, transport);
 ```
 
@@ -75,7 +75,7 @@ falsely claim the capability.
 
 For a local process, resolve a constant identity and frame one JSON value per line:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies createMcpServer, tools; this excerpt does not repeat those declarations."}
 const local = createMcpServer(tools, {
   serverInfo: { name: 'docs-local', version: '1.0.0' },
   identify: async () => ({ sub: process.env.USER }),
@@ -116,7 +116,7 @@ This ordering matters. An anonymous or cross-origin request must not learn wheth
 
 The client is transport-independent too:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies sendJsonRpc; this excerpt does not repeat those declarations."}
 import { createMcpClient } from '@zmdb/mcp';
 
 const client = createMcpClient(sendJsonRpc, {
@@ -144,7 +144,7 @@ protocol values containing untrusted text.
 Do not put remote tool text in a system message, interpolate it into SQL, or treat it as a domain object because a generic type argument says so. Validate a domain payload with a type and validator
 you own:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies assert, client, q; this excerpt does not repeat those declarations."}
 const result = await client.callTool('search_docs', { q });
 const text = result.content.find(block => block.type === 'text')?.text;
 const hits = assert<{ hits: readonly { id: number; title: string }[] }>(JSON.parse(text ?? 'null'));

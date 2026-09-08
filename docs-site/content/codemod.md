@@ -9,7 +9,7 @@ yarn fmt                                                        # rewritten file
 
 ## What it does to a file
 
-```ts
+```ts {"mode":"expect-error","id":"example-001","diagnostics":["TS2305"]}
 // before
 import { defineSchema, serial, text, varchar } from '@zmdb/schema';
 
@@ -20,7 +20,7 @@ const UserSchema = defineSchema('users', {
 });
 ```
 
-```ts
+```ts {"mode":"compile","id":"example-002"}
 // after
 import { type Length, type PrimaryKey, type Serial, type Sql, type Table, type Unique } from '@zmdb/schema/tags';
 
@@ -44,7 +44,7 @@ Three edits, collected against the original offsets and applied in one back-to-f
 
 The interface replaces the `const`, so **every use of the old schema value is now a reference to a type**. Change the call sites:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"This before-and-after diff shows alternative source edits, not one executable TypeScript module."}
 - const users = defineRepository(UserSchema, driver);
 + const users = defineRepository(schemaOf<User>(), driver);
 

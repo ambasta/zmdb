@@ -186,7 +186,7 @@ Package descriptions, versions, exports, peer ranges, install commands, facade e
 
 `@zmdb/sql` produces a `CompiledQuery`:
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 export interface CompiledQuery {
   readonly text: string;
   readonly parameters: readonly unknown[];
@@ -203,7 +203,7 @@ into it. Every query can still be asserted without a database, and the compiler 
 
 ### 2. The driver carries one dialect and one execution method
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies CompiledQuery, ExecuteOptions, SqlDialect; this excerpt does not repeat those declarations."}
 export interface Driver<Name extends string = string> {
   readonly dialect: SqlDialect<Name>;
   execute(query: CompiledQuery, opts?: ExecuteOptions): Promise<readonly Record<string, unknown>[]>;

@@ -16,7 +16,7 @@ disabled in production only.
 
 **Verify the transformer ran in the artefact you are shipping:**
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });
@@ -54,7 +54,7 @@ CMD ["node", "dist/main.js"]
 
 Read environment variables once, validate at startup, and fail loudly:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies assert; this excerpt does not repeat those declarations."}
 export const env = assert<{ DATABASE_URL: string; PORT: string; JWT_SECRET: string }>(process.env);
 ```
 
@@ -64,7 +64,7 @@ Never bake secrets into the image or commit a `.env`. Use the platform's secret 
 
 ## Graceful shutdown
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies app, bodyText, createServer, env, pool, webRequest; this excerpt does not repeat those declarations."}
 const server = createServer(async (req, res) => {
   const out = await app.handle(await webRequest(req));
   res.writeHead(out.status, { ...out.headers }).end(await bodyText(out));

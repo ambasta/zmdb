@@ -15,7 +15,7 @@ affects you.
 
 Call the engine in ordinary application code and return the rendered string:
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"This decorator or member excerpt omits its containing class and the application-owned declarations it uses."}
 import { Eta } from 'eta';
 import { respond, type Ctx } from '@zmdb/web';
 
@@ -46,7 +46,7 @@ JSON API. See [Next.js](./deploy-nextjs.html).
 
 **HTML outside the router.** A custom adapter can deliberately bypass `app.handle` when those routes belong to a separate rendering application:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies app, renderPage; this excerpt does not repeat those declarations."}
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { bodyText } from '@zmdb/web';
 
@@ -82,7 +82,7 @@ show the same construction.
 
 The application's services are available to `renderPage` — resolve them from the container once at startup:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies AppModule, POSTS, compileModule, escapeHtml, layout; this excerpt does not repeat those declarations."}
 const compiled = compileModule(AppModule);
 const posts = compiled.container.resolve(POSTS);
 
@@ -96,7 +96,7 @@ async function renderPage(path: string): Promise<string> {
 
 Template engines default to escaping. Hand-written HTML does not, and every interpolated value is a stored-XSS vector until you escape it.
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 const ESCAPES: Record<string, string> = {
   '&': '&amp;',
   '<': '&lt;',
@@ -116,7 +116,7 @@ export function escapeHtml(value: unknown): string {
 If you are interpolating into more than one context, use a template engine rather than hand-rolling escapes. Eta, Nunjucks and Handlebars all escape by default, and none of them need framework
 support:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies post; this excerpt does not repeat those declarations."}
 import { Eta } from 'eta';
 const eta = new Eta({ views: './views' });
 const html = eta.render('post', { post });
@@ -128,7 +128,7 @@ Add a strict `content-security-policy` regardless. It is the control that limits
 
 If the HTML does not change per request, build it. This sidesteps the whole problem and is faster than any rendering path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies posts, renderPost, writeFile; this excerpt does not repeat those declarations."}
 // scripts/build-site.ts
 const { items } = await posts.list({ page: { limit: 1000 } });
 for (const post of items) {

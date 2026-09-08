@@ -6,7 +6,7 @@ either result with the catalog.
 
 ## Entities become declared types
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Collection, Entity, OneToMany, Post, PrimaryKey, Property; this excerpt does not repeat those declarations."}
 // MikroORM
 @Entity()
 export class User {
@@ -16,7 +16,7 @@ export class User {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Post; this excerpt does not repeat those declarations."}
 // zmdb
 import { schemaOf } from '@zmdb/schema';
 import type { OneToMany, PrimaryKey, Serial, Sql, Table, Unique } from 'zmdb/tags';
@@ -43,7 +43,7 @@ snapshot.
 
 Put a shared convention in `zmdb.config.ts`:
 
-```ts
+```ts {"mode":"compile","id":"example-003"}
 import { postgres } from 'zmdb/postgres';
 import { defineConfig } from 'zmdb/config';
 
@@ -56,7 +56,7 @@ export default defineConfig({
 
 Use `snake_case_plural` when the table rule also matches, or provide `namingStrategy` for a domain-specific convention. Preserve exceptions with explicit tags:
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import type { Physical, Sql, Table } from 'zmdb/tags';
 
 interface UserAccount extends Table<'userAccount'>, Physical<'legacy_users'> {
@@ -86,7 +86,7 @@ the write at the call site. See [Unit of work](./anti-patterns.html).
 
 `user.posts.getItems()` — after `await user.posts.init()`, or implicitly if you were lucky with hydration — becomes:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies id, repo; this excerpt does not repeat those declarations."}
 const user = await repo.findById(id, { populate: ['posts'] });
 user.posts; // Post[], typed, already loaded
 ```
@@ -95,7 +95,7 @@ If you did not pass `populate`, `user.posts` is not `undefined` — it is not in
 
 ## QueryBuilder becomes the compiler or the DTO
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies User, em; this excerpt does not repeat those declarations."}
 // MikroORM
 const qb = em
   .createQueryBuilder(User)
@@ -103,7 +103,7 @@ const qb = em
   .orderBy({ email: 'ASC' });
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies repo; this excerpt does not repeat those declarations."}
 // zmdb — DTO form, typed per column
 await repo.list({ where: { age: { gte: 18 } }, orderBy: [{ column: 'email', dir: 'asc' }] });
 ```

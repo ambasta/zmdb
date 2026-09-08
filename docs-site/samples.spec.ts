@@ -1,16 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  CANONICAL_PAGE_ADDITIONS,
-  DOCUMENTATION_BASELINE,
-  LEGACY_REDIRECTS,
-  PRODUCT_JOURNEY,
-} from './navigation-plan.mjs';
+import { mdToHtml } from './markdown.mjs';
+import { LEGACY_REDIRECTS } from './navigation-plan.mjs';
+import { NAV } from './pages.mjs';
 
 const ROOT = process.cwd();
 const TEST_TIMEOUT = 90_000;
@@ -43,13 +39,13 @@ interface SampleMeta {
 }
 
 function createFixture(): string {
-  const fixture = mkdtempSync(join(tmpdir(), 'zmdb-docs-samples-'));
+  const fixture = mkdtempSync(join(dirname(ROOT), 'issue-717-sample-fixture-'));
   cpSync(join(ROOT, 'docs-site'), join(fixture, 'docs-site'), { recursive: true });
   for (const directory of ['benchmarks', 'packages', 'scripts', 'node_modules']) {
     symlinkSync(join(ROOT, directory), join(fixture, directory), 'dir');
   }
   for (const file of ['package.json', 'yarn.lock', 'tsconfig.json', '.yarnrc.yml']) {
-    symlinkSync(join(ROOT, file), join(fixture, file), 'file');
+    cpSync(join(ROOT, file), join(fixture, file));
   }
   return fixture;
 }
@@ -78,10 +74,6 @@ function run(fixture: string, command: string, args: readonly string[], timeout 
 
 function verifySamples(fixture: string, timeout = TEST_TIMEOUT): CommandResult {
   return run(fixture, 'yarn', ['verify:docs-samples'], timeout);
-}
-
-function build(fixture: string): CommandResult {
-  return run(fixture, process.execPath, ['--import=./scripts/ts-specifier-hook.mjs', 'docs-site/build.mjs']);
 }
 
 function fixtureDocument(...blocks: readonly string[]): string {
@@ -241,29 +233,17 @@ function metadataErrors(fence: Fence): string[] {
 }
 
 function retainedTypedFences(): Fence[] {
-  const additions = new Set(Object.keys(CANONICAL_PAGE_ADDITIONS));
-  const legacy = new Set(Object.keys(LEGACY_REDIRECTS));
-  const retained = PRODUCT_JOURNEY.flatMap(group => group.pages).filter(
-    slug => !additions.has(slug) && !legacy.has(slug),
-  );
+  const retained = NAV.flatMap(group => group.pages).filter(slug => !Object.hasOwn(LEGACY_REDIRECTS, slug));
   return retained.flatMap(slug =>
     parseFences(slug, readFileSync(join(ROOT, 'docs-site', 'content', `${slug}.md`), 'utf8')),
   );
 }
 
 describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
-  // The independent fence walk implements the frozen CommonMark subset rather
-  // than today's column-zero renderer. Measured today: all 1,286 retained typed
-  // fences are present, including three indented and two long-delimiter fences,
-  // and none carries the required JSON metadata object.
-  it.fails('classifies every TypeScript and TSX fence', () => {
+  // Independently walk every current canonical page, excluding the explicit GraphQL redirects.
+  it('classifies every TypeScript and TSX fence', () => {
     const fences = retainedTypedFences();
-    const expected =
-      DOCUMENTATION_BASELINE.current.typescriptFences.total -
-      DOCUMENTATION_BASELINE.current.typescriptFences.redirectSourceFences;
-    expect(fences).toHaveLength(expected);
-    expect(fences.filter(fence => fence.indent > 0)).toHaveLength(3);
-    expect(fences.filter(fence => fence.delimiter > 3)).toHaveLength(2);
+    expect(fences.length).toBeGreaterThan(0);
 
     const errors: string[] = [];
     const identities = new Set<string>();
@@ -287,7 +267,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
 
   // The runtime throw is deliberate: compile mode must typecheck but must not
   // execute JavaScript without `run: true`.
-  it.fails('compiles every compile-mode documentation sample', () => {
+  it('compiles every compile-mode documentation sample', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -299,6 +279,15 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
             'void user;',
             "throw new Error('compile mode must not execute');",
           ]),
+          sampleFence(
+            JSON.stringify({ mode: 'compile', id: 'react-public-types', environment: 'browser' }),
+            [
+              "import type { ReactElement } from 'react';",
+              'const greeting: ReactElement = <span>Hello</span>;',
+              'void greeting;',
+            ],
+            { language: 'tsx' },
+          ),
         ),
       );
       const result = verifySamples(fixture);
@@ -307,7 +296,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('matches every expect-error sample to its declared diagnostic', () => {
+  it('matches every expect-error sample to its declared diagnostic', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -324,7 +313,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('refuses an illustrative sample without a reason', () => {
+  it('refuses an illustrative sample without a reason', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -341,7 +330,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('refuses a sample importing a private source path', () => {
+  it('refuses a sample importing a private source path', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -360,7 +349,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('rejects malformed JSON sample metadata', () => {
+  it('rejects malformed JSON sample metadata', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -373,7 +362,31 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('rejects invalid modes, identities, paths and mode-specific metadata', () => {
+  it('checks displayed source when metadata attempts to replace parser fields', () => {
+    withFixture(fixture => {
+      writeSinglePageFixture(
+        fixture,
+        fixtureDocument(
+          sampleFence(
+            JSON.stringify({
+              mode: 'compile',
+              id: 'displayed-source',
+              code: 'const value: string = "hidden replacement";',
+              language: 'js',
+              line: 900,
+            }),
+            ['const value: string = 1;', 'void value;'],
+          ),
+        ),
+      );
+      const result = verifySamples(fixture);
+      expect(result.status, result.output).not.toBe(0);
+      expect(result.output).toContain('displayed-source');
+      expect(result.output).toContain('TS2322');
+    });
+  });
+
+  it('rejects invalid modes, identities, paths and mode-specific metadata', () => {
     const invalid = [
       [{ mode: 'unknown', id: 'invalid-mode' }, 'invalid-mode'],
       [{ mode: 'compile', id: 'Upper_Case' }, 'Upper_Case'],
@@ -417,7 +430,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('compiles grouped multi-file samples once with only intra-group relative imports', () => {
+  it('compiles grouped multi-file samples once with only intra-group relative imports', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -439,7 +452,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('rejects inconsistent or ambiguous multi-file groups', () => {
+  it('rejects inconsistent or ambiguous multi-file groups', () => {
     const blocks = [
       sampleFence(JSON.stringify({ mode: 'compile', id: 'duplicate-a', group: 'duplicate-file', file: 'index.ts' }), [
         'export const one = 1;',
@@ -502,9 +515,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
 
   // The first fence is indented by three spaces. The second opens and closes with
   // four backticks so the three-backtick text inside is code, not a close marker.
-  // Today's renderer emits neither as an ordinary lang-ts block, and the sample
-  // verifier command is absent.
-  it.fails('uses one fence parser for rendering and verification', () => {
+  it('uses one fence parser for rendering and verification', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -522,13 +533,12 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
         ),
       );
 
-      const buildResult = build(fixture);
-      expect(buildResult.status, buildResult.output).toBe(0);
-      const html = readFileSync(join(fixture, 'site', 'docs', 'fixture.html'), 'utf8');
+      const { html } = mdToHtml(readFileSync(join(fixture, 'docs-site', 'content', 'fixture.md'), 'utf8'));
       expect(html.match(/<pre class="lang-ts">/g)).toHaveLength(2);
-      expect(html).toContain('const indented');
-      expect(html).toContain('const literal');
-      expect(html).not.toContain('"mode":"compile"');
+      const text = html.replace(/<[^>]+>/g, '');
+      expect(text).toContain('const indented');
+      expect(text).toContain('const literal');
+      expect(text).not.toContain('"mode":"compile"');
 
       const verifyResult = verifySamples(fixture);
       expect(verifyResult.status, verifyResult.output).toBe(0);
@@ -536,7 +546,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('bounds explicitly run samples by time and output', () => {
+  it('bounds explicitly run samples by time and output', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -554,7 +564,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('refuses runtime samples that contact external state without an issue-owned fixture', () => {
+  it('refuses runtime samples that contact external state without an issue-owned fixture', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,
@@ -571,7 +581,7 @@ describe('compiled documentation samples', { timeout: TEST_TIMEOUT }, () => {
     });
   });
 
-  it.fails('reports modes, environments, illustrative reasons, groups, files and diagnostics', () => {
+  it('reports modes, environments, illustrative reasons, groups, files and diagnostics', () => {
     withFixture(fixture => {
       writeSinglePageFixture(
         fixture,

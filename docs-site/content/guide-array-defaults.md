@@ -2,7 +2,7 @@ A `json` column holds arrays and objects, and its shape is part of the declarati
 
 ## Declaring one
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import type { HasDefault, PrimaryKey, Serial, Sql, Table } from 'zmdb/tags';
 
 interface Preferences {
@@ -52,7 +52,7 @@ defaults; the [codemod](./codemod.html) reports each one it removes.
 
 The driver returns JSON columns as parsed values in the Postgres family (`json`/`jsonb`) and as **strings** in the MySQL family, SQLite and SQL Server. That difference is the driver's, not zmdb's:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies assert, row; this excerpt does not repeat those declarations."}
 const raw = row.tags;
 const tags = typeof raw === 'string' ? assert<string[]>(JSON.parse(raw)) : raw;
 ```
@@ -64,7 +64,7 @@ const tags = typeof raw === 'string' ? assert<string[]>(JSON.parse(raw)) : raw;
 The closed `set()` expression vocabulary has no JSON or array-append variant, so read-modify-write still races here exactly as it does for counters outside the supported
 [`inc()` form](./guide-increment-decrement.html). Postgres can append atomically:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver, id, tag; this excerpt does not repeat those declarations."}
 await driver.execute({
   text: `UPDATE "users" SET "tags" = "tags" || $1::jsonb WHERE "id" = $2`,
   parameters: [JSON.stringify([tag]), id],
@@ -83,7 +83,7 @@ Usually `json` is fine. Where you need `ANY`, `@>` or a GIN index over array ele
 
 ## Prefer a join table when you query the contents
 
-```ts
+```ts {"mode":"compile","id":"example-004"}
 import type { Length, PrimaryKey, References, Sql, Table } from 'zmdb/tags';
 
 export interface UserTag extends Table<'user_tags'> {
@@ -97,7 +97,7 @@ table-level key, so the same tag cannot be attached twice for one user. See [Com
 
 ## Enum-valued columns
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies HasDefault; this excerpt does not repeat those declarations."}
 status: ('draft' | 'published' | 'archived') & HasDefault;
 ```
 

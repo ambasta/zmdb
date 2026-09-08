@@ -1,7 +1,7 @@
 ArkType parses TypeScript-like syntax in a template string and builds a validator from it. That makes it the most philosophically similar library to zmdb — both want the type to be the schema — with a
 completely different implementation.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies assert, body, type; this excerpt does not repeat those declarations."}
 // ArkType: TypeScript syntax as a runtime string, parsed by the type system
 const user = type({ id: 'number', email: 'string.email' });
 const out = user(body);
@@ -38,7 +38,7 @@ Both avoid runtime codegen, so both work under a strict CSP and at the edge.
 The natural boundary is the same as elsewhere: ArkType where the shape is assembled at runtime, zmdb for your own types — especially those derived from a schema, where re-expressing them would defeat
 the point.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies CreateDTO, Post, assert, body, payload, tenantConfig, type; this excerpt does not repeat those declarations."}
 const dto = assert<CreateDTO<Post>>(body); // derived; nothing to re-declare
 const rule = type(tenantConfig.shape)(payload); // string from the database
 ```
@@ -65,7 +65,7 @@ more general and less pretty.
 3. Move numeric and string constraints to `validate()` rules or `refine`.
 4. Add the canary **before** step 2:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies expect, is, it; this excerpt does not repeat those declarations."}
 it('the transformer is running', () => {
   expect(is<{ id: number }>({ id: 'x' })).toBe(false);
 });

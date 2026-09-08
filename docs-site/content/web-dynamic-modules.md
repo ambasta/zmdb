@@ -3,7 +3,7 @@ The `forRoot()` / `forFeature()` analogue. `Module` is a **class decorator**, so
 
 ## The forRoot pattern
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Mailer; this excerpt does not repeat those declarations."}
 import { createToken } from '@zmdb/app/di';
 import { Module, type ModuleClass } from '@zmdb/app/modules';
 
@@ -29,7 +29,7 @@ export function mailerModule(options: MailerOptions): ModuleClass {
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Module, SignupController, mailerModule, requireEnv; this excerpt does not repeat those declarations."}
 @Module({
   imports: [mailerModule({ apiKey: requireEnv('MAILER_KEY'), from: 'noreply@example.com' })],
   controllers: [SignupController],
@@ -49,14 +49,14 @@ A factory receives the `Container`, so it resolves its own options — there is 
 
 Importing the same dynamic module twice with the same tokens is refused at startup:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies mailerModule, marketing, transactional; this excerpt does not repeat those declarations."}
 imports: [mailerModule(transactional), mailerModule(marketing)];
 // Error: duplicate provider token "MAILER_OPTIONS"
 ```
 
 If you need two configurations of one thing, give them distinct tokens:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Mailer, createToken; this excerpt does not repeat those declarations."}
 export const TRANSACTIONAL = createToken<Mailer>('TRANSACTIONAL');
 export const MARKETING = createToken<Mailer>('MARKETING');
 ```
@@ -65,7 +65,7 @@ export const MARKETING = createToken<Mailer>('MARKETING');
 
 The same function, parameterised per feature. A repository module is the common case:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies DRIVER, Module, ModuleClass, Repo, Schema, Token, defineRepository; this excerpt does not repeat those declarations."}
 export function repositoryModule<S extends Schema>(token: Token<Repo<S>>, schema: S): ModuleClass {
   @Module({
     providers: [{ token, useFactory: c => defineRepository(schema, c.resolve(DRIVER)) }],
@@ -76,7 +76,7 @@ export function repositoryModule<S extends Schema>(token: Token<Repo<S>>, schema
 }
 ```
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Module, POSTS, PostsController, USERS, UsersController, posts, repositoryModule, users; this excerpt does not repeat those declarations."}
 @Module({
   imports: [repositoryModule(USERS, users), repositoryModule(POSTS, posts)],
   controllers: [UsersController, PostsController],
@@ -100,7 +100,7 @@ Put a token in the module that owns it, and import that module wherever it is ne
 
 `useFactory` is synchronous. Await the options before calling the module function — top-level `await` in an ESM entry point is the whole answer:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies Module, loadSecrets, mailerModule; this excerpt does not repeat those declarations."}
 const secrets = await loadSecrets();
 
 @Module({ imports: [mailerModule({ apiKey: secrets.mailerKey, from: 'noreply@example.com' })] })
@@ -111,7 +111,7 @@ See [Asynchronous Providers](./web-async-providers.html) for the alternatives.
 
 ## Testing a configured module
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies AppModule, MAILER, RecordingMailer, createTestApp; this excerpt does not repeat those declarations."}
 await using app = createTestApp(AppModule, {
   overrides: [{ token: MAILER, useValue: new RecordingMailer() }],
 });

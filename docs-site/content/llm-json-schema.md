@@ -6,7 +6,7 @@ bridge out of zmdb's type system.
 
 ## Basic use
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The application supplies the local modules ./schema.js; this fence is an excerpt of that project."}
 import { toJsonSchema } from '@zmdb/schema/openapi';
 import { userSchema } from './schema.js';
 
@@ -38,7 +38,7 @@ The second argument picks which shape of the schema you want, and they differ in
 | `'list'`   | the list envelope (`where`, `orderBy`, `page`, `select`)   |
 | `'search'` | the full-text search shape                                 |
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies toJsonSchema, userSchema; this excerpt does not repeat those declarations."}
 toJsonSchema(userSchema, 'create'); // what a POST body must look like
 toJsonSchema(userSchema, 'update'); // what a PATCH body may look like
 ```
@@ -49,7 +49,7 @@ toJsonSchema(userSchema, 'update'); // what a PATCH body may look like
 
 A validation tag on a column is metadata, and this is where it pays off:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies Max, Pattern, Sql; this excerpt does not repeat those declarations."}
 email: string & Sql<'text'> & Pattern<'^[^@]+@[^@]+$'>;
 age: (number & Sql<'integer'> & Max<120>) | null;
 ```
@@ -66,7 +66,7 @@ travel this far are `minimum`, `maximum`, `minLength`, `maxLength` and `pattern`
 
 ## Sensitive columns are omitted
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Sensitive, Sql; this excerpt does not repeat those declarations."}
 passwordHash: string & Sql<'text'> & Sensitive;
 ```
 
@@ -75,7 +75,7 @@ it safe to hand a derived schema to a model or publish it in a document. Note th
 
 ## Relations
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies userSchema; this excerpt does not repeat those declarations."}
 import { toJsonSchemaWithRelations } from '@zmdb/schema/openapi';
 
 toJsonSchemaWithRelations(userSchema, 'entity');
@@ -86,7 +86,7 @@ the document matches the response. Relations reach the `entity` variant only: a 
 
 ## Every schema at once
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies commentSchema, postSchema, userSchema; this excerpt does not repeat those declarations."}
 import { toOpenApiComponents } from '@zmdb/schema/openapi';
 
 const components = toOpenApiComponents([userSchema, postSchema, commentSchema]);
@@ -99,7 +99,7 @@ because a type cannot register itself. See [OpenAPI](./openapi.html).
 
 The direct use is a structured-output constraint:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies key, text, toJsonSchema, userSchema; this excerpt does not repeat those declarations."}
 const res = await fetch('https://api.anthropic.com/v1/messages', {
   method: 'POST',
   headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
@@ -119,7 +119,7 @@ The model's output is now constrained to the shape your database accepts — and
 
 Zod, Valibot, TypeBox and ArkType all import JSON Schema, so this is the interop path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies toJsonSchema, userSchema; this excerpt does not repeat those declarations."}
 import { jsonSchemaToZod } from 'json-schema-to-zod';
 const zodSchema = jsonSchemaToZod(toJsonSchema(userSchema, 'create'));
 ```

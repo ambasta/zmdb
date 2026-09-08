@@ -3,7 +3,7 @@ and the emitter finds the discriminant on its own.
 
 ## Unions
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies input; this excerpt does not repeat those declarations."}
 import { assert, validate } from '@zmdb/validator';
 
 assert<string | number>(input); // string | number
@@ -13,7 +13,7 @@ validate<string | null>(input); // the nullable-column shape
 An **undiscriminated** union is checked arm by arm: the value satisfies the union if it satisfies any member. On failure there is no arm to blame, so you get one issue naming the whole union at the
 union's own path:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies validate; this excerpt does not repeat those declarations."}
 validate<string | number>(true);
 // errors: [{ path: 'input', expected: 'string | number', message: 'expected string | number', value: true }]
 ```
@@ -25,7 +25,7 @@ validate<string | number>(true);
 
 A union of object types is discriminated when some non-optional property is a distinct literal in every arm. That is found automatically:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies assert, body; this excerpt does not repeat those declarations."}
 type Payment = { type: 'credit'; cardNumber: string } | { type: 'debit'; bankCode: string } | { type: 'cash' };
 
 const payment = assert<Payment>(body);
@@ -34,14 +34,14 @@ if (payment.type === 'credit') payment.cardNumber; // narrowed, as TypeScript na
 
 The failure messages are the reason to prefer this shape. With a discriminant, a bad tag is reported at the tag:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Payment, validate; this excerpt does not repeat those declarations."}
 validate<Payment>({ type: 'crypto' });
 // errors: [{ path: 'input.type', expected: '"credit" | "debit" | "cash"', value: 'crypto' }]
 ```
 
 and a good tag with a bad body is reported inside the matching arm only, rather than as "none of three arms matched":
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies Payment, validate; this excerpt does not repeat those declarations."}
 validate<Payment>({ type: 'credit', cardNumber: 42 });
 // errors: [{ path: 'input.cardNumber', expected: 'string', value: 42 }]
 ```
@@ -57,7 +57,7 @@ Two details of what counts as a discriminant, both of which are about being soun
 
 A type that refers to itself becomes a `ref` node, resolved by name:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies assert, input; this excerpt does not repeat those declarations."}
 interface Node {
   value: number;
   next: Node | null;
@@ -73,7 +73,7 @@ assert<Node>(input); // walks the whole chain
 
 For a check the tag vocabulary does not model, `Rule<'name'>` names one:
 
-```ts
+```ts {"mode":"compile","id":"example-007"}
 import type { Rule, Sql, Table, PrimaryKey, Serial } from 'zmdb/tags';
 
 export interface Account extends Table<'accounts'> {
@@ -91,7 +91,7 @@ carries two.
 
 The tags that _are_ honoured everywhere:
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies age, assert, slug; this excerpt does not repeat those declarations."}
 import type { Max, MaxLength, Min, MinLength, Pattern } from 'zmdb/tags';
 
 type Adult = number & Min<18> & Max<120>;
@@ -107,7 +107,7 @@ See [Tag Reference](./tags-reference.html).
 
 `@zmdb/validator/advanced` contains the older rule-value API: `refine`, `transform`, `union`, `discriminated`, `validateObject`, and `coerce`. It predates type-first declarations and is mostly a stub:
 
-```ts
+```ts {"mode":"compile","id":"example-009"}
 import { refine, validateObject } from '@zmdb/validator/advanced';
 
 const adult = refine(v => typeof v === 'number' && v >= 18, 'must be at least 18');
@@ -134,7 +134,7 @@ For unions, discriminated unions and constraint checking, the type argument does
 
 ## Branded Types
 
-```ts
+```ts {"mode":"compile","id":"example-010"}
 import { type Brand } from '@zmdb/validator/advanced';
 
 type UserId = Brand<number, 'UserId'>;

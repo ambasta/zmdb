@@ -3,7 +3,7 @@
 
 ## What exists
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies Inject, MESSAGES, MessageRepo, assert; this excerpt does not repeat those declarations."}
 import { Gateway, Subscribe, createGatewayDispatcher } from '@zmdb/web/gateways';
 
 @Gateway('/chat')
@@ -27,7 +27,7 @@ export class ChatGateway {
 
 ## Wiring it to `ws`
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies AppModule, ChatGateway, assert, createApp, server; this excerpt does not repeat those declarations."}
 import { WebSocketServer } from 'ws';
 import { createGatewayDispatcher } from '@zmdb/web/gateways';
 
@@ -70,7 +70,7 @@ Three things this code gets right and that are easy to get wrong:
 
 There is no guard mechanism on `@Subscribe`. Do it once, at connection:
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies WebSocketServer, server, verifyToken; this excerpt does not repeat those declarations."}
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
@@ -88,7 +88,7 @@ ticket fetched over HTTP first.
 
 Keep the authenticated identity in a per-connection map, not on the gateway instance. The gateway is a singleton shared by every socket; a field assigned per connection is a cross-user data leak.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 const users = new WeakMap<WebSocket, User>();
 ```
 
@@ -96,7 +96,7 @@ const users = new WeakMap<WebSocket, User>();
 
 Not provided. There is no socket registry, no rooms, no `server.to(room).emit(...)` — a dispatcher returns a value to _its_ caller and knows nothing about other connections. Keep your own map:
 
-```ts
+```ts {"mode":"compile","id":"example-005"}
 const rooms = new Map<string, Set<WebSocket>>();
 
 function broadcast(room: string, message: unknown) {
@@ -129,7 +129,7 @@ it is in the package. That is the same trade as `WebApplication` having no `list
 
 The natural home for stateful sockets at the edge, and the dispatcher works there unchanged:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies ChatGateway, WebSocketPair, assert, createGatewayDispatcher; this excerpt does not repeat those declarations."}
 export class Room {
   #dispatch = createGatewayDispatcher(new ChatGateway());
 

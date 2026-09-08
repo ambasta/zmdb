@@ -17,7 +17,7 @@ and emitter remain public library APIs when a caller needs a different destinati
 
 1. **Generate a reviewed starting point in a staging directory.**
 
-   ```ts
+   ```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
    import { mkdir, writeFile } from 'node:fs/promises';
    import { dirname, join } from 'node:path';
 
@@ -42,7 +42,7 @@ and emitter remain public library APIs when a caller needs a different destinati
 
 2. **Take a baseline snapshot** so future diffs start from reality rather than from empty:
 
-   ```ts
+   ```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies LegacyUser, schemaOf, snapshot, writeFile; this excerpt does not repeat those declarations."}
    await writeFile('migrations/snapshot.json', JSON.stringify(snapshot([schemaOf<LegacyUser>()]), null, 2));
    ```
 
@@ -50,7 +50,7 @@ and emitter remain public library APIs when a caller needs a different destinati
 
 3. **Compare the reviewed declaration with the catalog snapshot.** Everything downstream — DDL, DTOs, validators, and OpenAPI — inherits a declaration mistake, so check both directions:
 
-   ```ts
+   ```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies LegacyUser, driver, schemaOf; this excerpt does not repeat those declarations."}
    import { detectDrift } from '@zmdb/migrations/introspect';
    import { postgres } from '@zmdb/postgres';
    import { snapshot } from 'zmdb/migrations';

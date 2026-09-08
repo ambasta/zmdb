@@ -3,7 +3,7 @@ constructs a pool or opens a connection.
 
 ## With `node-postgres`
 
-```ts
+```ts {"mode":"compile","id":"example-001"}
 import { Pool } from 'pg';
 import { postgresDriver } from '@zmdb/postgres';
 
@@ -22,7 +22,7 @@ export const driver = postgresDriver(pool, { cancelVia: pool });
 
 `postgres.js` prefers tagged templates, but its `unsafe` method takes text and parameters, which is what a compiled query is:
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies Driver, requireEnv; this excerpt does not repeat those declarations."}
 import postgres from 'postgres';
 
 const sql = postgres(requireEnv('DATABASE_URL'), { max: 10 });
@@ -41,7 +41,7 @@ first query.
 
 ## Using it
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies driver, users; this excerpt does not repeat those declarations."}
 import { defineRepository } from '@zmdb/orm';
 
 const repo = defineRepository(users, driver);
@@ -61,7 +61,7 @@ front — see below.
 
 Prepared statements are opt-in in `postgresDriver`. Keep the default when a proxy cannot preserve named statements for a backend session:
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies Pool, postgresDriver; this excerpt does not repeat those declarations."}
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, statement_timeout: 5_000 });
 const driver = postgresDriver(pool); // prepared defaults to false
 ```
@@ -73,7 +73,7 @@ session variable you rely on.
 
 A transaction needs one pinned connection; a pool is free to use any. `postgresDriver(pool).transaction()` checks out one client for the whole callback and releases it in `finally`:
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 await driver.transaction(async transaction => {
   await transaction.execute({ text: 'SET LOCAL statement_timeout = 5000', parameters: [] });
   // every query here uses the same checked-out client
@@ -86,14 +86,14 @@ The adapter owns only the checkout/release lifecycle for that callback. Pool con
 
 Managed providers require TLS. Do not disable verification:
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies Pool; this excerpt does not repeat those declarations."}
 new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: true } });
 ```
 
 `ssl: { rejectUnauthorized: false }` appears in a lot of tutorials and it turns TLS into obfuscation — it encrypts the connection and accepts any certificate, so it does not protect against the attack
 TLS exists to prevent. If you need a provider's CA, pass it:
 
-```ts
+```ts {"mode":"illustrative","id":"example-007","reason":"The surrounding example supplies readFileSync; this excerpt does not repeat those declarations."}
 ssl: {
   ca: readFileSync('./ca.pem', 'utf8');
 }
@@ -101,7 +101,7 @@ ssl: {
 
 ## Health check
 
-```ts
+```ts {"mode":"illustrative","id":"example-008","reason":"The surrounding example supplies driver; this excerpt does not repeat those declarations."}
 export async function ping(): Promise<boolean> {
   try {
     await driver.execute({ text: 'SELECT 1', parameters: [] });

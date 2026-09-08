@@ -5,7 +5,7 @@ eliminating drift between your API contracts and database queries.
 
 Filter rows with column-level operators. Types are inferred from your schema.
 
-```ts
+```ts {"mode":"illustrative","id":"example-001","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { compileWhere } from '@zmdb/orm/dto';
 import { type WhereDTO } from '@zmdb/schema/dto';
 
@@ -31,7 +31,7 @@ SELECT * FROM "users" WHERE
 
 Specify columns and direction with compile-time type checking.
 
-```ts
+```ts {"mode":"illustrative","id":"example-002","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { applyOrderBy } from '@zmdb/orm/dto';
 import { type OrderByDTO } from '@zmdb/schema/dto';
 
@@ -47,7 +47,7 @@ const orderBy: OrderByDTO<User> = [
 
 Both offset and cursor-based pagination are supported.
 
-```ts
+```ts {"mode":"illustrative","id":"example-003","reason":"The surrounding example supplies User; this excerpt does not repeat those declarations."}
 import { applyPagination } from '@zmdb/orm/dto';
 import { type PaginationDTO } from '@zmdb/schema/dto';
 
@@ -65,7 +65,7 @@ const cursorPage: PaginationDTO<User> = {
 
 Narrow results to specific columns with optional population.
 
-```ts
+```ts {"mode":"illustrative","id":"example-004","reason":"The surrounding example supplies GetOptions, User; this excerpt does not repeat those declarations."}
 const opts: GetOptions<User> = {
   select: ['id', 'email'] as const,
   populate: ['orders'],
@@ -77,7 +77,7 @@ const opts: GetOptions<User> = {
 
 Full-featured list queries with filtering, sorting, pagination.
 
-```ts
+```ts {"mode":"illustrative","id":"example-005","reason":"The surrounding example supplies ListDTO, User, rows; this excerpt does not repeat those declarations."}
 import { buildListResult, type ListResult } from '@zmdb/schema/dto';
 
 const listDto: ListDTO<User> = {
@@ -97,7 +97,7 @@ const result = buildListResult(rows, { limit: 20 });
 
 Full-text search with ranking scores.
 
-```ts
+```ts {"mode":"illustrative","id":"example-006","reason":"The surrounding example supplies SearchDTO, User, rows; this excerpt does not repeat those declarations."}
 import { buildSearchResult, type SearchResult } from '@zmdb/schema/dto';
 
 const searchDto: SearchDTO<User> = {
@@ -115,7 +115,7 @@ const searchResult: SearchResult<User> = buildSearchResult(rows, { limit: 10 });
 
 Use `project()` to narrow row types at runtime.
 
-```ts
+```ts {"mode":"compile","id":"example-007"}
 import { project } from '@zmdb/schema/dto';
 
 const row = { id: 1, email: 'a@b.com', role: 'admin' };
