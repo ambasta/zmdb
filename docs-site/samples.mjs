@@ -178,6 +178,8 @@ function executeSample(directory, sample) {
     process.execPath,
     [
       '--permission',
+      '--import',
+      "data:text/javascript,if(typeof process!=='undefined'&&process.permission&&!process.permission.has('net')){if(globalThis.fetch)globalThis.fetch=()=>{throw new Error('ERR_ACCESS_DENIED: Access to net is denied')};}",
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,
       `--allow-fs-read=${realpathSync(join(root, 'packages'))}`,
