@@ -212,6 +212,9 @@ export function renderPredicate(
   }
 
   if (isDistanceOp(normalized)) {
+    if (!dialectTraits(dialect).vectorDistance) {
+      throw new UnsupportedFeatureError(normalized, dialectName(dialect));
+    }
     params.push(encodePgVector(p.value));
     return `${column} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
   }
