@@ -1,9 +1,10 @@
 import { addCase } from '../../benchmarks';
-import { aotEquals, aotIs, aotParseSafe, aotParseStrict } from './build';
+import { aotEquals, aotIs, aotParseStrict } from './build';
 
 // zmdb with the AOT transformer applied — the path a production build takes. The
 // validators in ./build are transformer output; see src/index.ts.
-addCase('zmdb-aot', 'parseSafe', data => aotParseSafe(data));
+// Upstream parseSafe must remove unknown root and nested keys. The public
+// validator preserves its input, so that unsupported cell is not registered.
 
 addCase('zmdb-aot', 'parseStrict', data => aotParseStrict(data));
 
