@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -128,7 +128,12 @@ async function publishPackage(root, options, release) {
     for (const member of ['dist', 'src', 'README.md', 'LICENSE']) {
       cpSync(join(directory, member), join(stage, member), { recursive: true, dereference: true });
     }
-    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(manifest), null, 2)}\n`);
+    const ignore = join(directory, '.npmignore');
+    if (existsSync(ignore)) cpSync(ignore, join(stage, '.npmignore'));
+    const stagedManifest = publishManifest(manifest);
+    // Staging already bounds the payload; a files allowlist overrides root .npmignore.
+    delete stagedManifest.files;
+    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(stagedManifest, null, 2)}\n`);
     mkdirSync(packDestination, { recursive: true });
     const packed = runNpm(['pack', '--json', '--pack-destination', packDestination], { cwd: stage });
     if (packed.status !== 0) fail(`npm pack failed for ${options.packageName}: ${output(packed)}`);
