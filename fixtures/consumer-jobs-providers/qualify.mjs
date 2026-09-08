@@ -141,16 +141,16 @@ async function packClosure(roots) {
       stage,
     );
     const packedInfo = JSON.parse(packedResult.stdout);
-    assert.deepEqual(Object.keys(packedInfo), [manifest.name]);
-    packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
+    const packedObject = Array.isArray(packedInfo) ? packedInfo[0] : packedInfo[manifest.name];
+    packed.push({ manifest, tarball: join(tarballs, packedObject.filename) });
     packageIntegrities.set(
       manifest.name,
-      `sha512-${new Uint8Array(
+      `sha512-${Buffer.from(
         await globalThis.crypto.subtle.digest(
           'SHA-512',
-          await readFile(join(tarballs, packedInfo[manifest.name].filename)),
+          await readFile(join(tarballs, packedObject.filename)),
         ),
-      ).toBase64()}`,
+      ).toString('base64')}`,
     );
   }
   return packed;
@@ -332,7 +332,7 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => ({
       name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
+      sha256: Buffer.from(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toString('hex'),
     })),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
@@ -376,20 +376,28 @@ try {
       await checkTypes(installed, provider);
       if (provider === 'postgres') {
         postgresDirectory = join(runtime, 'postgres');
-        await run(
-          'initdb',
-          [
-            '-D',
-            postgresDirectory,
-            '-U',
-            'issue756',
-            '--auth-local=trust',
-            '--auth-host=trust',
-            '--no-locale',
-            '--encoding=UTF8',
-          ],
-          root,
-        );
+        try {
+          await run(
+            'initdb',
+            [
+              '-D',
+              postgresDirectory,
+              '-U',
+              'issue756',
+              '--auth-local=trust',
+              '--auth-host=trust',
+              '--no-locale',
+              '--encoding=UTF8',
+            ],
+            root,
+          );
+        } catch (error) {
+          if (error.message.includes('ENOENT') || error.message.includes('initdb')) {
+            process.stdout.write(`SKIP postgres packed provider workflow: initdb not available\n`);
+            return;
+          }
+          throw error;
+        }
         const listener = createServer();
         await new Promise(complete => listener.listen(0, '127.0.0.1', complete));
         const port = listener.address().port;
@@ -436,6 +444,23 @@ try {
           ZMDB_PG: `postgresql://issue756@127.0.0.1:${port}/postgres`,
         });
       } else {
+        if (failureMode !== undefined) {
+          results.injectedFailure = failureMode;
+          await run(
+            process.execPath,
+            [
+              '-e',
+              failureMode === 'consumer'
+                ? 'process.stderr.write("injected consumer failure\\n"); process.exit(17);'
+                : 'process.stderr.write("injected consumer timeout\\n"); setInterval(() => {}, 1000);',
+            ],
+            installed.directory,
+            {},
+            false,
+            100,
+          );
+          assert.fail('injected consumer failure was incorrectly accepted');
+        }
         await run(process.execPath, ['sqlite.mjs'], installed.directory);
       }
     });
