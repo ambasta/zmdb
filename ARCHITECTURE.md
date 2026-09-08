@@ -475,7 +475,6 @@ Package manifests declare dependencies and public entries. Build, release and do
 Package changes follow [CONTRIBUTING.md](./CONTRIBUTING.md#package-and-dependency-changes). Relative source imports retain NodeNext `.js` specifiers, and `allowImportingTsExtensions` remains `false`.
 Release groups and version ranges come from [release policy](./scripts/release/policy.mjs); release operations are documented in [PUBLISHING.md](./PUBLISHING.md).
 
-
 ### 3.11 Frozen tooling-package target and compiler extraction (#626, #628)
 
 Issue #626 freezes the implementation-package boundary beneath the one-product facade in §3.9. Issue #628 implements the compiler/config slice: compiler logic no longer lives in `@zmdb/validator`.
