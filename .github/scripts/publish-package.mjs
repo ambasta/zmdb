@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { loadArchitecture } from '../../scripts/architecture/index.mjs';
-import { releaseModel } from '../../scripts/release/model.mjs';
+import { createReleasePlan, releaseModel } from '../../scripts/release/model.mjs';
+import { publishManifest } from './lib/publish-manifest.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -95,8 +96,16 @@ function verifyManifest(root, options, release) {
   if (entry.npmName !== options.packageName) {
     fail(`${options.directory} is governed as ${entry.npmName}, expected ${options.packageName}`);
   }
-  if (release.plan.version !== options.version) {
-    fail(`release train is ${release.plan.version}, expected ${options.version}`);
+  const target =
+    release.releasePolicy[entry.id].group === 'core'
+      ? { kind: 'core', version: options.version }
+      : { kind: 'package', id: entry.id, version: options.version };
+  const plan = createReleasePlan(release, target);
+  if (plan.version !== options.version || !plan.packages.includes(options.packageName)) {
+    fail(`${options.packageName}@${options.version} is absent from the selected release plan`);
+  }
+  if (plan.changelogEntry.trim().length === 0) {
+    fail(`CHANGELOG.md has no entry for ${plan.releaseId}@${options.version}`);
   }
   const manifest = entry.manifest;
   if (manifest.name !== options.packageName) {
@@ -105,25 +114,23 @@ function verifyManifest(root, options, release) {
   if (manifest.version !== options.version) {
     fail(`${options.packageName} is ${String(manifest.version)}, expected ${options.version}`);
   }
-  return directory;
+  return { directory, manifest };
 }
 
 async function publishPackage(root, options, release) {
-  const directory = verifyManifest(root, options, release);
-  if (options.dryRun) {
-    const packed = runNpm(['pack', '--dry-run'], { cwd: directory, stdio: 'inherit' });
-    if (packed.status !== 0) fail(`npm pack --dry-run failed for ${options.packageName}`);
-    return;
-  }
-
-  const ownedDestination = options.packDestination === undefined;
+  const { directory, manifest } = verifyManifest(root, options, release);
+  const scratch = mkdtempSync(join(tmpdir(), 'zmdb-release-pack-'));
+  const stage = join(scratch, 'package');
   const packDestination =
-    options.packDestination === undefined
-      ? mkdtempSync(join(tmpdir(), 'zmdb-release-pack-'))
-      : resolve(options.packDestination);
+    options.packDestination === undefined ? join(scratch, 'archives') : resolve(options.packDestination);
   try {
+    mkdirSync(stage);
+    for (const member of ['dist', 'src', 'README.md', 'LICENSE']) {
+      cpSync(join(directory, member), join(stage, member), { recursive: true, dereference: true });
+    }
+    writeFileSync(join(stage, 'package.json'), `${JSON.stringify(publishManifest(manifest), null, 2)}\n`);
     mkdirSync(packDestination, { recursive: true });
-    const packed = runNpm(['pack', '--json', '--pack-destination', packDestination], { cwd: directory });
+    const packed = runNpm(['pack', '--json', '--pack-destination', packDestination], { cwd: stage });
     if (packed.status !== 0) fail(`npm pack failed for ${options.packageName}: ${output(packed)}`);
     const report = parsePackReport(packed.stdout);
     if (report.name !== undefined && report.name !== options.packageName) {
@@ -137,6 +144,11 @@ async function publishPackage(root, options, release) {
       typeof report.integrity === 'string' && report.integrity.startsWith('sha512-')
         ? report.integrity
         : await fileIntegrity(tarball);
+
+    if (options.dryRun) {
+      console.log(JSON.stringify({ ...report, tarball, dryRun: true }, null, 2));
+      return;
+    }
 
     const registry = runNpm(['view', `${options.packageName}@${options.version}`, 'dist.integrity', '--json'], {
       cwd: root,
@@ -161,7 +173,7 @@ async function publishPackage(root, options, release) {
     });
     if (published.status !== 0) fail(`npm publish failed for ${options.packageName}@${options.version}`);
   } finally {
-    if (ownedDestination) rmSync(packDestination, { recursive: true, force: true });
+    rmSync(scratch, { recursive: true, force: true });
   }
 }
 
