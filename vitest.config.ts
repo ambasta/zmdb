@@ -46,6 +46,7 @@ const integrationTests = [
 export default defineConfig({
   plugins: [stage3Decorators()],
   test: {
+    setupFiles: ['./scripts/vitest-setup.ts'],
     projects: [
       {
         extends: true,
