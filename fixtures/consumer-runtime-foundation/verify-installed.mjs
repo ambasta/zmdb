@@ -19,7 +19,13 @@ const DEPENDENCIES = {
 const TYPES = { typescript: '7.0.2', '@types/node': '26.4.1' };
 const sha = async (bytes, algorithm = 'SHA-256', encoding = 'hex') => {
   const digest = new Uint8Array(await crypto.subtle.digest(algorithm, bytes));
-  return encoding === 'hex' ? digest.toHex() : digest.toBase64();
+  if (encoding === 'hex') {
+    return typeof digest.toHex === 'function'
+      ? digest.toHex()
+      : Array.from(digest, b => b.toString(16).padStart(2, '0')).join('');
+  }
+  // oxlint-disable-next-line no-restricted-globals
+  return typeof digest.toBase64 === 'function' ? digest.toBase64() : btoa(String.fromCharCode(...digest));
 };
 const inside = (parent, child) => {
   const path = relative(parent, child);

@@ -7,6 +7,16 @@ import { pathToFileURL } from 'node:url';
 
 import { startRegistry } from './registry.mjs';
 
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function'
+    ? bytes.toHex()
+    : Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+function toBase64(bytes) {
+  // oxlint-disable-next-line no-restricted-globals
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : btoa(String.fromCharCode(...bytes));
+}
+
 const source = import.meta.dirname;
 const rootArgument = process.argv.indexOf('--root');
 const root = resolve(rootArgument < 0 ? join(source, '../..') : process.argv[rootArgument + 1]);
@@ -145,12 +155,14 @@ async function packClosure(roots) {
     packed.push({ manifest, tarball: join(tarballs, packedInfo[manifest.name].filename) });
     packageIntegrities.set(
       manifest.name,
-      `sha512-${new Uint8Array(
-        await globalThis.crypto.subtle.digest(
-          'SHA-512',
-          await readFile(join(tarballs, packedInfo[manifest.name].filename)),
+      `sha512-${toBase64(
+        new Uint8Array(
+          await globalThis.crypto.subtle.digest(
+            'SHA-512',
+            await readFile(join(tarballs, packedInfo[manifest.name].filename)),
+          ),
         ),
-      ).toBase64()}`,
+      )}`,
     );
   }
   return packed;
@@ -332,7 +344,7 @@ try {
   results.tarballs = await Promise.all(
     packed.map(async entry => ({
       name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
+      sha256: toHex(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)))),
     })),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {

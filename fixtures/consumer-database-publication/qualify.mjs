@@ -10,6 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { publishCatalog, publishManifest } from '../../.github/scripts/lib/publish-manifest.mjs';
 import { cleanEnvironment, command } from '../consumer-cli/registry.mjs';
 import { startRegistry } from '../consumer-jobs-providers/registry.mjs';
+
+function toBase64(bytes) {
+  // oxlint-disable-next-line no-restricted-globals
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : btoa(String.fromCharCode(...bytes));
+}
 import {
   CLIENTS,
   DATABASES,
@@ -183,7 +188,7 @@ try {
   const integrities = {};
   for (const [name, record] of tarballs) {
     const bytes = await readFile(record.tarball);
-    integrities[name] = `sha512-${new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)).toBase64()}`;
+    integrities[name] = `sha512-${toBase64(new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)))}`;
     report.packages.push({ name, version: record.manifest.version, integrity: integrities[name] });
   }
   registry = await startRegistry([...tarballs.values()]);

@@ -1,5 +1,7 @@
 import type { ResolvedConfig } from '@zmdb/compiler/config';
 
+import { SuppressedErrorClass as SuppressedError } from './errors.js';
+
 /** Own only the driver requested during this invocation, including non-enumerable disposal methods. */
 export async function withConfiguredDriver<T>(
   config: ResolvedConfig,

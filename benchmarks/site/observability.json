@@ -37,7 +37,7 @@
       },
       {
         "path": "packages/sql/src/index.ts",
-        "sha256": "62bfed37499bc9e6b32768a339e8c85d11917add48f17fe7801ba9713d9c02e5"
+        "sha256": "09a8e103680acb9d1d925008db26ecc5be34a54349fe7c4546f5286f0b106347"
       },
       {
         "path": "packages/orm/package.json",
@@ -45,7 +45,7 @@
       },
       {
         "path": "packages/orm/src/index.ts",
-        "sha256": "df09c817ba245dad67feb5e6aa9817bf67458070270340c866d9769a8137a1cc"
+        "sha256": "cae06dedbfa04ed8c63948405c2de0cdcc5bfe0fd60a3d5b39e2d8f2ac78d591"
       },
       {
         "path": "packages/app/package.json",

@@ -10,6 +10,8 @@ import { createApp, type WebApplication } from '@zmdb/web/app';
 import { describeGraph, renderTree, type GraphDescription } from '@zmdb/web/devtools';
 import type { WebRequest, WebResponse } from '@zmdb/web/pipeline';
 
+import { SuppressedErrorClass as SuppressedError } from './errors.js';
+
 export interface ReplGet {
   <T>(token: Token<T>): T;
   (description: string): unknown;

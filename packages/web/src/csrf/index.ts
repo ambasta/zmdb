@@ -48,6 +48,79 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
   return new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', key, value));
 }
 
+const BASE64URL_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+if (typeof (Uint8Array.prototype as { toBase64?: unknown }).toBase64 !== 'function') {
+  (
+    Uint8Array.prototype as unknown as {
+      toBase64: (this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }) => string;
+    }
+  ).toBase64 = function (this: Uint8Array, options?: { alphabet?: string; omitPadding?: boolean }): string {
+    const alphabet = options?.alphabet === 'base64url' ? BASE64URL_CHARS : BASE64_CHARS;
+    const omitPadding = options?.omitPadding ?? false;
+    let result = '';
+    const len = this.length;
+    let i = 0;
+    while (i < len) {
+      const b1 = this[i++] ?? 0;
+      const b2 = i < len ? (this[i++] ?? Number.NaN) : Number.NaN;
+      const b3 = i < len ? (this[i++] ?? Number.NaN) : Number.NaN;
+
+      const c1 = b1 >> 2;
+      const c2 = ((b1 & 3) << 4) | (Number.isNaN(b2) ? 0 : b2 >> 4);
+      const c3 = Number.isNaN(b2) ? 64 : ((b2 & 15) << 2) | (Number.isNaN(b3) ? 0 : b3 >> 6);
+      const c4 = Number.isNaN(b3) ? 64 : b3 & 63;
+
+      result += alphabet[c1] ?? '';
+      result += alphabet[c2] ?? '';
+      if (c3 !== 64) result += alphabet[c3] ?? '';
+      else if (!omitPadding) result += '=';
+      if (c4 !== 64) result += alphabet[c4] ?? '';
+      else if (!omitPadding) result += '=';
+    }
+    return result;
+  };
+}
+
+if (typeof (Uint8Array as { fromBase64?: unknown }).fromBase64 !== 'function') {
+  (
+    Uint8Array as unknown as { fromBase64: (string: string, options?: { alphabet?: string }) => Uint8Array }
+  ).fromBase64 = function (string: string, options?: { alphabet?: string }): Uint8Array {
+    const isUrl = options?.alphabet === 'base64url';
+    const alphabet = isUrl ? BASE64URL_CHARS : BASE64_CHARS;
+    const lookup = new Int32Array(256).fill(-1);
+    for (let i = 0; i < alphabet.length; i++) lookup[alphabet.charCodeAt(i) ?? 0] = i;
+
+    const str = string.replace(/=+$/, '');
+    const bytes: number[] = [];
+    let i = 0;
+    while (i < str.length) {
+      const charCode1 = str.charCodeAt(i++);
+      const c1 = lookup[charCode1] ?? -1;
+      const charCode2 = i < str.length ? str.charCodeAt(i++) : 0;
+      const c2 = i - 1 < str.length ? (lookup[charCode2] ?? -1) : -1;
+      const charCode3 = i < str.length ? str.charCodeAt(i++) : 0;
+      const c3 = i - 1 < str.length ? (lookup[charCode3] ?? -1) : -1;
+      const charCode4 = i < str.length ? str.charCodeAt(i++) : 0;
+      const c4 = i - 1 < str.length ? (lookup[charCode4] ?? -1) : -1;
+
+      if (c1 < 0 || (c2 < 0 && i - 1 < str.length)) throw new SyntaxError('Invalid base64 string');
+      const b1 = (c1 << 2) | (c2 >> 4);
+      bytes.push(b1);
+      if (c3 >= 0) {
+        const b2 = ((c2 & 15) << 4) | (c3 >> 2);
+        bytes.push(b2);
+        if (c4 >= 0) {
+          const b3 = ((c3 & 3) << 6) | c4;
+          bytes.push(b3);
+        }
+      }
+    }
+    return Uint8Array.from(bytes);
+  };
+}
+
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
   return value.toBase64({ alphabet: 'base64url', omitPadding: true });
 }

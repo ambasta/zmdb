@@ -11,6 +11,16 @@ import { inspectInstalledConsumer, ROOTS } from './verify-installed.mjs';
 const source = import.meta.dirname;
 const providerSource = resolve(source, '../consumer-jobs-providers');
 
+function toHex(bytes) {
+  return typeof bytes.toHex === 'function'
+    ? bytes.toHex()
+    : Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+function toBase64(bytes) {
+  // oxlint-disable-next-line no-restricted-globals
+  return typeof bytes.toBase64 === 'function' ? bytes.toBase64() : btoa(String.fromCharCode(...bytes));
+}
+
 export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
   assert(failureMode === undefined || failureMode === 'consumer' || failureMode === 'timeout');
   const directory = await mkdtemp(join(resolve(source, '../../..'), 'selected-jobs-qualification-'));
@@ -77,10 +87,10 @@ export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
     report.tarballs = [];
     for (const entry of tarballs) {
       const bytes = await readFile(entry.tarball);
-      const sha256 = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)).toHex();
+      const sha256 = toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
       integrities.set(
         entry.manifest.name,
-        `sha512-${new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)).toBase64()}`,
+        `sha512-${toBase64(new Uint8Array(await crypto.subtle.digest('SHA-512', bytes)))}`,
       );
       report.tarballs.push({ name: entry.manifest.name, version: entry.manifest.version, sha256 });
     }
