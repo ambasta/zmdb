@@ -93,61 +93,30 @@ export function createNatsStrategy(options: NatsStrategyOptions): TransportStrat
       const nextSubscriptions: Subscription[] = [];
       try {
         for (const subscription of subscriptions) {
-          const opened = nextConnection.subscribe(
-            subscription.subject,
-            subscription.queue === undefined
-              ? {
-                  callback(error, message): void {
-                    if (error !== null) {
-                      reportTransportError(options.onError, error);
-                      return;
-                    }
-                    void inFlight.run(async () => {
-                      if (!matcher.matches(message.subject)) {
-                        throw new Error(
-                          `@zmdb/transport-nats: NATS delivered unsubscribed subject "${message.subject}"`,
-                        );
-                      }
-                      const delivery = decodeDelivery(
-                        message.subject,
-                        message.string(),
-                        1,
-                        message.reply === undefined ? {} : { replyTo: message.reply },
-                      );
-                      const outcome = await dispatch(delivery);
-                      if (outcome.reply !== undefined && !message.respond(bytes(encodeReply(outcome.reply)))) {
-                        throw new Error('@zmdb/transport-nats: NATS request has no reply subject');
-                      }
-                    });
-                  },
+          const opened = nextConnection.subscribe(subscription.subject, {
+            ...(subscription.queue === undefined ? {} : { queue: subscription.queue }),
+            callback(error, message): void {
+              if (error !== null) {
+                reportTransportError(options.onError, error);
+                return;
+              }
+              void inFlight.run(async () => {
+                if (!matcher.matches(message.subject)) {
+                  throw new Error(`@zmdb/transport-nats: NATS delivered unsubscribed subject "${message.subject}"`);
                 }
-              : {
-                  queue: subscription.queue,
-                  callback(error, message): void {
-                    if (error !== null) {
-                      reportTransportError(options.onError, error);
-                      return;
-                    }
-                    void inFlight.run(async () => {
-                      if (!matcher.matches(message.subject)) {
-                        throw new Error(
-                          `@zmdb/transport-nats: NATS delivered unsubscribed subject "${message.subject}"`,
-                        );
-                      }
-                      const delivery = decodeDelivery(
-                        message.subject,
-                        message.string(),
-                        1,
-                        message.reply === undefined ? {} : { replyTo: message.reply },
-                      );
-                      const outcome = await dispatch(delivery);
-                      if (outcome.reply !== undefined && !message.respond(bytes(encodeReply(outcome.reply)))) {
-                        throw new Error('@zmdb/transport-nats: NATS request has no reply subject');
-                      }
-                    });
-                  },
-                },
-          );
+                const delivery = decodeDelivery(
+                  message.subject,
+                  message.string(),
+                  1,
+                  message.reply === undefined ? {} : { replyTo: message.reply },
+                );
+                const outcome = await dispatch(delivery);
+                if (outcome.reply !== undefined && !message.respond(bytes(encodeReply(outcome.reply)))) {
+                  throw new Error('@zmdb/transport-nats: NATS request has no reply subject');
+                }
+              });
+            },
+          });
           nextSubscriptions.push(opened);
         }
         await nextConnection.flush();
