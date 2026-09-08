@@ -169,6 +169,9 @@ export function renderPredicate(dialect: DialectTarget, p: Predicate, params: un
   }
 
   if (isDistanceOp(normalized)) {
+    if (!dialectTraits(dialect).vectorDistance) {
+      throw new UnsupportedFeatureError(normalized, dialectName(dialect));
+    }
     params.push(encodePgVector(p.value));
     return `${quoteColumn(dialect, p.col)} ${sqlOp} ${formatPlaceholder(dialect, params.length)}`;
   }
