@@ -10,6 +10,8 @@ import { createApp, type WebApplication } from '@zmdb/web/app';
 import { describeGraph, renderTree, type GraphDescription } from '@zmdb/web/devtools';
 import type { WebRequest, WebResponse } from '@zmdb/web/pipeline';
 
+import { makeSuppressedError } from './errors.js';
+
 export interface ReplGet {
   <T>(token: Token<T>): T;
   (description: string): unknown;
@@ -72,7 +74,7 @@ export async function createReplSession(rootModule: ModuleClass, options: ReplSe
     try {
       await app[Symbol.asyncDispose]();
     } catch (cleanupError) {
-      throw new SuppressedError(cleanupError, error, 'REPL operation and application cleanup failed');
+      throw makeSuppressedError(cleanupError, error, 'REPL operation and application cleanup failed');
     }
     throw error;
   }
@@ -158,7 +160,7 @@ export async function createReplSession(rootModule: ModuleClass, options: ReplSe
           await app[Symbol.asyncDispose]();
         } catch (cleanupError) {
           if (!outcome.ok)
-            throw new SuppressedError(cleanupError, outcome.error, 'REPL close and application cleanup failed');
+            throw makeSuppressedError(cleanupError, outcome.error, 'REPL close and application cleanup failed');
           throw cleanupError;
         }
         if (!outcome.ok) throw outcome.error;
@@ -169,7 +171,7 @@ export async function createReplSession(rootModule: ModuleClass, options: ReplSe
     try {
       await app[Symbol.asyncDispose]();
     } catch (cleanupError) {
-      throw new SuppressedError(cleanupError, error, 'REPL operation and application cleanup failed');
+      throw makeSuppressedError(cleanupError, error, 'REPL operation and application cleanup failed');
     }
     throw error;
   }
