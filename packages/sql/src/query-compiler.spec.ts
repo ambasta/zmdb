@@ -1,4 +1,13 @@
-import { OP_MAP, chunkArray, createQueryCompiler, distance, sanitizeKeys, stContains, stDWithin } from '@zmdb/sql';
+import {
+  OP_MAP,
+  QueryCompilerError,
+  chunkArray,
+  createQueryCompiler,
+  distance,
+  sanitizeKeys,
+  stContains,
+  stDWithin,
+} from '@zmdb/sql';
 import { describe, it, expect } from 'vitest';
 
 import { mysqlDialect, officialDialects, postgresDialect, sqliteDialect } from './testing/official-dialects.fixture.js';
@@ -393,6 +402,13 @@ describe('conflict resolution compilation (PostgreSQL, MySQL, SQLite)', () => {
         .onConflict('id')
         .doUpdate([]);
     }).toThrow('Empty updateFields array is not allowed in doUpdate()');
+  });
+});
+
+describe('query compiler validation & guardrails', () => {
+  it('rejects non-array values for in operator', () => {
+    const qb = createQueryCompiler(postgresDialect);
+    expect(() => qb.selectFrom('users').where('id', 'in', 1 as unknown)).toThrow(QueryCompilerError);
   });
 });
 

@@ -177,6 +177,7 @@ function executeSample(directory, sample) {
   const result = spawnSync(
     process.execPath,
     [
+      '--import=data:text/javascript,import http from "node:http"; import https from "node:https"; import net from "node:net"; globalThis.fetch = () => { throw new Error("network access forbidden"); }; net.connect = net.Socket.prototype.connect = () => { throw new Error("network access forbidden"); }; http.request = http.get = https.request = https.get = () => { throw new Error("network access forbidden"); };',
       '--permission',
       `--allow-fs-read=${directory}`,
       `--allow-fs-read=${realpathSync(join(root, 'node_modules'))}`,

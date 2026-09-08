@@ -49,19 +49,68 @@ async function sign(key: CryptoKey, value: Uint8Array<ArrayBuffer>): Promise<Uin
 }
 
 function encodeBase64Url(value: Uint8Array<ArrayBuffer>): string {
-  return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  if (typeof value.toBase64 === 'function') {
+    return value.toBase64({ alphabet: 'base64url', omitPadding: true });
+  }
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  let str = '';
+  let i = 0;
+  for (; i + 2 < value.length; i += 3) {
+    const b0 = value[i] ?? 0;
+    const b1 = value[i + 1] ?? 0;
+    const b2 = value[i + 2] ?? 0;
+    const triple = (b0 << 16) | (b1 << 8) | b2;
+    str +=
+      (chars[(triple >> 18) & 63] ?? '') +
+      (chars[(triple >> 12) & 63] ?? '') +
+      (chars[(triple >> 6) & 63] ?? '') +
+      (chars[triple & 63] ?? '');
+  }
+  if (i < value.length) {
+    const b0 = value[i] ?? 0;
+    const b1 = value[i + 1] ?? 0;
+    const triple = (b0 << 16) | (b1 << 8);
+    str += (chars[(triple >> 18) & 63] ?? '') + (chars[(triple >> 12) & 63] ?? '');
+    if (i + 1 < value.length) {
+      str += chars[(triple >> 6) & 63] ?? '';
+    }
+  }
+  return str;
 }
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> | undefined {
   if (value.length === 0 || !BASE64URL.test(value)) {
     return undefined;
   }
-  try {
-    const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
-    return encodeBase64Url(decoded) === value ? decoded : undefined;
-  } catch {
-    return undefined;
+  if (typeof Uint8Array.fromBase64 === 'function') {
+    try {
+      const decoded = Uint8Array.fromBase64(value, { alphabet: 'base64url' });
+      return encodeBase64Url(decoded) === value ? decoded : undefined;
+    } catch {
+      return undefined;
+    }
   }
+  const lookup = new Int8Array(128).fill(-1);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i;
+
+  const buf = new Uint8Array(Math.floor((value.length * 3) / 4));
+  let bits = 0;
+  let count = 0;
+  let outIdx = 0;
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    const val = code < 128 ? (lookup[code] ?? -1) : -1;
+    if (val === -1) return undefined;
+    bits = (bits << 6) | val;
+    count += 6;
+    if (count >= 8) {
+      count -= 8;
+      buf[outIdx++] = (bits >> count) & 0xff;
+    }
+  }
+  const decoded = buf.subarray(0, outIdx);
+  return encodeBase64Url(decoded) === value ? decoded : undefined;
 }
 
 function xorMask(value: Uint8Array<ArrayBuffer>, mask: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {

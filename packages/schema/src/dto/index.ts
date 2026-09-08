@@ -1,5 +1,6 @@
 import { type DeclaredTable, type RelationKeys } from '../derive/index.js';
 import { type Entity } from '../index.js';
+import type { Table } from '../tags/index.js';
 
 // ---------------------------------------------------------------------------
 // WhereDTO + operator set
@@ -14,7 +15,7 @@ import { type Entity } from '../index.js';
  * `Record<string, unknown>` so that it stays the one corner of the query surface that is
  * keyed by string; everything else is keyed by the interface the table was declared as.
  */
-export interface UnknownRow {
+export interface UnknownRow extends Table<string> {
   readonly [column: string]: string | number | boolean | bigint | Date | null;
 }
 export type SubqueryTarget<V = unknown> =
@@ -39,23 +40,75 @@ type VectorOperand<V> =
     ? readonly number[]
     : never;
 
-export interface FieldOps<V> {
+export type Operator =
+  | '='
+  | '!='
+  | '<'
+  | '<='
+  | '>'
+  | '>='
+  | 'in'
+  | 'not in'
+  | 'like'
+  | 'ilike'
+  | 'is null'
+  | 'is not null'
+  | 'l2'
+  | 'cosine'
+  | 'ip';
+
+export interface BaseFieldOps<V> {
   eq?: V | SubqueryTarget<V>;
   ne?: V | SubqueryTarget<V>;
+  isNull?: boolean;
+  notNull?: boolean;
+}
+
+export interface InFieldOps<V> {
+  in?: readonly V[] | SubqueryTarget<V>;
+  nin?: readonly V[] | SubqueryTarget<V>;
+}
+
+export interface RangeFieldOps<V> {
   lt?: V | SubqueryTarget<V>;
   lte?: V | SubqueryTarget<V>;
   gt?: V | SubqueryTarget<V>;
   gte?: V | SubqueryTarget<V>;
-  in?: readonly V[] | SubqueryTarget<V>;
-  nin?: readonly V[] | SubqueryTarget<V>;
-  like?: V extends string ? string | SubqueryTarget<string> : never;
-  ilike?: V extends string ? string | SubqueryTarget<string> : never;
   l2?: VectorOperand<V>;
   cosine?: VectorOperand<V>;
   ip?: VectorOperand<V>;
-  isNull?: boolean;
-  notNull?: boolean;
 }
+
+export interface PatternFieldOps {
+  like?: string | SubqueryTarget<string>;
+  ilike?: string | SubqueryTarget<string>;
+}
+
+export interface DisallowedInOps {
+  in?: never;
+  nin?: never;
+}
+
+export interface DisallowedRangeOps {
+  lt?: never;
+  lte?: never;
+  gt?: never;
+  gte?: never;
+}
+
+export interface DisallowedPatternOps {
+  like?: never;
+  ilike?: never;
+}
+
+export type FieldOps<V, U = NonNullable<V>> = BaseFieldOps<V> &
+  ([U] extends [boolean]
+    ? InFieldOps<V> & DisallowedRangeOps & DisallowedPatternOps
+    : [U] extends [number | bigint | Date]
+      ? InFieldOps<V> & RangeFieldOps<V> & DisallowedPatternOps
+      : [U] extends [string]
+        ? InFieldOps<V> & RangeFieldOps<V> & PatternFieldOps
+        : InFieldOps<V> & RangeFieldOps<V> & PatternFieldOps);
 
 export type WhereDTO<T extends DeclaredTable> = {
   [K in keyof Entity<T>]?: Entity<T>[K] | FieldOps<Entity<T>[K]>;
@@ -142,6 +195,13 @@ export function decodeCursor(cursor: string): Record<string, unknown> {
     const parsed = JSON.parse(json);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       throw new Error('Invalid cursor payload');
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
+      Object.prototype.hasOwnProperty.call(parsed, 'constructor') ||
+      Object.prototype.hasOwnProperty.call(parsed, 'prototype')
+    ) {
+      throw new Error('Invalid cursor payload: disallowed property');
     }
     // boundary: JSON.parse returns unknown (untrusted client payload); runtime check above proves parsed is a non-null, non-array object.
     return parsed as Record<string, unknown>;
@@ -272,31 +332,26 @@ export function buildListResult<Row extends Record<string, unknown>>(
   const select = opts?.select;
   const items = select ? kept.map(r => project(r, select)) : kept;
 
-  let computedCursor: string | undefined = opts?.cursor;
-  if (!computedCursor && hasMore && kept.length > 0) {
-    const lastRow = kept[kept.length - 1];
-    if (lastRow) {
-      const cursorObj: Record<string, unknown> = {};
-      const cols: { column: PropertyKey; dir?: OrderDir }[] = opts?.orderBy ? [...opts.orderBy] : [];
-      if (opts?.pkColumn && !cols.some(c => String(c.column) === opts.pkColumn)) {
-        cols.push({ column: opts.pkColumn, dir: 'asc' });
+  let cursor: string | undefined = opts?.cursor;
+  if (!cursor && hasMore && kept.length > 0 && opts?.orderBy && opts.orderBy.length > 0) {
+    const lastItem = kept[kept.length - 1];
+    if (lastItem) {
+      const payload: Record<string, unknown> = {};
+      for (const { column } of opts.orderBy) {
+        const colStr = String(column);
+        payload[colStr] = lastItem[colStr];
       }
-      for (const item of cols) {
-        if (!item) continue;
-        const colStr = String(item.column);
-        if (colStr in lastRow) {
-          cursorObj[colStr] = lastRow[colStr];
-        }
+      if (opts.pkColumn && !(opts.pkColumn in payload)) {
+        payload[opts.pkColumn] = lastItem[opts.pkColumn];
       }
-      if (Object.keys(cursorObj).length > 0) {
-        computedCursor = encodeCursor(cursorObj);
-      }
+      cursor = encodeCursor(payload);
     }
   }
+
   const result: ListResult<Row | Partial<Row>> = {
     items,
     hasMore,
-    ...(computedCursor !== undefined ? { cursor: computedCursor } : {}),
+    ...(cursor !== undefined ? { cursor } : {}),
   };
   return opts?.total !== undefined ? { ...result, total: opts.total } : result;
 }

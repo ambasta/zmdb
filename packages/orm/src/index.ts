@@ -76,6 +76,22 @@ import {
   type CacheStore,
 } from './cache/index.js';
 import { compileWhere, applyOrderBy, applyPagination, applyKeysetFilter, type WhereTarget } from './dto/index.js';
+
+const DTO_OP_MAP: Record<string, string> = {
+  eq: '=',
+  ne: '!=',
+  lt: '<',
+  lte: '<=',
+  gt: '>',
+  gte: '>=',
+  in: 'in',
+  nin: 'not in',
+  like: 'like',
+  ilike: 'ilike',
+  l2: 'l2',
+  cosine: 'cosine',
+  ip: 'ip',
+};
 import {
   applyResolvedFilters,
   filtersAsPredicates,
@@ -1403,7 +1419,7 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     const query = this.compileRead(
       'findOne',
       options,
-      () => this.limitOne(compileWhere(this.selectEntity(), where, column => this.physicalColumn(column))),
+      () => this.limitOne(compileWhere(this.selectEntity(), where, this.schema)),
       { additionalKnownNames: this.populateFilterNames(options?.populate) },
     );
     return this.firstResult(query, options, populateFilters);
@@ -1623,14 +1639,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   async find(where: WhereDTO<T>, opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async find(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
     const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
-    const query = this.compileRead(
-      'find',
-      opts,
-      () => compileWhere(this.selectEntity(), where, column => this.physicalColumn(column)),
-      {
-        additionalKnownNames: this.populateFilterNames(opts?.populate),
-      },
-    );
+    const query = this.compileRead('find', opts, () => compileWhere(this.selectEntity(), where, this.schema), {
+      additionalKnownNames: this.populateFilterNames(opts?.populate),
+    });
     const rows = await this.rows<EntityRow<T>>(query, opts);
     if (!opts?.populate?.length) return rows;
     return this.attachRelations(rows, opts.populate, opts, populateFilters);
@@ -2181,7 +2192,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
           const physicalColumn = this.aggregateColumn(col);
           if (val !== undefined && val !== null && typeof val === 'object' && !Array.isArray(val)) {
             for (const [op, opVal] of Object.entries(val)) {
-              builder = builder.where(physicalColumn, op === 'eq' ? '=' : op, opVal);
+              const mappedOp = DTO_OP_MAP[op];
+              if (!mappedOp) {
+                throw new ValidationError(`unknown filter operator "${op}"`, [
+                  { path: `where.${col}.${op}`, message: `unknown operator "${op}"` },
+                ]);
+              }
+              builder = builder.where(physicalColumn, mappedOp, opVal);
             }
           } else {
             builder = builder.where(physicalColumn, '=', val);
@@ -2634,7 +2651,27 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   private excessIssues(obj: Record<string, unknown>, variant: 'create' | 'update'): ValidationIssue[] {
     const { accepted } = this.payloadShape(variant);
     const issues: ValidationIssue[] = [];
+
+    const proto = Object.getPrototypeOf(obj);
+    if (proto !== null && proto !== Object.prototype) {
+      issues.push({
+        path: 'input.__proto__',
+        message: 'disallowed property "__proto__"',
+        expected: 'no excess properties',
+        value: proto,
+      });
+    }
+
     for (const key of Object.keys(obj)) {
+      if (key === 'constructor' || key === 'prototype') {
+        issues.push({
+          path: `input.${key}`,
+          message: `disallowed property "${key}"`,
+          expected: 'no excess properties',
+          value: obj[key],
+        });
+        continue;
+      }
       if (accepted.has(key)) continue;
       const column = this.schema.ir.columns.find(candidate => candidate.name === key);
       const message = !column

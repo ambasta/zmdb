@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "suite": "@zmdb/aot-validator populated-row shallow validation",
   "publicationStatus": "final",
-  "measuredAt": "2026-09-04T16:50:31.236Z",
-  "baseHead": "0fb44accf620aeff19cc8c14d5d4905b87ff11b5",
+  "measuredAt": "2026-09-05T12:49:30.922Z",
+  "baseHead": "ee5c526059780cc0e31fc4c6331f98a7f62a03a1",
   "dirty": true,
   "inputs": {
     "algorithm": "sha256",
@@ -30,7 +30,7 @@
       },
       {
         "path": "benchmarks/scripts/generate-validation-model.mjs",
-        "sha256": "3e83bd155501f0fa950598c66e8661287b98207e45ecd611f0438b1522196533"
+        "sha256": "b30fae1edc15c1a22b9414e389eec3ee09b281d6073460acd57482c71b62b201"
       },
       {
         "path": "scripts/ts-specifier-hook.mjs",
@@ -39,18 +39,18 @@
     ]
   },
   "runtime": {
-    "node": "v26.8.1",
+    "node": "v22.22.3",
     "platform": "linux/x64",
-    "host": "lander",
-    "cpu": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
-    "logicalCpus": 16,
-    "totalMemoryBytes": 65044914176,
+    "host": "devbox",
+    "cpu": "Intel(R) Xeon(R) CPU @ 2.30GHz",
+    "logicalCpus": 4,
+    "totalMemoryBytes": 8345444352,
     "loadAverage": [
-      2.53,
-      4.09,
-      3.66
+      1.42,
+      2.2,
+      1.16
     ],
-    "cpuGovernor": "performance"
+    "cpuGovernor": null
   },
   "workload": {
     "row": "PopulatedOrderRow",
@@ -175,17 +175,17 @@
   "warmups": [
     {
       "mode": "full",
-      "iterations": 1050000,
-      "hotLoopMs": 500.8160789999994,
-      "wallMs": 501.103783,
-      "opsPerSec": 2096578.0533575907
+      "iterations": 360000,
+      "hotLoopMs": 506.76038400000016,
+      "wallMs": 507.468429,
+      "opsPerSec": 710394.9151636919
     },
     {
       "mode": "shallow-depth-1",
-      "iterations": 49500000,
-      "hotLoopMs": 500.0875180000014,
-      "wallMs": 500.545029,
-      "opsPerSec": 98982674.46859144
+      "iterations": 12210000,
+      "hotLoopMs": 500.3395729999985,
+      "wallMs": 501.11341400000003,
+      "opsPerSec": 24403426.510499176
     }
   ],
   "samples": [
@@ -193,148 +193,148 @@
       "round": 1,
       "position": 1,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 288.42084,
-      "opsPerSec": 2180750.877779844,
-      "nsPerOp": 458.55765103168017
+      "iterations": 213119,
+      "accepted": 213119,
+      "totalMs": 281.1379649999999,
+      "opsPerSec": 758058.4144869943,
+      "nsPerOp": 1319.159554051961
     },
     {
       "round": 1,
       "position": 2,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 303.7268980000001,
-      "opsPerSec": 97768104.16046849,
-      "nsPerOp": 10.228284659777003
+      "iterations": 7321028,
+      "accepted": 7321028,
+      "totalMs": 295.817143,
+      "opsPerSec": 24748491.334053617,
+      "nsPerOp": 40.40650343093893
     },
     {
       "round": 2,
       "position": 1,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 295.190116,
-      "opsPerSec": 100595519.26189832,
-      "nsPerOp": 9.940800617535668
+      "iterations": 7321028,
+      "accepted": 7321028,
+      "totalMs": 295.37239,
+      "opsPerSec": 24785756.041720755,
+      "nsPerOp": 40.34575335594946
     },
     {
       "round": 2,
       "position": 2,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 280.14021200000025,
-      "opsPerSec": 2245211.4086356135,
-      "nsPerOp": 445.39235644080713
+      "iterations": 213119,
+      "accepted": 213119,
+      "totalMs": 281.64563599999997,
+      "opsPerSec": 756692.0014340291,
+      "nsPerOp": 1321.5416551316398
     },
     {
       "round": 3,
       "position": 1,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 287.060743,
-      "opsPerSec": 2191083.2997460747,
-      "nsPerOp": 456.3952452724596
+      "iterations": 213119,
+      "accepted": 213119,
+      "totalMs": 284.160582,
+      "opsPerSec": 749994.9447597909,
+      "nsPerOp": 1333.3423204876149
     },
     {
       "round": 3,
       "position": 2,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 296.9604549999999,
-      "opsPerSec": 99995815.94121684,
-      "nsPerOp": 10.000418423385396
+      "iterations": 7321028,
+      "accepted": 7321028,
+      "totalMs": 294.84182699999974,
+      "opsPerSec": 24830357.600517806,
+      "nsPerOp": 40.2732822494327
     },
     {
       "round": 4,
       "position": 1,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 295.98594600000024,
-      "opsPerSec": 100325043.81137061,
-      "nsPerOp": 9.967600930034802
+      "iterations": 7321028,
+      "accepted": 7321028,
+      "totalMs": 293.1004210000001,
+      "opsPerSec": 24977882.921567,
+      "nsPerOp": 40.03541865978386
     },
     {
       "round": 4,
       "position": 2,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 280.61895400000003,
-      "opsPerSec": 2241381.029451061,
-      "nsPerOp": 446.15350396041816
+      "iterations": 213119,
+      "accepted": 213119,
+      "totalMs": 281.83002899999974,
+      "opsPerSec": 756196.9203785597,
+      "nsPerOp": 1322.4068665862724
     },
     {
       "round": 5,
       "position": 1,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 283.76916500000016,
-      "opsPerSec": 2216498.751723076,
-      "nsPerOp": 451.1619955673846
+      "iterations": 213119,
+      "accepted": 213119,
+      "totalMs": 282.9623959999999,
+      "opsPerSec": 753170.7499395082,
+      "nsPerOp": 1327.7201751134337
     },
     {
       "round": 5,
       "position": 2,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 293.8863970000002,
-      "opsPerSec": 101041774.31526366,
-      "nsPerOp": 9.896896672458148
+      "iterations": 7321028,
+      "accepted": 7321028,
+      "totalMs": 299.1077620000001,
+      "opsPerSec": 24476222.051368892,
+      "nsPerOp": 40.8559784227024
     },
     {
       "round": 6,
       "position": 1,
       "mode": "shallow-depth-1",
-      "iterations": 29694803,
-      "accepted": 29694803,
-      "totalMs": 290.8375769999998,
-      "opsPerSec": 102100984.70184967,
-      "nsPerOp": 9.79422483456111
+      "iterations": 7321028,
+      "accepted": 7321028,
+      "totalMs": 300.48742500000026,
+      "opsPerSec": 24363841.515164882,
+      "nsPerOp": 41.044430508939485
     },
     {
       "round": 6,
       "position": 2,
       "mode": "full",
-      "iterations": 628974,
-      "accepted": 628974,
-      "totalMs": 279.8847689999993,
-      "opsPerSec": 2247260.550287399,
-      "nsPerOp": 444.9862299554502
+      "iterations": 213119,
+      "accepted": 213119,
+      "totalMs": 287.74513299999944,
+      "opsPerSec": 740651.9713402082,
+      "nsPerOp": 1350.1618016225652
     }
   ],
   "summary": [
     {
       "mode": "full",
       "samples": 6,
-      "iterationsPerSample": 628974,
-      "medianNsPerOp": 448.6577497639014,
-      "medianOpsPerSec": 2228870.4486353644,
-      "minNsPerOp": 444.9862299554502,
-      "maxNsPerOp": 458.55765103168017,
-      "spreadMaxOverMin": 1.0304985191959506
+      "iterationsPerSample": 213119,
+      "medianNsPerOp": 1325.063520849853,
+      "medianOpsPerSec": 754680.801535184,
+      "minNsPerOp": 1319.159554051961,
+      "maxNsPerOp": 1350.1618016225652,
+      "spreadMaxOverMin": 1.0235015146389055
     },
     {
       "mode": "shallow-depth-1",
       "samples": 6,
-      "iterationsPerSample": 29694803,
-      "medianNsPerOp": 9.954200773785235,
-      "medianOpsPerSec": 100460099.48217419,
-      "minNsPerOp": 9.79422483456111,
-      "maxNsPerOp": 10.228284659777003,
-      "spreadMaxOverMin": 1.0443179355740555
+      "iterationsPerSample": 7321028,
+      "medianNsPerOp": 40.3761283934442,
+      "medianOpsPerSec": 24767109.670732282,
+      "minNsPerOp": 40.03541865978386,
+      "maxNsPerOp": 41.044430508939485,
+      "spreadMaxOverMin": 1.0252029798346831
     }
   ],
   "comparison": {
-    "shallowVsFullSpeedup": 45.072202174729945,
-    "shallowTimeReductionPercent": 97.78133760555268
+    "shallowVsFullSpeedup": 32.81799354157496,
+    "shallowTimeReductionPercent": 96.9528911061148
   },
-  "sink": 2769124081
+  "sink": 1410908626
 }

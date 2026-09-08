@@ -1,4 +1,4 @@
-import { isRecord, type DeclaredTable } from '@zmdb/schema';
+import { isRecord, type CoreSchema, type DeclaredTable } from '@zmdb/schema';
 import type { WhereDTO, UnknownRow, OrderDir, OrderBySpec, PaginationSpec } from '@zmdb/schema/dto';
 import { createQueryCompiler, type ComparisonPredicate, type SqlDialect } from '@zmdb/sql';
 import { ValidationError } from '@zmdb/validator';
@@ -58,6 +58,13 @@ const OP_SQL: Record<string, string> = {
 // `isNull`/`notNull` are handled ahead of the map, so they are not keys of it.
 const KNOWN_OPERATORS: readonly string[] = [...Object.keys(OP_SQL), 'isNull', 'notNull'];
 
+function isSubqueryObject(val: unknown): boolean {
+  if (val === null || typeof val !== 'object') return false;
+  if ('compile' in val && typeof val.compile === 'function') return true;
+  if ('table' in val && typeof val.table === 'string') return true;
+  return false;
+}
+
 /**
  * A `{ table, select?, where? }` literal in a DTO, compiled into a subquery builder.
  *
@@ -106,7 +113,7 @@ function resolveSubqueryTarget(target: unknown, dialect: SqlDialect | undefined)
 export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   builder: B,
   where: WhereDTO<T> | undefined,
-  resolveColumn: (column: string) => string = column => column,
+  schemaOrResolver?: CoreSchema<string> | ((column: string) => string),
 ): B {
   if (!where) return builder;
   let b: B = builder;
@@ -116,7 +123,23 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   // a claim about the type, and the `??` is what handles the builder that has none.
   const dialect = (builder as { dialect?: SqlDialect }).dialect;
 
+  const schema = typeof schemaOrResolver === 'object' ? schemaOrResolver : undefined;
+  const resolveColumn: (column: string) => string =
+    typeof schemaOrResolver === 'function'
+      ? schemaOrResolver
+      : col =>
+          schema && col in schema.columns ? col : (schema?.ir?.columns?.find(c => c.name === col)?.physicalName ?? col);
+
+  const validateColumn = (col: string) => {
+    if (schema && !(col in schema.columns) && !schema.ir?.columns?.some(c => c.name === col)) {
+      throw new ValidationError(`unknown filter column "${col}" for entity "${schema.table}"`, [
+        { path: col, message: `unknown filter column "${col}"` },
+      ]);
+    }
+  };
+
   const applyField = (col: string, spec: unknown, connector: 'and' | 'or') => {
+    validateColumn(col);
     const resolvedColumn = resolveColumn(col);
     const add = (op: string, rawVal: unknown) => {
       const value = resolveSubqueryTarget(rawVal, dialect);
@@ -181,12 +204,32 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
                 },
               ]);
             }
+            if (!isSubqueryObject(value)) {
+              if (op === 'in' || op === 'nin' || op === 'l2' || op === 'cosine' || op === 'ip') {
+                if (!Array.isArray(value)) {
+                  throw new ValidationError(`operator "${op}" requires an array value`, [
+                    { path: col, message: `operator "${op}" requires an array value` },
+                  ]);
+                }
+              } else {
+                if (Array.isArray(value)) {
+                  throw new ValidationError(`operator "${op}" requires a scalar value`, [
+                    { path: col, message: `operator "${op}" requires a scalar value` },
+                  ]);
+                }
+              }
+            }
             add(sql, value);
           }
         }
       }
     } else {
       // bare value or direct subquery spec ⇒ eq
+      if (Array.isArray(spec)) {
+        throw new ValidationError(`scalar operator "eq" requires a scalar value for field "${col}"`, [
+          { path: col, message: `scalar operator "eq" requires a scalar value` },
+        ]);
+      }
       add('=', spec);
     }
   };
@@ -228,7 +271,7 @@ export function compileWhere<T extends DeclaredTable, B extends WhereTarget>(
   if (!fields) return b;
   for (const key of Object.keys(fields)) {
     if (key === 'and') {
-      if (and) for (const sub of and) b = compileWhere(b, sub, resolveColumn);
+      if (and) for (const sub of and) b = compileWhere(b, sub, schemaOrResolver);
     } else if (key === 'or') {
       for (const sub of or ?? []) {
         const group = asRecord(sub);
@@ -325,10 +368,14 @@ export function applyKeysetFilter<B extends WhereTarget>(
   cursorValues: Record<string, unknown>,
   orderBy: OrderBySpec,
   userWhere?: WhereDTO<UnknownRow>,
-  additionalWhere?: (builder: WhereTarget) => void,
+  additionalWhereOrSchema?: ((builder: WhereTarget) => void) | CoreSchema<string>,
   resolveColumn: (column: string) => string = column => column,
 ): B {
   if (orderBy.length === 0) return builder;
+
+  const additionalWhere = typeof additionalWhereOrSchema === 'function' ? additionalWhereOrSchema : undefined;
+  const schema = typeof additionalWhereOrSchema === 'object' ? additionalWhereOrSchema : undefined;
+  const schemaOrResolver = schema ?? resolveColumn;
 
   for (const item of orderBy) {
     if (!item) continue;
@@ -348,7 +395,7 @@ export function applyKeysetFilter<B extends WhereTarget>(
     const target = new BranchTarget(currentBuilder, i === 0);
 
     if (userWhere) {
-      compileWhere(target, userWhere, resolveColumn);
+      compileWhere(target, userWhere, schemaOrResolver);
     }
     additionalWhere?.(target);
 

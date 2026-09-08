@@ -79,7 +79,7 @@ async function start(handlers: GrpcHandlers<Orders>, options: StartOptions = {})
     bindings: [binding],
     credentials: 'insecure',
   });
-  const address = `127.0.0.1:${String(server.port)}`;
+  const address = `ipv4:127.0.0.1:${String(server.port)}`;
   const client = createGrpcClient<Orders>({
     definition: ordersService,
     address,

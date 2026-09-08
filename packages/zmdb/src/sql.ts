@@ -7,6 +7,7 @@ export {
   OP_MAP,
   QueryCompilerError,
   UnsupportedFeatureError,
+  VALID_OPERATORS,
   appendComment,
   coalesce,
   concat,
@@ -34,6 +35,7 @@ export {
   serializeComment,
   stContains,
   stDWithin,
+  validateOperator,
   withComments,
 } from '@zmdb/sql';
 export {
