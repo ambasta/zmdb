@@ -10,7 +10,7 @@ import {
   type UpdateDTO,
   type ResolvedRelation,
 } from '@zmdb/schema';
-import { type KeysCarrying, type Populated, type RelationKeys } from '@zmdb/schema/derive';
+import { type KeysCarrying, type Populated, type RelationKeys, type RelationPath } from '@zmdb/schema/derive';
 import {
   buildListResult,
   decodeCursor,
@@ -500,6 +500,31 @@ interface PayloadShape {
   readonly columns: ReadonlyMap<string, ColumnIR>;
 }
 
+interface PopulateNode {
+  readonly path: string;
+  readonly relation: ResolvedRelation;
+  readonly target: SchemaSqlNames | undefined;
+  readonly children: PopulateNode[];
+}
+
+interface PopulatePlan {
+  readonly roots: readonly PopulateNode[];
+  readonly nodes: readonly PopulateNode[];
+}
+
+function copyPopulatedRow(row: object, nodes: readonly PopulateNode[]): Record<string, unknown> {
+  const copy: Record<string, unknown> = { ...row };
+  for (const node of nodes) {
+    const value = Reflect.get(row, node.relation.name);
+    copy[node.relation.name] = Array.isArray(value)
+      ? value.map(child => copyPopulatedRow(child, node.children))
+      : value === null
+        ? null
+        : copyPopulatedRow(value, node.children);
+  }
+  return copy;
+}
+
 const NO_EXPRESSION_OPERAND: unique symbol = Symbol('zmdb.no-expression-operand');
 
 function isColumnExpression(value: unknown): value is ColumnExpr<unknown> {
@@ -941,11 +966,41 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return [...new Set([...this.rootFilterNames(), ...this.#filterDefinitions.map(filter => filter.name)])];
   }
 
-  private populateFilterNames(names: readonly string[] | undefined): readonly string[] {
+  private populatePlan(paths: readonly string[] | undefined): PopulatePlan {
+    const roots: PopulateNode[] = [];
+    const nodes = new Map<string, PopulateNode>();
+    for (const path of paths ?? []) {
+      const parts = path.split('.');
+      if (parts.some(part => part.length === 0)) throw new ValidationError(`invalid populate path "${path}"`);
+      let source = this.schema.ir;
+      let parent: PopulateNode | undefined;
+      for (const name of parts) {
+        const prefix: string = parent === undefined ? name : `${parent.path}.${name}`;
+        let node = nodes.get(prefix);
+        if (node === undefined) {
+          const relation = resolveRelation(source, name);
+          node = { path: prefix, relation, target: this.relationSqlNames(relation), children: [] };
+          nodes.set(prefix, node);
+          (parent?.children ?? roots).push(node);
+        }
+        if (parts.length > 1 && node.target === undefined) {
+          throw new ValidationError(
+            `populate path "${path}" requires the schema for "${node.relation.targetTable}" in RepositoryOptions.schemas`,
+          );
+        }
+        source = node.target?.ir ?? source;
+        parent = node;
+      }
+    }
+    return { roots, nodes: [...nodes.values()] };
+  }
+
+  private populateFilterNames(
+    names: readonly string[] | undefined,
+    plan: PopulatePlan = this.populatePlan(names),
+  ): readonly string[] {
     const known = new Set(this.rootFilterNames());
-    for (const name of names ?? []) {
-      const relation = this.relation(name);
-      const target = this.relationSqlNames(relation);
+    for (const { relation, target } of plan.nodes) {
       for (const filter of this.filterDefinitionsFor(target?.schema.table ?? relation.targetTable, target?.schema)) {
         known.add(filter.name);
       }
@@ -1050,17 +1105,16 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   ): ReadonlyMap<string, ResolvedFilters> {
     const byRelation = new Map<string, ResolvedFilters>();
     const byTable = new Map<string, ResolvedFilters>();
-    const knownNames = this.populateFilterNames(names);
-    for (const name of names ?? []) {
-      const relation = this.relation(name);
-      const target = this.relationSqlNames(relation);
+    const plan = this.populatePlan(names);
+    const knownNames = this.populateFilterNames(names, plan);
+    for (const { path, relation, target } of plan.nodes) {
       const targetTable = target?.schema.table ?? relation.targetTable;
       let resolved = byTable.get(targetTable);
       if (resolved === undefined) {
         resolved = this.resolveReadFilters('populate', options, targetTable, target?.schema, true, knownNames);
         byTable.set(targetTable, resolved);
       }
-      byRelation.set(name, resolved);
+      byRelation.set(path, resolved);
     }
     return byRelation;
   }
@@ -1309,14 +1363,13 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   // #218 — typed populate. When `opts.populate` names relations the type declares, the
-  // result is widened with those relations *and only those*. Batched IN query per relation;
-  // no proxies. Populate keys are `RelationKeys<T>`, so a misspelled relation is a compile
-  // error rather than the runtime throw in `resolveRelation`.
+  // result is widened with those relations and requested descendants. Shared path prefixes
+  // use one batched read; misspelled paths fail type checking and runtime preflight.
   async findById(id: PrimaryKeyOf<T>): Promise<Entity<T> | undefined>;
-  async findById<K extends RelationKeys<T> & string>(
+  async findById<K extends string>(
     id: PrimaryKeyOf<T>,
-    opts: PopulateReadOptions<K>,
-  ): Promise<Populated<T, K> | undefined>;
+    opts: PopulateReadOptions<K & RelationPath<T, K>>,
+  ): Promise<Populated<T, RelationPath<T, K>> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts: ReadOptions): Promise<Entity<T> | undefined>;
   async findById(id: PrimaryKeyOf<T>, opts?: InternalReadOptions): Promise<Entity<T> | undefined> {
     const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
@@ -1451,21 +1504,39 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     options?: ReadOptions,
     populateFilters: ReadonlyMap<string, ResolvedFilters> = this.resolvePopulateFilters(names, options),
   ): Promise<readonly object[]> {
-    options?.signal?.throwIfAborted();
-    if (parents.length === 0) return parents;
-    let current: object[] = parents.map(parent => ({ ...parent }));
+    return this.populateRows(parents, this.populatePlan(names).roots, options, populateFilters);
+  }
 
-    for (const name of names) {
-      const rel = this.relation(name);
-      const target = this.relationSqlNames(rel);
+  private async populateRows(
+    parents: readonly object[],
+    nodes: readonly PopulateNode[],
+    options: ReadOptions | undefined,
+    populateFilters: ReadonlyMap<string, ResolvedFilters>,
+  ): Promise<readonly Record<string, unknown>[]> {
+    options?.signal?.throwIfAborted();
+    if (parents.length === 0) return [];
+    let current: Record<string, unknown>[] = parents.map(parent => ({ ...parent }));
+
+    for (const node of nodes) {
+      const { relation: rel, target } = node;
+      const name = rel.name;
       const byParent = await this.childrenByParent(
         target?.schema.table ?? rel.targetTable,
         rel.targetKey,
         current.map(parent => relationKeyValues(parent, rel.parentKey)),
         options,
-        populateFilters.get(name),
+        populateFilters.get(node.path),
         target,
       );
+      if (node.children.length > 0) {
+        const children = [...byParent.values()].flat();
+        const populated = await this.populateRows(children, node.children, options, populateFilters);
+        let offset = 0;
+        for (const [key, group] of byParent) {
+          byParent.set(key, populated.slice(offset, offset + group.length));
+          offset += group.length;
+        }
+      }
       current = current.map(parent => {
         const parentKey = relationKeyValues(parent, rel.parentKey);
         if (hasNullishKeyPart(parentKey)) {
@@ -1473,14 +1544,35 @@ export abstract class BaseRepository<T extends DeclaredTable> {
         }
         const list = byParent.get(loaderKey(parentKey)) ?? [];
         if (rel.toMany) {
-          return { ...parent, [name]: list.map(child => ({ ...child })) };
+          return { ...parent, [name]: list.map(child => copyPopulatedRow(child, node.children)) };
         }
         const first = list[0];
-        return { ...parent, [name]: first ? { ...first } : null };
+        return { ...parent, [name]: first ? copyPopulatedRow(first, node.children) : null };
       });
     }
 
     return current;
+  }
+
+  populate<K extends string>(
+    rows: readonly Entity<T>[],
+    paths: readonly (K & RelationPath<T, K>)[],
+    options?: ReadOptions,
+  ): Promise<readonly Populated<T, RelationPath<T, K>>[]>;
+  populate<K extends string>(
+    row: Entity<T>,
+    paths: readonly (K & RelationPath<T, K>)[],
+    options?: ReadOptions,
+  ): Promise<Populated<T, RelationPath<T, K>>>;
+  async populate(
+    rowOrRows: object | readonly object[],
+    paths: readonly string[],
+    options?: ReadOptions,
+  ): Promise<object | readonly object[]> {
+    options?.signal?.throwIfAborted();
+    const rows = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
+    const populated = await this.attachRelations(rows, paths, options);
+    return Array.isArray(rowOrRows) ? populated : (populated[0] ?? { ...rowOrRows });
   }
 
   [LOADER_RELATION_KEY]<K extends RelationKeys<T> & string>(parent: Entity<T>, relation: K): string {
@@ -1497,10 +1589,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return populated.map(parent => parent[relation]);
   }
 
-  async findOne<K extends RelationKeys<T> & string>(
+  async findOne<K extends string>(
     where: WhereDTO<T>,
-    opts: PopulateReadOptions<K>,
-  ): Promise<Populated<T, K> | undefined>;
+    opts: PopulateReadOptions<K & RelationPath<T, K>>,
+  ): Promise<Populated<T, RelationPath<T, K>> | undefined>;
   async findOne(where: WhereDTO<T>): Promise<Entity<T> | undefined>;
   async findOne(where: WhereDTO<T>, opts: ReadOptions): Promise<Entity<T> | undefined>;
   async findOne(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<Entity<T> | undefined> {
@@ -1508,10 +1600,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
   }
 
   async find(where: WhereDTO<T>): Promise<readonly Entity<T>[]>;
-  async find<K extends RelationKeys<T> & string>(
+  async find<K extends string>(
     where: WhereDTO<T>,
-    opts: PopulateReadOptions<K>,
-  ): Promise<readonly Populated<T, K>[]>;
+    opts: PopulateReadOptions<K & RelationPath<T, K>>,
+  ): Promise<readonly Populated<T, RelationPath<T, K>>[]>;
   async find(where: WhereDTO<T>, opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async find(where: WhereDTO<T>, opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
     const populateFilters = this.resolvePopulateFilters(opts?.populate, opts);
@@ -1528,7 +1620,9 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return this.attachRelations(rows, opts.populate, opts, populateFilters);
   }
 
-  async findAll<K extends RelationKeys<T> & string>(opts: PopulateReadOptions<K>): Promise<readonly Populated<T, K>[]>;
+  async findAll<K extends string>(
+    opts: PopulateReadOptions<K & RelationPath<T, K>>,
+  ): Promise<readonly Populated<T, RelationPath<T, K>>[]>;
   async findAll(): Promise<readonly Entity<T>[]>;
   async findAll(opts: ReadOptions): Promise<readonly Entity<T>[]>;
   async findAll(opts?: InternalReadOptions): Promise<readonly Entity<T>[]> {
@@ -1573,10 +1667,10 @@ export abstract class BaseRepository<T extends DeclaredTable> {
     return (await this.executeRead(query, options?.signal)).length > 0;
   }
 
-  async list<K extends RelationKeys<T> & string>(
+  async list<K extends string>(
     query: ListDTO<T> | undefined,
-    opts: PopulateReadOptions<K>,
-  ): Promise<ListResult<Populated<T, K>>>;
+    opts: PopulateReadOptions<K & RelationPath<T, K>>,
+  ): Promise<ListResult<Populated<T, RelationPath<T, K>>>>;
   async list(query?: ListDTO<T>): Promise<ListResult<Entity<T>>>;
   async list(query: ListDTO<T> | undefined, opts: ReadOptions): Promise<ListResult<Entity<T>>>;
   async list(query?: ListDTO<T>, opts?: InternalReadOptions): Promise<ListResult<Entity<T>>> {

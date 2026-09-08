@@ -1,7 +1,7 @@
 import { type DeclaredTable, type Entity, type PrimaryKeyOf } from '@zmdb/schema';
-import { type Populated, type RelationKeys } from '@zmdb/schema/derive';
+import { type Populated, type RelationKeys, type RelationPath } from '@zmdb/schema/derive';
 
-import { type BaseRepository } from '../index.js';
+import { type BaseRepository, type ReadOptions } from '../index.js';
 
 /** One explicit, request-lifetime loader for a repository's primary key. */
 export interface EntityLoader<T extends DeclaredTable> {
@@ -22,6 +22,24 @@ export interface LoaderScope {
     repository: BaseRepository<T>,
     relation: K,
   ): RelationLoader<T, K>;
+  populate<T extends DeclaredTable, K extends string>(
+    repository: BaseRepository<T>,
+    rows: readonly Entity<T>[],
+    paths: readonly (K & RelationPath<T, K>)[],
+    options?: ReadOptions,
+  ): Promise<readonly Populated<T, RelationPath<T, K>>[]>;
+  populate<T extends DeclaredTable, K extends string>(
+    repository: BaseRepository<T>,
+    row: Entity<T>,
+    paths: readonly (K & RelationPath<T, K>)[],
+    options?: ReadOptions,
+  ): Promise<Populated<T, RelationPath<T, K>>>;
+}
+
+interface PopulateRequest {
+  readonly rows: readonly object[];
+  readonly resolve: (rows: readonly object[]) => void;
+  readonly reject: (reason: unknown) => void;
 }
 
 /**
@@ -161,8 +179,78 @@ export function createRelationLoader<T extends DeclaredTable, K extends Relation
  */
 export function createLoaderScope(): LoaderScope {
   const token = {};
+  const pending = new WeakMap<object, Map<string, Map<ReadOptions | undefined, PopulateRequest[]>>>();
+
+  function populate<T extends DeclaredTable, K extends string>(
+    repository: BaseRepository<T>,
+    rows: readonly Entity<T>[],
+    paths: readonly (K & RelationPath<T, K>)[],
+    options?: ReadOptions,
+  ): Promise<readonly Populated<T, RelationPath<T, K>>[]>;
+  function populate<T extends DeclaredTable, K extends string>(
+    repository: BaseRepository<T>,
+    row: Entity<T>,
+    paths: readonly (K & RelationPath<T, K>)[],
+    options?: ReadOptions,
+  ): Promise<Populated<T, RelationPath<T, K>>>;
+  function populate<T extends DeclaredTable, K extends string>(
+    repository: BaseRepository<T>,
+    rowOrRows: Entity<T> | readonly Entity<T>[],
+    paths: readonly (K & RelationPath<T, K>)[],
+    options?: ReadOptions,
+  ): Promise<Populated<T, RelationPath<T, K>> | readonly Populated<T, RelationPath<T, K>>[]> {
+    const allPaths = [...new Set(paths)].toSorted();
+    const canonical = allPaths.filter(path => !allPaths.some(other => other.startsWith(`${path}.`)));
+    const key = JSON.stringify(canonical);
+    let byPath = pending.get(repository);
+    if (byPath === undefined) {
+      byPath = new Map();
+      pending.set(repository, byPath);
+    }
+    let byOptions = byPath.get(key);
+    if (byOptions === undefined) {
+      byOptions = new Map();
+      byPath.set(key, byOptions);
+    }
+    const isMany = Array.isArray(rowOrRows);
+    return new Promise((resolve, reject) => {
+      const request: PopulateRequest = {
+        rows: isMany ? rowOrRows : [rowOrRows],
+        // The grouping key preserves repository identity, so every request has this T.
+        resolve: rows =>
+          resolve(
+            (isMany ? rows : rows[0]) as Populated<T, RelationPath<T, K>> | readonly Populated<T, RelationPath<T, K>>[],
+          ),
+        reject,
+      };
+      const existing = byOptions.get(options);
+      if (existing !== undefined) {
+        existing.push(request);
+        return;
+      }
+      const requests = [request];
+      byOptions.set(options, requests);
+      queueMicrotask(async () => {
+        byOptions.delete(options);
+        if (byOptions.size === 0) byPath.delete(key);
+        try {
+          const roots = requests.flatMap(entry => entry.rows) as readonly Entity<T>[];
+          const rows = await repository.populate<K>(roots, canonical, options);
+          let offset = 0;
+          for (const entry of requests) {
+            entry.resolve(rows.slice(offset, offset + entry.rows.length));
+            offset += entry.rows.length;
+          }
+        } catch (error) {
+          for (const entry of requests) entry.reject(error);
+        }
+      });
+    });
+  }
+
   return {
     loaderFor: repository => repository[LOADER_FOR_SCOPE](token),
     relationLoader: (repository, relation) => repository[RELATION_LOADER_FOR_SCOPE](token, relation),
+    populate,
   };
 }

@@ -19,7 +19,7 @@ class UserRepository extends BaseRepository<User> {
 }
 ```
 
-- `populate` accepts `RelationKeys<User>`, so a misspelling is a compile error rather than a runtime throw.
+- `populate` accepts declared relation paths, including dotted paths such as `posts.comments`. `RelationPath<T, Path>` validates each supplied segment without imposing a fixed nesting depth.
 - The columns the batched select matches on come from `resolveRelation(schema.ir, name)` in `@zmdb/schema`. `OneToMany<'orders', 'userId'>` names the target table and the foreign key;
   `References<'users.id'>` on `orders.userId` names the column it points at.
 
@@ -37,19 +37,22 @@ one map entry. `BaseRepository` no longer takes a second type parameter for the 
 
 ## API
 
-```ts
-findById<K extends RelationKeys<T> & string>(id, opts?: { populate?: readonly K[] })
-  : Promise<Populated<T, K> | undefined>;
-find<K extends RelationKeys<T> & string>(where: WhereDTO<T>, opts?: { populate?: readonly K[] })
-  : Promise<readonly Populated<T, K>[]>;
-```
+The canonical overloads are in [BaseRepository](../index.ts): `findById`, `findOne`, `find`, `findAll` and `list` accept population paths in their read options.
+`repository.populate(rowOrRows, paths, options?)` attaches relations to existing records without fetching those roots again. A single input returns one copied record; a readonly array returns a
+readonly array of copied records.
+
+[LoaderScope.populate](../loaders/index.ts) accepts the repository followed by the same inputs. Concurrent calls with the same repository, canonical path set and read-options object share a microtask
+batch. It keeps no result cache for later population calls. Transaction-bound repositories and different read-options objects remain separate batches.
 
 ## Behaviour
 
 - With no `populate`, the result is a plain `Entity<T>` and **nothing** is attached — an unpopulated relation is absent from the row, not present and empty.
-- With `populate: ["orders"]`, the repository fetches the parents, then runs parameter-bounded batched queries per relation and attaches results via `attachPopulated` (to-many →
-  `readonly Entity<Order>[]`, to-one → `Entity<User> | null`). A one-column key uses `IN (...)`; a composite key uses ordered `OR`-of-`AND` groups so every supported driver gets valid SQL. The result
-  type is `Populated<T, "orders">`.
+- With `populate: ["orders"]`, the repository fetches the parents, then runs parameter-bounded batched queries per relation and attaches copied results (to-many → `readonly Entity<Order>[]`, to-one →
+  `Entity<User> | null`). A one-column key uses `IN (...)`; a composite key uses ordered `OR`-of-`AND` groups so every supported driver gets valid SQL. The result type is `Populated<T, "orders">`.
+- Nested paths use the same traversal, with one batch per shared path prefix. Related schemas come from `RepositoryOptions.schemas`; every target on a nested path must be registered. One-level
+  population retains its existing behavior when the target schema is unregistered. Invalid paths, missing nested schemas and invalid target filters fail before SQL.
+- Requested descendants appear in the derived result type. Missing to-one relations remain `null`, and missing to-many relations remain empty arrays at every depth. Finite paths through cyclic
+  declarations are supported; population does not traverse unrequested relations.
 - A `ManyToMany` relation throws rather than compiling a query: `via` is a join table, and guessing its two foreign keys is how a wrong query gets built quietly.
 - Children are plain objects on plain parents — no identity map, no proxies.
 - The old `findAllWithMany` is **deprecated** (kept working) in favour of this.
@@ -58,3 +61,5 @@ find<K extends RelationKeys<T> & string>(where: WhereDTO<T>, opts?: { populate?:
 
 - Type-level: `findById(1, { populate: ['orders'] })` has `orders: readonly Entity<Order>[]`; without populate it is a plain `Entity<User>`, and `'orders'` is not a key of it.
 - Runtime: a fake recording driver shows the parents query plus one batched child `IN`/OR query, with children attached under the relation key (in-memory sqlite E2E).
+- [Nested/deferred runtime cases](nested-populate.spec.ts) use real in-memory SQLite; [type cases](nested-populate.type-test.ts) check descendant types and invalid paths against the same declared
+  fixtures.

@@ -100,8 +100,12 @@ Two shapes are strictly better than their schema-keyed originals, because a sche
   schema-value version had to recover the target type and rebuild the array from a `RelationMeta` through six nested conditional types (`../relations/index.ts`'s `RelationEntityFromDef`), because a
   relation value does not carry its target's type. Nothing in `./query.ts` reads a cardinality at all.
 
-`Populated` strips `undefined` from the relations it names. A relation is declared optional, which is what lets an unpopulated row exist; populating one is exactly the claim that it is there. `-?`
-alone will not do it — the key set is `K & keyof T`, so the mapped type is not homomorphic and the modifier has nothing to strip.
+`Populated` strips `undefined` from the relations it names. A relation is declared optional, which is what lets an unpopulated row exist; populating one is exactly the claim that it is there. Its
+mapped keys are the first segments of the requested paths, and their remaining segments determine the descendants attached to each child.
+
+[The canonical derivation](query.ts) validates supplied dotted paths with `RelationPath<T, Path>` and derives the result with `Populated<T, Path>`. A child is an `Entity` when no descendants are
+requested; a path such as `posts.comments` adds only `comments` to each post. Every to-one edge admits `null`, and every to-many edge is a readonly array. Recursive declarations are checked against
+the finite supplied path, without expanding an entire cyclic relation graph or imposing a fixed depth limit.
 
 ## 4. The wire shape (plan D3 / REQ-TF-13)
 

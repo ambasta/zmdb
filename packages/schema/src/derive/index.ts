@@ -219,5 +219,6 @@ export type {
   Populated,
   PopulatedEntity,
   Projection,
+  RelationPath,
   WhereDTO,
 } from './query.js';

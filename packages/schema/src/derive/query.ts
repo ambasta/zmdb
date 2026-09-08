@@ -45,31 +45,56 @@ export {
  * `RelationEntityFromDef` and `RelationCardinalityFromDef`, because a relation *value* does
  * not carry the target's type. Both are deleted.
  *
- * Two things do change on the way through. The target becomes `Entity<>`: a populated child
- * is a fetched row, so its own relations are not there to read, exactly as for the parent.
+ * Without a nested path, the target becomes `Entity<>`: its own relations are absent.
+ * A nested path adds only its requested descendants, using this same derivation.
  * And a to-one gains `| null`, because a foreign key that matches nothing is a row the
  * database can hold — `null` is what the repository attaches for it, and a type that said
  * `User` there would be wrong for the case the query cannot rule out. A to-many needs no
  * such arm: no match is the empty array.
  */
-type PopulatedValue<V> =
+type PopulatedValue<V, Paths extends string> =
   NonNullable<V> extends readonly (infer E)[]
-    ? readonly Entity<E & DeclaredTable>[]
-    : Entity<NonNullable<V> & DeclaredTable> | null;
+    ? readonly ([Paths] extends [never] ? Entity<E & DeclaredTable> : PopulatedRow<E & DeclaredTable, Paths>)[]
+    :
+        | ([Paths] extends [never]
+            ? Entity<NonNullable<V> & DeclaredTable>
+            : PopulatedRow<NonNullable<V> & DeclaredTable, Paths>)
+        | null;
+
+/** Validate a supplied path without expanding every path of a recursive entity graph. */
+export type RelationPath<T extends DeclaredTable, Path extends string> = Path extends `${infer Head}.${infer Tail}`
+  ? Head extends RelationKeys<T>
+    ? `${Head}.${RelationPath<RelationTargetOf<T[Head & keyof T]>, Tail>}`
+    : never
+  : Path extends RelationKeys<T>
+    ? Path
+    : never;
+
+type PathHead<Path extends string> = Path extends `${infer Head}.${string}` ? Head : Path;
+type PathTail<Path extends string, Head extends string> = Path extends `${Head}.${infer Tail}` ? Tail : never;
+type RootRelationPath<T> = (RelationKeys<T> & string) | `${RelationKeys<T> & string}.${string}`;
 
 /**
- * The row plus the relations named by `K`, populated.
+ * The row plus the relation paths named by `K`, populated.
  *
- * The key set is `K & keyof T` rather than `K`: `RelationKeys<T>` *is* a subset of `keyof T`
- * by construction, but it is a mapped-type projection and TypeScript will not carry that
- * forward for an unresolved `T`.
+ * Dotted paths contribute their first segment to this row and pass their remaining
+ * segments to the child. Keeping direct keys in the mapped key set also lets a generic
+ * one-level relation loader index the result with its declared relation key.
  */
-export type PopulatedEntity<T extends DeclaredTable, K extends RelationKeys<T> = RelationKeys<T>> = Entity<T> & {
-  -readonly [P in K & keyof T]: PopulatedValue<T[P]>;
+type PopulatedRow<T extends DeclaredTable, K extends string> = Entity<T> & {
+  -readonly [P in (K | PathHead<K>) & keyof T]: PopulatedValue<T[P], PathTail<K, P & string>>;
 };
 
+export type PopulatedEntity<
+  T extends DeclaredTable,
+  K extends RootRelationPath<T> = RelationKeys<T> & string,
+> = PopulatedRow<T, K> & ([Exclude<K, RelationPath<T, K>>] extends [never] ? unknown : never);
+
 /** Alias kept because both names are in use across the repository and the docs. */
-export type Populated<T extends DeclaredTable, K extends RelationKeys<T> = RelationKeys<T>> = PopulatedEntity<T, K>;
+export type Populated<
+  T extends DeclaredTable,
+  K extends RootRelationPath<T> = RelationKeys<T> & string,
+> = PopulatedEntity<T, K>;
 
 /**
  * The target of a relation: the element type for a to-many, the type itself for a to-one.
