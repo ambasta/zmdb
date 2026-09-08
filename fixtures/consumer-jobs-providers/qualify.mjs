@@ -330,10 +330,13 @@ try {
   const packed = await packClosure(['@zmdb/jobs', '@zmdb/jobs-sqlite', '@zmdb/jobs-postgres', '@zmdb/app']);
   registry = await startRegistry(packed);
   results.tarballs = await Promise.all(
-    packed.map(async entry => ({
-      name: entry.manifest.name,
-      sha256: new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball))).toHex(),
-    })),
+    packed.map(async entry => {
+      const digest256 = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', await readFile(entry.tarball)));
+      return {
+        name: entry.manifest.name,
+        sha256: typeof digest256.toHex === 'function' ? digest256.toHex() : Buffer.from(digest256).toString('hex'),
+      };
+    }),
   );
   await record('portable install has no concrete provider or obsolete entry', async () => {
     const portable = await consumer('portable', { '@zmdb/jobs': '1.0.0-beta.2' });
