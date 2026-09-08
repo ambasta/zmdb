@@ -206,7 +206,16 @@ export async function qualifySelectedJobs({ tarballs, evidence, failureMode }) {
           try {
             await run(
               'initdb',
-              ['-D', data, '-U', 'issue757', '--auth-local=trust', '--auth-host=trust', '--no-locale', '--encoding=UTF8'],
+              [
+                '-D',
+                data,
+                '-U',
+                'issue757',
+                '--auth-local=trust',
+                '--auth-host=trust',
+                '--no-locale',
+                '--encoding=UTF8',
+              ],
               directory,
             );
           } catch (error) {
