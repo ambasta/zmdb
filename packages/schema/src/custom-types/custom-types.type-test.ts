@@ -5,10 +5,9 @@
 // Type-level tests for custom types & codecs (#133): the TS-side and DB-side
 // types must flow through `defineType`/`encodeValue`/`decodeValue` so a codec
 // cannot be wired up backwards. Compiled by `yarn typecheck`.
-import { type Equal, type Expect } from '@zmdb/schema';
-import { defineType } from '@zmdb/schema/custom-types';
-// Referenced only in type position (`typeof`), hence the type-only import.
-import { type decodeValue, type encodeValue } from '@zmdb/schema/custom-types';
+import type { Equal, Expect, Entity, CreateDTO, UpdateDTO } from '../index.js';
+import type { PrimaryKey, Serial, Sql, Table } from '../tags/index.js';
+import { defineType, type decodeValue, type encodeValue } from './index.js';
 
 // A jsonb codec: TS object <-> JSON string in the DB.
 const jsonType = defineType<string, Record<string, unknown>, string>({
@@ -35,3 +34,22 @@ export type _Codec6 = Expect<
 export type _Codec7 = Expect<Equal<Parameters<typeof jsonType.toWire>[0], Record<string, unknown>>>;
 export type _Codec8 = Expect<Equal<ReturnType<typeof jsonType.toWire>, string>>;
 export type _Codec9 = Expect<Equal<Parameters<typeof jsonType.fromWire>[0], string>>;
+
+interface Money {
+  amount: number;
+  currency: string;
+}
+
+interface ProductRow extends Table<'products'> {
+  id: number & Sql<'integer'> & Serial & PrimaryKey;
+  price: Money;
+  discount: Money | null;
+  tax: Money | null;
+  jsonWithCodec: Money;
+}
+
+export type _CustomEntityDiscount = Expect<Equal<Entity<ProductRow>['discount'], Money | null>>;
+export type _CustomCreatePrice = Expect<Equal<CreateDTO<ProductRow>['price'], Money>>;
+export type _CustomCreateDiscount = Expect<Equal<CreateDTO<ProductRow>['discount'], Money | null | undefined>>;
+export type _CustomUpdatePrice = Expect<Equal<UpdateDTO<ProductRow>['price'], Money | undefined>>;
+export type _CustomEntityJsonCodec = Expect<Equal<Entity<ProductRow>['jsonWithCodec'], Money>>;
